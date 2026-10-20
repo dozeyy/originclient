@@ -547,10 +547,12 @@ public partial class MainWindow : Window
     // in offline test mode, "Sign in" when nobody can play.
     private void RefreshAccountChip()
     {
-        var name = Core.Accounts.AccountStore.GetSelected(Core.Accounts.AccountStore.Load())?.Gamertag;
+        var selected = Core.Accounts.AccountStore.GetSelected(Core.Accounts.AccountStore.Load());
+        var name = selected?.Gamertag;
         var offline = name == null && Core.SettingsStore.Load().OfflineTestMode;
         AccountName.Text = name ?? (offline ? "Offline" : "Sign in");
-        AccountFace.Seed = name ?? "Origin";
+        // The player's own head; no account (offline / signed out) = the default head.
+        AccountFace.Uuid = selected?.Id ?? "";
         AccountButton.ToolTip = name != null ? $"Accounts ({name})" : "Accounts";
     }
 

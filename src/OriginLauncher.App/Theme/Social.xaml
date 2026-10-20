@@ -39,8 +39,8 @@
     <!-- A row that is not itself pressable (requests, invites, hints, blocked). -->
     <Style x:Key="Social.RowStatic" TargetType="Border" BasedOn="{StaticResource Social.CardChrome}"/>
 
-    <!-- One person: first letter on a raised block (no skin fetch: the launcher
-         talks to no third-party image service). -->
+    <!-- One person's head (UI/Controls/PlayerHead: their real skin's face + hat,
+         fetched from Mojang only, never a third-party image service) on a raised block. -->
     <Style x:Key="Social.Avatar" TargetType="Border">
         <Setter Property="Width" Value="{StaticResource Social.AvatarSize}"/>
         <Setter Property="Height" Value="{StaticResource Social.AvatarSize}"/>

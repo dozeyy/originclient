@@ -393,7 +393,7 @@
                     </Grid.ColumnDefinitions>
                     <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}">
-                            <controls:PixelFace Seed="{Binding Name}"/>
+                            <controls:PlayerHead Uuid="{Binding Uuid}"/>
                         </Border>
                         <Border x:Name="Dot" Style="{StaticResource Social.Dot}" Background="{StaticResource Brush.TextMuted}"/>
                     </Grid>
@@ -446,7 +446,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
-                        <controls:PixelFace Seed="{Binding Name}"/>
+                        <controls:PlayerHead Uuid="{Binding Uuid}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
@@ -477,7 +477,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
-                        <controls:PixelFace Seed="{Binding Name}"/>
+                        <controls:PlayerHead Uuid="{Binding Uuid}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
@@ -513,7 +513,7 @@
                     </Grid.ColumnDefinitions>
                     <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border Style="{StaticResource Social.Avatar}">
-                            <controls:PixelFace Seed="{Binding Name}"/>
+                            <controls:PlayerHead Uuid="{Binding Uuid}"/>
                         </Border>
                         <Border x:Name="MDot" Style="{StaticResource Social.Dot}" Background="{StaticResource Brush.TextMuted}"/>
                     </Grid>
@@ -587,7 +587,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
-                        <controls:PixelFace Seed="{Binding Name}"/>
+                        <controls:PlayerHead Uuid="{Binding Uuid}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"
@@ -609,7 +609,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
-                        <controls:PixelFace Seed="{Binding Name}"/>
+                        <controls:PlayerHead Uuid="{Binding Uuid}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"

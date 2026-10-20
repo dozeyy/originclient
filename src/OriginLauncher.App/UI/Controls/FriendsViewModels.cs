@@ -111,6 +111,8 @@ public sealed class PendingVm : CardRowVm
 public sealed class InviteVm : CardRowVm
 {
     public required string PartyId { get; init; }
+    /// <summary>Who invited (their head is shown); empty when the service sent none.</summary>
+    public string Uuid { get; init; } = "";
     public required string Name { get; init; }
 
     public string Initial => SocialText.Initial(Name);

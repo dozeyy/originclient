@@ -80,6 +80,10 @@ public static class OriginPaths
     // so the banner shows Will's current promos even when offline.
     public static string PromoFeedCache => Path.Combine(Root, "cache", "promos.json");
 
+    // Player heads (Core/Skins/PlayerHeads.cs): each player's raw skin PNG from
+    // Mojang, named <uuid without dashes>.png (an empty file = no custom skin).
+    public static string SkinCache => Path.Combine(Root, "cache", "skins");
+
     // Settings Sync (Core/SettingsSync.cs): every synced setting with when it
     // last changed, plus what each instance last had — so the player's
     // settings follow them across versions. Rebuilt from the instances

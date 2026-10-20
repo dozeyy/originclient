@@ -8,8 +8,7 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- Account-type badge colours: text accents only. -->
-        <SolidColorBrush x:Key="Hue.Microsoft" Color="#FF7FB2F0"/>
+        <!-- The PENDING badge colour: a text accent only. -->
         <SolidColorBrush x:Key="Hue.Pending" Color="#FFF2D06B"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="AccountRow" TargetType="Border">
@@ -100,25 +99,15 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <controls:PixelFace Grid.Column="0" Width="40" Height="40" Margin="0,0,12,0"
-                                                    Seed="{Binding Gamertag}"/>
+                                <controls:PlayerHead Grid.Column="0" Width="40" Height="40" Margin="0,0,12,0"
+                                                     Uuid="{Binding Id}"/>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <DockPanel>
+                                        <!-- Only a half-added account carries a badge; signed-in accounts show just the name. -->
                                         <controls:TrackedText DockPanel.Dock="Right" Tracking="0.12" FontSize="10" FontWeight="Bold"
-                                                              VerticalAlignment="Center" Margin="8,0,0,0">
-                                            <controls:TrackedText.Style>
-                                                <Style TargetType="controls:TrackedText">
-                                                    <Setter Property="Text" Value="MICROSOFT"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource Hue.Microsoft}"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsPending}" Value="True">
-                                                            <Setter Property="Text" Value="PENDING"/>
-                                                            <Setter Property="Foreground" Value="{StaticResource Hue.Pending}"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </controls:TrackedText.Style>
-                                        </controls:TrackedText>
+                                                              VerticalAlignment="Center" Margin="8,0,0,0"
+                                                              Text="PENDING" Foreground="{StaticResource Hue.Pending}"
+                                                              Visibility="{Binding IsPending, Converter={StaticResource BoolToVisibility}}"/>
                                         <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </DockPanel>
