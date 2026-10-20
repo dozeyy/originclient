@@ -1,6 +1,10 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.render.OriginScreenRenderer;
+import net.minecraft.client.Minecraft;
+import com.origin.client.client.theme.OriginTheme;
+import com.origin.client.client.gui.OriginWidgetOwnership;
+import com.origin.client.client.OriginStyle;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,12 +39,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // vanilla's darkening gradient, and the transparent list sits cleanly on it —
 // matching how every other Origin surface reads on that version.
 //
+// Clean in-game look (Will, 2026-10-19, ported from 1.21.1): out of a world,
+// Minecraft's own list screens get one flat translucent panel (CLEAN_PANEL) over
+// the list area instead of vanilla's dirt -- 1.21.1 swaps renderMenuBackground-
+// Texture for the same fill; that helper doesn't exist before 1.20.5, so here the
+// panel is drawn at the start of the list's own draw. Origin's own screens keep
+// their transparent lists. If this mixin stops applying, lists show vanilla's dirt.
+//
 // Fail-soft: gated only on isActive() (a broken Origin renderer leaves vanilla
 // dirt untouched).
 @Mixin(AbstractSelectionList.class)
 public class AbstractSelectionListMixin {
 
 	@Shadow private boolean renderBackground;
+	@Shadow protected int x0;
+	@Shadow protected int y0;
+	@Shadow protected int x1;
+	@Shadow protected int y1;
 
 	// 1.20.3+ has no renderTopAndBottom (the dirt header/footer strips are
 	// gone) and list drawing moved from render() to renderWidget(); the list
@@ -49,6 +64,11 @@ public class AbstractSelectionListMixin {
 	private void originclient$transparentOnOrigin(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		if (OriginScreenRenderer.isActive()) {
 			this.renderBackground = false;
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.level == null && mc.screen != null && !OriginStyle.vanillaMenusOn(mc.screen)
+					&& !OriginWidgetOwnership.isOriginOwnClass(mc.screen) && OriginScreenRenderer.menuBackdropOk()) {
+				guiGraphics.fill(x0, y0, x1, y1, OriginTheme.CLEAN_PANEL);
+			}
 		}
 	}
 }
