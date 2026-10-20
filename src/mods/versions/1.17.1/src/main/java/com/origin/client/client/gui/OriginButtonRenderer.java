@@ -77,9 +77,11 @@ public final class OriginButtonRenderer {
 	// one design (the Lunar model). This lifts the 2026-08-23 "vanilla menus
 	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
 	// classes still keep their own art (OriginWidgetOwnership.isForeign).
+	//
+	// Will, 2026-10-19 (final): Minecraft's own menus are stock widgets again, always
+	// -- the glass skin applies only inside Origin's own windows (OriginStyle.vanillaButtonsOn).
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
-		// Button Style = Minecraft hands every vanilla widget back (outside Origin's own windows).
 		return mc != null && mc.screen != null
 				&& !com.origin.client.client.OriginStyle.vanillaButtonsOn(mc.screen);
 	}
@@ -91,7 +93,9 @@ public final class OriginButtonRenderer {
 	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
 	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
 
-	private record TitlePresentation(String icon, boolean iconOnly) {
+	/** tooltip: the icon squares' hover text (null = none). Pre-1.19.3 widgets have no
+	 *  tooltip API, so the title screen draws it from here (TitleScreenMixin). */
+	private record TitlePresentation(String icon, boolean iconOnly, Component tooltip) {
 	}
 
 	public static void markPrimary(Object widget) {
@@ -103,9 +107,19 @@ public final class OriginButtonRenderer {
 	/** Gives a title-screen action its approved Origin symbol. Icon-only is used
 	 * for the bottom utility dock; labelled actions keep a compact centred pair. */
 	public static void setTitlePresentation(Object widget, String icon, boolean iconOnly) {
+		setTitlePresentation(widget, icon, iconOnly, null);
+	}
+
+	public static void setTitlePresentation(Object widget, String icon, boolean iconOnly, Component tooltip) {
 		if (widget != null && icon != null) {
-			TITLE.put(widget, new TitlePresentation(icon, iconOnly));
+			TITLE.put(widget, new TitlePresentation(icon, iconOnly, tooltip));
 		}
+	}
+
+	/** The hover text the title screen gave this widget, or null. */
+	public static Component titleTooltip(Object widget) {
+		TitlePresentation t = widget == null ? null : TITLE.get(widget);
+		return t == null ? null : t.tooltip();
 	}
 
 	private static boolean fail(Throwable t) {
@@ -115,13 +129,54 @@ public final class OriginButtonRenderer {
 		return false;
 	}
 
+	// ---- the title's icon row on Minecraft's own buttons (Will, 2026-10-19) ----
+	// Minecraft's menus draw stock widgets; only the title screen's icon-only
+	// buttons (Friends, Cosmetics, Language, Accessibility, Quit -- marked by
+	// setTitlePresentation(..., iconOnly = true)) need help: as stock buttons
+	// they would print their full label into a 20 px square (and Language is an
+	// ImageButton with its own globe art). They draw this era's own button
+	// texture (widgets.png, normal / highlighted / disabled exactly as
+	// AbstractWidget.renderButton picks it via getYImage) with Origin's
+	// monochrome icon centred on top.
+	private static final ResourceLocation WIDGETS = new ResourceLocation("textures/gui/widgets.png");
+
+	private static boolean vanillaIconButton(Gfx g, AbstractButton button) {
+		TitlePresentation title = TITLE.get(button);
+		if (title == null || !title.iconOnly() || broken) {
+			return false;
+		}
+		try {
+			int x = button.x, y = button.y, w = button.getWidth(), h = button.getHeight();
+			// AbstractWidget.getYImage: 0 disabled, 1 normal, 2 hovered; rows 20 px apart from v=46.
+			int row = !button.active ? 0 : button.isHovered() ? 2 : 1;   // 1.17.1: isHovered() = hovered or focused
+			int v = 46 + row * 20;
+			RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.enableDepthTest();
+			// Vanilla's two-half draw: the left half from the sprite's left edge, the
+			// right half from its right edge, so any width keeps both end caps.
+			int half = w / 2;
+			g.blit(WIDGETS, x, y, half, h, 0f, v, half, h, 256, 256);
+			g.blit(WIDGETS, x + half, y, w - half, h, 200f - (w - half), v, w - half, h, 256, 256);
+			int s = Math.max(8, Math.min(12, h - 8));
+			ModIcons.draw(g, title.icon(), x + (w - s) / 2, y + (h - s) / 2, s,
+					button.active ? 0xFFFFFFFF : 0xFFA0A0A0);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(Gfx g, AbstractButton button) {
-		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's
+		// icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return false;
+			return vanillaIconButton(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -209,8 +264,11 @@ public final class OriginButtonRenderer {
 	 *  for are skinned; every other ImageButton keeps its own art (false -> the
 	 *  mixin does not cancel vanilla). */
 	public static boolean renderImageButton(Gfx g, ImageButton button) {
-		if (!originOwnsScreen() || OriginWidgetOwnership.isForeign(button) || broken) {
+		if (OriginWidgetOwnership.isForeign(button) || broken) {
 			return false;
+		}
+		if (!originOwnsScreen()) {
+			return vanillaIconButton(g, button);
 		}
 		TitlePresentation title = TITLE.get(button);
 		if (title == null) {
