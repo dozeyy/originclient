@@ -9,7 +9,10 @@
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
     <!-- Same rule as CrashWindow: theme brushes, type scale and the shared buttons only. -->
-    <Grid Margin="24">
+    <!-- The 24 px edge is padding on a border, not a margin on the grid, so the window's content fills its
+         whole area (a margin shifts what a screenshot of the content captures). -->
+    <Border Padding="24">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -56,4 +59,5 @@
                     Style="{StaticResource Button.Primary.Medium}" Click="Retry_Click"/>
         </StackPanel>
     </Grid>
+    </Border>
 </Window>

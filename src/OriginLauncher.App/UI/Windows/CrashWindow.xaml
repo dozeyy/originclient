@@ -11,7 +11,10 @@
     <!-- Built entirely from the theme (brushes, type scale, Button.Secondary / Button.Primary.Medium),
          so it matches the launcher. Only fonts, brushes and styles are read from App.xaml's
          dictionaries; no literals here. -->
-    <Grid Margin="24">
+    <!-- The 24 px edge is padding on a border, not a margin on the grid, so the window's content fills its
+         whole area (a margin shifts what a screenshot of the content captures). -->
+    <Border Padding="24">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -47,4 +50,5 @@
                     MinWidth="110" Click="Close_Click"/>
         </StackPanel>
     </Grid>
+    </Border>
 </Window>

@@ -37,10 +37,10 @@ internal static class CrashFallback
     {
         window.Background = Bg;
         window.FontFamily = Ui;
-        var grid = new Grid { Margin = new Thickness(24) };
+        var grid = new Grid();
         for (var i = 0; i < rows; i++)
             grid.RowDefinitions.Add(new RowDefinition { Height = i == starRow ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
-        window.Content = grid;
+        window.Content = new Border { Padding = new Thickness(24), Child = grid };
         return grid;
     }
 
