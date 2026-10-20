@@ -210,7 +210,7 @@ public sealed class LauncherImportBackend : IImportBackend
             // (--import-plan) shows everything: it is a diagnostic, not the player's list.
             if (!_dryRun)
             {
-                var (offered, done) = ImportMemoryStore.Partition(scan.Instances);
+                var (offered, done) = ImportMemoryStore.Partition(scan.Instances, AccountFolders.SelectedKey());
                 if (done.Count > 0)
                 {
                     scan.Instances.Clear();

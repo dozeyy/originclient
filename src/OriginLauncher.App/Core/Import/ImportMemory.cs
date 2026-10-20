@@ -10,7 +10,10 @@ namespace OriginLauncher.App.Core.Import;
 // import the exact same things; if I imported all of Lunar Client it shouldn't show up anymore unless something
 // changes later").
 //
-// A record is kept per SOURCE setup (one game folder = one SetupId) and holds a content signature per category
+// A record is kept per SOURCE setup (one game folder = one SetupId) AND per Origin account (instances are per account:
+// settings, worlds and servers live under instances/<version>/accounts/<id>), and names the Origin versions it landed
+// in. Importing into account A never hides the setup for account B, and a record whose Origin instance is gone (reset,
+// deleted) is ignored, so the source is offered again. It holds a content signature per category
 // (mods, settings, servers, packs, worlds, screenshots) of what the import covered: file names, sizes and modification
 // times, hashed, never a path or a file's contents. A setup is "already imported" when a record exists for it at the
 // same Minecraft version and every category that has content now matches the recorded signature. Anything new,
@@ -33,6 +36,12 @@ public sealed class ImportedSetupRecord
 
     /// <summary>The source's own Minecraft version when it was imported.</summary>
     public string? Version { get; set; }
+
+    /// <summary>The Origin account (game-folder key) the setup was imported into. A record without one is never matched.</summary>
+    public string Account { get; set; } = "";
+
+    /// <summary>The Origin versions the import landed in (instances/&lt;version&gt;/accounts/&lt;Account&gt;). Gone folder = not imported.</summary>
+    public List<string> Targets { get; set; } = new();
 
     /// <summary>Category name -> signature of what was imported from it.</summary>
     public Dictionary<string, string> Signatures { get; set; } = new();
@@ -147,7 +156,8 @@ public static class ImportMemory
             var records = JsonSerializer.Deserialize<List<ImportedSetupRecord>>(json);
             if (records == null) return list;
             foreach (var r in records)
-                if (r != null && !string.IsNullOrWhiteSpace(r.SetupId) && r.Signatures != null) list.Add(r);
+                if (r != null && !string.IsNullOrWhiteSpace(r.SetupId) && r.Signatures != null
+                    && !string.IsNullOrWhiteSpace(r.Account) && r.Targets is { Count: > 0 }) list.Add(r);
         }
         catch (Exception e) when (e is JsonException or NotSupportedException or InvalidOperationException)
         {
@@ -160,20 +170,24 @@ public static class ImportMemory
 
     // ---- is it already in Origin? ----
 
-    /// <summary>The records for one setup (null: it was never imported).</summary>
-    private static ImportedSetupRecord? RecordFor(DetectedInstance setup, IEnumerable<ImportedSetupRecord> records) =>
-        records.FirstOrDefault(r => string.Equals(r.SetupId, setup.SetupId, StringComparison.OrdinalIgnoreCase));
+    /// <summary>The record for one setup in one account (null: it was never imported there).</summary>
+    private static ImportedSetupRecord? RecordFor(DetectedInstance setup, string account, IEnumerable<ImportedSetupRecord> records) =>
+        records.FirstOrDefault(r => string.Equals(r.SetupId, setup.SetupId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(r.Account, account, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// True when <paramref name="setup"/> was imported and nothing in it changed since: same Minecraft version, and every
-    /// category with content now has the signature it had at import. <paramref name="sign"/> reads the setup's signatures
-    /// (the default reads the disk; tests hand in their own).
+    /// True when <paramref name="setup"/> was imported into <paramref name="account"/>, every Origin instance it landed in
+    /// still exists (<paramref name="targetExists"/>(account, version)), and nothing in it changed since: same Minecraft
+    /// version, and every category with content now has the signature it had at import. <paramref name="sign"/> reads the
+    /// setup's signatures (the default reads the disk; tests hand in their own).
     /// </summary>
-    public static bool IsAlreadyImported(DetectedInstance setup, IReadOnlyList<ImportedSetupRecord> records,
-        Func<DetectedInstance, IReadOnlyDictionary<ImportCategories, string>>? sign = null)
+    public static bool IsAlreadyImported(DetectedInstance setup, string account, IReadOnlyList<ImportedSetupRecord> records,
+        Func<string, string, bool> targetExists, Func<DetectedInstance, IReadOnlyDictionary<ImportCategories, string>>? sign = null)
     {
-        var record = RecordFor(setup, records);
+        if (string.IsNullOrWhiteSpace(account)) return false;
+        var record = RecordFor(setup, account, records);
         if (record == null) return false;
+        if (record.Targets.Count == 0 || record.Targets.Any(t => !targetExists(account, t))) return false;
         if (!string.Equals(record.Version ?? "", setup.McVersion ?? "", StringComparison.Ordinal)) return false;
         var now = (sign ?? (s => SetupSignature.Compute(s)))(setup);
         foreach (var (category, signature) in now)
@@ -189,17 +203,17 @@ public static class ImportMemory
     private const ImportCategories Extras = ImportCategories.Worlds | ImportCategories.Screenshots;
 
     /// <summary>
-    /// Splits a scan into what is still on offer and what is already in Origin. Setups with no record are never read from
-    /// disk. An empty or unreadable memory offers everything.
+    /// Splits a scan into what is still on offer and what is already in Origin for <paramref name="account"/>. Setups with
+    /// no record are never read from disk. An empty or unreadable memory offers everything.
     /// </summary>
     public static (List<DetectedInstance> Offered, List<DetectedInstance> AlreadyImported) Partition(
-        IEnumerable<DetectedInstance> setups, IReadOnlyList<ImportedSetupRecord> records,
-        Func<DetectedInstance, IReadOnlyDictionary<ImportCategories, string>>? sign = null)
+        IEnumerable<DetectedInstance> setups, string account, IReadOnlyList<ImportedSetupRecord> records,
+        Func<string, string, bool> targetExists, Func<DetectedInstance, IReadOnlyDictionary<ImportCategories, string>>? sign = null)
     {
         var offered = new List<DetectedInstance>();
         var imported = new List<DetectedInstance>();
         foreach (var setup in setups)
-            (records.Count > 0 && IsAlreadyImported(setup, records, sign) ? imported : offered).Add(setup);
+            (records.Count > 0 && IsAlreadyImported(setup, account, records, targetExists, sign) ? imported : offered).Add(setup);
         return (offered, imported);
     }
 
@@ -208,13 +222,18 @@ public static class ImportMemory
     /// <summary>
     /// What a copy of the plan covers from its source setup: what it brings, plus what the plan decided another setup
     /// brings instead (the version's settings come from the settings setup; one setup per launcher brings mods; a Forge
-    /// setup on a Fabric version brings packs only by design). What the PLAYER switched off (worlds, screenshots, the
-    /// "left out" kinds, an unticked grid cell) is not covered, so that setup stays on offer.
+    /// setup on a Fabric version brings packs only by design) - but only a setup that really imported in this run
+    /// (<paramref name="outcome"/>: Imported / ImportedPartly, never Skipped or Failed) can stand in for it. What the
+    /// PLAYER switched off (worlds, screenshots, the "left out" kinds, an unticked grid cell) is not covered, so that
+    /// setup stays on offer.
     /// </summary>
-    public static ImportCategories Covered(VersionGroup group, PlannedSetup planned, BulkRequest? request)
+    public static ImportCategories Covered(VersionGroup group, PlannedSetup planned, BulkRequest? request, VersionOutcome outcome)
     {
         var covered = planned.Brings;
-        var others = group.Setups.Where(s => !ReferenceEquals(s, planned)).ToList();
+        var others = new List<PlannedSetup>();
+        for (var i = 0; i < group.Setups.Count && i < outcome.Setups.Count; i++)
+            if (!ReferenceEquals(group.Setups[i], planned) && outcome.Setups[i].Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly)
+                others.Add(group.Setups[i]);
         if (planned.Role == SetupRole.PacksOnly)
             covered |= ImportCategories.Mods | ImportCategories.Settings | ImportCategories.Servers | ImportCategories.Worlds;
         if (others.Any(s => (s.Brings & ImportCategories.Settings) != 0)) covered |= ImportCategories.Settings;
@@ -227,6 +246,9 @@ public static class ImportMemory
     /// <summary>The covered categories of a single import: everything its options allow.</summary>
     public static ImportCategories Covered(ImportPlan plan) => Switches(ImportCategories.All, plan.Options);
 
+    /// <summary>One setup a run covered: what of it, and which Origin versions it landed in.</summary>
+    public sealed record CoveredSetup(DetectedInstance Setup, ImportCategories Covered, IReadOnlyList<string> Targets);
+
     private static ImportCategories Switches(ImportCategories covered, ImportOptions options)
     {
         covered &= ~options.LeaveOut;
@@ -235,10 +257,10 @@ public static class ImportMemory
         return covered & ImportCategories.All;
     }
 
-    /// <summary>The setups a bulk run covered, each with the union of its copies' categories (a setup appears once).</summary>
-    public static List<(DetectedInstance Setup, ImportCategories Covered)> CoveredByRun(BulkImportPlan plan, BulkImportResult result)
+    /// <summary>The setups a bulk run covered, each with the union of its copies' categories and targets (a setup appears once).</summary>
+    public static List<CoveredSetup> CoveredByRun(BulkImportPlan plan, BulkImportResult result)
     {
-        var list = new List<(DetectedInstance Setup, ImportCategories Covered)>();
+        var list = new List<CoveredSetup>();
         if (!result.Succeeded) return list;
         foreach (var versionOutcome in result.Versions)
         {
@@ -248,26 +270,37 @@ public static class ImportMemory
             {
                 if (versionOutcome.Setups[slot].Kind is not (SetupResultKind.Imported or SetupResultKind.ImportedPartly)) continue;
                 var planned = group.Setups[slot];
-                var covered = Covered(group, planned, plan.Request);
+                var covered = Covered(group, planned, plan.Request, versionOutcome);
                 var at = list.FindIndex(x => x.Setup.SetupId == planned.Setup.SetupId);
-                if (at >= 0) list[at] = (list[at].Setup, list[at].Covered | covered);
-                else list.Add((planned.Setup, covered));
+                if (at < 0) list.Add(new CoveredSetup(planned.Setup, covered, new[] { group.Version }));
+                else list[at] = list[at] with
+                {
+                    Covered = list[at].Covered | covered,
+                    Targets = list[at].Targets.Contains(group.Version) ? list[at].Targets : list[at].Targets.Append(group.Version).ToList(),
+                };
             }
         }
         return list;
     }
 
-    /// <summary>The records to store for a run: the covered categories' signatures, read from the source now.</summary>
-    public static List<ImportedSetupRecord> RecordsFor(IEnumerable<(DetectedInstance Setup, ImportCategories Covered)> covered,
+    /// <summary>The setup a committed single import covered (null when it did not commit).</summary>
+    public static CoveredSetup? CoveredBySingle(ImportPlan plan, ImportResult result) =>
+        result.State == ImportState.Committed ? new CoveredSetup(plan.Source, Covered(plan), new[] { plan.TargetVersion }) : null;
+
+    /// <summary>The records to store for a run: the covered categories' signatures (read from the source now, or before the copy), for one account.</summary>
+    public static List<ImportedSetupRecord> RecordsFor(IEnumerable<CoveredSetup> covered, string account,
         DateTime nowUtc, Func<DetectedInstance, ImportCategories, IReadOnlyDictionary<ImportCategories, string>>? sign = null)
     {
         var records = new List<ImportedSetupRecord>();
-        foreach (var (setup, categories) in covered)
+        if (string.IsNullOrWhiteSpace(account)) return records;
+        foreach (var (setup, categories, targets) in covered)
         {
+            if (targets.Count == 0) continue;
             var signatures = (sign ?? ((s, c) => SetupSignature.Compute(s, c)))(setup, categories);
             records.Add(new ImportedSetupRecord
             {
                 SetupId = setup.SetupId, Launcher = setup.SourceLabel, Version = setup.McVersion, ImportedUtc = nowUtc,
+                Account = account, Targets = targets.ToList(),
                 Signatures = signatures.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
             });
         }
@@ -275,30 +308,47 @@ public static class ImportMemory
     }
 
     /// <summary>
-    /// Adds <paramref name="fresh"/> to <paramref name="existing"/>: a setup imported again keeps the categories it already had
-    /// and takes the new signatures (a different Minecraft version starts its record over); the oldest records go past
-    /// <see cref="MaxRecords"/>. Returns a new list; the inputs are not changed.
+    /// Adds <paramref name="fresh"/> to <paramref name="existing"/>: a setup imported again into the same account keeps the
+    /// categories and targets it already had and takes the new signatures (a different Minecraft version starts its record
+    /// over); the oldest records go past <see cref="MaxRecords"/>. With <paramref name="targetExists"/>, targets whose Origin
+    /// instance is gone are dropped from the OLD records, and a record left with none is dropped. Returns a new list; the
+    /// inputs are not changed.
     /// </summary>
-    public static List<ImportedSetupRecord> Merge(IEnumerable<ImportedSetupRecord> existing, IEnumerable<ImportedSetupRecord> fresh)
+    public static List<ImportedSetupRecord> Merge(IEnumerable<ImportedSetupRecord> existing, IEnumerable<ImportedSetupRecord> fresh,
+        Func<string, string, bool>? targetExists = null)
     {
-        var map = new Dictionary<string, ImportedSetupRecord>(StringComparer.OrdinalIgnoreCase);
-        foreach (var r in existing) map[r.SetupId] = r;
+        static string Key(ImportedSetupRecord r) => r.SetupId.ToLowerInvariant() + "|" + r.Account.ToLowerInvariant();
+        var map = new Dictionary<string, ImportedSetupRecord>();
+        foreach (var r in existing)
+        {
+            var targets = targetExists == null ? r.Targets : r.Targets.Where(t => targetExists(r.Account, t)).ToList();
+            if (targets.Count == 0) continue;
+            map[Key(r)] = targets.Count == r.Targets.Count ? r : With(r, targets, r.Signatures);
+        }
         foreach (var r in fresh)
         {
-            if (map.TryGetValue(r.SetupId, out var old) && string.Equals(old.Version ?? "", r.Version ?? "", StringComparison.Ordinal))
+            if (map.TryGetValue(Key(r), out var old) && string.Equals(old.Version ?? "", r.Version ?? "", StringComparison.Ordinal))
             {
                 var signatures = new Dictionary<string, string>(old.Signatures);
                 foreach (var (k, v) in r.Signatures) signatures[k] = v;
-                map[r.SetupId] = new ImportedSetupRecord
+                var targets = old.Targets.Union(r.Targets, StringComparer.Ordinal).ToList();
+                map[Key(r)] = new ImportedSetupRecord
                 {
-                    SetupId = r.SetupId, Launcher = r.Launcher, Version = r.Version, ImportedUtc = r.ImportedUtc, Signatures = signatures,
+                    SetupId = r.SetupId, Launcher = r.Launcher, Version = r.Version, ImportedUtc = r.ImportedUtc,
+                    Account = r.Account, Targets = targets, Signatures = signatures,
                 };
             }
             else
             {
-                map[r.SetupId] = r;
+                map[Key(r)] = r;
             }
         }
         return map.Values.OrderByDescending(r => r.ImportedUtc).Take(MaxRecords).ToList();
     }
+
+    private static ImportedSetupRecord With(ImportedSetupRecord r, List<string> targets, Dictionary<string, string> signatures) => new()
+    {
+        SetupId = r.SetupId, Launcher = r.Launcher, Version = r.Version, ImportedUtc = r.ImportedUtc,
+        Account = r.Account, Targets = targets, Signatures = signatures,
+    };
 }
