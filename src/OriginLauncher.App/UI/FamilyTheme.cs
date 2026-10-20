@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.UI;
@@ -70,9 +69,11 @@ public static class FamilyTheme
         if (res == null) return;
 
         var from = res["Brush.Acc"] is SolidColorBrush b ? b.Color : next.Accent;
-        // A fresh unfrozen brush each time: style setters freeze the brushes they hold.
-        var brush = new SolidColorBrush(animate && !Motion.Off ? from : next.Accent);
-        res["Brush.Acc"] = brush;
+        // A fresh brush each time, published through Motion.PublishColor: the app
+        // dictionary freezes whatever is written into it, so animating the brush after
+        // the assignment threw on every family change (v1.0.60 crash, arrow keys in the
+        // version picker). PublishColor starts the tween first, which keeps it live.
+        Motion.PublishColor(res, "Brush.Acc", from, next.Accent, animate ? 700 : 0);
         var soft = new SolidColorBrush(Color.FromArgb(SoftAlpha, next.Accent.R, next.Accent.G, next.Accent.B));
         soft.Freeze();
         res["Brush.AccSoft"] = soft;
@@ -81,8 +82,6 @@ public static class FamilyTheme
         res["Brush.AccLine"] = line;
         // The giant numeral stays neutral (Brush.NumeralInk in Colors.xaml): Will
         // wanted it black and white again, 2026-10-19.
-        if (animate && !Motion.Off && from != next.Accent)
-            brush.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(from, next.Accent, Motion.Ms(700)) { EasingFunction = Motion.Out });
 
         Current = next;
         Changed?.Invoke(prev, next);
