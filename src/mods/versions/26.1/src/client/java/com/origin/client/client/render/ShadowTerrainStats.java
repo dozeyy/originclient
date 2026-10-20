@@ -3,11 +3,11 @@ package com.origin.client.client.render;
 import java.lang.invoke.MethodHandle;
 
 /**
- * PER-VERSION (26.2): why there is no "Smart Terrain Updates" toggle here, and the counters that prove it.
+ * PER-VERSION (26.1): why there is no "Smart Terrain Updates" toggle here, and the counters that prove it.
  *
  * <p>On 1.21.1 (Sodium 0.6.13 + Iris 1.8) Iris's shadow pass marked Sodium's chunk graph dirty every
  * frame, so the MAIN pass re-walked its chunk graph every frame even while nothing moved; Smart Terrain
- * Updates reused the last main walk on those frames. On 26.2 (Sodium 0.9.2 + Iris 1.11.4, read from the
+ * Updates reused the last main walk on those frames. On 26.1.2 (Sodium 0.9.2 + Iris 1.11.4, read from the
  * jars 2026-10-20) that cost is gone at the source: ShadowRenderer.renderShadows opens
  * iris$beginShadowRenderListScope (offset 552) BEFORE SodiumWorldRenderer.scheduleTerrainUpdate
  * (markGraphDirty, offset 559), and iris$endShadowRenderListScope restores the main pass's render

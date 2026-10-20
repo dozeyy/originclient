@@ -65,6 +65,8 @@ def declared(module_dir):
                 continue
             with open(os.path.join(root, fn), encoding="utf-8", errors="replace") as f:
                 src = f.read()
+            # Comments name Sodium/Iris packages too (a doc line saying net.coderbot made a false "NOT applied").
+            src = re.sub(r"/\*.*?\*/|//[^\n]*", "", src, flags=re.S)
             if "@Mixin(" in src and (re.match(r"(Sodium|Iris)", fn) or SRC_PKG.search(src)):
                 out.add(fn[:-5])
     return sorted(out)

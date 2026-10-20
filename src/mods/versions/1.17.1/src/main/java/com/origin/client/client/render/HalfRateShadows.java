@@ -333,14 +333,19 @@ public final class HalfRateShadows {
 	 * swap in the drawn matrix shifted by the camera's move since the draw.
 	 */
 	public static void onShadowModelView(PoseStack stack) {
-		modelViewHookSeen = true;
-		if (stack == null || !keepingNow()) {
+		if (stack == null) {
 			return;
 		}
 		try {
 			Object activeObj = SR_ACTIVE.invokeExact();
 			if ((Boolean) activeObj) {
-				return;   // inside the shadow pass (never on a kept frame; defensive)
+				// The shadow draw's own call proves nothing about the main pass's lookup, so it must not
+				// satisfy the "correction hook seen" guard (review 2026-10-20).
+				return;
+			}
+			modelViewHookSeen = true;
+			if (!keepingNow()) {
+				return;
 			}
 			Matrix4f pose = stack.last().pose();
 			Vec3 c = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();

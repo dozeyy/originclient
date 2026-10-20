@@ -15,8 +15,9 @@ import java.util.Set;
  *
  * <p>PER-VERSION (26.1): one jar serves 26.1 / 26.1.1 (Sodium 0.8.9 + Iris 1.10.9) and 26.1.2 (Sodium
  * 0.9.2 + Iris 1.11.4), javap 2026-10-20. Sodium 0.9 rewrote RenderSectionManager (async culling):
- * createTerrainRenderList, update, finalizeRenderLists(Viewport), scheduleSort, the SectionCollector walk
- * state and OcclusionCuller's frame stamps are gone, and renderOutOfGraph / readRenderListFromTree /
+ * createTerrainRenderList, update, finalizeRenderLists(Viewport), scheduleSort (still hooked on 0.8 by
+ * SodiumGraphReuseMixin), the SectionCollector walk
+ * state and OcclusionCuller's frame stamps exist only in 0.8 and are gone in 0.9, and renderOutOfGraph / readRenderListFromTree /
  * scheduleAsyncWork are new. Applied to the wrong generation those mixins would print an apply ERROR on
  * every boot (or, for an accessor, fail outright), so each set runs only on its own generation. Every
  * other Sodium/Iris mixin in this config fits both builds (no declared argument lists where they differ)

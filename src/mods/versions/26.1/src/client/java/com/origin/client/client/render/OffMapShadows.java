@@ -18,7 +18,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 /**
- * SETTINGS > Performance > Off-Map Shadows (26.2 port of 1.21.1, default OFF).
+ * SETTINGS > Performance > Off-Map Shadows (26.1 port of 1.21.1, default OFF).
  *
  * <p>Why it saves work (Iris 1.11.4 / Sodium 0.9.2 +mc26.2, read from the jars 2026-10-20): Iris's
  * shadow pass culls with AdvancedShadowCullingFrustum, which is the player's view stretched toward
@@ -31,7 +31,7 @@ import java.lang.invoke.MethodHandles;
  * matrices Iris draws the shadow pass with, camera-relative; both are set in renderShadows before the
  * Sodium walk). A box entirely past one edge is skipped. Only for an orthographic shadow projection.
  *
- * <p>PER-VERSION (26.2, Sodium 0.9.2): the shadow walk is RenderSectionManager.renderOutOfGraph (Iris
+ * <p>PER-VERSION (26.1.2, Sodium 0.9.2): the shadow walk is RenderSectionManager.renderOutOfGraph (Iris
  * asks setupTerrain to update immediately), a TraversableTree walk that tests boxes through
  * Viewport.getBoxIntersectionDirect (tree nodes) and Viewport.isBoxVisibleDirect (leaf sections), both
  * with camera-relative center floats and a cube half size. 1.21.1's Viewport.isBoxVisible(IIIFFF) hook
