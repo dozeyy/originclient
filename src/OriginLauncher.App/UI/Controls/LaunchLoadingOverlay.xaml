@@ -21,14 +21,24 @@
             <controls:OriginMark x:Name="Mark" Width="44" Height="44" Margin="0,0,0,22"
                                   RenderTransformOrigin="0.5,0.5"/>
 
-            <controls:TrackedText x:Name="EyebrowText" Text="PREPARING MINECRAFT" Tracking="0.16" ScaleX="0.94"
+            <controls:TrackedText x:Name="EyebrowText" Text="PREPARING MINECRAFT" Tracking="0.16"
                                   FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
                                   Foreground="{StaticResource Brush.OnPhoto}" HorizontalAlignment="Center"/>
             <!-- The big line: the real percentage while a stage has a count, else
-                 the version (never a made-up number; Core/Launch/StageProgress). -->
-            <controls:TrackedText x:Name="VersionText" Text="1.21.1" Tracking="0.01" ScaleX="0.8"
-                                  FontFamily="{StaticResource Font.Display}" FontSize="96" FontWeight="ExtraBold"
-                                  Foreground="{StaticResource Brush.OnPhoto}" HorizontalAlignment="Center" Margin="0,6,0,14"/>
+                 the version (never a made-up number; Core/Launch/StageProgress). The
+                 count runs on the same clock as the bar (Shown), so number and fill
+                 move together; its digits are tabular, so it never jitters. The % is
+                 smaller, on the number's baseline (set in code from the font). -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,12"
+                        TextOptions.TextFormattingMode="Ideal">
+                <controls:TrackedText x:Name="VersionText" Text="1.21.1" Tracking="-0.01"
+                                      FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.LaunchCount}"
+                                      FontWeight="ExtraBold" Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Bottom"/>
+                <controls:TrackedText x:Name="PercentText" Text="%" Tracking="0" Visibility="Collapsed"
+                                      FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.LaunchPercent}"
+                                      FontWeight="Bold" Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Bottom"
+                                      Margin="6,0,0,0"/>
+            </StackPanel>
             <TextBlock x:Name="LoaderCaptionText" FontSize="13" Foreground="{StaticResource Brush.TextDim}"
                        HorizontalAlignment="Center" Margin="0,-6,0,18"/>
 
@@ -72,7 +82,7 @@
 
         <!-- Bottom left: what is starting - the family, then account and profile. -->
         <StackPanel x:Name="CaptionPanel" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="32,0,0,32">
-            <controls:TrackedText x:Name="CaptionFamily" Text="TRICKY TRIALS" Tracking="0.16" ScaleX="0.94"
+            <controls:TrackedText x:Name="CaptionFamily" Text="TRICKY TRIALS" Tracking="0.16"
                                   FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
                                   Foreground="{StaticResource Brush.OnPhoto}"/>
             <TextBlock x:Name="CaptionDetail" FontSize="13" Margin="0,6,0,0" Foreground="{StaticResource Brush.TextDim}"

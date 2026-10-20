@@ -97,22 +97,13 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
     </Style>
 
-    <!-- The two lines inside Home's pills ("Change version" / "10 versions in this family"). -->
+    <!-- The profile pill's one line on Home: just the profile's name (Will, 2026-10-19:
+         no subtitles in the pills). -->
     <Style x:Key="Text.PillTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="15"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="17"/>
-        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <!-- The two lines centre on each other, as in the poster mockup. -->
-        <Setter Property="HorizontalAlignment" Value="Center"/>
-    </Style>
-    <Style x:Key="Text.PillSub" TargetType="TextBlock" BasedOn="{StaticResource Text.PillTitle}">
-        <Setter Property="FontSize" Value="11.5"/>
-        <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="LineHeight" Value="15"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
     </Style>
 
     <!-- Home's status line beside Play ("Ready to play"). -->

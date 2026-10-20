@@ -31,6 +31,12 @@ public sealed class TrackedText : FrameworkElement
         nameof(ScaleX), typeof(double), typeof(TrackedText),
         new FrameworkPropertyMetadata(1.0, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
 
+    /// <summary>Digits in one shared cell (true, for counters that change) or at their own
+    /// width (false, for a fixed label such as a version, where "1.21.11" would look gappy).</summary>
+    public static readonly DependencyProperty TabularDigitsProperty = DependencyProperty.Register(
+        nameof(TabularDigits), typeof(bool), typeof(TrackedText),
+        new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender, Invalidate));
+
     public static readonly DependencyProperty FontFamilyProperty = TextElement.FontFamilyProperty.AddOwner(typeof(TrackedText),
         new FrameworkPropertyMetadata(SystemFonts.MessageFontFamily, FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsMeasure, Invalidate));
     public static readonly DependencyProperty FontSizeProperty = TextElement.FontSizeProperty.AddOwner(typeof(TrackedText),
@@ -44,6 +50,7 @@ public sealed class TrackedText : FrameworkElement
     /// <summary>Extra advance after each character, in em (CSS letter-spacing).</summary>
     public double Tracking { get => (double)GetValue(TrackingProperty); set => SetValue(TrackingProperty, value); }
     public double ScaleX { get => (double)GetValue(ScaleXProperty); set => SetValue(ScaleXProperty, value); }
+    public bool TabularDigits { get => (bool)GetValue(TabularDigitsProperty); set => SetValue(TabularDigitsProperty, value); }
     public FontFamily FontFamily { get => (FontFamily)GetValue(FontFamilyProperty); set => SetValue(FontFamilyProperty, value); }
     public double FontSize { get => (double)GetValue(FontSizeProperty); set => SetValue(FontSizeProperty, value); }
     public FontWeight FontWeight { get => (FontWeight)GetValue(FontWeightProperty); set => SetValue(FontWeightProperty, value); }
@@ -74,6 +81,7 @@ public sealed class TrackedText : FrameworkElement
         _digit = 0;
         foreach (var ch in text)
         {
+            if (!TabularDigits) break;
             if (!char.IsAsciiDigit(ch)) continue;
             for (var d = '0'; d <= '9'; d++)
                 _digit = Math.Max(_digit, new FormattedText(d.ToString(), CultureInfo.CurrentUICulture,

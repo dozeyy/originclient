@@ -61,6 +61,11 @@ public static class FamilyTheme
         var soft = new SolidColorBrush(Color.FromArgb(0x2E, next.Accent.R, next.Accent.G, next.Accent.B));
         soft.Freeze();
         res["Brush.AccSoft"] = soft;
+        // The giant background numeral: the family colour at the neutral ink's low
+        // opacity (0x26, ~15%), so it tints the art without competing with the text.
+        var ink = new SolidColorBrush(Color.FromArgb(0x26, next.Accent.R, next.Accent.G, next.Accent.B));
+        ink.Freeze();
+        res["Brush.NumeralInk"] = ink;
         if (animate && !Motion.Off && from != next.Accent)
             brush.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(from, next.Accent, Motion.Ms(700)) { EasingFunction = Motion.Out });
 

@@ -13,7 +13,7 @@
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="20,20,20,18"/>
+            <Setter Property="Padding" Value="18,18,18,16"/>
             <Setter Property="Margin" Value="0,0,8,8"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
@@ -26,7 +26,7 @@
         <Style x:Key="Card.New" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Margin" Value="0,0,8,8"/>
-            <Setter Property="MinHeight" Value="120"/>
+            <Setter Property="MinHeight" Value="96"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
             <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
             <Setter Property="Template">
@@ -54,8 +54,10 @@
     </UserControl.Resources>
     <!-- Mod profiles as cards (Poster): a named set of the player's own mods for
          ONE Minecraft version, optionally with a server. The page sits on the
-         dimmed art; the top inset clears the 56 px bar. -->
-    <ScrollViewer VerticalScrollBarVisibility="Hidden" Focusable="False">
+         dimmed art; the top inset clears the 56 px bar. The create / edit form is a
+         centred dialog over the page (FormLayer), not a panel that pushes the cards. -->
+    <Grid>
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Hidden" Focusable="False">
         <ScrollViewer.Resources>
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
@@ -103,59 +105,100 @@
             <TextBlock x:Name="StatusText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
                        Visibility="Collapsed" Margin="0,0,0,16"/>
 
-            <!-- Create / edit form -->
-            <Border x:Name="FormPanel" Visibility="Collapsed" Margin="0,0,0,16" Padding="24"
-                    Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Card}">
-                <StackPanel>
-                    <TextBlock x:Name="FormTitle" Text="New profile" FontFamily="{StaticResource Font.Display}" FontSize="22"
-                               FontWeight="Bold" Foreground="{StaticResource Brush.Text}" Margin="0,0,0,16"/>
-
-                    <TextBlock Text="Name" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
-                    <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
-                             AutomationProperties.Name="Profile name" Margin="0,0,0,16"/>
-
-                    <TextBlock Text="Minecraft version" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
-                    <ComboBox x:Name="VersionBox" AutomationProperties.Name="Minecraft version" Margin="0,0,0,4"/>
-                    <TextBlock x:Name="VersionHint" Text="A profile belongs to one version. It can't be changed later."
-                               Style="{StaticResource Text.Caption}" Margin="0,0,0,16"/>
-
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="16"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Server name (optional)" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
-                            <TextBox x:Name="ServerNameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
-                                     AutomationProperties.Name="Server name"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Server address (optional)" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
-                            <TextBox x:Name="ServerAddressBox" Style="{StaticResource Input.TextBox}" MaxLength="255"
-                                     AutomationProperties.Name="Server address"/>
-                        </StackPanel>
-                    </Grid>
-                    <TextBlock Text="With an address, Home shows a Join button for this profile."
-                               Style="{StaticResource Text.Caption}" Margin="0,8,0,16"/>
-
-                    <TextBlock x:Name="FormError" Foreground="{StaticResource Brush.Danger}"
-                               Style="{StaticResource Text.Body}" TextWrapping="Wrap"
-                               Visibility="Collapsed" Margin="0,0,0,16"/>
-
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="SaveButton" Content="Create" Style="{StaticResource Button.Primary}"
-                                Padding="20,0" Height="40" Margin="0,0,8,0" Click="SaveButton_Click"/>
-                        <Button Content="Cancel" Style="{StaticResource Button.Secondary}"
-                                Padding="20,0" Height="40" Click="CancelButton_Click"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
             <!-- "No profile" first, then one card per profile, then the dashed
                  "New profile" card (all built in code). Two columns, equal rows. -->
             <UniformGrid x:Name="RowsPanel" Columns="2" Margin="0,0,-8,0"/>
 
         </StackPanel>
     </ScrollViewer>
+
+    <!-- Create / edit: a dialog over the dimmed page. Escape or the X cancels; a
+         click on the dim does nothing (a half-typed profile is never lost to a
+         stray click). The emblem in the corner previews the card as you type. -->
+    <Grid x:Name="FormPanel" Visibility="Collapsed" Background="{StaticResource Brush.Scrim}"
+          KeyDown="FormPanel_KeyDown">
+        <Border Width="560" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="32,72,32,32"
+                Background="{StaticResource Brush.PanelElevated}" CornerRadius="{StaticResource Radius.Dialog}"
+                Padding="24,20,24,24" Effect="{StaticResource Shadow.Card}">
+            <!-- Scrolls only when the window is too short for the whole form. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                <ScrollViewer.Resources>
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
+                </ScrollViewer.Resources>
+            <StackPanel>
+                <Grid Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="FormEmblem" Width="40" Height="40" CornerRadius="{StaticResource Radius.Sharp}"
+                            Background="{StaticResource Tint.Slate}" VerticalAlignment="Center">
+                        <Grid>
+                            <TextBlock x:Name="FormInitial" Text="P" Style="{StaticResource Text.CardTitle}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <!-- The picked icon (ProfileLook.EmblemGlyph); empty when the letter shows. -->
+                            <Border x:Name="FormIcon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="FormTitle" Grid.Column="1" Text="NEW PROFILE" Style="{StaticResource Text.Poster}"
+                               FontSize="{StaticResource FontSize.DialogTitle}" LineHeight="{StaticResource FontSize.DialogTitle}"
+                               VerticalAlignment="Center" Margin="14,2,0,0"/>
+                    <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34" Padding="0"
+                            VerticalAlignment="Center" Margin="0,0,-8,0" Click="CancelButton_Click"
+                            ToolTip="Close" AutomationProperties.Name="Close">
+                        <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
+                </Grid>
+
+                <TextBlock Text="Name" Style="{StaticResource Text.FieldLabel}"/>
+                <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
+                         AutomationProperties.Name="Profile name" Margin="0,0,0,16" TextChanged="NameBox_TextChanged"/>
+
+                <TextBlock Text="Emblem" Style="{StaticResource Text.FieldLabel}"/>
+                <!-- 21 tiles (the letter, then ProfileLook.EmblemIcons) in rows of 11. -->
+                <WrapPanel x:Name="IconRow" Orientation="Horizontal" Margin="0,0,0,10"/>
+
+                <TextBlock Text="Colour" Style="{StaticResource Text.FieldLabel}"/>
+                <StackPanel x:Name="TintRow" Orientation="Horizontal" Margin="0,0,0,16"/>
+
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Version" Style="{StaticResource Text.FieldLabel}"/>
+                        <ComboBox x:Name="VersionBox" AutomationProperties.Name="Minecraft version"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Server name (optional)" Style="{StaticResource Text.FieldLabel}"/>
+                        <TextBox x:Name="ServerNameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
+                                 AutomationProperties.Name="Server name"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Server to join (optional)" Style="{StaticResource Text.FieldLabel}"/>
+                <TextBox x:Name="ServerAddressBox" Style="{StaticResource Input.TextBox}" MaxLength="255"
+                         AutomationProperties.Name="Server address"/>
+                <TextBlock x:Name="VersionHint" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                           Text="A profile belongs to one version. With a server, Home shows Join next to Play."/>
+
+                <TextBlock x:Name="FormError" Foreground="{StaticResource Brush.Danger}"
+                           Style="{StaticResource Text.Body}" TextWrapping="Wrap"
+                           Visibility="Collapsed" Margin="0,12,0,0"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                    <Button Content="Cancel" Style="{StaticResource Button.Secondary}"
+                            Padding="20,0" Height="40" Margin="0,0,8,0" Click="CancelButton_Click"/>
+                    <Button x:Name="SaveButton" Content="Create profile" Style="{StaticResource Button.Primary}"
+                            Padding="20,0" Height="40" Click="SaveButton_Click"/>
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+    </Grid>
 </UserControl>

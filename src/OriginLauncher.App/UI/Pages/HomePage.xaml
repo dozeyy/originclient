@@ -37,17 +37,13 @@
                 <DockPanel LastChildFill="True">
                     <!-- The version pill: opens the bottom-sheet picker. -->
                     <Button x:Name="VersionButton" DockPanel.Dock="Left" Style="{StaticResource Button.Pill}" Padding="18,0,14,0"
-                            Click="VersionButton_Click" ToolTip="Choose a Minecraft version"
+                            Click="VersionButton_Click" ToolTip="Change version"
                             AutomationProperties.Name="Choose Minecraft version">
                         <StackPanel Orientation="Horizontal">
-                            <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0"
+                            <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
                                                   FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.PillNumber}"
                                                   FontWeight="ExtraBold" Foreground="{StaticResource Brush.Text}"
-                                                  VerticalAlignment="Center" Margin="0,0,16,0"/>
-                            <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
-                                <TextBlock Text="Change version" Style="{StaticResource Text.PillTitle}"/>
-                                <TextBlock x:Name="VersionSubText" Text="10 versions in this family" Style="{StaticResource Text.PillSub}"/>
-                            </StackPanel>
+                                                  VerticalAlignment="Center" Margin="0,0,12,0"/>
                             <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
                                   Width="16" Height="16" VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
                         </StackPanel>
@@ -70,17 +66,15 @@
                                     <!-- No profile: the Origin mark itself (plain Origin), never a bare letter. -->
                                     <controls:OriginMark x:Name="ProfileMark" Width="24" Height="24"
                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <!-- The profile's icon (ProfileLook.EmblemGlyph); empty when its letter shows. -->
+                                    <Border x:Name="ProfileIcon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     <controls:TrackedText x:Name="ProfileInitial" Text="" Tracking="0" FontSize="15" FontWeight="Bold"
                                                           Foreground="{StaticResource Brush.OnPhoto}" Visibility="Collapsed"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
-                                <TextBlock x:Name="ProfileNameText" Text="No profile" Style="{StaticResource Text.PillTitle}"
-                                           MaxWidth="220" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock x:Name="ProfileSubText" Text="Plain Origin" Style="{StaticResource Text.PillSub}"
-                                           MaxWidth="220" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
+                            <TextBlock x:Name="ProfileNameText" Grid.Column="1" Text="No profile" Style="{StaticResource Text.PillTitle}"
+                                       VerticalAlignment="Center" Margin="0,0,12,0" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
                             <Path Grid.Column="2" Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
                                   Width="16" Height="16" VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
                         </Grid>

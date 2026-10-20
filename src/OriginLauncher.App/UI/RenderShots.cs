@@ -120,9 +120,10 @@ public static class RenderShots
         {
             ModProfiles =
             {
-                new ModProfile { Id = "0a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Survival SMP", Version = "1.21.1", ServerName = "Survival SMP", ServerAddress = "play.example.net" },
-                new ModProfile { Id = "1a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "PvP practice", Version = "1.8.9", ServerName = "Practice", ServerAddress = "pvp.example.org:25570" },
-                new ModProfile { Id = "2a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Singleplayer shaders", Version = "1.20.1" },
+                new ModProfile { Id = "0a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Survival SMP", Version = "1.21.1", Icon = "Pickaxe", ServerName = "Survival SMP", ServerAddress = "play.example.net" },
+                new ModProfile { Id = "1a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "PvP practice", Version = "1.8.9", Icon = "Sword", Tint = "Wine", ServerName = "Practice", ServerAddress = "pvp.example.org:25570" },
+                new ModProfile { Id = "2a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Singleplayer shaders", Version = "1.20.1", Tint = "Plum", Icon = "Camera" },
+                new ModProfile { Id = "3a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Skyblock with a much longer profile name", Version = "1.20.1", Tint = "Moss", Icon = "Map" },
             },
             SelectedProfileId = "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
             SelectedVersion = "1.21.1",

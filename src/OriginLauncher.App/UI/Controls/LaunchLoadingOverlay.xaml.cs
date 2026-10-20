@@ -17,7 +17,7 @@ public partial class LaunchLoadingOverlay : UserControl
     // ProgressSweep's width in the XAML: the sliding block of an unmeasured stage.
     private const double SweepWidth = 96;
     // Glide between the ~8-10/s progress reports instead of stepping.
-    private static readonly Duration FillGlide = new(TimeSpan.FromMilliseconds(140));
+    private static readonly Duration FillGlide = new(TimeSpan.FromMilliseconds(220));
 
     private AnimationClock? _spinClock;
     private AnimationClock? _sweepClock;
@@ -31,6 +31,48 @@ public partial class LaunchLoadingOverlay : UserControl
     public LaunchLoadingOverlay()
     {
         InitializeComponent();
+        // The % sits on the count's baseline: lift it by the difference in how far
+        // each size reaches below its baseline.
+        Loaded += (_, _) =>
+        {
+            VersionText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            PercentText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var below = (VersionText.DesiredSize.Height - VersionText.Baseline)
+                        - (PercentText.DesiredSize.Height - PercentText.Baseline);
+            PercentText.Margin = new Thickness(6, 0, 0, Math.Max(0, below));
+        };
+    }
+
+    /// <summary>
+    /// The fill as shown, 0..1: one animated value drives the bar's scale AND the
+    /// count, so the number rolls up in step with the bar instead of jumping between
+    /// the ~8-10/s progress reports.
+    /// </summary>
+    private static readonly DependencyProperty ShownProperty = DependencyProperty.Register(
+        "Shown", typeof(double), typeof(LaunchLoadingOverlay),
+        new PropertyMetadata(0.0, (d, e) => ((LaunchLoadingOverlay)d).OnShown((double)e.NewValue)));
+
+    private bool _counting;
+
+    private void OnShown(double value)
+    {
+        ProgressScale.ScaleX = value;
+        if (_counting) VersionText.Text = ((int)Math.Floor(value * 100 + 1e-6)).ToString();
+    }
+
+    // Sets the shown fill with no glide (a new scene, the sweep handing over, reduced motion).
+    private void SetShown(double value)
+    {
+        BeginAnimation(ShownProperty, null);
+        SetValue(ShownProperty, value);
+        OnShown(value);
+    }
+
+    private void ShowCount(bool counting)
+    {
+        _counting = counting;
+        PercentText.Visibility = counting ? Visibility.Visible : Visibility.Collapsed;
+        if (!counting) VersionText.Text = _bigFallback;
     }
 
     /// <summary>Raised when the player clicks Cancel; the launch flow that
@@ -129,8 +171,8 @@ public partial class LaunchLoadingOverlay : UserControl
         StopClock(ref _sweepClock);
         ProgressSweep.Visibility = Visibility.Collapsed;
         ProgressFill.Visibility = Visibility.Collapsed;
-        ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        ProgressScale.ScaleX = 0;
+        ShowCount(false);
+        SetShown(0);
 
         // The mark doubles as the spinner. Reduced motion leaves it still.
         var transform = new RotateTransform();
@@ -154,34 +196,34 @@ public partial class LaunchLoadingOverlay : UserControl
     {
         if (fraction is not { } f)
         {
-            VersionText.Text = _bigFallback;
+            ShowCount(false);
             if (ProgressSweep.Visibility == Visibility.Visible) return;
             ProgressFill.Visibility = Visibility.Collapsed;
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            ProgressScale.ScaleX = 0;
+            SetShown(0);
             ProgressSweep.Visibility = Visibility.Visible;
             StartSweep();
             return;
         }
 
         f = Math.Clamp(f, 0, 1);
-        VersionText.Text = $"{(int)Math.Floor(f * 100)}%";
+        var fresh = !_counting;
+        ShowCount(true);
         if (ProgressSweep.Visibility != Visibility.Collapsed)
         {
             StopClock(ref _sweepClock);
             ProgressSweep.Visibility = Visibility.Collapsed;
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            ProgressScale.ScaleX = 0;
+            SetShown(0);
         }
+        else if (fresh) OnShown((double)GetValue(ShownProperty));
         ProgressFill.Visibility = Visibility.Visible;
-        if (!SystemParameters.ClientAreaAnimation)
+        if (!SystemParameters.ClientAreaAnimation || Motion.Off)
         {
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            ProgressScale.ScaleX = f;
+            SetShown(f);
             return;
         }
-        ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(f, FillGlide), HandoffBehavior.SnapshotAndReplace);
+        BeginAnimation(ShownProperty,
+            new DoubleAnimation(f, FillGlide) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } },
+            HandoffBehavior.SnapshotAndReplace);
     }
 
     // Slide the block across the track (start fully off-left, finish fully

@@ -56,3 +56,9 @@ The three-ring mark is drawn in XAML (`UI/Controls/OriginMark.xaml`) using the g
 ## Promo images (`Promos/`)
 
 Rendered by `tools/launcher-previews` from Origin's own UI, for the Home banner's tips slot (`Core/Promos/PromoTips.cs`).
+
+## Profile emblem icons (code, no files)
+
+The line icons in the profile emblem picker are `Theme/Icons.xaml` geometries (Feather-style strokes, like the rest of the launcher).
+The Minecraft-style pixel icons (sword, pickaxe, diamond, heart, creeper, potion, torch, chest) are Origin's own 16x16 pixel art, drawn as masks in `UI/ProfileLook.cs`.
+No Minecraft texture is copied or bundled.

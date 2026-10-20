@@ -299,8 +299,8 @@ public partial class HomePage : UserControl
         if (selected == null)
         {
             ProfileNameText.Text = "No profile";
-            ProfileSubText.Text = "Plain Origin";
             ProfileInitial.Visibility = Visibility.Collapsed;
+            ProfileIcon.Child = null;
             ProfileMark.Visibility = Visibility.Visible;
             ProfileEmblem.Background = (Brush)FindResource("Brush.CardAlt");
             ProfileRow.ToolTip = "Switch profile";
@@ -308,12 +308,11 @@ public partial class HomePage : UserControl
         else
         {
             ProfileNameText.Text = selected.Name;
-            ProfileSubText.Text = active == null ? $"For {selected.Version} only"
-                : active.HasServer ? ProfileRules.JoinLabel(active) : "Singleplayer";
             ProfileInitial.Text = ProfileLook.Initial(selected.Name);
-            ProfileInitial.Visibility = Visibility.Visible;
+            ProfileIcon.Child = ProfileLook.EmblemGlyph(selected.Icon, 18, (Brush)FindResource("Brush.OnPhoto"));
+            ProfileInitial.Visibility = ProfileIcon.Child == null ? Visibility.Visible : Visibility.Collapsed;
             ProfileMark.Visibility = Visibility.Collapsed;
-            ProfileEmblem.Background = ProfileLook.Tint(selected.Id);
+            ProfileEmblem.Background = ProfileLook.Tint(selected);
             ProfileRow.ToolTip = active != null ? "Play uses this profile's mods (switch on the Profiles page)"
                 : $"This profile is for {selected.Version}, so {_selectedVersion} uses your normal mods";
         }
@@ -548,15 +547,13 @@ public partial class HomePage : UserControl
         ShowFamily(version);
     }
 
-    // The family on screen follows the version: its accent and the pill's count here,
-    // its art and the giant numeral on the stage behind (crossfade + roll).
+    // The family on screen follows the version: its accent here, its art and the giant
+    // numeral (in the family's colour) on the stage behind (crossfade + roll).
     private void ShowFamily(string? version)
     {
         var animate = _familyShown;
         _familyShown = true;
         FamilyTheme.Apply(version, animate);
-        var family = FamilyTheme.Current;
-        VersionSubText.Text = family.Count == 1 ? "1 version in this family" : $"{family.Count} versions in this family";
         ArtStage.Request(version, animate);
     }
 
