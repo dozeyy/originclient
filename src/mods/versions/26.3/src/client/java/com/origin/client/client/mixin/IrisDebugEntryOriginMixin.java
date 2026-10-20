@@ -5,6 +5,7 @@ import com.origin.client.client.render.HalfRateShadows;
 import com.origin.client.client.render.OffMapShadows;
 import com.origin.client.client.render.ShadowCasterLimit;
 import com.origin.client.client.render.ShadowTerrainStats;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.debug.DebugScreenDisplayer;
 import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,6 +35,13 @@ public abstract class IrisDebugEntryOriginMixin {
 
 	@Inject(method = "display", at = @At("RETURN"), remap = false)
 	private void originclient$shaderSpeedLines(CallbackInfo ci, @Local(argsOnly = true) DebugScreenDisplayer displayer) {
+		// PER-VERSION (26.x): DebugScreenOverlay also renders with F3 closed whenever any entry is set to
+		// "Always On", and the player can pin Iris's entry. These lines are F3-only diagnostics: without
+		// this check they would stay on screen all the time and build their strings every frame.
+		// DebugScreenEntryList.isOverlayVisible() is the F3 toggle on 26.x (javap 26.2, 2026-10-20).
+		if (!Minecraft.getInstance().debugEntries.isOverlayVisible()) {
+			return;
+		}
 		String far = ShadowCasterLimit.debugLine();
 		if (far != null) {
 			displayer.addToGroup(ORIGINCLIENT$GROUP, far);

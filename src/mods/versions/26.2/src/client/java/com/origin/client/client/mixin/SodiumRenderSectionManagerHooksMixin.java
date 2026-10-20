@@ -37,7 +37,7 @@ public abstract class SodiumRenderSectionManagerHooksMixin {
 
 	@Inject(method = "renderOutOfGraph", at = @At("RETURN"), remap = false)
 	private void originclient$walkEnd(CallbackInfo ci, @Local(argsOnly = true) Viewport viewport) {
-		OffMapShadows.afterWalk((RenderSectionManager) (Object) this, viewport);
+		OffMapShadows.SodiumWalk.afterWalk((RenderSectionManager) (Object) this, viewport);
 		ShadowTerrainStats.outOfGraphEnd();
 	}
 

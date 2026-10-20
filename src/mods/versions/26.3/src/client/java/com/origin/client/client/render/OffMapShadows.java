@@ -57,6 +57,9 @@ public final class OffMapShadows {
 	/** Dev-only counting with the option OFF too (CI measurement). False for players. */
 	private static final boolean DEV = System.getenv("ORIGIN_SHOTS") != null;
 
+	/** Sodium is a separate install the player can disable; without it there is no shadow walk to cull. */
+	private static final boolean SODIUM = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium");
+
 	/** Keep anything within 10% past the edge (in map units, 1 = the edge). */
 	private static final float EDGE = 1.1f;
 
@@ -73,7 +76,7 @@ public final class OffMapShadows {
 		}
 	}
 
-	private static boolean broken = IS_SHADOW_PASS == null || MODELVIEW == null || PROJECTION == null;
+	private static boolean broken = !SODIUM || IS_SHADOW_PASS == null || MODELVIEW == null || PROJECTION == null;
 
 	// Light-space x and y rows of PROJECTION * MODELVIEW, rebuilt when Iris installs new matrices (a new
 	// MODELVIEW object every shadow frame, renderShadows offset 189).
@@ -279,67 +282,79 @@ public final class OffMapShadows {
 	}
 
 	/**
-	 * Dev only: RenderSectionManager.renderLists read straight from the field. getRenderLists() is no
-	 * good here: Iris's MixinRenderSectionManagerShadow redirects its field read to shadowRenderLists
-	 * while shadows render, and Iris copies the new walk into shadowRenderLists only AFTER
-	 * renderOutOfGraph returns -- so at this RETURN it still holds the previous walk.
+	 * The Sodium-typed half: dev-shots counting at renderOutOfGraph RETURN. It is its own nested class so
+	 * that OffMapShadows itself names no Sodium type. The vanilla-target ShadowCasterEntityMixin calls
+	 * skipEntity on every entity, and Sodium is a separate install the player can disable: loading or
+	 * verifying a class that names Sodium types without Sodium present can throw NoClassDefFoundError.
+	 * Only SodiumRenderSectionManagerHooksMixin (applied only when Sodium is loaded) touches this class.
 	 */
-	private static final MethodHandle RAW_LISTS = devListsGetter();
+	public static final class SodiumWalk {
+		private SodiumWalk() {
+		}
 
-	private static MethodHandle devListsGetter() {
-		if (!DEV) {
-			return null;
-		}
-		try {
-			java.lang.reflect.Field f = RenderSectionManager.class.getDeclaredField("renderLists");
-			f.setAccessible(true);
-			return MethodHandles.lookup().unreflectGetter(f).asType(
-					java.lang.invoke.MethodType.methodType(Object.class, RenderSectionManager.class));
-		} catch (Throwable t) {
-			return null;
-		}
-	}
+		/**
+		 * Dev only: RenderSectionManager.renderLists read straight from the field. getRenderLists() is no
+		 * good here: Iris's MixinRenderSectionManagerShadow redirects its field read to shadowRenderLists
+		 * while shadows render, and Iris copies the new walk into shadowRenderLists only AFTER
+		 * renderOutOfGraph returns -- so at this RETURN it still holds the previous walk.
+		 */
+		private static final MethodHandle RAW_LISTS = devListsGetter();
 
-	/**
-	 * renderOutOfGraph RETURN: disarm, and (dev only) count the sections with geometry the shadow walk
-	 * put in the render lists and how many of them lie fully off the map (no margin).
-	 */
-	public static void afterWalk(RenderSectionManager rsm, Viewport viewport) {
-		armedViewport = null;
-		if (!DEV || broken) {
-			return;
+		private static MethodHandle devListsGetter() {
+			if (!DEV) {
+				return null;
+			}
+			try {
+				java.lang.reflect.Field f = RenderSectionManager.class.getDeclaredField("renderLists");
+				f.setAccessible(true);
+				return MethodHandles.lookup().unreflectGetter(f).asType(
+						java.lang.invoke.MethodType.methodType(Object.class, RenderSectionManager.class));
+			} catch (Throwable t) {
+				return null;
+			}
 		}
-		try {
-			if (!(boolean) IS_SHADOW_PASS.invokeExact() || !matrices()) {
+
+		/**
+		 * renderOutOfGraph RETURN: disarm, and (dev only) count the sections with geometry the shadow walk
+		 * put in the render lists and how many of them lie fully off the map (no margin).
+		 */
+		public static void afterWalk(RenderSectionManager rsm, Viewport viewport) {
+			armedViewport = null;
+			if (!DEV || broken) {
 				return;
 			}
-			CameraTransform t = viewport.getTransform();
-			Object walked = RAW_LISTS != null ? (Object) RAW_LISTS.invokeExact(rsm) : rsm.getRenderLists();
-			var lists = ((SodiumSortedRenderListsAccessor) walked).originclient$lists();
-			devWalks++;
-			for (int i = 0; i < lists.size(); i++) {
-				ChunkRenderList list = lists.get(i);
-				RenderRegion region = list.getRegion();
-				ByteIterator it = list.sectionsWithGeometryIterator(false);
-				if (it == null) {
-					continue;
+			try {
+				if (!(boolean) IS_SHADOW_PASS.invokeExact() || !matrices()) {
+					return;
 				}
-				while (it.hasNext()) {
-					int idx = it.nextByteAsInt();
-					int x = region.getOriginX() + LocalSectionIndex.unpackX(idx) * 16 + 8;
-					int y = region.getOriginY() + LocalSectionIndex.unpackY(idx) * 16 + 8;
-					int z = region.getOriginZ() + LocalSectionIndex.unpackZ(idx) * 16 + 8;
-					devDrawnS++;
-					float cx = (x - t.intX) - t.fracX, cy = (y - t.intY) - t.fracY, cz = (z - t.intZ) - t.fracZ;
-					float px = ax * cx + ay * cy + az * cz + aw, rx = (aax + aay + aaz) * 8f;
-					float py = bx * cx + by * cy + bz * cz + bw, ry = (abx + aby + abz) * 8f;
-					if (px - rx > 1f || px + rx < -1f || py - ry > 1f || py + ry < -1f) {
-						devOffS++;
+				CameraTransform t = viewport.getTransform();
+				Object walked = RAW_LISTS != null ? (Object) RAW_LISTS.invokeExact(rsm) : rsm.getRenderLists();
+				var lists = ((SodiumSortedRenderListsAccessor) walked).originclient$lists();
+				devWalks++;
+				for (int i = 0; i < lists.size(); i++) {
+					ChunkRenderList list = lists.get(i);
+					RenderRegion region = list.getRegion();
+					ByteIterator it = list.sectionsWithGeometryIterator(false);
+					if (it == null) {
+						continue;
+					}
+					while (it.hasNext()) {
+						int idx = it.nextByteAsInt();
+						int x = region.getOriginX() + LocalSectionIndex.unpackX(idx) * 16 + 8;
+						int y = region.getOriginY() + LocalSectionIndex.unpackY(idx) * 16 + 8;
+						int z = region.getOriginZ() + LocalSectionIndex.unpackZ(idx) * 16 + 8;
+						devDrawnS++;
+						float cx = (x - t.intX) - t.fracX, cy = (y - t.intY) - t.fracY, cz = (z - t.intZ) - t.fracZ;
+						float px = ax * cx + ay * cy + az * cz + aw, rx = (aax + aay + aaz) * 8f;
+						float py = bx * cx + by * cy + bz * cz + bw, ry = (abx + aby + abz) * 8f;
+						if (px - rx > 1f || px + rx < -1f || py - ry > 1f || py + ry < -1f) {
+							devOffS++;
+						}
 					}
 				}
+			} catch (Throwable e) {
+				fail(e);
 			}
-		} catch (Throwable e) {
-			fail(e);
 		}
 	}
 
@@ -357,8 +372,8 @@ public final class OffMapShadows {
 			return null;
 		}
 		if (broken) {
-			return IS_SHADOW_PASS == null || MODELVIEW == null || PROJECTION == null
-					? "Origin Off-Map Shadows: off (Iris missing or not supported; shadows draw normally)"
+			return !SODIUM || IS_SHADOW_PASS == null || MODELVIEW == null || PROJECTION == null
+					? "Origin Off-Map Shadows: off (Sodium or Iris missing or not supported; shadows draw normally)"
 					: "Origin Off-Map Shadows: off after an error (shadows draw normally)";
 		}
 		long f = FrameStats.frames();
