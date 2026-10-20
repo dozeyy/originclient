@@ -8,6 +8,9 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
+        <!-- Account-type badge colours: text accents only. -->
+        <SolidColorBrush x:Key="Hue.Microsoft" Color="#FF7FB2F0"/>
+        <SolidColorBrush x:Key="Hue.Pending" Color="#FFF2D06B"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="AccountRow" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
@@ -100,8 +103,25 @@
                                 <controls:PixelFace Grid.Column="0" Width="40" Height="40" Margin="0,0,12,0"
                                                     Seed="{Binding Gamertag}"/>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis"/>
+                                    <DockPanel>
+                                        <controls:TrackedText DockPanel.Dock="Right" Tracking="0.12" FontSize="10" FontWeight="Bold"
+                                                              VerticalAlignment="Center" Margin="8,0,0,0">
+                                            <controls:TrackedText.Style>
+                                                <Style TargetType="controls:TrackedText">
+                                                    <Setter Property="Text" Value="MICROSOFT"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Hue.Microsoft}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPending}" Value="True">
+                                                            <Setter Property="Text" Value="PENDING"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource Hue.Pending}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </controls:TrackedText.Style>
+                                        </controls:TrackedText>
+                                        <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
                                     <TextBlock Text="{Binding Subtitle}"
                                                Style="{StaticResource Text.Label}" FontSize="11"/>
                                 </StackPanel>
