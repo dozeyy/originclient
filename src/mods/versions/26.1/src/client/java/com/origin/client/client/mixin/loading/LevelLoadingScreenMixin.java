@@ -44,9 +44,28 @@ public class LevelLoadingScreenMixin {
 			return;   // vanilla mode: stock chunk-progress map
 		}
 		// Only cancel vanilla when the Origin scene actually drew (fail-soft).
-		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, ((Screen) (Object) this).getTitle(), originclient$progress())) {
+		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, originclient$sceneTitle(), originclient$progress())) {
 			ci.cancel();
 		}
+	}
+
+	// 26.x: LevelLoadingScreen's title is empty (vanilla draws its own
+	// "Downloading terrain" / progress text instead), so the scene would show
+	// no heading at all, and before the tracker has progress no line either.
+	// The heading is vanilla's own "Loading world" (menu.loadingLevel), built
+	// once per screen (a translatable resolves in the current language when the
+	// scene rebuilds its labels). A non-empty title is kept as is.
+	@Unique
+	private net.minecraft.network.chat.Component originclient$title;
+
+	@Unique
+	private net.minecraft.network.chat.Component originclient$sceneTitle() {
+		if (originclient$title == null) {
+			net.minecraft.network.chat.Component t = ((Screen) (Object) this).getTitle();
+			originclient$title = t == null || t.getString().isBlank()
+					? net.minecraft.network.chat.Component.translatable("menu.loadingLevel") : t;
+		}
+		return originclient$title;
 	}
 
 	// The tracker's server-side fraction done (0..1), or -1 (sweep) while it has

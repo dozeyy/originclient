@@ -389,8 +389,8 @@ public class TitleScreenMixin {
 			for (AbstractWidget icon : sprites) {
 				// 26.x: `sprite` is a WidgetSprites bundle; the enabled variant names the icon.
 				WidgetSprites bundle = ((SpriteIconButtonAccessor) icon).originclient$sprite();
-				Identifier sprite = bundle.get(true, false);
-				String path = sprite.getPath();
+				Identifier sprite = bundle == null ? null : bundle.get(true, false);
+				String path = sprite == null ? "" : sprite.getPath();
 				if (path.endsWith("language")) {
 					originclient$iconOnly(icon, "@title-language", "Change the game's language");
 				} else if (path.endsWith("accessibility")) {
