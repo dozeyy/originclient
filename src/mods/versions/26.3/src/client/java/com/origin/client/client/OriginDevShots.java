@@ -623,6 +623,10 @@ public final class OriginDevShots {
 					// Fresh screens so entrance animations replay and get captured settled.
 					mc.gui.setScreen(s.kind().open());
 					mc.framebufferSizeChanged();
+					// 26.3: Gui.setScreen resyncs the cursor from SDL's real mouse state
+					// (MouseHandler.resyncMousePosition), wiping the placement open() made,
+					// so place it again now that the new screen and its widgets exist.
+					devCursor(s.kind() == Kind.TITLE_HOVER);
 					actIdx = 0;
 					phase = 2;
 					// The shader browser's first open starts its preview downloads; under
