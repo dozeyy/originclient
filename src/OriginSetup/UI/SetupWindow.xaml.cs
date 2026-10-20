@@ -478,7 +478,7 @@ public partial class SetupWindow : Window
         for (int i = 0; i < markers.Length; i++)
         {
             int n = i + 1;
-            markers[i].Background = (Brush)FindResource(n == step ? "Brush.Accent" : n < step ? "Brush.TextMuted" : "Brush.SoftStroke");
+            markers[i].Background = (Brush)FindResource(n == step ? "Brush.Accent" : n < step ? "Brush.Success" : "Brush.SoftStroke");
             labels[i].Foreground = (Brush)FindResource(n == step ? "Brush.Text" : "Brush.TextMuted");
         }
     }
