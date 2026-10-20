@@ -46,7 +46,7 @@
                             <TextBlock Grid.Row="1" Text="{Binding Range}" Margin="0,8,0,0" FontSize="15" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text}" TextTrimming="CharacterEllipsis"/>
                             <!-- Wraps to a second line before it is cut (tiles narrow to ~107 px at the smallest window). -->
-                            <TextBlock Grid.Row="2" Text="{Binding Name}" Margin="0,2,0,10" FontSize="11.5"
+                            <TextBlock Grid.Row="2" Text="{Binding Name}" Margin="0,2,0,16" FontSize="11.5"
                                        Foreground="{StaticResource Brush.TextMuted}" TextTrimming="CharacterEllipsis"
                                        TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="15" MaxHeight="30"/>
                         </Grid>
@@ -57,7 +57,6 @@
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="-4" Duration="{StaticResource Motion.Scene}"/>
                                             <DoubleAnimation Storyboard.TargetName="Colour" Storyboard.TargetProperty="Opacity" To="1" Duration="{StaticResource Motion.Scene}"/>
-                                            <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="Opacity" To="1" Duration="{StaticResource Motion.Scene}"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
@@ -65,10 +64,10 @@
                                     <BeginStoryboard>
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="0" Duration="{StaticResource Motion.Scene}"/>
-                                            <!-- No To: each settles on its base value, which the
-                                                 IsSelected trigger sets (1 selected, 0 not). -->
+                                            <!-- No To: settles on its base value, which the
+                                                 IsSelected trigger sets (1 selected, 0 not). Hover is colour + lift
+                                                 only: the accent bar means "picked". -->
                                             <DoubleAnimation Storyboard.TargetName="Colour" Storyboard.TargetProperty="Opacity" Duration="{StaticResource Motion.Scene}"/>
-                                            <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="Opacity" Duration="{StaticResource Motion.Scene}"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
@@ -136,7 +135,7 @@
                       Focusable="False" IsTabStop="False">
             <!-- MinHeight = the viewport, so the column centres vertically and only scrolls when it cannot fit. -->
             <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-                <StackPanel x:Name="Column" VerticalAlignment="Center" MaxWidth="1280" Margin="32,24"
+                <StackPanel x:Name="Column" VerticalAlignment="Center" MaxWidth="1280" Margin="32,56,32,24"
                             Background="Transparent">
                     <!-- The families, newest first, in one row that fills the width. -->
                     <ListBox x:Name="FamilyList" Margin="0,0,-8,0" Background="Transparent" BorderThickness="0"

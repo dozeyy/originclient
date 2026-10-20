@@ -456,6 +456,8 @@ public partial class HomePage : UserControl
             SetStatus(note.Text, ToneOf(note.Tone));
         else if (key != null && _selectedVersion == null)
             SetStatus("Select a version to play", StatusTone.Neutral);
+        else if (UpdateService.UpdateRequired)
+            SetStatus("Update required", StatusTone.Warning);
         else if (_selectedAccount != null)
             SetStatus("Ready to play", StatusTone.Success);
         else if (key != null)

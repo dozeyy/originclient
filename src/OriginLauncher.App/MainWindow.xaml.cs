@@ -125,6 +125,14 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>The one short word on the update badge: "Updating..." off the loading scene, or the failure.</summary>
+    private void ShowUpdateNote(string text, string brushKey)
+    {
+        UpdateRetryText.Text = text;
+        UpdateRetryText.Foreground = (Brush)FindResource(brushKey);
+        UpdateRetryText.Visibility = Visibility.Visible;
+    }
+
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
     {
         if (UpdateService.Available is not { } update) return;
@@ -136,12 +144,13 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Install update");
 
         // Show the download on Home's full-page loading scene (a real
-        // percentage fill), unless a game launch is mid-flight there — then
-        // the button tooltip alone carries the progress.
+        // percentage fill), unless a game launch is mid-flight there - then
+        // the badge's own "Updating..." label carries it.
         if (_accountPanelOpen) SetAccountPanelOpen(false);
         NavigateTo(LauncherPage.Home);
         var onScene = _currentPage == LauncherPage.Home
                       && _homePage.BeginUpdateScene(update.Version.ToString());
+        if (!onScene) ShowUpdateNote("Updating...", "Brush.TextDim");
         var toldAboutImport = false;
         var progress = new Progress<UpdateService.UpdateProgress>(p =>
         {
@@ -164,7 +173,7 @@ public partial class MainWindow : Window
             if (onScene) _homePage.EndUpdateScene();
             UpdateBadge.IsEnabled = true;
             // Visible, not a hover label: the badge says it failed and that a click retries.
-            UpdateRetryText.Visibility = Visibility.Visible;
+            ShowUpdateNote("Update failed - retry", "Brush.Warning");
             System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Update failed, retry");
         }
     }

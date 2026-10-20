@@ -29,6 +29,7 @@ public partial class VersionSelectOverlay : UserControl
         _tiles = VersionCatalog.Groups.Select(g => new FamilyTile(g)).ToList();
         FamilyList.ItemsSource = _tiles;
         FamilyList.SizeChanged += (_, _) => SizeThumbs();
+        Body.SizeChanged += (_, e) => { if (e.HeightChanged) SizeThumbs(); };
         PreviewKeyDown += OnSheetKey;
         // Thumbnails decode off the UI thread at the size they draw (frozen bitmaps).
         foreach (var tile in _tiles) tile.LoadAsync();
@@ -97,7 +98,7 @@ public partial class VersionSelectOverlay : UserControl
         _syncing = false;
         FamilyList.ScrollIntoView(tile);
 
-        ChipsLabel.Text = FamilyTheme.Of(tile.Group.Newest).Label;
+        ChipsLabel.Text = tile.Group.Tagline.ToUpperInvariant(); // the same words as the tile
         ChipsPanel.Children.Clear();
         var pick = version != null && tile.Group.Versions.Contains(version) ? version : tile.Group.Newest;
         foreach (var v in tile.Group.Versions)
@@ -137,18 +138,28 @@ public partial class VersionSelectOverlay : UserControl
             var panel = new FrameworkElementFactory(typeof(UniformGrid));
             panel.SetValue(UniformGrid.ColumnsProperty, columns);
             FamilyList.ItemsPanel = new ItemsPanelTemplate(panel);
-            // New panel, new containers: put the keyboard back on the picked family.
-            if (IsOpen) Dispatcher.BeginInvoke(() =>
+            // New panel, new containers: put the keyboard back on the picked family, but only if it was there.
+            if (IsOpen && FamilyList.IsKeyboardFocusWithin) Dispatcher.BeginInvoke(() =>
                 (FamilyList.ItemContainerGenerator.ContainerFromItem(FamilyList.SelectedItem) as UIElement)?.Focus());
         }
         // Each column is the row's share minus the tile's 8 px right margin; 16:9 thumbs.
         var column = FamilyList.ActualWidth / columns - 8;
-        var height = Math.Round(Math.Max(48, column * 9 / 16));
+        var height = column * 9 / 16;
+        // Cap by the window's height too, so the grid and the chip card fit without scrolling: the viewport
+        // minus the column's 56 + 24 margin and the chip card, split over the rows (each row also holds the
+        // range line, the name's two lines and the row gap, TextBlockRows px).
+        var rows = (_tiles.Count + columns - 1) / columns;
+        if (Body.ViewportHeight > 0)
+            height = Math.Min(height, (Body.ViewportHeight - ColumnPadding - ChipCardHeight - rows * TileTextRows) / rows);
+        height = Math.Round(Math.Max(48, height));
         foreach (var tile in _tiles) tile.ThumbHeight = height;
     }
 
     // Below this list width (px) the eight families wrap to two rows of four.
     private const double OneRowMinWidth = 1120;
+    // Fixed heights around the thumbnails (px): the column's top + bottom margin, the chip card with its 8 px
+    // gap, and one tile's text block (8 + 15 range, 2 + 30 name, 16 row gap, rounded up).
+    private const double ColumnPadding = 56 + 24, ChipCardHeight = 100, TileTextRows = 76;
     private int _columns;
 
     private void StepFamily(int delta)
