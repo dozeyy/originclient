@@ -52,6 +52,8 @@
 		"BlockEntityRenderDispatcherMixin",
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
+		"IrisPipelineHalfRateMixin",
+		"IrisShadowRendererHalfRateMixin",
 		"HurtCamMixin",
 		"GameRendererFrameMixin",
 		"OverlayTextureAccessor",
@@ -82,7 +84,18 @@
 		"SodiumChunkRendererMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"ShadowCasterEntityMixin",
+		"EntityRendererCullingBoxInvoker",
+		"ShadowCasterBlockEntityMixin",
+		"SodiumRenderSectionManagerAccessor",
+		"SodiumSortedRenderListsAccessor",
+		"SodiumChunkRenderListAccessor",
+		"SodiumGraphReuseMixin",
+		"SodiumOcclusionStampMixin",
+		"SodiumViewportShadowMapMixin",
+		"SodiumWorldRendererReuseMixin",
+		"LevelRendererCullFrustumMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
