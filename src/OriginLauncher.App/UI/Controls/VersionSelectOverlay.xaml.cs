@@ -70,6 +70,9 @@ public partial class VersionSelectOverlay : UserControl
             (FamilyList.ItemContainerGenerator.ContainerFromItem(FamilyList.SelectedItem) as UIElement ?? FamilyList).Focus());
     }
 
+    /// <summary>Close the picker from outside (a nav click while it is open).</summary>
+    public void Dismiss() { if (IsOpen) CloseOverlay(); }
+
     private void CloseOverlay()
     {
         var sceneRevision = ++_sceneRevision;

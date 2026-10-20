@@ -111,6 +111,19 @@
                                        Foreground="{StaticResource Brush.Warning}"/>
                         </StackPanel>
                     </Button>
+                    <!-- Website: opens originclient.org in the default browser (ExternalLink). -->
+                    <Button x:Name="WebsiteButton" Click="WebsiteButton_Click"
+                            Style="{StaticResource Button.Chrome}"
+                            Padding="9,9,12,9" Margin="0,0,4,0" MinHeight="36"
+                            AutomationProperties.Name="Open the Origin website, originclient.org">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Emblem.Globe}" Style="{StaticResource Icon.Base}"
+                                  Width="18" Height="18"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock Text="Website" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </StackPanel>
+                    </Button>
                     <!-- Import from another launcher: opens the Import page. -->
                     <Button x:Name="ImportButton" Click="ImportButton_Click"
                             Style="{StaticResource Button.Chrome}"

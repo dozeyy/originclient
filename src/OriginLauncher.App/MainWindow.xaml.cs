@@ -515,14 +515,15 @@ public partial class MainWindow : Window
             CloseImportPanel();
         }
 
-        // The version picker and launch cover are modal within Home. Keep the
-        // left rail and its keyboard shortcuts from navigating behind either
-        // scene and preserving a hidden modal until the player returns.
-        if (page != _currentPage && _currentPage == LauncherPage.Home && _homePage.HasOpenScene)
+        // The launch cover is modal within Home: no navigating behind a starting game. The version
+        // picker is NOT: a nav click while it is open closes it and navigates (Will 2026-10-20: the
+        // click used to be swallowed and the tab stuck highlighted).
+        if (page != _currentPage && _currentPage == LauncherPage.Home && _homePage.HasLaunchCover)
         {
             SetNavigationSelection(_currentPage);
             return;
         }
+        if (_currentPage == LauncherPage.Home) _homePage.CloseVersionPicker();
 
         SetNavigationSelection(page);
         if (page == _currentPage && PageHost.Content != null) return;
@@ -575,6 +576,9 @@ public partial class MainWindow : Window
     }
 
     private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
+
+    private void WebsiteButton_Click(object sender, RoutedEventArgs e) =>
+        Core.Promos.ExternalLink.Open(new Uri("https://originclient.org/"));
 
     // null = no tab lit (the Import page is not one of the four).
     private void SetNavigationSelection(LauncherPage? page)
@@ -861,10 +865,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        // A Home scene owns the keyboard while it is open. In particular,
-        // Ctrl+1/2/3/4 must not navigate behind the version picker and leave it
-        // invisibly open until the player returns to Home.
-        if (_currentPage == LauncherPage.Home && _homePage.HasOpenScene)
+        // The launch cover owns the keyboard while it is open. (The version picker closes
+        // itself in NavigateTo, so Ctrl+1/2/3/4 never leave it invisibly open.)
+        if (_currentPage == LauncherPage.Home && _homePage.HasLaunchCover)
             return;
 
         if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)

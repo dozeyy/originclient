@@ -191,6 +191,24 @@ public class PvpClientImportTests : IDisposable
         Assert.Equal(Path.Combine(Lunar, "profiles", "1.8"), lunar.GameDir);
     }
 
+    // Will 2026-10-20: "1.8.9 didn't port to origin still won't let me". Lunar's 1.8 line is only ever 1.8.9, but the
+    // version was read solely from a mods/ichor-1.8.9 folder; a 1.8 profile without one (no mods folder, or a loader
+    // folder with no version in its name) had NO version and the import skipped it as "Version unknown".
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LunarsOneEightLineIsOneEightNineEvenWithoutAVersionedLoaderFolder(bool loaderFolderWithoutVersion)
+    {
+        Kit.Write(Lunar, "profiles/1.8/options.txt", "fov:0.5\n");
+        if (loaderFolderWithoutVersion) Directory.CreateDirectory(Path.Combine(Lunar, "profiles", "1.8", "mods", "ichor"));
+
+        var lunar = Assert.Single((await Scan()).Instances, s => s.Kind == SourceKind.Lunar);
+
+        Assert.Equal("1.8.9", lunar.Name);
+        Assert.Equal("1.8.9", lunar.McVersion);
+        Assert.Null(lunar.Problem);
+    }
+
     [Fact]
     public async Task LunarsChosenGameDirectoryIsWhereWorldsAndScreenshotsComeFrom()
     {
