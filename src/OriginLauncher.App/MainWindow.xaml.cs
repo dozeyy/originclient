@@ -706,12 +706,18 @@ public partial class MainWindow : Window
         panel.OpenProfilesRequested += (_, _) =>
         {
             CloseImportPanel();
+            // NavigateTo returns early when Profiles is already the page under the import page, which would skip the
+            // rebuild: refresh it here so the new profiles always show.
+            bool alreadyOnProfiles = _currentPage == LauncherPage.Profiles;
             NavigateTo(LauncherPage.Profiles);
+            if (alreadyOnProfiles) _profilesPage.Show(_homePage.CurrentVersion);
         };
         panel.Imported += (_, _) =>
         {
-            // The import changed the selected version and added a profile: Home picks both up.
+            // The import changed the selected version and added a profile: Home picks both up, and a Profiles page
+            // sitting behind the import page rebuilds now (otherwise closing the page with X would show a stale list).
             _homePage.RefreshProfile();
+            if (_currentPage == LauncherPage.Profiles) _profilesPage.Show(_homePage.CurrentVersion);
         };
         _importPanel = panel;
         ImportPageHost.Content = panel;
