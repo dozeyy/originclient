@@ -370,6 +370,30 @@
     "@find": [
       0,
       0
+    ],
+    "@px-realms": [
+      0,
+      0
+    ],
+    "@px-friends": [
+      0,
+      0
+    ],
+    "@px-shirt": [
+      0,
+      0
+    ],
+    "@px-language": [
+      0,
+      0
+    ],
+    "@px-access": [
+      0,
+      0
+    ],
+    "@px-quit": [
+      0,
+      0
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v2/generate_proposal.py",
@@ -737,6 +761,30 @@
     "@find": {
       "x": 0,
       "y": 2880
+    },
+    "@px-realms": {
+      "x": 192,
+      "y": 2880
+    },
+    "@px-friends": {
+      "x": 384,
+      "y": 2880
+    },
+    "@px-shirt": {
+      "x": 576,
+      "y": 2880
+    },
+    "@px-language": {
+      "x": 768,
+      "y": 2880
+    },
+    "@px-access": {
+      "x": 960,
+      "y": 2880
+    },
+    "@px-quit": {
+      "x": 0,
+      "y": 3072
     }
   }
 }

@@ -148,10 +148,10 @@ public class OriginTitleScreen extends OriginScreen {
 		place(mods, L.mainX + L.mainW - half, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
 
 		// Bottom row of vanilla squares, Quit at its end (tooltips: 1.21.1's words).
-		icon(friends, "@title-multiplayer", "Friends: see who is online and join them");
-		icon(cosmetics, "@shirt", "Cosmetics: capes and more for your player");
-		icon(language, "@title-language", "Change the game's language");
-		icon(quit, "@title-quit", "Quit the game");
+		icon(friends, "@px-friends", "Friends: see who is online and join them");
+		icon(cosmetics, "@px-shirt", "Cosmetics: capes and more for your player");
+		icon(language, "@px-language", "Change the game's language");
+		icon(quit, "@px-quit", "Quit the game");
 		int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
 		int dx = (width - totalW) / 2;
 		for (GuiButton b : dock) {

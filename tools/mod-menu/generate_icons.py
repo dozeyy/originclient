@@ -429,6 +429,12 @@ def build() -> None:
     }
     atomic_text(OUT / "mod_icons.json", json.dumps(meta, indent=2) + "\n")
 
+    # Re-add the hand-set Minecraft-style pixel dock icons (@px-*): the vector
+    # bake above knows nothing about them (see pixel_title_icons.py).
+    import pixel_title_icons
+    pixel_title_icons.apply(OUT)
+    atlas = Image.open(OUT / "mod_icons.png").convert("RGBA")
+
     # Review image on the actual Ion Jade surface.
     preview = Image.new("RGBA", atlas.size, (0x12, 0x19, 0x18, 0xFF))
     preview.alpha_composite(atlas)

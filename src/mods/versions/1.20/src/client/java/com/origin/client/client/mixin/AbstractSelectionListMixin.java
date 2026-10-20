@@ -1,73 +1,110 @@
 package com.origin.client.client.mixin;
 
-import com.origin.client.client.render.OriginScreenRenderer;
-import net.minecraft.client.Minecraft;
-import com.origin.client.client.theme.OriginTheme;
-import com.origin.client.client.gui.OriginWidgetOwnership;
 import com.origin.client.client.OriginStyle;
+import com.origin.client.client.gui.OriginWidgetOwnership;
+import com.origin.client.client.render.OriginScreenRenderer;
+import com.origin.client.client.theme.OriginTheme;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// 1.20 option/world/server lists tile their OWN dirt background — behind the
-// rows (gated by the `renderBackground` flag) and as top/bottom strips over the
-// title/button areas (gated by `renderTopAndBottom`). Together those cover the
-// whole screen, painting over the Origin backdrop — which is why Video Settings
-// / world-select / server-list showed vanilla dirt while flat button screens
-// (Create World) looked right. So we flip both flags off while an Origin menu
-// backdrop is active, letting the list sit transparently on it.
+// Target: AbstractSelectionList.render(GuiGraphics, int, int, float) HEAD (javap:
+// the private renderBackground / renderTopAndBottom flags and the protected
+// x0/y0/x1/y1 list box exist in 1.20 / 1.20.1).
 //
-// But some list screens (SelectWorldScreen, JoinMultiplayerScreen, ...) NEVER
-// call Screen.renderBackground themselves — they relied on the list's OPAQUE
-// dirt to clear the frame each render. With that dirt suppressed, nothing clears
-// the frame, so the PREVIOUS screen (the title's wordmark + buttons) bleeds
-// through. To make every list screen its own clean scene, we draw the opaque
-// Origin backdrop ourselves at render HEAD (full-screen fill -> frame cleared)
-// before the transparent list draws over it. On screens that DO call
-// renderBackground this simply redraws the same opaque backdrop (harmless).
+// 1.20 option/world/server lists tile their OWN dirt -- behind the rows
+// (`renderBackground`) and as top/bottom strips over the title/button areas
+// (`renderTopAndBottom`). Together those cover the whole screen, painting over
+// the panorama backdrop. So both flags go off while Origin's backdrop is up,
+// and out of world, on Minecraft's screens, the rows get one flat translucent
+// panel instead (OriginTheme.CLEAN_PANEL -- 1.21.1 swaps the list's darker
+// menu-background strip for the same panel), so lists read as one calm surface
+// over the panorama, with 1.21.1's thin header / footer separator lines where
+// vanilla's dirt strips were. Origin's own screens keep their transparent lists.
 //
-// This runs IN-WORLD too (not gated on level == null): in-world list screens —
-// notably Iris's ShaderPackScreen over a loaded world — draw the list's dirt
-// top/bottom strips (renderTopAndBottom) over the game, since that block in
-// AbstractSelectionList.render has no level check. That's the dirt band behind
-// the shader screen's title/buttons. In-world we don't draw the opaque Origin
-// backdrop (the world stays visible); the screen's own renderBackground supplies
-// vanilla's darkening gradient, and the transparent list sits cleanly on it —
-// matching how every other Origin surface reads on that version.
+// (1.20 scissors the rows to the list box itself, enableScissor in render, so
+// nothing here has to clip them.)
 //
-// Clean in-game look (Will, 2026-10-19, ported from 1.21.1): out of a world,
-// Minecraft's own list screens get one flat translucent panel (CLEAN_PANEL) over
-// the list area instead of vanilla's dirt -- 1.21.1 swaps renderMenuBackground-
-// Texture for the same fill; that helper doesn't exist before 1.20.5, so here the
-// panel is drawn at the start of the list's own draw. Origin's own screens keep
-// their transparent lists. If this mixin stops applying, lists show vanilla's dirt.
+// In-world (not gated on level == null): in-world list screens -- notably
+// Iris's ShaderPackScreen over a loaded world -- would draw the dirt strips
+// over the game, so the flags go off there too, with no panel (the screen's
+// own darkening gradient sits behind the list).
 //
-// Fail-soft: gated only on isActive() (a broken Origin renderer leaves vanilla
-// dirt untouched).
+// Fail-soft: Main Menu Style = Vanilla or a broken renderer leaves vanilla's
+// dirt untouched, and the list's own flags are put back the moment this stops
+// applying (a backdrop that latched broken mid-session no longer leaves a list
+// with neither dirt nor backdrop). If this stops applying, lists show vanilla
+// dirt over the panorama.
 @Mixin(AbstractSelectionList.class)
 public class AbstractSelectionListMixin {
 
 	@Shadow private boolean renderBackground;
+	@Shadow private boolean renderTopAndBottom;
 	@Shadow protected int x0;
 	@Shadow protected int y0;
 	@Shadow protected int x1;
 	@Shadow protected int y1;
-	@Shadow private boolean renderTopAndBottom;
+
+	private static final int SEPARATOR_LIGHT = 0x33FFFFFF;
+	private static final int SEPARATOR_DARK = 0x99000000;
+
+	// The list's own flags as its screen set them, taken before this mixin clears
+	// them, and whether they are cleared right now (so the early returns can put
+	// them back).
+	@Unique
+	private boolean originclient$flagsCleared;
+	@Unique
+	private boolean originclient$savedBackground;
+	@Unique
+	private boolean originclient$savedTopAndBottom;
 
 	@Inject(method = "render", at = @At("HEAD"))
 	private void originclient$transparentOnOrigin(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		if (OriginScreenRenderer.isActive()) {
-			this.renderBackground = false;
-			Minecraft mc = Minecraft.getInstance();
-			if (mc.level == null && mc.screen != null && !OriginStyle.vanillaMenusOn(mc.screen)
-					&& !OriginWidgetOwnership.isOriginOwnClass(mc.screen) && OriginScreenRenderer.menuBackdropOk()) {
-				guiGraphics.fill(x0, y0, x1, y1, OriginTheme.CLEAN_PANEL);
+		Minecraft mc = Minecraft.getInstance();
+		if (!OriginScreenRenderer.isActive() || OriginStyle.vanillaMenusOn(mc.screen)) {
+			originclient$restoreFlags();
+			return;
+		}
+		boolean panel = mc.level == null && mc.screen != null && !OriginWidgetOwnership.isOriginOwnClass(mc.screen);
+		if (panel && !OriginScreenRenderer.menuBackdropOk()) {
+			originclient$restoreFlags();   // the backdrop failed: vanilla dirt stays
+			return;
+		}
+		if (!this.originclient$flagsCleared) {
+			this.originclient$savedBackground = this.renderBackground;
+			this.originclient$savedTopAndBottom = this.renderTopAndBottom;
+		}
+		if (panel) {
+			guiGraphics.fill(this.x0, this.y0, this.x1, this.y1, OriginTheme.CLEAN_PANEL);
+			if (this.originclient$savedTopAndBottom) {
+				// Where vanilla would have drawn its dirt header/footer strips, the
+				// 1.21.1 separator lines instead (header_separator / footer_separator:
+				// a faint light row over a dark one; colours sampled from the 1.21.1
+				// shots). Fills, not the textures (match 1.19.4 / 1.18.2).
+				guiGraphics.fill(this.x0, this.y0 - 2, this.x1, this.y0 - 1, SEPARATOR_LIGHT);
+				guiGraphics.fill(this.x0, this.y0 - 1, this.x1, this.y0, SEPARATOR_DARK);
+				guiGraphics.fill(this.x0, this.y1, this.x1, this.y1 + 1, SEPARATOR_LIGHT);
+				guiGraphics.fill(this.x0, this.y1 + 1, this.x1, this.y1 + 2, SEPARATOR_DARK);
 			}
-			this.renderTopAndBottom = false;
+		}
+		this.renderBackground = false;
+		this.renderTopAndBottom = false;
+		this.originclient$flagsCleared = true;
+	}
+
+	// Puts the screen's own flags back after this mixin cleared them.
+	@Unique
+	private void originclient$restoreFlags() {
+		if (this.originclient$flagsCleared) {
+			this.renderBackground = this.originclient$savedBackground;
+			this.renderTopAndBottom = this.originclient$savedTopAndBottom;
+			this.originclient$flagsCleared = false;
 		}
 	}
 }
