@@ -108,8 +108,10 @@ public final class SmartTerrainUpdates {
 	private static boolean cameraMark;
 
 	// ---- sections the last real main walk stamped (entity culling reads the stamps) ----
-	private static final me.jellysquid.mods.sodium.client.render.chunk.RenderSection[] NO_SECTIONS = {};
-	private static me.jellysquid.mods.sodium.client.render.chunk.RenderSection[] stamped = NO_SECTIONS;
+	// null until first used. This class's <clinit> must name no Sodium type: vanilla-target mixins
+	// (prepareCullFrustum, the F3 screen) can load it with Sodium disabled or on another Sodium, and a
+	// Sodium array built here threw NoClassDefFoundError every frame (dev-shots run 39397716962).
+	private static me.jellysquid.mods.sodium.client.render.chunk.RenderSection[] stamped;
 	private static int stampN;
 	/** Inside a main-pass walk with the toggle on: OcclusionCuller's stamps are recorded. */
 	private static boolean recording;
@@ -452,7 +454,9 @@ public final class SmartTerrainUpdates {
 				// This main walk replaces what is held; afterUpdate primes again from it. No pack =
 				// no per-section recording (reuse needs a pack anyway).
 				primed = false;
-				java.util.Arrays.fill(stamped, 0, stampN, null);
+				if (stamped != null) {
+					java.util.Arrays.fill(stamped, 0, stampN, null);
+				}
 				stampN = 0;
 				recording = true;
 			}
@@ -465,7 +469,9 @@ public final class SmartTerrainUpdates {
 	public static void onStamp(me.jellysquid.mods.sodium.client.render.chunk.RenderSection section, int hook) {
 		if (recording) {
 			hooksSeen |= 1 << hook;
-			if (stampN == stamped.length) {
+			if (stamped == null) {
+				stamped = new me.jellysquid.mods.sodium.client.render.chunk.RenderSection[1024];
+			} else if (stampN == stamped.length) {
 				stamped = java.util.Arrays.copyOf(stamped, Math.max(1024, stampN * 2));
 			}
 			stamped[stampN++] = section;
@@ -559,7 +565,7 @@ public final class SmartTerrainUpdates {
 		lists = null;
 		geo = spr = ent = new byte[0][];
 		geoN = sprN = entN = size = new int[0];
-		stamped = NO_SECTIONS;
+		stamped = null;
 		stampN = 0;
 		recording = false;
 	}
@@ -575,12 +581,14 @@ public final class SmartTerrainUpdates {
 			java.util.Arrays.fill(lists, null);
 		}
 		count = 0;
-		java.util.Arrays.fill(stamped, 0, stampN, null);
+		if (stamped != null) {
+			java.util.Arrays.fill(stamped, 0, stampN, null);
+		}
 		stampN = 0;
 	}
 
 	private static void releaseIfHeld() {
-		if (primed || manager != null || lists != null || stamped.length != 0) {
+		if (primed || manager != null || lists != null || stamped != null) {
 			release();
 		}
 	}

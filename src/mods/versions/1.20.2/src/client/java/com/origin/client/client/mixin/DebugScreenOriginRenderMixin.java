@@ -26,9 +26,15 @@ public class DebugScreenOriginRenderMixin {
 		// Sodium and Iris are separate installs on this version: each line is guarded on its
 		// own, so one linkage surprise costs that line only, never the debug screen.
 		try { add(lines, ShadowCasterLimit.debugLine()); } catch (Throwable ignored) { }
-		try { add(lines, OffMapShadows.debugLine()); } catch (Throwable ignored) { }
+		// Off-Map Shadows and Smart Terrain Updates use Sodium types: without Sodium their classes
+		// are never loaded (the features need it anyway).
+		if (com.origin.client.client.render.SodiumLoaded.YES) {
+			try { add(lines, OffMapShadows.debugLine()); } catch (Throwable ignored) { }
+		}
 		try { add(lines, HalfRateShadows.debugLine()); } catch (Throwable ignored) { }
-		try { add(lines, SmartTerrainUpdates.debugLine()); } catch (Throwable ignored) { }
+		if (com.origin.client.client.render.SodiumLoaded.YES) {
+			try { add(lines, SmartTerrainUpdates.debugLine()); } catch (Throwable ignored) { }
+		}
 	}
 
 	private static void add(List<String> lines, String line) {

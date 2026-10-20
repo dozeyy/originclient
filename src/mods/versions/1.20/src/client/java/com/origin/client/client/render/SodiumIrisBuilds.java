@@ -13,6 +13,12 @@ package com.origin.client.client.render;
 public final class SodiumIrisBuilds {
 	private SodiumIrisBuilds() { }
 
+	/**
+	 * Any Sodium at all. The player can disable it (PerfModInstaller honours .jar.disabled), and Iris
+	 * 1.6.4 (MC 1.20) still loads without it, so vanilla-target hooks check this before touching a
+	 * class that uses Sodium types.
+	 */
+	public static final boolean SODIUM = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium");
 	/** Sodium 0.5.13 (MC 1.20.1): Viewport, OcclusionCuller and the 0.5 RenderSectionManager. */
 	public static final boolean SODIUM_05 = is("sodium", "0.5.13");
 	/** Sodium 0.4.10 (MC 1.20): the old chunk graph (iterateChunks / bfsEnqueue), no Viewport. */

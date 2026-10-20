@@ -145,6 +145,12 @@ public final class HalfRateShadows {
 	private static boolean chunksChanged;
 	/** The shadowModelView hook has run at least once (so a kept frame's lookup really is corrected). */
 	private static boolean modelViewHookSeen;
+	/**
+	 * A chunk-change hook exists (Sodium04HalfRateMixin on 0.4.10, the 0.5 graph mixins on 0.5.13). Iris
+	 * 1.6.4 (MC 1.20) also runs with Sodium disabled, and then nothing reports block edits, so a kept
+	 * frame could show a stale shadow: without Sodium this always draws.
+	 */
+	private static final boolean CHUNK_HOOK = SodiumIrisBuilds.SODIUM_04 || SodiumIrisBuilds.SODIUM_05;
 
 	// ---- counts ----
 	private static long secStart, lastSecAt;
@@ -254,6 +260,9 @@ public final class HalfRateShadows {
 	/** 0 = keep the map; otherwise the reason this frame must draw (see the dev counters). */
 	private static int whyDraw(Minecraft mc, long f, Object shadowRenderer, boolean fullClearPending,
 			boolean packKeepsState, int shadowDistance) {
+		if (!CHUNK_HOOK) {
+			return 12;
+		}
 		if (!haveDraw) {
 			return 2;
 		}
@@ -451,6 +460,9 @@ public final class HalfRateShadows {
 		}
 		if (broken) {
 			return "Origin Half-Rate Shadows: off after an error (shadows draw every frame)";
+		}
+		if (!CHUNK_HOOK) {
+			return "Origin Half-Rate Shadows: off (needs Sodium; shadows draw every frame)";
 		}
 		if (lastSecAt == 0 || System.nanoTime() - lastSecAt > 3_000_000_000L) {
 			return null;   // no shader frames lately

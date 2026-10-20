@@ -29,6 +29,9 @@ public abstract class LevelRendererCullFrustumMixin {
 	private void originclient$cullFingerprint(PoseStack poseStack, Vec3 pos, Matrix4f projectionMatrix,
 			CallbackInfo ci) {
 		// the same matrix vanilla hands the Frustum constructor (offsets 0-4 of the method)
+		if (!com.origin.client.client.render.SodiumIrisBuilds.SODIUM) {
+			return;   // SmartTerrainUpdates uses Sodium types: never load it without Sodium
+		}
 		SmartTerrainUpdates.onCullFrustum(pos, poseStack.last().pose(), projectionMatrix, capturedFrustum != null);
 	}
 }
