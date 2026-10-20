@@ -60,7 +60,8 @@ public interface IImportBackend
     /// Plans every selected setup and merges them per Minecraft version. <paramref name="progress"/> reports each
     /// setup as it is planned (or skipped), so the panel can fill in while the rest still plans.
     /// </summary>
-    Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options,
+    /// <param name="grid">"Choose what to import"'s grid (who brings what per version); null = the defaults.</param>
+    Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options, ImportGrid? grid,
         IProgress<BulkPlanProgress>? progress, CancellationToken ct);
 
     /// <summary>The player picked a different settings winner for one version: re-plans that group only.</summary>
@@ -70,9 +71,9 @@ public interface IImportBackend
     /// The player ticked or unticked setups: re-plans only the version groups whose setups changed, keeping the settings
     /// winners already picked (they travel in the plan's request). The default plans afresh for backends without it.
     /// </summary>
-    Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection,
+    Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection, ImportGrid? grid,
         IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
-        PlanBulkAsync(selection, plan.Request?.Options ?? new ImportOptions(), progress, ct);
+        PlanBulkAsync(selection, plan.Request?.Options ?? new ImportOptions(), grid, progress, ct);
 
     Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct);
 
@@ -268,7 +269,7 @@ public sealed class LauncherImportBackend : IImportBackend
 
     // ---- "import everything": the engine's bulk plan / re-plan / apply (Core/Import/Bulk) ----
 
-    public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options,
+    public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options, ImportGrid? grid,
         IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
         OnPool(async parts =>
         {
@@ -279,7 +280,7 @@ public sealed class LauncherImportBackend : IImportBackend
                 setups = (await ScanCoreAsync(parts, null, ct).ConfigureAwait(false)).Instances.ToList();
                 Volatile.Write(ref _lastScan, setups);
             }
-            var plan = await parts.Engine.PlanBulkAsync(BuildBulkRequest(parts, setups, selection, options), progress, ct).ConfigureAwait(false);
+            var plan = await parts.Engine.PlanBulkAsync(BuildBulkRequest(parts, setups, selection, options) with { Grid = grid }, progress, ct).ConfigureAwait(false);
             BlockWhileLaunching(plan.Blocked);
             return plan;
         }, ct);
@@ -292,11 +293,11 @@ public sealed class LauncherImportBackend : IImportBackend
             return replanned;
         }, ct);
 
-    public Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection,
+    public Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection, ImportGrid? grid,
         IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
         OnPool(async parts =>
         {
-            var replanned = await parts.Engine.ReplanSelectionAsync(Fresh(plan), selection, progress, ct).ConfigureAwait(false);
+            var replanned = await parts.Engine.ReplanSelectionAsync(Fresh(plan), selection, grid, progress, ct).ConfigureAwait(false);
             BlockWhileLaunching(replanned.Blocked);
             return replanned;
         }, ct);
@@ -312,8 +313,9 @@ public sealed class LauncherImportBackend : IImportBackend
     }
 
     /// <summary>
-    /// A re-plan starts from the plan's request, whose launcher settings (profiles, selection, the external-mods switch)
-    /// may be minutes old: they are read again, so the settings delta is always named against what is saved now.
+    /// A re-plan starts from the plan's request, whose external-mods switch may be minutes old: it is read again, so the
+    /// plan's "your own mods are off" note follows what is saved now. (Imports change no launcher setting: no profile,
+    /// no selection.)
     /// </summary>
     private static BulkImportPlan Fresh(BulkImportPlan plan)
     {
@@ -324,13 +326,7 @@ public sealed class LauncherImportBackend : IImportBackend
             RunId = plan.RunId,
             PlannedAt = plan.PlannedAt,
             BytesToCopy = plan.BytesToCopy,
-            Request = request with
-            {
-                ExistingProfiles = settings.ModProfiles,
-                PlayWithExternalMods = settings.PlayWithExternalMods,
-                SelectedVersion = settings.SelectedVersion,
-                SelectedProfileId = settings.SelectedProfileId,
-            },
+            Request = request with { PlayWithExternalMods = settings.PlayWithExternalMods },
         };
         refreshed.Groups.AddRange(plan.Groups);
         refreshed.Skipped.AddRange(plan.Skipped);
@@ -351,10 +347,7 @@ public sealed class LauncherImportBackend : IImportBackend
             Options = options,
             SupportedTargets = parts.SupportedTargets,
             Facts = TargetFactsFor,
-            ExistingProfiles = settings.ModProfiles,
             PlayWithExternalMods = settings.PlayWithExternalMods,
-            SelectedVersion = settings.SelectedVersion,
-            SelectedProfileId = settings.SelectedProfileId,
         };
     }
 
@@ -388,10 +381,7 @@ public sealed class LauncherImportBackend : IImportBackend
             SupportedTargets = parts.SupportedTargets,
             BundledOriginJarPath = target == null ? null : VersionManager.BundledJarFor(target),
             CatalogMods = target == null ? Array.Empty<CatalogMod>() : CatalogModsFor(target),
-            ExistingProfiles = settings.ModProfiles,
             PlayWithExternalMods = settings.PlayWithExternalMods,
-            SelectedVersion = settings.SelectedVersion,
-            SelectedProfileId = settings.SelectedProfileId,
         };
     }
 

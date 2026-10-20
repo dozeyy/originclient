@@ -35,7 +35,9 @@ public class BulkReviewRound1Tests : IDisposable
         {
             var setup = _f.Add($"Big {i:D2}", versions[i % versions.Length], populate: false, playtimeHours: 50 - i);
             Kit.Write(setup.GameDir, "options.txt", "fov:0.5\n");
-            for (var j = 0; j < 200; j++) Kit.Write(setup.GameDir, $"config/s{i:D2}/f{j:D3}.json", $"{{\"v\":{j}}}");
+            // Configs travel with mods, and each version's most played setup brings them: those six carry the bulk.
+            var files = i < versions.Length ? 1700 : 20;
+            for (var j = 0; j < files; j++) Kit.Write(setup.GameDir, $"config/s{i:D2}/f{j:D4}.json", $"{{\"v\":{j}}}");
         }
         var engine = _f.Engine();
         var plan = await _f.Plan(engine);

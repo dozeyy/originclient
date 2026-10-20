@@ -542,6 +542,17 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
+    /// <summary>
+    /// The Import page's Play: Home on the version the import went to. Records the version only, exactly like the picker
+    /// (OnVersionSelected); a version Origin doesn't ship is ignored.
+    /// </summary>
+    public void ShowVersion(string version)
+    {
+        if (!VersionCatalog.IsSupported(version)) return;
+        if (version != _selectedVersion) OnVersionSelected(version);
+        ApplyProfile(SettingsStore.Load());
+    }
+
     private void SetVersionButtonText(string? version)
     {
         VersionButtonText.Text = version ?? "Pick one";

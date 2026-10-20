@@ -36,6 +36,19 @@ public sealed class MigrationContext
 
     /// <summary>Bulk: this setup's key in the run (a claim's owner); null in a single import, which never defers to anyone.</summary>
     public string? SetupKey { get; init; }
+
+    /// <summary>
+    /// What this setup brings (the import grid's cells; a single import brings everything). Settings = options.txt,
+    /// Sodium / Iris / OptiFine settings; Mods also brings the mods' config files; the rest are their own columns.
+    /// Anything outside it is never planned, so it never claims a file another setup could have brought.
+    /// </summary>
+    public ImportCategories Brings { get; init; } = ImportCategories.All;
+
+    /// <summary>The first setup of its version to bring mods: its mod configs replace Origin's (after a backup); a later one only creates.</summary>
+    public bool PrimaryMods { get; init; } = true;
+
+    /// <summary>A settings setup from another Minecraft version: only the packs its settings switch on come along.</summary>
+    public bool SelectedPacksOnly { get; init; }
 }
 
 // Plans the non-mod part of an import (D15-D19): options.txt, mod configs, the
@@ -101,24 +114,30 @@ public static class SettingsMigrator
         private ImportPlan Plan => _c.Plan;
         private SourceFs Fs => _c.Fs;
         private bool Target189 => _c.TargetVersion == "1.8.9";
-        private bool Winner => _c.Role == SetupRole.Full;
+        private bool Brings(ImportCategories what) => (_c.Brings & what) != 0;
+
+        // The setup this version's settings come from: options.txt, Sodium / Iris / OptiFine settings.
+        private bool Winner => _c.Role != SetupRole.PacksOnly && Brings(ImportCategories.Settings);
 
         // Every shader pack, not only the active one: asked for ("copy unused packs"), or a PvP client's setup,
         // whose shader pick lives in the client's own closed settings, so no file here says which pack is in use and
         // "only the active one" would leave every pack behind without a word. Copied, never selected.
-        private bool AllShaderPacks => _c.Options.CopyUnusedPacks || Sources.PvpClientSource.BuiltInModsNote(_c.Source.Kind) != null;
+        private bool AllShaderPacks => !_c.SelectedPacksOnly
+            && (_c.Options.CopyUnusedPacks || Sources.PvpClientSource.BuiltInModsNote(_c.Source.Kind) != null);
+        private bool CopyUnusedPacks => _c.Options.CopyUnusedPacks && !_c.SelectedPacksOnly;
         private DestinationLedger Ledger => _c.Ledger;
 
         public void Run()
         {
-            LoadSourceOptions();   // every role: options.txt names the resource packs in use
-            PlanResourcePacks();
-            PlanShaders();
-            if (_c.Options.CopyScreenshots) PlanScreenshots(); // every role: they belong to no version's settings
+            LoadSourceOptions();   // options.txt names the resource packs in use (and is the settings themselves)
+            if (Brings(ImportCategories.ResourcePacks)) PlanResourcePacks();
+            PlanShaders();         // the shader selection; the packs only when shader packs come over
+            if (Brings(ImportCategories.Screenshots) && _c.Options.CopyScreenshots) PlanScreenshots(); // they belong to no version's settings
             if (_c.Role == SetupRole.PacksOnly) { SettingsComeFrom(); return; }
-            PlanConfig();
+            if (Brings(ImportCategories.Mods)) PlanConfig();
             if (Winner)
             {
+                PlanVideoSettings();
                 PlanLoneFiles();
                 PlanOptions();
             }
@@ -126,7 +145,8 @@ public static class SettingsMigrator
             {
                 SettingsComeFrom();
             }
-            if (_c.Options.CopyWorlds) PlanWorlds();
+            if (Brings(ImportCategories.Servers)) PlanServers();
+            if (Brings(ImportCategories.Worlds) && _c.Options.CopyWorlds) PlanWorlds();
         }
 
         // A setup that isn't its version's settings winner says whose settings the version got.
@@ -162,7 +182,9 @@ public static class SettingsMigrator
             {
                 Kind = OpKind.WriteOptions, Item = PlanItemKind.Setting, Label = "options.txt",
                 Source = Path.Combine(_src, "options.txt"), Dest = dest, TouchNow = true,
-                Desired = _sourceOptions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value, StringComparer.Ordinal),
+                Desired = _sourceOptions.Where(kv => kv.Key is not ("resourcePacks" or "incompatibleResourcePacks"))
+                    .ToDictionary(kv => kv.Key, kv => (string?)kv.Value, StringComparer.Ordinal),
+                // Only packs that come over in this import are switched on (null = Origin's own list stays).
                 TargetVersion = _c.TargetVersion, Extra = _resourcePacksValue,
             });
             if (exists) Plan.Replaced++; else Plan.Created++;
@@ -192,7 +214,7 @@ public static class SettingsMigrator
                 if (PlanPack(name, path, dstDir, PlanItemKind.ResourcePack) is { } reference) references.Add(reference);
             }
 
-            if (_c.Options.CopyUnusedPacks)
+            if (CopyUnusedPacks)
                 foreach (var entry in PackEntries(srcDir))
                     if (!selected.Contains(Path.GetFileName(entry), StringComparer.Ordinal))
                         PlanPack(Path.GetFileName(entry), entry, dstDir, PlanItemKind.ResourcePack);
@@ -237,6 +259,8 @@ public static class SettingsMigrator
         private void PlanShaders()
         {
             var shaderpacks = _c.Source.ShaderPacksFolder;
+            var bringPacks = Brings(ImportCategories.ShaderPacks);
+            if (!bringPacks && !Winner) return; // nothing of shaders comes from this setup
 
             // Iris (or Oculus, its Forge twin) keeps the selection in iris.properties; OptiFine in optionsshaders.txt.
             foreach (var candidate in new[] { "iris.properties", "oculus.properties" })
@@ -270,6 +294,7 @@ public static class SettingsMigrator
             }
 
             var hasShaderPacks = Directory.Exists(shaderpacks);
+            if (!bringPacks) return; // settings only: iris.properties keeps Origin's own shader pack (PlanVideoSettings)
             if (active == null && !AllShaderPacks && optifineFile == null) return;
 
             if (Target189)
@@ -289,7 +314,7 @@ public static class SettingsMigrator
                         "Your active shader pack wasn't found in your old setup.");
                 }
                 if (AllShaderPacks) CopyUnusedShaderPacks(shaderpacks, active);
-                if (optifineFile != null && Winner) // OptiFine's settings come from the winner only
+                if (optifineFile != null && Winner) // OptiFine's settings come from the settings setup only
                 {
                     var dest = Path.Combine(_dst, "optionsshaders.txt");
                     if (refName != null && refName != active && optifineText != null)
@@ -489,30 +514,30 @@ public static class SettingsMigrator
                 var rel = Path.GetRelativePath(srcConfig, file).Replace('\\', '/');
                 var name = Path.GetFileName(file);
 
-                if (rel is IrisFile or "oculus.properties") continue; // key-merged below / Forge-only twin
+                if (rel is IrisFile or "oculus.properties" or SodiumFile) continue; // settings (PlanVideoSettings) / Forge-only twin
                 if (name.StartsWith("originclient", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
                     || BuiltInInternalConfigs.Contains(name))
                 {
                     withheld++;
                     continue;
                 }
-                if (rel == SodiumFile)
-                {
-                    if (Winner) PlanSodium(file); // only the winner's video settings are merged
-                    continue;
-                }
-
                 var dest = Path.Combine(_dst, "config", rel.Replace('/', Path.DirectorySeparatorChar));
-                if (PlanFile(file, dest, "config/" + rel, PlanItemKind.Config, touchNow: true, quiet: true)) copied++;
+                if (PlanFile(file, dest, "config/" + rel, PlanItemKind.Config, touchNow: true, quiet: true, replace: _c.PrimaryMods)) copied++;
             }
             if (copied > 0)
                 Line(SummarySection.Imported, PlanItemKind.Config, $"Mod settings ({copied} config {(copied == 1 ? "file" : "files")})",
-                    Winner ? null : "only the ones Origin didn't have yet");
+                    _c.PrimaryMods ? null : "only the ones Origin didn't have yet");
             if (withheld > 0)
                 Line(SummarySection.NotImported, PlanItemKind.Config, $"{withheld} Origin / built-in mod config {(withheld == 1 ? "file" : "files")}",
                     "Origin manages these itself.");
+        }
 
-            if (Winner) PlanIris();
+        // The settings setup's video and shader settings: Sodium's (key-merged into the file Sodium made) and Iris's.
+        private void PlanVideoSettings()
+        {
+            var sodium = Path.Combine(_src, "config", SodiumFile);
+            if (File.Exists(sodium)) PlanSodium(sodium);
+            PlanIris();
         }
 
         private void PlanSodium(string srcFile)
@@ -560,6 +585,13 @@ public static class SettingsMigrator
             }
             var desired = new Dictionary<string, string?>(StringComparer.Ordinal);
             if (_irisMap != null) foreach (var (k, v) in _irisMap) desired[k] = v;
+            if (!Brings(ImportCategories.ShaderPacks))
+            {
+                // Shader packs stay behind: Origin's own pack (and whether shaders are on) stays as it is.
+                desired.Remove("shaderPack");
+                desired.Remove("enableShaders");
+                if (desired.Count == 0) return;
+            }
             foreach (var (k, v) in _irisOverrides) desired[k] = v;
             Plan.Ops.Add(new PlannedOp
             {
@@ -573,27 +605,70 @@ public static class SettingsMigrator
 
         // ---------------------------------------------------------------- servers.dat, OptiFine settings
 
+        // The server list is the player's own curated data: Origin's list is never dropped or reordered. Every setup that
+        // brings servers adds the ones Origin doesn't have yet (matched by address), after the ones already there; one
+        // merge op per folder writes them all (the first setup holds it, later ones a stand-in in case it is left out).
+        private void PlanServers()
+        {
+            var servers = Path.Combine(_src, "servers.dat");
+            if (!File.Exists(servers) || !Fs.Allow(servers)) return;
+            var entries = ServerList.Read(Fs.ReadBytes(servers));
+            if (entries == null)
+            {
+                Line(SummarySection.NeedsAttention, PlanItemKind.Setting, "servers.dat (server list)", "Couldn't read the server list in your old setup.");
+                return;
+            }
+            if (entries.Count == 0) return;
+            var dest = Path.Combine(_dst, "servers.dat");
+            var merge = Ledger.Servers ??= new ServerMerge(OriginServers(dest));
+            var fresh = 0;
+            foreach (var entry in entries)
+            {
+                var key = ServerList.AddressKey(entry.Address);
+                if (key.Length == 0 || !merge.Keys.Add(key)) continue;
+                merge.Entries.Add(entry);
+                fresh++;
+            }
+            var line = Line(SummarySection.Imported, PlanItemKind.Setting, "servers.dat (server list)", fresh > 0
+                ? $"{fresh} {(fresh == 1 ? "server" : "servers")} added after the ones Origin has"
+                : "every server is already in Origin's list");
+            var claim = DestinationLedger.PathKey(dest);
+            if (merge.Owner == null)
+            {
+                merge.Owner = _c.SetupKey ?? "";
+                Plan.Ops.Add(new PlannedOp
+                {
+                    Kind = OpKind.MergeServers, Item = PlanItemKind.Setting, Label = "servers.dat", Dest = dest,
+                    Servers = merge, ClaimKey = claim, PlannedLine = line,
+                });
+            }
+            else if (DefersTo(merge.Owner))
+            {
+                // The merge runs once with every setup's entries; this stand-in runs it if the first setup is left out.
+                Plan.Ops.Add(new PlannedOp
+                {
+                    Kind = OpKind.MergeServers, Item = PlanItemKind.Setting, Label = "servers.dat", Dest = dest,
+                    Servers = merge, ClaimKey = claim, Fallback = true,
+                });
+            }
+        }
+
+        // The addresses Origin's list already has (none when there is no list, or it can't be read).
+        private static IEnumerable<string> OriginServers(string dest)
+        {
+            try
+            {
+                return File.Exists(dest) ? ServerList.Read(File.ReadAllBytes(dest))?.Select(e => e.Address) ?? Enumerable.Empty<string>()
+                    : Enumerable.Empty<string>();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return Enumerable.Empty<string>();
+            }
+        }
+
         private void PlanLoneFiles()
         {
-            // The server list is the player's own curated data: an existing Origin list is KEPT by default
-            // (it is imported only where Origin has none), and "Replace my server list" (Advanced) swaps it
-            // after a backup. A byte-identical list is just "already the same".
-            var servers = Path.Combine(_src, "servers.dat");
-            if (File.Exists(servers) && Fs.Allow(servers))
-            {
-                var serversDest = Path.Combine(_dst, "servers.dat");
-                if (File.Exists(serversDest) && !_c.Options.ReplaceServerList && !FileCompare.Same(servers, serversDest, Fs))
-                {
-                    Plan.Kept++;
-                    Line(SummarySection.NotImported, PlanItemKind.Setting, "servers.dat (server list)",
-                        "Your Origin server list was kept; the old list is in Review details.");
-                }
-                else
-                {
-                    PlanFile(servers, serversDest, "servers.dat", PlanItemKind.Setting);
-                }
-            }
-
             var of = Path.Combine(_src, "optionsof.txt");
             if (!File.Exists(of)) return;
             if (Target189 && Fs.Allow(of))
@@ -720,13 +795,15 @@ public static class SettingsMigrator
         /// One plain file: new -> copy; same bytes -> unchanged; different -> replace after a backup,
         /// or keep the current one with "Keep my current Origin settings". Returns true when it will be copied.
         /// </summary>
-        private bool PlanFile(string src, string dest, string label, PlanItemKind kind, bool touchNow = true, bool quiet = false)
+        private bool PlanFile(string src, string dest, string label, PlanItemKind kind, bool touchNow = true, bool quiet = false,
+            bool? replace = null)
         {
             if (ImportFiles.SizeOrNull(src) is not { } length) return false; // vanished since it was listed: nothing to copy
-            if (!Winner)
+            if (!(replace ?? Winner))
             {
-                // Not the settings winner: a file is only CREATED, where neither Origin nor anything earlier in
-                // this run writes that path - never replaced, never merged.
+                // Not the setup this file's kind comes from first (the settings setup; for mod configs the first mods
+                // setup): a file is only CREATED, where neither Origin nor anything earlier in this run writes that
+                // path - never replaced, never merged.
                 if (File.Exists(dest)) { Plan.Kept++; return false; }
                 if (Ledger.ClaimOf(dest) is { } claim)
                 {

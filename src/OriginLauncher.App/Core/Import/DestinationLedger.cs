@@ -29,6 +29,12 @@ public sealed class DestinationLedger
     /// <summary>A source world folder this run copies, and where it lands.</summary>
     public sealed record WorldClaim(string SetupLabel, string Dest, string? Owner);
 
+    /// <summary>The server list this run merges into the folder's servers.dat (made by the first setup that brings servers).</summary>
+    public ServerMerge? Servers { get; set; }
+
+    /// <summary>The version's shared mods folder: what it holds and what this run adds (read when the first setup plans mods).</summary>
+    public SharedModsLedger? Mods { get; set; }
+
     public bool IsClaimed(string dest) => _claims.ContainsKey(dest);
 
     public Claim? ClaimOf(string dest) => _claims.TryGetValue(dest, out var claim) ? claim : null;

@@ -48,6 +48,13 @@ internal sealed class VersionEntry
     public string Title => Version ?? "Version unknown";
 }
 
+/// <summary>
+/// How the next import is chosen. Ticks: the setups ticked on the Import page (Import everything). Fast: "Bring
+/// everything from" one launcher (all its setups, the most played one's settings on every version). Grid: "Choose what
+/// to import" (a row per launcher, a tick per thing: ImportGridModel).
+/// </summary>
+internal enum ImportMode { Ticks, Fast, Grid }
+
 /// <summary>Whose settings a version gets: the setup, the picker's verdict, and whether the player should pick.</summary>
 internal sealed record WinnerPreview(DetectedInstance? Winner, PickResult Pick, bool NeedsChoice, IReadOnlyList<DetectedInstance> Participants);
 
@@ -79,8 +86,18 @@ internal sealed class ImportFlowModel
 
     public IReadOnlyList<DetectedInstance> Setups => _setups;
 
-    /// <summary>What each setup holds (by SetupId); empty until the drawer has counted.</summary>
-    public IReadOnlyDictionary<string, SetupContents> Contents { get; set; } = new Dictionary<string, SetupContents>();
+    private IReadOnlyDictionary<string, SetupContents> _contents = new Dictionary<string, SetupContents>();
+
+    /// <summary>What each setup holds (by SetupId); empty until the drawer has counted. The grid greys its empty cells from it.</summary>
+    public IReadOnlyDictionary<string, SetupContents> Contents
+    {
+        get => _contents;
+        set
+        {
+            _contents = value;
+            if (GridModel != null) GridModel.Contents = value;
+        }
+    }
 
     /// <summary>The launchers installed on this PC; null = unknown (then a launcher with nothing found just says so).</summary>
     public IReadOnlySet<SourceKind>? Installed { get; set; }
@@ -90,6 +107,46 @@ internal sealed class ImportFlowModel
 
     /// <summary>The launcher being imported from; null = every launcher.</summary>
     public SourceKind? Scope { get; private set; }
+
+    /// <summary>How the next import is chosen (see <see cref="ImportMode"/>).</summary>
+    public ImportMode Mode { get; private set; } = ImportMode.Ticks;
+
+    /// <summary>The grid of "Choose what to import" (Mode Grid); kept while the page lives, so going back keeps the ticks.</summary>
+    public ImportGridModel? GridModel { get; private set; }
+
+    /// <summary>Import everything: the ticked setups of every launcher.</summary>
+    public void UseTicks()
+    {
+        Mode = ImportMode.Ticks;
+        Scope = null;
+    }
+
+    /// <summary>"Bring everything from <paramref name="launcher"/>": all of its setups Origin can run, nothing else.</summary>
+    public void UseFast(SourceKind launcher)
+    {
+        Mode = ImportMode.Fast;
+        Scope = launcher;
+    }
+
+    /// <summary>"Choose what to import": the grid over every setup Origin can run (made once, then kept).</summary>
+    public ImportGridModel UseGrid()
+    {
+        Mode = ImportMode.Grid;
+        Scope = null;
+        GridModel ??= new ImportGridModel(_setups.Where(CanGo));
+        GridModel.Contents = Contents;
+        return GridModel;
+    }
+
+    /// <summary>The setups "Bring everything from" takes for a launcher: every one Origin can run.</summary>
+    public IReadOnlyList<DetectedInstance> FastSetups(SourceKind launcher) => _setups.Where(s => s.Kind == launcher && CanGo(s)).ToList();
+
+    /// <summary>The launchers that have something to import (the tiles with a "Bring everything" button).</summary>
+    public IReadOnlyList<SourceKind> LaunchersWithSetups() =>
+        Tiles(false).Where(t => t.State == LauncherState.Found && FastSetups(t.Kind).Count > 0).Select(t => t.Kind).ToList();
+
+    /// <summary>The engine's grid (Mode Grid), else null.</summary>
+    public ImportGrid? Grid() => Mode == ImportMode.Grid ? GridModel?.Grid() : null;
 
     /// <summary>Browse added setups (one folder is one setup: a folder already listed is not added twice). Returns how many were new.</summary>
     public int Add(IEnumerable<DetectedInstance> picked)
@@ -389,6 +446,10 @@ internal sealed class ImportFlowModel
     /// </summary>
     public BulkSelection Selection()
     {
+        // The fast path is the whole launcher: the engine reads OfLauncher with no grid as "same settings everywhere".
+        if (Mode == ImportMode.Fast && Scope is { } fast) return BulkSelection.OfLauncher(fast);
+        // The grid is every setup: its ticks decide who brings what (a row with nothing ticked brings nothing).
+        if (Mode == ImportMode.Grid) return BulkSelection.All();
         var selection = Scope is { } launcher ? BulkSelection.OfLauncher(launcher) : BulkSelection.All();
         foreach (var version in Versions().Where(v => v.Supported))
             foreach (var setup in version.Setups)
@@ -405,8 +466,10 @@ internal sealed class ImportFlowModel
     /// The options a plan is made with: the Details switches (<paramref name="details"/>) and what each version brings.
     /// Worlds and screenshots are the categories' to decide, so their switches are on here.
     /// </summary>
-    public ImportOptions Options(ImportOptions details) =>
-        details with { CopyWorlds = true, CopyScreenshots = true, LeaveOut = ImportCategories.None, BringByVersion = BringMap() };
+    public ImportOptions Options(ImportOptions details) => Mode == ImportMode.Ticks
+        ? details with { CopyWorlds = true, CopyScreenshots = true, LeaveOut = ImportCategories.None, BringByVersion = BringMap() }
+        // Fast and grid bring every pack of the setups that bring packs (the union), not just the ones switched on.
+        : details with { CopyWorlds = true, CopyScreenshots = true, CopyUnusedPacks = true, LeaveOut = ImportCategories.None, BringByVersion = null };
 
     /// <summary>"Worlds, Screenshots": the categories a version leaves out, by name (empty: nothing).</summary>
     public static string LeftOutNames(ImportCategories bring) =>
@@ -451,6 +514,9 @@ internal sealed class ImportFlowModel
     /// </summary>
     public string SelectionKey()
     {
+        // Fast and grid ignore the page's ticks and the settings picks: the launcher (or the grid) is the whole choice.
+        if (Mode == ImportMode.Fast) return $"fast|{Scope}|{_setups.Count}";
+        if (Mode == ImportMode.Grid) return $"grid:{GridModel?.Key()}|{_setups.Count}";
         var left = new List<string>();
         foreach (var version in Versions().Where(v => v.Supported))
             foreach (var setup in version.Setups)
@@ -458,6 +524,6 @@ internal sealed class ImportFlowModel
                     left.Add(setup.BulkId());
         left.Sort(StringComparer.Ordinal);
         var choices = Choices.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => c.Key + "=" + c.Value);
-        return $"{Scope?.ToString() ?? "all"}|{_setups.Count}|{string.Join(",", left)}|{string.Join(",", choices)}";
+        return $"ticks|{Scope?.ToString() ?? "all"}|{_setups.Count}|{string.Join(",", left)}|{string.Join(",", choices)}";
     }
 }

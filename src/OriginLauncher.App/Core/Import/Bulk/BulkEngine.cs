@@ -44,10 +44,18 @@ public sealed partial class ImportEngine
 
     /// <summary>The player ticked or unticked setups: only the version groups whose setups changed are planned again.</summary>
     public Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection,
+        IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
+        ReplanSelectionAsync(plan, selection, plan.Request?.Grid, progress, ct);
+
+    /// <summary>
+    /// The selection or the import grid changed: only the version groups whose contributions changed are planned again.
+    /// <paramref name="grid"/> null = no grid (Import everything, or the one-launcher fast path).
+    /// </summary>
+    public Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection, ImportGrid? grid,
         IProgress<BulkPlanProgress>? progress, CancellationToken ct)
     {
         var request = plan.Request ?? throw new InvalidOperationException("This plan can't be planned again (it wasn't made by the engine).");
-        return Task.Run(() => PlanBulkCore(request with { Selection = selection }, plan, progress, ct), ct);
+        return Task.Run(() => PlanBulkCore(request with { Selection = selection, Grid = grid }, plan, progress, ct), ct);
     }
 
     private sealed class PlanCounter
@@ -103,54 +111,68 @@ public sealed partial class ImportEngine
         }
         if (!accountOk) return plan; // no account, no target folders: nothing more to plan
 
-        // ---- one group per exact version, newest first (B5, B9) ----
+        // ---- one group per exact version, newest first (B5, B9); who brings what: BulkComposer ----
         var metadata = new MetadataCache(); // B13: one metadata session for every version in this plan
-        foreach (var bucket in qualified.GroupBy(s => s.McVersion!, StringComparer.Ordinal).OrderBy(g => g.Key, BulkRanking.NewestFirst))
+        var reported = new HashSet<DetectedInstance>(ReferenceEqualityComparer.Instance);
+        var failed = new HashSet<DetectedInstance>(ReferenceEqualityComparer.Instance);
+        void SkipOnce(DetectedInstance setup, string reason, SkipKind kind)
+        {
+            if (reported.Add(setup)) Skip(setup, reason, kind);
+        }
+        var compositions = BulkComposer.Compose(qualified, request.Grid, request.WinnerChoices, request.SameSettingsEverywhere);
+        // A setup that lends its settings to another version is part of the run even where its own version takes nothing from it.
+        var donors = new HashSet<DetectedInstance>(compositions.Where(c => c.Order.Count > 0 && c.SettingsFrom != null).Select(c => c.SettingsFrom!),
+            ReferenceEqualityComparer.Instance);
+        foreach (var first in compositions)
         {
             ct.ThrowIfCancellationRequested();
-            var version = bucket.Key;
+            var version = first.Version;
             var targetDir = InstanceLayout.GameDir(_env.InstancesRoot, version, account!);
             if (Directory.Exists(targetDir) && _env.IsGameRunning(targetDir))
             {
-                foreach (var setup in bucket)
-                    Skip(setup, $"Close Minecraft first: Origin's Minecraft {version} is still running. Plan the import again after closing it to bring this setup over.",
+                foreach (var setup in qualified.Where(s => s.McVersion == version))
+                    SkipOnce(setup, $"Close Minecraft first: Origin's Minecraft {version} is still running. Plan the import again after closing it to bring this setup over.",
                         SkipKind.TargetRunning);
                 continue;
             }
+            foreach (var setup in first.Left.Where(s => !donors.Contains(s))) SkipOnce(setup, BulkRules.NothingPickedReason, SkipKind.NothingPicked);
 
-            var members = bucket.ToList();
-            while (members.Count > 0)
+            var composition = first;
+            while (composition.Order.Count > 0)
             {
-                var (winner, pick, needsChoice) = PickWinner(request, version, members);
-                var order = OrderGroup(members, winner);
-                if (previous != null && Reusable(previous, request, version, order, winner) is { } same)
+                if (previous != null && Reusable(previous, request, composition) is { } same)
                 {
                     // Unchanged: its plans stand as they are. Only the choice flag follows the request (the player
-                    // confirming the preselected winner clears it).
-                    same.NeedsChoice = needsChoice;
+                    // confirming the preselected setup clears it).
+                    same.NeedsChoice = NeedsChoice(request, composition);
                     plan.Groups.Add(same);
-                    foreach (var planned in same.Setups)
+                    foreach (var planned in same.Setups.Where(p => reported.Add(p.Setup)))
                         progress?.Report(new BulkPlanProgress(++counter.Done, counter.Total, planned.Setup.BulkLabel(), Planned: planned));
                     break;
                 }
 
-                var (group, failedWinner) = await PlanGroupAsync(request, plan.RunId, version, targetDir, order, winner, pick, needsChoice,
-                    metadata, counter, Skip, progress, ct).ConfigureAwait(false);
-                if (failedWinner != null)
+                var (group, failedDonor) = await PlanGroupAsync(request, plan.RunId, version, targetDir, composition,
+                    metadata, counter, reported, SkipOnce, progress, ct).ConfigureAwait(false);
+                if (failedDonor != null)
                 {
-                    // The winner couldn't be planned (it changed since the scan): pick again from the rest, from scratch.
-                    members.Remove(failedWinner);
+                    // The settings setup couldn't be planned (it changed since the scan): decide again without it, from scratch.
+                    failed.Add(failedDonor);
+                    composition = BulkComposer.Compose(qualified.Where(s => !failed.Contains(s)).ToList(), request.Grid, request.WinnerChoices, request.SameSettingsEverywhere)
+                        .FirstOrDefault(c => c.Version == version) ?? composition with { Order = Array.Empty<Contribution>() };
                     continue;
                 }
                 if (group.Setups.Count > 0) plan.Groups.Add(group);
                 break;
             }
         }
+        // A setup that only lent its settings to other versions, and whose own version got nothing, still appears once.
+        foreach (var setup in qualified.Where(s => !reported.Contains(s) && !plan.AllSetups.Any(p => ReferenceEquals(p.Setup, s))))
+            SkipOnce(setup, BulkRules.NothingPickedReason, SkipKind.NothingPicked);
 
         // ---- the run as a whole ----
         plan.BytesToCopy = plan.AllSetups.Sum(s => s.Plan.BytesToCopy) + plan.Groups.Sum(g => g.VersionPlan?.Ops.Sum(o => o.Bytes) ?? 0);
-        if (!request.PlayWithExternalMods && plan.AllSetups.Any(s => s.Plan.ProfileId != null))
-            plan.Notes.Add("The imported mods are in new profiles, but \"Play with my own mods\" is off, so they won't load until you turn it on.");
+        if (!request.PlayWithExternalMods && plan.AllSetups.Any(s => s.Plan.Ops.Any(o => o.Item == PlanItemKind.Mod)))
+            plan.Notes.Add(ModsOffNote);
         if (selected.Count > 0 && plan.Groups.Count == 0)
             plan.Blocked.Add("None of the setups you picked can come over. The list below says why.");
 
@@ -180,88 +202,85 @@ public sealed partial class ImportEngine
         _ => "the picked launcher's",
     };
 
-    // B6: the winner among the setups that can carry settings (not packs-only). The player's choice wins; an
-    // unclear pick uses the picker's preselected setup and is flagged so the panel can offer the choice.
-    private static (DetectedInstance? Winner, PickResult Pick, bool NeedsChoice) PickWinner(BulkRequest request, string version,
-        List<DetectedInstance> members)
-    {
-        var participants = members.Where(s => !BulkRules.IsPacksOnly(s, version)).OrderBy(s => s, BulkRanking.Order).ToList();
-        if (participants.Count == 0) return (null, new PickResult(PickMode.None, Array.Empty<DetectedInstance>(), null), false);
-        var pick = VersionPicker.Pick(participants);
-        if (request.WinnerChoices.TryGetValue(version, out var chosenId)
-            && participants.FirstOrDefault(p => string.Equals(p.BulkId(), chosenId, StringComparison.OrdinalIgnoreCase)) is { } chosen)
-            return (chosen, pick, false);
-        var winner = pick.Preselected ?? participants[0];
-        return (winner, pick, pick.Mode == PickMode.Choose);
-    }
-
-    // B9: the winner first, then everyone else in BulkRanking order.
-    private static List<DetectedInstance> OrderGroup(List<DetectedInstance> members, DetectedInstance? winner)
-    {
-        var order = new List<DetectedInstance>();
-        if (winner != null) order.Add(winner);
-        order.AddRange(members.Where(s => !ReferenceEquals(s, winner)).OrderBy(s => s, BulkRanking.Order));
-        return order;
-    }
-
-    // A group of the previous plan that is exactly what would be planned now (same setups in the same order, same
-    // winner, same switches and account) is kept: re-planning one version never re-reads the others. Never one whose
+    // A group of the previous plan that is exactly what would be planned now (the same setups bringing the same things in
+    // the same order, same switches and account) is kept: re-planning one version never re-reads the others. Never one whose
     // Origin folder took an import or undo since the previous plan was made: its "World1 is already in Origin" may be
     // untrue now, and the new plan's fresh stamp would carry it past the apply's stale-plan check (TRY AGAIN after a
     // refused apply did exactly that: an undone world never came back while the summary said it was there).
-    private static VersionGroup? Reusable(BulkImportPlan previous, BulkRequest request, string version, List<DetectedInstance> order,
-        DetectedInstance? winner)
+    private static VersionGroup? Reusable(BulkImportPlan previous, BulkRequest request, VersionComposition composition)
     {
-        var old = previous.Groups.FirstOrDefault(g => g.Version == version);
+        var old = previous.Groups.FirstOrDefault(g => g.Version == composition.Version);
         var before = previous.Request;
         if (old == null || before == null) return null;
         if (ImportTargetLocks.ChangedSince(new[] { old.TargetGameDir }, previous.PlannedAt)) return null;
         if (before.Options != request.Options || before.AccountKey != request.AccountKey) return null;
-        if (old.Setups.Count != order.Count) return null;
-        for (var i = 0; i < order.Count; i++)
-            if (old.Setups[i].Setup.BulkId() != order[i].BulkId() || !Equals(old.Setups[i].Setup, order[i])) return null;
-        var oldWinner = old.Setups.FirstOrDefault(s => s.Role == SetupRole.Full)?.Setup;
-        return Equals(oldWinner?.BulkId(), winner?.BulkId()) ? old : null;
+        if (old.Setups.Count != composition.Order.Count) return null;
+        for (var i = 0; i < composition.Order.Count; i++)
+        {
+            var (was, now) = (old.Setups[i], composition.Order[i]);
+            if (was.Setup.BulkId() != now.Setup.BulkId() || !Equals(was.Setup, now.Setup) || was.Brings != now.Brings
+                || was.PrimaryMods != now.PrimaryMods) return null;
+        }
+        return old;
     }
 
-    // Returns the planned group, or (when the settings winner itself can't be planned) the winner that failed: the
-    // caller then picks a new winner and plans the group again, so no setup's settings role rests on a missing setup.
-    private async Task<(VersionGroup Group, DetectedInstance? FailedWinner)> PlanGroupAsync(BulkRequest request, string runId, string version, string targetDir,
-        List<DetectedInstance> order, DetectedInstance? winner, PickResult pick, bool needsChoice, MetadataCache metadata,
-        PlanCounter counter, Action<DetectedInstance, string, SkipKind> skip, IProgress<BulkPlanProgress>? progress, CancellationToken ct)
+    // B6: an unclear settings pick the player hasn't settled (no pinned setup, no grid pick, not the one-launcher fast
+    // path) is preselected and flagged, never a reason to block.
+    private static bool NeedsChoice(BulkRequest request, VersionComposition composition) =>
+        composition.Pick.Mode == PickMode.Choose && composition.SettingsFrom != null && !request.SameSettingsEverywhere
+        && !request.WinnerChoices.ContainsKey(composition.Version)
+        && !(request.Grid?.ChoseSettings(composition.Version, out _) ?? false);
+
+    // Every folder a group's apply writes: the game folder and the version's shared mods folder when mods land there.
+    private static IEnumerable<string> LockDirs(VersionGroup group) =>
+        group.Setups.SelectMany(s => LockDirs(s.Plan)).Append(group.TargetGameDir).Distinct(StringComparer.OrdinalIgnoreCase);
+
+    // Returns the planned group, or (when the settings setup itself can't be planned) the setup that failed: the caller
+    // then decides again without it, so no setup's settings role rests on a missing setup.
+    private async Task<(VersionGroup Group, DetectedInstance? FailedDonor)> PlanGroupAsync(BulkRequest request, string runId, string version,
+        string targetDir, VersionComposition composition, MetadataCache metadata, PlanCounter counter, HashSet<DetectedInstance> reported,
+        Action<DetectedInstance, string, SkipKind> skip, IProgress<BulkPlanProgress>? progress, CancellationToken ct)
     {
+        var donor = composition.SettingsFrom;
         var group = new VersionGroup
         {
-            Version = version, TargetGameDir = targetDir, Winner = winner ?? order[0], Pick = pick, NeedsChoice = needsChoice,
+            Version = version, TargetGameDir = targetDir, Winner = donor ?? composition.Order[0].Setup, Pick = composition.Pick,
+            NeedsChoice = NeedsChoice(request, composition),
         };
         var ledger = new DestinationLedger(); // B10: one per target folder, shared by the group
-        var plannedProfiles = new List<ModProfile>();
         var facts = request.Facts?.Invoke(version) ?? new TargetFacts();
 
-        for (var position = 0; position < order.Count; position++)
+        for (var position = 0; position < composition.Order.Count; position++)
         {
-            var setup = order[position];
+            var part = composition.Order[position];
+            var setup = part.Setup;
             ct.ThrowIfCancellationRequested();
-            var role = BulkRules.IsPacksOnly(setup, version) ? SetupRole.PacksOnly
-                : ReferenceEquals(setup, winner) ? SetupRole.Full : SetupRole.ModsAndPacks;
+            var carriesSettings = (part.Brings & ImportCategories.Settings) != 0;
+            var role = carriesSettings ? SetupRole.Full : BulkRules.IsPacksOnly(setup, version) ? SetupRole.PacksOnly : SetupRole.ModsAndPacks;
+            var options = request.Options.ForVersion(version);
+            if (request.Grid != null)
+                // The grid is the player's word on worlds and screenshots: a ticked Worlds cell brings them.
+                options = options with
+                {
+                    CopyWorlds = (part.Brings & ImportCategories.Worlds) != 0,
+                    CopyScreenshots = (part.Brings & ImportCategories.Screenshots) != 0,
+                };
             var r = new ImportRequest
             {
-                Source = setup, TargetVersion = version, AccountKey = request.AccountKey, Options = request.Options.ForVersion(version),
+                Source = setup, TargetVersion = version, AccountKey = request.AccountKey, Options = options,
                 SupportedTargets = request.SupportedTargets, BundledOriginJarPath = facts.BundledOriginJarPath,
                 CatalogMods = facts.CatalogMods, TargetHasIris = facts.TargetHasIris,
-                // B11: unique among the version's existing profiles AND the ones this run already named.
-                ExistingProfiles = request.ExistingProfiles.Concat(plannedProfiles).ToList(),
                 PlayWithExternalMods = request.PlayWithExternalMods,
-                SelectedVersion = request.SelectedVersion, SelectedProfileId = request.SelectedProfileId,
                 Role = role, Ledger = ledger, ImportId = runId, Bulk = true, Metadata = metadata,
-                SettingsWinnerLabel = role == SetupRole.Full ? null : winner?.BulkLabel(),
+                Brings = part.Brings, PrimaryMods = part.PrimaryMods, SelectedPacksOnly = part.OtherVersion,
+                SettingsWinnerLabel = carriesSettings ? null : donor?.BulkLabel(),
                 SetupKey = $"{version}#{position}", // who owns a ledger claim (labels can repeat; positions can't)
             };
 
             var setupPlan = BuildPlan(r, null, ct, out var fs);
-            // Per-setup contributors only (caches); game-file reuse runs once for the version below (B13).
-            // A packs-only setup brings nothing else, so nothing else of it is read.
-            if (setupPlan.CanApply && role != SetupRole.PacksOnly)
+            // Per-setup contributors only (caches); game-file reuse runs once for the version below (B13). Caches belong
+            // with the worlds they were built from, so only a setup that brings worlds is read for them.
+            if (setupPlan.CanApply && role != SetupRole.PacksOnly && (part.Brings & ImportCategories.Worlds) != 0)
                 foreach (var contributor in _env.Contributors.Where(c => c is not IVersionWideContributor))
                     await contributor.ContributeAsync(setupPlan, r, fs, ct).ConfigureAwait(false);
             Finish(setupPlan, fs, checkSpace: false);
@@ -269,26 +288,30 @@ public sealed partial class ImportEngine
             {
                 // It changed between the check above and its planning (its folder went away, a game started).
                 skip(setup, "Couldn't read this setup while planning, so it can't come over. Plan the import again to retry it.", SkipKind.FolderMissing);
-                if (role == SetupRole.Full) return (group, setup);
+                if (ReferenceEquals(setup, donor)) return (group, setup);
                 continue;
             }
 
-            if (setupPlan.ProfileId != null && !setupPlan.ProfileReused)
-                plannedProfiles.Add(new ModProfile { Id = setupPlan.ProfileId, Name = setupPlan.ProfileName!, Version = version });
             string? note = null;
             if (role == SetupRole.PacksOnly)
             {
                 note = BulkRules.ForgeNote;
                 setupPlan.Lines.Insert(0, new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, BulkRules.ForgeNote));
             }
-            var uncertain = BulkRules.IsVersionUncertain(setup);
+            var uncertain = !part.OtherVersion && BulkRules.IsVersionUncertain(setup);
             if (uncertain)
                 setupPlan.Lines.Insert(0, new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting,
                     $"Not sure this is Minecraft {version}", BulkRules.UncertainReason(setup)));
+            if (part.OtherVersion)
+            {
+                note = BulkRules.OtherVersionNote(setup.McVersion!, version);
+                setupPlan.Lines.Insert(0, new SummaryLine(SummarySection.Imported, PlanItemKind.Setting, note));
+            }
 
-            var planned = new PlannedSetup(setup, role, setupPlan, note, uncertain);
+            var planned = new PlannedSetup(setup, role, setupPlan, note, uncertain, part.Brings, part.PrimaryMods, part.OtherVersion);
             group.Setups.Add(planned);
-            progress?.Report(new BulkPlanProgress(++counter.Done, counter.Total, setup.BulkLabel(), Planned: planned));
+            if (reported.Add(setup))
+                progress?.Report(new BulkPlanProgress(++counter.Done, counter.Total, setup.BulkLabel(), Planned: planned));
         }
 
         // B13: the version's shared work (game-file reuse), once for the whole group.
@@ -296,7 +319,7 @@ public sealed partial class ImportEngine
         if (group.Setups.Count > 0 && versionWide.Count > 0)
         {
             ct.ThrowIfCancellationRequested();
-            var anchor = group.Setups[0].Setup;
+            var anchor = group.Setups.FirstOrDefault(s => !s.OtherVersion)?.Setup ?? group.Setups[0].Setup;
             var versionPlan = new ImportPlan
             {
                 ImportId = runId, Source = anchor, TargetVersion = version, Options = request.Options, TargetGameDir = targetDir,
@@ -420,9 +443,12 @@ public sealed partial class ImportEngine
         try
         {
             tx.Begin();
-            var dirs = plan.Groups.Select(g => g.TargetGameDir).ToList();
+            // The game folders and the versions' shared mods folders (an import's mods land there).
+            var dirs = plan.Groups.SelectMany(LockDirs).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             folders = ImportTargetLocks.Acquire(dirs, ct);
-            if (ImportTargetLocks.ChangedSince(dirs, plan.PlannedAt))
+            // Stale = a GAME folder changed (the shared mods folders are only locked: see ImportEngine.Apply).
+            var gameDirs = plan.Groups.Select(g => g.TargetGameDir).ToList();
+            if (ImportTargetLocks.ChangedSince(gameDirs, plan.PlannedAt))
             {
                 tx.Rollback(settings); // nothing was changed yet: this only closes the journal
                 return new BulkImportResult
@@ -551,7 +577,7 @@ public sealed partial class ImportEngine
                 settings.Apply(delta);
             }
             tx.Commit();
-            ImportTargetLocks.MarkChanged(plan.Groups.Select(g => g.TargetGameDir));
+            ImportTargetLocks.MarkChanged(gameDirs);
             _env.Log?.Invoke($"import bulk apply: {tx.Journal.Entries.Count} journal entries, {tx.JournalBytesWritten} journal bytes written, "
                 + $"{ImportSummary.Megabytes(bytesDone)} copied");
             return Finished(plan, ImportState.Committed, states, versionExtra, cancelled: false, error: null);
@@ -584,29 +610,9 @@ public sealed partial class ImportEngine
     private static bool IsSourceProblem(PlannedOp op, Exception ex) =>
         ex is SourceUnreadableException && !ImportFiles.IsDiskFull(ex) && op.Kind != OpKind.Custom;
 
-    // B12: ONE settings change for the run: every new profile, and the selection moves to the first setup (in
-    // BulkRanking order) that got a profile — else just to that setup's version. PlayWithExternalMods is never touched.
-    private static SettingsDelta? BuildDelta(BulkImportPlan plan, Dictionary<PlannedSetup, SetupState> states)
-    {
-        var imported = plan.AllSetups
-            .Where(s => states[s].Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly)
-            .ToList();
-        if (imported.Count == 0) return null;
-        // A reused profile (a repeat import) is the player's already: never added, so never removed by an undo.
-        var profiles = imported.Where(s => s.Plan.ProfileId != null && !s.Plan.ProfileReused)
-            .Select(s => new ModProfile { Id = s.Plan.ProfileId!, Name = s.Plan.ProfileName!, Version = s.Plan.TargetVersion })
-            .ToList();
-        var ranked = imported.OrderBy(s => s.Setup, BulkRanking.Order).ToList();
-        var select = ranked.FirstOrDefault(s => s.Plan.ProfileId != null) ?? ranked[0];
-        return new SettingsDelta
-        {
-            AddProfiles = profiles.Count > 0 ? profiles : null,
-            SetSelectedVersion = select.Plan.TargetVersion,
-            SetSelectedProfileId = select.Plan.ProfileId,
-            PreviousSelectedVersion = plan.Request?.SelectedVersion,
-            PreviousSelectedProfileId = plan.Request?.SelectedProfileId,
-        };
-    }
+    // B12: an import changes no launcher setting at all (Will, 2026-10-19: imports never make profiles, and the player's
+    // picked version stays theirs; the done screen's Play picks one). PlayWithExternalMods is never touched either.
+    private static SettingsDelta? BuildDelta(BulkImportPlan plan, Dictionary<PlannedSetup, SetupState> states) => null;
 
     private BulkImportResult BulkRolledBack(BulkImportPlan plan, ImportTransaction tx, IImportSettings settings,
         Dictionary<PlannedSetup, SetupState> states, Dictionary<VersionGroup, List<SummaryLine>> versionExtra, bool cancelled, string? error)

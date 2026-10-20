@@ -9,12 +9,13 @@
 
     <!-- The Import page (Poster look): a full page like Profiles, in the same 1000 px column under the top bar.
          One pane at a time (ImportPanel.xaml.cs keeps the state machine):
-           DetectPane     "Bring it all over": one tile per launcher found (logo, folder, counts, a tick), a slim row for
-                          the launchers that weren't found, Choose what to import / Import everything
-           PickList       "Choose what to import": a card per launcher, a row per setup, ticks at both levels
+           DetectPane     "Bring it all over": one tile per launcher found (logo, folder, counts, a tick, "Bring everything
+                          from X"), a slim row for the launchers that weren't found, Choose what to import / Import everything
+           GridPane       "Choose what to import": version tabs, a row per launcher, a tick per thing (ImportGridModel)
+           PickList       "Pick single setups": a card per launcher, a row per setup, ticks at both levels
            Legacy         what to bring, versions, one version, review, whose settings, one setup, details (720 px column)
            ProgressPane   "Importing": one big percentage and bar, a row per setup (waiting, copying, done)
-           DonePane       "You're all set": what came over and the new profiles
+           DonePane       "You're all set": what came over and the versions it went to (imports make no profiles)
            FailedPane     "Nothing changed": the reason
          Every colour, type and shape is a Theme token; the orange tick, dot and bar are the Poster accent (Brush.Acc, indicators only). -->
     <UserControl.Resources>
@@ -139,6 +140,76 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
+        <!-- "Bring everything from Lunar" on a tile: the soft accent wash (Brush.AccSoft), the accent edge on hover. -->
+        <Style x:Key="Import.FastButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="0,12,0,0"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{DynamicResource Brush.AccSoft}" BorderBrush="Transparent" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius.Control}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A version tab above the grid: the card surface, the soft accent with an accent edge when shown. -->
+        <Style x:Key="Import.Tab" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Chip}" Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.AccSoft}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ================= rows ================= -->
 
         <!-- A heading, or a folding one (Done: "SKIPPED - 2"). -->
@@ -207,10 +278,11 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <!-- The launcher's own colour, faint, in the tile's top-left corner (an accent, never a fill). It
                          reaches the tile's edge through the padding and takes no clicks. -->
-                    <Border Grid.RowSpan="2" Margin="-16" CornerRadius="{StaticResource Radius.Card}"
+                    <Border Grid.RowSpan="3" Margin="-16" CornerRadius="{StaticResource Radius.Card}"
                             Background="{Binding TintWash}" IsHitTestVisible="False"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -263,6 +335,13 @@
                             </StackPanel>
                         </Border>
                     </UniformGrid>
+                    <!-- The one-click path: every setup of this launcher, its most played setup's settings on every
+                         version. A button, so a press on it never toggles the tile (Tile_MouseUp skips buttons). -->
+                    <Button Grid.Row="2" Style="{StaticResource Import.FastButton}" Content="{Binding FastText}"
+                            Visibility="{Binding CanFast, Converter={StaticResource BoolToVis}}"
+                            IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
+                            Click="TileFast_Click" ToolTip="{Binding FastTip}"
+                            AutomationProperties.Name="{Binding FastText}"/>
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
@@ -462,10 +541,10 @@
             </Border>
         </DataTemplate>
 
-        <!-- A new profile: the launcher's logo, the profile's name, "From CurseForge - 1.20.1". "+9 more" opens Profiles. -->
-        <DataTemplate x:Key="Import.ProfileCard" DataType="{x:Type controls:ProfileCardVm}">
-            <Border x:Name="Card" Style="{StaticResource Import.Tile}" Padding="12,12" Margin="0,0,8,8" MinHeight="60"
-                    MouseLeftButtonUp="ProfileCard_MouseUp">
+        <!-- A version that got something: the logo of the launcher its settings came from, "Minecraft 1.21.1",
+             "From Prism, Lunar". "+3 more" is a plain count. -->
+        <DataTemplate x:Key="Import.VersionCard" DataType="{x:Type controls:VersionCardVm}">
+            <Border x:Name="Card" Style="{StaticResource Import.Tile}" Padding="12,12" Margin="0,0,8,8" MinHeight="60">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -498,7 +577,65 @@
                     <Setter TargetName="Avatar" Property="Visibility" Value="Collapsed"/>
                     <Setter TargetName="Words" Property="Visibility" Value="Collapsed"/>
                     <Setter TargetName="MoreText" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="Card" Property="Cursor" Value="Hand"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ================= Choose what to import: the grid ================= -->
+
+        <!-- A launcher's row: logo, name, "3 setups - 1.21.1, 1.20.1", then one tick per column (the same 6 x 96 px
+             as the column heads). A greyed tick has nothing behind it; its tooltip says why. -->
+        <DataTemplate DataType="{x:Type controls:GridRowVm}">
+            <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}" Padding="16,10"
+                    Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="180"/>
+                        <ColumnDefinition Width="576"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.ColumnSpan="2" Margin="-16,-10" CornerRadius="{StaticResource Radius.Card}"
+                            Background="{Binding TintWash}" IsHitTestVisible="False"/>
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="36" Height="36" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Margin="0,0,12,0">
+                            <Grid>
+                                <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                                <Image x:Name="LogoImage" Source="{Binding Logo}" Width="24" Height="24"
+                                       RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}"/>
+                            <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}" ToolTip="{Binding Caption}"/>
+                        </StackPanel>
+                    </Grid>
+                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}" Focusable="False" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Style="{StaticResource Import.Tick}" HorizontalAlignment="Center" IsThreeState="False"
+                                          IsChecked="{Binding On, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                                          ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True"
+                                          AutomationProperties.Name="{Binding Name}" AutomationProperties.HelpText="{Binding Tip}"
+                                          Click="GridCell_Click"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasLogo}" Value="True">
+                    <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -834,6 +971,69 @@
                 <!-- Choose what to import -->
                 <ItemsControl x:Name="PickList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
 
+                <!-- Choose what to import, the grid: version tabs (more than one version), the column heads, a row per
+                     launcher, the mixed-mods warning and the way to pick single setups instead. -->
+                <Grid x:Name="GridPane" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <ItemsControl x:Name="GridTabs" Focusable="False" Margin="0,0,0,10">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ToggleButton Style="{StaticResource Import.Tab}" Content="{Binding Title}"
+                                              IsChecked="{Binding Selected, Mode=OneWay}" Click="GridTab_Click"
+                                              AutomationProperties.Name="{Binding AutomationName}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- The heads sit over the ticks: the row's 16 px inset and its 576 px tick block, plus the list's
+                         scrollbar column. -->
+                    <Grid Grid.Row="1" Margin="16,0,24,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="576"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="LAUNCHER" Style="{StaticResource Text.Eyebrow}" VerticalAlignment="Bottom"/>
+                        <ItemsControl x:Name="GridHeads" Grid.Column="1" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Style="{StaticResource Text.Eyebrow}" TextAlignment="Center"
+                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" TextWrapping="Wrap"
+                                               TextTrimming="None"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                    <ItemsControl x:Name="GridRows" Grid.Row="2" Style="{StaticResource Import.List}"/>
+                    <Grid Grid.Row="3" Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel x:Name="GridWarningRow" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                            <Path Data="{StaticResource Icon.Alert}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                                  Margin="0,0,8,0" VerticalAlignment="Center" Stroke="{StaticResource Brush.Warning}"/>
+                            <TextBlock x:Name="GridWarning" Style="{StaticResource Import.Warning}" Margin="0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button x:Name="GridSetupsButton" Grid.Column="1" Style="{StaticResource Import.HeaderButton}"
+                                Content="Pick single setups" Click="GridSetups_Click"
+                                ToolTip="Tick setups one by one instead" AutomationProperties.Name="Pick single setups"/>
+                    </Grid>
+                </Grid>
+
                 <!-- The older pages, in a narrower column beside the title: what to bring + versions, one version, review,
                      whose settings, one setup, details. -->
                 <Grid x:Name="Legacy" MaxWidth="720" HorizontalAlignment="Left" Visibility="Collapsed">
@@ -959,10 +1159,10 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <TextBlock x:Name="DoneProfilesTitle" Text="NEW PROFILES" Style="{StaticResource Text.Eyebrow}"
+                        <TextBlock x:Name="DoneVersionsTitle" Text="READY TO PLAY" Style="{StaticResource Text.Eyebrow}"
                                    Margin="0,24,0,10"/>
-                        <ItemsControl x:Name="DoneProfiles" Focusable="False" Margin="0,0,-8,0"
-                                      ItemTemplate="{StaticResource Import.ProfileCard}">
+                        <ItemsControl x:Name="DoneVersions" Focusable="False" Margin="0,0,-8,0"
+                                      ItemTemplate="{StaticResource Import.VersionCard}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <UniformGrid Columns="4"/>

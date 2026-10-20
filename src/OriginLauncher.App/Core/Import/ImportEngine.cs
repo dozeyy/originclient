@@ -125,11 +125,8 @@ public sealed record ImportRequest
 
     public bool? TargetHasIris { get; init; }
 
-    // The launcher settings as they are now (the plan names its delta against these).
-    public IReadOnlyList<ModProfile> ExistingProfiles { get; init; } = Array.Empty<ModProfile>();
+    /// <summary>"Play with my own mods" as it is now: imported mods only load when it is on (the plan says so; it is never flipped).</summary>
     public bool PlayWithExternalMods { get; init; } = true;
-    public string? SelectedVersion { get; init; }
-    public string? SelectedProfileId { get; init; }
 
     // ---- set by a bulk import ("import everything") for each setup it plans; a single import leaves them alone ----
 
@@ -144,6 +141,21 @@ public sealed record ImportRequest
 
     /// <summary>Part of a bulk run: no per-setup space check, no per-setup settings notes (the run checks and says them once).</summary>
     internal bool Bulk { get; init; }
+
+    /// <summary>
+    /// What this setup brings (bulk: its cells of the import grid; a single import brings everything). Nothing outside it
+    /// is even planned, so no ledger claim is ever left behind for a thing that doesn't come over.
+    /// </summary>
+    internal ImportCategories Brings { get; init; } = ImportCategories.All;
+
+    /// <summary>
+    /// The first setup of its version to bring mods: its mod configs replace Origin's (after a backup). A later mod
+    /// setup of the same version only creates the config files nothing else writes.
+    /// </summary>
+    internal bool PrimaryMods { get; init; } = true;
+
+    /// <summary>A settings setup from ANOTHER Minecraft version: of its packs only the ones its settings switch on come along.</summary>
+    internal bool SelectedPacksOnly { get; init; }
 
     /// <summary>The setup whose settings this version gets in a bulk run (for the "settings come from" line).</summary>
     internal string? SettingsWinnerLabel { get; init; }
@@ -266,9 +278,11 @@ public sealed partial class ImportEngine
 
         progress?.Report(new ImportProgress(ImportStage.Planning, 0, 3, source.Name));
 
-        // ---- mods -> a new profile (a packs-only setup's mods are never even read) ----
-        if (r.Role != SetupRole.PacksOnly && (r.Options.LeaveOut & ImportCategories.Mods) == 0) PlanMods(plan, r, fs, target, ct);
-        if (PvpClientSource.BuiltInModsNote(source.Kind) is { } builtIn)
+        // ---- mods -> the version's shared mods folder, never a profile (a setup that doesn't bring mods never reads them) ----
+        var ledger = r.Ledger ?? new DestinationLedger();
+        if (r.Role != SetupRole.PacksOnly && (r.Brings & ImportCategories.Mods) != 0 && (r.Options.LeaveOut & ImportCategories.Mods) == 0)
+            PlanMods(plan, r, fs, target, ledger, ct);
+        if ((r.Brings & ImportCategories.Mods) != 0 && PvpClientSource.BuiltInModsNote(source.Kind) is { } builtIn)
             plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, builtIn.Name, builtIn.Reason));
         progress?.Report(new ImportProgress(ImportStage.Planning, 1, 3, "settings"));
 
@@ -277,8 +291,9 @@ public sealed partial class ImportEngine
         {
             Fs = fs, Source = source, TargetVersion = target, TargetGameDir = plan.TargetGameDir,
             Options = r.Options, TargetHasIris = r.TargetHasIris ?? target != "1.8.9", Plan = plan, Ct = ct,
-            Role = r.Role, Ledger = r.Ledger ?? new DestinationLedger(), SetupLabel = source.BulkLabel(),
+            Role = r.Role, Ledger = ledger, SetupLabel = source.BulkLabel(),
             SettingsWinnerLabel = r.SettingsWinnerLabel, SetupKey = r.SetupKey,
+            Brings = r.Brings, PrimaryMods = r.PrimaryMods, SelectedPacksOnly = r.SelectedPacksOnly,
         });
         // What the player left out ("What to bring" in the drawer) comes out before the space check and the summary.
         CategoryFilter.Apply(plan, r.Options.LeaveOut);
@@ -286,7 +301,10 @@ public sealed partial class ImportEngine
         return plan;
     }
 
-    private void PlanMods(ImportPlan plan, ImportRequest r, SourceFs fs, string target, CancellationToken ct)
+    // Mods land in the version's ONE shared mods folder (every account of the version plays them), never in a profile.
+    // The folder is only added to: a mod Origin's folder already has (same id or file name) stays as it is, and in a
+    // bulk run a mod an earlier setup of the version brings lands once (DestinationLedger.Mods).
+    private void PlanMods(ImportPlan plan, ImportRequest r, SourceFs fs, string target, DestinationLedger ledger, CancellationToken ct)
     {
         BuiltInModSet builtIns;
         Stream? bundled = null;
@@ -314,84 +332,61 @@ public sealed partial class ImportEngine
         var decisions = ModSetResolver.Resolve(sourceMods, new ResolveContext(target, builtIns, JavaFor(target)));
         plan.Mods.AddRange(decisions);
 
-        if (decisions.Any(d => d.IsCopied))
-        {
-            // Importing the same setup again must not make "Hypixel 2", "Hypixel 3"...: a profile of this version
-            // that already holds exactly these mods (same files, same bytes, nothing else) is the one it lands in.
-            if (ProfileWithSameMods(target, decisions, r.ExistingProfiles, fs) is { } same)
-            {
-                plan.ProfileId = same.Id;
-                plan.ProfileName = same.Name;
-                plan.ProfileReused = true;
-            }
-            else
-            {
-                plan.ProfileId = _env.NewId();
-                plan.ProfileName = MakeProfileName(plan.Source, target, r.ExistingProfiles);
-            }
-        }
-
+        var modsDir = InstanceLayout.ModsDir(_env.InstancesRoot, target);
+        var shared = ledger.Mods ??= SharedModsLedger.Read(modsDir);
+        var label = plan.Source.BulkLabel();
+        var copied = 0;
         foreach (var d in decisions)
         {
-            var label = d.DisplayName ?? d.ModId ?? d.FileName;
+            var name = d.DisplayName ?? d.ModId ?? d.FileName;
             switch (d.Outcome)
             {
                 case ModOutcome.Copied:
                 case ModOutcome.CopiedAsBefore:
                 case ModOutcome.CopiedDisabled:
+                    if (shared.Holder(d) is { } holder)
+                    {
+                        plan.Lines.Add(new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
+                            holder == SharedModsLedger.InOrigin ? AlreadyInOriginMods : $"already brought over from {holder}"));
+                        break;
+                    }
                     if (ImportFiles.SizeOrNull(d.SourcePath!) is not { } bytes)
                     {
                         // It vanished (or became unreadable) since it was read: left out, never a reason to fail the plan.
-                        plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{label} ({d.FileName})",
+                        plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{name} ({d.FileName})",
                             "It disappeared from the old setup while Origin was looking at it."));
                         break;
                     }
-                    if (plan.ProfileReused)
-                    {
-                        plan.Lines.Add(new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, label,
-                            $"already in your \"{plan.ProfileName}\" mod profile (same file), left as it is"));
-                        break;
-                    }
+                    shared.Add(d, label);
+                    copied++;
                     var modLine = d.Outcome == ModOutcome.CopiedDisabled
-                        ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, label, "Imported but turned off: " + d.Reason, bytes)
-                        : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, label,
+                        ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, "Imported but turned off: " + d.Reason, bytes)
+                        : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
                             d.Outcome == ModOutcome.CopiedAsBefore ? "imported turned off, as it was" : null, bytes);
                     plan.Ops.Add(new PlannedOp
                     {
                         Kind = OpKind.CopyFile, Item = PlanItemKind.Mod, Label = d.DestFileName!, Source = d.SourcePath,
-                        Dest = Path.Combine(InstanceLayout.ProfileModsDir(_env.InstancesRoot, target, plan.ProfileId!), d.DestFileName!),
-                        Bytes = bytes, PlannedLine = modLine,
+                        Dest = Path.Combine(modsDir, d.DestFileName!), Bytes = bytes, PlannedLine = modLine,
                     });
                     plan.Lines.Add(modLine);
                     break;
                 default:
-                    plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{label} ({d.FileName})", d.Reason));
+                    plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{name} ({d.FileName})", d.Reason));
                     break;
             }
         }
 
-        if (plan.ProfileId != null)
-        {
-            plan.SettingsDelta = new SettingsDelta
-            {
-                // A reused profile is the player's already: never in the delta, so an undo can never remove it.
-                AddProfile = plan.ProfileReused ? null : new ModProfile { Id = plan.ProfileId, Name = plan.ProfileName!, Version = target },
-                SetSelectedVersion = target,
-                SetSelectedProfileId = plan.ProfileId,
-                PreviousSelectedVersion = r.SelectedVersion,
-                PreviousSelectedProfileId = r.SelectedProfileId,
-            };
-            // Imported mods only load when "personal mods" is on; we never flip that switch for the player.
-            // (A bulk run says this once for the whole run, not once per setup.)
-            if (!r.PlayWithExternalMods && !r.Bulk)
-                plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, "Your own mods are turned off",
-                    "The imported mods are in the new profile, but \"Play with my own mods\" is off, so they won't load until you turn it on."));
-        }
-        else
-        {
-            plan.SettingsDelta = new SettingsDelta { SetSelectedVersion = target, PreviousSelectedVersion = r.SelectedVersion };
-        }
+        // Imported mods only load when "Play with my own mods" is on; we never flip that switch for the player.
+        // (A bulk run says this once for the whole run, not once per setup.)
+        if (copied > 0 && !r.PlayWithExternalMods && !r.Bulk)
+            plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, "Your own mods are turned off", ModsOffNote));
     }
+
+    /// <summary>The line a mod gets when Origin's shared mods folder already has it (same id or file name).</summary>
+    internal const string AlreadyInOriginMods = "already in Origin's mods, left as it is";
+
+    internal const string ModsOffNote =
+        "The imported mods are in Origin's mods for this version, but \"Play with my own mods\" is off, so they won't load until you turn it on.";
 
     // True when one path is the other or inside it (full paths; case-insensitive where the file system is).
     private static bool Overlaps(string a, string b)
@@ -436,40 +431,15 @@ public sealed partial class ImportEngine
             plan.Blocked.Add($"Not enough free disk space: the import needs about {ImportSummary.Megabytes(needed)} and {ImportSummary.Megabytes(free)} is free.");
     }
 
-    // "Minecraft: Hypixel" for the new profile: the source's name, unique among that version's profiles, within the 32-character limit.
-    // The existing profile of this version whose mods folder holds exactly the files this import would copy, byte
-    // for byte, and nothing else. Read-only: a folder that can't be read is simply not a match.
-    private ModProfile? ProfileWithSameMods(string target, IReadOnlyList<ModDecision> decisions, IReadOnlyList<ModProfile> existing, SourceFs fs)
+    // The folders an apply writes and locks: the game folder, plus the version's shared mods folder when mods land there
+    // (another account's import of the same version writes that folder too).
+    internal static List<string> LockDirs(ImportPlan plan)
     {
-        var copied = decisions.Where(d => d.IsCopied && d.SourcePath != null && d.DestFileName != null).ToList();
-        if (copied.Count == 0) return null;
-        foreach (var profile in existing.Where(p => p.Version == target && ProfileRules.IsValidId(p.Id)))
-        {
-            try
-            {
-                var dir = InstanceLayout.ProfileModsDir(_env.InstancesRoot, target, profile.Id);
-                if (!Directory.Exists(dir)) continue;
-                var present = Directory.EnumerateFiles(dir).Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                if (present.Count != copied.Count) continue;
-                if (copied.All(d => present.Contains(d.DestFileName!) && FileCompare.Same(d.SourcePath!, Path.Combine(dir, d.DestFileName!), fs)))
-                    return profile;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* not provably the same */ }
-        }
-        return null;
-    }
-
-    internal static string MakeProfileName(DetectedInstance source, string version, IReadOnlyList<ModProfile> existing)
-    {
-        var raw = new string($"{source.SourceLabel}: {source.Name}".Where(c => !char.IsControl(c)).ToArray()).Trim();
-        if (raw.Length == 0) raw = "Imported";
-        for (var n = 1; ; n++)
-        {
-            var suffix = n == 1 ? "" : $" {n}";
-            var room = ProfileRules.MaxNameLength - suffix.Length;
-            var candidate = (raw.Length > room ? raw[..room].TrimEnd() : raw) + suffix;
-            if (ProfileRules.ValidateName(candidate, version, existing) == null) return candidate;
-        }
+        var dirs = new List<string> { plan.TargetGameDir };
+        foreach (var op in plan.Ops)
+            if (op.Item == PlanItemKind.Mod && Path.GetDirectoryName(op.Dest) is { Length: > 0 } dir && !dirs.Contains(dir, StringComparer.OrdinalIgnoreCase))
+                dirs.Add(dir);
+        return dirs;
     }
 
     // The Java each era runs (only used for "java" requirements in mods' depends).
@@ -525,7 +495,9 @@ public sealed partial class ImportEngine
         try
         {
             tx.Begin();
-            folder = ImportTargetLocks.Acquire(new[] { plan.TargetGameDir }, ct);
+            folder = ImportTargetLocks.Acquire(LockDirs(plan), ct);
+            // Stale = the GAME folder changed. The shared mods folder is only locked (writers take turns): another
+            // account's import adding the same jar first leaves this one's copy a no-op, never a wrong result.
             if (ImportTargetLocks.ChangedSince(new[] { plan.TargetGameDir }, plan.PlannedAt))
             {
                 tx.Rollback(settings); // nothing was changed yet: this only closes the journal
@@ -670,6 +642,10 @@ public sealed partial class ImportEngine
                         "Skipped for safety: it looks like a login or account file."));
                     break;
                 }
+                // The shared mods folder is only ever added to: a jar of that name that appeared since the plan (the
+                // Mods page, another account's import) stays as it is - a running game may hold it. The mod is in
+                // Origin's mods either way, so the plan's line stays true.
+                if (op.Item == PlanItemKind.Mod && (File.Exists(op.Dest) || File.Exists(op.Dest + ".disabled"))) break;
                 tx.CopyFile(op.Source!, op.Dest, op.TouchNow);
                 break;
             case OpKind.CopyTree:
@@ -690,6 +666,19 @@ public sealed partial class ImportEngine
                 break;
             case OpKind.MergeJson:
                 tx.Rewrite(op.Dest, temp => SettingsMigrator.ApplyJson(temp, op.Desired!, op.TargetVersion!, plan.TargetGameDir), op.TouchNow);
+                break;
+            case OpKind.MergeServers:
+                var unreadable = false;
+                tx.Rewrite(op.Dest, temp =>
+                {
+                    var existing = File.Exists(temp) ? File.ReadAllBytes(temp) : null;
+                    var merged = ServerList.Merge(existing, op.Servers!.Entries, out var added);
+                    if (merged == null) { unreadable = true; return; } // not a server list: left exactly as it is
+                    if (added > 0) AtomicFile.WriteAllBytes(temp, merged);
+                }, op.TouchNow);
+                if (unreadable)
+                    extra.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, "servers.dat (server list)",
+                        "Origin's server list couldn't be read, so it was left as it is and no servers were added."));
                 break;
         }
     }

@@ -73,7 +73,7 @@ public static class ImportPlanReport
         string? bulkError = null;
         try
         {
-            bulk = await backend.PlanBulkAsync(Bulk.BulkSelection.All(), new ImportOptions(), null, ct).ConfigureAwait(false);
+            bulk = await backend.PlanBulkAsync(Bulk.BulkSelection.All(), new ImportOptions(), null, null, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -160,7 +160,6 @@ public static class ImportPlanReport
         w.WriteStartArray("blocked");
         foreach (var b in plan.Blocked) w.WriteStringValue(b);
         w.WriteEndArray();
-        w.WriteString("profileName", plan.ProfileName);
 
         w.WriteStartObject("counts");
         w.WriteNumber("ops", plan.Ops.Count);

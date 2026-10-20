@@ -57,7 +57,7 @@ public class ImportStressEdgeTests : IDisposable
         // The list is JSON (Minecraft reads it with Gson on every version), so escaped and plain spellings are the same name.
         var packsLine = File.ReadAllLines(Path.Combine(game, "options.txt"), Encoding.UTF8).Single(l => l.StartsWith("resourcePacks:"));
         Assert.Contains($"file/{pack}", JsonSerializer.Deserialize<string[]>(packsLine["resourcePacks:".Length..])!);
-        Assert.True(File.Exists(Path.Combine(InstanceLayout.ProfileModsDir(_rig.Instances, "1.21.1", plan.ProfileId!), "mod é ñ.jar")));
+        Assert.True(File.Exists(Path.Combine(InstanceLayout.ModsDir(_rig.Instances, "1.21.1"), "mod é ñ.jar")));
         Assert.Equal(sourceBefore, Kit.TreeHash(src, mtimes: true));
     }
 
@@ -85,7 +85,7 @@ public class ImportStressEdgeTests : IDisposable
         foreach (var jar in new[] { "zero-bytes.jar", "random-bytes.jar", "bad-metadata.jar", "truncated.jar" })
             Assert.Contains(plan.Lines, l => l.Section == SummarySection.NotImported && l.Name.Contains(jar));
         Assert.False(Directory.Exists(Path.Combine(_rig.GameDir(), "saves", "NoLevelDat")));
-        Assert.True(File.Exists(Path.Combine(InstanceLayout.ProfileModsDir(_rig.Instances, "1.21.1", plan.ProfileId!), "mymod.jar")));
+        Assert.True(File.Exists(Path.Combine(InstanceLayout.ModsDir(_rig.Instances, "1.21.1"), "mymod.jar")));
     }
 
     [Theory]
@@ -175,13 +175,16 @@ public class ImportStressEdgeTests : IDisposable
     // ------------------------------------------------------------ where it writes
 
     [Fact]
-    public async Task NothingIsWrittenOutsideOriginsFoldersAndTheSharedModsFolderIsNeverTouched()
+    public async Task NothingIsWrittenOutsideOriginsFoldersAndTheSharedModsFolderOnlyGainsFiles()
     {
         TypicalSource.Populate(_rig.Source);
         var shared = InstanceLayout.ModsDir(_rig.Instances, "1.21.1");
         foreach (var (name, jar) in new[] { ("originclient-1.21.1.jar", Kit.OriginClientJar()), ("mymod.jar", Kit.FabricJar("mymod", "0.9")) })
             File.SetLastWriteTimeUtc(Kit.WriteBytes(shared, name, jar), TypicalSource.Old); // mymod: same id, older: never replaced in place
-        var sharedBefore = Kit.TreeHash(shared, mtimes: true);
+        // Mods now land in the version's shared folder, but only as additions: what Origin already had stays byte-for-byte.
+        static string Stamp(string p) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(p)))
+                                         + "|" + File.GetLastWriteTimeUtc(p).Ticks;
+        var sharedBefore = Directory.GetFiles(shared).ToDictionary(p => p, Stamp);
         var origin = Path.Combine(_rig.Root, "OriginLauncher");
         string Outside() => string.Join("\n", Directory.EnumerateFileSystemEntries(_rig.Root, "*", SearchOption.AllDirectories)
             .Where(p => !p.StartsWith(origin, StringComparison.OrdinalIgnoreCase) && Path.GetFileName(p) != "settings.json")
@@ -194,13 +197,14 @@ public class ImportStressEdgeTests : IDisposable
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(outsideBefore, Outside());
-        Assert.Equal(sharedBefore, Kit.TreeHash(shared, mtimes: true));
+        foreach (var (path, stamp) in sharedBefore) Assert.Equal(stamp, Stamp(path));  // never replaced or touched in place
         var journal = ImportJournalStore.Load(ImportLayout.Journal(_rig.Imports, plan.ImportId))!;
         Assert.NotEmpty(journal.Entries);
         foreach (var entry in journal.Entries.Where(e => e.Path != null))
         {
             Assert.True(Inside(entry.Path!, _rig.Instances) || Inside(entry.Path!, _rig.Imports), entry.Path);
-            Assert.False(Inside(entry.Path!, shared), $"the shared mods folder was written: {entry.Path}");
+            if (Inside(entry.Path!, shared))
+                Assert.True(entry.Kind == JournalEntryKinds.Created, $"the shared mods folder was changed in place: {entry.Path}");
             if (entry.Backup != null) Assert.True(Inside(entry.Backup, _rig.Imports), entry.Backup);
         }
     }
@@ -309,13 +313,10 @@ public class ImportStressEdgeTests : IDisposable
             var game = rig.GameDir();
             AssertWholeWorld(game);
             Assert.Contains("renderDistance:12", File.ReadAllText(Path.Combine(game, "options.txt")));
-            foreach (var (plan, result) in new[] { (a, results[0]), (b, results[1]) })
-            {
-                var mods = InstanceLayout.ProfileModsDir(rig.Instances, "1.21.1", plan.ProfileId!);
-                if (result.Succeeded) Assert.True(File.Exists(Path.Combine(mods, "mymod.jar")), $"round {round}: a finished import lost its mods");
-                else Assert.False(Directory.Exists(mods), $"round {round}: a rolled-back import left its mods");
-            }
-            Assert.Equal(results.Count(r => r.Succeeded), rig.Settings.Load().Profiles.Count);
+            // One finished: its mods are in the version's shared mods folder (the refused one never wrote there).
+            var mods = InstanceLayout.ModsDir(rig.Instances, "1.21.1");
+            Assert.True(File.Exists(Path.Combine(mods, "mymod.jar")), $"round {round}: a finished import lost its mods");
+            Assert.Empty(rig.Settings.Load().Profiles);
         }
     }
 
@@ -336,10 +337,10 @@ public class ImportStressEdgeTests : IDisposable
         Assert.Equal(ImportTargetLocks.StalePlan, result.Error);
         Assert.Equal(after, Kit.TreeHash(_rig.Instances, mtimes: true));
         Assert.Equal(settings, _rig.Settings.FileHash());
-        var again = await engine.PlanAsync(_rig.Request(options: WithWorlds, profiles: _rig.Settings.Load().Profiles), null, CancellationToken.None);
+        var again = await engine.PlanAsync(_rig.Request(options: WithWorlds), null, CancellationToken.None);
         Assert.True((await engine.ApplyAsync(again, _rig.Settings, null, CancellationToken.None)).Succeeded);
         Assert.False(Directory.Exists(Path.Combine(_rig.GameDir(), "saves", "World1 (imported)")));
-        Assert.Single(_rig.Settings.Load().Profiles);
+        Assert.Empty(_rig.Settings.Load().Profiles);
     }
 
     [Fact]
@@ -350,7 +351,7 @@ public class ImportStressEdgeTests : IDisposable
         var first = await engine.PlanAsync(_rig.Request(options: WithWorlds), null, CancellationToken.None);
         Assert.True((await engine.ApplyAsync(first, _rig.Settings, null, CancellationToken.None)).Succeeded);
         // Planned while World1 is in Origin: "already in Origin (same world), left as it is".
-        var beforeUndo = await engine.PlanAsync(_rig.Request(options: WithWorlds, profiles: _rig.Settings.Load().Profiles), null, CancellationToken.None);
+        var beforeUndo = await engine.PlanAsync(_rig.Request(options: WithWorlds), null, CancellationToken.None);
         Assert.Equal(ImportState.RolledBack, (await engine.RollbackAsync(first.ImportId, _rig.Settings)).State);
 
         var result = await engine.ApplyAsync(beforeUndo, _rig.Settings, null, CancellationToken.None);

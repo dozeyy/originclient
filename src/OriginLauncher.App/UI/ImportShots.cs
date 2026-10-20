@@ -111,7 +111,28 @@ internal static class ImportShots
             panel.TourToggleLauncher(SourceKind.Lunar);
             RenderShots.Pump(300);
 
-            // 31: Choose what to import: a card per launcher, a row per setup.
+            // 61: Choose what to import, the grid: a row per launcher, a tick per thing, All versions first. Lunar's mods
+            // are greyed (built in), the Forge setup's columns say why.
+            panel.TourShowGrid();
+            RenderShots.Pump(700);
+            RenderShots.Snap(window, outDir, "61-import-grid");
+            // 61b: one version's tab; the second launcher's mods ticked too, so the mixed-mods warning shows.
+            panel.TourGridTab("1.20.1");
+            panel.TourGridTurnOn(SourceKind.Prism, GridColumn.Mods);
+            panel.TourGridTurnOn(SourceKind.Modrinth, GridColumn.Mods);
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "61b-import-grid-version-mixed");
+            // 61c: back on All versions, the warning names the version that mixes; Settings for 1.21.1 moved to Lunar.
+            panel.TourGridTab("1.21.1");
+            panel.TourGridTurnOn(SourceKind.Lunar, GridColumn.Settings);
+            panel.TourGridTab(ImportGridModel.AllTab);
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "61c-import-grid-all-mixed");
+            File.WriteAllText(Path.Combine(outDir, "grid-cells.txt"), panel.TourGridDump());
+            panel.TourBack();
+            RenderShots.Pump(300);
+
+            // 31: Pick single setups (the grid's link): a card per launcher, a row per setup.
             panel.TourShowPick();
             RenderShots.Pump(700);
             RenderShots.Snap(window, outDir, "31-import-page-pick");
@@ -212,6 +233,25 @@ internal static class ImportShots
             window.TourCloseImport();
             RenderShots.Pump(400);
 
+            // 60: only one other launcher (Prism): "Bring everything from Prism" is the page's main button. 60b: pressed,
+            // importing; 60c: done, with Play (the most played version) and Done.
+            panel = Open(window, Demo.Bulk, 1500, oneLauncher: true);
+            RenderShots.Snap(window, outDir, "60-import-detect-one-launcher");
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+            panel = Open(window, Demo.Progress, 1500, oneLauncher: true);
+            panel.TourFastImport(SourceKind.Prism);
+            RenderShots.Pump(1500);
+            RenderShots.Snap(window, outDir, "60b-import-fast-progress");
+            DemoBackend.Release();
+            RenderShots.Pump(600);
+            panel = Open(window, Demo.Bulk, 1500, oneLauncher: true);
+            panel.TourFastImport(SourceKind.Prism);
+            RenderShots.Pump(2200);
+            RenderShots.Snap(window, outDir, "60c-import-fast-done");
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+
             // 34: importing: the big percentage, the setup being copied and the setup list (Home's Play is off behind the page).
             panel = Open(window, Demo.Progress, 1500);
             panel.TourImportNow();
@@ -225,7 +265,7 @@ internal static class ImportShots
             DemoBackend.Release();
             RenderShots.Pump(600);
 
-            // 36: done (preview of the new profiles), its lower half, then its details.
+            // 36: done (the versions that are ready to play, Play and Done), its lower half, then its details.
             panel = Open(window, Demo.Bulk, 1500);
             panel.TourImportNow();
             RenderShots.Pump(2200);
@@ -234,7 +274,7 @@ internal static class ImportShots
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "36d-import-page-done-bottom");
             panel.TourScroll(0);
-            panel.TourSecondary();
+            panel.TourOpenDetails(); // the footer holds Done and Play; Details is the link under the notes
             RenderShots.Pump(500);
             RenderShots.Snap(window, outDir, "36b-import-page-done-details");
 
@@ -288,6 +328,11 @@ internal static class ImportShots
             RenderShots.Pump(600);
             panel = Open(window, Demo.Bulk, 1500);
             RenderShots.Snap(window, outDir, "52-min-import-detect");
+            panel.TourShowGrid();
+            RenderShots.Pump(600);
+            RenderShots.Snap(window, outDir, "62-min-import-grid");
+            panel.TourBack();
+            RenderShots.Pump(300);
             panel.TourShowPick();
             RenderShots.Pump(600);
             RenderShots.Snap(window, outDir, "58-min-import-pick");
@@ -336,9 +381,9 @@ internal static class ImportShots
         }
     }
 
-    private static ImportPanel Open(MainWindow window, Demo demo, int pumpMs)
+    private static ImportPanel Open(MainWindow window, Demo demo, int pumpMs, bool oneLauncher = false)
     {
-        var panel = window.TourOpenImport(new DemoBackend(demo));
+        var panel = window.TourOpenImport(new DemoBackend(demo, oneLauncher));
         RenderShots.Pump(pumpMs);
         return panel;
     }
@@ -476,10 +521,13 @@ internal static class ImportShots
     {
         private static TaskCompletionSource<bool> _hold = new();
         private readonly Demo _demo;
+        private readonly bool _oneLauncher;
 
-        public DemoBackend(Demo demo)
+        /// <param name="oneLauncher">Only Prism has setups (the one-launcher fast path).</param>
+        public DemoBackend(Demo demo, bool oneLauncher = false)
         {
             _demo = demo;
+            _oneLauncher = oneLauncher;
             if (demo is Demo.Progress or Demo.Scanning) _hold = new TaskCompletionSource<bool>();
         }
 
@@ -495,12 +543,18 @@ internal static class ImportShots
             if (_demo == Demo.Scanning)
                 using (ct.Register(() => _hold.TrySetResult(true))) await _hold.Task;
             var scan = new ScanResult();
-            if (_demo != Demo.Empty) scan.Instances.AddRange(BulkSetups());
+            if (_demo != Demo.Empty) scan.Instances.AddRange(Setups());
             return scan;
         }
 
+        /// <summary>The demo's setups: all 14, or Prism's alone for the one-launcher shots.</summary>
+        private List<DetectedInstance> Setups() =>
+            _oneLauncher ? BulkSetups().Where(s => s.Kind == SourceKind.Prism).ToList() : BulkSetups();
+
         public Task<IReadOnlySet<SourceKind>?> GetInstalledLaunchersAsync(CancellationToken ct) =>
-            Task.FromResult<IReadOnlySet<SourceKind>?>(_demo == Demo.Empty ? new HashSet<SourceKind>() : new HashSet<SourceKind>(DemoInstalled));
+            Task.FromResult<IReadOnlySet<SourceKind>?>(_demo == Demo.Empty ? new HashSet<SourceKind>()
+                : _oneLauncher ? new HashSet<SourceKind> { SourceKind.Prism, SourceKind.OfficialLauncher }
+                : new HashSet<SourceKind>(DemoInstalled));
 
         /// <summary>Made-up counts (never the disk): the same numbers on every render.</summary>
         public Task<IReadOnlyDictionary<string, SetupContents>> GetContentsAsync(IReadOnlyList<DetectedInstance> setups, CancellationToken ct)
@@ -537,7 +591,6 @@ internal static class ImportShots
             var plan = new ImportPlan
             {
                 ImportId = importId, Source = source, TargetVersion = target, Options = options,
-                ProfileId = "fedcba9876543210fedcba9876543210", ProfileName = profileName,
             };
             if (blocked)
                 plan.Blocked.Add("Close Minecraft first: it is still running from one of your setups.");
@@ -612,12 +665,14 @@ internal static class ImportShots
 
         private static readonly string[] DemoTargets = { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
 
-        public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options,
+        // The demo ignores the grid: the grid screen itself is drawn from the page's own model, and progress and Done
+        // only need a believable plan.
+        public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options, ImportGrid? grid,
             IProgress<BulkPlanProgress>? progress, CancellationToken ct)
         {
             var plan = new BulkImportPlan { RunId = "bulk0123456789abcdef0123456789ab" };
             if (_demo == Demo.Blocked) plan.Blocked.Add("Close Minecraft first: it is still running from one of your setups.");
-            var all = BulkSetups();
+            var all = Setups();
             var chosen = all.Where(selection.Includes).ToList();
             var byVersion = new List<(string Version, List<DetectedInstance> Setups)>();
             var done = 0;

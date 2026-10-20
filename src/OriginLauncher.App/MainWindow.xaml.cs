@@ -702,20 +702,18 @@ public partial class MainWindow : Window
         // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.
         panel.SetRefusal(ImportHooks.Refusal());
         panel.CloseRequested += (_, _) => CloseImportPanel();
-        // "Go to Profiles" on the done screen: close the page and show Profiles (with the new profiles in it).
-        panel.OpenProfilesRequested += (_, _) =>
+        // "Play" on the done screen: close the page and show Home on the version the import went to. Imports make no
+        // profiles, so the plain version is what plays.
+        panel.PlayRequested += (_, version) =>
         {
             CloseImportPanel();
-            // NavigateTo returns early when Profiles is already the page under the import page, which would skip the
-            // rebuild: refresh it here so the new profiles always show.
-            bool alreadyOnProfiles = _currentPage == LauncherPage.Profiles;
-            NavigateTo(LauncherPage.Profiles);
-            if (alreadyOnProfiles) _profilesPage.Show(_homePage.CurrentVersion);
+            NavigateTo(LauncherPage.Home);
+            _homePage.ShowVersion(version);
         };
         panel.Imported += (_, _) =>
         {
-            // The import changed the selected version and added a profile: Home picks both up, and a Profiles page
-            // sitting behind the import page rebuilds now (otherwise closing the page with X would show a stale list).
+            // The import wrote game files only (no launcher setting): Home re-reads its state, and a Profiles page
+            // sitting behind the import page rebuilds now (its mod counts may have changed).
             _homePage.RefreshProfile();
             if (_currentPage == LauncherPage.Profiles) _profilesPage.Show(_homePage.CurrentVersion);
         };

@@ -302,6 +302,15 @@ public sealed class LauncherTileVm : LiveCardRowVm
     /// <summary>False when none of its setups can come over (nothing to tick).</summary>
     public bool CanTick { get => _canTick; set => Set(ref _canTick, value); }
 
+    private bool _canFast;
+
+    /// <summary>"Bring everything from Lunar Client" is on the tile (something from it can come over).</summary>
+    public bool CanFast { get => _canFast; set => Set(ref _canFast, value); }
+
+    /// <summary>The one-click button: every setup of this launcher, its most played one's settings on every version.</summary>
+    public string FastText => "Bring everything from " + ImportGridModel.ShortName(Kind);
+    public string FastTip => $"Bring every version, mod, world and server from {Title}, with the settings of the setup you play most";
+
     /// <summary>The tick box keeps its own toggled value after a click; this puts the model's answer back.</summary>
     public void Resync() => Raise(nameof(Ticked));
 
@@ -427,8 +436,11 @@ public sealed class ProgressRowVm : LiveCardRowVm
     protected override string Body => $"{Setup.BulkId()}|{State}|{Status}|{Fraction:0.00}";
 }
 
-/// <summary>A new profile on the Done screen: the launcher's logo, the profile's name and where it came from.</summary>
-public sealed class ProfileCardVm : CardRowVm
+/// <summary>
+/// A Minecraft version that got something on the Done screen: the logo of the launcher its settings came from, "Minecraft
+/// 1.21.1" and "From Prism, Lunar". Imports make no profiles: this is the plain version, ready on Home.
+/// </summary>
+public sealed class VersionCardVm : CardRowVm
 {
     public required string Name { get; init; }
     public required string Caption { get; init; }
@@ -438,10 +450,88 @@ public sealed class ProfileCardVm : CardRowVm
     public bool HasLogo => Logo != null;
     public Brush TintEdge => LauncherLogos.Edge(Kind);
 
-    /// <summary>The "+9 more" card: no logo, opens Profiles.</summary>
+    /// <summary>The "+3 more" card: no logo, no action.</summary>
     public bool IsMore { get; init; }
-    public override string Key => $"PC|{Name}|{Caption}";
+    public override string Key => $"VC|{Name}|{Caption}";
     protected override string Body => $"{Name}|{Caption}";
+}
+
+// ---------------------------------------------------------------- "Choose what to import": the grid (ImportGridModel)
+
+/// <summary>A version tab above the grid ("All versions", "1.21.1"); the shown one is drawn selected.</summary>
+public sealed class GridTabVm : INotifyPropertyChanged
+{
+    private bool _selected;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public required string Tab { get; init; }
+    public required string Title { get; init; }
+    public bool Selected
+    {
+        get => _selected;
+        set
+        {
+            if (_selected == value) return;
+            _selected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Selected)));
+        }
+    }
+    public string AutomationName => "Show " + Title;
+
+    /// <summary>The toggle keeps its own pressed value after a click; this puts the model's answer back.</summary>
+    public void Resync() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Selected)));
+}
+
+/// <summary>One tick of the grid (a launcher's row, a column): on, off or mixed; greyed with the reason when nothing can come.</summary>
+public sealed class GridCellVm : INotifyPropertyChanged
+{
+    private bool? _on;
+    private bool _enabled;
+    private string _tip = "";
+    private string _name = "";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public required SourceKind Kind { get; init; }
+    public required GridColumn Column { get; init; }
+
+    public bool? On { get => _on; set => Set(ref _on, value); }
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public string Tip { get => _tip; set => Set(ref _tip, value); }
+
+    /// <summary>What a screen reader says: "Lunar Client: Mods".</summary>
+    public string Name { get => _name; set => Set(ref _name, value); }
+
+    /// <summary>The tick box keeps its own toggled value after a click; this puts the model's answer back.</summary>
+    public void Resync() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(On)));
+
+    private void Set<T>(ref T field, T value, [CallerMemberName] string name = "")
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+}
+
+/// <summary>A launcher's row in the grid: logo, name, "3 setups - 1.21.1, 1.20.1", then a tick per column.</summary>
+public sealed class GridRowVm : LiveCardRowVm
+{
+    private string _caption = "";
+
+    public required SourceKind Kind { get; init; }
+    public required string Title { get; init; }
+    public required IReadOnlyList<GridCellVm> Cells { get; init; }
+    public string Initial => ImportLogic.Initial(Title);
+    public ImageSource? Logo => LauncherLogos.For(Kind);
+    public bool HasLogo => Logo != null;
+    public Brush TintEdge => LauncherLogos.Edge(Kind);
+    public Brush TintWash => LauncherLogos.Wash(Kind);
+
+    public string Caption { get => _caption; set => Set(ref _caption, value); }
+
+    public override string Key => $"GR|{Kind}";
+    protected override string Body => $"{Kind}|{Caption}";
 }
 
 /// <summary>

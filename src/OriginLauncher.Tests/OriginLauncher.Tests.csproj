@@ -62,6 +62,7 @@
     <!-- The Import drawer's words and decisions that need no WPF (plurals, the Import all label, the Done page's summary). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\ImportLogic.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\UI\Controls\ImportFlowModel.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\ImportGridModel.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSummaryView.cs" LinkBase="Import" />
     <!-- Launch/import safety glue (pure: no WPF, no OriginPaths, no files): the run-state counters, the startup
          recovery wrapper, the second-launch pipe, the close-while-importing rule, the bulk dry-run grouping,

@@ -47,14 +47,13 @@ public class BulkApplyTests : IDisposable
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, progress, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal(1, _f.Rig.Settings.ApplyCalls);                                   // B12: one settings change
+        Assert.Equal(0, _f.Rig.Settings.ApplyCalls);                                   // B12: no launcher setting changes
         var settings = _f.Rig.Settings.Load();
-        var profiles = plan.AllSetups.Where(s => s.Plan.ProfileId != null).Select(s => s.Plan.ProfileId).ToList();
-        Assert.NotEmpty(profiles);
-        Assert.Equal(profiles.OrderBy(x => x), settings.Profiles.Select(p => p.Id).OrderBy(x => x));
-        var a = plan.AllSetups.Single(s => s.Setup.Name == "A");
-        Assert.Equal("1.21.1", settings.SelectedVersion);                               // the top-ranked setup with a profile
-        Assert.Equal(a.Plan.ProfileId, settings.SelectedProfileId);
+        Assert.Empty(settings.Profiles);                                                // imports never make profiles
+        Assert.Equal("1.21.11", settings.SelectedVersion);                              // the player's pick stays theirs
+        Assert.Null(settings.SelectedProfileId);
+        // mymod is built for 1.21.1: it lands in that version's shared mods folder (the others leave it out as not fitting).
+        Assert.True(File.Exists(Path.Combine(_f.Rig.Instances, "1.21.1", "mods", "mymod.jar")));
         foreach (var v in new[] { "1.21.1", "1.20.4", "1.16.5" })
         {
             Assert.True(File.Exists(_f.Target(v, "options.txt")), v);
@@ -69,7 +68,7 @@ public class BulkApplyTests : IDisposable
         Assert.Equal(4, journal.SetupCount);
         Assert.Equal(sources, _f.SourceHashes());                                       // sources untouched
         // B18: progress per setup, the bar weighted by bytes, never past the total
-        Assert.Equal(new[] { 0, 1, 2, 3 }, progress.Seen.Where(p => p.Inner.Stage == ImportStage.Planning).Select(p => p.SetupIndex));
+        Assert.Equal(Enumerable.Range(0, plan.AllSetups.Count()), progress.Seen.Where(p => p.Inner.Stage == ImportStage.Planning).Select(p => p.SetupIndex));
         Assert.All(progress.Seen, p => Assert.InRange(p.BytesDone, 0, p.BytesTotal));
         Assert.Equal(plan.BytesToCopy, progress.Seen[^1].BytesTotal);
     }
@@ -187,14 +186,14 @@ public class BulkApplyTests : IDisposable
     {
         var (engine, _, _) = ThreeVersions();
         var plan = await _f.Plan(engine);
-        var b = plan.AllSetups.Single(s => s.Setup.Name == "B");
-        var op = b.Plan.Ops.First(o => o.Kind == OpKind.CopyFile && o.Item == PlanItemKind.Mod);
+        var a = plan.AllSetups.Single(s => s.Setup.Name == "A");                   // 1.21.1's most played setup brings the mods
+        var op = a.Plan.Ops.First(o => o.Kind == OpKind.CopyFile && o.Item == PlanItemKind.Mod);
         File.Delete(op.Source!);                                                    // a SOURCE problem: soft
 
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Error);
-        var outcome = result.Versions.SelectMany(v => v.Setups).Single(s => s.Setup.Name == "B");
+        var outcome = result.Versions.SelectMany(v => v.Setups).Single(s => s.Setup.Name == "A");
         Assert.Equal(SetupResultKind.Imported, outcome.Kind);
         Assert.Contains(outcome.Lines!, l => l.Section == SummarySection.NotImported && l.Name == op.Label
                                              && l.Reason!.StartsWith("Couldn't read it in your old setup", StringComparison.Ordinal));
@@ -212,13 +211,13 @@ public class BulkApplyTests : IDisposable
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, progress, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Error);
-        var outcomes = result.Versions.SelectMany(v => v.Setups).ToDictionary(s => s.Setup.Name);
-        Assert.Equal(SetupResultKind.Skipped, outcomes["C"].Kind);
-        Assert.Contains(outcomes["C"].Lines!, l => l.Section == SummarySection.NeedsAttention && l.Name.StartsWith("Minecraft was started from this setup", StringComparison.Ordinal));
-        Assert.Equal(SetupResultKind.Imported, outcomes["A"].Kind);
-        Assert.Equal(SetupResultKind.Imported, outcomes["D"].Kind);
+        var outcomes = result.Versions.SelectMany(v => v.Setups).ToLookup(s => s.Setup.Name);
+        Assert.Equal(SetupResultKind.Skipped, outcomes["C"].Single().Kind);
+        Assert.Contains(outcomes["C"].Single().Lines!, l => l.Section == SummarySection.NeedsAttention && l.Name.StartsWith("Minecraft was started from this setup", StringComparison.Ordinal));
+        Assert.Equal(SetupResultKind.Imported, outcomes["A"].Single().Kind);
+        Assert.Equal(SetupResultKind.Imported, outcomes["D"].Single().Kind);
         Assert.False(File.Exists(_f.Target("1.20.4", "options.txt")));               // nothing of C landed
-        Assert.DoesNotContain(_f.Rig.Settings.Load().Profiles, p => p.Id == c.Plan.ProfileId);
+        Assert.All(c.Plan.Ops.Where(o => o.Dest != null && o.Kind == OpKind.CopyFile), o => Assert.False(File.Exists(o.Dest), o.Dest));
     }
 
     [Fact]
@@ -326,7 +325,7 @@ public class BulkApplyTests : IDisposable
     }
 
     [Fact]
-    public async Task ARunWithNoProfilesStillSelectsTheTopSetupsVersion()
+    public async Task AnImportLeavesTheSelectedVersionAloneTheDonePagesPlayButtonPicksIt()
     {
         _f.Add("Plain", "1.20.4", populate: false);
         Kit.Write(_f.Setups[0].GameDir, "options.txt", "fov:0.5\n");
@@ -336,7 +335,9 @@ public class BulkApplyTests : IDisposable
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal("1.20.4", _f.Rig.Settings.Load().SelectedVersion);
+        Assert.Equal("1.21.11", _f.Rig.Settings.Load().SelectedVersion);
+        Assert.Equal(0, _f.Rig.Settings.ApplyCalls);
         Assert.Empty(_f.Rig.Settings.Load().Profiles);
+        Assert.Contains("fov:0.5", File.ReadAllText(_f.Target("1.20.4", "options.txt")));
     }
 }
