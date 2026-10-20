@@ -80,6 +80,8 @@ public partial class App : Application
                 // throwaway folder, so this run can't touch the player's settings.
                 OriginPaths.UseScratchRoot(scratch);
                 OriginPaths.EnsureScaffold();
+                // The made-up players have no skins: the shots show default heads, no network.
+                Core.Skins.PlayerHeads.NetworkEnabled = false;
                 UI.RenderShots.Run(outDir);
                 Shutdown(0);
             }

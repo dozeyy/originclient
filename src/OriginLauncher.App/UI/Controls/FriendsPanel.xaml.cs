@@ -408,7 +408,7 @@ public partial class FriendsPanel : UserControl
         if (waiting > 0)
         {
             rows.Add(new SectionVm { Id = "needs", Title = "REQUESTS", Count = waiting });
-            AddCard(rows, s.PartyInvites.Select(i => (CardRowVm)new InviteVm { PartyId = i.PartyId, Name = i.Name })
+            AddCard(rows, s.PartyInvites.Select(i => (CardRowVm)new InviteVm { PartyId = i.PartyId, Uuid = i.From, Name = i.Name })
                 .Concat(s.Incoming.Select(r => new RequestVm { Uuid = r.Uuid, Name = r.Name })));
         }
 

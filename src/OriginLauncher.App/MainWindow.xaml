@@ -139,7 +139,7 @@
                         <StackPanel Orientation="Horizontal">
                             <Border Width="24" Height="24" CornerRadius="2" ClipToBounds="True"
                                     Background="{StaticResource Brush.CardAlt}">
-                                <controls:PixelFace x:Name="AccountFace" Seed="Origin"/>
+                                <controls:PlayerHead x:Name="AccountFace"/>
                             </Border>
                             <TextBlock x:Name="AccountName" Text="Sign in" Margin="8,0,6,0" VerticalAlignment="Center"
                                        FontSize="13" FontWeight="SemiBold" MaxWidth="160" TextTrimming="CharacterEllipsis"
