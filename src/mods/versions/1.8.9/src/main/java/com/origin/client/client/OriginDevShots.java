@@ -67,6 +67,8 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19, as 1.21.1): the title with the Quit
 		// square hovered, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
 		TITLE_HOVER, CONTROLS, LEVEL_LOADING, CONNECTING,
+		// the resource-pack lists: their scrolling "Available" / "Selected" headers must clip to the list body
+		STY_PACKS,
 		// ...and, LAST in the clean set because they create a world: Create New World, the pause menu inside
 		// that new world, then the world list with that save in it after Save and Quit.
 		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED;
@@ -237,6 +239,8 @@ public final class OriginDevShots {
 					return new net.minecraft.client.gui.GuiVideoSettings(new GuiMainMenu(), Minecraft.getMinecraft().gameSettings);
 				case STY_SOUND:
 					return new net.minecraft.client.gui.GuiScreenOptionsSounds(new GuiMainMenu(), Minecraft.getMinecraft().gameSettings);
+				case STY_PACKS:
+					return new net.minecraft.client.gui.GuiScreenResourcePacks(new GuiMainMenu());
 				case STY_WORLDS:
 					return new net.minecraft.client.gui.GuiSelectWorld(new GuiMainMenu());
 				case STY_CREATE:
@@ -475,7 +479,7 @@ public final class OriginDevShots {
 			// The clean in-game look (as 1.21.1): Minecraft's own menus + loading screens at GUI scale 2 on
 			// 1080p, the Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4
 			// (clipping checks). The startup splash comes from the boot shot (tick, step < 0).
-			Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS,
+			Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS, Kind.STY_PACKS,
 					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.MENU};
 			for (Kind k : ks) {
 				SHOTS.add(new Shot(1920, 1080, 2, k));
