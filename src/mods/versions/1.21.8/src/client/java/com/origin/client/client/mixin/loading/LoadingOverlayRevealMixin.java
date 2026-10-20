@@ -181,7 +181,7 @@ public abstract class LoadingOverlayRevealMixin {
 		originclient$drawScreen(screen, guiGraphics, mouseX, mouseY, partialTick);
 		boolean drawn = OriginScreenRenderer.renderLoadingHold(guiGraphics);
 
-		boolean settled = originclient$settled() && OriginScreenRenderer.loadingMarkAtRest();
+		boolean settled = originclient$settled();
 		boolean capped = (ns - this.originclient$holdAt) / 1_000_000L >= HOLD_CAP_MS;
 		if (!drawn || settled || capped) {
 			// The dissolve and the title's entrance count from here; this frame
