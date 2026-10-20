@@ -70,8 +70,7 @@ public final class OriginDevShots {
 			// The friends demo only on its own shots, so every other shot looks the same in both passes.
 			com.origin.client.client.social.SocialDemo.clear();
 			Minecraft.getInstance().getToasts().clear();
-			com.origin.client.client.gui.OriginButtonRenderer.devForceHover(this == TITLE_HOVER
-					? net.minecraft.client.resources.language.I18n.get("menu.multiplayer") : null);
+			devCursor(this == TITLE_HOVER);
 			return switch (this) {
 				case TITLE -> new TitleScreen();
 				case MENU -> new OriginModMenuScreen().preview(false, false);
@@ -488,18 +487,47 @@ public final class OriginDevShots {
 		}
 		try {
 			String g = com.origin.client.client.mods.Mods.GENERAL_ID;
-			savedStyle = new String[]{com.origin.client.client.mods.Mods.mode(g, "buttonStyle"),
-					com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
-			if (style.equals("buttons") || style.equals("vanilla")) {
-				com.origin.client.client.mods.Mods.set(g, "buttonStyle", "Minecraft");
-			}
+			// No Button Style on 1.21.1 (Minecraft's menus are always stock widgets).
+			savedStyle = new String[]{null, com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
 			if (style.equals("menu") || style.equals("vanilla")) {
 				com.origin.client.client.mods.Mods.set(g, "mainMenuStyle", "Vanilla");
 			}
-			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was buttons={}, menu={})",
-					style, savedStyle[0], savedStyle[1]);
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was menu={})",
+					style, savedStyle[1]);
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] style override failed", t);
+		}
+	}
+
+	// TITLE_HOVER: the cursor parked on Singleplayer so the shot shows the real
+	// hover look AND its tooltip. Xvfb has no pointer moving, so the position
+	// written into MouseHandler stays put; every other shot gets the original back.
+	// Dev only (runClient is named-namespace, so the field names resolve).
+	private static double[] savedCursor;
+
+	private static void devCursor(boolean onSingleplayer) {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			java.lang.reflect.Field fx = net.minecraft.client.MouseHandler.class.getDeclaredField("xpos");
+			java.lang.reflect.Field fy = net.minecraft.client.MouseHandler.class.getDeclaredField("ypos");
+			fx.setAccessible(true);
+			fy.setAccessible(true);
+			if (savedCursor == null) {
+				savedCursor = new double[]{fx.getDouble(mc.mouseHandler), fy.getDouble(mc.mouseHandler)};
+			}
+			double x = savedCursor[0], y = savedCursor[1];
+			if (onSingleplayer) {
+				var win = mc.getWindow();
+				com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
+						win.getGuiScaledWidth(), win.getGuiScaledHeight());
+				double gs = win.getGuiScale();
+				x = (L.mainX + L.mainW / 2.0) * gs;
+				y = (L.mainTop + L.buttonH / 2.0) * gs;
+			}
+			fx.setDouble(mc.mouseHandler, x);
+			fy.setDouble(mc.mouseHandler, y);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] cursor placement failed", t);
 		}
 	}
 
@@ -670,7 +698,6 @@ public final class OriginDevShots {
 		done = true;
 		if (savedStyle != null) {
 			try {
-				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "buttonStyle", savedStyle[0]);
 				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle", savedStyle[1]);
 			} catch (Throwable ignored) {
 			}

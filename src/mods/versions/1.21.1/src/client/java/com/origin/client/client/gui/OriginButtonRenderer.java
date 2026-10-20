@@ -78,8 +78,8 @@ public final class OriginButtonRenderer {
 	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
 	// classes still keep their own art (OriginWidgetOwnership.isForeign).
 	//
-	// Will, 2026-10-19: Button Style = Minecraft hands every vanilla widget back to
-	// vanilla -- except inside Origin's own windows (OriginStyle.vanillaButtonsOn).
+	// Will, 2026-10-19 (final): Minecraft's own menus are stock widgets again, always
+	// -- the glass skin applies only inside Origin's own windows (OriginStyle.vanillaButtonsOn).
 	// This is the ONE gate AbstractButtonMixin, AbstractSliderButtonMixin,
 	// CheckboxMixin, TabButtonMixin and SpriteIconButtonMixin all pass through.
 	private static boolean originOwnsScreen() {
@@ -118,13 +118,48 @@ public final class OriginButtonRenderer {
 		return false;
 	}
 
+	// ---- the title's icon row on Minecraft's own buttons (Will, 2026-10-19) ----
+	// Minecraft's menus draw stock widgets; only the title screen's icon-only
+	// buttons (Realms, Friends, Cosmetics, Language, Accessibility, Quit -- marked
+	// by setTitlePresentation(..., iconOnly = true)) need help: as stock buttons
+	// they would print their full label into a 20 px square. They draw vanilla's
+	// own button sprite (normal / highlighted / disabled, exactly as
+	// AbstractButton picks it) with Origin's monochrome icon centred on top.
+	private static final ResourceLocation BUTTON = ResourceLocation.withDefaultNamespace("widget/button");
+	private static final ResourceLocation BUTTON_HI = ResourceLocation.withDefaultNamespace("widget/button_highlighted");
+	private static final ResourceLocation BUTTON_OFF = ResourceLocation.withDefaultNamespace("widget/button_disabled");
+
+	private static boolean vanillaIconButton(GuiGraphics g, AbstractButton button) {
+		TitlePresentation title = TITLE.get(button);
+		if (title == null || !title.iconOnly() || broken) {
+			return false;
+		}
+		try {
+			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+			ResourceLocation sprite = !button.active ? BUTTON_OFF
+					: button.isHoveredOrFocused() ? BUTTON_HI : BUTTON;
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.enableDepthTest();
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			g.blitSprite(sprite, x, y, w, h);
+			int s = Math.max(8, Math.min(12, h - 8));
+			ModIcons.draw(g, title.icon(), x + (w - s) / 2, y + (h - s) / 2, s,
+					button.active ? 0xFFFFFFFF : 0xFFA0A0A0);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(GuiGraphics g, AbstractButton button) {
-		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's
+		// icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return false;
+			return vanillaIconButton(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -143,10 +178,6 @@ public final class OriginButtonRenderer {
 			return false;
 		}
 		try {
-			if (cleanScreen()) {
-				cleanButton(g, button, null, 0, 0);
-				return true;
-			}
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
@@ -179,10 +210,6 @@ public final class OriginButtonRenderer {
 			return false;
 		}
 		try {
-			if (cleanScreen()) {
-				cleanTab(g, key, x, y, w, h, label, selected, hovered);
-				return true;
-			}
 			double hv = hoverEase(key, hovered);
 			// Selected pins the hover look; unselected eases with the cursor.
 			double lit = selected ? 1.0 : hv;
@@ -223,9 +250,9 @@ public final class OriginButtonRenderer {
 	 *  from the mixin. */
 	public static boolean renderIconButton(GuiGraphics g, SpriteIconButton button,
 										   ResourceLocation sprite, int spriteWidth, int spriteHeight) {
-		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return false;
+			return vanillaIconButton(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -238,10 +265,6 @@ public final class OriginButtonRenderer {
 			return false;
 		}
 		try {
-			if (cleanScreen()) {
-				cleanButton(g, button, sprite, spriteWidth, spriteHeight);
-				return true;
-			}
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
@@ -292,10 +315,6 @@ public final class OriginButtonRenderer {
 			return false;
 		}
 		try {
-			if (cleanScreen()) {
-				cleanSlider(g, slider, value);
-				return true;
-			}
 			int x = slider.getX(), y = slider.getY(), w = slider.getWidth(), h = slider.getHeight();
 			boolean enabled = slider.active;
 			double v = Math.max(0.0, Math.min(1.0, value));
@@ -341,10 +360,6 @@ public final class OriginButtonRenderer {
 			return false;
 		}
 		try {
-			if (cleanScreen()) {
-				cleanCheckbox(g, checkbox);
-				return true;
-			}
 			int x = checkbox.getX(), y = checkbox.getY(), h = checkbox.getHeight();
 			int box = h;
 			boolean enabled = checkbox.active;
@@ -363,206 +378,6 @@ public final class OriginButtonRenderer {
 			return fail(t);
 		}
 	}
-
-	// ---- the clean in-game skin (Will's approved mockup, 2026-10-19) ----
-	// Minecraft's OWN screens (title, pause, options, world/server lists,
-	// loading, Create World ...) draw every control as OriginSurface: translucent
-	// dark glass with a hairline, baked grain + soft top highlight, a soft blue
-	// border on hover, and exactly one solid white PRIMARY per screen. Labels are
-	// Inter semibold (MenuText), vanilla font only for text the atlas can't draw.
-	// Origin's own screens (Right Shift menu, HUD editor, ...) keep the glass skin
-	// below, untouched. Positions, sizes and actions are never changed here.
-
-	/** True on a screen that takes the clean skin: a non-Origin screen with Origin buttons on. */
-	private static boolean cleanScreen() {
-		Minecraft mc = Minecraft.getInstance();
-		return mc.screen != null && !OriginWidgetOwnership.isOriginOwnClass(mc.screen);
-	}
-
-	// The auto-picked primary of the screen being drawn (see beginFrame).
-	private static Object framePrimary;
-
-	// The one main action per screen, by its vanilla translation key, most
-	// specific first. Only ever a plain Button whose label equals the key's text,
-	// so another mod's button or an option row can never be picked.
-	private static final String[] PRIMARY_KEYS = {
-			"menu.returnToGame", "selectWorld.select", "selectServer.select", "gui.done", "selectWorld.create"
-	};
-
-	/**
-	 * Called once per frame before a vanilla screen renders (MenuTextScopeMixin):
-	 * finds that screen's primary button. Per frame, so widgets rebuilt on resize
-	 * or by a mod are picked up with no cache to go stale; ~20 string compares.
-	 */
-	public static void beginFrame(net.minecraft.client.gui.screens.Screen screen) {
-		framePrimary = null;
-		try {
-			for (String key : PRIMARY_KEYS) {
-				String label = net.minecraft.client.resources.language.I18n.get(key);
-				for (var child : screen.children()) {
-					if (child instanceof net.minecraft.client.gui.components.Button b
-							&& b.getClass() == net.minecraft.client.gui.components.Button.class
-							&& b.visible && label.equals(b.getMessage().getString())) {
-						framePrimary = b;
-						return;
-					}
-				}
-			}
-		} catch (Throwable ignored) {
-			framePrimary = null;
-		}
-	}
-
-	private static boolean isPrimary(Object widget) {
-		return widget == framePrimary || PRIMARY.containsKey(widget);
-	}
-
-	private static boolean keyboardFocus(net.minecraft.client.gui.components.AbstractWidget w) {
-		return w.isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard();
-	}
-
-	/** Colours for one control state: {fill, border, text, detail*1000}. */
-	private static int[] cleanColors(boolean enabled, boolean primary, double hv, boolean pressed) {
-		if (!enabled) {
-			return new int[]{OriginTheme.CLEAN_GLASS_OFF, OriginTheme.CLEAN_LINE_OFF, OriginTheme.CLEAN_TEXT_FAINT, 400};
-		}
-		if (primary) {
-			int fill = pressed ? OriginTheme.CLEAN_PRIMARY_PRESS
-					: OriginTheme.lerpColor(OriginTheme.CLEAN_PRIMARY, OriginTheme.CLEAN_PRIMARY_HI, hv);
-			return new int[]{fill, 0, OriginTheme.CLEAN_PRIMARY_TEXT, 550};
-		}
-		int fill = pressed ? OriginTheme.CLEAN_GLASS_PRESS
-				: OriginTheme.lerpColor(OriginTheme.CLEAN_GLASS, OriginTheme.CLEAN_GLASS_HI, hv);
-		int border = OriginTheme.lerpColor(OriginTheme.CLEAN_LINE, OriginTheme.CLEAN_LINE_ACCENT, hv);
-		return new int[]{fill, border, OriginTheme.CLEAN_TEXT, 1000};
-	}
-
-	private static boolean pressed(net.minecraft.client.gui.components.AbstractWidget w) {
-		return w.active && w.isHovered() && Minecraft.getInstance().mouseHandler.isLeftPressed();
-	}
-
-	/** Button / CycleButton / SpriteIconButton. sprite == null: not an icon button. */
-	private static void cleanButton(GuiGraphics g, AbstractButton button, ResourceLocation sprite, int sw, int sh) {
-		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
-		boolean enabled = button.active;
-		double hv = devHover(button) ? 1.0 : hoverEase(button, enabled && button.isHovered());
-		boolean primary = isPrimary(button);
-		int[] c = cleanColors(enabled, primary, hv, pressed(button));
-		OriginSurface.draw(g, x, y, w, h, c[0], c[1], c[3] / 1000f);
-		if (keyboardFocus(button)) {
-			OriginSurface.focusRing(g, x, y, w, h, OriginTheme.CLEAN_FOCUS);
-		}
-		TitlePresentation title = TITLE.get(button);
-		if (title != null && title.iconOnly()) {
-			int s = Math.max(8, Math.min(10, h - 6));
-			ModIcons.draw(g, title.icon(), x + (w - s) / 2, y + (h - s) / 2, s, c[2]);
-			return;
-		}
-		if (sprite != null) {
-			// The widget's own text (empty on icon-only CenteredIcon) + Mojang's icon
-			// sprite where vanilla puts it.
-			button.renderString(g, Minecraft.getInstance().font, c[2]);
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			RenderSystem.setShaderColor(1f, 1f, 1f, enabled ? 1f : 0.5f);
-			g.blitSprite(sprite, x + w / 2 - sw / 2, y + h / 2 - sh / 2, sw, sh);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			return;
-		}
-		String label = button.getMessage().getString();
-		if (!MenuText.drawFitted(g, label, x + w / 2.0, y + h / 2.0, OriginTheme.CLEAN_EM_LABEL, w - 8, c[2])) {
-			// Atlas can't draw it, or it's too long: vanilla's own clipped/scrolling label.
-			button.renderString(g, Minecraft.getInstance().font, c[2]);
-		}
-	}
-
-	/** Slider: the same glass, a faint value fill, a slim knob, the label over it. */
-	private static void cleanSlider(GuiGraphics g, AbstractSliderButton slider, double value) {
-		int x = slider.getX(), y = slider.getY(), w = slider.getWidth(), h = slider.getHeight();
-		boolean enabled = slider.active;
-		double v = Math.max(0.0, Math.min(1.0, value));
-		double hv = hoverEase(slider, enabled && slider.isHovered());
-		int[] c = cleanColors(enabled, false, hv, false);
-		OriginSurface.draw(g, x, y, w, h, c[0], c[1], c[3] / 1000f);
-		// The value lives on a hairline track along the bottom edge, under the label,
-		// so the knob never cuts through the text (CI shot 2026-10-19: "FOV: |Normal").
-		double inset = 4.0, knobW = 3.0;
-		double travel = Math.max(0.0, w - 2 * inset - knobW);
-		double kx = x + inset + travel * v;
-		double trackTop = y + h - 3.5, trackBot = y + h - 3.0;
-		OriginSurface.fillPhysical(g, x + 1, y + 1, kx, y + h - 1, enabled ? 0x0AFFFFFF : 0x05FFFFFF);
-		OriginSurface.fillPhysical(g, x + inset, trackTop, x + w - inset, trackBot, enabled ? 0x1FFFFFFF : 0x0FFFFFFF);
-		OriginSurface.fillPhysical(g, x + inset, trackTop, kx, trackBot, enabled ? 0x8CFFFFFF : 0x29FFFFFF);
-		OriginSurface.fillPhysical(g, kx, y + h - 5, kx + knobW, y + h - 1.5,
-				enabled ? OriginTheme.lerpColor(0xD9FFFFFF, 0xFFFFFFFF, hv) : 0x40FFFFFF);
-		if (keyboardFocus(slider)) {
-			OriginSurface.focusRing(g, x, y, w, h, OriginTheme.CLEAN_FOCUS);
-		}
-		String label = slider.getMessage().getString();
-		if (!MenuText.drawFitted(g, label, x + w / 2.0, y + h / 2.0, OriginTheme.CLEAN_EM_LABEL, w - 8, c[2])) {
-			MenuText.vanillaCentered(g, label, x + w / 2.0, y + h / 2.0, c[2]);
-		}
-	}
-
-	/** Checkbox: a glass square; ticked = the white primary fill with a dark check. */
-	private static void cleanCheckbox(GuiGraphics g, Checkbox checkbox) {
-		int x = checkbox.getX(), y = checkbox.getY(), h = checkbox.getHeight();
-		boolean enabled = checkbox.active;
-		double hv = hoverEase(checkbox, enabled && checkbox.isHovered());
-		boolean on = checkbox.selected();
-		int[] c = cleanColors(enabled, on, hv, false);
-		OriginSurface.draw(g, x, y, h, h, c[0], c[1], c[3] / 1000f);
-		if (on) {
-			int s = Math.max(6, h - 8);
-			ModIcons.draw(g, "@check", x + (h - s) / 2, y + (h - s) / 2, s,
-					enabled ? OriginTheme.CLEAN_PRIMARY_TEXT : OriginTheme.CLEAN_TEXT_FAINT);
-		}
-		if (keyboardFocus(checkbox)) {
-			OriginSurface.focusRing(g, x, y, h, h, OriginTheme.CLEAN_FOCUS);
-		}
-		String label = checkbox.getMessage().getString();
-		int textColor = enabled ? OriginTheme.CLEAN_TEXT : OriginTheme.CLEAN_TEXT_FAINT;
-		if (MenuText.usable(label)) {
-			MenuText.drawMid(g, label, x + h + 5, y + h / 2.0, OriginTheme.CLEAN_EM_LABEL, 0f, textColor);
-		} else {
-			OriginText.draw(g, Minecraft.getInstance().font, label, x + h + 4, y + (h - 8) / 2 + 1, textColor, true);
-		}
-	}
-
-	/** Header tab (Create World): selected = lit glass with a white underline. */
-	private static void cleanTab(GuiGraphics g, Object key, int x, int y, int w, int h,
-								 Component label, boolean selected, boolean hovered) {
-		double hv = hoverEase(key, hovered);
-		double lit = selected ? 1.0 : hv * 0.6;
-		int fill = OriginTheme.lerpColor(OriginTheme.CLEAN_GLASS, OriginTheme.CLEAN_GLASS_HI, lit);
-		int border = selected ? OriginTheme.CLEAN_LINE_HI
-				: OriginTheme.lerpColor(OriginTheme.CLEAN_LINE, OriginTheme.CLEAN_LINE_ACCENT, hv);
-		OriginSurface.draw(g, x, y, w, h, fill, border, 1f);
-		if (selected) {
-			int uw = Math.max(12, Math.min(w - 8, (int) Math.round(w * 0.5)));
-			OriginSurface.fillPhysical(g, x + (w - uw) / 2.0, y + h - 2, x + (w + uw) / 2.0, y + h - 1.5, 0xD9FFFFFF);
-		}
-		int color = selected ? OriginTheme.CLEAN_TEXT
-				: OriginTheme.lerpColor(OriginTheme.CLEAN_TEXT_DIM, OriginTheme.CLEAN_TEXT, hv);
-		String s = label.getString();
-		if (!MenuText.drawFitted(g, s, x + w / 2.0, y + h / 2.0, OriginTheme.CLEAN_EM_LABEL, w - 6, color)) {
-			MenuText.vanillaCentered(g, s, x + w / 2.0, y + h / 2.0, color);
-		}
-	}
-
-	// Dev-shots only (OriginDevShots "clean" set): shows one button, found by its
-	// label, in its hovered state so a still frame can prove the hover look.
-	// Null in every real session.
-	private static String devHoverLabel;
-
-	public static void devForceHover(String label) {
-		devHoverLabel = label;
-	}
-
-	private static boolean devHover(AbstractButton b) {
-		return devHoverLabel != null && devHoverLabel.equals(b.getMessage().getString());
-	}
-
 
 	// ---- shared drawing ----
 

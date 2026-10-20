@@ -100,3 +100,10 @@ client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
 # equipped theme cosmetic); shared/ keeps them constants. Reconcile if another
 # version gets themes.
 client/java/com/origin/client/client/theme/OriginTheme.java
+
+# DELIBERATE FORK (2026-10-19, Will) - Minecraft's menus on stock widgets.
+# Will: "use normal minecraft font for the menus ... use normal buttons". On
+# 1.21.1 vanillaButtons() is always true and the Button Style option is gone
+# (Mods.java, already forked above); the other modules still read the option.
+# Promote to shared/ (delete this line) when the look is ported to every version.
+client/java/com/origin/client/client/OriginStyle.java

@@ -295,35 +295,13 @@ public final class OriginScreenRenderer {
 		if (drawMark) {
 			drawLogo(guiGraphics, w / 2.0, markCy, size, layerAlpha);
 		}
-		double wordBase = markCy + size / 2.0 + 17;
-		float textIn = sdfFadeIn();
-		if (textIn > 0f) {
-			drawWordmarkText(guiGraphics, w / 2.0, wordBase, fadeA(0xFFFFFFFF, textIn));
-		}
+		double wordBase = markCy + size / 2.0 + 19;
+		drawWordmarkText(guiGraphics, w / 2.0, wordBase, fade(0xFFFFFFFF));
 		double barW = Math.min(160, w * 0.5);
-		double barTop = wordBase + 13;
+		double barTop = wordBase + 9;
 		drawThinBar(guiGraphics, w / 2.0, barTop, barW, (float) loadFill, false);
-		if (textIn > 0f) {
-			String pct = Math.round(Math.max(0.0, Math.min(1.0, loadFill)) * 100) + "%";
-			float pw = com.origin.client.client.gui.MenuText.width(pct, OriginTheme.CLEAN_EM_HINT);
-			com.origin.client.client.gui.MenuText.drawMid(guiGraphics, pct, w / 2.0 + barW / 2.0 - pw, barTop + 8,
-					OriginTheme.CLEAN_EM_HINT, 0f, fadeA(OriginTheme.CLEAN_TEXT_FAINT, textIn));
-		}
-	}
-
-	// MSDF text on the splash appears only once the font + shader are live (they
-	// load during the startup reload), then fades in over 250 ms instead of popping.
-	private static long sdfReadyAt = 0;
-
-	private static float sdfFadeIn() {
-		if (!com.origin.client.client.gui.OriginSdfFont.ready()) {
-			return 0f;
-		}
-		long now = System.nanoTime();
-		if (sdfReadyAt == 0) {
-			sdfReadyAt = now;
-		}
-		return (float) Math.min(1.0, (now - sdfReadyAt) / 250_000_000.0);
+		String pct = Math.round(Math.max(0.0, Math.min(1.0, loadFill)) * 100) + "%";
+		bootText(guiGraphics, pct, w / 2.0 + barW / 2.0, barTop + 5, 1f, 0, fade(OriginTheme.CLEAN_TEXT_FAINT), 1f);
 	}
 
 	// The title's first-use costs (textures, driver shader builds, glyphs) used to
@@ -504,12 +482,12 @@ public final class OriginScreenRenderer {
 		double logo = 22;
 		drawLogo(guiGraphics, w / 2.0, cy, logo, 1f);
 		double titleMid = cy + logo / 2.0 + 13;
-		drawCenteredLabel(guiGraphics, big, w / 2.0, titleMid, OriginTheme.CLEAN_EM_TITLE, OriginTheme.CLEAN_TEXT);
+		drawCenteredLabel(guiGraphics, big, w / 2.0, titleMid, OriginTheme.CLEAN_TEXT);
 		double barW = Math.min(160, w * 0.5);
 		double barTop = titleMid + 10;
 		drawThinBar(guiGraphics, w / 2.0, barTop, barW, (float) fill, fill < 0);
 		if (!small.isEmpty()) {
-			drawCenteredLabel(guiGraphics, small, w / 2.0, barTop + 9, OriginTheme.CLEAN_EM_HINT, OriginTheme.CLEAN_TEXT_DIM);
+			drawCenteredLabel(guiGraphics, small, w / 2.0, barTop + 10, OriginTheme.CLEAN_TEXT_DIM);
 		}
 	}
 
@@ -537,16 +515,13 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** One label centred on (cx, midY): Inter (MSDF) when it can draw it, else the vanilla font. */
-	private static void drawCenteredLabel(GuiGraphics g, String s, double cx, double midY, float em, int argb) {
+	/** One label in Minecraft's own font (with its shadow), centred on (cx, midY). */
+	private static void drawCenteredLabel(GuiGraphics g, String s, double cx, double midY, int argb) {
 		if (s == null || s.isEmpty()) {
 			return;
 		}
-		if (com.origin.client.client.gui.MenuText.usable(s)) {
-			com.origin.client.client.gui.MenuText.drawCentered(g, s, cx, midY, em, 0f, argb);
-		} else {
-			com.origin.client.client.gui.MenuText.vanillaCentered(g, s, cx, midY, argb);
-		}
+		Font font = Minecraft.getInstance().font;
+		g.drawString(font, s, (int) Math.round(cx - font.width(s) / 2.0), (int) Math.round(midY - 4), argb, true);
 	}
 
 	/**
@@ -715,17 +690,14 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** "ORIGIN" in Inter semibold caps, tracked wide (the mockup wordmark), baseline at {@code baseline}. */
+	/**
+	 * "ORIGIN" in Minecraft's own letters at 2x, spaced out (the mockup's tracked
+	 * wordmark), bottom of the caps on {@code baseline}. Drawn from the boot font
+	 * (vanilla's ascii.png) so the splash, which paints before fonts are baked,
+	 * and the title screen show the same pixels.
+	 */
 	private static void drawWordmarkText(GuiGraphics g, double cx, double baseline, int argb) {
-		if (!com.origin.client.client.gui.OriginSdfFont.ready()) {
-			return;
-		}
-		// Caps 7.8 GUI px tall, tracked 0.42 em (the mockup's spaced ORIGIN).
-		float capPerEm = com.origin.client.client.gui.OriginSdfFont.capHeight(1f, true);
-		float em = capPerEm > 0 ? 7.8f / capPerEm : 10.7f;
-		float tracking = em * 0.42f;
-		double mid = baseline - 7.8 / 2.0;
-		com.origin.client.client.gui.MenuText.drawCentered(g, "ORIGIN", cx + tracking / 2.0, mid, em, tracking, argb);
+		bootText(g, "ORIGIN", cx, baseline - 14, 2f, 3, argb, 0.5f);
 	}
 
 	/** A barely-there radial lift behind the centre (the splash's "soft centre lift"). */
@@ -945,14 +917,12 @@ public final class OriginScreenRenderer {
 				return;
 			}
 			Font font = mc.font;
-			// The mockup's chip: a 16-GUI-px glass chip in the top-left corner, the
+			// The mockup's chip: a button-height glass chip in the top-left corner, the
 			// player's head and name. No chevron: there is no account menu here.
 			int x = TitleLayout.CORNER, y = TitleLayout.CORNER, chipH = TitleLayout.CORNER_SIZE;
-			int head = 10, pad = 3, gap = 5;
-			boolean sdf = com.origin.client.client.gui.MenuText.usable(name);
-			int textW = sdf ? (int) Math.ceil(com.origin.client.client.gui.MenuText.width(name, OriginTheme.CLEAN_EM_LABEL))
-					: font.width(name);
-			int chipW = pad + head + gap + textW + pad + 3;
+			int head = 12, pad = 4, gap = 5;
+			int textW = font.width(name);
+			int chipW = pad + head + gap + textW + pad + 2;
 			com.origin.client.client.gui.OriginSurface.draw(guiGraphics, x, y, chipW, chipH,
 					OriginTheme.CLEAN_GLASS, OriginTheme.CLEAN_LINE, 1f);
 			int hx = x + pad, hy = y + (chipH - head) / 2;
@@ -976,12 +946,7 @@ public final class OriginScreenRenderer {
 				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 			int tx = hx + head + gap;
-			if (sdf) {
-				com.origin.client.client.gui.MenuText.drawMid(guiGraphics, name, tx, y + chipH / 2.0,
-						OriginTheme.CLEAN_EM_LABEL, 0f, OriginTheme.CLEAN_TEXT);
-			} else {
-				guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, OriginTheme.CLEAN_TEXT, true);
-			}
+			guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, OriginTheme.CLEAN_TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
@@ -1375,6 +1340,61 @@ public final class OriginScreenRenderer {
 						w, bootFontCell, bootFontTexW, bootFontTexH);
 			}
 			x += w + 1;
+		}
+		pose.popPose();
+		shade(1f, 1f, 1f, 1f);
+	}
+
+	/**
+	 * Boot-font text (Minecraft's own ascii.png glyphs, see BOOT FONT) at GUI
+	 * (x, top), {@code scale}x, {@code tracking} extra font px between letters,
+	 * with vanilla's drop shadow. {@code anchor}: 0 = x is the left edge, 0.5 =
+	 * centre, 1 = right edge. Draws nothing if the sheet couldn't be read.
+	 */
+	private static void bootText(GuiGraphics g, String text, double x, double top, float scale, int tracking,
+								 int argb, float anchor) {
+		if (text == null || text.isEmpty() || !ensureBootFont()) {
+			return;
+		}
+		// Widths in font px: a glyph advances (sheet width + 1) * unit, as drawBootText does.
+		float unit = 8f / bootFontCell;
+		float total = 0;
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			total += ch < 256 ? (bootFontWidth[ch] + 1) * unit + tracking : 0;
+		}
+		total -= unit + tracking;
+		PoseStack pose = g.pose();
+		pose.pushPose();
+		pose.translate(Math.round(x - total * scale * anchor), Math.round(top), 0);
+		pose.scale(scale, scale, 1f);
+		// Vanilla's shadow: the same text one font px down-right at a quarter brightness.
+		int shadow = (argb & 0xFF000000) | ((argb & 0xFCFCFC) >> 2);
+		bootGlyphs(g, text, 1, 1, tracking, unit, shadow);
+		bootGlyphs(g, text, 0, 0, tracking, unit, argb);
+		pose.popPose();
+	}
+
+	private static void bootGlyphs(GuiGraphics g, String text, int ox, int oy, int tracking, float unit, int argb) {
+		RenderSystem.enableBlend();
+		shade(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
+				(argb & 0xFF) / 255f, ((argb >>> 24) & 0xFF) / 255f);
+		PoseStack pose = g.pose();
+		pose.pushPose();
+		pose.translate(ox, oy, 0);
+		pose.scale(unit, unit, 1f);
+		float x = 0;   // sheet px
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			if (ch >= 256) {
+				continue;
+			}
+			int w = bootFontWidth[ch];
+			if (w > 0) {
+				g.blit(bootFontId, Math.round(x), 0, (float) ((ch % 16) * bootFontCell), (float) ((ch / 16) * bootFontCell),
+						w, bootFontCell, bootFontTexW, bootFontTexH);
+			}
+			x += w + 1 + tracking / unit;
 		}
 		pose.popPose();
 		shade(1f, 1f, 1f, 1f);
