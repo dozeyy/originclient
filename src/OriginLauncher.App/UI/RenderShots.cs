@@ -304,7 +304,7 @@ public static class RenderShots
                 @"C:\Users\Player\AppData\Local\OriginLauncher\logs\crash-example.txt", fatal: true);
             error.Show();
             Pump(400);
-            Snap(error, dir, "40-crash-window");
+            Snap(error, dir, "40-crash-window", size: new Size(error.Width, error.Height));
             error.Close();
 
             var analysis = new Core.Launch.CrashAnalysis(
@@ -313,7 +313,7 @@ public static class RenderShots
             var report = new Windows.CrashReportWindow(analysis, null, "OriginPlayer - Minecraft 1.21.1");
             report.Show();
             Pump(400);
-            Snap(report, dir, "41-crash-report-window");
+            Snap(report, dir, "41-crash-report-window", size: new Size(report.Width, report.Height));
             report.Close();
         }
         catch (Exception e)

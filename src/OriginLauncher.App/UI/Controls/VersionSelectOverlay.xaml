@@ -86,9 +86,9 @@
              1.21.x family fits one row). Checked = the primary fill. -->
         <Style x:Key="VersionChip" TargetType="RadioButton">
             <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
-            <Setter Property="MinWidth" Value="56"/>
-            <Setter Property="Padding" Value="10,0"/>
-            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="MinWidth" Value="52"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Margin" Value="0,0,4,4"/>
             <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -156,7 +156,7 @@
                     </ListBox>
 
                     <!-- The family's versions as chips, then Play. -->
-                    <Border Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Sharp}" Padding="24,16,24,12" Margin="0,8,0,0">
+                    <Border Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Sharp}" Padding="20,16,20,12" Margin="0,8,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -165,11 +165,11 @@
                             </Grid.ColumnDefinitions>
                             <controls:TrackedText x:Name="ChipsLabel" Text="TRICKY TRIALS" Tracking="0.16"
                                                   FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
-                                                  Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" Margin="0,0,16,6"/>
+                                                  Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" Margin="0,0,12,4"/>
                             <WrapPanel Grid.Column="1" x:Name="ChipsPanel" VerticalAlignment="Center"
                                        AutomationProperties.Name="Version"/>
                             <Button Grid.Column="2" x:Name="LaunchButton" Style="{StaticResource Button.Primary.Medium}"
-                                    Margin="16,0,0,6" VerticalAlignment="Center" Click="Launch_Click">
+                                    Margin="12,0,0,4" VerticalAlignment="Center" Click="Launch_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="M7,5 L19,12 L7,19 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                           Width="12" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
