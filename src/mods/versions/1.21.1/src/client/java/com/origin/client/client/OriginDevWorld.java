@@ -333,6 +333,7 @@ final class OriginDevWorld {
 		stShadowWalks = com.origin.client.client.render.SmartTerrainUpdates.totalShadowWalks;
 		stShadowNs = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos;
 		stRestoreNs = com.origin.client.client.render.SmartTerrainUpdates.totalRestoreNanos;
+		com.origin.client.client.render.SmartTerrainUpdates.resetWhy();
 	}
 
 	/** Since stSnap(): frames, main walks run vs reused, CPU ms per main walk / shadow walk / restore. CPU-side only. */
@@ -347,7 +348,8 @@ final class OriginDevWorld {
 		return String.format(java.util.Locale.ROOT,
 				"frames=%d mainWalks=%d reused=%d mainWalkMs/frame=%.3f (%.3f per walk) shadowWalks=%d shadowWalkMs=%.3f restoreMs/reuse=%.4f",
 				f, w, r, f == 0 ? 0.0 : mainNs / 1e6 / f, w == 0 ? 0.0 : mainNs / 1e6 / w,
-				sw, sw == 0 ? 0.0 : shNs / 1e6 / sw, r == 0 ? 0.0 : reNs / 1e6 / r);
+				sw, sw == 0 ? 0.0 : shNs / 1e6 / sw, r == 0 ? 0.0 : reNs / 1e6 / r)
+				+ " " + com.origin.client.client.render.SmartTerrainUpdates.whyLine();
 	}
 
 	private static void snapshot() {

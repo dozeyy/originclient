@@ -166,6 +166,44 @@ public final class SmartTerrainUpdates {
 		}
 	}
 
+	// Dev diagnosis: what set the dirty flag, why a main update walked, which camera part moved.
+	private static final String[] DIRTY_NAMES = {"sectionAdded", "sectionRemoved", "scheduleRebuild", "scheduleSort",
+			"buildResults", "markGraphDirty", "camera", "cullFrustum", "immediate", "tasksQueued", "captured"};
+	private static final String[] WALK_NAMES = {"off", "notPrimed", "dirty", "newManager", "hooksMissing", "noPack", "tasksPending"};
+	private static final String[] CAM_NAMES = {"pos", "angle", "rotation", "projection", "fog", "cullOrSpectator"};
+	public static final long[] dirtyWhy = new long[DIRTY_NAMES.length];
+	public static final long[] walkWhy = new long[WALK_NAMES.length];
+	public static final long[] camWhy = new long[CAM_NAMES.length];
+
+	private static void markDirty(int src) {
+		dirty = true;
+		if (DEV) {
+			dirtyWhy[src]++;
+		}
+	}
+
+	/** Dev log: counts since boot of every dirty source, walk reason and camera change. */
+	public static String whyLine() {
+		return "dirtyBy{" + join(DIRTY_NAMES, dirtyWhy) + "} walkedBecause{" + join(WALK_NAMES, walkWhy)
+				+ "} cameraChanged{" + join(CAM_NAMES, camWhy) + "}";
+	}
+
+	public static void resetWhy() {
+		java.util.Arrays.fill(dirtyWhy, 0);
+		java.util.Arrays.fill(walkWhy, 0);
+		java.util.Arrays.fill(camWhy, 0);
+	}
+
+	private static String join(String[] n, long[] v) {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < n.length; i++) {
+			if (v[i] != 0) {
+				sb.append(sb.length() == 0 ? "" : " ").append(n[i]).append('=').append(v[i]);
+			}
+		}
+		return sb.toString();
+	}
+
 	private static void seen(int hook) {
 		hooksSeen |= 1 << hook;
 	}
@@ -174,7 +212,7 @@ public final class SmartTerrainUpdates {
 
 	/** onSectionAdded / onSectionRemoved / scheduleRebuild / scheduleSort / processChunkBuildResults. */
 	public static void graphChanged(int hook) {
-		dirty = true;
+		markDirty(hook);
 		seen(hook);
 	}
 
@@ -191,7 +229,7 @@ public final class SmartTerrainUpdates {
 		} catch (Throwable t) {
 			fail(t);
 		}
-		dirty = true;
+		markDirty(5);
 	}
 
 	public static void cameraMark(boolean inside) {
@@ -217,7 +255,7 @@ public final class SmartTerrainUpdates {
 			boolean same = haveCull && pos.x == cullX && pos.y == cullY && pos.z == cullZ
 					&& CULL_VIEW.equals(view) && CULL_PROJ.equals(proj);
 			if (!same || captured) {
-				dirty = true;
+				markDirty(captured ? 10 : 7);
 			}
 			cullX = pos.x;
 			cullY = pos.y;
@@ -251,7 +289,16 @@ public final class SmartTerrainUpdates {
 					&& r.equals(ROT) && PROJ.equals(proj) && fog == fogEnd
 					&& cull == smartCull && spectatorNow == spectator;
 			if (!same || immediate) {
-				dirty = true;
+				markDirty(immediate ? 8 : 6);
+				if (DEV && haveCam) {
+					// Which part of the camera moved (dev diagnosis of reuse misses).
+					if (p.x != camX || p.y != camY || p.z != camZ) camWhy[0]++;
+					if (camera.getXRot() != xRot || camera.getYRot() != yRot) camWhy[1]++;
+					if (!r.equals(ROT)) camWhy[2]++;
+					if (!PROJ.equals(proj)) camWhy[3]++;
+					if (fog != fogEnd) camWhy[4]++;
+					if (cull != smartCull || spectatorNow != spectator) camWhy[5]++;
+				}
 			}
 			camX = p.x;
 			camY = p.y;
@@ -287,6 +334,13 @@ public final class SmartTerrainUpdates {
 			}
 			rollSecond();
 			boolean on = settingOn();
+			if (DEV) {
+				int w = !on ? 0 : !primed ? 1 : dirty ? 2 : rsm != manager ? 3
+						: (hooksSeen & REQUIRED_HOOKS) != REQUIRED_HOOKS ? 4 : !packInUse() ? 5 : !tasksEmpty(rsm) ? 6 : -1;
+				if (w >= 0) {
+					walkWhy[w]++;
+				}
+			}
 			if (on && primed && !dirty && rsm == manager && (hooksSeen & REQUIRED_HOOKS) == REQUIRED_HOOKS
 					&& packInUse() && tasksEmpty(rsm)) {
 				long t0 = System.nanoTime();
@@ -323,7 +377,7 @@ public final class SmartTerrainUpdates {
 				// This walk queued rebuild/sort work. A queue is capped (ChunkUpdateType max queue
 				// size), so sections past the cap stay pending and only a later walk picks them up:
 				// keep walking until a walk finds nothing left to queue.
-				dirty = true;
+				markDirty(9);
 			}
 			if (settingOn()) {
 				primed = snapshot(rsm);
