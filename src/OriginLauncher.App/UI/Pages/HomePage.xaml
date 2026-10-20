@@ -100,25 +100,17 @@
             <!-- Play sits on the strip's floor: the ring's base and the status line's
                  bottom share one line, and PLAY's caps centre on the ring. -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,0,-4">
-                <!-- My mods (Will, 2026-10-19: "make the my mods thing bigger and place it in a
-                     different spot"): the Mods page's YOUR MODS switch on Home, the same setting
-                     (LauncherSettings.PlayWithExternalMods). A pill as tall as Join server: the
-                     dot is filled in the family colour when on, a grey ring when off, and the
-                     second line says On or Off. -->
-                <Button x:Name="MyModsButton" Style="{StaticResource Button.Pill}" Height="64" Padding="18,0,22,0"
-                        Margin="0,0,12,0" VerticalAlignment="Center" Click="MyModsButton_Click"
-                        ToolTip="Your own mods on/off" AutomationProperties.Name="My mods">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse x:Name="MyModsDot" Width="14" Height="14" StrokeThickness="2"
-                                 Stroke="{DynamicResource Brush.Acc}" Fill="{DynamicResource Brush.Acc}"
-                                 VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <StackPanel VerticalAlignment="Center" MinWidth="52">
-                            <TextBlock Text="My mods" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource Brush.TextDim}"/>
-                            <TextBlock x:Name="MyModsState" Text="On" FontSize="13.5" FontWeight="SemiBold" Margin="0,1,0,0"
-                                       Foreground="{StaticResource Brush.Text}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
+                <!-- My mods (Will, 2026-10-19: "maybe a slider would be better like a slider on
+                     or off"): the Mods page's YOUR MODS switch on Home, the same setting
+                     (LauncherSettings.PlayWithExternalMods). No box: a caps label and the
+                     Toggle.Slider switch (Theme/Inputs.xaml), filled with the family accent when on. -->
+                <ToggleButton x:Name="MyModsSwitch" Style="{StaticResource Toggle.Slider}" Margin="0,0,28,0"
+                              VerticalAlignment="Center" Click="MyModsSwitch_Click"
+                              ToolTip="Your own mods on/off" AutomationProperties.Name="My mods">
+                    <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Display}"
+                                          FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                </ToggleButton>
 
                 <!-- The selected profile's server: straight in with that profile's mods.
                      Hidden when the profile has none. -->

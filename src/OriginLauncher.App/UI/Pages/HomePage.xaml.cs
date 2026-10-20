@@ -322,8 +322,6 @@ public partial class HomePage : UserControl
 
         _joinProfile = active is { HasServer: true } ? active : null;
         JoinButton.Visibility = _joinProfile != null ? Visibility.Visible : Visibility.Collapsed;
-        // Play keeps a 32 px gap to whichever pill sits next to it.
-        MyModsButton.Margin = new Thickness(0, 0, _joinProfile != null ? 12 : 32, 0);
         if (_joinProfile != null)
         {
             JoinServerText.Text = ProfileRules.ServerLabel(_joinProfile) ?? "Server";
@@ -566,38 +564,22 @@ public partial class HomePage : UserControl
     // My mods: the same setting as the Mods page's YOUR MODS switch. Each page reads it
     // when it comes into view (RefreshProfile here, the Mods page on show), so the two
     // always agree; the launch reads it fresh.
-    // On: a dot filled in the family colour. Off: a hollow grey ring, so colour only
-    // ever means on.
+    // The switch shows the saved setting; it never writes it (only a click does).
     private void ShowMyMods(bool on)
     {
-        if (on)
-        {
-            MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "Brush.Acc");
-            MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Brush.Acc");
-        }
-        else
-        {
-            MyModsDot.Fill = Brushes.Transparent;
-            MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Brush.TextMuted");
-        }
-        MyModsState.Text = on ? "On" : "Off";
-        MyModsState.SetResourceReference(TextBlock.ForegroundProperty, on ? "Brush.Text" : "Brush.TextDim");
-        System.Windows.Automation.AutomationProperties.SetName(MyModsButton, on ? "My mods: on" : "My mods: off");
+        MyModsSwitch.IsChecked = on;
+        System.Windows.Automation.AutomationProperties.SetName(MyModsSwitch, on ? "My mods: on" : "My mods: off");
     }
 
-    private void MyModsButton_Click(object sender, RoutedEventArgs e)
+    // ToggleButton has already flipped IsChecked: save exactly what it now shows.
+    private void MyModsSwitch_Click(object sender, RoutedEventArgs e)
     {
-        var on = true;
-        SettingsStore.Update(s =>
-        {
-            s.PlayWithExternalMods = !s.PlayWithExternalMods;
-            on = s.PlayWithExternalMods;
-        });
-        _settings.PlayWithExternalMods = on;
+        var on = MyModsSwitch.IsChecked == true;
+        SaveExternalMods(on);
         ShowMyMods(on);
     }
 
-    /// <summary>Shots only: shows the My mods dot on or off without saving anything.</summary>
+    /// <summary>Shots only: shows the My mods switch on or off without saving anything.</summary>
     internal void TourShowMyMods(bool on) => ShowMyMods(on);
 
     private void VersionButton_Click(object sender, RoutedEventArgs e) =>

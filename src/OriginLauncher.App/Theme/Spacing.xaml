@@ -31,6 +31,9 @@
     <CornerRadius x:Key="Radius.FocusCard">7</CornerRadius>
     <CornerRadius x:Key="Radius.Bar">2</CornerRadius>
     <CornerRadius x:Key="Radius.Knob">2</CornerRadius>
+    <!-- Toggle.Slider: the track (squarer, like the buttons) and its glow just outside it. -->
+    <CornerRadius x:Key="Radius.Switch">3</CornerRadius>
+    <CornerRadius x:Key="Radius.SwitchGlow">6</CornerRadius>
 
     <!-- Motion timing (Poster motion table). App.DisableMotion zeroes every one of
          these for reduced motion and the CI shot render; code paths use UI.Motion. -->

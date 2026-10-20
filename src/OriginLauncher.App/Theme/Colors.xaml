@@ -47,6 +47,16 @@
          fade only animates alpha, never drifts white via RGB interpolation. -->
     <Color x:Key="Color.GhostRest">#002A2A2A</Color>
 
+    <!-- Toggle.Slider (Theme/Inputs.xaml). Off: a dark inset track with a 1 px edge and
+         a grey knob. On: the track is the family accent (Brush.Acc) and the knob white. -->
+    <Color x:Key="Color.SwitchTrack">#FF1A1A1A</Color>
+    <Color x:Key="Color.SwitchTrackHover">#FF262626</Color>
+    <Color x:Key="Color.SwitchEdge">#FF3C3C3C</Color>
+    <Color x:Key="Color.SwitchEdgeHover">#FF5A5A5A</Color>
+    <Color x:Key="Color.SwitchKnobOff">#FF8E8E8E</Color>
+    <Color x:Key="Color.SwitchKnobOn">#FFF7F7F7</Color>
+    <Color x:Key="Color.SwitchTick">#FF161616</Color>
+
     <!-- Status colours: information only, never decoration. -->
     <Color x:Key="Color.Info">#FF8FB8E8</Color>
     <Color x:Key="Color.Danger">#FFE8786B</Color>
