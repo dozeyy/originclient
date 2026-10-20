@@ -89,6 +89,25 @@ dependencies {
 	// here — the launcher installs the matching 26.2 stack from its
 	// PerformanceModCatalog alongside this jar (BundlesPerfStack:false, the
 	// 1.21.11 model). Only the Origin client itself ships in this jar.
+	//
+	// compileOnly: the shader speed-ups (render/ShadowCasterLimit, OffMapShadows, HalfRateShadows,
+	// ShadowTerrainStats) mix into Sodium/Iris classes, so they compile against the EXACT jars the
+	// launcher installs for 26.2 (PerformanceModCatalog.Data.cs: Sodium xJZxADzI = 0.9.2+mc26.2,
+	// Iris gxZWWnKH = 1.11.4+mc26.2). Never include(): the launcher ships them, not this jar.
+	// runtimeOnly (DEV ONLY, never in the built jar): runClient / dev-shots / boot-smoke load the same
+	// pair, so every @Pseudo Sodium/Iris mixin really applies in CI (26.x has no modRuntimeOnly
+	// configuration, so tools/ci/perf_libs.py's libs/ route does not exist here; dev-shots sees these
+	// two lines and passes --require-loaded). Iris nests its GLSL toolchain jar-in-jar, which a dev
+	// classpath does not unpack: the three runtimeOnly libs below are exactly the versions
+	// iris-fabric-1.11.4+mc26.2.jar's META-INF/jars/ carries (read from the jar 2026-10-20), non-transitive
+	// because those three nested jars ARE the whole set (their POMs would drag in the antlr4 tool + icu4j).
+	compileOnly "maven.modrinth:sodium:xJZxADzI"
+	compileOnly "maven.modrinth:iris:gxZWWnKH"
+	runtimeOnly "maven.modrinth:sodium:xJZxADzI"
+	runtimeOnly "maven.modrinth:iris:gxZWWnKH"
+	runtimeOnly("org.anarres:jcpp:1.4.14") { transitive = false }
+	runtimeOnly("io.github.douira:glsl-transformer:3.0.0-pre3") { transitive = false }
+	runtimeOnly("org.antlr:antlr4-runtime:4.13.1") { transitive = false }
 
 	// WebP preview decoding for the shader browser (fail-soft if the reader is
 	// absent). implementation = compile + dev classpath; include = jar-in-jar.
