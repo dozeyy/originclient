@@ -79,6 +79,11 @@ dependencies {
 	// mc1.21-0.5.11-fabric, Modrinth version id RncWhTxD). compileOnly: never
 	// bundled, never on the dev runtime classpath (libs/ above serves runClient).
 	modCompileOnly "maven.modrinth:sodium:RncWhTxD"   // version id: unique, unlike a version number
+	// The shader speed-ups (Half-Rate Shadows' Iris mixins; Settings > Performance) compile against
+	// the Iris the launcher installs for 1.21 (PerformanceModCatalog: iris-1.7.3+mc1.21, Modrinth
+	// version id kuOV4Ece). compileOnly: never bundled; every Iris member the features call at
+	// runtime is bound by reflection and fails soft (render/IrisState, HalfRateShadows).
+	modCompileOnly "maven.modrinth:iris:kuOV4Ece"
 
 	// The perf/shader stack is NOT bundled here — the launcher installs the
 	// matching 1.21 stack from PerformanceModCatalog alongside this jar. Only the
