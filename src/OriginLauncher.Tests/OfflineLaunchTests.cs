@@ -131,7 +131,7 @@ public class OfflineLaunchTests
     public void TheOfflineMessageNamesTheVersionInPlainWords()
     {
         var e = new OfflineInstallException("1.21.1", new HttpRequestException("refused"));
-        Assert.StartsWith("You're offline and Minecraft 1.21.1 isn't fully downloaded yet.", e.Message);
+        Assert.StartsWith("Can't reach Minecraft's download servers, and Minecraft 1.21.1 isn't fully downloaded yet.", e.Message);
         Assert.IsType<HttpRequestException>(e.InnerException);
     }
 }

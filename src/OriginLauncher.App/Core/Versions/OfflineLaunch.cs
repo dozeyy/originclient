@@ -12,7 +12,7 @@ namespace OriginLauncher.App.Core.Versions;
 public sealed class OfflineInstallException : Exception
 {
     public OfflineInstallException(string version, Exception inner)
-        : base($"You're offline and Minecraft {version} isn't fully downloaded yet. Connect to the internet and press Play once to finish the download.", inner)
+        : base($"Can't reach Minecraft's download servers, and Minecraft {version} isn't fully downloaded yet. Check your internet and press Play again.", inner)
     {
     }
 }
