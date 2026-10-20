@@ -76,6 +76,12 @@ public class ScreenBackgroundMixin {
 		// Gated on renderer health: if the Origin backdrop is broken, lists
 		// get their vanilla strip back along with the vanilla background.
 		Minecraft mc = Minecraft.getInstance();
+		// Transparent Menus (in a world): the strip that fills header/footer bands is
+		// skipped outright so the world shows through.
+		if (com.origin.client.client.mods.MenuBlur.transparent() && !OriginStyle.vanillaMenusOn(mc.screen)) {
+			ci.cancel();
+			return;
+		}
 		if (mc.level == null && !OriginStyle.vanillaMenusOn(mc.screen) && OriginScreenRenderer.isActive()) {
 			if (mc.screen != null && !OriginWidgetOwnership.isOriginOwnClass(mc.screen)) {
 				guiGraphics.fill(x, y, x + width, y + height, OriginTheme.CLEAN_PANEL);

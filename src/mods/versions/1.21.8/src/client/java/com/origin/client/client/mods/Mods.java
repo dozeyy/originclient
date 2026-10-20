@@ -40,6 +40,7 @@ public final class Mods {
 	// save-but-do-nothing switches.
 	public static final List<ModOption> GENERAL_SETTINGS = List.of(
 			ModOption.toggle("borderlessFullscreen", "Borderless Fullscreen", false),
+			ModOption.toggle("transparentMenus", "Transparent Menus", false).tip("Menus you open in a world (pause, options, inventory, the Origin menu) show the game behind them: no blur, no dimming, no panel. Off keeps the normal styled menus."),
 			ModOption.toggle("rawMouseInput", "Raw Mouse Input", true),
 			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),

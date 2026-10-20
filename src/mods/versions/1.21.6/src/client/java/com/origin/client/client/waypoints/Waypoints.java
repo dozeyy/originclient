@@ -4,8 +4,12 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.storage.LevelResource;
 
+import java.lang.ref.WeakReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
@@ -18,9 +22,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-// The waypoint store + operations. One flat, persisted list; each waypoint carries
-// its dimension, so the in-world renderer only draws the ones in the current one.
-// Saved to originclient-waypoints.json in the config dir (Gson, like ModsConfig).
+// The waypoint store + operations. PER WORLD / SERVER (Will 2026-10-20): the list in
+// memory is always the one for the world or server the player is in right now; leaving
+// it keeps the file, joining another swaps the list, so waypoints never leak between
+// worlds. Each waypoint still carries its dimension (the renderer only draws the ones in
+// the current dimension; changing dimension does NOT change the scope). The scope key and
+// file naming live in WaypointScope; the old single global list is adopted once by the
+// first world joined after the update (WaypointScope.adoptLegacy).
+// Saved to originclient-waypoints-<scope>.json in the config dir (Gson, like ModsConfig).
 public final class Waypoints {
 
 	// One waypoint. Public mutable fields so Gson round-trips it directly and the
@@ -52,14 +61,26 @@ public final class Waypoints {
 	}
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final List<Waypoint> ALL = new ArrayList<>();
-	private static boolean loaded = false;
+	// The CURRENT scope's waypoints. Replaced (never cleared in place) on a scope switch,
+	// so a caller still iterating the old list can't hit a ConcurrentModificationException.
+	private static List<Waypoint> ALL = new ArrayList<>();
+	// Scope key of ALL (null = not in a world: nothing is shown and nothing is saved).
+	private static String loadedKey = null;
+	private static boolean initialized = false;
+	// Hot-path guard: the world is re-resolved only when the client level object changes
+	// (weak, so a left world can still be collected). A dimension change replaces the
+	// level too, but resolves to the same key, so it costs one string compare.
+	private static WeakReference<Object> levelRef = new WeakReference<>(null);
 
 	private Waypoints() {
 	}
 
-	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("originclient-waypoints.json");
+	private static Path configDir() {
+		return FabricLoader.getInstance().getConfigDir();
+	}
+
+	private static Path fileFor(String key) {
+		return configDir().resolve(WaypointScope.fileName(key));
 	}
 
 	public static synchronized List<Waypoint> all() {
@@ -67,32 +88,91 @@ public final class Waypoints {
 		return ALL;
 	}
 
+	/** Cheap on the hot path: re-resolves the world only when the client level changed. */
 	public static synchronized void ensureLoaded() {
-		if (loaded) {
+		Minecraft mc = Minecraft.getInstance();
+		Object level = mc.level;
+		if (initialized && levelRef.get() == level) {
 			return;
 		}
-		loaded = true;
+		initialized = true;
+		levelRef = new WeakReference<>(level);
+		String key = level == null ? null : currentKey(mc);
+		if (key == null ? loadedKey == null : key.equals(loadedKey)) {
+			return;
+		}
+		switchTo(key);
+	}
+
+	/** "sp:<save folder>" / "mp:<address>" / "lan:<host>" for the world the player is in. */
+	private static String currentKey(Minecraft mc) {
 		try {
-			Path f = file();
-			if (Files.exists(f)) {
-				Waypoint[] arr = GSON.fromJson(Files.readString(f, StandardCharsets.UTF_8), Waypoint[].class);
-				if (arr != null) {
-					ALL.addAll(Arrays.asList(arr));
+			IntegratedServer sp = mc.getSingleplayerServer();
+			if (sp != null) {
+				Path dir = sp.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
+				return WaypointScope.singleplayer(String.valueOf(dir.getFileName()));
+			}
+			ServerData sd = mc.getCurrentServer();
+			if (sd != null && sd.ip != null) {
+				return WaypointScope.server(sd.ip);   // Realms are keyed by their address too
+			}
+		} catch (Throwable ignored) {
+			// fall through to the shared bucket
+		}
+		return "other:unknown";
+	}
+
+	// Leaving a world: its list is flushed (cheap insurance for an in-place edit that
+	// never reached save()). Joining one: adopt the legacy list if this is the first
+	// world after the update, then load the scope's file.
+	private static void switchTo(String key) {
+		if (loadedKey != null && !ALL.isEmpty()) {
+			write(loadedKey, ALL);
+		}
+		loadedKey = key;
+		List<Waypoint> next = new ArrayList<>();
+		if (key != null) {
+			Path f = fileFor(key);
+			try {
+				WaypointScope.adoptLegacy(configDir(), f);
+			} catch (Exception e) {
+				com.origin.client.OriginClient.LOGGER.warn("Could not migrate the old Origin waypoint list", e);
+			}
+			try {
+				if (Files.exists(f)) {
+					Waypoint[] arr = GSON.fromJson(new String(Files.readAllBytes(f), StandardCharsets.UTF_8), Waypoint[].class);
+					if (arr != null) {
+						next.addAll(Arrays.asList(arr));
+					}
+				}
+			} catch (Exception e) {
+				// Corrupt/unreadable data fails safe, but leave evidence in the log, and set
+				// the file aside so the next save can't overwrite the only copy.
+				com.origin.client.OriginClient.LOGGER.warn("Could not load Origin waypoints for " + key, e);
+				try {
+					Files.move(f, f.resolveSibling(f.getFileName() + ".corrupt"), StandardCopyOption.REPLACE_EXISTING);
+				} catch (Exception ignored) {
 				}
 			}
-		} catch (Exception e) {
-			// Corrupt/unreadable data fails safe, but leave evidence in the log so
-			// a player's missing waypoint list can actually be diagnosed.
-			com.origin.client.OriginClient.LOGGER.warn("Could not load Origin waypoints", e);
 		}
+		ALL = next;
 	}
 
 	public static synchronized void save() {
-		Path destination = file();
+		ensureLoaded();
+		if (loadedKey == null) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin waypoints: save skipped, not in a world");
+			return;
+		}
+		write(loadedKey, ALL);
+	}
+
+	private static void write(String key, List<Waypoint> list) {
+		Path destination = fileFor(key);
 		Path temp = destination.resolveSibling(destination.getFileName() + ".tmp");
 		try {
 			Files.createDirectories(destination.getParent());
-			Files.writeString(temp, GSON.toJson(ALL), StandardCharsets.UTF_8);
+			Files.write(temp, GSON.toJson(list).getBytes(StandardCharsets.UTF_8));   // Java 8: no Files.writeString
 			try {
 				Files.move(temp, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 			} catch (AtomicMoveNotSupportedException ignored) {
