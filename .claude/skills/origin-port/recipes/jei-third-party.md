@@ -19,7 +19,7 @@
 | 1.19.3 | 12 | PoseStack | same | — |
 | 1.19.4 | 13 | PoseStack | same | — |
 | 1.20 | 14.0.0.11 | GuiGraphics | same | 3-arg scroll; `String getName/getDescription` |
-| 1.20.2 | 16.0.0.2 | GuiGraphics | same | 4-arg scroll (JEI 16+) |
+| 1.20.2 | 16.0.0.2 | GuiGraphics | same | 4-arg scroll (JEI 16+) (likely) |
 | 1.20.4 | 17.3.1.5 | GuiGraphics | same | — |
 | 1.21 / 1.21.1 | 19.27 | GuiGraphics | same | — |
 | 1.21.10 | 26.3.0.31 | GuiGraphics | renamed drawForScreen / drawForContainerScreen | char input via CharacterEvent |

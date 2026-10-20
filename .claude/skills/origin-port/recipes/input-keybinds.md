@@ -22,5 +22,5 @@
 
 ## Proof
 - Right Shift opening the menu needs a real key event; in CI the dev-shots harness drives it.
-- Tests from PowerShell on Will's PC need keybd_event, but never open windows there. Use CI.
+- Keyboard tests run in CI only (dev-shots under Xvfb); never drive input on Will's PC.
 - Toggle states: `set=world` plus the harness's input steps. Feel (latency, hold vs toggle) stays with Will.

@@ -30,7 +30,7 @@ Snapshot taken 2026-10-20 from origin/main @ a77356180. Re-read live-modules.jso
 | G7 | 1.19.4 | 1.19.4 | 17 | Gfx; renderWidget, isHovered(), LogoRenderer, debugQuads, enableScissor | 0.4.10 · 1.6.11 | 13 | 1.21.1 (Gfx regen) |
 | G2 | 1.20 | 1.20–1.20.1 | 17 | GuiGraphics immediate; Tesselator `bb.vertex().endVertex()` + `BufferUploader.drawWithShader(bb.end())`; no blur API; icons.png; 3-arg mouseScrolled | 1.20: 0.4.10 · 1.6.4; 1.20.1: 0.5.13 · 1.7.6 | 14.0.0.11 | 1.21.1 + 1.20.1 deltas |
 | G1 | 1.20.2 | 1.20.2 | 17 | GuiGraphics; sprite atlas + blitSprite from here; SpriteIconButton; ImageButton title icons; no setHeight | 0.5.5 · 1.6.14 | 16.0.0.2 | 1.21.1 near-verbatim |
-| G1 | 1.20.4 | 1.20.3–1.20.4 per VERSIONS.md (live-modules says 1.20.4) | 17 | GuiGraphics; setHeight, ScoreHolder, renderWidget on lists from 1.20.3 | 0.5.8 · 1.7.2 | 17.3.1.5 | 1.21.1 near-verbatim |
+| G1 | 1.20.4 | 1.20.4 (live-modules says 1.20.4) | 17 | GuiGraphics; setHeight, ScoreHolder, renderWidget on lists from 1.20.3 | 0.5.8 · 1.7.2 | 17.3.1.5 | 1.21.1 near-verbatim |
 | G1 | 1.21 | 1.21 | 21 | same API era as 1.21.1 | 0.5.11 · 1.7.3 | 19.27 | wholesale copy of 1.21.1 (keep own fabric.mod.json + FireworkStarterMixin) |
 | — | **1.21.1** | 1.21.1 | 21 | **design truth**; GuiGraphics immediate | 0.6.13 · 1.8.8 | 19.27 | — |
 | G3 | 1.21.4 | 1.21.2–1.21.4 | 21 | blit rework + RenderPipeline; GUI batched (never setShaderColor, pass per-blit ARGB); getFov returns Float | 1.21.2: 0.6.1 · 1.8.0; 1.21.3: 0.6.8 · 1.8.1; 1.21.4: 0.6.13 · 1.8.8 | none exists | 1.21.5 template + 1.21 HitboxMixin |
@@ -42,7 +42,8 @@ Snapshot taken 2026-10-20 from origin/main @ a77356180. Re-read live-modules.jso
 | G6 | 26.2 | 26.2 | 25 | extract GUI; `Hud` class (`mc.gui.hud`), `mc.gui.screen()` / `mc.gui.setScreen`; COLLECT_SUBMITS world overlays | 0.9.2 · 1.11.4 | 30.42 (split drawForScreenBackground/Foreground) | 1.21.11 + PORTING-ERA-NOTES "26.x era" |
 | G6 | 26.3 | 26.3 | 25 | 26.2 + SDL3 input (no GLFW), `com.mojang.renderpearl.api.*`, separate-shader-objects GLSL | 0.9.2 · 1.11.7 | 31.12.0.65 | 26.2 |
 
-Pulled (modules kept, out of the picker and CI): 1.21.5, 1.12.2, 1.21.9. VERSIONS.md's line that
+Pulled (modules kept, out of the picker and CI): 1.21.5, 1.12.2
+1.21.9: pulled entirely, no module. VERSIONS.md's line that
 "1.21.11 covers 1.21.9" is wrong per memory, and 1.21.9 is pulled. VERSIONS.md's live table also
 lacks rows for 1.20.2, 1.21.4 and 1.21.6. live-modules.json is the authority.
 

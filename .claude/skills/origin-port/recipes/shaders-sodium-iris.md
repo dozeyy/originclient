@@ -8,7 +8,7 @@ stack that ships. Read it from `PerformanceModCatalog.Data.cs`; dev runs load th
 
 | Stack generation | Modules (Sodium · Iris) | Package names seen in module code |
 |---|---|---|
-| S1 old | 1.16.5 (0.2.0 · 1.4.5), 1.17.1 (0.3.4 · 1.2.7) | Sodium `me.jellysquid.mods.sodium` (likely; modules probe both), Iris `net.coderbot.iris` |
+| S1 old | 1.16.5 (0.2.0 · 1.4.5), 1.17.1 (0.3.4 · 1.2.7) | Sodium `me.jellysquid.mods.sodium` (likely; modules probe both), Iris `net.coderbot.iris` 1.16.5 (Sodium 0.2.0) and 1.17.1 (Sodium 0.3.4) differ; re-derive hooks for each. |
 | S2 | 1.18.2 (0.4.1 · 1.6.11), 1.19.2 (0.4.4 · 1.6.11), 1.19.3 (0.4.9 · 1.5.2), 1.19.4 (0.4.10 · 1.6.11), 1.20 (0.4.10 · 1.6.4; 1.20.1 gets 0.5.13 · 1.7.6) | Iris `net.coderbot.iris` (`shaderpack.PackShadowDirectives`) |
 | S3 | 1.20.2 (0.5.5 · 1.6.14), 1.20.4 (0.5.8 · 1.7.2), 1.21 (0.5.11 · 1.7.3) | Iris `net.irisshaders.iris` from 1.7 (1.20.4 module); Sodium `net.caffeinemc.mods.sodium` |
 | S4 = source | **1.21.1 (0.6.13 · 1.8.8)**, 1.21.4 (1.21.4: 0.6.13 · 1.8.8; 1.21.2: 0.6.1 · 1.8.0; 1.21.3: 0.6.8 · 1.8.1) | `net.irisshaders.iris.shaderpack.properties.PackShadowDirectives` |

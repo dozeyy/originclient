@@ -22,7 +22,7 @@ A run that already passed on the same commit is done. Don't run it again.
     and INVOKE target in the new mixins against it.
   - In this repo's Bash tool write `.grad*`: a literal `.gradle` breaks the quoting.
   - 1.21.11 shipped 3 dead mixins this way: EntityNametagMixin, BlockEntityRenderDispatcherMixin, ParticleEngineMixin.
-- **Mixin listed twice:** Mixin 0.8.7 silently skips a mixin that appears twice in one config. Grep the mixins.json.
+- **Mixin listed twice:** Mixin 0.8.7 silently skips a mixin that appears twice in one config. Grep the mixins.json. (proven 2026-10-19: a reviewer disassembled Mixin 0.8.7 `MixinConfig.prepareMixins`, which skips names already in `globalMixinList`).
 
 ## 2. CI (push the group branch)
 - **build-check** runs on every push: compile, `sync.py --check`, launcher tests.
