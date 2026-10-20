@@ -41,6 +41,30 @@ internal static class ModIcons
         ["zoom"] = "M3,10 A7,7 0 1 0 17,10 A7,7 0 1 0 3,10 Z M15,15 L20,20",
     };
 
+    // The Mods page's own hue palette (soft, one per glyph; light enough to read on the dark wells).
+    private static readonly Dictionary<string, Color> Hues = new()
+    {
+        ["mark"] = Color.FromRgb(0xE0, 0xE0, 0xE0),
+        ["map"] = Color.FromRgb(0x5E, 0xD6, 0xA0),      // green
+        ["cube"] = Color.FromRgb(0x6F, 0xB1, 0xF2),     // blue
+        ["drop"] = Color.FromRgb(0xF2, 0x7A, 0x7A),     // red
+        ["pulse"] = Color.FromRgb(0xF2, 0xC9, 0x4C),    // yellow
+        ["aperture"] = Color.FromRgb(0xB4, 0x8C, 0xF2), // violet
+        ["chip"] = Color.FromRgb(0x3F, 0xD0, 0xD4),     // cyan
+        ["sliders"] = Color.FromRgb(0xF2, 0x9B, 0xC0),  // pink
+        ["search"] = Color.FromRgb(0xE8, 0x91, 0x4F),   // orange
+        ["zoom"] = Color.FromRgb(0x9B, 0xD6, 0x5A),     // lime
+    };
+
+    /// <summary>The soft hue for a mod's icon, or null (unknown mods stay neutral).</summary>
+    public static Color? Hue(ModEntry mod)
+    {
+        var hay = (mod.DisplayName + " " + mod.FileName).ToLowerInvariant();
+        foreach (var (keyword, glyph) in Map)
+            if (hay.Contains(keyword)) return Hues[glyph];
+        return null;
+    }
+
     /// <summary>The glyph for a mod, or null for the plain jar glyph.</summary>
     public static Geometry? For(ModEntry mod)
     {

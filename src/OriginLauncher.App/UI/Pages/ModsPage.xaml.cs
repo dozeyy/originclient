@@ -171,6 +171,18 @@ public partial class ModsPage : UserControl
             Width = 18,
             Height = 18,
         };
+        // Accent only: a soft tint behind the glyph and the glyph in the same hue
+        // (dimmer when the mod is switched off). Unknown jars stay neutral.
+        if (mod != null && ModIcons.Hue(mod) is { } hue)
+        {
+            var wash = new SolidColorBrush(Color.FromArgb(0x26, hue.R, hue.G, hue.B));
+            wash.Freeze();
+            well.Background = wash;
+            var ink = new SolidColorBrush(hue);
+            ink.Freeze();
+            ((Path)well.Child).Stroke = ink;
+            well.Child.Opacity = dim ? 0.55 : 1;
+        }
         return well;
     }
 
@@ -257,15 +269,17 @@ public partial class ModsPage : UserControl
         var line = new StackPanel { Orientation = Orientation.Horizontal };
         line.Children.Add(square);
         line.Children.Add(label);
-        return new Border
+        var tag = new Border
         {
-            Background = (Brush)FindResource("Brush.Card"),
             CornerRadius = (CornerRadius)FindResource("Radius.Knob"),
             Padding = new Thickness(6, 2, 6, 2),
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Child = line,
         };
+        // The version accent, softly, behind the white label (contrast stays on the text).
+        tag.SetResourceReference(Border.BackgroundProperty, "Brush.AccSoft");
+        return tag;
     }
 
     // The accent flash a landed row gives once: a tint over the row and a 3 px
