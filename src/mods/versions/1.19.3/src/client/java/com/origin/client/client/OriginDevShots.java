@@ -300,14 +300,27 @@ public final class OriginDevShots {
 		if (s == null) {
 			return;
 		}
-		for (var child : s.children()) {
+		if (pressIn(s.children(), label)) {
+			return;
+		}
+		com.origin.client.OriginClient.LOGGER.warn("[dev-shots] no button labelled '{}' on {}", label, s.getClass().getSimpleName());
+	}
+
+	// 1.19.3 only: layouts are WIDGETS (GridWidget is a ContainerEventHandler added to the
+	// screen), so OptionsScreen's buttons are grandchildren, not screen children. 1.19.4
+	// turned layouts into GridLayout and adds each button directly; 1.19.2 had no layouts.
+	private static boolean pressIn(List<? extends net.minecraft.client.gui.components.events.GuiEventListener> kids, String label) {
+		for (var child : kids) {
 			if (child instanceof net.minecraft.client.gui.components.AbstractButton b && b.active
 					&& label.equals(b.getMessage().getString())) {
 				b.onPress();
-				return;
+				return true;
+			}
+			if (child instanceof net.minecraft.client.gui.components.events.ContainerEventHandler c && pressIn(c.children(), label)) {
+				return true;
 			}
 		}
-		com.origin.client.OriginClient.LOGGER.warn("[dev-shots] no button labelled '{}' on {}", label, s.getClass().getSimpleName());
+		return false;
 	}
 
 	private static com.origin.client.client.gui.FriendsScreen fs(Screen s) {
