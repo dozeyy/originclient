@@ -63,7 +63,7 @@
                             <Border.CornerRadius>
                                 <MultiBinding Converter="{StaticResource Social.CardCorners}">
                                     <Binding Path="Pos"/>
-                                    <Binding Source="{StaticResource Radius.Card}"/>
+                                    <Binding Source="{StaticResource Social.PartyTop}"/>
                                 </MultiBinding>
                             </Border.CornerRadius>
                             <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
@@ -83,10 +83,33 @@
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="VerticalAlignment" Value="Bottom"/>
             <Setter Property="Margin" Value="0,0,-3,-3"/>
-            <Setter Property="Background" Value="{StaticResource Brush.Success}"/>
+            <Setter Property="Background" Value="{DynamicResource Brush.Acc}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Brush.PanelElevated}"/>
             <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="CornerRadius" Value="2"/>
+        </Style>
+        <!-- Square icon buttons (the mockup's accept / decline pair): primary for the yes, raised for the no. -->
+        <Style x:Key="Social.IconPrimary" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="Padding" Value="7"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Effect" Value="{x:Null}"/>
+        </Style>
+        <Style x:Key="Social.IconRaised" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="Padding" Value="7"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- The party card's bottom edge: the actions sit below the members on the same dark surface. -->
+        <CornerRadius x:Key="Social.PartyTop">4,4,0,0</CornerRadius>
+        <!-- Text fields: no frame, a card-coloured well (the focus animation only recolours the border, so it stays off). -->
+        <Style TargetType="TextBox" BasedOn="{StaticResource Input.TextBox}">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
         </Style>
         <!-- Unread count: a light chip with dark digits (the mockup's Chat 1). -->
         <Style x:Key="Social.Badge" TargetType="Border">
@@ -167,7 +190,7 @@
                     </Grid.ColumnDefinitions>
                     <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}">
-                            <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                            <controls:PixelFace Seed="{Binding Name}"/>
                         </Border>
                         <Border x:Name="Dot" Style="{StaticResource Social.Dot}" Visibility="Collapsed"/>
                     </Grid>
@@ -220,15 +243,19 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
                         <TextBlock Text="Wants to be friends" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                        <Button Content="ACCEPT" Style="{StaticResource Social.ActionPrimary}" Click="RequestAccept_Click"/>
-                        <Button Style="{StaticResource Social.Icon}" Click="RequestDecline_Click"
+                        <Button Style="{StaticResource Social.IconPrimary}" Click="RequestAccept_Click"
+                                ToolTip="Accept" AutomationProperties.Name="Accept request">
+                            <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Small}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Button Style="{StaticResource Social.IconRaised}" Click="RequestDecline_Click"
                                 ToolTip="Decline" AutomationProperties.Name="Decline request">
                             <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -247,16 +274,19 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
                         <TextBlock Text="Party invite" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                        <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}" Click="InviteAccept_Click"
-                                ToolTip="Join their party (you leave your current one)"/>
-                        <Button Style="{StaticResource Social.Icon}" Click="InviteDecline_Click"
+                        <Button Style="{StaticResource Social.IconPrimary}" Click="InviteAccept_Click"
+                                ToolTip="Join their party (you leave your current one)" AutomationProperties.Name="Join party">
+                            <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Small}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Button Style="{StaticResource Social.IconRaised}" Click="InviteDecline_Click"
                                 ToolTip="Decline" AutomationProperties.Name="Decline invite">
                             <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -280,7 +310,7 @@
                     </Grid.ColumnDefinitions>
                     <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border Style="{StaticResource Social.Avatar}">
-                            <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                            <controls:PixelFace Seed="{Binding Name}"/>
                         </Border>
                         <Border Style="{StaticResource Social.Dot}"
                                 Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}"/>
@@ -324,23 +354,23 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:PartyHeaderVm}">
-            <Grid Margin="8,18,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Section}"/>
-                <Button Grid.Column="1" Content="{Binding ChatText}" Style="{StaticResource Social.ActionPrimary}"
-                        Click="PartyChat_Click" ToolTip="Open the party chat"/>
-                <Button Grid.Column="2" Content="WARP" Style="{StaticResource Social.Action}"
-                        Click="Warp_Click" IsEnabled="{Binding CanWarp}" ToolTip="{Binding WarpTip}"
-                        ToolTipService.ShowOnDisabled="True"
-                        Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}"/>
-                <Button Grid.Column="3" Content="LEAVE" Style="{StaticResource Social.Action}"
-                        Click="LeaveParty_Click" ToolTip="Leave the party"/>
-            </Grid>
+            <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Section}" Margin="8,18,0,6"/>
+        </DataTemplate>
+
+        <!-- Chat / Warp / Leave sit under the members, on the party card's dark surface. -->
+        <DataTemplate DataType="{x:Type controls:PartyActionsVm}">
+            <Border Background="{StaticResource Brush.BgAlt}" CornerRadius="0,0,4,4" Padding="8,2,8,10">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{Binding ChatText}" Style="{StaticResource Social.Action}" Margin="0"
+                            Padding="12,6" Click="PartyChat_Click" ToolTip="Open the party chat"/>
+                    <Button Content="WARP" Style="{StaticResource Social.Action}" Padding="12,6"
+                            Click="Warp_Click" IsEnabled="{Binding CanWarp}" ToolTip="{Binding WarpTip}"
+                            ToolTipService.ShowOnDisabled="True"
+                            Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}"/>
+                    <Button Content="LEAVE" Style="{StaticResource Social.Action}" Padding="12,6"
+                            Click="LeaveParty_Click" ToolTip="Leave the party"/>
+                </StackPanel>
+            </Border>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:PendingVm}">
@@ -352,7 +382,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"
@@ -374,7 +404,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"

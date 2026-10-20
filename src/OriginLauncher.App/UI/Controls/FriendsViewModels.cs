@@ -145,18 +145,25 @@ public sealed class MemberVm : CardRowVm
         $"{Uuid}|{Name}|{Status}|{IsLeader}|{IsMe}|{IsOnline}|{IsFriend}|{CanJoin}|{HasMenu}|{Unread}|{JoinTip}";
 }
 
-/// <summary>"PARTY - 3/8" with the party's actions on the same line.</summary>
+/// <summary>The "PARTY - 3/8" heading above the party card.</summary>
 public sealed class PartyHeaderVm : RowVm
 {
     public required string Title { get; init; }
+    public override string Key => "A";
+    protected override string Body => Title;
+}
+
+/// <summary>The party's actions (Chat, Warp, Leave), the last row of the party card.</summary>
+public sealed class PartyActionsVm : RowVm
+{
     public int Unread { get; init; }
     public bool IsLeader { get; init; }
     public bool CanWarp { get; init; }
     public required string WarpTip { get; init; }
 
     public string ChatText => Unread > 0 ? $"CHAT - {(Unread > 9 ? "9+" : Unread.ToString(CultureInfo.InvariantCulture))}" : "CHAT";
-    public override string Key => "A";
-    protected override string Body => $"{Title}|{Unread}|{IsLeader}|{CanWarp}|{WarpTip}";
+    public override string Key => "A2";
+    protected override string Body => $"{Unread}|{IsLeader}|{CanWarp}|{WarpTip}";
 }
 
 public sealed class BlockedVm : CardRowVm
