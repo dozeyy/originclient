@@ -39,8 +39,9 @@ public static class RenderTour
         var uninstall = new UninstallWindow(InstallLocation.Default) { ShowActivated = false };
         uninstall.Show();
                                               Snap(uninstall, outDir, "10-uninstall-confirm");
-        uninstall.TourRemoving();             Snap(uninstall, outDir, "11-uninstall-removing");
+        uninstall.TourRemoving(0.6, removeData: false); Snap(uninstall, outDir, "11-uninstall-removing");
         uninstall.TourDone(keptData: true);   Snap(uninstall, outDir, "12-uninstall-done");
+        uninstall.TourProblem();              Snap(uninstall, outDir, "13-uninstall-problem");
         uninstall.Close();
     }
 
