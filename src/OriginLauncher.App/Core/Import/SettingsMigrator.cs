@@ -178,11 +178,21 @@ public static class SettingsMigrator
                 Line(SummarySection.NotImported, PlanItemKind.Setting, "options.txt", "You chose to keep your current Origin settings.");
                 return;
             }
+            // A brand-new options.txt needs the target's own data version (OptionsTxtFormat.Apply); when nothing knows it,
+            // the file can't be created. Say so now, so the preview never promises settings the import can't write.
+            if (!exists && McVersion.AtLeast(_c.TargetVersion, "1.9") && OptionsTxtFormat.DataVersionOf(_c.TargetVersion, _dst) == null)
+            {
+                Line(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt",
+                    $"Couldn't create the settings file for Minecraft {_c.TargetVersion} yet; start the game once and import again to carry your settings over.");
+                return;
+            }
             var desired = _sourceOptions.Where(kv => kv.Key is not ("resourcePacks" or "incompatibleResourcePacks"))
                 .ToDictionary(kv => kv.Key, kv => (string?)kv.Value, StringComparer.Ordinal);
             // Settings from another Minecraft version (the settings launcher has no setup on this one): only what
             // this version understands comes over.
-            var from = _c.Source.McVersion;
+            // The file's own era wins over the setup's label: a PvP client writes one modern options.txt for every version
+            // line (Lunar's 1.8 line carries `version:4671`), and the keys of the era it really is must be filtered for the target.
+            var from = FileVersion(_sourceOptions) ?? _c.Source.McVersion;
             var carried = from != null && !string.Equals(from, _c.TargetVersion, StringComparison.Ordinal);
             if (carried) desired = CarryOptions(desired, _c.TargetVersion);
             Plan.Ops.Add(new PlannedOp
@@ -198,6 +208,12 @@ public static class SettingsMigrator
                 ? $"keybinds, video, sound and controls from Minecraft {from}, written for {_c.TargetVersion}"
                 : $"keybinds, video, sound and controls, written for {_c.TargetVersion}");
         }
+
+        /// <summary>The Minecraft version a settings file was last written by, from its `version:` data version; null when
+        /// it has none (1.8.9 and older never write one) or the number is not one Origin knows.</summary>
+        internal static string? FileVersion(IReadOnlyDictionary<string, string> options) =>
+            options.TryGetValue("version", out var raw) && int.TryParse(raw?.Trim(), out var data)
+                ? Detection.OptionsEvidence.VersionFor(data) : null;
 
         // ---------------------------------------------------------------- resource packs
 

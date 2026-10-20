@@ -74,7 +74,7 @@ public sealed class PvpClientSource : IInstanceSource
                     {
                         found = true;
                         members.Add(Member(SourceKind.Lunar, label + version, profile, dir, version,
-                            sharedGameDir: lunarGame, shaderPacksDir: Path.Combine(profile, "shaders")));
+                            sharedGameDir: lunarGame, shaderPacksDir: Path.Combine(profile, "shaders"), ignoreOptionsVersion: true));
                     }
                     // A version line with settings but no Fabric mods (Lunar 1.8.9): its settings, servers and packs.
                     if (found || !(File.Exists(Path.Combine(profile, "options.txt")) || File.Exists(Path.Combine(profile, "servers.dat")))) continue;
@@ -88,6 +88,7 @@ public sealed class PvpClientSource : IInstanceSource
                         SharedGameDir = lunarGame, ShaderPacksDir = Path.Combine(profile, "shaders"), Confidence = Confidence.Inferred,
                     })
                     {
+                        IgnoreOptionsVersion = true, // Lunar's one shared options.txt (see SetupMember)
                         Metadata = line == null ? Array.Empty<VersionEvidence>()
                             : new[] { new VersionEvidence(EvidenceSource.LauncherMetadata, line, LoaderKind.None, null, null) { From = "mods folder name" } },
                     });
@@ -219,7 +220,7 @@ public sealed class PvpClientSource : IInstanceSource
     // The folder name is the client's own statement of the version (a record, like a Prism component): the jars
     // inside are weighed against it by the usual judge, so a 1.21.1 folder full of 1.20.1 mods is "not sure".
     private static SetupMember Member(SourceKind kind, string name, string gameDir, string modsDir, string version,
-        string? sharedGameDir = null, string? shaderPacksDir = null)
+        string? sharedGameDir = null, string? shaderPacksDir = null, bool ignoreOptionsVersion = false)
     {
         DateTimeOffset? changed = null;
         try { changed = new DateTimeOffset(Directory.GetLastWriteTimeUtc(modsDir), TimeSpan.Zero); }
@@ -230,6 +231,7 @@ public sealed class PvpClientSource : IInstanceSource
             SharedGameDir = sharedGameDir, ShaderPacksDir = shaderPacksDir,
         })
         {
+            IgnoreOptionsVersion = ignoreOptionsVersion,
             Metadata = new[] { new VersionEvidence(EvidenceSource.LauncherMetadata, version, LoaderKind.Fabric, null, changed) { From = "mods folder name" } },
         };
     }

@@ -16,6 +16,14 @@ public sealed record SetupMember(DetectedInstance Instance)
 
     /// <summary>The launcher's data is in a format this code refuses to guess at (Prism formatVersion 2): shown "Couldn't read details" as is.</summary>
     public bool NoInference { get; init; }
+
+    /// <summary>
+    /// The folder's options.txt `version:` line says nothing about THIS setup: the client writes one shared file for
+    /// every version line (Lunar's real profiles/1.8, /1.21 and /26 all carry `version:4671`, 1.21.11's), so a data
+    /// version in it names whichever version the client ran last, not the version of the line it sits in. Weighed
+    /// as evidence it moved Lunar's 1.8.9 line to Minecraft 1.21.11 (Will's real import, 2026-10-20).
+    /// </summary>
+    public bool IgnoreOptionsVersion { get; init; }
 }
 
 /// <summary>Per-detector switches.</summary>
@@ -119,7 +127,8 @@ public static class SetupResolver
     {
         var metadata = members.SelectMany(m => m.Metadata).ToList();
         var noInference = members.All(m => m.NoInference) || (metadata.Count == 0 && members.Any(m => m.NoInference));
-        var verdict = noInference ? null : EvidenceJudge.Judge(metadata, folder.Log, folder.Mods, folder.Options);
+        var optionsEvidence = members.Any(m => m.IgnoreOptionsVersion) ? null : folder.Options;
+        var verdict = noInference ? null : EvidenceJudge.Judge(metadata, folder.Log, folder.Mods, optionsEvidence);
 
         var primary = NameWinner(members, verdict);
 
@@ -158,7 +167,7 @@ public static class SetupResolver
         var evidence = new List<VersionEvidence>(metadata);
         if (folder.Log != null) evidence.Add(folder.Log.ToEvidence());
         if (folder.Mods != null) evidence.Add(folder.Mods.ToEvidence());
-        if (folder.Options != null) evidence.Add(folder.Options.ToEvidence());
+        if (optionsEvidence != null) evidence.Add(optionsEvidence.ToEvidence());
 
         setup = setup with
         {

@@ -112,7 +112,39 @@ public sealed class OptionsTxtFormat : ISyncFormat
         ["1.20.2"] = 3578, ["1.20.4"] = 3700, ["1.21"] = 3953, ["1.21.1"] = 3955,
         ["1.21.2"] = 4080, ["1.21.3"] = 4082, ["1.21.4"] = 4189, ["1.21.6"] = 4435,
         ["1.21.7"] = 4438, ["1.21.8"] = 4440, ["1.21.10"] = 4556, ["1.21.11"] = 4671,
+        // 26.x: world_version from each version's own client jar (version.json), read on Will's PC 2026-10-20.
+        // 26.1 / 26.1.1 / 26.1.2 are not here: DataVersionOf reads them from the installed jar instead.
+        ["26.2"] = 4903, ["26.3"] = 5023,
     };
+
+    /// <summary>
+    /// The vanilla data version of <paramref name="version"/>: the table above, else `world_version` in the version.json
+    /// of the client jar Origin installed for it (<c>&lt;instance&gt;/versions/&lt;v&gt;/&lt;v&gt;.jar</c>, found from the account game
+    /// folder <c>&lt;instance&gt;/accounts/&lt;id&gt;</c>). Null when neither knows it: nothing is guessed. Without this a version
+    /// missing from the table could never get its first options.txt written ("start the game once and import again").
+    /// </summary>
+    internal static int? DataVersionOf(string version, string gameDir)
+    {
+        if (DataVersions.TryGetValue(version, out var known)) return known;
+        try
+        {
+            var instance = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetFullPath(gameDir)));
+            if (instance == null) return null;
+            var jar = Path.Combine(instance, "versions", version, version + ".jar");
+            if (!File.Exists(jar)) return null;
+            using var zip = System.IO.Compression.ZipFile.OpenRead(jar);
+            var entry = zip.GetEntry("version.json");
+            if (entry == null || entry.Length > 64 * 1024) return null;
+            using var stream = entry.Open();
+            using var doc = JsonDocument.Parse(stream);
+            return doc.RootElement.TryGetProperty("world_version", out var world) && world.TryGetInt32(out var number) && number > 0
+                ? number : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
 
     // The era cliffs above, as the first version on the new side.
     private const string GlfwKeyNamesSince = "1.13";
@@ -278,7 +310,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
             // write when we can stamp the instance's own data version — e.g. a
             // brand-new instance, whose options.txt Settings Sync creates so its
             // very first launch already has the player's settings.
-            if (!DataVersions.TryGetValue(target.Version, out var dataVersion)) return null;
+            if (DataVersionOf(target.Version, target.Directory) is not { } dataVersion) return null;
             lines.Insert(0, $"version:{dataVersion}");
         }
 

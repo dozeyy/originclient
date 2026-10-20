@@ -302,6 +302,7 @@ public sealed record OptionsEvidence(string? McVersion, int DataVersion, DateTim
         [3578] = "1.20.2", [3700] = "1.20.4", [3953] = "1.21", [3955] = "1.21.1",
         [4080] = "1.21.2", [4082] = "1.21.3", [4189] = "1.21.4", [4435] = "1.21.6",
         [4438] = "1.21.7", [4440] = "1.21.8", [4556] = "1.21.10", [4671] = "1.21.11",
+        [4903] = "26.2", [5023] = "26.3",
     };
 
     public static string? VersionFor(int dataVersion) => VersionByDataVersion.GetValueOrDefault(dataVersion);
