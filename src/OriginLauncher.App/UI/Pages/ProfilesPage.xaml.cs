@@ -112,10 +112,12 @@ public partial class ProfilesPage : UserControl
         RowsPanel.Children.Add(BuildNewCard());
     }
 
-    private Border CardShell(bool selected)
+    // The selected card's ring is its own version's colour (No profile: Home's family).
+    private Border CardShell(bool selected, string? version = null)
     {
         var card = new Border { Style = (Style)FindResource("Card.Profile") };
-        if (selected) card.SetResourceReference(Border.BorderBrushProperty, "Brush.Acc");
+        if (selected && version != null) card.BorderBrush = FamilyTheme.AccentBrush(version);
+        else if (selected) card.SetResourceReference(Border.BorderBrushProperty, "Brush.Acc");
         return card;
     }
 
@@ -124,8 +126,8 @@ public partial class ProfilesPage : UserControl
     {
         var emblem = new Border
         {
-            Width = 56,
-            Height = 56,
+            Width = 44,
+            Height = 44,
             CornerRadius = (CornerRadius)FindResource("Radius.Sharp"),
             Background = tint,
             VerticalAlignment = VerticalAlignment.Top,
@@ -134,7 +136,7 @@ public partial class ProfilesPage : UserControl
         {
             Text = initial,
             FontFamily = (FontFamily)FindResource("Font.Display"),
-            FontSize = 24,
+            FontSize = 20,
             FontWeight = FontWeights.ExtraBold,
             Foreground = (Brush)FindResource("Brush.Text"),
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -147,7 +149,7 @@ public partial class ProfilesPage : UserControl
     private Border ProfileEmblem(ModProfile profile)
     {
         var emblem = Emblem(ProfileLook.Initial(profile.Name), ProfileLook.Tint(profile));
-        if (ProfileLook.EmblemGlyph(profile.Icon, 26, (Brush)FindResource("Brush.Text")) is { } glyph)
+        if (ProfileLook.EmblemGlyph(profile.Icon, 22, (Brush)FindResource("Brush.Text")) is { } glyph)
             emblem.Child = glyph;
         return emblem;
     }
@@ -158,8 +160,8 @@ public partial class ProfilesPage : UserControl
         var emblem = Emblem("", (Brush)FindResource("Brush.CardAlt"));
         emblem.Child = new Controls.OriginMark
         {
-            Width = 34,
-            Height = 34,
+            Width = 28,
+            Height = 28,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -213,9 +215,22 @@ public partial class ProfilesPage : UserControl
 
         if (actions.Length > 0)
         {
-            var bar = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -6, -8, 0), Opacity = 0 };
+            // The bar lies over the end of the name instead of keeping a column of its own,
+            // so a resting card gives the name its full width (three cards across at 980 px
+            // leave ~270 px). Its backing is the hovered card's colour, so it covers cleanly.
+            var bar = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Top,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, -6, -8, 0),
+                Opacity = 0,
+                IsHitTestVisible = false,
+            };
+            bar.SetResourceReference(Panel.BackgroundProperty, "Brush.Card");
             foreach (var action in actions) bar.Children.Add(action);
-            AddAt(grid, 2, bar);
+            Grid.SetColumnSpan(bar, 2);
+            AddAt(grid, 1, bar);
             grid.Tag = bar;
         }
         return grid;
@@ -225,7 +240,13 @@ public partial class ProfilesPage : UserControl
     private static void RevealOnHover(Border card, Grid head)
     {
         if (head.Tag is not UIElement bar) return;
-        void Update() => bar.Opacity = card.IsMouseOver || card.IsKeyboardFocusWithin ? 1 : 0;
+        // Hidden, the bar must not catch clicks meant for the name either.
+        void Update()
+        {
+            var shown = card.IsMouseOver || card.IsKeyboardFocusWithin;
+            bar.Opacity = shown ? 1 : 0;
+            bar.IsHitTestVisible = shown;
+        }
         card.MouseEnter += (_, _) => Update();
         card.MouseLeave += (_, _) => Update();
         card.IsKeyboardFocusWithinChanged += (_, _) => Update();
@@ -251,7 +272,7 @@ public partial class ProfilesPage : UserControl
         var names = _demo != null
             ? new List<string>()
             : Core.Mods.ModManager.Enumerate(profile.Version, profile.Id).Where(m => !m.IsManaged).Select(m => m.DisplayName).ToList();
-        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
         var shown = Math.Min(count, 5);
         for (var i = 0; i < shown; i++)
         {
@@ -273,8 +294,8 @@ public partial class ProfilesPage : UserControl
 
     private Border ModSquare(UIElement content) => new()
     {
-        Width = 30,
-        Height = 30,
+        Width = 26,
+        Height = 26,
         Margin = new Thickness(0, 0, 4, 0),
         Background = (Brush)FindResource("Brush.Bg"),
         CornerRadius = (CornerRadius)FindResource("Radius.Sharp"),
@@ -284,7 +305,7 @@ public partial class ProfilesPage : UserControl
     // Where it goes: "Joins <server>" or "Singleplayer".
     private StackPanel WhereLine(ModProfile profile)
     {
-        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         var server = ProfileRules.ServerLabel(profile);
         line.Children.Add(Glyph(server != null ? "Icon.Server" : "Icon.Globe", 13, "Brush.TextMuted"));
         var text = Small(server != null ? "Joins" : "Singleplayer");
@@ -302,10 +323,10 @@ public partial class ProfilesPage : UserControl
     // The foot: "Use profile" (or the Selected mark), and the version tag at the right.
     private Grid CardFoot(bool selected, string automationName, Action use, string? version, bool running)
     {
-        var foot = new Grid { Margin = new Thickness(0, 16, 0, 0), VerticalAlignment = VerticalAlignment.Bottom };
+        var foot = new Grid { Margin = new Thickness(0, 12, 0, 0), VerticalAlignment = VerticalAlignment.Bottom };
         foot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        foot.Children.Add(UseControl(selected, automationName, use, running));
+        foot.Children.Add(UseControl(selected, automationName, use, running, version));
         if (version != null)
         {
             // The version as a small chip, the card's only number.
@@ -360,7 +381,7 @@ public partial class ProfilesPage : UserControl
 
     private FrameworkElement BuildProfileCard(ModProfile profile, bool selected, string? player)
     {
-        var card = CardShell(selected);
+        var card = CardShell(selected, profile.Version);
 
         var edit = IconButton("Icon.Edit", "Edit", $"Edit {profile.Name}");
         edit.Click += (_, _) => OpenForm(profile);
@@ -447,13 +468,14 @@ public partial class ProfilesPage : UserControl
 
     // "Use profile" for a card that isn't selected; the Selected mark (an accent
     // square, an indicator) for the one that is. A running game adds "Running".
-    private FrameworkElement UseControl(bool selected, string automationName, Action use, bool running)
+    private FrameworkElement UseControl(bool selected, string automationName, Action use, bool running, string? version)
     {
         if (selected)
         {
             var mark = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Height = 32 };
             var dot = new Rectangle { Width = 8, Height = 8, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
-            dot.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+            if (version != null) dot.Fill = FamilyTheme.AccentBrush(version);
+            else dot.SetResourceReference(Shape.FillProperty, "Brush.Acc");
             mark.Children.Add(dot);
             mark.Children.Add(Small(running ? "Selected / Running" : "Selected", bold: true));
             return mark;

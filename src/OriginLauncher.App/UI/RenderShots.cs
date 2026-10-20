@@ -68,6 +68,14 @@ public static class RenderShots
         window.TourEndReady();
         Pump(300);
 
+        // The My mods dot on Home: off (a ring), then on (filled in the family colour).
+        window.TourShowMyMods(false);
+        Pump(200);
+        Snap(window, outDir, "01d-home-my-mods-off");
+        window.TourShowMyMods(true);
+        Pump(200);
+        Snap(window, outDir, "01e-home-my-mods-on");
+
         // The one-time import card in Home's banner slot, at the normal and the smallest window (before anything makes Home "running").
         ImportShots.RunHomeCard(window, outDir);
 

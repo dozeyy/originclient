@@ -317,6 +317,7 @@ public partial class HomePage : UserControl
                 : $"This profile is for {selected.Version}, so {_selectedVersion} uses your normal mods";
         }
         System.Windows.Automation.AutomationProperties.SetName(ProfileRow, $"Profile: {ProfileNameText.Text}. Switch profile");
+        ShowMyMods(settings.PlayWithExternalMods);
 
         _joinProfile = active is { HasServer: true } ? active : null;
         JoinButton.Visibility = _joinProfile != null ? Visibility.Visible : Visibility.Collapsed;
@@ -558,6 +559,31 @@ public partial class HomePage : UserControl
     }
 
     private bool _familyShown;
+
+    // My mods: the same setting as the Mods page's YOUR MODS switch. Each page reads it
+    // when it comes into view (RefreshProfile here, the Mods page on show), so the two
+    // always agree; the launch reads it fresh.
+    private void ShowMyMods(bool on)
+    {
+        if (on) MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "Brush.Acc");
+        else MyModsDot.Fill = Brushes.Transparent;
+        System.Windows.Automation.AutomationProperties.SetName(MyModsButton, on ? "My mods: on" : "My mods: off");
+    }
+
+    private void MyModsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var on = true;
+        SettingsStore.Update(s =>
+        {
+            s.PlayWithExternalMods = !s.PlayWithExternalMods;
+            on = s.PlayWithExternalMods;
+        });
+        _settings.PlayWithExternalMods = on;
+        ShowMyMods(on);
+    }
+
+    /// <summary>Shots only: shows the My mods dot on or off without saving anything.</summary>
+    internal void TourShowMyMods(bool on) => ShowMyMods(on);
 
     private void VersionButton_Click(object sender, RoutedEventArgs e) =>
         VersionOverlay.Show(_selectedVersion);

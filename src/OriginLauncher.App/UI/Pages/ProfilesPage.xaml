@@ -13,7 +13,7 @@
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="18,18,18,16"/>
+            <Setter Property="Padding" Value="16,14,16,14"/>
             <Setter Property="Margin" Value="0,0,8,8"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
@@ -106,8 +106,10 @@
                        Visibility="Collapsed" Margin="0,0,0,16"/>
 
             <!-- "No profile" first, then one card per profile, then the dashed
-                 "New profile" card (all built in code). Two columns, equal rows. -->
-            <UniformGrid x:Name="RowsPanel" Columns="2" Margin="0,0,-8,0"/>
+                 "New profile" card (all built in code). Three across, then the next row
+                 (Will, 2026-10-19), equal widths and rows; each card's 8 px right and bottom
+                 margin is the gap both ways, and the -8 cancels the last column's. -->
+            <UniformGrid x:Name="RowsPanel" Columns="3" Margin="0,0,-8,0"/>
 
         </StackPanel>
     </ScrollViewer>

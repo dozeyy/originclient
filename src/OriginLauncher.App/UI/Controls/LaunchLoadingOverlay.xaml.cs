@@ -89,6 +89,10 @@ public partial class LaunchLoadingOverlay : UserControl
         CancelButton.ToolTip = null;
         LoaderCaptionText.Visibility = Visibility.Collapsed;
         CaptionFamily.Text = FamilyTheme.Of(version).Label;
+        // The bar is this version's colour, not whichever family Home last showed.
+        var accent = FamilyTheme.AccentBrush(version);
+        ProgressFill.Background = accent;
+        ProgressSweep.Background = accent;
         CaptionDetail.Text = caption ?? "";
         CaptionDetail.Visibility = string.IsNullOrEmpty(caption) ? Visibility.Collapsed : Visibility.Visible;
         CaptionPanel.Visibility = Visibility.Visible;
@@ -102,6 +106,9 @@ public partial class LaunchLoadingOverlay : UserControl
     public void ShowUpdate(string newVersion)
     {
         _launchMode = false;
+        // A launcher update belongs to no version: back to the family on screen.
+        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Acc");
+        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Acc");
         EyebrowText.Text = $"UPDATING ORIGIN LAUNCHER TO {newVersion}";
         CancelButton.Visibility = Visibility.Collapsed;
         LoaderCaptionText.Text = "Getting the newest version";

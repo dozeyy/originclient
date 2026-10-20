@@ -88,12 +88,27 @@
                                VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Status}"
                                Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" MaxWidth="520"/>
+                               TextTrimming="CharacterEllipsis" MaxWidth="360"/>
                     <StackPanel x:Name="PlayersPill" Orientation="Horizontal" Visibility="Collapsed" Margin="14,0,0,0"
                                 ToolTip="People with the Origin launcher or game open right now">
                         <TextBlock Text="/" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,14,0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
                     </StackPanel>
+                    <!-- My mods (Will, 2026-10-19): the Mods page's YOUR MODS switch on Home, the
+                         same setting (LauncherSettings.PlayWithExternalMods). The dot is filled in
+                         the family accent when on, a ring when off. The -6 margins keep the
+                         status line's height, so Play's floor line does not move. -->
+                    <Button x:Name="MyModsButton" Style="{StaticResource Button.Chrome}" MinHeight="28" Padding="10,0,12,0"
+                            Margin="18,-6,0,-6" VerticalAlignment="Center" Click="MyModsButton_Click"
+                            ToolTip="Your own mods on/off" AutomationProperties.Name="My mods">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="MyModsDot" Width="10" Height="10" StrokeThickness="1.5"
+                                     Stroke="{DynamicResource Brush.Acc}" Fill="{DynamicResource Brush.Acc}"
+                                     VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="My mods" Style="{StaticResource Text.Status}" VerticalAlignment="Center"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </StackPanel>
 

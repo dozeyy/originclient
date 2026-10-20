@@ -46,6 +46,16 @@ public static class FamilyTheme
         return new Family(g.Key, look.Item1, range, (Color)ColorConverter.ConvertFromString(look.Item2), g.Versions.Count);
     }
 
+    /// <summary>A version's own family colour, for anything that shows ONE version
+    /// whatever family Home has on screen: a profile card (its version), the launch
+    /// screen (the version being launched). Brush.Acc is Home's family only.</summary>
+    public static Brush AccentBrush(string? version)
+    {
+        var brush = new SolidColorBrush(Of(version).Accent);
+        brush.Freeze();
+        return brush;
+    }
+
     /// <summary>Make <paramref name="version"/>'s family the one on screen.</summary>
     public static void Apply(string? version, bool animate = true)
     {

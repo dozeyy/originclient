@@ -333,6 +333,7 @@ public partial class MainWindow : Window
     internal void TourEndReady() => _homePage.TourEndReady();
 
     internal void TourShowLaunch(string version) => _homePage.TourShowLaunch(version);
+    internal void TourShowMyMods(bool on) => _homePage.TourShowMyMods(on);
 
     internal void TourReportLaunch(string stage) => _homePage.TourReportLaunch(stage);
 
