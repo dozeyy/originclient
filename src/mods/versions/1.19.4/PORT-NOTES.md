@@ -41,9 +41,9 @@ lambdas (which pass PoseStack on 1.19.x fabric-api).
 | ScreenBackgroundMixin | Retargeted descriptors — `renderBackground(PoseStack)V` + `renderDirtBackground(PoseStack)V`. |
 | AbstractSelectionListMixin | OK — `render(PoseStack;IIF)V`; `@Shadow renderBackground/renderTopAndBottom:Z` verified. |
 | TabButtonMixin | OK — TabButton exists in 1.19.4 (new that version); `renderWidget(PoseStack;IIF)V`, `isSelected()Z`. |
-| TabNavigationBarMixin | Retargeted — pre-1.20 the bar draws via inherited GuiComponent STATICS (bytecode owner = TabNavigationBar): `fill(PoseStack;IIIII)V` + `blit(PoseStack;IIFFIIII)V`. Handlers are arg-only (static call), restore vanilla via `GuiComponent.fill/blit`. |
-| CreateWorldScreenMixin | Retargeted — owner-static `CreateWorldScreen.blit(PoseStack;IIFFIIII)V`, the single blit of that shape in `render()` (footer separator, bytecode-verified). |
-| ExperimentsScreenMixin | Retargeted — owner-static `ExperimentsScreen.blit(PoseStack;IIFFIIII)V`, single occurrence in `render()`. |
+| TabNavigationBarMixin | Retargeted — pre-1.20 the bar draws via inherited GuiComponent STATICS (bytecode owner = TabNavigationBar): `fill(PoseStack;IIIII)V` + `blit(PoseStack;IIFFIIII)V`. Handlers are arg-only (static call), restore vanilla via `GuiComponent.fill/blit`. **2026-10-19 (clean look):** the header-separator redirect is gone (vanilla line, as on 1.21.1); the black bar fill becomes `OriginTheme.CLEAN_PANEL` out of world. |
+| CreateWorldScreenMixin | **REMOVED 2026-10-19 (clean look)** -- it only hid the footer-separator line, which 1.21.1 (the design truth) shows. |
+| ExperimentsScreenMixin | Retargeted — owner-static `ExperimentsScreen.blit(PoseStack;IIFFIIII)V`, single occurrence in `render()`. **2026-10-19:** the dirt tile becomes `OriginTheme.CLEAN_PANEL` out of world. |
 | AbstractSliderButtonMixin | Retargeted descriptor — `renderWidget(PoseStack;IIF)V`; `@Shadow value:D` verified. |
 | CheckboxMixin | Retargeted descriptor — `renderWidget(PoseStack;IIF)V`; `selected()Z` verified. |
 | LevelRendererMixin | OK — `renderSnowAndRain(LightTexture;FDDD)V` and `renderSky(PoseStack;Lorg/joml/Matrix4f;F;Camera;Z;Runnable)V` identical to the 1.20 module (JOML already in 1.19.3+). |
