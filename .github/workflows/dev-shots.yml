@@ -57,6 +57,10 @@ on:
         description: "Select a tiny shadow-pass shader pack (written into run/shaderpacks) so Iris loads PackShadowDirectives; proves IrisShadowDirectivesMixin applies. Use with set 'world'"
         type: boolean
         default: false
+      shadow_distance:
+        description: "With shaderpack: set the CI pack's shadowDistance (a const in shadow.fsh, the Iris half plane; Shader Performance Mode halves it). Empty = Iris default. Under the render distance, part of the shadow walk falls off the map (Off-Map Shadows run). A trailing s (e.g. 64s) also makes terrain and mobs sample the shadow map, so shots show real shadows (Half-Rate Shadows run)"
+        type: string
+        default: ""
       extra_mods:
         description: "Also load the pinned 'with mods' set (tools/frame-log/mods-<module>.json) on top of Origin's own"
         type: boolean
@@ -198,6 +202,7 @@ jobs:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
           FRAMELOG: ${{ github.event.inputs.framelog || 'false' }}
           EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}
+          SHADOW_DISTANCE: ${{ github.event.inputs.shadow_distance || '' }}
         run: |
           chmod +x gradlew
           mkdir -p "$ORIGIN_SHOTS/screenshots"
@@ -230,9 +235,28 @@ jobs:
             mkdir -p "$sp" "$rundir/config"
             printf '#version 120\nvoid main() { gl_Position = ftransform(); }\n' > "$sp/shadow.vsh"
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/shadow.fsh"
+            sd="${SHADOW_DISTANCE%s}"
+            case "$sd" in
+              ''|*[!0-9]*) ;;
+              *) printf 'const float shadowDistance = %s.0;\n' "$sd" >> "$sp/shadow.fsh" ;;
+            esac
             printf '#version 120\nvarying vec2 uv;\nvoid main() { gl_Position = ftransform(); uv = gl_MultiTexCoord0.xy; }\n' > "$sp/gbuffers_basic.vsh"
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/gbuffers_basic.fsh"
-            printf 'shadowMapResolution=1024\nshadowDistance=96\n' > "$sp/shaders.properties"
+            # Textured terrain/entities (Iris falls gbuffers_terrain back to gbuffers_textured), so world
+            # shots show real blocks and the Smart Terrain Updates OFF/ON pixel diff compares terrain.
+            printf '#version 120\nvarying vec2 uv;\nvarying vec4 col;\nvoid main() { gl_Position = ftransform(); uv = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy; col = gl_Color; }\n' > "$sp/gbuffers_textured.vsh"
+            printf '#version 120\nuniform sampler2D texture;\nvarying vec2 uv;\nvarying vec4 col;\nvoid main() { vec4 c = texture2D(texture, uv) * col; if (c.a < 0.1) discard; gl_FragData[0] = c; }\n' > "$sp/gbuffers_textured.fsh"
+            case "$SHADOW_DISTANCE" in
+              *s)
+                # Shadow-sampling variant: the textbook lookup (view -> player space -> shadowModelView ->
+                # shadowProjection -> shadowtex0 depth compare); shadowed texels are drawn at half brightness.
+                printf '#version 120\nuniform mat4 gbufferModelViewInverse;\nuniform mat4 shadowModelView;\nuniform mat4 shadowProjection;\nvarying vec2 uv;\nvarying vec4 col;\nvarying vec3 spos;\nvoid main() { gl_Position = ftransform(); uv = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy; col = gl_Color; vec4 pp = gbufferModelViewInverse * (gl_ModelViewMatrix * gl_Vertex); vec4 s = shadowProjection * (shadowModelView * pp); spos = s.xyz / s.w * 0.5 + 0.5; }\n' > "$sp/gbuffers_textured.vsh"
+                printf '#version 120\nuniform sampler2D texture;\nuniform sampler2D shadowtex0;\nvarying vec2 uv;\nvarying vec4 col;\nvarying vec3 spos;\nvoid main() { vec4 c = texture2D(texture, uv) * col; if (c.a < 0.1) discard; float lit = 1.0; if (all(greaterThan(spos, vec3(0.0))) && all(lessThan(spos, vec3(1.0))) && spos.z - 0.002 > texture2D(shadowtex0, spos.xy).r) lit = 0.5; gl_FragData[0] = vec4(c.rgb * lit, c.a); }\n' > "$sp/gbuffers_textured.fsh"
+                ;;
+            esac
+            # shadow.enabled=true: without it (and with no pass sampling shadowtex) Iris never builds a
+            # ShadowRenderer, so no shadow pass runs at all (IrisRenderingPipeline, Iris 1.8.8).
+            printf 'shadowMapResolution=1024\nshadowDistance=96\nshadow.enabled=true\n' > "$sp/shaders.properties"
             printf 'enableShaders=true\nshaderPack=OriginCiPack\n' > "$rundir/config/iris.properties"
           fi
           if [ "$FRAMELOG" = "true" ]; then

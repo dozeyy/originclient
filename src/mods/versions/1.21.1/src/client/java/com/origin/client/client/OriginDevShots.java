@@ -59,7 +59,7 @@ public final class OriginDevShots {
 		// world list with that save in it after Save and Quit.
 		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED,
 		// ORIGIN_SHOTS_SET=perf: the real Sodium / Iris screens (opened by reflection, see perfScreen)
-		PERF_SODIUM, PERF_IRIS;
+		PERF_SODIUM, PERF_IRIS, PERF_ORIGIN;
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -212,6 +212,7 @@ public final class OriginDevShots {
 					yield new OriginModMenuScreen().preview(false, false);
 				}
 				case PERF_SODIUM -> perfScreen("net.caffeinemc.mods.sodium.client.gui.SodiumOptionsGUI", "me.jellysquid.mods.sodium.client.gui.SodiumOptionsGUI");
+				case PERF_ORIGIN -> new OriginModMenuScreen().performanceTab();
 				case PERF_IRIS -> perfScreen("net.irisshaders.iris.gui.screen.ShaderPackScreen", "net.coderbot.iris.gui.screen.ShaderPackScreen");
 				case STY_OPTIONS, STY_VIDEO -> new net.minecraft.client.gui.screens.options.OptionsScreen(
 						new TitleScreen(), Minecraft.getInstance().options);
@@ -432,6 +433,8 @@ public final class OriginDevShots {
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.TITLE));
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.PERF_SODIUM));
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.PERF_IRIS));
+			// Origin's own Settings > Performance page (Limit Far Shadows + Smart Terrain Updates).
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.PERF_ORIGIN));
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.

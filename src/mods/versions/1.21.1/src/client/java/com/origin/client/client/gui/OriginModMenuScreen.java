@@ -146,6 +146,14 @@ public class OriginModMenuScreen extends Screen {
 		return this;
 	}
 
+	/** Dev-shots only: open on Settings > Performance (the shader-speed options). */
+	public OriginModMenuScreen performanceTab() {
+		Mods.setMetaBool("menuListView", false);
+		tab = Tab.SETTINGS;
+		subTab = SubTab.PERFORMANCE;
+		return this;
+	}
+
 	/** Dev-shots only: open on the list view or the Settings tab. */
 	public OriginModMenuScreen preview(boolean list, boolean settings) {
 		Mods.setMetaBool("menuListView", list);
