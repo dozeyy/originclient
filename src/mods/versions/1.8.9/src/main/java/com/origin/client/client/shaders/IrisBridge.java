@@ -129,6 +129,21 @@ public final class IrisBridge {
 		}
 	}
 
+	/** The pack OptiFine has SELECTED (optionsshaders.txt), whether or not it loaded; null = none/off.
+	 *  Unlike currentPack(), this is what the compat warning checks. */
+	public static String selectedPack() {
+		try {
+			Object name = staticField(shadersClass(), "currentShaderName", "currentshadername");
+			if (!(name instanceof String)) {
+				return null;
+			}
+			String s = (String) name;
+			return s.isEmpty() || "OFF".equals(s) || "(internal)".equals(s) ? null : s;
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
 	/** Applies a pack (null = shaders off) the way OptiFine's own screen does:
 	 *  setShaderPack(name), then uninit() so the pipeline rebuilds on the next
 	 *  frame. True on success. */
