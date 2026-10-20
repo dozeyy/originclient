@@ -902,7 +902,7 @@ public final class OriginScreenRenderer {
 				// manager alone would always give Steve/Alex. SocialSkins looks the skin
 				// up once off the render thread, caches the texture id, and shows the
 				// default skin until it lands (no per-frame allocation, no blocking).
-				net.minecraft.resources.ResourceLocation skin = com.origin.client.client.social.SocialSkins.skin(user.getProfileId());
+				net.minecraft.resources.ResourceLocation skin = com.origin.client.client.social.SocialSkins.skin(profileIdOf(user));
 				guiGraphics.face(skin, hx, hy, head);
 				drewHead = true;
 			} catch (Throwable ignored) {
@@ -919,6 +919,19 @@ public final class OriginScreenRenderer {
 	}
 
 	// ---- Primitives ----
+
+	// User.getProfileId() parses the uuid string on every call and the title chip asks every
+	// frame, so the parsed id is cached per User (an account switch replaces the User object).
+	private static net.minecraft.client.User chipUser;
+	private static java.util.UUID chipUserId;
+
+	private static java.util.UUID profileIdOf(net.minecraft.client.User user) {
+		if (user != chipUser) {
+			chipUserId = user.getProfileId();
+			chipUser = user;
+		}
+		return chipUserId;
+	}
 
 	/** Advance the shared rings (RingField) for this frame's scene. */
 	private static void field(RingField.Mood mood) {
