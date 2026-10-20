@@ -60,9 +60,24 @@ public final class MenuBlur {
 
 	/** Whether Menu Blur (rather than vanilla) draws this screen's backdrop. */
 	public static boolean handles(GuiScreen screen) {
+		// Transparent Menus (Settings > General): every in-world menu gets a clear backdrop,
+		// no blur and no tint, whatever the Menu Blur mod itself is set to.
+		if (transparent() && screen != null && !com.origin.client.client.OriginStyle.vanillaMenusOn(screen)) {
+			return true;
+		}
 		return screen != null && !com.origin.client.client.OriginStyle.vanillaMenusOn(screen) && !broken && Minecraft.getMinecraft().theWorld != null
 				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen))
 				&& OpenGlHelper.isFramebufferEnabled() && !IrisBridge.shadersActive();
+	}
+
+	/** Settings > General > Transparent Menus, while in a world. */
+	public static boolean transparent() {
+		return Mods.bool(Mods.GENERAL_ID, "transparentMenus") && Minecraft.getMinecraft().theWorld != null;
+	}
+
+	/** Blur strength: 0 while Transparent Menus is on. */
+	private static double strength() {
+		return transparent() ? 0.0 : Mods.num(MOD, "strength");
 	}
 
 	/** Blurs whatever is in the main framebuffer (the world + HUD) at the mod's
@@ -73,7 +88,7 @@ public final class MenuBlur {
 	 *  may not be the frame's target here (see the class comment). */
 	public static boolean blur(float partialTick) {
 		Minecraft mc = Minecraft.getMinecraft();
-		int radius = (int) Math.round(Mods.num(MOD, "strength"));
+		int radius = (int) Math.round(strength());
 		if (radius < 1) {
 			return true;
 		}
@@ -112,6 +127,9 @@ public final class MenuBlur {
 
 	/** The kind's tint over the whole screen (transparent = none). */
 	public static void tint(Gfx g, GuiScreen screen) {
+		if (transparent()) {
+			return;
+		}
 		int c = OriginColorPicker.liveColor(MOD, kind(screen) + "Bg");
 		if (((c >>> 24) & 0xFF) != 0) {
 			g.fill(0, 0, g.guiWidth(), g.guiHeight(), c);

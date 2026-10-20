@@ -32,7 +32,34 @@ public final class GeneralSettings {
 
 	static void tick(Minecraft mc) {
 		applyBorderless(mc);
+		applyTransparentMenus();
 		applyRawMouseInput(mc);
+	}
+
+	// Transparent Menus (Settings > General). The vanilla backdrops are cleared by MenuBlur
+	// (blur, dim and list strips); the Origin panels use the existing "Solid Menu
+	// Background" setting, so this toggle drives it: on = panel off (remembering the old
+	// opacity), off = the remembered opacity back. Edge-triggered, so a player who never
+	// turns it on keeps their own Solid Menu Background choice untouched.
+	private static Boolean lastTransparent = null;
+	private static double solidBefore = 1.0;
+
+	private static void applyTransparentMenus() {
+		boolean want = Mods.bool(Mods.GENERAL_ID, "transparentMenus");
+		if (lastTransparent != null && lastTransparent == want) {
+			return;
+		}
+		boolean first = lastTransparent == null;
+		lastTransparent = want;
+		if (want) {
+			double cur = Mods.metaNum("menuBgOpacity", 1.0);
+			if (cur > 0.0) {
+				solidBefore = cur;
+				Mods.setMetaNum("menuBgOpacity", 0.0);
+			}
+		} else if (!first) {
+			Mods.setMetaNum("menuBgOpacity", solidBefore);
+		}
 	}
 
 	private static void applyBorderless(Minecraft mc) {
