@@ -186,7 +186,7 @@ public final class ModelCosmetic {
 				// 1.8.9: LayerSpiderEyes' state is RenderType.eyes here: additive, no alpha test, no depth write.
 				GlStateManager.enableBlend();
 				GlStateManager.disableAlpha();
-				GlStateManager.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
+				GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);   // alpha-weighted additive: a radial-gradient glow (halo-orbit centre) stays see-through; opaque texels add exactly as ONE,ONE did
 				GlStateManager.depthMask(false);
 				pass(ModelGeometry.GLOW, fit, vOff, invU, invV);
 			}

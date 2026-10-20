@@ -296,6 +296,15 @@ public final class DiscordPresence {
 				assets.addProperty("large_image", "origin");
 				assets.addProperty("large_text", "Origin Client");
 				act.add("assets", assets);
+				// Discord has no "click the card" target; its one link surface is a
+				// button under the card (other players see it, not you). Opens the
+				// site (Will's 2026-10-20 playtest: the card should lead to originclient.org).
+				com.google.gson.JsonArray buttons = new com.google.gson.JsonArray();
+				JsonObject site = new JsonObject();
+				site.addProperty("label", "Get Origin Client");
+				site.addProperty("url", "https://originclient.org");
+				buttons.add(site);
+				act.add("buttons", buttons);
 				args.add("activity", act);
 			}
 			JsonObject cmd = new JsonObject();
