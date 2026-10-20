@@ -188,7 +188,12 @@ public class TitleScreenMixin {
 			target = "Lnet/minecraft/client/renderer/PanoramaRenderer;render(FF)V"))
 	private void originclient$sharedPanorama(net.minecraft.client.renderer.PanoramaRenderer instance, float deltaT, float alpha) {
 		if (originclient$origin() && OriginScreenRenderer.isActive()) {
-			OriginScreenRenderer.panorama().render(deltaT, alpha);
+			try {
+				OriginScreenRenderer.panorama().render(deltaT, alpha);
+			} catch (Throwable t) {
+				// fail soft: vanilla's own panorama call
+				instance.render(deltaT, alpha);
+			}
 		} else {
 			instance.render(deltaT, alpha);
 		}
