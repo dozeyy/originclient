@@ -29,8 +29,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // never disagree mid-run. remap = false (Iris isn't Minecraft-mapped) and
 // require = 0 so this whole mixin no-ops cleanly if Iris is absent or renames
 // its internals in a future version.
+//
+// TARGET PACKAGE: players on 1.20.2 get iris-mc1.20.2-1.6.14 (PerformanceModCatalog
+// .Data.cs), which predates Iris's net.coderbot -> net.irisshaders rename (1.7):
+// its class is net.coderbot.iris.shaderpack.PackShadowDirectives. This mixin used
+// to target only the irisshaders path (copied from 1.20.4, verified against a dev
+// runtime that loads the 1.20.4 Iris jar), so on real installs it never applied
+// and Shader Performance Mode did nothing (@Pseudo + require=0 = silent). Both
+// roots are listed so a future Iris pin on either side keeps working; javap
+// (2026-10-19) confirms getDistance()F on both classes.
 @Pseudo
-@Mixin(targets = "net.irisshaders.iris.shaderpack.properties.PackShadowDirectives", remap = false)
+@Mixin(targets = {
+		"net.coderbot.iris.shaderpack.PackShadowDirectives",              // Iris 1.6.x (shipped for 1.20.2)
+		"net.irisshaders.iris.shaderpack.properties.PackShadowDirectives" // Iris 1.7+
+}, remap = false)
 public class IrisShadowDirectivesMixin {
 	private static boolean originclient$perf() {
 		try {

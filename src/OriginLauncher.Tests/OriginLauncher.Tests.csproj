@@ -84,6 +84,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />
     <!-- 1.8.9's FML splash theme (pure file IO). -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\ForgeSplashTheme.cs" LinkBase="Loaders" />
+    <!-- Offline launching: the Mojang metadata disk copy and the "you're offline" classifier (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\MojangMetaCache.cs" LinkBase="Versions" />
+    <Compile Include="..\OriginLauncher.App\Core\Versions\OfflineLaunch.cs" LinkBase="Versions" />
   </ItemGroup>
 
   <ItemGroup>

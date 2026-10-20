@@ -94,7 +94,7 @@ dependencies {
 	// builds (no libs/) still run — Loom eagerly checksums modRuntimeOnly files.
 	if (file("libs/sodium-fabric-0.5.11+mc1.21.jar").exists()) {
 		modRuntimeOnly files("libs/sodium-fabric-0.5.11+mc1.21.jar")
-		modRuntimeOnly files("libs/iris-fabric-1.8.8+mc1.21.1.jar")
+		modRuntimeOnly files("libs/iris-1.7.3+mc1.21.jar")
 	}
 	// Iris bundles its GLSL toolchain (anarres jcpp, douira glsl-transformer,
 	// antlr4) as jar-in-jar; Loom's include() doesn't propagate a nested mod's

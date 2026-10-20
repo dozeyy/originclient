@@ -27,8 +27,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // with the rest of the mod jar, so the @Shadow descriptors still match Iris's
 // intermediary jar at apply. require = 0 + @Pseudo + the config's required=false
 // mean this no-ops cleanly if Iris is absent or renames these internals.
+//
+// Both package roots: this jar runs on Iris 1.6.4 (MC 1.20, net.coderbot) and
+// Iris 1.7.6 (MC 1.20.1, net.irisshaders); @Pseudo skips the absent one. With
+// only the coderbot target the watermark stayed on 1.20.1 (javap-verified
+// 2026-10-19: same three fields + (Screen) ctor on both classes).
 @Pseudo
-@Mixin(targets = "net.coderbot.iris.gui.screen.ShaderPackScreen", remap = false)
+@Mixin(targets = {
+		"net.coderbot.iris.gui.screen.ShaderPackScreen",   // Iris 1.6.4 (MC 1.20)
+		"net.irisshaders.iris.gui.screen.ShaderPackScreen" // Iris 1.7.6 (MC 1.20.1)
+}, remap = false)
 public class IrisWatermarkMixin {
 
 	// irisTextComponent is declared final in Iris; @Mutable strips that at apply

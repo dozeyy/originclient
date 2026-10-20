@@ -6,7 +6,9 @@ using CmlLib.Core;
 using CmlLib.Core.Installers;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
+using CmlLib.Core.VersionLoader;
 using OriginLauncher.App.Core.GameFolders;
+using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Profiles;
@@ -344,6 +346,15 @@ public sealed class VersionManager
         {
             return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct);
         }
+        catch (Exception e) when (!ct.IsCancellationRequested)
+        {
+            // A provisioning failure makes the files on disk a suspect, same as a
+            // crashed boot: the next launch verifies in full instead of trusting them.
+            InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
+            if (e is not OfflineInstallException && OfflineLaunch.IsNoConnection(e, ct))
+                throw new OfflineInstallException(version, e);
+            throw;
+        }
         finally
         {
             gate.Release();
@@ -399,6 +410,7 @@ public sealed class VersionManager
         // doubt returns Full and behaves exactly like it always did. See
         // InstallVerification for the safety contract.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
+        LaunchTimeline.Mark(decision.FullVerify ? "stamp-full" : "stamp-fast");
 
         // The cached loader must also read fabric.modsFolder (Loader 0.15.0+),
         // or the game would look in the account's empty mods/ — an older one
@@ -412,19 +424,32 @@ public sealed class VersionManager
         {
             progress?.Report("Installing Fabric loader...");
             var fabricInstaller = new FabricInstaller(SharedHttp);
-            versionName = await fabricInstaller.Install(version, path);
+            try
+            {
+                versionName = await fabricInstaller.Install(version, path);
+            }
+            catch (Exception e) when ((e is HttpRequestException || (e is TaskCanceledException && !ct.IsCancellationRequested))
+                && InstalledLoader(path, version) is { } installed)
+            {
+                // Offline (or Fabric's meta server down) with a loader already
+                // installed: play on it rather than refuse to launch. Online, the
+                // newest loader is resolved exactly as before.
+                versionName = installed;
+            }
         }
+        LaunchTimeline.Mark("loader");
         if (!SharedMods.LoaderReadsModsFolderProperty(versionName))
             throw new InvalidOperationException(
                 $"{versionName} is too old to load the shared mods folder (needs Fabric Loader {SharedMods.FirstLoaderWithModsFolder}+).");
 
-        var launcher = BuildLauncher(path, decision.FullVerify);
+        var launcher = BuildLauncher(path, versionName, decision.FullVerify);
 
         // Every Fabric mod in play here (Origin Client, and any
         // third-party jar a player drops in) depends on this, so it's
         // installed unconditionally for every Fabric version, not
         // just the one Origin Client itself targets.
         await FabricApiInstaller.InstallAsync(version, modsFolder, progress, ct);
+        LaunchTimeline.Mark("fabric-api");
 
         bool originBundlesPerfStack = false;
         if (OriginBuilds.TryGetValue(version, out var originBuild)
@@ -605,6 +630,7 @@ public sealed class VersionManager
         var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
         extraJvm.Add(new MArgument(SharedMods.JvmArgument(gameModsFolder)));
         option.ExtraJvmArguments = extraJvm;
+        LaunchTimeline.Mark("mods");
 
         // On the fast path the installer only stats files, so it finishes almost
         // immediately and "Verifying" would flash by; say what is actually
@@ -613,12 +639,21 @@ public sealed class VersionManager
         var fileProgress = new InstallProgressThrottle(
             progress, decision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
 
-        var built = await launcher.InstallAndBuildProcessAsync(versionName, option, fileProgress, null, ct);
+        // CmlLib's InstallAndBuildProcessAsync is exactly these three calls (4.0.6);
+        // they are made one at a time only so the launch-time harness can tell the
+        // version lookup, the file pass and the process build apart.
+        var resolved = await launcher.GetVersionAsync(versionName, ct);
+        LaunchTimeline.Mark("version");
+        await launcher.InstallAsync(resolved, fileProgress, null, ct);
+        LaunchTimeline.Mark("files");
+        var built = launcher.BuildProcess(resolved, option);
+        LaunchTimeline.Mark("process-built");
 
         // Only stamp after provisioning came back clean. The stamp is what lets
         // the NEXT launch skip the rehash, so writing it on a failed pass would
-        // be exactly the wrong thing.
-        InstallVerification.MarkVerified(sharedRoot, version, versionName);
+        // be exactly the wrong thing. Only a full pass re-stamps: the stamp's
+        // age is what forces the weekly full pass (InstallVerification.MaxAge).
+        if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, versionName);
         return built;
     }
 
@@ -681,7 +716,7 @@ public sealed class VersionManager
         // the same multi-hundred-MB asset + JRE rehash, so it gets the same
         // skip once it has proven clean under this launcher build.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
-        var launcher = BuildLauncher(path, decision.FullVerify);
+        var launcher = BuildLauncher(path, forgeVersionName, decision.FullVerify);
 
         progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
         var fileProgress = new InstallProgressThrottle(
@@ -692,7 +727,7 @@ public sealed class VersionManager
         // its legacy "minecraftArguments" string, plus option's extra game
         // arguments (a friend's server: --server/--port, JoinArguments).
         var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress, null, ct);
-        InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
+        if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
         return built;
     }
 
@@ -747,6 +782,9 @@ public sealed class VersionManager
     // meta.fabricmc.net every time and a socket left in TIME_WAIT after.
     private static readonly HttpClient SharedHttp = new();
 
+    // Parallel game-file downloads (BuildLauncher). Measured in launch-time.yml.
+    private const int MaxDownloads = 24;
+
     /// <summary>
     /// Builds the CmlLib launcher with an integrity policy chosen per launch.
     ///
@@ -754,9 +792,12 @@ public sealed class VersionManager
     ///                       launcher update). This is CmlLib's default.
     /// fullVerify = false -> existence + size only. Note size checking is turned
     ///                       ON here in both modes; CmlLib ships it OFF, so the
-    ///                       fast path still catches truncated files.
+    ///                       fast path still catches truncated files. It also
+    ///                       reads the version chain from disk when all of it
+    ///                       is there, instead of Mojang's manifest
+    ///                       (LocalFirstVersionLoader).
     /// </summary>
-    private static MinecraftLauncher BuildLauncher(MinecraftPath path, bool fullVerify)
+    private static MinecraftLauncher BuildLauncher(MinecraftPath path, string versionName, bool fullVerify)
     {
         // MUST pass the path INTO CreateDefault. The parameterless overload builds
         // its IVersionLoader bound to the DEFAULT Minecraft path, and assigning
@@ -768,13 +809,50 @@ public sealed class VersionManager
         // (906 entries, zero local) instead of 907 including the loader profile.
         // Measured both ways against a real instance before changing this.
         var parameters = MinecraftLauncherParameters.CreateDefault(path, SharedHttp);
+        // No Java 8 download for loader profiles that name no Java (see the class),
+        // and Java's metadata from a disk copy when offline (MojangMetaCache). The
+        // client is per launch but holds no sockets: it sends through SharedHttp.
+        var javaMeta = new HttpClient(new MojangMetaCache(
+            Path.Combine(OriginPaths.Root, "cache", "mojang-meta"), new ForwardToClient(SharedHttp),
+            diskFirst: !fullVerify));
+        InheritedJavaFileExtractor.Install(parameters, javaMeta);
+        // Offline: the version list from the copy CmlLib saved on its last fetch.
+        if (parameters.VersionLoader is MojangJsonVersionLoaderV2 mojang) mojang.UseLocalManifestWhenError = true;
+        if (!fullVerify && parameters.VersionLoader != null)
+            parameters.VersionLoader = new LocalFirstVersionLoader(path, versionName, parameters.VersionLoader);
 
-        var installer = ParallelGameInstaller.CreateAsCoreCount(SharedHttp);
+        // CmlLib's CreateAsCoreCount: min(4, cores) checkers, max(8, cores)
+        // downloaders. A first launch is ~3,900 asset files of a few KB each, so
+        // the download is round-trip bound, not bandwidth bound: more requests in
+        // flight finish it sooner. Checkers stay CmlLib's (disk/hash bound).
+        var installer = new ParallelGameInstaller(
+            maxChecker: Math.Clamp(Environment.ProcessorCount, 1, 4),
+            maxDownloader: Math.Max(MaxDownloads, Environment.ProcessorCount),
+            boundedCapacity: 2048,
+            SharedHttp);
         installer.CheckFileSize = true;
         installer.CheckFileChecksum = fullVerify;
         parameters.GameInstaller = installer;
 
         return new MinecraftLauncher(parameters);
+    }
+
+    // The newest installed Fabric profile for this version (offline fallback), or null.
+    private static string? InstalledLoader(MinecraftPath path, string version)
+    {
+        try
+        {
+            var dir = new DirectoryInfo(path.Versions);
+            if (!dir.Exists) return null;
+            var names = dir.EnumerateDirectories()
+                .Where(d => File.Exists(Path.Combine(d.FullName, d.Name + ".json")))
+                .Select(d => d.Name);
+            return SharedMods.NewestInstalledLoader(names, version);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;

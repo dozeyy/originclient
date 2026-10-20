@@ -252,12 +252,180 @@ class DevShotsWorkflow(unittest.TestCase):
 
     def test_every_publish_attempt_starts_from_the_fresh_tip(self):
         # Run 39273133310 lost the push race 5 times: it cloned once and retried the stale commit.
-        yml = _read(self.YML)
-        loop = re.search(r"for attempt in [\d ]+; do\n(.*?)could not publish", yml, re.S)
+        body = _read(PUBLISH_SH)
+        loop = re.search(r'for attempt in .*?; do\n(.*?)could not publish', body, re.S)
         self.assertIsNotNone(loop, "publish retry loop not found")
-        body = loop.group(1)
-        self.assertIn("git clone", body)
-        self.assertLess(body.index("git clone"), body.index("git push"))
+        loop = loop.group(1)
+        self.assertIn("git clone", loop)
+        self.assertLess(loop.index("git clone"), loop.index("git push"))
+
+    def test_publish_is_serialized_and_bounded(self):
+        # Runs 39271223735 (5 lost races), 39303597442 / 39325641289 (HTTP 500 then the timeout).
+        yml = _read(self.YML)
+        pub = yml.split("\n  publish:\n", 1)[1]
+        self.assertRegex(pub, r"concurrency:\n      group: dev-shots-publish\n      cancel-in-progress: false")
+        self.assertRegex(pub, r"timeout-minutes: \d+")
+        self.assertIn("publish_shots.sh", pub)
+        # artifacts are fetched one by one with a retry, not one all-at-once download action
+        self.assertNotIn("download-artifact", pub)
+        self.assertRegex(pub, r"gh run download .*-n \"\$n\"")
+
+    def _collect(self, gh_body):
+        """Runs the publish job's artifact-collect step with a fake `gh` (and a no-wait `sleep`)."""
+        import subprocess, stat
+        if not (_have("bash")):
+            self.skipTest("needs bash")
+        yml = _read(self.YML)
+        m = re.search(r"- name: Collect every module's shots[^\n]*\n(?:.*\n)*?        run: \|\n((?:          .*\n|\n)+)", yml)
+        self.assertIsNotNone(m, "collect step not found")
+        script = "\n".join(l[10:] for l in m.group(1).splitlines())
+        tmp = tempfile.mkdtemp()
+        for name, body in (("gh", gh_body), ("sleep", "exit 0")):
+            p = os.path.join(tmp, name)
+            with open(p, "w", newline="\n") as f:
+                f.write("#!/bin/sh\n" + body + "\n")
+            os.chmod(p, os.stat(p).st_mode | stat.S_IEXEC)
+        env = dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"], RUNNER_TEMP=tmp,
+                   GITHUB_REPOSITORY="o/r", GITHUB_RUN_ID="1", GH_TOKEN="x")
+        return subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True)
+
+    def test_failed_artifact_listing_fails_the_job(self):
+        # A flaky API must never read as "nothing to publish" (green with no shots published).
+        p = self._collect("exit 1")
+        self.assertNotEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("could not list", p.stdout + p.stderr)
+
+    def test_successful_empty_listing_is_fine(self):
+        p = self._collect("exit 0")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("no shots artifacts", p.stdout)
+
+    def test_workflow_files_are_clean_utf8(self):
+        # A BOM or mojibake (an em-dash turned into a-circumflex...) crept in via a PowerShell rewrite.
+        for f in ("dev-shots.yml", "launcher-shots.yml"):
+            raw = open(os.path.join(ROOT, ".github", "workflows", f), "rb").read()
+            self.assertFalse(raw.startswith(b"\xef\xbb\xbf"), f + " has a BOM")
+            text = raw.decode("utf-8")
+            self.assertNotIn("â€", text, f + " has mojibake")
+
+    def test_publish_pushes_per_module_without_history(self):
+        body = _read(PUBLISH_SH)
+        # one push per module folder (inside the folder loop), never one giant push
+        self.assertRegex(body, r'(?s)for m in \$folders; do.*git push.*done')
+        # a root commit (no inherited history) guarded by a lease, never a bare --force
+        self.assertIn("--force-with-lease", body)
+        self.assertNotRegex(body, r"push [^\n]*--force(?!-)")
+        # partial + sparse clone, not a full one
+        self.assertIn("--filter=blob:none", body)
+        self.assertIn("sparse-checkout", body)
+        # launcher-shots shares the branch and must not full-clone it either
+        ls = _read(os.path.join(ROOT, ".github", "workflows", "launcher-shots.yml"))
+        self.assertIn("--filter=blob:none", ls)
+
+
+PUBLISH_SH = os.path.join(HERE, "publish_shots.sh")
+
+
+def _have(cmd):
+    import shutil
+    return shutil.which(cmd) is not None
+
+
+@unittest.skipUnless(_have("bash") and _have("git") and _have("timeout"), "needs bash + git + timeout")
+class PublishShotsScript(unittest.TestCase):
+    """Runs the real publish script against a local bare repo standing in for GitHub."""
+
+    def _git(self, cwd, *args):
+        import subprocess
+        return subprocess.run(["git", *args], cwd=cwd, env=self.env, capture_output=True, text=True, check=True).stdout.strip()
+
+    def setUp(self):
+        import pathlib
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.env = dict(os.environ, HOME=str(self.tmp), USERPROFILE=str(self.tmp), GIT_CONFIG_NOSYSTEM="1",
+                        GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        self.remote = self.tmp / "remote.git"
+        self._git(self.tmp, "init", "-q", "--bare", str(self.remote))
+        self._git(self.remote, "config", "uploadpack.allowFilter", "true")
+        self._git(self.remote, "config", "uploadpack.allowAnySHA1InWant", "true")
+        # a branch that already has history and another run's folder, like the real one
+        seed = self.tmp / "seed"
+        seed.mkdir()
+        self._git(seed, "init", "-q", "-b", "claude/dev-shots")
+        for i in range(3):
+            (seed / "1.16.5").mkdir(exist_ok=True)
+            (seed / "1.16.5" / "title.png").write_bytes(b"old%d" % i)
+            self._git(seed, "add", "-A")
+            self._git(seed, "commit", "-qm", f"old {i}")
+        self._git(seed, "push", "-q", self.remote.as_uri(), "HEAD:refs/heads/claude/dev-shots")
+        self.pub = self.tmp / "pub"
+        for m in ("1.21.1", "1.20"):
+            (self.pub / f"shots-{m}").mkdir(parents=True)
+            (self.pub / f"shots-{m}" / "title_1920x1080_s0.png").write_bytes(b"new-" + m.encode())
+
+    def _run(self, **extra):
+        import subprocess
+        env = dict(self.env, URL=self.remote.as_uri(), PUB=str(self.pub), WORK=str(self.tmp / "work"),
+                   SLEEP_SCALE="0", SHA="abcdef1234", RUN_URL="http://run/1", SET="design", SUFFIX="")
+        env.update(extra)
+        (self.tmp / "work").mkdir(exist_ok=True)
+        return subprocess.run(["bash", PUBLISH_SH], env=env, capture_output=True, text=True)
+
+    def _files(self):
+        return set(self._git(self.remote, "ls-tree", "-r", "--name-only", "claude/dev-shots").splitlines())
+
+    def test_publishes_per_module_squashes_history_and_keeps_other_folders(self):
+        p = self._run()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        files = self._files()
+        self.assertTrue({"1.21.1/title_1920x1080_s0.png", "1.20/title_1920x1080_s0.png", "1.16.5/title.png", "SOURCE.txt"} <= files, files)
+        # 3 old commits squashed away: one root commit + one per module pushed after it
+        self.assertEqual(self._git(self.remote, "rev-list", "--count", "claude/dev-shots"), "2")
+        self.assertEqual(self._git(self.remote, "rev-list", "--max-parents=0", "claude/dev-shots").count("\n"), 0)
+        self.assertEqual(p.stdout.count("pushed "), 2)
+
+    def test_second_publish_replaces_its_folder_only(self):
+        self.assertEqual(self._run().returncode, 0)
+        (self.pub / "shots-1.20" / "title_1920x1080_s0.png").write_bytes(b"newer")
+        import shutil
+        shutil.rmtree(self.pub / "shots-1.21.1")
+        p = self._run()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(self._git(self.remote, "show", "claude/dev-shots:1.20/title_1920x1080_s0.png"), "newer")
+        self.assertIn("1.21.1/title_1920x1080_s0.png", self._files())
+
+    def test_label_suffix_goes_into_the_folder_name(self):
+        p = self._run(SUFFIX="-world-x")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("1.20-world-x/title_1920x1080_s0.png", self._files())
+
+    def test_rejected_push_is_retried_from_a_fresh_clone(self):
+        # The remote refuses the first push (a lost race / an HTTP 500); the publish must still land.
+        hook = self.remote / "hooks" / "pre-receive"
+        marker = (self.tmp / "refused").as_posix()
+        hook.write_text(f'#!/bin/sh\nif [ ! -e "{marker}" ]; then : > "{marker}"; echo refused >&2; exit 1; fi\nexit 0\n', newline="\n")
+        os.chmod(hook, 0o755)
+        p = self._run()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertRegex(p.stdout, r"push of 1\.\S+ failed")
+        self.assertIn("(attempt 2)", p.stdout)
+        self.assertIn("1.20/title_1920x1080_s0.png", self._files())
+
+    def test_gives_up_loudly_when_every_push_fails(self):
+        hook = self.remote / "hooks" / "pre-receive"
+        hook.write_text("#!/bin/sh\nexit 1\n", newline="\n")
+        os.chmod(hook, 0o755)
+        p = self._run(ATTEMPTS="2")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("could not publish", p.stdout)
+        # nothing was lost on the branch
+        self.assertIn("1.16.5/title.png", self._files())
+
+    def test_nothing_to_publish_is_not_an_error(self):
+        import shutil
+        shutil.rmtree(self.pub)
+        self.pub.mkdir()
+        self.assertEqual(self._run().returncode, 0)
 
 
 class CheckShotsNames(unittest.TestCase):
@@ -292,6 +460,186 @@ class LiveModules(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         self.assertTrue(any(victim in p for p in problems), problems)
+
+
+perf_libs = _load("perf_libs", os.path.join(HERE, "perf_libs.py"))
+perf_log = _load("perf_log", os.path.join(HERE, "perf_log.py"))
+
+MODLIST = ("[main/INFO] (FabricLoader) Loading 9 mods:\n\t- fabricloader 0.15.11\n\t- sodium 0.4.10+build.27\n"
+           "\t   \\-- nested 1.0\n\t- iris 1.6.4\n")
+MIXING = ("[main/INFO] (mixin) Mixing IrisWatermarkMixin from originclient.client.mixins.json into net.coderbot.iris.gui.screen.ShaderPackScreen\n"
+          "[main/INFO] (mixin) Mixing TitleScreenMixin from originclient.client.mixins.json into net.minecraft.client.gui.screens.TitleScreen\n")
+
+
+class PerfLibs(unittest.TestCase):
+    GRADLE = ('\t// modRuntimeOnly files("libs/sodium-commented-out.jar")\n'
+              '\tif (file("libs/sodium-fabric-mc1.20-0.4.10+build.27.jar").exists()) {\n'
+              '\t\tmodRuntimeOnly files("libs/sodium-fabric-mc1.20-0.4.10+build.27.jar")\n'
+              '\t\tmodRuntimeOnly files("libs/iris-mc1.20-1.6.4.jar")\n\t}\n')
+
+    def test_pins_come_from_build_gradle_not_comments(self):
+        self.assertEqual(perf_libs.pins(self.GRADLE),
+                         ["sodium-fabric-mc1.20-0.4.10+build.27.jar", "iris-mc1.20-1.6.4.jar"])
+
+    def test_every_pre_121_module_has_pins_and_1_8_9_none(self):
+        for mod in "1.16.5 1.17.1 1.18.2 1.19.2 1.19.3 1.19.4 1.20 1.20.2".split():
+            pins = perf_libs.pins(_read(os.path.join(ROOT, "src", "mods", "versions", mod, "build.gradle")))
+            self.assertEqual(sorted(perf_libs.slug_of(p) for p in pins), ["iris", "sodium"], mod)
+        self.assertEqual(perf_libs.pins(_read(os.path.join(ROOT, "src", "mods", "versions", "1.8.9", "build.gradle"))), [])
+
+    CATALOG_TEXT = ('        ["1.21"] = new("1.21", PerfStackTier.Full, new PerfMod("a", "https://cdn.modrinth.com/x", "sodium-fabric-0.5.11+mc1.21.jar"), '
+                    'new PerfMod("b", "u", "indium-1.jar"), null, null, null, new PerfMod("c", "u", "iris-1.7.3+mc1.21.jar"));' + chr(10) +
+                    '        ["1.20.6"] = new("1.20.6", PerfStackTier.Partial, null, null, null);' + chr(10))
+
+    def test_catalog_is_the_source_of_truth_for_pins(self):
+        cf = perf_libs.catalog_files(self.CATALOG_TEXT, "1.21")
+        self.assertEqual(cf, ("sodium-fabric-0.5.11+mc1.21.jar", "iris-1.7.3+mc1.21.jar"))   # Indium is not picked up
+        self.assertEqual(perf_libs.expected_pins(self.CATALOG_TEXT, "1.21", ["iris-1.7.3+mc1.21.jar", cf[0]]), list(cf))
+        # The 1.21 bug: build.gradle pinned an Iris that needs Sodium 0.6.x next to Sodium 0.5.11.
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.expected_pins(self.CATALOG_TEXT, "1.21", [cf[0], "iris-fabric-1.8.8+mc1.21.1.jar"])
+        with self.assertRaises(perf_libs.PerfLibsError):    # entry without Sodium + Iris (Partial tier)
+            perf_libs.expected_pins(self.CATALOG_TEXT, "1.20.6", ["sodium-x.jar", "iris-x.jar"])
+        with self.assertRaises(perf_libs.PerfLibsError):    # no entry at all
+            perf_libs.expected_pins(self.CATALOG_TEXT, "9.9", ["sodium-x.jar", "iris-x.jar"])
+
+    def test_every_live_module_pin_matches_what_ships(self):
+        # Make CI test what players get: each live module with libs/ pins names exactly the catalog's jars.
+        import json
+        catalog = _read(perf_libs.CATALOG)
+        live = [m["module"] for m in json.loads(_read(os.path.join(ROOT, "src", "mods", "live-modules.json")))["modules"]]
+        checked = 0
+        for mod in live:
+            pins = perf_libs.pins(_read(os.path.join(ROOT, "src", "mods", "versions", mod, "build.gradle")))
+            if not pins:
+                continue
+            perf_libs.expected_pins(catalog, mod, pins)   # raises with the diff on any mismatch
+            checked += 1
+        self.assertGreaterEqual(checked, 15)
+
+    def test_hash_mismatch_fails(self):
+        import hashlib
+        data = b"jar bytes"
+        perf_libs.verify(data, hashlib.sha512(data).hexdigest())
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.verify(b"tampered", hashlib.sha512(data).hexdigest())
+
+    def test_fetch_one_rejects_a_bad_download_and_skips_an_unknown_pin(self):
+        import hashlib
+        fn = "iris-mc1.20-1.6.4.jar"
+        listing = perf_libs.API + "/project/iris/version?loaders=" + perf_libs.urllib.parse.quote('["fabric"]')
+        api = {
+            listing: [{"id": "V1", "files": [{"filename": fn}]}],
+            perf_libs.API + "/version/V1": {"files": [{"filename": fn, "url": "https://cdn.modrinth.com/data/x/f.jar",
+                                                       "hashes": {"sha512": hashlib.sha512(b"good").hexdigest()}}]},
+        }
+        out = tempfile.mkdtemp()
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"evil")
+        self.assertFalse(os.path.exists(os.path.join(out, fn)))
+        self.assertTrue(perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"good").startswith("ok"))
+        self.assertTrue(os.path.exists(os.path.join(out, fn)))
+        # Not on Modrinth under that name -> skipped, never guessed.
+        api[listing] = []
+        self.assertTrue(perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"good").startswith("skipped"))
+
+    def test_only_the_modrinth_cdn_is_a_download_host(self):
+        import hashlib
+        fn = "iris-mc1.20-1.6.4.jar"
+        listing = perf_libs.API + "/project/iris/version?loaders=" + perf_libs.urllib.parse.quote('["fabric"]')
+        for url in ("http://cdn.modrinth.com/f.jar", "https://evil.example/f.jar", "https://cdn.modrinth.com.evil.example/f.jar"):
+            api = {listing: [{"id": "V1", "files": [{"filename": fn}]}],
+                   perf_libs.API + "/version/V1": {"files": [{"filename": fn, "url": url,
+                                                              "hashes": {"sha512": hashlib.sha512(b"good").hexdigest()}}]}}
+            out = tempfile.mkdtemp()
+            with self.assertRaises(perf_libs.PerfLibsError, msg=url):
+                perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"good")
+            self.assertFalse(os.path.exists(os.path.join(out, fn)))
+
+    def test_pin_names_cannot_carry_a_path(self):
+        self.assertEqual(perf_libs.pins('modRuntimeOnly files("libs/sub/iris.jar")\n'), [])
+        self.assertEqual(perf_libs.pins('modRuntimeOnly files("libs/a\\\\b.jar")\n'), [])
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.pins('modRuntimeOnly files("libs/iris..jar")\n')
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.fetch_one("../iris.jar", tempfile.mkdtemp(), lambda u: [], lambda u: b"")
+
+
+class PerfLogGate(unittest.TestCase):
+    def test_mixin_failures_fail_the_job(self):
+        for bad in ("Mixin apply for mod originclient failed originclient.client.mixins.json:XMixin",
+                    "org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: x",
+                    "Critical injection failure: @Inject annotation on foo"):
+            ok, _ = perf_log.gate(MODLIST + bad + "\n", "m")
+            self.assertFalse(ok, bad)
+
+    def test_loaded_gate_needs_both_mods(self):
+        ok, _ = perf_log.gate("Loading 2 mods:\n\t- fabricloader 0.15\n", "m", require_loaded=True)
+        self.assertFalse(ok)
+        ok, _ = perf_log.gate("Loading 3 mods:\n\t- sodium 0.4.10\n", "m", require_loaded=True)
+        self.assertFalse(ok)
+        ok, lines = perf_log.gate(MODLIST + MIXING, "m", require_loaded=True)
+        self.assertTrue(ok)
+        self.assertIn("sodium=0.4.10+build.27", "\n".join(lines))
+
+    def test_counts_only_origin_mixins_on_sodium_iris(self):
+        self.assertEqual(perf_log.tally(MIXING), ["IrisWatermarkMixin -> ShaderPackScreen"])
+        ok, lines = perf_log.gate(MODLIST + MIXING, "m")
+        self.assertIn("mixins applied: 1", "\n".join(lines))
+
+    def test_declared_mixins_are_listed_against_applied(self):
+        names = perf_log.declared(os.path.join(ROOT, "src", "mods", "versions", "1.20"))
+        self.assertIn("IrisWatermarkMixin", names)
+        self.assertIn("IrisShadowDirectivesMixin", names)
+        ok, lines = perf_log.gate(MODLIST + MIXING, "m", declared_names=names)
+        self.assertIn("NOT applied", "\n".join(lines))
+        self.assertIn("IrisShadowDirectivesMixin", "\n".join(lines))
+
+    def test_zero_applied_with_mods_loaded_warns_but_passes(self):
+        ok, lines = perf_log.gate(MODLIST, "m", require_loaded=True)
+        self.assertTrue(ok)
+        self.assertIn("::warning", "\n".join(lines))
+
+    def test_missing_or_empty_log_fails_the_gate(self):
+        import sys
+        d = tempfile.mkdtemp()
+        empty = os.path.join(d, "empty.log")
+        open(empty, "w").close()
+        blank = os.path.join(d, "blank.log")
+        with open(blank, "w") as fh:
+            fh.write("\n  \n")
+        good = os.path.join(d, "good.log")
+        with open(good, "w") as fh:
+            fh.write(MODLIST + MIXING)
+        old = sys.argv
+        try:
+            for path, want in ((os.path.join(d, "missing.log"), 1), (empty, 1), (blank, 1), (good, 0)):
+                sys.argv = ["perf_log.py", path, "--require-loaded"]
+                self.assertEqual(perf_log.main(), want, path)
+        finally:
+            sys.argv = old
+
+    def test_smoke_and_workflows_wire_the_gate(self):
+        self.assertEqual(smoke.classify("InvalidInjectionException: @Inject target"), "fail")
+        ds = _read(os.path.join(ROOT, ".github", "workflows", "dev-shots.yml"))
+        bs = _read(os.path.join(ROOT, ".github", "workflows", "boot-smoke.yml"))
+        for wf in (ds, bs):
+            self.assertIn("tools/ci/perf_libs.py", wf)
+        self.assertIn("tools/ci/perf_log.py", ds)
+        self.assertIn("--perf", bs)
+        # the fetch runs before Gradle's prefetch (Loom checksums libs/ at configuration time)
+        self.assertLess(ds.index("python3 tools/ci/perf_libs.py"), ds.index("bash tools/ci/gradle_prefetch.sh"))
+        self.assertLess(bs.index("python3 tools/ci/perf_libs.py"), bs.index("bash tools/ci/gradle_prefetch.sh"))
+
+    def test_perf_set_is_in_every_harness_with_sodium_pins(self):
+        import glob
+        for mod in "1.16.5 1.17.1 1.18.2 1.19.2 1.19.3 1.19.4 1.20 1.20.2 1.21.1".split():
+            pat = os.path.join(ROOT, "src", "mods", "versions", mod, "src", "*", "java", "com", "origin", "client", "client", "OriginDevShots.java")
+            t = _read(glob.glob(pat)[0])
+            self.assertIn('"perf".equals(System.getenv("ORIGIN_SHOTS_SET"))', t, mod)
+            self.assertIn("PERF_SODIUM", t, mod)
+            # the design set must not pick the perf kinds up (they throw without the jars)
+            self.assertIn('!k.name().startsWith("PERF_")', t, mod)
 
 
 if __name__ == "__main__":
