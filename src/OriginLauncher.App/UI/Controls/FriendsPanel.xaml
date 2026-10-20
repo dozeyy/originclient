@@ -1013,7 +1013,7 @@
                     <TextBlock Text="Appear offline" Style="{StaticResource Text.Body}"/>
                     <TextBlock x:Name="AppearCaption" Text="Friends see you as online" Style="{StaticResource Social.Quiet}"/>
                 </StackPanel>
-                <ToggleButton Grid.Column="1" x:Name="AppearOfflineToggle" Style="{StaticResource Toggle.Switch}"
+                <ToggleButton Grid.Column="1" x:Name="AppearOfflineToggle" Style="{StaticResource Toggle.Slider}"
                               VerticalAlignment="Center" AutomationProperties.Name="Appear offline"
                               ToolTip="Friends see you as offline while this is on"
                               Checked="AppearOffline_Changed" Unchecked="AppearOffline_Changed"/>
