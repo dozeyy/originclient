@@ -766,6 +766,13 @@ public partial class HomePage : UserControl
             Note(key, MicrosoftAuthException.RateLimitedMessage, LaunchTone.Warning);
             WriteLaunchErrorLog(ex);
         }
+        catch (OfflineInstallException ex)
+        {
+            // No internet and this version still needs a download: a plain
+            // "you're offline" line, no update check (it can't reach GitHub either).
+            Note(key, ex.Message, LaunchTone.Warning);
+            WriteLaunchErrorLog(ex);
+        }
         catch (MicrosoftAuthException ex)
         {
             // ex.Message is always a plain sentence (raw HTTP detail only goes to the log).

@@ -346,6 +346,15 @@ public sealed class VersionManager
         {
             return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct);
         }
+        catch (Exception e) when (!ct.IsCancellationRequested)
+        {
+            // A provisioning failure makes the files on disk a suspect, same as a
+            // crashed boot: the next launch verifies in full instead of trusting them.
+            InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
+            if (e is not OfflineInstallException && OfflineLaunch.IsNoConnection(e, ct))
+                throw new OfflineInstallException(version, e);
+            throw;
+        }
         finally
         {
             gate.Release();

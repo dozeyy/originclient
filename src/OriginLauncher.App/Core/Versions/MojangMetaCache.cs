@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -17,8 +18,11 @@ namespace OriginLauncher.App.Core.Versions;
 /// instead. On a full pass every request still goes to Mojang; the fast path
 /// reads the copy first (diskFirst), which saves those two round trips.
 ///
-/// Files under /v1/packages/&lt;sha1&gt;/ are content-addressed: a copy is only
-/// saved or served when its SHA-1 matches the URL, so a damaged copy is never used.
+/// A body is only saved or served when it is plausibly the real file: under
+/// /v1/packages/&lt;sha1&gt;/ (content-addressed) its SHA-1 must match the URL, and
+/// anywhere else (all.json) it must parse as JSON. So an antivirus web shield or
+/// captive portal answering 200 with an HTML page never replaces a good copy, and
+/// a damaged copy on disk is skipped (the fast path then asks the network).
 /// </summary>
 public sealed class MojangMetaCache : DelegatingHandler
 {
@@ -51,8 +55,14 @@ public sealed class MojangMetaCache : DelegatingHandler
             using var response = await base.SendAsync(request, ct);
             response.EnsureSuccessStatusCode();
             var body = await response.Content.ReadAsByteArrayAsync(ct);
-            if (Matches(uri, body)) Save(uri, body);
-            return Answer(request, body);
+            if (IsValid(uri, body))
+            {
+                Save(uri, body);
+                return Answer(request, body);
+            }
+            // A 200 that isn't the file (a filter's block page): the saved copy
+            // is the better answer; with none, CmlLib reports the bad body as before.
+            return Answer(request, Load(uri) ?? body);
         }
         catch (Exception e) when (IsNetworkFailure(e, ct) && Load(uri) is { } saved)
         {
@@ -67,11 +77,25 @@ public sealed class MojangMetaCache : DelegatingHandler
     private static HttpResponseMessage Answer(HttpRequestMessage request, byte[] body) =>
         new(System.Net.HttpStatusCode.OK) { RequestMessage = request, Content = new ByteArrayContent(body) };
 
-    /// <summary>True unless the URL names a SHA-1 the body doesn't have.</summary>
-    public static bool Matches(Uri uri, byte[] body)
+    /// <summary>
+    /// True when the body can be the file the URL names: the SHA-1 the URL names,
+    /// or (no SHA-1 in the URL) a non-empty JSON document.
+    /// </summary>
+    public static bool IsValid(Uri uri, byte[] body)
     {
+        if (body.Length == 0) return false;
         var m = Addressed.Match(uri.AbsolutePath);
-        return !m.Success || string.Equals(Convert.ToHexString(SHA1.HashData(body)), m.Groups[1].Value, StringComparison.OrdinalIgnoreCase);
+        if (m.Success)
+            return string.Equals(Convert.ToHexString(SHA1.HashData(body)), m.Groups[1].Value, StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            using var _ = JsonDocument.Parse(body);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private string PathFor(Uri uri) =>
@@ -84,7 +108,7 @@ public sealed class MojangMetaCache : DelegatingHandler
             var file = PathFor(uri);
             if (!File.Exists(file)) return null;
             var body = File.ReadAllBytes(file);
-            return body.Length > 0 && Matches(uri, body) ? body : null;
+            return IsValid(uri, body) ? body : null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

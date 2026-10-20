@@ -23,6 +23,8 @@
 #                           more with no network (HTTP(S)_PROXY pointed at a dead
 #                           port): once on the fast path, once with the install
 #                           stamp deleted (full verify). <variant>-1-offfast/offfull
+#                           Then once more with the fabric-loader jar deleted
+#                           (offmissing): b must fail with OfflineInstallException.
 #
 # Start it from a push to a claude/** branch whose head commit message carries
 #   [launch-time base=<branch, tag or FULL 40-char sha> rounds=3 warm=3 label=x]
@@ -236,6 +238,17 @@ jobs:
                 Launch $v $root '1.21.1' "$out/$v-$i-offfast.json" "$v offline fast path" -expectFail
                 Remove-Item "$root/instances/1.21.1/origin-verified.json" -Force -ErrorAction SilentlyContinue
                 Launch $v $root '1.21.1' "$out/$v-$i-offfull.json" "$v offline full verify" -expectFail
+                # A library missing while offline must end in the plain "you're
+                # offline" error (OfflineInstallException), never a raw crash.
+                $lib = Get-ChildItem "$root/instances/1.21.1/libraries" -Recurse -Filter 'fabric-loader-*.jar' | Select-Object -First 1
+                if ($lib) { Remove-Item $lib.FullName -Force; Write-Host "removed $($lib.Name)" } else { Write-Host "::error::no fabric-loader jar to remove"; $script:failed++ }
+                $miss = "$out/$v-$i-offmissing.json"
+                Launch $v $root '1.21.1' $miss "$v offline missing library" -expectFail
+                if ($v -eq 'b') {
+                  $e = if (Test-Path $miss) { (Get-Content $miss -Raw | ConvertFrom-Json).error } else { $null }
+                  if ($e -and $e -match "OfflineInstallException: You're offline") { Write-Host "offline missing library: clear offline message" }
+                  else { Write-Host "::error::offline missing library did not end in OfflineInstallException"; $script:failed++ }
+                }
                 Remove-Item Env:HTTPS_PROXY; Remove-Item Env:HTTP_PROXY
               }
               if ($i -eq 1) {
