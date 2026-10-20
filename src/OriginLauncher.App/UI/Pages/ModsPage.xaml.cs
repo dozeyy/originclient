@@ -349,7 +349,7 @@ public partial class ModsPage : UserControl
 
         var toggle = new ToggleButton
         {
-            Style = (Style)FindResource("Toggle.Switch"),
+            Style = (Style)FindResource("Toggle.Slider"),
             IsChecked = mod.Enabled,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 12, 0),

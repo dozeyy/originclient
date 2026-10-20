@@ -67,7 +67,7 @@
                             <TextBlock x:Name="YourModsState" Text="On" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,0"
                                        Foreground="{StaticResource Brush.Text}"/>
                         </StackPanel>
-                        <ToggleButton x:Name="YourModsSwitch" Style="{StaticResource Toggle.Switch}" VerticalAlignment="Center"
+                        <ToggleButton x:Name="YourModsSwitch" Style="{StaticResource Toggle.Slider}" VerticalAlignment="Center"
                                       AutomationProperties.Name="Load your mods"
                                       Checked="YourModsSwitch_Changed" Unchecked="YourModsSwitch_Changed"/>
                     </StackPanel>
