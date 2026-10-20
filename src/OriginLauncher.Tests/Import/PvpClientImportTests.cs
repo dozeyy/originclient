@@ -209,6 +209,74 @@ public class PvpClientImportTests : IDisposable
         Assert.Null(lunar.Problem);
     }
 
+    // Will's REAL Lunar (read-only look, 2026-10-20): every version line's options.txt is written in the MODERN format
+    // (`version:4671`, key.keyboard.w, graphicsPreset), even profiles/1.8, and it is newer than the line's mods folder.
+    // The judge weighed that data version against the "1.8.9" record, picked the newer file and sent the Lunar 1.8.9
+    // setup to Minecraft 1.21.11 ("Not sure this is Minecraft 1.21.11" in the real import summary): 1.8.9 never got
+    // anything. The settings must also arrive translated (LWJGL 2 key codes, no data version, only 1.8.9's keys).
+    private void RealLunarEightLine()
+    {
+        var old = DateTime.UtcNow.AddDays(-120);
+        var recent = DateTime.UtcNow.AddDays(-40);
+        Directory.CreateDirectory(Path.Combine(Lunar, "profiles", "1.8", "mods", "ichor-1.8.9"));
+        Directory.SetLastWriteTimeUtc(Path.Combine(Lunar, "profiles", "1.8", "mods", "ichor-1.8.9"), old);
+        Directory.SetLastWriteTimeUtc(Path.Combine(Lunar, "profiles", "1.8", "mods"), old);
+        Kit.Write(Lunar, "profiles/1.8/options.txt",
+            "version:4671\nao:true\nbiomeBlendRadius:2\nfov:0.575\ngamma:0.55\nguiScale:2\nmaxFps:260\nrenderDistance:8\n"
+            + "graphicsPreset:\"custom\"\nmouseSensitivity:0.09859155\nresourcePacks:[]\nlang:en_US\nmusicToast:\"never\"\n"
+            + "key_key.attack:key.mouse.left\nkey_key.forward:key.keyboard.w\nkey_key.sprint:key.keyboard.left.control\n",
+            recent);
+        Kit.Write(Lunar, "profiles/1.8/optionsof.txt", "ofClouds:3\nofTrees:4\n", recent);
+        Kit.Write(Lunar, "profiles/1.8/optionsLC.txt", "lunar-only", recent);
+        Kit.WriteBytes(Lunar, "profiles/1.8/servers.dat", Kit.ServersDat(("Hypixel", "mc.hypixel.net")));
+        // Lunar's 1.8 log names OptiFine_1.8.9 but has no "Minecraft Version:" line the log reader knows.
+        Kit.Write(Lunar, "profiles/1.8/logs/latest.log",
+            "[14:08:52] [Client thread/INFO]: LWJGL Version: 2.9.4\n[14:08:52] [Client thread/INFO]: [OptiFine] OptiFine_1.8.9_HD_U_M6_pre2\n");
+        // The other lines carry the same modern file, as on the real PC.
+        LunarWithFabricMods();
+    }
+
+    [Fact]
+    public async Task LunarsOneEightLineIsOneEightNineEvenWhenItsSharedOptionsFileIsFromAModernVersion()
+    {
+        RealLunarEightLine();
+
+        var lunar = Assert.Single((await Scan()).Instances, s => s.Kind == SourceKind.Lunar && s.Name == "1.8.9");
+
+        Assert.Equal("1.8.9", lunar.McVersion);
+        Assert.True(lunar.VersionCertain, lunar.UncertainReason);
+        Assert.True(lunar.LoaderCertain, lunar.UncertainReason);
+        Assert.Null(lunar.Problem);
+    }
+
+    [Fact]
+    public async Task LunarsOneEightNineSettingsLandInTheOneEightNineFolderTranslatedForThatVersion()
+    {
+        RealLunarEightLine();
+        var lunar = Assert.Single((await Scan()).Instances, s => s.Kind == SourceKind.Lunar && s.Name == "1.8.9");
+
+        var request = _rig.Request(target: lunar.McVersion!, mc: lunar.McVersion!) with { Source = lunar };
+        var plan = await _rig.Engine().PlanAsync(request, null, CancellationToken.None);
+        Assert.True(plan.CanApply, string.Join(" ", plan.Blocked));
+        Assert.Equal("1.8.9", plan.TargetVersion);
+        var result = await _rig.Engine().ApplyAsync(plan, _rig.Settings, null, CancellationToken.None);
+        Assert.True(result.Succeeded, result.Error);
+
+        var game = _rig.GameDir("1.8.9");
+        var options = Kit.Read(game, "options.txt");
+        Assert.Contains("fov:0.575", options);
+        Assert.Contains("mouseSensitivity:0.09859155", options);
+        Assert.Contains("key_key.attack:-100", options);   // GLFW name -> LWJGL 2 mouse button
+        Assert.Contains("key_key.forward:17", options);    // key.keyboard.w -> scancode 17
+        Assert.Contains("key_key.sprint:29", options);
+        Assert.DoesNotContain("version:", options);        // 1.8.9 has no data version
+        Assert.DoesNotContain("graphicsPreset", options);  // keys 1.8.9 doesn't read stay behind
+        Assert.DoesNotContain("musicToast", options);
+        Assert.Equal("ofClouds:3\nofTrees:4\n", Kit.Read(game, "optionsof.txt").Replace("\r\n", "\n"));
+        Assert.True(Kit.Exists(game, "servers.dat"));
+        Assert.False(Kit.Exists(game, "optionsLC.txt"));
+    }
+
     [Fact]
     public async Task LunarsChosenGameDirectoryIsWhereWorldsAndScreenshotsComeFrom()
     {

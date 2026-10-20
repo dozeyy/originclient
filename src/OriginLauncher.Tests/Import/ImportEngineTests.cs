@@ -253,6 +253,55 @@ public class ImportEngineTests : IDisposable
         Assert.Contains("resourcePacks:[\"vanilla\",\"file/Old.zip\"]", lines);     // 1.8.9 bare names -> 1.13+ form
     }
 
+    // Will's real import (2026-10-20): "Couldn't create the settings file for Minecraft 26.2 yet; start the game once and
+    // import again". A brand-new options.txt needs the target's data version; the table stopped at 1.21.11, so no 26.x
+    // version could ever get its settings on a first import.
+    [Theory]
+    [InlineData("26.2", 4903)]
+    [InlineData("26.3", 5023)]
+    public async Task AFirstImportCreatesTheSettingsFileOnEvery26VersionWithItsOwnDataVersion(string target, int dataVersion)
+    {
+        Kit.Write(_rig.Source, "options.txt", "fov:0.575\nkey_key.forward:key.keyboard.w\n");
+
+        var (plan, result) = await Run(_rig.Request(target: target, mc: target) with { SupportedTargets = Rig.Supported.Append(target).ToArray() });
+
+        Assert.True(result.Succeeded, result.Error);
+        var lines = File.ReadAllLines(Dst("options.txt", target));
+        Assert.Contains($"version:{dataVersion}", lines);
+        Assert.Contains("fov:0.575", lines);
+        Assert.DoesNotContain(plan.Lines, l => l.Name == "options.txt" && l.Section == SummarySection.NeedsAttention);
+    }
+
+    [Fact]
+    public async Task AVersionMissingFromTheTableTakesItsDataVersionFromTheInstalledClientJar()
+    {
+        Kit.Write(_rig.Source, "options.txt", "fov:0.575\n");
+        var jar = Path.Combine(_rig.Instances, "26.1", "versions", "26.1", "26.1.jar");
+        Kit.WriteBytes(_rig.Instances, "26.1/versions/26.1/26.1.jar", Kit.Zip(Kit.Text("version.json", "{\"id\":\"26.1\",\"world_version\":4786}")));
+        Assert.True(File.Exists(jar));
+
+        var request = _rig.Request(target: "26.1", mc: "26.1") with { SupportedTargets = Rig.Supported.Append("26.1").ToArray() };
+        var (_, result) = await Run(request);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains("version:4786", File.ReadAllLines(Dst("options.txt", "26.1")));
+    }
+
+    [Fact]
+    public async Task AVersionNobodyKnowsTheDataVersionOfSaysSoInsteadOfClaimingTheSettingsCameAcross()
+    {
+        Kit.Write(_rig.Source, "options.txt", "fov:0.575\n");
+
+        var request = _rig.Request(target: "26.1", mc: "26.1") with { SupportedTargets = Rig.Supported.Append("26.1").ToArray() };
+        var (plan, result) = await Run(request);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.False(File.Exists(Dst("options.txt", "26.1")));
+        Assert.Contains(plan.Lines, l => l.Name == "options.txt" && l.Section == SummarySection.NeedsAttention);
+        // The "Imported" line must not stand beside the failure.
+        Assert.DoesNotContain(plan.Lines.Where(l => l.Section == SummarySection.Imported), l => l.Name.StartsWith("Game settings"));
+    }
+
     [Fact]
     public async Task On189NoModsAreCopiedAndEveryFabricModIsListedWithTheForgeReason()
     {

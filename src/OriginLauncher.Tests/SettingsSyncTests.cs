@@ -280,7 +280,7 @@ public class SettingsSyncTests
     {
         var a = Instance("1.21.1");
         var fresh = Instance("1.20.4");
-        var unknown = Instance("26.2");
+        var unknown = Instance("26.1"); // in neither the table nor an installed jar (26.2 and 26.3 are in the table now)
         Write(a, "options.txt", Options("version:3955", "fov:0.25"), 10);
         var engine = Engine();
         engine.Seed(new[] { a, fresh, unknown });
