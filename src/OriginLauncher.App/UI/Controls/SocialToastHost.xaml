@@ -14,6 +14,33 @@
          The host has no background, so empty space never blocks a click. -->
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <!-- Poster look, same as the Friends drawer: sharp 4 px card, raised square dismiss button. -->
+        <Style x:Key="Toast.Join" TargetType="Button" BasedOn="{StaticResource Social.ActionPrimary}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bg" Background="{DynamicResource Brush.Acc}" CornerRadius="3"/>
+                            <Border CornerRadius="3" Background="{StaticResource Fill.PrimarySheen}"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Toast.Dismiss" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+            <Setter Property="MinWidth" Value="24"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </UserControl.Resources>
 
     <StackPanel>
@@ -23,7 +50,7 @@
                     <Border Margin="0,8,0,0" Padding="10,8" Cursor="Hand"
                             Background="{StaticResource Brush.PanelElevated}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Dialog}" Effect="{StaticResource Shadow.Card}"
+                            CornerRadius="{StaticResource Radius.Card}" Effect="{StaticResource Shadow.Card}"
                             MouseLeftButtonUp="Toast_Click" MouseEnter="Toast_MouseEnter" MouseLeave="Toast_MouseLeave">
                         <Border.Triggers>
                             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
@@ -43,9 +70,12 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Border Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"
-                                    Background="{StaticResource Brush.AccentSoft}" CornerRadius="{StaticResource Radius.Swatch}">
-                                <Path Data="{Binding Icon}" Style="{StaticResource Icon.Base}"
-                                      Width="14" Height="14" Stroke="{StaticResource Brush.AccentHover}"/>
+                                    Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Swatch}">
+                                <Grid>
+                                    <Border Background="{Binding Tint}" Opacity="0.2" CornerRadius="{StaticResource Radius.Swatch}"/>
+                                    <Path Data="{Binding Icon}" Style="{StaticResource Icon.Base}"
+                                          Width="14" Height="14" Stroke="{Binding Tint}"/>
+                                </Grid>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" ToolTip="{Binding Body}">
                                 <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
@@ -53,12 +83,11 @@
                                 <TextBlock Text="{Binding Body}" Style="{StaticResource Social.Caption}"
                                            TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="{Binding ActionText}" Style="{StaticResource Social.ActionPrimary}"
+                            <Button Grid.Column="2" Content="{Binding ActionText}" Style="{StaticResource Toast.Join}"
                                     Margin="8,0,0,0" VerticalAlignment="Center"
                                     Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}"
                                     Click="Action_Click"/>
-                            <Button Grid.Column="3" Style="{StaticResource Social.Icon}" MinWidth="24" MinHeight="24"
-                                    Padding="6" Margin="4,0,0,0" Click="Dismiss_Click"
+                            <Button Grid.Column="3" Style="{StaticResource Toast.Dismiss}" Click="Dismiss_Click"
                                     ToolTip="Dismiss" AutomationProperties.Name="Dismiss">
                                 <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                                       Width="10" Height="10"

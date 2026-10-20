@@ -20,10 +20,408 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
 
+        <!-- ===== Poster look (mockup 13-friends), drawer-local: these keys shadow the Social.* ones
+             in Theme/Social.xaml for this drawer only. Rows are flat on the drawer's surface (no card
+             fill, no dividers); a press or hover lifts one step; the party is the one dark card;
+             presence is a small square on the avatar corner, like the mockup. ===== -->
+        <CornerRadius x:Key="Social.PartyTop">4,4,0,0</CornerRadius>
+        <Style x:Key="Social.RowStatic" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+        <Style x:Key="Social.Row" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Social.RowFocus}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                CornerRadius="{StaticResource Radius.Row}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Card}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- A party member's row: the same, on the party card's dark surface. -->
+        <Style x:Key="Social.PartyRow" TargetType="Button" BasedOn="{StaticResource Social.Row}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" Padding="{TemplateBinding Padding}">
+                            <Border.CornerRadius>
+                                <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                                    <Binding Path="Pos"/>
+                                    <Binding Source="{StaticResource Social.PartyTop}"/>
+                                </MultiBinding>
+                            </Border.CornerRadius>
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Bg}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Social.Dot" TargetType="Border">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Margin" Value="0,0,-3,-3"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Success}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.PanelElevated}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="2"/>
+        </Style>
+        <!-- Crisp 3 px-corner buttons (Will: squarer, not squircles). Same height and padding for JOIN, CHAT, WARP, LEAVE;
+             hover/press on all; press scales to 0.95. -->
+        <Style x:Key="Social.Join" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{DynamicResource Brush.Acc}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="White" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.18"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.IconPrimary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Acc}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{DynamicResource Brush.Acc}" Opacity="0.22" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.42"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.IconRaised" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.2"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.TileChat" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Acc}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Acc}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{DynamicResource Brush.Acc}" Opacity="0.14" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.3"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.Tile" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="White" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.08"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.TileLeave" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.18"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <!-- The party card's bottom edge: the actions sit below the members on the same dark surface. -->
+        <!-- Text fields: no frame, a card-coloured well (the focus animation only recolours the border, so it stays off). -->
+        <Style TargetType="TextBox" BasedOn="{StaticResource Input.TextBox}">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        </Style>
+        <!-- Unread count: a light chip with dark digits (the mockup's Chat 1). -->
+        <Style x:Key="Social.Badge" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Brush.Acc}"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="MinWidth" Value="18"/>
+            <Setter Property="MinHeight" Value="18"/>
+            <Setter Property="Padding" Value="5,0"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
         <!-- ================= list rows ================= -->
 
         <DataTemplate DataType="{x:Type controls:SectionVm}">
-            <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Margin="0,14,0,6" Padding="2,2"
+            <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Margin="0,18,0,4" Padding="8,2"
                     Click="Section_Click">
                 <Grid>
                     <TextBlock Text="{Binding Heading}" Style="{StaticResource Social.Section}"/>
@@ -70,7 +468,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding Text}" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
                                TextTrimming="None" VerticalAlignment="Center"/>
-                    <Button Grid.Column="1" Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                    <Button Grid.Column="1" Content="JOIN" Style="{StaticResource Social.Join}"
                             Margin="10,0,0,0" Click="WarpJoin_Click"
                             ToolTip="Launch their Minecraft version and join the server"/>
                 </Grid>
@@ -90,9 +488,9 @@
                     </Grid.ColumnDefinitions>
                     <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}">
-                            <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                            <controls:PixelFace Seed="{Binding Name}"/>
                         </Border>
-                        <Ellipse x:Name="Dot" Style="{StaticResource Social.Dot}" Visibility="Collapsed"/>
+                        <Border x:Name="Dot" Style="{StaticResource Social.Dot}" Background="{StaticResource Brush.TextMuted}"/>
                     </Grid>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
@@ -101,12 +499,11 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
-                                Background="{StaticResource Brush.Accent}" CornerRadius="{StaticResource Radius.Chip}"
-                                Padding="6,1" VerticalAlignment="Center" ToolTip="Unread messages">
+                                Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
-                                       FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
+                                       FontWeight="Bold" Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                        <Button Content="JOIN" Style="{StaticResource Social.Join}"
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
                                 ToolTip="{Binding JoinTip}" Click="FriendJoin_Click"/>
                         <Button Style="{StaticResource Social.Icon}" Click="FriendMore_Click"
@@ -120,7 +517,7 @@
             </Button>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                    <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="Dot" Property="Background" Value="{StaticResource Brush.Success}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsOnline}" Value="False">
                     <Setter TargetName="Avatar" Property="Opacity" Value="0.6"/>
@@ -144,15 +541,19 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
                         <TextBlock Text="Wants to be friends" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                        <Button Content="ACCEPT" Style="{StaticResource Social.ActionPrimary}" Click="RequestAccept_Click"/>
-                        <Button Style="{StaticResource Social.Icon}" Click="RequestDecline_Click"
+                        <Button Style="{StaticResource Social.IconPrimary}" Click="RequestAccept_Click"
+                                ToolTip="Accept" AutomationProperties.Name="Accept request">
+                            <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Small}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Button Style="{StaticResource Social.IconRaised}" Click="RequestDecline_Click"
                                 ToolTip="Decline" AutomationProperties.Name="Decline request">
                             <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -171,16 +572,19 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
                         <TextBlock Text="Party invite" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                        <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}" Click="InviteAccept_Click"
-                                ToolTip="Join their party (you leave your current one)"/>
-                        <Button Style="{StaticResource Social.Icon}" Click="InviteDecline_Click"
+                        <Button Style="{StaticResource Social.IconPrimary}" Click="InviteAccept_Click"
+                                ToolTip="Join their party (you leave your current one)" AutomationProperties.Name="Join party">
+                            <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Small}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Button Style="{StaticResource Social.IconRaised}" Click="InviteDecline_Click"
                                 ToolTip="Decline" AutomationProperties.Name="Decline invite">
                             <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -193,7 +597,7 @@
         <!-- A party member: a friend's row opens their chat; "..." holds Message, Join,
              Make leader (leader only), Kick (leader only), Remove, Block. -->
         <DataTemplate DataType="{x:Type controls:MemberVm}">
-            <Button x:Name="Row" Style="{StaticResource Social.Row}" Click="MemberRow_Click"
+            <Button x:Name="Row" Style="{StaticResource Social.PartyRow}" Click="MemberRow_Click"
                     ContextMenuOpening="MemberRow_ContextMenuOpening"
                     AutomationProperties.Name="{Binding Name}">
                 <Grid MinHeight="38">
@@ -204,10 +608,9 @@
                     </Grid.ColumnDefinitions>
                     <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border Style="{StaticResource Social.Avatar}">
-                            <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                            <controls:PixelFace Seed="{Binding Name}"/>
                         </Border>
-                        <Ellipse Style="{StaticResource Social.Dot}"
-                                 Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}"/>
+                        <Border x:Name="MDot" Style="{StaticResource Social.Dot}" Background="{StaticResource Brush.TextMuted}"/>
                     </Grid>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
@@ -221,12 +624,11 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
-                                Background="{StaticResource Brush.Accent}" CornerRadius="{StaticResource Radius.Chip}"
-                                Padding="6,1" VerticalAlignment="Center" ToolTip="Unread messages">
+                                Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
-                                       FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
+                                       FontWeight="Bold" Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                        <Button Content="JOIN" Style="{StaticResource Social.Join}"
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
                                 ToolTip="{Binding JoinTip}" Click="MemberJoin_Click"/>
                         <Button Style="{StaticResource Social.Icon}" Click="MemberMore_Click"
@@ -239,6 +641,9 @@
                 </Grid>
             </Button>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                    <Setter TargetName="MDot" Property="Background" Value="{StaticResource Brush.Success}"/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Clickable}" Value="False">
                     <Setter TargetName="Row" Property="Cursor" Value="Arrow"/>
                 </DataTrigger>
@@ -249,23 +654,23 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:PartyHeaderVm}">
-            <Grid Margin="2,14,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Section}"/>
-                <Button Grid.Column="1" Content="{Binding ChatText}" Style="{StaticResource Social.ActionPrimary}"
-                        Click="PartyChat_Click" ToolTip="Open the party chat"/>
-                <Button Grid.Column="2" Content="WARP" Style="{StaticResource Social.Action}"
-                        Click="Warp_Click" IsEnabled="{Binding CanWarp}" ToolTip="{Binding WarpTip}"
-                        ToolTipService.ShowOnDisabled="True"
-                        Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}"/>
-                <Button Grid.Column="3" Content="LEAVE" Style="{StaticResource Social.Action}"
-                        Click="LeaveParty_Click" ToolTip="Leave the party"/>
-            </Grid>
+            <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Section}" Margin="8,18,0,6"/>
+        </DataTemplate>
+
+        <!-- Chat / Warp / Leave sit under the members, on the party card's dark surface. -->
+        <DataTemplate DataType="{x:Type controls:PartyActionsVm}">
+            <Border Background="{StaticResource Brush.BgAlt}" CornerRadius="0,0,4,4" Padding="8,2,8,10">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{Binding ChatText}" Style="{StaticResource Social.TileChat}" Margin="0"
+                            Click="PartyChat_Click" ToolTip="Open the party chat"/>
+                    <Button Content="WARP" Style="{StaticResource Social.Tile}"
+                            Click="Warp_Click" IsEnabled="{Binding CanWarp}" ToolTip="{Binding WarpTip}"
+                            ToolTipService.ShowOnDisabled="True"
+                            Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}"/>
+                    <Button Content="LEAVE" Style="{StaticResource Social.TileLeave}"
+                            Click="LeaveParty_Click" ToolTip="Leave the party"/>
+                </StackPanel>
+            </Border>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:PendingVm}">
@@ -277,7 +682,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"
@@ -299,7 +704,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                        <controls:PixelFace Seed="{Binding Name}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"
@@ -370,7 +775,7 @@
                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
             </Button>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock x:Name="HeaderTitle" Text="Friends" Style="{StaticResource Text.H2}"/>
+                <TextBlock x:Name="HeaderTitle" Text="FRIENDS" Style="{StaticResource Text.H1}"/>
                 <StackPanel x:Name="HeaderSubRow" Orientation="Horizontal" Visibility="Hidden">
                     <Ellipse x:Name="HeaderDot" Width="7" Height="7" Fill="{StaticResource Brush.Success}"
                              Margin="0,0,6,0" VerticalAlignment="Center" Visibility="Collapsed"/>
@@ -396,7 +801,7 @@
             </StackPanel>
         </Grid>
         <!-- One hairline under the header, in the list, the states and the chat alike. -->
-        <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,10"/>
+        <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,0" Visibility="Collapsed"/>
         </StackPanel>
 
         <!-- Add a friend: opens from the header button (or "Add a friend" when you have none). -->
@@ -529,7 +934,7 @@
                 <!-- Join / invite, only the ones that apply right now, between two hairlines. -->
                 <StackPanel Grid.Row="0">
                     <StackPanel x:Name="ChatBar" Orientation="Horizontal" Margin="16,0,16,10" Visibility="Collapsed">
-                        <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                        <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Social.Join}"
                                 Margin="0,0,8,0" Padding="14,6" Click="ChatJoin_Click"
                                 ToolTip="Launch their Minecraft version and join their server"/>
                         <Button x:Name="ChatInviteButton" Content="INVITE TO PARTY" Style="{StaticResource Social.Action}"
@@ -541,7 +946,6 @@
 
                 <!-- The dark well the conversation sits in. -->
                 <Border Grid.Row="1" Margin="16,8,16,8" Background="{StaticResource Brush.BgAlt}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                         CornerRadius="{StaticResource Radius.Card}">
                     <Grid>
                         <ScrollViewer x:Name="ChatScroll" Padding="12,0,8,8" VerticalScrollBarVisibility="Auto"

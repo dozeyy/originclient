@@ -12,6 +12,8 @@ public sealed class ToastVm
 {
     public required SocialToast Toast { get; init; }
     public required Geometry Icon { get; init; }
+    /// <summary>The icon and its tile colour: one accent per kind (message, request, invite, warp).</summary>
+    public required Brush Tint { get; init; }
     public required DispatcherTimer Timer { get; init; }
 
     public string Title => Toast.Title;
@@ -66,7 +68,7 @@ public partial class SocialToastHost : UserControl
     private void Display(SocialToast toast, TimeSpan life)
     {
         var timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = life };
-        var vm = new ToastVm { Toast = toast, Icon = IconFor(toast.Kind), Timer = timer };
+        var vm = new ToastVm { Toast = toast, Icon = IconFor(toast.Kind), Tint = TintFor(toast.Kind), Timer = timer };
         timer.Tick += (_, _) => Remove(vm);
         _items.Add(vm);
         timer.Start();
@@ -104,6 +106,15 @@ public partial class SocialToastHost : UserControl
         UpdateMore();
         MoreClicked?.Invoke();
     }
+
+    private Brush TintFor(SocialToastKind kind) => (Brush)FindResource(kind switch
+    {
+        SocialToastKind.Message => "Brush.Info",
+        SocialToastKind.FriendRequest => "Brush.Success",
+        SocialToastKind.PartyInvite => "Brush.Warning",
+        SocialToastKind.Warp => "Brush.Acc",
+        _ => "Brush.TextDim",
+    });
 
     private Geometry IconFor(SocialToastKind kind) => (Geometry)FindResource(kind switch
     {

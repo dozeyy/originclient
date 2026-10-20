@@ -285,7 +285,8 @@ public partial class FriendsPanel : UserControl
 
     private void SetHeader(string title, string subtitle, bool dot = false)
     {
-        HeaderTitle.Text = title;
+        // The drawer's own titles are poster caps; a friend's name in a chat keeps its case.
+        HeaderTitle.Text = title is "Friends" or "Party chat" ? title.ToUpperInvariant() : title;
         // The line keeps its height when empty so the title sits in the same place in every view.
         HeaderSubtitle.Text = string.IsNullOrEmpty(subtitle) ? " " : subtitle;
         HeaderDot.Visibility = dot ? Visibility.Visible : Visibility.Collapsed;
@@ -417,16 +418,7 @@ public partial class FriendsPanel : UserControl
         {
             var leader = s.IsPartyLeader;
             foreach (var m in party.Members) inParty.Add(m.Uuid);
-            rows.Add(new PartyHeaderVm
-            {
-                Title = $"PARTY - {party.Members.Count}/8",
-                Unread = s.UnreadParty,
-                IsLeader = leader,
-                CanWarp = game?.Server != null,
-                WarpTip = game?.Server is { } server
-                    ? $"Ask your party to join you on {SocialText.DisplayServer(server)} ({game.Version})"
-                    : "Join a server to warp (start Minecraft from this launcher first)",
-            });
+            rows.Add(new PartyHeaderVm { Title = $"PARTY - {party.Members.Count}/8" });
             AddCard(rows, party.Members
                 .OrderByDescending(m => m.Uuid == party.Leader)
                 .ThenByDescending(m => m.Online)
@@ -450,6 +442,15 @@ public partial class FriendsPanel : UserControl
                         JoinTip = friend != null ? JoinTipFor(friend) : "Join their server",
                     };
                 }));
+            rows.Add(new PartyActionsVm
+            {
+                Unread = s.UnreadParty,
+                IsLeader = leader,
+                CanWarp = game?.Server != null,
+                WarpTip = game?.Server is { } server
+                    ? $"Ask your party to join you on {SocialText.DisplayServer(server)} ({game.Version})"
+                    : "Join a server to warp (start Minecraft from this launcher first)",
+            });
         }
 
         // 4. Friends who aren't in your party: online first, offline folds.
