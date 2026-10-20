@@ -895,12 +895,16 @@ public final class OriginScreenRenderer {
 		pose.popPose();
 	}
 
+	/** The title's player chip draws on vanilla's normal button sprite. */
+	private static final net.minecraft.resources.ResourceLocation CHIP_SPRITE =
+			net.minecraft.resources.ResourceLocation.withDefaultNamespace("widget/button");
+
 	/**
 	 * Main menu: a small account chip (player head + username) in the top-left,
-	 * inside the frame. Identity presence, like premium launchers. Head via the
-	 * skin manager (default skin shows first, the real one pops in async); if the
-	 * head can't be resolved the chip falls back to the Origin ring mark, and if
-	 * the whole chip throws it flips the renderer to vanilla like any Origin draw.
+	 * on a vanilla button. Head via the skin manager (default skin shows first,
+	 * the real one pops in async); if the head can't be resolved the chip falls
+	 * back to the Origin ring mark, and if the whole chip throws it flips the
+	 * renderer to vanilla like any Origin draw.
 	 */
 	public static void renderTitleAccountChip(GuiGraphics guiGraphics) {
 		if (broken) {
@@ -917,14 +921,18 @@ public final class OriginScreenRenderer {
 				return;
 			}
 			Font font = mc.font;
-			// The mockup's chip: a button-height glass chip in the top-left corner, the
-			// player's head and name. No chevron: there is no account menu here.
+			// The player chip in the top-left corner: the player's head and name on
+			// Minecraft's own button sprite, so it matches every button on the title
+			// (Will, 2026-10-19: "use the same style for the player in the top left").
+			// Not clickable (there is no account menu here), so it never highlights.
 			int x = TitleLayout.CORNER, y = TitleLayout.CORNER, chipH = TitleLayout.CORNER_SIZE;
 			int head = 12, pad = 4, gap = 5;
 			int textW = font.width(name);
 			int chipW = pad + head + gap + textW + pad + 2;
-			com.origin.client.client.gui.OriginSurface.draw(guiGraphics, x, y, chipW, chipH,
-					OriginTheme.CLEAN_GLASS, OriginTheme.CLEAN_LINE, 1f);
+			RenderSystem.enableBlend();
+			RenderSystem.enableDepthTest();
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			guiGraphics.blitSprite(CHIP_SPRITE, x, y, chipW, chipH);
 			int hx = x + pad, hy = y + (chipH - head) / 2;
 			boolean drewHead = false;
 			try {
@@ -946,7 +954,7 @@ public final class OriginScreenRenderer {
 				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 			int tx = hx + head + gap;
-			guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, OriginTheme.CLEAN_TEXT, true);
+			guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, 0xFFFFFFFF, true);   // vanilla button text
 		} catch (Throwable t) {
 			fail(t);
 		}

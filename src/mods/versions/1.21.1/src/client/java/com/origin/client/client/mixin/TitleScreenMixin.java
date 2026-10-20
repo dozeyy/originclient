@@ -55,8 +55,9 @@ import java.util.List;
 // splash. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
 // only REPOSITIONED (clicks and actions untouched) and draw as stock
 // Minecraft buttons; the icon row draws vanilla's button sprite with Origin's
-// icon on top (OriginButtonRenderer.vanillaIconButton). Every button gets a
-// one-line tooltip saying what it does (vanilla Tooltip). Mods / Friends /
+// icon on top (OriginButtonRenderer.vanillaIconButton). Every icon square gets a
+// one-line tooltip saying what it does (vanilla Tooltip); worded buttons get
+// none -- their label already says it (Will, 2026-10-19). Mods / Friends /
 // Cosmetics are Origin's, added as real widgets through ScreenInvoker. Mod
 // Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
 // screen event after our init hook, which also bumps buttons -- so positions
@@ -315,17 +316,15 @@ public class TitleScreenMixin {
 			TitleLayout L = TitleLayout.of(self.width, self.height);
 			int y = L.mainTop;
 			for (AbstractWidget w : full) {
-				if (originclient$is(w, "menu.singleplayer")) originclient$tip(w, "Play a world on this PC");
-				else if (originclient$is(w, "menu.multiplayer")) originclient$tip(w, "Join a server and play online");
 				originclient$place(w, L.mainX, y, L.mainW, L.buttonH, true);
 				y += L.rowStep;
 			}
 			int half = (L.mainW - L.pairGap) / 2;
 			if (options != null) {
 				options.setMessage(Component.translatable("options.title"));   // "Options", sentence case
-				originclient$tip(options, "Video, sound, controls and other game settings");
 			}
-			originclient$tip(originclient$modsNav, "Turn Origin's mods on and off and set them up");
+			// Worded buttons say what they do already: no tooltip (Will, 2026-10-19:
+			// "dont have the hover tells what it dos for the worded ones only the icons").
 			if (options != null && originclient$modsNav != null) {
 				originclient$place(options, L.mainX, y, half, L.buttonH, true);
 				originclient$place(originclient$modsNav, L.mainX + L.mainW - half, y, half, L.buttonH, true);

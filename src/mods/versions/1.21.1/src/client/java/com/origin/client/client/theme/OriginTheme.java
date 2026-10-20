@@ -101,12 +101,10 @@ public final class OriginTheme {
 	// ---- Clean in-game surface (Will's approved mockup, 2026-10-19) ----
 	// What Origin adds around Minecraft's own screens (title, pause, options,
 	// world/server lists, loading): the dim over this version's blurred panorama,
-	// the list panels, the title's account chip, the loading scene's text and
-	// bar. The controls themselves are stock Minecraft widgets (Will, 2026-10-19).
+	// the list panels, the loading scene's text and bar. The controls (and the
+	// title's player chip) are stock Minecraft widgets (Will, 2026-10-19).
 	// Fixed (not theme-repainted) so the vanilla menus always match.
-	public static final int CLEAN_GLASS = 0xAD0E0F13;          // rgba(14,15,19,.68)
 	public static final int CLEAN_PANEL = 0x800C0D10;          // list / settings panels, rgba(12,13,16,.50)
-	public static final int CLEAN_LINE = 0x1CFFFFFF;           // white 11%
 	public static final int CLEAN_TEXT = 0xFFF3F4F6;
 	public static final int CLEAN_TEXT_DIM = 0xA8F3F4F6;       // 66%
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%

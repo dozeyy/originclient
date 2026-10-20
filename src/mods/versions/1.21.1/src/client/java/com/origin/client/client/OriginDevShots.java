@@ -70,7 +70,7 @@ public final class OriginDevShots {
 			// The friends demo only on its own shots, so every other shot looks the same in both passes.
 			com.origin.client.client.social.SocialDemo.clear();
 			Minecraft.getInstance().getToasts().clear();
-			devCursor(this == TITLE_HOVER);
+			devCursor(this == TITLE_HOVER);   // hovers the Quit square
 			return switch (this) {
 				case TITLE -> new TitleScreen();
 				case MENU -> new OriginModMenuScreen().preview(false, false);
@@ -499,13 +499,14 @@ public final class OriginDevShots {
 		}
 	}
 
-	// TITLE_HOVER: the cursor parked on Singleplayer so the shot shows the real
-	// hover look AND its tooltip. Xvfb has no pointer moving, so the position
-	// written into MouseHandler stays put; every other shot gets the original back.
+	// TITLE_HOVER: the cursor parked on the icon row's last square (Quit) so the
+	// shot shows the real hover look AND its tooltip (only the icon squares have
+	// one). Xvfb has no pointer moving, so the position written into MouseHandler
+	// stays put; every other shot gets the original back.
 	// Dev only (runClient is named-namespace, so the field names resolve).
 	private static double[] savedCursor;
 
-	private static void devCursor(boolean onSingleplayer) {
+	private static void devCursor(boolean onIcon) {
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			java.lang.reflect.Field fx = net.minecraft.client.MouseHandler.class.getDeclaredField("xpos");
@@ -516,13 +517,23 @@ public final class OriginDevShots {
 				savedCursor = new double[]{fx.getDouble(mc.mouseHandler), fy.getDouble(mc.mouseHandler)};
 			}
 			double x = savedCursor[0], y = savedCursor[1];
-			if (onSingleplayer) {
+			if (onIcon && mc.screen != null) {
 				var win = mc.getWindow();
 				com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
 						win.getGuiScaledWidth(), win.getGuiScaledHeight());
-				double gs = win.getGuiScale();
-				x = (L.mainX + L.mainW / 2.0) * gs;
-				y = (L.mainTop + L.buttonH / 2.0) * gs;
+				net.minecraft.client.gui.components.AbstractWidget last = null;
+				for (var child : mc.screen.children()) {
+					if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.visible
+							&& w.getY() >= L.dockY && w.getTooltip() != null
+							&& (last == null || w.getX() > last.getX())) {
+						last = w;
+					}
+				}
+				if (last != null) {
+					double gs = win.getGuiScale();
+					x = (last.getX() + last.getWidth() / 2.0) * gs;
+					y = (last.getY() + last.getHeight() / 2.0) * gs;
+				}
 			}
 			fx.setDouble(mc.mouseHandler, x);
 			fy.setDouble(mc.mouseHandler, y);
