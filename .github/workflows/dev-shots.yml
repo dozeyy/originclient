@@ -232,7 +232,9 @@ jobs:
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/shadow.fsh"
             printf '#version 120\nvarying vec2 uv;\nvoid main() { gl_Position = ftransform(); uv = gl_MultiTexCoord0.xy; }\n' > "$sp/gbuffers_basic.vsh"
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/gbuffers_basic.fsh"
-            printf 'shadowMapResolution=1024\nshadowDistance=96\n' > "$sp/shaders.properties"
+            # shadow.enabled=true: without it (and with no pass sampling shadowtex) Iris never builds a
+            # ShadowRenderer, so no shadow pass runs at all (IrisRenderingPipeline, Iris 1.8.8).
+            printf 'shadowMapResolution=1024\nshadowDistance=96\nshadow.enabled=true\n' > "$sp/shaders.properties"
             printf 'enableShaders=true\nshaderPack=OriginCiPack\n' > "$rundir/config/iris.properties"
           fi
           if [ "$FRAMELOG" = "true" ]; then
