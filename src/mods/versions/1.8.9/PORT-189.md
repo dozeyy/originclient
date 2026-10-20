@@ -403,3 +403,12 @@ Package root `com.origin.client.client` unless noted.
   dev shots against 1.21.1's, then Will's in-game pass (the bar for "done":
   `runClient` with zero `Mixin apply ... failed` lines, and the real launcher
   with OptiFine installed).
+
+- 2026-10-20: shader packs on 1.8.9 are an ALLOWLIST (Will: "only add shaders in
+  1.8.9 that work with optifine"). `shaders/ShaderCompat.java` holds one pinned
+  Modrinth file per pack (url + SHA-256, rule and rejected packs documented in
+  its header); the Download Shaders screen lists only those and the downloader
+  refuses a hash mismatch. A selected pack built for newer Minecraft (known
+  modern name, or a core program above GLSL 130) gets a one-line warning in
+  that screen and once in chat; files are never touched. Check:
+  `tools/check-shader-allowlist.ps1` (pure Java, no MC classpath).

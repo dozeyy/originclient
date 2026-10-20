@@ -22,11 +22,13 @@ import static com.origin.client.client.gui.OriginDeck.*;
 // adds to the shader menu (MenuHooks); closing returns there, and the menu's
 // re-init rescans the folder, so the pack is ready to select.
 //
-// 1.8.9: the shader menu is OptiFine's (GuiShaders), so the list holds only the
-// packs that publish an OptiFine build tagged 1.8.9 on Modrinth -- re-verified
-// against Modrinth's API on 2026-10-13 (20 of the 64 later-version packs; the
-// rest have no 1.8.9 build and would only ever show UNAVAILABLE). Downloads ask
-// Modrinth for the "optifine" loader (ShaderDownloader). Keys are LWJGL2
+// 1.8.9: the shader menu is OptiFine's (GuiShaders), and only packs on the
+// ShaderCompat allowlist are listed -- ones verified to be built for OptiFine's
+// GLSL 1.20-1.30 era. Modrinth tags modern packs (Complementary...) "1.8.9" too,
+// but on OptiFine HD U M5 they flood the log, take ~12 s to load and lag.
+// Downloads are pinned files with a SHA-256 check (ShaderDownloader). If the
+// pack OptiFine has selected is a known-modern one, a one-line warning shows
+// under the search box (the player's files are never touched). Keys are LWJGL2
 // (OriginScreen's modern key shape, Keyboard.KEY_* codes).
 public class ShaderBrowserScreen extends OriginWindow {
 	private static final float SEARCH_H = 36;
@@ -39,30 +41,12 @@ public class ShaderBrowserScreen extends OriginWindow {
 	private String query = "";
 	private final List<Integer> view = new ArrayList<>();
 
-	// {display name, modrinth slug, short description}, in Modrinth download-rank
-	// order. Slugs drive both the download and the preview image.
-	private static final String[][] DIR = {
-			{"Complementary Reimagined", "complementary-reimagined", "Vanilla-faithful with top quality & performance"},
-			{"Complementary Unbound", "complementary-unbound", "Full visual transform, high detail & performance"},
-			{"BSL Shaders", "bsl-shaders", "Bright, colorful and distinct — a classic"},
-			{"Insanity Shader", "insanity-shader", "Stylized horror shader, highly tunable"},
-			{"Mellow", "mellow", "Painterly, gameplay-first look"},
-			{"Miniature Shader", "miniature-shader", "Ultra-light with shadows and reflections"},
-			{"Hysteria Shaders", "hysteria-shaders", "Atmospheric horror, successor to Insanity"},
-			{"Spooklementary", "spooklementary", "Moody, atmospheric Complementary edit"},
-			{"BSL Shaders Classic", "bsl-shaders-classic", "Vanilla-oriented classic BSL edition"},
-			{"Lux V1", "lux-v1", "High-fidelity pack based on BSL"},
-			{"RedHat Shaders", "redhat-shaders", "Based on classic Chocapic13 shaders"},
-			{"BVS — Best Vanilla Shader", "bvs", "Simple, great-looking vanilla shader"},
-			{"Cursed Fog", "cursed-fog", "Creepy, tense horror atmosphere"},
-			{"LIGHT Shaders", "light-shaders", "High FPS with painting-like quality"},
-			{"DrDestens Shaders", "drdestens-shaders", "High-performance shadowless PBR"},
-			{"Sildur's Vibrant Shaders", "sildurs-vibrant-shaders", "Optimized classic; runs on any hardware"},
-			{"Stracciatella Shaders", "stracciatella-shaders", "Vanilla-style, colored lights, high perf"},
-			{"PixelCraft Shaders", "pixelcraft-shaders", "Complementary edit replicating pixel art"},
-			{"Snowimagined", "snowimagined", "Turns your world into a winter wonderland"},
-			{"Tea Shaders", "tea-shaders", "Vanilla Minecraft with a little extra"},
-	};
+	// The rows are ShaderCompat.ALLOWED (packs verified to run on OptiFine 1.8.9);
+	// modern packs that merely load there (Complementary & co.) are never listed.
+	private static final ShaderCompat.Pack[] DIR = ShaderCompat.offeredFor(gameVersion());
+
+	/** One-line plain-language warning when the pack OptiFine has selected is built for newer Minecraft. */
+	private String compatWarning;
 
 	/** parent = OptiFine's shader menu (null in the dev shots: back to the game). */
 	public ShaderBrowserScreen(GuiScreen parent) {
@@ -75,6 +59,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 		// Packs deleted from shaderpacks/ outside the client revert to Download.
 		ShaderDownloader.syncWithDisk();
 		rebuildView();
+		compatWarning = selectedPackWarning();
 	}
 
 	private void rebuildView() {
@@ -82,13 +67,29 @@ public class ShaderBrowserScreen extends OriginWindow {
 		String q = query.trim().toLowerCase(Locale.ROOT);
 		for (int i = 0; i < DIR.length; i++) {
 			if (q.isEmpty()
-					|| DIR[i][0].toLowerCase(Locale.ROOT).contains(q)
-					|| DIR[i][2].toLowerCase(Locale.ROOT).contains(q)) {
+					|| DIR[i].name.toLowerCase(Locale.ROOT).contains(q)
+					|| DIR[i].desc.toLowerCase(Locale.ROOT).contains(q)) {
 				view.add(i);
 			}
 		}
 		scroll = 0;
 		scrollTarget = 0;
+	}
+
+	/** Name check first; reads the pack's program headers only if the name is unknown. */
+	private static String selectedPackWarning() {
+		try {
+			String sel = IrisBridge.selectedPack();
+			if (sel == null) {
+				return null;
+			}
+			int probed = ShaderCompat.classify(sel, 0, gameVersion()) == ShaderCompat.Verdict.UNKNOWN
+					? ShaderCompat.probeMaxVersion(IrisBridge.shaderpacksDir().resolve(sel).toFile()) : 0;
+			String w = ShaderCompat.warningFor(sel, probed, gameVersion());
+			return w == null ? null : "\"" + sel + "\": " + w;
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 
 	/** 1.8.9: Forge's Loader.MC_VERSION (no SharedConstants in this era). */
@@ -105,7 +106,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 
 	@Override
 	protected String subheading() {
-		return "Popular shader packs for Minecraft " + gameVersion();
+		return "Shader packs that run on Minecraft " + gameVersion() + " with OptiFine";
 	}
 
 	@Override
@@ -119,6 +120,9 @@ public class ShaderBrowserScreen extends OriginWindow {
 	protected void drawBody(OriginDeck d) {
 		try {
 			drawSearch(d);
+			if (compatWarning != null) {
+				d.textMid(d.fit(compatWarning, BODY_W, 11, false, 0), BODY_X + 2, BODY_Y + SEARCH_H + 8, 11, false, 0, RED);
+			}
 			drawList(d);
 		} catch (Throwable t) {
 			// a draw failure leaves the bare frame; Esc / close still work
@@ -156,7 +160,8 @@ public class ShaderBrowserScreen extends OriginWindow {
 	}
 
 	private void drawRow(OriginDeck d, int i, float y) {
-		String name = DIR[i][0], slug = DIR[i][1], desc = DIR[i][2];
+		ShaderCompat.Pack pack = DIR[i];
+		String name = pack.name, slug = pack.slug, desc = pack.desc;
 		float x = BODY_X, w = BODY_W;
 		card(d, x, y, w, ROW_H, d.over(x, y, w, ROW_H));
 
@@ -172,7 +177,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 
 		// download control (right) -- placed first so the text knows its edge
 		float bx = x + w - 16 - CTRL_W, by = y + (ROW_H - CTRL_H) / 2;
-		drawControl(d, slug, bx, by);
+		drawControl(d, pack, bx, by);
 
 		float tx = ix + PREV_W + 20, tw = bx - 24 - tx;
 		d.text(d.fit(name, tw, 15, true, 0), tx, y + 33, 15, true, 0, TEXT);
@@ -204,8 +209,8 @@ public class ShaderBrowserScreen extends OriginWindow {
 		GlStateManager.color(1f, 1f, 1f, 1f);
 	}
 
-	private void drawControl(OriginDeck d, final String slug, float bx, float by) {
-		ShaderDownloader.State st = ShaderDownloader.state(slug);
+	private void drawControl(OriginDeck d, final ShaderCompat.Pack pack, float bx, float by) {
+		ShaderDownloader.State st = ShaderDownloader.state(pack.id);
 		switch (st.status()) {
 			case WORKING: {
 				float cy = by + CTRL_H / 2;
@@ -222,7 +227,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 					button(d, "Remove", "@trash", bx, by, CTRL_W, CTRL_H, Style.DANGER, true, new Runnable() {
 						@Override
 						public void run() {
-							ShaderDownloader.remove(slug);
+							ShaderDownloader.remove(pack.id);
 						}
 					});
 				} else {
@@ -244,7 +249,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 				button(d, "Download", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true, new Runnable() {
 					@Override
 					public void run() {
-						ShaderDownloader.start(slug, gameVersion());
+						ShaderDownloader.start(pack);
 					}
 				});
 		}

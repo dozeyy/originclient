@@ -11,6 +11,8 @@ import com.origin.client.client.mods.Mods;
 import com.origin.client.client.mods.MotionBlur;
 import com.origin.client.client.mods.Snaplook;
 import com.origin.client.client.render.ColorGrade;
+import com.origin.client.client.shaders.IrisBridge;
+import com.origin.client.client.shaders.ShaderCompat;
 import com.origin.client.client.util.Reflect;
 import com.origin.client.client.waypoints.WaypointRenderer;
 import com.origin.client.client.worldedit.WorldEditCui;
@@ -381,6 +383,38 @@ public final class WorldHooks {
 			}
 		} catch (Throwable ignored) {
 			// OptiFine's binding is left as it is
+		}
+		try {
+			warnIncompatiblePack(mc);
+		} catch (Throwable ignored) {
+			// no warning is better than a broken tick
+		}
+	}
+
+	private static boolean packChecked;
+
+	/**
+	 * Once per session, on the first tick with a player: if the shader pack OptiFine
+	 * has selected is built for newer Minecraft, say so in chat (one line). The zip
+	 * is inspected on a daemon thread (ShaderCompat), the player's files are never
+	 * touched, and the pack still loads exactly as the player chose.
+	 */
+	private static void warnIncompatiblePack(Minecraft mc) {
+		if (mc.thePlayer == null) {
+			return;
+		}
+		if (!packChecked) {
+			packChecked = true;
+			String sel = IrisBridge.selectedPack();
+			if (sel != null) {
+				ShaderCompat.startSelectedCheck(sel, IrisBridge.shaderpacksDir().toFile());
+			}
+			return;
+		}
+		String w = ShaderCompat.takeWarning();
+		if (w != null) {
+			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(
+					"§e[Origin] " + w + " Pick another in Video Settings > Shaders."));
 		}
 	}
 
