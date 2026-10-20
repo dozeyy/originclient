@@ -89,21 +89,317 @@
             <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="CornerRadius" Value="2"/>
         </Style>
-        <!-- Square icon buttons (the mockup's accept / decline pair): primary for the yes, raised for the no. -->
-        <Style x:Key="Social.IconPrimary" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
-            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
-            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
-            <Setter Property="Padding" Value="7"/>
-            <Setter Property="Margin" Value="0"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Effect" Value="{x:Null}"/>
-        </Style>
-        <Style x:Key="Social.IconRaised" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
-            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
-            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
-            <Setter Property="Padding" Value="7"/>
+        <!-- Crisp 3 px-corner buttons (Will: squarer, not squircles). Same height and padding for JOIN, CHAT, WARP, LEAVE;
+             hover/press on all; press scales to 0.95. -->
+        <Style x:Key="Social.Join" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
             <Setter Property="Margin" Value="6,0,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{DynamicResource Brush.Acc}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="White" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.18"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.IconPrimary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Acc}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{DynamicResource Brush.Acc}" Opacity="0.22" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.42"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.IconRaised" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.2"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.TileChat" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Acc}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Acc}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{DynamicResource Brush.Acc}" Opacity="0.14" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.3"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.Tile" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="White" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.08"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+        </Style>
+        <Style x:Key="Social.TileLeave" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="3"/>
+                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="3"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hl" Property="Opacity" Value="0.18"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
         </Style>
         <!-- The party card's bottom edge: the actions sit below the members on the same dark surface. -->
         <!-- Text fields: no frame, a card-coloured well (the focus animation only recolours the border, so it stays off). -->
@@ -111,34 +407,13 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
         </Style>
-        <!-- JOIN in the version's accent (Brush.Acc follows the version family). -->
-        <Style x:Key="Social.Join" TargetType="Button" BasedOn="{StaticResource Social.ActionPrimary}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid SnapsToDevicePixels="True">
-                            <Border x:Name="Bg" Background="{DynamicResource Brush.Acc}" CornerRadius="{StaticResource Radius.Control}"/>
-                            <Border CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Fill.PrimarySheen}"/>
-                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bg" Property="Opacity" Value="0.88"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bg" Property="Opacity" Value="0.75"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
         <!-- Unread count: a light chip with dark digits (the mockup's Chat 1). -->
         <Style x:Key="Social.Badge" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Brush.Acc}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
-            <Setter Property="Padding" Value="6,1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="MinWidth" Value="18"/>
+            <Setter Property="MinHeight" Value="18"/>
+            <Setter Property="Padding" Value="5,0"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -226,7 +501,7 @@
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
                                 Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
-                                       FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
+                                       FontWeight="Bold" Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <Button Content="JOIN" Style="{StaticResource Social.Join}"
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
@@ -351,7 +626,7 @@
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
                                 Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
-                                       FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
+                                       FontWeight="Bold" Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <Button Content="JOIN" Style="{StaticResource Social.Join}"
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
@@ -386,13 +661,13 @@
         <DataTemplate DataType="{x:Type controls:PartyActionsVm}">
             <Border Background="{StaticResource Brush.BgAlt}" CornerRadius="0,0,4,4" Padding="8,2,8,10">
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="{Binding ChatText}" Style="{StaticResource Social.Action}" Margin="0"
-                            Padding="12,6" Click="PartyChat_Click" ToolTip="Open the party chat"/>
-                    <Button Content="WARP" Style="{StaticResource Social.Action}" Padding="12,6"
+                    <Button Content="{Binding ChatText}" Style="{StaticResource Social.TileChat}" Margin="0"
+                            Click="PartyChat_Click" ToolTip="Open the party chat"/>
+                    <Button Content="WARP" Style="{StaticResource Social.Tile}"
                             Click="Warp_Click" IsEnabled="{Binding CanWarp}" ToolTip="{Binding WarpTip}"
                             ToolTipService.ShowOnDisabled="True"
                             Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}"/>
-                    <Button Content="LEAVE" Style="{StaticResource Social.Action}" Padding="12,6"
+                    <Button Content="LEAVE" Style="{StaticResource Social.TileLeave}"
                             Click="LeaveParty_Click" ToolTip="Leave the party"/>
                 </StackPanel>
             </Border>

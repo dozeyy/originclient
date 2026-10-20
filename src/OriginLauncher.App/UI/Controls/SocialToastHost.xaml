@@ -20,8 +20,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid SnapsToDevicePixels="True">
-                            <Border x:Name="Bg" Background="{DynamicResource Brush.Acc}" CornerRadius="{StaticResource Radius.Control}"/>
-                            <Border CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Fill.PrimarySheen}"/>
+                            <Border x:Name="Bg" Background="{DynamicResource Brush.Acc}" CornerRadius="3"/>
+                            <Border CornerRadius="3" Background="{StaticResource Fill.PrimarySheen}"/>
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
                                               VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Grid>
