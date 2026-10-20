@@ -331,7 +331,7 @@ public class ImportFixRoundTests : IDisposable
     // ------------------------------------------------------------ 7: a failing rollback never escapes as an exception
 
     [Fact]
-    public async Task ARollbackThatCannotRevertSettingsStillRestoresTheFilesAndReturnsAResult()
+    public async Task AnImportAndItsUndoNeverTouchTheLauncherSettingsSoALockedSettingsFileCantFailThem()
     {
         TypicalSource.Populate(_rig.Source);
         Kit.Write(_rig.GameDir(), "options.txt", "fov:1.0\n");
@@ -341,11 +341,13 @@ public class ImportFixRoundTests : IDisposable
         var engine = _rig.Engine();
         var plan = await engine.PlanAsync(_rig.Request(), null, CancellationToken.None);
 
-        var result = await engine.ApplyAsync(plan, settings, null, CancellationToken.None);   // does not throw
+        var result = await engine.ApplyAsync(plan, settings, null, CancellationToken.None);   // imports never make profiles or move the selection
 
-        Assert.Equal(ImportState.RolledBack, result.State);
-        Assert.Equal(before, Kit.TreeHash(_rig.Instances, mtimes: true));              // the files came back despite the settings revert failing
-        Assert.Contains("locked", result.Error);
+        Assert.Equal(ImportState.Committed, result.State);
+        Assert.Null(plan.SettingsDelta);
+        var undo = await engine.RollbackAsync(plan.ImportId, settings);
+        Assert.Equal(ImportState.RolledBack, undo.State);
+        Assert.Equal(before, Kit.TreeHash(_rig.Instances, mtimes: true));              // the files came back exactly
         Assert.Equal(ImportState.RolledBack, ImportJournalStore.Load(ImportLayout.Journal(_rig.Imports, plan.ImportId))!.State);
         Assert.True(File.Exists(ImportLayout.Summary(_rig.Imports, plan.ImportId)));
     }
@@ -450,11 +452,11 @@ public class ImportFixRoundTests : IDisposable
     {
         Kit.Write(_rig.Source, "options.txt", "fov:0.5\n");
         var secretPath = Path.Combine(_rig.Root, "very-private-folder", "settings.json");
-        var engine = _rig.Engine();
-        var plan = await engine.PlanAsync(_rig.Request(), null, CancellationToken.None);
+        // A destination step that fails with an absolute path in its message (as .NET's IO errors do).
+        var failing = EngineBKit.Engine(_rig, new IImportPlanContributor[] { new FailingStep(() => new IOException($"Couldn't write '{secretPath}'")) });
+        var plan = await failing.PlanAsync(_rig.Request(), null, CancellationToken.None);
 
-        var failed = await engine.ApplyAsync(plan, new ThrowingSettings(
-            () => new IOException($"Couldn't write '{secretPath}'"), () => new IOException($"Couldn't restore '{secretPath}'")), null, CancellationToken.None);
+        var failed = await failing.ApplyAsync(plan, _rig.Settings, null, CancellationToken.None);
 
         Assert.StartsWith("Failed", failed.SummaryText.Split('\n').Select(l => l.Trim()).First(l => l.StartsWith("Failed") || l.StartsWith("Cancelled")));
         Assert.DoesNotContain("Cancelled", failed.SummaryText);
@@ -467,6 +469,7 @@ public class ImportFixRoundTests : IDisposable
         Assert.Contains("settings.json", failed.Error);                                  // the file NAME is still useful
 
         using var cts = new CancellationTokenSource();
+        var engine = _rig.Engine();
         var plan2 = await engine.PlanAsync(_rig.Request(), null, CancellationToken.None);
         var cancelled = await engine.ApplyAsync(plan2, new ThrowingSettings(null, () => new IOException("stuck")),
             new SyncProgress(p => { if (p.Stage == ImportStage.Finishing) cts.Cancel(); }), cts.Token);
@@ -487,43 +490,51 @@ public class ImportFixRoundTests : IDisposable
         Assert.DoesNotContain("AppData", plain);
     }
 
-    // ------------------------------------------------------------ ruling (a): the server list
+    // ------------------------------------------------------------ the server list: merged, never replaced
 
     [Fact]
-    public async Task AnExistingOriginServerListIsKeptByDefaultAndImportedOnlyWhereThereIsNone()
+    public async Task ImportedServersAreAddedAfterOriginsOwnAndAServerOriginHasIsNeverAddedTwice()
     {
-        Kit.Write(_rig.Source, "servers.dat", "OLD LIST");
-        Kit.Write(_rig.GameDir(), "servers.dat", "ORIGIN LIST");
-        var before = File.GetLastWriteTimeUtc(Dst("servers.dat"));
+        Kit.WriteBytes(_rig.Source, "servers.dat", Kit.ServersDat(("Hypixel", "MC.Hypixel.net:25565"), ("Friends", "10.0.0.5")));
+        Kit.WriteBytes(_rig.GameDir(), "servers.dat", Kit.ServersDat(("My Hypixel", "mc.hypixel.net"), ("Local", "localhost")));
 
-        var (plan, kept) = await Run();
+        var (plan, result) = await Run();
 
-        Assert.True(kept.Succeeded);
-        Assert.Equal("ORIGIN LIST", File.ReadAllText(Dst("servers.dat")));
-        Assert.Equal(before, File.GetLastWriteTimeUtc(Dst("servers.dat")));
-        Assert.Contains(plan.Lines, l => l.Section == SummarySection.NotImported && l.Name.StartsWith("servers.dat")
-                                         && l.Reason == "Your Origin server list was kept; the old list is in Review details.");
-
-        File.Delete(Dst("servers.dat"));
-        var (_, fresh) = await Run();                                                    // none in Origin: now it comes across
-        Assert.True(fresh.Succeeded);
-        Assert.Equal("OLD LIST", File.ReadAllText(Dst("servers.dat")));
+        Assert.True(result.Succeeded, result.Error);
+        // Origin's servers stay first and as they were; only the one Origin didn't have is appended.
+        Assert.Equal(new[] { ("My Hypixel", "mc.hypixel.net"), ("Local", "localhost"), ("Friends", "10.0.0.5") }, Kit.Servers(Dst("servers.dat")));
+        Assert.Contains(plan.Lines, l => l.Name == "servers.dat (server list)" && l.Reason == "1 server added after the ones Origin has");
+        // The old list is backed up, so an undo puts Origin's exactly back.
+        var undone = await _rig.Engine().RollbackAsync(plan.ImportId, _rig.Settings);
+        Assert.Equal(ImportState.RolledBack, undone.State);
+        Assert.Equal(new[] { ("My Hypixel", "mc.hypixel.net"), ("Local", "localhost") }, Kit.Servers(Dst("servers.dat")));
     }
 
     [Fact]
-    public async Task TheReplaceServerListOptionSwapsItAfterABackupAndAnIdenticalListIsLeftAlone()
+    public async Task WhenOriginHasNoServerListTheImportedOneIsWrittenAndAnIdenticalOneChangesNothing()
     {
-        Kit.Write(_rig.Source, "servers.dat", "OLD LIST");
-        Kit.Write(_rig.GameDir(), "servers.dat", "ORIGIN LIST");
+        Kit.WriteBytes(_rig.Source, "servers.dat", Kit.ServersDat(("Hypixel", "mc.hypixel.net")));
 
-        var (plan, replaced) = await Run(_rig.Request(options: new ImportOptions { ReplaceServerList = true }));
+        var (_, fresh) = await Run();
+        Assert.True(fresh.Succeeded);
+        Assert.Equal(new[] { ("Hypixel", "mc.hypixel.net") }, Kit.Servers(Dst("servers.dat")));
+        var stamp = File.GetLastWriteTimeUtc(Dst("servers.dat"));
 
-        Assert.True(replaced.Succeeded);
-        Assert.Equal("OLD LIST", File.ReadAllText(Dst("servers.dat")));
-        Assert.Equal("ORIGIN LIST", File.ReadAllText(Assert.Single(Directory.GetFiles(ImportLayout.Backup(_rig.Imports, plan.ImportId)), f => f.EndsWith("servers.dat"))));
-
-        var (samePlan, same) = await Run();                                              // now identical: nothing to keep or replace
+        var (again, same) = await Run();                                                // every server is there already
         Assert.True(same.Succeeded);
-        Assert.DoesNotContain(samePlan.Lines, l => l.Name.StartsWith("servers.dat") && l.Section == SummarySection.NotImported);
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(Dst("servers.dat")));
+        Assert.Contains(again.Lines, l => l.Name == "servers.dat (server list)" && l.Reason == "every server is already in Origin's list");
+    }
+
+    [Fact]
+    public async Task AnUnreadableOriginServerListIsLeftAsItIsWithALine()
+    {
+        Kit.WriteBytes(_rig.Source, "servers.dat", Kit.ServersDat(("Hypixel", "mc.hypixel.net")));
+        Kit.Write(_rig.GameDir(), "servers.dat", "NOT NBT");
+
+        var (_, result) = await Run();
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal("NOT NBT", File.ReadAllText(Dst("servers.dat")));
     }
 }

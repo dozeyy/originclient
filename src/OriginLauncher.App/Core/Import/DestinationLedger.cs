@@ -22,12 +22,19 @@ public sealed class DestinationLedger
     private readonly Dictionary<string, WorldClaim> _worldSources = new(PathComparer);
     private readonly Dictionary<string, string> _caches = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<(string Dest, Claim Claim)>> _packsByName = new(PathComparer);
+    private readonly Dictionary<string, List<(string Dest, Claim Claim)>> _packFilesBySize = new(PathComparer);
 
     /// <summary>A destination someone in this run will write: where from (null for a composed file), whose setup, and that setup's key.</summary>
     public sealed record Claim(string? Source, string SetupLabel, bool IsDirectory, string? Owner = null);
 
     /// <summary>A source world folder this run copies, and where it lands.</summary>
     public sealed record WorldClaim(string SetupLabel, string Dest, string? Owner);
+
+    /// <summary>The server list this run merges into the folder's servers.dat (made by the first setup that brings servers).</summary>
+    public ServerMerge? Servers { get; set; }
+
+    /// <summary>The version's shared mods folder: what it holds and what this run adds (read when the first setup plans mods).</summary>
+    public SharedModsLedger? Mods { get; set; }
 
     public bool IsClaimed(string dest) => _claims.ContainsKey(dest);
 
@@ -45,6 +52,21 @@ public sealed class DestinationLedger
         if (!_packsByName.TryGetValue(key, out var list)) _packsByName[key] = list = new();
         list.Add((dest, new Claim(source, setupLabel, isDirectory, owner)));
     }
+
+    /// <summary>
+    /// Records a zipped pack's size, so a later setup's identical pack under ANOTHER name lands once too (the grid
+    /// brings every ticked launcher's packs, duplicates removed: Will, 2026-10-19).
+    /// </summary>
+    public void AddPackFile(string dest, string source, long size, string setupLabel, string? owner)
+    {
+        var key = (System.IO.Path.GetDirectoryName(dest) ?? "") + "|" + size;
+        if (!_packFilesBySize.TryGetValue(key, out var list)) _packFilesBySize[key] = list = new();
+        list.Add((dest, new Claim(source, setupLabel, false, owner)));
+    }
+
+    /// <summary>Earlier zipped packs of this run bound for <paramref name="dir"/> with exactly <paramref name="size"/> bytes (candidates for an identical-bytes check).</summary>
+    public IReadOnlyList<(string Dest, Claim Claim)> PackFilesSized(string dir, long size) =>
+        _packFilesBySize.TryGetValue(dir + "|" + size, out var list) ? list : Array.Empty<(string, Claim)>();
 
     /// <summary>Earlier packs of this run that had this original name, wherever they land (for an identical-bytes check).</summary>
     public IReadOnlyList<(string Dest, Claim Claim)> PacksNamed(string originalName, bool isDirectory) =>

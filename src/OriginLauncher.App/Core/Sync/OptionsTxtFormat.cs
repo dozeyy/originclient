@@ -119,6 +119,49 @@ public sealed class OptionsTxtFormat : ISyncFormat
     private const string LowerCaseLangSince = "1.11";
     private const string DataVersionsSince = "1.9";
 
+    // The options 1.8.9 (GameSettings) reads, besides its key_ / soundCategory_ / modelPart_ / stream* families.
+    private static readonly HashSet<string> LegacyKeys = new(StringComparer.Ordinal)
+    {
+        "mouseSensitivity", "fov", "gamma", "saturation", "invertYMouse", "renderDistance", "guiScale", "particles",
+        "bobView", "anaglyph3d", "maxFps", "fboEnable", "difficulty", "fancyGraphics", "ao", "renderClouds",
+        "lastServer", "lang", "chatVisibility", "chatColors", "chatLinks", "chatLinksPrompt", "chatOpacity",
+        "snooperEnabled", "fullscreen", "enableVsync", "useVbo", "hideServerAddress", "advancedItemTooltips",
+        "pauseOnLostFocus", "touchscreen", "overrideWidth", "overrideHeight", "heldItemTooltips", "chatHeightFocused",
+        "chatHeightUnfocused", "chatScale", "chatWidth", "showInventoryAchievementHint", "mipmapLevels",
+        "forceUnicodeFont", "allowBlockAlternatives", "reducedDebugInfo", "useNativeTransport", "entityShadows",
+        "realmsNotifications",
+    };
+
+    // 1.8.9 options no later version (1.16.5 and up) has.
+    private static readonly HashSet<string> LegacyOnlyKeys = new(StringComparer.Ordinal)
+    {
+        "fancyGraphics", "anaglyph3d", "fboEnable", "useVbo", "allowBlockAlternatives", "showInventoryAchievementHint",
+    };
+
+    /// <summary>
+    /// Does <paramref name="version"/> know this options.txt key? For an import that carries settings to ANOTHER
+    /// version (SettingsMigrator.CarryOptions): 1.8.9 gets only the keys it reads; the modern eras drop 1.8.9's own keys
+    /// and the keys that exist only in some modern versions (the graphicsMode / graphicsPreset split at 1.21.11, the
+    /// now-playing toast of 1.21.6-1.21.10). Settings Sync doesn't use this: every loader ignores a key it doesn't know.
+    /// </summary>
+    /// Boundaries read from each version's Options class (javap, 2026-10-19): graphicsMode 1.16.5-1.21.10;
+    /// graphicsPreset + musicToast 1.21.11 and 26.1; showNowPlayingToast 1.21.6-1.21.10 (absent on 1.21.1/4/5).
+    public static bool KnownIn(string key, string version)
+    {
+        if (!McVersion.AtLeast(version, GlfwKeyNamesSince))
+            return LegacyKeys.Contains(key) || key.StartsWith("key_", StringComparison.Ordinal)
+                || key.StartsWith("soundCategory_", StringComparison.Ordinal) || key.StartsWith("modelPart_", StringComparison.Ordinal)
+                || key.StartsWith("stream", StringComparison.Ordinal);
+        if (LegacyOnlyKeys.Contains(key) || key.StartsWith("stream", StringComparison.Ordinal)) return false;
+        return key switch
+        {
+            "graphicsMode" => !McVersion.AtLeast(version, "1.21.11"),
+            "graphicsPreset" or "musicToast" => McVersion.AtLeast(version, "1.21.11"),
+            "showNowPlayingToast" => McVersion.AtLeast(version, "1.21.6") && !McVersion.AtLeast(version, "1.21.11"),
+            _ => true,
+        };
+    }
+
     // LWJGL 2 key code (1.8.9's options.txt) -> GLFW key name (1.13+), as in
     // vanilla 1.13's OptionsKeyLwjgl3Fix. 0 is "unbound"; mouse button b is
     // stored as -100 + b.

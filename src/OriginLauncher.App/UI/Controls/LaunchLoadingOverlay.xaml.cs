@@ -15,9 +15,9 @@ namespace OriginLauncher.App.UI.Controls;
 public partial class LaunchLoadingOverlay : UserControl
 {
     // ProgressSweep's width in the XAML: the sliding block of an unmeasured stage.
-    private const double SweepWidth = 84;
+    private const double SweepWidth = 96;
     // Glide between the ~8-10/s progress reports instead of stepping.
-    private static readonly Duration FillGlide = new(TimeSpan.FromMilliseconds(140));
+    private static readonly Duration FillGlide = new(TimeSpan.FromMilliseconds(220));
 
     private AnimationClock? _spinClock;
     private AnimationClock? _sweepClock;
@@ -25,10 +25,54 @@ public partial class LaunchLoadingOverlay : UserControl
     private long _stageRevision;
     // Launch mode reads real counts out of stage lines; update mode's fill is ReportUpdate's.
     private bool _launchMode;
+    // The big line when no stage has a real count: the version starting (or updating to).
+    private string _bigFallback = "";
 
     public LaunchLoadingOverlay()
     {
         InitializeComponent();
+        // The % sits on the count's baseline: lift it by the difference in how far
+        // each size reaches below its baseline.
+        Loaded += (_, _) =>
+        {
+            VersionText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            PercentText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var below = (VersionText.DesiredSize.Height - VersionText.Baseline)
+                        - (PercentText.DesiredSize.Height - PercentText.Baseline);
+            PercentText.Margin = new Thickness(6, 0, 0, Math.Max(0, below));
+        };
+    }
+
+    /// <summary>
+    /// The fill as shown, 0..1: one animated value drives the bar's scale AND the
+    /// count, so the number rolls up in step with the bar instead of jumping between
+    /// the ~8-10/s progress reports.
+    /// </summary>
+    private static readonly DependencyProperty ShownProperty = DependencyProperty.Register(
+        "Shown", typeof(double), typeof(LaunchLoadingOverlay),
+        new PropertyMetadata(0.0, (d, e) => ((LaunchLoadingOverlay)d).OnShown((double)e.NewValue)));
+
+    private bool _counting;
+
+    private void OnShown(double value)
+    {
+        ProgressScale.ScaleX = value;
+        if (_counting) VersionText.Text = ((int)Math.Floor(value * 100 + 1e-6)).ToString();
+    }
+
+    // Sets the shown fill with no glide (a new scene, the sweep handing over, reduced motion).
+    private void SetShown(double value)
+    {
+        BeginAnimation(ShownProperty, null);
+        SetValue(ShownProperty, value);
+        OnShown(value);
+    }
+
+    private void ShowCount(bool counting)
+    {
+        _counting = counting;
+        PercentText.Visibility = counting ? Visibility.Visible : Visibility.Collapsed;
+        if (!counting) VersionText.Text = _bigFallback;
     }
 
     /// <summary>Raised when the player clicks Cancel; the launch flow that
@@ -37,13 +81,21 @@ public partial class LaunchLoadingOverlay : UserControl
 
     /// <summary>The Play press. No loader name anywhere: the player never sees
     /// which loader a version runs on (mandate 1).</summary>
-    public void Show(string version)
+    public void Show(string version, string? caption = null)
     {
         _launchMode = true;
-        EyebrowText.Text = "STARTING";
+        EyebrowText.Text = $"PREPARING MINECRAFT {version}";
         CancelButton.Visibility = Visibility.Visible;
         CancelButton.ToolTip = null;
         LoaderCaptionText.Visibility = Visibility.Collapsed;
+        CaptionFamily.Text = FamilyTheme.Of(version).Label;
+        // The bar is this version's colour, not whichever family Home last showed.
+        var accent = FamilyTheme.AccentBrush(version);
+        ProgressFill.Background = accent;
+        ProgressSweep.Background = accent;
+        CaptionDetail.Text = caption ?? "";
+        CaptionDetail.Visibility = string.IsNullOrEmpty(caption) ? Visibility.Collapsed : Visibility.Visible;
+        CaptionPanel.Visibility = Visibility.Visible;
         ShowScene(version);
         ShowProgress(null);
     }
@@ -54,11 +106,15 @@ public partial class LaunchLoadingOverlay : UserControl
     public void ShowUpdate(string newVersion)
     {
         _launchMode = false;
-        EyebrowText.Text = "UPDATING";
+        // A launcher update belongs to no version: back to the family on screen.
+        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Acc");
+        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Acc");
+        EyebrowText.Text = $"UPDATING ORIGIN LAUNCHER TO {newVersion}";
         CancelButton.Visibility = Visibility.Collapsed;
         LoaderCaptionText.Text = "Getting the newest version";
         LoaderCaptionText.Visibility = Visibility.Visible;
-        ShowScene($"Origin Launcher {newVersion}");
+        CaptionPanel.Visibility = Visibility.Collapsed;
+        ShowScene(newVersion);
         ShowProgress(0);
     }
 
@@ -87,6 +143,7 @@ public partial class LaunchLoadingOverlay : UserControl
     {
         ++_stageRevision;
         StageText.BeginAnimation(OpacityProperty, null);
+        _bigFallback = title;
         VersionText.Text = title;
         StageText.Text = "Preparing";
         StageText.Opacity = 1;
@@ -121,8 +178,8 @@ public partial class LaunchLoadingOverlay : UserControl
         StopClock(ref _sweepClock);
         ProgressSweep.Visibility = Visibility.Collapsed;
         ProgressFill.Visibility = Visibility.Collapsed;
-        ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        ProgressScale.ScaleX = 0;
+        ShowCount(false);
+        SetShown(0);
 
         // The mark doubles as the spinner. Reduced motion leaves it still.
         var transform = new RotateTransform();
@@ -146,32 +203,34 @@ public partial class LaunchLoadingOverlay : UserControl
     {
         if (fraction is not { } f)
         {
+            ShowCount(false);
             if (ProgressSweep.Visibility == Visibility.Visible) return;
             ProgressFill.Visibility = Visibility.Collapsed;
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            ProgressScale.ScaleX = 0;
+            SetShown(0);
             ProgressSweep.Visibility = Visibility.Visible;
             StartSweep();
             return;
         }
 
         f = Math.Clamp(f, 0, 1);
+        var fresh = !_counting;
+        ShowCount(true);
         if (ProgressSweep.Visibility != Visibility.Collapsed)
         {
             StopClock(ref _sweepClock);
             ProgressSweep.Visibility = Visibility.Collapsed;
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            ProgressScale.ScaleX = 0;
+            SetShown(0);
         }
+        else if (fresh) OnShown((double)GetValue(ShownProperty));
         ProgressFill.Visibility = Visibility.Visible;
-        if (!SystemParameters.ClientAreaAnimation)
+        if (!SystemParameters.ClientAreaAnimation || Motion.Off)
         {
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            ProgressScale.ScaleX = f;
+            SetShown(f);
             return;
         }
-        ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(f, FillGlide), HandoffBehavior.SnapshotAndReplace);
+        BeginAnimation(ShownProperty,
+            new DoubleAnimation(f, FillGlide) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } },
+            HandoffBehavior.SnapshotAndReplace);
     }
 
     // Slide the block across the track (start fully off-left, finish fully

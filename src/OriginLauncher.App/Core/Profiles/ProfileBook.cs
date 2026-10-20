@@ -61,6 +61,8 @@ public static class ProfileBook
             Version = source.Version,
             ServerName = source.ServerName,
             ServerAddress = source.ServerAddress,
+            Tint = source.Tint,
+            Icon = source.Icon,
         };
         profiles.Add(copy);
         return null;

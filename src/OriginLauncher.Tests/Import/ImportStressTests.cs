@@ -24,8 +24,7 @@ public class ImportStressTests : IDisposable
 
     private async Task<ImportResult> Import(ImportOptions? options = null, IProgress<ImportProgress>? progress = null, CancellationToken ct = default)
     {
-        var profiles = _rig.Settings.Load().Profiles;
-        var plan = await _rig.Engine().PlanAsync(_rig.Request(options: options, profiles: profiles), null, CancellationToken.None);
+        var plan = await _rig.Engine().PlanAsync(_rig.Request(options: options), null, CancellationToken.None);
         Assert.True(plan.CanApply, string.Join(" ", plan.Blocked));
         return await _rig.Engine().ApplyAsync(plan, _rig.Settings, progress, ct);
     }
@@ -233,14 +232,14 @@ public class ImportStressTests : IDisposable
             var again = await engine.PlanAsync(rig.Request(options: WithWorlds), null, CancellationToken.None);
             var result = await engine.ApplyAsync(again, rig.Settings, null, CancellationToken.None);
             Assert.True(result.Succeeded, $"re-import after crash at open {k}: {result.Error}");
-            Assert.Single(rig.Settings.Load().Profiles);
+            Assert.Empty(rig.Settings.Load().Profiles);                                 // imports never make profiles
             Assert.Equal(new[] { "World1", "World1 (imported)" },
                 Directory.GetDirectories(Path.Combine(rig.GameDir(), "saves")).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
         }
     }
 
     [Fact]
-    public async Task ACrashAtAnyStepOfApplyIncludingTheSettingsChangeRecoversExactly()
+    public async Task ACrashAtAnyStepOfApplyRecoversExactly()
     {
         for (var k = 0; ; k++)
         {
@@ -264,29 +263,8 @@ public class ImportStressTests : IDisposable
                 AssertRecoversExactly(rig, plan, before, $"crash at step {k}");
             }
         }
-
-        // ...and between "the launcher settings were saved" and "the journal says committed".
-        using (var rig = new Rig())
-        {
-            Scenario(rig);
-            var plan = await rig.Engine().PlanAsync(rig.Request(options: WithWorlds), null, CancellationToken.None);
-            var before = Snapshot(rig);
-            await Assert.ThrowsAsync<OutOfMemoryException>(() => rig.Engine().ApplyAsync(plan, new CrashAfterApply(rig.Settings), null, CancellationToken.None));
-            Assert.NotEqual(before.Settings, rig.Settings.FileHash()); // the crash really came after the settings were written
-            AssertRecoversExactly(rig, plan, before, "crash right after the settings change");
-        }
-    }
-
-    // The settings are saved, then the process dies before the journal is committed.
-    private sealed class CrashAfterApply(IImportSettings inner) : IImportSettings
-    {
-        public void Apply(SettingsDelta delta)
-        {
-            inner.Apply(delta);
-            throw new OutOfMemoryException("simulated crash");
-        }
-
-        public void Revert(SettingsDelta delta) => inner.Revert(delta);
+        // (An import changes no launcher settings any more - no profile, no selection - so there is no
+        // "settings saved, journal not yet committed" window left to crash in.)
     }
 
     [Fact]

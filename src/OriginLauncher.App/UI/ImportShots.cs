@@ -9,12 +9,13 @@ using OriginLauncher.App.UI.Controls;
 namespace OriginLauncher.App.UI;
 
 /// <summary>
-/// CI screen render (RenderShots): the Import drawer in every state, driven by a made-up backend. There is
+/// CI screen render (RenderShots): the Import page in every state, driven by a made-up backend. There is
 /// no scan, no plan against a real folder and nothing is written: the plans are built in memory here, and
 /// "Import" only plays back canned progress.
 ///
-/// Shot numbers: 17, 17b, 17c are the Home card (17c: hidden while Import is refused); 30-41 are the drawer, 42/42b its
-/// keyboard focus; 43-46 the launcher, versions, version and review pages; 50-57 the smallest window (20-27 are the smallest-window set in RenderShots).
+/// Shot numbers: 17, 17b, 17c are the Home card (17c: hidden while Import is refused); 30 and 38 are Detect (found, scanning,
+/// empty), 31 Choose what to import, 34/35/36/37 progress, cancel, done and failed, 39-41 single review, blocked and launching,
+/// 42/42b the keyboard focus; 43-46 What to bring, a version and Review; 50-59 the smallest window (20-27 are the smallest-window set in RenderShots).
 /// </summary>
 internal static class ImportShots
 {
@@ -36,10 +37,10 @@ internal static class ImportShots
             var one = new[] { many[0] };
             window.TourGoTo(0);
             RenderShots.Pump(400);
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many), many);
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "17-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one), one);
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "17b-home-import-card-one-setup");
 
@@ -53,10 +54,10 @@ internal static class ImportShots
             window.Width = 980;
             window.Height = 600;
             RenderShots.Pump(600);
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many), many);
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "50-min-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one), one);
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "51-min-home-import-card-one-setup");
         }
@@ -84,24 +85,68 @@ internal static class ImportShots
             RenderShots.Pump(500);
             window.TourClickProfilesImport();
             RenderShots.Pump(900);
-            RenderShots.Snap(window, outDir, "38-import-drawer-empty");
+            RenderShots.Snap(window, outDir, "38-import-page-empty");
             window.TourBackendFactory = null;
             window.TourCloseImport();
             RenderShots.Pump(400);
 
             // 30a: still looking (the scan is held until the render lets go).
             Open(window, Demo.Scanning, 700);
-            RenderShots.Snap(window, outDir, "30a-import-launchers-scanning");
+            RenderShots.Snap(window, outDir, "30a-import-page-scanning");
             DemoBackend.Release();
             window.TourCloseImport();
             RenderShots.Pump(400);
 
-            // 30: the first page: every launcher Origin knows, found (with counts), installed but empty, or not installed.
+            // 30: Detect: a tile per launcher found (logo, folder, counts), then the slim "Locate folder" rows.
             var panel = Open(window, Demo.Bulk, 1500);
-            RenderShots.Snap(window, outDir, "30-import-launchers");
+            RenderShots.Snap(window, outDir, "30-import-page-detect");
+            panel.TourScroll(double.MaxValue);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "30b-import-page-detect-bottom");
+            panel.TourScroll(0);
+            // 30c: one launcher taken out of the import (its tile dims, the button counts less).
+            panel.TourToggleLauncher(SourceKind.Lunar);
+            RenderShots.Pump(500);
+            RenderShots.Snap(window, outDir, "30c-import-page-detect-unticked");
+            panel.TourToggleLauncher(SourceKind.Lunar);
+            RenderShots.Pump(300);
 
-            // 43: "All launchers": import from all versions (every version ticked), what to bring once for all.
-            panel.TourOpenLauncher(null);
+            // 61: Choose what to import, the grid: a row per launcher, a tick per thing, All versions first, one launcher's mods
+            // ticked so no warning. Lunar's mods are greyed (built in), the Forge setup's columns say why.
+            panel.TourShowGrid();
+            RenderShots.Pump(700);
+            RenderShots.Snap(window, outDir, "61-import-grid");
+            // 61b: one version's tab; the second launcher's mods ticked too, so the mixed-mods warning shows.
+            panel.TourGridTab("1.20.1");
+            panel.TourGridTurnOn(SourceKind.Prism, GridColumn.Mods);
+            panel.TourGridTurnOn(SourceKind.Modrinth, GridColumn.Mods);
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "61b-import-grid-version-mixed");
+            // 61c: back on All versions, the warning stays (two launchers' mods ticked); Settings moved to Lunar.
+            panel.TourGridTab("1.21.1");
+            panel.TourGridTurnOn(SourceKind.Lunar, GridColumn.Settings);
+            panel.TourGridTab(ImportGridModel.AllTab);
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "61c-import-grid-all-mixed");
+            File.WriteAllText(Path.Combine(outDir, "grid-cells.txt"), panel.TourGridDump());
+            panel.TourBack();
+            RenderShots.Pump(300);
+
+            // 31: Pick single setups (the grid's link): a card per launcher, a row per setup.
+            panel.TourShowPick();
+            RenderShots.Pump(700);
+            RenderShots.Snap(window, outDir, "31-import-page-pick");
+            panel.TourToggleLauncher(SourceKind.Modrinth);
+            RenderShots.Pump(500);
+            RenderShots.Snap(window, outDir, "31b-import-page-pick-unticked");
+            panel.TourToggleLauncher(SourceKind.Modrinth);
+            panel.TourScroll(double.MaxValue);
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "31c-import-page-pick-bottom");
+            panel.TourScroll(0);
+
+            // 43: "What to bring" from the Pick page: every version ticked, what to bring once for all.
+            panel.TourBring();
             RenderShots.Pump(600);
             RenderShots.Snap(window, outDir, "43-import-versions-all");
             // 43b: one version out (the select-all row is mixed) and screenshots switched off for every version.
@@ -125,7 +170,7 @@ internal static class ImportShots
             // 32: whose settings (1.20.1 has two setups with about the same playtime).
             panel.TourOpenChooser("1.20.1");
             RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "32-import-drawer-pick-settings");
+            RenderShots.Snap(window, outDir, "32-import-page-pick-settings");
             panel.TourBack();
             RenderShots.Pump(300);
             panel.TourBack();
@@ -152,83 +197,110 @@ internal static class ImportShots
             // 33: Details: the options, then what each setup brings.
             panel.TourOpenDetails();
             RenderShots.Pump(500);
-            RenderShots.Snap(window, outDir, "33-import-drawer-details");
+            RenderShots.Snap(window, outDir, "33-import-page-details");
             panel.TourScroll(480);
             RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "33b-import-drawer-details-groups");
-            panel.TourBack();
+            RenderShots.Snap(window, outDir, "33b-import-page-details-groups");
+            panel.TourBack(); // Review
             RenderShots.Pump(300);
+            panel.TourBack(); // What to bring
+            RenderShots.Pump(300);
+            panel.TourBack(); // Choose what to import
+            RenderShots.Pump(400);
 
-            // 39: one setup on its own: a supported one, then one Origin cannot take as it is (pick a version).
-            panel.TourOpenSingle("Survival 1.21.1");
+            // 39: one setup on its own (the arrow on its row): a supported one, then one Origin cannot take as it is (pick a version).
+            panel.TourOpenPickReview("Survival 1.21.1");
             RenderShots.Pump(1200);
             RenderShots.Snap(window, outDir, "39-import-single-review");
             panel.TourBack();
-            RenderShots.Pump(300);
-            panel.TourOpenSingle("Better MC");
+            RenderShots.Pump(400);
+            panel.TourOpenPickReview("Better MC");
             RenderShots.Pump(700);
             RenderShots.Snap(window, outDir, "39b-import-single-unsupported");
             window.TourCloseImport();
             RenderShots.Pump(400);
 
-            // 44: one launcher (Lunar): only its versions, one of them one Origin can't run.
+            // 44: one launcher only (Lunar: every other tile taken out), then 36c: Lunar imported. The Done page
+            // lists only Lunar's setups (another launcher's were never part of it).
             panel = Open(window, Demo.Bulk, 1500);
-            panel.TourOpenLauncher(SourceKind.Lunar);
+            foreach (var kind in new[] { SourceKind.OfficialLauncher, SourceKind.Prism, SourceKind.Modrinth, SourceKind.CurseForge })
+                panel.TourToggleLauncher(kind);
             RenderShots.Pump(600);
-            RenderShots.Snap(window, outDir, "44-import-versions-lunar");
-            // 36c: Lunar imported: the Done page lists only Lunar's setups (another launcher's were never part of it).
-            panel.TourOpenReview();
-            RenderShots.Pump(1000);
-            panel.TourImportAll();
-            RenderShots.Pump(1500);
+            RenderShots.Snap(window, outDir, "44-import-page-detect-lunar-only");
+            panel.TourImportNow();
+            RenderShots.Pump(2200);
             RenderShots.Snap(window, outDir, "36c-import-done-lunar");
             window.TourCloseImport();
             RenderShots.Pump(400);
 
-            // 34: importing (one bar and the step line; Home's Play is off behind the drawer).
-            panel = OpenReview(window, Demo.Progress);
-            panel.TourImportAll();
-            RenderShots.Pump(900);
-            RenderShots.Snap(window, outDir, "34-import-drawer-progress");
+            // 60: only one other launcher (Prism): "Bring everything from Prism" is the page's main button. 60b: pressed,
+            // importing; 60c: done, with Play (the most played version) and Done.
+            panel = Open(window, Demo.Bulk, 1500, oneLauncher: true);
+            RenderShots.Snap(window, outDir, "60-import-detect-one-launcher");
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+            panel = Open(window, Demo.Progress, 1500, oneLauncher: true);
+            panel.TourFastImport(SourceKind.Prism);
+            RenderShots.Pump(1500);
+            RenderShots.Snap(window, outDir, "60b-import-fast-progress");
+            DemoBackend.Release();
+            RenderShots.Pump(600);
+            panel = Open(window, Demo.Bulk, 1500, oneLauncher: true);
+            panel.TourFastImport(SourceKind.Prism);
+            RenderShots.Pump(2200);
+            RenderShots.Snap(window, outDir, "60c-import-fast-done");
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+
+            // 34: importing: the big percentage, the setup being copied and the setup list (Home's Play is off behind the page).
+            panel = Open(window, Demo.Progress, 1500);
+            panel.TourImportNow();
+            RenderShots.Pump(1500);
+            RenderShots.Snap(window, outDir, "34-import-page-progress");
 
             // 35: the "Stop importing?" confirmation (opens on Keep going).
             panel.TourAskCancel();
             RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "35-import-drawer-cancel-confirm");
+            RenderShots.Snap(window, outDir, "35-import-page-cancel-confirm");
             DemoBackend.Release();
             RenderShots.Pump(600);
 
-            // 36: done, then its details.
-            panel = OpenReview(window, Demo.Bulk);
-            panel.TourImportAll();
-            RenderShots.Pump(1500);
-            RenderShots.Snap(window, outDir, "36-import-drawer-done");
-            panel.TourSecondary();
+            // 36: done (the versions that are ready to play, Play and Done), its lower half, then its details.
+            panel = Open(window, Demo.Bulk, 1500);
+            panel.TourImportNow();
+            RenderShots.Pump(2200);
+            RenderShots.Snap(window, outDir, "36-import-page-done");
+            panel.TourScroll(double.MaxValue);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "36d-import-page-done-bottom");
+            panel.TourScroll(0);
+            panel.TourOpenDetails(); // the footer holds Done and Play; Details is the link under the notes
             RenderShots.Pump(500);
-            RenderShots.Snap(window, outDir, "36b-import-drawer-done-details");
+            RenderShots.Snap(window, outDir, "36b-import-page-done-details");
 
             // 37: nothing changed (failed and rolled back).
-            panel = OpenReview(window, Demo.Failed);
-            panel.TourImportAll();
-            RenderShots.Pump(1200);
-            RenderShots.Snap(window, outDir, "37-import-drawer-failed");
+            panel = Open(window, Demo.Failed, 1500);
+            panel.TourImportNow();
+            RenderShots.Pump(1800);
+            RenderShots.Snap(window, outDir, "37-import-page-failed");
 
-            // 40: blocked (Minecraft is still running from one of the setups).
-            OpenReview(window, Demo.Blocked);
-            RenderShots.Snap(window, outDir, "40-import-drawer-blocked");
+            // 40: blocked (Minecraft is still running from one of the setups): the press ends at Review, which says why.
+            panel = Open(window, Demo.Blocked, 1500);
+            panel.TourImportNow();
+            RenderShots.Pump(1500);
+            RenderShots.Snap(window, outDir, "40-import-page-blocked");
 
             // 41: a game is starting: Import is off until it opens.
             panel = Open(window, Demo.Bulk, 1500);
-            panel.TourOpenLauncher(null);
             panel.TourRefusal("Wait for Minecraft to finish starting.");
             RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "41-import-drawer-launching");
+            RenderShots.Snap(window, outDir, "41-import-page-launching");
 
             // 42, 42b: keyboard focus, as Tab shows it: a version's tick box, then Review's footer primary button.
             window.TourCloseImport();
             RenderShots.Pump(400);
             panel = Open(window, Demo.Bulk, 1500);
-            panel.TourOpenLauncher(null);
+            panel.TourBring();
             RenderShots.Pump(500);
             var focusLog = new System.Text.StringBuilder();
             window.Activate(); // the render window opens without activation; keyboard focus needs an active window
@@ -237,7 +309,7 @@ internal static class ImportShots
             PressTab(window);
             RenderShots.Pump(300);
             var tickFrame = FocusFrame(window, panel.TourFirstTick(), "tick", focusLog);
-            RenderShots.Snap(window, outDir, "42-import-drawer-focus-tick", adorners: true);
+            RenderShots.Snap(window, outDir, "42-import-page-focus-tick", adorners: true);
             tickFrame?.Invoke();
             panel.TourOpenReview();
             RenderShots.Pump(1200);
@@ -245,18 +317,26 @@ internal static class ImportShots
             PressTab(window);
             RenderShots.Pump(300);
             var footerFrame = FocusFrame(window, panel.TourFooterPrimary(), "footer primary", focusLog);
-            RenderShots.Snap(window, outDir, "42b-import-drawer-focus-footer", adorners: true);
+            RenderShots.Snap(window, outDir, "42b-import-page-focus-footer", adorners: true);
             footerFrame?.Invoke();
             File.WriteAllText(Path.Combine(outDir, "focus-checks.txt"), focusLog.ToString());
 
-            // 52-57: the smallest window the launcher allows, for every page (50, 51: the Home card, RunHomeCard).
+            // 52-59: the smallest window the launcher allows, for every page (50, 51: the Home card, RunHomeCard).
             window.TourCloseImport();
             window.Width = 980;
             window.Height = 600;
             RenderShots.Pump(600);
             panel = Open(window, Demo.Bulk, 1500);
-            RenderShots.Snap(window, outDir, "52-min-import-launchers");
-            panel.TourOpenLauncher(null);
+            RenderShots.Snap(window, outDir, "52-min-import-detect");
+            panel.TourShowGrid();
+            RenderShots.Pump(600);
+            RenderShots.Snap(window, outDir, "62-min-import-grid");
+            panel.TourBack();
+            RenderShots.Pump(300);
+            panel.TourShowPick();
+            RenderShots.Pump(600);
+            RenderShots.Snap(window, outDir, "58-min-import-pick");
+            panel.TourBring();
             RenderShots.Pump(500);
             RenderShots.Snap(window, outDir, "54-min-import-versions");
             panel.TourOpenVersion("1.20.1");
@@ -266,13 +346,24 @@ internal static class ImportShots
             panel.TourOpenReview();
             RenderShots.Pump(1200);
             RenderShots.Snap(window, outDir, "56-min-import-review");
-            panel.TourOpenSingle("Survival 1.21.1");
+            panel.TourBack();
+            RenderShots.Pump(300);
+            panel.TourBack();
+            RenderShots.Pump(400);
+            panel.TourOpenPickReview("Survival 1.21.1");
             RenderShots.Pump(1200);
             RenderShots.Snap(window, outDir, "53-min-import-single-review");
-            panel.TourBack();
-            RenderShots.Pump(800);
-            panel.TourImportAll();
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+            panel = Open(window, Demo.Progress, 1500);
+            panel.TourImportNow();
             RenderShots.Pump(1500);
+            RenderShots.Snap(window, outDir, "59-min-import-progress");
+            DemoBackend.Release();
+            RenderShots.Pump(600);
+            panel = Open(window, Demo.Bulk, 1500);
+            panel.TourImportNow();
+            RenderShots.Pump(2200);
             RenderShots.Snap(window, outDir, "57-min-import-done");
         }
         catch (Exception ex)
@@ -290,20 +381,9 @@ internal static class ImportShots
         }
     }
 
-    // Opens the drawer, "All launchers", then Review, with its plan made.
-    private static ImportPanel OpenReview(MainWindow window, Demo demo)
+    private static ImportPanel Open(MainWindow window, Demo demo, int pumpMs, bool oneLauncher = false)
     {
-        var panel = Open(window, demo, 1500);
-        panel.TourOpenLauncher(null);
-        RenderShots.Pump(400);
-        panel.TourOpenReview();
-        RenderShots.Pump(1200);
-        return panel;
-    }
-
-    private static ImportPanel Open(MainWindow window, Demo demo, int pumpMs)
-    {
-        var panel = window.TourOpenImport(new DemoBackend(demo));
+        var panel = window.TourOpenImport(new DemoBackend(demo, oneLauncher));
         RenderShots.Pump(pumpMs);
         return panel;
     }
@@ -382,10 +462,23 @@ internal static class ImportShots
         });
     }
 
+    /// <summary>
+    /// A believable Windows folder per launcher, so the tiles' path line reads as it will on a real PC. Made up and never
+    /// read: the demo backend answers every question itself.
+    /// </summary>
+    private static string DemoFolder(SourceKind kind, string name) => kind switch
+    {
+        SourceKind.Prism => $@"C:\Users\Will\AppData\Roaming\PrismLauncher\instances\{name}\minecraft",
+        SourceKind.Modrinth => $@"C:\Users\Will\AppData\Roaming\ModrinthApp\profiles\{name}",
+        SourceKind.CurseForge => $@"C:\Users\Will\curseforge\minecraft\Instances\{name}",
+        SourceKind.Lunar => $@"C:\Users\Will\.lunarclient\offline\{name}",
+        _ => $@"C:\Users\Will\AppData\Roaming\.minecraft\versions\{name}",
+    };
+
     private static DetectedInstance Instance(string name, SourceKind kind, string mc, long playSeconds,
         LoaderKind loader = LoaderKind.Fabric, int lastPlayedDaysAgo = 1, string? notSure = null) => new()
     {
-        Kind = kind, Name = name, GameDir = Path.Combine("demo", name), McVersion = mc, Loader = loader,
+        Kind = kind, Name = name, GameDir = DemoFolder(kind, name), McVersion = mc, Loader = loader,
         PlaytimeSeconds = playSeconds > 0 ? playSeconds : null,
         LastPlayed = DateTimeOffset.UtcNow.AddDays(-lastPlayedDaysAgo),
         // The detector's own verdict, as EvidenceJudge would write it for a setup whose evidence disagrees.
@@ -428,10 +521,13 @@ internal static class ImportShots
     {
         private static TaskCompletionSource<bool> _hold = new();
         private readonly Demo _demo;
+        private readonly bool _oneLauncher;
 
-        public DemoBackend(Demo demo)
+        /// <param name="oneLauncher">Only Prism has setups (the one-launcher fast path).</param>
+        public DemoBackend(Demo demo, bool oneLauncher = false)
         {
             _demo = demo;
+            _oneLauncher = oneLauncher;
             if (demo is Demo.Progress or Demo.Scanning) _hold = new TaskCompletionSource<bool>();
         }
 
@@ -447,12 +543,18 @@ internal static class ImportShots
             if (_demo == Demo.Scanning)
                 using (ct.Register(() => _hold.TrySetResult(true))) await _hold.Task;
             var scan = new ScanResult();
-            if (_demo != Demo.Empty) scan.Instances.AddRange(BulkSetups());
+            if (_demo != Demo.Empty) scan.Instances.AddRange(Setups());
             return scan;
         }
 
+        /// <summary>The demo's setups: all 14, or Prism's alone for the one-launcher shots.</summary>
+        private List<DetectedInstance> Setups() =>
+            _oneLauncher ? BulkSetups().Where(s => s.Kind == SourceKind.Prism).ToList() : BulkSetups();
+
         public Task<IReadOnlySet<SourceKind>?> GetInstalledLaunchersAsync(CancellationToken ct) =>
-            Task.FromResult<IReadOnlySet<SourceKind>?>(_demo == Demo.Empty ? new HashSet<SourceKind>() : new HashSet<SourceKind>(DemoInstalled));
+            Task.FromResult<IReadOnlySet<SourceKind>?>(_demo == Demo.Empty ? new HashSet<SourceKind>()
+                : _oneLauncher ? new HashSet<SourceKind> { SourceKind.Prism, SourceKind.OfficialLauncher }
+                : new HashSet<SourceKind>(DemoInstalled));
 
         /// <summary>Made-up counts (never the disk): the same numbers on every render.</summary>
         public Task<IReadOnlyDictionary<string, SetupContents>> GetContentsAsync(IReadOnlyList<DetectedInstance> setups, CancellationToken ct)
@@ -489,7 +591,6 @@ internal static class ImportShots
             var plan = new ImportPlan
             {
                 ImportId = importId, Source = source, TargetVersion = target, Options = options,
-                ProfileId = "fedcba9876543210fedcba9876543210", ProfileName = profileName,
             };
             if (blocked)
                 plan.Blocked.Add("Close Minecraft first: it is still running from one of your setups.");
@@ -564,12 +665,14 @@ internal static class ImportShots
 
         private static readonly string[] DemoTargets = { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
 
-        public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options,
+        // The demo ignores the grid: the grid screen itself is drawn from the page's own model, and progress and Done
+        // only need a believable plan.
+        public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options, ImportGrid? grid,
             IProgress<BulkPlanProgress>? progress, CancellationToken ct)
         {
             var plan = new BulkImportPlan { RunId = "bulk0123456789abcdef0123456789ab" };
             if (_demo == Demo.Blocked) plan.Blocked.Add("Close Minecraft first: it is still running from one of your setups.");
-            var all = BulkSetups();
+            var all = Setups();
             var chosen = all.Where(selection.Includes).ToList();
             var byVersion = new List<(string Version, List<DetectedInstance> Setups)>();
             var done = 0;

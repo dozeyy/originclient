@@ -81,6 +81,20 @@ public class SharedModsTests
     }
 
     [Fact]
+    public void OfflineThePickIsTheNewestInstalledLoaderForThatVersionThatReadsTheModsFolder()
+    {
+        var names = new[]
+        {
+            "1.21.1", "fabric-loader-0.14.24-1.21.1", "fabric-loader-0.16.9-1.21.1",
+            "fabric-loader-0.16.14-1.21.1", "fabric-loader-0.17.2-1.21", "fabric-loader-0.17.3-1.20.1",
+        };
+        Assert.Equal("fabric-loader-0.16.14-1.21.1", SharedMods.NewestInstalledLoader(names, "1.21.1"));
+        Assert.Equal("fabric-loader-0.17.2-1.21", SharedMods.NewestInstalledLoader(names, "1.21"));
+        Assert.Null(SharedMods.NewestInstalledLoader(new[] { "1.21.1", "fabric-loader-0.14.24-1.21.1" }, "1.21.1"));
+        Assert.Null(SharedMods.NewestInstalledLoader(names, "1.16.5"));
+    }
+
+    [Fact]
     public void TheJvmArgumentIsFabricsOwnProperty()
     {
         Assert.Equal(@"-Dfabric.modsFolder=C:\Users\Will\mods", SharedMods.JvmArgument(@"C:\Users\Will\mods"));

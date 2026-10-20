@@ -31,7 +31,7 @@ public class ImportReviewRound4Tests : IDisposable
         Assert.True((await engine.ApplyBulkAsync(first, f.Rig.Settings, null, CancellationToken.None)).Succeeded);
         Assert.True(Directory.Exists(world));
         // Planned while World1 is in Origin: "already in Origin, left as it is".
-        var beforeUndo = await f.Plan(engine, f.Request(options: WithWorlds, profiles: f.Rig.Settings.Load().Profiles));
+        var beforeUndo = await f.Plan(engine, f.Request(options: WithWorlds));
         Assert.Equal(ImportState.RolledBack, (await engine.RollbackAsync(first.RunId, f.Rig.Settings)).State);
         Assert.False(Directory.Exists(world));
         var refused = await engine.ApplyBulkAsync(beforeUndo, f.Rig.Settings, null, CancellationToken.None);
@@ -41,7 +41,7 @@ public class ImportReviewRound4Tests : IDisposable
         var fresh = new BulkImportPlan
         {
             RunId = beforeUndo.RunId, PlannedAt = beforeUndo.PlannedAt,
-            Request = beforeUndo.Request! with { ExistingProfiles = f.Rig.Settings.Load().Profiles },
+            Request = beforeUndo.Request! with { },
         };
         fresh.Groups.AddRange(beforeUndo.Groups);
         var again = await engine.ReplanSelectionAsync(fresh, fresh.Request!.Selection, null, CancellationToken.None);

@@ -25,6 +25,7 @@ public static class SocialHub
         set => Volatile.Write(ref _presenceVersion, value);
     }
 
-    /// <summary>Render mode: a fixed players-online number instead of the network.</summary>
-    public static int? OnlineCountOverride { get; set; }
+    /// <summary>Render mode: no players-online count at all (no network, and no made-up
+    /// number in the shots; Will: "Ready to play" only). Real launches fetch the live count.</summary>
+    public static bool PlayersOnlineOff { get; set; }
 }

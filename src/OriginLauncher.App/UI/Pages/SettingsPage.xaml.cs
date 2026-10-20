@@ -28,7 +28,7 @@ public partial class SettingsPage : UserControl
         InitializeComponent();
         _settings = SettingsStore.Load();
         LauncherVersionText.Text = UpdateService.IsDevBuild
-            ? "Origin Launcher · dev build"
+            ? "Origin Launcher - dev build"
             : $"Origin Launcher {UpdateService.CurrentVersion.ToString(3)}";
 
         _ramSaveTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -321,10 +321,10 @@ public partial class SettingsPage : UserControl
         JvmArgsStatusText.Text = replace
             ? tokens.Count == 0
                 ? "No custom arguments"
-                : $"{count} · defaults off"
+                : $"{count}, defaults off"
             : tokens.Count == 0
                 ? "Using Origin defaults"
-                : $"{count} · Origin defaults on";
+                : $"{count}, Origin defaults on";
     }
 
     private void UpdateJvmCustomizedList()
@@ -356,5 +356,41 @@ public partial class SettingsPage : UserControl
         _settings.ResolutionWidth = width;
         _settings.ResolutionHeight = height;
         SettingsStore.Update(s => { s.ResolutionWidth = width; s.ResolutionHeight = height; });
+    }
+
+    // ---- Section rail (Poster) ----------------------------------------------
+    // The rail lives inside the scrolled column (so it lines up with it at every
+    // width) and is shifted by the scroll offset so it stays put on screen. A
+    // click jumps to its section; scrolling marks the section under the top edge.
+    private bool _railSyncing;
+
+    private FrameworkElement? SectionOf(RadioButton item) =>
+        item.Tag is string name ? FindName(name) as FrameworkElement : null;
+
+    private double SectionTop(FrameworkElement section) =>
+        section.TranslatePoint(new Point(0, 0), Column).Y;
+
+    private void Rail_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_railSyncing || sender is not RadioButton item || !IsLoaded) return;
+        if (SectionOf(item) is { } section)
+            Scroller.ScrollToVerticalOffset(Math.Max(0, SectionTop(section) - 24));
+    }
+
+    private void Scroller_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        RailShift.Y = Scroller.VerticalOffset;
+
+        RadioButton? current = null;
+        var atBottom = Scroller.ScrollableHeight > 0 && Scroller.VerticalOffset >= Scroller.ScrollableHeight - 1;
+        foreach (var child in Rail.Children)
+        {
+            if (child is not RadioButton item || SectionOf(item) is not { } section) continue;
+            if (atBottom || SectionTop(section) <= Scroller.VerticalOffset + 60) current = item;
+        }
+        if (current is null || current.IsChecked == true) return;
+        _railSyncing = true;
+        current.IsChecked = true;
+        _railSyncing = false;
     }
 }

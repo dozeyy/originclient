@@ -201,9 +201,13 @@ public partial class AccountSwitcherPanel : UserControl
         ErrorText.Visibility = Visibility.Visible;
     }
 
+    // The button's resting content (plus icon + label, from the XAML), put back when sign-in ends.
+    private object? _addContent;
+
     public void SetAddAccountEnabled(bool enabled)
     {
+        _addContent ??= AddAccountButton.Content;
         AddAccountButton.IsEnabled = enabled;
-        AddAccountButton.Content = enabled ? "ADD MICROSOFT ACCOUNT" : "SIGNING IN...";
+        AddAccountButton.Content = enabled ? _addContent : "Signing in...";
     }
 }

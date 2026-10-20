@@ -73,6 +73,41 @@ public sealed class ImportJournal
     /// </summary>
     public bool UndoOfCommitted { get; set; }
 
+    // ---- the versions' SHARED mods folders (instances/<version>/mods): every account of a version plays that one
+    // folder, so another account's import can count on a jar this run added. ----
+
+    /// <summary>The shared mods folders this run wrote into: the undo takes their writer locks, like the apply did.</summary>
+    public List<string>? SharedModsDirs { get; set; }
+
+    /// <summary>
+    /// Jars of a shared mods folder this run found already there and counted on instead of copying its own ("already
+    /// in Origin's mods"). The undo of an EARLIER import that added one of them keeps its changes to that folder.
+    /// </summary>
+    public List<string> SharedModsReliedOn { get; set; } = new();
+
+    /// <summary>
+    /// Set by the undo of a FINISHED import, saved before anything moves (recovery finishes a cut-short undo with the
+    /// same rule): shared mods folders whose changes stay, because a later import counts on a jar this one added.
+    /// Undoing them would take a mod away from that import's account.
+    /// </summary>
+    public List<string>? KeepSharedModsDirs { get; set; }
+
+    /// <summary>True for <paramref name="path"/> being one of <paramref name="dirs"/> or directly inside one.</summary>
+    public static bool InDirs(string? path, IEnumerable<string>? dirs)
+    {
+        if (path == null || dirs == null) return false;
+        var full = System.IO.Path.TrimEndingDirectorySeparator(path);
+        var parent = System.IO.Path.GetDirectoryName(full);
+        foreach (var d in dirs)
+        {
+            var dir = System.IO.Path.TrimEndingDirectorySeparator(d);
+            if (string.Equals(dir, full, StringComparison.OrdinalIgnoreCase)
+                || (parent != null && string.Equals(dir, parent, StringComparison.OrdinalIgnoreCase)))
+                return true;
+        }
+        return false;
+    }
+
     public List<JournalEntry> Entries { get; set; } = new();
 
     /// <summary>

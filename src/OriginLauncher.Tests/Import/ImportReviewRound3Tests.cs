@@ -99,6 +99,12 @@ public class ImportReviewRound3Tests : IDisposable
         Assert.True((await engine.ApplyAsync(plan, _rig.Settings, null, CancellationToken.None)).Succeeded);
         var journalPath = ImportLayout.Journal(_rig.Imports, plan.ImportId);
 
+        // Imports no longer change launcher settings, but one made by an older launcher has a settings step in its
+        // journal (first, so the undo reaches it last): its revert is where the journal is read mid-undo.
+        var old = ImportJournalStore.Load(journalPath)!;
+        old.Entries.Insert(0, new JournalEntry { Kind = JournalEntryKinds.SettingsDelta, Delta = new SettingsDelta() });
+        ImportJournalStore.Save(old, journalPath);
+
         // The journal as it is on disk while the undo runs (what a crash or a failed final save would leave).
         string? midUndo = null;
         var settings = new SnapshotSettings(_rig.Settings, () => midUndo ??= File.ReadAllText(journalPath));

@@ -16,24 +16,24 @@
     -->
     <Viewbox x:Name="Rings" Stretch="Uniform">
         <Grid Width="200" Height="200" Effect="{StaticResource Effect.OriginGlow}">
-            <Ellipse Width="180" Height="64" Stroke="{StaticResource Brush.Text}"
-                     StrokeThickness="3" Fill="Transparent"
+            <Ellipse Width="160" Height="60" Stroke="{StaticResource Brush.Text}"
+                     StrokeThickness="8" Fill="Transparent"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      RenderTransformOrigin="0.5,0.5">
                 <Ellipse.RenderTransform>
                     <RotateTransform Angle="0"/>
                 </Ellipse.RenderTransform>
             </Ellipse>
-            <Ellipse Width="150" Height="54" Stroke="{StaticResource Brush.Text}"
-                     StrokeThickness="3" Fill="Transparent"
+            <Ellipse Width="132" Height="48" Stroke="{StaticResource Brush.Text}"
+                     StrokeThickness="8" Fill="Transparent"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      RenderTransformOrigin="0.5,0.5">
                 <Ellipse.RenderTransform>
                     <RotateTransform x:Name="MiddleRing" Angle="60"/>
                 </Ellipse.RenderTransform>
             </Ellipse>
-            <Ellipse Width="120" Height="44" Stroke="{StaticResource Brush.Text}"
-                     StrokeThickness="3" Fill="Transparent"
+            <Ellipse Width="104" Height="36" Stroke="{StaticResource Brush.Text}"
+                     StrokeThickness="8" Fill="Transparent"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      RenderTransformOrigin="0.5,0.5">
                 <Ellipse.RenderTransform>

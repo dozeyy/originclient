@@ -4,17 +4,21 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:models="clr-namespace:OriginLauncher.App.Core.Models"
+             xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d">
 
     <UserControl.Resources>
+        <!-- Account-type badge colours: text accents only. -->
+        <SolidColorBrush x:Key="Hue.Microsoft" Color="#FF7FB2F0"/>
+        <SolidColorBrush x:Key="Hue.Pending" Color="#FFF2D06B"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="AccountRow" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
-            <Setter Property="Padding" Value="14,12"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Sharp}"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
@@ -37,11 +41,17 @@
                         </BeginStoryboard>
                     </Trigger.ExitActions>
                 </Trigger>
+                <!-- The active account: the family accent frames it (an indicator, never text). -->
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
-                    <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+        <Style x:Key="KeepLine" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
     </UserControl.Resources>
 
@@ -54,24 +64,30 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Grid Grid.Row="0" Margin="20,20,20,16">
+        <Grid Grid.Row="0" Margin="24,20,12,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Accounts" Style="{StaticResource Text.H2}" VerticalAlignment="Center"/>
-            <Button Grid.Column="1" Style="{StaticResource Button.Chrome}" MinWidth="28" MinHeight="28" Padding="6"
+            <StackPanel Grid.Column="0">
+                <controls:TrackedText Text="ACCOUNTS" Tracking="0.01" HorizontalAlignment="Left"
+                                      FontFamily="{StaticResource Font.Display}" FontSize="34" FontWeight="ExtraBold"
+                                      Foreground="{StaticResource Brush.Text}"/>
+                <TextBlock Text="One game window per account" Style="{StaticResource Text.Caption}" FontSize="12" Foreground="{StaticResource Brush.TextMuted}" Margin="0,6,0,0"/>
+            </StackPanel>
+            <Button Grid.Column="1" Style="{StaticResource Button.Chrome}" MinWidth="32" MinHeight="32" Padding="8"
+                    VerticalAlignment="Top"
                     Click="CloseButton_Click" ToolTip="Close" AutomationProperties.Name="Close">
                 <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                       Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
             </Button>
         </Grid>
 
-        <!-- Account list / empty state -->
-        <Grid Grid.Row="1" Margin="20,0">
+        <!-- Account list / empty state, the add button, and what an account keeps -->
+        <StackPanel Grid.Row="1" Margin="12,0">
             <TextBlock x:Name="EmptyStateText"
                        Text="No accounts added yet. Add a Microsoft account to sign in."
-                       Style="{StaticResource Text.BodyDim}"
+                       Style="{StaticResource Text.BodyDim}" Margin="4,0,4,12"
                        TextWrapping="Wrap" VerticalAlignment="Top"/>
 
             <ItemsControl x:Name="AccountList" Visibility="Collapsed">
@@ -84,35 +100,82 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="{StaticResource Radius.Control}"
-                                        Background="{StaticResource Brush.CardAlt}" Margin="0,0,12,0">
-                                    <Path Data="{StaticResource Icon.Account}" Style="{StaticResource Icon.Base}"
-                                          Width="18" Height="18" Stroke="{StaticResource Brush.Text}"/>
-                                </Border>
+                                <controls:PixelFace Grid.Column="0" Width="40" Height="40" Margin="0,0,12,0"
+                                                    Seed="{Binding Gamertag}"/>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.Body}"/>
+                                    <DockPanel>
+                                        <controls:TrackedText DockPanel.Dock="Right" Tracking="0.12" FontSize="10" FontWeight="Bold"
+                                                              VerticalAlignment="Center" Margin="8,0,0,0">
+                                            <controls:TrackedText.Style>
+                                                <Style TargetType="controls:TrackedText">
+                                                    <Setter Property="Text" Value="MICROSOFT"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Hue.Microsoft}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPending}" Value="True">
+                                                            <Setter Property="Text" Value="PENDING"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource Hue.Pending}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </controls:TrackedText.Style>
+                                        </controls:TrackedText>
+                                        <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
                                     <TextBlock Text="{Binding Subtitle}"
                                                Style="{StaticResource Text.Label}" FontSize="11"/>
                                 </StackPanel>
-                                <TextBlock Grid.Column="2" Text="ACTIVE" Style="{StaticResource Text.Eyebrow}"
-                                           Foreground="{StaticResource Brush.AccentHover}"
-                                           VerticalAlignment="Center"
-                                           Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}"/>
+                                <controls:TrackedText Grid.Column="2" Text="ACTIVE" Tracking="0.16"
+                                                      FontSize="11" FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
+                                                      VerticalAlignment="Center" Margin="12,0,2,0"
+                                                      Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}"/>
                             </Grid>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-        </Grid>
+
+            <Button x:Name="AddAccountButton" Style="{StaticResource Button.Secondary}" Height="40"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    AutomationProperties.Name="Add Microsoft account"
+                    Click="AddAccountButton_Click">
+                <StackPanel Orientation="Horizontal">
+                    <Path Data="{StaticResource Icon.Plus}" Style="{StaticResource Icon.Base}" Width="13" Height="13"
+                          Margin="0,0,8,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    <TextBlock Text="Add Microsoft account" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <!-- What an account keeps (CLAUDE.md: settings, worlds and servers per account; mods per version). -->
+            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Card}"
+                    Padding="16" Margin="0,16,0,0">
+                <StackPanel>
+                    <controls:TrackedText Text="EACH ACCOUNT KEEPS ITS OWN" Tracking="0.16"
+                                          FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"
+                                          HorizontalAlignment="Left" Margin="0,0,0,10"/>
+                    <DockPanel Margin="0,0,0,12">
+                        <Path Data="{StaticResource Icon.Globe}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                              Margin="0,0,12,0" Stroke="{StaticResource Brush.Text}"/>
+                        <TextBlock Text="Worlds, servers and settings" Style="{StaticResource KeepLine}"/>
+                    </DockPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <Path Data="{StaticResource Icon.Account}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                              Margin="0,0,12,0" Stroke="{StaticResource Brush.Text}"/>
+                        <TextBlock Text="Game window, so several can play at once" Style="{StaticResource KeepLine}"/>
+                    </DockPanel>
+                    <DockPanel>
+                        <Path Data="{StaticResource Icon.Jar}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                              Margin="0,0,12,0" Stroke="{StaticResource Brush.Text}"/>
+                        <TextBlock Text="Mods stay shared per version" Style="{StaticResource KeepLine}"/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
 
         <!-- Sign-in error -->
         <TextBlock Grid.Row="2" x:Name="ErrorText" Style="{StaticResource Text.Body}"
                    Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap"
-                   Margin="20,0,20,12" Visibility="Collapsed"/>
+                   Margin="20,12,20,20" Visibility="Collapsed"/>
 
-        <!-- Add account -->
-        <Button Grid.Row="3" x:Name="AddAccountButton" Content="ADD MICROSOFT ACCOUNT" Style="{StaticResource Button.Primary}"
-                Margin="20" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                Click="AddAccountButton_Click"/>
     </Grid>
 </UserControl>

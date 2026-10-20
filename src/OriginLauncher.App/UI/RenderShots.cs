@@ -22,8 +22,52 @@ namespace OriginLauncher.App.UI;
 /// </summary>
 public static class RenderShots
 {
+    // Made-up rows for the Mods page shots (the scratch instance has no mods of its own).
+    private static readonly Core.Mods.ModEntry[] DemoMods =
+    {
+        new("XaerosWorldMap_1.39.2_Fabric_1.21.jar", "Xaero's World Map", true, false),
+        new("litematica-fabric-1.21.1-0.19.50.jar", "Litematica", true, false),
+        new("appleskin-fabric-mc1.21-3.0.5.jar", "AppleSkin", false, false),
+        new("origin-client-1.21.1.jar", "Origin Client", true, true),
+        new("sodium-fabric-0.6.13+mc1.21.1.jar", "Sodium", true, true),
+        new("iris-fabric-1.8.8+mc1.21.1.jar", "Iris Shaders", true, true),
+    };
+
+    private static readonly Core.Mods.ModEntry[] DemoModsDropped =
+        new[] { new Core.Mods.ModEntry("zoomify-2.14.2+1.21.1.jar", "Zoomify", true, false) }.Concat(DemoMods).ToArray();
+
+    // In-memory icons for some of the made-up rows (never the network); the rest keep the tinted generated icon,
+    // so one shot shows both. Pixel-art sizes (16, 32) and a big one (96) exercise both scaling modes.
+    private static IReadOnlyDictionary<string, byte[]> BuildDemoIcons() => new Dictionary<string, byte[]>
+    {
+        ["XaerosWorldMap_1.39.2_Fabric_1.21.jar"] = DemoPng(32, Color.FromRgb(0x2E, 0x7D, 0x4F), Color.FromRgb(0x9B, 0xE0, 0x6A)),
+        ["appleskin-fabric-mc1.21-3.0.5.jar"] = DemoPng(16, Color.FromRgb(0x9E, 0x2B, 0x2B), Color.FromRgb(0xF2, 0x7A, 0x7A)),
+        ["sodium-fabric-0.6.13+mc1.21.1.jar"] = DemoPng(96, Color.FromRgb(0x1F, 0x5F, 0x8F), Color.FromRgb(0x8F, 0xD0, 0xF5)),
+    };
+
+    // A diagonal-banded square with a bright inner block: obviously "an icon", obviously not a generated glyph.
+    private static byte[] DemoPng(int size, Color dark, Color light)
+    {
+        var px = new byte[size * size * 4];
+        for (var y = 0; y < size; y++)
+            for (var x = 0; x < size; x++)
+            {
+                var inner = x >= size / 4 && x < size * 3 / 4 && y >= size / 4 && y < size * 3 / 4;
+                var c = inner ? light : ((x + y) / Math.Max(2, size / 8) % 2 == 0 ? dark : Color.FromRgb((byte)(dark.R / 2), (byte)(dark.G / 2), (byte)(dark.B / 2)));
+                var i = (y * size + x) * 4;
+                px[i] = c.B; px[i + 1] = c.G; px[i + 2] = c.R; px[i + 3] = 255;
+            }
+        var bmp = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, px, size * 4);
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(bmp));
+        using var ms = new MemoryStream();
+        enc.Save(ms);
+        return ms.ToArray();
+    }
+
     public static void Run(string outDir)
     {
+        Core.Mods.Icons.ModIconSource.DemoIcons = BuildDemoIcons();
         // `--social`: only the Friends / party / chat surfaces, every state (UI/SocialShots.cs).
         if (Environment.GetCommandLineArgs().Contains("--social"))
         {
@@ -32,7 +76,7 @@ public static class RenderShots
         }
         Directory.CreateDirectory(outDir);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        SocialHub.OnlineCountOverride = 1284;
+        SocialHub.PlayersOnlineOff = true;
         SocialHub.Service.ShowDemo(SocialDemo.Online(now));
 
         var window = new MainWindow
@@ -46,6 +90,24 @@ public static class RenderShots
         Pump(2500); // first layout, fonts, the players pill's idle fetch
 
         Snap(window, outDir, "01-home");
+
+        // Play as a signed-in player sees it (the run above has no account), at rest and hovered.
+        window.TourShowReady(hover: false);
+        Pump(300);
+        Snap(window, outDir, "01b-home-ready");
+        window.TourShowReady(hover: true);
+        Pump(300);
+        Snap(window, outDir, "01c-home-play-hover");
+        window.TourEndReady();
+        Pump(300);
+
+        // The My mods dot on Home: off (a ring), then on (filled in the family colour).
+        window.TourShowMyMods(false);
+        Pump(200);
+        Snap(window, outDir, "01d-home-my-mods-off");
+        window.TourShowMyMods(true);
+        Pump(200);
+        Snap(window, outDir, "01e-home-my-mods-on");
 
         // The one-time import card in Home's banner slot, at the normal and the smallest window (before anything makes Home "running").
         ImportShots.RunHomeCard(window, outDir);
@@ -99,9 +161,10 @@ public static class RenderShots
         {
             ModProfiles =
             {
-                new ModProfile { Id = "0a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Survival SMP", Version = "1.21.1", ServerName = "Survival SMP", ServerAddress = "play.example.net" },
-                new ModProfile { Id = "1a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "PvP practice", Version = "1.8.9", ServerName = "Practice", ServerAddress = "pvp.example.org:25570" },
-                new ModProfile { Id = "2a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Singleplayer shaders", Version = "1.20.1" },
+                new ModProfile { Id = "0a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Survival SMP", Version = "1.21.1", Icon = "Pickaxe", ServerName = "Survival SMP", ServerAddress = "play.example.net" },
+                new ModProfile { Id = "1a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "PvP practice", Version = "1.8.9", Icon = "Sword", Tint = "Wine", ServerName = "Practice", ServerAddress = "pvp.example.org:25570" },
+                new ModProfile { Id = "2a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Singleplayer shaders", Version = "1.20.1", Tint = "Plum", Icon = "Camera" },
+                new ModProfile { Id = "3a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Skyblock with a much longer profile name", Version = "1.20.1", Tint = "Moss", Icon = "Map" },
             },
             SelectedProfileId = "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
             SelectedVersion = "1.21.1",
@@ -124,7 +187,7 @@ public static class RenderShots
         Pump(600);
         Snap(window, outDir, "07-play-running");
 
-        SnapBanners(window, outDir);
+        if (Pages.HomePage.HomeBannerOn) SnapBanners(window, outDir);
 
         // Import from another launcher: every state of the card, with a made-up backend.
         ImportShots.Run(window, outDir);
@@ -149,6 +212,16 @@ public static class RenderShots
         window.TourGoTo(1);
         Pump(800);
         Snap(window, outDir, "13-mods");
+        window.TourShowModsDemo(DemoMods, 0);
+        Pump(600);
+        Snap(window, outDir, "13b-mods-list");
+        window.TourShowModsDemo(DemoMods, 1);
+        Pump(600);
+        Snap(window, outDir, "13c-mods-dragover");
+        // Just dropped: Zoomify lands at the top of the list (the page's own landing animation).
+        window.TourShowModsDemo(DemoModsDropped, -1);
+        Pump(250);
+        Snap(window, outDir, "13d-mods-dropped");
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
@@ -175,6 +248,9 @@ public static class RenderShots
         window.TourGoTo(1);
         Pump(800);
         Snap(window, outDir, "23-min-mods");
+        window.TourShowModsDemo(DemoMods, 0);
+        Pump(600);
+        Snap(window, outDir, "23b-min-mods-list");
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "24-min-settings");

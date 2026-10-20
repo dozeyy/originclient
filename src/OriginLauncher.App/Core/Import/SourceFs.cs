@@ -102,6 +102,24 @@ public sealed class SourceFs
         }
     }
 
+    /// <summary>A small file's bytes through the guard (null when refused or unreadable). Capped: a server list is a few KB.</summary>
+    public byte[]? ReadBytes(string path, int maxBytes = 16 * 1024 * 1024)
+    {
+        using var stream = OpenRead(path);
+        if (stream == null) return null;
+        try
+        {
+            if (stream.Length > maxBytes) return null;
+            using var copy = new MemoryStream();
+            stream.CopyTo(copy);
+            return copy.ToArray();
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
     public string? ReadText(string path)
     {
         using var stream = OpenRead(path);

@@ -10,7 +10,7 @@ public sealed class VersionGroup
     public required string Title { get; init; }       // "1.20 – 1.20.4"
     public required string Tagline { get; init; }     // "Trails & Tales"
     public required string Description { get; init; }  // what these versions added
-    public required string ImagePath { get; init; }   // "/Assets/Versions/1.20.png"
+    public required string ImagePath { get; init; }   // "/Assets/Art/1.20-tc.jpg" (colour picker thumb)
     public required IReadOnlyList<string> Versions { get; init; }  // newest first
 
     // Default selection when the card's side panel opens.
@@ -33,7 +33,7 @@ public static class VersionCatalog
             Title = title,
             Tagline = tagline,
             Description = description,
-            ImagePath = $"/Assets/Versions/{key}.png",
+            ImagePath = $"/Assets/Art/{key}-tc.jpg",
             Versions = versions,
         };
 

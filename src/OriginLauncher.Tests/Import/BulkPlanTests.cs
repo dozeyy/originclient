@@ -202,7 +202,7 @@ public class BulkPlanTests : IDisposable
         var result = await engine.ApplyAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
         Assert.True(result.Succeeded, result.Error);
         Assert.True(File.Exists(_f.Target("1.21.4", "options.txt")));
-        Assert.Equal("1.21.4", _f.Rig.Settings.Load().SelectedVersion);
+        Assert.Equal("1.21.11", _f.Rig.Settings.Load().SelectedVersion);           // imports never move the player's pick
     }
 
     // ------------------------------------------------------------ the settings winner (B6)
@@ -306,7 +306,8 @@ public class BulkPlanTests : IDisposable
     public async Task ANonWinnerBringsModsAndPacksButNeverSettings()
     {
         var winner = _f.Add("Winner", playtimeHours: 10);
-        var second = _f.Add("Second", playtimeHours: 1);
+        // Another launcher, with its Mods ticked too (one launcher's mods per version by default).
+        var second = _f.Add("Second", playtimeHours: 1, kind: SourceKind.Modrinth);
         Kit.Write(second.GameDir, "config/onlysecond.json", "{\"second\":1}");
         Kit.Write(second.GameDir, "config/somemod.json", "{\"a\":\"second\"}");    // the winner has it too
         Kit.Write(second.GameDir, "config/existing.json", "{\"b\":\"second\"}");
@@ -315,20 +316,23 @@ public class BulkPlanTests : IDisposable
         Kit.WriteBytes(second.GameDir, "resourcepacks/SecondPack.zip", Kit.Zip(Kit.Text("pack.mcmeta", "second")));
         Kit.Write(second.GameDir, "options.txt", TypicalSource.Options.Replace("file/FolderPack", "file/SecondPack.zip"));
         Kit.Write(second.GameDir, "optionsof.txt", "ofFastRender:true");
+        Kit.WriteBytes(second.GameDir, "mods/secondmod.jar", Kit.FabricJar("secondmod", "1.0")); // a mod only it has
+        var grid = new ImportGrid().Set("1.21.1", SourceKind.Prism, ImportGrid.Things).Set("1.21.1", SourceKind.Modrinth, ImportGrid.Things);
 
-        var plan = await _f.Plan(_f.Engine());
+        var plan = await _f.Plan(_f.Engine(), _f.Request(grid: grid));
         var w = Planned(plan, winner).Plan;
         var s = Planned(plan, second);
 
         Assert.Equal(SetupRole.ModsAndPacks, s.Role);
         Assert.DoesNotContain(s.Plan.Ops, o => o.Kind is OpKind.WriteOptions or OpKind.MergeProperties or OpKind.MergeJson);
-        Assert.DoesNotContain(s.Plan.Ops, o => Path.GetFileName(o.Dest) is "servers.dat" or "optionsof.txt" or "options.txt" or "optionsshaders.txt");
+        Assert.DoesNotContain(s.Plan.Ops, o => Path.GetFileName(o.Dest) is "optionsof.txt" or "options.txt" or "optionsshaders.txt");
+        Assert.Contains(s.Plan.Ops, o => o.Kind == OpKind.MergeServers);             // its Servers cell is ticked: its servers join the list
         var secondConfigs = s.Plan.Ops.Where(o => o.Item == PlanItemKind.Config && !o.Fallback).Select(o => Path.GetFileName(o.Dest)).ToList();
         Assert.Equal(new[] { "onlysecond.json" }, secondConfigs);                     // only where nobody else writes
         Assert.Contains(s.Plan.Ops, o => o.Fallback && Path.GetFileName(o.Dest) == "somemod.json"); // a stand-in, should the winner drop out
         Assert.DoesNotContain(s.Plan.Ops, o => o.Fallback && Path.GetFileName(o.Dest) == "existing.json"); // Origin's own: never
         Assert.Contains(s.Plan.Ops, o => o.Item == PlanItemKind.Mod);                 // its own mods
-        Assert.NotNull(s.Plan.ProfileId);
+        Assert.False(s.PrimaryMods);
         Assert.Contains(s.Plan.Ops, o => o.Label == "SecondPack.zip");                // its packs are copied...
         var options = w.Ops.Single(o => o.Kind == OpKind.WriteOptions);
         Assert.DoesNotContain("SecondPack", options.Extra);                            // ...but never selected
@@ -357,7 +361,6 @@ public class BulkPlanTests : IDisposable
         Assert.Equal(sentence, p.Note);
         Assert.Contains(p.Plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Name == sentence);
         Assert.Equal("Fabric", plan.Groups.Single().Winner.Name);                      // never the settings winner
-        Assert.Null(p.Plan.ProfileId);
         Assert.All(p.Plan.Ops, o => Assert.True(o.Item is PlanItemKind.ResourcePack or PlanItemKind.ShaderPack, o.Label));
         Assert.Contains(p.Plan.Ops, o => o.Item == PlanItemKind.ResourcePack);
         Assert.DoesNotContain(_f.Rig.Opened, f => f.StartsWith(_f.Dir(forge, "mods"), StringComparison.OrdinalIgnoreCase));
@@ -376,7 +379,6 @@ public class BulkPlanTests : IDisposable
 
         Assert.Equal(SetupRole.Full, p.Role);
         Assert.Null(p.Note);
-        Assert.NotNull(p.Plan.ProfileId);
         Assert.Contains(p.Plan.Ops, o => o.Item == PlanItemKind.Mod && o.Label == "oldmod.jar");
     }
 
@@ -454,14 +456,14 @@ public class BulkPlanTests : IDisposable
     public async Task ACacheIsBroughtOnceByTheFirstSetupThatClaimsIt()
     {
         var first = _f.Add("First", playtimeHours: 20);
-        var second = _f.Add("Second", playtimeHours: 10);
+        var second = _f.Add("Second", playtimeHours: 10, kind: SourceKind.Modrinth); // another launcher: both bring mods
         foreach (var s in new[] { first, second })
         {
             Kit.WriteBytes(s.GameDir, "mods/dh.jar", Kit.FabricJar("distanthorizons", "2.3.3-b", name: "Distant Horizons"));
             Kit.WriteBytes(s.GameDir, "Distant_Horizons_server_data/Hyp/aaa@minecraft@@overworld/DistantHorizons.sqlite", EngineBKit.Sqlite(s.Name));
         }
 
-        var plan = await _f.Plan(_f.Engine(new IImportPlanContributor[] { new CacheContributor() }));
+        var plan = await _f.Plan(_f.Engine(new IImportPlanContributor[] { new CacheContributor() }), _f.Request(grid: _f.AllTicked()));
 
         Assert.Single(Planned(plan, first).Plan.Ops, o => o.Item == PlanItemKind.Cache);
         Assert.DoesNotContain(Planned(plan, second).Plan.Ops, o => o.Item == PlanItemKind.Cache && !o.Fallback);
@@ -470,24 +472,6 @@ public class BulkPlanTests : IDisposable
         var result = await _f.Engine(new IImportPlanContributor[] { new CacheContributor() }).ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(EngineBKit.Sqlite("First"), File.ReadAllBytes(_f.Target("1.21.1", "Distant_Horizons_server_data/Hyp/aaa@minecraft@@overworld/DistantHorizons.sqlite")));
-    }
-
-    [Fact]
-    public async Task ProfileNamesStayUniquePerVersionAndWithinTheLimit()
-    {
-        var existing = new[] { new ModProfile { Id = ProfileRules.NewId(), Name = "Prism: Survival", Version = "1.21.1" } };
-        _f.Add("Survival", playtimeHours: 30);
-        _f.Add("Survival", playtimeHours: 20);
-        _f.Add("A very long setup name that goes on and on", playtimeHours: 10);
-
-        var plan = await _f.Plan(_f.Engine(), _f.Request(profiles: existing));
-
-        var names = plan.Groups.Single(g => g.Version == "1.21.1").Setups.Select(s => s.Plan.ProfileName).ToList();
-        Assert.Equal("Prism: Survival 2", names[0]);
-        Assert.Equal("Prism: Survival 3", names[1]);
-        Assert.All(names, n => Assert.True(n!.Length <= ProfileRules.MaxNameLength, n));
-        Assert.StartsWith("Prism: A very long setup", names[2]);
-        Assert.Equal(3, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 
     // ------------------------------------------------------------ files Minecraft needs (B13) and space (B15)

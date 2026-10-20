@@ -41,6 +41,20 @@ public partial class App : Application
             return;
         }
 
+        // `--launch-timing <root> <version> <out.json>` (CI, launch-time.yml): one timed Play
+        // press with every launcher file under <root>, no window (Core/Launch/LaunchTimingHarness).
+        var timing = Array.IndexOf(e.Args, "--launch-timing");
+        if (timing >= 0 && timing + 3 < e.Args.Length)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // On a pool thread: the launch path's awaits would otherwise queue back onto this
+            // (blocked) UI thread and never run.
+            var code = Task.Run(() => Core.Launch.LaunchTimingHarness.Run(e.Args[timing + 1], e.Args[timing + 2], e.Args[timing + 3]))
+                .GetAwaiter().GetResult();
+            Shutdown(code);
+            return;
+        }
+
         // Hover-label timing and placement (UI/ToolTipDefaults.cs): before any window exists.
         UI.ToolTipDefaults.Apply();
 
@@ -192,6 +206,10 @@ public partial class App : Application
         Resources["Motion.Exit"] = none;
         Resources["Motion.Intro"] = none;
         Resources["Motion.Settle"] = none;
+        Resources["Motion.Hover"] = none;
+        Resources["Motion.Drawer"] = none;
+        Resources["Motion.Drag"] = none;
+        UI.Motion.Off = true;
     }
 
     // Removes the pre-2026-10-13 sign-in browser profile

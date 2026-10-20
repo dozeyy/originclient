@@ -235,13 +235,6 @@ public sealed record ImportOptions
     public bool ReplaceExistingCaches { get; init; }
 
     /// <summary>
-    /// When Origin already has a server list that differs from the old one, replace it (the old Origin list is
-    /// backed up first). Off by default: an existing Origin server list is kept; the old one is imported only
-    /// where Origin has none.
-    /// </summary>
-    public bool ReplaceServerList { get; init; }
-
-    /// <summary>
     /// Kinds of thing this import leaves out (the import drawer's "What to bring"). None = everything the switches
     /// above allow. Worlds and screenshots here win over <see cref="CopyWorlds"/> / <see cref="CopyScreenshots"/>.
     /// </summary>
@@ -277,6 +270,7 @@ public enum OpKind
     MergeProperties,  // iris.properties: key-merged, destination-only keys kept
     MergeJson,        // sodium-options.json: key-merged by JsonConfigFormat.ThirdParty
     WriteText,        // a small file the importer composes itself
+    MergeServers,     // servers.dat: the imported entries appended to Origin's list, each address once (PlannedOp.Servers)
     Custom,           // a step a plan contributor supplies (game files, caches): PlannedOp.Run does the work inside the transaction
 }
 
@@ -316,6 +310,15 @@ public sealed record PlannedOp
     public string? Text { get; init; }
     public string? TargetVersion { get; init; }
     public string? Extra { get; init; }
+
+    /// <summary>For <see cref="OpKind.MergeServers"/>: the run's server list for this folder (every contributing setup's entries).</summary>
+    public ServerMerge? Servers { get; init; }
+
+    /// <summary>
+    /// For a mod copied into the shared mods folder: Origin's copy it takes the place of (SharedModsLedger.Decide).
+    /// The new jar is added first, then this one is moved to the import's backup; nothing is rewritten in place.
+    /// </summary>
+    public string? Replaces { get; init; }
 
     /// <summary>For <see cref="OpKind.Custom"/>: the work, run in order inside the transaction.</summary>
     public Action<ImportOpContext>? Run { get; init; }
@@ -391,14 +394,6 @@ public sealed class ImportPlan
 
     /// <summary>When planning started (<see cref="ImportTargetLocks.Now"/>): an apply refuses a plan older than its folder's last import.</summary>
     public long PlannedAt { get; set; }
-    public string? ProfileId { get; set; }
-    public string? ProfileName { get; set; }
-
-    /// <summary>
-    /// <see cref="ProfileId"/> is an EXISTING profile that already holds exactly these mods (a repeat import): no
-    /// mod is copied and the profile is never added to (or, on undo, removed from) the settings.
-    /// </summary>
-    public bool ProfileReused { get; set; }
     public required ImportOptions Options { get; init; }
 
     /// <summary>Plain sentences. Anything in here means Apply is refused ("Close Minecraft first").</summary>
@@ -406,6 +401,9 @@ public sealed class ImportPlan
     public bool CanApply => Blocked.Count == 0;
 
     public List<PlannedOp> Ops { get; } = new();
+
+    /// <summary>Jars already in the version's shared mods folder that this import counts on instead of copying its own (ImportJournal.SharedModsReliedOn).</summary>
+    public List<string> SharedModsReliedOn { get; } = new();
     public List<ModDecision> Mods { get; } = new();
     public List<SummaryLine> Lines { get; } = new();
 

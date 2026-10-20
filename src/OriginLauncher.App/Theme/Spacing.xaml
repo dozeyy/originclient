@@ -10,49 +10,55 @@
     <system:Double x:Key="Space.5">32</system:Double>
     <system:Double x:Key="Space.6">48</system:Double>
 
-    <!-- Softly rounded corners (Will 2026-10-18: "round off some corners to feel a
-         bit smoother", no pills): controls, buttons and inputs 4 px; small tag chips 4 px;
-         rows and cards 6 px; dialogs and big panels 8 px. Circular geometry is reserved
-         for the Origin mark. Derived radii follow from these so nothing is square inside a
-         rounded frame: Focus = Control + the 3 px focus-frame outset (FocusCard likewise
-         for a Card-radius control); Knob nests inside a switch track (4 - 1 px border -
-         2 px margin); Bar is the 2 px progress bars. -->
+    <!-- Sizes (Poster): title bar, list rows. -->
+    <system:Double x:Key="Size.Bar">56</system:Double>
+    <system:Double x:Key="Size.Row">64</system:Double>
+
+    <!-- Corners (Poster): Sharp 4 for cards, tiles and rows; Control 8 for buttons,
+         pills and icon buttons; Play 10 for large buttons; Knob 2 for switch knobs.
+         Focus = Control + the 3 px focus-frame outset. Circles only for the mark,
+         swatches and the Play ring. -->
+    <CornerRadius x:Key="Radius.Sharp">4</CornerRadius>
     <CornerRadius x:Key="Radius.Chip">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Control">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Control">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Play">10</CornerRadius>
     <CornerRadius x:Key="Radius.NavItem">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Row">6</CornerRadius>
-    <CornerRadius x:Key="Radius.Card">6</CornerRadius>
+    <CornerRadius x:Key="Radius.Row">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Card">4</CornerRadius>
     <CornerRadius x:Key="Radius.Dialog">8</CornerRadius>
     <CornerRadius x:Key="Radius.Swatch">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Focus">7</CornerRadius>
-    <CornerRadius x:Key="Radius.FocusCard">9</CornerRadius>
+    <CornerRadius x:Key="Radius.Focus">11</CornerRadius>
+    <CornerRadius x:Key="Radius.FocusCard">7</CornerRadius>
     <CornerRadius x:Key="Radius.Bar">2</CornerRadius>
     <CornerRadius x:Key="Radius.Knob">2</CornerRadius>
+    <!-- Toggle.Slider: the track (squarer, like the buttons) and its glow just outside it. -->
+    <CornerRadius x:Key="Radius.Switch">3</CornerRadius>
+    <CornerRadius x:Key="Radius.SwitchGlow">6</CornerRadius>
 
-    <!-- Motion timing -->
-    <Duration x:Key="Motion.Base">0:0:0.048</Duration>
-    <Duration x:Key="Motion.Press">0:0:0.042</Duration>
-    <Duration x:Key="Motion.Release">0:0:0.064</Duration>
-    <Duration x:Key="Motion.Scene">0:0:0.18</Duration>
+    <!-- Motion timing (Poster motion table). App.DisableMotion zeroes every one of
+         these for reduced motion and the CI shot render; code paths use UI.Motion. -->
+    <Duration x:Key="Motion.Base">0:0:0.14</Duration>
+    <Duration x:Key="Motion.Hover">0:0:0.14</Duration>
+    <Duration x:Key="Motion.Press">0:0:0.08</Duration>
+    <Duration x:Key="Motion.Release">0:0:0.14</Duration>
+    <Duration x:Key="Motion.Scene">0:0:0.26</Duration>
     <Duration x:Key="Motion.Exit">0:0:0.12</Duration>
-    <!-- The launcher's opening (Home's mark assembling at first launch), and how
-         long the wordmark and Play card take to settle in under it. -->
+    <Duration x:Key="Motion.Drawer">0:0:0.32</Duration>
+    <Duration x:Key="Motion.Drag">0:0:0.18</Duration>
     <Duration x:Key="Motion.Intro">0:0:0.56</Duration>
     <Duration x:Key="Motion.Settle">0:0:0.32</Duration>
 
-    <!-- Hard-edged depth reads like a Minecraft button, without blur work. -->
-    <DropShadowEffect x:Key="Shadow.Primary"
-                      Color="#FF5FD09B"
-                      Opacity="0.55"
-                      BlurRadius="0"
-                      ShadowDepth="3"
-                      Direction="270"/>
+    <!-- Easings as KeySplines (Out .22,1,.36,1 / In .55,0,.75,.2 / Expo .16,1,.3,1). -->
+    <KeySpline x:Key="Ease.Out" ControlPoint1="0.22,1" ControlPoint2="0.36,1"/>
+    <KeySpline x:Key="Ease.In" ControlPoint1="0.55,0" ControlPoint2="0.75,0.2"/>
+    <KeySpline x:Key="Ease.Expo" ControlPoint1="0.16,1" ControlPoint2="0.3,1"/>
 
-    <DropShadowEffect x:Key="Shadow.Card"
-                      Color="#FF000000"
-                      Opacity="0.48"
-                      BlurRadius="0"
-                      ShadowDepth="4"
-                      Direction="270"/>
+    <!-- Contact shadows: neutral, no hue. Static (animating blur re-rasterizes). -->
+    <DropShadowEffect x:Key="Shadow.Raised" Color="#FF000000" Opacity="0.55"
+                      BlurRadius="10" ShadowDepth="2" Direction="270"/>
+    <DropShadowEffect x:Key="Shadow.Primary" Color="#FF000000" Opacity="0.7"
+                      BlurRadius="18" ShadowDepth="4" Direction="270"/>
+    <DropShadowEffect x:Key="Shadow.Card" Color="#FF000000" Opacity="0.6"
+                      BlurRadius="28" ShadowDepth="8" Direction="270"/>
 
 </ResourceDictionary>

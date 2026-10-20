@@ -31,53 +31,46 @@ public class ImportEngineTests : IDisposable
         return (plan, result);
     }
 
-    // ------------------------------------------------------------ mods + profile (criteria 31, 32)
+    // ------------------------------------------------------------ mods: the version's shared folder, never a profile
 
     [Fact]
-    public async Task ModsLandInANewProfileFolderAndTheSharedModsFolderIsNeverTouched()
+    public async Task ModsLandInTheVersionsSharedModsFolderAndNoProfileIsMade()
     {
         Populate();
         var shared = Path.Combine(_rig.Instances, "1.21.1", "mods");
-        Kit.WriteBytes(shared, "existing.jar", Kit.FabricJar("existing", "1.0"));
-        var before = Kit.TreeHash(shared, mtimes: true);
+        var existing = Kit.WriteBytes(shared, "existing.jar", Kit.FabricJar("existing", "1.0"));
+        var existingBytes = File.ReadAllBytes(existing);
 
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded);
-        Assert.Equal(before, Kit.TreeHash(shared, mtimes: true));                 // shared mods: hash unchanged
-        var mods = InstanceLayout.ProfileModsDir(_rig.Instances, "1.21.1", plan.ProfileId!);
-        Assert.Equal(new[] { "disabled-thing.jar.disabled", "mymod.jar", "needs-lib.jar.disabled" },
-            Directory.GetFiles(mods).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
-
-        // The settings delta: exactly one profile and the two selected fields.
-        var delta = plan.SettingsDelta!;
-        Assert.Equal(plan.ProfileId, delta.AddProfile!.Id);
-        Assert.Equal("Folder: Hypixel", delta.AddProfile.Name);
-        Assert.Equal("1.21.1", delta.AddProfile.Version);
-        Assert.True(ProfileRules.IsValidId(delta.AddProfile.Id));
-        Assert.Equal("1.21.1", delta.SetSelectedVersion);
-        Assert.Equal(plan.ProfileId, delta.SetSelectedProfileId);
-        Assert.Equal("1.21.11", delta.PreviousSelectedVersion);                   // journaled for undo
+        Assert.Equal(new[] { "disabled-thing.jar.disabled", "existing.jar", "mymod.jar", "needs-lib.jar.disabled" },
+            Directory.GetFiles(shared).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
+        Assert.Equal(existingBytes, File.ReadAllBytes(existing));                 // Origin's own mod: untouched
+        // No launcher setting changes at all: no profile, and the picked version stays the player's.
+        Assert.Null(plan.SettingsDelta);
         var settings = _rig.Settings.Load();
-        Assert.Equal(plan.ProfileId, Assert.Single(settings.Profiles).Id);
-        Assert.Equal("1.21.1", settings.SelectedVersion);
-        Assert.Equal(plan.ProfileId, settings.SelectedProfileId);
+        Assert.Empty(settings.Profiles);
+        Assert.Equal("1.21.11", settings.SelectedVersion);
+        Assert.Null(settings.SelectedProfileId);
+        Assert.False(Directory.Exists(Path.Combine(_rig.Instances, "1.21.1", "profiles")));
     }
 
     [Fact]
-    public async Task TheProfileNameIsMadeUniqueAmongTheVersionsProfiles()
+    public async Task AModOriginsSharedFolderAlreadyHasIsLeftAsItIs()
     {
         Populate();
-        var taken = new[]
-        {
-            new ModProfile { Id = ProfileRules.NewId(), Name = "Folder: Hypixel", Version = "1.21.1" },
-            new ModProfile { Id = ProfileRules.NewId(), Name = "Folder: Hypixel 2", Version = "1.21.1" },
-            new ModProfile { Id = ProfileRules.NewId(), Name = "Folder: Hypixel", Version = "1.20.4" },
-        };
+        var shared = Path.Combine(_rig.Instances, "1.21.1", "mods");
+        // Same file name, other bytes: Origin's copy stays, the old setup's is never written over it.
+        var mine = Kit.WriteBytes(shared, "mymod.jar", Kit.FabricJar("mymod", "0.9"));
+        var before = File.ReadAllBytes(mine);
 
-        var plan = await Plan(_rig.Request(profiles: taken));
+        var (plan, result) = await Run();
 
-        Assert.Equal("Folder: Hypixel 3", plan.ProfileName);
+        Assert.True(result.Succeeded);
+        Assert.Equal(before, File.ReadAllBytes(mine));
+        Assert.Contains(plan.Lines, l => l.Kind == PlanItemKind.Mod && l.Reason == ImportEngine.AlreadyInOriginMods);
+        Assert.DoesNotContain(plan.Ops, o => o.Item == PlanItemKind.Mod && o.Dest == mine);
     }
 
     [Fact]
@@ -92,15 +85,14 @@ public class ImportEngineTests : IDisposable
     }
 
     [Fact]
-    public async Task NoModsMeansNoProfileJustTheVersionSelection()
+    public async Task NoModsMeansNoSettingsChangeAtAll()
     {
         Populate(withMods: false);
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded);
-        Assert.Null(plan.ProfileId);
-        Assert.Null(plan.SettingsDelta!.AddProfile);
-        Assert.Equal("1.21.1", _rig.Settings.Load().SelectedVersion);
+        Assert.Null(plan.SettingsDelta);
+        Assert.Equal("1.21.11", _rig.Settings.Load().SelectedVersion);
         Assert.Empty(_rig.Settings.Load().Profiles);
         Assert.False(Directory.Exists(Path.Combine(_rig.Instances, "1.21.1", "profiles")));
     }
@@ -228,8 +220,16 @@ public class ImportEngineTests : IDisposable
         Assert.Contains(forward, lines);
         Assert.Contains(lang, lines);
         Assert.Contains(packs, lines);
-        Assert.Contains("highContrast:true", lines);                              // accessibility keys come across
-        Assert.Contains("narrator:1", lines);
+        if (target == "1.8.9")
+        {
+            // 1.8.9 has neither key: only what that version understands comes across (SettingsMigrator.CarryOptions).
+            Assert.DoesNotContain(lines, l => l.StartsWith("highContrast:") || l.StartsWith("narrator:"));
+        }
+        else
+        {
+            Assert.Contains("highContrast:true", lines);                          // accessibility keys come across
+            Assert.Contains("narrator:1", lines);
+        }
         Assert.Contains("ao:true", lines);
         Assert.Contains("fov:0.5", lines);
         Assert.DoesNotContain("version:3955", lines);                              // the source's data version
@@ -260,7 +260,7 @@ public class ImportEngineTests : IDisposable
         var (plan, result) = await Run(_rig.Request(target: "1.8.9"));
 
         Assert.True(result.Succeeded);
-        Assert.Null(plan.ProfileId);
+        Assert.DoesNotContain(plan.Ops, o => o.Item == PlanItemKind.Mod);
         Assert.All(plan.Mods.Where(m => m.FileName is "mymod.jar" or "sodium-fabric.jar" or "needs-lib.jar" or "old-thing.jar" or "disabled-thing.jar.disabled"),
             m => Assert.Contains("1.8.9 runs on Forge in Origin", m.Reason));
         Assert.Contains(plan.Lines, l => l.Section == SummarySection.NotImported && l.Reason!.Contains("1.8.9 runs on Forge in Origin"));
@@ -593,7 +593,7 @@ public class ImportEngineTests : IDisposable
 
         var log = File.ReadAllText(ImportLayout.Log(_rig.Imports, plan.ImportId));
         Assert.Contains($"instances/1.21.1/accounts/{Rig.Account}/options.txt", log);
-        Assert.Contains($"instances/1.21.1/profiles/{plan.ProfileId}/mods/mymod.jar", log);
+        Assert.Contains("instances/1.21.1/mods/mymod.jar", log);
         Assert.DoesNotContain(_rig.Root, log);                                      // relative, never the machine's absolute path
         Assert.DoesNotContain("highContrast", log);                                 // no file contents
         Assert.DoesNotContain("SERVERLIST", log);

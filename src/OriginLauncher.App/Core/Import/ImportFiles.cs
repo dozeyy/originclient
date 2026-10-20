@@ -71,3 +71,13 @@ public sealed class SourceUnreadableException : IOException
 {
     public SourceUnreadableException(string message) : base(message) { }
 }
+
+/// <summary>
+/// One item apply left out on purpose, with nothing changed for it (a mod swap whose old jar is in use): like a source
+/// problem it leaves only that item out, and <see cref="Reason"/> is the sentence its "Not imported" line shows.
+/// </summary>
+public sealed class ItemLeftOutException : IOException
+{
+    public ItemLeftOutException(string reason) : base(reason) { Reason = reason; }
+    public string Reason { get; }
+}

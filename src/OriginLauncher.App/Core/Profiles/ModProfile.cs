@@ -26,6 +26,16 @@ public sealed class ModProfile
     /// <summary>Optional "host" / "host:port" the Home join button launches straight into.</summary>
     public string? ServerAddress { get; set; }
 
+    /// <summary>
+    /// The emblem colour the player picked: one of ProfileLook's tint names ("Slate"...).
+    /// Null (profiles made before 2026-10-19, imports) = a colour picked from the id.
+    /// </summary>
+    public string? Tint { get; set; }
+
+    /// <summary>The emblem's icon (UI/ProfileLook.EmblemIcons); null or unknown shows the
+    /// name's first letter instead.</summary>
+    public string? Icon { get; set; }
+
     [JsonIgnore]
     public bool HasServer => !string.IsNullOrWhiteSpace(ServerAddress);
 }

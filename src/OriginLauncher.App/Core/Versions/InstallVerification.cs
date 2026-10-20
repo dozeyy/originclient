@@ -32,6 +32,10 @@ namespace OriginLauncher.App.Core.Versions;
 ///     exists on disk; otherwise the stamp is ignored and Fabric re-resolves.
 ///   - A crashed or failed boot calls Invalidate(), so the next launch re-does
 ///     everything. A corrupt file costs one bad launch, not a dead instance.
+///   - The stamp is written by full passes only and is trusted for MaxAge, so
+///     at least once a week the install is re-hashed and the version JSONs are
+///     re-checked against Mojang's manifest (the fast path reads them from disk,
+///     LocalFirstVersionLoader), picking up anything Mojang re-published.
 /// </summary>
 public static class InstallVerification
 {
@@ -40,6 +44,9 @@ public static class InstallVerification
     private const int CurrentSchema = 2;
 
     private const string StampFileName = "origin-verified.json";
+
+    /// <summary>How long a full pass is trusted. Older (or future-dated) stamps verify in full.</summary>
+    public static readonly TimeSpan MaxAge = TimeSpan.FromDays(7);
 
     private sealed class Stamp
     {
@@ -82,6 +89,8 @@ public static class InstallVerification
                 return Decision.Full;
             if (!string.Equals(stamp.Launcher, LauncherStampValue, StringComparison.Ordinal))
                 return Decision.Full;
+            var age = DateTimeOffset.UtcNow - stamp.VerifiedUtc;
+            if (age > MaxAge || age < -TimeSpan.FromDays(1)) return Decision.Full;
 
             // The cached loader name is only usable if its installed version
             // folder is still there — a hand-deleted or half-cleaned instance
@@ -101,8 +110,10 @@ public static class InstallVerification
     }
 
     /// <summary>
-    /// Called once provisioning has completed without error. Best-effort: a
-    /// stamp that cannot be written just means the next launch repeats the work.
+    /// Called once a FULL provisioning pass has completed without error (a fast
+    /// pass must not refresh VerifiedUtc, or MaxAge would never run out).
+    /// Best-effort: a stamp that cannot be written just means the next launch
+    /// repeats the work.
     /// </summary>
     public static void MarkVerified(string instanceBasePath, string minecraftVersion, string resolvedVersionName)
     {
