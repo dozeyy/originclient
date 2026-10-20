@@ -60,14 +60,50 @@ public abstract class GuiSlotMixin {
 	// the overflow). Without them a long list (Controls) spills its rows over the
 	// title and the Done button. So the rows are clipped to the list body instead,
 	// as later versions' lists do: a GL scissor around drawSelectionBox (the row
-	// pass in GuiSlot.drawScreen; vanilla, remapped), on whenever the strips are
-	// off. If these stop applying, rows overflow as above (cosmetic, no crash).
+	// pass in GuiSlot.drawScreen; vanilla, remapped) and the list header (below),
+	// on whenever the strips are off. If these stop applying, rows overflow as above (cosmetic, no crash).
 	// Skipped if a scissor is already on (an enclosing screen clips itself).
 	@Unique
 	private boolean originclient$scissored;
 
 	@Inject(method = "drawSelectionBox", at = @At("HEAD"))
 	private void originclient$clipRowsOn(int insideLeft, int insideTop, int mouseX, int mouseY, CallbackInfo ci) {
+		originclient$clipOn();
+	}
+
+	@Inject(method = "drawSelectionBox", at = @At("RETURN"))
+	private void originclient$clipRowsOff(int insideLeft, int insideTop, int mouseX, int mouseY, CallbackInfo ci) {
+		originclient$clipOff();
+	}
+
+	// GuiSlot.drawScreen draws the list HEADER (drawListHeader; the resource-pack
+	// lists "Available" / "Selected") just before the rows, and it scrolls with
+	// them, so it needs the same clip or it spills over the screen title once the
+	// strips are off. Wrapped around the call site in drawScreen, not injected
+	// into drawListHeader itself: the pack lists OVERRIDE that method, so an
+	// inject into GuiSlot's own (empty) body would never run for them. If these
+	// stop applying, the header can overflow the title (cosmetic, no crash).
+	@Inject(method = "drawScreen", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/GuiSlot;drawListHeader(IILnet/minecraft/client/renderer/Tessellator;)V"))
+	private void originclient$clipHeaderOn(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+		originclient$clipOn();
+	}
+
+	@Inject(method = "drawScreen", at = @At(value = "INVOKE", shift = At.Shift.AFTER,
+			target = "Lnet/minecraft/client/gui/GuiSlot;drawListHeader(IILnet/minecraft/client/renderer/Tessellator;)V"))
+	private void originclient$clipHeaderOff(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+		originclient$clipOff();
+	}
+
+	// Backstop: whatever happened mid-draw (an exception in a subclass's row or
+	// header code skips the paired "off"), the scissor never outlives the list.
+	@Inject(method = "drawScreen", at = @At("RETURN"))
+	private void originclient$clipBackstop(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+		originclient$clipOff();
+	}
+
+	@Unique
+	private void originclient$clipOn() {
 		originclient$scissored = false;
 		if (!originclient$clear() || GL11.glIsEnabled(GL11.GL_SCISSOR_TEST)) {
 			return;
@@ -82,8 +118,8 @@ public abstract class GuiSlotMixin {
 		originclient$scissored = true;
 	}
 
-	@Inject(method = "drawSelectionBox", at = @At("RETURN"))
-	private void originclient$clipRowsOff(int insideLeft, int insideTop, int mouseX, int mouseY, CallbackInfo ci) {
+	@Unique
+	private void originclient$clipOff() {
 		if (originclient$scissored) {
 			GL11.glDisable(GL11.GL_SCISSOR_TEST);
 			originclient$scissored = false;

@@ -783,12 +783,37 @@ public final class OriginScreenRenderer {
 	private static volatile ResourceLocation chipSkin = null;
 	private static volatile boolean chipSkinRequested = false;
 
+	// The session whose profile / default skin the cache below belongs to; a different
+	// session object (account switch) re-resolves, nothing else does.
+	private static volatile net.minecraft.util.Session chipSession = null;
+	private static volatile GameProfile chipProfile = null;
+	private static volatile ResourceLocation chipDefaultSkin = null;
+
 	private static ResourceLocation resolveChipSkin(Minecraft mc, net.minecraft.util.Session session) {
+		if (session != chipSession) {
+			// First call, or the session changed: resolve once and cache. Session.getProfile()
+			// builds a new GameProfile on every call, and an offline / skinless account never
+			// gets a skin callback, so this must not run per frame.
+			chipSkin = null;
+			chipSkinRequested = false;
+			GameProfile profile = null;
+			ResourceLocation def;
+			try {
+				profile = session.getProfile();
+				java.util.UUID id = profile == null ? null : profile.getId();
+				def = id != null ? DefaultPlayerSkin.getDefaultSkin(id) : DefaultPlayerSkin.getDefaultSkinLegacy();
+			} catch (Throwable t) {
+				def = DefaultPlayerSkin.getDefaultSkinLegacy();
+			}
+			chipProfile = profile;
+			chipDefaultSkin = def;
+			chipSession = session;
+		}
 		ResourceLocation cached = chipSkin;
 		if (cached != null) {
 			return cached;
 		}
-		GameProfile profile = session.getProfile();
+		GameProfile profile = chipProfile;
 		if (!chipSkinRequested && profile != null && profile.getId() != null) {
 			chipSkinRequested = true;
 			try {
@@ -805,8 +830,7 @@ public final class OriginScreenRenderer {
 				// stay on the default skin
 			}
 		}
-		java.util.UUID id = profile == null ? null : profile.getId();
-		return id != null ? DefaultPlayerSkin.getDefaultSkin(id) : DefaultPlayerSkin.getDefaultSkinLegacy();
+		return chipDefaultSkin;
 	}
 
 	// ---- Primitives ----
