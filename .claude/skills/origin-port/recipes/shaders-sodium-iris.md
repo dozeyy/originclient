@@ -80,3 +80,11 @@ There are four features: Limit Far, Smart Terrain, Off-Map Shadows and Half-Rate
 ## Proof
 - `dev-shots -f set=world -f shaderpack=true -f perf_mods=true` proves the hooks apply with the real stack and a shadow pack.
 - FPS gain needs Will's real hardware. Treat CI frame times as relative only.
+
+## 1.21.4 port (proven 2026-10-20, commit cdf5f864)
+- On 1.21.4 Iris runs the shadow pass right after `collectVisibleEntities`, not at `renderSky`; the main entity cull runs first against the previous frame's stamps.
+- Iris 1.8.8+mc1.21.4 adds `MixinRenderSection`, which keeps shadow-pass stamps in a separate field; the frame counter is still shared, so stamp replay is still needed.
+- Sodium 0.6.13 on 1.21.4: `update`, `createTerrainRenderList` and `setupTerrain` take `FogParameters`; `RenderSystem.getShaderFogEnd` is gone (use `RenderSystem.getShaderFog().end()`).
+- `Entity.getBoundingBoxForCulling` moved to `EntityRenderer` (protected); read it through an `@Invoker` plus `@Local` capture of the renderer.
+- Iris is not on the 1.21.4 compile classpath by default; add `modCompileOnly maven.modrinth:iris:<version id>`.
+- The 1.21.4 module also serves MC 1.21.2/1.21.3 (Sodium 0.6.1/0.6.8, Iris 1.8.0/1.8.1); every Sodium/Iris hook must fail soft there.
