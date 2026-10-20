@@ -279,6 +279,28 @@ public final class OffMapShadows {
 	}
 
 	/**
+	 * Dev only: RenderSectionManager.renderLists read straight from the field. getRenderLists() is no
+	 * good here: Iris's MixinRenderSectionManagerShadow redirects its field read to shadowRenderLists
+	 * while shadows render, and Iris copies the new walk into shadowRenderLists only AFTER
+	 * renderOutOfGraph returns -- so at this RETURN it still holds the previous walk.
+	 */
+	private static final MethodHandle RAW_LISTS = devListsGetter();
+
+	private static MethodHandle devListsGetter() {
+		if (!DEV) {
+			return null;
+		}
+		try {
+			java.lang.reflect.Field f = RenderSectionManager.class.getDeclaredField("renderLists");
+			f.setAccessible(true);
+			return MethodHandles.lookup().unreflectGetter(f).asType(
+					java.lang.invoke.MethodType.methodType(Object.class, RenderSectionManager.class));
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/**
 	 * renderOutOfGraph RETURN: disarm, and (dev only) count the sections with geometry the shadow walk
 	 * put in the render lists and how many of them lie fully off the map (no margin).
 	 */
@@ -292,7 +314,8 @@ public final class OffMapShadows {
 				return;
 			}
 			CameraTransform t = viewport.getTransform();
-			var lists = ((SodiumSortedRenderListsAccessor) rsm.getRenderLists()).originclient$lists();
+			Object walked = RAW_LISTS != null ? (Object) RAW_LISTS.invokeExact(rsm) : rsm.getRenderLists();
+			var lists = ((SodiumSortedRenderListsAccessor) walked).originclient$lists();
 			devWalks++;
 			for (int i = 0; i < lists.size(); i++) {
 				ChunkRenderList list = lists.get(i);
