@@ -430,7 +430,7 @@ public final class OriginScreenRenderer {
 		if (pct >= 0) {
 			if (levelName != null && !levelName.isBlank()) {
 				big = levelName;
-			} else if (big.isEmpty() && net.minecraft.client.resources.language.I18n.exists("menu.loadingLevel")) {
+			} else if (big.isEmpty() && net.minecraft.locale.Language.getInstance().has("menu.loadingLevel")) {   // 26.2+: I18n.exists is gone
 				big = net.minecraft.client.resources.language.I18n.get("menu.loadingLevel");   // vanilla "Loading world"
 			}
 			small = net.minecraft.client.resources.language.I18n.get("menu.preparingSpawn", pct);
