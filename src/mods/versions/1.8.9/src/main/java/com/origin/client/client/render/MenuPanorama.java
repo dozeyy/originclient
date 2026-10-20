@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import org.lwjgl.opengl.GL11;
 
 /**
  * 1.8.9's own title panorama, drawn by vanilla's own renderer, for any screen
@@ -86,10 +87,25 @@ public final class MenuPanorama {
 			}
 			long elapsed = now - startMs;
 			access.originclient$setPanoramaTimer((int) (elapsed / 50L));
+			// drawPanorama ends by turning the depth test and face culling ON
+			// (vanilla's title draws its own buttons after it, so it never minds).
+			// Origin's windows draw with both off (Gfx.afterItem) -- left on, the
+			// likely cause of the mod menu's empty card grid after any panorama
+			// screen (clean-set CI shot, 2026-10-20). Put back what was there.
+			boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+			boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 			// GuiMainMenu.drawScreen brackets renderSkybox with the alpha test off.
 			GlStateManager.disableAlpha();
 			access.originclient$renderSkybox(0, 0, (elapsed % 50L) / 50f);
 			GlStateManager.enableAlpha();
+			GlStateManager.colorMask(true, true, true, true);
+			GlStateManager.depthMask(true);
+			if (!depth) {
+				GlStateManager.disableDepth();
+			}
+			if (!cull) {
+				GlStateManager.disableCull();
+			}
 			GlStateManager.color(1f, 1f, 1f, 1f);
 			return true;
 		} catch (Throwable t) {
