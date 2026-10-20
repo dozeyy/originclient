@@ -10,6 +10,17 @@ base {
 
 repositories {
 	mavenCentral()
+
+	// Modrinth maven -- compile-only Sodium + Iris for the shader speed-ups (never bundled).
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter { includeGroup "maven.modrinth" }
+	}
 }
 
 loom {
@@ -78,6 +89,14 @@ dependencies {
 		modRuntimeOnly files("libs/sodium-fabric-mc1.16.5-0.2.0+build.4.jar")
 		modRuntimeOnly files("libs/iris-mc1.16.5-1.4.5.jar")
 	}
+	// COMPILE-ONLY: the shader speed-ups (render/ShadowCasterLimit, OffMapShadows,
+	// HalfRateShadows, SmartTerrainUpdates and their Sodium*/Iris* mixins) compile against the
+	// exact Sodium + Iris the launcher installs for 1.16.5 (PerformanceModCatalog.Data.cs:
+	// sodium-fabric-mc1.16.5-0.2.0+build.4, iris-mc1.16.5-1.4.5). Modrinth version ids, not
+	// version numbers. modCompileOnly = never on the runtime classpath, never `include`d: the
+	// shipping jar stays Origin-only and every hook fails soft when the mod isn't installed.
+	modCompileOnly "maven.modrinth:sodium:YAGZ1cCS"
+	modCompileOnly "maven.modrinth:iris:1turazSM"
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loading Iris via a raw
 	// files() dependency (not Loom's Modrinth-maven include()) means those
@@ -95,8 +114,11 @@ dependencies {
 	// runClient resolution under this module's older run toolchain.
 	if (file("libs/sodium-fabric-mc1.16.5-0.2.0+build.4.jar").exists()) {
 		runtimeOnly "org.anarres:jcpp:1.4.14"
-		// (no glsl-transformer / antlr here: Iris for this MC predates it, and glsl-transformer needs JVM 17+, which
-		// failed the whole runtimeClasspath resolution on this older toolchain -- CI run 39311020937)
+		// Iris 1.4.5 nests glsl-transformer 1.0.1 + antlr4-runtime 4.10.1 (its META-INF/jars, 2026-10-20). 1.0.1's
+		// Gradle metadata says JVM 8 (the 2.0 pre-releases need 17, which failed this toolchain's whole
+		// runtimeClasspath -- CI run 39311020937). Not transitive: its pom also pulls the full antlr4 tool.
+		runtimeOnly("io.github.douira:glsl-transformer:1.0.1") { transitive = false }
+		runtimeOnly "org.antlr:antlr4-runtime:4.10.1"
 	}
 
 	// WebP preview decoding for the shader browser (fail-soft if the reader is
