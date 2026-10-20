@@ -50,11 +50,27 @@ public abstract class GuiScreenBackgroundMixin {
 		}
 	}
 
+	// IN A WORLD, screens that call drawBackground DIRECTLY (1.8.9's Resource Packs
+	// screen: drawScreen opens with drawBackground(0), javap) painted an opaque dirt
+	// sheet over the game (Will, 2026-10-20 playtest: "the resource pack screen is
+	// black"; the clean out-of-world shot is fine, so in-world is the suspect). They get the same in-world backdrop as every other
+	// in-world screen instead: drawWorldBackground (vanilla's darkened world, or
+	// Menu Blur via the inject above). In a world drawWorldBackground never calls
+	// drawBackground, so this cannot recurse.
 	@Inject(method = "drawBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressDirt(int tint, CallbackInfo ci) {
-		if (Minecraft.getMinecraft().theWorld == null && OriginScreenRenderer.isActive()
-				&& !OriginStyle.vanillaMenusOn(this)) {
+		try {
+			if (!OriginScreenRenderer.isActive() || OriginStyle.vanillaMenusOn(this)) {
+				return;
+			}
+			if (Minecraft.getMinecraft().theWorld == null) {
+				ci.cancel();
+				return;
+			}
+			((GuiScreen) (Object) this).drawWorldBackground(tint);
 			ci.cancel();
+		} catch (Throwable t) {
+			// vanilla's dirt
 		}
 	}
 }
