@@ -28,7 +28,7 @@ Each family ships six files, all made from the same original:
 
 The family accents in `UI/FamilyTheme.cs` were sampled from these same images.
 
-## Launcher logos (`Logos/`, the Import drawer)
+## Launcher logos (`Logos/`, the Import page)
 
 All are 128x128 PNGs, rasterised from these sources.
 

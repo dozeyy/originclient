@@ -227,11 +227,51 @@ internal sealed class ImportFlowModel
 
     public IReadOnlyList<DetectedInstance> AllGoing() => Versions().SelectMany(Going).ToList();
 
+    // The Import page ticks per setup (a launcher's tile ticks all of its setups at once). A setup can only come over when
+    // Origin runs its Minecraft version; a version the player switched off in "What to bring" holds its setups back.
+
+    /// <summary>Origin runs this setup's Minecraft version, so it can be ticked at all.</summary>
+    public bool CanGo(DetectedInstance setup)
+    {
+        var key = KeyOf(setup);
+        return key != UnknownKey && _supported.Contains(key);
+    }
+
+    /// <summary>The setup comes over: its version is supported and on, and the setup itself is ticked.</summary>
+    public bool IsGoing(DetectedInstance setup) =>
+        CanGo(setup) && !_unselectedVersions.Contains(KeyOf(setup)) && IsTicked(setup);
+
+    /// <summary>Takes a setup in or out. In brings its version back too (a tick means "bring it"); a setup Origin can't run is never ticked.</summary>
+    public void SetGoing(DetectedInstance setup, bool on)
+    {
+        if (!CanGo(setup)) return;
+        SetTicked(setup, on);
+        if (on) _unselectedVersions.Remove(KeyOf(setup));
+    }
+
+    /// <summary>True when every setup that can come over is going, false when none is, null in between (or no setup can).</summary>
+    public bool? GoingState(IEnumerable<DetectedInstance> setups)
+    {
+        var can = setups.Where(CanGo).ToList();
+        if (can.Count == 0) return false;
+        var going = can.Count(IsGoing);
+        return going == can.Count ? true : going == 0 ? false : null;
+    }
+
+    /// <summary>Every setup that is going (all launchers).</summary>
+    public IReadOnlyList<DetectedInstance> GoingSetups() => _setups.Where(IsGoing).ToList();
+
     public int SelectedVersionCount => Versions().Count(v => IsSelected(v) && Going(v).Count > 0);
 
     // ---------------------------------------------------------------- what to bring
 
-    public ImportCategories BringFor(string version) => _bring.TryGetValue(version, out var bring) ? bring : DefaultBring;
+    /// <summary>
+    /// What a version with no choice of its own brings. <see cref="DefaultBring"/> unless the page sets it (the Import page
+    /// brings worlds too: "bring it all over"); the player's switches always win.
+    /// </summary>
+    public ImportCategories BringByDefault { get; set; } = DefaultBring;
+
+    public ImportCategories BringFor(string version) => _bring.TryGetValue(version, out var bring) ? bring : BringByDefault;
 
     public void SetBring(string version, ImportCategories category, bool on)
     {
@@ -250,7 +290,7 @@ internal sealed class ImportFlowModel
     {
         var versions = Versions().Where(IsSelected).ToList();
         if (versions.Count == 0) versions = Versions().Where(v => v.Supported).ToList();
-        if (versions.Count == 0) return (DefaultBring & category) != 0;
+        if (versions.Count == 0) return (BringByDefault & category) != 0;
         var on = versions.Count(v => (BringFor(v.Key) & category) != 0);
         return on == versions.Count ? true : on == 0 ? false : null;
     }

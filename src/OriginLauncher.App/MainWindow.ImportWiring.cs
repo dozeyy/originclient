@@ -144,17 +144,14 @@ public partial class MainWindow
         OpenImportPanel();
     }
 
-    // ---- the page behind the import panel -------------------------------------------------------------
+    // ---- the page behind the Import page -------------------------------------------------------------
 
     // Everything the player could reach with the mouse or Tab behind the panel. The panel's own code puts focus
     // inside the panel; this keeps the rest of the window from taking it and restores it when the panel closes.
     private IEnumerable<UIElement> ElementsBehindImport()
     {
+        // The four page tabs stay live: pressing one closes the Import page (or asks "Stop importing?" mid-import).
         yield return PageHost;
-        yield return NavHome;
-        yield return NavMods;
-        yield return NavProfiles;
-        yield return NavSettings;
         yield return FriendsButton;
         yield return AccountButton;
     }

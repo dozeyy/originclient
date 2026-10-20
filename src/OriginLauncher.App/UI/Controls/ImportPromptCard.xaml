@@ -33,18 +33,22 @@
                 <Grid Margin="0,22,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Button x:Name="ImportButton" Style="{StaticResource Button.Primary}"
                             Padding="22,0" Height="44" MinWidth="120" Click="Import_Click"
-                            AutomationProperties.Name="Import">
+                            AutomationProperties.Name="Import everything">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
                                   Margin="0,0,8,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <TextBlock Text="Import" VerticalAlignment="Center"/>
+                            <TextBlock Text="Import everything" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="NotNowButton" Grid.Column="1" Content="Not now" Style="{StaticResource Button.Chrome}"
+                    <Button x:Name="ChooseButton" Grid.Column="1" Content="Choose" Style="{StaticResource Button.Secondary}"
+                            Padding="22,0" Height="44" Margin="10,0,0,0" Click="Choose_Click"
+                            AutomationProperties.Name="Choose what to import"/>
+                    <Button x:Name="NotNowButton" Grid.Column="2" Content="Skip for now" Style="{StaticResource Button.Chrome}"
                             Padding="14,0" Height="44" HorizontalAlignment="Right" Click="NotNow_Click"/>
                 </Grid>
                 <TextBlock Text="You can import later from Profiles, or the Import button at the top."
