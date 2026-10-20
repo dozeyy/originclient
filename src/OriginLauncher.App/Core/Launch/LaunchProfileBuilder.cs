@@ -6,12 +6,16 @@ namespace OriginLauncher.App.Core.Launch;
 
 public static class LaunchProfileBuilder
 {
-    public static MLaunchOption Build(LauncherSettings settings, MSession session, string? version = null)
+    /// <param name="heap">The heap this launch gets (HeapPlan); null = plan it from the settings alone (no pack scan).</param>
+    /// <param name="legacy">1.8.9-era version: picks the small-heap G1 set when the heap is small.</param>
+    public static MLaunchOption Build(LauncherSettings settings, MSession session, string? version = null,
+        HeapPlan? heap = null, bool legacy = false)
     {
+        heap ??= HeapPlan.For(settings, SystemInfo.GetTotalPhysicalMemoryMb(), legacy, heavyPack: false);
         return new MLaunchOption
         {
             Session = session,
-            MaximumRamMb = settings.RamMb,
+            MaximumRamMb = heap.MaxMb,
             // -Xms == -Xmx, which is what the G1 tuning set in JvmArgPresets is
             // designed for. This used to be capped at 1 GB, so the heap started
             // tiny and had to grow in steps all the way up to the slider value
@@ -21,10 +25,10 @@ public static class LaunchProfileBuilder
             // immediately. Committing the final size up front removes both the
             // growth stalls and the spurious early GC cycles from exactly the
             // stretch the player is waiting through.
-            MinimumRamMb = settings.RamMb,
+            MinimumRamMb = heap.StartMb,
             ScreenWidth = settings.ResolutionWidth,
             ScreenHeight = settings.ResolutionHeight,
-            ExtraJvmArguments = BuildJvmArguments(settings, version)
+            ExtraJvmArguments = BuildJvmArguments(settings, version, heap.MaxMb, legacy)
                 .Select(flag => new MArgument(flag))
                 .ToList()
         };
@@ -37,14 +41,15 @@ public static class LaunchProfileBuilder
     /// costs nothing else in the set. "Replace Origin's tuned defaults" drops the
     /// preset entirely for that version instead.
     /// </summary>
-    public static IReadOnlyList<string> BuildJvmArguments(LauncherSettings settings, string? version)
+    public static IReadOnlyList<string> BuildJvmArguments(
+        LauncherSettings settings, string? version, int? maxHeapMb = null, bool legacy = false)
     {
         var custom = settings.JvmArgsFor(version);
         var flags = new List<string>();
 
         if (custom is not { ReplacePresets: true })
         {
-            flags.AddRange(JvmArgPresets.AikarsFlags);
+            flags.AddRange(JvmArgPresets.FlagsFor(legacy, maxHeapMb ?? settings.RamMb));
             flags.AddRange(JvmArgPresets.BootArgsFor(version));
         }
 

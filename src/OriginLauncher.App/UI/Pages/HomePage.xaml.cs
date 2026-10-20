@@ -768,6 +768,12 @@ public partial class HomePage : UserControl
 
             ticket.Token.ThrowIfCancellationRequested();
 
+            // This account's own game folder for the version: migrated from the
+            // old layout, or — its first time on this version — created with
+            // the settings of the account that played it last (AccountFolders).
+            // Resolved before the launch options: the heap plan looks at its packs.
+            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key), ticket.Token);
+
             // freshSettings, NOT the cached _settings: _settings is loaded once when
             // this page is constructed (launcher start) and is only good for initial
             // UI state. Building the launch from it meant JVM arguments, RAM and
@@ -776,7 +782,10 @@ public partial class HomePage : UserControl
             // earlier edit, on top of the G1 preset) kept aborting the JVM with
             // "Multiple garbage collectors selected" no matter what the player
             // changed. Same read the external-mods/offline switches already use.
-            var launchOption = LaunchProfileBuilder.Build(freshSettings, session, version);
+            // Memory: Auto sizes per version and PC; a number the player set is used as-is (HeapPlan).
+            var (heap, legacy) = await LaunchHeap.PlanAsync(freshSettings, version, gameDir, ticket.Token);
+            if (heap.Warning != null) Stage(heap.Warning);
+            var launchOption = LaunchProfileBuilder.Build(freshSettings, session, version, heap, legacy);
             // The startup handshake's token, last so nothing overrides it.
             var handoff = new GameHandoff();
             launchOption.ExtraJvmArguments = (launchOption.ExtraJvmArguments ?? Enumerable.Empty<MArgument>())
@@ -790,11 +799,6 @@ public partial class HomePage : UserControl
                     launchOption.ExtraGameArguments = launchOption.ExtraGameArguments
                         .Append(new MArgument(join.ToArray())).ToList();
             }
-
-            // This account's own game folder for the version: migrated from the
-            // old layout, or — its first time on this version — created with
-            // the settings of the account that played it last (AccountFolders).
-            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key), ticket.Token);
 
             var installProgress = new Progress<string>(Stage);
             // Run provisioning on a worker thread. Everything inside it that is

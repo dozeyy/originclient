@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
 
 namespace OriginLauncher.App.Core;
@@ -27,34 +28,42 @@ public static class SettingsStore
 
     public static LauncherSettings Load()
     {
-        if (!File.Exists(FilePath))
-            return new LauncherSettings { RamMb = AutoDetectRamMb() };
+        var settings = ReadFile();
+        if (settings.RamManual == null)
+        {
+            // A settings.json from before Auto/Manual memory: settle it once and save the answer, so
+            // a later change of RAM can never flip an old auto number into a "manual" one (RamPolicy.Migrate).
+            lock (Gate)
+            {
+                settings = ReadFile();
+                if (RamPolicy.Migrate(settings, SystemInfo.GetTotalPhysicalMemoryMb()))
+                {
+                    try { Save(settings); }
+                    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* retried on the next Load */ }
+                }
+            }
+        }
+        return settings;
+    }
+
+    private static LauncherSettings ReadFile()
+    {
+        if (!File.Exists(FilePath)) return Fresh();
 
         try
         {
             var json = File.ReadAllText(FilePath);
-            return JsonSerializer.Deserialize<LauncherSettings>(json) ?? new LauncherSettings { RamMb = AutoDetectRamMb() };
+            return JsonSerializer.Deserialize<LauncherSettings>(json) ?? Fresh();
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
-            return new LauncherSettings { RamMb = AutoDetectRamMb() };
-        }
-        catch (IOException)
-        {
-            return new LauncherSettings { RamMb = AutoDetectRamMb() };
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return new LauncherSettings { RamMb = AutoDetectRamMb() };
+            return Fresh();
         }
     }
 
-    // Half of total physical RAM, leaving headroom for the OS — scales with
-    // real system specs instead of a fixed ceiling (a 32GB machine should get
-    // more than an 8GB one). The rule lives in RamAdvice, shared with the
-    // installer's memory slider.
-    private static int AutoDetectRamMb() =>
-        RamAdvice.RecommendedMb(SystemInfo.GetTotalPhysicalMemoryMb());
+    // New installs (and an unreadable file) start on Auto; RamMb holds the suggestion the Settings
+    // slider shows. The rule lives in RamAdvice, shared with the installer's memory slider.
+    private static LauncherSettings Fresh() => RamPolicy.Fresh(SystemInfo.GetTotalPhysicalMemoryMb());
 
     private static void Save(LauncherSettings settings)
     {

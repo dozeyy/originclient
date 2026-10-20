@@ -31,7 +31,11 @@ public static class SetupChoices
                 SettingsStore.Update(s =>
                 {
                     if (choices.RamMb is int ram)
-                        s.RamMb = Math.Clamp(ram / RamAdvice.StepMb * RamAdvice.StepMb, RamAdvice.SliderMinimumMb, maxRam);
+                    {
+                        // The installer only sends RamMb when the player moved its slider.
+                        Launch.RamPolicy.SetManual(
+                            s, Math.Clamp(ram / RamAdvice.StepMb * RamAdvice.StepMb, RamAdvice.SliderMinimumMb, maxRam));
+                    }
                     if (Versions.VersionCatalog.IsSupported(choices.SelectedVersion))
                         s.SelectedVersion = choices.SelectedVersion;
                 });

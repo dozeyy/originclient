@@ -110,8 +110,18 @@
                 <TextBlock x:Name="SecPerformance" Text="PERFORMANCE" Style="{StaticResource SectionTitle}" Margin="0,24,0,10"/>
                 <Border Style="{StaticResource SettingCard}">
                     <StackPanel>
-                        <TextBlock Text="RAM allocation" Style="{StaticResource SettingTitle}"/>
-                        <TextBlock Text="How much memory Minecraft may use." Style="{StaticResource SettingWhy}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="RAM allocation" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock x:Name="RamWhyText" Text="Auto: Origin picks the right amount for each version." Style="{StaticResource SettingWhy}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" x:Name="RamAutoButton" Content="Back to Auto" Style="{StaticResource Button.Secondary}"
+                                    VerticalAlignment="Center" Visibility="Collapsed" Click="RamAutoButton_Click"/>
+                        </Grid>
                         <Grid Margin="0,14,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>

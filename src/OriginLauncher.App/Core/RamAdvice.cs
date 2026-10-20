@@ -15,6 +15,23 @@ public static class RamAdvice
     public static int MaximumMb(int totalPhysicalMb) =>
         Math.Max(FloorMb, (totalPhysicalMb - OsHeadroomMb) / StepMb * StepMb);
 
+    // Auto sizing per version family (see AutoMb). 1.8.9-era Minecraft needs ~2-4 GB and, on
+    // Java 8's G1, a 12 GB heap only made a 3.6 GB+ young generation (Will's 2026-10-20 log).
+    // Modern versions keep the suggestion but stop at 8 GB: more buys nothing for the game.
+    public const int LegacyAutoMb = 4096;
+    public const int LegacyHeavyAutoMb = 6144;
+    public const int ModernAutoMb = 8192;
+
+    /// <summary>
+    /// What Auto gives this launch: the PC's suggestion (half its RAM, Windows keeps the rest),
+    /// capped per version family - legacy 4 GB (6 GB for a pack-heavy instance), modern 8 GB.
+    /// </summary>
+    public static int AutoMb(int totalPhysicalMb, bool legacy, bool heavyPack)
+    {
+        var cap = legacy ? (heavyPack ? LegacyHeavyAutoMb : LegacyAutoMb) : ModernAutoMb;
+        return Math.Min(RecommendedMb(totalPhysicalMb), cap);
+    }
+
     /// <summary>
     /// The default: half of the PC's RAM in whole gigabytes (a "16 GB" PC — which
     /// Windows reports as ~15.8 GB — gets 8 GB, not 7.75), at least 2 GB, within
