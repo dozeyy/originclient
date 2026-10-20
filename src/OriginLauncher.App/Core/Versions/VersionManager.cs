@@ -7,6 +7,7 @@ using CmlLib.Core.Installers;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core.GameFolders;
+using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Profiles;
@@ -399,6 +400,7 @@ public sealed class VersionManager
         // doubt returns Full and behaves exactly like it always did. See
         // InstallVerification for the safety contract.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
+        LaunchTimeline.Mark(decision.FullVerify ? "stamp-full" : "stamp-fast");
 
         // The cached loader must also read fabric.modsFolder (Loader 0.15.0+),
         // or the game would look in the account's empty mods/ — an older one
@@ -414,6 +416,7 @@ public sealed class VersionManager
             var fabricInstaller = new FabricInstaller(SharedHttp);
             versionName = await fabricInstaller.Install(version, path);
         }
+        LaunchTimeline.Mark("loader");
         if (!SharedMods.LoaderReadsModsFolderProperty(versionName))
             throw new InvalidOperationException(
                 $"{versionName} is too old to load the shared mods folder (needs Fabric Loader {SharedMods.FirstLoaderWithModsFolder}+).");
@@ -425,6 +428,7 @@ public sealed class VersionManager
         // installed unconditionally for every Fabric version, not
         // just the one Origin Client itself targets.
         await FabricApiInstaller.InstallAsync(version, modsFolder, progress, ct);
+        LaunchTimeline.Mark("fabric-api");
 
         bool originBundlesPerfStack = false;
         if (OriginBuilds.TryGetValue(version, out var originBuild)
@@ -605,6 +609,7 @@ public sealed class VersionManager
         var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
         extraJvm.Add(new MArgument(SharedMods.JvmArgument(gameModsFolder)));
         option.ExtraJvmArguments = extraJvm;
+        LaunchTimeline.Mark("mods");
 
         // On the fast path the installer only stats files, so it finishes almost
         // immediately and "Verifying" would flash by; say what is actually
@@ -613,7 +618,15 @@ public sealed class VersionManager
         var fileProgress = new InstallProgressThrottle(
             progress, decision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
 
-        var built = await launcher.InstallAndBuildProcessAsync(versionName, option, fileProgress, null, ct);
+        // CmlLib's InstallAndBuildProcessAsync is exactly these three calls (4.0.6);
+        // they are made one at a time only so the launch-time harness can tell the
+        // version lookup, the file pass and the process build apart.
+        var resolved = await launcher.GetVersionAsync(versionName, ct);
+        LaunchTimeline.Mark("version");
+        await launcher.InstallAsync(resolved, fileProgress, null, ct);
+        LaunchTimeline.Mark("files");
+        var built = launcher.BuildProcess(resolved, option);
+        LaunchTimeline.Mark("process-built");
 
         // Only stamp after provisioning came back clean. The stamp is what lets
         // the NEXT launch skip the rehash, so writing it on a failed pass would

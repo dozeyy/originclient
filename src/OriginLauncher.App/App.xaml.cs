@@ -41,6 +41,17 @@ public partial class App : Application
             return;
         }
 
+        // `--launch-timing <root> <version> <out.json>` (CI, launch-time.yml): one timed Play
+        // press with every launcher file under <root>, no window (Core/Launch/LaunchTimingHarness).
+        var timing = Array.IndexOf(e.Args, "--launch-timing");
+        if (timing >= 0 && timing + 3 < e.Args.Length)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var code = Core.Launch.LaunchTimingHarness.Run(e.Args[timing + 1], e.Args[timing + 2], e.Args[timing + 3]);
+            Shutdown(code);
+            return;
+        }
+
         // Hover-label timing and placement (UI/ToolTipDefaults.cs): before any window exists.
         UI.ToolTipDefaults.Apply();
 
