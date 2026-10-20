@@ -358,14 +358,22 @@ public final class HalfRateShadows {
 	 * swap in the drawn matrix shifted by the camera's move since the draw.
 	 */
 	public static void onShadowModelView(PoseStack stack) {
-		modelViewHookSeen = true;
-		if (stack == null || !keepingNow()) {
+		if (stack == null || broken) {
 			return;
 		}
 		try {
 			Object activeObj = SR_ACTIVE.invokeExact();
 			if ((Boolean) activeObj) {
-				return;   // inside the shadow pass (never on a kept frame; defensive)
+				// The shadow draw's own call. It proves nothing about the main pass's lookup, so it must
+				// not satisfy the "correction hook seen" guard (review 2026-10-20: it used to, and frames
+				// were kept with the correction never running).
+				return;
+			}
+			// Outside the shadow pass = the main pass's shadowModelView uniform. A pack that never reads
+			// that uniform never gets here, and then frames are never kept (decide reason 11).
+			modelViewHookSeen = true;
+			if (!keepingNow()) {
+				return;
 			}
 			Matrix4f pose = stack.last().pose();
 			Vec3 c = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
@@ -449,6 +457,9 @@ public final class HalfRateShadows {
 		}
 		if (lastPackKeepsState) {
 			return "Origin Half-Rate Shadows: this shader needs shadows every frame, so it draws them all";
+		}
+		if (!modelViewHookSeen) {
+			return "Origin Half-Rate Shadows: this shader doesn't read shadows the usual way, so it draws them every frame";
 		}
 		return "Origin Half-Rate Shadows: reused " + lastKept + " of " + (lastKept + lastDrawn)
 				+ " shadow maps in the last second";
