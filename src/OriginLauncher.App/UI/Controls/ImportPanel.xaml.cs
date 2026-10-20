@@ -2632,7 +2632,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
         ShowPane(Pane.Done);
         if (_playVersion is { } play)
-            SetFooter($"Everything is in Origin, no profile needed. **Play** starts Minecraft {play}.",
+            SetFooter($"Everything is in Origin, no profile needed. **Play** picks Minecraft {play} on Home.",
                 "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty), "Play", () => PlayRequested?.Invoke(this, play));
         else
             SetFooter(null, null, null, "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty));

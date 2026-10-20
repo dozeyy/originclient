@@ -244,6 +244,14 @@ public sealed class ImportGridTests : IDisposable
     }
 
     [Fact]
+    public void EveryTilesFastButtonLabelIsShortEnoughForTheSmallestWindow()
+    {
+        // 228 px at the minimum window held 34 characters with room; "Minecraft Launcher" (40) trimmed in CI.
+        foreach (var kind in Enum.GetValues<SourceKind>())
+            Assert.True(("Bring everything from " + ImportGridModel.ShortName(kind)).Length <= 34, kind.ToString());
+    }
+
+    [Fact]
     public void UntickingEveryCellBringsNothing()
     {
         var grid = new ImportGridModel(new[] { Setup("Survival", SourceKind.Prism, "1.21.1", 4) });

@@ -203,10 +203,18 @@ internal sealed class ImportGridModel
         };
     }
 
-    /// <summary>"Lunar", "Feather", "Badlion", "LabyMod": the client's name without "Client".</summary>
-    public static string ShortName(SourceKind kind) => kind == SourceKind.Folder
-        ? "your folders"
-        : ImportFlowModel.LauncherTitle(kind).Replace(" Client", "", StringComparison.Ordinal);
+    /// <summary>
+    /// The launcher's name in a sentence ("Bring everything from Prism"): short enough that the tile's button never trims
+    /// at the smallest window ("Minecraft Launcher" did, 2026-10-19 launcher-shots clip check).
+    /// </summary>
+    public static string ShortName(SourceKind kind) => kind switch
+    {
+        SourceKind.Folder => "your folders",
+        SourceKind.OfficialLauncher => "Minecraft",
+        SourceKind.Prism => "Prism",
+        SourceKind.Modrinth => "Modrinth",
+        _ => ImportFlowModel.LauncherTitle(kind).Replace(" Client", "", StringComparison.Ordinal),
+    };
 
     /// <summary>
     /// A press on a cell. A tick turns on (or off) for every version of the tab where it can. Settings is a radio per

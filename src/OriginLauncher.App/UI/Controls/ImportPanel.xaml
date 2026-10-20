@@ -621,12 +621,27 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
+                            <!-- A greyed cell (nothing behind it) reads as a muted dash, not an empty box that looks
+                                 merely unticked; the disabled tick stays in place (invisible) for screen readers. -->
                             <DataTemplate>
-                                <CheckBox Style="{StaticResource Import.Tick}" HorizontalAlignment="Center" IsThreeState="False"
-                                          IsChecked="{Binding On, Mode=OneWay}" IsEnabled="{Binding Enabled}"
-                                          ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True"
-                                          AutomationProperties.Name="{Binding Name}" AutomationProperties.HelpText="{Binding Tip}"
-                                          Click="GridCell_Click"/>
+                                <Grid Width="32" Height="32" HorizontalAlignment="Center" Background="Transparent"
+                                      ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True">
+                                    <Border x:Name="Tick">
+                                        <CheckBox Style="{StaticResource Import.Tick}" IsThreeState="False"
+                                                  IsChecked="{Binding On, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                                                  AutomationProperties.Name="{Binding Name}" AutomationProperties.HelpText="{Binding Tip}"
+                                                  Click="GridCell_Click"/>
+                                    </Border>
+                                    <Path x:Name="Dash" Data="{StaticResource Icon.Minus}" Style="{StaticResource Icon.Base}"
+                                          Width="12" Height="12" StrokeThickness="2" Stroke="{StaticResource Brush.TextDim}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Enabled}" Value="False">
+                                        <Setter TargetName="Tick" Property="Opacity" Value="0"/>
+                                        <Setter TargetName="Dash" Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
