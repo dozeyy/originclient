@@ -78,7 +78,17 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"ChatReceiveMixin",
-		"PackSelectionScreenAccessor"
+		"PackSelectionScreenAccessor",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin",
+		"IrisShadowRendererHalfRateMixin",
+		"IrisPipelineHalfRateMixin",
+		"SodiumShadowWalkMixin",
+		"SodiumChunkChangeMixin",
+		"SodiumShadowWalkDevMixin",
+		"SodiumSectionShadowMapMixin",
+		"SodiumRegionShadowMapMixin",
+		"DebugScreenShaderSpeedupsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
