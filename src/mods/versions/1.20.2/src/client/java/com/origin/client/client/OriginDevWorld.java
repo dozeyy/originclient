@@ -614,7 +614,14 @@ final class OriginDevWorld {
 	/** Dev only: Iris's shadow depth texture (shadowtex0) read back as floats; null if anything is missing. */
 	private static float[] omReadShadowDepth() {
 		try {
-			Object pm = Class.forName("net.irisshaders.iris.Iris").getMethod("getPipelineManager").invoke(null);
+			// Iris 1.6.x keeps the pre-rename package (net.coderbot); same members (javap 2026-10-20).
+			Class<?> iris;
+			try {
+				iris = Class.forName("net.irisshaders.iris.Iris");
+			} catch (ClassNotFoundException e) {
+				iris = Class.forName("net.coderbot.iris.Iris");
+			}
+			Object pm = iris.getMethod("getPipelineManager").invoke(null);
 			Object pipe = pm.getClass().getMethod("getPipelineNullable").invoke(pm);
 			java.lang.reflect.Field fr = pipe.getClass().getDeclaredField("shadowRenderer");
 			fr.setAccessible(true);

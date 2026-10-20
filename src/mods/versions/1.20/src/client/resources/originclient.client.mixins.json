@@ -1,6 +1,7 @@
 {
 	"required": false,
 	"package": "com.origin.client.client.mixin",
+	"plugin": "com.origin.client.client.OriginMixinPlugin",
 	"compatibilityLevel": "JAVA_17",
 	"client": [
 		"AbstractButtonMixin",
@@ -81,7 +82,26 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"IrisPipelineHalfRateMixin",
+		"IrisShadowRendererHalfRateMixin",
+		"IrisPipelineHalfRate16Mixin",
+		"IrisShadowRendererHalfRate16Mixin",
+		"IrisShadowProjectionMixin",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin",
+		"SodiumRenderSectionManagerAccessor",
+		"SodiumSortedRenderListsAccessor",
+		"SodiumChunkRenderListAccessor",
+		"SodiumGraphReuseMixin",
+		"SodiumUpdateReuseMixin",
+		"SodiumWalkEndMixin",
+		"SodiumOcclusionStampMixin",
+		"SodiumViewportShadowMapMixin",
+		"SodiumWorldRendererReuseMixin",
+		"Sodium04HalfRateMixin",
+		"LevelRendererCullFrustumMixin",
+		"DebugScreenOriginRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

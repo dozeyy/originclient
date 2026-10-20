@@ -112,6 +112,20 @@ dependencies {
 	runtimeOnly "io.github.douira:glsl-transformer:2.0.0-pre13"
 	runtimeOnly "org.antlr:antlr4-runtime:4.11.1"
 
+	// COMPILE-ONLY: the shader speed-ups (render/ShadowCasterLimit, OffMapShadows, HalfRateShadows,
+	// SmartTerrainUpdates and their Sodium*/Iris* mixins) compile against the exact Sodium + Iris builds the
+	// launcher installs for this module (PerformanceModCatalog.Data.cs; Modrinth version ids, not numbers):
+	// MC 1.20.1 = sodium 0.5.13+mc1.20.1 + iris 1.7.6+mc1.20.1 (net.irisshaders), and MC 1.20's
+	// iris-mc1.20-1.6.4 (net.coderbot, for the *16Mixin / IrisShadowProjectionMixin twins). Sodium 0.4.10
+	// (MC 1.20) is not on the compile path: its RenderSectionManager has the same name as 0.5.13's, and the
+	// one 0.4.10 hook (Sodium04HalfRateMixin) names its targets by string. OriginMixinPlugin applies each
+	// mixin only on its own build. modCompileOnly = never on the runtime classpath, never `include`d.
+	// Iris 1.6.4 is named by Iris's Modrinth project id (YL57xq9U) instead of the slug: two versions of one
+	// module (maven.modrinth:iris) would be conflict-resolved down to one jar, dropping net.coderbot.
+	modCompileOnly "maven.modrinth:sodium:OihdIimA"
+	modCompileOnly "maven.modrinth:iris:s5eFLITc"
+	modCompileOnly "maven.modrinth:YL57xq9U:URWeWMAt"
+
 	// WebP preview decoding for the shader browser (fail-soft if the reader is
 	// absent). implementation = compile + dev classpath; include = jar-in-jar.
 	implementation "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
