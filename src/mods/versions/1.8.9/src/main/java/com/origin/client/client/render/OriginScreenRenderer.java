@@ -478,7 +478,7 @@ public final class OriginScreenRenderer {
 	// ---- GUI size without a ScaledResolution per call ----
 
 	/** ScaledResolution's scale factor (1.8.9's algorithm, javap), allocation-free. */
-	private static int scale() {
+	public static int scale() {
 		Minecraft mc = Minecraft.getMinecraft();
 		int dw = Math.max(1, mc.displayWidth), dh = Math.max(1, mc.displayHeight);
 		int max = mc.gameSettings.guiScale == 0 ? 1000 : mc.gameSettings.guiScale;

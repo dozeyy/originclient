@@ -4,6 +4,8 @@ import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiSlot;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -48,9 +50,50 @@ public abstract class GuiSlotMixin {
 
 	@Inject(method = "overlayBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$transparentStrips(int startY, int endY, int startAlpha, int endAlpha, CallbackInfo ci) {
-		if (OriginScreenRenderer.isActive()
-			&& !OriginStyle.vanillaMenusOn(net.minecraft.client.Minecraft.getMinecraft().currentScreen)) {
+		if (originclient$clear()) {
 			ci.cancel();
 		}
+	}
+
+	// The dirt strips cancelled above are also what MASKED rows scrolled past the
+	// list's top and bottom (vanilla draws every row, then paints the strips over
+	// the overflow). Without them a long list (Controls) spills its rows over the
+	// title and the Done button. So the rows are clipped to the list body instead,
+	// as later versions' lists do: a GL scissor around drawSelectionBox (the row
+	// pass in GuiSlot.drawScreen; vanilla, remapped), on whenever the strips are
+	// off. If these stop applying, rows overflow as above (cosmetic, no crash).
+	// Skipped if a scissor is already on (an enclosing screen clips itself).
+	@Unique
+	private boolean originclient$scissored;
+
+	@Inject(method = "drawSelectionBox", at = @At("HEAD"))
+	private void originclient$clipRowsOn(int insideLeft, int insideTop, int mouseX, int mouseY, CallbackInfo ci) {
+		originclient$scissored = false;
+		if (!originclient$clear() || GL11.glIsEnabled(GL11.GL_SCISSOR_TEST)) {
+			return;
+		}
+		GuiSlot self = (GuiSlot) (Object) this;
+		int gs = OriginScreenRenderer.scale();
+		int displayH = net.minecraft.client.Minecraft.getMinecraft().displayHeight;
+		int h = Math.max(0, self.bottom - self.top) * gs;
+		// GL counts y from the bottom of the window.
+		GL11.glScissor(self.left * gs, displayH - self.bottom * gs, Math.max(0, self.right - self.left) * gs, h);
+		GL11.glEnable(GL11.GL_SCISSOR_TEST);
+		originclient$scissored = true;
+	}
+
+	@Inject(method = "drawSelectionBox", at = @At("RETURN"))
+	private void originclient$clipRowsOff(int insideLeft, int insideTop, int mouseX, int mouseY, CallbackInfo ci) {
+		if (originclient$scissored) {
+			GL11.glDisable(GL11.GL_SCISSOR_TEST);
+			originclient$scissored = false;
+		}
+	}
+
+	/** The list sits clear on the Origin backdrop (strips off, rows clipped). */
+	@Unique
+	private static boolean originclient$clear() {
+		return OriginScreenRenderer.isActive()
+				&& !OriginStyle.vanillaMenusOn(net.minecraft.client.Minecraft.getMinecraft().currentScreen);
 	}
 }

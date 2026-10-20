@@ -286,14 +286,28 @@ public final class OriginDevShots {
 	 * GuiConnecting's two constructors both start a real connection (javap 1.8.9), which would turn the
 	 * screen into "Failed to connect" within a second. Dev only: the instance is allocated without a
 	 * constructor (networkManager null), which is exactly the first state a player sees, "Connecting to
-	 * the server...". Its updateScreen does nothing while networkManager is null.
+	 * the server...". Its updateScreen does nothing while networkManager is null. (First CI run: without
+	 * the GuiScreen field copy below, drawScreen NPE'd on the null buttonList.)
 	 */
 	private static GuiScreen connectScreen() {
 		try {
 			java.lang.reflect.Field f = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe");
 			f.setAccessible(true);
 			sun.misc.Unsafe u = (sun.misc.Unsafe) f.get(null);
-			return (GuiScreen) u.allocateInstance(net.minecraft.client.multiplayer.GuiConnecting.class);
+			GuiScreen c = (GuiScreen) u.allocateInstance(net.minecraft.client.multiplayer.GuiConnecting.class);
+			// No constructor ran, so GuiScreen's own field initialisers (buttonList, labelList, ...) did not
+			// either: copy them from a plain GuiScreen (the template is thrown away, so nothing is shared).
+			GuiScreen template = new GuiScreen() {
+			};
+			for (Class<?> k = GuiScreen.class; k != null && k != Object.class; k = k.getSuperclass()) {
+				for (java.lang.reflect.Field fd : k.getDeclaredFields()) {
+					if (!java.lang.reflect.Modifier.isStatic(fd.getModifiers())) {
+						fd.setAccessible(true);
+						fd.set(c, fd.get(template));
+					}
+				}
+			}
+			return c;
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] could not build the connect screen", t);
 			return null;
@@ -303,16 +317,13 @@ public final class OriginDevShots {
 	// TITLE_HOVER: the pointer parked on the icon row's last square (Quit) so the shot shows the real hover
 	// look AND its tooltip (only the icon squares have one). 1.8.9 reads the pointer from LWJGL 2's Mouse
 	// each frame; Xvfb has no pointer moving, so the warped position stays put. Every other shot gets the
-	// original position back. Dev only.
-	private static int[] savedCursor;
-
+	// pointer parked off every widget. Dev only.
 	private static void devCursor(boolean onIcon) {
 		try {
 			Minecraft mc = Minecraft.getMinecraft();
-			if (savedCursor == null) {
-				savedCursor = new int[]{org.lwjgl.input.Mouse.getX(), org.lwjgl.input.Mouse.getY()};
-			}
-			int x = savedCursor[0], y = savedCursor[1];
+			// Off every widget: the right edge, halfway down (Xvfb starts the pointer mid-screen, which
+			// hovered Singleplayer and Done in the first run; 1.21.1's shots show no hover).
+			int x = mc.displayWidth - 1, y = mc.displayHeight / 2;
 			if (onIcon) {
 				net.minecraft.client.gui.ScaledResolution sr = new net.minecraft.client.gui.ScaledResolution(mc);
 				com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
