@@ -624,6 +624,8 @@ public final class SmartTerrainUpdates {
 	// ======================= dev: main-pass entity culling counts =======================
 	// Counted from one main update() to the next (= one frame's main entity draw), shadow pass excluded.
 	public static final String HIDDEN_TAG = "origin_stu_hidden";
+	/** Dev: the sealed pocket section (SectionPos long). Entity tags are server-only, so the client finds the pocket pigs by section. */
+	public static long hiddenSection = Long.MIN_VALUE;
 	private static long fChecks, fVisible, fSig, fHidChecks, fHidVisible;
 	private static long wFrames, wChkMin, wChkMax, wVisMin, wVisMax, wSig, wSigDiffer, wHidChecks, wHidVisible;
 
@@ -641,7 +643,7 @@ public final class SmartTerrainUpdates {
 				fVisible++;
 				fSig += it.unimi.dsi.fastutil.HashCommon.mix((long) e.getId() + 1);
 			}
-			if (e.getTags().contains(HIDDEN_TAG)) {
+			if (net.minecraft.core.SectionPos.asLong(e.blockPosition()) == hiddenSection) {
 				fHidChecks++;
 				if (visible) {
 					fHidVisible++;

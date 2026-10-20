@@ -328,6 +328,7 @@ final class OriginDevWorld {
 				if (stRenderDistance > 0) {
 					mc.options.renderDistance().set(stRenderDistance);
 				}
+				com.origin.client.client.render.SmartTerrainUpdates.hiddenSection = Long.MIN_VALUE;
 				phase = 53;
 				return false;
 			}
@@ -359,6 +360,7 @@ final class OriginDevWorld {
 			int x0 = (sx + d[0]) * 16, y0 = (sy + d[1]) * 16, z0 = (sz + d[2]) * 16;
 			cmds.add("fill " + x0 + " " + y0 + " " + z0 + " " + (x0 + 15) + " " + (y0 + 15) + " " + (z0 + 15) + " minecraft:stone");
 		}
+		com.origin.client.client.render.SmartTerrainUpdates.hiddenSection = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
 		int cx = sx * 16, cy = sy * 16, cz = sz * 16;
 		cmds.add("fill " + (cx + 1) + " " + (cy + 1) + " " + (cz + 1) + " " + (cx + 14) + " " + (cy + 14) + " " + (cz + 14) + " minecraft:air");
 		String nbt = "{NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"origin_stutest\",\""
