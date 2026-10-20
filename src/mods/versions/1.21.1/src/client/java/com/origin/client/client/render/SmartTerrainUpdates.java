@@ -405,11 +405,12 @@ public final class SmartTerrainUpdates {
 				markDirty(9);
 			}
 			if (settingOn()) {
-				// A walk that recorded no stamps (a stamp redirect missing) is never reused.
-				primed = stampN > 0 && snapshot(rsm);
+				// A walk that recorded no stamps (a stamp redirect missing, or no shader pack so
+				// nothing was recorded) is never reused.
+				primed = stampN > 0 && packInUse() && snapshot(rsm);
 				manager = primed ? rsm : null;
 				if (!primed) {
-					release();
+					unprime();
 				}
 			} else {
 				releaseIfHeld();
@@ -426,8 +427,9 @@ public final class SmartTerrainUpdates {
 		}
 		try {
 			walkStart = System.nanoTime();
-			if (settingOn() && !shadowPass()) {
-				// This main walk replaces what is held; afterUpdate primes again from it.
+			if (settingOn() && !shadowPass() && packInUse()) {
+				// This main walk replaces what is held; afterUpdate primes again from it. No pack =
+				// no per-section recording (reuse needs a pack anyway).
 				primed = false;
 				java.util.Arrays.fill(stamped, 0, stampN, null);
 				stampN = 0;
@@ -539,6 +541,19 @@ public final class SmartTerrainUpdates {
 		stamped = NO_SECTIONS;
 		stampN = 0;
 		recording = false;
+	}
+
+	/**
+	 * Priming failed: hold nothing for this walk but keep the arrays (this can repeat every frame,
+	 * so no allocation). References are cleared so no old level stays reachable through them.
+	 */
+	private static void unprime() {
+		primed = false;
+		manager = null;
+		java.util.Arrays.fill(lists, null);
+		count = 0;
+		java.util.Arrays.fill(stamped, 0, stampN, null);
+		stampN = 0;
 	}
 
 	private static void releaseIfHeld() {
