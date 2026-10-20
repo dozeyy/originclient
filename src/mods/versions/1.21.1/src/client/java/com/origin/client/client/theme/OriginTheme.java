@@ -117,6 +117,8 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT = 0xFFF3F4F6;
 	public static final int CLEAN_TEXT_DIM = 0xA8F3F4F6;       // 66%
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
+	/** Text fields (search, world name): a darker inset well than the button glass. */
+	public static final int CLEAN_FIELD = 0xC707080B;
 	/** Opaque muted grey for text whose drawer ignores alpha (component styles: the title's copyright line). */
 	public static final int CLEAN_TEXT_MUTED = 0xFF8E9197;
 	public static final int CLEAN_PRIMARY = 0xFFEDEFF2;

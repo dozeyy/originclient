@@ -28,6 +28,7 @@
 		"MenuTextScopeMixin",
 		"GuiGraphicsCenteredTextMixin",
 		"StringWidgetMixin",
+		"EditBoxFrameMixin",
 		"LevelRendererMixin",
 		"LightTextureMixin",
 		"ParticleEngineMixin",
