@@ -47,7 +47,10 @@ public partial class App : Application
         if (timing >= 0 && timing + 3 < e.Args.Length)
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            var code = Core.Launch.LaunchTimingHarness.Run(e.Args[timing + 1], e.Args[timing + 2], e.Args[timing + 3]);
+            // On a pool thread: the launch path's awaits would otherwise queue back onto this
+            // (blocked) UI thread and never run.
+            var code = Task.Run(() => Core.Launch.LaunchTimingHarness.Run(e.Args[timing + 1], e.Args[timing + 2], e.Args[timing + 3]))
+                .GetAwaiter().GetResult();
             Shutdown(code);
             return;
         }

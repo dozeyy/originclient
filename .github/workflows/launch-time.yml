@@ -176,7 +176,8 @@ jobs:
               $root = "$env:RUNNER_TEMP/root-$v-$i"
               for ($n = 0; $n -le [int]$env:WARM; $n++) {
                 $json = "$out/$v-$i-$n.json"
-                $p = Start-Process "pub-$v/OriginLauncher.App.exe" -ArgumentList "--launch-timing `"$root`" 1.21.1 `"$json`"" -Wait -PassThru
+                $p = Start-Process "pub-$v/OriginLauncher.App.exe" -ArgumentList "--launch-timing `"$root`" 1.21.1 `"$json`"" -PassThru
+                if (-not $p.WaitForExit(600000)) { Write-Host "::warning::$v-$i-$n hung; killed"; $p.Kill($true); $p.WaitForExit() }
                 $kind = if ($n -eq 0) { 'cold' } else { 'warm' }
                 $start = '-'
                 if (Test-Path $json) {
