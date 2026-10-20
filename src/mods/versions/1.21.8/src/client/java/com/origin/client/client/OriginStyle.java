@@ -11,23 +11,18 @@ import com.origin.client.client.mods.Mods;
  * the option strings itself, so a port is "call the predicate", never "learn
  * the option names".
  *
- * <p>Two settings feed it (SETTINGS > General):
+ * <p>One setting feeds it (SETTINGS > General): <b>Main Menu Style</b>
+ * (Origin / Vanilla). Minecraft's own menus always use stock widgets and the
+ * stock font ({@link #vanillaButtons}, Will 2026-10-19); Main Menu Style picks
+ * whether Origin dresses them:
  * <ul>
- *   <li><b>Button Style</b> (Origin / Minecraft) -- the widget skin.</li>
- *   <li><b>Main Menu Style</b> (Origin / Vanilla) -- the title screen.</li>
- * </ul>
- *
- * <p>What each combination means (Will, 2026-10-19):
- * <ul>
- *   <li>Button Style = Minecraft alone: every vanilla widget draws as vanilla
- *       ({@link #vanillaButtons}); the other Origin surfaces stay.</li>
- *   <li>Main Menu Style = Vanilla alone: only the title screen is stock
- *       ({@link #vanillaTitle}), exactly as before.</li>
- *   <li>BOTH off ({@link #vanillaMenus}): "vanilla mode" -- the title, the
+ *   <li>Origin: the Origin title layout, this version's blurred panorama behind
+ *       every menu, Origin's loading and progress screens.</li>
+ *   <li>Vanilla ({@link #vanillaMenus}): "vanilla mode" -- the title, the
  *       backdrop behind every menu, the loading and progress screens, the menu
- *       blur, the buttons: all of it is stock Minecraft. Origin's HUD, gameplay
- *       mods and its own windows (mod menu, HUD editor, cosmetics, ...) are not
- *       menus of Minecraft's, so they never change.</li>
+ *       blur: all of it is stock Minecraft. Origin's HUD, gameplay mods and its
+ *       own windows (mod menu, HUD editor, cosmetics, ...) are not menus of
+ *       Minecraft's, so they never change.</li>
  * </ul>
  *
  * <p>An Origin window (any {@code com.origin.*} screen) always keeps the Origin
@@ -41,20 +36,21 @@ import com.origin.client.client.mods.Mods;
  * default look) instead of throwing into a render path.
  */
 public final class OriginStyle {
-	/** Mods option keys (SETTINGS > General). Only this class and Mods.java know them. */
-	public static final String BUTTON_STYLE = "buttonStyle";
+	/** Mods option key (SETTINGS > General). Only this class and Mods.java know it. */
 	public static final String MENU_STYLE = "mainMenuStyle";
 
 	private OriginStyle() {
 	}
 
-	/** Button Style = Minecraft: widgets draw as vanilla (outside Origin's own windows -- use {@link #vanillaButtonsOn}). */
+	/**
+	 * Minecraft's own menus always draw stock widgets and the stock font (Will,
+	 * 2026-10-19: "use normal minecraft font for the menus ... use normal buttons").
+	 * The Button Style option and the glass skin for Minecraft's menus are gone;
+	 * Origin's own windows keep their look ({@link #vanillaButtonsOn}). Kept as a
+	 * predicate so every widget mixin still asks one place.
+	 */
 	public static boolean vanillaButtons() {
-		try {
-			return "Minecraft".equals(Mods.mode(Mods.GENERAL_ID, BUTTON_STYLE));
-		} catch (Throwable t) {
-			return false;
-		}
+		return true;
 	}
 
 	/** Main Menu Style = Vanilla: the title screen is stock (the pre-existing switch). */
@@ -66,7 +62,7 @@ public final class OriginStyle {
 		}
 	}
 
-	/** Both styles off: every Minecraft menu is plain vanilla (outside Origin's own windows -- use {@link #vanillaMenusOn}). */
+	/** Main Menu Style = Vanilla: every Minecraft menu is plain vanilla (outside Origin's own windows -- use {@link #vanillaMenusOn}). */
 	public static boolean vanillaMenus() {
 		return vanillaButtons() && vanillaTitle();
 	}
