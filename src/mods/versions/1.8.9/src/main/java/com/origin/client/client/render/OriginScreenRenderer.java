@@ -3,7 +3,6 @@ package com.origin.client.client.render;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.origin.client.client.gui.Gfx;
-import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.gui.Pose;
 import com.origin.client.client.theme.OriginTheme;
@@ -30,29 +29,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Shared Origin screen rendering, used by the title screen (OriginTitleScreen),
-// every out-of-world menu (MenuHooks' DrawScreenEvent.Pre backdrop), the world
-// load/connect screens (mixin/menus + OriginLoadingRenderer) and every Origin
-// window (OriginWindow draws renderTitleBackground itself). Two surfaces:
+// every out-of-world Minecraft menu (MenuHooks' DrawScreenEvent.Pre backdrop),
+// the world load/connect screens (mixin/menus + OriginLoadingRenderer) and every
+// Origin window (OriginWindow draws renderTitleBackground itself). The clean
+// in-game look (ported from 1.21.1, 2026-10-19):
 //
-//  - MENUS: "living rings" (launch experience v2, as 1.21.1): the loading
-//    scene's own rings, slowed, drifting and leaning towards the mouse
-//    (RingField MENU) -- never a panorama, so the menus read as the same place
-//    the game loaded into (renderTitleBackground).
-//  - LOADING: near-black + the pre-rendered orbital rings + grain + vignette +
-//    corner brackets (renderLoadingScene), the screen's title, and a bar.
-//  - STARTUP: the Origin loading layer -- near-black + grain + vignette, the
-//    MarkMotion loop, "ORIGIN", the bar -- dissolving into the title while the
-//    mark flies onto the logo spot (renderStartupLoading / renderLoadingFade).
+//  - MINECRAFT'S MENUS + TITLE: 1.8.9's own title panorama, drawn and blurred by
+//    vanilla's renderer (MenuPanorama), under Origin's dim and vignette
+//    (renderMenuBackdrop / renderTitleBackdrop). Stock buttons and font.
+//  - LOADING: the same panorama under the loading dim, the real Origin logo, the
+//    world's name, a thin bar and vanilla's stage line (renderLoadingScene).
+//  - STARTUP: the clean splash -- near-black, the logo, "ORIGIN", a full bar and
+//    100% -- held over the title while its first frames settle, then dissolving
+//    into it (renderStartupLoading / renderLoadingFade, OriginTitleScreen).
+//  - ORIGIN'S OWN WINDOWS keep the "living rings" (renderTitleBackground).
 //
 // 1.8.9: the startup resource load itself is Forge's SplashProgress, themed by
 // the launcher (config/splash.properties); it owns the GL context on its own
-// thread, so the Origin loading layer takes over the title's first frames
-// instead (OriginTitleScreen, StartupTransition). Fonts are baked by then, so
-// "ORIGIN" draws through the game font (1.21.1's boot-font reader exists only
-// because its overlay paints before fonts load). The baked Michroma wordmark
-// stays retired ("one typography voice": renderWordmarkAt reports false).
-// 1.16.5's dead decorations (particles, orbiting bodies, wordmark glow) are
-// not ported either.
+// thread, so the Origin startup layer takes over the title's first frames
+// instead. Fonts are baked by then, so "ORIGIN" draws through the game font
+// (1.21.1's boot-font reader exists only because its overlay paints before fonts
+// load).
 //
 // Textures load via the classloader (not the resource manager) and degrade
 // gracefully if any asset fails rather than crashing.
@@ -89,25 +86,18 @@ public final class OriginScreenRenderer {
 	private static double[] ringAngle0 = new double[0], ringPeriod = new double[0];
 	private static boolean[] ringReverse = new boolean[0];
 
-	// The startup layer's clock: RingField.sceneMs() at its first frame (-1 = not yet).
-	private static double loadStartScene = -1;
-	// The startup bar's shown fill (-1 = none yet) and the scene time it was set.
-	private static double loadFill = -1;
-	private static double loadFillAt = 0;
-	/** The startup and world-loading bars' glide time constant (ms). */
+	/** The world-loading bar's glide time constant (ms). */
 	private static final double FILL_TAU = 140.0;
 	// The world-loading scene's shown bar fill, gliding to each new value; < 0 = sweeping.
 	private static double sceneFill = -1;
 	// Never backward within a world load, never full before the world is up (LoadBar.scene).
 	private static final LoadBar SCENE_BAR = new LoadBar();
 
-	// Every fill and blit colour of the loading layer goes through layerAlpha, so
-	// the whole layer can be drawn translucent (the loading -> title dissolve)
-	// without each helper knowing. 1 everywhere else.
+	// Every fill and blit colour of the startup layer goes through layerAlpha
+	// (fade / drawCenterLift / drawVignette), so the whole layer can be drawn
+	// translucent (the loading -> title dissolve) without each helper knowing.
+	// 1 everywhere else.
 	private static float layerAlpha = 1f;
-	// True while the startup layer covers the title: the layer draws the (flying)
-	// mark, so the title leaves its own out.
-	private static boolean startupLayer = false;
 
 	// one animated brand ring (Java-8 final class, was a record).
 	private static final class Ring {
@@ -146,9 +136,11 @@ public final class OriginScreenRenderer {
 	/**
 	 * Full-screen loading/progress scene for the world-load screens
 	 * (GuiDownloadTerrain, GuiScreenWorking, the LoadingScreenRenderer
-	 * replacement): the charcoal + rings + grain background, the screen's title
-	 * in the default font, and a smooth indeterminate bar. Drawn as a HEAD-cancel
-	 * takeover: callers must only cancel vanilla when this returns true.
+	 * replacement), the clean look (1.21.1, 2026-10-19): this version's own
+	 * panorama under the loading dim (a solid near-black if it can't draw), the
+	 * real Origin logo, the world's name (or the screen's title), a thin bar and
+	 * vanilla's own stage line. Drawn as a HEAD-cancel takeover: callers must only
+	 * cancel vanilla when this returns true.
 	 */
 	public static boolean renderLoadingScene(Gfx guiGraphics, IChatComponent title) {
 		return renderLoadingScene(guiGraphics, title == null ? null : title.getUnformattedText(), null, -1);
@@ -160,10 +152,11 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * 1.8.9: the scene with a stage line under the bar ("Building terrain") and,
-	 * when 0..100, a DETERMINATE bar -- 1.8.9's world loading reports a real
-	 * percentage through IProgressUpdate (LoadingScreenRenderer /
-	 * GuiScreenWorking), so the bar can tell the truth instead of sweeping.
+	 * 1.8.9: the scene with vanilla's stage line under the bar ("Building
+	 * terrain") and, when 0..100, a DETERMINATE bar -- 1.8.9's world loading
+	 * reports a real percentage through IProgressUpdate (LoadingScreenRenderer /
+	 * GuiScreenWorking), so the bar tells the truth instead of sweeping. Never a
+	 * made-up percentage or stage name.
 	 */
 	public static boolean renderLoadingScene(Gfx guiGraphics, String title, String stage, int progress) {
 		if (broken) {
@@ -179,19 +172,9 @@ public final class OriginScreenRenderer {
 
 	private static void renderLoadingScene0(Gfx guiGraphics, String title, String stage, int progress) {
 		ensureLoaded();
-		// From a menu this swings the slowed, leaning rings back to the centred
-		// loading orbit (RingField eases it, so it reads as one motion).
-		field(RingField.Mood.LOADING);
 		Minecraft mc = Minecraft.getMinecraft();
-		int w = guiGraphics.guiWidth();
-		int h = guiGraphics.guiHeight();
-
-		fill(guiGraphics, 0, 0, w, h, OriginTheme.BG);
-		if (!ringsFailed) {
-			drawRings(guiGraphics, w, h);
-			drawGrain(guiGraphics, w, h);
-		}
-		drawFrame(guiGraphics, w, h);
+		int w = gw(), h = gh();
+		cleanBackdrop(guiGraphics, w, h, OriginTheme.CLEAN_DIM_LOADING);
 
 		// The fill glides to each new count and only moves forward within one world
 		// load; it sweeps until the load's first measured stage (LoadBar.scene).
@@ -199,46 +182,71 @@ public final class OriginScreenRenderer {
 		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(),
 				progress < 0 || progress > 100 ? -1 : progress / 100.0, now, FILL_TAU);
 
-		FontRenderer font = mc.fontRendererObj;
-		int barW = Math.max(80, (int) (w * 0.30));
-		int barH = Math.max(2, (int) (h * 0.010));
-		float titleScale = 1.5f;
-		int titleH = (int) Math.ceil(font.FONT_HEIGHT * titleScale);
-		double gap = Math.max(8.0, h * 0.045);
-
-		String s = title == null ? "" : title.trim();
-		boolean hasTitle = !s.isEmpty();
-		double groupH = (hasTitle ? titleH + gap : 0) + barH;
-		double groupTop = h / 2.0 - groupH / 2.0;
-
-		if (hasTitle) {
-			Pose pose = guiGraphics.pose();
-			pose.pushPose();
-			pose.translate(w / 2.0, groupTop, 0);
-			pose.scale(titleScale, titleScale, 1f);
-			guiGraphics.drawString(font, s, -font.getStringWidth(s) / 2, 0, OriginTheme.TEXT, false);
-			pose.popPose();
+		// World loading (a real percentage): the world's name big, as 1.21.1.
+		String levelName = null;
+		if (progress >= 0 && progress <= 100) {
+			try {
+				if (mc.getIntegratedServer() != null) {
+					levelName = mc.getIntegratedServer().getWorldName();   // the display name (javap 1.8.9)
+				}
+			} catch (Throwable ignored) {
+				levelName = null;
+			}
 		}
-		int barTop = (int) Math.round(groupTop + (hasTitle ? titleH + gap : 0));
-		if (sceneFill < 0) {
-			drawIndeterminateBar(guiGraphics, w / 2.0, barTop, barW, barH);
-		} else {
-			drawBar(guiGraphics, w / 2.0, barTop, barW, barH, (float) sceneFill);
+		// Late addendum (2026-10-19): the labels are rebuilt when any input
+		// changes, the language code included, compared by value (no allocation:
+		// every input is a stored String), so a language change can't leave a
+		// stale line on screen.
+		String lang = mc.gameSettings == null ? null : mc.gameSettings.language;
+		if (!java.util.Objects.equals(title, labelTitle) || !java.util.Objects.equals(stage, labelStage)
+				|| !java.util.Objects.equals(levelName, labelLevel) || !java.util.Objects.equals(lang, labelLang)) {
+			labelTitle = title;
+			labelStage = stage;
+			labelLevel = levelName;
+			labelLang = lang;
+			sceneLabels(title, stage, levelName);
 		}
-		// 1.8.9: the stage line under the bar ("Building terrain") -- 1.8.9's
-		// IProgressUpdate reports it separately from the title.
-		String line = stage == null ? "" : stage.trim();
-		if (!line.isEmpty() && !line.equals(s)) {
-			int ly = barTop + barH + (int) Math.max(8, Math.round(h * 0.035));
-			guiGraphics.drawString(font, line, (w - font.getStringWidth(line)) / 2, ly, OriginTheme.MUTED, false);
+		drawSceneText(guiGraphics, w, h, labelBig, labelSmall, sceneFill);
+	}
+
+	// The loading scene's labels and the inputs they were built from.
+	private static String labelTitle, labelStage, labelLevel, labelLang;
+	private static String labelBig = "", labelSmall = "";
+
+	/** The scene's big line (world name, else the title) and small line (vanilla's stage). */
+	private static void sceneLabels(String title, String stage, String levelName) {
+		String big = title == null ? "" : title.trim();
+		String small = stage == null ? "" : stage.trim();
+		if (levelName != null && !levelName.trim().isEmpty()) {
+			big = levelName;
+		}
+		if (small.equals(big) || (title != null && small.equals(title.trim()))) {
+			small = "";
+		}
+		labelBig = big;
+		labelSmall = small;
+	}
+
+	/** The loading scene's centred logo, title, bar and stage line (fill < 0: sweeping). As 1.21.1. */
+	private static void drawSceneText(Gfx guiGraphics, int w, int h, String big, String small, double fill) {
+		double cy = h * 0.42;
+		double logo = 22;
+		drawLogo(guiGraphics, w / 2.0, cy, logo, 1f);
+		double titleMid = cy + logo / 2.0 + 13;
+		drawCenteredLabel(guiGraphics, big, w / 2.0, titleMid, OriginTheme.CLEAN_TEXT);
+		double barW = Math.min(160, w * 0.5);
+		double barTop = titleMid + 10;
+		drawThinBar(guiGraphics, w / 2.0, barTop, barW, (float) fill, fill < 0);
+		if (!small.isEmpty()) {
+			drawCenteredLabel(guiGraphics, small, w / 2.0, barTop + 10, OriginTheme.CLEAN_TEXT_DIM);
 		}
 	}
 
 	/**
-	 * Just the indeterminate bar, placed just below screen center -- for
-	 * screens kept on their vanilla render (GuiConnecting: its Cancel button
-	 * and status text stay, the Origin menu background comes from MenuHooks'
-	 * DrawScreenEvent.Pre, and this adds the bar on top).
+	 * Connecting to a server (GuiConnecting keeps its vanilla render: the status
+	 * line and Cancel stay, the backdrop comes from MenuHooks' DrawScreenEvent.Pre).
+	 * This adds the logo above the status line and the thin sweeping bar under
+	 * it, as 1.21.1.
 	 */
 	public static void renderConnectingBar(Gfx guiGraphics) {
 		// TAIL-additive over the vanilla connect screen; skip when broken.
@@ -247,34 +255,254 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			ensureLoaded();
-			int w = guiGraphics.guiWidth();
-			int h = guiGraphics.guiHeight();
-			int barW = Math.max(80, (int) (w * 0.30));
-			int barH = Math.max(2, (int) (h * 0.010));
-			drawIndeterminateBar(guiGraphics, w / 2.0, (int) (h * 0.60), barW, barH);
+			int w = gw(), h = gh();
+			// GuiConnecting.drawScreen draws the status line with its top at
+			// height / 2 - 50 (integer division, javap 1.8.9).
+			double statusMid = h / 2 - 50 + 3.5;
+			drawLogo(guiGraphics, w / 2.0, statusMid - 26, 22, 1f);
+			drawThinBar(guiGraphics, w / 2.0, statusMid + 11, Math.min(160, w * 0.5), 0f, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
 	}
 
-	/** A calm sweeping segment (smooth ping-pong) over the standard track. */
-	private static void drawIndeterminateBar(Gfx guiGraphics, double cx, int barTop, int barW, int barH) {
-		int bx = (int) Math.round(cx - barW / 2.0);
-		int by = barTop;
-		fill(guiGraphics, bx, by, bx + barW, by + barH, 0x29FFFFFF); // track
-		int segW = Math.max(8, (int) (barW * 0.32));
-		int travel = Math.max(1, barW - segW);
-		double t = (RingField.sceneMs() % 1800.0) / 1800.0;
-		double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI); // smooth 0->1->0
-		double segX = bx + eased * travel;
-		fillSmooth(guiGraphics, segX - 1, by - 1, segX + segW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW);
-		fillSmooth(guiGraphics, segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
+	/** One label in Minecraft's own font (with its shadow), centred on (cx, midY). */
+	private static void drawCenteredLabel(Gfx g, String s, double cx, double midY, int argb) {
+		if (s == null || s.isEmpty()) {
+			return;
+		}
+		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
+		g.drawString(font, s, (int) Math.round(cx - font.getStringWidth(s) / 2.0), (int) Math.round(midY - 4), argb, true);
 	}
 
 	/**
-	 * Menu background, "living rings" (as 1.21.1, Will 2026-10-18): the loading
-	 * scene's own rings, never a panorama, so the menus read as the same place
-	 * the game loaded into. RingField slows them to a third, lets them drift and
+	 * The thin loading bar (160 x 1.5 GUI px, 1.21.1's mockup): a faint track and
+	 * a white fill at physical-pixel precision (fillSmooth), so a 1.5 px bar is a
+	 * real 3 px line at GUI scale 2 and the fill end glides instead of stepping.
+	 * {@code sweep}: an indeterminate segment ping-pongs along the track.
+	 */
+	private static void drawThinBar(Gfx g, double cx, double top, double barW, float progress, boolean sweep) {
+		double x0 = Math.round(cx - barW / 2.0);
+		double bh = 1.5;
+		fillSmooth(g, x0, top, x0 + barW, top + bh, fade(OriginTheme.CLEAN_BAR_TRACK));
+		if (sweep) {
+			double segW = barW * 0.28;
+			double t = (RingField.sceneMs() % 1800.0) / 1800.0;
+			double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI);
+			double sx = x0 + eased * (barW - segW);
+			fillSmooth(g, sx, top, sx + segW, top + bh, fade(OriginTheme.CLEAN_BAR_FILL));
+		} else {
+			double fw = barW * Math.max(0f, Math.min(1f, progress));
+			if (fw > 0.01) {
+				fillSmooth(g, x0, top, x0 + fw, top + bh, fade(OriginTheme.CLEAN_BAR_FILL));
+			}
+		}
+	}
+
+	/** A colour with layerAlpha (the loading -> title dissolve) multiplied into its alpha. */
+	private static int fade(int argb) {
+		int a = Math.round(((argb >>> 24) & 0xFF) * Math.max(0f, Math.min(1f, layerAlpha)));
+		return (a << 24) | (argb & 0xFFFFFF);
+	}
+
+	private static double clampD(double v, double lo, double hi) {
+		return Math.max(lo, Math.min(hi, v));
+	}
+
+	// ---- clean backdrop: this version's own panorama ----
+
+	/**
+	 * Out-of-world Minecraft menus (MenuHooks' DrawScreenEvent.Pre): 1.8.9's own
+	 * title panorama, drawn and blurred by vanilla's renderer (MenuPanorama),
+	 * under the menu dim and the vignette. False only once Origin rendering has
+	 * failed (the caller keeps vanilla's dirt).
+	 */
+	public static boolean renderMenuBackdrop(Gfx g) {
+		return backdrop(g, OriginTheme.CLEAN_DIM_MENU);
+	}
+
+	/** The title: the same panorama under the lighter title dim. */
+	public static boolean renderTitleBackdrop(Gfx g) {
+		return backdrop(g, OriginTheme.CLEAN_DIM_TITLE);
+	}
+
+	private static boolean backdrop(Gfx g, int dim) {
+		if (broken) {
+			return false;
+		}
+		try {
+			ensureLoaded();
+			cleanBackdrop(g, gw(), gh(), dim);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	/** The panorama (or, if it can't draw, a solid near-black), the dim, the vignette. */
+	private static void cleanBackdrop(Gfx g, int w, int h, int dim) {
+		if (!MenuPanorama.draw(w, h)) {
+			g.fill(0, 0, w, h, OriginTheme.CLEAN_BG);
+		}
+		g.fill(0, 0, w, h, dim);
+		drawVignette(g, w, h);
+		Gfx.resetColor();
+	}
+
+	// ---- the real Origin logo, crisp at any size ----
+
+	// origin_logo.png (256 px, white three-ring mark) downsampled ONCE per
+	// physical size with a 4x4 box filter and blitted 1:1 (NEAREST), so its thin
+	// strokes stay smooth instead of shimmering under plain minification. As
+	// 1.21.1; 1.8.9 bakes into a BufferedImage and uploads through
+	// Gfx.registerTexture. Indexed by physical px (an array, so a frame's lookup
+	// boxes nothing).
+	private static final int LOGO_MAX_PX = 512;
+	private static final ResourceLocation[] LOGO_SIZES = new ResourceLocation[LOGO_MAX_PX + 1];
+	private static java.awt.image.BufferedImage logoSrc;
+	private static boolean logoFailed;
+
+	/** Draws the logo centred on (cx, cy), {@code size} GUI px square, at alpha. */
+	private static void drawLogo(Gfx g, double cx, double cy, double size, float alpha) {
+		int gs = scale();
+		int ps = (int) Math.round(size * gs);
+		ResourceLocation id = logoAt(ps);
+		if (id == null) {
+			OriginUi.logo(g, cx, cy, (int) Math.round(size), alpha);
+			return;
+		}
+		Pose pose = g.pose();
+		pose.pushPose();
+		pose.scale(1f / gs, 1f / gs, 1f);
+		Gfx.defaultBlend();
+		GlStateManager.color(1f, 1f, 1f, Math.max(0f, Math.min(1f, alpha)));
+		int px = (int) Math.round(cx * gs - ps / 2.0), py = (int) Math.round(cy * gs - ps / 2.0);
+		g.blit(id, px, py, 0f, 0f, ps, ps, ps, ps);
+		Gfx.resetColor();
+		pose.popPose();
+	}
+
+	private static ResourceLocation logoAt(int ps) {
+		if (logoFailed || ps <= 0 || ps > LOGO_MAX_PX) {
+			return null;
+		}
+		ResourceLocation id = LOGO_SIZES[ps];
+		if (id != null) {
+			return id;
+		}
+		try {
+			if (logoSrc == null) {
+				logoSrc = Gfx.readImage("/assets/originclient/textures/ui/origin_logo.png");
+			}
+			int sw = logoSrc.getWidth(), sh = logoSrc.getHeight();
+			java.awt.image.BufferedImage dst = new java.awt.image.BufferedImage(ps, ps, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+			for (int y = 0; y < ps; y++) {
+				for (int x = 0; x < ps; x++) {
+					double aSum = 0, cSum = 0;
+					for (int sy = 0; sy < 4; sy++) {
+						for (int sx = 0; sx < 4; sx++) {
+							int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / ps));
+							int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / ps));
+							int c = logoSrc.getRGB(tx, ty);   // ARGB
+							double a = ((c >>> 24) & 0xFF) / 255.0;
+							aSum += a;
+							cSum += a * ((c & 0xFF) / 255.0);
+						}
+					}
+					double a = aSum / 16.0;
+					int v = a > 0 ? (int) Math.round(Math.min(1.0, cSum / aSum) * 255) : 255;
+					dst.setRGB(x, y, ((int) Math.round(a * 255) << 24) | (v << 16) | (v << 8) | v);
+				}
+			}
+			id = new ResourceLocation("originclient", "logo_px_" + ps);
+			if (Gfx.registerTexture(id, dst, false) == null) {
+				throw new IllegalStateException("logo upload failed");
+			}
+			LOGO_SIZES[ps] = id;
+			return id;
+		} catch (Throwable t) {
+			logoFailed = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin logo bake failed; using the plain logo blit", t);
+			return null;
+		}
+	}
+
+	// "ORIGIN" one letter per string (built once: the wordmark allocates nothing per frame).
+	private static final String WORD = "ORIGIN";
+	private static final String[] WORD_LETTERS = {"O", "R", "I", "G", "I", "N"};
+	private static final int WORD_TRACKING = 3;
+
+	/**
+	 * "ORIGIN" in Minecraft's own letters at 2x, spaced out by 3 font px (1.21.1's
+	 * tracked wordmark), with the font's shadow, bottom of the caps on
+	 * {@code baseline}. 1.8.9: fonts are baked before anything here draws, so this
+	 * is the game font itself (1.21.1 reads ascii.png only because its splash
+	 * paints before fonts load -- the same pixels).
+	 */
+	private static void drawWordmarkText(Gfx g, double cx, double baseline, int argb) {
+		// FontRenderer draws a colour whose alpha is under 4 fully opaque.
+		if (((argb >>> 24) & 0xFF) < 4) {
+			return;
+		}
+		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
+		// getCharWidth is the advance (glyph + 1 px); the ink ends 1 px before the last advance.
+		float total = 0;
+		for (int i = 0; i < WORD.length(); i++) {
+			total += font.getCharWidth(WORD.charAt(i)) + WORD_TRACKING;
+		}
+		total -= 1 + WORD_TRACKING;
+		Pose pose = g.pose();
+		pose.pushPose();
+		pose.translate(Math.round(cx - total * 2f * 0.5f), Math.round(baseline - 14), 0);
+		pose.scale(2f, 2f, 1f);
+		float x = 0;
+		for (int i = 0; i < WORD_LETTERS.length; i++) {
+			g.drawStringF(font, WORD_LETTERS[i], x, 0f, argb, true);
+			x += font.getCharWidth(WORD.charAt(i)) + WORD_TRACKING;
+		}
+		pose.popPose();
+	}
+
+	/** A barely-there radial lift behind the centre (the splash's "soft centre lift"). */
+	private static void drawCenterLift(Gfx g, int w, int h, float alpha) {
+		if (radialGlowId == null) {
+			return;
+		}
+		Gfx.defaultBlend();
+		GlStateManager.color(1f, 1f, 1f, alpha * layerAlpha);
+		int d = (int) Math.round(Math.max(w, h) * 0.9);
+		g.blit(radialGlowId, (w - d) / 2, (int) Math.round(h * 0.44 - d / 2.0), d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
+		Gfx.resetColor();
+	}
+
+	// ---- GUI size without a ScaledResolution per call ----
+
+	/** ScaledResolution's scale factor (1.8.9's algorithm, javap), allocation-free. */
+	private static int scale() {
+		Minecraft mc = Minecraft.getMinecraft();
+		int dw = Math.max(1, mc.displayWidth), dh = Math.max(1, mc.displayHeight);
+		int max = mc.gameSettings.guiScale == 0 ? 1000 : mc.gameSettings.guiScale;
+		int s = 1;
+		while (s < max && dw / (s + 1) >= 320 && dh / (s + 1) >= 240) {
+			s++;
+		}
+		if (mc.isUnicode() && s % 2 != 0 && s != 1) {
+			s--;
+		}
+		return s;
+	}
+
+	private static int gw() {
+		return (int) Math.ceil(Math.max(1, Minecraft.getMinecraft().displayWidth) / (double) scale());
+	}
+
+	private static int gh() {
+		return (int) Math.ceil(Math.max(1, Minecraft.getMinecraft().displayHeight) / (double) scale());
+	}
+
+	/**
+	 * Origin's own windows' background, "living rings" (as 1.21.1, Will
+	 * 2026-10-18; Minecraft's menus get the panorama, renderMenuBackdrop). RingField slows them to a third, lets them drift and
 	 * leans them towards the mouse. Returns true only if the Origin backdrop
 	 * actually drew; callers that cancel vanilla's own backdrop must key off this.
 	 *
@@ -390,18 +618,10 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Retired by the pixel-grid commit -- deliberately empty. This was a
-	 * two-layer mouse-follow spotlight ported from the website; the blur IS the
-	 * effect, so it cannot exist on Minecraft's pixel grid. Kept so the call
-	 * sites shared with every other version stay identical.
-	 */
-	public static void renderTitleCursorGlow(Gfx guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-	}
-
-	/**
-	 * Main menu: the Origin mark above the compact action stack. After the game's
-	 * first load it is the startup layer's mark finishing its flight here
-	 * (MarkMotion); any other time it is simply there.
+	 * Main menu: the real Origin logo and the ORIGIN wordmark above the button
+	 * stack, still (the startup layer dissolves over it after the game's first
+	 * load). TitleLayout drops the logo, then the wordmark, when extra rows need
+	 * the room. As 1.21.1.
 	 */
 	public static boolean renderTitleWordmark(Gfx guiGraphics) {
 		if (broken) {
@@ -409,14 +629,12 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			ensureLoaded();
-			if (startupLayer) {
-				return true;   // the startup layer draws it, over this
+			TitleLayout L = TitleLayout.of(gw(), gh());
+			if (L.markSize > 0) {
+				drawLogo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1f);
 			}
-			TitleLayout L = TitleLayout.of(guiGraphics.guiWidth(), guiGraphics.guiHeight());
-			if (MarkMotion.flying()) {
-				MarkMotion.drawFlight(guiGraphics, L.markCenterX, L.markCenterY, L.markSize);
-			} else {
-				MarkMotion.drawFormed(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1.0);
+			if (L.showWordmark) {
+				drawWordmarkText(guiGraphics, L.markCenterX, L.wordBaseline, OriginTheme.CLEAN_TEXT);
 			}
 			return true;
 		} catch (Throwable t) {
@@ -425,32 +643,27 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * 1.8.9: the startup layer at full strength -- the intro's hold, while the
-	 * seed blooms (OriginTitleScreen draws only this; the title waits under it).
-	 * False once Origin rendering has failed.
+	 * The baked "ORIGIN" wordmark centred on (cx, cy). Retired with the baked
+	 * asset (one typography voice): always false, so callers take their font
+	 * fallback.
+	 */
+	public static boolean renderWordmarkAt(Gfx guiGraphics, double cx, double cy, double targetInkHeight, float alpha) {
+		return false;
+	}
+
+	/**
+	 * 1.8.9: the startup layer at full strength over whatever is drawn this frame
+	 * -- the settle hold, the title rendered for real underneath (OriginTitleScreen;
+	 * 1.21.1's renderLoadingHold). False once Origin rendering has failed.
 	 */
 	public static boolean renderStartupLoading(Gfx guiGraphics) {
-		if (broken) {
-			return false;
-		}
-		try {
-			startupLayer = true;
-			renderLoading0(guiGraphics, 1f, true, true);
-			return true;
-		} catch (Throwable t) {
-			return fail(t);
-		}
-	}
-
-	/** 1.8.9: true once the startup layer's seed has bloomed into the three circles. */
-	public static boolean startupBloomed() {
-		return loadStartScene >= 0 && RingField.sceneMs() - loadStartScene >= MarkMotion.BLOOM_MS;
+		return renderLoadingFade(guiGraphics, 1f, true);
 	}
 
 	/**
-	 * The startup layer at {@code alpha}, over the title (the dissolve). With
-	 * {@code toTitle} the mark flies onto the title's logo spot instead of fading.
-	 * False once Origin rendering has failed.
+	 * The startup layer at {@code alpha} over the title (the dissolve). The logo
+	 * is still on both, so the layer simply dissolves; {@code toTitle} is kept
+	 * for the call sites' shape (1.21.1). False once Origin rendering has failed.
 	 */
 	public static boolean renderLoadingFade(Gfx guiGraphics, float alpha, boolean toTitle) {
 		if (broken) {
@@ -458,20 +671,9 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			layerAlpha = Math.max(0f, Math.min(1f, alpha));
-			startupLayer = true;
 			// As 1.21.1: nothing the title drew may win a depth test against the layer.
 			GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
-			if (toTitle) {
-				MarkMotion.startFlight();
-			}
-			boolean fly = toTitle && MarkMotion.flightStarted();
-			// The title underneath already drives the ring field: don't pull it back.
-			renderLoading0(guiGraphics, 1f, false, !fly);
-			if (fly) {
-				layerAlpha = 1f;
-				TitleLayout L = TitleLayout.of(guiGraphics.guiWidth(), guiGraphics.guiHeight());
-				MarkMotion.drawFlight(guiGraphics, L.markCenterX, L.markCenterY, L.markSize);
-			}
+			renderSplash(guiGraphics);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -481,86 +683,47 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** 1.8.9: the dissolve is over; the title draws its own mark from now on. */
-	public static void endStartupLayer() {
-		startupLayer = false;
-	}
-
-	private static void renderLoading0(Gfx guiGraphics, float progress, boolean drive, boolean drawMark) {
-		ensureLoaded();
-		if (drive) {
-			field(RingField.Mood.LOADING);
-		}
-		int w = guiGraphics.guiWidth();
-		int h = guiGraphics.guiHeight();
-		float clamped = Math.max(0f, Math.min(1f, progress));
-
-		double scene = RingField.sceneMs();
-		if (loadStartScene < 0) {
-			loadStartScene = scene;
-		}
-		// The fill only ever glides forward (1.8.9's layer only ever shows a
-		// finished load, so it simply sits full).
-		loadFill = loadFill < 0 || clamped < loadFill - 0.25 ? clamped
-				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
-		loadFillAt = scene;
-
-		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
-		fill(guiGraphics, 0, 0, w, h, OriginTheme.BG);
-		drawGrain(guiGraphics, w, h);
-		drawVignette(guiGraphics, w, h);
-
-		// Mark above, then the wordmark, then the bar, as one group centred a
-		// touch above the middle (1.21.1's layout, with its no-texture sizes).
-		double size = Math.min(h * 0.36, w * 0.30);
-		double markCy = h * 0.40;
-		if (drawMark) {
-			MarkMotion.drawLoading(guiGraphics, w / 2.0, markCy, size, scene - loadStartScene, layerAlpha);
-		}
-		double inkH = h * 0.07;
-		double wordCy = markCy + size * 0.5 + h * 0.06 + inkH / 2.0;
-		drawStartupWordmark(guiGraphics, w / 2.0, wordCy);
-
-		int barW = (int) Math.round(w * 0.16);
-		int barH = Math.max(2, (int) Math.round(h * 0.008));
-		int barTop = (int) Math.round(wordCy + inkH * 1.15);
-		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, (float) loadFill);
-		drawCornerBrackets(guiGraphics, w, h);
-	}
-
-	/** "ORIGIN" in Minecraft's own letters at 4x, centred on (cx, cy), at the layer's alpha. */
-	private static void drawStartupWordmark(Gfx guiGraphics, double cx, double cy) {
-		int a = (int) Math.round(layerAlpha * 255.0);
-		// 1.8.9: FontRenderer draws a colour whose alpha is under 4 fully opaque.
-		if (a < 4) {
-			return;
-		}
-		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
-		String word = "ORIGIN";
-		Pose pose = guiGraphics.pose();
-		pose.pushPose();
-		pose.translate(cx, cy, 0);
-		pose.scale(4f, 4f, 1f);
-		// getStringWidth counts the trailing 1px advance; the ink is one narrower.
-		guiGraphics.drawStringF(font, word, -(font.getStringWidth(word) - 1) / 2f, -4f,
-				(a << 24) | (OriginTheme.TEXT & 0xFFFFFF), false);
-		pose.popPose();
-	}
-
 	/**
-	 * The baked "ORIGIN" wordmark centred on (cx, cy). Retired with the baked
-	 * asset (one typography voice, as on 1.16.5): always false, so callers take
-	 * their font fallback.
+	 * The clean splash (1.21.1's renderLoading0, Will's approved mockup): solid
+	 * near-black with a soft centre lift, the real logo, the ORIGIN wordmark, a
+	 * thin bar and the percent. 1.8.9's startup load itself is Forge's splash
+	 * (themed by the launcher), so this layer only ever shows a FINISHED load:
+	 * the bar sits full at 100% -- exactly 1.21.1's settle-hold picture.
 	 */
-	public static boolean renderWordmarkAt(Gfx guiGraphics, double cx, double cy, double targetInkHeight, float alpha) {
-		return false;
+	private static void renderSplash(Gfx guiGraphics) {
+		ensureLoaded();
+		int w = gw(), h = gh();
+		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.CLEAN_BG));
+		drawCenterLift(guiGraphics, w, h, 0.05f);
+		double size = clampD(h * 0.11, 24, 44);
+		double markCy = h * 0.44;
+		drawLogo(guiGraphics, w / 2.0, markCy, size, layerAlpha);
+		double wordBase = markCy + size / 2.0 + 19;
+		drawWordmarkText(guiGraphics, w / 2.0, wordBase, fade(0xFFFFFFFF));
+		double barW = Math.min(160, w * 0.5);
+		double barTop = wordBase + 9;
+		drawThinBar(guiGraphics, w / 2.0, barTop, barW, 1f, false);
+		int pctArgb = fade(OriginTheme.CLEAN_TEXT_FAINT);
+		if (((pctArgb >>> 24) & 0xFF) >= 4) {
+			FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
+			// Right edge of the ink on the bar's end (getStringWidth counts one trailing px).
+			int right = (int) Math.round(w / 2.0 + barW / 2.0);
+			guiGraphics.drawString(font, PCT_FULL, right - (font.getStringWidth(PCT_FULL) - 1), (int) Math.round(barTop + 5), pctArgb, true);
+		}
 	}
 
+	private static final String PCT_FULL = "100%";
+
+	/** The title's player chip draws on vanilla's normal button sprite (widgets.png, v = 66). */
+	private static final ResourceLocation WIDGETS = new ResourceLocation("textures/gui/widgets.png");
+
 	/**
-	 * Main menu: a small account chip (player head + username) in the top-left.
-	 * No backing panel (Will 2026-07-21); the username keeps a text shadow. If
-	 * the head can't be resolved the chip falls back to the Origin ring mark.
-	 * 1.8.9: the account is mc.getSession() (no User object).
+	 * Main menu: the account chip (player head + username) in the top-left, on
+	 * a vanilla button, as 1.21.1 (Will, 2026-10-19: "use the same style for the
+	 * player in the top left"). Not clickable, so it never highlights. Head from
+	 * the skin (default first, the real one swaps in async); the logo if the head
+	 * can't be resolved. 1.8.9: the account is mc.getSession() (no User object);
+	 * no PlayerFaceRenderer, so the face and hat layers are blitted from the skin.
 	 */
 	public static void renderTitleAccountChip(Gfx guiGraphics) {
 		if (broken) {
@@ -577,14 +740,18 @@ public final class OriginScreenRenderer {
 				return;
 			}
 			FontRenderer font = mc.fontRendererObj;
-			int w = guiGraphics.guiWidth();
-			int head = 18;
-			int padX = 8, padY = 6, gap = 8;
-			int chipH = head + padY * 2;
-			int x = Math.max(10, (int) Math.round(w * 0.03));
-			int y = x;
+			int x = TitleLayout.CORNER, y = TitleLayout.CORNER, chipH = TitleLayout.CORNER_SIZE;
+			int head = 12, pad = 4, gap = 5;
+			int textW = font.getStringWidth(name);
+			int chipW = pad + head + gap + textW + pad + 2;
+			// GuiButton.drawButton's two halves of the 200 px sprite (javap 1.8.9).
+			Gfx.defaultBlend();
+			GlStateManager.color(1f, 1f, 1f, 1f);
+			int left = chipW / 2, right = chipW - left;
+			guiGraphics.blit(WIDGETS, x, y, 0, 66, left, chipH);
+			guiGraphics.blit(WIDGETS, x + left, y, 200 - right, 66, right, chipH);
 
-			int hx = x + padX, hy = y + padY;
+			int hx = x + pad, hy = y + (chipH - head) / 2;
 			boolean drewHead = false;
 			try {
 				// The head is blitted straight from the 64x64 skin: face (8,8) + hat
@@ -596,14 +763,13 @@ public final class OriginScreenRenderer {
 				guiGraphics.blit(skin, hx, hy, head, head, 40f, 8f, 8, 8, 64, 64);
 				drewHead = true;
 			} catch (Throwable ignored) {
-				// fall back to the ring mark below
+				// fall back to the logo below
 			}
 			if (!drewHead) {
-				OriginUi.logo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
+				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
-
-			OriginText.drawBold(guiGraphics, font, name, hx + head + gap,
-					y + (chipH - 8) / 2, OriginTheme.TEXT, true);
+			// Vanilla button text: white with the font's shadow.
+			guiGraphics.drawString(font, name, hx + head + gap, y + (chipH - 8) / 2, 0xFFFFFFFF, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
@@ -707,12 +873,6 @@ public final class OriginScreenRenderer {
 		pose.popPose();
 	}
 
-	/** Shared frame dressing for the ring backdrop: edge vignette + corner brackets. */
-	private static void drawFrame(Gfx guiGraphics, int w, int h) {
-		drawVignette(guiGraphics, w, h);
-		drawCornerBrackets(guiGraphics, w, h);
-	}
-
 	/** Full-screen edge vignette (the 1024px texture stretched to the GUI size). */
 	private static void drawVignette(Gfx guiGraphics, int w, int h) {
 		if (vignetteId == null) {
@@ -726,40 +886,6 @@ public final class OriginScreenRenderer {
 		guiGraphics.blit(vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX);
 		Gfx.resetColor();
 		pose.popPose();
-	}
-
-	/** Thin L-brackets inset from each screen corner, in the soft-strong stroke tone. */
-	private static void drawCornerBrackets(Gfx guiGraphics, int w, int h) {
-		int inset = Math.max(10, (int) Math.round(w * 0.022));
-		int len = Math.max(10, (int) Math.round(w * 0.018));
-		int th = Math.max(1, (int) Math.round(w * 0.0015));
-		int c = OriginTheme.STROKE_STRONG;
-		// top-left
-		fill(guiGraphics, inset, inset, inset + len, inset + th, c);
-		fill(guiGraphics, inset, inset, inset + th, inset + len, c);
-		// top-right
-		fill(guiGraphics, w - inset - len, inset, w - inset, inset + th, c);
-		fill(guiGraphics, w - inset - th, inset, w - inset, inset + len, c);
-		// bottom-left
-		fill(guiGraphics, inset, h - inset - th, inset + len, h - inset, c);
-		fill(guiGraphics, inset, h - inset - len, inset + th, h - inset, c);
-		// bottom-right
-		fill(guiGraphics, w - inset - len, h - inset - th, w - inset, h - inset, c);
-		fill(guiGraphics, w - inset - th, h - inset - len, w - inset, h - inset, c);
-	}
-
-	/** Draws the progress bar centered on cx at barTop, with the given width/height. */
-	private static void drawBar(Gfx guiGraphics, double cx, int barTop, int barW, int barH, float progress) {
-		int bx = (int) Math.round(cx - barW / 2.0);
-		int by = barTop;
-		// Track at ~16% white: at 8% the unfilled track vanished on the near-black
-		// background and the bar read as the wrong size.
-		fill(guiGraphics, bx, by, bx + barW, by + barH, 0x29FFFFFF);              // track
-		double fillW = barW * Math.max(0f, Math.min(1f, progress));
-		if (fillW > 0.05) {
-			fillSmooth(guiGraphics, bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow
-			fillSmooth(guiGraphics, bx, by, bx + fillW, by + barH, OriginTheme.ACCENT);  // fill
-		}
 	}
 
 	/** Gfx.fill with the colour's alpha scaled by layerAlpha (fills carry their colour per vertex). */
@@ -785,7 +911,7 @@ public final class OriginScreenRenderer {
 		if (!(x1 > x0) || !(y1 > y0)) {
 			return;
 		}
-		double gs = Gfx.guiScale();
+		double gs = scale();
 		double px0 = x0 * gs, px1 = x1 * gs;
 		int py0 = (int) Math.round(y0 * gs), py1 = (int) Math.round(y1 * gs);
 		Pose pose = guiGraphics.pose();

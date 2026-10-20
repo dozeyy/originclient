@@ -21,7 +21,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // (the strips; vanilla, remapped). Both are cancelled at HEAD. Like 1.16.5 this
 // runs in-world too: there the screen's own drawDefaultBackground (vanilla's
 // darkened world, or Menu Blur) shows through, instead of dirt over the game.
-// The list's 4 px edge fades, selection boxes and scrollbar still draw.
+// The list's 4 px edge fades, selection boxes and scrollbar still draw; out of a
+// world the row area gets the clean look's CLEAN_PANEL fill instead of dirt.
+// If either inject stops applying, that part of the list draws vanilla dirt.
 // Fail-soft: gated only on isActive() -- a broken Origin renderer leaves
 // vanilla's dirt untouched.
 @Mixin(GuiSlot.class)
@@ -29,8 +31,17 @@ public abstract class GuiSlotMixin {
 
 	@Inject(method = "drawContainerBackground", at = @At("HEAD"), cancellable = true, remap = false)
 	private void originclient$transparentRows(CallbackInfo ci) {
-		if (OriginScreenRenderer.isActive()
-			&& !OriginStyle.vanillaMenusOn(net.minecraft.client.Minecraft.getMinecraft().currentScreen)) {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+		if (OriginScreenRenderer.isActive() && !OriginStyle.vanillaMenusOn(mc.currentScreen)) {
+			// The clean look (1.21.1's ScreenBackgroundMixin, 2026-10-19): out of a
+			// world, a Minecraft menu's list body is a translucent dark panel over
+			// the panorama; Origin's own windows and in-world lists stay clear.
+			if (mc.theWorld == null && mc.currentScreen != null
+					&& !com.origin.client.client.gui.OriginWidgetOwnership.isOriginOwnClass(mc.currentScreen)) {
+				GuiSlot self = (GuiSlot) (Object) this;
+				net.minecraft.client.gui.Gui.drawRect(self.left, self.top, self.right, self.bottom,
+						com.origin.client.client.theme.OriginTheme.CLEAN_PANEL);
+			}
 			ci.cancel();
 		}
 	}

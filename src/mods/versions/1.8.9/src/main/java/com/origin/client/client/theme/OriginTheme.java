@@ -93,6 +93,24 @@ public final class OriginTheme {
 	public static final int SPACE_8 = 64;
 	public static final int SPACE_10 = 96;
 
+
+	// ---- Clean in-game surface (Will's approved mockup, 2026-10-19) ----
+	// What Origin adds around Minecraft's own screens (title, pause, options,
+	// world/server lists, loading): the dim over this version's blurred panorama (1.8.9: GuiMainMenu's own blurred cube),
+	// the list panels, the loading scene's text and bar. The controls (and the
+	// title's player chip) are stock Minecraft widgets (Will, 2026-10-19).
+	// Fixed (not theme-repainted) so the vanilla menus always match.
+	public static final int CLEAN_PANEL = 0x800C0D10;          // list / settings panels, rgba(12,13,16,.50)
+	public static final int CLEAN_TEXT = 0xFFF3F4F6;
+	public static final int CLEAN_TEXT_DIM = 0xA8F3F4F6;       // 66%
+	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
+	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
+	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
+	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
+	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
+	public static final int CLEAN_BAR_TRACK = 0x29FFFFFF;      // loading bar track, white 16%
+	public static final int CLEAN_BAR_FILL = 0xEBFFFFFF;       // loading bar fill, white 92%
+
 	// ---- Shape: crafted, not pill-heavy ----
 	public static final int RADIUS_SM = 1;
 	public static final int RADIUS_MD = 2;
