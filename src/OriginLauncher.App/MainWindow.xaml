@@ -147,7 +147,7 @@
                                 <controls:PlayerHead x:Name="AccountFace"/>
                             </Border>
                             <TextBlock x:Name="AccountName" Text="Sign in" Margin="8,0,6,0" VerticalAlignment="Center"
-                                       FontSize="13" FontWeight="SemiBold" MaxWidth="160" TextTrimming="CharacterEllipsis"
+                                       FontSize="{StaticResource FontSize.Body}" FontWeight="SemiBold" MaxWidth="160" TextTrimming="CharacterEllipsis"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
                                   Width="12" Height="12" VerticalAlignment="Center"
@@ -178,24 +178,24 @@
                 Visibility="Collapsed" IsHitTestVisible="False"
                 MouseLeftButtonDown="Scrim_MouseLeftButtonDown"/>
 
-        <Border x:Name="AccountPanel" Width="340" HorizontalAlignment="Right"
+        <Border x:Name="AccountPanel" Width="{StaticResource Size.Drawer}" HorizontalAlignment="Right"
                 Background="{StaticResource Brush.PanelElevated}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
                 Visibility="Collapsed" IsHitTestVisible="False">
             <Border.RenderTransform>
-                <TranslateTransform x:Name="AccountPanelTransform" X="340"/>
+                <TranslateTransform x:Name="AccountPanelTransform" X="{StaticResource Size.Drawer}"/>
             </Border.RenderTransform>
             <ContentControl x:Name="AccountPanelHost"/>
         </Border>
 
-        <!-- Friends drawer: same slide-out as the account panel, a little wider
-             for the chat pane. Shares the Scrim; only one drawer is open at once. -->
-        <Border x:Name="FriendsDrawer" Width="380" HorizontalAlignment="Right"
+        <!-- Friends drawer: same slide-out and the same width (Size.Drawer) as the account panel.
+             Shares the Scrim; only one drawer is open at once. -->
+        <Border x:Name="FriendsDrawer" Width="{StaticResource Size.Drawer}" HorizontalAlignment="Right"
                 Background="{StaticResource Brush.PanelElevated}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
                 Visibility="Collapsed" IsHitTestVisible="False">
             <Border.RenderTransform>
-                <TranslateTransform x:Name="FriendsDrawerTransform" X="380"/>
+                <TranslateTransform x:Name="FriendsDrawerTransform" X="{StaticResource Size.Drawer}"/>
             </Border.RenderTransform>
             <ContentControl x:Name="FriendsPanelHost"/>
         </Border>

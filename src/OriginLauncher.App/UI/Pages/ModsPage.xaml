@@ -7,18 +7,8 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- One mod row: a flat panel that lifts to Card on hover. -->
-        <Style x:Key="Row.Mod" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
-            <Setter Property="Padding" Value="12,10,10,10"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+        <!-- One mod row: the shared row (Theme/Surfaces.xaml: Panel, lifts to Card on hover). -->
+        <Style x:Key="Row.Mod" TargetType="Border" BasedOn="{StaticResource Surface.Row}"/>
         <Style x:Key="Mods.IconWell" TargetType="Border">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="40"/>
@@ -34,7 +24,8 @@
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
 
-        <StackPanel x:Name="Column" MaxWidth="880" Margin="32,100,32,40">
+        <controls:PageColumn x:Name="Column" Style="{StaticResource Page.Column}">
+        <StackPanel>
 
             <!-- Header: the poster title + version tag, the intro, and the
                  YOUR MODS switch (load your own jars or not, every launch). -->
@@ -46,10 +37,8 @@
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="MODS" Style="{StaticResource Text.Poster}"/>
-                        <Border x:Name="VersionChip" Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Knob}"
-                                Padding="8,4" Margin="12,0,0,8" VerticalAlignment="Bottom">
-                            <TextBlock x:Name="VersionChipText" Text="1.21.1" FontSize="12" FontWeight="Bold"
-                                       Foreground="{StaticResource Brush.Text}"/>
+                        <Border x:Name="VersionChip" Style="{StaticResource Surface.Chip}" Margin="12,0,0,8" VerticalAlignment="Bottom">
+                            <TextBlock x:Name="VersionChipText" Text="1.21.1" Style="{StaticResource Surface.ChipText}"/>
                         </Border>
                     </StackPanel>
                     <TextBlock x:Name="IntroText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="500"
@@ -57,21 +46,16 @@
                                Text="Your own .jar mods for this version, shared by all your accounts. Origin's built-in mods stay up to date on their own."/>
                 </StackPanel>
 
-                <Border Grid.Column="1" x:Name="YourModsTile" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Card}"
-                        Padding="16,10,14,10" Margin="24,8,0,0" VerticalAlignment="Top"
-                        ToolTip="Load the .jar mods you added">
-                    <StackPanel Orientation="Horizontal">
-                        <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
-                            <controls:TrackedText Text="YOUR MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
-                                                  FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
-                            <TextBlock x:Name="YourModsState" Text="On" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,0"
-                                       Foreground="{StaticResource Brush.Text}"/>
-                        </StackPanel>
-                        <ToggleButton x:Name="YourModsSwitch" Style="{StaticResource Toggle.Slider}" VerticalAlignment="Center"
-                                      AutomationProperties.Name="Load your mods"
-                                      Checked="YourModsSwitch_Changed" Unchecked="YourModsSwitch_Changed"/>
-                    </StackPanel>
-                </Border>
+                <!-- The switch (load your own jars or not, every launch): the same label and slider as Home's
+                     MY MODS, no box and no On/Off word; the slider says it. -->
+                <ToggleButton Grid.Column="1" x:Name="YourModsSwitch" Style="{StaticResource Toggle.Slider}"
+                              Margin="24,8,0,0" VerticalAlignment="Top" ToolTip="Load the .jar mods you added"
+                              AutomationProperties.Name="Load your mods"
+                              Checked="YourModsSwitch_Changed" Unchecked="YourModsSwitch_Changed">
+                    <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Display}"
+                                          FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                </ToggleButton>
             </Grid>
 
             <!-- The drop zone. Real drag and drop: a jar over it grows the zone,
@@ -114,15 +98,14 @@
                     </Border>
                     <Grid VerticalAlignment="Center">
                         <StackPanel x:Name="IdleText">
-                            <TextBlock x:Name="DropTitle" Text="Drag and drop mod jars here" FontSize="17" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Brush.Text}"/>
-                            <TextBlock FontSize="12.5" Margin="0,2,0,0" Foreground="{StaticResource Brush.TextMuted}">
+                            <TextBlock x:Name="DropTitle" Text="Drag and drop mod jars here" Style="{StaticResource Text.H2}"/>
+                            <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
                                 <Run Text="or"/>
                                 <Run Text="browse" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
                             </TextBlock>
                         </StackPanel>
-                        <TextBlock x:Name="OverText" Text="Release to add" FontSize="17" FontWeight="SemiBold" Opacity="0"
-                                   Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="OverText" Text="Release to add" Style="{StaticResource Text.H2}" Opacity="0"
+                                   VerticalAlignment="Center"/>
                     </Grid>
                 </StackPanel>
 
@@ -136,11 +119,10 @@
                     <StackPanel Orientation="Horizontal">
                         <Border Width="36" Height="36" Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Sharp}"
                                 Margin="0,0,12,0">
-                            <Path Data="{StaticResource Icon.Jar}" Style="{StaticResource Icon.Base}" Width="16" Height="16"
+                            <Path Data="{StaticResource Icon.Jar}" Style="{StaticResource Icon.Base}"
                                   Stroke="{StaticResource Brush.Text}"/>
                         </Border>
-                        <TextBlock x:Name="GhostText" Text="1 mod jar" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                                   Foreground="{StaticResource Brush.Text}"/>
+                        <TextBlock x:Name="GhostText" Text="1 mod jar" Style="{StaticResource Text.Label}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -157,24 +139,24 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <controls:TrackedText x:Name="UserHeader" Text="YOUR MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
+                    <controls:TrackedText x:Name="UserHeader" Text="MY MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
                                           FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
-                    <TextBlock x:Name="UserCount" Text="0" FontSize="11" FontWeight="Bold" Margin="8,0,0,0"
+                    <TextBlock x:Name="UserCount" Text="0" FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="Bold" Margin="8,0,0,0"
                                Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" x:Name="UserHint" Text="Switch one off to keep it without loading it"
                            Style="{StaticResource Text.Caption}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0"/>
-                <Button Grid.Column="2" x:Name="OpenFolderButton" Style="{StaticResource Button.Chrome}" Padding="8,4" MinHeight="28"
+                <Button Grid.Column="2" x:Name="OpenFolderButton" Style="{StaticResource Button.Secondary.Small}"
                         Click="OpenFolder_Click" ToolTip="Open this mods folder">
                     <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14" Margin="0,0,6,0"
+                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}" Margin="0,0,8,0"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        <TextBlock Text="Open folder" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Open folder" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </Grid>
             <StackPanel x:Name="UserModsPanel"/>
-            <Border x:Name="UserEmptyState" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Row}" Padding="16,14">
+            <Border x:Name="UserEmptyState" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Card}" Padding="16">
                 <TextBlock x:Name="UserEmptyText" Text="No mods yet. Drop a jar above to add one."
                            Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"/>
             </Border>
@@ -185,7 +167,7 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <controls:TrackedText Text="BUILT IN" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
                                               FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
-                        <TextBlock x:Name="BuiltInCount" Text="0" FontSize="11" FontWeight="Bold" Margin="8,0,0,0"
+                        <TextBlock x:Name="BuiltInCount" Text="0" FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="Bold" Margin="8,0,0,0"
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Text="Kept up to date by Origin" Style="{StaticResource Text.Caption}"
@@ -195,5 +177,6 @@
             </StackPanel>
 
         </StackPanel>
+        </controls:PageColumn>
     </ScrollViewer>
 </UserControl>

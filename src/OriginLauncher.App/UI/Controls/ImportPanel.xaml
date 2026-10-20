@@ -112,38 +112,27 @@
             </Setter>
         </Style>
 
-        <!-- A launcher tile / a result card: the card surface; the tile lifts one step on hover. -->
-        <Style x:Key="Import.Tile" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
-            <Setter Property="Padding" Value="16,16,16,16"/>
+        <!-- A launcher tile / a result card: the shared card (Theme/Surfaces.xaml), 16 px apart in the grid. -->
+        <Style x:Key="Import.Tile" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
             <Setter Property="Margin" Value="0,0,16,16"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
-        <!-- The three counts under a tile and the four on Done: a number, then its label in small caps. -->
+                <!-- The three counts under a tile and the four on Done: a number, then its label in small caps. -->
         <Style x:Key="Import.StatNumber" TargetType="TextBlock" BasedOn="{StaticResource Text.CardTitle}">
             <Setter Property="FontSize" Value="24"/>
             <Setter Property="LineHeight" Value="28"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
 
-        <!-- A header button: plain bold words, no frame (Back, Cancel, What to bring, Add a folder). -->
-        <Style x:Key="Import.HeaderButton" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="Padding" Value="12,0"/>
-            <Setter Property="Margin" Value="4,0,0,0"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+        <!-- A header button (Back, Cancel, What to bring, Add a folder): the small ghost button, 8 apart. -->
+        <Style x:Key="Import.HeaderButton" TargetType="Button" BasedOn="{StaticResource Button.Secondary.Small}">
+            <Setter Property="Margin" Value="8,0,0,0"/>
         </Style>
 
-        <!-- "Bring everything from Lunar" on a tile: the soft accent wash (Brush.AccSoft), the accent edge on hover. -->
+                <!-- "Bring everything from Lunar" on a tile: the soft accent wash (Brush.AccSoft), the accent edge on hover. -->
         <Style x:Key="Import.FastButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Height" Value="34"/>
+            <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
             <Setter Property="Margin" Value="0,12,0,0"/>
             <Setter Property="Padding" Value="12,0"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -179,9 +168,9 @@
         <!-- A version tab above the grid: the card surface, the soft accent with an accent edge when shown. -->
         <Style x:Key="Import.Tab" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="MinHeight" Value="32"/>
-            <Setter Property="Padding" Value="14,0"/>
-            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
             <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -255,14 +244,14 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:HintVm}">
-            <Border Style="{StaticResource Social.RowStatic}">
+            <Border Style="{StaticResource Social.DrawerRowStatic}">
                 <TextBlock Text="{Binding Text}" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"/>
             </Border>
         </DataTemplate>
 
         <!-- A quiet line that changes in place (the version page's "Settings from ..."). -->
         <DataTemplate DataType="{x:Type controls:ImportNoteVm}">
-            <Border Style="{StaticResource Social.RowStatic}">
+            <Border Style="{StaticResource Social.DrawerRowStatic}">
                 <TextBlock Text="{Binding Text}" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"/>
             </Border>
         </DataTemplate>
@@ -661,7 +650,7 @@
 
         <!-- "Import from all versions": the whole row and its tick box do the same thing (mixed = some versions). -->
         <DataTemplate DataType="{x:Type controls:SelectAllVm}">
-            <Button Style="{StaticResource Social.Row}" Click="SelectAll_Click" IsEnabled="{Binding Enabled}"
+            <Button Style="{StaticResource Social.DrawerRow}" Click="SelectAll_Click" IsEnabled="{Binding Enabled}"
                     AutomationProperties.Name="Import from all versions" ToolTip="Tick or untick every version">
                 <Grid MinHeight="38">
                     <Grid.ColumnDefinitions>
@@ -683,7 +672,7 @@
 
         <!-- One Minecraft version: the row opens it (what it brings, its setups); the tick box takes it in or out. -->
         <DataTemplate DataType="{x:Type controls:VersionRowVm}">
-            <Button Style="{StaticResource Social.Row}" Click="VersionRow_Click"
+            <Button Style="{StaticResource Social.DrawerRow}" Click="VersionRow_Click"
                     AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding RowTip}">
                 <Grid MinHeight="38">
                     <Grid.ColumnDefinitions>
@@ -718,7 +707,7 @@
 
         <!-- "What to bring": the switches wrap inside one card (Import.Chip, Theme/Social.xaml). -->
         <DataTemplate DataType="{x:Type controls:CategoryBarVm}">
-            <Border Style="{StaticResource Social.RowStatic}" Padding="10,10,4,4">
+            <Border Style="{StaticResource Social.DrawerRowStatic}" Padding="10,10,4,4">
                 <ItemsControl ItemsSource="{Binding Chips}" Focusable="False"
                               IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}">
                     <ItemsControl.ItemsPanel>
@@ -740,7 +729,7 @@
 
         <!-- One setup: the row opens its own review; the tick box takes it in or out. -->
         <DataTemplate DataType="{x:Type controls:SetupRowVm}">
-            <Button Style="{StaticResource Social.Row}" Click="SetupRow_Click"
+            <Button Style="{StaticResource Social.DrawerRow}" Click="SetupRow_Click"
                     AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding RowTip}">
                 <Grid MinHeight="38">
                     <Grid.ColumnDefinitions>
@@ -784,7 +773,7 @@
 
         <!-- Whose settings: the setup and how much it was played; the picked one has a 1 px accent frame (like SELECTED on Profiles). -->
         <DataTemplate DataType="{x:Type controls:ChooseRowVm}">
-            <Button Style="{StaticResource Social.Row}" Click="ChooseRow_Click"
+            <Button Style="{StaticResource Social.DrawerRow}" Click="ChooseRow_Click"
                     AutomationProperties.Name="{Binding Name}">
                 <Grid MinHeight="38">
                     <Grid.ColumnDefinitions>
@@ -811,7 +800,7 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:ImportOptionVm}">
-            <Border Style="{StaticResource Social.RowStatic}" Padding="10,6">
+            <Border Style="{StaticResource Social.DrawerRowStatic}" Padding="10,6">
                 <Grid MinHeight="40">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -830,7 +819,7 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:ImportStatVm}">
-            <Border Style="{StaticResource Social.RowStatic}">
+            <Border Style="{StaticResource Social.DrawerRowStatic}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -845,7 +834,7 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:ImportLineVm}">
-            <Border Style="{StaticResource Social.RowStatic}">
+            <Border Style="{StaticResource Social.DrawerRowStatic}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -867,8 +856,9 @@
     </UserControl.Resources>
 
     <Grid>
-        <!-- The page column: the same 1000 px and insets as Profiles (the top inset clears the 56 px bar). -->
-        <Grid x:Name="Column" MaxWidth="1000" Margin="32,96,32,24">
+        <!-- The page column: the shared one (Page.Column: left-aligned under the logo, 1000 px, clears the 56 px bar). -->
+        <controls:PageColumn x:Name="Column" Style="{StaticResource Page.Column}">
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>   <!-- header -->
                 <RowDefinition Height="Auto"/>   <!-- notice -->
@@ -910,7 +900,7 @@
                     <Button x:Name="BrowseButton" Style="{StaticResource Import.HeaderButton}" Click="Browse_Click"
                             Visibility="Collapsed" ToolTip="Point Origin at a setup's folder" AutomationProperties.Name="Add a folder">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                            <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}"
                                   Margin="0,0,8,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <TextBlock Text="Add a folder" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -954,8 +944,7 @@
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
                         <!-- The launchers that weren't found (or were empty): one slim row, and the way to point at a folder. -->
-                        <Border x:Name="MissingBar" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
-                                Padding="14,10" Margin="0,0,0,0" Visibility="Collapsed">
+                        <Border x:Name="MissingBar" Style="{StaticResource Surface.Row}" Margin="0" Visibility="Collapsed">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -971,13 +960,13 @@
                                 </ItemsControl>
                                 <TextBlock x:Name="MissingText" Grid.Column="1" Style="{StaticResource Text.BodyDim}"
                                            TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center"/>
-                                <Button x:Name="LocateButton" Grid.Column="2" Style="{StaticResource Button.Chrome}" Click="Browse_Click"
-                                        Height="32" Padding="12,0" Margin="12,0,0,0" ToolTip="Point Origin at a launcher's folder"
+                                <Button x:Name="LocateButton" Grid.Column="2" Style="{StaticResource Button.Secondary.Small}" Click="Browse_Click"
+                                        Margin="12,0,0,0" ToolTip="Point Origin at a launcher's folder"
                                         AutomationProperties.Name="Locate folder">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
-                                              Margin="0,0,7,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                                        <TextBlock Text="Locate folder" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}"
+                                              Margin="0,0,8,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                        <TextBlock Text="Locate folder" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </Grid>
@@ -1215,7 +1204,7 @@
             </Grid>
 
             <!-- Footer: what is ready on the left, the page's buttons on the right. -->
-            <Grid x:Name="Footer" Grid.Row="3" Margin="0,18,0,0" MinHeight="44">
+            <Grid x:Name="Footer" Grid.Row="3" Margin="0,16,0,0" MinHeight="{StaticResource Size.Control}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -1223,13 +1212,13 @@
                 <TextBlock x:Name="FooterNote" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
                            TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center" Margin="0,0,16,0"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="FooterSecondary" Style="{StaticResource Button.Secondary}" Height="44" Padding="22,0"
-                            Margin="0,0,10,0" Click="FooterSecondary_Click"/>
-                    <Button x:Name="FooterPrimary" Style="{StaticResource Button.Primary}" Height="44" Padding="22,0"
+                    <Button x:Name="FooterSecondary" Style="{StaticResource Button.Secondary}"
+                            Margin="0,0,8,0" Click="FooterSecondary_Click"/>
+                    <Button x:Name="FooterPrimary" Style="{StaticResource Button.Primary.Medium}"
                             MinWidth="120" Click="FooterPrimary_Click">
                         <StackPanel Orientation="Horizontal">
-                            <Path x:Name="PrimaryIcon" Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}"
-                                  Width="14" Height="14" Margin="0,0,8,0" Visibility="Collapsed"
+                            <Path x:Name="PrimaryIcon" Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Small}"
+                                  Margin="0,0,8,0" Visibility="Collapsed"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <TextBlock x:Name="PrimaryText" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -1237,6 +1226,7 @@
                 </StackPanel>
             </Grid>
         </Grid>
+        </controls:PageColumn>
 
         <controls:ConfirmOverlay x:Name="Confirm"/>
     </Grid>

@@ -18,6 +18,7 @@
                 <ResourceDictionary Source="Theme/Brand.xaml"/>
                 <ResourceDictionary Source="Theme/Menus.xaml"/>
                 <ResourceDictionary Source="Theme/Social.xaml"/>
+                <ResourceDictionary Source="Theme/Surfaces.xaml"/>
                 <ResourceDictionary Source="Theme/ToolTips.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 

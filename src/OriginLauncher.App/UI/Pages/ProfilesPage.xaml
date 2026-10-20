@@ -3,23 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- A profile card: a flat panel that lifts to Card on hover. The selected
-             one gets the family accent as its border (set in code). -->
-        <Style x:Key="Card.Profile" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="16,14,16,14"/>
+        <!-- A profile card: the shared card (Theme/Surfaces.xaml), 8 px apart in the grid. The selected one gets
+             the family accent as its border (set in code). -->
+        <Style x:Key="Card.Profile" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
             <Setter Property="Margin" Value="0,0,8,8"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
         <!-- The dashed "New profile" card at the end of the grid. -->
@@ -62,7 +53,8 @@
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
 
-        <StackPanel x:Name="Column" MaxWidth="1000" Margin="32,100,32,40">
+        <controls:PageColumn x:Name="Column" Style="{StaticResource Page.Column}">
+        <StackPanel>
 
             <!-- Header -->
             <Grid Margin="0,0,0,24">
@@ -77,23 +69,23 @@
                                Margin="0,10,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="24,8,0,0">
-                    <Button x:Name="ImportButton" Style="{StaticResource Button.Secondary}"
-                            Padding="16,0" Height="40" Margin="0,0,10,0" Click="ImportButton_Click"
+                    <Button x:Name="ImportButton" Style="{StaticResource Button.Secondary.Small}"
+                            Margin="0,0,8,0" Click="ImportButton_Click"
                             ToolTip="Import from another launcher"
                             AutomationProperties.Name="Import from another launcher">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}"
-                                  Width="14" Height="14" Margin="0,0,8,0"
+                            <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Small}"
+                                  Margin="0,0,8,0"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <TextBlock Text="Import" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="NewButton" Style="{StaticResource Button.Primary}"
-                            Padding="16,0" Height="40" Click="NewButton_Click"
+                    <Button x:Name="NewButton" Style="{StaticResource Button.Primary.Small}"
+                            Click="NewButton_Click"
                             AutomationProperties.Name="New profile">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource Icon.Plus}" Style="{StaticResource Icon.Base}"
-                                  Width="14" Height="14" Margin="0,0,8,0"
+                            <Path Data="{StaticResource Icon.Plus}" Style="{StaticResource Icon.Small}"
+                                  Margin="0,0,8,0"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <TextBlock Text="New profile" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -112,6 +104,7 @@
             <UniformGrid x:Name="RowsPanel" Columns="3" Margin="0,0,-8,0"/>
 
         </StackPanel>
+        </controls:PageColumn>
     </ScrollViewer>
 
     <!-- Create / edit: a dialog over the dimmed page. Escape or the X cancels; a
@@ -119,9 +112,8 @@
          stray click). The emblem in the corner previews the card as you type. -->
     <Grid x:Name="FormPanel" Visibility="Collapsed" Background="{StaticResource Brush.Scrim}"
           KeyDown="FormPanel_KeyDown">
-        <Border Width="560" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="32,72,32,32"
-                Background="{StaticResource Brush.PanelElevated}" CornerRadius="{StaticResource Radius.Dialog}"
-                Padding="24,20,24,24" Effect="{StaticResource Shadow.Card}">
+        <Border Style="{StaticResource Surface.Dialog}" Width="560" HorizontalAlignment="Center"
+                VerticalAlignment="Center" Margin="32,72,32,32">
             <!-- Scrolls only when the window is too short for the whole form. -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
                 <ScrollViewer.Resources>
@@ -146,10 +138,9 @@
                     <TextBlock x:Name="FormTitle" Grid.Column="1" Text="NEW PROFILE" Style="{StaticResource Text.Poster}"
                                FontSize="{StaticResource FontSize.DialogTitle}" LineHeight="{StaticResource FontSize.DialogTitle}"
                                VerticalAlignment="Center" Margin="14,2,0,0"/>
-                    <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34" Padding="0"
-                            VerticalAlignment="Center" Margin="0,0,-8,0" Click="CancelButton_Click"
+                    <Button Grid.Column="2" Style="{StaticResource Social.Icon}" Margin="0,0,-8,0" Click="CancelButton_Click"
                             ToolTip="Close" AutomationProperties.Name="Close">
-                        <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                        <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                 </Grid>
@@ -194,9 +185,9 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                     <Button Content="Cancel" Style="{StaticResource Button.Secondary}"
-                            Padding="20,0" Height="40" Margin="0,0,8,0" Click="CancelButton_Click"/>
-                    <Button x:Name="SaveButton" Content="Create profile" Style="{StaticResource Button.Primary}"
-                            Padding="20,0" Height="40" Click="SaveButton_Click"/>
+                            Margin="0,0,8,0" Click="CancelButton_Click"/>
+                    <Button x:Name="SaveButton" Content="Create profile" Style="{StaticResource Button.Primary.Medium}"
+                            Click="SaveButton_Click"/>
                 </StackPanel>
             </StackPanel>
             </ScrollViewer>

@@ -23,14 +23,14 @@ public class ImportDrawerLogicTests
     [Fact]
     public void ImportAllButton_FollowsThePlanAndTheRefusal()
     {
-        Assert.Equal(("CHECKING...", false), ImportLogic.ImportAllButton(true, false, true, 5, false));
-        Assert.Equal(("CHECK AGAIN", true), ImportLogic.ImportAllButton(false, true, false, 0, false));
-        Assert.Equal(("CHECK AGAIN", false), ImportLogic.ImportAllButton(false, true, false, 0, true));
+        Assert.Equal(("Checking...", false), ImportLogic.ImportAllButton(true, false, true, 5, false));
+        Assert.Equal(("Check again", true), ImportLogic.ImportAllButton(false, true, false, 0, false));
+        Assert.Equal(("Check again", false), ImportLogic.ImportAllButton(false, true, false, 0, true));
         // The label is the number the plan will import: 9 found and 2 unsupported reads 7, and stays a number after unticks.
-        Assert.Equal(("IMPORT 7", true), ImportLogic.ImportAllButton(false, false, true, 7, false));
-        Assert.Equal(("IMPORT 3", true), ImportLogic.ImportAllButton(false, false, true, 3, false));
-        Assert.Equal(("IMPORT 1 SETUP", true), ImportLogic.ImportAllButton(false, false, true, 1, false));
-        Assert.Equal(("IMPORT", false), ImportLogic.ImportAllButton(false, false, false, 0, false));
+        Assert.Equal(("Import 7", true), ImportLogic.ImportAllButton(false, false, true, 7, false));
+        Assert.Equal(("Import 3", true), ImportLogic.ImportAllButton(false, false, true, 3, false));
+        Assert.Equal(("Import 1 setup", true), ImportLogic.ImportAllButton(false, false, true, 1, false));
+        Assert.Equal(("Import", false), ImportLogic.ImportAllButton(false, false, false, 0, false));
         // A launch or update refusal turns a ready button off.
         Assert.False(ImportLogic.ImportAllButton(false, false, true, 7, true).Enabled);
         // A blocked plan ("Not enough free disk space") turns IMPORT off...

@@ -29,7 +29,7 @@ public partial class ConfirmOverlay : UserControl
         MessageText.Text = message;
         PrimaryButton.Content = primaryText;
         // Remove / Block / Kick confirm in redstone, not the launcher's emerald "go" colour.
-        PrimaryButton.Style = (Style)FindResource(destructive ? "Button.Danger" : "Button.Primary");
+        PrimaryButton.Style = (Style)FindResource(destructive ? "Button.Danger" : "Button.Primary.Medium");
         SecondaryButton.Content = secondaryText;
 
         _destructive = destructive;

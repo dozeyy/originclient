@@ -101,7 +101,7 @@
          no subtitles in the pills). -->
     <Style x:Key="Text.PillTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.H2}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
     </Style>
@@ -109,7 +109,7 @@
     <!-- Home's status line beside Play ("Ready to play"). -->
     <Style x:Key="Text.Status" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
         <Setter Property="FontWeight" Value="Medium"/>
     </Style>
 
@@ -127,7 +127,7 @@
     <!-- A card's quiet lines ("Plays as", "6 mods", "Joins ..."). -->
     <Style x:Key="Text.Meta" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
         <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
@@ -136,7 +136,7 @@
     <!-- A form field's label, 8 px above its box. -->
     <Style x:Key="Text.FieldLabel" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="Margin" Value="0,0,0,8"/>

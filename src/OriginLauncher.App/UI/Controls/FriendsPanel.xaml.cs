@@ -176,7 +176,7 @@ public partial class FriendsPanel : UserControl
     // Render harness only (UI/SocialShots.cs).
     internal Task<bool> TourShowConfirm() =>
         Confirm.ShowAsync("Remove Steve?", "You'll stop seeing each other online. You can add them again later.",
-            "REMOVE", "CANCEL", destructive: true);
+            "Remove", "Cancel", destructive: true);
 
     internal void TourDismissConfirm() => Confirm.Dismiss();
 
@@ -314,11 +314,11 @@ public partial class FriendsPanel : UserControl
         {
             SocialStatus.NotSignedIn => ("Sign in to use friends",
                 "Friends use your Minecraft account, so sign in with Microsoft. Offline test accounts can't use friends.",
-                "ADD MICROSOFT ACCOUNT"),
+                "Add Microsoft account"),
             SocialStatus.SignInFailed => ("Couldn't sign in to friends",
-                s.StatusMessage ?? "Origin couldn't confirm your Minecraft account.", "TRY AGAIN"),
+                s.StatusMessage ?? "Origin couldn't confirm your Minecraft account.", "Try again"),
             SocialStatus.Unreachable => ("Friends are offline",
-                s.StatusMessage ?? "Origin can't reach its friends service. It keeps trying in the background.", "TRY AGAIN"),
+                s.StatusMessage ?? "Origin can't reach its friends service. It keeps trying in the background.", "Try again"),
             _ => ("Connecting...", "Signing in to Origin friends.", null),
         };
         MessageTitle.Text = title;
@@ -946,7 +946,7 @@ public partial class FriendsPanel : UserControl
     {
         if (_snapshot.Friend(uuid) is not { } friend) return;
         if (!await Confirm.ShowAsync($"Remove {friend.Name}?",
-                "You'll stop seeing each other online. You can add them again later.", "REMOVE", "CANCEL", destructive: true))
+                "You'll stop seeing each other online. You can add them again later.", "Remove", "Cancel", destructive: true))
             return;
         if (await RunAsync(null, () => Service.RemoveFriendAsync(uuid)))
         {
@@ -960,7 +960,7 @@ public partial class FriendsPanel : UserControl
         if (_snapshot.Friend(uuid) is not { } friend) return;
         if (!await Confirm.ShowAsync($"Block {friend.Name}?",
                 "They'll be removed from your friends and can't message you or send you requests. You can unblock them from the bottom of your friends list.",
-                "BLOCK", "CANCEL", destructive: true))
+                "Block", "Cancel", destructive: true))
             return;
         if (await RunAsync(null, () => Service.BlockAsync(uuid)))
         {
@@ -976,7 +976,7 @@ public partial class FriendsPanel : UserControl
     {
         var name = _snapshot.NameOf(uuid);
         if (!await Confirm.ShowAsync($"Kick {name}?", "They'll be removed from the party. You can invite them again later.",
-                "KICK", "CANCEL", destructive: true))
+                "Kick", "Cancel", destructive: true))
             return;
         await RunAsync(null, () => Service.KickAsync(uuid));
     });

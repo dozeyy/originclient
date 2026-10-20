@@ -186,6 +186,7 @@ public partial class HomePage : UserControl
         if (!SystemParameters.ClientAreaAnimation || !intro.HasTimeSpan || intro.TimeSpan <= TimeSpan.Zero) return;
         var settle = ((Duration)FindResource("Motion.Settle")).TimeSpan;
         Settle(HomeLockup, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
+        Settle(StatusRow, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
         Settle(PlayButton, rise: 10, delay: TimeSpan.FromMilliseconds(220), settle);
     }
 
@@ -302,7 +303,7 @@ public partial class HomePage : UserControl
             ProfileInitial.Visibility = Visibility.Collapsed;
             ProfileIcon.Child = null;
             ProfileMark.Visibility = Visibility.Visible;
-            ProfileEmblem.Background = (Brush)FindResource("Brush.CardAlt");
+            ProfileEmblem.Background = Brushes.Transparent; // the bare mark, no box
         }
         else
         {

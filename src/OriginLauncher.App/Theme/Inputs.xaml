@@ -67,7 +67,7 @@
         <Setter Property="Padding" Value="12,9"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
-        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/>
         <!-- Centered is right for the single-line boxes that make up most of the
              app; a multi-line box (Settings -> JVM arguments) sets
              VerticalContentAlignment="Top" and the template honours it. -->
@@ -79,7 +79,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Sharp}">
+                            CornerRadius="{StaticResource Radius.Control}">
                         <!-- No Margin here: a TextBox applies its own Padding to the text. -->
                         <ScrollViewer x:Name="PART_ContentHost"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
@@ -213,17 +213,15 @@
         </Setter>
     </Style>
 
-    <!-- Select: an r2 raised control (lit top, settled bottom, 1 px lit edge). -->
+    <!-- Select: the same ghost outline as Button.Secondary (a dark veil, a 1 px tonal edge that
+         brightens on hover, a brighter edge while open). -->
     <Style x:Key="Input.ComboBox" TargetType="ComboBox">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="Background" Value="{StaticResource Fill.Raised}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Edge.Raised}"/>
-        <Setter Property="BorderThickness" Value="0,1,0,0"/>
         <!-- Right padding leaves room for the dropdown chevron. -->
         <Setter Property="Padding" Value="14,9,34,9"/>
-        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
@@ -237,30 +235,41 @@
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Grid>
-                                        <Border Margin="0,0,0,-1" CornerRadius="{StaticResource Radius.Control}" Background="#80000000"/>
-                                        <Border CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Fill.Raised}"/>
-                                        <Border x:Name="HoverFill" CornerRadius="{StaticResource Radius.Control}"
-                                                Background="{StaticResource Fill.RaisedHover}" Opacity="0"/>
+                                        <Border x:Name="Bd" CornerRadius="{StaticResource Radius.Control}" BorderThickness="1"
+                                                SnapsToDevicePixels="True">
+                                            <Border.Background>
+                                                <SolidColorBrush Color="{StaticResource Color.GhostFill}"/>
+                                            </Border.Background>
+                                            <Border.BorderBrush>
+                                                <SolidColorBrush Color="{StaticResource Color.GhostEdge}"/>
+                                            </Border.BorderBrush>
+                                        </Border>
                                         <Border x:Name="OpenEdge" CornerRadius="{StaticResource Radius.Control}" BorderThickness="1"
-                                                BorderBrush="#26FFFFFF" Opacity="0"/>
-                                        <Border CornerRadius="{StaticResource Radius.Control}" BorderThickness="0,1,0,0"
-                                                BorderBrush="{StaticResource Edge.Raised}"/>
+                                                Opacity="0">
+                                            <Border.BorderBrush>
+                                                <SolidColorBrush Color="{StaticResource Color.GhostEdgeHover}"/>
+                                            </Border.BorderBrush>
+                                        </Border>
                                     </Grid>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Trigger.EnterActions>
                                                 <BeginStoryboard>
                                                     <Storyboard>
-                                                        <DoubleAnimation Storyboard.TargetName="HoverFill" Storyboard.TargetProperty="Opacity"
-                                                                         To="1" Duration="{StaticResource Motion.Hover}"/>
+                                                        <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Background.Color"
+                                                                        To="{StaticResource Color.GhostFillHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                        <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="BorderBrush.Color"
+                                                                        To="{StaticResource Color.GhostEdgeHover}" Duration="{StaticResource Motion.Hover}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
                                             </Trigger.EnterActions>
                                             <Trigger.ExitActions>
                                                 <BeginStoryboard>
                                                     <Storyboard>
-                                                        <DoubleAnimation Storyboard.TargetName="HoverFill" Storyboard.TargetProperty="Opacity"
-                                                                         To="0" Duration="{StaticResource Motion.Hover}"/>
+                                                        <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Background.Color"
+                                                                        To="{StaticResource Color.GhostFill}" Duration="{StaticResource Motion.Hover}"/>
+                                                        <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="BorderBrush.Color"
+                                                                        To="{StaticResource Color.GhostEdge}" Duration="{StaticResource Motion.Hover}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
                                             </Trigger.ExitActions>

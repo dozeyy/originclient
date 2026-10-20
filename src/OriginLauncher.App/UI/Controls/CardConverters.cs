@@ -4,20 +4,8 @@ using System.Windows.Data;
 
 namespace OriginLauncher.App.UI.Controls;
 
-/// <summary>Where a row sits in its card group (Theme/Social.xaml: Social.CardChrome).</summary>
+/// <summary>Where a row sits in its card group (Theme/Social.xaml: Social.DrawerRow, and the Import drawer rows).</summary>
 public enum CardPos { Only, First, Middle, Last }
-
-/// <summary>Row edges: the top line is the outer edge (first row) or the divider (the rest); the bottom edge only closes the card.</summary>
-public sealed class CardEdgesConverter : IValueConverter
-{
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-        value is CardPos pos && (pos == CardPos.Last || pos == CardPos.Only)
-            ? new Thickness(1, 1, 1, 1)
-            : new Thickness(1, 1, 1, 0);
-
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
-}
 
 /// <summary>Round only the corners a row owns: the card's radius token on the first row's top and the last row's bottom.</summary>
 public sealed class CardCornersConverter : IMultiValueConverter

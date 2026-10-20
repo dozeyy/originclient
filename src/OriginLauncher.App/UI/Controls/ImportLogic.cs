@@ -36,10 +36,10 @@ internal static class ImportLogic
     public static (string Label, bool Enabled) ImportAllButton(bool planning, bool planFailed, bool planAllowsApply,
         int importable, bool refused)
     {
-        if (planning) return ("CHECKING...", false);
-        if (planFailed) return ("CHECK AGAIN", !refused);
+        if (planning) return ("Checking...", false);
+        if (planFailed) return ("Check again", !refused);
         // The button says what will actually happen: the number the plan will import (not "all" of what was found).
-        var label = importable == 0 ? "IMPORT" : importable == 1 ? "IMPORT 1 SETUP" : $"IMPORT {importable}";
+        var label = importable == 0 ? "Import" : importable == 1 ? "Import 1 setup" : $"Import {importable}";
         return (label, planAllowsApply && importable > 0 && !refused);
     }
 

@@ -4,61 +4,13 @@
         Title="Origin Launcher — Error"
         Width="660" Height="560" MinWidth="480" MinHeight="380"
         WindowStartupLocation="CenterScreen"
-        Background="#FF090D0C"
+        Background="{StaticResource Brush.Bg}"
         FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
-    <!-- Colours, sizes and corner radii are hardcoded literals (no theme brushes, styles or
-         tokens), so this dialog still renders its content if the colour theme is what broke.
-         The fonts are the exception: they come from the theme's Font.Primary / Font.Mono.
-         Radii mirror Radius.Control (4, buttons) and Radius.Card (6, boxes) in Theme/Spacing.xaml. -->
-    <Window.Resources>
-        <Style x:Key="CrashButton" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,9"/>
-            <Setter Property="MinWidth" Value="110"/>
-            <Setter Property="Foreground" Value="#FFEFF7F4"/>
-            <Setter Property="Background" Value="#FF192320"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#FF263732"/>
-            <Setter Property="FontSize" Value="13.5"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
-                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF23302C"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="CrashButtonPrimary" TargetType="Button" BasedOn="{StaticResource CrashButton}">
-            <Setter Property="Background" Value="#FF4BC8AE"/>
-            <Setter Property="Foreground" Value="#FF061512"/>
-            <Setter Property="BorderBrush" Value="#FF79DEC9"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
-                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF79DEC9"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
-
+    <!-- Built entirely from the theme (brushes, type scale, Button.Secondary / Button.Primary.Medium),
+         so it matches the launcher. Only fonts, brushes and styles are read from App.xaml's
+         dictionaries; no literals here. -->
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -69,24 +21,30 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" x:Name="Heading" Text="Origin Launcher ran into a problem"
-                   Foreground="#FFEFF7F4" FontSize="26" FontWeight="SemiBold"/>
+                   Style="{StaticResource Text.H1}"/>
 
-        <TextBlock Grid.Row="1" x:Name="Summary" Foreground="#FFA7BBB5" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Margin="0,8,0,0"
+        <TextBlock Grid.Row="1" x:Name="Summary" Style="{StaticResource Text.BodyDim}" LineHeight="20"
+                   TextWrapping="Wrap" Margin="0,8,0,0"
                    Text="Origin closed unexpectedly. Copy the details if you need support."/>
 
-        <Border Grid.Row="2" Margin="0,18,0,0" Background="#FF121918" BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="2" Margin="0,16,0,0" Background="{StaticResource Brush.Panel}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Card}">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
-                     Background="Transparent" Foreground="#FFEFF7F4" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="12" Padding="28"
+                     Background="Transparent" Foreground="{StaticResource Brush.Text}" BorderThickness="0"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Caption}" Padding="16"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
 
-        <TextBlock Grid.Row="3" x:Name="SavedTo" Foreground="#FF6D817B" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="3" x:Name="SavedTo" Style="{StaticResource Text.Caption}"
+                   Foreground="{StaticResource Brush.TextMuted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button x:Name="CopyButton" Content="Copy details" Style="{StaticResource CrashButton}" Margin="0,0,8,0" Click="Copy_Click"/>
-            <Button x:Name="CloseButton" Content="Close" Style="{StaticResource CrashButtonPrimary}" Click="Close_Click"/>
+            <Button x:Name="CopyButton" Content="Copy details" Style="{StaticResource Button.Secondary}"
+                    MinWidth="110" Margin="0,0,8,0" Click="Copy_Click"/>
+            <Button x:Name="CloseButton" Content="Close" Style="{StaticResource Button.Primary.Medium}"
+                    MinWidth="110" Click="Close_Click"/>
         </StackPanel>
     </Grid>
 </Window>

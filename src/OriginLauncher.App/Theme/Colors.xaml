@@ -126,19 +126,6 @@
         <GradientStop Color="#000E0E0E" Offset="1"/>
     </LinearGradientBrush>
 
-    <!-- r2 control fills: a lit top and a settled bottom. -->
-    <LinearGradientBrush x:Key="Fill.Raised" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#FF313131" Offset="0"/>
-        <GradientStop Color="#FF272727" Offset="1"/>
-    </LinearGradientBrush>
-    <LinearGradientBrush x:Key="Fill.RaisedHover" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#FF393939" Offset="0"/>
-        <GradientStop Color="#FF2E2E2E" Offset="1"/>
-    </LinearGradientBrush>
-    <LinearGradientBrush x:Key="Fill.RaisedPress" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#FF242424" Offset="0"/>
-        <GradientStop Color="#FF282828" Offset="1"/>
-    </LinearGradientBrush>
     <LinearGradientBrush x:Key="Fill.Primary" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="#FFF0F0F0" Offset="0"/>
         <GradientStop Color="#FFD6D6D6" Offset="1"/>
@@ -151,25 +138,28 @@
         <GradientStop Color="#FFCDCDCD" Offset="0"/>
         <GradientStop Color="#FFD5D5D5" Offset="1"/>
     </LinearGradientBrush>
-    <!-- The 1 px lit top edge drawn inside a raised control (and the primary's). -->
-    <SolidColorBrush x:Key="Edge.Raised" Color="#13FFFFFF"/>
+    <!-- The lit edges of the primary button. -->
     <SolidColorBrush x:Key="Edge.Primary" Color="#CCFFFFFF"/>
     <SolidColorBrush x:Key="Edge.PrimaryBottom" Color="#29000000"/>
     <Color x:Key="Color.EdgePrimary">#CCFFFFFF</Color>
     <Color x:Key="Color.EdgePrimaryBottom">#29000000</Color>
 
-    <!-- r2 body as a solid colour (the mid of Fill.Raised) so styles can animate
-         Background.Color; the lit gradient look comes from the Fill.Sheen layer
-         drawn over it. Hover / press are the mids of RaisedHover / RaisedPress. -->
+    <!-- The promo banner's own surface (it is a card, not a button): body and hover step. -->
     <Color x:Key="Color.RaisedBody">#FF2C2C2C</Color>
     <Color x:Key="Color.RaisedHover">#FF343434</Color>
-    <Color x:Key="Color.RaisedPress">#FF262626</Color>
     <SolidColorBrush x:Key="Brush.RaisedBody" Color="{StaticResource Color.RaisedBody}"/>
-    <LinearGradientBrush x:Key="Fill.Sheen" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#0AFFFFFF" Offset="0"/>
-        <GradientStop Color="#00FFFFFF" Offset="0.5"/>
-        <GradientStop Color="#0D000000" Offset="1"/>
-    </LinearGradientBrush>
+
+    <!-- Ghost buttons (Button.Secondary / Pill / Social.Action, the closed combo box): a dark
+         outline, no raised surface. The fill is a veil of the page colour so a button over the
+         art stays legible; hover and press are a wash of the tonal primary. The edge is the
+         tonal primary at 40% resting, 65% on hover (Will, 2026-10-20: the grey raised buttons
+         looked bad). Local brushes animate these; Brush.Acc is never used for a button. -->
+    <Color x:Key="Color.GhostFill">#59111111</Color>
+    <Color x:Key="Color.GhostFillHover">#24E0E0E0</Color>
+    <Color x:Key="Color.GhostFillPress">#14E0E0E0</Color>
+    <Color x:Key="Color.GhostEdge">#66E0E0E0</Color>
+    <Color x:Key="Color.GhostEdgeHover">#A6E0E0E0</Color>
+
     <LinearGradientBrush x:Key="Fill.PrimarySheen" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="#1FFFFFFF" Offset="0"/>
         <GradientStop Color="#00FFFFFF" Offset="0.5"/>
@@ -180,9 +170,6 @@
         <GradientStop Color="#00000000" Offset="0"/>
         <GradientStop Color="#73000000" Offset="1"/>
     </LinearGradientBrush>
-    <!-- The 1 px dark contact line under a raised control (stands in for a blur shadow). -->
-    <SolidColorBrush x:Key="Brush.Contact" Color="#99000000"/>
-
     <!-- Profile colours: a deep tile (Tint.*) and the light ink drawn on it
          (TintInk.*, the same hue; every ink is 6.8:1 or better on its own tile). ProfileLook
          picks the profile's own, else one from its id. -->
@@ -198,6 +185,12 @@
     <SolidColorBrush x:Key="TintInk.Moss" Color="#FFB0E8C5"/>
     <SolidColorBrush x:Key="TintInk.Wine" Color="#FFF5B6C5"/>
     <SolidColorBrush x:Key="TintInk.Graphite" Color="#FFE6E6E6"/>
+    <!-- Settings rail: one ink per section (Will likes these colours). -->
+    <SolidColorBrush x:Key="TintInk.Mint" Color="#FF7BD3A0"/>
+    <SolidColorBrush x:Key="TintInk.Sky" Color="#FF7FB2F0"/>
+    <SolidColorBrush x:Key="TintInk.Violet" Color="#FFB69CF0"/>
+    <SolidColorBrush x:Key="TintInk.Gold" Color="#FFF2D06B"/>
+    <SolidColorBrush x:Key="TintInk.Coral" Color="#FFF08A80"/>
 
     <!-- Legacy names kept so older surfaces still resolve; both are now neutral. -->
     <SolidColorBrush x:Key="Brush.WindowBackdrop" Color="{StaticResource Color.Bg}"/>

@@ -4,60 +4,11 @@
         Title="Origin — Minecraft crashed"
         Width="620" Height="480" MinWidth="480" MinHeight="360"
         WindowStartupLocation="CenterOwner"
-        Background="#FF090D0C"
+        Background="{StaticResource Brush.Bg}"
         FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
-    <!-- Same rule as CrashWindow: colours, sizes and corner radii are hardcoded literals, so the
-         window still renders its content if the colour theme is what broke; only the fonts come
-         from the theme (Font.Primary / Font.Mono). Radii mirror Radius.Control (4) and Radius.Card (6). -->
-    <Window.Resources>
-        <Style x:Key="CrashButton" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,9"/>
-            <Setter Property="MinWidth" Value="110"/>
-            <Setter Property="Foreground" Value="#FFEFF7F4"/>
-            <Setter Property="Background" Value="#FF192320"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#FF263732"/>
-            <Setter Property="FontSize" Value="13.5"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
-                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF23302C"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="CrashButtonPrimary" TargetType="Button" BasedOn="{StaticResource CrashButton}">
-            <Setter Property="Background" Value="#FF4BC8AE"/>
-            <Setter Property="Foreground" Value="#FF061512"/>
-            <Setter Property="BorderBrush" Value="#FF79DEC9"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
-                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF79DEC9"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
-
+    <!-- Same rule as CrashWindow: theme brushes, type scale and the shared buttons only. -->
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -70,38 +21,39 @@
         <!-- Several games can run at once (one per account), so the window
              names which one crashed: "<account> · Minecraft <version>". -->
         <StackPanel Grid.Row="0">
-            <TextBlock Text="Minecraft crashed while starting"
-                       Foreground="#FFEFF7F4" FontSize="26" FontWeight="SemiBold"/>
-            <TextBlock x:Name="WhoText" Foreground="#FF4BC8AE" FontSize="13.5" FontWeight="SemiBold"
+            <TextBlock Text="Minecraft crashed while starting" Style="{StaticResource Text.H1}"/>
+            <TextBlock x:Name="WhoText" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Acc}"
                        Margin="0,6,0,0" Visibility="Collapsed"/>
         </StackPanel>
 
-        <TextBlock Grid.Row="1" x:Name="ReasonText" Foreground="#FFA7BBB5" FontSize="13.5" LineHeight="20"
+        <TextBlock Grid.Row="1" x:Name="ReasonText" Style="{StaticResource Text.BodyDim}" LineHeight="20"
                    TextWrapping="Wrap" Margin="0,8,0,0"/>
 
         <!-- One row per implicated mod; hidden when the culprit is unknown. -->
-        <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,14,0,0" Background="#FF121918"
-                BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="6" Padding="14"
+        <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,16,0,0" Background="{StaticResource Brush.Panel}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Card}" Padding="16"
                 Visibility="Collapsed">
             <StackPanel x:Name="CulpritList"/>
         </Border>
 
-        <Border Grid.Row="3" Margin="0,12,0,0" Background="#FF121918" BorderBrush="#FF3B524C"
-                BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="3" Margin="0,8,0,0" Background="{StaticResource Brush.Panel}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Card}">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
-                     Background="Transparent" Foreground="#FFA7BBB5" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="11" Padding="28"
+                     Background="Transparent" Foreground="{StaticResource Brush.TextDim}" BorderThickness="0"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Eyebrow}" Padding="16"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button x:Name="OpenLogButton" Content="Open log" Style="{StaticResource CrashButton}"
-                    Margin="0,0,8,0" Click="OpenLog_Click"/>
-            <Button x:Name="CloseButton" Content="Close" Style="{StaticResource CrashButton}"
-                    Margin="0,0,8,0" Click="Close_Click"/>
+            <Button x:Name="OpenLogButton" Content="Open log" Style="{StaticResource Button.Secondary}"
+                    MinWidth="110" Margin="0,0,8,0" Click="OpenLog_Click"/>
+            <Button x:Name="CloseButton" Content="Close" Style="{StaticResource Button.Secondary}"
+                    MinWidth="110" Margin="0,0,8,0" Click="Close_Click"/>
             <Button x:Name="RetryButton" Content="Retry without mods"
-                    Style="{StaticResource CrashButtonPrimary}" Click="Retry_Click"/>
+                    Style="{StaticResource Button.Primary.Medium}" Click="Retry_Click"/>
         </StackPanel>
     </Grid>
 </Window>

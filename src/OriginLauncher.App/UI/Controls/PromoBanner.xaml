@@ -10,9 +10,12 @@
          may run is documented at the top of PromoBanner.xaml.cs. -->
 
     <UserControl.Resources>
-        <!-- Button.Secondary's surface and hover/press motion, but with the
-             content stretched edge to edge (the base template centres it). -->
-        <Style x:Key="Banner.Surface" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <!-- The banner is a card, not a button: its own solid surface and hover step (Button.Secondary is
+             a ghost outline now), with the content stretched edge to edge. -->
+        <Style x:Key="Banner.Surface" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Background" Value="{StaticResource Brush.RaisedBody}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
             <Setter Property="Template">
@@ -29,6 +32,28 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                                To="{StaticResource Color.RaisedHover}"
+                                                Duration="{StaticResource Motion.Hover}"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                                To="{StaticResource Color.RaisedBody}"
+                                                Duration="{StaticResource Motion.Hover}"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 

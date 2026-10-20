@@ -27,13 +27,11 @@
     </Style>
 
     <!--
-        r2 buttons (Poster): a raised surface lit from the top (a 1 px light top
-        edge, a faint top-to-bottom sheen) sitting on a 1 px dark contact line
-        instead of a blurred shadow, so nothing re-rasterises while it moves.
-        Press scales to 0.985 in 80 ms and always eases back to 1.0.
+        Buttons (Poster): Primary is the lit tonal slab, Secondary a dark ghost outline,
+        Chrome nothing until hovered. Press scales to 0.985 in 80 ms and always eases back to 1.0.
 
         Background stays a SolidColorBrush on every style here: derived styles
-        (Button.Row, Social.Action, the banner surface) re-template and animate
+        (Social.Action, the banner surface) re-template and animate
         Background.Color, which a gradient brush would throw on.
     -->
     <Style x:Key="Button.Base" TargetType="Button">
@@ -76,37 +74,90 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Secondary (r2 raised): #2C2C2C body under a lit sheen, 1 px light top edge,
-         1 px dark contact line. Hover lifts the body one step. -->
+    <!-- Secondary (Will, 2026-10-20: "all the buttons this style look bad"): a ghost button, a dark
+         veil with a 1 px outline in the tonal primary and no raised surface, so it reads on the art
+         and on the page alike. Hover washes the fill and brightens the edge, press washes less
+         (and scales, UI/Press.cs). One border, nothing else to paint. Both brushes are LOCAL
+         (never Brush.Acc, which FamilyTheme tweens) because the storyboards animate their Colors.
+         Heights are the Size.Control* scale: this one is 40, .Small 32, Pill 48. The press trigger
+         is declared before the hover one so that when the pointer leaves mid-press both exits fire
+         and the hover exit (back to rest) is the one that wins. -->
     <Style x:Key="Button.Secondary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
-        <Setter Property="Background" Value="{StaticResource Brush.RaisedBody}"/>
+        <Setter Property="Background">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.GhostFill}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.GhostEdge}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="Height" Value="{StaticResource Size.Control}"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Grid SnapsToDevicePixels="True">
-                        <Border Margin="0,0,0,-1" CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Brush.Contact}"/>
-                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Control}"/>
-                        <Border CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Fill.Sheen}"/>
-                        <Border CornerRadius="{StaticResource Radius.Control}" BorderThickness="0,1,0,0"
-                                BorderBrush="{StaticResource Edge.Raised}"/>
+                    <Border x:Name="Bg"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Radius.Control}"
+                            SnapsToDevicePixels="True">
                         <ContentPresenter Margin="{TemplateBinding Padding}"
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="Center"
                                           RecognizesAccessKey="True"/>
-                    </Grid>
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-        <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Style.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsPressed" Value="True"/>
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.GhostFillPress}"
+                                            Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.GhostFillHover}"
+                                            Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
             <Trigger Property="IsMouseOver" Value="True">
                 <Trigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.RaisedHover}"
-                                            Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.GhostFillHover}"
+                                            Duration="{StaticResource Motion.Hover}">
+                                <ColorAnimation.EasingFunction>
+                                    <QuadraticEase EasingMode="EaseOut"/>
+                                </ColorAnimation.EasingFunction>
+                            </ColorAnimation>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.GhostEdgeHover}"
+                                            Duration="{StaticResource Motion.Hover}">
+                                <ColorAnimation.EasingFunction>
+                                    <QuadraticEase EasingMode="EaseOut"/>
+                                </ColorAnimation.EasingFunction>
+                            </ColorAnimation>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -114,8 +165,19 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.RaisedBody}"
-                                            Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.GhostFill}"
+                                            Duration="{StaticResource Motion.Hover}">
+                                <ColorAnimation.EasingFunction>
+                                    <QuadraticEase EasingMode="EaseOut"/>
+                                </ColorAnimation.EasingFunction>
+                            </ColorAnimation>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.GhostEdge}"
+                                            Duration="{StaticResource Motion.Hover}">
+                                <ColorAnimation.EasingFunction>
+                                    <QuadraticEase EasingMode="EaseOut"/>
+                                </ColorAnimation.EasingFunction>
+                            </ColorAnimation>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
@@ -123,32 +185,11 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Row button: a whole list row that is also a button (the import panel's
-         instance list). Secondary's states with the content stretched and
-         left-aligned and the sharper row corners. -->
-    <Style x:Key="Button.Row" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
-        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Padding" Value="14,10"/>
-        <Setter Property="MinHeight" Value="44"/>
-        <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Grid SnapsToDevicePixels="True">
-                        <Border Margin="0,0,0,-1" CornerRadius="{StaticResource Radius.Row}" Background="{StaticResource Brush.Contact}"/>
-                        <Border x:Name="Bg" Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{StaticResource Radius.Row}"/>
-                        <Border CornerRadius="{StaticResource Radius.Row}" BorderThickness="0,1,0,0"
-                                BorderBrush="{StaticResource Edge.Raised}"/>
-                        <ContentPresenter Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="Stretch"
-                                          VerticalAlignment="Center"/>
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+    <!-- Secondary at header-action size (Profiles Import/Cancel, a row's Change, the drawers'
+         footers): 32 px. -->
+    <Style x:Key="Button.Secondary.Small" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="12,0"/>
     </Style>
 
     <!-- Title-bar / icon buttons: no surface at rest, a soft one on hover. The rest
@@ -442,12 +483,34 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Home pill (version / profile): a taller r2 raised surface whose content
-         stretches; the same hover step as Secondary. -->
+    <!-- Primary on the shared control scale: Medium is 40 (the usual button), Small 32 (row and header
+         actions). No drop shadow at these sizes: they sit on a card or a drawer, not on the art. -->
+    <Style x:Key="Button.Primary.Medium" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="Height" Value="{StaticResource Size.Control}"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="Effect" Value="{x:Null}"/>
+    </Style>
+    <Style x:Key="Button.Primary.Small" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="Effect" Value="{x:Null}"/>
+    </Style>
+
+    <!-- Icon-only primary (chat send): a Control-sized square that grows with its glyph (Min*, never fixed). -->
+    <Style x:Key="Button.Primary.Icon" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="MinWidth" Value="{StaticResource Size.Control}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/>
+        <Setter Property="Padding" Value="12"/>
+        <Setter Property="Effect" Value="{x:Null}"/>
+    </Style>
+
+    <!-- Home pill (version / profile / Join): Secondary at the Home strip's height (48), content
+         stretched so a pill can hold an emblem, a name and a chevron. -->
     <Style x:Key="Button.Pill" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Padding" Value="16,0,14,0"/>
-        <Setter Property="Height" Value="56"/>
+        <Setter Property="Padding" Value="16,0,12,0"/>
+        <Setter Property="Height" Value="{StaticResource Size.ControlLg}"/>
         <Setter Property="FontWeight" Value="Normal"/>
     </Style>
 

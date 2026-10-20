@@ -39,7 +39,7 @@
                                       FontWeight="Bold" Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Bottom"
                                       Margin="6,0,0,0"/>
             </StackPanel>
-            <TextBlock x:Name="LoaderCaptionText" FontSize="13" Foreground="{StaticResource Brush.TextDim}"
+            <TextBlock x:Name="LoaderCaptionText" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
                        HorizontalAlignment="Center" Margin="0,-6,0,18"/>
 
             <!-- The bar. Launch: a stage with a real count ("Downloading
@@ -70,13 +70,13 @@
                 </Grid>
             </Border>
 
-            <TextBlock x:Name="StageText" FontSize="13" Foreground="{StaticResource Brush.Text}" HorizontalAlignment="Center"
+            <TextBlock x:Name="StageText" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Text}" HorizontalAlignment="Center"
                        TextTrimming="CharacterEllipsis" MaxWidth="520"/>
 
             <!-- The abort path lives here (the screen covers everything): cancels the
                  in-flight provisioning (the newest launch action always wins). -->
             <Button x:Name="CancelButton" Style="{StaticResource Button.Secondary}"
-                    Content="Cancel" Padding="22,0" Height="40" Margin="0,28,0,0"
+                    Content="Cancel" Margin="0,28,0,0"
                     HorizontalAlignment="Center" Click="CancelButton_Click"/>
         </StackPanel>
 
@@ -85,7 +85,7 @@
             <controls:TrackedText x:Name="CaptionFamily" Text="TRICKY TRIALS" Tracking="0.16"
                                   FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
                                   Foreground="{StaticResource Brush.OnPhoto}"/>
-            <TextBlock x:Name="CaptionDetail" FontSize="13" Margin="0,6,0,0" Foreground="{StaticResource Brush.TextDim}"
+            <TextBlock x:Name="CaptionDetail" Style="{StaticResource Text.Caption}" Margin="0,6,0,0" Foreground="{StaticResource Brush.TextDim}"
                        TextTrimming="CharacterEllipsis" MaxWidth="480"/>
         </StackPanel>
     </Grid>

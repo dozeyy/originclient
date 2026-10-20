@@ -21,7 +21,7 @@
         <Setter Property="Fill" Value="Transparent"/>
     </Style>
 
-    <!-- The glyph inside a small icon button (Social.Icon: 14 px glyph + 7 px padding = the 28 px button). -->
+    <!-- The glyph inside a small icon button (Social.Icon: 14 px glyph + 9 px padding = the 32 px Size.IconButton). -->
     <Style x:Key="Icon.Small" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
         <Setter Property="Width" Value="{StaticResource Icon.SizeSmall}"/>
         <Setter Property="Height" Value="{StaticResource Icon.SizeSmall}"/>

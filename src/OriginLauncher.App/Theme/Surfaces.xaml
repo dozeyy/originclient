@@ -1,0 +1,74 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls">
+
+    <!-- The launcher's shared surfaces (Will, 2026-10-20: "it all feels a bit messy"). Pages, drawers
+         and dialogs build from these instead of each carrying its own card recipe. Launcher only: the
+         installer links Colors / Spacing / Buttons / Inputs / Brand / Icons, not this. Everything here is
+         tokens from those files. -->
+
+    <!-- A page's column (Mods, Profiles, Settings, Import): PageColumn fills the width up to 1000 and sits against
+         the left edge under the logo, x = 32, 96 below the top, so every page title starts at the same point
+         whatever the window width. (A plain element with a MaxWidth is centred when stretched and shrunk to its
+         content when left-aligned, which is what put the old titles at four different x positions.) -->
+    <Style x:Key="Page.Column" TargetType="controls:PageColumn">
+        <Setter Property="ColumnMaxWidth" Value="1000"/>
+        <Setter Property="Margin" Value="32,96,32,32"/>
+    </Style>
+
+    <!-- Card: a panel with 16 px inside and 8 px below it; it lifts to Card on hover. The 1 px border is clear
+         at rest; a selected card sets it to Brush.Acc (the one place the family accent frames a surface). -->
+    <Style x:Key="Surface.Card" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
+        <Setter Property="Padding" Value="16"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Row: the same surface for a list line (a mod, an account): 12,10 inside and 4 px below. -->
+    <Style x:Key="Surface.Row" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+
+    <!-- Dialog: the confirm box and the profile form. 24 inside, a 1 px soft edge, the card shadow. -->
+    <Style x:Key="Surface.Dialog" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.PanelElevated}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Dialog}"/>
+        <Setter Property="Padding" Value="24"/>
+        <Setter Property="Effect" Value="{StaticResource Shadow.Card}"/>
+    </Style>
+
+    <!-- Chip: a small label on CardAlt (the Mods version tag). The text style goes inside it. -->
+    <Style x:Key="Surface.Chip" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
+        <Setter Property="Padding" Value="8,2"/>
+    </Style>
+    <Style x:Key="Surface.ChipText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+    </Style>
+
+    <!-- A drawer's header (Accounts, Friends, Import): a 16 px gutter all round, the title in H1 and one
+         Caption line under it, the close button (Social.Icon, 32) at the right. -->
+    <Style x:Key="Drawer.Header" TargetType="Grid">
+        <Setter Property="Margin" Value="16,16,16,10"/>
+    </Style>
+    <Style x:Key="Drawer.Title" TargetType="TextBlock" BasedOn="{StaticResource Text.H1}"/>
+    <Style x:Key="Drawer.Subtitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="Margin" Value="0,4,0,0"/>
+    </Style>
+
+</ResourceDictionary>

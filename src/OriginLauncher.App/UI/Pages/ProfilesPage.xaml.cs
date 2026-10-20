@@ -280,14 +280,14 @@ public partial class ProfilesPage : UserControl
         {
             var name = i < names.Count ? names[i] : null;
             UIElement face = name != null
-                ? new TextBlock { Text = ProfileLook.Initial(name), FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.TextDim"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                ? new TextBlock { Text = ProfileLook.Initial(name), FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.TextDim"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
                 : Glyph("Icon.Jar", 14, "Brush.TextMuted");
             var square = ModSquare(face);
             if (name != null) square.ToolTip = name;
             line.Children.Add(square);
         }
         if (count > shown)
-            line.Children.Add(ModSquare(new TextBlock { Text = $"+{count - shown}", FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = 11.5, FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.Text"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }));
+            line.Children.Add(ModSquare(new TextBlock { Text = $"+{count - shown}", FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.Text"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }));
         var label = Small(count == 0 ? "No mods yet" : count == 1 ? "1 mod" : $"{count} mods");
         label.Margin = new Thickness(count == 0 ? 0 : 8, 0, 0, 0);
         line.Children.Add(label);
@@ -334,18 +334,9 @@ public partial class ProfilesPage : UserControl
             // The version as a small chip, the card's only number.
             var tag = new Border
             {
-                Background = (Brush)FindResource("Brush.Bg"),
-                CornerRadius = (CornerRadius)FindResource("Radius.Chip"),
-                Padding = new Thickness(8, 3, 8, 3),
+                Style = (Style)FindResource("Surface.Chip"),
                 VerticalAlignment = VerticalAlignment.Center,
-                Child = new TextBlock
-                {
-                    Text = version,
-                    FontFamily = (FontFamily)FindResource("Font.Display"),
-                    FontSize = 11.5,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = (Brush)FindResource("Brush.TextDim"),
-                },
+                Child = new TextBlock { Text = version, Style = (Style)FindResource("Surface.ChipText") },
             };
             AddAt(foot, 1, tag);
         }
@@ -415,9 +406,7 @@ public partial class ProfilesPage : UserControl
         var confirm = new Button
         {
             Content = "Delete",
-            Style = (Style)FindResource("Button.Danger"),
-            Padding = new Thickness(14, 0, 14, 0),
-            Height = 32,
+            Style = (Style)FindResource("Button.Danger.Small"),
             Margin = new Thickness(0, 0, 8, 0),
         };
         confirm.Click += (_, _) => ConfirmDelete(profile);
@@ -425,9 +414,7 @@ public partial class ProfilesPage : UserControl
         var cancel = new Button
         {
             Content = "Cancel",
-            Style = (Style)FindResource("Button.Secondary"),
-            Padding = new Thickness(14, 0, 14, 0),
-            Height = 32,
+            Style = (Style)FindResource("Button.Secondary.Small"),
         };
         cancel.Click += (_, _) => { _pendingDelete = null; Rebuild(); };
         buttons.Children.Add(cancel);
@@ -443,15 +430,13 @@ public partial class ProfilesPage : UserControl
         {
             Data = (Geometry)FindResource("Icon.Plus"),
             Style = (Style)FindResource("Icon.Base"),
-            Width = 18,
-            Height = 18,
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 0, 0, 8),
         };
         var button = new Button { Style = (Style)FindResource("Card.New") };
         plus.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding(nameof(Foreground)) { Source = button });
         content.Children.Add(plus);
-        content.Children.Add(new TextBlock { Text = "New profile", FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = 14, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
+        content.Children.Add(new TextBlock { Text = "New profile", FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = (double)FindResource("FontSize.H2"), FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
         var sub = Small("Its own mods, one version", "Brush.TextMuted");
         sub.HorizontalAlignment = HorizontalAlignment.Center;
         sub.Margin = new Thickness(0, 4, 0, 0);
@@ -474,7 +459,7 @@ public partial class ProfilesPage : UserControl
     {
         if (selected)
         {
-            var mark = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Height = 32 };
+            var mark = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Height = (double)FindResource("Size.ControlSm") };
             var dot = new Rectangle { Width = 8, Height = 8, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
             if (version != null) dot.Fill = FamilyTheme.AccentBrush(version);
             else dot.SetResourceReference(Shape.FillProperty, "Brush.Acc");
@@ -485,9 +470,7 @@ public partial class ProfilesPage : UserControl
         var button = new Button
         {
             Content = "Use profile",
-            Style = (Style)FindResource("Button.Secondary"),
-            Padding = new Thickness(14, 0, 14, 0),
-            Height = 32,
+            Style = (Style)FindResource("Button.Secondary.Small"),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -500,19 +483,13 @@ public partial class ProfilesPage : UserControl
     {
         var button = new Button
         {
-            Style = (Style)FindResource("Button.Chrome"),
-            Width = 34,
-            Height = 34,
-            Padding = new Thickness(0),
+            Style = (Style)FindResource("Social.Icon"),
             ToolTip = tooltip,
-            VerticalAlignment = VerticalAlignment.Center
         };
         var path = new Path
         {
             Data = (Geometry)FindResource(iconKey),
-            Style = (Style)FindResource("Icon.Base"),
-            Width = 16,
-            Height = 16
+            Style = (Style)FindResource("Icon.Small"),
         };
         // The glyph follows the button's own foreground (dim at rest, bright on hover).
         path.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding(nameof(Foreground)) { Source = button });

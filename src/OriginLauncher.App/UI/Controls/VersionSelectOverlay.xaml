@@ -164,8 +164,8 @@
                                                   Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" Margin="0,0,16,6"/>
                             <WrapPanel Grid.Column="1" x:Name="ChipsPanel" VerticalAlignment="Center"
                                        AutomationProperties.Name="Version"/>
-                            <Button Grid.Column="2" x:Name="LaunchButton" Style="{StaticResource Button.Primary}"
-                                    Height="44" Padding="20,0,24,0" Margin="16,0,0,6" VerticalAlignment="Center" Click="Launch_Click">
+                            <Button Grid.Column="2" x:Name="LaunchButton" Style="{StaticResource Button.Primary.Medium}"
+                                    Margin="16,0,0,6" VerticalAlignment="Center" Click="Launch_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="M7,5 L19,12 L7,19 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                           Width="12" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -179,10 +179,10 @@
         </ScrollViewer>
 
         <!-- The one control left from the old header: a floating X in the corner, just under the bar. -->
-        <Button x:Name="CloseButton" Style="{StaticResource Button.Chrome}" MinWidth="36" MinHeight="36" Padding="10"
+        <Button x:Name="CloseButton" Style="{StaticResource Social.Icon}"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,64,24,0"
                 Click="Close_Click" AutomationProperties.Name="Close">
-            <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+            <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
         </Button>
     </Grid>

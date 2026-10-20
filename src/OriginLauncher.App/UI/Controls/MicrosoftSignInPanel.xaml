@@ -13,17 +13,17 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Grid Grid.Row="0" Margin="20,16,12,12">
+        <Grid Grid.Row="0" Margin="16,16,16,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="Sign in with Microsoft" Style="{StaticResource Text.H2}" VerticalAlignment="Center"/>
-            <Button Grid.Column="1" Style="{StaticResource Button.Chrome}" MinWidth="28" MinHeight="28" Padding="6"
+            <Button Grid.Column="1" Style="{StaticResource Social.Icon}"
                     Click="CancelButton_Click" ToolTip="Cancel sign-in"
                     AutomationProperties.Name="Cancel sign-in">
-                <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
-                      Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
+                <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
             </Button>
         </Grid>
 
@@ -44,7 +44,7 @@
                                    TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,10"/>
                         <TextBlock x:Name="MessageText" Style="{StaticResource Text.BodyDim}"
                                    TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,20"/>
-                        <Button Content="OK" Style="{StaticResource Button.Primary}" MinWidth="140"
+                        <Button Content="OK" Style="{StaticResource Button.Primary.Medium}" MinWidth="140"
                                 HorizontalAlignment="Center" HorizontalContentAlignment="Center"
                                 Click="CancelButton_Click"/>
                     </StackPanel>

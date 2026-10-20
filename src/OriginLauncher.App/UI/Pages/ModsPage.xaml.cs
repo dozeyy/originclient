@@ -62,7 +62,7 @@ public partial class ModsPage : UserControl
     private void ApplyDensity()
     {
         var compact = ActualHeight > 0 && ActualHeight < 680;
-        Column.Margin = new Thickness(32, compact ? 80 : 100, 32, 40);
+        Column.Margin = new Thickness(32, compact ? 80 : 96, 32, 32);
         DropZone.Height = compact ? 140 : 168;
     }
 
@@ -74,14 +74,12 @@ public partial class ModsPage : UserControl
         _suppressToggle = true;
         YourModsSwitch.IsChecked = on;
         _suppressToggle = false;
-        YourModsState.Text = on ? "On" : "Off";
     }
 
     private void YourModsSwitch_Changed(object sender, RoutedEventArgs e)
     {
         if (_suppressToggle) return;
         var on = YourModsSwitch.IsChecked == true;
-        YourModsState.Text = on ? "On" : "Off";
         SettingsStore.Update(s => s.PlayWithExternalMods = on);
     }
 
@@ -304,10 +302,10 @@ public partial class ModsPage : UserControl
         image.BeginAnimation(OpacityProperty, fadeIn);
     }
 
-    private static TextBlock NameText(string text, bool dim, double size = 14) => new()
+    private static TextBlock NameText(string text, bool dim) => new()
     {
         Text = text,
-        FontSize = size,
+        FontSize = (double)Application.Current.FindResource("FontSize.Body"),
         FontWeight = FontWeights.SemiBold,
         Foreground = (Brush)Application.Current.FindResource(dim ? "Brush.TextDim" : "Brush.Text"),
         TextTrimming = TextTrimming.CharacterEllipsis,
@@ -316,7 +314,7 @@ public partial class ModsPage : UserControl
     private static TextBlock FileText(string text) => new()
     {
         Text = text,
-        FontSize = 12,
+        FontSize = (double)Application.Current.FindResource("FontSize.Caption"),
         Margin = new Thickness(0, 2, 0, 0),
         Foreground = (Brush)Application.Current.FindResource("Brush.TextMuted"),
         TextTrimming = TextTrimming.CharacterEllipsis,
@@ -377,7 +375,7 @@ public partial class ModsPage : UserControl
         var label = new TextBlock
         {
             Text = "ADDED",
-            FontSize = 10,
+            FontSize = (double)FindResource("FontSize.Eyebrow"),
             FontWeight = FontWeights.Bold,
             Foreground = (Brush)FindResource("Brush.Text"),
             VerticalAlignment = VerticalAlignment.Center,
@@ -389,7 +387,7 @@ public partial class ModsPage : UserControl
         line.Children.Add(label);
         var tag = new Border
         {
-            CornerRadius = (CornerRadius)FindResource("Radius.Knob"),
+            CornerRadius = (CornerRadius)FindResource("Radius.Chip"),
             Padding = new Thickness(6, 2, 6, 2),
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
@@ -404,8 +402,8 @@ public partial class ModsPage : UserControl
     // edge on its left that fade out (opacity only; both ignore the mouse).
     private static void AddLandingLight(Grid grid)
     {
-        var tint = new Rectangle { IsHitTestVisible = false, Margin = new Thickness(-12, -10, -10, -10), Opacity = 0.28 };
-        var edge = new Rectangle { IsHitTestVisible = false, Width = 3, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-12, -10, 0, -10) };
+        var tint = new Rectangle { IsHitTestVisible = false, Margin = new Thickness(-13, -11, -13, -11), Opacity = 0.28 };
+        var edge = new Rectangle { IsHitTestVisible = false, Width = 3, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-13, -11, 0, -11) };
         tint.SetResourceReference(Shape.FillProperty, "Brush.Acc");
         edge.SetResourceReference(Shape.FillProperty, "Brush.Acc");
         Grid.SetColumnSpan(tint, 4);
@@ -428,8 +426,6 @@ public partial class ModsPage : UserControl
     {
         var border = RowShell();
         border.BorderBrush = (Brush)FindResource("Brush.Danger");
-        border.BorderThickness = new Thickness(1);
-        border.Padding = new Thickness(11, 9, 9, 9);
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -448,9 +444,7 @@ public partial class ModsPage : UserControl
         var confirm = new Button
         {
             Content = "Remove",
-            Style = (Style)FindResource("Button.Danger"),
-            Padding = new Thickness(14, 0, 14, 0),
-            Height = 34,
+            Style = (Style)FindResource("Button.Danger.Small"),
             Margin = new Thickness(0, 0, 8, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -468,9 +462,7 @@ public partial class ModsPage : UserControl
         var cancel = new Button
         {
             Content = "Cancel",
-            Style = (Style)FindResource("Button.Secondary"),
-            Padding = new Thickness(14, 0, 14, 0),
-            Height = 34,
+            Style = (Style)FindResource("Button.Secondary.Small"),
             VerticalAlignment = VerticalAlignment.Center
         };
         cancel.Click += (_, _) => { _pendingRemove = null; Refresh(); };
@@ -486,9 +478,7 @@ public partial class ModsPage : UserControl
     {
         var tile = new Border
         {
-            Background = (Brush)FindResource("Brush.Panel"),
-            CornerRadius = (CornerRadius)FindResource("Radius.Card"),
-            Padding = new Thickness(16, 14, 16, 14),
+            Style = (Style)FindResource("Surface.Card"),
             Margin = new Thickness(0, 0, 4, 4),
         };
         var stack = new StackPanel();
@@ -507,19 +497,13 @@ public partial class ModsPage : UserControl
     {
         var button = new Button
         {
-            Style = (Style)FindResource("Button.Chrome"),
-            Width = 34,
-            Height = 34,
-            Padding = new Thickness(0),
+            Style = (Style)FindResource("Social.Icon"),
             ToolTip = tooltip,
-            VerticalAlignment = VerticalAlignment.Center
         };
         var path = new Path
         {
             Data = (Geometry)FindResource(iconKey),
-            Style = (Style)FindResource("Icon.Base"),
-            Width = 18,
-            Height = 18
+            Style = (Style)FindResource("Icon.Small"),
         };
         // The glyph follows the button's own foreground (dim at rest, bright on hover).
         path.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding(nameof(Foreground)) { Source = button });

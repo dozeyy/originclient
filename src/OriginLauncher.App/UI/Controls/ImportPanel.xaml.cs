@@ -1333,7 +1333,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
         if (_pane != Pane.Version) return;
         var on = selected && going.Count > 0;
-        SetFooter(_model.VersionCaption(version), null, null, on ? "DONE" : "INCLUDE", () =>
+        SetFooter(_model.VersionCaption(version), null, null, on ? "Done" : "Include", () =>
         {
             if (on)
             {
@@ -1455,7 +1455,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_pane is Pane.Launchers or Pane.Grid or Pane.Pick or Pane.Versions) _reviewFrom = _pane;
         ShowPane(Pane.Review);
         SetHeader("Review", ReviewSubtitle());
-        SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", ImportAll);
+        SetFooter(null, "Details", () => OpenDetails(), "Import", ImportAll);
         var key = _model.SelectionKey();
         var options = _model.Options(_options);
         if (reuseFailure && _planFailed && !_planning && _planKey == key)
@@ -1806,7 +1806,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
         ShowPane(Pane.Single);
         SetSingleHeader();
-        SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) StartSingle(); });
+        SetFooter(null, "Details", () => OpenDetails(), "Import", () => { if (FooterPrimary.IsEnabled) StartSingle(); });
         TargetNote.Visibility = Visibility.Collapsed;
         WantFocus();
         _ = LoadTargetsAsync(setup);
@@ -2279,7 +2279,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 if (_singlePlan != null) RenderSinglePlan(_singlePlan);
                 else PageList.ItemsSource = new List<RowVm>();
                 PlanningRow.Visibility = V(_singlePlanning);
-                SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) StartSingle(); });
+                SetFooter(null, "Details", () => OpenDetails(), "Import", () => { if (FooterPrimary.IsEnabled) StartSingle(); });
                 break;
             case Pane.Done:
                 RenderDone();
@@ -2769,7 +2769,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         FailedTitle.Foreground = stopped ? (Brush)FindResource("Brush.TextDim") : accent;
         FailedTitle.Text = stopped ? "Import stopped" : "Import failed";
         FailedReason.Text = stopped ? "You stopped it." : string.IsNullOrEmpty(m.Error) ? "The import didn't finish." : m.Error;
-        SetFooter(null, "CLOSE", () => CloseRequested?.Invoke(this, EventArgs.Empty), "TRY AGAIN", TryAgain);
+        SetFooter(null, "Close", () => CloseRequested?.Invoke(this, EventArgs.Empty), "Try again", TryAgain);
         WantFocus();
     }
 
