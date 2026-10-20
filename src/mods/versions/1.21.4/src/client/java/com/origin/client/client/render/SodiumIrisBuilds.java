@@ -12,11 +12,27 @@ public final class SodiumIrisBuilds {
 	private SodiumIrisBuilds() { }
 
 	/**
+	 * Sodium is loaded at all. On this module it is a separate install the player can switch off (the
+	 * launcher honours a renamed .jar.disabled), so a vanilla-target mixin must test this before calling
+	 * into any class that touches Sodium types (OffMapShadows, SmartTerrainUpdates): loading such a class
+	 * without Sodium throws NoClassDefFoundError on the first world frame.
+	 */
+	public static final boolean SODIUM = loaded("sodium");
+
+	/**
 	 * Smart Terrain Updates was written against Sodium 0.6.13+mc1.21.4 and Iris 1.8.8+mc1.21.4 and only runs
 	 * there. Sodium 0.6.1/0.6.8 also differ in the hooked signatures (javap 2026-10-20: setupTerrain
 	 * (Camera, Viewport, boolean, boolean) and update(Camera, Viewport, boolean), with no FogParameters argument).
 	 */
 	public static final boolean SMART_TERRAIN = is("sodium", "0.6.13") && is("iris", "1.8.8");
+
+	private static boolean loaded(String mod) {
+		try {
+			return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(mod);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
 
 	/** True when mod {@code mod} is loaded at version {@code prefix} (with or without a "+build" suffix). */
 	public static boolean is(String mod, String prefix) {

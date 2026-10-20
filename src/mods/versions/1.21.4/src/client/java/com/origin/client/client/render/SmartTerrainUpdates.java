@@ -104,8 +104,9 @@ public final class SmartTerrainUpdates {
 	private static boolean cameraMark;
 
 	// ---- sections the last real main walk stamped (entity culling reads the stamps) ----
-	private static final net.caffeinemc.mods.sodium.client.render.chunk.RenderSection[] NO_SECTIONS = {};
-	private static net.caffeinemc.mods.sodium.client.render.chunk.RenderSection[] stamped = NO_SECTIONS;
+	// stamped / lists live in Held (below), never in this class's own statics: vanilla-target mixins
+	// reach this class, and a Sodium-typed static initializer here would throw NoClassDefFoundError
+	// on every version where the player can switch Sodium off (it isn't bundled there).
 	private static int stampN;
 	/** Inside a main-pass walk with the toggle on: OcclusionCuller's stamps are recorded. */
 	private static boolean recording;
@@ -125,7 +126,6 @@ public final class SmartTerrainUpdates {
 	private static final Matrix4f CULL_PROJ = new Matrix4f();
 
 	// ---- snapshot of the main render lists ----
-	private static ChunkRenderList[] lists = new ChunkRenderList[0];
 	private static byte[][] geo = new byte[0][], spr = new byte[0][], ent = new byte[0][];
 	private static int[] geoN = new int[0], sprN = new int[0], entN = new int[0], size = new int[0];
 	private static int count;
@@ -377,7 +377,7 @@ public final class SmartTerrainUpdates {
 				m.originclient$setLastUpdatedFrame(f);
 				restore(f);
 				for (int i = 0; i < stampN; i++) {
-					stamped[i].setLastVisibleFrame(f);   // the main walk's stamps over this frame's shadow walk's
+					Held.stamped[i].setLastVisibleFrame(f);   // the main walk's stamps over this frame's shadow walk's
 				}
 				m.originclient$setNeedsGraphUpdate(false);
 				long dt = System.nanoTime() - t0;
@@ -439,7 +439,7 @@ public final class SmartTerrainUpdates {
 				// This main walk replaces what is held; afterUpdate primes again from it. No pack =
 				// no per-section recording (reuse needs a pack anyway).
 				primed = false;
-				java.util.Arrays.fill(stamped, 0, stampN, null);
+				java.util.Arrays.fill(Held.stamped, 0, stampN, null);
 				stampN = 0;
 				recording = true;
 			}
@@ -452,10 +452,10 @@ public final class SmartTerrainUpdates {
 	public static void onStamp(net.caffeinemc.mods.sodium.client.render.chunk.RenderSection section, int hook) {
 		if (recording) {
 			hooksSeen |= 1 << hook;
-			if (stampN == stamped.length) {
-				stamped = java.util.Arrays.copyOf(stamped, Math.max(1024, stampN * 2));
+			if (stampN == Held.stamped.length) {
+				Held.stamped = java.util.Arrays.copyOf(Held.stamped, Math.max(1024, stampN * 2));
 			}
-			stamped[stampN++] = section;
+			Held.stamped[stampN++] = section;
 		}
 	}
 
@@ -507,7 +507,7 @@ public final class SmartTerrainUpdates {
 				return false;   // a list this walk didn't fill: not the state we think it is (caller releases)
 			}
 			SodiumChunkRenderListAccessor a = (SodiumChunkRenderListAccessor) list;
-			lists[i] = list;
+			Held.lists[i] = list;
 			geoN[i] = a.originclient$geoCount();
 			sprN[i] = a.originclient$spriteCount();
 			entN[i] = a.originclient$entityCount();
@@ -517,7 +517,7 @@ public final class SmartTerrainUpdates {
 			System.arraycopy(a.originclient$entities(), 0, ent[i], 0, entN[i]);
 		}
 		for (int i = n; i < count; i++) {
-			lists[i] = null;   // don't keep dead regions' lists alive
+			Held.lists[i] = null;   // don't keep dead regions' lists alive
 		}
 		count = n;
 		return true;
@@ -526,7 +526,7 @@ public final class SmartTerrainUpdates {
 	/** Put the main walk's sections back into every region list it drew (after this frame's shadow walk). */
 	private static void restore(int f) {
 		for (int i = 0; i < count; i++) {
-			SodiumChunkRenderListAccessor a = (SodiumChunkRenderListAccessor) lists[i];
+			SodiumChunkRenderListAccessor a = (SodiumChunkRenderListAccessor) Held.lists[i];
 			System.arraycopy(geo[i], 0, a.originclient$geo(), 0, geoN[i]);
 			System.arraycopy(spr[i], 0, a.originclient$sprites(), 0, sprN[i]);
 			System.arraycopy(ent[i], 0, a.originclient$entities(), 0, entN[i]);
@@ -543,10 +543,10 @@ public final class SmartTerrainUpdates {
 		primed = false;
 		manager = null;
 		count = 0;
-		lists = new ChunkRenderList[0];
+		Held.lists = new ChunkRenderList[0];
 		geo = spr = ent = new byte[0][];
 		geoN = sprN = entN = size = new int[0];
-		stamped = NO_SECTIONS;
+		Held.stamped = Held.NO_SECTIONS;
 		stampN = 0;
 		recording = false;
 	}
@@ -558,14 +558,14 @@ public final class SmartTerrainUpdates {
 	private static void unprime() {
 		primed = false;
 		manager = null;
-		java.util.Arrays.fill(lists, null);
+		java.util.Arrays.fill(Held.lists, null);
 		count = 0;
-		java.util.Arrays.fill(stamped, 0, stampN, null);
+		java.util.Arrays.fill(Held.stamped, 0, stampN, null);
 		stampN = 0;
 	}
 
 	private static void releaseIfHeld() {
-		if (primed || manager != null || lists.length != 0 || stamped.length != 0) {
+		if (primed || manager != null || Held.lists.length != 0 || Held.stamped.length != 0) {
 			release();
 		}
 	}
@@ -581,12 +581,12 @@ public final class SmartTerrainUpdates {
 	}
 
 	private static void ensure(int n) {
-		if (lists.length >= n) {
+		if (Held.lists.length >= n) {
 			return;
 		}
-		int cap = Math.max(n, lists.length * 2);
+		int cap = Math.max(n, Held.lists.length * 2);
 		ChunkRenderList[] nl = new ChunkRenderList[cap];
-		System.arraycopy(lists, 0, nl, 0, lists.length);
+		System.arraycopy(Held.lists, 0, nl, 0, Held.lists.length);
 		byte[][] ng = new byte[cap][], ns = new byte[cap][], ne = new byte[cap][];
 		for (int i = 0; i < cap; i++) {
 			// ChunkRenderList's arrays are byte[256] (one byte per section of a 8x4x8 region).
@@ -594,7 +594,7 @@ public final class SmartTerrainUpdates {
 			ns[i] = i < spr.length ? spr[i] : new byte[256];
 			ne[i] = i < ent.length ? ent[i] : new byte[256];
 		}
-		lists = nl;
+		Held.lists = nl;
 		geo = ng;
 		spr = ns;
 		ent = ne;
@@ -720,5 +720,15 @@ public final class SmartTerrainUpdates {
 			sb.append(HOOK_NAMES[i]).append((hooksSeen & (1 << i)) != 0 ? "=yes " : "=NO ");
 		}
 		return sb.toString().trim() + (VERSIONS_OK ? "" : " (versions not matched: feature inert)");
+	}
+
+	/**
+	 * The Sodium-typed arrays, in their own class so they load (and Sodium's classes with them) only
+	 * on first use: from Sodium's own hooks, or after live() (which needs Sodium 0.6.13) passed.
+	 */
+	private static final class Held {
+		static final net.caffeinemc.mods.sodium.client.render.chunk.RenderSection[] NO_SECTIONS = {};
+		static net.caffeinemc.mods.sodium.client.render.chunk.RenderSection[] stamped = NO_SECTIONS;
+		static ChunkRenderList[] lists = new ChunkRenderList[0];
 	}
 }

@@ -28,6 +28,10 @@ public abstract class LevelRendererCullFrustumMixin {
 	@Inject(method = "prepareCullFrustum", at = @At("HEAD"))
 	private void originclient$cullFingerprint(Vec3 pos, Matrix4f frustumMatrix, Matrix4f projectionMatrix,
 			CallbackInfo ci) {
-		SmartTerrainUpdates.onCullFrustum(pos, frustumMatrix, projectionMatrix, capturedFrustum != null);
+		// Vanilla target, so this runs with Sodium switched off too (it's a separate install here). Only
+		// call into SmartTerrainUpdates (Sodium-typed code) when its exact Sodium + Iris builds are loaded.
+		if (com.origin.client.client.render.SodiumIrisBuilds.SMART_TERRAIN) {
+			SmartTerrainUpdates.onCullFrustum(pos, frustumMatrix, projectionMatrix, capturedFrustum != null);
+		}
 	}
 }
