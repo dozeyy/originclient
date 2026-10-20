@@ -52,7 +52,8 @@ public class LevelLoadingScreenMixin {
 	// 26.x: LevelLoadingScreen's title is empty (vanilla draws its own
 	// "Downloading terrain" / progress text instead), so the scene would show
 	// no heading at all, and before the tracker has progress no line either.
-	// The heading is vanilla's own "Loading world" (menu.loadingLevel), built
+	// The heading is vanilla's own "Loading terrain..." (multiplayer.downloadingTerrain,
+	// the line this screen shows; 26.x has no "Loading world" key), built
 	// once per screen (a translatable resolves in the current language when the
 	// scene rebuilds its labels). A non-empty title is kept as is.
 	@Unique
@@ -63,7 +64,7 @@ public class LevelLoadingScreenMixin {
 		if (originclient$title == null) {
 			net.minecraft.network.chat.Component t = ((Screen) (Object) this).getTitle();
 			originclient$title = t == null || t.getString().isBlank()
-					? net.minecraft.network.chat.Component.translatable("menu.loadingLevel") : t;
+					? net.minecraft.network.chat.Component.translatable("multiplayer.downloadingTerrain") : t;
 		}
 		return originclient$title;
 	}
