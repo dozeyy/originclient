@@ -655,7 +655,9 @@ final class OriginDevWorld {
 			ft.setAccessible(true);
 			Object targets = ft.get(sr);
 			Object depth = targets.getClass().getMethod("getDepthTexture").invoke(targets);
-			int id = (int) depth.getClass().getMethod("getTextureId").invoke(depth);
+			// Iris 1.10.7 on 1.21.11 hands back MC's GlTexture (id via glId()); older Iris had its own DepthTexture.getTextureId().
+			int id = depth instanceof com.mojang.blaze3d.opengl.GlTexture gl ? gl.glId()
+					: (int) depth.getClass().getMethod("getTextureId").invoke(depth);
 			int prev = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_TEXTURE_BINDING_2D);
 			org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, id);
 			int w = org.lwjgl.opengl.GL11.glGetTexLevelParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_TEXTURE_WIDTH);
