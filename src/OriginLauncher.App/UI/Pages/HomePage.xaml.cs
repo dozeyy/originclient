@@ -1340,8 +1340,6 @@ public partial class HomePage : UserControl
         PlayButton.ApplyTemplate();
         if (PlayButton.Template.FindName("FillScale", PlayButton) is ScaleTransform fill)
             fill.ScaleX = fill.ScaleY = hover ? 1 : 0;
-        if (PlayButton.Template.FindName("ArrowShift", PlayButton) is TranslateTransform shift)
-            shift.X = hover ? 4 : 0;
         if (PlayButton.Template.FindName("Arrow", PlayButton) is System.Windows.Shapes.Path arrow)
             arrow.Stroke = new SolidColorBrush(hover ? Color.FromRgb(0x0E, 0x0E, 0x0E) : Color.FromRgb(0xE6, 0xE6, 0xE6));
     }
