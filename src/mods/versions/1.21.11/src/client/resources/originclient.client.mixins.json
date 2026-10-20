@@ -83,7 +83,21 @@
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"EntityRendererCullingBoxInvoker",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin",
+		"IrisPipelineHalfRateMixin",
+		"IrisShadowRendererHalfRateMixin",
+		"LevelRendererCullFrustumMixin",
+		"SodiumGraphReuseMixin",
+		"SodiumOcclusionStampMixin",
+		"SodiumRenderSectionManagerAccessor",
+		"SodiumSortedRenderListsAccessor",
+		"SodiumViewportShadowMapMixin",
+		"SodiumWalkEndMixin",
+		"SodiumWorldRendererReuseMixin",
+		"DebugScreenOriginRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
