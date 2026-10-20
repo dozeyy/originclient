@@ -781,6 +781,8 @@ public sealed class VersionManager
         // (906 entries, zero local) instead of 907 including the loader profile.
         // Measured both ways against a real instance before changing this.
         var parameters = MinecraftLauncherParameters.CreateDefault(path, SharedHttp);
+        // No Java 8 download for loader profiles that name no Java (see the class).
+        InheritedJavaFileExtractor.Install(parameters);
 
         var installer = ParallelGameInstaller.CreateAsCoreCount(SharedHttp);
         installer.CheckFileSize = true;
