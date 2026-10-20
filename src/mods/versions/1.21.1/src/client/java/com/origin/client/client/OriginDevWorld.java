@@ -21,7 +21,8 @@ import java.io.File;
  * Saturation off and on, then your player in third person wearing head, face
  * and back items from every side (with and without the skin's outer layer:
  * the cosmetics fit over it), the pause menu, the Cosmetics window and a demo
- * party (Party HUD, markers, a ping), and quits.
+ * party (Party HUD, markers, a ping), and quits. With a shader pack active it
+ * first measures Limit Far Shadows on a fixed test scene (shadowLimitStep).
  */
 final class OriginDevWorld {
 	private OriginDevWorld() {
@@ -87,6 +88,14 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
+				// With a shader pack on (dev-shots shaderpack=true), measure Limit Far Shadows first.
+				phase = com.origin.client.client.shaders.IrisBridge.currentPack() != null ? 40 : 30;
+				return;
+			}
+			if (phase >= 40 && phase < 50) {
+				if (shadowLimitStep(mc, dir)) {
+					return;
+				}
 				phase = 30;
 				return;
 			}
@@ -131,6 +140,95 @@ final class OriginDevWorld {
 			phase = 7;
 			mc.stop();
 		}
+	}
+
+	// ---- Limit Far Shadows measurement (only with a shader pack active) ----
+	// A fixed test scene -- 8 still pigs and 8 chests on each ring at 8/24/40/56/72 blocks --
+	// then the shadow-pass caster counts per frame with the limit OFF, and ON at 32 blocks.
+	// These are CPU-side counts of what Iris asked to draw into the shadow map; no timings.
+	private static final int[] RINGS = {8, 24, 40, 56, 72};
+	private static long snapFrames, snapSeenE, snapSkipE, snapSeenBE, snapSkipBE;
+	private static String offResult;
+
+	private static boolean shadowLimitStep(Minecraft mc, String dir) {
+		if (mc.screen instanceof PauseScreen) {
+			mc.setScreen(null);
+		}
+		if (phase == 40) {
+			var server = mc.getSingleplayerServer();
+			if (server == null || mc.player == null) {
+				return false;
+			}
+			net.minecraft.core.BlockPos p = mc.player.blockPosition();
+			server.execute(() -> {
+				var src = server.createCommandSourceStack().withSuppressedOutput();
+				for (int r : RINGS) {
+					for (int i = 0; i < 8; i++) {
+						double a = Math.PI * 2 * i / 8;
+						int x = p.getX() + (int) Math.round(Math.cos(a) * r);
+						int z = p.getZ() + (int) Math.round(Math.sin(a) * r);
+						server.getCommands().performPrefixedCommand(src, "setblock " + x + " " + (p.getY() + 1) + " " + z + " minecraft:chest");
+						server.getCommands().performPrefixedCommand(src, "summon minecraft:pig " + x + " " + (p.getY() + 3) + " " + z
+								+ " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"origin_shadowtest\"]}");
+					}
+				}
+			});
+			log("[shadow-limit] test scene: 40 pigs + 40 chests on rings " + java.util.Arrays.toString(RINGS) + " around " + p.toShortString());
+			Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.ShadowCasterLimit.KEY_ON, false);
+			phase = 41;
+			nextAt = System.currentTimeMillis() + 5000;   // let the client receive and draw the scene
+			return true;
+		}
+		if (phase == 41 || phase == 43) {
+			snapshot();
+			phase++;
+			nextAt = System.currentTimeMillis() + 4000;   // average over ~4 s of frames
+			return true;
+		}
+		if (phase == 42) {
+			offResult = measured();
+			grab(mc, dir, "shadowlimit_off_1920x1080.png");
+			Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.ShadowCasterLimit.KEY_DISTANCE, 32.0);
+			Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.ShadowCasterLimit.KEY_ON, true);
+			phase = 43;
+			nextAt = System.currentTimeMillis() + 1500;
+			return true;
+		}
+		if (phase == 44) {
+			String on = measured();
+			grab(mc, dir, "shadowlimit_on_1920x1080.png");
+			log("[shadow-limit] OFF: " + offResult);
+			log("[shadow-limit] ON @32 blocks: " + on);
+			Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.ShadowCasterLimit.KEY_ON, false);
+			var server = mc.getSingleplayerServer();
+			if (server != null) {
+				server.execute(() -> server.getCommands().performPrefixedCommand(
+						server.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=origin_shadowtest]"));
+			}
+			phase = 45;
+			return false;
+		}
+		return false;
+	}
+
+	private static void snapshot() {
+		snapFrames = com.origin.client.client.hud.FrameStats.frames();
+		snapSeenE = com.origin.client.client.render.ShadowCasterLimit.totalSeenE;
+		snapSkipE = com.origin.client.client.render.ShadowCasterLimit.totalSkipE;
+		snapSeenBE = com.origin.client.client.render.ShadowCasterLimit.totalSeenBE;
+		snapSkipBE = com.origin.client.client.render.ShadowCasterLimit.totalSkipBE;
+	}
+
+	/** Per-frame averages since snapshot(): shadow casters Iris asked for, and how many were skipped. */
+	private static String measured() {
+		long f = Math.max(1, com.origin.client.client.hud.FrameStats.frames() - snapFrames);
+		double seenE = (com.origin.client.client.render.ShadowCasterLimit.totalSeenE - snapSeenE) / (double) f;
+		double skipE = (com.origin.client.client.render.ShadowCasterLimit.totalSkipE - snapSkipE) / (double) f;
+		double seenBE = (com.origin.client.client.render.ShadowCasterLimit.totalSeenBE - snapSeenBE) / (double) f;
+		double skipBE = (com.origin.client.client.render.ShadowCasterLimit.totalSkipBE - snapSkipBE) / (double) f;
+		return String.format(java.util.Locale.ROOT,
+				"frames=%d entities/frame asked=%.1f skipped=%.1f drawn=%.1f | block entities/frame asked=%.1f skipped=%.1f drawn=%.1f",
+				f, seenE, skipE, seenE - skipE, seenBE, skipBE, seenBE - skipBE);
 	}
 
 	// ---- cosmetics on your own player, orbited by the freelook camera (toggle mode keeps it latched) ----

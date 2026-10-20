@@ -81,7 +81,9 @@
 		"SodiumChunkRendererMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

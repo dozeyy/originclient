@@ -12,14 +12,20 @@ import java.util.List;
 // One F3 line (left column) while Settings > Performance > Origin Render is on:
 // what it's doing ("drawing 812 of 1430 solid sections") or why it isn't
 // (shaderpack on, card too old, stopped after an error). Nothing when off.
+// Plus one line while Limit Far Shadows is on and a shader pack draws shadows.
 @Mixin(DebugScreenOverlay.class)
 public class DebugScreenOriginRenderMixin {
 	@Inject(method = "getGameInformation", at = @At("RETURN"))
 	private void originclient$originRenderLine(CallbackInfoReturnable<List<String>> cir) {
-		String line = OriginRender.debugLine();
+		add(cir.getReturnValue(), OriginRender.debugLine());
+		// Settings > Performance > Limit Far Shadows: how many far shadow casters it skipped last frame.
+		add(cir.getReturnValue(), com.origin.client.client.render.ShadowCasterLimit.debugLine());
+	}
+
+	private static void add(List<String> lines, String line) {
 		if (line != null) {
 			try {
-				cir.getReturnValue().add(line);
+				lines.add(line);
 			} catch (UnsupportedOperationException ignored) {
 				// an immutable list from another mod: skip the line
 			}
