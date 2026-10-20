@@ -15,6 +15,25 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <!-- Poster look, same as the Friends drawer: sharp 4 px card, raised square dismiss button. -->
+        <Style x:Key="Toast.Join" TargetType="Button" BasedOn="{StaticResource Social.ActionPrimary}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bg" Background="{DynamicResource Brush.Acc}" CornerRadius="{StaticResource Radius.Control}"/>
+                            <Border CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Fill.PrimarySheen}"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="Toast.Dismiss" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
             <Setter Property="MinWidth" Value="24"/>
             <Setter Property="MinHeight" Value="24"/>
@@ -52,8 +71,11 @@
                             </Grid.ColumnDefinitions>
                             <Border Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"
                                     Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Swatch}">
-                                <Path Data="{Binding Icon}" Style="{StaticResource Icon.Base}"
-                                      Width="14" Height="14" Stroke="{StaticResource Brush.Text}"/>
+                                <Grid>
+                                    <Border Background="{Binding Tint}" Opacity="0.2" CornerRadius="{StaticResource Radius.Swatch}"/>
+                                    <Path Data="{Binding Icon}" Style="{StaticResource Icon.Base}"
+                                          Width="14" Height="14" Stroke="{Binding Tint}"/>
+                                </Grid>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" ToolTip="{Binding Body}">
                                 <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
@@ -61,7 +83,7 @@
                                 <TextBlock Text="{Binding Body}" Style="{StaticResource Social.Caption}"
                                            TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="{Binding ActionText}" Style="{StaticResource Social.ActionPrimary}"
+                            <Button Grid.Column="2" Content="{Binding ActionText}" Style="{StaticResource Toast.Join}"
                                     Margin="8,0,0,0" VerticalAlignment="Center"
                                     Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}"
                                     Click="Action_Click"/>

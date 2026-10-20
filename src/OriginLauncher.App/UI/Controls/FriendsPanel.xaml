@@ -84,7 +84,7 @@
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="VerticalAlignment" Value="Bottom"/>
             <Setter Property="Margin" Value="0,0,-3,-3"/>
-            <Setter Property="Background" Value="{DynamicResource Brush.Acc}"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Success}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Brush.PanelElevated}"/>
             <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="CornerRadius" Value="2"/>
@@ -111,9 +111,32 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
         </Style>
+        <!-- JOIN in the version's accent (Brush.Acc follows the version family). -->
+        <Style x:Key="Social.Join" TargetType="Button" BasedOn="{StaticResource Social.ActionPrimary}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bg" Background="{DynamicResource Brush.Acc}" CornerRadius="{StaticResource Radius.Control}"/>
+                            <Border CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Fill.PrimarySheen}"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <!-- Unread count: a light chip with dark digits (the mockup's Chat 1). -->
         <Style x:Key="Social.Badge" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+            <Setter Property="Background" Value="{DynamicResource Brush.Acc}"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
             <Setter Property="Padding" Value="6,1"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
@@ -170,7 +193,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding Text}" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
                                TextTrimming="None" VerticalAlignment="Center"/>
-                    <Button Grid.Column="1" Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                    <Button Grid.Column="1" Content="JOIN" Style="{StaticResource Social.Join}"
                             Margin="10,0,0,0" Click="WarpJoin_Click"
                             ToolTip="Launch their Minecraft version and join the server"/>
                 </Grid>
@@ -192,7 +215,7 @@
                         <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}">
                             <controls:PixelFace Seed="{Binding Name}"/>
                         </Border>
-                        <Border x:Name="Dot" Style="{StaticResource Social.Dot}" Visibility="Collapsed"/>
+                        <Border x:Name="Dot" Style="{StaticResource Social.Dot}" Background="{StaticResource Brush.TextMuted}"/>
                     </Grid>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
@@ -205,7 +228,7 @@
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
                                        FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
                         </Border>
-                        <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                        <Button Content="JOIN" Style="{StaticResource Social.Join}"
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
                                 ToolTip="{Binding JoinTip}" Click="FriendJoin_Click"/>
                         <Button Style="{StaticResource Social.Icon}" Click="FriendMore_Click"
@@ -219,7 +242,7 @@
             </Button>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                    <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="Dot" Property="Background" Value="{StaticResource Brush.Success}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsOnline}" Value="False">
                     <Setter TargetName="Avatar" Property="Opacity" Value="0.6"/>
@@ -312,8 +335,7 @@
                         <Border Style="{StaticResource Social.Avatar}">
                             <controls:PixelFace Seed="{Binding Name}"/>
                         </Border>
-                        <Border Style="{StaticResource Social.Dot}"
-                                Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}"/>
+                        <Border x:Name="MDot" Style="{StaticResource Social.Dot}" Background="{StaticResource Brush.TextMuted}"/>
                     </Grid>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
@@ -331,7 +353,7 @@
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
                                        FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
                         </Border>
-                        <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                        <Button Content="JOIN" Style="{StaticResource Social.Join}"
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
                                 ToolTip="{Binding JoinTip}" Click="MemberJoin_Click"/>
                         <Button Style="{StaticResource Social.Icon}" Click="MemberMore_Click"
@@ -344,6 +366,9 @@
                 </Grid>
             </Button>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                    <Setter TargetName="MDot" Property="Background" Value="{StaticResource Brush.Success}"/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Clickable}" Value="False">
                     <Setter TargetName="Row" Property="Cursor" Value="Arrow"/>
                 </DataTrigger>
@@ -634,7 +659,7 @@
                 <!-- Join / invite, only the ones that apply right now, between two hairlines. -->
                 <StackPanel Grid.Row="0">
                     <StackPanel x:Name="ChatBar" Orientation="Horizontal" Margin="16,0,16,10" Visibility="Collapsed">
-                        <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                        <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Social.Join}"
                                 Margin="0,0,8,0" Padding="14,6" Click="ChatJoin_Click"
                                 ToolTip="Launch their Minecraft version and join their server"/>
                         <Button x:Name="ChatInviteButton" Content="INVITE TO PARTY" Style="{StaticResource Social.Action}"
