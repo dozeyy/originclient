@@ -29,14 +29,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // over the panorama, with 1.21.1's thin header / footer separator lines where
 // vanilla's dirt strips were. Origin's own screens keep their transparent lists.
 //
+// (1.19.4 scissors the rows to the list box itself, enableScissor in render, so
+// unlike 1.19.2 / 1.19.3 nothing here has to clip them.)
+//
 // In-world (not gated on level == null): in-world list screens -- notably
 // Iris's ShaderPackScreen over a loaded world -- would draw the dirt strips
 // over the game, so the flags go off there too, with no panel (the screen's
 // own darkening gradient sits behind the list).
 //
 // Fail-soft: Main Menu Style = Vanilla or a broken renderer leaves vanilla's
-// dirt untouched. If this stops applying, lists show vanilla dirt over the
-// panorama.
+// dirt untouched, and the list's own flags are put back the moment this stops
+// applying (a backdrop that latched broken mid-session no longer leaves a list
+// with neither dirt nor backdrop). If this stops applying, lists show vanilla
+// dirt over the panorama.
 @Mixin(AbstractSelectionList.class)
 public class AbstractSelectionListMixin {
 
@@ -50,26 +55,35 @@ public class AbstractSelectionListMixin {
 	private static final int SEPARATOR_LIGHT = 0x33FFFFFF;
 	private static final int SEPARATOR_DARK = 0x99000000;
 
-	// The list's own renderTopAndBottom as its screen set it, read on the first
-	// render before this mixin clears the flag (0 = not read yet, 1 = on, 2 = off).
+	// The list's own flags as its screen set them, taken before this mixin clears
+	// them, and whether they are cleared right now (so the early returns can put
+	// them back).
 	@Unique
-	private byte originclient$topAndBottom;
+	private boolean originclient$flagsCleared;
+	@Unique
+	private boolean originclient$savedBackground;
+	@Unique
+	private boolean originclient$savedTopAndBottom;
 
 	@Inject(method = "render", at = @At("HEAD"))
 	private void originclient$transparentOnOrigin(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		Minecraft mc = Minecraft.getInstance();
 		if (!OriginScreenRenderer.isActive() || OriginStyle.vanillaMenusOn(mc.screen)) {
+			originclient$restoreFlags();
 			return;
 		}
-		if (mc.level == null && mc.screen != null && !OriginWidgetOwnership.isOriginOwnClass(mc.screen)) {
-			if (!OriginScreenRenderer.menuBackdropActive()) {
-				return;   // the backdrop failed: vanilla dirt stays
-			}
+		boolean panel = mc.level == null && mc.screen != null && !OriginWidgetOwnership.isOriginOwnClass(mc.screen);
+		if (panel && !OriginScreenRenderer.menuBackdropActive()) {
+			originclient$restoreFlags();   // the backdrop failed: vanilla dirt stays
+			return;
+		}
+		if (!this.originclient$flagsCleared) {
+			this.originclient$savedBackground = this.renderBackground;
+			this.originclient$savedTopAndBottom = this.renderTopAndBottom;
+		}
+		if (panel) {
 			GuiComponent.fill(poseStack, this.x0, this.y0, this.x1, this.y1, OriginTheme.CLEAN_PANEL);
-			if (this.originclient$topAndBottom == 0) {
-				this.originclient$topAndBottom = this.renderTopAndBottom ? (byte) 1 : (byte) 2;
-			}
-			if (this.originclient$topAndBottom == 1) {
+			if (this.originclient$savedTopAndBottom) {
 				// Where vanilla would have drawn its dirt header/footer strips, the
 				// 1.21.1 separator lines instead (header_separator / footer_separator:
 				// a faint light row over a dark one; colours sampled from the 1.21.1
@@ -82,5 +96,16 @@ public class AbstractSelectionListMixin {
 		}
 		this.renderBackground = false;
 		this.renderTopAndBottom = false;
+		this.originclient$flagsCleared = true;
+	}
+
+	// Puts the screen's own flags back after this mixin cleared them.
+	@Unique
+	private void originclient$restoreFlags() {
+		if (this.originclient$flagsCleared) {
+			this.renderBackground = this.originclient$savedBackground;
+			this.renderTopAndBottom = this.originclient$savedTopAndBottom;
+			this.originclient$flagsCleared = false;
+		}
 	}
 }

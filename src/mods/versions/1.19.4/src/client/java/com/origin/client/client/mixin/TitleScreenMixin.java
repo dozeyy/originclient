@@ -196,6 +196,20 @@ public class TitleScreenMixin {
 		instance.render(partialTick, alpha);
 	}
 
+	// One Gfx reused across frames (it only wraps a PoseStack reference): the title
+	// screen hands the same PoseStack every frame, so this allocates once, not per
+	// frame. Rebuilt only if the PoseStack instance ever differs.
+	private static Gfx originclient$gfxCache;
+
+	private static Gfx originclient$gfx(PoseStack poseStack) {
+		Gfx g = originclient$gfxCache;
+		if (g == null || g.pose() != poseStack) {
+			g = new Gfx(poseStack);
+			originclient$gfxCache = g;
+		}
+		return g;
+	}
+
 	// The PANORAMA_OVERLAY blit right after the panorama (the only 10-arg blit in
 	// render()): Origin's blur + a light dim + vignette instead (1.21.1 adds the
 	// same at renderPanorama TAIL), then the account chip, so the chip sits over
@@ -206,7 +220,7 @@ public class TitleScreenMixin {
 	private void originclient$backdropOver(PoseStack poseStack, int x, int y, int w, int h,
 										   float u, float v, int uW, int vH, int texW, int texH) {
 		if (originclient$origin() && OriginScreenRenderer.isActive()) {
-			Gfx g = new Gfx(poseStack);
+			Gfx g = originclient$gfx(poseStack);
 			if (OriginScreenRenderer.renderTitleBackdropOver((Screen) (Object) this, g, Minecraft.getInstance().getDeltaFrameTime())) {
 				OriginScreenRenderer.renderTitleAccountChip(g);
 				return;
@@ -218,7 +232,7 @@ public class TitleScreenMixin {
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lcom/mojang/blaze3d/vertex/PoseStack;IF)V"))
 	private void originclient$logo(LogoRenderer instance, PoseStack poseStack, int screenWidth, float alpha) {
-		if (!originclient$origin() || !OriginScreenRenderer.renderTitleWordmark(new Gfx(poseStack))) {
+		if (!originclient$origin() || !OriginScreenRenderer.renderTitleWordmark(originclient$gfx(poseStack))) {
 			instance.renderLogo(poseStack, screenWidth, alpha);
 		}
 	}
@@ -336,7 +350,7 @@ public class TitleScreenMixin {
 			main.sort(java.util.Comparator.comparingInt(AbstractWidget::getY).thenComparingInt(AbstractWidget::getX));
 			AbstractWidget single = null, multi = null, realms = null, options = null, quit = null;
 			for (AbstractWidget w : main) {
-				if (single == null && originclient$is(w, "menu.singleplayer")) single = w;
+				if (single == null && (originclient$is(w, "menu.singleplayer") || originclient$is(w, "menu.playdemo"))) single = w;
 				else if (multi == null && originclient$is(w, "menu.multiplayer")) multi = w;
 				else if (realms == null && originclient$is(w, "menu.online")) realms = w;
 				else if (options == null && originclient$is(w, "menu.options")) options = w;
@@ -345,6 +359,7 @@ public class TitleScreenMixin {
 			List<AbstractWidget> full = new ArrayList<>();
 			if (single != null) full.add(single);
 			if (multi != null) full.add(multi);
+			int lead = full.size();   // the buttons actually found: demo mode and mods can leave 0, 1 or 2
 			for (AbstractWidget w : main) {
 				if (w != single && w != multi && w != realms && w != options && w != quit) {
 					full.add(w);
@@ -359,17 +374,18 @@ public class TitleScreenMixin {
 			boolean pair = options != null || originclient$modsNav != null;
 			TitleLayout.rows(full.size() + (pair ? 1 : 0));
 			TitleLayout L = TitleLayout.of(self.width, self.height);
-			boolean halves = !L.fits && full.size() > 3;
+			int extra = full.size() - lead;
+			boolean halves = !L.fits && extra > 1;
 			if (halves) {
-				TitleLayout.rows(2 + (full.size() - 1) / 2 + (pair ? 1 : 0));
+				TitleLayout.rows(lead + (extra + 1) / 2 + (pair ? 1 : 0));
 				L = TitleLayout.of(self.width, self.height);
 			}
 			int half = (L.mainW - L.pairGap) / 2;
 			int y = L.mainTop;
 			for (int i = 0; i < full.size(); i++) {
 				AbstractWidget w = full.get(i);
-				boolean right = halves && i >= 2 && (i - 2) % 2 == 1;
-				boolean alone = !halves || i < 2 || (!right && i == full.size() - 1);
+				boolean right = halves && i >= lead && (i - lead) % 2 == 1;
+				boolean alone = !halves || i < lead || (!right && i == full.size() - 1);
 				if (alone) {
 					originclient$place(w, L.mainX, y, L.mainW, L.buttonH, true);
 				} else {

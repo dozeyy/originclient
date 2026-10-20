@@ -898,10 +898,11 @@ public final class OriginScreenRenderer {
 			int hx = x + pad, hy = y + (chipH - head) / 2;
 			boolean drewHead = false;
 			try {
-				// 1.19.x: the skin manager resolves the face texture from a profile built from
-				// the session's UUID + name, and PlayerFaceRenderer draws the bound texture.
-				com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(user.getProfileId(), name);
-				net.minecraft.resources.ResourceLocation skin = mc.getSkinManager().getInsecureSkinLocation(profile);
+				// 1.19.x: a bare UUID+name profile has no signed `textures`, so the skin
+				// manager alone would always give Steve/Alex. SocialSkins looks the skin
+				// up once off the render thread, caches the texture id, and shows the
+				// default skin until it lands (no per-frame allocation, no blocking).
+				net.minecraft.resources.ResourceLocation skin = com.origin.client.client.social.SocialSkins.skin(user.getProfileId());
 				guiGraphics.face(skin, hx, hy, head);
 				drewHead = true;
 			} catch (Throwable ignored) {

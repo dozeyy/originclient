@@ -198,6 +198,36 @@ public class TitleScreenMixin {
 		instance.render(partialTick, alpha);
 	}
 
+	// One Gfx reused across frames (it only wraps a PoseStack reference): the title
+	// screen hands the same PoseStack every frame, so this allocates once, not per
+	// frame. Rebuilt only if the PoseStack instance ever differs.
+	private static Gfx originclient$gfxCache;
+
+	private static Gfx originclient$gfx(PoseStack poseStack) {
+		Gfx g = originclient$gfxCache;
+		if (g == null || g.pose() != poseStack) {
+			g = new Gfx(poseStack);
+			originclient$gfxCache = g;
+		}
+		return g;
+	}
+
+	// The logo draws in raw GUI space on a fresh identity pose; one is kept and
+	// reused with its Gfx. clear() is false if a draw that threw left a push
+	// unmatched, then a clean stack replaces it.
+	private static PoseStack originclient$logoPose;
+	private static Gfx originclient$logoGfxCache;
+
+	private static Gfx originclient$logoGfx() {
+		PoseStack p = originclient$logoPose;
+		if (p == null || !p.clear()) {
+			p = new PoseStack();
+			originclient$logoPose = p;
+			originclient$logoGfxCache = new Gfx(p);
+		}
+		return originclient$logoGfxCache;
+	}
+
 	// The PANORAMA_OVERLAY blit right after the panorama (the only 10-arg blit in
 	// render()): Origin's blur + a light dim + vignette instead (1.21.1 adds the
 	// same at renderPanorama TAIL), then the account chip, so the chip sits over
@@ -208,7 +238,7 @@ public class TitleScreenMixin {
 	private void originclient$backdropOver(PoseStack poseStack, int x, int y, int w, int h,
 										   float u, float v, int uW, int vH, int texW, int texH) {
 		if (originclient$origin() && OriginScreenRenderer.isActive()) {
-			Gfx g = new Gfx(poseStack);
+			Gfx g = originclient$gfx(poseStack);
 			if (OriginScreenRenderer.renderTitleBackdropOver((Screen) (Object) this, g, Minecraft.getInstance().getDeltaFrameTime())) {
 				OriginScreenRenderer.renderTitleAccountChip(g);
 				return;
@@ -232,7 +262,7 @@ public class TitleScreenMixin {
 			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blitOutlineBlack(IILjava/util/function/BiConsumer;)V"))
 	private void originclient$logo(TitleScreen instance, int x, int y, BiConsumer<Integer, Integer> draw) {
 		originclient$wordmarkDrawn = originclient$origin()
-				&& OriginScreenRenderer.renderTitleWordmark(new Gfx(new PoseStack()));
+				&& OriginScreenRenderer.renderTitleWordmark(originclient$logoGfx());
 		if (!originclient$wordmarkDrawn) {
 			instance.blitOutlineBlack(x, y, draw);
 		}
@@ -391,7 +421,7 @@ public class TitleScreenMixin {
 			main.sort(java.util.Comparator.<AbstractWidget>comparingInt(w -> w.y).thenComparingInt(w -> w.x));
 			AbstractWidget single = null, multi = null, realms = null, options = null, quit = null;
 			for (AbstractWidget w : main) {
-				if (single == null && originclient$is(w, "menu.singleplayer")) single = w;
+				if (single == null && (originclient$is(w, "menu.singleplayer") || originclient$is(w, "menu.playdemo"))) single = w;
 				else if (multi == null && originclient$is(w, "menu.multiplayer")) multi = w;
 				else if (realms == null && originclient$is(w, "menu.online")) realms = w;
 				else if (options == null && originclient$is(w, "menu.options")) options = w;
@@ -400,6 +430,7 @@ public class TitleScreenMixin {
 			List<AbstractWidget> full = new ArrayList<>();
 			if (single != null) full.add(single);
 			if (multi != null) full.add(multi);
+			int lead = full.size();   // the buttons actually found: demo mode and mods can leave 0, 1 or 2
 			for (AbstractWidget w : main) {
 				if (w != single && w != multi && w != realms && w != options && w != quit) {
 					full.add(w);
@@ -414,17 +445,18 @@ public class TitleScreenMixin {
 			boolean pair = options != null || originclient$modsNav != null;
 			TitleLayout.rows(full.size() + (pair ? 1 : 0));
 			TitleLayout L = TitleLayout.of(self.width, self.height);
-			boolean halves = !L.fits && full.size() > 3;
+			int extra = full.size() - lead;
+			boolean halves = !L.fits && extra > 1;
 			if (halves) {
-				TitleLayout.rows(2 + (full.size() - 1) / 2 + (pair ? 1 : 0));
+				TitleLayout.rows(lead + (extra + 1) / 2 + (pair ? 1 : 0));
 				L = TitleLayout.of(self.width, self.height);
 			}
 			int half = (L.mainW - L.pairGap) / 2;
 			int y = L.mainTop;
 			for (int i = 0; i < full.size(); i++) {
 				AbstractWidget w = full.get(i);
-				boolean right = halves && i >= 2 && (i - 2) % 2 == 1;
-				boolean alone = !halves || i < 2 || (!right && i == full.size() - 1);
+				boolean right = halves && i >= lead && (i - lead) % 2 == 1;
+				boolean alone = !halves || i < lead || (!right && i == full.size() - 1);
 				if (alone) {
 					originclient$place(w, L.mainX, y, L.mainW, L.buttonH, true);
 				} else {
