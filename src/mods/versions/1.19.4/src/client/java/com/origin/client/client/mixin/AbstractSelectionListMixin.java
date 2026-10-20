@@ -10,6 +10,7 @@ import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -25,7 +26,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // and out of world, on Minecraft's screens, the rows get one flat translucent
 // panel instead (OriginTheme.CLEAN_PANEL -- 1.21.1 swaps the list's darker
 // menu-background strip for the same panel), so lists read as one calm surface
-// over the panorama. Origin's own screens keep their transparent lists.
+// over the panorama, with 1.21.1's thin header / footer separator lines where
+// vanilla's dirt strips were. Origin's own screens keep their transparent lists.
 //
 // In-world (not gated on level == null): in-world list screens -- notably
 // Iris's ShaderPackScreen over a loaded world -- would draw the dirt strips
@@ -45,6 +47,14 @@ public class AbstractSelectionListMixin {
 	@Shadow protected int x1;
 	@Shadow protected int y1;
 
+	private static final int SEPARATOR_LIGHT = 0x33FFFFFF;
+	private static final int SEPARATOR_DARK = 0x99000000;
+
+	// The list's own renderTopAndBottom as its screen set it, read on the first
+	// render before this mixin clears the flag (0 = not read yet, 1 = on, 2 = off).
+	@Unique
+	private byte originclient$topAndBottom;
+
 	@Inject(method = "render", at = @At("HEAD"))
 	private void originclient$transparentOnOrigin(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		Minecraft mc = Minecraft.getInstance();
@@ -56,6 +66,19 @@ public class AbstractSelectionListMixin {
 				return;   // the backdrop failed: vanilla dirt stays
 			}
 			GuiComponent.fill(poseStack, this.x0, this.y0, this.x1, this.y1, OriginTheme.CLEAN_PANEL);
+			if (this.originclient$topAndBottom == 0) {
+				this.originclient$topAndBottom = this.renderTopAndBottom ? (byte) 1 : (byte) 2;
+			}
+			if (this.originclient$topAndBottom == 1) {
+				// Where vanilla would have drawn its dirt header/footer strips, the
+				// 1.21.1 separator lines instead (header_separator / footer_separator:
+				// a faint light row over a dark one; colours sampled from the 1.21.1
+				// shots). Fills, not the textures: those don't exist before 1.19.4.
+				GuiComponent.fill(poseStack, this.x0, this.y0 - 2, this.x1, this.y0 - 1, SEPARATOR_LIGHT);
+				GuiComponent.fill(poseStack, this.x0, this.y0 - 1, this.x1, this.y0, SEPARATOR_DARK);
+				GuiComponent.fill(poseStack, this.x0, this.y1, this.x1, this.y1 + 1, SEPARATOR_LIGHT);
+				GuiComponent.fill(poseStack, this.x0, this.y1 + 1, this.x1, this.y1 + 2, SEPARATOR_DARK);
+			}
 		}
 		this.renderBackground = false;
 		this.renderTopAndBottom = false;
