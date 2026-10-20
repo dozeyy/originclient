@@ -51,6 +51,9 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=style (Button Style / Main Menu Style, 2026-10-19): Minecraft's own menus, to see
 		// whether they come out Origin-styled or plain vanilla. Run once per ORIGIN_SHOTS_STYLE state.
 		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING,
+		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19): the title with one button held in
+		// its hover state, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
+		TITLE_HOVER, CONTROLS, LEVEL_LOADING, CONNECTING,
 		// ORIGIN_SHOTS_SET=perf: the real Sodium / Iris screens (opened by reflection, see perfScreen)
 		PERF_SODIUM, PERF_IRIS;
 
@@ -63,6 +66,8 @@ public final class OriginDevShots {
 			// The friends demo only on its own shots, so every other shot looks the same in both passes.
 			com.origin.client.client.social.SocialDemo.clear();
 			Minecraft.getInstance().getToasts().clear();
+			com.origin.client.client.gui.OriginButtonRenderer.devForceHover(this == TITLE_HOVER
+					? net.minecraft.client.resources.language.I18n.get("menu.multiplayer") : null);
 			return switch (this) {
 				case TITLE -> new TitleScreen();
 				case MENU -> new OriginModMenuScreen().preview(false, false);
@@ -213,7 +218,27 @@ public final class OriginDevShots {
 				case STY_SERVERS -> new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(new TitleScreen());
 				case STY_LOADING -> new net.minecraft.client.gui.screens.GenericMessageScreen(
 						net.minecraft.network.chat.Component.literal("Preparing for world creation..."));
+				case TITLE_HOVER -> new TitleScreen();
+				case CONTROLS -> new net.minecraft.client.gui.screens.options.controls.ControlsScreen(
+						new TitleScreen(), Minecraft.getInstance().options);
+				// A chunk listener nothing feeds: the screen at 0%, exactly as a world starts loading.
+				case LEVEL_LOADING -> new net.minecraft.client.gui.screens.LevelLoadingScreen(
+						net.minecraft.server.level.progress.StoringChunkProgressListener.create(2));
+				case CONNECTING -> connectScreen();
 			};
+		}
+	}
+
+	/** ConnectScreen's (Screen, Component) constructor is private (javap, 1.21.1); no connection is started,
+	 *  so it just shows "Connecting to the server..." -- the state a player sees first. */
+	private static Screen connectScreen() {
+		try {
+			var c = net.minecraft.client.gui.screens.ConnectScreen.class.getDeclaredConstructor(
+					Screen.class, net.minecraft.network.chat.Component.class);
+			c.setAccessible(true);
+			return c.newInstance(new TitleScreen(), net.minecraft.network.chat.CommonComponents.CONNECT_FAILED);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("ConnectScreen constructor", e);
 		}
 	}
 
@@ -326,6 +351,20 @@ public final class OriginDevShots {
 			for (Kind k : ks) {
 				SHOTS.add(new Shot(1920, 1080, 2, k));
 			}
+		} else if ("clean".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+		// The clean in-game look: Minecraft's own menus + loading screens at GUI scale 2 on 1080p, the
+		// Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4 (clipping checks).
+		// The pause menu comes from the world set; the startup loading screen from the boot shot below.
+		Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS,
+				Kind.STY_SOUND, Kind.STY_WORLDS, Kind.STY_CREATE, Kind.STY_SERVERS, Kind.STY_LOADING,
+				Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.MENU};
+		for (Kind k : ks) {
+			SHOTS.add(new Shot(1920, 1080, 2, k));
+		}
+		SHOTS.add(new Shot(1280, 720, 2, Kind.TITLE));
+		SHOTS.add(new Shot(1920, 1080, 3, Kind.TITLE));
+		SHOTS.add(new Shot(1920, 1080, 4, Kind.TITLE));
+		SHOTS.add(new Shot(1920, 1080, 3, Kind.STY_OPTIONS));
 		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			for (int sc : new int[]{2, 4}) {
 				for (Kind k : Kind.values()) {
@@ -429,7 +468,8 @@ public final class OriginDevShots {
 
 	/** Style set only: one frame of the STARTUP loading screen (the overlay only exists while the game boots). */
 	private static void bootLoadingShot(Minecraft mc) {
-		if (bootShot || !"style".equals(System.getenv("ORIGIN_SHOTS_SET")) || mc.getOverlay() == null) {
+		String set = System.getenv("ORIGIN_SHOTS_SET");
+		if (bootShot || !("style".equals(set) || "clean".equals(set)) || mc.getOverlay() == null) {
 			return;
 		}
 		if (++overlayTicks >= 12) {

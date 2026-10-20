@@ -98,6 +98,41 @@ public final class OriginTheme {
 	public static final int RADIUS_MD = 2;
 	public static final int RADIUS_LG = 3;
 
+	// ---- Clean in-game surface (Will's approved mockup, 2026-10-19) ----
+	// The ONE control material on Minecraft's own screens (title, pause, options,
+	// world/server lists, loading): translucent dark glass over the blurred
+	// panorama, a 1px hairline, a soft blue border on hover, and exactly one
+	// solid white primary per screen. Origin's own screens (Right Shift menu,
+	// HUD editor) keep the BOX_* glass above; the HUD is untouched. Fixed (not
+	// theme-repainted) so the vanilla menus always match the mockup.
+	public static final int CLEAN_GLASS = 0xAD0E0F13;          // rgba(14,15,19,.68)
+	public static final int CLEAN_GLASS_HI = 0xCC282A32;       // rgba(40,42,50,.80) hover
+	public static final int CLEAN_GLASS_PRESS = 0xBD08090C;    // rgba(8,9,12,.74)
+	public static final int CLEAN_GLASS_OFF = 0x6B0E0F13;      // disabled: same glass, lighter
+	public static final int CLEAN_PANEL = 0x800C0D10;          // list / settings panels, rgba(12,13,16,.50)
+	public static final int CLEAN_LINE = 0x1CFFFFFF;           // white 11%
+	public static final int CLEAN_LINE_HI = 0x33FFFFFF;        // white 20%
+	public static final int CLEAN_LINE_OFF = 0x0FFFFFFF;       // white 6% (disabled)
+	public static final int CLEAN_LINE_ACCENT = 0x6B86B4FF;    // rgba(134,180,255,.42) hover border
+	public static final int CLEAN_TEXT = 0xFFF3F4F6;
+	public static final int CLEAN_TEXT_DIM = 0xA8F3F4F6;       // 66%
+	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
+	public static final int CLEAN_PRIMARY = 0xFFEDEFF2;
+	public static final int CLEAN_PRIMARY_HI = 0xFFFFFFFF;
+	public static final int CLEAN_PRIMARY_PRESS = 0xFFD6D9DE;
+	public static final int CLEAN_PRIMARY_TEXT = 0xFF0D0E11;
+	public static final int CLEAN_FOCUS = 0xD9FFFFFF;          // keyboard focus ring, white 85%
+	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
+	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
+	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
+	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
+	public static final int CLEAN_BAR_TRACK = 0x29FFFFFF;      // loading bar track, white 16%
+	public static final int CLEAN_BAR_FILL = 0xEBFFFFFF;       // loading bar fill, white 92%
+	// Type sizes in GUI px (em). Labels 6.2 (12px at GUI scale 2), titles 7.
+	public static final float CLEAN_EM_LABEL = 6.2f;
+	public static final float CLEAN_EM_TITLE = 7.0f;
+	public static final float CLEAN_EM_HINT = 5.0f;
+
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;
 	public static final double HOVER_OUT_MS = 64.0;
