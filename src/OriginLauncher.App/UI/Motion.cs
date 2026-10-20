@@ -45,6 +45,11 @@ public static class Motion
     /// no tween (Off, same colour) the brush lands on <paramref name="to"/> and may
     /// freeze, which is fine. Reading the old brush's Color mid-tween gives its current
     /// animated colour, so rapid changes start from what is on screen.
+    /// Because the published brush stays unfrozen and is SHARED by every consumer, it
+    /// must never be animated through XAML: a Storyboard aimed at a property bound to
+    /// it (e.g. Background.Color on a {DynamicResource Brush.Acc} Background) animates
+    /// the shared brush in place and recolours every accent element at once. Animate a
+    /// local brush there instead.
     /// </summary>
     public static SolidColorBrush PublishColor(ResourceDictionary res, object key, Color from, Color to, double ms, IEasingFunction? ease = null)
     {

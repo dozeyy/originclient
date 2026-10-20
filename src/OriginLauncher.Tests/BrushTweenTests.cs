@@ -9,8 +9,10 @@ namespace OriginLauncher.Tests;
 /// Application and theme resource dictionaries freeze every Freezable written into them, so a brush that is
 /// published first and animated second throws on every change. PublishColor starts the animation before the
 /// assignment, which keeps the brush live. This project runs without WPF, so the rule is read from the
-/// source: outside Motion.cs, no C# file may BeginAnimation a Color property itself. (XAML storyboards are
-/// fine: a Storyboard clones a frozen brush in its target path before animating it.)
+/// source: outside Motion.cs, no C# file may BeginAnimation a Color property itself. XAML storyboards on
+/// ordinary (frozen) brushes are fine, since a Storyboard clones a frozen brush in its target path before
+/// animating it. They are NOT fine on a brush PublishColor published: after an animated change that brush is
+/// unfrozen and shared, so a Storyboard would recolour it in place for every element bound to it.
 /// </summary>
 public class BrushTweenTests
 {
@@ -20,6 +22,8 @@ public class BrushTweenTests
     // GradientStop / Color-typed variants: anything whose property argument ends in "ColorProperty".
     private static readonly Regex ColorTween = new(@"BeginAnimation\s*\(\s*[\w.]*ColorProperty\b");
 
+    private static int LineOf(string text, int index) => 1 + text.AsSpan(0, index).Count('\n');
+
     [Fact]
     public void Colour_tweens_only_go_through_Motion_PublishColor()
     {
@@ -27,9 +31,14 @@ public class BrushTweenTests
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                      && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
             .Where(f => Path.GetFileName(f) != "Motion.cs")
-            .SelectMany(f => File.ReadLines(f).Select((line, i) => (f, i, line)))
-            .Where(x => ColorTween.IsMatch(x.line))
-            .Select(x => $"{Path.GetRelativePath(AppDir, x.f)}:{x.i + 1}: {x.line.Trim()}")
+            // The whole file text, not line by line: \s* in the pattern then spans line breaks, so a call
+            // split as "BeginAnimation(\n    SolidColorBrush.ColorProperty, ..." is still caught.
+            .SelectMany(f =>
+            {
+                var text = File.ReadAllText(f);
+                return ColorTween.Matches(text).Select(m =>
+                    $"{Path.GetRelativePath(AppDir, f)}:{LineOf(text, m.Index)}: {Regex.Replace(m.Value, @"\s+", " ")}");
+            })
             .ToList();
         Assert.True(offenders.Count == 0,
             "Animate brush colours with Motion.PublishColor (the app dictionary freezes brushes written into it):\n"
