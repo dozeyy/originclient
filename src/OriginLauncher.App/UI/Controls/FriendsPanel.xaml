@@ -24,6 +24,7 @@
              in Theme/Social.xaml for this drawer only. Rows are flat on the drawer's surface (no card
              fill, no dividers); a press or hover lifts one step; the party is the one dark card;
              presence is a small square on the avatar corner, like the mockup. ===== -->
+        <CornerRadius x:Key="Social.PartyTop">4,4,0,0</CornerRadius>
         <Style x:Key="Social.RowStatic" TargetType="Border">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
@@ -105,7 +106,6 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <!-- The party card's bottom edge: the actions sit below the members on the same dark surface. -->
-        <CornerRadius x:Key="Social.PartyTop">4,4,0,0</CornerRadius>
         <!-- Text fields: no frame, a card-coloured well (the focus animation only recolours the border, so it stays off). -->
         <Style TargetType="TextBox" BasedOn="{StaticResource Input.TextBox}">
             <Setter Property="BorderThickness" Value="0"/>
