@@ -199,9 +199,23 @@ public class TitleScreenMixin {
 			instance.render(partialTick, alpha);
 			return;
 		}
-		Gfx g = new Gfx(poseStack);
+		Gfx g = originclient$gfx(poseStack);
 		OriginScreenRenderer.renderTitleBackdropOver((Screen) (Object) this, g, renderPartialTick);
 		OriginScreenRenderer.renderTitleAccountChip(g);
+	}
+
+	// One Gfx reused across frames (it only wraps a PoseStack reference): the title
+	// screen hands the same PoseStack every frame, so this allocates once, not per
+	// frame. Rebuilt only if the PoseStack instance ever differs.
+	private static Gfx originclient$gfxCache;
+
+	private static Gfx originclient$gfx(PoseStack poseStack) {
+		Gfx g = originclient$gfxCache;
+		if (g == null || g.pose() != poseStack) {
+			g = new Gfx(poseStack);
+			originclient$gfxCache = g;
+		}
+		return g;
 	}
 
 	// The PANORAMA_OVERLAY vignette blit right after the panorama — the only
@@ -225,7 +239,7 @@ public class TitleScreenMixin {
 			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blitOutlineBlack(IILjava/util/function/BiConsumer;)V"))
 	private void originclient$logo(TitleScreen instance, int x, int y, java.util.function.BiConsumer<Integer, Integer> draw,
 								   PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-		if (!originclient$origin() || !OriginScreenRenderer.renderTitleWordmark(new Gfx(poseStack))) {
+		if (!originclient$origin() || !OriginScreenRenderer.renderTitleWordmark(originclient$gfx(poseStack))) {
 			instance.blitOutlineBlack(x, y, draw);
 		}
 	}
