@@ -145,6 +145,24 @@
                     </Grid>
                 </Border>
 
+                <Border Style="{StaticResource SettingCard}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Recommended for this PC" Style="{StaticResource SettingTitle}"/>
+                            <TextBlock Text="Picks render distance, particles, clouds and graphics to match your PC. Changes video settings in every version you have played."
+                                       Style="{StaticResource SettingWhy}"/>
+                            <TextBlock x:Name="PresetStatusText" Style="{StaticResource SettingWhy}" Margin="0,6,0,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" x:Name="PresetButton" Content="Apply" Style="{StaticResource Button.Secondary}"
+                                VerticalAlignment="Center" AutomationProperties.Name="Apply recommended video settings"
+                                Click="PresetButton_Click"/>
+                    </Grid>
+                </Border>
+
                 <!-- Game -->
                 <TextBlock x:Name="SecGame" Text="GAME" Style="{StaticResource SectionTitle}"/>
                 <Border Style="{StaticResource SettingCard}">

@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using CmlLib.Core.Auth;
 using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core;
+using OriginLauncher.App.Core.Performance;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.GameFolders;
@@ -828,6 +829,11 @@ public partial class HomePage : UserControl
                 Stage("Syncing settings");
                 await Task.Run(() => SettingsSync.BeforeLaunch(key, version));
             }
+
+            // First time this game folder exists with no options.txt (so Settings Sync had
+            // nothing to push): give it video settings that suit this PC. A folder that has an
+            // options.txt - the player's own, imported or synced - is never touched.
+            await Task.Run(() => PresetWriter.ApplyToNewInstance(gameDir, version, HardwareProbe.Recommended));
 
             // Last gate before the game actually starts — a cancel that
             // landed after provisioning finished must not still launch.

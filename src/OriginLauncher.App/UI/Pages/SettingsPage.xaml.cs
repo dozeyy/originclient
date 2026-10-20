@@ -3,8 +3,10 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using OriginLauncher.App.Core;
+using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
+using OriginLauncher.App.Core.Performance;
 using OriginLauncher.App.Core.Install;
 using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
@@ -154,6 +156,37 @@ public partial class SettingsPage : UserControl
         if (_isLoading) return;
         _settings.SyncSettingsAcrossVersions = false;
         SettingsStore.Update(s => s.SyncSettingsAcrossVersions = false);
+    }
+
+    // "Recommended for this PC": the player's explicit click, so it MAY change options that already
+    // exist - but only the preset's own keys (distances, particles, clouds, graphics, FPS cap), and only
+    // in folders whose game is not running. Detection and file work run off the UI thread.
+    private async void PresetButton_Click(object sender, RoutedEventArgs e)
+    {
+        PresetButton.IsEnabled = false;
+        PresetStatusText.Text = "Checking this PC...";
+        var (summary, applied, total) = await Task.Run(() =>
+        {
+            var hardware = HardwareProbe.Current;
+            var tier = TierPicker.Pick(hardware);
+            var done = 0;
+            var count = 0;
+            foreach (var version in VersionManager.OriginSupportedVersions)
+            {
+                foreach (var (_, dir) in AccountFolders.GameDirs(version))
+                {
+                    if (!System.IO.File.Exists(System.IO.Path.Combine(dir, "options.txt"))) continue;
+                    count++;
+                    if (SettingsSync.IsGameRunning(dir)) continue;
+                    if (PresetWriter.ApplyNow(dir, version, tier) == PresetOutcome.Applied) done++;
+                }
+            }
+            return ($"{tier} - {HardwareProbe.Describe(hardware)}", done, count);
+        });
+        PresetStatusText.Text = total == 0
+            ? $"{summary}. New versions start with these settings."
+            : $"{summary}. Applied to {applied} of {total} game folder{(total == 1 ? "" : "s")}.";
+        PresetButton.IsEnabled = true;
     }
 
     private void ShaderCacheToggle_Checked(object sender, RoutedEventArgs e)

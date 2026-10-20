@@ -29,6 +29,8 @@
     <!-- Mods page icons: jar icon parsing and the in-memory result cache. -->
     <Compile Include="..\OriginLauncher.App\Core\Mods\Icons\*.cs" LinkBase="ModIcons" />
     <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />
+    <!-- Recommended-for-this-PC preset: tier picking + the era-aware options.txt write (HardwareProbe is registry glue and stays out). -->
+    <Compile Include="..\OriginLauncher.App\Core\Performance\PerformancePreset.cs" LinkBase="Performance" />
     <!-- Player heads: skin -> face + hat, default heads, cache key, Mojang profile parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Skins\SkinFace.cs" LinkBase="Skins" />
     <!-- Only the top folder: Core/Social/Launcher is the WPF/account glue. -->
