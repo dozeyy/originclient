@@ -6,6 +6,7 @@ using CmlLib.Core;
 using CmlLib.Core.Installers;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
+using CmlLib.Core.VersionLoader;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
@@ -414,7 +415,18 @@ public sealed class VersionManager
         {
             progress?.Report("Installing Fabric loader...");
             var fabricInstaller = new FabricInstaller(SharedHttp);
-            versionName = await fabricInstaller.Install(version, path);
+            try
+            {
+                versionName = await fabricInstaller.Install(version, path);
+            }
+            catch (Exception e) when ((e is HttpRequestException || (e is TaskCanceledException && !ct.IsCancellationRequested))
+                && InstalledLoader(path, version) is { } installed)
+            {
+                // Offline (or Fabric's meta server down) with a loader already
+                // installed: play on it rather than refuse to launch. Online, the
+                // newest loader is resolved exactly as before.
+                versionName = installed;
+            }
         }
         LaunchTimeline.Mark("loader");
         if (!SharedMods.LoaderReadsModsFolderProperty(versionName))
@@ -785,8 +797,14 @@ public sealed class VersionManager
         // (906 entries, zero local) instead of 907 including the loader profile.
         // Measured both ways against a real instance before changing this.
         var parameters = MinecraftLauncherParameters.CreateDefault(path, SharedHttp);
-        // No Java 8 download for loader profiles that name no Java (see the class).
-        InheritedJavaFileExtractor.Install(parameters);
+        // No Java 8 download for loader profiles that name no Java (see the class),
+        // and Java's metadata from a disk copy when offline (MojangMetaCache). The
+        // client is per launch but holds no sockets: it sends through SharedHttp.
+        var javaMeta = new HttpClient(new MojangMetaCache(
+            Path.Combine(OriginPaths.Root, "cache", "mojang-meta"), new ForwardToClient(SharedHttp)));
+        InheritedJavaFileExtractor.Install(parameters, javaMeta);
+        // Offline: the version list from the copy CmlLib saved on its last fetch.
+        if (parameters.VersionLoader is MojangJsonVersionLoaderV2 mojang) mojang.UseLocalManifestWhenError = true;
         if (!fullVerify && parameters.VersionLoader != null)
             parameters.VersionLoader = new LocalFirstVersionLoader(path, versionName, parameters.VersionLoader);
 
@@ -796,6 +814,24 @@ public sealed class VersionManager
         parameters.GameInstaller = installer;
 
         return new MinecraftLauncher(parameters);
+    }
+
+    // The newest installed Fabric profile for this version (offline fallback), or null.
+    private static string? InstalledLoader(MinecraftPath path, string version)
+    {
+        try
+        {
+            var dir = new DirectoryInfo(path.Versions);
+            if (!dir.Exists) return null;
+            var names = dir.EnumerateDirectories()
+                .Where(d => File.Exists(Path.Combine(d.FullName, d.Name + ".json")))
+                .Select(d => d.Name);
+            return SharedMods.NewestInstalledLoader(names, version);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;

@@ -1,3 +1,4 @@
+using System.Net.Http;
 using CmlLib.Core;
 using CmlLib.Core.FileExtractors;
 using CmlLib.Core.Files;
@@ -45,14 +46,17 @@ public sealed class InheritedJavaFileExtractor : IFileExtractor
         return false;
     }
 
-    /// <summary>Swaps CmlLib's Java extractor in the launcher's list for this one.</summary>
-    public static void Install(MinecraftLauncherParameters parameters)
+    /// <summary>
+    /// Swaps CmlLib's Java extractor in the launcher's list for this one, fetching
+    /// Java's metadata through <paramref name="javaMetaHttp"/> (MojangMetaCache).
+    /// </summary>
+    public static void Install(MinecraftLauncherParameters parameters, HttpClient javaMetaHttp)
     {
         var list = parameters.FileExtractors;
-        if (list == null) return;
+        if (list == null || parameters.JavaPathResolver == null) return;
         var java = list.FirstOrDefault(e => e is JavaFileExtractor);
         if (java == null) return;
         list.Remove(java);
-        list.Add(new InheritedJavaFileExtractor(java));
+        list.Add(new InheritedJavaFileExtractor(new JavaFileExtractor(javaMetaHttp, parameters.JavaPathResolver)));
     }
 }

@@ -86,6 +86,24 @@ public static class SharedMods
     public static bool LoaderReadsModsFolderProperty(string? versionName) =>
         LoaderVersionOf(versionName) is { } version && version >= FirstLoaderWithModsFolder;
 
+    /// <summary>
+    /// The newest installed Fabric profile for <paramref name="minecraftVersion"/> that
+    /// reads <see cref="ModsFolderProperty"/>, from a versions folder's entry names, or
+    /// null. The offline fallback when Fabric's meta server can't be reached.
+    /// </summary>
+    public static string? NewestInstalledLoader(IEnumerable<string> versionNames, string minecraftVersion)
+    {
+        var suffix = "-" + minecraftVersion;
+        return versionNames
+            .Where(n => n.EndsWith(suffix, StringComparison.Ordinal) && LoaderReadsModsFolderProperty(n)
+                        // the loader part must be exactly "<x.y.z>": 1.21.1 must not match 1.1
+                        && n.Length == "fabric-loader-".Length + LoaderVersionText(n).Length + suffix.Length)
+            .OrderByDescending(n => LoaderVersionOf(n))
+            .FirstOrDefault();
+    }
+
+    private static string LoaderVersionText(string versionName) => LoaderName.Match(versionName).Groups[1].Value;
+
     // ------------------------------------------------------------------ rules
 
     /// <summary>
