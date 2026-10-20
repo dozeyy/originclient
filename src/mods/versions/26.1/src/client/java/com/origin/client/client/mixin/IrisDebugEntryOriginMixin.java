@@ -36,11 +36,18 @@ public abstract class IrisDebugEntryOriginMixin {
 
 	@Inject(method = "display", at = @At("RETURN"), remap = false)
 	private void originclient$shaderSpeedLines(CallbackInfo ci, @Local(argsOnly = true) DebugScreenDisplayer displayer) {
+		// The overlay also runs entries with F3 closed when one is set "Always On" (Iris's could be): these
+		// lines are F3-only and allocate, so skip unless the overlay itself is open
+		// (DebugScreenEntryList.isOverlayVisible(), javap 26.1.2 2026-10-20).
+		if (!net.minecraft.client.Minecraft.getInstance().debugEntries.isOverlayVisible()) {
+			return;
+		}
 		String far = ShadowCasterLimit.debugLine();
 		if (far != null) {
 			displayer.addToGroup(ORIGINCLIENT$GROUP, far);
 		}
-		String offMap = OffMapShadows.debugLine();
+		// OffMapShadows / SmartTerrainUpdates hold Sodium types: never touched when Sodium is disabled.
+		String offMap = SodiumIrisBuilds.SODIUM ? OffMapShadows.debugLine() : null;
 		if (offMap != null) {
 			displayer.addToGroup(ORIGINCLIENT$GROUP, offMap);
 		}
@@ -49,7 +56,9 @@ public abstract class IrisDebugEntryOriginMixin {
 			displayer.addToGroup(ORIGINCLIENT$GROUP, halfRate);
 		}
 		// Sodium 0.8.9 (26.1 / 26.1.1) runs Smart Terrain Updates; Sodium 0.9.2 (26.1.2) has it built in.
-		String terrain = SodiumIrisBuilds.SODIUM_08 ? SmartTerrainUpdates.debugLine() : ShadowTerrainStats.debugLine();
+		// (On another 0.8.x build SmartTerrainUpdates.debugLine says which builds it needs.)
+		String terrain = SodiumIrisBuilds.SODIUM_09 ? ShadowTerrainStats.debugLine()
+				: SodiumIrisBuilds.SODIUM_08 ? SmartTerrainUpdates.debugLine() : null;
 		if (terrain != null) {
 			displayer.addToGroup(ORIGINCLIENT$GROUP, terrain);
 		}

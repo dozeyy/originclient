@@ -6,6 +6,7 @@ import com.origin.client.client.render.HalfRateShadows;
 import com.origin.client.client.render.OffMapShadows;
 import com.origin.client.client.render.ShadowCasterLimit;
 import com.origin.client.client.render.SmartTerrainUpdates;
+import com.origin.client.client.render.SodiumIrisBuilds;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.minecraft.client.gui.components.debug.DebugScreenDisplayer;
@@ -63,13 +64,21 @@ public abstract class DebugScreenOriginRenderMixin {
 	private void originclient$shaderLines(GuiGraphics graphics, CallbackInfo ci) {
 		DebugScreenDisplayer displayer = originclient$displayer;
 		if (displayer == null) return;
-		// F3 only (never on a normal frame): each line guarded on its own, so one linkage surprise
-		// (Sodium and Iris are separate installs) costs that line only, never the debug screen.
+		// PER-VERSION (1.21.9+): render() also runs with F3 closed whenever any entry is "Always On"; these
+		// lines are F3-only (and allocate), so skip unless the overlay itself is open
+		// (DebugScreenEntryList.isOverlayVisible(), javap 1.21.11 2026-10-20).
+		if (!net.minecraft.client.Minecraft.getInstance().debugEntries.isOverlayVisible()) return;
+		// Each line guarded on its own, so one linkage surprise costs that line only, never the debug screen.
+		// OffMapShadows / SmartTerrainUpdates hold Sodium types: never touched when Sodium is disabled.
 		ArrayList<String> lines = new ArrayList<>(4);
 		try { add(lines, ShadowCasterLimit.debugLine()); } catch (Throwable ignored) { }
-		try { add(lines, OffMapShadows.debugLine()); } catch (Throwable ignored) { }
+		if (SodiumIrisBuilds.SODIUM) {
+			try { add(lines, OffMapShadows.debugLine()); } catch (Throwable ignored) { }
+		}
 		try { add(lines, HalfRateShadows.debugLine()); } catch (Throwable ignored) { }
-		try { add(lines, SmartTerrainUpdates.debugLine()); } catch (Throwable ignored) { }
+		if (SodiumIrisBuilds.SODIUM) {   // on another Sodium build the line says which builds it needs
+			try { add(lines, SmartTerrainUpdates.debugLine()); } catch (Throwable ignored) { }
+		}
 		if (lines.isEmpty()) return;
 		try {
 			displayer.addToGroup(ORIGINCLIENT$GROUP, lines);

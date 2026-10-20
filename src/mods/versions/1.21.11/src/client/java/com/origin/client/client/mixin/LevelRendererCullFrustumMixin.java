@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.render.SmartTerrainUpdates;
+import com.origin.client.client.render.SodiumIrisBuilds;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.world.phys.Vec3;
@@ -19,6 +20,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Why: Smart Terrain Updates only reuses the chunk graph when the culling frustum is bit-identical to
  * the last frame's and no frustum is captured.
  * What breaks if it stops applying: the feature refuses to reuse (this hook must be seen firing).
+ * The call is gated on SodiumIrisBuilds.SMART_TERRAIN (false without Sodium): SmartTerrainUpdates holds
+ * Sodium types (RenderSection[]), so loading it with Sodium disabled would throw NoClassDefFoundError here,
+ * every frame of every world.
  */
 @Mixin(LevelRenderer.class)
 public abstract class LevelRendererCullFrustumMixin {
@@ -27,6 +31,8 @@ public abstract class LevelRendererCullFrustumMixin {
 
 	@Inject(method = "prepareCullFrustum", at = @At("HEAD"))
 	private void originclient$cullFingerprint(Matrix4f a, Matrix4f b, Vec3 pos, CallbackInfoReturnable<Frustum> cir) {
-		SmartTerrainUpdates.onCullFrustum(a, b, pos, capturedFrustum != null);
+		if (SodiumIrisBuilds.SMART_TERRAIN) {
+			SmartTerrainUpdates.onCullFrustum(a, b, pos, capturedFrustum != null);
+		}
 	}
 }

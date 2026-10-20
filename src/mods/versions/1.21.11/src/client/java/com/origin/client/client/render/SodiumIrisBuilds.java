@@ -12,6 +12,21 @@ public final class SodiumIrisBuilds {
 	private SodiumIrisBuilds() { }
 
 	/**
+	 * Sodium is loaded at all. The launcher installs it standalone and honours a player's ".jar.disabled", so
+	 * every vanilla-target mixin that calls into a Sodium-typed class (OffMapShadows, SmartTerrainUpdates)
+	 * checks this first: touching those classes without Sodium throws NoClassDefFoundError on the first frame.
+	 */
+	public static final boolean SODIUM = loaded("sodium");
+
+	private static boolean loaded(String mod) {
+		try {
+			return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(mod);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/**
 	 * Smart Terrain Updates was written against Sodium 0.8.12+mc1.21.11 and Iris 1.10.7+mc1.21.11 (javap
 	 * 2026-10-20) and only runs there: it reads RenderSectionManager's private walk state and relies on
 	 * Iris keeping separate main/shadow render lists, both of which change between Sodium/Iris releases.

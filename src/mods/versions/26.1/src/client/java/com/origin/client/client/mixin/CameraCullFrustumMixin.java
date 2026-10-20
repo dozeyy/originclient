@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.render.SmartTerrainUpdates;
+import com.origin.client.client.render.SodiumIrisBuilds;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.world.phys.Vec3;
@@ -21,6 +22,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * frustum is bit-identical to the last frame's and no frustum is captured.
  * What breaks if it stops applying: the feature refuses to reuse (this hook must be seen firing). Nothing
  * else reads it, so on the Sodium 0.9 stack it costs one cached boolean read per frame.
+ * The call is gated on SodiumIrisBuilds.SMART_TERRAIN (false without Sodium): SmartTerrainUpdates holds
+ * Sodium types (RenderSection[]), so loading it with Sodium disabled would throw NoClassDefFoundError here,
+ * every frame of every world.
  */
 @Mixin(Camera.class)
 public abstract class CameraCullFrustumMixin {
@@ -29,6 +33,8 @@ public abstract class CameraCullFrustumMixin {
 
 	@Inject(method = "prepareCullFrustum", at = @At("HEAD"))
 	private void originclient$cullFingerprint(Matrix4fc a, Matrix4f b, Vec3 pos, CallbackInfo ci) {
-		SmartTerrainUpdates.onCullFrustum(a, b, pos, capturedFrustum != null);
+		if (SodiumIrisBuilds.SMART_TERRAIN) {
+			SmartTerrainUpdates.onCullFrustum(a, b, pos, capturedFrustum != null);
+		}
 	}
 }

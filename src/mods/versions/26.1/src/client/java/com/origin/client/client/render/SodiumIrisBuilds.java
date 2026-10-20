@@ -12,6 +12,13 @@ package com.origin.client.client.render;
 public final class SodiumIrisBuilds {
 	private SodiumIrisBuilds() { }
 
+	/**
+	 * Sodium is loaded at all. The launcher installs it standalone and honours a player's ".jar.disabled", so
+	 * every vanilla-target mixin that calls into a Sodium-typed class (OffMapShadows, SmartTerrainUpdates)
+	 * checks this first: touching those classes without Sodium throws NoClassDefFoundError on the first frame.
+	 */
+	public static final boolean SODIUM = loaded("sodium");
+
 	/** Sodium 0.8.x: the synchronous graph walk (createTerrainRenderList, SectionCollector). */
 	public static final boolean SODIUM_08 = startsWith("sodium", "0.8.");
 
@@ -30,6 +37,14 @@ public final class SodiumIrisBuilds {
 	public static boolean is(String mod, String prefix) {
 		String v = version(mod);
 		return v != null && (v.equals(prefix) || v.startsWith(prefix + "+"));
+	}
+
+	private static boolean loaded(String mod) {
+		try {
+			return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(mod);
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	private static boolean startsWith(String mod, String prefix) {

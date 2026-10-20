@@ -541,7 +541,7 @@ final class OriginDevWorld {
 			case 49 -> {
 				stMove = stMeasured();
 				terrainSpin = false;
-				log("[smart-terrain] no toggle on 26.2 (Sodium 0.9.2 + Iris 1.11.4 keep the main list across the shadow pass)");
+				log("[smart-terrain] no toggle on 26.1.2 (Sodium 0.9.2 + Iris 1.11.4 keep the main list across the shadow pass)");
 				log("[smart-terrain] still: " + stStill);
 				log("[smart-terrain] block edit: " + stOnEdit);
 				log("[smart-terrain] turning: " + stMove);

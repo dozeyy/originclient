@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.origin.client.client.render.OffMapShadows;
 import com.origin.client.client.render.ShadowCasterLimit;
+import com.origin.client.client.render.SodiumIrisBuilds;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.world.entity.Entity;
@@ -29,7 +30,8 @@ public abstract class ShadowCasterEntityMixin {
 	private boolean originclient$farShadowCaster(boolean visible, @Local(argsOnly = true) Entity entity,
 			@Local(argsOnly = true, ordinal = 0) double camX, @Local(argsOnly = true, ordinal = 1) double camY,
 			@Local(argsOnly = true, ordinal = 2) double camZ, @Local EntityRenderer<?, ?> renderer) {
-		if (visible && (OffMapShadows.skipEntity(entity, renderer, camX, camY, camZ)
+		// SodiumIrisBuilds.SODIUM first: OffMapShadows holds Sodium types and must never load without Sodium.
+		if (visible && ((SodiumIrisBuilds.SODIUM && OffMapShadows.skipEntity(entity, renderer, camX, camY, camZ))
 				|| ShadowCasterLimit.skipEntity(entity, renderer, camX, camY, camZ))) {
 			return false;
 		}
