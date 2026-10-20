@@ -704,7 +704,7 @@ public class WaypointScreen extends OriginWindow {
 			persist();
 			return true;
 		}
-		if (button == 0) {
+		if (button == InputConstants.MOUSE_BUTTON_LEFT) {
 			focus = -1;   // a click on a field's hit focuses it again
 		}
 		boolean used = super.mouseClicked(event, doubled);

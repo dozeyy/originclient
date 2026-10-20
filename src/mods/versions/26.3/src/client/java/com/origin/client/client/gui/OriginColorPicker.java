@@ -310,7 +310,7 @@ public final class OriginColorPicker {
 			return true;
 		}
 		if (allowChroma && in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18)) {
-			cycleType(button == 1 ? -1 : 1);
+			cycleType(button == InputConstants.MOUSE_BUTTON_RIGHT ? -1 : 1);
 			return true;
 		}
 		int psw = 12, pgap = 4;

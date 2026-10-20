@@ -1445,7 +1445,7 @@ public class OriginModMenuScreen extends Screen {
 		commitText();     // any click ends typing (clicking the field re-opens it)
 		capMod = null;    // and any click abandons a half-done key capture
 		capKey = null;
-		if (button != 0) {
+		if (button != InputConstants.MOUSE_BUTTON_LEFT) {
 			return super.mouseClicked(event, doubled);
 		}
 		searchFocused = false;   // the search box's own hit turns it back on

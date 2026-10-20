@@ -274,7 +274,7 @@ public abstract class OriginWindow extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
-		if (event.button() == 0 && OriginDeck.click(hits, dX(event.x()), dY(event.y()))) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && OriginDeck.click(hits, dX(event.x()), dY(event.y()))) {
 			return true;
 		}
 		return super.mouseClicked(event, doubled);

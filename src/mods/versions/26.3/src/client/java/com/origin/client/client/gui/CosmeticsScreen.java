@@ -864,7 +864,7 @@ public class CosmeticsScreen extends OriginWindow {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
 		float x = dX(event.x()), y = dY(event.y());
-		if (event.button() == 0 && x >= PREV_X && x < PREV_X + PREV_W && y >= PREV_Y && y < adjustTop - 4) {
+		if (event.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT && x >= PREV_X && x < PREV_X + PREV_W && y >= PREV_Y && y < adjustTop - 4) {
 			dragFrom = (double) x;
 			dragYaw = yaw;
 			return true;

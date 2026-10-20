@@ -256,7 +256,7 @@ final class MinimapScreen extends Screen {
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
 		double mx = event.x(), my = event.y();
 		int button = event.button();
-		if (button == 0) {
+		if (button == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
 			double gs = minecraft != null ? minecraft.getWindow().getGuiScale() : 1;
 			if (OriginDeck.click(hits, OriginDeck.toDesign(mx, gs, 0, lastS), OriginDeck.toDesign(my, gs, 0, lastS))) {
 				return true;
@@ -264,7 +264,7 @@ final class MinimapScreen extends Screen {
 			dragging = true;
 			return true;
 		}
-		if (button == 1) {
+		if (button == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT) {
 			panX = panZ = 0;
 			return true;
 		}
@@ -273,7 +273,7 @@ final class MinimapScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
-		if (event.button() == 0) {
+		if (event.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
 			dragging = false;
 		}
 		return super.mouseReleased(event);
@@ -281,7 +281,7 @@ final class MinimapScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-		if (dragging && event.button() == 0) {
+		if (dragging && event.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
 			double limit = MinimapData.MAX_RADIUS * 16.0;
 			panX = Math.max(-limit, Math.min(limit, panX - dx / zoom));
 			panZ = Math.max(-limit, Math.min(limit, panZ - dy / zoom));
