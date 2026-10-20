@@ -4,9 +4,9 @@ import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.OriginButtonRenderer;
 import com.origin.client.client.gui.OriginForeignWidgets;
 import com.origin.client.client.gui.CosmeticsScreen;
+import com.origin.client.client.gui.FriendsScreen;
 import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.gui.OriginWidgetOwnership;
-import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.render.TitleLayout;
 import com.origin.client.client.theme.OriginTheme;
@@ -36,39 +36,44 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Origin main menu (2026-09 redesign v6, compact centred client layout):
+// The Origin main menu on Minecraft's own buttons (Will, 2026-10-19), ported
+// from 1.21.1:
 //
-//   ┌──────────────────────────────────────────────────┐
-//   │ [head] Player                                    │
-//   │                                                  │
-//   │  ORIGIN  (letters reveal in)                     │
-//   │                                                  │
-//   │  [ Singleplayer ]  ← primary (accent)            │
-//   │  [ Multiplayer  ]     (nav slides in,            │
-//   │  [ Realms       ]      staggered, one even pitch)│
-//   │  [ Mods         ]  ← Origin's own                │
-//   │  [ Options…     ]                                │
-//   │  [ Quit Game    ]                                │
-//   │                    (options)(lang)(access)(quit) │
-//   └──────────────────────────────────────────────────┘
+//   [head Player]
 //
-// GEOMETRY LIVES IN ONE PLACE: TitleLayout. The wordmark (drawn by
-// OriginScreenRenderer) and the nav placed here read the same computed block,
-// so they can never collide on a short window. Vanilla's own widgets are only
-// REPOSITIONED (labels, clicks, actions untouched) and re-skinned by
-// OriginButtonRenderer; the Mods button is Origin's, added as a real widget
-// through ScreenInvoker. Mod Menu's own "Mods" button is excluded from the
-// layout AND hidden every frame (it is added by Mod Menu's screen event after
-// our init hook, which also bumps buttons — so positions are re-applied every
-// frame). Everything is fail-soft: a throw leaves vanilla's layout in place.
+//                            (logo)
+//                            ORIGIN
+//                 [        Singleplayer        ]   200 x 20, vanilla
+//                 [        Multiplayer         ]
+//                 [   Options    ][    Mods    ]
 //
-// Ported from 1.21.1. 1.18.2: no GuiGraphics (Gfx over the PoseStack), no
-// SpriteIconButton (the Language / Accessibility icons are ImageButtons, told
-// apart by their TranslatableComponent keys), no setHeight (accessor), widget
-// x/y are public fields (getX/setX are 1.19.3+), Button has no builder, and
-// there is no LogoRenderer / SplashRenderer / renderPanorama — the panorama,
-// overlay, logo, edition badge, splash and version line are suppressed with
-// this module's own boot-verified @Redirects (PORT-NOTES.md call census).
+//     [realms][friends][cosmetics][lang][access][quit]   20 x 20 vanilla squares
+//                                  Copyright Mojang AB. Do not distribute!
+//
+// Background: THIS version's own Mojang panorama, blurred (MenuBlur: this era has
+// no vanilla menu blur), dimmed and vignetted. No version line, no splash.
+// GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are only
+// REPOSITIONED (clicks and actions untouched) and draw as stock Minecraft
+// buttons; the icon row draws widgets.png with Origin's icon on top
+// (OriginButtonRenderer.vanillaIconButton). Every icon square says what it does
+// on hover; worded buttons get no hover text (their label says it). Mods /
+// Friends / Cosmetics are Origin's, added as real widgets through ScreenInvoker.
+// Mod Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
+// screen event after our init hook, which also bumps buttons -- so positions
+// are re-applied every frame). The copyright line is vanilla's PlainTextButton,
+// where vanilla puts it. Everything is fail-soft: a throw leaves vanilla's
+// layout in place.
+//
+// 1.18.2 era (javap against the mapped 1.18.2 jar): no GuiGraphics (Gfx over the
+// PoseStack), widget x/y are public fields, no setHeight (AbstractWidgetAccessor),
+// Button has no builder, no Tooltip API (the icon tooltips are drawn at render
+// TAIL with Screen.renderTooltip), the Language / Accessibility icons are
+// ImageButtons told apart by their TranslatableComponent keys, and there is no
+// renderPanorama / LogoRenderer / SplashRenderer -- render() calls
+// this.panorama.render(FF) directly, blits the PANORAMA_OVERLAY, draws the logo
+// with blitOutlineBlack and the "Java Edition" badge with an 8-arg blit, the
+// splash with drawCenteredString and the version with drawString. Each of those
+// is a @Redirect below.
 // priority 2000: Origin's re-skin wins over other title-screen mods.
 @Mixin(value = TitleScreen.class, priority = 2000)
 public class TitleScreenMixin {
@@ -77,6 +82,8 @@ public class TitleScreenMixin {
 	private Button originclient$modsNav;
 	@Unique
 	private Button originclient$cosmeticsNav;
+	@Unique
+	private Button originclient$friendsNav;
 	// Static: the menu's entrance plays once per game start (Will 2026-10-18,
 	// "snappy"), not again every time the player comes back from a world.
 	@Unique
@@ -98,7 +105,7 @@ public class TitleScreenMixin {
 
 	/** The stock title screen has no way into the mod menu (Right Shift does nothing
 	 *  while a screen is open), so a plain vanilla-sized button in the top-left corner
-	 *  opens it. Whatever Button Style says, it is an ordinary Button. */
+	 *  opens it. It is an ordinary Button. */
 	@Unique
 	private void originclient$vanillaEntry() {
 		try {
@@ -135,9 +142,6 @@ public class TitleScreenMixin {
 		if (!originclient$origin()) {
 			return;
 		}
-		Gfx guiGraphics = new Gfx(poseStack);
-		OriginScreenRenderer.renderTitleBackground(guiGraphics);
-		boolean hoveringClickable = false;
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {
 			// Mod Menu adds its "Mods" button through a screen event that fires
@@ -145,15 +149,8 @@ public class TitleScreenMixin {
 			if (originclient$isForeignMods(child) && child instanceof AbstractWidget w && w.visible) {
 				w.visible = false;
 				w.active = false;
-				continue;
-			}
-			if (child instanceof AbstractWidget widget && widget.visible && widget.isMouseOver(mouseX, mouseY)) {
-				hoveringClickable = true;
-				break;
 			}
 		}
-		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, hoveringClickable);
-		OriginScreenRenderer.renderTitleAccountChip(guiGraphics);
 		originclient$applyPositions();
 	}
 
@@ -161,7 +158,7 @@ public class TitleScreenMixin {
 	 *  the entrance rise on Y. Every frame because Mod Menu's screen event fires
 	 *  after our init and "bumps" every button below Realms down by 24 to make
 	 *  room for its own (hidden) button — which left a phantom gap in the list
-	 *  until this. A handful of setX/setY calls a frame is nothing. */
+	 *  until this. A handful of field writes a frame is nothing. */
 	@Unique
 	private void originclient$applyPositions() {
 		// Counted from the startup reveal when that came later: the first init
@@ -181,40 +178,48 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// Every suppression is gated on the renderer's health: if the Origin backdrop
-	// ever fails (fail-soft contract), vanilla's panorama/logo come back instead of
-	// a black screen. This era's render() calls this.panorama.render(partialTick,
-	// alpha) DIRECTLY (no renderPanorama / own renderBackground to cancel), then
-	// blits the PANORAMA_OVERLAY vignette; the logo is two blitOutlineBlack calls
-	// plus the 8-arg "Java Edition" badge blit, the splash is a String drawn by
-	// drawCenteredString and the version line is a drawString (no LogoRenderer /
-	// SplashRenderer before 1.19.4). These are this module's own boot-verified
-	// redirects, kept through the redesign (call census in PORT-NOTES.md).
+	// The panorama: render() calls this.panorama.render(partialTick, alpha)
+	// directly. Origin draws the ONE shared panorama instead (so the scene keeps
+	// turning, unbroken, from the title into Options and back), then the blur +
+	// a light dim + vignette over it, then the account chip (drawn here, not at
+	// render HEAD, so the panorama doesn't cover it). If the Origin backdrop
+	// fails, vanilla's own panorama draws instead.
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/PanoramaRenderer;render(FF)V"))
-	private void originclient$suppressPanorama(PanoramaRenderer instance, float partialTick, float alpha) {
-		if (!originclient$origin() || !OriginScreenRenderer.isActive()) {
+	private void originclient$panorama(PanoramaRenderer instance, float partialTick, float alpha,
+									   PoseStack poseStack, int mouseX, int mouseY, float renderPartialTick) {
+		if (!originclient$origin() || !OriginScreenRenderer.menuBackdropActive()) {
 			instance.render(partialTick, alpha);
+			return;
 		}
+		try {
+			OriginScreenRenderer.renderPanorama(partialTick, alpha);
+		} catch (Throwable t) {
+			instance.render(partialTick, alpha);
+			return;
+		}
+		Gfx g = new Gfx(poseStack);
+		OriginScreenRenderer.renderTitleBackdropOver((Screen) (Object) this, g, renderPartialTick);
+		OriginScreenRenderer.renderTitleAccountChip(g);
 	}
 
 	// The PANORAMA_OVERLAY vignette blit right after the panorama — the only
-	// 10-arg blit in render().
+	// 10-arg blit in render(). Origin draws its own vignette in the backdrop.
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blit(Lcom/mojang/blaze3d/vertex/PoseStack;IIIIFFIIII)V"))
 	private void originclient$suppressOverlay(PoseStack poseStack, int x, int y, int w, int h,
 											  float u, float v, int uW, int vH, int texW, int texH) {
-		if (!originclient$origin() || !OriginScreenRenderer.isActive()) {
+		if (!originclient$origin() || !OriginScreenRenderer.menuBackdropActive()) {
 			GuiComponent.blit(poseStack, x, y, w, h, u, v, uW, vH, texW, texH);
 		}
 	}
 
 	// The vanilla logo: both blitOutlineBlack calls (normal + "Minceraft"
 	// easter-egg branch) share one shape, so this redirect wraps both; only one
-	// runs per frame, so the wordmark draws exactly once. The enclosing render()
-	// args are appended to the handler (Mixin arg capture) to reach the frame's
-	// PoseStack — blitOutlineBlack itself doesn't carry one. Fail-soft: if the
-	// wordmark can't draw (or the style is Vanilla), vanilla's own logo returns.
+	// runs per frame, so the Origin logo + wordmark draw exactly once. The
+	// enclosing render() args are appended to the handler (Mixin arg capture) to
+	// reach the frame's PoseStack. Fail-soft: if the logo can't draw (or the
+	// style is Vanilla), vanilla's own logo returns.
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blitOutlineBlack(IILjava/util/function/BiConsumer;)V"))
 	private void originclient$logo(TitleScreen instance, int x, int y, java.util.function.BiConsumer<Integer, Integer> draw,
@@ -226,7 +231,7 @@ public class TitleScreenMixin {
 
 	// The "Java Edition" badge blit straight after the logo — the only 8-arg
 	// blit in render(). Gated like the logo so it returns with vanilla's logo
-	// whenever the wordmark path is off or unhealthy.
+	// whenever the Origin path is off or unhealthy.
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blit(Lcom/mojang/blaze3d/vertex/PoseStack;IIFFIIII)V"))
 	private void originclient$suppressEdition(PoseStack poseStack, int x, int y, float u, float v,
@@ -247,12 +252,37 @@ public class TitleScreenMixin {
 	}
 
 	// No bottom version line (the only drawString in render(); the copyright is a
-	// PlainTextButton here, hidden in the init hook).
+	// PlainTextButton, which stays).
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/screens/TitleScreen;drawString(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"))
 	private void originclient$noVersion(PoseStack poseStack, Font font, String text, int x, int y, int color) {
 		if (!originclient$origin()) {
 			GuiComponent.drawString(poseStack, font, text, x, y, color);
+		}
+	}
+
+	// The icon squares' hover line (1.21.1 uses vanilla's Tooltip, 1.19.3+). Drawn
+	// after the widgets with this version's own Screen.renderTooltip, so it looks
+	// exactly like vanilla's. Hover state is the widget's own (set in its render
+	// this frame, or keyboard focus), as vanilla's Tooltip uses it.
+	@Inject(method = "render", at = @At("TAIL"))
+	private void originclient$iconTooltip(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (!originclient$origin()) {
+			return;
+		}
+		try {
+			for (int i = 0; i < originclient$icons.size(); i++) {
+				AbstractWidget w = originclient$icons.get(i);
+				if (w.visible && w.isHoveredOrFocused()) {
+					Component tip = OriginButtonRenderer.titleTooltip(w);
+					if (tip != null) {
+						((Screen) (Object) this).renderTooltip(poseStack, tip, mouseX, mouseY);
+					}
+					return;
+				}
+			}
+		} catch (Throwable ignored) {
+			// fail-soft: no hover line
 		}
 	}
 
@@ -267,9 +297,9 @@ public class TitleScreenMixin {
 			originclient$openedAt = com.origin.client.client.StartupTransition.clockMs();
 		}
 		for (GuiEventListener child : self.children()) {
-			// Copyright line + any Mod Menu "Mods" button already present: hidden.
-			if ((child instanceof PlainTextButton || originclient$isForeignMods(child))
-					&& child instanceof AbstractWidget widget) {
+			// Any Mod Menu "Mods" button already present: hidden. The copyright line
+			// (PlainTextButton) stays where vanilla puts it, bottom-right.
+			if (originclient$isForeignMods(child) && child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;
 			}
@@ -283,16 +313,37 @@ public class TitleScreenMixin {
 			originclient$cosmeticsNav = new Button(0, 0, 150, 20, new TextComponent("Cosmetics"),
 					b -> mc.setScreen(new CosmeticsScreen(self)));
 			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$cosmeticsNav);
+			originclient$friendsNav = new Button(0, 0, 20, 20, new TextComponent("Friends"),
+					b -> mc.setScreen(new FriendsScreen(self)));
+			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$friendsNav);
 		} catch (Throwable ignored) {
 			originclient$modsNav = null;
 			originclient$cosmeticsNav = null;
+			originclient$friendsNav = null;
 		}
 		originclient$layoutCentered(self);
 		OriginForeignWidgets.avoidOverlap(self);
 	}
 
-	/** Mark + two full actions + one paired row. Options, the two vanilla utility
-	 *  actions and Quit share one small bottom-centre dock. */
+	/** Is this vanilla button the one whose label is the given translation key's text? */
+	@Unique
+	private static boolean originclient$is(AbstractWidget w, String key) {
+		return net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
+	}
+
+	/** Icon-only square: vanilla's button with the Origin symbol, and what it does on hover. */
+	@Unique
+	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
+		OriginButtonRenderer.setTitlePresentation(w, icon, true, new TextComponent(tip));
+	}
+
+	/**
+	 * The layout: Singleplayer and Multiplayer as full rows, Options | Mods as a
+	 * pair, and a centred row of 20px vanilla squares at the bottom (Realms,
+	 * Friends, Cosmetics, Language, Accessibility, Quit last). Buttons are found by
+	 * their vanilla label (translation key); anything else (another mod's button,
+	 * demo mode's reset) gets a full row after them in screen order.
+	 */
 	@Unique
 	private void originclient$layoutCentered(Screen self) {
 		try {
@@ -301,14 +352,18 @@ public class TitleScreenMixin {
 			originclient$icons.clear();
 			originclient$iconPos.clear();
 			List<AbstractWidget> main = new ArrayList<>();
-			List<AbstractWidget> icons = new ArrayList<>();
+			List<AbstractWidget> images = new ArrayList<>();
 			for (GuiEventListener child : self.children()) {
+				// PlainTextButton (the copyright) and ImageButton both extend Button this era.
 				if (!(child instanceof AbstractWidget w) || !w.visible || OriginWidgetOwnership.isForeign(w)
-						|| originclient$isForeignMods(child)) {
+						|| originclient$isForeignMods(child) || child instanceof PlainTextButton) {
+					continue;
+				}
+				if (w == originclient$modsNav || w == originclient$cosmeticsNav || w == originclient$friendsNav) {
 					continue;
 				}
 				if (child instanceof ImageButton) {
-					icons.add(w);
+					images.add(w);
 				} else if (child instanceof Button) {
 					main.add(w);
 				}
@@ -316,99 +371,122 @@ public class TitleScreenMixin {
 			if (main.isEmpty()) {
 				return;
 			}
-			main.remove(originclient$modsNav);
-			main.remove(originclient$cosmeticsNav);
 			main.sort(java.util.Comparator.comparingInt((AbstractWidget w) -> w.y).thenComparingInt(w -> w.x));
-			if (originclient$modsNav != null) {
-				main.add(Math.min(3, main.size()), originclient$modsNav);   // after Realms, before Options
+			AbstractWidget realms = null, options = null, quit = null;
+			for (AbstractWidget w : main) {
+				if (realms == null && originclient$is(w, "menu.online")) realms = w;
+				else if (options == null && originclient$is(w, "menu.options")) options = w;
+				else if (quit == null && originclient$is(w, "menu.quit")) quit = w;
 			}
-			if (main.size() > 2) {
-				main.get(2).setMessage(new TextComponent("Realms"));
+			// Singleplayer (or demo mode's Play Demo World) and Multiplayer lead the
+			// stack, found by their label like Options and Quit, so a button another
+			// mod placed above them can never take their full-width slots.
+			AbstractWidget play = null, online = null;
+			for (AbstractWidget w : main) {
+				if (play == null && (originclient$is(w, "menu.singleplayer") || originclient$is(w, "menu.playdemo"))) play = w;
+				else if (online == null && originclient$is(w, "menu.multiplayer")) online = w;
 			}
+			List<AbstractWidget> full = new ArrayList<>();
+			if (play != null) full.add(play);
+			if (online != null) full.add(online);
+			int lead = full.size();
+			for (AbstractWidget w : main) {
+				if (w != realms && w != options && w != quit && w != play && w != online) {
+					full.add(w);   // the rest (other mods' buttons, demo's reset) in screen order
+				}
+			}
+
+			// Every button in `full` is one row (vanilla's two, plus any another mod
+			// added), then the Options | Mods pair: the layout sizes the stack to the
+			// real count so it never runs into the icon row. If even that can't fit
+			// (many added buttons on a small GUI), the added ones pair up two to a
+			// row, as vanilla pairs Options | Quit.
+			boolean pair = options != null || originclient$modsNav != null;
+			int extra = full.size() - lead;
+			TitleLayout.rows(full.size() + (pair ? 1 : 0));
 			TitleLayout L = TitleLayout.of(self.width, self.height);
-			String[] titleIcons = {
-					"@title-singleplayer", "@title-multiplayer", "@title-realms", "@title-mods"
-			};
-			int visibleMain = Math.min(4, main.size());
+			boolean halves = !L.fits && extra > 1;
+			if (halves) {
+				TitleLayout.rows(lead + (extra + 1) / 2 + (pair ? 1 : 0));
+				L = TitleLayout.of(self.width, self.height);
+			}
 			int half = (L.mainW - L.pairGap) / 2;
-			for (int i = 0; i < visibleMain; i++) {
-				AbstractWidget w = main.get(i);
-				int x = L.mainX;
-				int y = L.mainTop + i * L.rowStep;
-				int width = L.mainW;
-				if (i >= 2) {
-					y = L.mainTop + 2 * L.rowStep;
-					width = half;
-					if (i == 3) x += half + L.pairGap;
+			int y = L.mainTop;
+			for (int i = 0; i < full.size(); i++) {
+				AbstractWidget w = full.get(i);
+				boolean right = halves && i >= lead && (i - lead) % 2 == 1;
+				boolean alone = !halves || i < lead || (!right && i == full.size() - 1);
+				if (alone) {
+					originclient$place(w, L.mainX, y, L.mainW, L.buttonH, true);
+				} else {
+					originclient$place(w, right ? L.mainX + L.mainW - half : L.mainX, y, half, L.buttonH, true);
 				}
-				w.x = x;
-				w.y = y;
-				w.setWidth(width);
-				((AbstractWidgetAccessor) w).originclient$setHeight(L.buttonH);
-				originclient$nav.add(w);
-				originclient$navPos.add(new int[]{x, y});
-				OriginButtonRenderer.setTitlePresentation(w, titleIcons[i], false);
+				if (alone || right) {
+					y += L.rowStep;
+				}
+			}
+			if (options != null) {
+				options.setMessage(new TranslatableComponent("options.title"));   // "Options", no ellipsis
+			}
+			// Worded buttons say what they do already: no hover text (Will, 2026-10-19).
+			if (options != null && originclient$modsNav != null) {
+				originclient$place(options, L.mainX, y, half, L.buttonH, true);
+				originclient$place(originclient$modsNav, L.mainX + L.mainW - half, y, half, L.buttonH, true);
+			} else if (options != null || originclient$modsNav != null) {
+				originclient$place(options != null ? options : originclient$modsNav, L.mainX, y, L.mainW, L.buttonH, true);
 			}
 
-			// Cosmetics gets its own full-width row under the Realms/Mods pair, and
-			// the SAME title presentation as the rows above it (icon + compact
-			// label on the opaque title material). Without it the button fell back
-			// to the generic glass skin: a different fill, full-size text, no icon.
-			// "@shirt" is the cosmetics symbol the Right Shift screen already uses.
-			if (originclient$cosmeticsNav != null) {
-				int cy = L.mainTop + 3 * L.rowStep;
-				originclient$cosmeticsNav.x = L.mainX;
-				originclient$cosmeticsNav.y = cy;
-				originclient$cosmeticsNav.setWidth(L.mainW);
-				((AbstractWidgetAccessor) originclient$cosmeticsNav).originclient$setHeight(L.buttonH);
-				originclient$nav.add(originclient$cosmeticsNav);
-				originclient$navPos.add(new int[]{L.mainX, cy});
-				OriginButtonRenderer.setTitlePresentation(originclient$cosmeticsNav, "@shirt", false);
-			}
-
+			// Bottom row of vanilla squares, Quit at its end.
 			List<AbstractWidget> dock = new ArrayList<>();
-			if (main.size() > 4) dock.add(main.get(4));       // Options
-			dock.addAll(icons);                               // Language + Accessibility
-			if (main.size() > 5) dock.add(main.get(5));       // Quit
-			for (int i = 6; i < main.size(); i++) dock.add(main.get(i));
-			// Button Style = Minecraft: the dock's Options / Quit are stock text buttons,
-			// not Origin's icon-only squares, so they get a width their label fits in.
-			boolean plain = OriginStyle.vanillaButtons();
-			int[] dockW = new int[dock.size()];
-			int totalW = Math.max(0, dock.size() - 1) * L.dockGap;
-			for (int di = 0; di < dock.size(); di++) {
-				dockW[di] = plain && !icons.contains(dock.get(di)) ? 74 : L.dockSize;
-				totalW += dockW[di];
+			if (realms != null) {
+				originclient$iconOnly(realms, "@title-realms", "Play on Minecraft Realms");
+				dock.add(realms);
 			}
-			int dx = (self.width - totalW) / 2;
-			for (int di = 0; di < dock.size(); di++) {
-				AbstractWidget w = dock.get(di);
-				w.x = dx;
-				w.y = L.dockY;
-				w.setWidth(dockW[di]);
-				((AbstractWidgetAccessor) w).originclient$setHeight(L.dockSize);
-				originclient$icons.add(w);
-				originclient$iconPos.add(new int[]{dx, L.dockY});
-				dx += dockW[di] + L.dockGap;
+			if (originclient$friendsNav != null) {
+				originclient$iconOnly(originclient$friendsNav, "@title-multiplayer", "Friends: see who is online and join them");
+				dock.add(originclient$friendsNav);
 			}
-			for (AbstractWidget iconButton : icons) {
+			if (originclient$cosmeticsNav != null) {
+				originclient$iconOnly(originclient$cosmeticsNav, "@shirt", "Cosmetics: capes and more for your player");
+				dock.add(originclient$cosmeticsNav);
+			}
+			for (AbstractWidget icon : images) {
 				// narrator.button.language / narrator.button.accessibility
-				String key = originclient$translationKey(iconButton.getMessage());
+				String key = originclient$translationKey(icon.getMessage());
 				if (key.endsWith(".language")) {
-					OriginButtonRenderer.setTitlePresentation(iconButton, "@title-language", true);
+					originclient$iconOnly(icon, "@title-language", "Change the game's language");
 				} else if (key.endsWith(".accessibility")) {
-					OriginButtonRenderer.setTitlePresentation(iconButton, "@title-accessibility", true);
+					originclient$iconOnly(icon, "@title-accessibility", "Accessibility settings");
 				}
+				dock.add(icon);
 			}
-			if (main.size() > 4) {
-				AbstractWidget options = main.get(4);
-				OriginButtonRenderer.setTitlePresentation(options, "@title-options", true);
+			if (quit != null) {
+				originclient$iconOnly(quit, "@title-quit", "Quit the game");
+				dock.add(quit);
 			}
-			if (main.size() > 5) {
-				AbstractWidget quit = main.get(5);
-				OriginButtonRenderer.setTitlePresentation(quit, "@title-quit", true);
+			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
+			int dx = (self.width - totalW) / 2;
+			for (AbstractWidget w : dock) {
+				originclient$place(w, dx, L.dockY, L.dockSize, L.dockSize, false);
+				dx += L.dockSize + L.dockGap;
 			}
 		} catch (Throwable ignored) {
+		}
+	}
+
+	/** Sets a widget's box and records it for the per-frame re-apply (nav rows rise in once). */
+	@Unique
+	private void originclient$place(AbstractWidget w, int x, int y, int width, int height, boolean nav) {
+		w.x = x;
+		w.y = y;
+		w.setWidth(width);
+		((AbstractWidgetAccessor) w).originclient$setHeight(height);
+		if (nav) {
+			originclient$nav.add(w);
+			originclient$navPos.add(new int[]{x, y});
+		} else {
+			originclient$icons.add(w);
+			originclient$iconPos.add(new int[]{x, y});
 		}
 	}
 }
