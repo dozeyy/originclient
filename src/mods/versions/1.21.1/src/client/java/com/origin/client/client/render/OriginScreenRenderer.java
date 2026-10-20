@@ -375,10 +375,12 @@ public final class OriginScreenRenderer {
 			}
 		}
 		int pct = progress >= 0f ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : -1;
-		if (title != labelTitle || levelName != labelLevel || pct != labelPct) {
+		String lang = mc.getLanguageManager().getSelected();   // a stored field: no allocation
+		if (title != labelTitle || levelName != labelLevel || pct != labelPct || !java.util.Objects.equals(lang, labelLang)) {
 			labelTitle = title;
 			labelLevel = levelName;
 			labelPct = pct;
+			labelLang = lang;
 			sceneLabels(title, levelName, pct);
 		}
 		String big = labelBig, small = labelSmall;
@@ -386,9 +388,10 @@ public final class OriginScreenRenderer {
 	}
 
 	// The loading scene's labels and what they were built from (compared by
-	// reference: the screen keeps one title Component, the server one level name).
+	// reference: the screen keeps one title Component, the server one level name;
+	// the language code too, so a language change rebuilds the translated lines).
 	private static net.minecraft.network.chat.Component labelTitle;
-	private static String labelLevel;
+	private static String labelLevel, labelLang;
 	private static int labelPct = Integer.MIN_VALUE;
 	private static String labelBig = "", labelSmall = "";
 
