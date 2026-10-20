@@ -89,6 +89,34 @@ dependencies {
 	// here — the launcher installs the matching 26.1.x stack from its
 	// PerformanceModCatalog alongside this jar (BundlesPerfStack:false, the
 	// 1.21.11 model). Only the Origin client itself ships in this jar.
+	//
+	// The shader speed-ups (render/ShadowCasterLimit, OffMapShadows, HalfRateShadows, SmartTerrainUpdates)
+	// mix into Sodium/Iris, and this ONE jar meets two Sodium generations (PerformanceModCatalog.Data.cs):
+	//   26.1 + 26.1.1 -> Sodium uGvVQBnw = 0.8.9+mc26.1.1, Iris MwcLS51S = 1.10.9+mc26.1.1
+	//   26.1.2        -> Sodium tZQ3jqnf = 0.9.2+mc26.1.2, Iris sZbVsl2Q = 1.11.4+mc26.1.2
+	// compileOnly the 0.8.9 pair: the 0.8-only mixins (Smart Terrain, the 0.8 walk hooks) need its classes;
+	// the 0.9-only ones use @Pseudo string targets and only types both builds share (Viewport,
+	// RenderSectionManager, SortedRenderLists). OriginMixinPlugin picks the right set at load time.
+	// Never include(): the launcher ships the stack, not this jar.
+	// runtimeOnly (DEV ONLY, never in the built jar): runClient / dev-shots / boot-smoke load the stack that
+	// matches minecraft_version below, so every Sodium/Iris mixin really applies in CI (26.x has no
+	// modRuntimeOnly configuration, so tools/ci/perf_libs.py's libs/ route does not exist here; dev-shots
+	// sees the maven.modrinth:sodium / :iris lines and passes --require-loaded). Iris nests its GLSL
+	// toolchain jar-in-jar, which a dev classpath does not unpack: the three non-transitive libs are what
+	// both Iris builds' META-INF/jars/ carry (antlr4-runtime 4.13.1, glsl-transformer 3.0.0-pre3,
+	// jcpp 1.4.14; read from the jars 2026-10-20).
+	compileOnly "maven.modrinth:sodium:uGvVQBnw"
+	compileOnly "maven.modrinth:iris:MwcLS51S"
+	if (project.minecraft_version == "26.1.2") {
+		runtimeOnly "maven.modrinth:sodium:tZQ3jqnf"
+		runtimeOnly "maven.modrinth:iris:sZbVsl2Q"
+	} else {
+		runtimeOnly "maven.modrinth:sodium:uGvVQBnw"
+		runtimeOnly "maven.modrinth:iris:MwcLS51S"
+	}
+	runtimeOnly("org.anarres:jcpp:1.4.14") { transitive = false }
+	runtimeOnly("io.github.douira:glsl-transformer:3.0.0-pre3") { transitive = false }
+	runtimeOnly("org.antlr:antlr4-runtime:4.13.1") { transitive = false }
 
 	// WebP preview decoding for the shader browser (fail-soft if the reader is
 	// absent). implementation = compile + dev classpath; include = jar-in-jar.
