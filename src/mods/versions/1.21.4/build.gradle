@@ -74,6 +74,11 @@ dependencies {
 	// Modrinth version id c3YkZvne). 1.21.2/1.21.3 get Sodium 0.6.1/0.6.8, whose
 	// members Origin Render uses have the same shape. compileOnly: never bundled.
 	modCompileOnly "maven.modrinth:sodium:c3YkZvne"   // version id: unique, unlike a version number
+	// The shader speed-ups (Half-Rate Shadows' Iris mixins; Settings > Performance) compile against
+	// the Iris the launcher installs for 1.21.4 (PerformanceModCatalog: iris-fabric-1.8.8+mc1.21.4,
+	// Modrinth version id Ca054sTe). compileOnly: never bundled; every Iris member the features call
+	// at runtime is bound by reflection and fails soft (render/IrisState, HalfRateShadows).
+	modCompileOnly "maven.modrinth:iris:Ca054sTe"
 
 	// The perf/shader stack (Sodium, Iris, Lithium, ...) is NOT bundled here —
 	// the launcher installs the matching 1.21.11 stack from its

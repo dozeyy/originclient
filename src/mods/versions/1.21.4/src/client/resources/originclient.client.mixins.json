@@ -1,6 +1,7 @@
 {
 	"required": false,
 	"package": "com.origin.client.client.mixin",
+	"plugin": "com.origin.client.client.OriginMixinPlugin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"AbstractButtonMixin",
@@ -52,6 +53,8 @@
 		"BlockEntityRenderDispatcherMixin",
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
+		"IrisPipelineHalfRateMixin",
+		"IrisShadowRendererHalfRateMixin",
 		"HurtCamMixin",
 		"GameRendererFrameMixin",
 		"OverlayTextureAccessor",
@@ -82,7 +85,19 @@
 		"SodiumChunkRendererMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"ShadowCasterEntityMixin",
+		"EntityRendererCullingBoxInvoker",
+		"ShadowCasterBlockEntityMixin",
+		"SodiumRenderSectionManagerAccessor",
+		"SodiumSortedRenderListsAccessor",
+		"SodiumChunkRenderListAccessor",
+		"SodiumGraphReuseMixin",
+		"SodiumWalkEndMixin",
+		"SodiumOcclusionStampMixin",
+		"SodiumViewportShadowMapMixin",
+		"SodiumWorldRendererReuseMixin",
+		"LevelRendererCullFrustumMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
