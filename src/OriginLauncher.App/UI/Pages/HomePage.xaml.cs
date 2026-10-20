@@ -303,7 +303,6 @@ public partial class HomePage : UserControl
             ProfileIcon.Child = null;
             ProfileMark.Visibility = Visibility.Visible;
             ProfileEmblem.Background = (Brush)FindResource("Brush.CardAlt");
-            ProfileRow.ToolTip = "Switch profile";
         }
         else
         {
@@ -314,8 +313,6 @@ public partial class HomePage : UserControl
             ProfileInitial.Visibility = ProfileIcon.Child == null ? Visibility.Visible : Visibility.Collapsed;
             ProfileMark.Visibility = Visibility.Collapsed;
             ProfileEmblem.Background = ProfileLook.Tint(selected);
-            ProfileRow.ToolTip = active != null ? "Play uses this profile's mods (switch on the Profiles page)"
-                : $"This profile is for {selected.Version}, so {_selectedVersion} uses your normal mods";
         }
         System.Windows.Automation.AutomationProperties.SetName(ProfileRow, $"Profile: {ProfileNameText.Text}. Switch profile");
         ShowMyMods(settings.PlayWithExternalMods);
@@ -474,14 +471,12 @@ public partial class HomePage : UserControl
         {
             PlayButton.IsEnabled = false;
             JoinButton.IsEnabled = false;
-            PlayButton.ToolTip = "An import is running. Play comes back when it finishes.";
         }
     }
 
     private void ApplyPlayButton(PlayButtonView view)
     {
         PlayButton.IsEnabled = view.Enabled;
-        PlayButton.ToolTip = view.ToolTip;
         System.Windows.Automation.AutomationProperties.SetName(PlayButton,
             view.ShowsRunning ? "Switch to Minecraft" : "Play Minecraft");
         SetPlayLaunching(view.Spinner);

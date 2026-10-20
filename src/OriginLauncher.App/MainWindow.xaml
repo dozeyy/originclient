@@ -73,22 +73,22 @@
                     </StackPanel.RenderTransform>
                     <ToggleButton x:Name="NavHome" Style="{StaticResource Button.NavItem}"
                                   Checked="NavHome_Checked" Unchecked="Nav_Unchecked"
-                                  ToolTip="Home (Ctrl+1)" AutomationProperties.Name="Home">
+                                  AutomationProperties.Name="Home">
                         <controls:TrackedText Text="HOME" Tracking="0.14"/>
                     </ToggleButton>
                     <ToggleButton x:Name="NavMods" Style="{StaticResource Button.NavItem}"
                                   Checked="NavMods_Checked" Unchecked="Nav_Unchecked"
-                                  ToolTip="Mods (Ctrl+2)" AutomationProperties.Name="Mods">
+                                  AutomationProperties.Name="Mods">
                         <controls:TrackedText Text="MODS" Tracking="0.14"/>
                     </ToggleButton>
                     <ToggleButton x:Name="NavProfiles" Style="{StaticResource Button.NavItem}"
                                   Checked="NavProfiles_Checked" Unchecked="Nav_Unchecked"
-                                  ToolTip="Profiles (Ctrl+3)" AutomationProperties.Name="Profiles">
+                                  AutomationProperties.Name="Profiles">
                         <controls:TrackedText Text="PROFILES" Tracking="0.14"/>
                     </ToggleButton>
                     <ToggleButton x:Name="NavSettings" Style="{StaticResource Button.NavItem}"
                                   Checked="NavSettings_Checked" Unchecked="Nav_Unchecked"
-                                  ToolTip="Settings (Ctrl+4)" AutomationProperties.Name="Settings">
+                                  AutomationProperties.Name="Settings">
                         <controls:TrackedText Text="SETTINGS" Tracking="0.14"/>
                     </ToggleButton>
                 </StackPanel>
@@ -101,7 +101,6 @@
                             Style="{StaticResource Button.Chrome}"
                             Padding="9" Margin="0,0,4,0" MinWidth="36" MinHeight="36"
                             Visibility="Collapsed"
-                            ToolTip="Update and restart"
                             AutomationProperties.Name="Install update">
                         <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
                               Width="18" Height="18" Stroke="{StaticResource Brush.Text}"/>
@@ -112,7 +111,7 @@
                             Padding="9" Margin="0,0,4,0" MinWidth="36" MinHeight="36"
                             ToolTip="Import"
                             AutomationProperties.Name="Import from another launcher">
-                        <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}"
+                        <Path Data="{StaticResource Icon.ImportIn}" Style="{StaticResource Icon.Base}"
                               Width="18" Height="18"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
@@ -135,7 +134,7 @@
                     <Button x:Name="AccountButton" Click="AccountButton_Click"
                             Style="{StaticResource Button.Chrome}"
                             Padding="6,0,8,0" Height="36" MinWidth="36"
-                            ToolTip="Accounts" AutomationProperties.Name="Accounts">
+                            AutomationProperties.Name="Accounts">
                         <StackPanel Orientation="Horizontal">
                             <Border Width="24" Height="24" CornerRadius="2" ClipToBounds="True"
                                     Background="{StaticResource Brush.CardAlt}">

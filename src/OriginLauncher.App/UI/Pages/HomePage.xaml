@@ -35,9 +35,9 @@
                      window is narrow, the profile pill gets the width that is left and its
                      name trims, instead of the whole row being cut off. -->
                 <DockPanel LastChildFill="True">
-                    <!-- The version pill: opens the bottom-sheet picker. -->
+                    <!-- The version pill: opens the whole-window picker. -->
                     <Button x:Name="VersionButton" DockPanel.Dock="Left" Style="{StaticResource Button.Pill}" Padding="18,0,14,0"
-                            Click="VersionButton_Click" ToolTip="Change version"
+                            Click="VersionButton_Click"
                             AutomationProperties.Name="Choose Minecraft version">
                         <StackPanel Orientation="Horizontal">
                             <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
@@ -52,7 +52,7 @@
                     <!-- The profile chip: the mod profile Play will use; opens Profiles. -->
                     <Button x:Name="ProfileRow" Style="{StaticResource Button.Pill}" Padding="10,0,14,0" Margin="8,0,0,0"
                             HorizontalAlignment="Left" HorizontalContentAlignment="Stretch"
-                            Click="ProfileRow_Click" ToolTip="Switch profile"
+                            Click="ProfileRow_Click"
                             AutomationProperties.Name="Switch profile">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -89,8 +89,7 @@
                     <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Status}"
                                Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" MaxWidth="360"/>
-                    <StackPanel x:Name="PlayersPill" Orientation="Horizontal" Visibility="Collapsed" Margin="14,0,0,0"
-                                ToolTip="People with the Origin launcher or game open right now">
+                    <StackPanel x:Name="PlayersPill" Orientation="Horizontal" Visibility="Collapsed" Margin="14,0,0,0">
                         <TextBlock Text="/" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,14,0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -106,7 +105,7 @@
                      Toggle.Slider switch (Theme/Inputs.xaml), filled with the family accent when on. -->
                 <ToggleButton x:Name="MyModsSwitch" Style="{StaticResource Toggle.Slider}" Margin="0,0,28,0"
                               VerticalAlignment="Center" Click="MyModsSwitch_Click"
-                              ToolTip="Your own mods on/off" AutomationProperties.Name="My mods">
+                              AutomationProperties.Name="My mods">
                     <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Display}"
                                           FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
@@ -131,7 +130,7 @@
 
                 <!-- Play (option 6): the word and an accent ring whose arrow fills on hover. -->
                 <Button x:Name="PlayButton" Style="{StaticResource Button.PlayHero}" VerticalAlignment="Center"
-                        IsEnabled="False" ToolTip="Sign in and select a version to play"
+                        IsEnabled="False"
                         AutomationProperties.Name="Play Minecraft"
                         Click="PlayButton_Click">
                     <Grid>

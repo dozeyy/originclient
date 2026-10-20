@@ -61,6 +61,9 @@
     <Geometry x:Key="Icon.ChevronDown">M6,9 L12,15 18,9</Geometry>
     <!-- Bring something in: an arrow into a tray (the Profiles page's Import button). Not the cloud of Icon.Download. -->
     <Geometry x:Key="Icon.Import">M12,3 L12,15 M7,10 L12,15 17,10 M4,16 L4,20 L20,20 L20,16</Geometry>
+    <!-- Bring settings over: an arrow going in through the side of a box (the top bar's Import). Not a tray
+         with a down arrow (Icon.Import above), which reads as "download". -->
+    <Geometry x:Key="Icon.ImportIn">M14,4 H18 A3,3 0 0 1 21,7 V17 A3,3 0 0 1 18,20 H14 M3,12 H15 M10,7 L15,12 L10,17</Geometry>
     <Geometry x:Key="Icon.Plus">M12,5 L12,19 M5,12 L19,12</Geometry>
     <Geometry x:Key="Icon.Check">M20,6 L9,17 L4,12</Geometry>
     <!-- "Some of them": a tick box or chip in its mixed state (Import: some versions ticked, not all). -->

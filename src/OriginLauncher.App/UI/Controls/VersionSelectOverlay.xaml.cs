@@ -9,11 +9,11 @@ using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.UI.Controls;
 
-// The version picker (Poster): a sheet that rises from the bottom over Home's art.
-// One row of families (newest first), each a grey thumbnail that turns to colour
-// when hovered or picked; under it the picked family's versions as chips, then
+// The version picker (Poster): a whole-window view over Home's art, no header, just a
+// floating X. One row of families (newest first), each a grey thumbnail that turns to
+// colour when hovered or picked; under it the picked family's versions as chips, then
 // Play. Browsing raises VersionSelected, so Home's art and family label follow
-// live behind the sheet. Keys: Left/Right change family, Enter plays, Esc closes.
+// live behind the dim. Keys: Left/Right change family, Enter plays, Esc closes.
 // The control owns no launch logic beyond raising LaunchRequested.
 public partial class VersionSelectOverlay : UserControl
 {
@@ -50,10 +50,19 @@ public partial class VersionSelectOverlay : UserControl
 
         ++_sceneRevision;
         Visibility = Visibility.Visible;
+        Scene.BeginAnimation(OpacityProperty, null);
         OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        if (Motion.Off) OverlayTranslate.Y = 0;
-        else OverlayTranslate.BeginAnimation(TranslateTransform.YProperty,
-            Motion.FromTo(Sheet.ActualHeight > 0 ? Sheet.ActualHeight + 24 : 420, 0, 420, Motion.Expo));
+        if (Motion.Off)
+        {
+            Scene.Opacity = 1;
+            OverlayTranslate.Y = 0;
+        }
+        else
+        {
+            // Fades in while rising 20 px: the view arrives, it does not slide over the art like a sheet.
+            Scene.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 260, Motion.Out));
+            OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, Motion.FromTo(20, 0, 420, Motion.Expo));
+        }
 
         Dispatcher.BeginInvoke(() =>
             (FamilyList.ItemContainerGenerator.ContainerFromItem(FamilyList.SelectedItem) as UIElement ?? FamilyList).Focus());
@@ -67,12 +76,13 @@ public partial class VersionSelectOverlay : UserControl
             Visibility = Visibility.Collapsed;
             return;
         }
-        var slide = Motion.To(Sheet.ActualHeight + 24, 260, Motion.In);
-        slide.Completed += (_, _) =>
+        var fade = Motion.To(0, 200, Motion.In);
+        fade.Completed += (_, _) =>
         {
             if (_sceneRevision == sceneRevision) Visibility = Visibility.Collapsed;
         };
-        OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, slide, HandoffBehavior.SnapshotAndReplace);
+        Scene.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
+        OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, Motion.To(12, 200, Motion.In), HandoffBehavior.SnapshotAndReplace);
     }
 
     // ---- selection ----
@@ -164,7 +174,7 @@ public partial class VersionSelectOverlay : UserControl
             case Key.Escape: CloseOverlay(); break;
             case Key.Left: StepFamily(-1); break;
             case Key.Right: StepFamily(1); break;
-            // Enter plays from anywhere in the sheet, except on a focused button,
+            // Enter plays from anywhere in the view, except on a focused button,
             // which presses itself (Close must not launch).
             case Key.Enter when e.OriginalSource is not Button: Launch(); break;
             default: return;

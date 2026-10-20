@@ -20,10 +20,11 @@ internal static class TooltipShots
 {
     internal static void Run(MainWindow window, string dir, LauncherSettings demoProfiles, Func<ModProfile, int> demoCount)
     {
-        // A nav rail item: the label sits beside the rail.
+        // The top bar keeps hover labels on only four controls: Import, Friends, Minimize and Close (Will,
+        // 2026-10-20). Import is the first shot; the nav tabs, version pill and Home carry none.
         window.TourGoTo(0);
         RenderShots.Pump(500);
-        Shot(window, dir, "30-tooltip-nav", (FrameworkElement)window.FindName("NavMods"));
+        Shot(window, dir, "30-tooltip-import", (FrameworkElement)window.FindName("ImportButton"));
 
         // The window's own Close, in the top-right corner: centred under the button, kept inside the window.
         Shot(window, dir, "31-tooltip-close", FindIconButton(window, "Close"));

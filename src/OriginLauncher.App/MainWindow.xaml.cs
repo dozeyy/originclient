@@ -132,7 +132,6 @@ public partial class MainWindow : Window
         // import can open or apply once the download is under way (Core/Import/Launcher/UpdateRunState).
 
         UpdateBadge.IsEnabled = false;
-        UpdateBadge.ToolTip = "Updating...";
 
         // Show the download on Home's full-page loading scene (a real
         // percentage fill), unless a game launch is mid-flight there — then
@@ -144,7 +143,6 @@ public partial class MainWindow : Window
         var toldAboutImport = false;
         var progress = new Progress<UpdateService.UpdateProgress>(p =>
         {
-            UpdateBadge.ToolTip = p.Describe();
             if (p.Stage == UpdateService.UpdateStage.FinishingImport && !toldAboutImport)
             {
                 toldAboutImport = true;
@@ -159,11 +157,10 @@ public partial class MainWindow : Window
             // the swap script relaunches the updated launcher.
             await UpdateService.DownloadAndRestartAsync(progress);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             if (onScene) _homePage.EndUpdateScene();
             UpdateBadge.IsEnabled = true;
-            UpdateBadge.ToolTip = $"Update failed: {ex.Message} - click to retry";
         }
     }
 
@@ -551,7 +548,6 @@ public partial class MainWindow : Window
         var offline = name == null && Core.SettingsStore.Load().OfflineTestMode;
         AccountName.Text = name ?? (offline ? "Offline" : "Sign in");
         AccountFace.Seed = name ?? "Origin";
-        AccountButton.ToolTip = name != null ? $"Accounts ({name})" : "Accounts";
     }
 
     // Under the launch screen the bar fades away and stops taking clicks; it
