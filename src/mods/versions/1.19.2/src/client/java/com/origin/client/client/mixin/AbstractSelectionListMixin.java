@@ -131,7 +131,9 @@ public abstract class AbstractSelectionListMixin {
 			target = "Lnet/minecraft/client/gui/components/AbstractSelectionList;renderList(Lcom/mojang/blaze3d/vertex/PoseStack;IIF)V"))
 	private void originclient$clipRows(AbstractSelectionList<?> self, PoseStack poseStack, int x, int y, float partialTick) {
 		boolean scissored = false;
-		if (this.originclient$clipRows) {
+		// An outer caller may already hold a scissor (disableScissor below would drop it):
+		// then keep theirs and skip ours.
+		if (this.originclient$clipRows && !originclient$scissorOn()) {
 			try {
 				GuiComponent.enableScissor(this.x0, this.y0, this.x1, this.y1);
 				scissored = true;
@@ -149,6 +151,15 @@ public abstract class AbstractSelectionListMixin {
 					// nothing more to do
 				}
 			}
+		}
+	}
+
+	@Unique
+	private static boolean originclient$scissorOn() {
+		try {
+			return org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_SCISSOR_TEST);
+		} catch (Throwable t) {
+			return true;   // can't tell: leave the list unclipped rather than risk a stuck scissor
 		}
 	}
 }
