@@ -129,7 +129,10 @@ public final class SmartTerrainUpdates {
 	private static final Matrix4f CULL_PROJ = new Matrix4f();
 
 	// ---- snapshot of the main render lists ----
-	private static ChunkRenderList[] lists = new ChunkRenderList[0];
+	// null until the first snapshot: this class's <clinit> must name no Sodium 0.5-only type, because
+	// LevelRendererCullFrustumMixin and the F3 line can load it on Sodium 0.4.10 (MC 1.20), where
+	// `new ChunkRenderList[0]` here threw NoClassDefFoundError (dev-shots run 39397716962).
+	private static ChunkRenderList[] lists;
 	private static byte[][] geo = new byte[0][], spr = new byte[0][], ent = new byte[0][];
 	private static int[] geoN = new int[0], sprN = new int[0], entN = new int[0], size = new int[0];
 	private static int count;
@@ -553,7 +556,7 @@ public final class SmartTerrainUpdates {
 		primed = false;
 		manager = null;
 		count = 0;
-		lists = new ChunkRenderList[0];
+		lists = null;
 		geo = spr = ent = new byte[0][];
 		geoN = sprN = entN = size = new int[0];
 		stamped = NO_SECTIONS;
@@ -568,14 +571,16 @@ public final class SmartTerrainUpdates {
 	private static void unprime() {
 		primed = false;
 		manager = null;
-		java.util.Arrays.fill(lists, null);
+		if (lists != null) {
+			java.util.Arrays.fill(lists, null);
+		}
 		count = 0;
 		java.util.Arrays.fill(stamped, 0, stampN, null);
 		stampN = 0;
 	}
 
 	private static void releaseIfHeld() {
-		if (primed || manager != null || lists.length != 0 || stamped.length != 0) {
+		if (primed || manager != null || lists != null || stamped.length != 0) {
 			release();
 		}
 	}
@@ -591,12 +596,15 @@ public final class SmartTerrainUpdates {
 	}
 
 	private static void ensure(int n) {
-		if (lists.length >= n) {
+		int have = lists == null ? 0 : lists.length;
+		if (lists != null && have >= n) {
 			return;
 		}
-		int cap = Math.max(n, lists.length * 2);
+		int cap = Math.max(n, have * 2);
 		ChunkRenderList[] nl = new ChunkRenderList[cap];
-		System.arraycopy(lists, 0, nl, 0, lists.length);
+		if (lists != null) {
+			System.arraycopy(lists, 0, nl, 0, have);
+		}
 		byte[][] ng = new byte[cap][], ns = new byte[cap][], ne = new byte[cap][];
 		for (int i = 0; i < cap; i++) {
 			// ChunkRenderList's arrays are byte[256] (one byte per section of a 8x4x8 region).

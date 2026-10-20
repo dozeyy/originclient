@@ -26,7 +26,10 @@ public final class OriginMixinPlugin implements IMixinConfigPlugin {
 	private static final Set<String> SODIUM_05 = Set.of(
 			"SodiumRenderSectionManagerAccessor", "SodiumSortedRenderListsAccessor", "SodiumChunkRenderListAccessor",
 			"SodiumGraphReuseMixin", "SodiumUpdateReuseMixin", "SodiumWalkEndMixin", "SodiumOcclusionStampMixin",
-			"SodiumViewportShadowMapMixin", "SodiumWorldRendererReuseMixin");
+			"SodiumViewportShadowMapMixin", "SodiumWorldRendererReuseMixin",
+			// Vanilla target, but it only feeds Smart Terrain: on Sodium 0.4.10 it loaded SmartTerrainUpdates
+			// every frame for nothing (and, before that class's <clinit> went Sodium-free, crashed MC 1.20).
+			"LevelRendererCullFrustumMixin");
 	/** Sodium 0.4.10 only: Half-Rate Shadows' chunk-change hooks on the old RenderSectionManager. */
 	private static final Set<String> SODIUM_04 = Set.of("Sodium04HalfRateMixin");
 	/** Iris 1.7.6 only (net.irisshaders). */
