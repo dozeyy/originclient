@@ -63,6 +63,12 @@ public sealed class LauncherSettings
     // Null = never checked (older settings files too).
     public DateTime? ImportPromptCheckedUtc { get; set; }
 
+    // What the Import flow already brought over, so the same unchanged setup is never offered again
+    // (Will, 2026-10-20). One JSON STRING on purpose: SettingsStore.Load() resets every setting when it
+    // cannot parse the file, so a damaged value here must stay a harmless string that Core/Import/ImportMemory
+    // parses defensively (unreadable = nothing imported). Written only via SettingsStore.Update.
+    public string? ImportedSetupsJson { get; set; }
+
     // "Sync settings across versions" (Settings -> Origin Client). ON by
     // default (Will, 2026-10-18 — it used to be off and nobody knew it existed):
     // keybinds, video settings, every Origin mod setting, HUD positions and the

@@ -206,6 +206,18 @@ public sealed class LauncherImportBackend : IImportBackend
         OnPool(async parts =>
         {
             var scan = await ScanCoreAsync(parts, progress, ct).ConfigureAwait(false);
+            // What was already brought over and has not changed is not offered again (ImportMemory). A dry run
+            // (--import-plan) shows everything: it is a diagnostic, not the player's list.
+            if (!_dryRun)
+            {
+                var (offered, done) = ImportMemoryStore.Partition(scan.Instances, AccountFolders.SelectedKey());
+                if (done.Count > 0)
+                {
+                    scan.Instances.Clear();
+                    scan.Instances.AddRange(offered);
+                    scan.AlreadyImported.AddRange(done);
+                }
+            }
             Volatile.Write(ref _lastScan, scan.Instances.ToList());
             return scan;
         }, ct);
@@ -262,9 +274,15 @@ public sealed class LauncherImportBackend : IImportBackend
         // Not tied to ct up front: a cancel is the engine's to handle (it rolls back and reports Cancelled).
         // The launch check runs after the recovery wait, right before the engine writes: a launch can have
         // started since the plan was made (the panel marks the import running before it calls this).
-        return OnPool(parts => LaunchRunState.ImportRefusal() is { } refusal
-            ? Task.FromResult(new ImportResult { ImportId = plan.ImportId, State = ImportState.RolledBack, Error = refusal })
-            : parts.Engine.ApplyAsync(plan, new LauncherImportSettings(), progress, ct), CancellationToken.None);
+        return OnPool(async parts =>
+        {
+            if (LaunchRunState.ImportRefusal() is { } refusal)
+                return new ImportResult { ImportId = plan.ImportId, State = ImportState.RolledBack, Error = refusal };
+            var pre = ImportMemoryStore.PreSign(new[] { plan.Source });
+            var result = await parts.Engine.ApplyAsync(plan, new LauncherImportSettings(), progress, ct).ConfigureAwait(false);
+            ImportMemoryStore.RememberImport(plan, result, pre); // only a committed import is remembered
+            return result;
+        }, CancellationToken.None);
     }
 
     // ---- "import everything": the engine's bulk plan / re-plan / apply (Core/Import/Bulk) ----
@@ -307,9 +325,15 @@ public sealed class LauncherImportBackend : IImportBackend
         if (_dryRun) throw new InvalidOperationException("A dry run never applies.");
         // As ApplyAsync: the launch check runs after the recovery wait, right before the engine writes, and a cancel
         // is the engine's to handle (it rolls back and reports Cancelled), so ct is not tied to the pool task.
-        return OnPool(parts => LaunchRunState.ImportRefusal() is { } refusal
-            ? Task.FromResult(new BulkImportResult { RunId = plan.RunId, State = ImportState.RolledBack, Error = refusal, Skipped = plan.Skipped.ToList() })
-            : parts.Engine.ApplyBulkAsync(plan, new LauncherImportSettings(), progress, ct), CancellationToken.None);
+        return OnPool(async parts =>
+        {
+            if (LaunchRunState.ImportRefusal() is { } refusal)
+                return new BulkImportResult { RunId = plan.RunId, State = ImportState.RolledBack, Error = refusal, Skipped = plan.Skipped.ToList() };
+            var pre = ImportMemoryStore.PreSign(plan.AllSetups.Select(s => s.Setup));
+            var result = await parts.Engine.ApplyBulkAsync(plan, new LauncherImportSettings(), progress, ct).ConfigureAwait(false);
+            ImportMemoryStore.RememberRun(plan, result, pre); // only the setups that really imported are remembered
+            return result;
+        }, CancellationToken.None);
     }
 
     /// <summary>

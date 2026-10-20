@@ -171,6 +171,12 @@ public sealed class ScanResult
 {
     public List<DetectedInstance> Instances { get; } = new();
 
+    /// <summary>
+    /// Setups the scan found that were already imported and have not changed since (ImportMemory): not in
+    /// <see cref="Instances"/>, kept so the screen can say "already in Origin" instead of "nothing found".
+    /// </summary>
+    public List<DetectedInstance> AlreadyImported { get; } = new();
+
     /// <summary>One sentence each, e.g. "Couldn't read the Minecraft launcher's profile list". Never a path to a secret, never a value.</summary>
     public List<string> Notes { get; } = new();
 
