@@ -115,13 +115,41 @@ public final class OriginButtonRenderer {
 		return false;
 	}
 
+	// ---- the title's icon row on Minecraft's own buttons (Will, 2026-10-19) ----
+	// Minecraft's menus draw stock widgets; only the title screen's icon-only
+	// buttons (Realms, Friends, Cosmetics, Language, Accessibility, Quit -- marked
+	// by setTitlePresentation(..., iconOnly = true)) need help: as stock buttons
+	// they would print their full label into a 20 px square (or, for the
+	// ImageButtons, vanilla's old icon art). They draw vanilla's own button art
+	// (widgets.png this era: normal / highlighted / disabled, picked as
+	// AbstractButton picks it) with Origin's monochrome icon centred on top.
+	private static boolean vanillaIconButton(Gfx g, AbstractButton button) {
+		TitlePresentation title = TITLE.get(button);
+		if (title == null || !title.iconOnly() || broken) {
+			return false;
+		}
+		try {
+			int x = button.x, y = button.y, w = button.getWidth(), h = button.getHeight();
+			int state = !button.active ? 0 : button.isHoveredOrFocused() ? 2 : 1;
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			g.vanillaButton(x, y, w, h, state);
+			int s = Math.max(8, Math.min(12, h - 8));
+			ModIcons.draw(g, title.icon(), x + (w - s) / 2, y + (h - s) / 2, s,
+					button.active ? 0xFFFFFFFF : 0xFFA0A0A0);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(Gfx g, AbstractButton button) {
-		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's
+		// icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return false;
+			return vanillaIconButton(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -209,7 +237,12 @@ public final class OriginButtonRenderer {
 	 *  for are skinned; every other ImageButton keeps its own art (false -> the
 	 *  mixin does not cancel vanilla). */
 	public static boolean renderImageButton(Gfx g, ImageButton button) {
-		if (!originOwnsScreen() || OriginWidgetOwnership.isForeign(button) || broken) {
+		if (!originOwnsScreen()) {
+			// Minecraft's screens: only the title's icon row (Language, Accessibility)
+			// is redrawn, as a vanilla button with Origin's icon; others stay vanilla.
+			return vanillaIconButton(g, button);
+		}
+		if (OriginWidgetOwnership.isForeign(button) || broken) {
 			return false;
 		}
 		TitlePresentation title = TITLE.get(button);
