@@ -34,6 +34,10 @@ final class OriginDevWorld {
 
 	static void tick(Minecraft mc, String dir) {
 		long now = System.currentTimeMillis();
+		if (terrainSpin && mc.player != null) {
+			// Smart Terrain Updates "moving camera" window: turn 3 degrees every client tick.
+			mc.player.setYRot(mc.player.getYRot() + 3f);
+		}
 		if (now < nextAt) {
 			return;
 		}
@@ -92,8 +96,8 @@ final class OriginDevWorld {
 				phase = com.origin.client.client.shaders.IrisBridge.currentPack() != null ? 40 : 30;
 				return;
 			}
-			if (phase >= 40 && phase < 50) {
-				if (shadowLimitStep(mc, dir)) {
+			if (phase >= 40 && phase < 60) {
+				if (phase < 45 ? shadowLimitStep(mc, dir) : smartTerrainStep(mc, dir)) {
 					return;
 				}
 				phase = 30;
@@ -205,10 +209,145 @@ final class OriginDevWorld {
 				server.execute(() -> server.getCommands().performPrefixedCommand(
 						server.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=origin_shadowtest]"));
 			}
-			phase = 45;
-			return false;
+			phase = 45;   // next: Smart Terrain Updates
+			return true;
 		}
 		return false;
+	}
+
+	// ---- Smart Terrain Updates measurement (only with a shader pack active) ----
+	// Time, weather, ticking and clouds frozen, HUD hidden, camera fixed: chunk-graph walks per
+	// frame and their CPU time with the feature OFF and ON, standing still and turning. Two OFF
+	// frames give the noise floor for the OFF-vs-ON pixel diff. A block placed in view while ON
+	// proves an edit forces a fresh walk (it must appear in terrain_on_edit).
+	private static boolean terrainSpin;
+	private static long stFrames, stWalks, stReused, stMainNs, stShadowWalks, stShadowNs, stRestoreNs;
+	private static net.minecraft.core.BlockPos stEdit;
+	private static net.minecraft.client.CloudStatus stClouds;
+	private static String stOffStill, stOnStill, stOnEdit, stOnMove;
+
+	private static boolean smartTerrainStep(Minecraft mc, String dir) {
+		if (mc.screen instanceof PauseScreen) {
+			mc.setScreen(null);
+		}
+		var server = mc.getSingleplayerServer();
+		if (server == null || mc.player == null) {
+			return false;
+		}
+		String key = com.origin.client.client.render.SmartTerrainUpdates.KEY_ON;
+		switch (phase) {
+			case 45 -> {
+				server.execute(() -> {
+					var src = server.createCommandSourceStack().withSuppressedOutput();
+					for (String c : new String[]{"gamerule doDaylightCycle false", "gamerule doWeatherCycle false",
+							"time set 6000", "weather clear", "tick freeze"}) {
+						server.getCommands().performPrefixedCommand(src, c);
+					}
+				});
+				stClouds = mc.options.cloudStatus().get();
+				mc.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF);
+				mc.options.hideGui = true;
+				mc.player.setXRot(25f);
+				Mods.set(Mods.PERFORMANCE_ID, key, false);
+				nextAt = System.currentTimeMillis() + 6000;   // settle: rebuilds after the scene edits finish
+			}
+			case 46 -> {
+				grab(mc, dir, "terrain_off_a_1920x1080.png");
+				stSnap();
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 47 -> {
+				stOffStill = stMeasured();
+				grab(mc, dir, "terrain_off_b_1920x1080.png");
+				Mods.set(Mods.PERFORMANCE_ID, key, true);
+				nextAt = System.currentTimeMillis() + 2000;
+			}
+			case 48 -> {
+				stSnap();
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 49 -> {
+				stOnStill = stMeasured();
+				grab(mc, dir, "terrain_on_1920x1080.png");
+				// A gold block 4 blocks along the view (center of the shot): Sodium schedules a rebuild, so the next
+				// main frame must walk again and the block must show up.
+				net.minecraft.world.phys.Vec3 look = mc.player.getLookAngle();
+				net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+				stEdit = net.minecraft.core.BlockPos.containing(eye.add(look.scale(4)));
+				net.minecraft.core.BlockPos at = stEdit;
+				server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(),
+						"setblock " + at.getX() + " " + at.getY() + " " + at.getZ() + " minecraft:gold_block"));
+				stSnap();
+				nextAt = System.currentTimeMillis() + 3000;
+			}
+			case 50 -> {
+				stOnEdit = stMeasured();
+				grab(mc, dir, "terrain_on_edit_1920x1080.png");
+				terrainSpin = true;
+				stSnap();
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 51 -> {
+				stOnMove = stMeasured();
+				Mods.set(Mods.PERFORMANCE_ID, key, false);
+				stSnap();
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 52 -> {
+				String offMove = stMeasured();
+				terrainSpin = false;
+				log("[smart-terrain] OFF still: " + stOffStill);
+				log("[smart-terrain] ON still: " + stOnStill);
+				log("[smart-terrain] ON block edit: " + stOnEdit);
+				log("[smart-terrain] ON turning: " + stOnMove);
+				log("[smart-terrain] OFF turning: " + offMove);
+				log("[smart-terrain] hooks seen: " + com.origin.client.client.render.SmartTerrainUpdates.hooksLine());
+				net.minecraft.core.BlockPos at = stEdit;
+				server.execute(() -> {
+					var src = server.createCommandSourceStack().withSuppressedOutput();
+					if (at != null) {
+						server.getCommands().performPrefixedCommand(src, "setblock " + at.getX() + " " + at.getY() + " " + at.getZ() + " minecraft:air");
+					}
+					server.getCommands().performPrefixedCommand(src, "tick unfreeze");
+				});
+				if (stClouds != null) {
+					mc.options.cloudStatus().set(stClouds);
+				}
+				mc.options.hideGui = false;
+				phase = 53;
+				return false;
+			}
+			default -> {
+				return false;
+			}
+		}
+		phase++;
+		return true;
+	}
+
+	private static void stSnap() {
+		stFrames = com.origin.client.client.hud.FrameStats.frames();
+		stWalks = com.origin.client.client.render.SmartTerrainUpdates.totalMainWalks;
+		stReused = com.origin.client.client.render.SmartTerrainUpdates.totalReused;
+		stMainNs = com.origin.client.client.render.SmartTerrainUpdates.totalMainNanos;
+		stShadowWalks = com.origin.client.client.render.SmartTerrainUpdates.totalShadowWalks;
+		stShadowNs = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos;
+		stRestoreNs = com.origin.client.client.render.SmartTerrainUpdates.totalRestoreNanos;
+	}
+
+	/** Since stSnap(): frames, main walks run vs reused, CPU ms per main walk / shadow walk / restore. CPU-side only. */
+	private static String stMeasured() {
+		long f = com.origin.client.client.hud.FrameStats.frames() - stFrames;
+		long w = com.origin.client.client.render.SmartTerrainUpdates.totalMainWalks - stWalks;
+		long r = com.origin.client.client.render.SmartTerrainUpdates.totalReused - stReused;
+		long mainNs = com.origin.client.client.render.SmartTerrainUpdates.totalMainNanos - stMainNs;
+		long sw = com.origin.client.client.render.SmartTerrainUpdates.totalShadowWalks - stShadowWalks;
+		long shNs = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos - stShadowNs;
+		long reNs = com.origin.client.client.render.SmartTerrainUpdates.totalRestoreNanos - stRestoreNs;
+		return String.format(java.util.Locale.ROOT,
+				"frames=%d mainWalks=%d reused=%d mainWalkMs/frame=%.3f (%.3f per walk) shadowWalks=%d shadowWalkMs=%.3f restoreMs/reuse=%.4f",
+				f, w, r, f == 0 ? 0.0 : mainNs / 1e6 / f, w == 0 ? 0.0 : mainNs / 1e6 / w,
+				sw, sw == 0 ? 0.0 : shNs / 1e6 / sw, r == 0 ? 0.0 : reNs / 1e6 / r);
 	}
 
 	private static void snapshot() {

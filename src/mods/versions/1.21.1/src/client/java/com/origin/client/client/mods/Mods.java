@@ -64,6 +64,7 @@ public final class Mods {
 			// Limit Far Shadows: render/ShadowCasterLimit + ShadowCaster*Mixin. Shader packs only.
 			ModOption.toggle("farShadowLimit", "Limit Far Shadows", false).tip("With a shader on, mobs and blocks like chests farther away than the distance below stop casting shadows. Saves work every frame in busy places; everything closer looks exactly the same."),
 			ModOption.slider("farShadowDistance", "Far Shadow Distance", 16, 160, 8, 64, "%.0f blocks").under("farShadowLimit"),
+			ModOption.toggle("smartTerrainUpdates", "Smart Terrain Updates", false).tip("With a shader on, the game stops re-working out which chunks you can see on frames where nothing moved or changed. Saves CPU time while you stand still; the picture is exactly the same."),
 			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),

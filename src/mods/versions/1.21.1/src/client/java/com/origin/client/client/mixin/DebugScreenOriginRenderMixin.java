@@ -20,6 +20,8 @@ public class DebugScreenOriginRenderMixin {
 		add(cir.getReturnValue(), OriginRender.debugLine());
 		// Settings > Performance > Limit Far Shadows: how many far shadow casters it skipped last frame.
 		add(cir.getReturnValue(), com.origin.client.client.render.ShadowCasterLimit.debugLine());
+		// Settings > Performance > Smart Terrain Updates: main chunk-graph walks reused per second + walk CPU time.
+		add(cir.getReturnValue(), com.origin.client.client.render.SmartTerrainUpdates.debugLine());
 	}
 
 	private static void add(List<String> lines, String line) {

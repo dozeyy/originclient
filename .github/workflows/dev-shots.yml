@@ -232,6 +232,10 @@ jobs:
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/shadow.fsh"
             printf '#version 120\nvarying vec2 uv;\nvoid main() { gl_Position = ftransform(); uv = gl_MultiTexCoord0.xy; }\n' > "$sp/gbuffers_basic.vsh"
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/gbuffers_basic.fsh"
+            # Textured terrain/entities (Iris falls gbuffers_terrain back to gbuffers_textured), so world
+            # shots show real blocks and the Smart Terrain Updates OFF/ON pixel diff compares terrain.
+            printf '#version 120\nvarying vec2 uv;\nvarying vec4 col;\nvoid main() { gl_Position = ftransform(); uv = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy; col = gl_Color; }\n' > "$sp/gbuffers_textured.vsh"
+            printf '#version 120\nuniform sampler2D texture;\nvarying vec2 uv;\nvarying vec4 col;\nvoid main() { vec4 c = texture2D(texture, uv) * col; if (c.a < 0.1) discard; gl_FragData[0] = c; }\n' > "$sp/gbuffers_textured.fsh"
             # shadow.enabled=true: without it (and with no pass sampling shadowtex) Iris never builds a
             # ShadowRenderer, so no shadow pass runs at all (IrisRenderingPipeline, Iris 1.8.8).
             printf 'shadowMapResolution=1024\nshadowDistance=96\nshadow.enabled=true\n' > "$sp/shaders.properties"

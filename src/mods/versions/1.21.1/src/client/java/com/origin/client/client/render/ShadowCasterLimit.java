@@ -10,8 +10,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 
 /**
  * SETTINGS > Performance > Limit Far Shadows (1.21.1, default OFF).
@@ -33,7 +31,7 @@ import java.lang.invoke.MethodType;
  *
  * <p>Safety (mandate 4): both hooks are plain vanilla dispatcher calls (refmapped), and they
  * only ever answer "skip" while Iris reports it is drawing the shadow pass. Iris is reached
- * through its public v0 API by reflection (one MethodHandle, resolved once), so a missing or
+ * through its public v0 API by reflection (IrisState.SHADOW_PASS, bound once), so a missing or
  * changed Iris turns the feature off instead of failing to load. Any exception latches the
  * feature off for the session and is logged once.
  */
@@ -48,7 +46,7 @@ public final class ShadowCasterLimit {
 	private static final boolean DEV = System.getenv("ORIGIN_SHOTS") != null;
 
 	/** IrisApi.getInstance().isRenderingShadowPass(), bound; null when Iris (or its v0 API) is absent. */
-	private static final MethodHandle IS_SHADOW_PASS = resolveShadowPassProbe();
+	private static final MethodHandle IS_SHADOW_PASS = IrisState.SHADOW_PASS;
 
 	private static boolean broken;
 
@@ -57,21 +55,6 @@ public final class ShadowCasterLimit {
 	private static int curSeenE, curSkipE, curSeenBE, curSkipBE;
 	private static int lastSeenE, lastSkipE, lastSeenBE, lastSkipBE;
 	public static long totalSeenE, totalSkipE, totalSeenBE, totalSkipBE;
-
-	private static MethodHandle resolveShadowPassProbe() {
-		try {
-			Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
-			Object instance = api.getMethod("getInstance").invoke(null);
-			if (instance == null) {
-				return null;
-			}
-			return MethodHandles.publicLookup()
-					.findVirtual(api, "isRenderingShadowPass", MethodType.methodType(boolean.class))
-					.bindTo(instance);
-		} catch (Throwable t) {
-			return null;
-		}
-	}
 
 	private static boolean enabled() {
 		return !broken && IS_SHADOW_PASS != null && Mods.bool(Mods.PERFORMANCE_ID, KEY_ON);
@@ -93,9 +76,21 @@ public final class ShadowCasterLimit {
 		}
 	}
 
-	private static double limitSq() {
-		double d = Mods.num(Mods.PERFORMANCE_ID, KEY_DISTANCE);
-		return d * d;
+	// The toggle and distance, read from Mods once per frame: shouldRender runs for every entity in
+	// the MAIN pass too, which should pay one long compare here, not two map lookups (review 2026-10-19).
+	private static long settingsFrame = Long.MIN_VALUE;
+	private static boolean cachedOn;
+	private static double cachedLimitSq;
+
+	private static boolean settingOn() {
+		long f = FrameStats.frames();
+		if (f != settingsFrame) {
+			settingsFrame = f;
+			cachedOn = Mods.bool(Mods.PERFORMANCE_ID, KEY_ON);
+			double d = Mods.num(Mods.PERFORMANCE_ID, KEY_DISTANCE);
+			cachedLimitSq = d * d;
+		}
+		return cachedOn;
 	}
 
 	/** Squared distance from (x,y,z) to the nearest point of the box: big things count by their near edge. */
@@ -115,7 +110,7 @@ public final class ShadowCasterLimit {
 		if (broken || IS_SHADOW_PASS == null) {
 			return false;
 		}
-		boolean on = Mods.bool(Mods.PERFORMANCE_ID, KEY_ON);
+		boolean on = settingOn();
 		if (!on && !DEV) {
 			return false;
 		}
@@ -130,7 +125,7 @@ public final class ShadowCasterLimit {
 				return false;
 			}
 			AABB bb = entity.getBoundingBoxForCulling();
-			if (distSq(bb.minX, bb.minY, bb.minZ, bb.maxX, bb.maxY, bb.maxZ, camX, camY, camZ) > limitSq()) {
+			if (distSq(bb.minX, bb.minY, bb.minZ, bb.maxX, bb.maxY, bb.maxZ, camX, camY, camZ) > cachedLimitSq) {
 				curSkipE++;
 				totalSkipE++;
 				return true;
@@ -150,7 +145,7 @@ public final class ShadowCasterLimit {
 		if (broken || IS_SHADOW_PASS == null) {
 			return false;
 		}
-		boolean on = Mods.bool(Mods.PERFORMANCE_ID, KEY_ON);
+		boolean on = settingOn();
 		if (!on && !DEV) {
 			return false;
 		}
@@ -168,7 +163,7 @@ public final class ShadowCasterLimit {
 			Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
 			BlockPos p = be.getBlockPos();
 			if (distSq(p.getX(), p.getY(), p.getZ(), p.getX() + 1, p.getY() + 1, p.getZ() + 1,
-					cam.x, cam.y, cam.z) > limitSq()) {
+					cam.x, cam.y, cam.z) > cachedLimitSq) {
 				curSkipBE++;
 				totalSkipBE++;
 				return true;

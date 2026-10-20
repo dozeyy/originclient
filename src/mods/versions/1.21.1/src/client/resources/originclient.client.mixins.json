@@ -83,7 +83,13 @@
 		"OptionsAutosaveMixin",
 		"KeyRebindMixin",
 		"ShadowCasterEntityMixin",
-		"ShadowCasterBlockEntityMixin"
+		"ShadowCasterBlockEntityMixin",
+		"SodiumRenderSectionManagerAccessor",
+		"SodiumSortedRenderListsAccessor",
+		"SodiumChunkRenderListAccessor",
+		"SodiumGraphReuseMixin",
+		"SodiumWorldRendererReuseMixin",
+		"LevelRendererCullFrustumMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
