@@ -333,6 +333,12 @@ public partial class HomePage : UserControl
             await JoinServerAsync(profile.Version, profile.ServerAddress!);
     }
 
+    /// <summary>True while the launch cover is up; only that scene blocks navigation (the picker just closes).</summary>
+    public bool HasLaunchCover => LoadingOverlay.Visibility == Visibility.Visible;
+
+    /// <summary>MainWindow: a nav click while the version picker is open closes it and carries on.</summary>
+    public void CloseVersionPicker() => VersionOverlay.Dismiss();
+
     public bool HasOpenScene => VersionOverlay.IsOpen
         || LoadingOverlay.Visibility == Visibility.Visible;
 

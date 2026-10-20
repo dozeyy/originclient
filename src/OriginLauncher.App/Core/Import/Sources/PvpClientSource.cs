@@ -80,6 +80,8 @@ public sealed class PvpClientSource : IInstanceSource
                     if (found || !(File.Exists(Path.Combine(profile, "options.txt")) || File.Exists(Path.Combine(profile, "servers.dat")))) continue;
                     var line = Sorted(fs.EnumerateDirectories(mods)).Select(d => AnyLoaderFolder.Match(Path.GetFileName(d)))
                         .FirstOrDefault(m => m.Success)?.Groups["mc"].Value;
+                    // Lunar's "1.8" line only ever runs 1.8.9: with no versioned loader folder the line name says it.
+                    if (line == null && name == "1.8") line = "1.8.9";
                     members.Add(new SetupMember(new DetectedInstance
                     {
                         Kind = SourceKind.Lunar, Name = label + (line ?? name), GameDir = profile,
