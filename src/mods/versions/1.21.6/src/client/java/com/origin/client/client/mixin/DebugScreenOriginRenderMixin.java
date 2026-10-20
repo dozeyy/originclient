@@ -4,6 +4,7 @@ import com.origin.client.client.render.HalfRateShadows;
 import com.origin.client.client.render.OffMapShadows;
 import com.origin.client.client.render.ShadowCasterLimit;
 import com.origin.client.client.render.SmartTerrainUpdates;
+import com.origin.client.client.render.SodiumIrisBuilds;
 import net.minecraft.client.gui.components.DebugScreenOverlay;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -27,11 +28,15 @@ public class DebugScreenOriginRenderMixin {
 		// Settings > Performance > Limit Far Shadows: far shadow casters skipped last frame.
 		try { add(lines, ShadowCasterLimit.debugLine()); } catch (Throwable ignored) { }
 		// Settings > Performance > Off-Map Shadows: sections and entities kept out of the shadow map last frame.
-		try { add(lines, OffMapShadows.debugLine()); } catch (Throwable ignored) { }
+		if (SodiumIrisBuilds.SODIUM) {
+			try { add(lines, OffMapShadows.debugLine()); } catch (Throwable ignored) { }
+		}
 		// Settings > Performance > Half-Rate Shadows: shadow maps reused (not redrawn) in the last second.
 		try { add(lines, HalfRateShadows.debugLine()); } catch (Throwable ignored) { }
 		// Settings > Performance > Smart Terrain Updates: main chunk-graph walks replayed per second + walk CPU time.
-		try { add(lines, SmartTerrainUpdates.debugLine()); } catch (Throwable ignored) { }
+		if (SodiumIrisBuilds.SODIUM) {
+			try { add(lines, SmartTerrainUpdates.debugLine()); } catch (Throwable ignored) { }
+		}
 	}
 
 	private static void add(List<String> lines, String line) {

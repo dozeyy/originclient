@@ -103,8 +103,15 @@ public final class SmartTerrainUpdates {
 	private static boolean replayed;
 
 	// ---- the recording: findVisible's arguments, stamped sections, visited sections (in order) ----
-	private static final RenderSection[] NO_SECTIONS = {};
-	private static RenderSection[] stamped = NO_SECTIONS, visited = NO_SECTIONS;
+	// Every Sodium-typed static lives in this holder, so this class's own static init touches no Sodium
+	// class: with Sodium disabled nothing here may throw NoClassDefFoundError (review 2026-10-20). The
+	// holder loads on first use, and every use is reached from a Sodium mixin, so Sodium is present then.
+	private static final class Rec {
+		static final RenderSection[] NO_SECTIONS = {};
+		static RenderSection[] stamped = NO_SECTIONS, visited = NO_SECTIONS;
+		static final Recorder RECORDER = new Recorder();
+	}
+
 	private static int stampN, visitN;
 	private static float recDist;
 	private static boolean recOcclusion;
@@ -119,15 +126,13 @@ public final class SmartTerrainUpdates {
 
 		@Override
 		public void visit(RenderSection section) {
-			if (visitN == visited.length) {
-				visited = java.util.Arrays.copyOf(visited, Math.max(1024, visitN * 2));
+			if (visitN == Rec.visited.length) {
+				Rec.visited = java.util.Arrays.copyOf(Rec.visited, Math.max(1024, visitN * 2));
 			}
-			visited[visitN++] = section;
+			Rec.visited[visitN++] = section;
 			inner.visit(section);
 		}
 	}
-
-	private static final Recorder RECORDER = new Recorder();
 
 	// ---- camera fingerprint (main pass, previous frame) ----
 	private static boolean haveCam;
@@ -421,10 +426,10 @@ public final class SmartTerrainUpdates {
 					// The walk's two side effects, in its own order: every section it reached gets this
 					// frame's stamp, and the collector sees every visible section in walk order.
 					for (int i = 0; i < stampN; i++) {
-						stamped[i].setLastVisibleFrame(frame);
+						Rec.stamped[i].setLastVisibleFrame(frame);
 					}
 					for (int i = 0; i < visitN; i++) {
-						visitor.visit(visited[i]);
+						visitor.visit(Rec.visited[i]);
 					}
 					replayed = true;
 				} catch (Throwable e) {
@@ -440,18 +445,18 @@ public final class SmartTerrainUpdates {
 			// The walk's own inputs differ from the recording's: walk and record instead.
 		}
 		// Record: the stamps (SodiumOcclusionStampMixin) and visits (Recorder) of this walk.
-		java.util.Arrays.fill(stamped, 0, stampN, null);
-		java.util.Arrays.fill(visited, 0, visitN, null);
+		java.util.Arrays.fill(Rec.stamped, 0, stampN, null);
+		java.util.Arrays.fill(Rec.visited, 0, visitN, null);
 		stampN = visitN = 0;
 		primed = false;
 		manager = null;
-		RECORDER.inner = visitor;
+		Rec.RECORDER.inner = visitor;
 		recording = true;
 		try {
-			original.call(culler, RECORDER, viewport, dist, occlusion, frame);
+			original.call(culler, Rec.RECORDER, viewport, dist, occlusion, frame);
 		} finally {
 			recording = false;
-			RECORDER.inner = null;
+			Rec.RECORDER.inner = null;
 		}
 		try {
 			CameraTransform t = viewport.getTransform();
@@ -517,10 +522,10 @@ public final class SmartTerrainUpdates {
 	public static void onStamp(RenderSection section, int hook) {
 		if (recording) {
 			hooksSeen |= 1 << hook;
-			if (stampN == stamped.length) {
-				stamped = java.util.Arrays.copyOf(stamped, Math.max(1024, stampN * 2));
+			if (stampN == Rec.stamped.length) {
+				Rec.stamped = java.util.Arrays.copyOf(Rec.stamped, Math.max(1024, stampN * 2));
 			}
-			stamped[stampN++] = section;
+			Rec.stamped[stampN++] = section;
 		}
 	}
 
@@ -574,23 +579,23 @@ public final class SmartTerrainUpdates {
 		primed = false;
 		manager = null;
 		replayNext = recordNext = false;
-		stamped = visited = NO_SECTIONS;
+		Rec.stamped = Rec.visited = Rec.NO_SECTIONS;
 		stampN = visitN = 0;
 		recording = false;
-		RECORDER.inner = null;
+		Rec.RECORDER.inner = null;
 	}
 
 	/** Keep the arrays (this can repeat every frame, so no allocation) but hold no section. */
 	private static void unprime() {
 		primed = false;
 		manager = null;
-		java.util.Arrays.fill(stamped, 0, stampN, null);
-		java.util.Arrays.fill(visited, 0, visitN, null);
+		java.util.Arrays.fill(Rec.stamped, 0, stampN, null);
+		java.util.Arrays.fill(Rec.visited, 0, visitN, null);
 		stampN = visitN = 0;
 	}
 
 	private static void releaseIfHeld() {
-		if (primed || manager != null || stamped.length != 0 || visited.length != 0) {
+		if (primed || manager != null || Rec.stamped.length != 0 || Rec.visited.length != 0) {
 			release();
 		}
 	}
