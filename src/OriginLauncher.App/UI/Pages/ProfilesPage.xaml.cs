@@ -148,8 +148,10 @@ public partial class ProfilesPage : UserControl
     // A profile's emblem: its icon when it has one, else its first letter, on its tint.
     private Border ProfileEmblem(ModProfile profile)
     {
+        var ink = ProfileLook.Ink(profile);
         var emblem = Emblem(ProfileLook.Initial(profile.Name), ProfileLook.Tint(profile));
-        if (ProfileLook.EmblemGlyph(profile.Icon, 22, (Brush)FindResource("Brush.Text")) is { } glyph)
+        if (emblem.Child is Controls.TrackedText letter) letter.Foreground = ink;
+        if (ProfileLook.EmblemGlyph(profile.Icon, 22, ink) is { } glyph)
             emblem.Child = glyph;
         return emblem;
     }
@@ -603,7 +605,8 @@ public partial class ProfilesPage : UserControl
         var initial = ProfileLook.Initial(NameBox.Text);
         FormInitial.Text = initial;
         FormEmblem.Background = ProfileLook.TintBrush(_formTint);
-        var glyph = ProfileLook.EmblemGlyph(_formIcon, 20, (Brush)FindResource("Brush.Text"));
+        FormInitial.Foreground = ProfileLook.InkBrush(_formTint);
+        var glyph = ProfileLook.EmblemGlyph(_formIcon, 20, ProfileLook.InkBrush(_formTint));
         FormInitial.Visibility = glyph == null ? Visibility.Visible : Visibility.Collapsed;
         FormIcon.Child = glyph;
         // The letter tile shows the letter the card would get.
@@ -710,7 +713,7 @@ public partial class ProfilesPage : UserControl
             if ((string)swatch.Tag == name) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Acc");
             else ring.BorderBrush = Brushes.Transparent;
         }
-        FormEmblem.Background = ProfileLook.TintBrush(name);
+        UpdateFormEmblem();   // the tile and its ink follow the colour
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)

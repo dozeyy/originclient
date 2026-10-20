@@ -309,7 +309,8 @@ public partial class HomePage : UserControl
         {
             ProfileNameText.Text = selected.Name;
             ProfileInitial.Text = ProfileLook.Initial(selected.Name);
-            ProfileIcon.Child = ProfileLook.EmblemGlyph(selected.Icon, 18, (Brush)FindResource("Brush.OnPhoto"));
+            ProfileIcon.Child = ProfileLook.EmblemGlyph(selected.Icon, 18, ProfileLook.Ink(selected));
+            ProfileInitial.Foreground = ProfileLook.Ink(selected);
             ProfileInitial.Visibility = ProfileIcon.Child == null ? Visibility.Visible : Visibility.Collapsed;
             ProfileMark.Visibility = Visibility.Collapsed;
             ProfileEmblem.Background = ProfileLook.Tint(selected);
@@ -321,6 +322,8 @@ public partial class HomePage : UserControl
 
         _joinProfile = active is { HasServer: true } ? active : null;
         JoinButton.Visibility = _joinProfile != null ? Visibility.Visible : Visibility.Collapsed;
+        // Play keeps a 32 px gap to whichever pill sits next to it.
+        MyModsButton.Margin = new Thickness(0, 0, _joinProfile != null ? 12 : 32, 0);
         if (_joinProfile != null)
         {
             JoinServerText.Text = ProfileRules.ServerLabel(_joinProfile) ?? "Server";
@@ -563,10 +566,22 @@ public partial class HomePage : UserControl
     // My mods: the same setting as the Mods page's YOUR MODS switch. Each page reads it
     // when it comes into view (RefreshProfile here, the Mods page on show), so the two
     // always agree; the launch reads it fresh.
+    // On: a dot filled in the family colour. Off: a hollow grey ring, so colour only
+    // ever means on.
     private void ShowMyMods(bool on)
     {
-        if (on) MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "Brush.Acc");
-        else MyModsDot.Fill = Brushes.Transparent;
+        if (on)
+        {
+            MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "Brush.Acc");
+            MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Brush.Acc");
+        }
+        else
+        {
+            MyModsDot.Fill = Brushes.Transparent;
+            MyModsDot.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Brush.TextMuted");
+        }
+        MyModsState.Text = on ? "On" : "Off";
+        MyModsState.SetResourceReference(TextBlock.ForegroundProperty, on ? "Brush.Text" : "Brush.TextDim");
         System.Windows.Automation.AutomationProperties.SetName(MyModsButton, on ? "My mods: on" : "My mods: off");
     }
 
