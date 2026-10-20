@@ -194,6 +194,7 @@ public class TitleScreenMixin {
 		try {
 			OriginScreenRenderer.renderPanorama(partialTick, alpha);
 		} catch (Throwable t) {
+			OriginScreenRenderer.panoramaFailed(t);
 			instance.render(partialTick, alpha);
 			return;
 		}

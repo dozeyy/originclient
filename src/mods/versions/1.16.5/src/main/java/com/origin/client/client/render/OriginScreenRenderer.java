@@ -547,6 +547,17 @@ public final class OriginScreenRenderer {
 		return !broken && !backdropBroken;
 	}
 
+	/**
+	 * The title mixin's own panorama draw threw: latch the Origin backdrop off for the
+	 * session (menuBackdropActive() goes false, vanilla's backdrop returns) and log it once.
+	 */
+	public static void panoramaFailed(Throwable t) {
+		if (!backdropBroken) {
+			backdropBroken = true;
+			com.origin.client.OriginClient.LOGGER.error("Origin panorama failed on the title screen; vanilla backdrop for this session", t);
+		}
+	}
+
 	/** Vanilla 1.21.1's default Menu Background Blurriness (Accessibility); this era has no such option. */
 	private static final int MENU_BLUR_RADIUS = 5;
 
