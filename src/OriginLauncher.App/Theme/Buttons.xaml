@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="clr-namespace:OriginLauncher.App.UI">
 
     <!-- Keyboard focus: a 2 px frame in the tonal primary, 3 px outside the control. -->
     <Style x:Key="Focus.Button" TargetType="Control">
@@ -45,11 +46,6 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
         <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
-        <Setter Property="RenderTransform">
-            <Setter.Value>
-                <ScaleTransform ScaleX="1" ScaleY="1"/>
-            </Setter.Value>
-        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -68,43 +64,10 @@
             </Setter.Value>
         </Setter>
         <Style.Triggers>
+            <!-- Press-scale: UI/Press.cs (never a storyboard on RenderTransform.ScaleX, see there).
+                 Derived styles change only ui:Press.Scale. -->
             <Trigger Property="IsPressed" Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                             To="0.985" Duration="{StaticResource Motion.Press}">
-                                <DoubleAnimation.EasingFunction>
-                                    <QuadraticEase EasingMode="EaseOut"/>
-                                </DoubleAnimation.EasingFunction>
-                            </DoubleAnimation>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                             To="0.985" Duration="{StaticResource Motion.Press}">
-                                <DoubleAnimation.EasingFunction>
-                                    <QuadraticEase EasingMode="EaseOut"/>
-                                </DoubleAnimation.EasingFunction>
-                            </DoubleAnimation>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                             To="1.0" Duration="{StaticResource Motion.Release}">
-                                <DoubleAnimation.EasingFunction>
-                                    <CubicEase EasingMode="EaseOut"/>
-                                </DoubleAnimation.EasingFunction>
-                            </DoubleAnimation>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                             To="1.0" Duration="{StaticResource Motion.Release}">
-                                <DoubleAnimation.EasingFunction>
-                                    <CubicEase EasingMode="EaseOut"/>
-                                </DoubleAnimation.EasingFunction>
-                            </DoubleAnimation>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.ExitActions>
+                <Setter Property="ui:Press.Down" Value="True"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Opacity" Value="0.45"/>
@@ -198,6 +161,7 @@
         </Setter>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="ui:Press.Scale" Value="0.95"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
@@ -216,24 +180,6 @@
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                             To="{StaticResource Color.GhostRest}"
                                             Duration="{StaticResource Motion.Hover}"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.ExitActions>
-            </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.95" Duration="{StaticResource Motion.Press}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.95" Duration="{StaticResource Motion.Press}"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
@@ -298,8 +244,6 @@
                 <Trigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.985" Duration="{StaticResource Motion.Press}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.985" Duration="{StaticResource Motion.Press}"/>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                             To="{StaticResource Color.AccentPress}" Duration="{StaticResource Motion.Press}"/>
                         </Storyboard>
@@ -308,8 +252,6 @@
                 <Trigger.ExitActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                             To="{StaticResource Color.Accent}" Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
@@ -393,9 +335,9 @@
     <!--
         Play (option 6): no slab. The content (the big tracked PLAY) sits left of a
         58 px ring drawn in the version's accent. Hover fills the ring with the
-        accent from the centre (scale 0 to 1, expo ease), the arrow turns dark and
-        nudges 4 px right; press scales the whole control to 0.97 and the ring to
-        0.94. Only scale, translate, opacity and colour animate.
+        accent from the centre (scale 0 to 1, expo ease) and the arrow turns dark; the
+        arrow itself never moves (Will, 2026-10-20). Press scales the whole control to
+        0.97 (ui:Press) and the ring to 0.94. Only scale, opacity and colour animate.
     -->
     <Style x:Key="Button.PlayHero" TargetType="Button">
         <Setter Property="Cursor" Value="Hand"/>
@@ -403,11 +345,7 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
         <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
-        <Setter Property="RenderTransform">
-            <Setter.Value>
-                <ScaleTransform ScaleX="1" ScaleY="1"/>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="ui:Press.Scale" Value="0.97"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -431,11 +369,7 @@
                             <Ellipse x:Name="RingStroke" Stroke="{DynamicResource Brush.Acc}" StrokeThickness="2"/>
                             <Path x:Name="Arrow" Data="M5,12 H19 M13,6 L19,12 L13,18" Width="24" Height="24" Stretch="None"
                                   StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#FFE6E6E6">
-                                <Path.RenderTransform>
-                                    <TranslateTransform x:Name="ArrowShift" X="0"/>
-                                </Path.RenderTransform>
-                            </Path>
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#FFE6E6E6"/>
                         </Grid>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -450,9 +384,6 @@
                                             <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="7"/></DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
                                         <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="#FF0E0E0E" Duration="{StaticResource Motion.Scene}"/>
-                                        <DoubleAnimation Storyboard.TargetName="ArrowShift" Storyboard.TargetProperty="X" To="4" Duration="{StaticResource Motion.Settle}">
-                                            <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="7"/></DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
@@ -462,7 +393,6 @@
                                         <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleX" To="0" Duration="{StaticResource Motion.Scene}"/>
                                         <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleY" To="0" Duration="{StaticResource Motion.Scene}"/>
                                         <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="#FFE6E6E6" Duration="{StaticResource Motion.Hover}"/>
-                                        <DoubleAnimation Storyboard.TargetName="ArrowShift" Storyboard.TargetProperty="X" To="0" Duration="{StaticResource Motion.Scene}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.ExitActions>
@@ -502,26 +432,7 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsPressed" Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.97" Duration="{StaticResource Motion.Press}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.97" Duration="{StaticResource Motion.Press}"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="{StaticResource Motion.Release}">
-                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                            </DoubleAnimation>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="{StaticResource Motion.Release}">
-                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                            </DoubleAnimation>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.ExitActions>
+                <Setter Property="ui:Press.Down" Value="True"/>
             </Trigger>
             <!-- The disabled look is in the template (word dimmed, ring neutral): dimming the whole
                  control left a muddy half-accent ring. -->
