@@ -168,7 +168,7 @@ public final class ModelCosmetic {
 				emit(attach, b, fit, solid, geo.quads[b][ModelGeometry.EMISSIVE], LightTexture.FULL_BRIGHT, vOff, invU, invV);
 			}
 			if (geo.hasGlow) {
-				VertexConsumer glow = buffers.getBuffer(RenderType.eyes(texture));
+				VertexConsumer glow = buffers.getBuffer(com.origin.client.client.render.GlowRenderType.eyes(texture));
 				for (int b = 0; b < bones; b++) {
 					emit(attach, b, fit, glow, geo.quads[b][ModelGeometry.GLOW], LightTexture.FULL_BRIGHT, vOff, invU, invV);
 				}

@@ -88,6 +88,9 @@ public class TitleScreenMixin {
 	private final List<AbstractWidget> originclient$nav = new ArrayList<>();
 	@Unique
 	private final List<int[]> originclient$navPos = new ArrayList<>();
+	// Minecraft Realms only lets a client join a realm running the SAME release, and a realm always runs the latest one: on every older version the button is a dead end (Will, 2026-10-20: "realms only work on certain versions"). Flip to true if a version's Realms is verified to join.
+	private static final boolean originclient$REALMS_WORKS = false;
+
 	@Unique
 	private final List<AbstractWidget> originclient$icons = new ArrayList<>();
 	@Unique
@@ -381,15 +384,21 @@ public class TitleScreenMixin {
 			// Bottom row of vanilla squares, Quit at its end.
 			List<AbstractWidget> dock = new ArrayList<>();
 			if (realms != null) {
-				originclient$iconOnly(realms, "@title-realms", "Play on Minecraft Realms");
-				dock.add(realms);
+				if (originclient$REALMS_WORKS) {
+					originclient$iconOnly(realms, "@px-realms", "Play on Minecraft Realms");
+					dock.add(realms);
+				} else {
+					// Realms only joins on the latest release (see REALMS_WORKS): hide the dead button, keep the slot out of the dock
+					realms.visible = false;
+					realms.active = false;
+				}
 			}
 			if (originclient$friendsNav != null) {
-				originclient$iconOnly(originclient$friendsNav, "@title-multiplayer", "Friends: see who is online and join them");
+				originclient$iconOnly(originclient$friendsNav, "@px-friends", "Friends: see who is online and join them");
 				dock.add(originclient$friendsNav);
 			}
 			if (originclient$cosmeticsNav != null) {
-				originclient$iconOnly(originclient$cosmeticsNav, "@shirt", "Cosmetics: capes and more for your player");
+				originclient$iconOnly(originclient$cosmeticsNav, "@px-shirt", "Cosmetics: capes and more for your player");
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : sprites) {
@@ -398,14 +407,14 @@ public class TitleScreenMixin {
 				Identifier sprite = bundle == null ? null : bundle.get(true, false);
 				String path = sprite == null ? "" : sprite.getPath();
 				if (path.endsWith("language")) {
-					originclient$iconOnly(icon, "@title-language", "Change the game's language");
+					originclient$iconOnly(icon, "@px-language", "Change the game's language");
 				} else if (path.endsWith("accessibility")) {
-					originclient$iconOnly(icon, "@title-accessibility", "Accessibility settings");
+					originclient$iconOnly(icon, "@px-access", "Accessibility settings");
 				}
 				dock.add(icon);
 			}
 			if (quit != null) {
-				originclient$iconOnly(quit, "@title-quit", "Quit the game");
+				originclient$iconOnly(quit, "@px-quit", "Quit the game");
 				dock.add(quit);
 			}
 			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
