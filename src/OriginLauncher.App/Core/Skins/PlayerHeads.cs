@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -78,32 +79,49 @@ public static class PlayerHeads
             return Decode(cached); // an empty file = no custom skin = default head
         if (!NetworkEnabled) return null;
 
+        // Offline, Mojang busy, or an answer that isn't Mojang's (captive portal): keep what we
+        // had (or the default) and let a later row ask again, never remembering it as "no skin".
+        ImageSource? Transient()
+        {
+            if (cached == null)
+                _ = Task.Delay(RetryAfterFailure).ContinueWith(_ => Loads.TryRemove(key, out var _), TaskScheduler.Default);
+            return Decode(cached);
+        }
+
         await Gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            var profile = await Http.GetStringAsync(
+            using var answer = await Http.GetAsync(
                 $"https://sessionserver.mojang.com/session/minecraft/profile/{key}").ConfigureAwait(false);
-            var skinUrl = SkinFace.SkinUrlFromProfile(profile);
-            byte[] png = [];
-            if (skinUrl != null)
+            if (answer.StatusCode == HttpStatusCode.NoContent)
             {
-                using var response = await Http.GetAsync(skinUrl, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
-                if (response.Content.Headers.ContentLength > MaxSkinBytes) return Decode(cached);
-                png = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                if (png.Length > MaxSkinBytes) return Decode(cached);
+                // Mojang's "no such player": remembered (empty file) like a player without a skin.
+                TrySave(path, []);
+                return null;
             }
+            if (!answer.IsSuccessStatusCode) return Transient();
+            var profile = await answer.Content.ReadAsStringAsync().ConfigureAwait(false);
+            switch (SkinFace.ReadProfile(profile, key, out var skinUrl))
+            {
+                case SkinFace.ProfileAnswer.NoSkin:
+                    TrySave(path, []);
+                    return null;
+                case SkinFace.ProfileAnswer.Invalid:
+                    return Transient();
+            }
+
+            using var response = await Http.GetAsync(skinUrl, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > MaxSkinBytes) return Transient();
+            var png = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            if (png.Length > MaxSkinBytes) return Transient();
             var head = Decode(png);
-            if (png.Length == 0 || head != null) TrySave(path, png);
+            if (head == null) return Transient();
+            TrySave(path, png);
             return head;
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or IOException)
         {
-            // Offline or Mojang busy: keep what we had (or the default), and let a later
-            // row ask again instead of pinning the failure for the whole session.
-            if (cached == null)
-                _ = Task.Delay(RetryAfterFailure).ContinueWith(_ => Loads.TryRemove(key, out var _), TaskScheduler.Default);
-            return Decode(cached);
+            return Transient();
         }
         finally
         {
@@ -117,23 +135,29 @@ public static class PlayerHeads
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    /// <summary>A skin PNG to its frozen 8x8 head bitmap; null for an empty or unreadable skin.</summary>
+    /// <summary>
+    /// A skin PNG to its frozen 8x8 head bitmap; null for an empty, oversized or unreadable
+    /// skin. The size comes from the PNG header and is checked before any pixel is decoded
+    /// (a tiny file can claim a huge image), and any decoder failure falls back to null.
+    /// </summary>
     public static ImageSource? Decode(byte[]? png)
     {
         if (png == null || png.Length == 0) return null;
+        if (SkinFace.PngSize(png) is not { } size || !SkinFace.IsSkinSize(size.Width, size.Height)) return null;
         try
         {
             using var stream = new MemoryStream(png, writable: false);
-            var frame = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
-            if (frame.PixelWidth > 1024 || frame.PixelHeight > 1024) return null;
+            var frame = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None).Frames[0];
+            if (frame.PixelWidth != size.Width || frame.PixelHeight != size.Height) return null;
             var bgra = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0);
-            var pixels = new byte[bgra.PixelWidth * bgra.PixelHeight * 4];
-            bgra.CopyPixels(pixels, bgra.PixelWidth * 4, 0);
-            return ToBitmap(SkinFace.FaceWithHat(pixels, bgra.PixelWidth, bgra.PixelHeight));
+            var pixels = new byte[size.Width * size.Height * 4];
+            bgra.CopyPixels(pixels, size.Width * 4, 0);
+            return ToBitmap(SkinFace.FaceWithHat(pixels, size.Width, size.Height));
         }
-        catch (Exception e) when (e is NotSupportedException or FileFormatException or ArgumentException
-                                       or InvalidOperationException or IOException or OverflowException)
+        catch (Exception)
         {
+            // Fail soft on anything the decoder throws (bad data, COM errors, out of memory):
+            // the player keeps their default head.
             return null;
         }
     }

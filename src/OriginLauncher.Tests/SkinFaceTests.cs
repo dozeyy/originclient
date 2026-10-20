@@ -138,27 +138,81 @@ public class SkinFaceTests
         "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\",\"properties\":[{\"name\":\"textures\",\"value\":\""
         + Convert.ToBase64String(Encoding.UTF8.GetBytes(texturesJson)) + "\"}]}";
 
+    private const string NotchKey = "069a79f444e94726a5befca90e38aaf5";
+
     [Fact]
     public void Skin_url_is_read_from_the_profile_and_upgraded_to_https()
     {
         var json = Profile("{\"textures\":{\"SKIN\":{\"url\":\"http://textures.minecraft.net/texture/abc123\"}}}");
-        Assert.Equal("https://textures.minecraft.net/texture/abc123", SkinFace.SkinUrlFromProfile(json));
+        Assert.Equal(SkinFace.ProfileAnswer.Skin, SkinFace.ReadProfile(json, NotchKey, out var url));
+        Assert.Equal("https://textures.minecraft.net/texture/abc123", url);
+    }
+
+    [Fact]
+    public void A_real_profile_without_a_skin_is_NoSkin()
+    {
+        Assert.Equal(SkinFace.ProfileAnswer.NoSkin, SkinFace.ReadProfile(Profile("{\"textures\":{}}"), NotchKey, out var url));
+        Assert.Null(url);
     }
 
     [Theory]
-    [InlineData("{\"textures\":{}}")]                                                         // no custom skin
     [InlineData("{\"textures\":{\"SKIN\":{\"url\":\"https://evil.example/texture/abc\"}}}")]  // foreign host
     [InlineData("{\"textures\":{\"SKIN\":{\"url\":\"file://textures.minecraft.net/x\"}}}")]   // bad scheme
-    public void Profiles_without_a_mojang_skin_give_no_url(string textures) =>
-        Assert.Null(SkinFace.SkinUrlFromProfile(Profile(textures)));
+    [InlineData("{\"nottextures\":1}")]                                                      // textures missing
+    public void Odd_textures_are_Invalid_not_NoSkin(string textures)
+    {
+        Assert.Equal(SkinFace.ProfileAnswer.Invalid, SkinFace.ReadProfile(Profile(textures), NotchKey, out var url));
+        Assert.Null(url);
+    }
 
+    [Fact]
+    public void Another_players_profile_is_Invalid() =>
+        Assert.Equal(SkinFace.ProfileAnswer.Invalid,
+            SkinFace.ReadProfile(Profile("{\"textures\":{}}"), "853c80ef3c3749fdaa49938b674adae6", out _));
+
+    // A captive portal or proxy page answering 200 must never be remembered as "no custom skin".
     [Theory]
     [InlineData(null)]
     [InlineData("")]
+    [InlineData("<html><body>Sign in to the hotel Wi-Fi</body></html>")]
     [InlineData("not json")]
+    [InlineData("[]")]
+    [InlineData("{}")]
     [InlineData("{\"id\":\"x\"}")]
-    [InlineData("{\"properties\":[{\"name\":\"textures\",\"value\":\"%%%\"}]}")]
-    public void Garbage_profiles_give_no_url(string? json) => Assert.Null(SkinFace.SkinUrlFromProfile(json));
+    [InlineData("{\"id\":\"069a79f444e94726a5befca90e38aaf5\"}")]
+    [InlineData("{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"properties\":[{\"name\":\"textures\",\"value\":\"%%%\"}]}")]
+    public void Garbage_answers_are_Invalid(string? json) =>
+        Assert.Equal(SkinFace.ProfileAnswer.Invalid, SkinFace.ReadProfile(json, NotchKey, out _));
+
+    private static byte[] PngHeader(uint w, uint h)
+    {
+        var b = new byte[33];
+        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R' }.CopyTo(b, 0);
+        b[16] = (byte)(w >> 24); b[17] = (byte)(w >> 16); b[18] = (byte)(w >> 8); b[19] = (byte)w;
+        b[20] = (byte)(h >> 24); b[21] = (byte)(h >> 16); b[22] = (byte)(h >> 8); b[23] = (byte)h;
+        return b;
+    }
+
+    [Fact]
+    public void Png_size_is_read_from_the_header_without_decoding()
+    {
+        Assert.Equal((64, 64), SkinFace.PngSize(PngHeader(64, 64)));
+        Assert.Equal((60000, 60000), SkinFace.PngSize(PngHeader(60000, 60000))); // a bomb's claim, read in 24 bytes
+        Assert.Null(SkinFace.PngSize(PngHeader(0x80000000, 64)));                // negative as int
+        Assert.Null(SkinFace.PngSize(Encoding.ASCII.GetBytes("<html>not a png at all, sorry</html>")));
+        Assert.Null(SkinFace.PngSize(new byte[10]));
+    }
+
+    [Theory]
+    [InlineData(64, 64, true)]
+    [InlineData(64, 32, true)]
+    [InlineData(1024, 1024, true)]
+    [InlineData(2048, 2048, false)]   // past MaxSkinWidth: refused before decoding
+    [InlineData(60000, 60000, false)]
+    [InlineData(64, 48, false)]
+    [InlineData(32, 32, false)]
+    public void Only_skin_sizes_within_the_cap_are_decoded(int w, int h, bool ok) =>
+        Assert.Equal(ok, SkinFace.IsSkinSize(w, h));
 
     [Fact]
     public void Cached_skins_go_stale_after_a_day()

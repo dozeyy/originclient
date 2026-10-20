@@ -98,16 +98,16 @@ public partial class ProfilesPage : UserControl
         var settings = Current();
         var profiles = settings.ModProfiles.Where(ProfileRules.IsUsable).ToList();
         var selectedId = profiles.Any(p => p.Id == settings.SelectedProfileId) ? settings.SelectedProfileId : null;
-        var player = _demo != null
-            ? "OriginPlayer"
-            : Core.Accounts.AccountStore.GetSelected(Core.Accounts.AccountStore.Load())?.Gamertag;
+        var account = _demo != null ? null : Core.Accounts.AccountStore.GetSelected(Core.Accounts.AccountStore.Load());
+        var player = _demo != null ? "OriginPlayer" : account?.Gamertag;
+        var playerUuid = account?.Id ?? ""; // the head beside "Plays as" (no account / demo = default head)
 
         RowsPanel.Children.Add(BuildNoneCard(selectedId == null));
         foreach (var profile in profiles)
         {
             RowsPanel.Children.Add(profile.Id == _pendingDelete
                 ? BuildConfirmCard(profile)
-                : BuildProfileCard(profile, profile.Id == selectedId, player));
+                : BuildProfileCard(profile, profile.Id == selectedId, player, playerUuid));
         }
         RowsPanel.Children.Add(BuildNewCard());
     }
@@ -254,13 +254,13 @@ public partial class ProfilesPage : UserControl
         card.IsKeyboardFocusWithinChanged += (_, _) => Update();
     }
 
-    private StackPanel PlaysAs(string? player)
+    private StackPanel PlaysAs(string? player, string playerUuid)
     {
         var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
         line.Children.Add(Small(player != null ? "Plays as" : "Plays as the account you pick"));
         if (player != null)
         {
-            line.Children.Add(new Controls.PixelFace { Seed = player, Width = 14, Height = 14, Margin = new Thickness(6, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
+            line.Children.Add(new Controls.PlayerHead { Uuid = playerUuid, Width = 14, Height = 14, Margin = new Thickness(6, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
             line.Children.Add(Small(player, bold: true));
         }
         return line;
@@ -381,7 +381,7 @@ public partial class ProfilesPage : UserControl
         return card;
     }
 
-    private FrameworkElement BuildProfileCard(ModProfile profile, bool selected, string? player)
+    private FrameworkElement BuildProfileCard(ModProfile profile, bool selected, string? player, string playerUuid)
     {
         var card = CardShell(selected, profile.Version);
 
@@ -392,7 +392,7 @@ public partial class ProfilesPage : UserControl
         var delete = IconButton("Icon.Trash", "Delete", $"Delete {profile.Name}");
         delete.Click += (_, _) => AskDelete(profile);
 
-        var head = CardHead(ProfileEmblem(profile), profile.Name, PlaysAs(player), edit, copy, delete);
+        var head = CardHead(ProfileEmblem(profile), profile.Name, PlaysAs(player, playerUuid), edit, copy, delete);
         RevealOnHover(card, head);
         var foot = CardFoot(selected, $"Use {profile.Name}", () => Select(profile), profile.Version, _demo == null && _isInUse(profile.Id));
         card.Child = CardBody(foot, head, ModsLine(profile), WhereLine(profile));
