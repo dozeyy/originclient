@@ -84,7 +84,22 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"IrisPipelineHalfRateMixin",
+		"IrisShadowRendererHalfRateMixin",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin",
+		"SodiumRenderSectionManagerAccessor",
+		"SodiumSortedRenderListsAccessor",
+		"SodiumChunkRenderListAccessor",
+		"SodiumGraphReuseMixin",
+		"SodiumUpdateReuseMixin",
+		"SodiumWalkEndMixin",
+		"SodiumOcclusionStampMixin",
+		"SodiumViewportShadowMapMixin",
+		"SodiumWorldRendererReuseMixin",
+		"LevelRendererCullFrustumMixin",
+		"DebugScreenOriginRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
