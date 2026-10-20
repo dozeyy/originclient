@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using OriginLauncher.App.Core.Import;
@@ -230,13 +231,22 @@ public abstract class LiveCardRowVm : CardRowVm, INotifyPropertyChanged
     protected void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-/// <summary>One launcher on the first page: "Lunar Client / 4 versions, 12 worlds", or greyed with why ("Not installed").</summary>
+/// <summary>
+/// One launcher found on this PC (the Import page's first screen): its real logo, name, folder, three counts, and a tick
+/// that takes all of its setups in or out of "Import everything". Changes in place while the scan and count land.
+/// </summary>
 public sealed class LauncherTileVm : LiveCardRowVm
 {
     private string _caption = "";
     private bool _enabled;
     private string _tip = "";
     private bool _notFound;
+    private string _pathText = "";
+    private string _setupsText = "";
+    private string _worldsText = "";
+    private string _modsText = "";
+    private bool? _ticked = true;
+    private bool _canTick;
 
     public required SourceKind Kind { get; init; }
     public required string Title { get; init; }
@@ -246,7 +256,11 @@ public sealed class LauncherTileVm : LiveCardRowVm
     public ImageSource? Logo => LauncherLogos.For(Kind);
     public bool HasLogo => Logo != null;
 
-    /// <summary>Its folder isn't on this PC: the tile offers "Locate folder" (Browse) instead of greying out silently.</summary>
+    /// <summary>The faint wash in the tile's corner and the hairline round its logo, in the launcher's own colour.</summary>
+    public Brush TintWash => LauncherLogos.Wash(Kind);
+    public Brush TintEdge => LauncherLogos.Edge(Kind);
+
+    /// <summary>Its folder isn't on this PC (the page lists it as a slim "Locate folder" row instead of a tile).</summary>
     public bool NotFound { get => _notFound; set => Set(ref _notFound, value); }
 
     public string Caption
@@ -255,14 +269,269 @@ public sealed class LauncherTileVm : LiveCardRowVm
         set { if (Set(ref _caption, value)) Raise(nameof(AutomationName)); }
     }
 
-    /// <summary>Something to import: the tile opens the launcher's versions. Off: greyed, the tooltip says why.</summary>
+    /// <summary>Something to import.</summary>
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
 
     public string Tip { get => _tip; set => Set(ref _tip, value); }
 
+    /// <summary>Where its setups live, shortened ("%AppData%\PrismLauncher\instances"); empty until there are setups.</summary>
+    public string PathText { get => _pathText; set => Set(ref _pathText, value); }
+
+    /// <summary>The three counts: setups found, worlds and mods once counted ("..." until then).</summary>
+    public string SetupsText { get => _setupsText; set { if (Set(ref _setupsText, value)) Raise(nameof(SetupsLabel)); } }
+
+    /// <summary>
+    /// The label under the setups count. Launchers that call them instances (CurseForge, Modrinth, Prism, the official
+    /// launcher) say INSTANCES; the rest say SETUPS. Singular for 1.
+    /// </summary>
+    public string SetupsLabel
+    {
+        get
+        {
+            var word = Kind is SourceKind.CurseForge or SourceKind.Modrinth or SourceKind.Prism or SourceKind.OfficialLauncher
+                ? "INSTANCE" : "SETUP";
+            return _setupsText == "1" ? word : word + "S";
+        }
+    }
+    public string WorldsText { get => _worldsText; set => Set(ref _worldsText, value); }
+    public string ModsText { get => _modsText; set => Set(ref _modsText, value); }
+
+    /// <summary>In "Import everything": true when every setup Origin can take is going, false when none, null in between.</summary>
+    public bool? Ticked { get => _ticked; set => Set(ref _ticked, value); }
+
+    /// <summary>False when none of its setups can come over (nothing to tick).</summary>
+    public bool CanTick { get => _canTick; set => Set(ref _canTick, value); }
+
+    private bool _canFast;
+
+    /// <summary>"Bring everything from Lunar Client" is on the tile (something from it can come over).</summary>
+    public bool CanFast { get => _canFast; set => Set(ref _canFast, value); }
+
+    /// <summary>The one-click button: every setup of this launcher, its most played one's settings on every version.</summary>
+    public string FastText => "Bring everything from " + ImportGridModel.ShortName(Kind);
+    public string FastTip => $"Bring every version, mod, world and server from {Title}, with the settings of the setup you play most";
+
+    /// <summary>The tick box keeps its own toggled value after a click; this puts the model's answer back.</summary>
+    public void Resync() => Raise(nameof(Ticked));
+
     public string AutomationName => $"{Title}, {Caption}";
+    public string TickName => $"Import from {Title}";
     public override string Key => $"W|{Kind}";
-    protected override string Body => $"{Kind}|{Caption}|{Enabled}|{NotFound}";
+    protected override string Body => $"{Kind}|{Caption}|{Enabled}|{NotFound}|{PathText}|{SetupsText}|{WorldsText}|{ModsText}|{Ticked}";
+}
+
+/// <summary>A launcher that has nothing to bring: its small logo in the slim "not found" row.</summary>
+public sealed class MissingLauncherVm : CardRowVm
+{
+    public required SourceKind Kind { get; init; }
+    public required string Title { get; init; }
+    public string Message { get; init; } = "";
+    public string Initial => ImportLogic.Initial(Title);
+    public ImageSource? Logo => LauncherLogos.For(Kind);
+    public bool HasLogo => Logo != null;
+    public string AutomationName => $"{Title} {Message}";
+    public override string Key => $"M|{Kind}";
+    protected override string Body => $"{Kind}|{Message}";
+}
+
+/// <summary>A launcher's heading in "Choose what to import": logo, name, "5 of 5 selected, 17 worlds, 244 mods", one tick for all.</summary>
+public sealed class PickGroupVm : LiveCardRowVm
+{
+    private string _caption = "";
+    private bool? _state = true;
+    private bool _canTick = true;
+
+    public required SourceKind Kind { get; init; }
+    public required string Title { get; init; }
+    public string Initial => ImportLogic.Initial(Title);
+    public ImageSource? Logo => LauncherLogos.For(Kind);
+    public bool HasLogo => Logo != null;
+    public Brush TintEdge => LauncherLogos.Edge(Kind);
+
+    /// <summary>The space above a second and later group.</summary>
+    public Thickness Gap { get; init; }
+
+    public string Caption { get => _caption; set => Set(ref _caption, value); }
+    public bool? State { get => _state; set => Set(ref _state, value); }
+    public bool CanTick { get => _canTick; set => Set(ref _canTick, value); }
+    public void Resync() => Raise(nameof(State));
+
+    public string TickName => $"Import everything from {Title}";
+    public override string Key => $"PG|{Kind}";
+    protected override string Body => $"{Kind}|{Caption}|{State}|{CanTick}";
+}
+
+/// <summary>One setup in "Choose what to import": tick, name, "23 mods, 3 worlds", and its Minecraft version.</summary>
+public sealed class PickRowVm : LiveCardRowVm
+{
+    private string _caption = "";
+    private bool _ticked;
+
+    public required DetectedInstance Setup { get; init; }
+    public string Id => Setup.BulkId();
+    public string Name => Setup.Name;
+    public string Badge => Setup.McVersion ?? "?";
+
+    /// <summary>False when Origin can't take its version: no tick, drawn quieter, the reason as the caption.</summary>
+    public bool CanTick { get; init; }
+    public bool Dimmed => !CanTick;
+
+    public string Caption { get => _caption; set { if (Set(ref _caption, value)) Raise(nameof(AutomationName)); } }
+    public bool Ticked { get => _ticked; set => Set(ref _ticked, value); }
+    public void Resync() => Raise(nameof(Ticked));
+
+    public string AutomationName => $"{Name}, {Caption}";
+    public string TickName => $"Import {Setup.SourceLabel}: {Name}";
+    public string ReviewName => $"Review {Name}";
+    public string RowTip => CanTick ? "Tick or untick this setup" : "Origin can't run this version yet. Press to pick another version for it.";
+    public override string Key => $"PR|{Id}";
+    protected override string Body => $"{Id}|{Caption}|{Ticked}|{CanTick}";
+}
+
+/// <summary>One setup on the Importing screen: Waiting, the one being copied (a small bar and the step), or Done.</summary>
+public sealed class ProgressRowVm : LiveCardRowVm
+{
+    public enum Phase { Waiting, Active, Done }
+
+    private Phase _state;
+    private string _status = "Waiting";
+    private double _fraction;
+
+    public required DetectedInstance Setup { get; init; }
+    public string Name => Setup.Name;
+    public string Launcher => ImportLogic.GroupTitle(Setup.SourceLabel);
+    public string Initial => ImportLogic.Initial(Setup.Name);
+    public ImageSource? Logo => LauncherLogos.For(Setup.Kind);
+    public bool HasLogo => Logo != null;
+    public Brush TintEdge => LauncherLogos.Edge(Setup.Kind);
+
+    public Phase State
+    {
+        get => _state;
+        set
+        {
+            if (!Set(ref _state, value)) return;
+            Raise(nameof(IsActive));
+            Raise(nameof(IsDone));
+            Raise(nameof(IsWaiting));
+        }
+    }
+
+    public bool IsActive => _state == Phase.Active;
+    public bool IsDone => _state == Phase.Done;
+    public bool IsWaiting => _state == Phase.Waiting;
+
+    public string Status { get => _status; set => Set(ref _status, value); }
+
+    /// <summary>0..1 of the small bar (the active row only).</summary>
+    public double Fraction { get => _fraction; set { if (Set(ref _fraction, value)) Raise(nameof(BarWidth)); } }
+
+    /// <summary>The small bar's track in px.</summary>
+    public const double BarTrack = 160;
+
+    /// <summary>The small bar's fill in px.</summary>
+    public double BarWidth => Math.Round(BarTrack * Math.Clamp(_fraction, 0, 1));
+
+    public override string Key => $"PP|{Setup.BulkId()}";
+    protected override string Body => $"{Setup.BulkId()}|{State}|{Status}|{Fraction:0.00}";
+}
+
+/// <summary>
+/// A Minecraft version that got something on the Done screen: the logo of the launcher its settings came from, "Minecraft
+/// 1.21.1" and "From Prism, Lunar". Imports make no profiles: this is the plain version, ready on Home.
+/// </summary>
+public sealed class VersionCardVm : CardRowVm
+{
+    public required string Name { get; init; }
+    public required string Caption { get; init; }
+    public SourceKind Kind { get; init; }
+    public string Initial => ImportLogic.Initial(Name);
+    public ImageSource? Logo => LauncherLogos.For(Kind);
+    public bool HasLogo => Logo != null;
+    public Brush TintEdge => LauncherLogos.Edge(Kind);
+
+    /// <summary>The "+3 more" card: no logo, no action.</summary>
+    public bool IsMore { get; init; }
+    public override string Key => $"VC|{Name}|{Caption}";
+    protected override string Body => $"{Name}|{Caption}";
+}
+
+// ---------------------------------------------------------------- "Choose what to import": the grid (ImportGridModel)
+
+/// <summary>A version tab above the grid ("All versions", "1.21.1"); the shown one is drawn selected.</summary>
+public sealed class GridTabVm : INotifyPropertyChanged
+{
+    private bool _selected;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public required string Tab { get; init; }
+    public required string Title { get; init; }
+    public bool Selected
+    {
+        get => _selected;
+        set
+        {
+            if (_selected == value) return;
+            _selected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Selected)));
+        }
+    }
+    public string AutomationName => "Show " + Title;
+
+    /// <summary>The toggle keeps its own pressed value after a click; this puts the model's answer back.</summary>
+    public void Resync() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Selected)));
+}
+
+/// <summary>One tick of the grid (a launcher's row, a column): on, off or mixed; greyed with the reason when nothing can come.</summary>
+public sealed class GridCellVm : INotifyPropertyChanged
+{
+    private bool? _on;
+    private bool _enabled;
+    private string _tip = "";
+    private string _name = "";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public required SourceKind Kind { get; init; }
+    public required GridColumn Column { get; init; }
+
+    public bool? On { get => _on; set => Set(ref _on, value); }
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public string Tip { get => _tip; set => Set(ref _tip, value); }
+
+    /// <summary>What a screen reader says: "Lunar Client: Mods".</summary>
+    public string Name { get => _name; set => Set(ref _name, value); }
+
+    /// <summary>The tick box keeps its own toggled value after a click; this puts the model's answer back.</summary>
+    public void Resync() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(On)));
+
+    private void Set<T>(ref T field, T value, [CallerMemberName] string name = "")
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+}
+
+/// <summary>A launcher's row in the grid: logo, name, "3 setups - 1.21.1, 1.20.1", then a tick per column.</summary>
+public sealed class GridRowVm : LiveCardRowVm
+{
+    private string _caption = "";
+
+    public required SourceKind Kind { get; init; }
+    public required string Title { get; init; }
+    public required IReadOnlyList<GridCellVm> Cells { get; init; }
+    public string Initial => ImportLogic.Initial(Title);
+    public ImageSource? Logo => LauncherLogos.For(Kind);
+    public bool HasLogo => Logo != null;
+    public Brush TintEdge => LauncherLogos.Edge(Kind);
+    public Brush TintWash => LauncherLogos.Wash(Kind);
+
+    public string Caption { get => _caption; set => Set(ref _caption, value); }
+
+    public override string Key => $"GR|{Kind}";
+    protected override string Body => $"{Kind}|{Caption}";
 }
 
 /// <summary>
@@ -272,6 +541,55 @@ public sealed class LauncherTileVm : LiveCardRowVm
 internal static class LauncherLogos
 {
     private static readonly Dictionary<SourceKind, ImageSource?> Cache = new();
+
+    /// <summary>
+    /// Each launcher's own colour, the one its logo wears (white logos: the colour its brand is known by). Used only as an
+    /// accent: a faint wash across a tile's corner and a hairline round the logo, never a fill.
+    /// </summary>
+    private static Color ColourOf(SourceKind kind) => kind switch
+    {
+        SourceKind.OfficialLauncher => Color.FromRgb(0x62, 0xB5, 0x43),
+        SourceKind.CurseForge => Color.FromRgb(0xF1, 0x64, 0x36),
+        SourceKind.Modrinth => Color.FromRgb(0x1B, 0xD9, 0x6A),
+        SourceKind.Prism => Color.FromRgb(0xE8, 0x71, 0x8D),
+        SourceKind.Lunar => Color.FromRgb(0x4D, 0xA6, 0xFF),
+        SourceKind.Feather => Color.FromRgb(0x8F, 0xA8, 0xFF),
+        _ => Color.FromRgb(0xE0, 0xE0, 0xE0),
+    };
+
+    private static readonly Dictionary<SourceKind, Brush> Washes = new();
+    private static readonly Dictionary<SourceKind, Brush> Edges = new();
+
+    /// <summary>The faint corner wash: the launcher's colour at about 14 % in the top-left, gone by the middle.</summary>
+    public static Brush Wash(SourceKind kind)
+    {
+        lock (Washes)
+        {
+            if (Washes.TryGetValue(kind, out var hit)) return hit;
+            var c = ColourOf(kind);
+            var brush = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(0x24, c.R, c.G, c.B), 0),
+                    new GradientStop(Color.FromArgb(0x00, c.R, c.G, c.B), 0.7),
+                }, new Point(0, 0), new Point(1, 1));
+            brush.Freeze();
+            return Washes[kind] = brush;
+        }
+    }
+
+    /// <summary>The hairline round a logo: the launcher's colour at about 40 %.</summary>
+    public static Brush Edge(SourceKind kind)
+    {
+        lock (Edges)
+        {
+            if (Edges.TryGetValue(kind, out var hit)) return hit;
+            var c = ColourOf(kind);
+            var brush = new SolidColorBrush(Color.FromArgb(0x66, c.R, c.G, c.B));
+            brush.Freeze();
+            return Edges[kind] = brush;
+        }
+    }
 
     public static ImageSource? For(SourceKind kind)
     {

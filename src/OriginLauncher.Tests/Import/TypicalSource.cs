@@ -13,7 +13,7 @@ internal static class TypicalSource
     public static void Populate(string source, bool withMods = true)
     {
         Kit.Write(source, "options.txt", Options, Old);
-        Kit.Write(source, "servers.dat", "SERVERLIST", Old);
+        File.SetLastWriteTimeUtc(Kit.WriteBytes(source, "servers.dat", Kit.ServersDat(("SERVERLIST Hub", "play.example.net"))), Old);
         Kit.WriteBytes(source, "resourcepacks/Faithful.zip", Kit.Zip(Kit.Text("pack.mcmeta", "faithful")));
         Kit.Write(source, "resourcepacks/FolderPack/pack.mcmeta", "{}");
         Kit.WriteBytes(source, "resourcepacks/Unused.zip", Kit.Zip(Kit.Text("pack.mcmeta", "unused")));

@@ -8,8 +8,11 @@ namespace OriginLauncher.App.UI.Controls;
 
 public partial class ImportPromptCard : UserControl
 {
-    /// <summary>The player pressed Import (the card has already hidden itself).</summary>
+    /// <summary>The player pressed "Import everything" (the card has already hidden itself).</summary>
     public event EventHandler? ImportRequested;
+
+    /// <summary>The player pressed "Choose": the Import page opens on its pick screen.</summary>
+    public event EventHandler? ChooseRequested;
 
     // At most this many launcher chips; the rest fold into one "+N more" chip.
     private const int MaxChips = 5;
@@ -139,5 +142,11 @@ public partial class ImportPromptCard : UserControl
     {
         Hide();
         ImportRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void Choose_Click(object sender, RoutedEventArgs e)
+    {
+        Hide();
+        ChooseRequested?.Invoke(this, EventArgs.Empty);
     }
 }

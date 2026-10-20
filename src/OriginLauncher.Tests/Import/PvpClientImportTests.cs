@@ -31,7 +31,7 @@ public class PvpClientImportTests : IDisposable
         Kit.WriteBytes(Minecraft, "shaderpacks/Soft.zip", Kit.Zip(Kit.Text("shaders/final.fsh", "void main(){}")));
         Kit.Write(Minecraft, "saves/Bedwars Practice/level.dat", "LEVEL");
         Kit.Write(Minecraft, "saves/Bedwars Practice/region/r.0.0.mca", "REGION");
-        Kit.WriteBytes(Minecraft, "servers.dat", new byte[] { 10, 0, 0, 9, 0, 7, 115, 101, 114, 118, 101, 114, 115, 0, 0, 0, 0, 0 });
+        Kit.WriteBytes(Minecraft, "servers.dat", Kit.ServersDat(("Hypixel", "mc.hypixel.net")));
     }
 
     // Lunar as it is on a real install (read-only look at Will's PC, 2026-10-19): one folder per version line under
@@ -48,7 +48,7 @@ public class PvpClientImportTests : IDisposable
         Kit.Write(profile, "optionsLC.txt", "lunar-only");
         Kit.WriteBytes(profile, "resourcepacks/Lunar Pack.zip", Kit.Zip(Kit.Text("pack.mcmeta", "{}")));
         Kit.WriteBytes(profile, "shaders/Lunar Shader.zip", Kit.Zip(Kit.Text("shaders/final.fsh", "void main(){}")));
-        Kit.WriteBytes(profile, "servers.dat", new byte[] { 10, 0, 0, 9, 0, 7, 115, 101, 114, 118, 101, 114, 115, 0, 0, 0, 0, 0 });
+        Kit.WriteBytes(profile, "servers.dat", Kit.ServersDat(("Hypixel", "mc.hypixel.net")));
         Kit.Write(Lunar, "settings/launcher.json", "{\"settings\":{\"gameDirectory\":"
             + System.Text.Json.JsonSerializer.Serialize(gameDirectory ?? Minecraft) + ",\"selectedProfile\":\"x\"},\"trackingId\":\"t\"}");
         // Lunar's own HUD layouts and its login file: never opened.
@@ -66,7 +66,7 @@ public class PvpClientImportTests : IDisposable
         await _rig.Engine().PlanAsync(_rig.Request(options: new ImportOptions { CopyWorlds = worlds }) with { Source = setup },
             null, CancellationToken.None);
 
-    private string ProfileMods(ImportPlan plan) => InstanceLayout.ProfileModsDir(_rig.Instances, "1.21.1", plan.ProfileId!);
+    private string ProfileMods(ImportPlan plan) => InstanceLayout.ModsDir(_rig.Instances, plan.TargetVersion);
 
     private void AssertNoSecretOpened()
     {
@@ -131,7 +131,7 @@ public class PvpClientImportTests : IDisposable
         Assert.True(Kit.Exists(game, "servers.dat"));
         Assert.Contains("fov:0.9", Kit.Read(game, "options.txt"));
         Assert.False(Kit.Exists(game, "optionsLC.txt"));
-        Assert.Equal("Lunar: 1.21.1", Assert.Single(_rig.Settings.Load().Profiles).Name);
+        Assert.Empty(_rig.Settings.Load().Profiles);                                   // imports never make profiles
 
         Assert.Equal(lunarBefore, Kit.TreeHash(Lunar, mtimes: true));
         Assert.Equal(minecraftBefore, Kit.TreeHash(Minecraft, mtimes: true));
@@ -146,11 +146,10 @@ public class PvpClientImportTests : IDisposable
         var mods = Assert.Single((await Scan()).Instances, s => s.ModsDir != null);
         Assert.True((await _rig.Engine().ApplyAsync(await Plan(mods), _rig.Settings, null, CancellationToken.None)).Succeeded);
 
-        var again = await _rig.Engine().PlanAsync(_rig.Request(options: new ImportOptions { CopyWorlds = true },
-            profiles: _rig.Settings.Load().Profiles) with { Source = mods }, null, CancellationToken.None);
+        var again = await _rig.Engine().PlanAsync(_rig.Request(options: new ImportOptions { CopyWorlds = true }) with { Source = mods }, null, CancellationToken.None);
         Assert.True((await _rig.Engine().ApplyAsync(again, _rig.Settings, null, CancellationToken.None)).Succeeded);
 
-        Assert.Single(_rig.Settings.Load().Profiles);
+        Assert.Empty(_rig.Settings.Load().Profiles);
         Assert.False(Directory.Exists(Path.Combine(_rig.GameDir(), "saves", "Bedwars Practice (imported)")));
     }
 

@@ -50,7 +50,7 @@ public static class ImportSummary
         sb.AppendLine($"From: {plan.Source.SourceLabel}: {plan.Source.Name}"
             + (plan.Source.McVersion == null ? "" : $" (Minecraft {plan.Source.McVersion}"
                 + (plan.Source.Loader is LoaderKind.None or LoaderKind.Unknown ? ")" : $", {plan.Source.Loader}{(plan.Source.Confidence == Confidence.Inferred ? ", guessed" : "")})")));
-        sb.AppendLine($"Into: Minecraft {plan.TargetVersion}" + (plan.ProfileName == null ? "" : $", mod profile \"{plan.ProfileName}\""));
+        sb.AppendLine($"Into: Minecraft {plan.TargetVersion}");
         if (outcome != null) sb.AppendLine(outcome);
         sb.AppendLine();
 

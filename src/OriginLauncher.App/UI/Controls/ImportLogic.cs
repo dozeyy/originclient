@@ -97,6 +97,64 @@ internal static class ImportLogic
         return "?";
     }
 
+    // ---------------------------------------------------------------- the Import page's words
+
+    /// <summary>"IMPORT 12" -> "Import 12", "CHECKING..." -> "Checking...": the page's buttons are sentence case, the engine's labels are caps.</summary>
+    public static string Sentence(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        var letters = text.Where(char.IsLetter).ToList();
+        if (letters.Count == 0 || letters.Any(char.IsLower)) return text; // already mixed case: leave it
+        return char.ToUpperInvariant(text[0]) + text[1..].ToLowerInvariant();
+    }
+
+    /// <summary>"3 setups", "3 setups and 4 worlds", "17 setups, 54 worlds and 320 mods": the parts joined the way a person says them.</summary>
+    public static string JoinParts(IReadOnlyList<string> parts) => parts.Count switch
+    {
+        0 => "",
+        1 => parts[0],
+        _ => string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1],
+    };
+
+    /// <summary>A folder path as the player would say it: %LocalAppData% and %AppData% for the folders Windows puts them in.</summary>
+    public static string ShortPath(string path, string? appData = null, string? localAppData = null)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "";
+        appData ??= Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        localAppData ??= Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        // LocalAppData first: it is longer, and on some PCs AppData sits inside it.
+        foreach (var (root, token) in new[] { (localAppData, "%LocalAppData%"), (appData, "%AppData%") })
+        {
+            if (string.IsNullOrEmpty(root)) continue;
+            var trimmed = root.TrimEnd('\\', '/');
+            if (path.Length > trimmed.Length && path.StartsWith(trimmed, StringComparison.OrdinalIgnoreCase)
+                && (path[trimmed.Length] == '\\' || path[trimmed.Length] == '/'))
+                return token + path[trimmed.Length..];
+        }
+        return path;
+    }
+
+    /// <summary>
+    /// Where a launcher keeps its setups: the deepest folder they share ("...\PrismLauncher\instances" for several), or the
+    /// one setup's own folder. Folder names are compared without case, like Windows does.
+    /// </summary>
+    public static string CommonFolder(IReadOnlyList<string> folders)
+    {
+        var paths = folders.Where(f => !string.IsNullOrWhiteSpace(f)).Select(f => f.TrimEnd('\\', '/')).ToList();
+        if (paths.Count == 0) return "";
+        if (paths.Count == 1) return paths[0];
+        var split = paths.Select(p => p.Split('\\', '/')).ToList();
+        var common = new List<string>();
+        for (var i = 0; i < split.Min(s => s.Length); i++)
+        {
+            var part = split[0][i];
+            if (split.Any(s => !string.Equals(s[i], part, StringComparison.OrdinalIgnoreCase))) break;
+            common.Add(part);
+        }
+        // Nothing shared past the drive: the first setup's folder is still a true answer.
+        return common.Count <= 1 ? paths[0] : string.Join("\\", common);
+    }
+
     /// <summary>What a press on Import does right now: start, or say why not (and leave nothing half-shown).</summary>
     public enum StartKind { Start, AlreadyRunning, Refused }
 

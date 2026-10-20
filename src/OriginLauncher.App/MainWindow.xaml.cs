@@ -83,7 +83,10 @@ public partial class MainWindow : Window
         NavHome.IsChecked = true;
 
         _profilesPage.ImportRequested += (_, _) => OpenImportPanel();
-        _homePage.ImportCard.ImportRequested += (_, _) => OpenImportPanel();
+        // The first-run card: "Import everything" opens the page and runs it once the scan is in; "Choose" opens the
+        // page on its pick screen.
+        _homePage.ImportCard.ImportRequested += (_, _) => OpenImportPanel(intent: ImportPanel.Intent.Everything);
+        _homePage.ImportCard.ChooseRequested += (_, _) => OpenImportPanel(intent: ImportPanel.Intent.Choose);
         HookImportWiring(); // MainWindow.ImportWiring.cs: closing mid-import, recovery refresh, run-state refusals, the page behind the panel
         ContentRendered += async (_, _) => await AfterFirstRenderAsync();
 
@@ -272,7 +275,7 @@ public partial class MainWindow : Window
 
     private void FriendsButton_Click(object sender, RoutedEventArgs e) => SetFriendsOpen(!_friendsOpen);
 
-    private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen || _importPanelOpen;
+    private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen; // Import is a page now, not a drawer
 
     private void SetFriendsOpen(bool open)
     {
@@ -488,6 +491,19 @@ public partial class MainWindow : Window
     {
         if (_syncingNavigation) return;
 
+        // The import page is open (the tabs stay live): a running import asks "Stop importing?" first; otherwise the
+        // page closes and the tab's page shows.
+        if (_importPanelOpen)
+        {
+            if (_importPanel is { IsApplying: true })
+            {
+                SetNavigationSelection(null);
+                _ = _importPanel.RequestClose();
+                return;
+            }
+            CloseImportPanel();
+        }
+
         // The version picker and launch cover are modal within Home. Keep the
         // left rail and its keyboard shortcuts from navigating behind either
         // scene and preserving a hidden modal until the player returns.
@@ -548,7 +564,8 @@ public partial class MainWindow : Window
 
     private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
 
-    private void SetNavigationSelection(LauncherPage page)
+    // null = no tab lit (the Import page is not one of the four).
+    private void SetNavigationSelection(LauncherPage? page)
     {
         _syncingNavigation = true;
         NavHome.IsChecked = page == LauncherPage.Home;
@@ -672,7 +689,7 @@ public partial class MainWindow : Window
     // Opens the import card (the Profiles page's Import button, the first-run card, `--import`). The scan
     // starts here, when the card opens - never at launcher startup. The backend is the real one unless
     // the CI screen render passes a made-up one.
-    private void OpenImportPanel(IImportBackend? backend = null)
+    private void OpenImportPanel(IImportBackend? backend = null, ImportPanel.Intent intent = ImportPanel.Intent.Detect)
     {
         if (_importPanelOpen || _signInPanelOpen) return;
         if (ImportBlockedByUpdate()) return; // MainWindow.ImportWiring.cs: an update is downloading / restarting
@@ -686,15 +703,25 @@ public partial class MainWindow : Window
         // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.
         panel.SetRefusal(ImportHooks.Refusal());
         panel.CloseRequested += (_, _) => CloseImportPanel();
+        // "Play" on the done screen: close the page, show Home on the version the import went to and start the game.
+        // Imports make no profiles, so the plain version is what plays.
+        panel.PlayRequested += (_, version) =>
+        {
+            CloseImportPanel();
+            NavigateTo(LauncherPage.Home);
+            _homePage.PlayVersion(version);
+        };
         panel.Imported += (_, _) =>
         {
-            // The import changed the selected version and added a profile: Home picks both up.
+            // The import wrote game files only (no launcher setting): Home re-reads its state, and a Profiles page
+            // sitting behind the import page rebuilds now (its mod counts may have changed).
             _homePage.RefreshProfile();
+            if (_currentPage == LauncherPage.Profiles) _profilesPage.Show(_homePage.CurrentVersion);
         };
         _importPanel = panel;
-        ImportPanelHost.Content = panel;
+        ImportPageHost.Content = panel;
         SetImportPanelOpen(true);
-        panel.Start();
+        panel.Start(intent);
     }
 
     private void CloseImportPanel()
@@ -705,43 +732,42 @@ public partial class MainWindow : Window
         _importPanel = null;
     }
 
-    // Slides the Import drawer in and out exactly like the Friends drawer (SetFriendsOpen): the same ease, Motion.Scene in
-    // and Motion.Exit out, the shared Scrim 0 <-> 0.5, the toasts shift left of it. The page behind is switched off while
-    // it is open, so the keyboard cannot reach it either.
+    // Shows / hides the Import page: it takes the page slot (the page behind is hidden, still loaded), the art behind
+    // dims like on every non-Home page, no tab is lit, and the account and friends buttons are inert (the import goes
+    // into the selected account). The page fades in over Motion.Scene and out over Motion.Exit.
     private void SetImportPanelOpen(bool open)
     {
         _importPanelOpen = open;
         OnImportPanelOpenChanged(open); // MainWindow.ImportWiring.cs: the page behind goes inert / comes back, focus restored
-        Toasts.Margin = new Thickness(0, 0, open ? ImportDrawer.Width + 20 : 20, 20);
 
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
-
         if (open)
         {
-            Scrim.Visibility = Visibility.Visible;
-            ImportDrawer.Visibility = Visibility.Visible;
+            PageHost.Visibility = Visibility.Hidden;
+            ImportPageHost.Visibility = Visibility.Visible;
+            SetNavigationSelection(null);
+            Stage.SetPage(false);
         }
-        ImportDrawer.IsHitTestVisible = open;
+        else
+        {
+            PageHost.Visibility = Visibility.Visible;
+            SetNavigationSelection(_currentPage);
+            Stage.SetPage(_currentPage == LauncherPage.Home);
+        }
 
-        var slide = new DoubleAnimation(open ? 0 : ImportDrawer.Width, duration) { EasingFunction = ease };
-        slide.Completed += (_, _) =>
+        var fade = new DoubleAnimation(open ? 1 : 0, duration);
+        fade.Completed += (_, _) =>
         {
             if (!_importPanelOpen)
             {
-                ImportDrawer.Visibility = Visibility.Collapsed;
-                ImportPanelHost.Content = null;
-                if (!AnyDrawerOpen) Scrim.Visibility = Visibility.Collapsed;
+                ImportPageHost.Visibility = Visibility.Collapsed;
+                ImportPageHost.Content = null;
             }
         };
-        ImportDrawerTransform.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
-
-        var scrimOn = open || AnyDrawerOpen;
-        Scrim.IsHitTestVisible = scrimOn;
-        Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(scrimOn ? 0.5 : 0.0, duration), HandoffBehavior.SnapshotAndReplace);
+        ImportPageHost.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
 
         if (open)
-            Dispatcher.BeginInvoke(() => ImportPanelHost.MoveFocus(new TraversalRequest(FocusNavigationDirection.First)));
+            Dispatcher.BeginInvoke(() => ImportPageHost.MoveFocus(new TraversalRequest(FocusNavigationDirection.First)));
     }
 
     // After the first window is up: tell the player about an import that was rolled back at start (the
@@ -791,10 +817,10 @@ public partial class MainWindow : Window
 
     // ---- render mode (CI): the import card with a made-up backend, never the real machine ----
 
-    internal ImportPanel TourOpenImport(IImportBackend backend)
+    internal ImportPanel TourOpenImport(IImportBackend backend, ImportPanel.Intent intent = ImportPanel.Intent.Detect)
     {
         if (_importPanelOpen) CloseImportPanel();
-        OpenImportPanel(backend);
+        OpenImportPanel(backend, intent);
         return _importPanel!;
     }
 
@@ -823,9 +849,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // The import card is modal: no page shortcuts, and Enter belongs to it.
-        if (_importPanelOpen) return;
-
         // A Home scene owns the keyboard while it is open. In particular,
         // Ctrl+1/2/3/4 must not navigate behind the version picker and leave it
         // invisibly open until the player returns to Home.
@@ -850,7 +873,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.Key == Key.Enter && _currentPage == LauncherPage.Home
+        if (e.Key == Key.Enter && _currentPage == LauncherPage.Home && !_importPanelOpen
             && !_accountPanelOpen && !_signInPanelOpen && !_friendsOpen
             && Keyboard.FocusedElement is not TextBoxBase
             && Keyboard.FocusedElement is not Selector

@@ -45,12 +45,20 @@ internal sealed class BulkFixture : IDisposable
         return setup;
     }
 
+    /// <summary>The import grid with every cell of every launcher and version ticked (each launcher's most played setup brings its mods).</summary>
+    public ImportGrid AllTicked()
+    {
+        var grid = new ImportGrid();
+        foreach (var s in Setups.Where(s => s.McVersion != null)) grid.Set(s.McVersion!, s.Kind, ImportGrid.Things);
+        return grid;
+    }
+
     public string Dir(DetectedInstance setup, string rel = "") => Path.Combine(setup.GameDir, rel.Replace('/', Path.DirectorySeparatorChar));
 
     public string Target(string version, string rel = "") => Path.Combine(Rig.GameDir(version), rel.Replace('/', Path.DirectorySeparatorChar));
 
     public BulkRequest Request(BulkSelection? selection = null, ImportOptions? options = null, string? account = Rig.Account,
-        IReadOnlyList<ModProfile>? profiles = null, IReadOnlyDictionary<string, string>? choices = null, bool playWithExternalMods = true) => new()
+        IReadOnlyDictionary<string, string>? choices = null, bool playWithExternalMods = true, ImportGrid? grid = null) => new()
     {
         Setups = Setups.ToList(),
         Selection = selection ?? BulkSelection.All(),
@@ -61,10 +69,8 @@ internal sealed class BulkFixture : IDisposable
             ? new TargetFacts { BundledOriginJarPath = Rig.BundledJar }
             : new TargetFacts { CatalogMods = new[] { new CatalogMod("sodium", "sodium-fabric-0.8.12.jar"), new CatalogMod("iris", "iris-fabric-1.10.7.jar") } },
         WinnerChoices = choices ?? new Dictionary<string, string>(),
-        ExistingProfiles = profiles ?? Array.Empty<ModProfile>(),
+        Grid = grid,
         PlayWithExternalMods = playWithExternalMods,
-        SelectedVersion = "1.21.11",
-        SelectedProfileId = null,
     };
 
     public ImportEngine Engine(IReadOnlyList<IImportPlanContributor>? contributors = null, Func<string, long>? freeSpace = null,

@@ -577,7 +577,8 @@ public static class ImportUndo
         for (var i = journal.Entries.Count - 1; i >= 0; i--)
         {
             var entry = journal.Entries[i];
-            if (keepGameFiles && entry.GameFile) continue;
+            // JournalEntry.GameFile; a shared mods folder a later import counts on (ImportJournal.KeepSharedModsDirs).
+            if (keepGameFiles && (entry.GameFile || ImportJournal.InDirs(entry.Path, journal.KeepSharedModsDirs))) continue;
             try
             {
                 switch (entry.Kind)

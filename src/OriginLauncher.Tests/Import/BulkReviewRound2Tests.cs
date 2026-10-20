@@ -14,9 +14,10 @@ public class BulkReviewRound2Tests : IDisposable
 
     private const string DhFile = "Distant_Horizons_server_data/Hyp/aaa@minecraft@@overworld/DistantHorizons.sqlite";
 
-    private DetectedInstance WithCache(string name, string version, long hours)
+    // Each version's second setup is another launcher's, and every grid cell is ticked: both bring their mods (DH).
+    private DetectedInstance WithCache(string name, string version, long hours, SourceKind kind = SourceKind.Prism)
     {
-        var s = _f.Add(name, version, playtimeHours: hours);
+        var s = _f.Add(name, version, playtimeHours: hours, kind: kind);
         Kit.WriteBytes(s.GameDir, "mods/dh.jar", Kit.FabricJar("distanthorizons", "2.3.3-b", name: "Distant Horizons"));
         Kit.WriteBytes(s.GameDir, DhFile, EngineBKit.Sqlite("cache-" + name));
         return s;
@@ -31,11 +32,11 @@ public class BulkReviewRound2Tests : IDisposable
     public async Task R2_1_ASkippedCacheOwnerInOneVersionNeverFiresAStandInInAnother()
     {
         var a = WithCache("A", "1.21.1", 40);   // 1.21.1's owner: skipped mid-run
-        WithCache("B", "1.21.1", 30);           // 1.21.1's stand-in: must land
+        WithCache("B", "1.21.1", 30, SourceKind.Modrinth); // 1.21.1's stand-in: must land
         WithCache("C", "1.20.4", 20);           // 1.20.4's owner: copies its own
-        WithCache("D", "1.20.4", 10);           // 1.20.4's stand-in: must stay idle
+        WithCache("D", "1.20.4", 10, SourceKind.Modrinth); // 1.20.4's stand-in: must stay idle
         var engine = _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
-        var plan = await _f.Plan(engine, _f.Request(options: new ImportOptions { ReplaceExistingCaches = true }));
+        var plan = await _f.Plan(engine, _f.Request(options: new ImportOptions { ReplaceExistingCaches = true }, grid: _f.AllTicked()));
         _f.Rig.RunningDirs.Add(a.GameDir);
 
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
@@ -52,9 +53,9 @@ public class BulkReviewRound2Tests : IDisposable
     {
         var a = WithCache("A", "1.21.1", 40);   // 1.21.1: its only setup, skipped mid-run (released, nobody stands in)
         WithCache("C", "1.20.4", 20);           // 1.20.4's owner: copies its own
-        WithCache("D", "1.20.4", 10);           // 1.20.4's stand-in: must stay idle
+        WithCache("D", "1.20.4", 10, SourceKind.Modrinth); // 1.20.4's stand-in: must stay idle
         var engine = _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
-        var plan = await _f.Plan(engine, _f.Request(options: new ImportOptions { ReplaceExistingCaches = true }));
+        var plan = await _f.Plan(engine, _f.Request(options: new ImportOptions { ReplaceExistingCaches = true }, grid: _f.AllTicked()));
         _f.Rig.RunningDirs.Add(a.GameDir);
 
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
@@ -68,11 +69,11 @@ public class BulkReviewRound2Tests : IDisposable
     public async Task R2_1_AStandInThatLandedInOneVersionNeverBlocksAGenuineReleaseInAnother()
     {
         var a = WithCache("A", "1.21.1", 40);
-        WithCache("B", "1.21.1", 30);           // lands for A
+        WithCache("B", "1.21.1", 30, SourceKind.Modrinth); // lands for A
         var c = WithCache("C", "1.20.4", 20);
-        WithCache("D", "1.20.4", 10);           // must land for C
+        WithCache("D", "1.20.4", 10, SourceKind.Modrinth); // must land for C
         var engine = _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
-        var plan = await _f.Plan(engine);
+        var plan = await _f.Plan(engine, _f.Request(grid: _f.AllTicked()));
         _f.Rig.RunningDirs.Add(a.GameDir);
         _f.Rig.RunningDirs.Add(c.GameDir);
 
@@ -165,9 +166,9 @@ public class BulkReviewRound2Tests : IDisposable
     public async Task R2_3_WhenAStandInLandsTheAlreadyBroughtOverLineIsGone()
     {
         var a = WithCache("A", "1.21.1", 30);
-        WithCache("B", "1.21.1", 10);
+        WithCache("B", "1.21.1", 10, SourceKind.Modrinth);
         var engine = _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
-        var plan = await _f.Plan(engine);
+        var plan = await _f.Plan(engine, _f.Request(grid: _f.AllTicked()));
         var bPlanned = plan.AllSetups.Single(s => s.Setup.Name == "B").Plan.Lines;
         Assert.Contains(bPlanned, l => l.Reason == "already brought over from Prism: A");          // the plan said so...
         Assert.Contains(bPlanned, l => l.Reason == "Another of your setups already brings this one.");
@@ -177,12 +178,12 @@ public class BulkReviewRound2Tests : IDisposable
 
         Assert.True(result.Succeeded, result.Error);
         var lines = Outcome(result, "B").Lines!;
-        Assert.DoesNotContain(lines, l => l.Reason == "already brought over from Prism: A");      // ...the result doesn't
+        Assert.DoesNotContain(lines, l => l.Kind == PlanItemKind.Cache && l.Reason == "already brought over from Prism: A"); // ...the result doesn't
         Assert.DoesNotContain(lines, l => l.Reason == "Another of your setups already brings this one.");
         Assert.Contains(lines, l => l.Name == "Faithful.zip" && l.Reason!.StartsWith("came over from this setup", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.Kind == PlanItemKind.Cache && l.Reason!.StartsWith("came over from this setup", StringComparison.Ordinal));
         var text = BulkSummary.Render(result);
-        Assert.DoesNotContain("already brought over from Prism: A", text);
+        Assert.DoesNotContain("Another of your setups already brings this one.", text);
     }
 
     [Fact]

@@ -17,11 +17,13 @@ public class BulkClaimTests : IDisposable
     private const string DhFile = "Distant_Horizons_server_data/Hyp/aaa@minecraft@@overworld/DistantHorizons.sqlite";
 
     // Three setups on 1.21.1 with the same pack, the same config path (different content) and the same server's cache.
+    // Three launchers, every grid cell ticked: each brings its mods (one setup per launcher brings mods), so their
+    // configs and caches all come into play.
     private (DetectedInstance A, DetectedInstance B, DetectedInstance C) ThreeSharing()
     {
         var a = _f.Add("A", playtimeHours: 30);
-        var b = _f.Add("B", playtimeHours: 20);
-        var c = _f.Add("C", playtimeHours: 10);
+        var b = _f.Add("B", playtimeHours: 20, kind: SourceKind.Modrinth);
+        var c = _f.Add("C", playtimeHours: 10, kind: SourceKind.CurseForge);
         foreach (var s in new[] { a, b, c })
         {
             Kit.Write(s.GameDir, "config/somemod.json", $"{{\"from\":\"{s.Name}\"}}");
@@ -33,6 +35,8 @@ public class BulkClaimTests : IDisposable
 
     private ImportEngine Engine() => _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
 
+    private Task<BulkImportPlan> Plan(ImportEngine engine) => _f.Plan(engine, _f.Request(grid: _f.AllTicked()));
+
     private static SetupOutcome Outcome(BulkImportResult result, string name) =>
         result.Versions.SelectMany(v => v.Setups).Single(s => s.Setup.Name == name);
 
@@ -42,7 +46,7 @@ public class BulkClaimTests : IDisposable
         var (a, b, _) = ThreeSharing();
         var before = Kit.TreeHash(_f.Rig.Instances, mtimes: true);
         var engine = Engine();
-        var plan = await _f.Plan(engine);
+        var plan = await Plan(engine);
         Assert.Same(a, plan.Groups.Single().Winner);
         _f.Rig.RunningDirs.Add(a.GameDir);                                          // the winner's game starts before its turn
 
@@ -69,7 +73,7 @@ public class BulkClaimTests : IDisposable
     {
         var (a, b, c) = ThreeSharing();
         var engine = Engine();
-        var plan = await _f.Plan(engine);
+        var plan = await Plan(engine);
         _f.Rig.RunningDirs.Add(a.GameDir);
         _f.Rig.RunningDirs.Add(b.GameDir);
 
@@ -86,7 +90,7 @@ public class BulkClaimTests : IDisposable
     {
         var (a, b, _) = ThreeSharing();
         var engine = Engine();
-        var plan = await _f.Plan(engine);
+        var plan = await Plan(engine);
         File.Delete(_f.Dir(a, "resourcepacks/Faithful.zip"));                       // a SOURCE problem in the winner
 
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
@@ -102,7 +106,7 @@ public class BulkClaimTests : IDisposable
     {
         ThreeSharing();
         var engine = Engine();
-        var plan = await _f.Plan(engine);
+        var plan = await Plan(engine);
         var standIns = plan.AllSetups.SelectMany(s => s.Plan.Ops).Where(o => o.Fallback).ToList();
         Assert.NotEmpty(standIns);
         Assert.All(plan.AllSetups, s => Assert.Equal(s.Plan.Ops.Where(o => !o.Fallback).Sum(o => o.Bytes), s.Plan.BytesToCopy));

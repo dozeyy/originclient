@@ -7,24 +7,28 @@
              mc:Ignorable="d"
              KeyboardNavigation.TabNavigation="Cycle">
 
-    <!-- The Import drawer: a sibling of the Friends drawer (same 380 px right drawer, header, section
-         headings, card rows and small actions; every style is Theme/Social.xaml). One page at a time:
-           LaunchersList  where to import from (one tile per launcher; "Looking..." while the scan runs)
-           VersionsList   that launcher's Minecraft versions: what to bring, "Import from all versions"
-           VersionList    one version: what it brings, its setups, whose settings
-           ReviewPane     what comes over, where, and what is left out; IMPORT n
-           PageGrid       behind a back arrow: whose settings, one setup on its own, details, done
-           ProgressPane   importing
-           FailedPane     nothing changed
-         The lists are virtualized like the Friends list. Words are few: only a problem gets a sentence. -->
+    <!-- The Import page (Poster look): a full page like Profiles, in the same 1000 px column under the top bar.
+         One pane at a time (ImportPanel.xaml.cs keeps the state machine):
+           DetectPane     "Bring it all over": one tile per launcher found (logo, folder, counts, a tick, "Bring everything
+                          from X"), a slim row for the launchers that weren't found, Choose what to import / Import everything
+           GridPane       "Choose what to import": version tabs, a row per launcher, a tick per thing (ImportGridModel)
+           PickList       "Pick single setups": a card per launcher, a row per setup, ticks at both levels
+           Legacy         what to bring, versions, one version, review, whose settings, one setup, details (720 px column)
+           ProgressPane   "Importing": one big percentage and bar, a row per setup (waiting, copying, done)
+           DonePane       "You're all set": what came over and the versions it went to (imports make no profiles)
+           FailedPane     "Nothing changed": the reason
+         Every colour, type and shape is a Theme token; the orange tick, dot and bar are the Poster accent (Brush.Acc, indicators only). -->
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
 
-        <!-- The virtualized list: exactly the Friends list's frame (FriendsPanel.xaml), so the outset focus frame is never
-             clipped and the scrollbar gets its own column: cards end left of it, never under the thumb. -->
+        <!-- A shield with a tick (the "nothing in your other launchers changed" line). Not in the icon set. -->
+        <Geometry x:Key="Import.Icon.Shield">M12,3 L5,6 L5,11 C5,15.5 8,19 12,21 C16,19 19,15.5 19,11 L19,6 Z M9,12 L11,14 L15,10</Geometry>
+
+        <!-- The virtualized list. The column is the page's own edge, so the list sits flush with the title; the 3 px
+             inset keeps the outset focus frame from being clipped and the scrollbar gets its own column. -->
         <Style x:Key="Import.List" TargetType="ItemsControl">
-            <Setter Property="Margin" Value="13,-3,3,0"/>
+            <Setter Property="Margin" Value="-3,-3,-3,0"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
             <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel"/>
@@ -59,6 +63,150 @@
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
             <Setter Property="RenderTransform">
                 <Setter.Value><RotateTransform Angle="-90"/></Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The tick: a 22 px block that fills with the accent when on (a dash when only some are). The whole 32 px
+             square is the hit area. -->
+        <Style x:Key="Import.Tick" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="True"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border Background="Transparent">
+                            <Border x:Name="Box" Width="22" Height="22" CornerRadius="{StaticResource Radius.Chip}"
+                                    Background="{StaticResource Brush.Bg}" BorderBrush="{StaticResource Brush.Stroke}"
+                                    BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}"
+                                      Width="14" Height="14" StrokeThickness="2.4"
+                                      Stroke="{StaticResource Brush.TextOnAccent}" Visibility="Collapsed"/>
+                            </Border>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="{x:Null}">
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Mark" Property="Data" Value="{StaticResource Icon.Minus}"/>
+                                <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A launcher tile / a result card: the card surface; the tile lifts one step on hover. -->
+        <Style x:Key="Import.Tile" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
+            <Setter Property="Padding" Value="16,16,16,16"/>
+            <Setter Property="Margin" Value="0,0,16,16"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- The three counts under a tile and the four on Done: a number, then its label in small caps. -->
+        <Style x:Key="Import.StatNumber" TargetType="TextBlock" BasedOn="{StaticResource Text.CardTitle}">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="LineHeight" Value="28"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <!-- A header button: plain bold words, no frame (Back, Cancel, What to bring, Add a folder). -->
+        <Style x:Key="Import.HeaderButton" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- "Bring everything from Lunar" on a tile: the soft accent wash (Brush.AccSoft), the accent edge on hover. -->
+        <Style x:Key="Import.FastButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="0,12,0,0"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{DynamicResource Brush.AccSoft}" BorderBrush="Transparent" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius.Control}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A version tab above the grid: the card surface, the soft accent with an accent edge when shown. -->
+        <Style x:Key="Import.Tab" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Chip}" Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.AccSoft}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
             </Setter>
         </Style>
 
@@ -119,63 +267,397 @@
             </Border>
         </DataTemplate>
 
-        <!-- A launcher: its real logo (the initial when there is none), its name, what was found; the arrow
-             when there is something to import. Greyed when there is nothing: the tooltip still says why. A
-             launcher that isn't on this PC offers "Locate folder" (Browse) beside the row, outside the
-             disabled button so it stays clickable. -->
+        <!-- ================= Detect ================= -->
+
+        <!-- A launcher found on this PC: its real logo, name and folder, one tick (in or out of Import everything),
+             and its three counts. The whole tile toggles the tick; the tick itself is the keyboard stop. -->
         <DataTemplate DataType="{x:Type controls:LauncherTileVm}">
-            <Grid>
-                <Button Style="{StaticResource Social.Row}" Click="Tile_Click" IsEnabled="{Binding Enabled}"
-                        AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding Tip}"
-                        ToolTipService.ShowOnDisabled="True">
-                    <Grid MinHeight="44">
+            <Border Style="{StaticResource Import.Tile}" Cursor="Hand" ToolTip="{Binding Tip}"
+                    MouseLeftButtonUp="Tile_MouseUp">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <!-- The launcher's own colour, faint, in the tile's top-left corner (an accent, never a fill). It
+                         reaches the tile's edge through the padding and takes no clicks. -->
+                    <Border Grid.RowSpan="3" Margin="-16" CornerRadius="{StaticResource Radius.Card}"
+                            Background="{Binding TintWash}" IsHitTestVisible="False"/>
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Border x:Name="Avatar" Width="36" Height="36" Background="{StaticResource Brush.Bg}"
-                                CornerRadius="{StaticResource Radius.Chip}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Border x:Name="Avatar" Width="44" Height="44" Background="{StaticResource Brush.Bg}"
+                                BorderBrush="{Binding TintEdge}" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius.Control}" Margin="0,0,14,0" VerticalAlignment="Center">
                             <Grid>
                                 <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
-                                <Image x:Name="LogoImage" Source="{Binding Logo}" Width="24" Height="24"
+                                <Image x:Name="LogoImage" Source="{Binding Logo}" Width="28" Height="28"
                                        RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
                             </Grid>
                         </Border>
-                        <StackPanel x:Name="Words" Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock x:Name="CaptionText" Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" FontWeight="Bold"
+                                       FontSize="15" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding PathText}" Style="{StaticResource Social.Caption}"
+                                       ToolTip="{Binding PathText}" Margin="0,2,0,0"/>
                         </StackPanel>
-                        <Path x:Name="Go" Grid.Column="2" Style="{StaticResource Import.Go}"/>
+                        <CheckBox Grid.Column="2" Style="{StaticResource Import.Tick}" IsThreeState="False"
+                                  IsChecked="{Binding Ticked, Mode=OneWay}" IsEnabled="{Binding CanTick}"
+                                  Margin="8,-6,-8,-6" VerticalAlignment="Top"
+                                  Click="TileTick_Click" ToolTip="Include in Import everything"
+                                  AutomationProperties.Name="{Binding TickName}"/>
                     </Grid>
-                </Button>
-                <Button x:Name="LocateButton" Style="{StaticResource Button.Chrome}" Click="Browse_Click"
-                        HorizontalAlignment="Right" VerticalAlignment="Center" Height="32" Padding="10,0" Margin="0,0,10,0"
-                        Visibility="Collapsed" AutomationProperties.Name="Locate folder"
-                        ToolTip="Point Origin at this launcher's folder">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="13" Height="13"
-                              Margin="0,0,6,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        <TextBlock Text="Locate folder" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-            </Grid>
+                    <!-- Cell padding 8 and gap 4: "INSTANCES" (62 px) must fit a third of the smallest window's tile. -->
+                    <UniformGrid Grid.Row="1" Columns="3" Margin="0,14,0,0">
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                                Padding="8,10" Margin="0,0,4,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding SetupsText}" Style="{StaticResource Import.StatNumber}"/>
+                                <TextBlock Text="{Binding SetupsLabel}" Style="{StaticResource Text.Eyebrow}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                                Padding="8,10" Margin="0,0,4,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding WorldsText}" Style="{StaticResource Import.StatNumber}"/>
+                                <TextBlock Text="WORLDS" Style="{StaticResource Text.Eyebrow}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                                Padding="8,10">
+                            <StackPanel>
+                                <TextBlock Text="{Binding ModsText}" Style="{StaticResource Import.StatNumber}"/>
+                                <TextBlock Text="MODS" Style="{StaticResource Text.Eyebrow}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                    <!-- The one-click path: every setup of this launcher, its most played setup's settings on every
+                         version. A button, so a press on it never toggles the tile (Tile_MouseUp skips buttons). -->
+                    <Button Grid.Row="2" Style="{StaticResource Import.FastButton}" Content="{Binding FastText}"
+                            Visibility="{Binding CanFast, Converter={StaticResource BoolToVis}}"
+                            IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
+                            Click="TileFast_Click" ToolTip="{Binding FastTip}"
+                            AutomationProperties.Name="{Binding FastText}"/>
+                </Grid>
+            </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding HasLogo}" Value="True">
                     <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
                     <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Enabled}" Value="False">
-                    <Setter TargetName="Avatar" Property="Opacity" Value="0.55"/>
-                    <Setter TargetName="Words" Property="Opacity" Value="0.55"/>
-                    <Setter TargetName="Go" Property="Visibility" Value="Collapsed"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding NotFound}" Value="True">
-                    <Setter TargetName="LocateButton" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="Words" Property="Margin" Value="0,0,120,0"/>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- One launcher's small logo in the "not found" row. -->
+        <DataTemplate DataType="{x:Type controls:MissingLauncherVm}">
+            <Border Width="28" Height="28" Margin="0,0,6,0" Background="{StaticResource Brush.Bg}"
+                    CornerRadius="{StaticResource Radius.Chip}" ToolTip="{Binding Title}">
+                <Grid>
+                    <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                    <Image x:Name="LogoImage" Source="{Binding Logo}" Width="18" Height="18"
+                           RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasLogo}" Value="True">
+                    <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+
+        <!-- ================= Choose what to import ================= -->
+
+        <!-- A launcher's card header: tick for all of its setups, logo, name, "5 of 5 selected, 17 worlds, 244 mods".
+             The setups below are drawn as the same card (the group's Pos gives the top corners). -->
+        <DataTemplate DataType="{x:Type controls:PickGroupVm}">
+            <Border Margin="{Binding Gap}" Background="{StaticResource Brush.Card}" Padding="16,14,16,6">
+                <Border.CornerRadius>
+                    <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                        <Binding Path="Pos"/>
+                        <Binding Source="{StaticResource Radius.Card}"/>
+                    </MultiBinding>
+                </Border.CornerRadius>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Style="{StaticResource Import.Tick}" IsThreeState="False" IsChecked="{Binding State, Mode=OneWay}"
+                              IsEnabled="{Binding CanTick}" Margin="-6,0,6,0" Click="GroupTick_Click"
+                              ToolTip="Tick or untick every setup" AutomationProperties.Name="{Binding TickName}"/>
+                    <Border Grid.Column="1" Width="36" Height="36" Background="{StaticResource Brush.Bg}"
+                            BorderBrush="{Binding TintEdge}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Control}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Grid>
+                            <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                            <Image x:Name="LogoImage" Source="{Binding Logo}" Width="24" Height="24"
+                                   RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasLogo}" Value="True">
+                    <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- One setup inside its launcher's card: tick, name, "23 mods - 3 worlds", its Minecraft version, and the arrow
+             that opens its own review. A press on the row ticks it (or opens it when Origin can't run its version). -->
+        <DataTemplate DataType="{x:Type controls:PickRowVm}">
+            <Border Background="{StaticResource Brush.Card}" Padding="8,0,8,0">
+                <Border.CornerRadius>
+                    <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                        <Binding Path="Pos"/>
+                        <Binding Source="{StaticResource Radius.Card}"/>
+                    </MultiBinding>
+                </Border.CornerRadius>
+                <Border x:Name="Inner" Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                        Padding="12,8,8,8" Margin="0,0,0,4" Cursor="Hand" ToolTip="{Binding RowTip}"
+                        MouseLeftButtonUp="PickRow_MouseUp">
+                    <Grid MinHeight="36">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Style="{StaticResource Import.Tick}" IsChecked="{Binding Ticked, Mode=OneWay}"
+                                  IsEnabled="{Binding CanTick}" Margin="-6,0,6,0" Click="PickTick_Click"
+                                  ToolTip="Include in import" AutomationProperties.Name="{Binding TickName}"/>
+                        <StackPanel x:Name="Words" Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}" FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"
+                                       TextWrapping="Wrap" TextTrimming="None"/>
+                        </StackPanel>
+                        <Border x:Name="Badge" Grid.Column="2" Background="{StaticResource Brush.Card}"
+                                CornerRadius="{StaticResource Radius.Chip}" Padding="9,4" Margin="12,0,0,0"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Badge}" Style="{StaticResource Text.Label}" FontSize="12"/>
+                        </Border>
+                        <Button Grid.Column="3" Style="{StaticResource Social.Icon}" Margin="6,0,0,0" Click="PickReview_Click"
+                                ToolTip="Review this setup on its own" AutomationProperties.Name="{Binding ReviewName}">
+                            <Path Style="{StaticResource Import.Go}" Margin="0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Pos}" Value="{x:Static controls:CardPos.Last}">
+                    <Setter TargetName="Inner" Property="Margin" Value="0,0,0,8"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Dimmed}" Value="True">
+                    <Setter TargetName="Words" Property="Opacity" Value="0.6"/>
+                    <Setter TargetName="Badge" Property="Opacity" Value="0.6"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ================= Importing ================= -->
+
+        <!-- One setup while importing: waiting (plain), copying (a small bar and the step), done (a tick). -->
+        <DataTemplate DataType="{x:Type controls:ProgressRowVm}">
+            <Border x:Name="Card" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
+                    Padding="14,10" Margin="0,0,0,4">
+                <Grid MinHeight="40">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="170"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="32" Height="32" Background="{StaticResource Brush.Bg}"
+                            BorderBrush="{Binding TintEdge}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Chip}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Grid>
+                            <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                            <Image x:Name="LogoImage" Source="{Binding Logo}" Width="20" Height="20"
+                                   RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}" FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Launcher}" Style="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <Border x:Name="Done" Grid.Column="2" Width="22" Height="22" CornerRadius="{StaticResource Radius.Chip}"
+                            Background="{StaticResource Brush.Success}" VerticalAlignment="Center" Margin="0,0,16,0"
+                            Visibility="Collapsed">
+                        <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                              StrokeThickness="2.4" Stroke="{StaticResource Brush.TextOnAccent}"/>
+                    </Border>
+                    <Border x:Name="Track" Grid.Column="2" Width="160" Height="4" Background="{StaticResource Brush.ProgressTrack}"
+                            CornerRadius="{StaticResource Radius.Bar}" VerticalAlignment="Center" Margin="0,0,16,0"
+                            Visibility="Collapsed">
+                        <Border Width="{Binding BarWidth}" HorizontalAlignment="Left" Background="{DynamicResource Brush.Acc}"
+                                CornerRadius="{StaticResource Radius.Bar}"/>
+                    </Border>
+                    <TextBlock x:Name="StatusText" Grid.Column="3" Text="{Binding Status}" Style="{StaticResource Text.Label}"
+                               FontSize="12.5" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Right"
+                               TextTrimming="CharacterEllipsis"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasLogo}" Value="True">
+                    <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsDone}" Value="True">
+                    <Setter TargetName="Done" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter TargetName="Track" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsWaiting}" Value="True">
+                    <Setter TargetName="Card" Property="Background" Value="Transparent"/>
+                    <Setter TargetName="StatusText" Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ================= Done ================= -->
+
+        <!-- A big number and its label (the four counts in "You're all set"). -->
+        <DataTemplate x:Key="Import.StatBox" DataType="{x:Type controls:ImportStatVm}">
+            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                    Padding="14,12" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="{Binding Value}" Style="{StaticResource Import.StatNumber}" FontSize="32" LineHeight="36"/>
+                    <TextBlock Text="{Binding Label}" Style="{StaticResource Text.Eyebrow}" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- A version that got something: the logo of the launcher its settings came from, "Minecraft 1.21.1",
+             "From Prism, Lunar". "+3 more" is a plain count. -->
+        <DataTemplate x:Key="Import.VersionCard" DataType="{x:Type controls:VersionCardVm}">
+            <Border x:Name="Card" Style="{StaticResource Import.Tile}" Padding="12,12" Margin="0,0,8,8" MinHeight="60">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="Avatar" Width="36" Height="36" Background="{StaticResource Brush.Bg}"
+                            BorderBrush="{Binding TintEdge}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Chip}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Grid>
+                            <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                            <Image x:Name="LogoImage" Source="{Binding Logo}" Width="22" Height="22"
+                                   RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel x:Name="Words" Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}" FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <TextBlock x:Name="MoreText" Grid.ColumnSpan="2" Text="{Binding Name}" Style="{StaticResource Text.Label}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasLogo}" Value="True">
+                    <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsMore}" Value="True">
+                    <Setter TargetName="Avatar" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="Words" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="MoreText" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ================= Choose what to import: the grid ================= -->
+
+        <!-- A launcher's row, compact (Will, 2026-10-19: easy to scan): logo, name, "3 setups - 1.21.1, 1.20.1", then
+             one tick per column (the same 6 x 84 px as the column heads). A greyed tick has nothing behind it; its
+             tooltip says why. -->
+        <DataTemplate DataType="{x:Type controls:GridRowVm}">
+            <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}" Padding="12,6"
+                    Margin="0,0,0,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="172"/>
+                        <ColumnDefinition Width="504"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.ColumnSpan="2" Margin="-12,-6" CornerRadius="{StaticResource Radius.Card}"
+                            Background="{Binding TintWash}" IsHitTestVisible="False"/>
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="28" Height="28" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Margin="0,0,10,0">
+                            <Grid>
+                                <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                                <Image x:Name="LogoImage" Source="{Binding Logo}" Width="18" Height="18"
+                                       RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}"/>
+                            <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}" ToolTip="{Binding Caption}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}" Focusable="False" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <!-- A greyed cell (nothing behind it) reads as a muted dash, not an empty box that looks
+                                 merely unticked; the disabled tick stays in place (invisible) for screen readers. -->
+                            <DataTemplate>
+                                <Grid Width="28" Height="28" HorizontalAlignment="Center" Background="Transparent"
+                                      ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True">
+                                    <Border x:Name="Tick">
+                                        <CheckBox Style="{StaticResource Import.Tick}" IsThreeState="False"
+                                                  IsChecked="{Binding On, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                                                  AutomationProperties.Name="{Binding Name}" AutomationProperties.HelpText="{Binding Tip}"
+                                                  Click="GridCell_Click"/>
+                                    </Border>
+                                    <Path x:Name="Dash" Data="{StaticResource Icon.Minus}" Style="{StaticResource Icon.Base}"
+                                          Width="12" Height="12" StrokeThickness="2" Stroke="{StaticResource Brush.TextDim}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Enabled}" Value="False">
+                                        <Setter TargetName="Tick" Property="Opacity" Value="0"/>
+                                        <Setter TargetName="Dash" Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasLogo}" Value="True">
+                    <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ================= the older pages (what to bring, versions, review, ...) ================= -->
 
         <!-- "Import from all versions": the whole row and its tick box do the same thing (mixed = some versions). -->
         <DataTemplate DataType="{x:Type controls:SelectAllVm}">
@@ -278,7 +760,7 @@
                                    Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                        <Button Content="CHANGE" Style="{StaticResource Social.Action}"
+                        <Button Content="Change" Style="{StaticResource Social.Action}"
                                 Visibility="{Binding HasChoice, Converter={StaticResource BoolToVis}}"
                                 IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
                                 ToolTip="Pick whose settings to use" Click="SetupChange_Click"
@@ -385,171 +867,377 @@
     </UserControl.Resources>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>   <!-- header -->
-            <RowDefinition Height="Auto"/>   <!-- notice -->
-            <RowDefinition Height="*"/>      <!-- the page -->
-            <RowDefinition Height="Auto"/>   <!-- footer -->
-        </Grid.RowDefinitions>
+        <!-- The page column: the same 1000 px and insets as Profiles (the top inset clears the 56 px bar). -->
+        <Grid x:Name="Column" MaxWidth="1000" Margin="32,96,32,24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- header -->
+                <RowDefinition Height="Auto"/>   <!-- notice -->
+                <RowDefinition Height="*"/>      <!-- the page -->
+                <RowDefinition Height="Auto"/>   <!-- footer -->
+            </Grid.RowDefinitions>
 
-        <!-- Header: back (every page but the first), title and one quiet line, then Browse and close.
-             The quiet line keeps its height when empty, so the title never jumps between pages. -->
-        <StackPanel Grid.Row="0">
-            <Grid Margin="16,16,12,10">
+            <!-- Header: the poster title, one or two lines under it, a status line with a dot, and the page's small
+                 actions on the right. Done has its own title inside its card, so the header goes away there. -->
+            <Grid x:Name="HeaderBlock" Grid.Row="0" Margin="0,0,0,20">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Button x:Name="BackButton" Style="{StaticResource Social.Icon}" Margin="0,0,8,0"
-                        Visibility="Collapsed" Click="Back_Click" ToolTip="Back (Esc)"
-                        AutomationProperties.Name="Back">
-                    <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
-                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                </Button>
-                <Grid Grid.Column="1">
-                    <!-- Reserves the title + state line height on every page (never shown), so the page never jumps. -->
-                    <StackPanel x:Name="HeaderSpacer" Visibility="Hidden" IsHitTestVisible="False">
-                        <TextBlock Text="X" Style="{StaticResource Text.H2}"/>
-                        <TextBlock Text="X" Style="{StaticResource Social.Quiet}"/>
-                    </StackPanel>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="HeaderTitle" Text="Import" Style="{StaticResource Text.H2}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock x:Name="HeaderSubtitle" Style="{StaticResource Social.Quiet}" Visibility="Collapsed"/>
-                    </StackPanel>
-                </Grid>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Path x:Name="ScanSpinner" Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
-                          Width="14" Height="14" Margin="0,0,8,0" Stroke="{StaticResource Brush.Accent}"
-                          RenderTransformOrigin="0.5,0.5" Visibility="Collapsed" VerticalAlignment="Center"
-                          ToolTip="Looking for your setups">
-                        <Path.RenderTransform>
-                            <RotateTransform x:Name="ScanSpin"/>
-                        </Path.RenderTransform>
-                    </Path>
-                    <Button x:Name="BrowseIconButton" Style="{StaticResource Social.Icon}" Click="Browse_Click"
-                            ToolTip="Browse for a folder" AutomationProperties.Name="Browse for a folder">
-                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                    </Button>
-                    <Button x:Name="CloseButton" Style="{StaticResource Social.Icon}" Click="Close_Click"
-                            ToolTip="Close (Esc)" AutomationProperties.Name="Close import">
-                        <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                    </Button>
-                </StackPanel>
-            </Grid>
-            <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,10"/>
-        </StackPanel>
-
-        <!-- One status line: why Import is off, or what went wrong with a folder. -->
-        <Border x:Name="NoticeStrip" Grid.Row="1" Style="{StaticResource Social.Strip}" Visibility="Collapsed">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Path x:Name="NoticeIcon" Data="{StaticResource Icon.Alert}" Style="{StaticResource Icon.Base}"
-                      Width="14" Height="14" Margin="0,2,8,0" VerticalAlignment="Top" Stroke="{StaticResource Brush.Warning}"/>
-                <TextBlock x:Name="NoticeText" Grid.Column="1" Style="{StaticResource Text.Caption}"
-                           Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap" TextTrimming="None"/>
-            </Grid>
-        </Border>
-
-        <!-- ============ the page (one at a time) ============
-             Each step keeps its own list, so Back returns to the same scroll position and focus. -->
-        <Grid Grid.Row="2">
-            <ItemsControl x:Name="LaunchersList" Style="{StaticResource Import.List}"/>
-            <ItemsControl x:Name="VersionsList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
-            <ItemsControl x:Name="VersionList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
-
-            <Grid x:Name="ReviewPane" Visibility="Collapsed">
-                <ItemsControl x:Name="ReviewList" Style="{StaticResource Import.List}"/>
-                <StackPanel x:Name="ReviewPlanning" Orientation="Horizontal" Margin="18,12,16,0"
-                            VerticalAlignment="Top" Visibility="Collapsed">
-                    <Path Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
-                          Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" RenderTransformOrigin="0.5,0.5">
-                        <Path.RenderTransform>
-                            <RotateTransform x:Name="ReviewSpin"/>
-                        </Path.RenderTransform>
-                    </Path>
-                    <TextBlock Text="Checking what can come over..." Style="{StaticResource Social.Quiet}" Margin="10,0,0,0"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-            </Grid>
-
-            <!-- Behind a back arrow: whose settings, one setup, the details, the result. -->
-            <Grid x:Name="PageGrid" Visibility="Collapsed">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <StackPanel x:Name="SingleTop" Margin="16,18,16,10" Visibility="Collapsed">
-                    <TextBlock Text="VERSION" Style="{StaticResource Social.Section}" Margin="2,0,0,6"/>
-                    <ComboBox x:Name="TargetBox" Tag="Pick a version" MinHeight="36" Padding="12,6,30,6"
-                              SelectionChanged="TargetBox_SelectionChanged" AutomationProperties.Name="Origin version"/>
-                    <TextBlock x:Name="TargetNote" Style="{StaticResource Import.Warning}" Margin="2,8,0,0"
+                <StackPanel>
+                    <TextBlock x:Name="HeaderTitle" Text="BRING IT ALL OVER" Style="{StaticResource Text.Poster}"
+                               HorizontalAlignment="Left" TextTrimming="None" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="HeaderSubtitle" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
+                               TextTrimming="None" MaxWidth="600" HorizontalAlignment="Left" Margin="0,10,0,0"
                                Visibility="Collapsed"/>
-                    <!-- What this setup brings: the same switches as its version's page (one choice per version). -->
-                    <TextBlock Text="WHAT TO BRING" Style="{StaticResource Social.Section}" Margin="2,14,0,6"/>
-                    <ContentControl x:Name="SingleBring" Focusable="False" IsTabStop="False"/>
+                    <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="0,14,0,0" Visibility="Collapsed">
+                        <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{DynamicResource Brush.Acc}"
+                                 VerticalAlignment="Center" Margin="0,1,10,0"/>
+                        <Path x:Name="ScanSpinner" Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
+                              Width="14" Height="14" Margin="-3,0,7,0" Stroke="{StaticResource Brush.TextDim}"
+                              RenderTransformOrigin="0.5,0.5" Visibility="Collapsed" VerticalAlignment="Center">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="ScanSpin"/>
+                            </Path.RenderTransform>
+                        </Path>
+                        <TextBlock x:Name="StatusText" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
                 </StackPanel>
-                <ItemsControl x:Name="PageList" Grid.Row="1" Style="{StaticResource Import.List}"/>
-                <StackPanel x:Name="PlanningRow" Grid.Row="1" Orientation="Horizontal" Margin="18,6,16,0"
-                            VerticalAlignment="Top" Visibility="Collapsed">
-                    <Path x:Name="PlanSpinner" Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
-                          Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" RenderTransformOrigin="0.5,0.5">
-                        <Path.RenderTransform>
-                            <RotateTransform x:Name="PlanSpin"/>
-                        </Path.RenderTransform>
-                    </Path>
-                    <TextBlock Text="Checking what can come over..." Style="{StaticResource Social.Quiet}" Margin="10,0,0,0"
-                               VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="24,8,0,0">
+                    <Button x:Name="BringButton" Style="{StaticResource Import.HeaderButton}" Content="What to bring"
+                            Click="Bring_Click" Visibility="Collapsed" ToolTip="Pick what each version brings over"
+                            AutomationProperties.Name="What to bring"/>
+                    <Button x:Name="BrowseButton" Style="{StaticResource Import.HeaderButton}" Click="Browse_Click"
+                            Visibility="Collapsed" ToolTip="Point Origin at a setup's folder" AutomationProperties.Name="Add a folder">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                                  Margin="0,0,8,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock Text="Add a folder" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BackButton" Style="{StaticResource Import.HeaderButton}" Content="Back"
+                            Click="Back_Click" Visibility="Collapsed" ToolTip="Back (Esc)" AutomationProperties.Name="Back"/>
+                    <Button x:Name="CancelButton" Style="{StaticResource Import.HeaderButton}" Content="Cancel"
+                            Click="Cancel_Click" Visibility="Collapsed" ToolTip="Stop importing" AutomationProperties.Name="Cancel import"/>
                 </StackPanel>
             </Grid>
 
-            <!-- Importing: one bar and one line. "Setup 3 of 7" is the header's state line. -->
-            <StackPanel x:Name="ProgressPane" Margin="16,12,16,0" VerticalAlignment="Top" Visibility="Collapsed">
-                <TextBlock x:Name="ProgressSetup" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="2,4,0,14"
-                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                <Border x:Name="ProgressTrack" Height="8" Background="{StaticResource Brush.CardAlt}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Control}" SizeChanged="ProgressTrack_SizeChanged">
-                    <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" Background="{StaticResource Brush.Accent}"
-                            CornerRadius="{StaticResource Radius.Control}"/>
-                </Border>
-                <Grid Margin="2,8,0,0">
-                    <TextBlock x:Name="ProgressDetail" Style="{StaticResource Social.Quiet}" Margin="0,0,84,0"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="ProgressPercent" Text="0%" Style="{StaticResource Social.Quiet}"
-                               HorizontalAlignment="Right"/>
+            <!-- One status line: why Import is off, or what went wrong with a folder. -->
+            <Border x:Name="NoticeStrip" Grid.Row="1" Style="{StaticResource Social.Strip}" Margin="0,0,0,12" Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Path x:Name="NoticeIcon" Data="{StaticResource Icon.Alert}" Style="{StaticResource Icon.Base}"
+                          Width="14" Height="14" Margin="0,2,8,0" VerticalAlignment="Top" Stroke="{StaticResource Brush.Warning}"/>
+                    <TextBlock x:Name="NoticeText" Grid.Column="1" Style="{StaticResource Text.Caption}"
+                               Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap" TextTrimming="None"/>
                 </Grid>
-            </StackPanel>
+            </Border>
 
-            <!-- Nothing changed (the header's state line): the reason, gold, is the page. -->
-            <StackPanel x:Name="FailedPane" Margin="16,12,16,0" VerticalAlignment="Top" Visibility="Collapsed">
-                <TextBlock x:Name="FailedReason" Style="{StaticResource Text.Body}" Foreground="{StaticResource Brush.Warning}"
-                           TextWrapping="Wrap" TextTrimming="None" Margin="2,4,0,0"/>
-            </StackPanel>
+            <!-- ============ the page (one pane at a time) ============
+                 Each pane keeps its own list, so Back returns to the same scroll position and focus. -->
+            <Grid Grid.Row="2">
+
+                <!-- Detect -->
+                <ScrollViewer x:Name="DetectPane" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False" Padding="0,0,8,0" Margin="-3,-3,-3,0">
+                    <StackPanel Margin="3">
+                        <TextBlock x:Name="ScanNote" Text="Looking through your other launchers..." Style="{StaticResource Text.BodyDim}"
+                                   Margin="0,6,0,0" Visibility="Collapsed"/>
+                        <ItemsControl x:Name="TilesList" Focusable="False" Margin="0,0,-16,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid x:Name="TilesGrid" Columns="3"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <!-- The launchers that weren't found (or were empty): one slim row, and the way to point at a folder. -->
+                        <Border x:Name="MissingBar" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
+                                Padding="14,10" Margin="0,0,0,0" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ItemsControl x:Name="MissingLogos" Focusable="False" VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <TextBlock x:Name="MissingText" Grid.Column="1" Style="{StaticResource Text.BodyDim}"
+                                           TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center"/>
+                                <Button x:Name="LocateButton" Grid.Column="2" Style="{StaticResource Button.Chrome}" Click="Browse_Click"
+                                        Height="32" Padding="12,0" Margin="12,0,0,0" ToolTip="Point Origin at a launcher's folder"
+                                        AutomationProperties.Name="Locate folder">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                                              Margin="0,0,7,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                        <TextBlock Text="Locate folder" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Choose what to import -->
+                <ItemsControl x:Name="PickList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
+
+                <!-- Choose what to import, the grid: version tabs (more than one version), the column heads, a row per
+                     launcher, the mixed-mods warning and the way to pick single setups instead. -->
+                <Grid x:Name="GridPane" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <ItemsControl x:Name="GridTabs" Focusable="False" Margin="0,0,0,6">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ToggleButton Style="{StaticResource Import.Tab}" Content="{Binding Title}"
+                                              IsChecked="{Binding Selected, Mode=OneWay}" Click="GridTab_Click"
+                                              AutomationProperties.Name="{Binding AutomationName}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- The heads sit over the ticks: the row's 12 px inset and its 504 px tick block, plus the list's
+                         scrollbar column. -->
+                    <Grid Grid.Row="1" Margin="12,0,24,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="504"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="LAUNCHER" Style="{StaticResource Text.Eyebrow}" VerticalAlignment="Bottom"/>
+                        <ItemsControl x:Name="GridHeads" Grid.Column="1" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Style="{StaticResource Text.Eyebrow}" TextAlignment="Center"
+                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" TextWrapping="Wrap"
+                                               TextTrimming="None"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                    <ItemsControl x:Name="GridRows" Grid.Row="2" Style="{StaticResource Import.List}"/>
+                    <Grid Grid.Row="3" Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel x:Name="GridWarningRow" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                            <Path Data="{StaticResource Icon.Alert}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                                  Margin="0,0,8,0" VerticalAlignment="Center" Stroke="{StaticResource Brush.Warning}"/>
+                            <TextBlock x:Name="GridWarning" Style="{StaticResource Import.Warning}" Margin="0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button x:Name="GridSetupsButton" Grid.Column="1" Style="{StaticResource Import.HeaderButton}"
+                                Content="Pick single setups" Click="GridSetups_Click"
+                                ToolTip="Tick setups one by one instead" AutomationProperties.Name="Pick single setups"/>
+                    </Grid>
+                </Grid>
+
+                <!-- The older pages, in a narrower column beside the title: what to bring + versions, one version, review,
+                     whose settings, one setup, details. -->
+                <Grid x:Name="Legacy" MaxWidth="720" HorizontalAlignment="Left" Visibility="Collapsed">
+                    <ItemsControl x:Name="VersionsList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
+                    <ItemsControl x:Name="VersionList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
+
+                    <Grid x:Name="ReviewPane" Visibility="Collapsed">
+                        <ItemsControl x:Name="ReviewList" Style="{StaticResource Import.List}"/>
+                        <StackPanel x:Name="ReviewPlanning" Orientation="Horizontal" Margin="2,12,16,0"
+                                    VerticalAlignment="Top" Visibility="Collapsed">
+                            <Path Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
+                                  Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="ReviewSpin"/>
+                                </Path.RenderTransform>
+                            </Path>
+                            <TextBlock Text="Checking what can come over..." Style="{StaticResource Social.Quiet}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Behind a back arrow: whose settings, one setup, the details. -->
+                    <Grid x:Name="PageGrid" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel x:Name="SingleTop" Margin="0,0,0,10" Visibility="Collapsed">
+                            <TextBlock Text="VERSION" Style="{StaticResource Social.Section}" Margin="2,0,0,6"/>
+                            <ComboBox x:Name="TargetBox" Tag="Pick a version" MinHeight="36" Padding="12,6,30,6"
+                                      SelectionChanged="TargetBox_SelectionChanged" AutomationProperties.Name="Origin version"/>
+                            <TextBlock x:Name="TargetNote" Style="{StaticResource Import.Warning}" Margin="2,8,0,0"
+                                       Visibility="Collapsed"/>
+                            <!-- What this setup brings: the same switches as its version's page (one choice per version). -->
+                            <TextBlock Text="WHAT TO BRING" Style="{StaticResource Social.Section}" Margin="2,14,0,6"/>
+                            <ContentControl x:Name="SingleBring" Focusable="False" IsTabStop="False"/>
+                        </StackPanel>
+                        <ItemsControl x:Name="PageList" Grid.Row="1" Style="{StaticResource Import.List}"/>
+                        <StackPanel x:Name="PlanningRow" Grid.Row="1" Orientation="Horizontal" Margin="2,6,16,0"
+                                    VerticalAlignment="Top" Visibility="Collapsed">
+                            <Path x:Name="PlanSpinner" Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
+                                  Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="PlanSpin"/>
+                                </Path.RenderTransform>
+                            </Path>
+                            <TextBlock Text="Checking what can come over..." Style="{StaticResource Social.Quiet}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- Importing: the big percentage and bar, then a row per setup. -->
+                <Grid x:Name="ProgressPane" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
+                            Padding="20,18,20,20" Margin="0,0,0,8">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <TextBlock x:Name="ProgressPercent" Text="0" Style="{StaticResource Text.Poster}"
+                                               FontSize="48" LineHeight="52"/>
+                                    <TextBlock Text="%" Style="{StaticResource Text.Poster}" FontSize="22" LineHeight="26"
+                                               VerticalAlignment="Bottom" Margin="2,0,0,5"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24,0,0,0">
+                                    <TextBlock x:Name="ProgressSetup" Style="{StaticResource Text.Body}" TextAlignment="Right"
+                                               HorizontalAlignment="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="ProgressDetail" Style="{StaticResource Text.Caption}" TextAlignment="Right"
+                                               HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Grid>
+                            <Border x:Name="ProgressTrack" Height="6" Margin="0,16,0,0" Background="{StaticResource Brush.ProgressTrack}"
+                                    CornerRadius="{StaticResource Radius.Bar}" SizeChanged="ProgressTrack_SizeChanged">
+                                <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" Background="{DynamicResource Brush.Acc}"
+                                        CornerRadius="{StaticResource Radius.Bar}"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <ItemsControl x:Name="ProgressList" Grid.Row="1" Style="{StaticResource Import.List}"/>
+                </Grid>
+
+                <!-- Done -->
+                <ScrollViewer x:Name="DonePane" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False" Padding="0,0,8,0" Margin="-3,-3,-3,0" Visibility="Collapsed">
+                    <StackPanel Margin="3">
+                        <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}" Padding="32,28">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- The mark, with a green check badge on its corner: it worked. -->
+                                <Grid Width="96" Height="96" Margin="0,0,32,0" VerticalAlignment="Center">
+                                    <controls:OriginMark Width="88" Height="88" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                    <Border Width="32" Height="32" CornerRadius="16" HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom" Background="{StaticResource Brush.Success}"
+                                            BorderBrush="{StaticResource Brush.Card}" BorderThickness="3">
+                                        <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                                              StrokeThickness="2.6" Stroke="{StaticResource Brush.TextOnAccent}"/>
+                                    </Border>
+                                </Grid>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="IMPORT FINISHED" Style="{StaticResource Text.Eyebrow}"
+                                               Foreground="{StaticResource Brush.Success}"/>
+                                    <TextBlock x:Name="DoneTitle" Text="YOU'RE ALL SET" Style="{StaticResource Text.Poster}"
+                                               Margin="0,6,0,14" TextTrimming="None" TextWrapping="Wrap"/>
+                                    <ItemsControl x:Name="DoneStats" Focusable="False" Margin="0,0,-8,0"
+                                                  ItemTemplate="{StaticResource Import.StatBox}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid x:Name="DoneStatsGrid" Rows="1"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <TextBlock x:Name="DoneVersionsTitle" Text="READY TO PLAY" Style="{StaticResource Text.Eyebrow}"
+                                   Margin="0,24,0,10"/>
+                        <ItemsControl x:Name="DoneVersions" Focusable="False" Margin="0,0,-8,0"
+                                      ItemTemplate="{StaticResource Import.VersionCard}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="4"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <StackPanel x:Name="DoneNotes" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Nothing changed: the reason is the page. -->
+                <Border x:Name="FailedPane" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
+                        BorderBrush="{StaticResource Brush.Danger}" BorderThickness="1"
+                        Padding="24,20" VerticalAlignment="Top" Visibility="Collapsed">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="FailedBadge" Width="32" Height="32" CornerRadius="16" Background="{StaticResource Brush.Danger}"
+                                Margin="0,0,16,0" VerticalAlignment="Top">
+                            <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                                  StrokeThickness="2.6" Stroke="{StaticResource Brush.TextOnAccent}"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="FailedTitle" Text="Import failed" Style="{StaticResource Social.Name}" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Danger}" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="FailedReason" Style="{StaticResource Text.Body}"
+                                       TextWrapping="Wrap" TextTrimming="None"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Footer: what is ready on the left, the page's buttons on the right. -->
+            <Grid x:Name="Footer" Grid.Row="3" Margin="0,18,0,0" MinHeight="44">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="FooterNote" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                           TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="FooterSecondary" Style="{StaticResource Button.Secondary}" Height="44" Padding="22,0"
+                            Margin="0,0,10,0" Click="FooterSecondary_Click"/>
+                    <Button x:Name="FooterPrimary" Style="{StaticResource Button.Primary}" Height="44" Padding="22,0"
+                            MinWidth="120" Click="FooterPrimary_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Path x:Name="PrimaryIcon" Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}"
+                                  Width="14" Height="14" Margin="0,0,8,0" Visibility="Collapsed"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock x:Name="PrimaryText" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
         </Grid>
 
-        <!-- Footer: the page's note and its buttons, never stretched. -->
-        <Border x:Name="Footer" Grid.Row="3" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="0,1,0,0"
-                Padding="16,10,16,12" MinHeight="56">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="FooterNote" Style="{StaticResource Social.Quiet}" TextWrapping="NoWrap"
-                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="2,0,8,0"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="FooterSecondary" Style="{StaticResource Import.FooterAction}" Click="FooterSecondary_Click"/>
-                    <Button x:Name="FooterPrimary" Style="{StaticResource Import.FooterPrimary}" Click="FooterPrimary_Click"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <controls:ConfirmOverlay x:Name="Confirm" Grid.RowSpan="4"/>
+        <controls:ConfirmOverlay x:Name="Confirm"/>
     </Grid>
 </UserControl>

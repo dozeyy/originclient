@@ -1,12 +1,12 @@
 using OriginLauncher.App.Core.Import.Mods;
-using OriginLauncher.App.Core.Profiles;
 
 namespace OriginLauncher.App.Core.Import.Bulk;
 
 // "Import everything": the data the bulk import passes around. Where the single-instance import
 // (ImportModels) takes ONE detected instance into one Origin game folder, a bulk import takes MANY
 // setups (every instance of every launcher found, or the ticked ones) and merges them per Minecraft
-// version: one winner's settings, every compatible setup's mods and packs, one game-file reuse.
+// version: one setup's settings, the picked mods, everyone's packs, worlds and servers, one game-file reuse. Nothing
+// makes a profile: mods land in the version's shared mods folder (BulkComposer decides who brings what).
 //
 // Plain records and enums, no IO and no launcher state, so every piece is unit tested on Linux like the
 // rest of Core/Import. The engine fills these in (ImportEngine.PlanBulkAsync / ApplyBulkAsync in
@@ -115,11 +115,17 @@ public sealed record BulkRequest
     /// <summary>The player's settings-winner choices: version -> <see cref="InstanceIds.BulkId"/> of the setup whose settings to use.</summary>
     public IReadOnlyDictionary<string, string> WinnerChoices { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
-    // The launcher settings as they are now (the run's settings delta is named against these).
-    public IReadOnlyList<ModProfile> ExistingProfiles { get; init; } = Array.Empty<ModProfile>();
+    /// <summary>The import grid (per launcher and version, what comes over); null = the defaults (BulkComposer.DefaultBrings).</summary>
+    public ImportGrid? Grid { get; init; }
+
+    /// <summary>
+    /// "Bring everything from &lt;launcher&gt;" (one launcher, no grid): every version gets the settings of that launcher's
+    /// single most played setup, so they all play the same (Will, 2026-10-19).
+    /// </summary>
+    public bool SameSettingsEverywhere => Grid == null && Selection.Kind == BulkSelectionKind.Launcher;
+
+    /// <summary>"Play with my own mods" as it is now (only read for the run's note; never changed by an import).</summary>
     public bool PlayWithExternalMods { get; init; } = true;
-    public string? SelectedVersion { get; init; }
-    public string? SelectedProfileId { get; init; }
 }
 
 // ---- the plan ----------------------------------------------------------------
@@ -139,7 +145,11 @@ public enum SetupRole
 
 /// <summary>One setup's slot in a version group: its role, its own plan, and a plain sentence when the role is not obvious.</summary>
 /// <param name="VersionUncertain">Origin guessed this setup's Minecraft version; it imports with the guess unless the player unticks it.</param>
-public sealed record PlannedSetup(DetectedInstance Setup, SetupRole Role, ImportPlan Plan, string? Note = null, bool VersionUncertain = false);
+/// <param name="Brings">What it brings into this version (BulkComposer).</param>
+/// <param name="PrimaryMods">Its mod configs lead (the first setup of the version that brings mods).</param>
+/// <param name="OtherVersion">It is another version's setup lending its settings to this one.</param>
+public sealed record PlannedSetup(DetectedInstance Setup, SetupRole Role, ImportPlan Plan, string? Note = null, bool VersionUncertain = false,
+    ImportCategories Brings = ImportCategories.All, bool PrimaryMods = true, bool OtherVersion = false);
 
 /// <summary>
 /// Everything that goes into ONE Origin game folder (one Minecraft version). <see cref="Setups"/> are in the
@@ -156,8 +166,11 @@ public sealed class VersionGroup
     /// <summary>How the winner was chosen (the picker's candidates and highlighted one).</summary>
     public required PickResult Pick { get; set; }
 
-    /// <summary>The settings winner is unclear: the player may pick which setup's settings to use (the preselected one is used otherwise).</summary>
+    /// <summary>Kept for the panel's old choice prompt: never set now (the grid decides whose settings a version gets).</summary>
     public bool NeedsChoice { get; set; }
+
+    /// <summary>Mods come from more than one launcher (allowed; the grid warns).</summary>
+    public bool MixedMods => Setups.Where(s => (s.Brings & ImportCategories.Mods) != 0).Select(s => s.Setup.Kind).Distinct().Count() > 1;
 
     public List<PlannedSetup> Setups { get; } = new();
 
@@ -188,6 +201,7 @@ public enum SkipKind
     TargetRunning,   // Origin's game for its version is running
     Unticked,        // the player took it out
     NotSelected,     // another launcher was picked for this import
+    NothingPicked,   // the grid has nothing ticked for its launcher on its version
 }
 
 /// <summary>A setup that cannot come over at all, with the plain reason ("Origin doesn't support Minecraft 1.21.5, so this setup can't come over.").</summary>

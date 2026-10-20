@@ -543,6 +543,28 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
+    /// <summary>
+    /// Home on a version (the start of the Import page's Play). Records the version only, exactly like the picker
+    /// (OnVersionSelected); a version Origin doesn't ship is ignored.
+    /// </summary>
+    public void ShowVersion(string version)
+    {
+        if (!VersionCatalog.IsSupported(version)) return;
+        if (version != _selectedVersion) OnVersionSelected(version);
+        ApplyProfile(SettingsStore.Load());
+    }
+
+    /// <summary>
+    /// The Import page's Play: Home on that version (<see cref="ShowVersion"/>), then the game starts, through the same
+    /// gate as Enter (<see cref="TryLaunchFromKeyboard"/>: refused while a picker or launch cover is open).
+    /// </summary>
+    public void PlayVersion(string version)
+    {
+        if (!VersionCatalog.IsSupported(version)) return;
+        ShowVersion(version);
+        TryLaunchFromKeyboard();
+    }
+
     private void SetVersionButtonText(string? version)
     {
         VersionButtonText.Text = version ?? "Pick one";

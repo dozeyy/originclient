@@ -16,7 +16,7 @@ public class ScreenshotImportTests : IDisposable
     private string OriginShots => Path.Combine(_rig.GameDir(), "screenshots");
 
     private async Task<ImportPlan> Plan(ImportOptions? options = null) =>
-        await _rig.Engine().PlanAsync(_rig.Request(options: options, profiles: _rig.Settings.Load().Profiles), null, CancellationToken.None);
+        await _rig.Engine().PlanAsync(_rig.Request(options: options), null, CancellationToken.None);
 
     private async Task<ImportPlan> ImportOnce(ImportOptions? options = null)
     {

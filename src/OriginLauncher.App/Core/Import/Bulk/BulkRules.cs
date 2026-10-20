@@ -44,6 +44,12 @@ public static class BulkRules
 
     public const string ForgeNote = "Forge mods can't come over. Origin runs Fabric, except on 1.8.9.";
 
+    public const string NothingPickedReason = "Nothing was picked to come over from this setup.";
+
+    /// <summary>The line a setup gets in a version it lends its settings to (it is from another version).</summary>
+    public static string OtherVersionNote(string from, string to) =>
+        $"Settings from its Minecraft {from}, set up for Minecraft {to}";
+
     // The drawer's short row captions for the same facts (row status lines carry no full stop). The sentences above
     // are what the plan, the summary and the Done page say; these are what a row says. One source each.
 

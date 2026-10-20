@@ -18,7 +18,7 @@ public enum ImportCategories
 {
     None = 0,
     Mods = 1,
-    Settings = 2,       // options.txt, mod and video configs, OptiFine settings
+    Settings = 2,       // options.txt, video and shader settings (Sodium, Iris, OptiFine); mod configs travel with Mods
     Servers = 4,        // servers.dat
     ResourcePacks = 8,
     ShaderPacks = 16,
@@ -83,13 +83,21 @@ public static class CategoryFilter
     {
         PlanItemKind.Mod => ImportCategories.Mods,
         PlanItemKind.Setting when IsServerList(name) => ImportCategories.Servers,
-        PlanItemKind.Setting or PlanItemKind.Config => ImportCategories.Settings,
+        PlanItemKind.Config when IsVideoSettings(name) => ImportCategories.Settings,
+        PlanItemKind.Config => ImportCategories.Mods, // a mod's config file belongs with the mod
+        PlanItemKind.Setting => ImportCategories.Settings,
         PlanItemKind.ResourcePack => ImportCategories.ResourcePacks,
         PlanItemKind.ShaderPack => ImportCategories.ShaderPacks,
         PlanItemKind.World => ImportCategories.Worlds,
         PlanItemKind.Screenshot => ImportCategories.Screenshots,
         _ => ImportCategories.None,
     };
+
+    // Sodium's and Iris's files are the game's video / shader settings, not a mod's own config (SettingsMigrator's labels:
+    // "config/sodium-options.json", "Sodium video settings", "Shader settings (iris.properties)").
+    private static bool IsVideoSettings(string name) =>
+        name.Contains("sodium-options.json", StringComparison.OrdinalIgnoreCase) || name.Contains("iris.properties", StringComparison.OrdinalIgnoreCase)
+        || name == "Sodium video settings";
 
     // The server list's op is labelled "servers.dat"; its summary lines are "servers.dat (server list)".
     private static bool IsServerList(string name) => name.StartsWith("servers.dat", StringComparison.OrdinalIgnoreCase);

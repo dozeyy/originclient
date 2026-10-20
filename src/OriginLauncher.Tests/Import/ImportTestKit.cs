@@ -32,6 +32,37 @@ internal static class Kit
         return path;
     }
 
+    /// <summary>A real (uncompressed NBT) servers.dat, as Minecraft writes it: root { servers: [ { name, ip }, ... ] }.</summary>
+    public static byte[] ServersDat(params (string Name, string Ip)[] servers)
+    {
+        using var ms = new MemoryStream();
+        using (var w = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+        {
+            void Str(string s)
+            {
+                var b = Encoding.UTF8.GetBytes(s);
+                w.Write((byte)(b.Length >> 8));
+                w.Write((byte)b.Length);
+                w.Write(b);
+            }
+            void Int(int v) { w.Write((byte)(v >> 24)); w.Write((byte)(v >> 16)); w.Write((byte)(v >> 8)); w.Write((byte)v); }
+            w.Write((byte)10); Str("");
+            w.Write((byte)9); Str("servers"); w.Write((byte)10); Int(servers.Length);
+            foreach (var (name, ip) in servers)
+            {
+                w.Write((byte)8); Str("name"); Str(name);
+                w.Write((byte)8); Str("ip"); Str(ip);
+                w.Write((byte)0);
+            }
+            w.Write((byte)0);
+        }
+        return ms.ToArray();
+    }
+
+    /// <summary>The (name, ip) pairs of a servers.dat, in order (null when it can't be read).</summary>
+    public static List<(string Name, string Ip)>? Servers(string path) =>
+        ServerList.Read(File.Exists(path) ? File.ReadAllBytes(path) : null)?.Select(e => (e.Name, e.Address)).ToList();
+
     public static string Read(string root, string relative) =>
         File.ReadAllText(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
 
@@ -228,7 +259,7 @@ internal sealed class Rig : IDisposable
     };
 
     public ImportRequest Request(string target = "1.21.1", ImportOptions? options = null, string? account = Account,
-        bool playWithExternalMods = true, string mc = "1.21.1", IReadOnlyList<ModProfile>? profiles = null) => new()
+        bool playWithExternalMods = true, string mc = "1.21.1") => new()
     {
         Source = SourceInstance(mc),
         TargetVersion = target,
@@ -242,10 +273,7 @@ internal sealed class Rig : IDisposable
             new CatalogMod("iris", "iris-fabric-1.10.7+mc1.21.11.jar"),
             new CatalogMod("modmenu", "modmenu-17.0.0.jar"),
         },
-        ExistingProfiles = profiles ?? Array.Empty<ModProfile>(),
         PlayWithExternalMods = playWithExternalMods,
-        SelectedVersion = "1.21.11",
-        SelectedProfileId = null,
     };
 
     public string GameDir(string version = "1.21.1") => Path.Combine(Instances, version, "accounts", Account);
@@ -255,5 +283,19 @@ internal sealed class Rig : IDisposable
         try { Directory.Delete(Root, recursive: true); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+    }
+}
+
+/// <summary>A plan step (a destination-side Custom op) that fails with the given exception: a hard failure, so the run rolls back.</summary>
+internal sealed class FailingStep(Func<Exception> failure) : IImportPlanContributor
+{
+    public Task ContributeAsync(ImportPlan plan, ImportRequest request, SourceFs fs, CancellationToken ct)
+    {
+        plan.Ops.Add(new PlannedOp
+        {
+            Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = "caches", Dest = plan.TargetGameDir,
+            Run = _ => throw failure(),
+        });
+        return Task.CompletedTask;
     }
 }
