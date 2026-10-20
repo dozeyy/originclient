@@ -8,6 +8,12 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.ref.WeakReference;
+import java.util.Set;
+
 /**
  * SETTINGS > Performance > Half-Rate Shadows (1.21.1, default OFF).
  *
@@ -32,9 +38,11 @@ import org.joml.Vector4f;
  * packs that keep their own state across frames (cleared custom images, storage buffers, voxelization:
  * a kept frame would leave those wrong) -- those packs simply draw every frame.
  *
- * <p>Safety (mandate 4): a frame is only kept after every hook this needs has been seen running (the
- * shadow draw's save, the matrix swap); a hook that failed to apply just means "always draw". Any
- * exception latches the feature off for the session (logged once). No allocation per frame.
+ * <p>Safety (mandate 4): every Iris field and method this reads is bound once by reflection (below);
+ * a different Iris build that lacks one turns the feature off instead of failing a mixin. A frame is
+ * only kept after every hook this needs has been seen running (the shadow draw's save, the matrix
+ * swap); a hook that failed to apply just means "always draw". Any exception latches the feature off
+ * for the session (logged once). No allocation per frame.
  */
 public final class HalfRateShadows {
 	private HalfRateShadows() {
@@ -48,7 +56,50 @@ public final class HalfRateShadows {
 	/** A camera move longer than this since the kept map was drawn counts as a jump (teleport). */
 	private static final double JUMP_SQ = 4.0 * 4.0;
 
-	private static boolean broken;
+	// ---- Iris 1.8.8 members (javap 2026-10-19), bound once; any missing = feature off ----
+	private static final String PIPE = "net.irisshaders.iris.pipeline.IrisRenderingPipeline";
+	private static final String SR = "net.irisshaders.iris.shadows.ShadowRenderer";
+	/** IrisRenderingPipeline: private final ShadowRenderer shadowRenderer. */
+	private static final MethodHandle PIPE_SHADOW_RENDERER = getter(PIPE, "shadowRenderer", false);
+	/** IrisRenderingPipeline: private final Set<GlImage> customImages (clear=true and clear=false images). */
+	private static final MethodHandle PIPE_CUSTOM_IMAGES = getter(PIPE, "customImages", false);
+	/** IrisRenderingPipeline: private ShaderStorageBufferHolder shaderStorageBufferHolder. */
+	private static final MethodHandle PIPE_SSBO = getter(PIPE, "shaderStorageBufferHolder", false);
+	/** ShadowRenderer: private boolean packHasVoxelization. */
+	private static final MethodHandle SR_VOXEL = getter(SR, "packHasVoxelization", false);
+	/** ShadowRenderer: public static Matrix4f MODELVIEW (a new object on every real draw). */
+	private static final MethodHandle SR_MODELVIEW = getter(SR, "MODELVIEW", true);
+	/** ShadowRenderer: public static boolean ACTIVE (true only inside the shadow pass). */
+	private static final MethodHandle SR_ACTIVE = getter(SR, "ACTIVE", true);
+	/** IrisVideoSettings: public static int shadowDistance (the video-settings slider). */
+	private static final MethodHandle SHADOW_DISTANCE = getter("net.irisshaders.iris.gui.option.IrisVideoSettings", "shadowDistance", true);
+	/** ShadowRenderTargets: public boolean isFullClearRequired(). */
+	private static final MethodHandle FULL_CLEAR = method("net.irisshaders.iris.shadows.ShadowRenderTargets", "isFullClearRequired");
+
+	private static final boolean MISSING = PIPE_SHADOW_RENDERER == null || PIPE_CUSTOM_IMAGES == null || PIPE_SSBO == null
+			|| SR_VOXEL == null || SR_MODELVIEW == null || SR_ACTIVE == null || SHADOW_DISTANCE == null || FULL_CLEAR == null;
+	private static boolean broken = MISSING;
+
+	/** Field getter as (Object)Object, or ()Object for a static field; null if absent. */
+	private static MethodHandle getter(String owner, String field, boolean isStatic) {
+		try {
+			java.lang.reflect.Field f = Class.forName(owner).getDeclaredField(field);
+			f.setAccessible(true);
+			MethodHandle h = MethodHandles.lookup().unreflectGetter(f);
+			return h.asType(isStatic ? MethodType.methodType(Object.class) : MethodType.methodType(Object.class, Object.class));
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	private static MethodHandle method(String owner, String name) {
+		try {
+			java.lang.reflect.Method m = Class.forName(owner).getMethod(name);
+			return MethodHandles.lookup().unreflect(m).asType(MethodType.methodType(boolean.class, Object.class));
+		} catch (Throwable t) {
+			return null;
+		}
+	}
 
 	// ---- decided once per frame (IrisRenderingPipeline.beginLevelRendering) ----
 	private static long decidedFrame = Long.MIN_VALUE;
@@ -60,8 +111,15 @@ public final class HalfRateShadows {
 	private static final Matrix4f DRAWN_MV = new Matrix4f();
 	private static Matrix4f lastMvObject;
 	private static double drawX, drawY, drawZ;
-	/** Iris makes a new ShadowRenderer per pipeline, so a different one = a shader reload. */
-	private static Object drawRenderer, drawLevel;
+	/**
+	 * Iris makes a new ShadowRenderer per pipeline, so a different one = a shader reload. Held weakly so
+	 * an old world or pipeline isn't kept alive after a disconnect or reload; replaced only when they
+	 * change (never per frame).
+	 */
+	private static WeakReference<Object> drawRenderer = new WeakReference<>(null), drawLevel = new WeakReference<>(null);
+	/** Pack-state check, cached per pipeline (its custom images and buffers are fixed at creation). */
+	private static WeakReference<Object> stateCheckedFor = new WeakReference<>(null);
+	private static boolean pipelineKeepsState;
 	private static int drawW, drawH, drawShadowDist, drawRd;
 	private static boolean drawPackKeepsState;
 
@@ -100,7 +158,36 @@ public final class HalfRateShadows {
 	 * keeps the last shadow map (the caller then hides the targets so that whole block is skipped).
 	 * Called once per frame with a shader pack on.
 	 */
-	public static boolean decide(Object shadowRenderer, boolean hasTargets, boolean fullClearPending,
+	public static boolean decide(Object pipeline, Object targets) {
+		if (broken) {
+			decidedFrame = FrameStats.frames();
+			keeping = false;
+			devLastKept = false;
+			return false;
+		}
+		try {
+			Object renderer = PIPE_SHADOW_RENDERER.invokeExact(pipeline);
+			if (stateCheckedFor.get() != pipeline) {
+				// Packs with custom images (cleared every frame or kept across frames, e.g. voxel / flood-fill
+				// ping-pong) or storage buffers may write them from the shadow pass: a kept frame would leave
+				// them cleared or stale, so those packs never keep.
+				Object imagesObj = PIPE_CUSTOM_IMAGES.invokeExact(pipeline);
+				Set<?> images = (Set<?>) imagesObj;
+				Object ssbo = PIPE_SSBO.invokeExact(pipeline);
+				pipelineKeepsState = (images != null && !images.isEmpty()) || ssbo != null;
+				stateCheckedFor = new WeakReference<>(pipeline);
+			}
+			boolean fullClear = targets != null && (boolean) FULL_CLEAR.invokeExact(targets);
+			Object sd = SHADOW_DISTANCE.invokeExact();
+			int shadowDistance = (Integer) sd;
+			return decide(renderer, targets != null && renderer != null, fullClear, pipelineKeepsState, shadowDistance);
+		} catch (Throwable t) {
+			fail(t);
+			return false;
+		}
+	}
+
+	private static boolean decide(Object shadowRenderer, boolean hasTargets, boolean fullClearPending,
 			boolean packKeepsState, int shadowDistance) {
 		long f = FrameStats.frames();
 		decidedFrame = f;
@@ -152,10 +239,10 @@ public final class HalfRateShadows {
 		if (!haveDraw) {
 			return 2;
 		}
-		if (shadowRenderer != drawRenderer) {
+		if (shadowRenderer != drawRenderer.get()) {
 			return 3;
 		}
-		if (mc.level != drawLevel || mc.level == null) {
+		if (mc.level != drawLevel.get() || mc.level == null) {
 			return 4;
 		}
 		var main = mc.getMainRenderTarget();
@@ -205,12 +292,17 @@ public final class HalfRateShadows {
 	 * shadow model-view the map was drawn with and where the camera was. Iris installs a new MODELVIEW
 	 * object on every real draw; the same object again means it returned early without drawing.
 	 */
-	public static void afterShadowDraw(Matrix4f modelView, Object shadowRenderer, boolean packHasVoxelization,
-			int shadowDistance) {
+	public static void afterShadowDraw(Object shadowRenderer) {
 		if (broken) {
 			return;
 		}
 		try {
+			Object mvObj = SR_MODELVIEW.invokeExact();
+			Matrix4f modelView = (Matrix4f) mvObj;
+			Object voxObj = SR_VOXEL.invokeExact(shadowRenderer);
+			boolean packHasVoxelization = (Boolean) voxObj;
+			Object sdObj = SHADOW_DISTANCE.invokeExact();
+			int shadowDistance = (Integer) sdObj;
 			if (modelView == null || modelView == lastMvObject) {
 				haveDraw = false;
 				return;
@@ -222,8 +314,12 @@ public final class HalfRateShadows {
 			drawX = c.x;
 			drawY = c.y;
 			drawZ = c.z;
-			drawRenderer = shadowRenderer;
-			drawLevel = mc.level;
+			if (drawRenderer.get() != shadowRenderer) {
+				drawRenderer = new WeakReference<>(shadowRenderer);
+			}
+			if (drawLevel.get() != mc.level) {
+				drawLevel = new WeakReference<>(mc.level);
+			}
 			var main = mc.getMainRenderTarget();
 			drawW = main.width;
 			drawH = main.height;
@@ -243,12 +339,16 @@ public final class HalfRateShadows {
 	 * shadowModelView / shadowModelViewInverse uniforms). On a kept frame, outside the shadow pass,
 	 * swap in the drawn matrix shifted by the camera's move since the draw.
 	 */
-	public static void onShadowModelView(PoseStack stack, boolean inShadowPass) {
+	public static void onShadowModelView(PoseStack stack) {
 		modelViewHookSeen = true;
-		if (inShadowPass || stack == null || !keepingNow()) {
+		if (stack == null || !keepingNow()) {
 			return;
 		}
 		try {
+			Object activeObj = SR_ACTIVE.invokeExact();
+			if ((Boolean) activeObj) {
+				return;   // inside the shadow pass (never on a kept frame; defensive)
+			}
 			Matrix4f pose = stack.last().pose();
 			Vec3 c = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
 			double dx = c.x - drawX, dy = c.y - drawY, dz = c.z - drawZ;
@@ -319,6 +419,9 @@ public final class HalfRateShadows {
 	public static String debugLine() {
 		if (!settingOn()) {
 			return null;
+		}
+		if (MISSING) {
+			return "Origin Half-Rate Shadows: off (this Iris version isn't supported; shadows draw every frame)";
 		}
 		if (broken) {
 			return "Origin Half-Rate Shadows: off after an error (shadows draw every frame)";
