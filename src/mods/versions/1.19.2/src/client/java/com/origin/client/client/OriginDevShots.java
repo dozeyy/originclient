@@ -51,6 +51,13 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=style (Button Style / Main Menu Style, 2026-10-19): Minecraft's own menus, to see
 		// whether they come out Origin-styled or plain vanilla. Run once per ORIGIN_SHOTS_STYLE state.
 		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING,
+		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19): the title with one button held in
+		// its hover state, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
+		TITLE_HOVER, CONTROLS, LEVEL_LOADING, CONNECTING,
+		// ...and, LAST in the clean set because they create a world: the Create World screen (a fresh game dir
+		// has no saves, so Singleplayer goes straight there), the pause menu inside that new world, then the
+		// world list with that save in it after Save and Quit.
+		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED,
 		// ORIGIN_SHOTS_SET=perf: the real Sodium / Iris screens (opened by reflection, see perfScreen)
 		PERF_SODIUM, PERF_IRIS;
 
@@ -63,6 +70,7 @@ public final class OriginDevShots {
 			// The friends demo only on its own shots, so every other shot looks the same in both passes.
 			com.origin.client.client.social.SocialDemo.clear();
 			Minecraft.getInstance().getToasts().clear();
+			devCursor(this == TITLE_HOVER);   // hovers the Quit square
 			return switch (this) {
 				case TITLE -> new TitleScreen();
 				case MENU -> new OriginModMenuScreen().preview(false, false);
@@ -213,7 +221,37 @@ public final class OriginDevShots {
 				case STY_SERVERS -> new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(new TitleScreen());
 				case STY_LOADING -> new net.minecraft.client.gui.screens.GenericDirtMessageScreen(
 						net.minecraft.network.chat.Component.literal("Preparing for world creation..."));
+				case TITLE_HOVER -> new TitleScreen();
+				case CONTROLS -> new net.minecraft.client.gui.screens.controls.ControlsScreen(
+						new TitleScreen(), Minecraft.getInstance().options);
+				// A chunk listener nothing feeds: the screen at 0%, exactly as a world starts loading.
+				case LEVEL_LOADING -> new net.minecraft.client.gui.screens.LevelLoadingScreen(
+						new net.minecraft.server.level.progress.StoringChunkProgressListener(2));
+				case CONNECTING -> connectScreen();
+				case CREATE_TABS, WORLD_PAUSE -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
+				case WORLDS_SAVED -> {
+					Minecraft mc = Minecraft.getInstance();
+					if (mc.level != null) {
+						// Vanilla's Save and Quit (PauseScreen.onDisconnect, javap): blocks until the server has saved.
+						mc.level.disconnect();
+						mc.clearLevel(new net.minecraft.client.gui.screens.GenericDirtMessageScreen(
+								net.minecraft.network.chat.Component.translatable("menu.savingLevel")));
+					}
+					yield new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
+				}
 			};
+		}
+	}
+
+	/** ConnectScreen's (Screen) constructor is private (javap, this module); no connection is started,
+	 *  so it just shows "Connecting to the server..." -- the state a player sees first. */
+	private static Screen connectScreen() {
+		try {
+			var c = net.minecraft.client.gui.screens.ConnectScreen.class.getDeclaredConstructor(Screen.class);
+			c.setAccessible(true);
+			return c.newInstance(new TitleScreen());
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("ConnectScreen constructor", e);
 		}
 	}
 
@@ -304,6 +342,29 @@ public final class OriginDevShots {
 		ACTS.put(Kind.STY_CREATE, List.of(s -> pressLabel(s, net.minecraft.client.resources.language.I18n.get("selectWorld.create")), s -> {
 		}, s -> {
 		}));
+		// Clean set: let the Create World screen finish loading its data packs (a fresh game dir redirects
+		// Singleplayer there), then shoot it. WORLD_PAUSE also presses Create (only on that screen, never
+		// on a world list), waits out the world load (~20 s on CI's software GL) and opens the pause menu.
+		java.util.function.Consumer<Screen> idle = s -> {
+		};
+		ACTS.put(Kind.CREATE_TABS, List.of(idle, idle, idle, idle));
+		List<java.util.function.Consumer<Screen>> enter = new ArrayList<>(List.of(idle, idle, idle, idle, s -> {
+			if (s instanceof net.minecraft.client.gui.screens.worldselection.CreateWorldScreen) {
+				pressLabel(s, net.minecraft.client.resources.language.I18n.get("selectWorld.create"));
+			}
+		}));
+		for (int i = 0; i < 48; i++) {
+			enter.add(idle);
+		}
+		enter.add(s -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.level != null && !(mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen)) {
+				mc.setScreen(new net.minecraft.client.gui.screens.PauseScreen(true));
+			}
+		});
+		enter.add(idle);
+		ACTS.put(Kind.WORLD_PAUSE, enter);
+		ACTS.put(Kind.WORLDS_SAVED, List.of(idle, idle));
 		ACTS.put(Kind.ACT_TOAST_STALE, List.of(s -> {
 			com.origin.client.client.social.SocialToast.devClickButton("req:00000000000000000000000000000099");
 			com.origin.client.client.social.SocialToast.devClickButton("inv:00000000000000000000000000000098");
@@ -325,6 +386,23 @@ public final class OriginDevShots {
 			for (Kind k : ks) {
 				SHOTS.add(new Shot(1920, 1080, 2, k));
 			}
+		} else if ("clean".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// The clean in-game look: Minecraft's own menus + loading screens at GUI scale 2 on 1080p, the
+			// Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4 (clipping checks).
+			// The startup loading screen comes from the boot shot below.
+			Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS,
+					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.MENU};
+			for (Kind k : ks) {
+				SHOTS.add(new Shot(1920, 1080, 2, k));
+			}
+			SHOTS.add(new Shot(1280, 720, 2, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 3, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 4, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 3, Kind.STY_OPTIONS));
+			// These create a world, so they go last (everything above must be shot out of world).
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.CREATE_TABS));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.WORLD_PAUSE));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.WORLDS_SAVED));
 		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			for (int sc : new int[]{2, 4}) {
 				for (Kind k : Kind.values()) {
@@ -406,27 +484,85 @@ public final class OriginDevShots {
 		}
 		try {
 			String g = com.origin.client.client.mods.Mods.GENERAL_ID;
-			savedStyle = new String[]{com.origin.client.client.mods.Mods.mode(g, "buttonStyle"),
-					com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
-			if (style.equals("buttons") || style.equals("vanilla")) {
-				com.origin.client.client.mods.Mods.set(g, "buttonStyle", "Minecraft");
-			}
+			// No Button Style any more (Minecraft's menus are always stock widgets).
+			savedStyle = new String[]{null, com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
 			if (style.equals("menu") || style.equals("vanilla")) {
 				com.origin.client.client.mods.Mods.set(g, "mainMenuStyle", "Vanilla");
 			}
-			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was buttons={}, menu={})",
-					style, savedStyle[0], savedStyle[1]);
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was menu={})",
+					style, savedStyle[1]);
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] style override failed", t);
 		}
 	}
 
+	// TITLE_HOVER: the cursor parked on the icon row's last square (Quit) so the
+	// shot shows the real hover look AND its tooltip (only the icon squares have
+	// one). Xvfb has no pointer moving, so the position written into MouseHandler
+	// stays put; every other shot gets the original back.
+	// Dev only (runClient is named-namespace, so the field names resolve).
+	private static double[] savedCursor;
+
+	private static void devCursor(boolean onIcon) {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			java.lang.reflect.Field fx = net.minecraft.client.MouseHandler.class.getDeclaredField("xpos");
+			java.lang.reflect.Field fy = net.minecraft.client.MouseHandler.class.getDeclaredField("ypos");
+			fx.setAccessible(true);
+			fy.setAccessible(true);
+			if (savedCursor == null) {
+				savedCursor = new double[]{fx.getDouble(mc.mouseHandler), fy.getDouble(mc.mouseHandler)};
+			}
+			double x = savedCursor[0], y = savedCursor[1];
+			if (onIcon && mc.screen != null) {
+				var win = mc.getWindow();
+				com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
+						win.getGuiScaledWidth(), win.getGuiScaledHeight());
+				net.minecraft.client.gui.components.AbstractWidget last = null;
+				for (var child : mc.screen.children()) {
+					if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.visible
+							&& w.y >= L.dockY && w.getWidth() == L.dockSize && w.getHeight() == L.dockSize
+							&& (last == null || w.x > last.x)) {
+						last = w;
+					}
+				}
+				if (last != null) {
+					double gs = win.getGuiScale();
+					x = (last.x + last.getWidth() / 2.0) * gs;
+					y = (last.y + last.getHeight() / 2.0) * gs;
+				}
+			}
+			fx.setDouble(mc.mouseHandler, x);
+			fy.setDouble(mc.mouseHandler, y);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] cursor placement failed", t);
+		}
+	}
+
 	private static String[] savedStyle;
+	private static boolean bootShot = false;
+	private static int overlayTicks = 0;
+
+	/** Style / clean sets: one frame of the STARTUP loading screen (the overlay only exists while the game boots). */
+	private static void bootLoadingShot(Minecraft mc) {
+		String set = System.getenv("ORIGIN_SHOTS_SET");
+		if (bootShot || !("style".equals(set) || "clean".equals(set)) || mc.getOverlay() == null) {
+			return;
+		}
+		if (++overlayTicks >= 12) {
+			bootShot = true;
+			Screenshot.grab(new File(DIR), "loading_boot_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png",
+					mc.getMainRenderTarget(), c -> {
+					});
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] captured the startup loading screen");
+		}
+	}
 
 	public static void tick(Minecraft mc) {
 		if (done) {
 			return;
 		}
+		bootLoadingShot(mc);
 		long now = System.currentTimeMillis();
 		if (step < 0) {
 			// A fresh game directory (CI) can open some first-run screen instead of
@@ -570,7 +706,6 @@ public final class OriginDevShots {
 		done = true;
 		if (savedStyle != null) {
 			try {
-				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "buttonStyle", savedStyle[0]);
 				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle", savedStyle[1]);
 			} catch (Throwable ignored) {
 			}

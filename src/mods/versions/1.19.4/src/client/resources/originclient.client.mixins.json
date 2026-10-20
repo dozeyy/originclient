@@ -25,7 +25,6 @@
 		"ScreenBackgroundMixin",
 		"AbstractSelectionListMixin",
 		"TabNavigationBarMixin",
-		"CreateWorldScreenMixin",
 		"ExperimentsScreenMixin",
 		"LevelRendererMixin",
 		"LightTextureMixin",

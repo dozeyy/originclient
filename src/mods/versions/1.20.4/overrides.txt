@@ -98,3 +98,9 @@ client/java/com/origin/client/client/theme/OriginTheme.java
 # DELIBERATE FORK (2026-10-18) - launch experience v2: the world-loading screen hands real chunk
 # progress (LevelLoadingScreenAccessor) to the Origin loading scene.
 client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
+
+# DELIBERATE FORK (2026-10-19, Will) - Minecraft's menus on stock widgets (the
+# clean in-game look, ported from 1.21.1): vanillaButtons() is always true and the
+# Button Style option is gone (Mods.java, already forked above). Promote to
+# shared/ (delete this line) when the look is ported to every version.
+client/java/com/origin/client/client/OriginStyle.java

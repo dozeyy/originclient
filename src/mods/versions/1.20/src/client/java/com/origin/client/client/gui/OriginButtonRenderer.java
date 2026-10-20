@@ -78,8 +78,8 @@ public final class OriginButtonRenderer {
 	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
 	// classes still keep their own art (OriginWidgetOwnership.isForeign).
 	//
-	// Will, 2026-10-19: Button Style = Minecraft hands every vanilla widget back to
-	// vanilla -- except inside Origin's own windows (OriginStyle.vanillaButtonsOn).
+	// Will, 2026-10-19 (final): Minecraft's own menus are stock widgets again, always
+	// -- the glass skin applies only inside Origin's own windows (OriginStyle.vanillaButtonsOn).
 	// This is the ONE gate the widget mixins all pass through.
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
@@ -117,13 +117,55 @@ public final class OriginButtonRenderer {
 		return false;
 	}
 
+	// ---- the title's icon row on Minecraft's own buttons (Will, 2026-10-19) ----
+	// Minecraft's menus draw stock widgets; only the title screen's icon-only
+	// buttons (Realms, Friends, Cosmetics, Language, Accessibility, Quit -- marked
+	// by setTitlePresentation(..., iconOnly = true)) need help: as stock buttons
+	// they would print their full label into a 20 px square. They draw vanilla's
+	// own button sprite (normal / highlighted / disabled, exactly as
+	// AbstractButton picks it) with Origin's monochrome icon centred on top.
+	// 1.20 / 1.20.1 predate the 1.20.2 GUI sprite atlas: vanilla's button art is
+	// the 200 x 20 strips in textures/gui/widgets.png (v = 46 disabled, 66 normal,
+	// 86 hovered), drawn the way 1.20's AbstractButton draws them -- a 9-slice with
+	// a 20 x 4 border (GuiGraphics.blitNineSliced), so any width/height keeps the
+	// stone edge. These are the exact values 1.20's AbstractWidget passes.
+	private static final ResourceLocation WIDGETS = new ResourceLocation("textures/gui/widgets.png");
+
+	/** Minecraft's own button box (normal / highlighted / disabled) at any size. */
+	public static void vanillaButtonBox(GuiGraphics g, int x, int y, int w, int h, boolean active, boolean hovered) {
+		int v = !active ? 46 : hovered ? 86 : 66;
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.enableDepthTest();
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		g.blitNineSliced(WIDGETS, x, y, w, h, 20, 4, 200, 20, 0, v);
+	}
+
+	private static boolean vanillaIconButton(GuiGraphics g, AbstractButton button) {
+		TitlePresentation title = TITLE.get(button);
+		if (title == null || !title.iconOnly() || broken) {
+			return false;
+		}
+		try {
+			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+			vanillaButtonBox(g, x, y, w, h, button.active, button.isHoveredOrFocused());
+			int s = Math.max(8, Math.min(12, h - 8));
+			ModIcons.draw(g, title.icon(), x + (w - s) / 2, y + (h - s) / 2, s,
+					button.active ? 0xFFFFFFFF : 0xFFA0A0A0);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(GuiGraphics g, AbstractButton button) {
-		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's
+		// icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return false;
+			return vanillaIconButton(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -204,14 +246,17 @@ public final class OriginButtonRenderer {
 
 	// ---- icon buttons (Accessibility = person, Language = globe, ...) ----
 
-	/** Title-dock icon buttons. Before 1.20.3 the Language / Accessibility buttons
+	/** Title-dock icon buttons. Before 1.20.2 the Language / Accessibility buttons
 	 *  are plain ImageButtons (SpriteIconButton does not exist yet), and ImageButton
 	 *  draws its own sprite inside renderWidget, so the AbstractButton skin never
-	 *  reaches them. Only buttons the title screen registered a presentation for
-	 *  are skinned; every other ImageButton keeps its own art (false -> the mixin
-	 *  does not cancel vanilla). */
+	 *  reaches them. On Minecraft's screens the title's icon row draws vanilla's
+	 *  button with its icon on top (vanillaIconButton); every other ImageButton
+	 *  keeps its own art (false -> the mixin does not cancel vanilla). */
 	public static boolean renderImageButton(GuiGraphics g, ImageButton button) {
-		if (!originOwnsScreen() || OriginWidgetOwnership.isForeign(button) || broken) {
+		if (!originOwnsScreen()) {
+			return vanillaIconButton(g, button);
+		}
+		if (OriginWidgetOwnership.isForeign(button) || broken) {
 			return false;
 		}
 		TitlePresentation title = TITLE.get(button);

@@ -216,8 +216,13 @@ public final class MenuPlayerPreview {
 		skinTex = null;
 		capeTex = null;
 		skinSlim = false;
+		// A callback from an account that is no longer the current one is dropped.
+		final UUID requestedFor = skinOwner;
 		try {
 			mc.getSkinManager().loadProfileTextures(profile, (type, location, texture) -> {
+				if (!requestedFor.equals(skinOwner)) {
+					return;
+				}
 				if (type == MinecraftProfileTexture.Type.SKIN) {
 					skinSlim = texture != null && "slim".equals(texture.getMetadata("model"));
 					skinTex = location;

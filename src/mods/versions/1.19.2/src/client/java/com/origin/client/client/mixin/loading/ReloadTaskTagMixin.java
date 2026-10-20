@@ -13,25 +13,22 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 import java.util.concurrent.Executor;
 
-// Watches every reload listener's render-thread ("apply") executor. Target:
-// SimpleReloadInstance's constructor (Executor background, Executor game,
-// ResourceManager, List, StateFactory, CompletableFuture), where each listener
-// gets its own apply executor (StateFactory.create(barrier, manager, listener,
-// prepare, apply), arg 4); javap-verified on this module's mapped jar: the same
-// constructor and create descriptor as 1.21.1, back to 1.16.5. For a CLIENT
-// reload (game executor = Minecraft; server/data-pack reloads are left alone)
-// it is wrapped so that:
-//  - the moment a task is QUEUED for the render thread, the loading mark is told
-//    (StartupTransition.reloadRenderWorkQueued) and starts its short settle,
-//    while ReloadTaskBudgetMixin holds the queue until the mark is at rest; so
-//    no long step (fonts, Shader Loader, a mod's atlas) can freeze the mark
-//    mid-motion;
+// Wraps every client reload listener's render-thread ("apply") executor.
+// Target: SimpleReloadInstance's constructor (Executor background, Executor
+// game, ResourceManager, List, StateFactory, CompletableFuture), where each
+// listener gets its own apply executor (StateFactory.create(barrier, manager,
+// listener, prepare, apply), arg 4); javap-verified on this module's mapped
+// jar: the same constructor and create descriptor as 1.21.1, back to 1.16.5.
+// For a CLIENT reload (game executor = Minecraft; server/data-pack reloads are
+// left alone) it is wrapped so that:
+//  - here (1.16.5-1.19.2) a step that would run INLINE on the render thread is
+//    queued instead (see below), so ReloadTaskBudgetMixin's per-frame budget
+//    applies to it and the loading screen keeps drawing;
 //  - with the dev frame log on (-Dorigin.frameLog=true), each step is timed and
 //    named by its listener.
-// The wrap changes nothing about how or in which order a task runs (here, 1.16.5-1.19.2, it
-// also QUEUES a step that would otherwise run inline: see below). If the
-// target moves, both signals are lost (required:false loading config); the mark
-// then settles once preparations finish or the load is done.
+// The wrap changes nothing about the order tasks run in. If the target moves,
+// both are lost (required:false loading config): the TextureManager chain runs
+// in one long frame again and the log loses the step names.
 @Mixin(SimpleReloadInstance.class)
 public abstract class ReloadTaskTagMixin {
 	@ModifyArg(method = "<init>", index = 4, at = @At(value = "INVOKE",
@@ -43,7 +40,6 @@ public abstract class ReloadTaskTagMixin {
 		}
 		final String name = OriginFrameLog.ENABLED ? originclient$name(listener) : null;
 		return task -> {
-			StartupTransition.reloadRenderWorkQueued();
 			final Runnable step = name == null ? task : () -> {
 				StartupTransition.reloadRenderWorkRan(name);
 				long t0 = System.nanoTime();

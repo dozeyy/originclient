@@ -16,4 +16,5 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface ScreenInvoker {
 	@Invoker("addRenderableWidget")
 	<T extends GuiEventListener & Renderable & NarratableEntry> T originclient$addRenderableWidget(T widget);
+
 }

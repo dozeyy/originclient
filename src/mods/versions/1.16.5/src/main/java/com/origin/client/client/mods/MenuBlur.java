@@ -62,8 +62,29 @@ public final class MenuBlur {
 	 *  strength. Strength 0 = no blur (the tint still draws). The main target is
 	 *  bound again afterwards, so everything after draws to the screen. */
 	public static void blur(float partialTick) {
+		if (broken) {
+			return;
+		}
+		blurRadius((int) Math.round(Mods.num(MOD, "strength")), partialTick);
+	}
+
+	/**
+	 * Blurs the main framebuffer at {@code radius} (the same two-round chain), for
+	 * Origin's out-of-world menu backdrop: this era has no vanilla menu blur, so the
+	 * panorama behind Minecraft's menus is blurred here at vanilla 1.21.1's default
+	 * Menu Background Blurriness (5). False if the chain failed (then latched off:
+	 * the caller keeps the panorama unblurred, nothing crashes).
+	 */
+	public static boolean blurBackdrop(int radius, float partialTick) {
+		if (broken) {
+			return false;
+		}
+		blurRadius(radius, partialTick);
+		return !broken;
+	}
+
+	private static void blurRadius(int radius, float partialTick) {
 		Minecraft mc = Minecraft.getInstance();
-		int radius = (int) Math.round(Mods.num(MOD, "strength"));
 		if (radius < 1) {
 			return;
 		}

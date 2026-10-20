@@ -13,6 +13,7 @@
 		"GuiButtonMixin",
 		"GuiConnectingMixin",
 		"GuiDownloadTerrainMixin",
+		"GuiMainMenuAccessor",
 		"GuiScreenAccessor",
 		"GuiScreenBackgroundMixin",
 		"GuiScreenResourcePacksAccessor",

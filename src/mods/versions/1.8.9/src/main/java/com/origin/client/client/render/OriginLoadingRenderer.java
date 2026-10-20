@@ -118,13 +118,16 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 			if (!Display.isCreated()) {
 				return;
 			}
-			// Straight to the window's back buffer: these calls arrive from inside
-			// the client tick (world load / save), between frames, and vanilla's own
-			// path ends on the default framebuffer too.
-			if (OpenGlHelper.isFramebufferEnabled()) {
-				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
+			// These calls arrive from inside the client tick (world load / save),
+			// between frames. Drawn into the game's framebuffer and then shown, the
+			// way vanilla's LoadingScreenRenderer does with its own: the clean scene's
+			// panorama (MenuPanorama) only draws into the game's framebuffer.
+			boolean fbo = OpenGlHelper.isFramebufferEnabled() && mc.getFramebuffer() != null;
+			if (fbo) {
+				mc.getFramebuffer().bindFramebuffer(true);
+			} else {
+				GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
 			}
-			GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
 			ScaledResolution sr = new ScaledResolution(mc);
 			GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 			GlStateManager.matrixMode(GL11.GL_PROJECTION);
@@ -138,7 +141,14 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 			GlStateManager.disableDepth();
 			GlStateManager.enableTexture2D();
 
-			if (!OriginScreenRenderer.renderLoadingScene(new Gfx(), title, stage, progress)) {
+			boolean drew = OriginScreenRenderer.renderLoadingScene(new Gfx(), title, stage, progress);
+			if (fbo) {
+				mc.getFramebuffer().unbindFramebuffer();
+				if (drew) {
+					mc.getFramebuffer().framebufferRender(mc.displayWidth, mc.displayHeight);
+				}
+			}
+			if (!drew) {
 				return;
 			}
 			mc.updateDisplay();

@@ -141,7 +141,8 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			}
 		});
-		// Every out-of-world menu is its own clean Origin scene. The backdrop is
+		// Every out-of-world menu gets its backdrop here (Minecraft's own screens:
+		// the version's panorama, blurred and dimmed; Origin's own: the rings). It is
 		// drawn in beforeRender -- once, before ANY screen content -- so it clears
 		// the frame for EVERY screen, including list screens (SelectWorld,
 		// multiplayer, ...) that never call renderBackground and would otherwise
@@ -165,6 +166,16 @@ public class OriginClientMod implements ClientModInitializer {
 						return;
 					}
 					com.origin.client.client.gui.Gfx g = new com.origin.client.client.gui.Gfx(poseStack);
+					if (!com.origin.client.client.gui.OriginWidgetOwnership.isOriginOwnClass(s)) {
+						// Minecraft's own screens (clean look, Will 2026-10-19): this version's
+						// panorama, blurred, dimmed and vignetted -- except the loading screens,
+						// whose mixins draw their whole scene (backdrop included) themselves.
+						if (!com.origin.client.client.render.OriginScreenRenderer.drawsOwnBackdrop(s)) {
+							com.origin.client.client.render.OriginScreenRenderer.renderMenuBackdrop(s, g, tick);
+						}
+						return;
+					}
+					// Origin's own screens (Right Shift mod menu family): unchanged rings backdrop.
 					if (com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g)) {
 						// Bloom the spotlight while any visible widget is hovered (1.21.1's
 						// ScreenBackgroundMixin hover test, spelled for this era).

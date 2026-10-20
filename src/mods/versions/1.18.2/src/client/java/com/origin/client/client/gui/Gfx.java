@@ -52,6 +52,12 @@ public final class Gfx {
 		return pose;
 	}
 
+	/** GuiGraphics.flush() twin. Pre-1.20 every draw here is immediate (GuiComponent
+	 *  statics and Tesselator end their own batch), so nothing is ever pending --
+	 *  kept so the ported 1.21.1 call sites read the same. */
+	public void flush() {
+	}
+
 	public int guiWidth() {
 		return Minecraft.getInstance().getWindow().getGuiScaledWidth();
 	}
@@ -252,5 +258,33 @@ public final class Gfx {
 		RenderSystem.enableBlend();
 		blit(skin, x, y, size, size, 8f, 8f, 8, 8, 64, 64);
 		blit(skin, x, y, size, size, 40f, 8f, 8, 8, 64, 64);
+	}
+
+	// ---- Minecraft's own button art (GuiGraphics.blitSprite("widget/button") twin) ----
+
+	/** Vanilla's button sheet this era: widgets.png, rows of 200x20 at v = 46 + 20*state. */
+	private static final ResourceLocation WIDGETS = new ResourceLocation("textures/gui/widgets.png");
+
+	/**
+	 * A stock Minecraft button background at (x, y, w, h). {@code state}: 0 disabled,
+	 * 1 normal, 2 highlighted -- the row AbstractWidget.getYImage picks. No GUI sprites
+	 * before 1.20.2: the 200x20 strip is drawn as four quarters (left/right, top/bottom
+	 * halves) so any size up to 400 x 40 keeps the bevelled edge.
+	 */
+	public void vanillaButton(int x, int y, int w, int h, int state) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		int v = 46 + Math.max(0, Math.min(2, state)) * 20;
+		int lw = w / 2, rw = w - lw;
+		int th = h / 2, bh = h - th;
+		RenderSystem.setShaderTexture(0, WIDGETS);
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.enableDepthTest();
+		GuiComponent.blit(pose, x, y, 0f, (float) v, lw, th, 256, 256);
+		GuiComponent.blit(pose, x + lw, y, (float) (200 - rw), (float) v, rw, th, 256, 256);
+		GuiComponent.blit(pose, x, y + th, 0f, (float) (v + 20 - bh), lw, bh, 256, 256);
+		GuiComponent.blit(pose, x + lw, y + th, (float) (200 - rw), (float) (v + 20 - bh), rw, bh, 256, 256);
 	}
 }

@@ -115,6 +115,10 @@ public class MenuHooks {
 
 	// ---- out-of-world backdrop ----
 
+	// One drawing face for the backdrop, reused every frame (Gfx is stateless
+	// beyond its Pose, which the backdrop leaves balanced). Render thread only.
+	private static final Gfx MENU_GFX = new Gfx();
+
 	@SubscribeEvent
 	public void onDrawScreenPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
 		try {
@@ -124,29 +128,16 @@ public class MenuHooks {
 					|| OriginStyle.vanillaMenusOn(screen)) {
 				return;
 			}
-			// Screens that paint their own scene: every Origin screen (the title,
-			// the mod menu, the HUD editor, every OriginWindow -- each calls
-			// renderTitleBackground itself, so a second pass would only cost a
-			// frame), and vanilla's main menu (its own panorama, Main Menu Style =
-			// Vanilla).
+			// Screens that paint their own scene: every Origin screen (the title
+			// draws the panorama itself; the mod menu, the HUD editor and every
+			// OriginWindow draw renderTitleBackground), and vanilla's main menu (its
+			// own panorama, Main Menu Style = Vanilla).
 			if (screen instanceof OriginScreen || screen instanceof GuiMainMenu) {
 				return;
 			}
-			Gfx g = new Gfx();
-			if (OriginScreenRenderer.renderTitleBackground(g)) {
-				boolean hovering = false;
-				List<GuiButton> buttons = screen instanceof GuiScreenAccessor
-						? ((GuiScreenAccessor) screen).originclient$buttonList() : null;
-				if (buttons != null) {
-					for (GuiButton b : buttons) {
-						if (b.visible && b.isMouseOver()) {
-							hovering = true;
-							break;
-						}
-					}
-				}
-				OriginScreenRenderer.renderTitleCursorGlow(g, event.mouseX, event.mouseY, hovering);
-			}
+			// The clean look (2026-10-19): this version's own panorama under the menu
+			// dim. GuiScreenBackgroundMixin then drops vanilla's dirt for the frame.
+			OriginScreenRenderer.renderMenuBackdrop(MENU_GFX);
 		} catch (Throwable t) {
 			// the backdrop must never take the frame down
 		}
