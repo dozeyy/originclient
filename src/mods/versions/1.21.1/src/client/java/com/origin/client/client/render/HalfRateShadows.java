@@ -168,9 +168,8 @@ public final class HalfRateShadows {
 		if (packKeepsState || drawPackKeepsState) {
 			return 10;
 		}
-		if (drawFrame != f - 1) {
-			return 1;   // the last frame was kept (or skipped): draw this one
-		}
+		// The event reasons come before the every-other-frame one so a forced redraw is always counted
+		// under its cause (dev-shots asserts an edit and a teleport each force one).
 		Vec3 c = mc.gameRenderer.getMainCamera().getPosition();
 		double dx = c.x - drawX, dy = c.y - drawY, dz = c.z - drawZ;
 		if (dx * dx + dy * dy + dz * dz > JUMP_SQ) {
@@ -181,6 +180,9 @@ public final class HalfRateShadows {
 		}
 		if (fullClearPending) {
 			return 9;
+		}
+		if (drawFrame != f - 1) {
+			return 1;   // the last frame was kept (or skipped): draw this one
 		}
 		if (!modelViewHookSeen) {
 			return 11;

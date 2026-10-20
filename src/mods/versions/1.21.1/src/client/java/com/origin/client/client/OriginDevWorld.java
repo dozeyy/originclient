@@ -393,6 +393,7 @@ final class OriginDevWorld {
 				}
 				hrOnStill = hrMeasured() + " readAfterKeptFrame=" + com.origin.client.client.render.HalfRateShadows.devLastKept;
 				float[] depthOn = omReadShadowDepth();
+				hrDepthOffOff = omDepthDiff(omDepthA, omDepthB);
 				hrDepthOffOn = omDepthDiff(omDepthB, depthOn);
 				grab(mc, dir, "halfrate_on_still_1920x1080.png");
 				omDepthA = omDepthB = null;
@@ -455,6 +456,7 @@ final class OriginDevWorld {
 				String onTp = hrMeasured();
 				log("[half-rate] OFF still: " + hrOffStill);
 				log("[half-rate] ON still: " + hrOnStill);
+				log("[half-rate] shadow depth OFF a vs OFF b (baseline): " + hrDepthOffOff);
 				log("[half-rate] shadow depth OFF vs ON (read after a kept frame): " + hrDepthOffOn);
 				log("[half-rate] ON sliding: " + hrOnMove);
 				log("[half-rate] OFF sliding: " + hrOffMove);
@@ -494,7 +496,7 @@ final class OriginDevWorld {
 	private static double hrDx, hrDz, hrY;
 	private static int hrTries;
 	private static net.minecraft.core.BlockPos hrEdit;
-	private static String hrOffStill, hrOnStill, hrDepthOffOn, hrOnMove, hrOffMove, hrOnEdit, hrF3;
+	private static String hrOffStill, hrOnStill, hrDepthOffOff, hrDepthOffOn, hrOnMove, hrOffMove, hrOnEdit, hrF3;
 	private static long hrFrames, hrKept, hrDrawn, hrAlt, hrFirst, hrWorld, hrReload, hrResize, hrDist, hrJump, hrChunks,
 			hrClear, hrPack, hrNotReady, hrShadowWalks, hrShadowNs;
 
