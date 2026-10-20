@@ -63,7 +63,7 @@ client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
 # screen hands the real progress (LevelLoadingScreenAccessor) to the loading scene,
 # as 1.21.1 does. Promote to shared/ when every version has it.
 client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
-
+
 # DELIBERATE FORK (2026-10-19, Will) - Minecraft's menus on stock widgets, ported from
 # 1.21.1 (claude/ingame-clean). vanillaButtons() is always true and the Button
 # Style option is gone (Mods.java, already forked above). Promote to shared/

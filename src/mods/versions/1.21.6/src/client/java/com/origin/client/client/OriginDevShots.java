@@ -462,7 +462,6 @@ public final class OriginDevShots {
 		}
 		try {
 			String g = com.origin.client.client.mods.Mods.GENERAL_ID;
-			// No Button Style on 1.21.1 (Minecraft's menus are always stock widgets).
 			savedStyle = new String[]{null, com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
 			if (style.equals("menu") || style.equals("vanilla")) {
 				com.origin.client.client.mods.Mods.set(g, "mainMenuStyle", "Vanilla");

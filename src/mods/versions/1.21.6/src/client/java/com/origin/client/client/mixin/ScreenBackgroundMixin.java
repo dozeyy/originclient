@@ -44,7 +44,7 @@ public class ScreenBackgroundMixin {
 
 	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackdrop(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		// Vanilla mode (Button Style Minecraft + Main Menu Style Vanilla): stock backdrop.
+		// Main Menu Style Vanilla: stock backdrop.
 		if (OriginStyle.vanillaMenusOn(this) || Minecraft.getInstance().level != null) {
 			return;
 		}

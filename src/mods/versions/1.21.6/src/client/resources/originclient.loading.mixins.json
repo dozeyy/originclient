@@ -16,7 +16,6 @@
 		"FrameLogMixin",
 		"FrameLogTitleMixin",
 		"FrameLogOverlayMixin",
-		"ReloadTaskTagMixin",
 		"ReloadTaskTagMixin"
 	],
 	"injectors": {

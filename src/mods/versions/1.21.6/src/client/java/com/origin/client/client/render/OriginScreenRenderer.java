@@ -547,10 +547,16 @@ public final class OriginScreenRenderer {
 			// current one, at most once a frame. So the panorama gets it, then a fresh
 			// stratum keeps the dim, vignette, chip and widgets sharp (1.21.1's order).
 			// A second blur this frame (another mod placed it first) is not a failure.
-			try {
-				inv.originclient$renderBlurredBackground(g);
-			} catch (IllegalStateException alreadyBlurred) {
-				// the frame's one blur is already placed
+			// Cheap guard first: GuiRenderState.firstStratumAfterBlur stays MAX_VALUE until a blur is
+			// placed, so another mod's blur this frame is skipped without a thrown exception.
+			// The catch stays as the backstop (e.g. the accessor not applying).
+			if (!(g.guiRenderState instanceof com.origin.client.client.mixin.GuiRenderStateAccessor acc)
+					|| acc.originclient$firstStratumAfterBlur() == Integer.MAX_VALUE) {
+				try {
+					inv.originclient$renderBlurredBackground(g);
+				} catch (IllegalStateException alreadyBlurred) {
+					// the frame's one blur is already placed
+				}
 			}
 			g.nextStratum();
 			Minecraft mc = Minecraft.getInstance();

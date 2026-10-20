@@ -20,6 +20,7 @@
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"ScreenInvoker",
+		"GuiRenderStateAccessor",
 		"PackSelectionScreenAccessor",
 		"SpriteIconButtonAccessor",
 		"SpriteIconButtonMixin",
