@@ -2512,16 +2512,14 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         ShowPane(Pane.Failed);
         SetHeader("Import", "Nothing changed");
-        if (m.Cancelled && string.IsNullOrEmpty(m.Error))
-        {
-            FailedReason.Text = "You stopped it.";
-            FailedReason.Foreground = (Brush)FindResource("Brush.TextDim");
-        }
-        else
-        {
-            FailedReason.Text = string.IsNullOrEmpty(m.Error) ? "The import didn't finish." : m.Error;
-            FailedReason.Foreground = (Brush)FindResource("Brush.Warning");
-        }
+        // Red only when it really failed; a stop the player asked for is neutral.
+        var stopped = m.Cancelled && string.IsNullOrEmpty(m.Error);
+        var accent = (Brush)FindResource(stopped ? "Brush.TextMuted" : "Brush.Danger");
+        FailedPane.BorderBrush = stopped ? (Brush)FindResource("Brush.Stroke") : accent;
+        FailedBadge.Background = accent;
+        FailedTitle.Foreground = stopped ? (Brush)FindResource("Brush.TextDim") : accent;
+        FailedTitle.Text = stopped ? "Import stopped" : "Import failed";
+        FailedReason.Text = stopped ? "You stopped it." : string.IsNullOrEmpty(m.Error) ? "The import didn't finish." : m.Error;
         SetFooter(null, "CLOSE", () => CloseRequested?.Invoke(this, EventArgs.Empty), "TRY AGAIN", TryAgain);
         WantFocus();
     }
