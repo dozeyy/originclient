@@ -33,6 +33,9 @@ public static class RenderShots
         new("iris-fabric-1.8.8+mc1.21.1.jar", "Iris Shaders", true, true),
     };
 
+    private static readonly Core.Mods.ModEntry[] DemoModsDropped =
+        new[] { new Core.Mods.ModEntry("zoomify-2.14.2+1.21.1.jar", "Zoomify", true, false) }.Concat(DemoMods).ToArray();
+
     public static void Run(string outDir)
     {
         // `--social`: only the Friends / party / chat surfaces, every state (UI/SocialShots.cs).
@@ -176,6 +179,10 @@ public static class RenderShots
         window.TourShowModsDemo(DemoMods, 1);
         Pump(600);
         Snap(window, outDir, "13c-mods-dragover");
+        // Just dropped: Zoomify lands at the top of the list (the page's own landing animation).
+        window.TourShowModsDemo(DemoModsDropped, -1);
+        Pump(250);
+        Snap(window, outDir, "13d-mods-dropped");
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");

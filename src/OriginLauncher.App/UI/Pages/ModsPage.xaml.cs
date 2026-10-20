@@ -123,9 +123,10 @@ public partial class ModsPage : UserControl
         var delay = 0;
         foreach (var mod in user)
         {
-            var row = mod.FileName == _pendingRemove ? BuildConfirmRow(mod) : BuildUserRow(mod);
+            var isLanded = landed != null && landed.Contains(mod.FileName);
+            var row = mod.FileName == _pendingRemove ? BuildConfirmRow(mod) : BuildUserRow(mod, isLanded);
             UserModsPanel.Children.Add(row);
-            if (landed != null && landed.Contains(mod.FileName))
+            if (isLanded)
             {
                 Land(row, delay);
                 delay += 40;
@@ -159,12 +160,12 @@ public partial class ModsPage : UserControl
     private Border RowShell() => new() { Style = (Style)FindResource("Row.Mod") };
 
     // The square well with the jar glyph that leads every row and tile.
-    private Border IconWell(bool dim)
+    private Border IconWell(bool dim, ModEntry? mod = null)
     {
         var well = new Border { Style = (Style)FindResource("Mods.IconWell"), VerticalAlignment = VerticalAlignment.Center };
         well.Child = new Path
         {
-            Data = (Geometry)FindResource("Icon.Jar"),
+            Data = (mod != null ? ModIcons.For(mod) : null) ?? (Geometry)FindResource("Icon.Jar"),
             Style = (Style)FindResource("Icon.Base"),
             Stroke = (Brush)FindResource(dim ? "Brush.TextMuted" : "Brush.TextDim"),
             Width = 18,
@@ -191,7 +192,7 @@ public partial class ModsPage : UserControl
         TextTrimming = TextTrimming.CharacterEllipsis,
     };
 
-    private FrameworkElement BuildUserRow(ModEntry mod)
+    private FrameworkElement BuildUserRow(ModEntry mod, bool added = false)
     {
         var border = RowShell();
         var grid = new Grid();
@@ -200,10 +201,18 @@ public partial class ModsPage : UserControl
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        grid.Children.Add(IconWell(!mod.Enabled));
+        grid.Children.Add(IconWell(!mod.Enabled, mod));
 
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 12, 0) };
-        text.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
+        if (added)
+        {
+            // Just dropped in: the name carries a small ADDED tag.
+            var nameLine = new StackPanel { Orientation = Orientation.Horizontal };
+            nameLine.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
+            nameLine.Children.Add(AddedTag());
+            text.Children.Add(nameLine);
+        }
+        else text.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
         text.Children.Add(FileText(mod.FileName));
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
@@ -228,7 +237,56 @@ public partial class ModsPage : UserControl
         grid.Children.Add(remove);
 
         border.Child = grid;
+        if (added) AddLandingLight(grid);
         return border;
+    }
+
+    // "ADDED": a Card chip with an accent square, like the mockup's new-row tag.
+    private Border AddedTag()
+    {
+        var label = new TextBlock
+        {
+            Text = "ADDED",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = (Brush)FindResource("Brush.Text"),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var square = new Border { Width = 6, Height = 6, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+        square.SetResourceReference(Border.BackgroundProperty, "Brush.Acc");
+        var line = new StackPanel { Orientation = Orientation.Horizontal };
+        line.Children.Add(square);
+        line.Children.Add(label);
+        return new Border
+        {
+            Background = (Brush)FindResource("Brush.Card"),
+            CornerRadius = (CornerRadius)FindResource("Radius.Knob"),
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = line,
+        };
+    }
+
+    // The accent flash a landed row gives once: a tint over the row and a 3 px
+    // edge on its left that fade out (opacity only; both ignore the mouse).
+    private static void AddLandingLight(Grid grid)
+    {
+        var tint = new Rectangle { IsHitTestVisible = false, Margin = new Thickness(-12, -10, -10, -10), Opacity = 0.28 };
+        var edge = new Rectangle { IsHitTestVisible = false, Width = 3, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-12, -10, 0, -10) };
+        tint.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+        edge.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+        Grid.SetColumnSpan(tint, 4);
+        Grid.SetColumnSpan(edge, 4);
+        grid.Children.Insert(0, tint);
+        grid.Children.Add(edge);
+        if (Motion.Off)
+        {
+            tint.Opacity = 0;
+            return;
+        }
+        tint.BeginAnimation(OpacityProperty, Motion.FromTo(0.28, 0, 900, Motion.Out));
+        edge.BeginAnimation(OpacityProperty, Motion.FromTo(1, 0, 900, Motion.Out, 700));
     }
 
     // Inline destructive-action confirm (nothing lost by accident): the row
@@ -247,7 +305,7 @@ public partial class ModsPage : UserControl
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        grid.Children.Add(IconWell(true));
+        grid.Children.Add(IconWell(true, mod));
 
         var prompt = NameText($"Remove {mod.DisplayName}?", false);
         prompt.VerticalAlignment = VerticalAlignment.Center;
@@ -302,12 +360,12 @@ public partial class ModsPage : UserControl
             Margin = new Thickness(0, 0, 4, 4),
         };
         var stack = new StackPanel();
-        var well = IconWell(false);
+        var well = IconWell(false, mod);
         well.HorizontalAlignment = HorizontalAlignment.Left;
         well.Margin = new Thickness(0, 0, 0, 12);
         stack.Children.Add(well);
         stack.Children.Add(NameText(mod.DisplayName, false));
-        stack.Children.Add(FileText(mod.FileName));
+        stack.Children.Add(FileText(ModIcons.Blurb(mod)));
         tile.Child = stack;
         System.Windows.Automation.AutomationProperties.SetName(tile, $"{mod.DisplayName}, built in");
         return tile;
@@ -527,7 +585,10 @@ public partial class ModsPage : UserControl
     {
         if (!OriginPaths.IsScratchRoot) return;
         _demo = mods;
-        Refresh();
-        SetZone(over: carrying > 0, hover: false, count: carrying);
+        // carrying == -1: the "just dropped" shot, the first of the player's mods lands.
+        var first = carrying < 0 ? mods.FirstOrDefault(m => !m.IsManaged) : null;
+        Refresh(first == null ? null : new HashSet<string> { first.FileName });
+        SetZone(over: carrying > 0, hover: false, count: Math.Max(carrying, 0));
+        if (first != null) Pop(JarScale);
     }
 }
