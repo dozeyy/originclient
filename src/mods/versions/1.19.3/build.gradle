@@ -105,11 +105,14 @@ dependencies {
 	// PreprocessorListener, thrown from ShaderPack's ctor the instant a pack
 	// is applied). Same dev-only class of bug the 1.21.1 module already
 	// documents/fixes for its own bundled Iris. Versions matched exactly to
-	// what iris-mc1.20-1.6.4.jar nests (see its META-INF/jars/). Dev-runtime
+	// what THIS module's iris-mc1.19.3-1.5.2.jar nests (its META-INF/jars/:
+	// glsl-transformer 2.0.0-pre9, not the 1.6.x builds' pre13 -- pre13 crashed
+	// the shader-pack dev-shots boot with NoSuchFieldError Root.identifierIndexFactory
+	// in TransformPatcher.<clinit>, run 39396214334, 2026-10-20). Dev-runtime
 	// only -- a real launcher install extracts these from inside Iris's own
 	// jar via Fabric Loader's nested-jar mechanism and is unaffected.
 	runtimeOnly "org.anarres:jcpp:1.4.14"
-	runtimeOnly "io.github.douira:glsl-transformer:2.0.0-pre13"
+	runtimeOnly "io.github.douira:glsl-transformer:2.0.0-pre9"
 	runtimeOnly "org.antlr:antlr4-runtime:4.11.1"
 
 	// WebP preview decoding for the shader browser (fail-soft if the reader is
