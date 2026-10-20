@@ -773,6 +773,9 @@ public sealed class VersionManager
     // meta.fabricmc.net every time and a socket left in TIME_WAIT after.
     private static readonly HttpClient SharedHttp = new();
 
+    // Parallel game-file downloads (BuildLauncher). Measured in launch-time.yml.
+    private const int MaxDownloads = 24;
+
     /// <summary>
     /// Builds the CmlLib launcher with an integrity policy chosen per launch.
     ///
@@ -808,7 +811,15 @@ public sealed class VersionManager
         if (!fullVerify && parameters.VersionLoader != null)
             parameters.VersionLoader = new LocalFirstVersionLoader(path, versionName, parameters.VersionLoader);
 
-        var installer = ParallelGameInstaller.CreateAsCoreCount(SharedHttp);
+        // CmlLib's CreateAsCoreCount: min(4, cores) checkers, max(8, cores)
+        // downloaders. A first launch is ~3,900 asset files of a few KB each, so
+        // the download is round-trip bound, not bandwidth bound: more requests in
+        // flight finish it sooner. Checkers stay CmlLib's (disk/hash bound).
+        var installer = new ParallelGameInstaller(
+            maxChecker: Math.Clamp(Environment.ProcessorCount, 1, 4),
+            maxDownloader: Math.Max(MaxDownloads, Environment.ProcessorCount),
+            boundedCapacity: 2048,
+            SharedHttp);
         installer.CheckFileSize = true;
         installer.CheckFileChecksum = fullVerify;
         parameters.GameInstaller = installer;
