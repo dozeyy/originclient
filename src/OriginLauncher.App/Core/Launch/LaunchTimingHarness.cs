@@ -26,10 +26,11 @@ public static class LaunchTimingHarness
 
     public static int Run(string root, string version, string outJson)
     {
-        OriginPaths.UseScratchRoot(root);
-        OriginPaths.EnsureScaffold();
-        // The offline test session (Settings -> Developer) is the only sign-in CI has.
-        SettingsStore.Update(s => s.OfflineTestMode = true);
+        // Launcher process start -> here: .NET + WPF startup (ReadyToRun A/Bs read this).
+        long startupMs;
+        using (var self = Process.GetCurrentProcess())
+            startupMs = (long)(DateTime.Now - self.StartTime).TotalMilliseconds;
+        string? javaPath = null;
 
         var clock = Stopwatch.StartNew();
         var marks = new List<(string Name, long Ms)>();
@@ -44,6 +45,13 @@ public static class LaunchTimingHarness
         var gameLines = new List<string>();
         try
         {
+            // Inside the try so a setup failure still writes the result file.
+            OriginPaths.UseScratchRoot(root);
+            OriginPaths.EnsureScaffold();
+            // The offline test session (Settings -> Developer) is the only sign-in CI has.
+            SettingsStore.Update(s => s.OfflineTestMode = true);
+            clock.Restart(); // marks are ms since Play, as before
+
             // HomePage.LaunchAsync, minus the UI and the Microsoft sign-in.
             var settings = SettingsStore.Load();
             var session = MSession.CreateOfflineSession("OriginTester");
@@ -72,6 +80,7 @@ public static class LaunchTimingHarness
             }
 
             // The game's console, read here instead of the launcher's log file.
+            javaPath = process.StartInfo.FileName;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.RedirectStandardError = true;
@@ -121,6 +130,8 @@ public static class LaunchTimingHarness
                 version,
                 error,
                 gameExitCode = exitCode,
+                startupMs,
+                javaPath,
                 marks = marks.Select(m => new { name = m.Name, ms = m.Ms }),
                 requests = requests.OrderBy(r => r.StartMs)
                     .Select(r => new { url = r.Url, start = r.StartMs, ms = r.Ms, status = r.Status }),

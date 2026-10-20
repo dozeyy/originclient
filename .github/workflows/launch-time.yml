@@ -5,14 +5,24 @@
 # Runs the real provisioning path headlessly (OriginLauncher.App.exe
 # --launch-timing, Core/Launch/LaunchTimingHarness.cs) in a throwaway launcher
 # folder on a Windows runner, with the launcher published exactly like a release
-# (single-file, self-contained) and this ref's 1.21.1 jar bundled:
+# (single-file, self-contained) and this ref's mod jars bundled:
 #   cold = a fresh launcher folder: Java, libraries, assets and mods all download
 #   warm = the same folder again in a new launcher process (a returning player
 #          opening the launcher and pressing Play)
 # Each round boots variant a (base ref) and b (this ref) in alternating order on
-# the one runner: one cold launch then `warm` warm launches each. The runner has
-# no OpenGL, so the game is stopped once its log passes Fabric's mod list.
-# Compare a and b as a relative change; a runner is not a player's PC.
+# the one runner: one cold launch then `warm` warm launches each, of 1.21.1. The
+# runner has no OpenGL, so the game is stopped once its log passes Fabric's mod
+# list (or it exits on its own). Compare a and b as a relative change; a runner
+# is not a player's PC.
+#
+# Extra keys:
+#   versions=1.21.1,1.16.5  also launch these versions (round 1 only: one cold +
+#                           one warm per variant), results as <variant><ver>-1-n
+#                           (e.g. b1165-1-0.json) with the java the game ran on
+#   offline=1               after round 1's warm launches, launch 1.21.1 twice
+#                           more with no network (HTTP(S)_PROXY pointed at a dead
+#                           port): once on the fast path, once with the install
+#                           stamp deleted (full verify). <variant>-1-offfast/offfull
 #
 # Start it from a push to a claude/** branch whose head commit message carries
 #   [launch-time base=<branch, tag or FULL 40-char sha> rounds=3 warm=3 label=x]
@@ -34,6 +44,12 @@ on:
       warm:
         description: "Warm launches per round"
         default: "3"
+      versions:
+        description: "Comma-separated versions to launch (1.21.1 is always the timed one)"
+        default: "1.21.1"
+      offline:
+        description: "1 = also launch with no network (fast + full verify)"
+        default: "0"
       label:
         description: "Optional run name (keeps parallel runs from cancelling each other)"
         default: ""
@@ -53,8 +69,10 @@ jobs:
       base: ${{ steps.cfg.outputs.base }}
       rounds: ${{ steps.cfg.outputs.rounds }}
       warm: ${{ steps.cfg.outputs.warm }}
+      versions: ${{ steps.cfg.outputs.versions }}
+      offline: ${{ steps.cfg.outputs.offline }}
       label: ${{ steps.cfg.outputs.label }}
-      variants: ${{ steps.cfg.outputs.variants }}
+      jars: ${{ steps.cfg.outputs.jars }}
     steps:
       - id: cfg
         env:
@@ -62,14 +80,17 @@ jobs:
           I_BASE: ${{ github.event.inputs.base_ref }}
           I_ROUNDS: ${{ github.event.inputs.rounds }}
           I_WARM: ${{ github.event.inputs.warm }}
+          I_VERSIONS: ${{ github.event.inputs.versions }}
+          I_OFFLINE: ${{ github.event.inputs.offline }}
           I_LABEL: ${{ github.event.inputs.label }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os, re
-          cfg = {"base": "", "rounds": "3", "warm": "3", "label": ""}
+          cfg = {"base": "", "rounds": "3", "warm": "3", "versions": "1.21.1", "offline": "0", "label": ""}
           if os.environ.get("I_ROUNDS"):
               cfg.update(base=os.environ.get("I_BASE", ""), rounds=os.environ["I_ROUNDS"],
-                         warm=os.environ.get("I_WARM") or "3", label=os.environ.get("I_LABEL", ""))
+                         warm=os.environ.get("I_WARM") or "3", versions=os.environ.get("I_VERSIONS") or "1.21.1",
+                         offline=os.environ.get("I_OFFLINE") or "0", label=os.environ.get("I_LABEL", ""))
           else:
               m = re.findall(r"\[launch-time([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
@@ -80,19 +101,24 @@ jobs:
           for k in ("rounds", "warm"):
               if not re.fullmatch(r"\d{1,2}", cfg[k]):
                   cfg[k] = "3"
-          cfg["variants"] = json.dumps(["a", "b"] if cfg["base"] else ["b"])
+          vers = [v for v in cfg["versions"].split(",") if re.fullmatch(r"\d+(\.\d+){1,2}", v)]
+          vers = ["1.21.1"] + [v for v in vers if v != "1.21.1"]
+          cfg["versions"] = ",".join(vers)
+          cfg["offline"] = "1" if cfg["offline"] == "1" else "0"
+          variants = ["a", "b"] if cfg["base"] else ["b"]
+          cfg["jars"] = json.dumps([{"variant": v, "version": ver} for v in variants for ver in vers])
           for k, v in cfg.items():
               print(f"{k}={v}")
           PY
 
   jar:
     needs: cfg
-    name: Build the 1.21.1 jar (${{ matrix.variant }})
+    name: Build the ${{ matrix.version }} jar (${{ matrix.variant }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       matrix:
-        variant: ${{ fromJSON(needs.cfg.outputs.variants) }}
+        include: ${{ fromJSON(needs.cfg.outputs.jars) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -102,7 +128,7 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Build
-        working-directory: src/mods/versions/1.21.1
+        working-directory: src/mods/versions/${{ matrix.version }}
         run: |
           for attempt in 1 2 3; do
             sh ./gradlew build --no-daemon -x test \
@@ -112,7 +138,7 @@ jobs:
           done
           exit 1
       - name: Collect jar
-        working-directory: src/mods/versions/1.21.1
+        working-directory: src/mods/versions/${{ matrix.version }}
         run: |
           mkdir -p "$RUNNER_TEMP/jar"
           find build/libs -maxdepth 1 -name 'originclient-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' \
@@ -121,14 +147,14 @@ jobs:
           [ "$(ls "$RUNNER_TEMP/jar" | wc -l)" -eq 1 ]
       - uses: actions/upload-artifact@v4
         with:
-          name: jar-${{ matrix.variant }}
+          name: jar-${{ matrix.variant }}-${{ matrix.version }}
           path: ${{ runner.temp }}/jar/
 
   time:
     needs: [cfg, jar]
     name: Launch time (1.21.1)
     runs-on: windows-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v7
         with:
@@ -145,18 +171,27 @@ jobs:
         with:
           pattern: jar-*
           path: jars
-      - name: Publish each variant like a release (single file, 1.21.1 jar bundled)
+      - name: Publish each variant like a release (single file, jars bundled)
         shell: pwsh
+        env:
+          VERSIONS: ${{ needs.cfg.outputs.versions }}
         run: |
           foreach ($v in @('a', 'b')) {
             if (-not (Test-Path $v)) { continue }
-            $libs = "$v/src/mods/versions/1.21.1/build/libs"
-            New-Item -ItemType Directory -Force -Path $libs | Out-Null
-            Copy-Item "jars/jar-$v/*.jar" $libs
+            foreach ($ver in $env:VERSIONS.Split(',')) {
+              $libs = "$v/src/mods/versions/$ver/build/libs"
+              New-Item -ItemType Directory -Force -Path $libs | Out-Null
+              Copy-Item "jars/jar-$v-$ver/*.jar" $libs
+            }
             dotnet publish "$v/src/OriginLauncher.App/OriginLauncher.App.csproj" -c Release -r win-x64 --self-contained true `
               -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "pub-$v" | Select-Object -Last 3
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            if (-not (Test-Path "pub-$v/Bundled/OriginClient/originclient-1.21.1.jar")) { Write-Error "no bundled jar ($v)"; exit 1 }
+            foreach ($ver in $env:VERSIONS.Split(',')) {
+              if (-not (Test-Path "pub-$v/Bundled/OriginClient/originclient-$ver.jar")) { Write-Error "no bundled $ver jar ($v)"; exit 1 }
+            }
+            $exe = Get-Item "pub-$v/OriginLauncher.App.exe"
+            $all = (Get-ChildItem "pub-$v" -Recurse -File | Measure-Object Length -Sum).Sum
+            Write-Host ("publish size ${v}: exe {0:N1} MB, folder {1:N1} MB" -f ($exe.Length / 1MB), ($all / 1MB))
           }
           Get-CimInstance Win32_Processor | Select-Object -First 1 Name, NumberOfLogicalProcessors | Format-List
       - name: Launch (cold + warm, alternating variants)
@@ -164,28 +199,53 @@ jobs:
         env:
           ROUNDS: ${{ needs.cfg.outputs.rounds }}
           WARM: ${{ needs.cfg.outputs.warm }}
+          VERSIONS: ${{ needs.cfg.outputs.versions }}
+          OFFLINE: ${{ needs.cfg.outputs.offline }}
         run: |
           $out = "$env:RUNNER_TEMP/launches"
           New-Item -ItemType Directory -Force -Path $out | Out-Null
           $variants = @('b'); if (Test-Path a) { $variants = @('a', 'b') }
-          $failed = 0
+          $script:failed = 0
+          function Launch($v, $root, $ver, $json, $label, [switch]$expectFail) {
+            $p = Start-Process "pub-$v/OriginLauncher.App.exe" -ArgumentList "--launch-timing `"$root`" $ver `"$json`"" -PassThru
+            if (-not $p.WaitForExit(600000)) { Write-Host "::warning::$label hung; killed"; $p.Kill($true); $p.WaitForExit() }
+            $start = '-'
+            if (Test-Path $json) {
+              $r = Get-Content $json -Raw | ConvertFrom-Json
+              $start = ($r.marks | Where-Object name -eq 'process-start' | Select-Object -First 1).ms
+              if ($r.error) {
+                Write-Host "::warning::$label failed: $($r.error.Split("`n")[0])"
+                if (-not $expectFail) { $script:failed++ }
+              }
+            } else { Write-Host "::warning::$label wrote no result (exit $($p.ExitCode))"; $script:failed++ }
+            Write-Host "$label : Play -> java start $start ms (exit $($p.ExitCode))"
+          }
           for ($i = 1; $i -le [int]$env:ROUNDS; $i++) {
             $order = $variants
             if ($i % 2 -eq 0 -and $variants.Count -eq 2) { $order = @('b', 'a') }
             foreach ($v in $order) {
               $root = "$env:RUNNER_TEMP/root-$v-$i"
               for ($n = 0; $n -le [int]$env:WARM; $n++) {
-                $json = "$out/$v-$i-$n.json"
-                $p = Start-Process "pub-$v/OriginLauncher.App.exe" -ArgumentList "--launch-timing `"$root`" 1.21.1 `"$json`"" -PassThru
-                if (-not $p.WaitForExit(600000)) { Write-Host "::warning::$v-$i-$n hung; killed"; $p.Kill($true); $p.WaitForExit() }
                 $kind = if ($n -eq 0) { 'cold' } else { 'warm' }
-                $start = '-'
-                if (Test-Path $json) {
-                  $r = Get-Content $json -Raw | ConvertFrom-Json
-                  $start = ($r.marks | Where-Object name -eq 'process-start' | Select-Object -First 1).ms
-                  if ($r.error) { Write-Host "::warning::$v-$i-$n failed: $($r.error.Split("`n")[0])"; $failed++ }
-                } else { Write-Host "::warning::$v-$i-$n wrote no result (exit $($p.ExitCode))"; $failed++ }
-                Write-Host "$v round $i $kind #$n : Play -> java start $start ms (exit $($p.ExitCode))"
+                Launch $v $root '1.21.1' "$out/$v-$i-$n.json" "$v round $i $kind #$n"
+              }
+              if ($i -eq 1 -and $env:OFFLINE -eq '1') {
+                # No network: every HttpClient in the launcher honours these, and
+                # port 9 refuses at once. The game (Java) ignores them.
+                $env:HTTPS_PROXY = 'http://127.0.0.1:9'; $env:HTTP_PROXY = 'http://127.0.0.1:9'
+                Launch $v $root '1.21.1' "$out/$v-$i-offfast.json" "$v offline fast path" -expectFail
+                Remove-Item "$root/instances/1.21.1/origin-verified.json" -Force -ErrorAction SilentlyContinue
+                Launch $v $root '1.21.1' "$out/$v-$i-offfull.json" "$v offline full verify" -expectFail
+                Remove-Item Env:HTTPS_PROXY; Remove-Item Env:HTTP_PROXY
+              }
+              if ($i -eq 1) {
+                foreach ($ver in $env:VERSIONS.Split(',')) {
+                  if ($ver -eq '1.21.1') { continue }
+                  $tag = $v + $ver.Replace('.', '')
+                  for ($n = 0; $n -le 1; $n++) {
+                    Launch $v $root $ver "$out/$tag-1-$n.json" "$v $ver #$n"
+                  }
+                }
               }
               # The cold folder is ~1 GB; only its results are kept.
               Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
@@ -193,7 +253,7 @@ jobs:
           }
           python b/tools/launch-time/summarize.py $out | Tee-Object -FilePath "$out/summary.md"
           Get-Content "$out/summary.md" | Add-Content $env:GITHUB_STEP_SUMMARY
-          if ($failed -gt 0) { Write-Host "::error::$failed launches failed (see the json files)"; exit 1 }
+          if ($script:failed -gt 0) { Write-Host "::error::$($script:failed) launches failed (see the json files)"; exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

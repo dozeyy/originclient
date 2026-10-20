@@ -630,8 +630,9 @@ public sealed class VersionManager
 
         // Only stamp after provisioning came back clean. The stamp is what lets
         // the NEXT launch skip the rehash, so writing it on a failed pass would
-        // be exactly the wrong thing.
-        InstallVerification.MarkVerified(sharedRoot, version, versionName);
+        // be exactly the wrong thing. Only a full pass re-stamps: the stamp's
+        // age is what forces the weekly full pass (InstallVerification.MaxAge).
+        if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, versionName);
         return built;
     }
 
@@ -705,7 +706,7 @@ public sealed class VersionManager
         // its legacy "minecraftArguments" string, plus option's extra game
         // arguments (a friend's server: --server/--port, JoinArguments).
         var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress, null, ct);
-        InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
+        if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
         return built;
     }
 

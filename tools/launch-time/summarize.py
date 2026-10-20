@@ -73,6 +73,39 @@ def short(url):
     return u.netloc + path
 
 
+def java_of(path):
+    """The Mojang runtime a java path sits in (runtime/<component>/...), else the path."""
+    parts = re.split(r"[\\/]", path)
+    if "runtime" in parts:
+        i = parts.index("runtime")
+        return "/".join(parts[i + 1:i + 2]) or path
+    return path
+
+
+def offline(folder):
+    """The offline=1 launches (<variant>-1-offfast/offfull.json): did they get to the game?"""
+    rows = []
+    for path in sorted(glob.glob(os.path.join(folder, "*-off*.json"))):
+        try:
+            with open(path, encoding="utf-8-sig") as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            continue
+        start = next((m["ms"] for m in d.get("marks", []) if m["name"] == "process-start"), None)
+        reqs = d.get("requests", [])
+        dead = sum(1 for r in reqs if not r.get("status"))
+        err = (d.get("error") or "").split("\n")[0][:140].replace("|", "/")
+        ok = start is not None and not err
+        rows.append((os.path.basename(path), "launched" if ok else "FAILED", fmt(start),
+                     f"{len(reqs)} ({dead} no answer)", err))
+    if rows:
+        print("\n### Offline launches (no network)\n")
+        print("| run | result | Play -> java start | requests tried | error |")
+        print("|---|---|---:|---|---|")
+        for r in rows:
+            print("| " + " | ".join(r) + " |")
+
+
 def main(folder):
     runs = load(folder)
     if not runs:
@@ -123,6 +156,12 @@ def main(folder):
                 g[1].append(ms)
         total = [len(d.get("requests", [])) for _, d in rs]
         print(f"HTTP requests per launch: median {fmt(med(total))}\n")
+        ups = [d["startupMs"] for _, d in rs if isinstance(d.get("startupMs"), (int, float))]
+        if ups:
+            print(f"Launcher process start -> harness (startup): median {fmt(med(ups))} ms\n")
+        javas = sorted({java_of(d["javaPath"]) for _, d in rs if d.get("javaPath")})
+        if javas:
+            print(f"Game ran on: {', '.join(javas)}\n")
         if groups:
             print("| request | per launch | summed ms (median) |")
             print("|---|---:|---:|")
@@ -144,5 +183,6 @@ def main(folder):
 if __name__ == "__main__":
     try:
         main(sys.argv[1])
+        offline(sys.argv[1])
     except Exception as e:  # a summary bug must never fail the measurement run
         print(f"summary failed: {e}")
