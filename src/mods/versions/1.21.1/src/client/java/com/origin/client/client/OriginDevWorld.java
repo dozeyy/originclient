@@ -220,6 +220,9 @@ final class OriginDevWorld {
 	// frame and their CPU time with the feature OFF and ON, standing still and turning. Two OFF
 	// frames give the noise floor for the OFF-vs-ON pixel diff. A block placed in view while ON
 	// proves an edit forces a fresh walk (it must appear in terrain_on_edit).
+	// Entity culling: pigs in a sealed underground pocket (a 3x3x3-section block of stone, hollow
+	// centre section) in view but behind terrain, so Sodium culls them, plus pigs on the surface in
+	// view. The per-frame entity culling results must be identical OFF and ON (same visible set).
 	private static boolean terrainSpin;
 	private static long stFrames, stWalks, stReused, stMainNs, stShadowWalks, stShadowNs, stRestoreNs;
 	private static net.minecraft.core.BlockPos stEdit;
@@ -250,6 +253,7 @@ final class OriginDevWorld {
 				mc.options.hideGui = true;
 				mc.player.setXRot(25f);
 				Mods.set(Mods.PERFORMANCE_ID, key, false);
+				stEntityScene(mc, server);
 				// CI renders at a few fps, so a 12-chunk world is still loading and lighting minutes in
 				// (every frame adds sections and rebuilds: nothing to reuse). A 3-chunk view settles.
 				stRenderDistance = mc.options.renderDistance().get();
@@ -313,6 +317,7 @@ final class OriginDevWorld {
 					if (at != null) {
 						server.getCommands().performPrefixedCommand(src, "setblock " + at.getX() + " " + at.getY() + " " + at.getZ() + " minecraft:air");
 					}
+					server.getCommands().performPrefixedCommand(src, "kill @e[tag=origin_stutest]");
 					server.getCommands().performPrefixedCommand(src, "tick unfreeze");
 				});
 				if (stClouds != null) {
@@ -333,6 +338,49 @@ final class OriginDevWorld {
 		return true;
 	}
 
+	/** The entity-culling scene (see the comment above terrainSpin). Built before the settle wait. */
+	private static void stEntityScene(Minecraft mc, net.minecraft.server.MinecraftServer server) {
+		double yaw = Math.toRadians(mc.player.getYRot());
+		double hx = -Math.sin(yaw), hz = Math.cos(yaw);   // horizontal view direction
+		net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+		// Pocket 20 ahead, 24 down: about 25 degrees under the view centre at pitch 25, inside the frustum.
+		int sx = net.minecraft.core.SectionPos.blockToSectionCoord(eye.x + hx * 20);
+		int sy = net.minecraft.core.SectionPos.blockToSectionCoord(eye.y - 24);
+		int sz = net.minecraft.core.SectionPos.blockToSectionCoord(eye.z + hz * 20);
+		java.util.List<String> cmds = new java.util.ArrayList<>();
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					int x0 = (sx + dx) * 16, y0 = (sy + dy) * 16, z0 = (sz + dz) * 16;
+					cmds.add("fill " + x0 + " " + y0 + " " + z0 + " " + (x0 + 15) + " " + (y0 + 15) + " " + (z0 + 15) + " minecraft:stone");
+				}
+			}
+		}
+		int cx = sx * 16, cy = sy * 16, cz = sz * 16;
+		cmds.add("fill " + (cx + 1) + " " + (cy + 1) + " " + (cz + 1) + " " + (cx + 14) + " " + (cy + 14) + " " + (cz + 14) + " minecraft:air");
+		String nbt = "{NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"origin_stutest\",\""
+				+ com.origin.client.client.render.SmartTerrainUpdates.HIDDEN_TAG + "\"]}";
+		for (int i = 0; i < 4; i++) {
+			cmds.add("summon minecraft:pig " + (cx + 4.5 + i * 2) + " " + (cy + 1) + " " + (cz + 8.5) + " " + nbt);
+		}
+		double px = -hz, pz = hx;   // perpendicular, for a row of surface pigs across the view
+		server.execute(() -> {
+			var src = server.createCommandSourceStack().withSuppressedOutput();
+			for (String c : cmds) {
+				server.getCommands().performPrefixedCommand(src, c);
+			}
+			var level = server.overworld();
+			for (int i = -1; i <= 1; i++) {
+				int x = net.minecraft.util.Mth.floor(eye.x + hx * 7 + px * i * 2.5);
+				int z = net.minecraft.util.Mth.floor(eye.z + hz * 7 + pz * i * 2.5);
+				int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z);
+				server.getCommands().performPrefixedCommand(src, "summon minecraft:pig " + (x + 0.5) + " " + y + " " + (z + 0.5)
+						+ " {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"origin_stutest\"]}");
+			}
+		});
+		log("[smart-terrain] entity scene: pocket section " + sx + "," + sy + "," + sz + " (4 hidden pigs), 3 surface pigs 7 ahead");
+	}
+
 	private static void stSnap() {
 		stFrames = com.origin.client.client.hud.FrameStats.frames();
 		stWalks = com.origin.client.client.render.SmartTerrainUpdates.totalMainWalks;
@@ -342,6 +390,7 @@ final class OriginDevWorld {
 		stShadowNs = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos;
 		stRestoreNs = com.origin.client.client.render.SmartTerrainUpdates.totalRestoreNanos;
 		com.origin.client.client.render.SmartTerrainUpdates.resetWhy();
+		com.origin.client.client.render.SmartTerrainUpdates.entityWindowReset();
 	}
 
 	/** Since stSnap(): frames, main walks run vs reused, CPU ms per main walk / shadow walk / restore. CPU-side only. */
@@ -357,6 +406,7 @@ final class OriginDevWorld {
 				"frames=%d mainWalks=%d reused=%d mainWalkMs/frame=%.3f (%.3f per walk) shadowWalks=%d shadowWalkMs=%.3f restoreMs/reuse=%.4f",
 				f, w, r, f == 0 ? 0.0 : mainNs / 1e6 / f, w == 0 ? 0.0 : mainNs / 1e6 / w,
 				sw, sw == 0 ? 0.0 : shNs / 1e6 / sw, r == 0 ? 0.0 : reNs / 1e6 / r)
+				+ " " + com.origin.client.client.render.SmartTerrainUpdates.entityLine()
 				+ " " + com.origin.client.client.render.SmartTerrainUpdates.whyLine();
 	}
 

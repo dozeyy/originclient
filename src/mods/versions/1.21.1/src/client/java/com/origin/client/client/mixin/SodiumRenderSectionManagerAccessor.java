@@ -11,9 +11,11 @@ import java.util.ArrayDeque;
 import java.util.Map;
 
 // Target: Sodium 0.6.13 RenderSectionManager's main-pass walk output (renderLists, taskLists,
-// lastUpdatedFrame). Why: Smart Terrain Updates snapshots the main walk's region lists and only
-// reuses them when the rebuild queues are empty. Missing -> the feature never engages (it is
-// version-gated to the build these names were read from, javap 2026-10-19).
+// lastUpdatedFrame, needsGraphUpdate). Why: Smart Terrain Updates snapshots the main walk's region
+// lists, only reuses them when the rebuild queues are empty, and on a reused frame does what
+// update() itself does around the walk (++lastUpdatedFrame, needsGraphUpdate = false). Missing ->
+// the feature never engages (it is version-gated to the build these names were read from, javap
+// 2026-10-19).
 @Mixin(value = RenderSectionManager.class, remap = false)
 public interface SodiumRenderSectionManagerAccessor {
 	@Accessor("renderLists")
@@ -24,4 +26,10 @@ public interface SodiumRenderSectionManagerAccessor {
 
 	@Accessor("lastUpdatedFrame")
 	int originclient$lastUpdatedFrame();
+
+	@Accessor("lastUpdatedFrame")
+	void originclient$setLastUpdatedFrame(int frame);
+
+	@Accessor("needsGraphUpdate")
+	void originclient$setNeedsGraphUpdate(boolean needs);
 }

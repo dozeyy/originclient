@@ -13,8 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Why: Smart Terrain Updates (SmartTerrainUpdates has the full proof). update() is the chunk-graph
  * walk; with a shader pack Iris forces it every frame. HEAD may cancel the MAIN pass's walk when
  * nothing changed (after restoring the last walk's lists); every method that changes what a walk
- * would find marks the cache dirty first. isSectionVisible answers "visible" between a reused
- * frame and that frame's shadow walk, so entity culling can only draw more, never less.
+ * would find marks the cache dirty first; destroy() drops everything held for the manager.
  * What breaks if it stops applying: nothing -- every graph-change hook only ever makes the feature
  * walk; the feature is version-gated to the exact Sodium + Iris builds this was read from and
  * refuses to reuse until the graph-change hooks have been seen firing.
@@ -76,10 +75,10 @@ public abstract class SodiumGraphReuseMixin {
 		SmartTerrainUpdates.onMarkGraphDirty();
 	}
 
-	@Inject(method = "isSectionVisible", at = @At("HEAD"), cancellable = true)
-	private void originclient$visibleWhileReused(int x, int y, int z, CallbackInfoReturnable<Boolean> cir) {
-		if (SmartTerrainUpdates.forceVisible()) {
-			cir.setReturnValue(true);
-		}
+	// Leaving a world, a render-distance change or a shader reload destroys the manager: drop the
+	// snapshot and recorded sections so they don't keep the old ClientLevel alive.
+	@Inject(method = "destroy", at = @At("HEAD"))
+	private void originclient$destroyed(CallbackInfo ci) {
+		SmartTerrainUpdates.onDestroy();
 	}
 }
