@@ -1,9 +1,11 @@
+using OriginLauncher.App.Core.Mods.Icons;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Mods;
@@ -123,9 +125,10 @@ public partial class ModsPage : UserControl
         var delay = 0;
         foreach (var mod in user)
         {
-            var row = mod.FileName == _pendingRemove ? BuildConfirmRow(mod) : BuildUserRow(mod);
+            var isLanded = landed != null && landed.Contains(mod.FileName);
+            var row = mod.FileName == _pendingRemove ? BuildConfirmRow(mod) : BuildUserRow(mod, isLanded);
             UserModsPanel.Children.Add(row);
-            if (landed != null && landed.Contains(mod.FileName))
+            if (isLanded)
             {
                 Land(row, delay);
                 delay += 40;
@@ -159,18 +162,146 @@ public partial class ModsPage : UserControl
     private Border RowShell() => new() { Style = (Style)FindResource("Row.Mod") };
 
     // The square well with the jar glyph that leads every row and tile.
-    private Border IconWell(bool dim)
+    private Border IconWell(bool dim, ModEntry? mod = null)
     {
         var well = new Border { Style = (Style)FindResource("Mods.IconWell"), VerticalAlignment = VerticalAlignment.Center };
-        well.Child = new Path
+        var glyph = new Path
         {
-            Data = (Geometry)FindResource("Icon.Jar"),
+            Data = (mod != null ? ModIcons.For(mod) : null) ?? (Geometry)FindResource("Icon.Jar"),
             Style = (Style)FindResource("Icon.Base"),
             Stroke = (Brush)FindResource(dim ? "Brush.TextMuted" : "Brush.TextDim"),
             Width = 18,
             Height = 18,
         };
+        // The generated icon is the instant placeholder; the mod's real icon (if any) fades in over it.
+        var host = new Grid();
+        host.Children.Add(glyph);
+        well.Child = host;
+        // Accent only: a soft tint behind the glyph and the glyph in the same hue
+        // (dimmer when the mod is switched off). Unknown jars stay neutral.
+        if (mod != null && ModIcons.Hue(mod) is { } hue)
+        {
+            var wash = new SolidColorBrush(Color.FromArgb(0x26, hue.R, hue.G, hue.B));
+            wash.Freeze();
+            well.Background = wash;
+            var ink = new SolidColorBrush(hue);
+            ink.Freeze();
+            glyph.Stroke = ink;
+            glyph.Opacity = dim ? 0.55 : 1;
+        }
+        if (mod != null) LoadRealIcon(mod, well, glyph, dim);
         return well;
+    }
+
+    // ---- real mod icons -------------------------------------------------------
+
+    // Decoded icons by jar (path + size + mtime), loaded once and shared: a Refresh() that rebuilds the rows
+    // gets the finished icon at once (no second fade) and never reads the same jar twice.
+    private static readonly IconMemo<BitmapSource> Icons = new();
+
+    // Icons come only from inside the jar. A jar with no icon keeps the generated tinted one.
+    // Origin Client's own jar ships a placeholder icon, so it keeps the Origin mark.
+    private void LoadRealIcon(ModEntry mod, Border well, Path glyph, bool dim)
+    {
+        if (mod.FileName.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)) return;
+        Task<BitmapSource?> task;
+        if (_demo != null)
+        {
+            var fileName = mod.FileName;
+            task = Icons.GetByKeyAsync("demo:" + fileName, () =>
+                ModIconSource.DemoIcons != null && ModIconSource.DemoIcons.TryGetValue(fileName, out var d) ? DecodeIcon(d) : null);
+        }
+        else
+        {
+            if (_version == null) return;
+            var name = mod.Enabled || mod.IsManaged ? mod.FileName : mod.FileName + ".disabled";
+            var jar = System.IO.Path.Combine(ModManager.ModsFolder(_version, _profile?.Id), name);
+            task = Icons.GetAsync(jar, path => JarIconReader.ReadIcon(path) is { } bytes ? DecodeIcon(bytes) : null);
+        }
+
+        if (task.IsCompletedSuccessfully)
+        {
+            if (task.Result is { } ready) ShowRealIcon(well, glyph, ready, dim, fade: false);
+            return;
+        }
+        _ = task.ContinueWith(t =>
+        {
+            if (t.IsCompletedSuccessfully && t.Result is { } image)
+                well.Dispatcher.InvokeAsync(() => ShowRealIcon(well, glyph, image, dim, fade: true));
+        }, TaskScheduler.Default);
+    }
+
+    // Decode off the UI thread into a frozen bitmap. Anything that is not a sane image is "no icon".
+    private static BitmapSource? DecodeIcon(byte[] bytes)
+    {
+        try
+        {
+            int w, h;
+            using (var probe = new System.IO.MemoryStream(bytes))
+            {
+                var frame = BitmapDecoder.Create(probe, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None).Frames[0];
+                w = frame.PixelWidth;
+                h = frame.PixelHeight;
+            }
+            if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return null;
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = new System.IO.MemoryStream(bytes);
+            // A tile shows 40 px (80 physical at 200 %); never keep a 2000 px icon in memory.
+            if (w >= h && w > 128) bitmap.DecodePixelWidth = 128;
+            else if (h > w && h > 128) bitmap.DecodePixelHeight = 128;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // Fades the real icon in over the tinted placeholder (opacity only), then retires the placeholder.
+    // Small icons are drawn at a whole-number multiple with nearest-neighbour so they stay crisp;
+    // everything else uses high-quality scaling. Clipped to the tile's corner radius either way.
+    private static void ShowRealIcon(Border well, Path glyph, BitmapSource source, bool dim, bool fade)
+    {
+        if (well.Child is not Grid host || host.Children.Count > 1) return;
+        var longest = Math.Max(source.PixelWidth, source.PixelHeight);
+        // Nearest-neighbour only at a whole-number multiple of the source (16 -> 32, 32 -> 32, 20 -> 40);
+        // any other size is scaled to the 40 px tile with high-quality filtering.
+        var wholeMultiple = longest <= 40;
+        double side = wholeMultiple ? 40 / longest * longest : 40;
+
+        var image = new Image
+        {
+            Source = source,
+            Stretch = Stretch.Uniform,
+            Width = side,
+            Height = side,
+            IsHitTestVisible = false,
+            Clip = new RectangleGeometry(new Rect(0, 0, side, side), 4, 4),
+        };
+        RenderOptions.SetBitmapScalingMode(image, wholeMultiple ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
+        host.Children.Add(image);
+
+        var rest = dim ? 0.6 : 1.0;
+        void Settle()
+        {
+            glyph.Visibility = Visibility.Collapsed;
+            well.SetResourceReference(Border.BackgroundProperty, "Brush.Bg");
+        }
+        if (!fade || Motion.Off)
+        {
+            image.Opacity = rest;
+            Settle();
+            return;
+        }
+        image.Opacity = 0;
+        var fadeIn = Motion.FromTo(0, rest, 200, Motion.Out);
+        fadeIn.Completed += (_, _) => Settle();
+        image.BeginAnimation(OpacityProperty, fadeIn);
     }
 
     private static TextBlock NameText(string text, bool dim, double size = 14) => new()
@@ -191,7 +322,7 @@ public partial class ModsPage : UserControl
         TextTrimming = TextTrimming.CharacterEllipsis,
     };
 
-    private FrameworkElement BuildUserRow(ModEntry mod)
+    private FrameworkElement BuildUserRow(ModEntry mod, bool added = false)
     {
         var border = RowShell();
         var grid = new Grid();
@@ -200,10 +331,18 @@ public partial class ModsPage : UserControl
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        grid.Children.Add(IconWell(!mod.Enabled));
+        grid.Children.Add(IconWell(!mod.Enabled, mod));
 
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 12, 0) };
-        text.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
+        if (added)
+        {
+            // Just dropped in: the name carries a small ADDED tag.
+            var nameLine = new StackPanel { Orientation = Orientation.Horizontal };
+            nameLine.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
+            nameLine.Children.Add(AddedTag());
+            text.Children.Add(nameLine);
+        }
+        else text.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
         text.Children.Add(FileText(mod.FileName));
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
@@ -228,7 +367,58 @@ public partial class ModsPage : UserControl
         grid.Children.Add(remove);
 
         border.Child = grid;
+        if (added) AddLandingLight(grid);
         return border;
+    }
+
+    // "ADDED": a Card chip with an accent square, like the mockup's new-row tag.
+    private Border AddedTag()
+    {
+        var label = new TextBlock
+        {
+            Text = "ADDED",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = (Brush)FindResource("Brush.Text"),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var square = new Border { Width = 6, Height = 6, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+        square.SetResourceReference(Border.BackgroundProperty, "Brush.Acc");
+        var line = new StackPanel { Orientation = Orientation.Horizontal };
+        line.Children.Add(square);
+        line.Children.Add(label);
+        var tag = new Border
+        {
+            CornerRadius = (CornerRadius)FindResource("Radius.Knob"),
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = line,
+        };
+        // The version accent, softly, behind the white label (contrast stays on the text).
+        tag.SetResourceReference(Border.BackgroundProperty, "Brush.AccSoft");
+        return tag;
+    }
+
+    // The accent flash a landed row gives once: a tint over the row and a 3 px
+    // edge on its left that fade out (opacity only; both ignore the mouse).
+    private static void AddLandingLight(Grid grid)
+    {
+        var tint = new Rectangle { IsHitTestVisible = false, Margin = new Thickness(-12, -10, -10, -10), Opacity = 0.28 };
+        var edge = new Rectangle { IsHitTestVisible = false, Width = 3, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-12, -10, 0, -10) };
+        tint.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+        edge.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+        Grid.SetColumnSpan(tint, 4);
+        Grid.SetColumnSpan(edge, 4);
+        grid.Children.Insert(0, tint);
+        grid.Children.Add(edge);
+        if (Motion.Off)
+        {
+            tint.Opacity = 0;
+            return;
+        }
+        tint.BeginAnimation(OpacityProperty, Motion.FromTo(0.28, 0, 900, Motion.Out));
+        edge.BeginAnimation(OpacityProperty, Motion.FromTo(1, 0, 900, Motion.Out, 700));
     }
 
     // Inline destructive-action confirm (nothing lost by accident): the row
@@ -247,7 +437,7 @@ public partial class ModsPage : UserControl
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        grid.Children.Add(IconWell(true));
+        grid.Children.Add(IconWell(true, mod));
 
         var prompt = NameText($"Remove {mod.DisplayName}?", false);
         prompt.VerticalAlignment = VerticalAlignment.Center;
@@ -302,12 +492,12 @@ public partial class ModsPage : UserControl
             Margin = new Thickness(0, 0, 4, 4),
         };
         var stack = new StackPanel();
-        var well = IconWell(false);
+        var well = IconWell(false, mod);
         well.HorizontalAlignment = HorizontalAlignment.Left;
         well.Margin = new Thickness(0, 0, 0, 12);
         stack.Children.Add(well);
         stack.Children.Add(NameText(mod.DisplayName, false));
-        stack.Children.Add(FileText(mod.FileName));
+        stack.Children.Add(FileText(ModIcons.Blurb(mod)));
         tile.Child = stack;
         System.Windows.Automation.AutomationProperties.SetName(tile, $"{mod.DisplayName}, built in");
         return tile;
@@ -527,7 +717,10 @@ public partial class ModsPage : UserControl
     {
         if (!OriginPaths.IsScratchRoot) return;
         _demo = mods;
-        Refresh();
-        SetZone(over: carrying > 0, hover: false, count: carrying);
+        // carrying == -1: the "just dropped" shot, the first of the player's mods lands.
+        var first = carrying < 0 ? mods.FirstOrDefault(m => !m.IsManaged) : null;
+        Refresh(first == null ? null : new HashSet<string> { first.FileName });
+        SetZone(over: carrying > 0, hover: false, count: Math.Max(carrying, 0));
+        if (first != null) Pop(JarScale);
     }
 }
