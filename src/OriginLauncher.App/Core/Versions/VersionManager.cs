@@ -421,7 +421,7 @@ public sealed class VersionManager
             throw new InvalidOperationException(
                 $"{versionName} is too old to load the shared mods folder (needs Fabric Loader {SharedMods.FirstLoaderWithModsFolder}+).");
 
-        var launcher = BuildLauncher(path, decision.FullVerify);
+        var launcher = BuildLauncher(path, versionName, decision.FullVerify);
 
         // Every Fabric mod in play here (Origin Client, and any
         // third-party jar a player drops in) depends on this, so it's
@@ -694,7 +694,7 @@ public sealed class VersionManager
         // the same multi-hundred-MB asset + JRE rehash, so it gets the same
         // skip once it has proven clean under this launcher build.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
-        var launcher = BuildLauncher(path, decision.FullVerify);
+        var launcher = BuildLauncher(path, forgeVersionName, decision.FullVerify);
 
         progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
         var fileProgress = new InstallProgressThrottle(
@@ -767,9 +767,12 @@ public sealed class VersionManager
     ///                       launcher update). This is CmlLib's default.
     /// fullVerify = false -> existence + size only. Note size checking is turned
     ///                       ON here in both modes; CmlLib ships it OFF, so the
-    ///                       fast path still catches truncated files.
+    ///                       fast path still catches truncated files. It also
+    ///                       reads the version chain from disk when all of it
+    ///                       is there, instead of Mojang's manifest
+    ///                       (LocalFirstVersionLoader).
     /// </summary>
-    private static MinecraftLauncher BuildLauncher(MinecraftPath path, bool fullVerify)
+    private static MinecraftLauncher BuildLauncher(MinecraftPath path, string versionName, bool fullVerify)
     {
         // MUST pass the path INTO CreateDefault. The parameterless overload builds
         // its IVersionLoader bound to the DEFAULT Minecraft path, and assigning
@@ -783,6 +786,8 @@ public sealed class VersionManager
         var parameters = MinecraftLauncherParameters.CreateDefault(path, SharedHttp);
         // No Java 8 download for loader profiles that name no Java (see the class).
         InheritedJavaFileExtractor.Install(parameters);
+        if (!fullVerify && parameters.VersionLoader != null)
+            parameters.VersionLoader = new LocalFirstVersionLoader(path, versionName, parameters.VersionLoader);
 
         var installer = ParallelGameInstaller.CreateAsCoreCount(SharedHttp);
         installer.CheckFileSize = true;
