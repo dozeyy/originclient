@@ -436,6 +436,20 @@ public static class SettingsMigrator
                 return landedAs;
             }
 
+            // The same zipped pack under ANOTHER name from an earlier setup (renamed in one launcher): also a duplicate,
+            // it lands once and this setup's references use the name it landed under. Only same-size files are compared.
+            var fileSize = isDir ? null : ImportFiles.SizeOrNull(srcPath);
+            if (fileSize is { } sized)
+                foreach (var (earlierDest, earlier) in Ledger.PackFilesSized(dstDir, sized))
+                {
+                    if (earlier.Source == null || !FileCompare.Same(srcPath, earlier.Source, Fs)) continue;
+                    var landedAs = Path.GetFileName(earlierDest);
+                    var deferred = Line(SummarySection.Imported, kind, name, $"the same pack as \"{landedAs}\", already brought over from {earlier.SetupLabel}");
+                    if (DefersTo(earlier.Owner))
+                        AddFallback(OpKind.CopyFile, kind, landedAs, srcPath, earlierDest, sized, deferredLine: deferred);
+                    return landedAs;
+                }
+
             if (Ledger.ClaimOf(dest) is { } claim)
             {
                 // Another setup of this run already brings a pack of this name: the same bytes land once.
@@ -480,6 +494,7 @@ public static class SettingsMigrator
                 return null;
             }
             Ledger.AddPack(name, dest, srcPath, _c.SetupLabel, isDir, _c.SetupKey);
+            if (!isDir) Ledger.AddPackFile(dest, srcPath, bytes, _c.SetupLabel, _c.SetupKey);
             var packLine = Line(SummarySection.Imported, kind, finalName, reason, bytes);
             Plan.Ops.Add(new PlannedOp
             {

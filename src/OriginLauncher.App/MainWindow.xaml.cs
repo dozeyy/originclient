@@ -702,13 +702,13 @@ public partial class MainWindow : Window
         // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.
         panel.SetRefusal(ImportHooks.Refusal());
         panel.CloseRequested += (_, _) => CloseImportPanel();
-        // "Play" on the done screen: close the page and show Home on the version the import went to. Imports make no
-        // profiles, so the plain version is what plays.
+        // "Play" on the done screen: close the page, show Home on the version the import went to and start the game.
+        // Imports make no profiles, so the plain version is what plays.
         panel.PlayRequested += (_, version) =>
         {
             CloseImportPanel();
             NavigateTo(LauncherPage.Home);
-            _homePage.ShowVersion(version);
+            _homePage.PlayVersion(version);
         };
         panel.Imported += (_, _) =>
         {

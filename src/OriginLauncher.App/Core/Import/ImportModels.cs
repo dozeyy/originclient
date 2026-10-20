@@ -314,6 +314,12 @@ public sealed record PlannedOp
     /// <summary>For <see cref="OpKind.MergeServers"/>: the run's server list for this folder (every contributing setup's entries).</summary>
     public ServerMerge? Servers { get; init; }
 
+    /// <summary>
+    /// For a mod copied into the shared mods folder: Origin's copy it takes the place of (SharedModsLedger.Decide).
+    /// The new jar is added first, then this one is moved to the import's backup; nothing is rewritten in place.
+    /// </summary>
+    public string? Replaces { get; init; }
+
     /// <summary>For <see cref="OpKind.Custom"/>: the work, run in order inside the transaction.</summary>
     public Action<ImportOpContext>? Run { get; init; }
 
@@ -395,6 +401,9 @@ public sealed class ImportPlan
     public bool CanApply => Blocked.Count == 0;
 
     public List<PlannedOp> Ops { get; } = new();
+
+    /// <summary>Jars already in the version's shared mods folder that this import counts on instead of copying its own (ImportJournal.SharedModsReliedOn).</summary>
+    public List<string> SharedModsReliedOn { get; } = new();
     public List<ModDecision> Mods { get; } = new();
     public List<SummaryLine> Lines { get; } = new();
 

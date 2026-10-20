@@ -336,6 +336,10 @@ public sealed partial class ImportEngine
         var shared = ledger.Mods ??= SharedModsLedger.Read(modsDir);
         var label = plan.Source.BulkLabel();
         var copied = 0;
+        // What the imported (copied) mods require, so a mod Origin already has is checked against it, not kept on id alone.
+        var infoByPath = sourceMods.GroupBy(m => m.Path, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Info, StringComparer.OrdinalIgnoreCase);
+        ModInfo? InfoOf(ModDecision d) => d.SourcePath != null && infoByPath.TryGetValue(d.SourcePath, out var info) ? info : null;
+        var importedDepends = decisions.Where(d => d.IsCopied).SelectMany(d => InfoOf(d)?.Depends ?? Array.Empty<ModDependency>()).ToList();
         foreach (var d in decisions)
         {
             var name = d.DisplayName ?? d.ModId ?? d.FileName;
@@ -344,10 +348,17 @@ public sealed partial class ImportEngine
                 case ModOutcome.Copied:
                 case ModOutcome.CopiedAsBefore:
                 case ModOutcome.CopiedDisabled:
-                    if (shared.Holder(d) is { } holder)
+                    var names = new HashSet<string>(StringComparer.Ordinal);
+                    if (d.ModId is { Length: > 0 } modId) names.Add(modId);
+                    foreach (var provided in InfoOf(d)?.Provides ?? Array.Empty<string>()) names.Add(provided);
+                    var landing = shared.Decide(d, importedDepends.Where(dep => names.Contains(dep.Id)).ToList());
+                    if (landing.Holder is { } holder)
                     {
-                        plan.Lines.Add(new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
-                            holder == SharedModsLedger.InOrigin ? AlreadyInOriginMods : $"already brought over from {holder}"));
+                        if (landing.Existing is { } existing) plan.SharedModsReliedOn.Add(existing);
+                        plan.Lines.Add(landing.Note != null
+                            ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, landing.Note)
+                            : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
+                                holder == SharedModsLedger.InOrigin ? AlreadyInOriginMods : $"already brought over from {holder}"));
                         break;
                     }
                     if (ImportFiles.SizeOrNull(d.SourcePath!) is not { } bytes)
@@ -362,11 +373,11 @@ public sealed partial class ImportEngine
                     var modLine = d.Outcome == ModOutcome.CopiedDisabled
                         ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, "Imported but turned off: " + d.Reason, bytes)
                         : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
-                            d.Outcome == ModOutcome.CopiedAsBefore ? "imported turned off, as it was" : null, bytes);
+                            d.Outcome == ModOutcome.CopiedAsBefore ? "imported turned off, as it was" : landing.Note, bytes);
                     plan.Ops.Add(new PlannedOp
                     {
                         Kind = OpKind.CopyFile, Item = PlanItemKind.Mod, Label = d.DestFileName!, Source = d.SourcePath,
-                        Dest = Path.Combine(modsDir, d.DestFileName!), Bytes = bytes, PlannedLine = modLine,
+                        Dest = Path.Combine(modsDir, d.DestFileName!), Bytes = bytes, PlannedLine = modLine, Replaces = landing.Replaces,
                     });
                     plan.Lines.Add(modLine);
                     break;
@@ -442,6 +453,10 @@ public sealed partial class ImportEngine
         return dirs;
     }
 
+    // The shared mods folders among them (everything but the game folder): ImportJournal.SharedModsDirs.
+    internal static IEnumerable<string> SharedModsDirs(ImportPlan plan) =>
+        LockDirs(plan).Where(d => !string.Equals(d, plan.TargetGameDir, StringComparison.OrdinalIgnoreCase));
+
     // The Java each era runs (only used for "java" requirements in mods' depends).
     internal static string JavaFor(string mcVersion) =>
         McVersion.AtLeast(mcVersion, "26") ? "25"
@@ -486,6 +501,8 @@ public sealed partial class ImportEngine
         var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
         using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, plan.ImportId, _env.Clock, plan.Source.Name, plan.TargetVersion, _env.Guard,
             plan.TargetGameDir);
+        tx.Journal.SharedModsDirs = SharedModsDirs(plan).ToList();
+        tx.Journal.SharedModsReliedOn = plan.SharedModsReliedOn.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = plan.Source.GameDir, SharedRoot = plan.Source.SharedGameDir };
         var extra = new List<SummaryLine>();
         var dropped = new HashSet<SummaryLine>(ReferenceEqualityComparer.Instance);
@@ -528,7 +545,7 @@ public sealed partial class ImportEngine
                 {
                     // Same rule as a bulk run (B16): a mod jar or world file the old launcher (or an antivirus) has
                     // open, or one deleted since the plan, leaves THAT item out. It used to roll the whole import back.
-                    LeftOut(op, extra, dropped, countedLeftOut);
+                    LeftOut(op, ex, extra, dropped, countedLeftOut);
                 }
             }
             extra.AddRange(ImportSummary.Recount(plan.Ops, countedLeftOut, dropped));
@@ -574,6 +591,47 @@ public sealed partial class ImportEngine
         return string.IsNullOrEmpty(journal.TargetVersion) ? Array.Empty<string>() : new[] { journal.TargetVersion };
     }
 
+    // Shared mods folders of this journal that a LATER finished import counts on: it found a jar this one added there
+    // and copied nothing of its own (ImportJournal.SharedModsReliedOn). Undoing this one's changes there would take
+    // that mod away from the other import's account.
+    private List<string> SharedModsDirsOthersCountOn(ImportJournal journal)
+    {
+        var keep = new List<string>();
+        if (journal.SharedModsDirs is not { Count: > 0 } dirs) return keep;
+        var added = journal.Entries.Where(e => e.Kind == JournalEntryKinds.Created && !e.IsDirectory && e.Path != null)
+            .Select(e => e.Path!).ToList();
+        if (added.Count == 0) return keep;
+        var reliedOn = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var run in Directory.EnumerateDirectories(_env.ImportsRoot))
+            {
+                var id = Path.GetFileName(run);
+                if (id == journal.ImportId || !ImportLayout.IsValidId(id)) continue;
+                if (ImportJournalStore.Load(ImportLayout.Journal(_env.ImportsRoot, id)) is { State: ImportState.Committed } other)
+                    reliedOn.UnionWith(other.SharedModsReliedOn);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return dirs.ToList(); // can't tell who counts on what: the shared folders stay as they are (never takes a mod away)
+        }
+        foreach (var dir in dirs)
+            if (added.Any(path => ImportJournal.InDirs(path, new[] { dir }) && reliedOn.Contains(path)))
+                keep.Add(dir);
+        return keep;
+    }
+
+    // Every account's game folder of the version a shared mods folder belongs to (instances/<version>/accounts/*).
+    private static IEnumerable<string> AccountGameDirs(string sharedModsDir)
+    {
+        var versionDir = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(sharedModsDir));
+        if (versionDir == null) return Array.Empty<string>();
+        var accounts = Path.Combine(versionDir, "accounts");
+        try { return Directory.Exists(accounts) ? Directory.EnumerateDirectories(accounts).ToList() : new List<string>(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return Array.Empty<string>(); }
+    }
+
     private static IEnumerable<string> TargetDirs(ImportJournal journal)
     {
         var dirs = new List<string>();
@@ -617,11 +675,13 @@ public sealed partial class ImportEngine
 
     internal const string CouldntReadSource = "Couldn't read it in your old setup (it may be in use, or gone), so it was left out.";
 
+    internal static string LeftOutReason(Exception ex) => ex is ItemLeftOutException left ? left.Reason : CouldntReadSource;
+
     // An item apply left out because its source couldn't be read: one "Not imported" line under its file name, and
     // the plan's "Imported" line for it is dropped (it is no longer true), or recounted when it counts several items.
-    private static void LeftOut(PlannedOp op, List<SummaryLine> extra, HashSet<SummaryLine> dropped, List<PlannedOp> countedLeftOut)
+    private static void LeftOut(PlannedOp op, Exception ex, List<SummaryLine> extra, HashSet<SummaryLine> dropped, List<PlannedOp> countedLeftOut)
     {
-        extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, CouldntReadSource));
+        extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, LeftOutReason(ex)));
         if (op.CountedLine) countedLeftOut.Add(op);
         else if (op.PlannedLine != null) dropped.Add(op.PlannedLine);
     }
@@ -645,8 +705,13 @@ public sealed partial class ImportEngine
                 // The shared mods folder is only ever added to: a jar of that name that appeared since the plan (the
                 // Mods page, another account's import) stays as it is - a running game may hold it. The mod is in
                 // Origin's mods either way, so the plan's line stays true.
-                if (op.Item == PlanItemKind.Mod && (File.Exists(op.Dest) || File.Exists(op.Dest + ".disabled"))) break;
+                if (op.Item == PlanItemKind.Mod && ModTwinThere(op) is { } twin)
+                {
+                    tx.Journal.SharedModsReliedOn.Add(twin); // saved with the journal at commit
+                    break;
+                }
                 tx.CopyFile(op.Source!, op.Dest, op.TouchNow);
+                if (op.Replaces != null) ReplaceOriginsCopy(op, tx);
                 break;
             case OpKind.CopyTree:
                 tx.CopyTree(fs, op.Source!, op.Dest, ct);
@@ -680,6 +745,38 @@ public sealed partial class ImportEngine
                     extra.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, "servers.dat (server list)",
                         "Origin's server list couldn't be read, so it was left as it is and no servers were added."));
                 break;
+        }
+    }
+
+    // A jar of this name, turned on or off, that is in the shared mods folder now. The jar a swap replaces was there
+    // at plan time on purpose and doesn't count (the "X.jar.disabled" an "X.jar" takes the place of).
+    internal static string? ModTwinThere(PlannedOp op)
+    {
+        var dir = Path.GetDirectoryName(op.Dest) ?? "";
+        var key = SharedModsLedger.FileKey(Path.GetFileName(op.Dest));
+        foreach (var name in new[] { key, key + ".disabled" })
+        {
+            var path = Path.Combine(dir, name);
+            if (op.Replaces != null && string.Equals(path, op.Replaces, StringComparison.OrdinalIgnoreCase)) continue;
+            if (File.Exists(path)) return path;
+        }
+        return null;
+    }
+
+    // The second half of a swap (the new jar is already in place): Origin's old copy goes to the import's backup, so
+    // the folder never holds two copies of one mod (Fabric refuses to boot with duplicates). If the old jar can't be
+    // moved (another program holds it), the new jar goes too and Origin's copy stays: the folder is as it was.
+    private static void ReplaceOriginsCopy(PlannedOp op, ImportTransaction tx)
+    {
+        try
+        {
+            tx.RemoveWithBackup(op.Replaces!);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            tx.RemoveWithBackup(op.Dest); // just made by this run: nothing else holds it
+            throw new ItemLeftOutException(
+                $"Origin's copy ({Path.GetFileName(op.Replaces!)}) is in use, so it was left as it is. Close Minecraft and import again to update it.");
         }
     }
 
@@ -735,7 +832,9 @@ public sealed partial class ImportEngine
                 var gates = new List<IAsyncDisposable>();
                 // The folders' writer locks before the gates (ImportTargetLocks' order rule): an undo never runs
                 // under an apply into the same folder.
-                using var folders = ImportTargetLocks.Acquire(TargetDirs(journal), CancellationToken.None);
+                // The shared mods folders too: an apply of another account writes there, and while this undo holds them
+                // no import can count on a jar this undo is deciding about.
+                using var folders = ImportTargetLocks.Acquire(TargetDirs(journal).Concat(journal.SharedModsDirs ?? new List<string>()), CancellationToken.None);
                 try
                 {
                     if (committed && _env.VersionGate != null)
@@ -746,9 +845,24 @@ public sealed partial class ImportEngine
                     if (committed && TargetDirs(journal).Any(dir => Directory.Exists(dir) && _env.IsGameRunning(dir)))
                         return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = "Close Minecraft first: Origin's game is still running." };
 
+                    if (committed)
+                    {
+                        // A shared mods folder another import counts on keeps this import's changes; the others go back,
+                        // and every account of that version plays them, so none of those accounts' games may be running.
+                        journal.KeepSharedModsDirs = SharedModsDirsOthersCountOn(journal);
+                        foreach (var dir in journal.SharedModsDirs ?? new List<string>())
+                        {
+                            if (ImportJournal.InDirs(dir, journal.KeepSharedModsDirs)) continue;
+                            if (!journal.Entries.Any(e => e.Kind != JournalEntryKinds.SettingsDelta && ImportJournal.InDirs(e.Path, new[] { dir }))) continue;
+                            if (AccountGameDirs(dir).Any(_env.IsGameRunning))
+                                return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = "Close Minecraft first: it is running on this version from another account." };
+                        }
+                    }
+
                     var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
                     using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, journal, _env.Clock);
-                    // Reused game files stay after a finished import (JournalEntry.GameFile).
+                    // Reused game files stay after a finished import (JournalEntry.GameFile), and so do its changes to a
+                    // shared mods folder another import counts on (ImportJournal.KeepSharedModsDirs, decided above).
                     var problems = tx.Rollback(settings, keepGameFiles: committed);
                     if (committed) ImportTargetLocks.MarkChanged(TargetDirs(journal)); // a plan that saw these files is stale now
                     return new ImportResult

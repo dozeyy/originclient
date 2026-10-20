@@ -583,35 +583,37 @@
 
         <!-- ================= Choose what to import: the grid ================= -->
 
-        <!-- A launcher's row: logo, name, "3 setups - 1.21.1, 1.20.1", then one tick per column (the same 6 x 96 px
-             as the column heads). A greyed tick has nothing behind it; its tooltip says why. -->
+        <!-- A launcher's row, compact (Will, 2026-10-19: easy to scan): logo, name, "3 setups - 1.21.1, 1.20.1", then
+             one tick per column (the same 6 x 84 px as the column heads). A greyed tick has nothing behind it; its
+             tooltip says why. -->
         <DataTemplate DataType="{x:Type controls:GridRowVm}">
-            <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}" Padding="16,10"
-                    Margin="0,0,0,8">
+            <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}" Padding="12,6"
+                    Margin="0,0,0,4">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="180"/>
-                        <ColumnDefinition Width="576"/>
+                        <ColumnDefinition Width="*" MinWidth="172"/>
+                        <ColumnDefinition Width="504"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.ColumnSpan="2" Margin="-16,-10" CornerRadius="{StaticResource Radius.Card}"
+                    <Border Grid.ColumnSpan="2" Margin="-12,-6" CornerRadius="{StaticResource Radius.Card}"
                             Background="{Binding TintWash}" IsHitTestVisible="False"/>
                     <Grid VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border Width="36" Height="36" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
-                                BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Margin="0,0,12,0">
+                        <Border Width="28" Height="28" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Margin="0,0,10,0">
                             <Grid>
                                 <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
-                                <Image x:Name="LogoImage" Source="{Binding Logo}" Width="24" Height="24"
+                                <Image x:Name="LogoImage" Source="{Binding Logo}" Width="18" Height="18"
                                        RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
                             </Grid>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" FontWeight="Bold"
                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}"/>
-                            <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}" ToolTip="{Binding Caption}"/>
+                            <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}" ToolTip="{Binding Caption}"
+                                       TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Grid>
                     <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}" Focusable="False" VerticalAlignment="Center">
@@ -624,7 +626,7 @@
                             <!-- A greyed cell (nothing behind it) reads as a muted dash, not an empty box that looks
                                  merely unticked; the disabled tick stays in place (invisible) for screen readers. -->
                             <DataTemplate>
-                                <Grid Width="32" Height="32" HorizontalAlignment="Center" Background="Transparent"
+                                <Grid Width="28" Height="28" HorizontalAlignment="Center" Background="Transparent"
                                       ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True">
                                     <Border x:Name="Tick">
                                         <CheckBox Style="{StaticResource Import.Tick}" IsThreeState="False"
@@ -995,7 +997,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <ItemsControl x:Name="GridTabs" Focusable="False" Margin="0,0,0,10">
+                    <ItemsControl x:Name="GridTabs" Focusable="False" Margin="0,0,0,6">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel/>
@@ -1009,12 +1011,12 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <!-- The heads sit over the ticks: the row's 16 px inset and its 576 px tick block, plus the list's
+                    <!-- The heads sit over the ticks: the row's 12 px inset and its 504 px tick block, plus the list's
                          scrollbar column. -->
-                    <Grid Grid.Row="1" Margin="16,0,24,6">
+                    <Grid Grid.Row="1" Margin="12,0,24,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="576"/>
+                            <ColumnDefinition Width="504"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="LAUNCHER" Style="{StaticResource Text.Eyebrow}" VerticalAlignment="Bottom"/>
                         <ItemsControl x:Name="GridHeads" Grid.Column="1" Focusable="False">

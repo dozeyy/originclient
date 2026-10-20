@@ -422,6 +422,10 @@ public sealed partial class ImportEngine
         tx.Journal.TargetGameDirs = plan.Groups.Select(g => g.TargetGameDir).ToList();
         tx.Journal.SetupCount = setups.Count;
         tx.Journal.GateVersions = gated.Select(g => g.Version).ToList();
+        tx.Journal.SharedModsDirs = plan.Groups.SelectMany(g => g.Setups).SelectMany(s => SharedModsDirs(s.Plan))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        tx.Journal.SharedModsReliedOn = plan.Groups.SelectMany(g => g.Setups).SelectMany(s => s.Plan.SharedModsReliedOn)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
         var held = new List<IAsyncDisposable>();
         IDisposable? folders = null; // every target folder's writer lock, taken before the version gates
@@ -546,7 +550,7 @@ public sealed partial class ImportEngine
                             // B16: a soft SOURCE problem (gone, unreadable, in use) leaves that item out, with a line —
                             // and its claim passes to the next setup that has the same thing.
                             // Its planned "Imported" line is no longer true: dropped, so the result never lists it twice.
-                            state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, CouldntReadSource));
+                            state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, ImportEngine.LeftOutReason(ex)));
                             if (op.CountedLine) state.CountedLeftOut.Add(op);
                             else if (op.PlannedLine != null) state.Superseded.Add(op.PlannedLine);
                             if (op.ClaimKey != null)
@@ -608,7 +612,7 @@ public sealed partial class ImportEngine
     // pack) turns its failures into SourceUnreadableException; anything else — a write, a move, a full disk, a
     // contributor's own step (game files and caches handle their source problems themselves) — is the destination's.
     private static bool IsSourceProblem(PlannedOp op, Exception ex) =>
-        ex is SourceUnreadableException && !ImportFiles.IsDiskFull(ex) && op.Kind != OpKind.Custom;
+        (ex is SourceUnreadableException && !ImportFiles.IsDiskFull(ex) || ex is ItemLeftOutException) && op.Kind != OpKind.Custom;
 
     // B12: an import changes no launcher setting at all (Will, 2026-10-19: imports never make profiles, and the player's
     // picked version stays theirs; the done screen's Play picks one). PlayWithExternalMods is never touched either.

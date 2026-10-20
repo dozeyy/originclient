@@ -381,9 +381,22 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     // The header: the poster title, an optional line or two under it, and an optional status line (a dot, or a spinner
     // while looking, and a few words). The page below starts at the same place on every page.
-    private void SetHeader(string title, string? subtitle, string? status = null, bool dot = true)
+    /// <param name="compact">The grid page: a smaller poster title (the dialog-title size) and the line close under it, so the grid gets the room.</param>
+    private void SetHeader(string title, string? subtitle, string? status = null, bool dot = true, bool compact = false)
     {
         HeaderTitle.Text = title.ToUpperInvariant();
+        if (compact)
+        {
+            HeaderTitle.FontSize = (double)FindResource("FontSize.DialogTitle");
+            HeaderTitle.LineHeight = HeaderTitle.FontSize;
+            HeaderSubtitle.Margin = new Thickness(0, 4, 0, 0);
+        }
+        else
+        {
+            HeaderTitle.ClearValue(TextBlock.FontSizeProperty);
+            HeaderTitle.ClearValue(TextBlock.LineHeightProperty);
+            HeaderSubtitle.ClearValue(MarginProperty);
+        }
         HeaderSubtitle.Text = subtitle ?? "";
         HeaderSubtitle.Visibility = V(!string.IsNullOrEmpty(subtitle));
         StatusText.Text = status ?? "";
@@ -826,24 +839,21 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         GridWarningRow.Visibility = V(warning != null);
         if (_pane != Pane.Grid) return;
 
-        SetHeader("Choose what to import",
-            "Tick what comes from each launcher. Settings come from one launcher per version; mods, packs, worlds and servers from as many as you like. "
-            + "Everything goes straight into Origin, no profiles.");
+        SetHeader("Choose what to import", "Tick what to bring over.", compact: true);
         SetFooter(GridNote(grid), null, null, _autoStart ? "Checking..." : "Import", ImportFromGrid, icon: !_autoStart);
         if (_autoStart) ShowChecking();
         TryFocusPrimary();
     }
 
-    // "Settings from **Prism / MultiMC**" on a version's tab; "**4** versions from **3** launchers" on All versions.
+    // "Settings from **Prism / MultiMC**" (one launcher for the whole grid); "Origin keeps its own settings" with none.
     private static string GridNote(ImportGridModel grid)
     {
         if (grid.BringsNothing) return "Nothing is ticked yet";
-        if (grid.Tab == ImportGridModel.AllTab)
-            return $"**{grid.Versions.Count}** versions from **{grid.Rows().Count}** launchers";
-        var version = grid.Tab;
-        return grid.SettingsFrom(version) is { } kind
-            ? $"Minecraft {version}: settings from **{ImportFlowModel.LauncherTitle(kind)}**"
-            : $"Minecraft {version}: Origin keeps its own settings";
+        if (grid.Tab != ImportGridModel.AllTab && grid.SettingsFrom(grid.Tab) is null)
+            return $"Minecraft {grid.Tab} keeps Origin's own settings";
+        return grid.SettingsLauncher is { } kind
+            ? $"Settings from **{ImportFlowModel.LauncherTitle(kind)}**"
+            : "Origin keeps its own settings";
     }
 
     private void GridCell_Click(object sender, RoutedEventArgs e)
@@ -2632,7 +2642,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
         ShowPane(Pane.Done);
         if (_playVersion is { } play)
-            SetFooter($"Everything is in Origin, no profile needed. **Play** picks Minecraft {play} on Home.",
+            SetFooter($"Everything is in Origin, no profile needed. **Play** starts Minecraft {play}.",
                 "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty), "Play", () => PlayRequested?.Invoke(this, play));
         else
             SetFooter(null, null, null, "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty));

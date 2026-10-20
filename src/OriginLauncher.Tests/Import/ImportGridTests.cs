@@ -129,31 +129,47 @@ public sealed class ImportGridTests : IDisposable
     };
 
     [Fact]
-    public void SettingsIsOneLauncherPerVersionAndATabChangesOnlyItsVersion()
+    public void SettingsIsOneLauncherForTheWholeGridARadio()
     {
+        // Will, 2026-10-19: only ONE launcher's settings, across every version, so nothing conflicts.
         var grid = new ImportGridModel(TwoLaunchersTwoVersions());
-        var before = grid.SettingsFrom("1.20.4");
+        Assert.Equal(SourceKind.Prism, grid.SettingsLauncher);                     // the most played on both versions
+        Assert.Equal(SourceKind.Prism, grid.SettingsFrom("1.21.1"));
+        Assert.Equal(SourceKind.Prism, grid.SettingsFrom("1.20.4"));
 
-        grid.SetTab("1.21.1");
-        var current = grid.SettingsFrom("1.21.1")!.Value;
-        var other = current == SourceKind.Prism ? SourceKind.Modrinth : SourceKind.Prism;
-        Assert.True(grid.Cell(current, GridColumn.Settings).On);
-        Assert.False(grid.Cell(other, GridColumn.Settings).On);
+        grid.SetTab("1.21.1");                                                    // a tab changes the one pick for every version
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Settings);
 
-        grid.Toggle(other, GridColumn.Settings);
-
-        Assert.Equal(other, grid.SettingsFrom("1.21.1"));
-        Assert.True(grid.Cell(other, GridColumn.Settings).On);
-        Assert.False(grid.Cell(current, GridColumn.Settings).On);                 // a radio: the old pick turned off
-        Assert.Equal(before, grid.SettingsFrom("1.20.4"));                        // another version: untouched
-        Assert.Equal(other, grid.Grid().ChoseSettings("1.21.1", out var chosen) ? chosen : null);
-
-        grid.Toggle(other, GridColumn.Settings);                                  // off: that version brings no settings
-        Assert.Null(grid.SettingsFrom("1.21.1"));
-
-        // On All versions, a launcher that has the settings of only some versions reads as mixed (null).
+        Assert.Equal(SourceKind.Modrinth, grid.SettingsLauncher);
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Settings).On);
+        Assert.False(grid.Cell(SourceKind.Prism, GridColumn.Settings).On);        // a radio: the old pick turned off
+        Assert.Equal(SourceKind.Modrinth, grid.SettingsFrom("1.20.4"));
         grid.SetTab(ImportGridModel.AllTab);
-        Assert.Contains(grid.Cell(SourceKind.Prism, GridColumn.Settings).On, new bool?[] { null, false });
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Settings).On);
+        Assert.False(grid.Cell(SourceKind.Prism, GridColumn.Settings).On);
+        var engine = grid.Grid();
+        Assert.Equal(SourceKind.Modrinth, engine.ChoseSettings("1.21.1", out var a) ? a : null);
+        Assert.Equal(SourceKind.Modrinth, engine.ChoseSettings("1.20.4", out var b) ? b : null);
+
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Settings);                    // off: no settings come at all
+        Assert.Null(grid.SettingsLauncher);
+        Assert.All(grid.Versions, v => Assert.Null(grid.SettingsFrom(v)));
+    }
+
+    [Fact]
+    public void AVersionTheSettingsLauncherDoesntHaveKeepsOriginsOwnAndTheTipSaysSo()
+    {
+        var grid = new ImportGridModel(new[]
+        {
+            Setup("Survival", SourceKind.Prism, "1.21.1", 40),
+            Setup("PvP", SourceKind.Modrinth, "1.20.4", 60),
+            Setup("PvP new", SourceKind.Modrinth, "1.21.1", 1),
+        });
+        // Modrinth is the engine's pick on 1.20.4 only, Prism on 1.21.1 only: a tie goes to the newest version's.
+        Assert.Equal(SourceKind.Prism, grid.SettingsLauncher);
+        Assert.Null(grid.SettingsFrom("1.20.4"));
+        Assert.Contains("Minecraft 1.20.4 keeps Origin's own", grid.Cell(SourceKind.Prism, GridColumn.Settings).Tip);
+        Assert.False(grid.Grid().ChoseSettings("1.20.4", out var none) && none != null);
     }
 
     [Fact]
@@ -220,13 +236,25 @@ public sealed class ImportGridTests : IDisposable
 
         grid.Toggle(off, GridColumn.Mods);
 
+        Assert.Equal("Mods from different launchers might not work together.", grid.Warning());
+        grid.SetTab("1.20.4");                                                    // shown whatever the tab
         Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
         grid.SetTab(ImportGridModel.AllTab);
-        Assert.Equal(ImportGridModel.MixedModsWarning + " (Minecraft 1.21.1)", grid.Warning());
+        Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
         Assert.Equal(new[] { "1.21.1" }, grid.MixedModsVersions());
         var composition = BulkComposer.Compose(setups, grid.Grid());
         Assert.Contains(composition, c => c.Version == "1.21.1" && c.MixedMods);
         Assert.DoesNotContain(composition, c => c.Version == "1.20.4" && c.MixedMods);
+    }
+
+    [Fact]
+    public void TwoLaunchersModsOnDifferentVersionsNeverWarn()
+    {
+        // Each version has its own mods folder: Prism's 1.21.1 mods and Modrinth's 1.20.4 mods never meet.
+        var grid = new ImportGridModel(new[] { Setup("Survival", SourceKind.Prism, "1.21.1", 40), Setup("FO", SourceKind.Modrinth, "1.20.4", 5) });
+        Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.Null(grid.Warning());
     }
 
     [Fact]

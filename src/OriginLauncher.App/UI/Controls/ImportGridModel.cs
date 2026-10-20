@@ -10,9 +10,11 @@ namespace OriginLauncher.App.UI.Controls;
 // OriginLauncher.Tests (ImportGridModelTests).
 //
 // Rules it keeps:
-//  * Settings is one launcher per Minecraft version (a radio): the default is the engine's own pick (VersionPicker,
-//    BulkComposer.DefaultSettingsLauncher), so an untouched grid plans exactly like Import everything;
+//  * Settings is ONE launcher for the whole grid (a radio: ticking one unticks the other), so no two launchers'
+//    settings ever meet (Will, 2026-10-19). The default is the launcher the engine picks for the most versions
+//    (BulkComposer.DefaultSettingsLauncher); a version that launcher has no setup on keeps Origin's own settings;
 //  * every other column is a plain tick; mods from several launchers on one version are allowed, with a warning;
+//    packs, shaders and servers come from every ticked launcher with duplicates removed, worlds all come;
 //  * a cell with nothing behind it is greyed with the reason ("Lunar's mods are built in, not files"), never hidden;
 //  * with more than one version there are tabs: "All versions" (a tick there sets every version) and one per version.
 
@@ -27,7 +29,7 @@ internal sealed class ImportGridModel
     /// <summary>The "All versions" tab.</summary>
     public const string AllTab = "all";
 
-    public const string MixedModsWarning = "Mixing mod sets can break the game";
+    public const string MixedModsWarning = "Mods from different launchers might not work together.";
 
     public static readonly IReadOnlyList<GridColumn> Columns = new[]
     {
@@ -36,7 +38,8 @@ internal sealed class ImportGridModel
 
     private readonly List<DetectedInstance> _setups;
     private readonly ImportGrid _cells = new();                                   // the ticks (Settings excluded)
-    private readonly Dictionary<string, SourceKind?> _settings = new(StringComparer.Ordinal); // the player's Settings picks
+    private SourceKind? _settingsPick;                                             // the player's Settings pick...
+    private bool _settingsPicked;                                                  // ...once they made one
 
     /// <param name="setups">The setups that can come over (a supported, known Minecraft version).</param>
     public ImportGridModel(IEnumerable<DetectedInstance> setups)
@@ -116,11 +119,23 @@ internal sealed class ImportGridModel
         return ImportLogic.Plural(mine.Count, "setup", "setups") + " - " + ImportFlowModel.JoinFew(versions);
     }
 
-    // ---------------------------------------------------------------- settings: one launcher per version
+    // ---------------------------------------------------------------- settings: one launcher for the whole grid
 
-    /// <summary>Whose settings <paramref name="version"/> gets: the player's pick, else the engine's default; null = none.</summary>
+    /// <summary>The one launcher whose settings come over (the player's pick, else the default); null = none at all.</summary>
+    public SourceKind? SettingsLauncher => _settingsPicked ? _settingsPick : DefaultSettingsLauncher();
+
+    // The launcher the engine would pick for the most versions; a tie goes to the one it picks for the newest.
+    private SourceKind? DefaultSettingsLauncher()
+    {
+        var picks = Versions.Select(v => BulkComposer.DefaultSettingsLauncher(v, _setups)).ToList();
+        return picks.Where(k => k != null).Select(k => k!.Value).Distinct()
+            .OrderByDescending(k => picks.Count(p => p == k)).ThenBy(k => picks.IndexOf(k))
+            .Select(k => (SourceKind?)k).FirstOrDefault();
+    }
+
+    /// <summary>Whose settings <paramref name="version"/> gets: the one settings launcher when it has a setup there; null = Origin's own stay.</summary>
     public SourceKind? SettingsFrom(string version) =>
-        _settings.TryGetValue(version, out var picked) ? picked : BulkComposer.DefaultSettingsLauncher(version, _setups);
+        SettingsLauncher is { } kind && SetupsOf(kind, version).Any(BulkComposer.CarriesSettings) ? kind : null;
 
     // The tab's versions where this launcher has a setup that carries settings (a Forge one on Fabric brings packs only).
     private List<string> SettingsVersions(SourceKind kind) =>
@@ -137,8 +152,11 @@ internal sealed class ImportGridModel
         {
             var mine = SettingsVersions(kind);
             if (mine.Count == 0) return new GridCellState(false, false, $"{title}'s setups here bring packs only (Forge), not settings");
-            return new GridCellState(Aggregate(mine.Select(v => SettingsFrom(v) == kind)), true,
-                $"Use {title}'s settings for {where} (one launcher's settings per version)");
+            // Versions this launcher has no settings on keep Origin's own: said in the tip, never a silent gap.
+            var keep = Versions.Where(v => !SetupsOf(kind, v).Any(BulkComposer.CarriesSettings)).ToList();
+            var tip = $"Use {title}'s settings (one launcher's settings for every version)"
+                + (keep.Count > 0 ? $"; Minecraft {ImportFlowModel.JoinFew(keep)} keeps Origin's own" : "");
+            return new GridCellState(SettingsLauncher == kind, true, tip);
         }
 
         var versions = TabVersions.Where(v => SetupsOf(kind, v).Count > 0).ToList();
@@ -217,8 +235,8 @@ internal sealed class ImportGridModel
     };
 
     /// <summary>
-    /// A press on a cell. A tick turns on (or off) for every version of the tab where it can. Settings is a radio per
-    /// version: on picks this launcher; off leaves the version with no settings brought at all.
+    /// A press on a cell. A tick turns on (or off) for every version of the tab where it can. Settings is one radio for
+    /// the whole grid: on picks this launcher (and unticks the other); off brings no settings at all.
     /// </summary>
     public void Toggle(SourceKind kind, GridColumn column)
     {
@@ -227,11 +245,8 @@ internal sealed class ImportGridModel
         var on = cell.On != true;
         if (column == GridColumn.Settings)
         {
-            foreach (var version in SettingsVersions(kind))
-            {
-                if (on) _settings[version] = kind;
-                else if (SettingsFrom(version) == kind) _settings[version] = null;
-            }
+            _settingsPicked = true;
+            _settingsPick = on ? kind : null;
             return;
         }
         var category = Category(column);
@@ -242,17 +257,15 @@ internal sealed class ImportGridModel
         }
     }
 
-    /// <summary>The tab's versions whose mods come from more than one launcher.</summary>
+    /// <summary>The versions (whole grid, whatever the tab) whose mods come from more than one launcher.</summary>
     public IReadOnlyList<string> MixedModsVersions() =>
-        TabVersions.Where(v => LaunchersOn(v).Count(k => Has(k, v, GridColumn.Mods) && (_cells.Brings(k, v) & ImportCategories.Mods) != 0) > 1).ToList();
+        Versions.Where(v => LaunchersOn(v).Count(k => Has(k, v, GridColumn.Mods) && (_cells.Brings(k, v) & ImportCategories.Mods) != 0) > 1).ToList();
 
-    /// <summary>"Mixing mod sets can break the game (Minecraft 1.21.1)", or null when no version mixes them.</summary>
-    public string? Warning()
-    {
-        var mixed = MixedModsVersions();
-        if (mixed.Count == 0) return null;
-        return Tab == AllTab ? $"{MixedModsWarning} (Minecraft {ImportFlowModel.JoinFew(mixed)})" : MixedModsWarning;
-    }
+    /// <summary>
+    /// The short warning when two launchers' mods land in one version's mods folder, or null. Mods ticked from two
+    /// launchers on DIFFERENT versions never meet (each version has its own folder), so they don't warn.
+    /// </summary>
+    public string? Warning() => MixedModsVersions().Count == 0 ? null : MixedModsWarning;
 
     /// <summary>True when the grid brings nothing at all (Import is off then).</summary>
     public bool BringsNothing =>
@@ -268,7 +281,7 @@ internal sealed class ImportGridModel
         foreach (var version in Versions)
         {
             foreach (var kind in LaunchersOn(version)) grid.Set(version, kind, _cells.Brings(kind, version));
-            if (_settings.TryGetValue(version, out var picked)) grid.SetSettings(version, picked);
+            grid.SetSettings(version, SettingsFrom(version));
         }
         return grid;
     }
@@ -280,7 +293,7 @@ internal sealed class ImportGridModel
         foreach (var version in Versions)
         {
             foreach (var kind in LaunchersOn(version)) parts.Add($"{version}|{kind}={(int)_cells.Brings(kind, version)}");
-            if (_settings.TryGetValue(version, out var picked)) parts.Add($"{version}|settings={picked?.ToString() ?? "none"}");
+            parts.Add($"{version}|settings={SettingsFrom(version)?.ToString() ?? "none"}");
         }
         return string.Join(";", parts);
     }
