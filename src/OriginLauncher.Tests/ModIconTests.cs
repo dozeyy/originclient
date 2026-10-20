@@ -4,9 +4,9 @@ using Xunit;
 
 namespace OriginLauncher.Tests;
 
-// The Mods page's real icons: reading the icon path out of a jar's manifest (string and size-map forms),
-// pulling the PNG from a real zip, the cache keys, the negative-result cache and the Modrinth URL
-// allow-list. Nothing here touches the network.
+// The Mods page's icons come only from inside the jar: reading the icon path out of a jar's manifest
+// (string and size-map forms), pulling the PNG from a real zip, and the in-memory result cache
+// (one load per unchanged file, "no icon" remembered, over-cap icons included).
 public class ModIconTests
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("mod-icons").FullName;
@@ -92,92 +92,81 @@ public class ModIconTests
     }
 
     [Fact]
-    public void Cache_keys_accept_only_a_sha1_or_a_plain_slug()
+    public async Task Memo_loads_once_per_unchanged_file_and_remembers_no_icon()
     {
-        var sha = "ABCDEF0123456789abcdef0123456789ABCDEF01";
-        Assert.Equal(sha.ToLowerInvariant(), ModIconCache.KeyForSha1(sha));
-        Assert.Null(ModIconCache.KeyForSha1("abc"));
-        Assert.Null(ModIconCache.KeyForSha1("../../etc/passwd" + new string('a', 30)));
-        Assert.Null(ModIconCache.KeyForSha1(null));
-        Assert.Equal("slug-sodium", ModIconCache.KeyForSlug("Sodium"));
-        Assert.Null(ModIconCache.KeyForSlug("../x"));
-        Assert.Null(ModIconCache.KeyForSlug(""));
+        var f = Path.Combine(_dir, "a.jar");
+        File.WriteAllText(f, "x");
+        var memo = new IconMemo<string>();
+        var loads = 0;
+        string? Load(string p) { Interlocked.Increment(ref loads); return null; } // a jar with no icon
+
+        Assert.Null(await memo.GetAsync(f, Load));
+        Assert.Null(await memo.GetAsync(f, Load));
+        Assert.Equal(1, loads); // "no icon" is a cached answer, not re-read on every refresh
     }
 
     [Fact]
-    public void Cache_hit_roundtrip_and_unknown_by_default()
+    public async Task Over_cap_icon_is_a_cached_no_icon()
     {
-        var cache = new ModIconCache(_dir, TimeSpan.FromDays(7));
-        var key = new string('a', 40);
-        Assert.Equal(IconLookup.Unknown, cache.Lookup(key));
-        cache.StoreHit(key, new byte[] { 1, 2, 3 });
-        Assert.Equal(IconLookup.Hit, cache.Lookup(key));
-        Assert.Equal(new byte[] { 1, 2, 3 }, cache.ReadHit(key));
+        var jar = Path.Combine(_dir, "bigicon.jar");
+        using (var zip = ZipFile.Open(jar, ZipArchiveMode.Create))
+        {
+            Put(zip, "fabric.mod.json", """{"icon":"big.png"}"""u8.ToArray());
+            Put(zip, "big.png", new byte[JarIconReader.MaxIconBytes + 1]);
+        }
+        var memo = new IconMemo<byte[]>();
+        var loads = 0;
+        byte[]? Load(string p) { Interlocked.Increment(ref loads); return JarIconReader.ReadIcon(p); }
+
+        Assert.Null(await memo.GetAsync(jar, Load));
+        Assert.Null(await memo.GetAsync(jar, Load));
+        Assert.Equal(1, loads);
     }
 
     [Fact]
-    public void Negative_result_is_cached_then_expires()
+    public async Task Concurrent_callers_share_one_load()
     {
-        var now = new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
-        var cache = new ModIconCache(_dir, TimeSpan.FromDays(7), () => now);
-        var key = new string('b', 40);
+        var f = Path.Combine(_dir, "shared.jar");
+        File.WriteAllText(f, "x");
+        var memo = new IconMemo<string>();
+        var loads = 0;
+        var gate = new ManualResetEventSlim();
+        string? Load(string p) { Interlocked.Increment(ref loads); gate.Wait(); return "icon"; }
 
-        cache.StoreMiss(key);
-        File.SetLastWriteTimeUtc(Path.Combine(_dir, key + ".none"), now);
-        Assert.Equal(IconLookup.Miss, cache.Lookup(key));
-
-        now = now.AddDays(6);
-        Assert.Equal(IconLookup.Miss, cache.Lookup(key));
-
-        now = now.AddDays(2); // past the 7-day TTL: look again
-        Assert.Equal(IconLookup.Unknown, cache.Lookup(key));
+        var tasks = Enumerable.Range(0, 8).Select(_ => memo.GetAsync(f, Load)).ToArray();
+        gate.Set();
+        var results = await Task.WhenAll(tasks);
+        Assert.All(results, r => Assert.Equal("icon", r));
+        Assert.Equal(1, loads);
     }
 
     [Fact]
-    public void A_stored_icon_replaces_a_miss_and_a_miss_replaces_a_bad_icon()
+    public async Task A_changed_file_is_read_again_and_the_old_entry_is_dropped()
     {
-        var cache = new ModIconCache(_dir, TimeSpan.FromDays(7));
-        var key = new string('c', 40);
-        cache.StoreMiss(key);
-        cache.StoreHit(key, new byte[] { 7 });
-        Assert.Equal(IconLookup.Hit, cache.Lookup(key));
-        cache.StoreMiss(key); // the icon would not decode
-        Assert.Equal(IconLookup.Miss, cache.Lookup(key));
-        Assert.Null(cache.ReadHit(key));
-    }
+        var f = Path.Combine(_dir, "changes.jar");
+        File.WriteAllText(f, "x");
+        var memo = new IconMemo<string>();
+        var loads = 0;
+        string? Load(string p) => "v" + Interlocked.Increment(ref loads);
 
-    [Theory]
-    [InlineData("https://cdn.modrinth.com/data/AANobbMI/icon.png", true)]
-    [InlineData("https://CDN.MODRINTH.COM/data/x/icon.png", true)]
-    [InlineData("http://cdn.modrinth.com/data/x/icon.png", false)]
-    [InlineData("https://cdn.modrinth.com.evil.com/x.png", false)]
-    [InlineData("https://evil.com/cdn.modrinth.com/x.png", false)]
-    [InlineData("https://user@cdn.modrinth.com/x.png", false)]
-    [InlineData("https://cdn.modrinth.com:8443/x.png", false)]
-    [InlineData("file:///C:/x.png", false)]
-    [InlineData("", false)]
-    public void Only_https_cdn_modrinth_com_is_an_allowed_icon_host(string url, bool allowed)
-    {
-        Assert.Equal(allowed, ModIconSource.IsAllowedIconUrl(url));
+        Assert.Equal("v1", await memo.GetAsync(f, Load));
+        File.WriteAllText(f, "longer content"); // size changes
+        Assert.Equal("v2", await memo.GetAsync(f, Load));
+        File.SetLastWriteTimeUtc(f, DateTime.UtcNow.AddMinutes(5)); // mtime changes
+        Assert.Equal("v3", await memo.GetAsync(f, Load));
+        Assert.Equal(1, memo.Count);
     }
 
     [Fact]
-    public void Modrinth_answers_parse_and_reject_hostile_values()
+    public async Task Missing_file_is_no_icon_and_not_remembered_and_a_throwing_loader_is_no_icon()
     {
-        Assert.Equal("AANobbMI", ModIconSource.ParseProjectId("""{"project_id":"AANobbMI","id":"zzz"}"""));
-        Assert.Null(ModIconSource.ParseProjectId("""{"project_id":"../../x"}"""));
-        Assert.Null(ModIconSource.ParseProjectId("{}"));
-        Assert.Equal("https://cdn.modrinth.com/data/a/icon.png", ModIconSource.ParseIconUrl("""{"icon_url":"https://cdn.modrinth.com/data/a/icon.png"}"""));
-        Assert.Null(ModIconSource.ParseIconUrl("""{"icon_url":"https://evil.com/i.png"}"""));
-        Assert.Null(ModIconSource.ParseIconUrl("""{"icon_url":null}"""));
-    }
+        var memo = new IconMemo<string>();
+        Assert.Null(await memo.GetAsync(Path.Combine(_dir, "nope.jar"), _ => "never"));
+        Assert.Equal(0, memo.Count);
 
-    [Fact]
-    public void Built_in_slugs()
-    {
-        Assert.Equal("sodium", ModIconSource.BuiltInSlug("sodium-fabric-0.6.13+mc1.21.1.jar"));
-        Assert.Equal("iris", ModIconSource.BuiltInSlug("iris-fabric-1.8.8+mc1.21.1.jar"));
-        Assert.Null(ModIconSource.BuiltInSlug("originclient-1.21.1.jar"));
+        var f = Path.Combine(_dir, "throws.jar");
+        File.WriteAllText(f, "x");
+        Assert.Null(await memo.GetAsync(f, _ => throw new InvalidDataException()));
     }
 
     private static void Put(ZipArchive zip, string name, byte[] bytes)

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using OriginLauncher.App.Core.Mods.Icons;
 using System.Windows;
 using System.Windows.Controls;
@@ -196,49 +195,40 @@ public partial class ModsPage : UserControl
 
     // ---- real mod icons -------------------------------------------------------
 
-    // Decoded icons by jar path (or "demo:<file>"), so a re-built row shows its icon at once with no second fade.
-    private static readonly ConcurrentDictionary<string, BitmapSource> LoadedIcons = new();
+    // Decoded icons by jar (path + size + mtime), loaded once and shared: a Refresh() that rebuilds the rows
+    // gets the finished icon at once (no second fade) and never reads the same jar twice.
+    private static readonly IconMemo<BitmapSource> Icons = new();
 
+    // Icons come only from inside the jar. A jar with no icon keeps the generated tinted one.
     // Origin Client's own jar ships a placeholder icon, so it keeps the Origin mark.
     private void LoadRealIcon(ModEntry mod, Border well, Path glyph, bool dim)
     {
         if (mod.FileName.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)) return;
-        var demo = _demo != null;
-        string? jar = null;
-        if (!demo)
+        Task<BitmapSource?> task;
+        if (_demo != null)
+        {
+            var fileName = mod.FileName;
+            task = Icons.GetByKeyAsync("demo:" + fileName, () =>
+                ModIconSource.DemoIcons != null && ModIconSource.DemoIcons.TryGetValue(fileName, out var d) ? DecodeIcon(d) : null);
+        }
+        else
         {
             if (_version == null) return;
             var name = mod.Enabled || mod.IsManaged ? mod.FileName : mod.FileName + ".disabled";
-            jar = System.IO.Path.Combine(ModManager.ModsFolder(_version, _profile?.Id), name);
+            var jar = System.IO.Path.Combine(ModManager.ModsFolder(_version, _profile?.Id), name);
+            task = Icons.GetAsync(jar, path => JarIconReader.ReadIcon(path) is { } bytes ? DecodeIcon(bytes) : null);
         }
-        var key = demo ? "demo:" + mod.FileName : jar!;
 
-        if (LoadedIcons.TryGetValue(key, out var cached))
+        if (task.IsCompletedSuccessfully)
         {
-            ShowRealIcon(well, glyph, cached, dim, fade: false);
+            if (task.Result is { } ready) ShowRealIcon(well, glyph, ready, dim, fade: false);
             return;
         }
-
-        var slug = mod.IsManaged ? ModIconSource.BuiltInSlug(mod.FileName) : null;
-        var fileName = mod.FileName;
-        _ = Task.Run(async () =>
+        _ = task.ContinueWith(t =>
         {
-            byte[]? bytes;
-            if (demo)
-                bytes = ModIconSource.DemoIcons != null && ModIconSource.DemoIcons.TryGetValue(fileName, out var d) ? d : null;
-            else
-                bytes = await ModIconSource.ResolveAsync(jar!, slug).ConfigureAwait(false);
-            if (bytes == null) return;
-
-            var image = DecodeIcon(bytes);
-            if (image == null)
-            {
-                if (!demo) ModIconSource.MarkUndecodable(jar!);
-                return;
-            }
-            LoadedIcons[key] = image;
-            await well.Dispatcher.InvokeAsync(() => ShowRealIcon(well, glyph, image, dim, fade: true));
-        });
+            if (t.IsCompletedSuccessfully && t.Result is { } image)
+                well.Dispatcher.InvokeAsync(() => ShowRealIcon(well, glyph, image, dim, fade: true));
+        }, TaskScheduler.Default);
     }
 
     // Decode off the UI thread into a frozen bitmap. Anything that is not a sane image is "no icon".
@@ -273,14 +263,16 @@ public partial class ModsPage : UserControl
     }
 
     // Fades the real icon in over the tinted placeholder (opacity only), then retires the placeholder.
-    // Small pixel-art icons are drawn at a whole-number multiple with nearest-neighbour so they stay crisp;
-    // big icons use high-quality scaling. Clipped to the tile's corner radius either way.
+    // Small icons are drawn at a whole-number multiple with nearest-neighbour so they stay crisp;
+    // everything else uses high-quality scaling. Clipped to the tile's corner radius either way.
     private static void ShowRealIcon(Border well, Path glyph, BitmapSource source, bool dim, bool fade)
     {
         if (well.Child is not Grid host || host.Children.Count > 1) return;
         var longest = Math.Max(source.PixelWidth, source.PixelHeight);
-        var pixelArt = longest <= 64;
-        double side = pixelArt && longest <= 40 ? 40 / longest * longest : 40;
+        // Nearest-neighbour only at a whole-number multiple of the source (16 -> 32, 32 -> 32, 20 -> 40);
+        // any other size is scaled to the 40 px tile with high-quality filtering.
+        var wholeMultiple = longest <= 40;
+        double side = wholeMultiple ? 40 / longest * longest : 40;
 
         var image = new Image
         {
@@ -291,7 +283,7 @@ public partial class ModsPage : UserControl
             IsHitTestVisible = false,
             Clip = new RectangleGeometry(new Rect(0, 0, side, side), 4, 4),
         };
-        RenderOptions.SetBitmapScalingMode(image, pixelArt ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
+        RenderOptions.SetBitmapScalingMode(image, wholeMultiple ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
         host.Children.Add(image);
 
         var rest = dim ? 0.6 : 1.0;

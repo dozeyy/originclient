@@ -26,7 +26,7 @@
 
   <ItemGroup>
     <Compile Include="..\OriginLauncher.App\Core\Promos\*.cs" LinkBase="Promos" />
-    <!-- Mods page icons: jar icon parsing, the disk cache, the Modrinth URL allow-list (no network in tests). -->
+    <!-- Mods page icons: jar icon parsing and the in-memory result cache. -->
     <Compile Include="..\OriginLauncher.App\Core\Mods\Icons\*.cs" LinkBase="ModIcons" />
     <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />
     <!-- Only the top folder: Core/Social/Launcher is the WPF/account glue. -->
