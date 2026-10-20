@@ -10,16 +10,23 @@ key art behind that version).
 Official Minecraft wallpaper packs from minecraft.net. Every pack is under
 `https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/software/`.
 
-Each family ships six files, all made from the same original:
-- `<family>-g1280.jpg` and `-g2560.jpg`: the greyscale, darkened Home layer.
-- `-c1280.jpg` and `-c2560.jpg`: the colour layer the launch bloom fades to.
-- `-tg.jpg` and `-tc.jpg`: the picker thumbnails, grey and colour.
+Each family ships these files, all rebuilt from the same lossless PNG by
+`tools/launcher-art/build_art.py` (it downloads the packs below and records the recipe):
+- `<family>-g<W>.jpg`: the greyscale Home layer (Rec.601 luma x 0.40 + 3.5/255).
+- `-c<W>.jpg`: the colour layer the launch bloom fades to (source x 0.55).
+- `-tg.jpg` and `-tc.jpg`: the picker thumbnails, grey and colour (480x270).
+- `<W>` is 1280 or 2560 (3840 is supported by `ArtStage` but no official source is that wide, see below).
+  JPEG quality 92, 4:4:4 chroma, Lanczos downscale from the lossless source; nothing is ever upscaled.
+
+Mojang's wallpaper packs top out at 2560x1440 (checked 2026-10-20 across every pack and the
+minecraft.net update pages, whose widest key art is a 2880x1080 banner crop). So 2560 is the
+native top tier for every family; a family only gets a 3840 file if a >= 3840 px original is found.
 
 | Family | File prefix | Wallpaper pack | Notes |
 |---|---|---|---|
 | 26.x | `26-` | `wallpapers_tiny_takeover_drop.zip` | |
 | 1.21 | `1.21-` | `wallpapers_tricky_trials_update2.zip` | |
-| 1.20 | `1.20-` | `Minecraft_Trails_and_Tales_.Net.zip` | The largest source is 2058x1440. The logo is cropped out (104,400 to 1954,1440), so the 2560 file is an upscale. |
+| 1.20 | `1.20-` | `Minecraft_Trails_and_Tales_.Net.zip` | Every size has the logo; the largest is 2058x1440. The logo is cropped out (108,404 to 1950,1440), leaving 1842x1036 of native art. `1.20-c2560/g2560` are that native size (not upscaled), so this family is the one that is below 2560. |
 | 1.19 | `1.19-` | `wallpaper_minecraft_wild_update.zip` | The zip is nested inside another zip. |
 | 1.18 | `1.18-` | `wallpapers_minecraft_caves_cliffs(part2).zip` | |
 | 1.17 | `1.17-` | `wallpapers_minecraft_caves_cliffs(part1).zip` | |

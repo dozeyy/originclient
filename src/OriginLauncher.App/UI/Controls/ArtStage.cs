@@ -16,8 +16,9 @@ namespace OriginLauncher.App.UI.Controls;
 /// between them), a colour layer (the launch bloom), the numeral, the top and
 /// bottom scrims (7:1 text over art), and the page dim (every page but Home).
 ///
-/// Art is decoded off the UI thread, frozen, and sized to the window (1280 or
-/// 2560 wide). Motion is opacity, translate and scale only; the slow 44 s drift
+/// Art is decoded off the UI thread, frozen, and picked by the window's physical
+/// width with room for the 1.19x peak scale (1280 / 2560 / 3840 wide, see TierFor).
+/// Motion is opacity, translate and scale only; the slow 44 s drift
 /// runs at 15 fps (nothing in it moves faster than a fraction of a pixel a frame).
 /// </summary>
 public sealed class ArtStage : Grid
@@ -52,7 +53,7 @@ public sealed class ArtStage : Grid
     private readonly VersionNumeral _numeral = new();
     private readonly Border _dim;
     private string? _artKey;
-    private bool _wide;
+    private int _tier;   // 0 until the first layout says how wide the window really is
     private bool _home = true;
 
     private sealed class Layer
@@ -192,36 +193,92 @@ public sealed class ArtStage : Grid
         }
     }
 
-    // 2560 art once the window is wider than 1400 physical pixels; reload the shown family if that flips.
+    // Art widths on disk, smallest first. A file only exists for a tier the source can fill natively
+    // (tools/launcher-art/build_art.py), so a missing tier falls back to the next one down.
+    private static readonly int[] Tiers = [1280, 2560, 3840];
+
+    // The art is drawn at up to 1.10 (drift) x 1.08 (launch push-in) = 1.19 of the window, so a tier
+    // must hold that many pixels across or the stage stretches it and the art goes soft.
+    private const double ArtHeadroom = 1.19;
+
+    /// <summary>The smallest tier that still covers a window of <paramref name="physicalWidth"/> pixels with headroom.</summary>
+    internal static int TierFor(double physicalWidth)
+    {
+        var need = physicalWidth * ArtHeadroom;
+        foreach (var tier in Tiers)
+            if (tier >= need) return tier;
+        return Tiers[^1];
+    }
+
+    // Reload the shown family if the window's size or DPI moved it to another tier.
     private void PickResolution()
     {
-        var dpi = VisualTreeHelper.GetDpi(this).DpiScaleX;
-        var wide = ActualWidth * dpi > 1400;
-        if (wide == _wide) return;
-        _wide = wide;
+        var tier = TierFor(ActualWidth * VisualTreeHelper.GetDpi(this).DpiScaleX);
+        if (tier == _tier) return;
+        _tier = tier;
         if (_artKey == null) return;
         Load(_grey[_front].Image, _artKey, "g", fadeIn: false);
         Load(_colour.Image, _artKey, "c", fadeIn: false);
     }
 
-    private static readonly Dictionary<string, BitmapSource> Cache = new();
+    // Decoded art by file name. Bounded: a 2560 frame is 14.7 MB of pixels and a 3840 one 33 MB, so a long
+    // session that visits every family must not keep all of them. Layers on screen hold their own reference.
+    private const long CacheBudget = 100L * 1024 * 1024;
+    private static readonly Dictionary<string, (BitmapSource Bmp, long Stamp)> Cache = new();
+    private static long _stamp;
+
+    private static BitmapSource? CacheGet(string name)
+    {
+        if (!Cache.TryGetValue(name, out var e)) return null;
+        Cache[name] = (e.Bmp, ++_stamp);
+        return e.Bmp;
+    }
+
+    private static void CachePut(string name, BitmapSource bmp)
+    {
+        Cache[name] = (bmp, ++_stamp);
+        long Bytes(BitmapSource b) => (long)b.PixelWidth * b.PixelHeight * (b.Format.BitsPerPixel / 8);
+        var total = Cache.Values.Sum(v => Bytes(v.Bmp));
+        while (total > CacheBudget && Cache.Count > 1)
+        {
+            var oldest = Cache.Where(kv => kv.Key != name).MinBy(kv => kv.Value.Stamp);
+            total -= Bytes(oldest.Value.Bmp);
+            Cache.Remove(oldest.Key);
+        }
+    }
+
+    /// <summary>Decode the best file for the tier: the tier's own, else the next one down that exists.</summary>
+    private static BitmapSource? DecodeBest(string key, string kind, int tier)
+    {
+        for (var i = Array.IndexOf(Tiers, tier); i >= 0; i--)
+            if (Decode($"{key}-{kind}{Tiers[i]}.jpg") is { } bmp) return bmp;
+        return null;
+    }
 
     private void Load(Image target, string key, string kind, bool fadeIn, Action? then = null)
     {
-        var name = $"{key}-{kind}{(_wide ? "2560" : "1280")}.jpg";
-        if (Cache.TryGetValue(name, out var hit) || Motion.Off && (hit = Decode(name)) != null)
+        if (_tier == 0) _tier = TierFor(ActualWidth * VisualTreeHelper.GetDpi(this).DpiScaleX);
+        var tier = _tier;
+        var request = $"{key}-{kind}@{tier}";   // what was asked for; the file that answers it may be a lower tier
+        if (CacheGet(request) is { } hit)
         {
-            if (hit != null) Cache[name] = hit;
             Set(target, hit, fadeIn, then);
             return;
         }
-        _ = System.Threading.Tasks.Task.Run(() => Decode(name)).ContinueWith(t =>
+        if (Motion.Off)
+        {
+            var b = DecodeBest(key, kind, tier);
+            if (b != null) CachePut(request, b);
+            Set(target, b, fadeIn, then);
+            return;
+        }
+        _ = System.Threading.Tasks.Task.Run(() => DecodeBest(key, kind, tier)).ContinueWith(t =>
         {
             if (t.Result is { } bmp)
             {
-                Cache[name] = bmp;
+                CachePut(request, bmp);
                 // Only the newest request for this layer lands.
-                if (_artKey == key) Set(target, bmp, fadeIn, then);
+                if (_artKey == key && _tier == tier) Set(target, bmp, fadeIn, then);
             }
         }, System.Threading.Tasks.TaskScheduler.FromCurrentSynchronizationContext());
     }
