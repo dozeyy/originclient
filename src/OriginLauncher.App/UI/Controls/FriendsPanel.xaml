@@ -20,10 +20,87 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
 
+        <!-- ===== Poster look (mockup 13-friends), drawer-local: these keys shadow the Social.* ones
+             in Theme/Social.xaml for this drawer only. Rows are flat on the drawer's surface (no card
+             fill, no dividers); a press or hover lifts one step; the party is the one dark card;
+             presence is a small square on the avatar corner, like the mockup. ===== -->
+        <Style x:Key="Social.RowStatic" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+        <Style x:Key="Social.Row" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Social.RowFocus}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                CornerRadius="{StaticResource Radius.Row}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Card}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- A party member's row: the same, on the party card's dark surface. -->
+        <Style x:Key="Social.PartyRow" TargetType="Button" BasedOn="{StaticResource Social.Row}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" Padding="{TemplateBinding Padding}">
+                            <Border.CornerRadius>
+                                <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                                    <Binding Path="Pos"/>
+                                    <Binding Source="{StaticResource Radius.Card}"/>
+                                </MultiBinding>
+                            </Border.CornerRadius>
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Bg}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Social.Dot" TargetType="Border">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Margin" Value="0,0,-3,-3"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Success}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.PanelElevated}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="2"/>
+        </Style>
+        <!-- Unread count: a light chip with dark digits (the mockup's Chat 1). -->
+        <Style x:Key="Social.Badge" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
+            <Setter Property="Padding" Value="6,1"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
         <!-- ================= list rows ================= -->
 
         <DataTemplate DataType="{x:Type controls:SectionVm}">
-            <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Margin="0,14,0,6" Padding="2,2"
+            <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Margin="0,18,0,4" Padding="8,2"
                     Click="Section_Click">
                 <Grid>
                     <TextBlock Text="{Binding Heading}" Style="{StaticResource Social.Section}"/>
@@ -92,7 +169,7 @@
                         <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}">
                             <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                         </Border>
-                        <Ellipse x:Name="Dot" Style="{StaticResource Social.Dot}" Visibility="Collapsed"/>
+                        <Border x:Name="Dot" Style="{StaticResource Social.Dot}" Visibility="Collapsed"/>
                     </Grid>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
@@ -101,8 +178,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
-                                Background="{StaticResource Brush.Accent}" CornerRadius="{StaticResource Radius.Chip}"
-                                Padding="6,1" VerticalAlignment="Center" ToolTip="Unread messages">
+                                Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
                                        FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
                         </Border>
@@ -193,7 +269,7 @@
         <!-- A party member: a friend's row opens their chat; "..." holds Message, Join,
              Make leader (leader only), Kick (leader only), Remove, Block. -->
         <DataTemplate DataType="{x:Type controls:MemberVm}">
-            <Button x:Name="Row" Style="{StaticResource Social.Row}" Click="MemberRow_Click"
+            <Button x:Name="Row" Style="{StaticResource Social.PartyRow}" Click="MemberRow_Click"
                     ContextMenuOpening="MemberRow_ContextMenuOpening"
                     AutomationProperties.Name="{Binding Name}">
                 <Grid MinHeight="38">
@@ -206,8 +282,8 @@
                         <Border Style="{StaticResource Social.Avatar}">
                             <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                         </Border>
-                        <Ellipse Style="{StaticResource Social.Dot}"
-                                 Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}"/>
+                        <Border Style="{StaticResource Social.Dot}"
+                                Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
@@ -221,8 +297,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
-                                Background="{StaticResource Brush.Accent}" CornerRadius="{StaticResource Radius.Chip}"
-                                Padding="6,1" VerticalAlignment="Center" ToolTip="Unread messages">
+                                Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
                             <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
                                        FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
                         </Border>
@@ -249,7 +324,7 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:PartyHeaderVm}">
-            <Grid Margin="2,14,0,6">
+            <Grid Margin="8,18,0,6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -370,7 +445,7 @@
                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
             </Button>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock x:Name="HeaderTitle" Text="Friends" Style="{StaticResource Text.H2}"/>
+                <TextBlock x:Name="HeaderTitle" Text="FRIENDS" Style="{StaticResource Text.H1}"/>
                 <StackPanel x:Name="HeaderSubRow" Orientation="Horizontal" Visibility="Hidden">
                     <Ellipse x:Name="HeaderDot" Width="7" Height="7" Fill="{StaticResource Brush.Success}"
                              Margin="0,0,6,0" VerticalAlignment="Center" Visibility="Collapsed"/>
@@ -396,7 +471,7 @@
             </StackPanel>
         </Grid>
         <!-- One hairline under the header, in the list, the states and the chat alike. -->
-        <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,10"/>
+        <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,0" Visibility="Collapsed"/>
         </StackPanel>
 
         <!-- Add a friend: opens from the header button (or "Add a friend" when you have none). -->
@@ -541,7 +616,6 @@
 
                 <!-- The dark well the conversation sits in. -->
                 <Border Grid.Row="1" Margin="16,8,16,8" Background="{StaticResource Brush.BgAlt}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                         CornerRadius="{StaticResource Radius.Card}">
                     <Grid>
                         <ScrollViewer x:Name="ChatScroll" Padding="12,0,8,8" VerticalScrollBarVisibility="Auto"

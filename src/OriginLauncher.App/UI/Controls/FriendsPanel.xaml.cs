@@ -285,7 +285,8 @@ public partial class FriendsPanel : UserControl
 
     private void SetHeader(string title, string subtitle, bool dot = false)
     {
-        HeaderTitle.Text = title;
+        // The drawer's own titles are poster caps; a friend's name in a chat keeps its case.
+        HeaderTitle.Text = title is "Friends" or "Party chat" ? title.ToUpperInvariant() : title;
         // The line keeps its height when empty so the title sits in the same place in every view.
         HeaderSubtitle.Text = string.IsNullOrEmpty(subtitle) ? " " : subtitle;
         HeaderDot.Visibility = dot ? Visibility.Visible : Visibility.Collapsed;
