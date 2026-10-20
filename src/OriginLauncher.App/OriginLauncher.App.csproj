@@ -18,8 +18,10 @@
   <ItemGroup>
     <Resource Include="Assets\origin.ico" />
     <!-- Poster art (Assets/SOURCES.md): per version family, a greyscale home layer
-         (g1280/g2560), a colour bloom layer for launch (c1280/c2560) and picker thumbs
-         (tg grey, tc colour). ArtStage picks 1280 or 2560 by the window's pixel width. -->
+         (g1280/g2560/g3840), a colour bloom layer for launch (c1280/c2560/c3840) and picker
+         thumbs (tg grey, tc colour). ArtStage picks the tier by the window's pixel width and
+         falls back to a lower tier if a file is absent. Rebuilt by tools/launcher-art/build_art.py;
+         the glob picks up any tier that file writes. -->
     <Resource Include="Assets\Art\*.jpg" />
     <!-- Other launchers' logos for the import screens, and the Origin wordmark. -->
     <Resource Include="Assets\Logos\*.png" />
