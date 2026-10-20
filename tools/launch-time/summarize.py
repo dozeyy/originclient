@@ -74,11 +74,11 @@ def short(url):
 
 
 def java_of(path):
-    """The Mojang runtime a java path sits in (runtime/<component>/...), else the path."""
+    """The Mojang runtime a java path sits in (CmlLib: runtime/<os>/<component>/...), else the path."""
     parts = re.split(r"[\\/]", path)
     if "runtime" in parts:
         i = parts.index("runtime")
-        return "/".join(parts[i + 1:i + 2]) or path
+        return "/".join(parts[i + 1:i + 3]) or path
     return path
 
 
