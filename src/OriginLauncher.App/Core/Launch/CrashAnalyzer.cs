@@ -5,19 +5,6 @@ using System.Text.RegularExpressions;
 
 namespace OriginLauncher.App.Core.Launch;
 
-/// <summary>One mod implicated in a crash: its mod id (Fabric's, or Forge's
-/// on 1.8.9) and, when it could be mapped, the jar file in the instance's mods
-/// folder.</summary>
-public sealed record CrashCulprit(string ModId, string? JarFileName, bool IsExternal);
-
-/// <summary>What the analyzer concluded. Culprits is empty when no mod could
-/// be blamed with confidence — the UI must then say "unknown" plainly rather
-/// than guessing.</summary>
-public sealed record CrashAnalysis(
-    IReadOnlyList<CrashCulprit> Culprits,
-    string Reason,
-    string? DetailExcerpt);
-
 // Post-mortem crash blame for a Minecraft boot that died (non-zero exit).
 // Pure parsing over evidence the launcher already has: the per-launch
 // stdout/stderr log (StartWithLifecycleCapture) and the game's own
@@ -255,17 +242,23 @@ public static class CrashAnalyzer
         return hits;
     }
 
-    private static string? NewestCrashReport(string instanceDir)
+    internal static string? NewestCrashReport(string instanceDir) =>
+        NewestRecent(Path.Combine(instanceDir, "crash-reports"), "crash-*.txt");
+
+    // The JVM's own native-crash dump (hs_err_pid*.log) lands in the game's working folder.
+    internal static string? NewestHsErr(string instanceDir) =>
+        NewestRecent(instanceDir, "hs_err_pid*.log");
+
+    // Only trust a file from the last few minutes — an older one belongs to some
+    // previous session's crash, not this launch.
+    private static string? NewestRecent(string dir, string pattern)
     {
         try
         {
-            var dir = Path.Combine(instanceDir, "crash-reports");
             if (!Directory.Exists(dir)) return null;
-            var newest = Directory.EnumerateFiles(dir, "crash-*.txt")
+            var newest = Directory.EnumerateFiles(dir, pattern)
                 .OrderByDescending(File.GetLastWriteTimeUtc)
                 .FirstOrDefault();
-            // Only trust a report from the last few minutes — an old file
-            // belongs to some previous session's crash, not this launch.
             return newest != null && DateTime.UtcNow - File.GetLastWriteTimeUtc(newest) < TimeSpan.FromMinutes(5)
                 ? newest
                 : null;
@@ -273,11 +266,19 @@ public static class CrashAnalyzer
         catch { return null; }
     }
 
-    private static string? TryRead(string? path)
+    internal static string? TryRead(string? path) => TryReadTail(path, 2 * 1024 * 1024);
+
+    // The end of a file, at most maxBytes: a game that ran for hours has a huge log, and the
+    // crash is always at its end.
+    internal static string? TryReadTail(string? path, int maxBytes)
     {
         try
         {
-            return path != null && File.Exists(path) ? File.ReadAllText(path) : null;
+            if (path == null || !File.Exists(path)) return null;
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (stream.Length > maxBytes) stream.Seek(-maxBytes, SeekOrigin.End);
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
         }
         catch { return null; }
     }

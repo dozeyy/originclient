@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Origin — Minecraft crashed"
-        Width="620" Height="480" MinWidth="480" MinHeight="360"
+        Width="720" Height="380" MinWidth="560" MinHeight="320"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Bg}"
         FontFamily="{StaticResource Font.Primary}"
@@ -24,7 +24,11 @@
         <!-- Several games can run at once (one per account), so the window
              names which one crashed: "<account> · Minecraft <version>". -->
         <StackPanel Grid.Row="0">
-            <TextBlock Text="Minecraft crashed while starting" Style="{StaticResource Text.H1}"/>
+            <!-- A soft warm tag for the cause (CrashClassifier's Tag), then the plain-language headline. -->
+            <TextBlock x:Name="CauseTag" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Warning}"
+                       Margin="0,0,0,4"/>
+            <TextBlock x:Name="HeadlineText" Text="Minecraft closed unexpectedly" Style="{StaticResource Text.H1}"
+                       TextWrapping="Wrap"/>
             <TextBlock x:Name="WhoText" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Acc}"
                        Margin="0,6,0,0" Visibility="Collapsed"/>
         </StackPanel>
@@ -40,7 +44,8 @@
             <StackPanel x:Name="CulpritList"/>
         </Border>
 
-        <Border Grid.Row="3" Margin="0,8,0,0" Background="{StaticResource Brush.Panel}"
+        <!-- Technical detail stays behind "Show details": a player should not meet a stack trace first. -->
+        <Border Grid.Row="3" x:Name="DetailsPanel" Visibility="Collapsed" Margin="0,8,0,0" Background="{StaticResource Brush.Panel}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                 CornerRadius="{StaticResource Radius.Card}">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
@@ -51,12 +56,16 @@
         </Border>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button x:Name="OpenLogButton" Content="Open log" Style="{StaticResource Button.Secondary}"
-                    MinWidth="110" Margin="0,0,8,0" Click="OpenLog_Click"/>
+            <Button x:Name="DetailsButton" Content="Show details" Style="{StaticResource Button.Secondary}"
+                    MinWidth="100" Margin="0,0,8,0" Click="Details_Click"/>
+            <Button x:Name="CopyReportButton" Content="Copy report" Style="{StaticResource Button.Secondary}"
+                    MinWidth="100" Margin="0,0,8,0" Click="CopyReport_Click"/>
+            <Button x:Name="OpenLogButton" Content="Open logs folder" Style="{StaticResource Button.Secondary}"
+                    MinWidth="100" Margin="0,0,8,0" Click="OpenLog_Click"/>
             <Button x:Name="CloseButton" Content="Close" Style="{StaticResource Button.Secondary}"
-                    MinWidth="110" Margin="0,0,8,0" Click="Close_Click"/>
-            <Button x:Name="RetryButton" Content="Retry without mods"
-                    Style="{StaticResource Button.Primary.Medium}" Click="Retry_Click"/>
+                    MinWidth="80" Margin="0,0,8,0" Click="Close_Click"/>
+            <Button x:Name="ActionButton" Content="Relaunch with Origin only"
+                    Style="{StaticResource Button.Primary.Medium}" Click="Action_Click"/>
         </StackPanel>
     </Grid>
     </Border>

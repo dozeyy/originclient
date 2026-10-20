@@ -66,13 +66,14 @@ public class CrashWindowFallbackTests
             var analysis = new CrashAnalysis([new CrashCulprit("badmod", "badmod-1.0.jar", true)], "A mod crashed.", "stack...");
             var report = new CrashReportWindow(analysis, null, who: "Steve - Minecraft 1.21.1");
             Assert.True(report.UsingFallbackLayout);
-            Assert.Equal(new[] { "Open log", "Close", "Retry without mods" }, ButtonLabels(report));
+            Assert.Equal(new[] { "Show details", "Copy report", "Open logs folder", "Close", "Relaunch without badmod" }, ButtonLabels(report));
             Assert.Equal("Steve - Minecraft 1.21.1", report.WhoText.Text);
             Assert.Equal(Visibility.Visible, report.WhoText.Visibility);
             Assert.Equal(Visibility.Visible, report.CulpritPanel.Visibility);
             Assert.Single(report.CulpritList.Children);
             Assert.Equal("stack...", report.DetailsBox.Text);
-            Assert.False(report.OpenLogButton.IsEnabled); // no log path
+            Assert.Equal("A mod didn't load: badmod", report.HeadlineText.Text);
+            Assert.Equal(Visibility.Collapsed, report.DetailsPanel.Visibility); // technical detail starts folded away
 
             var unknown = new CrashReportWindow(new CrashAnalysis([], "Unknown.", null), null);
             Assert.Equal(Visibility.Collapsed, unknown.CulpritPanel.Visibility);
@@ -95,7 +96,7 @@ public class CrashWindowFallbackTests
             Assert.Equal(new[] { "Copy details", "Close" }, ButtonLabels(themed));
             var themedReport = new CrashReportWindow(analysis, null);
             Assert.False(themedReport.UsingFallbackLayout);
-            Assert.Equal(new[] { "Open log", "Close", "Retry without mods" }, ButtonLabels(themedReport));
+            Assert.Equal(new[] { "Show details", "Copy report", "Open logs folder", "Close", "Relaunch without badmod" }, ButtonLabels(themedReport));
         });
     }
 }

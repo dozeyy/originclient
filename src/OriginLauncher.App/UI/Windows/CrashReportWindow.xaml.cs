@@ -1,30 +1,40 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using OriginLauncher.App.Core.Launch;
 
 namespace OriginLauncher.App.UI.Windows;
 
-// Shown by HomePage when a Minecraft boot dies (non-zero exit during startup).
-// Names the mod(s) CrashAnalyzer implicated — or says plainly that the culprit
-// is unknown — and offers exactly two actions besides Close:
-//   - Disable external mods & retry: relaunch with only Origin's own mods
-//     (the same mechanism as the Home switch: fabric.modsFolder, or on Forge
-//     1.8.9 a managed-only mods mirror). The player's files are never touched.
-//   - Open log: the per-launch log this analysis was made from.
+// Shown by HomePage when a Minecraft game dies. Leads with a plain-language headline for the cause
+// (CrashClassifier: out of memory, a mod that didn't load, the graphics driver ...) and ONE main
+// button for the fix; the mod list, the technical details and the logs are one click further.
+//   - Main button: whatever CrashDiagnosis.Action says (raise memory, relaunch without a mod,
+//     Origin only, repair + relaunch, or open the logs). The window only reports the choice
+//     (ChosenAction); HomePage does the work, once (CrashRetryGuard).
+//   - Copy report: a secret-free bundle (CrashReportBundle) on the clipboard.
+//   - Open logs folder, Close.
+// The player's files are never touched by this window.
 public partial class CrashReportWindow : Window
 {
-    private readonly string? _logPath;
+    private const double DetailsExtraHeight = 220;
 
-    /// <summary>True when the player chose "Disable external mods &amp; retry".
-    /// The caller (HomePage) flips the setting and relaunches.</summary>
-    public bool RetryWithoutExternalMods { get; private set; }
+    private readonly string? _logPath;
+    private readonly CrashAction _action;
+    private readonly Func<string>? _buildReport;
+    private bool _detailsOpen;
+
+    /// <summary>The fix the player chose with the main button; None when they only closed the window.</summary>
+    public CrashAction ChosenAction { get; private set; } = CrashAction.None;
 
     /// <summary>True when the themed layout could not load and the plain in-code one is showing.</summary>
     public bool UsingFallbackLayout { get; }
 
-    /// <param name="who">Which game crashed, e.g. "Steve · Minecraft 1.21.1" (several can run at once).</param>
-    public CrashReportWindow(CrashAnalysis analysis, string? logPath, string? who = null)
+    /// <param name="who">Which game crashed, e.g. "Steve - Minecraft 1.21.1" (several can run at once).</param>
+    /// <param name="diagnosis">The classified cause; when null it is derived from the mod blame alone.</param>
+    /// <param name="buildReport">Builds the Copy report text on demand (null: the button is disabled).</param>
+    public CrashReportWindow(CrashAnalysis analysis, string? logPath, string? who = null,
+        CrashDiagnosis? diagnosis = null, Func<string>? buildReport = null)
     {
         try
         {
@@ -37,16 +47,20 @@ public partial class CrashReportWindow : Window
             BuildFallbackLayout();
         }
         _logPath = logPath;
+        _buildReport = buildReport;
+        diagnosis ??= CrashClassifier.Classify(analysis, "", -1, 0, 0);
+        _action = diagnosis.Action;
+
         if (!string.IsNullOrEmpty(who))
         {
             WhoText.Text = who;
             WhoText.Visibility = Visibility.Visible;
-            Title = $"Origin — Minecraft crashed ({who})";
+            Title = $"Origin - Minecraft crashed ({who})";
         }
 
-        ReasonText.Text = analysis.Culprits.Count > 0
-            ? analysis.Reason + " The mod(s) below caused the crash:"
-            : analysis.Reason + " Your added mods are the most common cause — retrying with only Origin's built-in mods will tell you if one of them is responsible.";
+        if (CauseTag != null) CauseTag.Text = diagnosis.Tag;
+        HeadlineText.Text = diagnosis.Headline;
+        ReasonText.Text = diagnosis.Explanation;
 
         if (analysis.Culprits.Count > 0)
         {
@@ -57,7 +71,7 @@ public partial class CrashReportWindow : Window
                     ? $"{culprit.ModId}   ({culprit.JarFileName})"
                     : culprit.ModId;
                 if (!culprit.IsExternal)
-                    line += "   — built-in mod; updating the launcher usually fixes this";
+                    line += "   - built-in mod; updating the launcher usually fixes this";
                 CulpritList.Children.Add(new TextBlock
                 {
                     Text = line,
@@ -70,7 +84,21 @@ public partial class CrashReportWindow : Window
         }
 
         DetailsBox.Text = analysis.DetailExcerpt ?? "No further detail was captured for this crash.";
-        OpenLogButton.IsEnabled = _logPath != null && System.IO.File.Exists(_logPath);
+        OpenLogButton.IsEnabled = true;
+        CopyReportButton.IsEnabled = buildReport != null;
+
+        // Main button: the diagnosis' action. "Open logs" as the main action replaces the plain
+        // secondary button (never two buttons that do the same thing).
+        if (_action == CrashAction.None)
+        {
+            ActionButton.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            ActionButton.Content = diagnosis.ActionLabel;
+            if (_action == CrashAction.OpenLogs) OpenLogButton.Visibility = Visibility.Collapsed;
+        }
+        Height = 380;
     }
 
     // The same controls as CrashReportWindow.xaml (same field names), with no resource lookups.
@@ -78,7 +106,8 @@ public partial class CrashReportWindow : Window
     {
         var grid = CrashFallback.Frame(this, starRow: 3, rows: 5);
         var head = new StackPanel();
-        head.Children.Add(CrashFallback.Heading("Minecraft crashed while starting"));
+        HeadlineText = CrashFallback.Heading("Minecraft closed unexpectedly");
+        head.Children.Add(HeadlineText);
         WhoText = CrashFallback.Accent(new Thickness(0, 6, 0, 0));
         head.Children.Add(WhoText);
         ReasonText = CrashFallback.Body(new Thickness(0, 8, 0, 0));
@@ -90,32 +119,72 @@ public partial class CrashReportWindow : Window
         grid.Children.Add(ReasonText);
         grid.Children.Add(CulpritPanel);
         DetailsBox = CrashFallback.Details(grid, 3, new Thickness(0, 8, 0, 0), 11);
+        DetailsPanel = (Border)DetailsBox.Parent;
+        DetailsPanel.Visibility = Visibility.Collapsed;
         var buttons = CrashFallback.ButtonRow(grid, 4);
-        OpenLogButton = CrashFallback.Btn("Open log", primary: false, OpenLog_Click);
+        DetailsButton = CrashFallback.Btn("Show details", primary: false, Details_Click);
+        DetailsButton.Margin = new Thickness(0, 0, 8, 0);
+        CopyReportButton = CrashFallback.Btn("Copy report", primary: false, CopyReport_Click);
+        CopyReportButton.Margin = new Thickness(0, 0, 8, 0);
+        OpenLogButton = CrashFallback.Btn("Open logs folder", primary: false, OpenLog_Click);
         OpenLogButton.Margin = new Thickness(0, 0, 8, 0);
         CloseButton = CrashFallback.Btn("Close", primary: false, Close_Click);
         CloseButton.Margin = new Thickness(0, 0, 8, 0);
-        RetryButton = CrashFallback.Btn("Retry without mods", primary: true, Retry_Click);
+        ActionButton = CrashFallback.Btn("Relaunch with Origin only", primary: true, Action_Click);
+        buttons.Children.Add(DetailsButton);
+        buttons.Children.Add(CopyReportButton);
         buttons.Children.Add(OpenLogButton);
         buttons.Children.Add(CloseButton);
-        buttons.Children.Add(RetryButton);
+        buttons.Children.Add(ActionButton);
     }
 
-    private void Retry_Click(object sender, RoutedEventArgs e)
+    private void Action_Click(object sender, RoutedEventArgs e)
     {
-        RetryWithoutExternalMods = true;
+        if (_action == CrashAction.OpenLogs)
+        {
+            OpenLog_Click(sender, e); // nothing to relaunch: the window stays for the player to read
+            return;
+        }
+        ChosenAction = _action;
         DialogResult = true;
+    }
+
+    private void Details_Click(object sender, RoutedEventArgs e)
+    {
+        _detailsOpen = !_detailsOpen;
+        DetailsPanel.Visibility = _detailsOpen ? Visibility.Visible : Visibility.Collapsed;
+        DetailsButton.Content = _detailsOpen ? "Hide details" : "Show details";
+        Height += _detailsOpen ? DetailsExtraHeight : -DetailsExtraHeight;
+    }
+
+    private void CopyReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (_buildReport == null) return;
+        try
+        {
+            Clipboard.SetText(_buildReport());
+            CopyReportButton.Content = "Copied";
+            var back = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            back.Tick += (_, _) => { back.Stop(); CopyReportButton.Content = "Copy report"; };
+            back.Start();
+        }
+        catch
+        {
+            // The clipboard can be held by another app for a moment; the button stays, try again.
+            CopyReportButton.Content = "Try again";
+        }
     }
 
     private void OpenLog_Click(object sender, RoutedEventArgs e)
     {
-        if (_logPath == null) return;
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                "explorer.exe", $"/select,\"{_logPath}\""));
+            var target = _logPath != null && System.IO.File.Exists(_logPath)
+                ? $"/select,\"{_logPath}\""
+                : $"\"{Core.OriginPaths.Logs}\"";
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", target));
         }
-        catch { /* explorer refused — nothing actionable */ }
+        catch { /* explorer refused - nothing actionable */ }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => DialogResult = false;
