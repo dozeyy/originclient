@@ -85,9 +85,10 @@ public final class OriginButtonRenderer {
 	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
 	// classes still keep their own art (OriginWidgetOwnership.isForeign).
 	//
-	// Will, 2026-10-19: Button Style = Minecraft hands every vanilla widget back to
-	// vanilla -- except inside Origin's own windows (OriginStyle.vanillaButtonsOn).
-	// This is the ONE gate the widget mixins all pass through.
+	// Will, 2026-10-19 (final): Minecraft's own menus are stock widgets again, always
+	// -- the glass skin applies only inside Origin's own windows (OriginStyle.vanillaButtonsOn).
+	// This is the ONE gate AbstractButtonMixin, AbstractSliderButtonMixin,
+	// CheckboxMixin, TabButtonMixin and SpriteIconButtonMixin all pass through.
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
 		return mc != null && mc.screen != null && !com.origin.client.client.OriginStyle.vanillaButtonsOn(mc.screen);
@@ -124,13 +125,45 @@ public final class OriginButtonRenderer {
 		return false;
 	}
 
+	// ---- the title's icon row on Minecraft's own buttons (Will, 2026-10-19) ----
+	// Minecraft's menus draw stock widgets; only the title screen's icon-only
+	// buttons (Realms, Friends, Cosmetics, Language, Accessibility, Quit -- marked
+	// by setTitlePresentation(..., iconOnly = true)) need help: as stock buttons
+	// they would print their full label into a 20 px square. They draw vanilla's
+	// own button sprite (normal / highlighted / disabled, exactly as
+	// AbstractButton picks it) with Origin's monochrome icon centred on top.
+	// 1.21.10: blitSprite takes the GUI_TEXTURED pipeline; no RenderSystem state.
+	private static final ResourceLocation BUTTON = ResourceLocation.withDefaultNamespace("widget/button");
+	private static final ResourceLocation BUTTON_HI = ResourceLocation.withDefaultNamespace("widget/button_highlighted");
+	private static final ResourceLocation BUTTON_OFF = ResourceLocation.withDefaultNamespace("widget/button_disabled");
+
+	private static boolean vanillaIconButton(GuiGraphics g, AbstractButton button) {
+		TitlePresentation title = TITLE.get(button);
+		if (title == null || !title.iconOnly() || broken) {
+			return false;
+		}
+		try {
+			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+			ResourceLocation sprite = !button.active ? BUTTON_OFF
+					: button.isHoveredOrFocused() ? BUTTON_HI : BUTTON;
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, w, h);
+			int s = Math.max(8, Math.min(12, h - 8));
+			ModIcons.draw(g, title.icon(), x + (w - s) / 2, y + (h - s) / 2, s,
+					button.active ? 0xFFFFFFFF : 0xFFA0A0A0);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(GuiGraphics g, AbstractButton button) {
-		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's
+		// icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return false;
+			return vanillaIconButton(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -221,9 +254,9 @@ public final class OriginButtonRenderer {
 	 *  from the mixin. */
 	public static boolean renderIconButton(GuiGraphics g, SpriteIconButton button,
 										   WidgetSprites sprite, int spriteWidth, int spriteHeight) {
-		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return false;
+			return vanillaIconButton(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
