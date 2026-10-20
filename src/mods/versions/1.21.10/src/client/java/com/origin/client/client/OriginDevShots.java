@@ -237,11 +237,16 @@ public final class OriginDevShots {
 				case TITLE_HOVER -> new TitleScreen();
 				case CONTROLS -> new net.minecraft.client.gui.screens.options.controls.ControlsScreen(
 						new TitleScreen(), Minecraft.getInstance().options);
-				// A load tracker nothing feeds (javap 1.21.10: LevelLoadingScreen(LevelLoadTracker, Reason)):
-				// the screen at 0%, exactly as a world starts loading.
-				case LEVEL_LOADING -> new net.minecraft.client.gui.screens.LevelLoadingScreen(
-						new net.minecraft.client.multiplayer.LevelLoadTracker(),
-						net.minecraft.client.gui.screens.LevelLoadingScreen.Reason.OTHER);
+				// The screen at 0%, exactly as a world starts loading (javap 1.21.10:
+				// LevelLoadingScreen(LevelLoadTracker, Reason)). The tracker gets the
+				// server's first chunk stage, as a real load does at once; a bare
+				// tracker has no progress, which a real singleplayer load never shows.
+				case LEVEL_LOADING -> {
+					net.minecraft.client.multiplayer.LevelLoadTracker tracker = new net.minecraft.client.multiplayer.LevelLoadTracker();
+					tracker.start(net.minecraft.server.level.progress.LevelLoadListener.Stage.LOAD_INITIAL_CHUNKS, 100);
+					yield new net.minecraft.client.gui.screens.LevelLoadingScreen(tracker,
+							net.minecraft.client.gui.screens.LevelLoadingScreen.Reason.OTHER);
+				}
 				case CONNECTING -> connectScreen();
 				case CREATE_TABS, WORLD_PAUSE -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
 				case WORLDS_SAVED -> {
