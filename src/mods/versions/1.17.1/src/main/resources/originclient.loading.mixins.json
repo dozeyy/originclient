@@ -16,7 +16,6 @@
 		"FrameLogMixin",
 		"FrameLogTitleMixin",
 		"ReloadTaskTagMixin",
-		"SimpleReloadInstanceAccessor",
 		"FrameLogOverlayMixin"
 	],
 	"injectors": {
