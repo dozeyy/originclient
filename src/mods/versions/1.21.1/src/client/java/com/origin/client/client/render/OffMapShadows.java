@@ -80,6 +80,13 @@ public final class OffMapShadows {
 	private static long settingsFrame = Long.MIN_VALUE;
 	private static boolean cachedOn;
 
+	/**
+	 * True only between the HEAD and RETURN of a shadow-pass walk with the option on and an ortho
+	 * projection (Iris sets both matrices before the walk). The per-section hook then pays one static
+	 * read in every other walk, and no Iris call per section in this one.
+	 */
+	private static boolean armed;
+
 	// Per-frame skip counts (last finished frame) for the F3 line.
 	private static long frameId = -1, shadowFrame = Long.MIN_VALUE;
 	private static int curSkipS, curSkipE, lastSkipS, lastSkipE;
@@ -147,23 +154,30 @@ public final class OffMapShadows {
 	 * this is the shadow pass and the section box lies entirely off the shadow map.
 	 */
 	public static boolean keepSection(CameraTransform t, int ox, int oy, int oz, float sx, float sy, float sz) {
-		if (broken || !settingOn()) {
+		if (!armed) {
 			return true;
 		}
+		if (offMap((ox - t.intX) - t.fracX, (oy - t.intY) - t.fracY, (oz - t.intZ) - t.fracZ, sx, sy, sz)) {
+			curSkipS++;
+			return false;
+		}
+		return true;
+	}
+
+	/** Sodium createTerrainRenderList HEAD (SodiumGraphReuseMixin): arm the section test for a shadow walk. */
+	public static void walkBegin() {
+		armed = false;
+		if (broken || !settingOn()) {
+			return;
+		}
 		try {
-			if (!(boolean) IS_SHADOW_PASS.invokeExact() || !matrices()) {
-				return true;
-			}
-			shadowFrame = FrameStats.frames();
-			if (offMap((ox - t.intX) - t.fracX, (oy - t.intY) - t.fracY, (oz - t.intZ) - t.fracZ, sx, sy, sz)) {
+			if ((boolean) IS_SHADOW_PASS.invokeExact() && matrices()) {
+				shadowFrame = FrameStats.frames();
 				rollFrame();
-				curSkipS++;
-				return false;
+				armed = true;
 			}
-			return true;
 		} catch (Throwable e) {
 			fail(e);
-			return true;
 		}
 	}
 
@@ -192,6 +206,7 @@ public final class OffMapShadows {
 			}
 			if (on && off) {
 				rollFrame();
+				shadowFrame = FrameStats.frames();
 				curSkipE++;
 				if (DEV) {
 					devSkipE++;
@@ -210,6 +225,7 @@ public final class OffMapShadows {
 	 * geometry it put in the shadow render lists and how many of them lie fully off the map (no margin).
 	 */
 	public static void afterWalk(RenderSectionManager rsm, Viewport viewport) {
+		armed = false;
 		if (!DEV || broken) {
 			return;
 		}
@@ -247,6 +263,7 @@ public final class OffMapShadows {
 	}
 
 	private static void fail(Throwable t) {
+		armed = false;
 		if (!broken) {
 			broken = true;
 			com.origin.client.OriginClient.LOGGER.warn("[Origin] Off-Map Shadows turned itself off after an error", t);
@@ -261,9 +278,6 @@ public final class OffMapShadows {
 		long f = FrameStats.frames();
 		if (f - shadowFrame > 2) {
 			return null;   // no orthographic shadow pass lately (no pack, or the pack sets a shadow fov)
-		}
-		if (f - frameId > 2) {
-			return "Origin Off-Map Shadows: skipped 0 chunk sections, 0 entities";
 		}
 		return "Origin Off-Map Shadows: skipped " + lastSkipS + " chunk sections, " + lastSkipE + " entities";
 	}

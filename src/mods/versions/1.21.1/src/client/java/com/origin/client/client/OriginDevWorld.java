@@ -472,10 +472,15 @@ final class OriginDevWorld {
 		if (a == null || b == null || a.length != b.length) {
 			return "n/a";
 		}
-		int diff = 0, coveredA = 0, coveredB = 0;
+		int diff = 0, coveredA = 0, coveredB = 0, side = (int) Math.round(Math.sqrt(a.length));
+		int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1;
+		float maxD = 0f;
 		for (int i = 0; i < a.length; i++) {
 			if (Float.floatToRawIntBits(a[i]) != Float.floatToRawIntBits(b[i])) {
 				diff++;
+				int x = i % side, y = i / side;
+				x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+				maxD = Math.max(maxD, Math.abs(a[i] - b[i]));
 			}
 			if (a[i] < 1f) {
 				coveredA++;
@@ -484,7 +489,8 @@ final class OriginDevWorld {
 				coveredB++;
 			}
 		}
-		return "texels=" + a.length + " differing=" + diff + " coveredA=" + coveredA + " coveredB=" + coveredB;
+		return "texels=" + a.length + " differing=" + diff + " coveredA=" + coveredA + " coveredB=" + coveredB
+				+ (diff == 0 ? "" : " bbox=" + x0 + "," + y0 + "-" + x1 + "," + y1 + " maxDepthDelta=" + maxD);
 	}
 
 	/** The entity-culling scene (see the comment above terrainSpin). Built before the settle wait. */
