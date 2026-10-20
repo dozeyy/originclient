@@ -90,10 +90,10 @@ public class ToolTipTests
     {
         // A switch sits beside its own visible label, so it needs no hover text, but a screen reader needs the name.
         var bad = AllButtons()
-            .Where(x => ((string?)x.Button.Attribute("Style") ?? "").Contains("Toggle.Switch")
+            .Where(x => ((string?)x.Button.Attribute("Style") ?? "").Contains("Toggle.Slider")
                         && string.IsNullOrWhiteSpace((string?)x.Button.Attribute("AutomationProperties.Name")))
             .Select(x => Where(x.File, x.Button)).ToList();
-        Assert.True(bad.Count == 0, "Toggle.Switch controls without AutomationProperties.Name: " + string.Join(", ", bad));
+        Assert.True(bad.Count == 0, "Toggle.Slider controls without AutomationProperties.Name: " + string.Join(", ", bad));
     }
 
     [Fact]

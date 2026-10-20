@@ -51,7 +51,7 @@
                                            Foreground="{StaticResource Brush.TextMuted}"
                                            Text="Accounts, settings and game installs — including the worlds saved inside them. Leave this off to keep everything for later."/>
                             </StackPanel>
-                            <ToggleButton x:Name="RemoveDataToggle" Grid.Column="1" Style="{StaticResource Toggle.Switch}"
+                            <ToggleButton x:Name="RemoveDataToggle" Grid.Column="1" Style="{StaticResource Toggle.Slider}"
                                           VerticalAlignment="Center" AutomationProperties.Name="Also delete my Origin data"
                                           Checked="RemoveDataToggle_Changed" Unchecked="RemoveDataToggle_Changed"/>
                         </Grid>

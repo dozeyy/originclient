@@ -822,7 +822,7 @@
                         <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap"
                                    TextTrimming="None"/>
                     </StackPanel>
-                    <ToggleButton Grid.Column="1" Style="{StaticResource Toggle.Switch}" VerticalAlignment="Center"
+                    <ToggleButton Grid.Column="1" Style="{StaticResource Toggle.Slider}" VerticalAlignment="Center"
                                   IsChecked="{Binding IsOn, Mode=TwoWay}" Click="Option_Click"
                                   AutomationProperties.Name="{Binding Label}"/>
                 </Grid>

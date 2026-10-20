@@ -150,7 +150,7 @@
                             <TextBlock Text="Shader cache" Style="{StaticResource SettingTitle}"/>
                             <TextBlock Text="Reduces stutter while shaders compile." Style="{StaticResource SettingWhy}"/>
                         </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Shader cache"
+                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Shader cache"
                                       VerticalAlignment="Center"
                                       Checked="ShaderCacheToggle_Checked" Unchecked="ShaderCacheToggle_Unchecked"/>
                     </Grid>
@@ -233,7 +233,7 @@
                                 <TextBlock Text="Replace defaults" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="Use only your arguments, without Origin's tuned ones." Style="{StaticResource SettingWhy}"/>
                             </StackPanel>
-                            <ToggleButton Grid.Column="1" x:Name="JvmReplacePresetsToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Replace defaults"
+                            <ToggleButton Grid.Column="1" x:Name="JvmReplacePresetsToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Replace defaults"
                                           VerticalAlignment="Center"
                                           Checked="JvmReplacePresetsToggle_Checked" Unchecked="JvmReplacePresetsToggle_Unchecked"/>
                         </Grid>
@@ -253,7 +253,7 @@
                             <TextBlock Text="Origin UI" Style="{StaticResource SettingTitle}"/>
                             <TextBlock Text="Origin's menus and loading screens in game." Style="{StaticResource SettingWhy}"/>
                         </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Origin UI"
+                        <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Origin UI"
                                       VerticalAlignment="Center"
                                       Checked="OriginUiToggle_Checked" Unchecked="OriginUiToggle_Unchecked"/>
                     </Grid>
@@ -270,7 +270,7 @@
                             <TextBlock Text="Your keybinds, video settings, mod settings, HUD positions and server list follow you to every version."
                                        Style="{StaticResource SettingWhy}"/>
                         </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Sync settings across versions"
+                        <ToggleButton Grid.Column="1" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Sync settings across versions"
                                       VerticalAlignment="Center"
                                       Checked="SettingsSyncToggle_Checked" Unchecked="SettingsSyncToggle_Unchecked"/>
                     </Grid>
@@ -288,7 +288,7 @@
                         <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                             <TextBlock Text="Open Origin when Windows starts" Style="{StaticResource SettingTitle}"/>
                         </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="StartWithWindowsToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Open Origin when Windows starts"
+                        <ToggleButton Grid.Column="1" x:Name="StartWithWindowsToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Open Origin when Windows starts"
                                       VerticalAlignment="Center"
                                       Checked="StartWithWindowsToggle_Changed" Unchecked="StartWithWindowsToggle_Changed"/>
                     </Grid>
@@ -306,7 +306,7 @@
                             <TextBlock Text="Offline test mode" Style="{StaticResource SettingTitle}"/>
                             <TextBlock Text="Play without a Microsoft sign-in, for testing." Style="{StaticResource SettingWhy}"/>
                         </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="OfflineTestToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Offline test mode"
+                        <ToggleButton Grid.Column="1" x:Name="OfflineTestToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Offline test mode"
                                       VerticalAlignment="Center"
                                       Checked="OfflineTestToggle_Checked" Unchecked="OfflineTestToggle_Unchecked"/>
                     </Grid>
