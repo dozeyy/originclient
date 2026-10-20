@@ -1,9 +1,12 @@
+using System.Collections.Concurrent;
+using OriginLauncher.App.Core.Mods.Icons;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Mods;
@@ -163,7 +166,7 @@ public partial class ModsPage : UserControl
     private Border IconWell(bool dim, ModEntry? mod = null)
     {
         var well = new Border { Style = (Style)FindResource("Mods.IconWell"), VerticalAlignment = VerticalAlignment.Center };
-        well.Child = new Path
+        var glyph = new Path
         {
             Data = (mod != null ? ModIcons.For(mod) : null) ?? (Geometry)FindResource("Icon.Jar"),
             Style = (Style)FindResource("Icon.Base"),
@@ -171,6 +174,10 @@ public partial class ModsPage : UserControl
             Width = 18,
             Height = 18,
         };
+        // The generated icon is the instant placeholder; the mod's real icon (if any) fades in over it.
+        var host = new Grid();
+        host.Children.Add(glyph);
+        well.Child = host;
         // Accent only: a soft tint behind the glyph and the glyph in the same hue
         // (dimmer when the mod is switched off). Unknown jars stay neutral.
         if (mod != null && ModIcons.Hue(mod) is { } hue)
@@ -180,10 +187,129 @@ public partial class ModsPage : UserControl
             well.Background = wash;
             var ink = new SolidColorBrush(hue);
             ink.Freeze();
-            ((Path)well.Child).Stroke = ink;
-            well.Child.Opacity = dim ? 0.55 : 1;
+            glyph.Stroke = ink;
+            glyph.Opacity = dim ? 0.55 : 1;
         }
+        if (mod != null) LoadRealIcon(mod, well, glyph, dim);
         return well;
+    }
+
+    // ---- real mod icons -------------------------------------------------------
+
+    // Decoded icons by jar path (or "demo:<file>"), so a re-built row shows its icon at once with no second fade.
+    private static readonly ConcurrentDictionary<string, BitmapSource> LoadedIcons = new();
+
+    // Origin Client's own jar ships a placeholder icon, so it keeps the Origin mark.
+    private void LoadRealIcon(ModEntry mod, Border well, Path glyph, bool dim)
+    {
+        if (mod.FileName.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)) return;
+        var demo = _demo != null;
+        string? jar = null;
+        if (!demo)
+        {
+            if (_version == null) return;
+            var name = mod.Enabled || mod.IsManaged ? mod.FileName : mod.FileName + ".disabled";
+            jar = System.IO.Path.Combine(ModManager.ModsFolder(_version, _profile?.Id), name);
+        }
+        var key = demo ? "demo:" + mod.FileName : jar!;
+
+        if (LoadedIcons.TryGetValue(key, out var cached))
+        {
+            ShowRealIcon(well, glyph, cached, dim, fade: false);
+            return;
+        }
+
+        var slug = mod.IsManaged ? ModIconSource.BuiltInSlug(mod.FileName) : null;
+        var fileName = mod.FileName;
+        _ = Task.Run(async () =>
+        {
+            byte[]? bytes;
+            if (demo)
+                bytes = ModIconSource.DemoIcons != null && ModIconSource.DemoIcons.TryGetValue(fileName, out var d) ? d : null;
+            else
+                bytes = await ModIconSource.ResolveAsync(jar!, slug).ConfigureAwait(false);
+            if (bytes == null) return;
+
+            var image = DecodeIcon(bytes);
+            if (image == null)
+            {
+                if (!demo) ModIconSource.MarkUndecodable(jar!);
+                return;
+            }
+            LoadedIcons[key] = image;
+            await well.Dispatcher.InvokeAsync(() => ShowRealIcon(well, glyph, image, dim, fade: true));
+        });
+    }
+
+    // Decode off the UI thread into a frozen bitmap. Anything that is not a sane image is "no icon".
+    private static BitmapSource? DecodeIcon(byte[] bytes)
+    {
+        try
+        {
+            int w, h;
+            using (var probe = new System.IO.MemoryStream(bytes))
+            {
+                var frame = BitmapDecoder.Create(probe, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None).Frames[0];
+                w = frame.PixelWidth;
+                h = frame.PixelHeight;
+            }
+            if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return null;
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = new System.IO.MemoryStream(bytes);
+            // A tile shows 40 px (80 physical at 200 %); never keep a 2000 px icon in memory.
+            if (w >= h && w > 128) bitmap.DecodePixelWidth = 128;
+            else if (h > w && h > 128) bitmap.DecodePixelHeight = 128;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // Fades the real icon in over the tinted placeholder (opacity only), then retires the placeholder.
+    // Small pixel-art icons are drawn at a whole-number multiple with nearest-neighbour so they stay crisp;
+    // big icons use high-quality scaling. Clipped to the tile's corner radius either way.
+    private static void ShowRealIcon(Border well, Path glyph, BitmapSource source, bool dim, bool fade)
+    {
+        if (well.Child is not Grid host || host.Children.Count > 1) return;
+        var longest = Math.Max(source.PixelWidth, source.PixelHeight);
+        var pixelArt = longest <= 64;
+        double side = pixelArt && longest <= 40 ? 40 / longest * longest : 40;
+
+        var image = new Image
+        {
+            Source = source,
+            Stretch = Stretch.Uniform,
+            Width = side,
+            Height = side,
+            IsHitTestVisible = false,
+            Clip = new RectangleGeometry(new Rect(0, 0, side, side), 4, 4),
+        };
+        RenderOptions.SetBitmapScalingMode(image, pixelArt ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
+        host.Children.Add(image);
+
+        var rest = dim ? 0.6 : 1.0;
+        void Settle()
+        {
+            glyph.Visibility = Visibility.Collapsed;
+            well.SetResourceReference(Border.BackgroundProperty, "Brush.Bg");
+        }
+        if (!fade || Motion.Off)
+        {
+            image.Opacity = rest;
+            Settle();
+            return;
+        }
+        image.Opacity = 0;
+        var fadeIn = Motion.FromTo(0, rest, 200, Motion.Out);
+        fadeIn.Completed += (_, _) => Settle();
+        image.BeginAnimation(OpacityProperty, fadeIn);
     }
 
     private static TextBlock NameText(string text, bool dim, double size = 14) => new()

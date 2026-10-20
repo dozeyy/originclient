@@ -76,6 +76,10 @@ public static class OriginPaths
     // instances and game versions, maximising cache hits between sessions.
     public static string ShaderCache => Path.Combine(Root, "shader-cache");
 
+    // Mods page icons (Core/Mods/Icons): each mod's real icon keyed by its jar's SHA-1,
+    // plus "no icon" markers so a mod without one is not looked up again on every open.
+    public static string ModIconCache => Path.Combine(Root, "cache", "mod-icons");
+
     // Home banner (UI/Controls/PromoBanner): the last good remote promo feed,
     // so the banner shows Will's current promos even when offline.
     public static string PromoFeedCache => Path.Combine(Root, "cache", "promos.json");

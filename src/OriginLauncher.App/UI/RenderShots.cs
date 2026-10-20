@@ -36,8 +36,38 @@ public static class RenderShots
     private static readonly Core.Mods.ModEntry[] DemoModsDropped =
         new[] { new Core.Mods.ModEntry("zoomify-2.14.2+1.21.1.jar", "Zoomify", true, false) }.Concat(DemoMods).ToArray();
 
+    // In-memory icons for some of the made-up rows (never the network); the rest keep the tinted generated icon,
+    // so one shot shows both. Pixel-art sizes (16, 32) and a big one (96) exercise both scaling modes.
+    private static IReadOnlyDictionary<string, byte[]> BuildDemoIcons() => new Dictionary<string, byte[]>
+    {
+        ["XaerosWorldMap_1.39.2_Fabric_1.21.jar"] = DemoPng(32, Color.FromRgb(0x2E, 0x7D, 0x4F), Color.FromRgb(0x9B, 0xE0, 0x6A)),
+        ["appleskin-fabric-mc1.21-3.0.5.jar"] = DemoPng(16, Color.FromRgb(0x9E, 0x2B, 0x2B), Color.FromRgb(0xF2, 0x7A, 0x7A)),
+        ["sodium-fabric-0.6.13+mc1.21.1.jar"] = DemoPng(96, Color.FromRgb(0x1F, 0x5F, 0x8F), Color.FromRgb(0x8F, 0xD0, 0xF5)),
+    };
+
+    // A diagonal-banded square with a bright inner block: obviously "an icon", obviously not a generated glyph.
+    private static byte[] DemoPng(int size, Color dark, Color light)
+    {
+        var px = new byte[size * size * 4];
+        for (var y = 0; y < size; y++)
+            for (var x = 0; x < size; x++)
+            {
+                var inner = x >= size / 4 && x < size * 3 / 4 && y >= size / 4 && y < size * 3 / 4;
+                var c = inner ? light : ((x + y) / Math.Max(2, size / 8) % 2 == 0 ? dark : Color.FromRgb((byte)(dark.R / 2), (byte)(dark.G / 2), (byte)(dark.B / 2)));
+                var i = (y * size + x) * 4;
+                px[i] = c.B; px[i + 1] = c.G; px[i + 2] = c.R; px[i + 3] = 255;
+            }
+        var bmp = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, px, size * 4);
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(bmp));
+        using var ms = new MemoryStream();
+        enc.Save(ms);
+        return ms.ToArray();
+    }
+
     public static void Run(string outDir)
     {
+        Core.Mods.Icons.ModIconSource.DemoIcons = BuildDemoIcons();
         // `--social`: only the Friends / party / chat surfaces, every state (UI/SocialShots.cs).
         if (Environment.GetCommandLineArgs().Contains("--social"))
         {
