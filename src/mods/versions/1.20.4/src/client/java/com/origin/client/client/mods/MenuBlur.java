@@ -75,8 +75,15 @@ public final class MenuBlur {
 	 *  cleared: the chain's full-screen quads wrote depth, and the menu drawn on
 	 *  top must start from a clean depth buffer, as the GUI pass always does. */
 	public static void blur(float partialTick) {
+		blurAt((int) Math.round(Mods.num(MOD, "strength")), partialTick);
+	}
+
+	/** The same blur at a fixed radius. Also the out-of-world menu backdrop's blur
+	 *  (OriginScreenRenderer.backdrop): this era has no vanilla menu blur, so the
+	 *  clean panorama backdrop borrows this chain at 1.21.1's default radius.
+	 *  A chain that fails to build just leaves the frame unblurred. */
+	public static void blurAt(int radius, float partialTick) {
 		Minecraft mc = Minecraft.getInstance();
-		int radius = (int) Math.round(Mods.num(MOD, "strength"));
 		if (radius < 1 || broken) {
 			return;
 		}
