@@ -123,7 +123,7 @@ public final class SocialToast {
 		}
 		Minecraft mc = Minecraft.getMinecraft();
 		long now = System.currentTimeMillis();
-		int sw = new ScaledResolution(mc).getScaledWidth();
+		int sw = Gfx.scaled().getScaledWidth();
 		boolean setUp = false;
 		int slot = 0;
 		for (int i = 0; i < TOASTS.size() && slot < MAX_VISIBLE; i++, slot++) {

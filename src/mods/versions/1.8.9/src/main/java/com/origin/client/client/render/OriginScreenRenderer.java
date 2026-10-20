@@ -598,7 +598,7 @@ public final class OriginScreenRenderer {
 		GlStateManager.enableTexture2D();
 		source.bindFramebufferTexture();
 		GlStateManager.color(1f, 1f, 1f, 1f);
-		ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
+		ScaledResolution sr = Gfx.scaled();
 		// Exactly the extent vanilla's GUI ortho projection spans.
 		double gw = sr.getScaledWidth_double();
 		double gh = sr.getScaledHeight_double();

@@ -23,7 +23,7 @@ public abstract class TileEntityDistanceMixin {
 	private void originclient$tileEntityCull(TileEntity tileEntity, float partialTicks, int destroyStage,
 											 CallbackInfo ci) {
 		try {
-			double pct = Mods.num(Mods.PERFORMANCE_ID, "tileEntityDistance");
+			double pct = com.origin.client.client.mods.PerfSettings.tileEntityDistancePct;
 			if (pct >= 100 || tileEntity == null) {
 				return;
 			}
