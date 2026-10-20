@@ -315,6 +315,16 @@ public static class RenderShots
             Pump(400);
             Snap(report, dir, "41-crash-report-window", size: new Size(report.Width, report.Height));
             report.Close();
+
+            // The most common cause: out of memory, with its one-click fix.
+            var oom = Core.Launch.CrashClassifier.Classify(new Core.Launch.CrashAnalysis([], "r", null),
+                "java.lang.OutOfMemoryError: Java heap space", 1, 4096, 16384);
+            var oomWindow = new Windows.CrashReportWindow(new Core.Launch.CrashAnalysis([], "r", null), null,
+                "OriginPlayer - Minecraft 1.21.1", oom, () => "report");
+            oomWindow.Show();
+            Pump(400);
+            Snap(oomWindow, dir, "42-crash-report-memory", size: new Size(oomWindow.Width, oomWindow.Height));
+            oomWindow.Close();
         }
         catch (Exception e)
         {

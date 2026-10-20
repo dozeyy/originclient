@@ -987,7 +987,7 @@ public partial class HomePage : UserControl
                     // Queued (not awaited) so this watch finishes (button
                     // restored) first — the crash window's "retry" path
                     // launches the account again.
-                    _ = Dispatcher.BeginInvoke(async () => await ShowCrashReportAsync(game), DispatcherPriority.Background);
+                    _ = Dispatcher.BeginInvoke(async () => await ShowCrashReportAsync(game, exitCode, crashedWhileStarting: true), DispatcherPriority.Background);
                     return;
                 }
 
@@ -1043,6 +1043,7 @@ public partial class HomePage : UserControl
         }
         if (view.ReleaseScene)
             ReleaseScene(game, gameLoading: view.Stage >= HandoffStage.Loading);
+        if (view.GameReady) CrashRetries.Clear(game.Key); // it booted: the next crash starts a fresh chain
         if (!view.GameReady || runningMessage == null) return false;
         if (_launches.WindowShown(game.Key, game))
             Note(game.Key, runningMessage, LaunchTone.Success);
@@ -1113,34 +1114,77 @@ public partial class HomePage : UserControl
             SocialHub.Game.Observe(game.MirrorId, line);
     }
 
-    // Post-mortem for a boot-time crash: name the culprit mod(s) when the
-    // evidence supports it, offer "retry with only Origin's mods". Analysis
-    // reads files + jars, so it runs off the UI thread. Several games can be
-    // open, so the window says whose game (account + version) crashed, and the
-    // retry relaunches exactly that one.
-    private async Task ShowCrashReportAsync(RunningGame game)
+    // One retry per crash chain, per account: the crash window's fix relaunches at most once until a
+    // game boots (see CrashRetryGuard). The player can always press Play themselves.
+    private static readonly CrashRetryGuard CrashRetries = new();
+
+    // Post-mortem for a game that died: name the cause in plain words (CrashClassifier), offer the ONE
+    // fix that suits it, and a secret-free "Copy report". Analysis reads files + jars, so it runs off the
+    // UI thread. Several games can be open, so the window says whose game (account + version) crashed,
+    // and the fix relaunches exactly that one. A normal quit or a player stop never reaches here with a
+    // window (CrashGate); a non-zero exit after the game was up needs real crash evidence.
+    private async Task ShowCrashReportAsync(RunningGame game, int exitCode, bool crashedWhileStarting)
     {
         try
         {
-            var analysis = await Task.Run(() => CrashAnalyzer.Analyze(game.GameDir, game.LogPath));
-            var window = new UI.Windows.CrashReportWindow(analysis, game.LogPath,
-                $"{game.AccountName} - Minecraft {game.Version}")
+            var ramMb = SettingsStore.Load().RamMb;
+            var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
+            var key = game.Key;
+            var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode, ramMb, totalMb,
+                _ => CrashRetries.AnyTried(key, DateTime.UtcNow)));
+            if (!CrashGate.ShouldShow(exitCode, game.StoppedByPlayer, crashedWhileStarting, findings.HasFreshCrashFile, findings.Diagnosis))
+                return;
+
+            var launcherVersion = Core.Updates.UpdateService.CurrentVersion.ToString();
+            var windowsUser = Environment.UserName;
+            string BuildReport() => CrashReportBundle.Build(new CrashReportBundle.Input(
+                launcherVersion, game.Version, ramMb, totalMb, exitCode, findings.Diagnosis,
+                findings.LogText, findings.CrashReportText, [windowsUser, game.AccountName]));
+
+            var window = new UI.Windows.CrashReportWindow(findings.Analysis, game.LogPath,
+                $"{game.AccountName} - Minecraft {game.Version}", findings.Diagnosis, BuildReport)
             {
                 Owner = Window.GetWindow(this)
             };
             window.ShowDialog();
-            if (window.RetryWithoutExternalMods)
-            {
-                SaveExternalMods(false);
-                await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key));
-            }
+            await ApplyCrashActionAsync(game, window.ChosenAction, findings.Diagnosis);
         }
         catch (Exception ex)
         {
             // The crash screen must never add a second failure on top of the
-            // game's — fall back to the status line that's already set.
+            // game's - fall back to the status line that's already set.
             System.Diagnostics.Debug.WriteLine($"[HomePage] Crash analysis failed: {ex}");
         }
+    }
+
+    // Runs the fix the player chose in the crash window, then relaunches that account's game.
+    // Newest launch action wins: if the player already started this account again, nothing is done.
+    private async Task ApplyCrashActionAsync(RunningGame game, CrashAction action, CrashDiagnosis diagnosis)
+    {
+        if (action is CrashAction.None or CrashAction.OpenLogs) return;
+        if (_launches.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
+        if (!CrashRetries.TryBegin(game.Key, action, DateTime.UtcNow)) return;
+
+        switch (action)
+        {
+            case CrashAction.RaiseMemory when diagnosis.NewRamMb is int ram:
+                _settings.RamMb = ram;
+                SettingsStore.Update(s => s.RamMb = ram);
+                break;
+            case CrashAction.DisableMod when diagnosis.ModJar is { } jar:
+                // The Mods tab's own switch: renames foo.jar to foo.jar.disabled, reversible there.
+                if (!Core.Mods.ModManager.SetEnabled(game.Version, jar, enabled: false).Ok)
+                    SaveExternalMods(false); // could not switch just that one off: Origin-only is the next best
+                break;
+            case CrashAction.OriginOnly:
+                SaveExternalMods(false);
+                break;
+            case CrashAction.Relaunch:
+                // The next launch re-hashes the whole install (the boot-crash path already dropped the stamp).
+                Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
+                break;
+        }
+        await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key));
     }
 
     // Persists the full exception under /logs/ for diagnostics. Must never
@@ -1315,6 +1359,11 @@ public partial class HomePage : UserControl
         }
         SyncSocialMirror();
         RefreshPlayButton();
+        // A non-zero exit after the game was up: explain it when there is real crash evidence
+        // (CrashGate inside). A boot crash is the boot watcher's, and a normal quit never lands here.
+        if (wasRunning && exitCode != 0 && !game.StoppedByPlayer)
+            _ = Dispatcher.BeginInvoke(async () => await ShowCrashReportAsync(game, exitCode, crashedWhileStarting: false),
+                DispatcherPriority.Background);
     }
 
     private static string SafeFileName(string name)
