@@ -16,4 +16,21 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface ScreenInvoker {
 	@Invoker("addRenderableWidget")
 	<T extends GuiEventListener & Renderable & NarratableEntry> T originclient$addRenderableWidget(T widget);
+
+	// Target: Screen.renderPanorama(GuiGraphics, float) (protected, javap-verified
+	// 1.21.4). Why: the clean menus draw THIS version's own Mojang panorama
+	// (Screen.PANORAMA, the cubemap at minecraft:textures/gui/title/background/)
+	// behind every out-of-world menu and loading scene, so each version module
+	// shows its own update's panorama with no bundled copy. If it stops
+	// applying, OriginScreenRenderer's catch falls back to vanilla's backdrop.
+	@Invoker("renderPanorama")
+	void originclient$renderPanorama(net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick);
+
+	// Target: Screen.renderBlurredBackground() (protected, javap-verified 1.21.4;
+	// 1.21.2 dropped 1.21.1's float partial-tick parameter):
+	// GameRenderer.processBlurEffect + rebinding the main target. Why: the
+	// panorama is blurred by vanilla's own blur, which follows Accessibility >
+	// Menu Background Blurriness (0 = off). Same failure path as above.
+	@Invoker("renderBlurredBackground")
+	void originclient$renderBlurredBackground();
 }
