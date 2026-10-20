@@ -220,8 +220,8 @@ final class OriginDevWorld {
 	// frame and their CPU time with the feature OFF and ON, standing still and turning. Two OFF
 	// frames give the noise floor for the OFF-vs-ON pixel diff. A block placed in view while ON
 	// proves an edit forces a fresh walk (it must appear in terrain_on_edit).
-	// Entity culling: pigs in a sealed underground pocket (a 3x3x3-section block of stone, hollow
-	// centre section) in view but behind terrain, so Sodium culls them, plus pigs on the surface in
+	// Entity culling: pigs in a sealed underground pocket (a stone section, hollowed, with its 6
+	// face-neighbour sections filled with stone) in view but behind terrain, so Sodium culls them, plus pigs on the surface in
 	// view. The per-frame entity culling results must be identical OFF and ON (same visible set).
 	private static boolean terrainSpin;
 	private static long stFrames, stWalks, stReused, stMainNs, stShadowWalks, stShadowNs, stRestoreNs;
@@ -310,7 +310,8 @@ final class OriginDevWorld {
 				log("[smart-terrain] ON block edit: " + stOnEdit);
 				log("[smart-terrain] ON turning: " + stOnMove);
 				log("[smart-terrain] OFF turning: " + offMove);
-				log("[smart-terrain] hooks seen: " + com.origin.client.client.render.SmartTerrainUpdates.hooksLine());
+				log("[smart-terrain] hooks seen: " + com.origin.client.client.render.SmartTerrainUpdates.hooksLine()
+						+ " | player alive=" + mc.player.isAlive());
 				net.minecraft.core.BlockPos at = stEdit;
 				server.execute(() -> {
 					var src = server.createCommandSourceStack().withSuppressedOutput();
@@ -343,18 +344,20 @@ final class OriginDevWorld {
 		double yaw = Math.toRadians(mc.player.getYRot());
 		double hx = -Math.sin(yaw), hz = Math.cos(yaw);   // horizontal view direction
 		net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
-		// Pocket 20 ahead, 24 down: about 25 degrees under the view centre at pitch 25, inside the frustum.
-		int sx = net.minecraft.core.SectionPos.blockToSectionCoord(eye.x + hx * 20);
-		int sy = net.minecraft.core.SectionPos.blockToSectionCoord(eye.y - 24);
-		int sz = net.minecraft.core.SectionPos.blockToSectionCoord(eye.z + hz * 20);
+		// Pocket 28 ahead, 28 down: 20 degrees under the view centre at pitch 25, inside the frustum.
+		// 28 ahead keeps every filled section off the player's own block column on at least one axis
+		// (a 3x3x3 block at 20 ahead entombed the player in the first run).
+		int sx = net.minecraft.core.SectionPos.blockToSectionCoord(eye.x + hx * 28);
+		int sy = net.minecraft.core.SectionPos.blockToSectionCoord(eye.y - 28);
+		int sz = net.minecraft.core.SectionPos.blockToSectionCoord(eye.z + hz * 28);
 		java.util.List<String> cmds = new java.util.ArrayList<>();
-		for (int dx = -1; dx <= 1; dx++) {
-			for (int dy = -1; dy <= 1; dy++) {
-				for (int dz = -1; dz <= 1; dz++) {
-					int x0 = (sx + dx) * 16, y0 = (sy + dy) * 16, z0 = (sz + dz) * 16;
-					cmds.add("fill " + x0 + " " + y0 + " " + z0 + " " + (x0 + 15) + " " + (y0 + 15) + " " + (z0 + 15) + " minecraft:stone");
-				}
-			}
+		// Sodium's walk enters a section only through a face of a visited neighbour that connects to
+		// it, so solid stone in the pocket section and its 6 face neighbours seals it off whatever caves
+		// are around.
+		int[][] cells = {{0, 0, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+		for (int[] d : cells) {
+			int x0 = (sx + d[0]) * 16, y0 = (sy + d[1]) * 16, z0 = (sz + d[2]) * 16;
+			cmds.add("fill " + x0 + " " + y0 + " " + z0 + " " + (x0 + 15) + " " + (y0 + 15) + " " + (z0 + 15) + " minecraft:stone");
 		}
 		int cx = sx * 16, cy = sy * 16, cz = sz * 16;
 		cmds.add("fill " + (cx + 1) + " " + (cy + 1) + " " + (cz + 1) + " " + (cx + 14) + " " + (cy + 14) + " " + (cz + 14) + " minecraft:air");
