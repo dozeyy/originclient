@@ -20,15 +20,53 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelLoadingScreen.class)
 public class LevelLoadingScreenMixin {
 
+	// 26.x: LevelLoadingScreen overrides extractBackground (panorama + blur, or
+	// the portal sprites by load reason), drawn in its own stratum BEFORE
+	// extractRenderState. Target: that override (javap-verified on 26.1.2, 26.2,
+	// 26.3). Why: the clean scene's backdrop (this version's panorama, blurred and
+	// dimmed) belongs here, so the blur runs once and the scene's text sits over
+	// it; every load reason gets it, as on 1.21.1 where the scene takes the whole
+	// screen. If it stops applying: the render-pass hook below draws the backdrop
+	// itself (blurring at most once per frame), over vanilla's background.
+	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
+	private void originclient$originLoadingBackdrop(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;   // vanilla mode: stock background
+		}
+		if (OriginScreenRenderer.renderLoadingBackdrop((Screen) (Object) this, guiGraphics, partialTick)) {
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
 	private void originclient$originLoadingScene(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		if (OriginStyle.vanillaMenusOn(this)) {
 			return;   // vanilla mode: stock chunk-progress map
 		}
 		// Only cancel vanilla when the Origin scene actually drew (fail-soft).
-		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, ((Screen) (Object) this).getTitle(), originclient$progress())) {
+		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, originclient$sceneTitle(), originclient$progress())) {
 			ci.cancel();
 		}
+	}
+
+	// 26.x: LevelLoadingScreen's title is empty (vanilla draws its own
+	// "Downloading terrain" / progress text instead), so the scene would show
+	// no heading at all, and before the tracker has progress no line either.
+	// The heading is vanilla's own "Loading terrain..." (multiplayer.downloadingTerrain,
+	// the line this screen shows; 26.x has no "Loading world" key), built
+	// once per screen (a translatable resolves in the current language when the
+	// scene rebuilds its labels). A non-empty title is kept as is.
+	@Unique
+	private net.minecraft.network.chat.Component originclient$title;
+
+	@Unique
+	private net.minecraft.network.chat.Component originclient$sceneTitle() {
+		if (originclient$title == null) {
+			net.minecraft.network.chat.Component t = ((Screen) (Object) this).getTitle();
+			originclient$title = t == null || t.getString().isBlank()
+					? net.minecraft.network.chat.Component.translatable("multiplayer.downloadingTerrain") : t;
+		}
+		return originclient$title;
 	}
 
 	// The tracker's server-side fraction done (0..1), or -1 (sweep) while it has

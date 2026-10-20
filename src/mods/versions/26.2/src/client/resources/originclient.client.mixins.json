@@ -10,6 +10,8 @@
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"ScreenInvoker",
+		"GuiGraphicsExtractorAccessor",
+		"GuiRenderStateAccessor",
 		"AbstractButtonMixin",
 		"SprintKeyMixin",
 		"ScreenBackgroundMixin",
