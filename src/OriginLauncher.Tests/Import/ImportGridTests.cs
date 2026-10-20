@@ -180,6 +180,37 @@ public sealed class ImportGridTests : IDisposable
     }
 
     [Fact]
+    public void TheCarriedSettingsTipNamesTheSetupThePlanUsesNotARunningOne()
+    {
+        var survival = Setup("Survival", SourceKind.Prism, "1.21.1", 40);
+        var setups = new[]
+        {
+            survival,
+            Setup("Old", SourceKind.Prism, "1.20.4", 3),
+            Setup("PvP", SourceKind.Modrinth, "1.8.9", 60),
+        };
+        var grid = new ImportGridModel(setups);
+        Assert.Contains("(from 1.21.1)", grid.Cell(SourceKind.Prism, GridColumn.Settings).Tip);
+
+        // The plan found Minecraft running from Survival: it can't come over, so the donor is the next most played.
+        Assert.True(grid.SetUnavailable(new[] { new SkippedSetup(survival, "running", SkipKind.SourceRunning) }));
+        var tip = grid.Cell(SourceKind.Prism, GridColumn.Settings).Tip;
+        Assert.Contains("Minecraft 1.21.1, 1.8.9 gets your most played Prism / MultiMC settings (from 1.20.4)", tip);
+        Assert.Equal(SourceKind.Prism, grid.SettingsFrom("1.8.9"));
+        var qualified = setups.Where(s => s != survival).ToList();
+        Assert.Equal("Old", BulkComposer.Compose(qualified, grid.Grid()).Single(c => c.Version == "1.8.9").SettingsFrom?.Name);
+
+        // The same skips again change nothing; a skip that leaves the setup able to donate (its target running) is no skip here.
+        Assert.False(grid.SetUnavailable(new[] { new SkippedSetup(survival, "running", SkipKind.SourceRunning) }));
+        Assert.True(grid.SetUnavailable(new[] { new SkippedSetup(survival, "target", SkipKind.TargetRunning) }));
+        Assert.Contains("(from 1.21.1)", grid.Cell(SourceKind.Prism, GridColumn.Settings).Tip);
+
+        // No setup of the launcher left to take settings from: no launcher's settings at all.
+        grid.SetUnavailable(setups.Where(s => s.Kind == SourceKind.Prism).Select(s => new SkippedSetup(s, "gone", SkipKind.FolderMissing)));
+        Assert.Null(grid.SettingsFrom("1.8.9"));
+    }
+
+    [Fact]
     public void ACellWithNothingBehindItIsGreyedWithTheReason()
     {
         var lunar = Setup("Lunar 1.21.1", SourceKind.Lunar, "1.21.1", 8, LoaderKind.None);

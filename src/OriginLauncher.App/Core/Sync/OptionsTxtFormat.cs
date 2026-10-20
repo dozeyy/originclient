@@ -123,7 +123,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
     private static readonly HashSet<string> LegacyKeys = new(StringComparer.Ordinal)
     {
         "mouseSensitivity", "fov", "gamma", "saturation", "invertYMouse", "renderDistance", "guiScale", "particles",
-        "bobView", "anaglyph3d", "maxFps", "fboEnable", "difficulty", "fancyGraphics", "ao", "renderClouds", "clouds",
+        "bobView", "anaglyph3d", "maxFps", "fboEnable", "difficulty", "fancyGraphics", "ao", "renderClouds",
         "lastServer", "lang", "chatVisibility", "chatColors", "chatLinks", "chatLinksPrompt", "chatOpacity",
         "snooperEnabled", "fullscreen", "enableVsync", "useVbo", "hideServerAddress", "advancedItemTooltips",
         "pauseOnLostFocus", "touchscreen", "overrideWidth", "overrideHeight", "heldItemTooltips", "chatHeightFocused",
@@ -135,7 +135,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
     // 1.8.9 options no later version (1.16.5 and up) has.
     private static readonly HashSet<string> LegacyOnlyKeys = new(StringComparer.Ordinal)
     {
-        "fancyGraphics", "clouds", "anaglyph3d", "fboEnable", "useVbo", "allowBlockAlternatives", "showInventoryAchievementHint",
+        "fancyGraphics", "anaglyph3d", "fboEnable", "useVbo", "allowBlockAlternatives", "showInventoryAchievementHint",
     };
 
     /// <summary>
@@ -144,6 +144,8 @@ public sealed class OptionsTxtFormat : ISyncFormat
     /// and the keys that exist only in some modern versions (the graphicsMode / graphicsPreset split at 1.21.11, the
     /// now-playing toast of 1.21.6-1.21.10). Settings Sync doesn't use this: every loader ignores a key it doesn't know.
     /// </summary>
+    /// Boundaries read from each version's Options class (javap, 2026-10-19): graphicsMode 1.16.5-1.21.10;
+    /// graphicsPreset + musicToast 1.21.11 and 26.1; showNowPlayingToast 1.21.6-1.21.10 (absent on 1.21.1/4/5).
     public static bool KnownIn(string key, string version)
     {
         if (!McVersion.AtLeast(version, GlfwKeyNamesSince))

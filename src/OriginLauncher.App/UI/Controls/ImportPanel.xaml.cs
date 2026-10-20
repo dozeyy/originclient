@@ -1554,6 +1554,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         _planKey = key;
         _planOptions = options;
         if (plan != null) _lastPlan = plan;
+        // The grid's Settings tip names the setup this plan really uses: the setups it can't take drop out.
+        if (plan != null && _model.GridModel is { } gridModel && gridModel.SetUnavailable(plan.Skipped) && _pane == Pane.Grid) RenderGrid();
         if (_pane == Pane.Review)
         {
             ShowReviewPlanning(false);

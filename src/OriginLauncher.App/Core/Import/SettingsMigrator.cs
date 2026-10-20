@@ -910,7 +910,9 @@ public static class SettingsMigrator
 
     /// <summary>
     /// options.txt values carried to another Minecraft version: only the keys <paramref name="targetVersion"/> knows
-    /// (OptionsTxtFormat.KnownIn), plus 1.8.9's fancyGraphics derived from a modern graphicsMode (0 / fast = off).
+    /// (OptionsTxtFormat.KnownIn), with Fast / Fancy kept across the 1.8.9 split: 1.8.9's fancyGraphics derived from a
+    /// modern graphicsMode (0 / fast = off), and a modern graphicsMode (stored as the GraphicsStatus id: 0 fast, 1 fancy)
+    /// derived from 1.8.9's fancyGraphics.
     /// Keybinds, lang and the value forms are translated to the target era when written (OptionsTxtFormat.Apply),
     /// which also skips any value that could break that era's loader.
     /// </summary>
@@ -921,6 +923,9 @@ public static class SettingsMigrator
         if (!OptionsTxtFormat.KnownIn("graphicsMode", targetVersion) && OptionsTxtFormat.KnownIn("fancyGraphics", targetVersion)
             && !source.ContainsKey("fancyGraphics") && source.TryGetValue("graphicsMode", out var mode) && mode != null)
             carried["fancyGraphics"] = mode.Trim().Trim('"') is "0" or "fast" ? "false" : "true";
+        if (OptionsTxtFormat.KnownIn("graphicsMode", targetVersion) && !source.ContainsKey("graphicsMode")
+            && source.TryGetValue("fancyGraphics", out var fancy) && fancy != null)
+            carried["graphicsMode"] = fancy.Trim().Trim('"').Equals("false", StringComparison.OrdinalIgnoreCase) ? "0" : "1";
         return carried;
     }
 

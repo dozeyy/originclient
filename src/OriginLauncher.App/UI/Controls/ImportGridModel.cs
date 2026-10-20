@@ -44,6 +44,7 @@ internal sealed class ImportGridModel
     private SourceKind? _settingsPick;                                             // the player's Settings pick...
     private bool _settingsPicked;                                                  // ...once they made one
     private bool _modsTouched;                                                     // the player pressed a Mods tick
+    private HashSet<DetectedInstance> _unavailable = new(ReferenceEqualityComparer.Instance); // the last plan can't take them
 
     /// <param name="setups">The setups that can come over (a supported, known Minecraft version).</param>
     public ImportGridModel(IEnumerable<DetectedInstance> setups)
@@ -182,7 +183,26 @@ internal sealed class ImportGridModel
     /// Its own setup there when it has one; otherwise its most played setup, carried over (BulkComposer.SettingsDonor).
     /// </summary>
     public SourceKind? SettingsFrom(string version) =>
-        SettingsLauncher is { } kind && BulkComposer.SettingsSetup(kind, _setups) != null ? kind : null;
+        SettingsLauncher is { } kind && BulkComposer.SettingsSetup(kind, Available) != null ? kind : null;
+
+    /// <summary>
+    /// The setups the last plan found can't come over at all (Minecraft running from them, the folder gone, inside
+    /// Origin's own folders): the settings donor is picked among the rest, as the engine does (BulkEngine qualifies
+    /// before it composes). True when that changed, so the grid is drawn again.
+    /// </summary>
+    public bool SetUnavailable(IEnumerable<SkippedSetup> skipped)
+    {
+        var next = new HashSet<DetectedInstance>(
+            skipped.Where(s => s.Kind is SkipKind.SourceRunning or SkipKind.FolderMissing or SkipKind.InsideOrigin
+                or SkipKind.UnknownVersion or SkipKind.Unsupported).Select(s => s.Setup),
+            ReferenceEqualityComparer.Instance);
+        if (next.SetEquals(_unavailable)) return false;
+        _unavailable = next;
+        return true;
+    }
+
+    // The setups a plan can take its settings from.
+    private IEnumerable<DetectedInstance> Available => _setups.Where(s => !_unavailable.Contains(s));
 
     // The tab's versions where this launcher has a setup that carries settings (a Forge one on Fabric brings packs only).
     private List<string> SettingsVersions(SourceKind kind) =>
@@ -200,9 +220,10 @@ internal sealed class ImportGridModel
             var mine = SettingsVersions(kind);
             if (mine.Count == 0) return new GridCellState(false, false, $"{title}'s setups here bring packs only (Forge), not settings");
             // Versions this launcher has no setup on get its most played setup's settings: said in the tip.
-            var carried = Versions.Where(v => !SetupsOf(kind, v).Any(BulkComposer.CarriesSettings)).ToList();
+            // The donor is the one the plan uses: a setup it can't take (Minecraft running from it) is passed over.
+            var carried = Versions.Where(v => !SetupsOf(kind, v).Any(s => BulkComposer.CarriesSettings(s) && !_unavailable.Contains(s))).ToList();
             var tip = $"Use {title}'s settings (one launcher's settings for every version)"
-                + (carried.Count > 0 && BulkComposer.SettingsSetup(kind, _setups) is { McVersion: { } from }
+                + (carried.Count > 0 && BulkComposer.SettingsSetup(kind, Available) is { McVersion: { } from }
                     ? $"; Minecraft {ImportFlowModel.JoinFew(carried)} gets your most played {title} settings (from {from})"
                     : "");
             return new GridCellState(SettingsLauncher == kind, true, tip);

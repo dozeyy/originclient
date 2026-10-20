@@ -345,10 +345,21 @@ public sealed class SettingsCarryTests : IDisposable
 
         var legacy = new Dictionary<string, string?> { ["fov"] = "0.5", ["fancyGraphics"] = "false", ["streamFps"] = "0.3", ["key_key.jump"] = "57" };
         var to1211Back = SettingsMigrator.CarryOptions(legacy, "1.21.1");
-        Assert.Equal(new[] { "fov", "key_key.jump" }, to1211Back.Keys.OrderBy(k => k, StringComparer.Ordinal));
+        Assert.Equal(new[] { "fov", "graphicsMode", "key_key.jump" }, to1211Back.Keys.OrderBy(k => k, StringComparer.Ordinal));
+        Assert.Equal("0", to1211Back["graphicsMode"]);                                 // 1.8.9 Fast stays Fast
+        Assert.Equal("1", SettingsMigrator.CarryOptions(new Dictionary<string, string?> { ["fancyGraphics"] = "true" }, "1.16.5")["graphicsMode"]);
+        Assert.Empty(SettingsMigrator.CarryOptions(new Dictionary<string, string?> { ["fancyGraphics"] = "true" }, "1.21.11"));
 
+        // The boundaries, as read from each version's Options class (javap, 2026-10-19).
         Assert.True(OptionsTxtFormat.KnownIn("musicToast", "26.1"));
+        Assert.True(OptionsTxtFormat.KnownIn("graphicsPreset", "1.21.11"));
+        Assert.False(OptionsTxtFormat.KnownIn("graphicsMode", "26.1"));
+        Assert.True(OptionsTxtFormat.KnownIn("graphicsMode", "1.21.10"));
         Assert.False(OptionsTxtFormat.KnownIn("musicToast", "1.21.10"));
         Assert.True(OptionsTxtFormat.KnownIn("showNowPlayingToast", "1.21.8"));
+        Assert.True(OptionsTxtFormat.KnownIn("showNowPlayingToast", "1.21.6"));
+        Assert.False(OptionsTxtFormat.KnownIn("showNowPlayingToast", "1.21.5"));
+        Assert.True(OptionsTxtFormat.KnownIn("renderClouds", "1.8.9"));
+        Assert.False(OptionsTxtFormat.KnownIn("clouds", "1.8.9"));                       // 1.8.9 reads renderClouds only
     }
 }
