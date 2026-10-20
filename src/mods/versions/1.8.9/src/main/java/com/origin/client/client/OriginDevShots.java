@@ -63,7 +63,15 @@ public final class OriginDevShots {
 		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH,
 		// ORIGIN_SHOTS_SET=style (Button Style / Main Menu Style, 2026-10-19): Minecraft's own menus, to see
 		// whether they come out Origin-styled or plain vanilla. Run once per ORIGIN_SHOTS_STYLE state.
-		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING;
+		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING,
+		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19, as 1.21.1): the title with the Quit
+		// square hovered, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
+		TITLE_HOVER, CONTROLS, LEVEL_LOADING, CONNECTING,
+		// the resource-pack lists: their scrolling "Available" / "Selected" headers must clip to the list body
+		STY_PACKS,
+		// ...and, LAST in the clean set because they create a world: Create New World, the pause menu inside
+		// that new world, then the world list with that save in it after Save and Quit.
+		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED;
 
 		GuiScreen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -75,6 +83,7 @@ public final class OriginDevShots {
 			callStatic(P + "social.SocialDemo", "clear");
 			// 1.21.1 clears vanilla's ToastComponent here; on 1.8.9 SocialToast is the toast stack
 			com.origin.client.client.social.SocialToast.clearAll();
+			devCursor(this == TITLE_HOVER);   // hovers the Quit square
 			GuiScreen social = openSocial();
 			if (social != null) {
 				return social;
@@ -230,6 +239,8 @@ public final class OriginDevShots {
 					return new net.minecraft.client.gui.GuiVideoSettings(new GuiMainMenu(), Minecraft.getMinecraft().gameSettings);
 				case STY_SOUND:
 					return new net.minecraft.client.gui.GuiScreenOptionsSounds(new GuiMainMenu(), Minecraft.getMinecraft().gameSettings);
+				case STY_PACKS:
+					return new net.minecraft.client.gui.GuiScreenResourcePacks(new GuiMainMenu());
 				case STY_WORLDS:
 					return new net.minecraft.client.gui.GuiSelectWorld(new GuiMainMenu());
 				case STY_CREATE:
@@ -243,8 +254,113 @@ public final class OriginDevShots {
 					w.setLoadingProgress(40);
 					return w;
 				}
+				case TITLE_HOVER:
+					return new GuiMainMenu();
+				case CONTROLS:
+					return new net.minecraft.client.gui.GuiControls(new GuiMainMenu(), mc.gameSettings);
+				case LEVEL_LOADING:
+					// "Downloading terrain", the screen every world shows last. Its updateScreen sends a
+					// keep-alive through the (absent) connection, so this one never ticks; drawScreen is
+					// inherited, so GuiDownloadTerrainMixin still applies.
+					return new net.minecraft.client.gui.GuiDownloadTerrain(null) {
+						@Override
+						public void updateScreen() {
+						}
+					};
+				case CONNECTING:
+					return connectScreen();
+				case CREATE_TABS:
+				case WORLD_PAUSE:
+					// 1.8.9's Create New World has no tabs: the screen itself.
+					return new net.minecraft.client.gui.GuiCreateWorld(new GuiMainMenu());
+				case WORLDS_SAVED:
+					if (mc.theWorld != null) {
+						// Vanilla's Save and Quit (GuiIngameMenu.actionPerformed, button 1).
+						mc.theWorld.sendQuittingDisconnectingPacket();
+						mc.loadWorld((net.minecraft.client.multiplayer.WorldClient) null);
+					}
+					return new net.minecraft.client.gui.GuiSelectWorld(new GuiMainMenu());
 				default:
 					return null;
+			}
+		}
+	}
+
+	/**
+	 * GuiConnecting's two constructors both start a real connection (javap 1.8.9), which would turn the
+	 * screen into "Failed to connect" within a second. Dev only: the instance is allocated without a
+	 * constructor (networkManager null), which is exactly the first state a player sees, "Connecting to
+	 * the server...". Its updateScreen does nothing while networkManager is null. (First CI run: without
+	 * the GuiScreen field copy below, drawScreen NPE'd on the null buttonList.)
+	 */
+	private static GuiScreen connectScreen() {
+		try {
+			java.lang.reflect.Field f = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe");
+			f.setAccessible(true);
+			sun.misc.Unsafe u = (sun.misc.Unsafe) f.get(null);
+			GuiScreen c = (GuiScreen) u.allocateInstance(net.minecraft.client.multiplayer.GuiConnecting.class);
+			// No constructor ran, so GuiScreen's own field initialisers (buttonList, labelList, ...) did not
+			// either: copy them from a plain GuiScreen (the template is thrown away, so nothing is shared).
+			GuiScreen template = new GuiScreen() {
+			};
+			for (Class<?> k = GuiScreen.class; k != null && k != Object.class; k = k.getSuperclass()) {
+				for (java.lang.reflect.Field fd : k.getDeclaredFields()) {
+					if (!java.lang.reflect.Modifier.isStatic(fd.getModifiers())) {
+						fd.setAccessible(true);
+						fd.set(c, fd.get(template));
+					}
+				}
+			}
+			return c;
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] could not build the connect screen", t);
+			return null;
+		}
+	}
+
+	// TITLE_HOVER: the pointer parked on the icon row's last square (Quit) so the shot shows the real hover
+	// look AND its tooltip (only the icon squares have one). 1.8.9 reads the pointer from LWJGL 2's Mouse
+	// each frame; Xvfb has no pointer moving, so the warped position stays put. Every other shot gets the
+	// pointer parked off every widget. Dev only.
+	private static void devCursor(boolean onIcon) {
+		try {
+			Minecraft mc = Minecraft.getMinecraft();
+			// Off every widget: the right edge, halfway down (Xvfb starts the pointer mid-screen, which
+			// hovered Singleplayer and Done in the first run; 1.21.1's shots show no hover).
+			int x = mc.displayWidth - 1, y = mc.displayHeight / 2;
+			if (onIcon) {
+				net.minecraft.client.gui.ScaledResolution sr = new net.minecraft.client.gui.ScaledResolution(mc);
+				com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
+						sr.getScaledWidth(), sr.getScaledHeight());
+				// The dock is centred and Quit is last: the right end of the row (4 squares on 1.8.9).
+				int squares = 4;
+				int totalW = squares * L.dockSize + (squares - 1) * L.dockGap;
+				int gx = (sr.getScaledWidth() - totalW) / 2 + totalW - L.dockSize / 2;
+				int gy = L.dockY + L.dockSize / 2;
+				int gs = sr.getScaleFactor();
+				x = gx * gs;
+				y = mc.displayHeight - 1 - gy * gs;   // LWJGL 2: y counts from the bottom
+			}
+			org.lwjgl.input.Mouse.setCursorPosition(x, y);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] cursor placement failed", t);
+		}
+	}
+
+	/** Presses the first visible button whose label is {@code label} (vanilla's own click path). */
+	private static void pressLabel(GuiScreen s, String label) {
+		if (!(s instanceof com.origin.client.client.mixin.menus.GuiScreenAccessor)) {
+			return;
+		}
+		com.origin.client.client.mixin.menus.GuiScreenAccessor a = (com.origin.client.client.mixin.menus.GuiScreenAccessor) s;
+		for (net.minecraft.client.gui.GuiButton b : a.originclient$buttonList()) {
+			if (b.visible && b.enabled && label.equals(b.displayString)) {
+				try {
+					a.originclient$actionPerformed(b);
+				} catch (Throwable t) {
+					com.origin.client.OriginClient.LOGGER.warn("[dev-shots] pressing '{}' failed", label, t);
+				}
+				return;
 			}
 		}
 	}
@@ -312,6 +428,29 @@ public final class OriginDevShots {
 		}));
 		ACTS.put(Kind.ACT_TOAST_REQUEST, steps(s -> com.origin.client.client.social.SocialToast.devClickButton("req:9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14")));
 		ACTS.put(Kind.ACT_TOAST_INVITE, steps(s -> com.origin.client.client.social.SocialToast.devClickButton("inv:1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52")));
+		// Clean set: WORLD_PAUSE presses Create on Create New World (1.8.9 builds the world inside that
+		// click, under its own loading screen, so the tick loop resumes once it is in), waits for the world
+		// and opens the pause menu.
+		java.util.function.Consumer<GuiScreen> idle = s -> {
+		};
+		ACTS.put(Kind.CREATE_TABS, steps(idle));
+		List<java.util.function.Consumer<GuiScreen>> enter = new ArrayList<>(steps(idle, s -> {
+			if (s instanceof net.minecraft.client.gui.GuiCreateWorld) {
+				pressLabel(s, net.minecraft.client.resources.I18n.format("selectWorld.create"));
+			}
+		}));
+		for (int i = 0; i < 12; i++) {
+			enter.add(idle);
+		}
+		enter.add(s -> {
+			Minecraft mc = Minecraft.getMinecraft();
+			if (mc.theWorld != null && !(mc.currentScreen instanceof net.minecraft.client.gui.GuiIngameMenu)) {
+				mc.displayGuiScreen(new net.minecraft.client.gui.GuiIngameMenu());
+			}
+		});
+		enter.add(idle);
+		ACTS.put(Kind.WORLD_PAUSE, enter);
+		ACTS.put(Kind.WORLDS_SAVED, steps(idle, idle));
 	}
 
 	private static double savedBgOpacity = -1;
@@ -336,6 +475,23 @@ public final class OriginDevShots {
 			for (Kind k : ks) {
 				SHOTS.add(new Shot(1920, 1080, 2, k));
 			}
+		} else if ("clean".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// The clean in-game look (as 1.21.1): Minecraft's own menus + loading screens at GUI scale 2 on
+			// 1080p, the Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4
+			// (clipping checks). The startup splash comes from the boot shot (tick, step < 0).
+			Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS, Kind.STY_PACKS,
+					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.MENU};
+			for (Kind k : ks) {
+				SHOTS.add(new Shot(1920, 1080, 2, k));
+			}
+			SHOTS.add(new Shot(1280, 720, 2, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 3, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 4, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 3, Kind.STY_OPTIONS));
+			// These create a world, so they go last (everything above must be shot out of world).
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.CREATE_TABS));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.WORLD_PAUSE));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.WORLDS_SAVED));
 		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			for (int sc : new int[]{2, 4}) {
 				for (Kind k : Kind.values()) {
@@ -361,7 +517,7 @@ public final class OriginDevShots {
 			// Design review: every screen at the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
-					if (!k.name().startsWith("STY_")) {
+					if (!k.name().startsWith("STY_") && k.ordinal() < Kind.TITLE_HOVER.ordinal()) {
 						SHOTS.add(new Shot(s[0], s[1], 0, k));
 					}
 				}
@@ -398,9 +554,9 @@ public final class OriginDevShots {
 	}
 
 	/**
-	 * ORIGIN_SHOTS_STYLE (dev-only, only with ORIGIN_SHOTS set): forces the two style options for the whole
-	 * run: "buttons" = Button Style Minecraft; "menu" = Main Menu Style Vanilla; "vanilla" = both. Unset/empty =
-	 * the player's own settings. The real options are written and put back when the shot matrix finishes.
+	 * ORIGIN_SHOTS_STYLE (dev-only, only with ORIGIN_SHOTS set): forces Main Menu Style for the whole run:
+	 * "menu" or "vanilla" = Vanilla. Unset/empty = the player's own settings. (No Button Style any more:
+	 * Minecraft's menus are always stock widgets.) The option is written and put back when the matrix finishes.
 	 * Called from OriginClientMod.init.
 	 */
 	public static void applyStyleOverride() {
@@ -410,22 +566,40 @@ public final class OriginDevShots {
 		}
 		try {
 			String g = com.origin.client.client.mods.Mods.GENERAL_ID;
-			savedStyle = new String[]{com.origin.client.client.mods.Mods.mode(g, "buttonStyle"),
-					com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
-			if (style.equals("buttons") || style.equals("vanilla")) {
-				com.origin.client.client.mods.Mods.set(g, "buttonStyle", "Minecraft");
-			}
+			savedStyle = new String[]{null, com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
 			if (style.equals("menu") || style.equals("vanilla")) {
 				com.origin.client.client.mods.Mods.set(g, "mainMenuStyle", "Vanilla");
 			}
-			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was buttons={}, menu={})",
-					style, savedStyle[0], savedStyle[1]);
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was menu={})",
+					style, savedStyle[1]);
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] style override failed", t);
 		}
 	}
 
 	private static String[] savedStyle;
+	private static boolean bootShot = false;
+
+	/**
+	 * Style / clean sets: one frame of the STARTUP splash. 1.8.9's startup load is Forge's own splash, so
+	 * Origin's startup layer is drawn by the first title (OriginTitleScreen's settle hold): the first tick
+	 * the title is up and still holding grabs the frame it just showed.
+	 */
+	private static void bootLoadingShot(Minecraft mc) {
+		String set = System.getenv("ORIGIN_SHOTS_SET");
+		if (bootShot || !("style".equals(set) || "clean".equals(set))) {
+			return;
+		}
+		bootShot = true;
+		if (!com.origin.client.client.gui.OriginTitleScreen.introPlaying()) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] startup splash already gone when the title came up; no boot shot");
+			return;
+		}
+		File output = new File(DIR);
+		if (output.isDirectory() || output.mkdirs()) {
+			grab(mc, DIR, "loading_boot_" + mc.displayWidth + "x" + mc.displayHeight + ".png");
+		}
+	}
 
 	public static void tick(Minecraft mc) {
 		if (done) {
@@ -434,6 +608,7 @@ public final class OriginDevShots {
 		long now = System.currentTimeMillis();
 		if (step < 0) {
 			if (mc.theWorld == null && isTitle(mc.currentScreen)) {
+				bootLoadingShot(mc);
 				if (nextAt == 0) {
 					nextAt = now + (HANDOFF ? 5000 : 1500);
 				} else if (now >= nextAt) {
@@ -488,7 +663,7 @@ public final class OriginDevShots {
 					mc.displayGuiScreen(screen);
 					actIdx = 0;
 					phase = 2;
-					nextAt = now + (s.kind == Kind.TITLE ? 1900 : 900);
+					nextAt = now + (s.kind == Kind.TITLE || s.kind == Kind.TITLE_HOVER ? 1900 : 900);
 					break;
 				}
 				case 2: {
@@ -531,7 +706,6 @@ public final class OriginDevShots {
 		done = true;
 		if (savedStyle != null) {
 			try {
-				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "buttonStyle", savedStyle[0]);
 				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle", savedStyle[1]);
 			} catch (Throwable ignored) {
 			}

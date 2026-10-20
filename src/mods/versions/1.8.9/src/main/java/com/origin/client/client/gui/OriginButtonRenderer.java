@@ -66,14 +66,14 @@ public final class OriginButtonRenderer {
 	private OriginButtonRenderer() {
 	}
 
-	// Will, 2026-09-03: the Origin widget skin applies on EVERY screen -- title,
-	// pause, options, world/server lists -- so the whole client reads as one
-	// design (the Lunar model). Another mod's own widget classes still keep their
-	// own art (OriginWidgetOwnership.isForeign), see skins().
+	// The Origin widget skin is for Origin's OWN windows only (2026-10-19 clean
+	// look): Minecraft's menus always draw stock widgets (OriginStyle.vanillaButtons).
+	// OriginTitleScreen is an Origin class but stands in for vanilla's GuiMainMenu,
+	// so its buttons are Minecraft's too (1.21.1 keeps vanilla's TitleScreen widgets).
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getMinecraft();
-		// Button Style = Minecraft hands every vanilla widget back (outside Origin's own windows).
 		return mc != null && mc.currentScreen != null
+				&& !(mc.currentScreen instanceof OriginTitleScreen)
 				&& !com.origin.client.client.OriginStyle.vanillaButtonsOn(mc.currentScreen);
 	}
 
