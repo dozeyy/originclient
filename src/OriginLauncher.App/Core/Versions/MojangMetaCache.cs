@@ -14,7 +14,8 @@ namespace OriginLauncher.App.Core.Versions;
 /// CmlLib fetches both on every launch and throws when it can't. Through this
 /// client a successful fetch is saved under &lt;launcher&gt;/cache/mojang-meta, and
 /// when the network fails (no connection, DNS, timeout) the saved copy answers
-/// instead. Nothing else changes: online, every request still goes to Mojang.
+/// instead. On a full pass every request still goes to Mojang; the fast path
+/// reads the copy first (diskFirst), which saves those two round trips.
 ///
 /// Files under /v1/packages/&lt;sha1&gt;/ are content-addressed: a copy is only
 /// saved or served when its SHA-1 matches the URL, so a damaged copy is never used.
@@ -24,13 +25,26 @@ public sealed class MojangMetaCache : DelegatingHandler
     private static readonly Regex Addressed = new(@"/v1/packages/([0-9a-f]{40})/", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private readonly string _dir;
+    private readonly bool _diskFirst;
 
-    public MojangMetaCache(string dir, HttpMessageHandler inner) : base(inner) => _dir = dir;
+    /// <param name="diskFirst">
+    /// Answer from the disk copy without asking Mojang when there is one. Only for
+    /// the fast path (InstallVerification: this install passed a full verify under
+    /// this launcher build within the last week); full passes always fetch, so a
+    /// Java update Mojang publishes is picked up by the next full pass.
+    /// </param>
+    public MojangMetaCache(string dir, HttpMessageHandler inner, bool diskFirst = false) : base(inner)
+    {
+        _dir = dir;
+        _diskFirst = diskFirst;
+    }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         if (request.Method != HttpMethod.Get || request.RequestUri is not { } uri)
             return await base.SendAsync(request, ct);
+        if (_diskFirst && Load(uri) is { } copy)
+            return Answer(request, copy);
 
         try
         {

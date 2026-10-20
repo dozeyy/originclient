@@ -804,7 +804,8 @@ public sealed class VersionManager
         // and Java's metadata from a disk copy when offline (MojangMetaCache). The
         // client is per launch but holds no sockets: it sends through SharedHttp.
         var javaMeta = new HttpClient(new MojangMetaCache(
-            Path.Combine(OriginPaths.Root, "cache", "mojang-meta"), new ForwardToClient(SharedHttp)));
+            Path.Combine(OriginPaths.Root, "cache", "mojang-meta"), new ForwardToClient(SharedHttp),
+            diskFirst: !fullVerify));
         InheritedJavaFileExtractor.Install(parameters, javaMeta);
         // Offline: the version list from the copy CmlLib saved on its last fetch.
         if (parameters.VersionLoader is MojangJsonVersionLoaderV2 mojang) mojang.UseLocalManifestWhenError = true;
