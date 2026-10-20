@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 
 namespace OriginLauncher.App.UI;
@@ -32,4 +33,26 @@ public static class Motion
 
     public static DoubleAnimation FromTo(double from, double to, double ms, IEasingFunction? ease = null, double delayMs = 0) =>
         new(from, to, Ms(ms)) { EasingFunction = ease ?? Out, BeginTime = Delay(delayMs), FillBehavior = FillBehavior.HoldEnd };
+
+    /// <summary>
+    /// The ONE way to put a colour brush that tweens into a resource dictionary
+    /// (Brush.Acc): a fresh brush under <paramref name="key"/>, going from → to.
+    /// Application and theme dictionaries freeze every Freezable written into them
+    /// (ResourceDictionary.SealValue; proven 2026-10-20: IsFrozen flips to true on the
+    /// assignment itself, no consumer needed), and BeginAnimation on a frozen brush
+    /// throws. So the animation starts BEFORE the brush is published: a brush with a
+    /// running animation can't freeze, the dictionary skips it and it stays live. With
+    /// no tween (Off, same colour) the brush lands on <paramref name="to"/> and may
+    /// freeze, which is fine. Reading the old brush's Color mid-tween gives its current
+    /// animated colour, so rapid changes start from what is on screen.
+    /// </summary>
+    public static SolidColorBrush PublishColor(ResourceDictionary res, object key, Color from, Color to, double ms, IEasingFunction? ease = null)
+    {
+        var tween = !Off && ms > 0 && from != to;
+        var brush = new SolidColorBrush(tween ? from : to);
+        if (tween)
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(from, to, Ms(ms)) { EasingFunction = ease ?? Out });
+        res[key] = brush;
+        return brush;
+    }
 }
