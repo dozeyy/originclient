@@ -262,10 +262,16 @@ internal sealed class ImportGridModel
         Versions.Where(v => LaunchersOn(v).Count(k => Has(k, v, GridColumn.Mods) && (_cells.Brings(k, v) & ImportCategories.Mods) != 0) > 1).ToList();
 
     /// <summary>
-    /// The short warning when two launchers' mods land in one version's mods folder, or null. Mods ticked from two
-    /// launchers on DIFFERENT versions never meet (each version has its own folder), so they don't warn.
+    /// The short warning whenever more than one launcher's Mods box is ticked (on any versions), or null. Will's rule
+    /// taken literally (2026-10-19): two ticked Mods boxes with no warning reads as a bug, even when the mods land in
+    /// different versions' folders.
     /// </summary>
-    public string? Warning() => MixedModsVersions().Count == 0 ? null : MixedModsWarning;
+    public string? Warning() => ModsLaunchers().Count > 1 ? MixedModsWarning : null;
+
+    // The launchers whose Mods box brings mods on at least one version.
+    private IReadOnlyList<SourceKind> ModsLaunchers() =>
+        Versions.SelectMany(v => LaunchersOn(v).Where(k => Has(k, v, GridColumn.Mods) && (_cells.Brings(k, v) & ImportCategories.Mods) != 0))
+            .Distinct().ToList();
 
     /// <summary>True when the grid brings nothing at all (Import is off then).</summary>
     public bool BringsNothing =>

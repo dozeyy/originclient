@@ -248,12 +248,16 @@ public sealed class ImportGridTests : IDisposable
     }
 
     [Fact]
-    public void TwoLaunchersModsOnDifferentVersionsNeverWarn()
+    public void TwoLaunchersModsTickedWarnEvenOnDifferentVersions()
     {
-        // Each version has its own mods folder: Prism's 1.21.1 mods and Modrinth's 1.20.4 mods never meet.
+        // Will's rule, literally: more than one launcher's Mods box ticked = the warning, whatever the versions.
         var grid = new ImportGridModel(new[] { Setup("Survival", SourceKind.Prism, "1.21.1", 40), Setup("FO", SourceKind.Modrinth, "1.20.4", 5) });
         Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
         Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
+        Assert.Empty(grid.MixedModsVersions());                                   // no version's folder mixes them
+
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);                        // one launcher's mods left: no warning
         Assert.Null(grid.Warning());
     }
 
