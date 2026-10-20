@@ -239,6 +239,35 @@ public final class Gfx {
 		return shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color);
 	}
 
+	// ---- Minecraft's own button art (GuiGraphics.blitSprite("widget/button") twin) ----
+
+	/** Vanilla's button sheet this era: widgets.png, rows of 200x20 at v = 46 + 20*state. */
+	private static final ResourceLocation WIDGETS = new ResourceLocation("textures/gui/widgets.png");
+
+	/**
+	 * A stock Minecraft button background at (x, y, w, h). {@code state}: 0 disabled,
+	 * 1 normal, 2 highlighted -- the same row AbstractButton.getTextureY picks. Pre-1.20.2
+	 * there are no GUI sprites: the 200x20 strip is drawn as four corners (left/right
+	 * halves, top/bottom halves), the way vanilla's own button stretches to any size
+	 * up to 400 x 40, so a 20x20 square and a 100x20 chip both keep the bevelled edge.
+	 */
+	public void vanillaButton(int x, int y, int w, int h, int state) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		int v = 46 + Math.max(0, Math.min(2, state)) * 20;
+		int lw = w / 2, rw = w - lw;
+		int th = h / 2, bh = h - th;
+		RenderSystem.setShaderTexture(0, WIDGETS);
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.enableDepthTest();
+		GuiComponent.blit(pose, x, y, 0f, (float) v, lw, th, 256, 256);
+		GuiComponent.blit(pose, x + lw, y, (float) (200 - rw), (float) v, rw, th, 256, 256);
+		GuiComponent.blit(pose, x, y + th, 0f, (float) (v + 20 - bh), lw, bh, 256, 256);
+		GuiComponent.blit(pose, x + lw, y + th, (float) (200 - rw), (float) (v + 20 - bh), rw, bh, 256, 256);
+	}
+
 	/** A player head from a skin texture (face + hat layer). 1.19.x
 	 *  PlayerFaceRenderer draws the BOUND texture, so bind it first. */
 	public void face(ResourceLocation skin, int x, int y, int size) {

@@ -38,6 +38,19 @@ public final class SocialSkins {
 		if (id == null) {
 			return DefaultPlayerSkin.getDefaultSkin(UUID.nameUUIDFromBytes(String.valueOf(undashed).getBytes()));
 		}
+		return skin(id);
+	}
+
+	/**
+	 * Same lookup by UUID, with no string work: the title screen's own player chip
+	 * calls this every frame. Resolved once per UUID (SkinManager.registerSkins
+	 * fetches the textures off-thread and calls back on the render thread, the
+	 * result is cached), the default skin until then.
+	 */
+	public static ResourceLocation skin(UUID id) {
+		if (id == null) {
+			return DefaultPlayerSkin.getDefaultSkin(new UUID(0L, 0L));
+		}
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			if (mc.getConnection() != null) {

@@ -30,17 +30,7 @@ public final class StartupTransition {
 	private StartupTransition() {
 	}
 
-	// System.nanoTime() of the last client reload task QUEUED for the render
-	// thread (ReloadTaskTagMixin, any thread); 0 = none yet. Any client reload
-	// counts, not only the overlay's own (1.21.1, CI 2026-10-18): during the
-	// startup load every such step stalls the loading screen alike.
-	private static volatile long renderWorkQueuedAt = 0;
 	private static boolean renderWorkRanSeen = false;
-
-	/** A client reload listener queued a task for the render thread. Any thread. */
-	public static void reloadRenderWorkQueued() {
-		renderWorkQueuedAt = System.nanoTime();
-	}
 
 	/** Dev frame log only: the first queued render-thread reload task is starting. */
 	public static void reloadRenderWorkRan(String listener) {
@@ -66,12 +56,6 @@ public final class StartupTransition {
 		}
 		mc.tell(hop);
 		return true;
-	}
-
-	/** True when render-thread reload work has been queued since {@code sinceNanos}: from here a frame can stall for long. */
-	public static boolean reloadRenderWorkSince(long sinceNanos) {
-		long at = renderWorkQueuedAt;
-		return at != 0 && at - sinceNanos > 0;
 	}
 
 	/** Cubic ease-out on 0..1 (clamped), the curve both halves use. */
