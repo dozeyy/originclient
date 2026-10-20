@@ -220,8 +220,16 @@ public class ImportEngineTests : IDisposable
         Assert.Contains(forward, lines);
         Assert.Contains(lang, lines);
         Assert.Contains(packs, lines);
-        Assert.Contains("highContrast:true", lines);                              // accessibility keys come across
-        Assert.Contains("narrator:1", lines);
+        if (target == "1.8.9")
+        {
+            // 1.8.9 has neither key: only what that version understands comes across (SettingsMigrator.CarryOptions).
+            Assert.DoesNotContain(lines, l => l.StartsWith("highContrast:") || l.StartsWith("narrator:"));
+        }
+        else
+        {
+            Assert.Contains("highContrast:true", lines);                          // accessibility keys come across
+            Assert.Contains("narrator:1", lines);
+        }
         Assert.Contains("ao:true", lines);
         Assert.Contains("fov:0.5", lines);
         Assert.DoesNotContain("version:3955", lines);                              // the source's data version

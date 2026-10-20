@@ -157,19 +157,26 @@ public sealed class ImportGridTests : IDisposable
     }
 
     [Fact]
-    public void AVersionTheSettingsLauncherDoesntHaveKeepsOriginsOwnAndTheTipSaysSo()
+    public void AVersionTheSettingsLauncherDoesntHaveGetsItsMostPlayedSetupsSettings()
     {
-        var grid = new ImportGridModel(new[]
+        // Will, 2026-10-19: one launcher's settings, and its most played setup's for every version it has none on.
+        var setups = new[]
         {
             Setup("Survival", SourceKind.Prism, "1.21.1", 40),
-            Setup("PvP", SourceKind.Modrinth, "1.20.4", 60),
+            Setup("Old", SourceKind.Prism, "1.20.4", 3),
+            Setup("PvP", SourceKind.Modrinth, "1.8.9", 60),
             Setup("PvP new", SourceKind.Modrinth, "1.21.1", 1),
-        });
-        // Modrinth is the engine's pick on 1.20.4 only, Prism on 1.21.1 only: a tie goes to the newest version's.
+        };
+        var grid = new ImportGridModel(setups);
         Assert.Equal(SourceKind.Prism, grid.SettingsLauncher);
-        Assert.Null(grid.SettingsFrom("1.20.4"));
-        Assert.Contains("Minecraft 1.20.4 keeps Origin's own", grid.Cell(SourceKind.Prism, GridColumn.Settings).Tip);
-        Assert.False(grid.Grid().ChoseSettings("1.20.4", out var none) && none != null);
+        Assert.Equal(SourceKind.Prism, grid.SettingsFrom("1.8.9"));
+        Assert.Contains("Minecraft 1.8.9 gets your most played Prism / MultiMC settings (from 1.21.1)",
+            grid.Cell(SourceKind.Prism, GridColumn.Settings).Tip);
+
+        var composition = BulkComposer.Compose(setups, grid.Grid());
+        Assert.Equal("Survival", composition.Single(c => c.Version == "1.8.9").SettingsFrom?.Name);   // carried over
+        Assert.Equal("Old", composition.Single(c => c.Version == "1.20.4").SettingsFrom?.Name);       // its own setup's
+        Assert.Equal("Survival", composition.Single(c => c.Version == "1.21.1").SettingsFrom?.Name);
     }
 
     [Fact]

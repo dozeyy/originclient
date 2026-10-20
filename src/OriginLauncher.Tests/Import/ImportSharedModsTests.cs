@@ -2,6 +2,8 @@ using System.IO.Compression;
 using System.Text;
 using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Import.Bulk;
+using OriginLauncher.App.Core.Sync;
+using OriginLauncher.App.UI.Controls;
 using Xunit;
 
 namespace OriginLauncher.Tests.Import;
@@ -268,5 +270,85 @@ public sealed class BulkPackDedupeTests : IDisposable
         var landed = Directory.GetFiles(_f.Target("1.21.1", "resourcepacks"), "Cool Pack*");
         Assert.Single(landed);
         Assert.Equal(pack, File.ReadAllBytes(landed[0]));
+    }
+}
+
+// Will, 2026-10-19: one launcher's settings (Lunar keeps one set for every version), its most played setup's for every
+// version it has no setup on, migrated to that version: only the keys that version knows, in its own format.
+public sealed class SettingsCarryTests : IDisposable
+{
+    private readonly BulkFixture _f = new();
+    public void Dispose() => _f.Dispose();
+
+    private const string ModernOptions =
+        "version:3955\nfov:0.25\ngraphicsMode:2\ntoggleCrouch:true\nkey_key.forward:key.keyboard.up\nlang:en_us\n";
+
+    private async Task<BulkImportResult> Import()
+    {
+        var grid = new ImportGridModel(_f.Setups);
+        if (grid.SettingsLauncher != SourceKind.Lunar) grid.Toggle(SourceKind.Lunar, GridColumn.Settings);
+        Assert.Equal(SourceKind.Lunar, grid.SettingsLauncher);
+        var plan = await _f.Plan(_f.Engine(), _f.Request(grid: grid.Grid()));
+        return await _f.Engine().ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task AVersionLunarHasNoSetupOnGetsItsMostPlayedSettingsMigrated()
+    {
+        var lunar = _f.Add("Lunar 1.21.1", "1.21.1", SourceKind.Lunar, playtimeHours: 40);
+        Kit.Write(lunar.GameDir, "options.txt", ModernOptions);
+        _f.Add("PvP", "1.8.9", SourceKind.CurseForge, LoaderKind.Forge, playtimeHours: 2);
+
+        var result = await Import();
+
+        Assert.True(result.Succeeded, result.Error);
+        var lines = File.ReadAllLines(_f.Target("1.8.9", "options.txt"));
+        Assert.Contains("fov:0.25", lines);
+        Assert.Contains("key_key.forward:200", lines);                            // GLFW name -> 1.8.9's LWJGL code
+        Assert.Contains("lang:en_US", lines);
+        Assert.Contains("fancyGraphics:true", lines);                             // from graphicsMode 2 (fabulous)
+        Assert.DoesNotContain(lines, l => l.StartsWith("toggleCrouch:") || l.StartsWith("graphicsMode:") || l.StartsWith("version:"));
+    }
+
+    [Fact]
+    public async Task AVersionWithItsOwnLunarSetupKeepsItsOwnSettings()
+    {
+        var main = _f.Add("Lunar 1.21.1", "1.21.1", SourceKind.Lunar, playtimeHours: 40);
+        Kit.Write(main.GameDir, "options.txt", ModernOptions);
+        var old = _f.Add("Lunar 1.20.4", "1.20.4", SourceKind.Lunar, playtimeHours: 3);
+        Kit.Write(old.GameDir, "options.txt", "version:3700\nfov:0.75\n");
+
+        var result = await Import();
+
+        Assert.True(result.Succeeded, result.Error);
+        var lines = File.ReadAllLines(_f.Target("1.20.4", "options.txt"));
+        Assert.Contains("fov:0.75", lines);
+        Assert.DoesNotContain("fov:0.25", lines);
+        Assert.Contains("fov:0.25", File.ReadAllLines(_f.Target("1.21.1", "options.txt")));
+    }
+
+    [Fact]
+    public void KeysATargetVersionDoesntKnowAreDropped()
+    {
+        var modern = new Dictionary<string, string?>
+        {
+            ["fov"] = "0.25", ["graphicsMode"] = "1", ["showNowPlayingToast"] = "true", ["toggleCrouch"] = "true",
+            ["key_key.jump"] = "key.keyboard.space",
+        };
+        var to1211 = SettingsMigrator.CarryOptions(modern, "1.21.11");                 // graphicsPreset era
+        Assert.False(to1211.ContainsKey("graphicsMode"));
+        Assert.False(to1211.ContainsKey("showNowPlayingToast"));
+        Assert.Equal("true", to1211["toggleCrouch"]);
+        var to189 = SettingsMigrator.CarryOptions(modern, "1.8.9");
+        Assert.Equal(new[] { "fancyGraphics", "fov", "key_key.jump" }, to189.Keys.OrderBy(k => k, StringComparer.Ordinal));
+        Assert.Equal("true", to189["fancyGraphics"]);
+
+        var legacy = new Dictionary<string, string?> { ["fov"] = "0.5", ["fancyGraphics"] = "false", ["streamFps"] = "0.3", ["key_key.jump"] = "57" };
+        var to1211Back = SettingsMigrator.CarryOptions(legacy, "1.21.1");
+        Assert.Equal(new[] { "fov", "key_key.jump" }, to1211Back.Keys.OrderBy(k => k, StringComparer.Ordinal));
+
+        Assert.True(OptionsTxtFormat.KnownIn("musicToast", "26.1"));
+        Assert.False(OptionsTxtFormat.KnownIn("musicToast", "1.21.10"));
+        Assert.True(OptionsTxtFormat.KnownIn("showNowPlayingToast", "1.21.8"));
     }
 }

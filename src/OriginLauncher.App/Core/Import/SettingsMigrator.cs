@@ -178,18 +178,25 @@ public static class SettingsMigrator
                 Line(SummarySection.NotImported, PlanItemKind.Setting, "options.txt", "You chose to keep your current Origin settings.");
                 return;
             }
+            var desired = _sourceOptions.Where(kv => kv.Key is not ("resourcePacks" or "incompatibleResourcePacks"))
+                .ToDictionary(kv => kv.Key, kv => (string?)kv.Value, StringComparer.Ordinal);
+            // Settings from another Minecraft version (the settings launcher has no setup on this one): only what
+            // this version understands comes over.
+            var from = _c.Source.McVersion;
+            var carried = from != null && !string.Equals(from, _c.TargetVersion, StringComparison.Ordinal);
+            if (carried) desired = CarryOptions(desired, _c.TargetVersion);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.WriteOptions, Item = PlanItemKind.Setting, Label = "options.txt",
                 Source = Path.Combine(_src, "options.txt"), Dest = dest, TouchNow = true,
-                Desired = _sourceOptions.Where(kv => kv.Key is not ("resourcePacks" or "incompatibleResourcePacks"))
-                    .ToDictionary(kv => kv.Key, kv => (string?)kv.Value, StringComparer.Ordinal),
+                Desired = desired,
                 // Only packs that come over in this import are switched on (null = Origin's own list stays).
                 TargetVersion = _c.TargetVersion, Extra = _resourcePacksValue,
             });
             if (exists) Plan.Replaced++; else Plan.Created++;
-            Line(SummarySection.Imported, PlanItemKind.Setting, "Game settings (options.txt)",
-                $"keybinds, video, sound and controls, written for {_c.TargetVersion}");
+            Line(SummarySection.Imported, PlanItemKind.Setting, "Game settings (options.txt)", carried
+                ? $"keybinds, video, sound and controls from Minecraft {from}, written for {_c.TargetVersion}"
+                : $"keybinds, video, sound and controls, written for {_c.TargetVersion}");
         }
 
         // ---------------------------------------------------------------- resource packs
@@ -899,6 +906,22 @@ public static class SettingsMigrator
                 total += ImportFiles.SizeOf(file); // a file that vanished mid-scan adds nothing
             return total;
         }
+    }
+
+    /// <summary>
+    /// options.txt values carried to another Minecraft version: only the keys <paramref name="targetVersion"/> knows
+    /// (OptionsTxtFormat.KnownIn), plus 1.8.9's fancyGraphics derived from a modern graphicsMode (0 / fast = off).
+    /// Keybinds, lang and the value forms are translated to the target era when written (OptionsTxtFormat.Apply),
+    /// which also skips any value that could break that era's loader.
+    /// </summary>
+    internal static Dictionary<string, string?> CarryOptions(IReadOnlyDictionary<string, string?> source, string targetVersion)
+    {
+        var carried = source.Where(kv => OptionsTxtFormat.KnownIn(kv.Key, targetVersion))
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+        if (!OptionsTxtFormat.KnownIn("graphicsMode", targetVersion) && OptionsTxtFormat.KnownIn("fancyGraphics", targetVersion)
+            && !source.ContainsKey("fancyGraphics") && source.TryGetValue("graphicsMode", out var mode) && mode != null)
+            carried["fancyGraphics"] = mode.Trim().Trim('"') is "0" or "fast" ? "false" : "true";
+        return carried;
     }
 
     // ---------------------------------------------------------------- execution helpers (used by ImportEngine)

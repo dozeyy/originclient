@@ -322,6 +322,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         foreach (var (id, contents) in found) merged[id] = contents;
         _model.Contents = merged;
         RefreshCurrent();
+        // The count can re-pick the grid's Mods default: plan the new ticks now, so Import is ready at once.
+        if (_pane == Pane.Grid) PrefetchPlan();
     }
 
     // Brings whatever page is showing up to date with the model (a count landed, a folder was added).
@@ -845,12 +847,10 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         TryFocusPrimary();
     }
 
-    // "Settings from **Prism / MultiMC**" (one launcher for the whole grid); "Origin keeps its own settings" with none.
+    // "Settings from **Prism / MultiMC**" (one launcher for every version); "Origin keeps its own settings" with none.
     private static string GridNote(ImportGridModel grid)
     {
         if (grid.BringsNothing) return "Nothing is ticked yet";
-        if (grid.Tab != ImportGridModel.AllTab && grid.SettingsFrom(grid.Tab) is null)
-            return $"Minecraft {grid.Tab} keeps Origin's own settings";
         return grid.SettingsLauncher is { } kind
             ? $"Settings from **{ImportFlowModel.LauncherTitle(kind)}**"
             : "Origin keeps its own settings";

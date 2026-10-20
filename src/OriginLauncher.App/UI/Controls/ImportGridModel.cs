@@ -12,7 +12,8 @@ namespace OriginLauncher.App.UI.Controls;
 // Rules it keeps:
 //  * Settings is ONE launcher for the whole grid (a radio: ticking one unticks the other), so no two launchers'
 //    settings ever meet (Will, 2026-10-19). The default is the launcher the engine picks for the most versions
-//    (BulkComposer.DefaultSettingsLauncher); a version that launcher has no setup on keeps Origin's own settings;
+//    (BulkComposer.DefaultSettingsLauncher). A version that launcher has no setup on gets its MOST PLAYED setup's
+//    settings, migrated to that version (Will, 2026-10-19; BulkComposer.SettingsDonor + SettingsMigrator);
 //  * Mods start ticked for ONE launcher only (the settings launcher when it has mods, else the one with the most),
 //    so the grid never opens with the warning; ticking a second launcher's mods is allowed, with the warning;
 //  * every other column is a plain tick;
@@ -176,9 +177,12 @@ internal sealed class ImportGridModel
             .Select(k => (SourceKind?)k).FirstOrDefault();
     }
 
-    /// <summary>Whose settings <paramref name="version"/> gets: the one settings launcher when it has a setup there; null = Origin's own stay.</summary>
+    /// <summary>
+    /// Whose settings <paramref name="version"/> gets: the one settings launcher, on EVERY version (null = none at all).
+    /// Its own setup there when it has one; otherwise its most played setup, carried over (BulkComposer.SettingsDonor).
+    /// </summary>
     public SourceKind? SettingsFrom(string version) =>
-        SettingsLauncher is { } kind && SetupsOf(kind, version).Any(BulkComposer.CarriesSettings) ? kind : null;
+        SettingsLauncher is { } kind && BulkComposer.SettingsSetup(kind, _setups) != null ? kind : null;
 
     // The tab's versions where this launcher has a setup that carries settings (a Forge one on Fabric brings packs only).
     private List<string> SettingsVersions(SourceKind kind) =>
@@ -195,10 +199,12 @@ internal sealed class ImportGridModel
         {
             var mine = SettingsVersions(kind);
             if (mine.Count == 0) return new GridCellState(false, false, $"{title}'s setups here bring packs only (Forge), not settings");
-            // Versions this launcher has no settings on keep Origin's own: said in the tip, never a silent gap.
-            var keep = Versions.Where(v => !SetupsOf(kind, v).Any(BulkComposer.CarriesSettings)).ToList();
+            // Versions this launcher has no setup on get its most played setup's settings: said in the tip.
+            var carried = Versions.Where(v => !SetupsOf(kind, v).Any(BulkComposer.CarriesSettings)).ToList();
             var tip = $"Use {title}'s settings (one launcher's settings for every version)"
-                + (keep.Count > 0 ? $"; Minecraft {ImportFlowModel.JoinFew(keep)} keeps Origin's own" : "");
+                + (carried.Count > 0 && BulkComposer.SettingsSetup(kind, _setups) is { McVersion: { } from }
+                    ? $"; Minecraft {ImportFlowModel.JoinFew(carried)} gets your most played {title} settings (from {from})"
+                    : "");
             return new GridCellState(SettingsLauncher == kind, true, tip);
         }
 
