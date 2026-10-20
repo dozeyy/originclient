@@ -186,10 +186,7 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-18)
-- Latest release `launcher-v1.0.55` (2026-10-18, main @ 80904430: launcher mod profiles + loading→menu
-  freeze fix on every version). Tag `origin/main` directly (`git tag launcher-v1.0.N origin/main`).
-  Cloud sessions can't push tags (the git proxy drops every tag push), so Will pushes the tag from
-  PowerShell. (v1.0.55 alone went out via a one-shot tag-release.yml, Will's one-time OK; deleted after.)
+- Latest release `launcher-v1.0.60` (2026-10-20, main @ 3eec248d6: shader speed-ups on every version: Limit Far, Smart Terrain, Off-Map Shadows, Half-Rate Shadows; v1.0.58 = A2 Poster launcher, import flow, clean vanilla in-game look; v1.0.59 = 1.21.2-1.21.4 Sodium-off crash fix). Tag `origin/main` directly. MEMORY.md → 2026-10-20 Shader speed-ups.
 - In `launcher-v1.0.55`, awaiting Will's in-game pass: launcher mod profiles (Profiles page, Join
   <server> under Play; MEMORY.md → 2026-10-18 Launcher mod profiles) and the loading→menu freeze fix
   (MEMORY.md → 2026-10-18 Loading → main-menu freeze; 1.19.2 still to check on real hardware).

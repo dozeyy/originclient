@@ -5417,3 +5417,34 @@ Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible f
 - CI: launcher-shots publish to claude/dev-shots raced between parallel branches (fixed: clone once, fetch + reapply only its own folder); workflows cancel in-progress runs per ref; maven download flakes (1.21.4, 1.20.2, 1.16.5 modules) are fixed by rerunning the failed job; test zips need fixed entry timestamps (Kit.Zip flake).
 - UI: the import drawer is a sibling of the Friends drawer (Social.* styles, the default ScrollViewer list frame - a custom gutter put cards under the scrollbar); confirm dialogs fit inside the 380 px drawer with short labels (KEEP GOING / STOP); RenderShots must render the Home card before Play is set running; WPF draws no focus adorner for a simulated Tab in CI. Social.Section used to override Text.Eyebrow back to TextMuted (now TextDim). Radii in Spacing.xaml are 4/6/8 (docs updated).
 - Not verified: no real import has run in a real launcher window (Will's no-windows rule); first-run import scan now runs at most weekly (ImportPromptCheckedUtc).
+## 2026-10-20 - Shader speed-ups shipped on every version (launcher-v1.0.58 to v1.0.60)
+- Limit Far, Smart Terrain, Off-Map Shadows and Half-Rate Shadows are live on every Fabric module:
+  - 1.21.1 and 1.21.4 shipped in v1.0.58;
+  - v1.0.59 hotfixed a 1.21.2-1.21.4 crash with Sodium turned off;
+  - everything else shipped in v1.0.60 (main 3eec248d6).
+  CI was green, with zero mixin-apply failures across 19 modules.
+- Bug class "Sodium disabled crash":
+  - On every module except 1.21.1 (which bundles Sodium jar-in-jar), Sodium can be `.jar.disabled`.
+  - Sodium-typed statics in a class called from a vanilla-target mixin cause a NoClassDefFoundError on the first world frame.
+  - Fix: lazy holder classes, or gate every call site on `SodiumIrisBuilds.SODIUM` (`FabricLoader.isModLoaded("sodium")`).
+  - CI proof: dev-shots `perf_mods=false`.
+- Half-Rate guard:
+  - `modelViewHookSeen` must be set only by a `createShadowModelView` call made while the shadow pass is not ACTIVE.
+  - Order: return on null stack, return if ACTIVE, set the flag, then check keepingNow.
+  - It was set too early in 16 modules (copied from 1.21.1); fixed in v1.0.60.
+- Handlers whose target arguments differ between the Sodium/Iris builds a module serves:
+  - take only CallbackInfo plus `@Local(argsOnly=true)`;
+  - skip build-only mixins via OriginMixinPlugin (FabricLoader metadata only);
+  - for the shadow caster filter, use `@ModifyReturnValue` + `@Local`.
+- 1.21.9+ F3: `DebugScreenOverlay.render` runs with F3 hidden when an entry is "Always On". Gate on `debugEntries.isF3Visible()` on 1.21.10, and on `isOverlayVisible()` on 1.21.11/26.x.
+- Smart Terrain is hidden where it is impossible or not needed:
+  - Sodium 0.9.2 + Iris 1.11.x (built in);
+  - Sodium 0.4 and older;
+  - MC 1.20;
+  - 1.21.2/1.21.3.
+- Dev-shots:
+  - parity needs `shadow_distance=64s`;
+  - each run needs a distinct `-f label=`, or runs cancel each other;
+  - a manual depth readback must reset GL_PACK_ROW_LENGTH/PBO after Screenshot.grab, or Mesa SIGSEGVs.
+- `tools/ci/perf_log.py` `declared()` now strips comments; a package name in a comment used to print a false "NOT applied".
+- Unverified: real FPS and feel in-game (Will). Never booted in CI: 1.21.2, 1.21.3, 1.21.7, 1.20.1, 26.1.1. The Sodium-off runs prove a clean boot, not world entry.
