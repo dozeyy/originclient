@@ -816,12 +816,15 @@ public final class OriginScreenRenderer {
 		GameProfile profile = chipProfile;
 		if (!chipSkinRequested && profile != null && profile.getId() != null) {
 			chipSkinRequested = true;
+			// The callback lands later on the client thread; if the account was switched in
+			// between, this session's skin must not become the new account's chip head.
+			final net.minecraft.util.Session requestedFor = session;
 			try {
 				mc.getSkinManager().loadProfileTextures(profile, new SkinManager.SkinAvailableCallback() {
 					@Override
 					public void skinAvailable(MinecraftProfileTexture.Type type, ResourceLocation location,
 											  MinecraftProfileTexture texture) {
-						if (type == MinecraftProfileTexture.Type.SKIN) {
+						if (type == MinecraftProfileTexture.Type.SKIN && chipSession == requestedFor) {
 							chipSkin = location;
 						}
 					}

@@ -95,8 +95,15 @@ public abstract class GuiSlotMixin {
 		originclient$clipOff();
 	}
 
-	// Backstop: whatever happened mid-draw (an exception in a subclass's row or
-	// header code skips the paired "off"), the scissor never outlives the list.
+	// Backstops. RETURN catches a path that leaves drawScreen normally without its
+	// paired "off". A RETURN inject does NOT run when drawScreen throws, so the HEAD
+	// inject also clears whatever a thrown (and caught-upstream) previous draw of this
+	// list left on: the scissor never survives into this list's next frame.
+	@Inject(method = "drawScreen", at = @At("HEAD"))
+	private void originclient$clipReset(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+		originclient$clipOff();
+	}
+
 	@Inject(method = "drawScreen", at = @At("RETURN"))
 	private void originclient$clipBackstop(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
 		originclient$clipOff();
