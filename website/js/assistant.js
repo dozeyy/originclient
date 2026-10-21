@@ -13,6 +13,8 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_LOG_CHARS = 60_000;
 const SUPPORTED_TEXT_FILE = /\.(?:log|txt|json|toml|properties|cfg|conf|ini|java|kt|gradle|kts|groovy|xml|ya?ml|patch|diff|md|csv|mcmeta|accesswidener)$/i;
 const CHAT_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/chat';
+const FEEDBACK_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/feedback';
+const FEEDBACK_STATS_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/feedback/stats';
 const USAGE_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/usage';
 const OWNER_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/owner/unlock';
 const OWNER_TOKEN_KEY = 'origin-assistant-owner-session';
@@ -74,8 +76,26 @@ async function loadUsage() {
       $('[data-owner-status]').textContent = 'Owner access expired. Enter your code again.';
     }
     updateUsage(result.usage);
+    if (ownerToken) void loadFeedbackStats();
   } catch {
     // The chat reports a clear error when the service is unavailable.
+  }
+}
+
+async function loadFeedbackStats() {
+  if (!ownerToken) return;
+  try {
+    const response = await fetch(FEEDBACK_STATS_ENDPOINT, {
+      cache: 'no-store',
+      headers: { authorization: `Bearer ${ownerToken}` },
+    });
+    if (!response.ok) return;
+    const result = await response.json();
+    $('[data-feedback-helpful]').textContent = Number(result.votes?.helpful ?? 0).toLocaleString();
+    $('[data-feedback-not-helpful]').textContent = Number(result.votes?.notHelpful ?? 0).toLocaleString();
+    $('[data-feedback-section]').hidden = false;
+  } catch {
+    // Owner feedback totals are optional settings content.
   }
 }
 
@@ -244,6 +264,60 @@ function renderMarkdown(target, markdown) {
     appendInlineMarkdown(paragraph, paragraphLines.join(' '));
     target.append(paragraph);
   }
+}
+
+function appendFeedbackControls(message) {
+  const group = document.createElement('div');
+  group.className = 'message-feedback';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Was this answer helpful?');
+
+  const label = document.createElement('span');
+  label.className = 'message-feedback__label';
+  label.textContent = 'Helpful?';
+  group.append(label);
+
+  const status = document.createElement('span');
+  status.className = 'message-feedback__status';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+
+  const buttons = ['helpful', 'not_helpful'].map(rating => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'message-feedback__button';
+    button.setAttribute('aria-label', rating === 'helpful' ? 'Helpful' : 'Not helpful');
+    button.setAttribute('aria-pressed', 'false');
+    button.title = rating === 'helpful' ? 'Helpful' : 'Not helpful';
+    button.textContent = rating === 'helpful' ? '👍' : '👎';
+    button.addEventListener('click', async () => {
+      if (buttons.some(item => item.disabled)) return;
+      buttons.forEach(item => { item.disabled = true; });
+      status.textContent = 'Sending…';
+      try {
+        const response = await fetch(FEEDBACK_ENDPOINT, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ rating }),
+        });
+        if (!response.ok) throw new Error(response.status === 429 ? 'limit' : 'unavailable');
+        buttons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        group.classList.add('message-feedback--submitted');
+        status.textContent = 'Thanks for your feedback.';
+        if (ownerToken) void loadFeedbackStats();
+      } catch (error) {
+        buttons.forEach(item => { item.disabled = false; });
+        status.textContent = error instanceof Error && error.message === 'limit'
+          ? 'Feedback limit reached for now.'
+          : 'Couldn’t save that. Try again.';
+      }
+    });
+    group.append(button);
+    return button;
+  });
+
+  group.append(status);
+  message.append(group);
 }
 
 async function loadVersions() {
@@ -434,6 +508,7 @@ function boot() {
 
         pendingMessage.classList.remove('chat-message--pending');
         renderMarkdown(pendingMessage, result.answer);
+        appendFeedbackControls(pendingMessage);
         chatBody.scrollTop = chatBody.scrollHeight;
         conversation.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
         if (conversation.length > 18) conversation = conversation.slice(-18);
@@ -500,6 +575,7 @@ function boot() {
       ownerToken = result.token;
       try { sessionStorage.setItem(OWNER_TOKEN_KEY, ownerToken); } catch { /* The token still works until this page is closed. */ }
       updateUsage({ unlimited: true });
+      void loadFeedbackStats();
       status.dataset.state = 'success';
       status.textContent = 'Owner access is active in this browser tab.';
     } catch (error) {

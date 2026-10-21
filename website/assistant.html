@@ -44,6 +44,11 @@
             <p data-owner-status aria-live="polite">Enter your private owner code here to activate unlimited use.</p>
           </form>
         </section>
+        <section class="settings-section" data-feedback-section hidden aria-labelledby="feedback-title">
+          <h3 id="feedback-title">Answer feedback · last 30 days</h3>
+          <div class="feedback-totals"><span>Helpful <strong data-feedback-helpful>0</strong></span><span>Not helpful <strong data-feedback-not-helpful>0</strong></span></div>
+          <p>Daily anonymous totals. Votes aren’t linked to chats or logs.</p>
+        </section>
         <section class="settings-section settings-preferences" aria-labelledby="preferences-title">
           <h3 id="preferences-title">Preferences</h3>
           <label><input type="checkbox" checked data-include-setup> Include selected game version, loader and Java in my questions</label>
@@ -96,7 +101,7 @@
           <button class="send" type="submit" data-send aria-label="Send message" title="Send message" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-7 7 7-7 7 7"/></svg></button>
         </div>
       </form>
-      <p class="privacy-note">Messages and attached Minecraft text files are sent to Anthropic for answers. Origin doesn’t save chats or files. Don’t attach passwords, tokens or private credentials.</p>
+      <p class="privacy-note">Messages and attached Minecraft text files are sent to Anthropic. Origin doesn’t save chats or files. Feedback is stored as daily totals only. Don’t attach passwords, tokens or private credentials.</p>
       <p class="preview-note" role="status" data-assistant-status aria-live="polite">Your Minecraft chat is ready.</p>
     </section>
   </main>
