@@ -67,7 +67,7 @@ public final class Mods {
 			ModOption.toggle("offMapShadows", "Off-Map Shadows", false).tip("With a shader on, chunks and mobs that fall outside the shadow map stop being drawn into it. Saves work every frame at long render distances; shadows on everything near you look the same."),
 			ModOption.toggle("halfRateShadows", "Half-Rate Shadows", false).tip("Shadows update every other frame for more FPS. Moving shadows may look slightly less smooth."),
 			ModOption.toggle("smartTerrainUpdates", "Smart Terrain Updates", false).tip("With a shader on, the game stops re-working out which chunks you can see on frames where nothing moved or changed. Saves CPU time while you stand still; the picture is exactly the same."),
-			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
+			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background, and pauses Origin's HUD and cosmetic sparkles until you come back. Saves GPU and battery; the game itself keeps running normally."),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
@@ -1367,6 +1367,11 @@ public final class Mods {
 			ModsConfig.META.put(key, new JsonPrimitive(v));
 		}
 		ModsConfig.save();
+	}
+
+	/** Moves whenever the config is saved or reloaded (see ModsConfig.rev). */
+	public static int configRev() {
+		return ModsConfig.rev;
 	}
 
 	public static boolean metaBool(String key, boolean def) {

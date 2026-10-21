@@ -556,7 +556,20 @@ public class OriginModMenuScreen extends Screen {
 
 	private final List<Mods.Mod> visible = new ArrayList<>();
 
+	// filter() rebuilds + sorts the mod list; drawLibrary runs every frame, so it only
+	// re-runs when the category, the search text or the config (favourites, enabled
+	// flags, profile) actually changed. Unchanged frames reuse `visible` as is.
+	private Cat filterCat;
+	private String filterSearch;
+	private int filterRev = -1;
+
 	private void filter() {
+		if (filterCat == cat && search.equals(filterSearch) && filterRev == Mods.configRev()) {
+			return;
+		}
+		filterCat = cat;
+		filterSearch = search;
+		filterRev = Mods.configRev();
 		visible.clear();
 		String q = search.toLowerCase(Locale.ROOT).trim();
 		for (Mods.Mod m : Mods.ALL) {

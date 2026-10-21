@@ -899,6 +899,9 @@ public final class HudElements {
 		if (mc.player == null || mc.options.hideGui || mc.screen instanceof HudEditorScreen) {
 			return;
 		}
+		if (FrameWatch.idle()) {
+			return;   // window unfocused (Limit Unfocused FPS): skip Origin's HUD, nobody is looking
+		}
 		int sw = g.guiWidth(), sh = g.guiHeight();
 		for (Element e : ALL) {
 			if (!Mods.on(e.modId())) {

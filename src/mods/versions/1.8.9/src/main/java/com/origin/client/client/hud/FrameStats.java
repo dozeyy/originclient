@@ -60,6 +60,10 @@ public final class FrameStats {
 		byte kind = NORMAL;
 		if (count > 30 && ms > avg * 2.5 && ms > avg + 8) {
 			kind = gcOverlapped(ms) ? GC : SPIKE;
+			SpikeSink sk = sink;
+			if (sk != null && ms >= SPIKE_LOG_MS) {
+				sk.spike(ms, (float) avg, kind); // rare by definition; the sink rate-limits
+			}
 		}
 		avg = count == 0 ? ms : avg + (ms - avg) * 0.05;
 		MS[head] = ms;
@@ -68,6 +72,20 @@ public final class FrameStats {
 		if (count < SIZE) {
 			count++;
 		}
+	}
+
+	/** Spikes at least this long (ms) go to the sink; shorter ones only colour the graph. */
+	public static final float SPIKE_LOG_MS = 40;
+
+	/** Told about each long spike frame (render thread), with the running average and GC/SPIKE kind. */
+	public interface SpikeSink {
+		void spike(float ms, float avgMs, byte kind);
+	}
+
+	private static volatile SpikeSink sink;
+
+	public static void setSpikeSink(SpikeSink s) {
+		sink = s;
 	}
 
 	/** Frames recorded so far (up to SIZE). */

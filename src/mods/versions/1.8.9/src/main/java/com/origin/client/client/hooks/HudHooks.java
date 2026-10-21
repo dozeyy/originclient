@@ -87,6 +87,7 @@ public final class HudHooks {
 		if (e.phase == TickEvent.Phase.START) {
 			MinimapHud.partial = e.renderTickTime;
 			com.origin.client.client.mods.PerfSettings.refresh();
+			com.origin.client.client.hud.FrameWatch.onFrame(mc());
 			try {
 				com.origin.client.client.hud.FrameStats.frame(System.nanoTime());
 			} catch (Throwable t) {

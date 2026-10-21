@@ -22,5 +22,7 @@ public class GameRendererFrameMixin {
 		GlintColorizer.sync();
 		// frame-time ring for the FPS module's 1% low / frame time / graph
 		com.origin.client.client.hud.FrameStats.frame(System.nanoTime());
+		// background mode flag + hitch log (hud/FrameWatch)
+		com.origin.client.client.hud.FrameWatch.onFrame(net.minecraft.client.Minecraft.getInstance());
 	}
 }

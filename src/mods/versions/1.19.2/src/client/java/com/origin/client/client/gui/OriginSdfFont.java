@@ -69,7 +69,9 @@ public final class OriginSdfFont {
 	private static String normalize(String s) {
 		boolean needs = false;
 		for (int i = 0; i < s.length(); i++) {
-			if (SUBS.containsKey(s.charAt(i))) {
+			// every SUBS key is non-ASCII: plain letters skip the boxed map lookup entirely
+			char c = s.charAt(i);
+			if (c >= 0x80 && SUBS.containsKey(c)) {
 				needs = true;
 				break;
 			}
@@ -92,6 +94,13 @@ public final class OriginSdfFont {
 	private static final class Face {
 		final ResourceLocation atlas;
 		final Map<Character, Glyph> glyphs = new HashMap<>();
+		// ASCII glyphs by index: measuring/drawing runs per string per frame, and
+		// Map<Character,..>.get boxes a Character for every letter. Filled after load.
+		final Glyph[] ascii = new Glyph[128];
+
+		Glyph glyph(char c) {
+			return c < 128 ? ascii[c] : glyphs.get(c);
+		}
 		float size = 42, atlasW = 512, atlasH = 256, spaceAdv = 9;
 		// baseline (from the line top) and cap-top, in bake units -- what the
 		// sized API below positions text by, so labels centre on their caps.
@@ -163,6 +172,9 @@ public final class OriginSdfFont {
 						o.get("w").getAsFloat(), o.get("h").getAsFloat(),
 						o.get("ox").getAsFloat(), o.get("oy").getAsFloat(), o.get("adv").getAsFloat()));
 			}
+			for (int c = 0; c < 128; c++) {
+				f.ascii[c] = f.glyphs.get((char) c);
+			}
 			if (f.glyphs.containsKey(' ')) {
 				f.spaceAdv = f.glyphs.get(' ').adv;
 			}
@@ -202,7 +214,7 @@ public final class OriginSdfFont {
 		Face f = face(bold);
 		float s = EM_PX / f.size, w = 0;
 		for (int i = 0; i < text.length(); i++) {
-			Glyph gl = f.glyphs.get(text.charAt(i));
+			Glyph gl = f.glyph(text.charAt(i));
 			w += (gl == null ? f.spaceAdv : gl.adv) * s;
 		}
 		return Math.round(w);
@@ -236,7 +248,7 @@ public final class OriginSdfFont {
 		// the next Tesselator draw.
 		boolean drawable = false;
 		for (int i = 0; i < text.length() && !drawable; i++) {
-			Glyph probe = f.glyphs.get(text.charAt(i));
+			Glyph probe = f.glyph(text.charAt(i));
 			drawable = probe != null && probe.w > 0 && probe.h > 0;
 		}
 		if (!drawable) {
@@ -250,7 +262,7 @@ public final class OriginSdfFont {
 		float pen = x;
 		boolean any = false;
 		for (int i = 0; i < text.length(); i++) {
-			Glyph gl = f.glyphs.get(text.charAt(i));
+			Glyph gl = f.glyph(text.charAt(i));
 			if (gl == null) {
 				pen += f.spaceAdv * s + tracking;
 				continue;
@@ -304,7 +316,7 @@ public final class OriginSdfFont {
 		Face f = face(bold);
 		float k = em / f.size, w = 0;
 		for (int i = 0; i < text.length(); i++) {
-			Glyph gl = f.glyphs.get(text.charAt(i));
+			Glyph gl = f.glyph(text.charAt(i));
 			w += (gl == null ? f.spaceAdv : gl.adv) * k;
 		}
 		return text.isEmpty() ? 0 : w + tracking * (text.length() - 1);

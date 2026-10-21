@@ -900,6 +900,9 @@ public final class HudElements {
 	 *  editor draws its own draggable versions). */
 	public static void renderAll(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
+		if (FrameWatch.idle()) {
+			return;   // window unfocused (Limit Unfocused FPS): skip Origin's HUD, nobody is looking
+		}
 		if (mc.player == null || mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudEditorScreen) {
 			return;
 		}
