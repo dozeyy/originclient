@@ -84,6 +84,15 @@
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameHandoff.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />
+    <!-- The performance-mod catalog (per-version pins + SHA-512), the pin's hash check and the Mods page's
+         managed-jar classification, so PerformanceModCatalogTests can hold the data consistent (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfMod.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfStackTier.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyStackInstaller.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\VersionPerfProfile.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\PerformanceModCatalog.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\PerformanceModCatalog.Data.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Mods\ModManager.cs" LinkBase="Mods" />
     <!-- 1.8.9's FML splash theme (pure file IO). -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\ForgeSplashTheme.cs" LinkBase="Loaders" />
     <!-- Offline launching: the Mojang metadata disk copy and the "you're offline" classifier (pure). -->

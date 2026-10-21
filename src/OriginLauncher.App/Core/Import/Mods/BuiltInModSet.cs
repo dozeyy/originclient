@@ -24,7 +24,7 @@ public sealed record CatalogMod(string Family, string? VersionOrFileName);
 //    Sodium, Iris, Lithium, ... jar-in-jar), read for their real ids + versions;
 //  * the standalone perf catalog's families for the version, mapped to mod ids
 //    (Sodium, Indium, Lithium, FerriteCore, Krypton, Iris, ImmediatelyFast,
-//    ModernFix, Mod Menu) — the other versions install these beside the client;
+//    ModernFix, Mod Menu, EntityCulling) — the other versions install these beside the client;
 //  * Fabric API (id "fabric" below 1.18, "fabric-api" from 1.18);
 //  * Simple Voice Chat ("voicechat"), which Origin installs on every Fabric version.
 // When the bundled jar can't be read the list is catalog-only and flagged
@@ -44,6 +44,7 @@ public sealed class BuiltInModSet
         ["immediatelyfast"] = ("immediatelyfast", "ImmediatelyFast"),
         ["modernfix"] = ("modernfix", "ModernFix"),
         ["modmenu"] = ("modmenu", "Mod Menu"),
+        ["entityculling"] = ("entityculling", "EntityCulling"),
     };
 
     // Fabric API's modules are separate mod ids a mod may depend on (fabric-resource-loader-v0,

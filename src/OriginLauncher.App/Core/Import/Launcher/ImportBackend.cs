@@ -424,6 +424,7 @@ public sealed class LauncherImportBackend : IImportBackend
         Add("immediatelyfast", p.ImmediatelyFast);
         Add("modernfix", p.ModernFix);
         Add("modmenu", p.ModMenu);
+        Add("entityculling", p.EntityCulling);
         return list;
     }
 }

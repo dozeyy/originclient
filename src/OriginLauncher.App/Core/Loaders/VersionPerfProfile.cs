@@ -26,7 +26,16 @@ public sealed record VersionPerfProfile(
     // version had no such button, which also shifted the whole button block 24px
     // because vanilla re-centres it: the same screen did not look the same twice.
     // Pinned per version so the baseline layout is what every version shows.
-    PerfMod? ModMenu = null)
+    PerfMod? ModMenu = null,
+    // EntityCulling (tr7zw): async occlusion culling of entities and block entities,
+    // no visual change, and shadow-pass aware, which is the big win once a shader
+    // pack makes Iris draw the world twice. Added 2026-10-20 (speed-mods audit) only
+    // where a MAINTAINED stable Fabric build (published 2025 or later) exists for the
+    // exact version. Left null on purpose: 1.21.1 (its stack is bundled jar-in-jar and
+    // EntityCulling was pulled from that build 2026-07-10), 1.21.2 (no build exists),
+    // and 1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.20 (newest build is from 2022-2023,
+    // unverified against that era's Sodium 0.2-0.4 and the PoseStack-era Origin render).
+    PerfMod? EntityCulling = null)
 {
     public IEnumerable<PerfMod> Mods()
     {
@@ -39,5 +48,6 @@ public sealed record VersionPerfProfile(
         if (ImmediatelyFast != null) yield return ImmediatelyFast;
         if (ModernFix != null) yield return ModernFix;
         if (ModMenu != null) yield return ModMenu;
+        if (EntityCulling != null) yield return EntityCulling;
     }
 }
