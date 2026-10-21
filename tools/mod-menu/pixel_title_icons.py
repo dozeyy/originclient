@@ -1,29 +1,25 @@
 #!/usr/bin/env python3
-"""Minecraft-style pixel icons for the main-menu icon row (Will, 2026-10-20).
+"""Minecraft-style COLOUR pixel icons (Will, 2026-10-20): "the icons in game suck, make them
+way better ... real Minecraft item/menu icons: colour + material, 3-4 tones, dark outline".
 
-"the icons at the bottom look off on the buttons, make them Minecraft style --
-not text but icons -- so they fit in for all versions."
+ONE source of truth for the coloured pixel icon set (title dock first, mod-menu categories
+next). Hard pixels only -- no gradients, no anti-aliasing: every icon is a 12 x 12 bitmap,
+one art pixel = one logical GUI pixel at the 12 px the dock draws at, so every integer GUI
+scale lands the pixels on whole screen pixels (drawn NEAREST).
 
-ONE source of truth for the six title-dock icons (Realms, Friends, Cosmetics,
-Language, Accessibility, Quit). The art is hand-set bitmaps below, drawn on a
-12 x 12 grid: ONE grid pixel = ONE logical GUI pixel at the 12 px the dock draws
-them at, exactly like vanilla's own 1 px button glyphs and font. Each grid pixel
-is a hard 16 x 16 texel block of the 192 px atlas cell, so at every integer GUI
-scale the block edges land on whole screen pixels -- both the linear mask path
-(pre-1.20) and the SDF path (1.20+) therefore draw crisp square pixels with no
-stair-stepping (the 1.16.5 "icons look jagged" playtest).
+Vanilla lighting convention in every icon: light from the top-left (highlight), a mid base,
+a darker bottom-right shade, and a 1 px dark outline. The shared draw helper adds vanilla's
+text drop shadow (+1 GUI px right/down, rgb/4) under every icon, so the art carries none.
 
-They are added to the shared atlas under NEW ids ("@px-realms", "@px-friends",
-"@px-shirt", "@px-language", "@px-access", "@px-quit") so the vector glyphs the
-other screens use (Friends list, Cosmetics screen at 16-32 px) are untouched.
-Only the TitleScreenMixins' dock icons point at the new ids.
+Output (per module, next to mod_icons.png): mod_icons_px.png (12 px cells, RGBA, nearest)
+and mod_icons_px.json ({"cell": 12, "cols": N, "icons": {id: {x, y}}}). ModIcons draws an id
+from this atlas when it has one (colour, tinted only by a brightness factor) and otherwise
+falls back to the monochrome SDF atlas -- so the vector glyphs other screens use are intact.
 
 Run:  python tools/mod-menu/pixel_title_icons.py
-  - patches the 1.21.1 atlas (mod_icons.png / mod_icons_sdf.png / mod_icons.json)
-    in place, adding the cells (idempotent: re-running rewrites the same cells),
-  - copies the three files to every other LIVE module (same rule as
-    generate_icons.py, which also calls apply() so a regenerated atlas keeps them),
-  - writes tools/mod-menu/title_pixel_icons_preview.png (3x review sheet).
+  - writes the atlas into the 1.21.1 module and copies it to every other LIVE module + 1.8.9,
+  - writes tools/mod-menu/title_pixel_icons_preview.png (8x, on vanilla button grey + dark).
+generate_icons.py also calls apply(OUT) so a regenerated vector atlas keeps the colour one.
 """
 
 from __future__ import annotations
@@ -34,192 +30,239 @@ import shutil
 import sys
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import generate_icons as gen  # noqa: E402  (make_sdf's distance maths, OUT, PROJECT)
+import generate_icons as gen  # noqa: E402  (OUT, PROJECT)
 
-GRID = 12
-BLOCK = gen.CELL // GRID  # 16 texels per art pixel
+G = 12  # grid size == atlas cell size
+COLS = 8
 
-# '#' = lit. Each bitmap is centred on the 12 grid by its own (even) width/height.
-ART: dict[str, list[str]] = {
-    # Realms: a cut gem -- crown, table facets (unlit seams), pavilion to a point.
-    "@px-realms": [
-        "...######...",
-        ".##########.",
-        "##.#.##.#.##",
-        "#####..#####",
-        ".##########.",
-        "..#.####.#..",
-        "...#.##.#...",
-        "....####....",
-        ".....##.....",
-        "............",
-    ],
-    # Friends: two players side by side, head + shoulders, a seam between them.
-    "@px-friends": [
-        "..##....##..",
-        ".####..####.",
-        ".####..####.",
-        "..##....##..",
-        "............",
-        ".####..####.",
-        "#####..#####",
-        "#####..#####",
-    ],
-    # Cosmetics: a tee shirt -- collar notch, sleeve seams.
-    "@px-shirt": [
-        "..###..###..",
-        ".####..####.",
-        "#####..#####",
-        "#####..#####",
-        "##.######.##",
-        "##.######.##",
-        "...######...",
-        "...######...",
-    ],
-    # Language: a globe -- ring with a meridian and an equator.
-    "@px-language": [
-        "....####....",
-        "..##.##.##..",
-        ".#...##...#.",
-        ".#...##...#.",
-        "#....##....#",
-        "############",
-        "############",
-        "#....##....#",
-        ".#...##...#.",
-        ".#...##...#.",
-        "..##.##.##..",
-        "....####....",
-    ],
-    # Accessibility: the universal-access figure inside its ring.
-    "@px-access": [
-        "....####....",
-        "..##....##..",
-        ".#...##...#.",
-        ".#...##...#.",
-        "#..######..#",
-        "#....##....#",
-        "#....##....#",
-        "#...#..#...#",
-        ".#..#..#..#.",
-        ".#.#....#.#.",
-        "..##....##..",
-        "....####....",
-    ],
-    # Quit: the power symbol -- ring with a gap at the top, stem through it.
-    "@px-quit": [
-        ".....##.....",
-        "..#..##..#..",
-        ".#...##...#.",
-        ".#...##...#.",
-        "#....##....#",
-        "#..........#",
-        "#..........#",
-        "#..........#",
-        ".#........#.",
-        ".#........#.",
-        "..#......#..",
-        "...######...",
-    ],
-}
+OUTLINE = (0x1b, 0x1b, 0x24)
 
 
-def cell_mask(rows: list[str]) -> np.ndarray:
-    """192 x 192 alpha (0/255) for one bitmap, centred on the 12 grid."""
-    h, w = len(rows), len(rows[0])
-    if w % 2 or h % 2 or w > GRID or h > GRID or any(len(r) != w for r in rows):
-        raise ValueError(f"bitmap must be even-sized, <= {GRID}, rectangular: {w}x{h}")
-    ox, oy = (GRID - w) // 2, (GRID - h) // 2
-    out = np.zeros((gen.CELL, gen.CELL), dtype=np.uint8)
-    for r, row in enumerate(rows):
-        for c, ch in enumerate(row):
-            if ch == "#":
-                y, x = (oy + r) * BLOCK, (ox + c) * BLOCK
-                out[y:y + BLOCK, x:x + BLOCK] = 255
-    return out
+def rgb(h: str) -> tuple[int, int, int]:
+    return int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
 
 
-def cell_sdf(mask: np.ndarray) -> np.ndarray:
-    """Same signed-distance encoding as generate_icons.make_sdf, for one cell."""
-    img = Image.fromarray(np.dstack([np.full_like(mask, 255)] * 3 + [mask]), mode="RGBA")
-    return np.asarray(gen.make_sdf(img))  # RGBA, channel = encoded distance
+def bitmap(rows: list[str], pal: dict[str, str]) -> list[list[tuple | None]]:
+    if len(rows) > G or any(len(r) != G for r in rows):
+        raise ValueError(f"bitmap must be 12 wide, <= 12 tall: {[len(r) for r in rows]}")
+    px: list[list[tuple | None]] = [[None] * G for _ in range(G)]
+    oy = (G - len(rows)) // 2
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch == ".":
+                continue
+            px[oy + y][x] = OUTLINE if ch == "k" else rgb(pal[ch])
+    return px
+
+
+# 12 px disc: half-widths per row (cols [6-w, 6+w))
+DISC_W = [2, 4, 5, 6, 6, 6, 6, 6, 6, 5, 4, 2]
+
+
+def disc(pal: tuple[str, str, str, str]) -> list[list[tuple | None]]:
+    """Shaded sphere: outline ring + highlight / base / shade bands lit from the top-left."""
+    hi, base, shade, deep = (rgb(c) for c in pal)
+    px: list[list[tuple | None]] = [[None] * G for _ in range(G)]
+
+    def inside(x, y):
+        return 0 <= y < G and 6 - DISC_W[y] <= x < 6 + DISC_W[y]
+
+    for y in range(G):
+        for x in range(G):
+            if not inside(x, y):
+                continue
+            edge = not (inside(x - 1, y) and inside(x + 1, y) and inside(x, y - 1) and inside(x, y + 1))
+            if edge:
+                px[y][x] = OUTLINE
+                continue
+            d = (x - 3.2) ** 2 + (y - 3.2) ** 2
+            px[y][x] = hi if d < 5 else base if d < 24 else shade if d < 52 else deep
+    return px
+
+
+def overlay(px, rows: list[str], pal: dict[str, str], dx=0, dy=0) -> None:
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != "." and 0 <= y + dy < G and 0 <= x + dx < G:
+                px[y + dy][x + dx] = OUTLINE if ch == "k" else rgb(pal[ch])
+
+
+# ---------------------------------------------------------------------------------------------
+ICONS: dict[str, list[list[tuple | None]]] = {}
+
+# Realms: a diamond-tone gem -- facets (light crown, base, shade), outline all round.
+ICONS["@px-realms"] = bitmap([
+    "...kkkkkk...",
+    "..kwwcccck..",
+    ".kwwcbbcddk.",
+    "kwcccbbcbddk",
+    "kkkkkkkkkkkk",
+    ".kwcccbbdddk",
+    "..kwcbbbddk.",
+    "...kcbbddk..",
+    "....kbbdk...",
+    ".....kdk....",
+    "......k.....",
+], {"w": "#e6ffff", "c": "#7af2ea", "b": "#2fc8c4", "d": "#188a97"})
+
+# Friends: two player heads (blonde behind, brown in front), skin + hair tones, eyes.
+ICONS["@px-friends"] = bitmap([
+    ".....kkkkkkk",
+    ".....kYyyyyk",
+    ".....kyyyyyk",
+    ".....kfefefk",
+    ".....kfffffk",
+    "kkkkkkkssssk",
+    "kgggggkkkkkk",
+    "khhhhhk.....",
+    "kfefefk.....",
+    "kfffffk.....",
+    "ksssssk.....",
+    "kkkkkkk.....",
+], {"Y": "#fbe88a", "y": "#e3b93f", "g": "#9a6a3c", "h": "#6b4423",
+    "f": "#efb98c", "s": "#c4825a", "e": "#3b3fa8"})
+
+# Cosmetics: a dyed (purple) chestplate with gold buttons.
+ICONS["@px-shirt"] = bitmap([
+    ".kkkk..kkkk.",
+    "kwcck..kbbdk",
+    "kwccckkcbbdk",
+    ".kwccccbbdk.",
+    ".kwccyybbdk.",
+    ".kwccyybbdk.",
+    ".kwccccbbdk.",
+    ".kwccccbbdk.",
+    ".kcccbbbbdk.",
+    ".kkkkkkkkkk.",
+], {"w": "#e3a8f7", "c": "#b560e0", "b": "#8a36b8", "d": "#5a1f80", "y": "#ffd84a"})
+
+# Language: Earth -- blue ocean sphere with green continents.
+_globe = disc(("#8ec2ff", "#3a7de0", "#2459b4", "#183c80"))
+overlay(_globe, [
+    "............",
+    "...gg.......",
+    "..gGgg......",
+    "..gggg..gg..",
+    "...ggg.gGgg.",
+    "....g..gggg.",
+    "......ggGg..",
+    "......gggg..",
+    ".......gg...",
+    "............",
+], {"g": "#5cc24a", "G": "#2f8a32"}, 0, 1)
+ICONS["@px-language"] = _globe
+
+# Accessibility: blue badge with the white universal-access figure.
+_acc = disc(("#7ab8ff", "#2f7bf0", "#1f56c0", "#143a8a"))
+overlay(_acc, [
+    "............",
+    "............",
+    ".....ww.....",
+    ".....ww.....",
+    "..wwwwwwww..",
+    ".....ww.....",
+    ".....ww.....",
+    "....wwww....",
+    "....w..w....",
+    "....w..w....",
+], {"w": "#ffffff"})
+ICONS["@px-access"] = _acc
+
+# Quit: red power button, white power symbol.
+_quit = disc(("#ff9a8a", "#e8392b", "#b3201a", "#7a1210"))
+overlay(_quit, [
+    "............",
+    "............",
+    ".....ww.....",
+    "...w.ww.w...",
+    "..w..ww..w..",
+    "..w..ww..w..",
+    "..w......w..",
+    "..w......w..",
+    "...w....w...",
+    "....wwww....",
+], {"w": "#ffffff"})
+ICONS["@px-quit"] = _quit
+
+# Mod-menu module + tab icons (data in pixel_module_icons.py): same palette rules, same grid.
+from pixel_module_icons import ART as _MODULE_ART  # noqa: E402
+
+for _id, (_rows, _pal) in _MODULE_ART.items():
+    if _id != "@general_old":
+        ICONS[_id] = bitmap(_rows, _pal)
+
+# Settings tab: a cog -- shaded steel disc, dark hub, notches cut at the compass points.
+_cog = disc(("#e4e4ee", "#b0b0c0", "#7c7c92", "#565668"))
+overlay(_cog, [
+    "............",
+    "............",
+    "............",
+    "............",
+    "....kkkk....",
+    "....knnk....",
+    "....knnk....",
+    "....kkkk....",
+], {"n": "#23232e"}, 0, 2)
+for _x, _y in ((5, 0), (6, 0), (5, 11), (6, 11), (0, 5), (0, 6), (11, 5), (11, 6),
+               (1, 2), (2, 1), (9, 1), (10, 2), (1, 9), (2, 10), (9, 10), (10, 9)):
+    _cog[_y][_x] = None
+ICONS["@general"] = _cog
+# ---------------------------------------------------------------------------------------------
+
+
+def build() -> tuple[Image.Image, dict]:
+    n = len(ICONS)
+    rows = (n + COLS - 1) // COLS
+    atlas = Image.new("RGBA", (COLS * G, rows * G), (0, 0, 0, 0))
+    meta = {"cell": G, "cols": COLS, "icons": {}}
+    for i, (pid, px) in enumerate(ICONS.items()):
+        ox, oy = (i % COLS) * G, (i // COLS) * G
+        for y in range(G):
+            for x in range(G):
+                c = px[y][x]
+                if c is not None:
+                    atlas.putpixel((ox + x, oy + y), (*c, 255))
+        meta["icons"][pid] = {"x": ox, "y": oy}
+    return atlas, meta
 
 
 def apply(ui: Path) -> list[str]:
-    """Add/refresh the pixel cells in the atlas triple under `ui`. Returns the ids."""
-    meta_path = ui / "mod_icons.json"
-    meta = json.loads(meta_path.read_text())
-    cols, cell = meta["cols"], meta["cell"]
-    assert cell == gen.CELL, "atlas cell size changed"
-    icons = meta["icons"]
-    with Image.open(ui / "mod_icons.png") as im:
-        mask_atlas = im.convert("RGBA")
-    with Image.open(ui / "mod_icons_sdf.png") as im:
-        sdf_atlas = im.convert("RGBA")
-
-    # Cells for the new ids: reuse existing ones, else append after the last cell.
-    positions: dict[str, tuple[int, int]] = {}
-    next_index = len(icons)
-    for pid in ART:
-        if pid in icons:
-            positions[pid] = (icons[pid]["x"], icons[pid]["y"])
-        else:
-            positions[pid] = ((next_index % cols) * cell, (next_index // cols) * cell)
-            next_index += 1
-
-    need_h = max(y for _, y in positions.values()) + cell
-    if need_h > mask_atlas.height:
-        for name in ("mask", "sdf"):
-            atlas = mask_atlas if name == "mask" else sdf_atlas
-            grown = Image.new("RGBA", (atlas.width, need_h),
-                              (0, 0, 0, 0) if name == "mask" else (0, 0, 0, 255))
-            grown.paste(atlas, (0, 0))
-            if name == "mask":
-                mask_atlas = grown
-            else:
-                sdf_atlas = grown
-
-    for pid, rows in ART.items():
-        x, y = positions[pid]
-        mask = cell_mask(rows)
-        m = np.dstack([np.full_like(mask, 255)] * 3 + [mask])
-        mask_atlas.paste(Image.fromarray(m, mode="RGBA"), (x, y))
-        sdf_atlas.paste(Image.fromarray(cell_sdf(mask), mode="RGBA"), (x, y))
-        icons[pid] = {"x": x, "y": y}
-        meta.setdefault("centerOffsets", {})[pid] = [0, 0]
-
-    for name, atlas in (("mod_icons.png", mask_atlas), ("mod_icons_sdf.png", sdf_atlas)):
-        tmp = ui / (name + ".tmp")
-        atlas.save(tmp, format="PNG", optimize=True)
-        os.replace(tmp, ui / name)
-    tmp = ui / "mod_icons.json.tmp"
-    tmp.write_text(json.dumps(meta, indent=2) + "\n")
-    os.replace(tmp, meta_path)
-    return list(ART)
+    atlas, meta = build()
+    tmp = ui / "mod_icons_px.png.tmp"
+    atlas.save(tmp, format="PNG", optimize=True)
+    os.replace(tmp, ui / "mod_icons_px.png")
+    (ui / "mod_icons_px.json").write_text(json.dumps(meta, indent=1) + "\n")
+    return list(ICONS)
 
 
-def preview(ui: Path) -> None:
-    """3x sheet on the vanilla button grey: the dock at 12 px (3x) beside the 1x size."""
-    meta = json.loads((ui / "mod_icons.json").read_text())
-    with Image.open(ui / "mod_icons.png") as im:
-        atlas = im.convert("RGBA")
-    n = len(ART)
-    sheet = Image.new("RGBA", (n * 20 * 6 + 8, 20 * 6 + 20 * 2 + 16), (0x30, 0x30, 0x30, 255))
-    for i, pid in enumerate(ART):
+def preview(ui: Path, out: Path | None = None) -> None:
+    """6x nearest sheet, 10 per row, alternating vanilla button grey / dark backdrop, with the
+    1 px drop shadow the draw helper adds (rgb/4, +1 right, +1 down)."""
+    atlas = Image.open(ui / "mod_icons_px.png").convert("RGBA")
+    meta = json.loads((ui / "mod_icons_px.json").read_text())
+    S, PER, T = 6, 10, 16
+    n = len(ICONS)
+    rows = (n + PER - 1) // PER
+    sheet = Image.new("RGBA", (PER * T * S, rows * T * S), (0x20, 0x20, 0x20, 255))
+    for i, pid in enumerate(ICONS):
         x, y = meta["icons"][pid]["x"], meta["icons"][pid]["y"]
-        icon = atlas.crop((x, y, x + gen.CELL, y + gen.CELL))
-        # nearest down to 12 px = exactly what the dock draws at guiScale 1
-        small = icon.resize((GRID, GRID), Image.NEAREST)
-        big = small.resize((GRID * 6, GRID * 6), Image.NEAREST)
-        bx = 4 + i * 20 * 6
-        sheet.alpha_composite(big, (bx + (20 * 6 - GRID * 6) // 2, 4 + (20 * 6 - GRID * 6) // 2))
-        sheet.alpha_composite(small, (bx + 20 * 3 - GRID // 2, 20 * 6 + 12))
-    sheet.convert("RGB").save(HERE / "title_pixel_icons_preview.png", optimize=True)
+        icon = atlas.crop((x, y, x + G, y + G))
+        shadow = icon.copy()
+        sp = shadow.load()
+        for yy in range(G):
+            for xx in range(G):
+                r, g, b, a = sp[xx, yy]
+                sp[xx, yy] = (r // 4, g // 4, b // 4, a)
+        bg = (0x6f, 0x6f, 0x6f) if (i + i // PER) % 2 == 0 else (0x18, 0x18, 0x1c)
+        tile = Image.new("RGBA", (T, T), (*bg, 255))
+        tile.alpha_composite(shadow, (2 + 1, 2 + 1))
+        tile.alpha_composite(icon, (2, 2))
+        sheet.alpha_composite(tile.resize((T * S, T * S), Image.NEAREST), ((i % PER) * T * S, (i // PER) * T * S))
+    sheet.convert("RGB").save(out or HERE / "title_pixel_icons_preview.png", optimize=True)
 
 
 def main() -> None:
@@ -233,10 +276,10 @@ def main() -> None:
         for ui in module.glob("src/*/resources/assets/originclient/textures/ui"):
             if ui.resolve() == gen.OUT.resolve() or not (ui / "mod_icons.json").exists():
                 continue
-            for name in ("mod_icons.png", "mod_icons.json", "mod_icons_sdf.png"):
+            for name in ("mod_icons_px.png", "mod_icons_px.json"):
                 shutil.copyfile(gen.OUT / name, ui / name)
             copied.append(module.name)
-    print("pixel icons: " + ", ".join(ids))
+    print("colour pixel icons: " + ", ".join(ids))
     print("copied to: " + ", ".join(copied))
 
 

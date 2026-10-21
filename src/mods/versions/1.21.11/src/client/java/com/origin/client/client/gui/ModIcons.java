@@ -46,6 +46,7 @@ import java.util.Map;
  */
 public final class ModIcons {
 	private static final Identifier ATLAS = Identifier.fromNamespaceAndPath("originclient", "ui_mod_icons");
+	private static final Identifier PX_ATLAS = Identifier.fromNamespaceAndPath("originclient", "ui_mod_icons_px");
 	private static final Identifier SDF_ATLAS = Identifier.fromNamespaceAndPath("originclient", "ui_mod_icons_sdf");
 
 	private static final Map<String, int[]> CELLS = new HashMap<>();
@@ -95,9 +96,82 @@ public final class ModIcons {
 		drawRaw(g, id, x, y, size, argb);
 	}
 
+	// --- Colour pixel icons (Will, 2026-10-20) -------------------------------------------
+	// tools/mod-menu/pixel_title_icons.py bakes hard-pixel RGBA art (3-4 vanilla tones + dark
+	// outline) into mod_icons_px.png: 12 px cells, drawn NEAREST at whole GUI pixels. An id found
+	// there wins over the monochrome SDF/mask atlas; the tint only sets brightness (hover lights
+	// it, disabled dims it) and alpha, so the colours stay. Missing/failed atlas = old glyphs.
+	private static final Map<String, int[]> PX_CELLS = new HashMap<>();
+	private static int pxCell = 12, pxW = 96, pxH = 12;
+	private static volatile boolean pxLoaded = false;
+	private static boolean pxOk = false;
+
+	private static boolean pxHas(String id) {
+		ensurePx();
+		return pxOk && PX_CELLS.containsKey(id);
+	}
+
+	/** Brightness factor from a tint: ~0.9 grey (the menu's TEXT) and up = full colour. */
+	private static int pxTint(int argb) {
+		float l = (0.299f * ((argb >> 16) & 0xFF) + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF)) / 255f;
+		int v = Math.round(Math.min(1f, l / 0.9f) * 255f);
+		return (argb & 0xFF000000) | (v << 16) | (v << 8) | v;
+	}
+
+	private static void ensurePx() {
+		if (pxLoaded) {
+			return;
+		}
+		synchronized (ModIcons.class) {
+			if (pxLoaded) {
+				return;
+			}
+			pxLoaded = true;
+			try {
+				JsonObject j = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/ui/mod_icons_px.json");
+				pxCell = j.get("cell").getAsInt();
+				JsonObject icons = j.getAsJsonObject("icons");
+				for (String k : icons.keySet()) {
+					JsonObject o = icons.getAsJsonObject(k);
+					PX_CELLS.put(k, new int[]{o.get("x").getAsInt(), o.get("y").getAsInt()});
+				}
+				NativeImage img = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/ui/mod_icons_px.png");
+				pxW = img.getWidth();
+				pxH = img.getHeight();
+				DynamicTexture tex;
+				try {
+					tex = new DynamicTexture(() -> "originclient:ui_mod_icons_px", img);
+				} catch (Throwable t) {
+					img.close();
+					throw t;
+				}
+				Minecraft.getInstance().getTextureManager().register(PX_ATLAS, tex);   // default sampler = NEAREST
+				pxOk = true;
+			} catch (Throwable t) {
+				pxOk = false;
+				com.origin.client.OriginClient.LOGGER.warn("Origin colour pixel icons failed to load; using the glyph set", t);
+			}
+		}
+	}
+
+	private static void drawPx(GuiGraphics g, int[] c, int x, int y, int size, int argb) {
+		// Integer-scale the 12 px art only (nearest at whole multiples = crisp pixels): the box
+		// may be 14/18/40; draw the largest whole multiple that fits (at least 1x), centred.
+		int k = Math.max(1, size / pxCell);
+		int sz = pxCell * k;
+		x += (size - sz) / 2;
+		y += (size - sz) / 2;
+		size = sz;
+		g.blit(RenderPipelines.GUI_TEXTURED, PX_ATLAS, x, y, (float) c[0], (float) c[1], size, size, pxCell, pxCell, pxW, pxH, pxTint(argb));
+	}
+
 	private static void drawRaw(GuiGraphics g, String id, int x, int y, int size, int argb) {
 		int a = (argb >>> 24) & 0xFF;
 		if (a <= 2) {
+			return;
+		}
+		if (pxHas(id)) {
+			drawPx(g, PX_CELLS.get(id), x, y, size, argb);
 			return;
 		}
 		ensureLoaded();

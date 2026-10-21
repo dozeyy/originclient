@@ -27,6 +27,7 @@ import java.util.Map;
 public final class ModIcons {
 	private static final Gson GSON = new Gson();
 	private static final ResourceLocation ATLAS = new ResourceLocation("originclient", "ui_mod_icons");
+	private static final ResourceLocation PX_ATLAS = new ResourceLocation("originclient", "ui_mod_icons_px");
 
 	private static final Map<String, int[]> CELLS = new HashMap<>();
 	private static int cell = 192, atlasW = 1152, atlasH = 1344;
@@ -65,9 +66,80 @@ public final class ModIcons {
 		drawRaw(g, id, x, y, size, argb);
 	}
 
+	// --- Colour pixel icons (Will, 2026-10-20) -------------------------------------------
+	// tools/mod-menu/pixel_title_icons.py bakes hard-pixel RGBA art (3-4 vanilla tones + dark
+	// outline) into mod_icons_px.png: 12 px cells, drawn NEAREST at whole GUI pixels. An id found
+	// there wins over the monochrome SDF/mask atlas; the tint only sets brightness (hover lights
+	// it, disabled dims it) and alpha, so the colours stay. Missing/failed atlas = old glyphs.
+	private static final Map<String, int[]> PX_CELLS = new HashMap<>();
+	private static int pxCell = 12, pxW = 96, pxH = 12;
+	private static volatile boolean pxLoaded = false;
+	private static boolean pxOk = false;
+
+	private static boolean pxHas(String id) {
+		ensurePx();
+		return pxOk && PX_CELLS.containsKey(id);
+	}
+
+	/** Brightness factor from a tint: ~0.9 grey (the menu's TEXT) and up = full colour. */
+	private static int pxTint(int argb) {
+		float l = (0.299f * ((argb >> 16) & 0xFF) + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF)) / 255f;
+		int v = Math.round(Math.min(1f, l / 0.9f) * 255f);
+		return (argb & 0xFF000000) | (v << 16) | (v << 8) | v;
+	}
+
+	private static void ensurePx() {
+		if (pxLoaded) {
+			return;
+		}
+		synchronized (ModIcons.class) {
+			if (pxLoaded) {
+				return;
+			}
+			pxLoaded = true;
+			try {
+				JsonObject j;
+				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons_px.json")) {
+					j = GSON.fromJson(new String(com.origin.client.client.IoCompat.readAllBytes(in), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
+				}
+				pxCell = j.get("cell").getAsInt();
+				for (java.util.Map.Entry<String, com.google.gson.JsonElement> e : j.getAsJsonObject("icons").entrySet()) {
+					JsonObject o = e.getValue().getAsJsonObject();
+					PX_CELLS.put(e.getKey(), new int[]{o.get("x").getAsInt(), o.get("y").getAsInt()});
+				}
+				java.awt.image.BufferedImage img = Gfx.readImage("/assets/originclient/textures/ui/mod_icons_px.png");
+				pxW = img.getWidth();
+				pxH = img.getHeight();
+				pxOk = Gfx.registerTexture(PX_ATLAS, img, false) != null;   // nearest
+			} catch (Throwable t) {
+				pxOk = false;
+				com.origin.client.OriginClient.LOGGER.warn("Origin colour pixel icons failed to load; using the glyph set", t);
+			}
+		}
+	}
+
+	private static void drawPx(Gfx g, int[] c, int x, int y, int size, int argb) {
+		// Integer-scale the 12 px art only (nearest at whole multiples = crisp pixels): the box
+		// may be 14/18/40; draw the largest whole multiple that fits (at least 1x), centred.
+		int k = Math.max(1, size / pxCell);
+		int sz = pxCell * k;
+		x += (size - sz) / 2;
+		y += (size - sz) / 2;
+		size = sz;
+		int t = pxTint(argb);
+		Gfx.defaultBlend();
+		GlStateManager.color(((t >> 16) & 0xFF) / 255f, ((t >> 8) & 0xFF) / 255f, (t & 0xFF) / 255f, ((t >>> 24) & 0xFF) / 255f);
+		g.blit(PX_ATLAS, x, y, size, size, c[0], c[1], pxCell, pxCell, pxW, pxH);
+		GlStateManager.color(1f, 1f, 1f, 1f);
+	}
+
 	private static void drawRaw(Gfx g, String id, int x, int y, int size, int argb) {
 		int a = (argb >>> 24) & 0xFF;
 		if (a <= 2) {
+			return;
+		}
+		if (pxHas(id)) {
+			drawPx(g, PX_CELLS.get(id), x, y, size, argb);
 			return;
 		}
 		ensureLoaded();
@@ -108,6 +180,10 @@ public final class ModIcons {
 			if (a <= 2) {
 				return;
 			}
+				if (pxHas(id)) {
+					drawPx(g, PX_CELLS.get(id), x, y, size, argb);
+					return;
+				}
 			ensureLoaded();
 			int[] c = ok ? CELLS.get(id) : null;
 			if (c == null || atlasImg == null) {
