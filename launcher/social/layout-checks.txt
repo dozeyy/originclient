@@ -1,0 +1,4 @@
+1180x740 no profile: play button found = True, card found = False, toast host found = True (cannot check)
+980x600 no profile: play button found = True, card found = False, toast host found = True (cannot check)
+1180x740 with profile + Join: play button found = True, card found = False, toast host found = True (cannot check)
+980x600 with profile + Join: play button found = True, card found = False, toast host found = True (cannot check)
