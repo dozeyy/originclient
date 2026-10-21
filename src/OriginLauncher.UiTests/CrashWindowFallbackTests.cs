@@ -97,6 +97,9 @@ public class CrashWindowFallbackTests
             var themedReport = new CrashReportWindow(analysis, null);
             Assert.False(themedReport.UsingFallbackLayout);
             Assert.Equal(new[] { "Show details", "Copy report", "Open logs folder", "Close", "Relaunch without badmod" }, ButtonLabels(themedReport));
+
+            // Same Application, so the Home blank-after-picker regression runs here (HomeSceneRegression.cs).
+            HomeSceneRegression.Run();
         });
     }
 }
