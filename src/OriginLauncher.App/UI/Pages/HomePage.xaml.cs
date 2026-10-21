@@ -136,6 +136,24 @@ public partial class HomePage : UserControl
         }
     }
 
+    // Home's strip state is a pure function of the scenes: this snaps it (no animation, no held clock) to
+    // what the picker / launch cover say right now. Runs on EVERY re-attach (Loaded). Why: OnSceneVisibilityChanged
+    // animates, and an animation on a page that is not in the window never completes or never starts, so a picker
+    // closed while Home was swapped out (nav click -> Mods -> Home) left the strip at opacity 0 = a blank Home
+    // (Will 2026-10-20). The animated path stays for the live picker open / close.
+    private void SnapSceneState()
+    {
+        var away = LoadingOverlay.Visibility == Visibility.Visible || VersionOverlay.IsOpen;
+        HomeCard.BeginAnimation(OpacityProperty, null);
+        StripShift.BeginAnimation(TranslateTransform.YProperty, null);
+        BannerSlot.BeginAnimation(OpacityProperty, null);
+        HomeCard.Opacity = away ? 0 : 1;
+        BannerSlot.Opacity = away ? 0 : 1;
+        StripShift.Y = away ? 16 : 0;
+        HomeCard.IsHitTestVisible = !away;
+        _banner?.SetHomeSceneOpen(HasOpenScene);
+    }
+
     private bool _launchShown;
 
     public HomePage()
@@ -147,7 +165,10 @@ public partial class HomePage : UserControl
         // A Visibility flip, not IsVisible: navigation never leaves Home while either is up.
         System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
             .AddValueChanged(LoadingOverlay, (_, _) => OnSceneVisibilityChanged());
-        VersionOverlay.IsVisibleChanged += (_, _) => OnSceneVisibilityChanged();
+        // Visibility, not IsVisible: IsVisible also flips when the PAGE leaves the window, which fired this while the
+        // picker was still fading and then never again when it collapsed (the blank-Home bug).
+        System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
+            .AddValueChanged(VersionOverlay, (_, _) => OnSceneVisibilityChanged());
         _settings = SettingsStore.Load();
         LoadingOverlay.CancelRequested += (_, _) =>
         {
@@ -160,11 +181,13 @@ public partial class HomePage : UserControl
         VersionOverlay.LaunchRequested += OnLaunchRequested;
         // The home banner pauses under either scene (and, in ad mode, its
         // native WebView2 would otherwise draw on top of them).
-        VersionOverlay.IsVisibleChanged += (_, _) => _banner?.SetHomeSceneOpen(HasOpenScene);
+        System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
+            .AddValueChanged(VersionOverlay, (_, _) => _banner?.SetHomeSceneOpen(HasOpenScene));
         LoadingOverlay.IsVisibleChanged += (_, _) => _banner?.SetHomeSceneOpen(HasOpenScene);
         if (HomeBannerOn) AddBanner();
         InitVersionSelection();
         RefreshAccountState();
+        Loaded += (_, _) => SnapSceneState();
         Loaded += (_, _) => StartPlayersOnline();
         Loaded += (_, _) => PlayIntroOnce();
     }
@@ -338,6 +361,9 @@ public partial class HomePage : UserControl
 
     /// <summary>MainWindow: a nav click while the version picker is open closes it and carries on.</summary>
     public void CloseVersionPicker() => VersionOverlay.Dismiss();
+
+    /// <summary>Test seam: the strip's resting state after a re-attach.</summary>
+    internal void SnapSceneStateForTest() => SnapSceneState();
 
     public bool HasOpenScene => VersionOverlay.IsOpen
         || LoadingOverlay.Visibility == Visibility.Visible;

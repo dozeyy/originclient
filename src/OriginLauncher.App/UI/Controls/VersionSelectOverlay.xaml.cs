@@ -70,8 +70,16 @@ public partial class VersionSelectOverlay : UserControl
             (FamilyList.ItemContainerGenerator.ContainerFromItem(FamilyList.SelectedItem) as UIElement ?? FamilyList).Focus());
     }
 
-    /// <summary>Close the picker from outside (a nav click while it is open).</summary>
-    public void Dismiss() { if (IsOpen) CloseOverlay(); }
+    /// <summary>Close the picker from outside (a nav click while it is open). Instant: Home is leaving the window,
+    /// and a fade on a page that is not shown never finishes (it would leave the picker "open" for good).</summary>
+    public void Dismiss()
+    {
+        if (!IsOpen) return;
+        ++_sceneRevision;
+        Scene.BeginAnimation(OpacityProperty, null);
+        OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+        Visibility = Visibility.Collapsed;
+    }
 
     private void CloseOverlay()
     {
