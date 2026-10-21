@@ -90,6 +90,162 @@ function appendMessage(chat, role, text, extraClass = '') {
   return message;
 }
 
+function appendInlineMarkdown(parent, text) {
+  const pattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*|__([^_\n]+)__|\*([^*\n]+)\*|_([^_\n]+)_/g;
+  let cursor = 0;
+  for (const match of text.matchAll(pattern)) {
+    const index = match.index ?? 0;
+    if (index > cursor) parent.append(document.createTextNode(text.slice(cursor, index)));
+    if (match[1] !== undefined) {
+      try {
+        const url = new URL(match[2]);
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+          const link = document.createElement('a');
+          link.href = url.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = match[1];
+          parent.append(link);
+        } else {
+          parent.append(document.createTextNode(match[0]));
+        }
+      } catch {
+        parent.append(document.createTextNode(match[0]));
+      }
+    } else if (match[3] !== undefined) {
+      const code = document.createElement('code');
+      code.textContent = match[3];
+      parent.append(code);
+    } else if (match[4] !== undefined || match[5] !== undefined) {
+      const strong = document.createElement('strong');
+      strong.textContent = match[4] ?? match[5];
+      parent.append(strong);
+    } else {
+      const emphasis = document.createElement('em');
+      emphasis.textContent = match[6] ?? match[7];
+      parent.append(emphasis);
+    }
+    cursor = index + match[0].length;
+  }
+  if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
+}
+
+function renderMarkdown(target, markdown) {
+  target.replaceChildren();
+  const lines = String(markdown).replace(/\r\n?/g, '\n').split('\n');
+  let index = 0;
+  const isBlockStart = line => /^\s{0,3}(?:#{1,6}\s|```|~~~|>|[-+*]\s+|\d+[.)]\s+|(?:-{3,}|\*{3,}|_{3,})\s*$)/.test(line);
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) { index++; continue; }
+
+    const fence = line.match(/^\s{0,3}(`{3,}|~{3,})\s*([\w+-]*)\s*$/);
+    if (fence) {
+      const codeLines = [];
+      index++;
+      while (index < lines.length && !new RegExp(`^\\s{0,3}${fence[1][0]}{${fence[1].length},}\\s*$`).test(lines[index])) {
+        codeLines.push(lines[index++]);
+      }
+      if (index < lines.length) index++;
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      if (fence[2]) code.dataset.language = fence[2].toLowerCase();
+      code.textContent = codeLines.join('\n');
+      pre.append(code);
+      target.append(pre);
+      continue;
+    }
+
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      const element = document.createElement(`h${heading[1].length}`);
+      appendInlineMarkdown(element, heading[2]);
+      target.append(element);
+      index++;
+      continue;
+    }
+
+    if (/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      target.append(document.createElement('hr'));
+      index++;
+      continue;
+    }
+
+    const tableSeparator = lines[index + 1]?.match(/^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/);
+    if (line.includes('|') && tableSeparator) {
+      const splitCells = value => value.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim().replace(/\\\|/g, '|'));
+      const headers = splitCells(line);
+      const alignments = splitCells(lines[index + 1]).map(cell => cell.startsWith(':') && cell.endsWith(':') ? 'center' : cell.endsWith(':') ? 'right' : 'left');
+      const wrap = document.createElement('div');
+      wrap.className = 'chat-table-wrap';
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      headers.forEach((value, cellIndex) => {
+        const cell = document.createElement('th');
+        cell.style.textAlign = alignments[cellIndex] ?? 'left';
+        appendInlineMarkdown(cell, value);
+        headRow.append(cell);
+      });
+      thead.append(headRow);
+      table.append(thead);
+      const tbody = document.createElement('tbody');
+      index += 2;
+      while (index < lines.length && lines[index].trim().startsWith('|')) {
+        const values = splitCells(lines[index]);
+        const row = document.createElement('tr');
+        headers.forEach((_, cellIndex) => {
+          const cell = document.createElement('td');
+          cell.style.textAlign = alignments[cellIndex] ?? 'left';
+          appendInlineMarkdown(cell, values[cellIndex] ?? '');
+          row.append(cell);
+        });
+        tbody.append(row);
+        index++;
+      }
+      table.append(tbody);
+      wrap.append(table);
+      target.append(wrap);
+      continue;
+    }
+
+    if (/^\s{0,3}>/.test(line)) {
+      const quoted = [];
+      while (index < lines.length && /^\s{0,3}>/.test(lines[index])) quoted.push(lines[index++].replace(/^\s{0,3}>\s?/, ''));
+      const quote = document.createElement('blockquote');
+      renderMarkdown(quote, quoted.join('\n'));
+      target.append(quote);
+      continue;
+    }
+
+    const listItem = line.match(/^\s{0,3}([-+*]|\d+[.)])\s+(.+)$/);
+    if (listItem) {
+      const ordered = /^\d/.test(listItem[1]);
+      const list = document.createElement(ordered ? 'ol' : 'ul');
+      while (index < lines.length) {
+        const item = lines[index].match(/^\s{0,3}([-+*]|\d+[.)])\s+(.+)$/);
+        if (!item || /^\d/.test(item[1]) !== ordered) break;
+        const li = document.createElement('li');
+        appendInlineMarkdown(li, item[2]);
+        list.append(li);
+        index++;
+      }
+      target.append(list);
+      continue;
+    }
+
+    const paragraphLines = [];
+    while (index < lines.length && lines[index].trim() && (paragraphLines.length === 0 || !isBlockStart(lines[index]))) {
+      paragraphLines.push(lines[index].trim());
+      index++;
+    }
+    const paragraph = document.createElement('p');
+    appendInlineMarkdown(paragraph, paragraphLines.join(' '));
+    target.append(paragraph);
+  }
+}
+
 async function loadVersions() {
   const select = $('[data-version]');
   const status = $('[data-version-status]');
@@ -277,7 +433,8 @@ function boot() {
         if (typeof result.answer !== 'string' || !result.answer.trim()) throw new Error('Claude returned an empty answer. Try again.');
 
         pendingMessage.classList.remove('chat-message--pending');
-        pendingMessage.textContent = result.answer;
+        renderMarkdown(pendingMessage, result.answer);
+        chatBody.scrollTop = chatBody.scrollHeight;
         conversation.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
         if (conversation.length > 18) conversation = conversation.slice(-18);
         updateUsage(result.usage);
