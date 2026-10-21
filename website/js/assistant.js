@@ -451,14 +451,18 @@ function boot() {
   composer.addEventListener('submit', event => {
     event.preventDefault();
     if (isSending || !question.value.trim()) return;
+    const prompt = question.value.trim();
+    const attached = attachedFile;
     isSending = true;
     send.disabled = true;
     question.disabled = true;
     $('[data-clear-chat]').disabled = true;
     assistantStatus.textContent = 'Claude is thinking…';
+    question.value = '';
+    question.style.height = 'auto';
+    const userMessage = appendMessage(chatBody, 'user', attached ? `${prompt}\n\nAttached: ${attached.name}` : prompt);
+    const pendingMessage = appendMessage(chatBody, 'assistant', 'Thinking…', 'chat-message--pending');
     void (async () => {
-      const prompt = question.value.trim();
-      const attached = attachedFile;
       let attachment = null;
       if (attached) {
         try {
@@ -471,6 +475,11 @@ function boot() {
             : fullText;
           attachment = { name: attached.name, text };
         } catch (error) {
+          userMessage.remove();
+          pendingMessage.remove();
+          question.value = prompt;
+          question.style.height = 'auto';
+          question.style.height = `${Math.min(question.scrollHeight, 190)}px`;
           assistantStatus.textContent = error instanceof Error ? error.message : 'Could not read that text file. Try saving it as UTF-8.';
           isSending = false;
           question.disabled = false;
@@ -480,8 +489,6 @@ function boot() {
         }
       }
 
-      const userMessage = appendMessage(chatBody, 'user', attachment ? `${prompt}\n\nAttached: ${attachment.name}` : prompt);
-      const pendingMessage = appendMessage(chatBody, 'assistant', 'Thinking…', 'chat-message--pending');
       const messages = [...conversation.slice(-18), { role: 'user', content: prompt }];
       const version = $('[data-version]').value.trim();
       const loader = $('[data-loader]').value;
@@ -498,6 +505,9 @@ function boot() {
         if (response.status === 402 && result.limitReached) {
           userMessage.remove();
           pendingMessage.remove();
+          question.value = prompt;
+          question.style.height = 'auto';
+          question.style.height = `${Math.min(question.scrollHeight, 190)}px`;
           updateUsage(result.usage);
           limitDialog.showModal();
           assistantStatus.textContent = 'You have reached this month’s free AI allowance.';
@@ -513,8 +523,6 @@ function boot() {
         conversation.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
         if (conversation.length > 18) conversation = conversation.slice(-18);
         updateUsage(result.usage);
-        question.value = '';
-        question.style.height = 'auto';
         attachedFile = null;
         fileRow.hidden = true;
         send.disabled = true;
@@ -525,9 +533,12 @@ function boot() {
         }
       } catch (error) {
         userMessage.remove();
-        pendingMessage.classList.remove('chat-message--pending');
-        pendingMessage.classList.add('chat-message--error');
-        pendingMessage.textContent = error instanceof Error ? error.message : 'Claude could not answer this message. Try again.';
+        pendingMessage.remove();
+        question.value = prompt;
+        question.style.height = 'auto';
+        question.style.height = `${Math.min(question.scrollHeight, 190)}px`;
+        const message = error instanceof Error ? error.message : 'Claude could not answer this message. Try again.';
+        appendMessage(chatBody, 'assistant', message, 'chat-message--error');
         assistantStatus.textContent = 'Your message is still in the box so you can try again.';
       } finally {
         isSending = false;
