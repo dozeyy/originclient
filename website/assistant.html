@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f2021">
+  <meta name="color-scheme" content="dark">
+  <title>Origin AI — Minecraft help</title>
+  <meta name="description" content="Minecraft help for gameplay, mod development, crashes and performance.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/site.css">
+  <link rel="stylesheet" href="css/assistant.css">
+  <script type="module" src="js/assistant.js"></script>
+</head>
+<body class="page-assistant">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="mark" viewBox="0 0 200 200">
+      <g fill="none" stroke="currentColor"><ellipse cx="100" cy="100" rx="90" ry="32"/><ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/><ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/></g>
+    </symbol>
+  </svg>
+  <a class="skip" href="#main">Skip to chat</a>
+  <main id="main" class="assistant-app">
+    <aside id="setup-sidebar" class="setup-sidebar" aria-label="Minecraft setup">
+      <div class="sidebar-brand">
+        <a class="brand" href="./" aria-label="Origin home"><svg class="brand__mark"><use href="#mark"/></svg><span class="brand__word">Origin</span></a>
+      </div>
+      <section class="settings-panel" id="settings-panel" data-settings-panel hidden aria-label="Usage and plans">
+        <div class="settings-panel__head"><div><p class="eyebrow">Account</p><h2>Usage &amp; plans</h2></div><button type="button" data-settings-close aria-label="Close settings">×</button></div>
+        <p class="usage-label"><span data-usage-title>Free plan usage</span><strong data-usage-label>$0.00 / $1.00</strong></p>
+        <div class="usage-meter" role="meter" aria-label="Monthly AI usage" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" data-usage-meter><span></span></div>
+        <div class="usage-details"><span>Remaining <strong data-usage-remaining>$1.00</strong></span><span>Resets <strong data-usage-reset>monthly</strong></span></div>
+        <p class="usage-caption">Usage is shared by visitors on the same network. Paid plans and checkout are coming later.</p>
+        <div class="plan-options" data-plan-options></div>
+        <section class="settings-section" aria-labelledby="promo-title">
+          <h3 id="promo-title">Promo code</h3>
+          <div class="owner-unlock__row"><input type="text" placeholder="Promo codes aren’t active yet" disabled aria-label="Promo code"><button type="button" disabled>Apply</button></div>
+          <p>Codes will be available here when offers launch.</p>
+        </section>
+        <section class="settings-section settings-preferences" aria-labelledby="preferences-title">
+          <h3 id="preferences-title">Preferences</h3>
+          <label><input type="checkbox" checked data-include-setup> Include selected game version, loader and Java in my questions</label>
+          <button type="button" class="clear-chat" data-clear-chat>Clear this chat</button>
+        </section>
+        <form class="owner-unlock" data-owner-form>
+          <label for="owner-code">Owner access</label>
+          <div class="owner-unlock__row">
+            <input id="owner-code" type="password" autocomplete="off" spellcheck="false" placeholder="Enter private access code" data-owner-code>
+            <button type="submit" data-owner-submit>Unlock</button>
+          </div>
+          <p data-owner-status aria-live="polite">Owner access is for the site owner only.</p>
+        </form>
+      </section>
+
+      <div class="setup">
+        <p class="setup__title">Minecraft setup <span>optional</span></p>
+        <div class="setup__field">
+          <label for="version">Game version</label>
+          <div class="version-picker" data-version-picker>
+            <select id="version" name="version" data-version disabled aria-describedby="version-status"><option value="">Loading versions…</option></select>
+            <p class="version-status" data-version-status aria-live="polite">Loading Minecraft versions…</p>
+          </div>
+        </div>
+        <div class="setup__field"><label for="loader">Mod loader</label>
+          <select id="loader" name="loader" data-loader>
+            <option value="">Choose a loader</option><option>Fabric</option><option>Forge</option><option>NeoForge</option><option>Quilt</option><option>Vanilla</option><option>Other / not sure</option>
+          </select>
+        </div>
+        <div class="setup__field"><label for="java">Java version <span class="label-optional">if known</span></label>
+          <select id="java" name="java" data-java>
+            <option value="">Choose Java</option><option>Java 25</option><option>Java 21</option><option>Java 17</option><option>Java 8</option><option>Not sure</option>
+          </select>
+        </div>
+      </div>
+      <div class="sidebar-bottom">
+        <button class="settings-toggle" type="button" data-settings-toggle aria-label="Settings and plans" title="Settings and plans" aria-expanded="false" aria-controls="settings-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Z"/><path d="m19.4 13.5 1.1.9-1.7 3-1.4-.5a7.7 7.7 0 0 1-1.6.9l-.3 1.5h-3.4l-.3-1.5a7.7 7.7 0 0 1-1.6-.9l-1.4.5-1.7-3 1.1-.9a7 7 0 0 1 0-1.8l-1.1-.9 1.7-3 1.4.5a7.7 7.7 0 0 1 1.6-.9l.3-1.5h3.4l.3 1.5a7.7 7.7 0 0 1 1.6.9l1.4-.5 1.7 3-1.1.9a7 7 0 0 1 0 1.8Z"/></svg></button>
+        <a href="terms">Terms &amp; privacy</a>
+      </div>
+    </aside>
+
+    <section class="chat" aria-label="Minecraft assistant chat">
+      <header class="chat__top"><button class="mobile-setup" type="button" data-mobile-setup aria-expanded="false" aria-controls="setup-sidebar"><span aria-hidden="true">⚙</span> Setup</button><span class="chat__title">Origin AI <span class="model-tag">Claude</span></span></header>
+      <div class="chat__body" data-chat aria-live="polite" aria-relevant="additions text">
+        <div class="welcome">
+          <span class="welcome__stamp" aria-hidden="true"><svg viewBox="0 0 60 60"><use href="#mark"/></svg></span>
+          <h1>What needs fixing?</h1>
+          <p>Ask anything about Minecraft, mods, crashes or performance.</p>
+        </div>
+      </div>
+
+      <form class="composer" data-composer>
+        <div class="drop-hint" data-drop-hint aria-live="polite" hidden></div>
+        <div class="composer__attachment" data-file-row hidden><span class="file-icon" aria-hidden="true">▤</span><span class="file-name" data-file-name></span><button type="button" data-remove-file aria-label="Remove attached file">×</button></div>
+        <div class="composer__row">
+          <label class="sr" for="question">Your Minecraft question</label>
+          <textarea id="question" name="question" rows="1" maxlength="8000" placeholder="Message Origin…" data-question></textarea>
+          <button class="send" type="submit" data-send aria-label="Send message" title="Send message" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-7 7 7-7 7 7"/></svg></button>
+        </div>
+      </form>
+      <p class="privacy-note">Messages are sent to Anthropic for answers. Origin doesn’t save chats. Attached .log and .txt files are sent only when you attach them.</p>
+      <p class="preview-note" role="status" data-assistant-status aria-live="polite">Your Minecraft chat is ready.</p>
+    </section>
+  </main>
+  <dialog class="limit-dialog" data-limit-dialog aria-labelledby="limit-title">
+    <button class="limit-dialog__close" type="button" data-limit-close aria-label="Close">×</button>
+    <span class="limit-dialog__icon" aria-hidden="true">↗</span>
+    <p class="eyebrow">Monthly usage limit</p>
+    <h2 id="limit-title">You’ve used this month’s AI allowance.</h2>
+    <p class="limit-dialog__copy">Your free monthly AI allowance is used up. Paid plans and checkout are coming later.</p>
+    <div class="limit-dialog__plans" data-upgrade-options></div>
+    <button class="limit-dialog__later" type="button" data-limit-close>Maybe later</button>
+  </dialog>
+</body>
+</html>
