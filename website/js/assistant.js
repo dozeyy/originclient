@@ -11,6 +11,7 @@ const PLANS = [
 const MANIFEST_URL = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_LOG_CHARS = 60_000;
+const SUPPORTED_TEXT_FILE = /\.(?:log|txt|json|toml|properties|cfg|conf|ini|java|kt|gradle|kts|groovy|xml|ya?ml|patch|diff|md|csv|mcmeta|accesswidener)$/i;
 const CHAT_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/chat';
 const USAGE_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/usage';
 const OWNER_ENDPOINT = 'https://origin-assistant-api.will-f11.workers.dev/v1/owner/unlock';
@@ -118,10 +119,10 @@ async function loadVersions() {
 
 function showFile(file) {
   const hint = $('[data-drop-hint]');
-  const acceptable = /\.(log|txt)$/i.test(file.name) || file.type === 'text/plain';
+  const acceptable = SUPPORTED_TEXT_FILE.test(file.name);
   if (!acceptable) {
     hint.hidden = false;
-    hint.textContent = 'Drop a .log or .txt file';
+    hint.textContent = 'Drop a Minecraft log, config, manifest, source or patch text file';
     setTimeout(() => { hint.hidden = true; }, 2400);
     return;
   }
@@ -224,17 +225,18 @@ function boot() {
       const prompt = question.value.trim();
       const attached = attachedFile;
       let attachment = null;
-      let storedPrompt = prompt;
       if (attached) {
         try {
           const fullText = await attached.text();
+          if (fullText.length > MAX_LOG_CHARS && !/\.log$/i.test(attached.name)) {
+            throw new Error('That source or config file is over 60,000 characters. Attach a smaller file or just the relevant section.');
+          }
           const text = fullText.length > MAX_LOG_CHARS
             ? `${fullText.slice(0, 45_000)}\n\n[Middle of log omitted to fit the 60,000 character limit]\n\n${fullText.slice(-15_000)}`
             : fullText;
           attachment = { name: attached.name, text };
-          storedPrompt += `\n\n[Attached Minecraft log: ${attached.name}]\n\n${text}`;
-        } catch {
-          assistantStatus.textContent = 'Could not read that log file. Try saving it as a .txt file.';
+        } catch (error) {
+          assistantStatus.textContent = error instanceof Error ? error.message : 'Could not read that text file. Try saving it as UTF-8.';
           isSending = false;
           question.disabled = false;
           send.disabled = !question.value.trim();
