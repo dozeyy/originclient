@@ -173,6 +173,11 @@ function boot() {
     question.style.height = 'auto';
     question.style.height = `${Math.min(question.scrollHeight, 190)}px`;
   });
+  question.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    composer.requestSubmit();
+  });
 
   $('[data-remove-file]').addEventListener('click', () => {
     attachedFile = null;
