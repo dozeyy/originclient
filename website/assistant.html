@@ -35,22 +35,20 @@
         <div class="plan-options" data-plan-options></div>
         <section class="settings-section" aria-labelledby="promo-title">
           <h3 id="promo-title">Promo code</h3>
-          <div class="owner-unlock__row"><input type="text" placeholder="Promo codes aren’t active yet" disabled aria-label="Promo code"><button type="button" disabled>Apply</button></div>
-          <p>Codes will be available here when offers launch.</p>
+          <form class="owner-unlock" data-owner-form>
+            <label class="sr" for="owner-code">Promo or owner code</label>
+            <div class="owner-unlock__row">
+              <input id="owner-code" type="password" autocomplete="off" spellcheck="false" placeholder="Enter a code" data-owner-code>
+              <button type="submit" data-owner-submit>Apply</button>
+            </div>
+            <p data-owner-status aria-live="polite">Enter your private owner code here to activate unlimited use.</p>
+          </form>
         </section>
         <section class="settings-section settings-preferences" aria-labelledby="preferences-title">
           <h3 id="preferences-title">Preferences</h3>
           <label><input type="checkbox" checked data-include-setup> Include selected game version, loader and Java in my questions</label>
           <button type="button" class="clear-chat" data-clear-chat>Clear this chat</button>
         </section>
-        <form class="owner-unlock" data-owner-form>
-          <label for="owner-code">Owner access</label>
-          <div class="owner-unlock__row">
-            <input id="owner-code" type="password" autocomplete="off" spellcheck="false" placeholder="Enter private access code" data-owner-code>
-            <button type="submit" data-owner-submit>Unlock</button>
-          </div>
-          <p data-owner-status aria-live="polite">Owner access is for the site owner only.</p>
-        </form>
       </section>
 
       <div class="setup">

@@ -321,7 +321,7 @@ function boot() {
     input.value = '';
     if (!code) {
       status.dataset.state = 'error';
-      status.textContent = 'Enter your private owner code.';
+      status.textContent = 'Enter a code.';
       return;
     }
     submit.disabled = true;
@@ -334,7 +334,7 @@ function boot() {
         body: JSON.stringify({ code }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || typeof result.token !== 'string') throw new Error(result.message || 'Owner access is not configured yet.');
+      if (!response.ok || typeof result.token !== 'string') throw new Error(response.status === 401 ? 'Code not recognized.' : (result.message || 'Code could not be applied.'));
       ownerToken = result.token;
       try { sessionStorage.setItem(OWNER_TOKEN_KEY, ownerToken); } catch { /* The token still works until this page is closed. */ }
       updateUsage({ unlimited: true });
