@@ -183,6 +183,21 @@ public class SharedModsTests
         Assert.False(SharedMods.NeedsMerge(Root("1.21.1")));
     }
 
+    // 2026-10-20: an emptied account mods folder with the read-only attribute made Delete throw "Access denied" on
+    // every launch ("mods merge paused"), so the merge never finished.
+    [Fact]
+    public void AnEmptyReadOnlyAccountModsFolderIsClearedAndTheMergeFinishes()
+    {
+        Write("1.21.1/mods/originclient.jar", "origin");
+        var mods = Path.Combine(Root("1.21.1"), "accounts", Steve, "mods");
+        Directory.CreateDirectory(mods);
+        new DirectoryInfo(mods).Attributes |= FileAttributes.ReadOnly;
+
+        Assert.True(SharedMods.MergeVersion(Root("1.21.1"), NothingRunning));
+
+        Assert.False(Directory.Exists(mods));
+    }
+
     [Fact]
     public void ASameNameClashKeepsTheNewerAndParksTheOther()
     {
