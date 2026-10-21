@@ -147,8 +147,8 @@ public class PerformancePresetTests : IDisposable
     [Fact]
     public void UnstampableVersionIsSkippedNotCorrupted()
     {
-        // 26.x has no known data version to stamp: leave the folder alone rather than write a version-less file.
-        Assert.Equal(PresetOutcome.SkippedUnsupported, PresetWriter.ApplyToNewInstance(_dir, "26.2", PerformanceTier.Low));
+        // A version with no known data version (and no installed jar) cannot be stamped: leave the folder alone rather than write a version-less file.
+        Assert.Equal(PresetOutcome.SkippedUnsupported, PresetWriter.ApplyToNewInstance(_dir, "26.9", PerformanceTier.Low));
         Assert.False(File.Exists(Path.Combine(_dir, "options.txt")));
     }
 
