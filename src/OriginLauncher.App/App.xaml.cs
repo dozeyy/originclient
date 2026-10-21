@@ -28,6 +28,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        StartupTrace.Init(e.Args);
         // `--import-plan <out.json>`: a read-only dry run of the import against this PC (Core/Import/Launcher/
         // ImportPlanReport). No window, no single-instance guard, and NOTHING below this block runs - in
         // particular not EnsureScaffold or the recovery - so no Origin folder is created or written. It writes
@@ -124,6 +125,7 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+        StartupTrace.Mark("App.OnStartup: single-instance ok");
 
         // Follow Windows' animation preference everywhere. The same resource
         // keys drive page, panel, hover and loading transitions, so one user
@@ -132,6 +134,7 @@ public partial class App : Application
             DisableMotion();
 
         OriginPaths.EnsureScaffold();
+        StartupTrace.Mark("EnsureScaffold");
         System.Threading.Tasks.Task.Run(DeleteLegacySignInProfile);
         // An import that was interrupted last time (crash, power cut) is rolled back, on the thread pool;
         // MainWindow tells the player once the first window is up (Core/Import/Launcher/ImportStartup).
@@ -144,6 +147,7 @@ public partial class App : Application
         Core.GameFolders.Launcher.AccountFolders.EnsureMigrated(
             Core.GameFolders.Launcher.AccountFolders.SelectedKey());
 
+        StartupTrace.Mark("EnsureMigrated");
         // Choices from the installer's Customize page (memory, default
         // version) land in settings before the first window reads them.
         Core.Install.SetupChoices.ApplyIfPresent();
@@ -167,7 +171,9 @@ public partial class App : Application
             ImportPipeName(mutexName), OnImportRequestedByAnotherInstance, Core.Import.Launcher.ImportLog.Write);
         _importIpc.Start();
 
+        StartupTrace.Mark("before MainWindow");
         new MainWindow().Show();
+        StartupTrace.Mark("MainWindow.Show returned");
     }
 
     private static Core.Import.Launcher.ImportIpcServer? _importIpc;

@@ -130,7 +130,7 @@ public partial class MainWindow
     {
         _homePage.RefreshProfile();
         // The Profiles page rebuilds from disk each time it is opened; when it is the one on screen, do it now.
-        if (_currentPage == LauncherPage.Profiles) _profilesPage.Show(_homePage.CurrentVersion);
+        if (_currentPage == LauncherPage.Profiles) ProfilesView.Show(_homePage.CurrentVersion);
     }
 
     // ---- `--import` while a launcher is already running -----------------------------------------------
