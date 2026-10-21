@@ -514,4 +514,42 @@
         <Setter Property="FontWeight" Value="Normal"/>
     </Style>
 
+    <!-- The destructive confirm (Remove, Block, Kick, Uninstall): redstone, not the emerald primary. Lives here (not Social.xaml) so Origin Setup, which links Buttons.xaml, uses the same one. -->
+    <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.Danger}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Height" Value="{StaticResource Size.Control}"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bg" Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Radius.Control}" SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.DangerStrong}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.DangerStrong}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The same destructive confirm at the small size, beside Button.Secondary.Small (inline "Delete? / Cancel"). -->
+    <Style x:Key="Button.Danger.Small" TargetType="Button" BasedOn="{StaticResource Button.Danger}">
+        <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+    </Style>
+
 </ResourceDictionary>
