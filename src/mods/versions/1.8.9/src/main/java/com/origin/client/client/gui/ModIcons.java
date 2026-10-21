@@ -55,6 +55,17 @@ public final class ModIcons {
 	 * Minecraft GUI scale. A linear-filtered mask remains as a fail-soft fallback.
 	 */
 	public static void draw(Gfx g, String id, int x, int y, int size, int argb) {
+		// Vanilla text-shadow for icons (Will, 2026-10-20): the same glyph again 1 GUI px right +
+		// 1 down at a quarter of the tint (what Font.drawShadow does), drawn under the icon. Same
+		// alpha, so hover/disabled/fade tints carry over; the offset is in GUI px so it tracks
+		// GUI scale like text. Always on, no setting.
+		if (((argb >>> 24) & 0xFF) > 2) {
+			drawRaw(g, id, x + 1, y + 1, size, ((argb >>> 24) << 24) | (((argb >> 18) & 0x3F) << 16) | (((argb >> 10) & 0x3F) << 8) | ((argb >> 2) & 0x3F));
+		}
+		drawRaw(g, id, x, y, size, argb);
+	}
+
+	private static void drawRaw(Gfx g, String id, int x, int y, int size, int argb) {
 		int a = (argb >>> 24) & 0xFF;
 		if (a <= 2) {
 			return;
@@ -85,6 +96,13 @@ public final class ModIcons {
 	private static final java.util.Map<String, ResourceLocation> CRISP = new java.util.HashMap<>();
 
 	public static void drawCrisp(Gfx g, String id, int x, int y, int size, int argb) {
+		if (((argb >>> 24) & 0xFF) > 2) {
+			drawCrispRaw(g, id, x + 1, y + 1, size, ((argb >>> 24) << 24) | (((argb >> 18) & 0x3F) << 16) | (((argb >> 10) & 0x3F) << 8) | ((argb >> 2) & 0x3F));   // vanilla text shadow, see draw()
+		}
+		drawCrispRaw(g, id, x, y, size, argb);
+	}
+
+	private static void drawCrispRaw(Gfx g, String id, int x, int y, int size, int argb) {
 		try {
 			int a = (argb >>> 24) & 0xFF;
 			if (a <= 2) {
@@ -130,7 +148,7 @@ public final class ModIcons {
 			g.blit(rl, x, y, size, size, 0, 0, px, px, px, px);
 			GlStateManager.color(1f, 1f, 1f, 1f);
 		} catch (Throwable t) {
-			draw(g, id, x, y, size, argb);   // the linear atlas path
+			drawRaw(g, id, x, y, size, argb);   // the linear atlas path
 		}
 	}
 
