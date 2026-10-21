@@ -37,6 +37,9 @@ public final class ModsConfig {
 	// LinkedHashMap so the list keeps the order profiles were created in.
 	static final java.util.LinkedHashMap<String, JsonObject> PROFILES = new java.util.LinkedHashMap<>();
 
+	/** Bumped on every save/parse: screens that cache a filtered view of the config re-run it only when this moves. */
+	static volatile int rev = 0;
+
 	private static boolean loaded = false;
 
 	private ModsConfig() {
@@ -93,6 +96,7 @@ public final class ModsConfig {
 	// Reads a parsed config root (mods / hud / meta blocks) into VALUES/HUD/META.
 	// Shared by the user-file load and the bundled-seed load.
 	private static void parseInto(JsonObject root) {
+		rev++;
 		JsonObject mods = root.getAsJsonObject("mods");
 		if (mods != null) {
 			// Gson 2.8.0 (1.17.1): no JsonObject.keySet() -- entrySet() everywhere below.
@@ -145,6 +149,7 @@ public final class ModsConfig {
 	}
 
 	static synchronized void save() {
+		rev++;
 		try {
 			JsonObject root = new JsonObject();
 			JsonObject mods = new JsonObject();

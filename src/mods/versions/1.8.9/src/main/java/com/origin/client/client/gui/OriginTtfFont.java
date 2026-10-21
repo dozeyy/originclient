@@ -68,6 +68,9 @@ public final class OriginTtfFont {
 		float spaceAdvEm;         // advance of ' ' per em
 		final Map<Integer, float[]> glyphs = new HashMap<>(); // codepoint -> {glyph present (1/0), advance per em}
 		boolean ok;
+		// Per-frame menu text hits these for every string: arrays instead of boxed-key map lookups.
+		final float[][] ascii = new float[128][];
+		final Strike[] byQuarter = new Strike[2048];   // strike at em = index / 4, null = not made / evicted
 
 		Face(String file) {
 			this.file = file;
@@ -100,6 +103,11 @@ public final class OriginTtfFont {
 		final Font font;          // the face derived to this pixel size
 		final Map<Integer, Glyph> glyphs = new HashMap<>();   // codepoint * PHASES + phase
 		final List<Page> pages = new ArrayList<>();
+		// ASCII glyphs by (codepoint * PHASES + phase); fastDone tells a cached blank (null) from not-yet-made.
+		final Glyph[] fast = new Glyph[128 * PHASES];
+		final boolean[] fastDone = new boolean[128 * PHASES];
+		int quarter = -1;     // index in face.byQuarter, -1 = not indexed
+		long lastUse;         // useClock at the last draw: the eviction order
 
 		Strike(Face face, float em) {
 			this.face = face;
@@ -231,6 +239,12 @@ public final class OriginTtfFont {
 
 	/** {1 if the face has the glyph else 0, advance per em} for a character. */
 	private static float[] glyphOf(Face f, char c) {
+		if (c < 128) {
+			float[] hit = f.ascii[c];
+			if (hit != null) {
+				return hit;
+			}
+		}
 		float[] gi = f.glyphs.get((int) c);
 		if (gi == null) {
 			float adv = f.spaceAdvEm;
@@ -248,23 +262,44 @@ public final class OriginTtfFont {
 			gi = new float[]{has, adv};
 			f.glyphs.put((int) c, gi);
 		}
+		if (c < 128) {
+			f.ascii[c] = gi;
+		}
 		return gi;
 	}
 
+	// Bumped on every strike() call; Strike.lastUse is the eviction order (replaces the old
+	// access-ordered map, whose String key was built - float to text - for every string drawn).
+	private static long useClock = 0;
+
 	private static Strike strike(Face f, float em) {
-		String key = (f == BOLD ? "b" : "r") + em;
-		Strike st = STRIKES.get(key);
+		int q = Math.round(em * 4f);
+		boolean indexed = q >= 0 && q < f.byQuarter.length;
+		Strike st = indexed ? f.byQuarter[q] : null;
 		if (st == null) {
-			st = new Strike(f, em);
-			STRIKES.put(key, st);
+			String key = (f == BOLD ? "b" : "r") + em;
+			st = STRIKES.get(key);
+			if (st == null) {
+				st = new Strike(f, em);
+				STRIKES.put(key, st);
+			}
+			if (indexed) {
+				st.quarter = q;
+				f.byQuarter[q] = st;
+			}
 		}
+		st.lastUse = ++useClock;
 		return st;
 	}
 
 	/** The glyph at this strike + phase, rasterised on first use; null = blank. */
 	private static Glyph glyph(Strike st, char c, int phase) {
 		int key = c * PHASES + phase;
-		if (st.glyphs.containsKey(key)) {
+		if (c < 128) {
+			if (st.fastDone[key]) {
+				return st.fast[key];
+			}
+		} else if (st.glyphs.containsKey(key)) {
 			return st.glyphs.get(key);
 		}
 		Glyph out = null;
@@ -312,7 +347,12 @@ public final class OriginTtfFont {
 		} catch (Throwable t) {
 			out = null;
 		}
-		st.glyphs.put(key, out);
+		if (c < 128) {
+			st.fast[key] = out;
+			st.fastDone[key] = true;
+		} else {
+			st.glyphs.put(key, out);
+		}
 		return out;
 	}
 
@@ -339,14 +379,21 @@ public final class OriginTtfFont {
 		if (FREE.isEmpty() && pagesMade >= PAGE_CAP) {
 			// Out of pages: recycle the least recently drawn sizes (never the one
 			// being drawn) until a page frees up.
-			Iterator<Map.Entry<String, Strike>> it = STRIKES.entrySet().iterator();
-			while (FREE.isEmpty() && it.hasNext()) {
-				Strike old = it.next().getValue();
-				if (old == owner) {
-					continue;
+			while (FREE.isEmpty()) {
+				Strike old = null;
+				for (Strike s : STRIKES.values()) {
+					if (s != owner && (old == null || s.lastUse < old.lastUse)) {
+						old = s;
+					}
+				}
+				if (old == null) {
+					break;
 				}
 				FREE.addAll(old.pages);
-				it.remove();
+				STRIKES.values().remove(old);
+				if (old.quarter >= 0) {
+					old.face.byQuarter[old.quarter] = null;
+				}
 			}
 		}
 		if (!FREE.isEmpty()) {

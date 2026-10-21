@@ -67,7 +67,7 @@ public final class Mods {
 			// PER-VERSION (26.3): no "Smart Terrain Updates" toggle. Sodium 0.9.2 + Iris 1.11.7 already keep the
 			// main chunk list across the shadow pass (Iris saves and restores it around its shadow walk), so
 			// there is nothing left for it to save here. render/ShadowTerrainStats proves it and F3 says why.
-			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
+			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background, and pauses Origin's HUD and cosmetic sparkles until you come back. Saves GPU and battery; the game itself keeps running normally."),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
@@ -1356,6 +1356,11 @@ public final class Mods {
 			ModsConfig.META.put(key, new JsonPrimitive(v));
 		}
 		ModsConfig.save();
+	}
+
+	/** Moves whenever the config is saved or reloaded (see ModsConfig.rev). */
+	public static int configRev() {
+		return ModsConfig.rev;
 	}
 
 	public static boolean metaBool(String key, boolean def) {

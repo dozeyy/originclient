@@ -304,10 +304,14 @@ public final class PackHubTests {
 			t += 10_000_000L;
 			FrameStats.frame(t);
 		}
+		int[] sunk = {0};
+		FrameStats.setSpikeSink((ms, avg, kind) -> sunk[0]++);
 		for (int i = 0; i < 2; i++) {
 			t += 50_000_000L;
 			FrameStats.frame(t);
 		}
+		FrameStats.setSpikeSink(null);
+		check(sunk[0] >= 1, "50 ms hitch reaches the spike sink (>= 40 ms)");
 		eq(200, FrameStats.count(), "every frame recorded");
 		check(Math.abs(FrameStats.ms(0) - 50f) < 0.01 && Math.abs(FrameStats.ms(2) - 10f) < 0.01, "newest first");
 		check(FrameStats.kind(0) != FrameStats.NORMAL && FrameStats.kind(2) == FrameStats.NORMAL, "hitch flagged as spike");
