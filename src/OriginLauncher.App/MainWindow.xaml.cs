@@ -19,9 +19,15 @@ namespace OriginLauncher.App;
 public partial class MainWindow : Window
 {
     private readonly HomePage _homePage = new();
-    private readonly SettingsPage _settingsPage = new();
-    private readonly ModsPage _modsPage = new();
-    private readonly ProfilesPage _profilesPage;
+    // Settings, Mods and Profiles are built only when first needed, and otherwise warmed a moment after
+    // the opening animation (WarmPagesAtIdle): their XAML load and file/registry reads used to run before
+    // the first frame. Always go through the *View accessors.
+    private SettingsPage? _settingsPage;
+    private ModsPage? _modsPage;
+    private ProfilesPage? _profilesPage;
+    private SettingsPage SettingsView => _settingsPage ??= new SettingsPage();
+    private ModsPage ModsView => _modsPage ??= new ModsPage();
+    private ProfilesPage ProfilesView => _profilesPage ??= CreateProfilesPage();
     private readonly AccountSwitcherPanel _accountPanel = new();
     private readonly FriendsPanel _friendsPanel = new();
     private bool _accountPanelOpen;
@@ -47,10 +53,11 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        Core.StartupTrace.Mark("MainWindow ctor: fields (HomePage etc.) built");
         InitializeComponent();
-        // Needs Home to say whether a game is using a profile (no deleting it then).
-        _profilesPage = new ProfilesPage(_homePage.IsProfileInUse);
+        Core.StartupTrace.Mark("MainWindow.InitializeComponent");
         PageHost.Content = _homePage;
+        Core.StartupTrace.Mark("Home placed");
         // Opening animation over the already-built Home; ~0.85 s, skippable (StartupIntro).
         Intro.Play(this);
 
@@ -66,7 +73,7 @@ public partial class MainWindow : Window
             RefreshAccountChip();
             // Every account has its own game folders, mods included: the Mods
             // page follows the selected account.
-            if (_currentPage == LauncherPage.Mods) _modsPage.ShowVersion(_homePage.CurrentVersion);
+            if (_currentPage == LauncherPage.Mods) ModsView.ShowVersion(_homePage.CurrentVersion);
             // Friends belong to the selected account: sign in again as it.
             SocialHub.Service.ResetAccount();
             // A player who just signed in for the first time can now be offered the one-time import card.
@@ -82,7 +89,6 @@ public partial class MainWindow : Window
 
         NavHome.IsChecked = true;
 
-        _profilesPage.ImportRequested += (_, _) => OpenImportPanel();
         // The first-run card: "Import everything" opens the page and runs it once the scan is in; "Choose" opens the
         // page on its pick screen.
         _homePage.ImportCard.ImportRequested += (_, _) => OpenImportPanel(intent: ImportPanel.Intent.Everything);
@@ -111,6 +117,21 @@ public partial class MainWindow : Window
             _lastFocusCheck = now;
             await UpdateService.CheckAsync();
         };
+    }
+
+    private ProfilesPage CreateProfilesPage()
+    {
+        // Needs Home to say whether a game is using a profile (no deleting it then).
+        var page = new ProfilesPage(_homePage.IsProfileInUse);
+        page.ImportRequested += (_, _) => OpenImportPanel();
+        return page;
+    }
+
+    // One page per idle slot, so no single hitch is longer than one page's build.
+    private void WarmPagesAtIdle()
+    {
+        foreach (var warm in new Action[] { () => _ = SettingsView, () => _ = ModsView, () => _ = ProfilesView })
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, warm);
     }
 
     // Poll loop lives for the app's lifetime; process shutdown ends it. A short
@@ -368,7 +389,7 @@ public partial class MainWindow : Window
     internal void TourShowModsDemo(IReadOnlyList<Core.Mods.ModEntry> mods, int carrying)
     {
         TourGoTo(1);
-        _modsPage.TourShowDemo(mods, carrying);
+        ModsView.TourShowDemo(mods, carrying);
     }
 
     internal void TourGoTo(int page)
@@ -387,8 +408,8 @@ public partial class MainWindow : Window
     internal void TourShowProfiles(Core.Models.LauncherSettings demo, Func<Core.Profiles.ModProfile, int> countMods, bool openForm)
     {
         NavigateTo(LauncherPage.Profiles);
-        _profilesPage.ShowDemo(demo, countMods);
-        if (openForm) _profilesPage.TourOpenForm();
+        ProfilesView.ShowDemo(demo, countMods);
+        if (openForm) ProfilesView.TourOpenForm();
     }
 
     // Home with a made-up selected profile (its row and, with a server, Join).
@@ -534,9 +555,9 @@ public partial class MainWindow : Window
         object content = page switch
         {
             LauncherPage.Home => _homePage,
-            LauncherPage.Mods => _modsPage,
-            LauncherPage.Profiles => _profilesPage,
-            _ => _settingsPage
+            LauncherPage.Mods => ModsView,
+            LauncherPage.Profiles => ProfilesView,
+            _ => SettingsView
         };
 
         if (page == LauncherPage.Home)
@@ -545,9 +566,9 @@ public partial class MainWindow : Window
             _homePage.RefreshProfile(); // a profile picked on the Profiles page
         }
         else if (page == LauncherPage.Mods)
-            _modsPage.ShowVersion(_homePage.CurrentVersion);
+            ModsView.ShowVersion(_homePage.CurrentVersion);
         else if (page == LauncherPage.Profiles)
-            _profilesPage.Show(_homePage.CurrentVersion);
+            ProfilesView.Show(_homePage.CurrentVersion);
 
         PageHost.Content = content;
         // Home shows the art; every other page sits on it dimmed, numeral away.
@@ -732,7 +753,7 @@ public partial class MainWindow : Window
             // The import wrote game files only (no launcher setting): Home re-reads its state, and a Profiles page
             // sitting behind the import page rebuilds now (its mod counts may have changed).
             _homePage.RefreshProfile();
-            if (_currentPage == LauncherPage.Profiles) _profilesPage.Show(_homePage.CurrentVersion);
+            if (_currentPage == LauncherPage.Profiles) ProfilesView.Show(_homePage.CurrentVersion);
         };
         _importPanel = panel;
         ImportPageHost.Content = panel;
@@ -791,6 +812,8 @@ public partial class MainWindow : Window
     // when another launcher is found and the player could import - offer it.
     private async Task AfterFirstRenderAsync()
     {
+        Core.StartupTrace.Mark("ContentRendered (first frame)");
+        Core.StartupTrace.Flush();
         await ShowRecoveryResultAsync(); // MainWindow.ImportWiring.cs: the toast, and Home/Profiles refreshed after a rollback
 
         if (App.IsRenderMode) return;
@@ -798,9 +821,12 @@ public partial class MainWindow : Window
         {
             await Task.Delay(1200); // let the opening animation finish
             OpenImportPanel();
+            WarmPagesAtIdle();
             return;
         }
-        await Task.Delay(3000); // never compete with startup
+        await Task.Delay(1500); // past the opening animation: no frame competes with building the other pages
+        WarmPagesAtIdle();
+        await Task.Delay(1500); // never compete with startup (1.5 s already waited above)
         await MaybeShowImportPromptAsync();
     }
 
@@ -845,7 +871,7 @@ public partial class MainWindow : Window
     // CI screen render: the backend a real click on Import gets (never the real machine).
     internal Func<IImportBackend>? TourBackendFactory { get; set; }
 
-    internal void TourClickProfilesImport() => _profilesPage.TourClickImport();
+    internal void TourClickProfilesImport() => ProfilesView.TourClickImport();
 
     internal ImportPromptCard TourImportPrompt => _homePage.ImportCard;
 
