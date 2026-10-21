@@ -91,6 +91,9 @@
     <!-- Offline launching: the Mojang metadata disk copy and the "you're offline" classifier (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Versions\MojangMetaCache.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\Versions\OfflineLaunch.cs" LinkBase="Versions" />
+    <!-- Home's background warm-up of the picked version (pure file reads; the startup trace is its log). -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\LaunchPrewarm.cs" LinkBase="Versions" />
+    <Compile Include="..\OriginLauncher.App\Core\StartupTrace.cs" LinkBase="Versions" />
   </ItemGroup>
 
   <ItemGroup>

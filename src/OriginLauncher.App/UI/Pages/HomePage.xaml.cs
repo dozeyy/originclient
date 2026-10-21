@@ -167,6 +167,12 @@ public partial class HomePage : UserControl
         InitVersionSelection();
         RefreshAccountState();
         Loaded += (_, _) => StartPlayersOnline();
+        Loaded += async (_, _) =>
+        {
+            // Past the opening animation and the other pages' build: nothing competes with the first frames.
+            await Task.Delay(3000);
+            PrewarmSelectedVersion();
+        };
         Loaded += (_, _) => PlayIntroOnce();
     }
 
@@ -543,11 +549,20 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
+    // Reads the picked version's files into the OS cache in the background (LaunchPrewarm) so Play
+    // finds them warm. Skipped while a launch is being prepared.
+    private void PrewarmSelectedVersion()
+    {
+        if (_selectedVersion is not { } version || _overlayTicket != null) return;
+        LaunchPrewarm.Start(version, OriginPaths.VersionRoot(version), OriginPaths.ModsDir(version));
+    }
+
     // Raised by the grid picker when the player confirms a specific version.
     // Does exactly one thing: records the new version. No other setting moves.
     private void OnVersionSelected(string version)
     {
         _selectedVersion = version;
+        PrewarmSelectedVersion();
         _settings.SelectedVersion = version;
         SettingsStore.Update(s => s.SelectedVersion = version);
         SetVersionButtonText(version);
@@ -643,6 +658,9 @@ public partial class HomePage : UserControl
             SetStatus(ImportRunningText, StatusTone.Warning);
             return;
         }
+        // The disk belongs to this launch now (a background warm-up of the version would only compete).
+        LaunchPrewarm.Stop();
+
         // One fresh read for every launch-gating setting: offline test mode
         // and the external-mods switch can both change on other pages between
         // clicks, and this launch must honour what's on disk NOW.
