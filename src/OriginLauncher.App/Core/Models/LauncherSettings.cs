@@ -8,6 +8,12 @@
 public sealed class LauncherSettings
 {
     public int RamMb { get; set; } = 4096;
+    // Memory is AUTO until the player sets it (Will, 2026-10-20). Auto: Origin sizes the heap
+    // per version and PC at every launch (RamAdvice.AutoMb; RamMb is not used). Manual: RamMb,
+    // exactly, on every version, and no auto logic ever changes it ("Back to Auto" is the
+    // only way out). null = a settings.json from before this field: SettingsStore.Load
+    // settles it ONCE (RamPolicy.Migrate) and saves the answer. Written only via SettingsStore.Update.
+    public bool? RamManual { get; set; }
     public int ResolutionWidth { get; set; } = 1280;
     public int ResolutionHeight { get; set; } = 720;
     public string InstallPath { get; set; } = OriginPaths.Instances;

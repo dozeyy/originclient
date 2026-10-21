@@ -1,3 +1,4 @@
+using System.Linq;
 namespace OriginLauncher.App.Core.Launch;
 
 public static class JvmArgPresets
@@ -35,6 +36,25 @@ public static class JvmArgPresets
         "-XX:+PerfDisableSharedMem",
         "-XX:MaxTenuringThreshold=1"
     ];
+
+    // The same set re-sized for a legacy (1.8.9-era) heap of up to LegacySmallHeapMaxMb.
+    // Aikar's values assume a big heap: 30%/40% young generation and 8 MB regions give a
+    // 3.6 GB+ young gen at 12 GB (the 2026-10-20 1.8.9 log). Here the young generation is
+    // 25-35% (about 1-1.4 GB at 4 GB) and regions are 4 MB, so a young collection stays short.
+    // Every other flag is Aikar's, unchanged. Modern versions keep AikarsFlags.
+    public const int LegacySmallHeapMaxMb = 6144;
+    public static readonly IReadOnlyList<string> LegacySmallHeapFlags =
+        AikarsFlags.Select(f => f switch
+        {
+            "-XX:G1NewSizePercent=30" => "-XX:G1NewSizePercent=25",
+            "-XX:G1MaxNewSizePercent=40" => "-XX:G1MaxNewSizePercent=35",
+            "-XX:G1HeapRegionSize=8M" => "-XX:G1HeapRegionSize=4M",
+            _ => f,
+        }).ToList();
+
+    /// <summary>The G1 set for this launch: the small-heap one for a legacy version on a small heap, else Aikar's.</summary>
+    public static IReadOnlyList<string> FlagsFor(bool legacy, int maxHeapMb) =>
+        legacy && maxHeapMb <= LegacySmallHeapMaxMb ? LegacySmallHeapFlags : AikarsFlags;
 
     // Per-version boot speed-ups, measured one at a time with the boot-time
     // workflow (.github/workflows/boot-time.yml) and checked in dev shots before

@@ -38,18 +38,14 @@ public partial class SettingsPage : UserControl
         _ramSaveTimer.Tick += (_, _) => PersistPendingRam();
         Unloaded += (_, _) => PersistPendingRam();
 
-        var safeMaximum = RamAdvice.MaximumMb(SystemInfo.GetTotalPhysicalMemoryMb());
-        var ramMb = Math.Clamp((int)Math.Round(_settings.RamMb / (double)RamAdvice.StepMb) * RamAdvice.StepMb,
-            RamAdvice.SliderMinimumMb, safeMaximum);
+        // Memory is Auto until the player moves the slider (RamPolicy). The slider is only DISPLAYED
+        // clamped to this PC's range: nothing here writes the stored number back, so a Manual value
+        // is never changed by the launcher.
+        _totalRamMb = SystemInfo.GetTotalPhysicalMemoryMb();
+        var safeMaximum = RamAdvice.MaximumMb(_totalRamMb);
         RamSlider.Minimum = RamAdvice.SliderMinimumMb;
         RamSlider.Maximum = safeMaximum;
-        RamSlider.Value = ramMb;
-        RamValueText.Text = FormatRam(ramMb);
-        if (ramMb != _settings.RamMb)
-        {
-            _settings.RamMb = ramMb;
-            SettingsStore.Update(s => s.RamMb = ramMb);
-        }
+        ShowRam(RamPolicy.IsManual(_settings));
         InstallPathTextBox.Text = _settings.InstallPath;
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
@@ -84,9 +80,12 @@ public partial class SettingsPage : UserControl
 
     private void RamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
+        if (_isLoading) return;
+        // The player moved it: from here on it is their number (Manual).
         var ramMb = (int)e.NewValue;
         RamValueText.Text = FormatRam(ramMb);
-        if (_isLoading) return;
+        RamWhyText.Text = RamManualText;
+        RamAutoButton.Visibility = Visibility.Visible;
         _pendingRamMb = ramMb;
         _ramSaveTimer.Stop();
         _ramSaveTimer.Start();
@@ -98,7 +97,41 @@ public partial class SettingsPage : UserControl
         if (_pendingRamMb is not { } ramMb) return;
         _pendingRamMb = null;
         _settings.RamMb = ramMb;
-        SettingsStore.Update(s => s.RamMb = ramMb);
+        _settings.RamManual = true;
+        SettingsStore.Update(s => RamPolicy.SetManual(s, ramMb));
+    }
+
+    // "Back to Auto": the only way out of Manual.
+    private void RamAutoButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ramSaveTimer.Stop();
+        _pendingRamMb = null;
+        var total = _totalRamMb;
+        SettingsStore.Update(s => RamPolicy.SetAuto(s, total));
+        _settings.RamMb = RamAdvice.RecommendedMb(total);
+        _settings.RamManual = false;
+        ShowRam(manual: false);
+    }
+
+    private const string RamAutoText = "Auto: Origin picks the right amount for each version.";
+    private const string RamManualText = "Fixed at your choice for every version.";
+    private int _totalRamMb;
+
+    // Puts the memory control in the Auto or Manual look without saving anything.
+    private void ShowRam(bool manual)
+    {
+        var wasLoading = _isLoading;
+        _isLoading = true; // moving the slider here is not the player's choice
+        try
+        {
+            var shown = manual ? _settings.RamMb : RamAdvice.AutoMb(_totalRamMb, legacy: false, heavyPack: false);
+            RamSlider.Value = Math.Clamp((int)Math.Round(shown / (double)RamAdvice.StepMb) * RamAdvice.StepMb,
+                RamAdvice.SliderMinimumMb, (int)RamSlider.Maximum);
+            RamValueText.Text = manual ? FormatRam((int)RamSlider.Value) : "Auto";
+            RamWhyText.Text = manual ? RamManualText : RamAutoText;
+            RamAutoButton.Visibility = manual ? Visibility.Visible : Visibility.Collapsed;
+        }
+        finally { _isLoading = wasLoading; }
     }
 
     private static string FormatRam(int ramMb) => $"{ramMb / 1024d:0.##} GB";

@@ -71,6 +71,10 @@ public static class OriginPaths
     public static string Accounts => Path.Combine(Root, "accounts");
     public static string Logs => Path.Combine(Root, "logs");
 
+    // Java runtimes Origin provisions itself (Core/Runtime): one folder per pinned
+    // build, e.g. runtimes/temurin-8u504-b01/bin/javaw.exe. Per-user, no admin.
+    public static string Runtimes => Path.Combine(Root, "runtimes");
+
     // Persistent home for the GPU driver's compiled-shader cache (see
     // Core/ShaderCache.cs) — kept under our data root so it survives across
     // instances and game versions, maximising cache hits between sessions.

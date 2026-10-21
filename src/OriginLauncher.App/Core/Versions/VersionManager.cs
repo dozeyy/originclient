@@ -12,6 +12,7 @@ using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Profiles;
+using OriginLauncher.App.Core.Runtime;
 
 namespace OriginLauncher.App.Core.Versions;
 
@@ -728,6 +729,13 @@ public sealed class VersionManager
         // arguments (a friend's server: --server/--port, JoinArguments).
         var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress, null, ct);
         if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
+
+        // Run on a current Java 8 (Temurin) instead of Mojang's 2015 jre-legacy (8u51). Still
+        // Java 8, which Forge 11.15 / FML needs. Ready = a folder check; first time = one
+        // verified download, shown on the loading scene. Any failure returns null and the
+        // process keeps the jre-legacy CmlLib already resolved (Mandate 4: never break a launch).
+        if (await LegacyJava.ResolveAsync(SharedHttp, progress, ct) is { } temurinJavaw)
+            built.StartInfo.FileName = temurinJavaw;
         return built;
     }
 

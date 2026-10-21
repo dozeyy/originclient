@@ -90,6 +90,12 @@
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashClassifier.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashReportBundle.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" LinkBase="Launch" />
+    <!-- Heap cap + G1 flags for 1.8.9-era versions, and the pinned Temurin 8 provisioner (pure; network faked). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\HeapPlan.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\PackProbe.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\RamPolicy.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\JvmArgPresets.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Runtime\TemurinJava8.cs" LinkBase="Runtime" />
     <!-- 1.8.9's FML splash theme (pure file IO). -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\ForgeSplashTheme.cs" LinkBase="Loaders" />
     <!-- Offline launching: the Mojang metadata disk copy and the "you're offline" classifier (pure). -->
