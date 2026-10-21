@@ -269,7 +269,8 @@ public static class ModManager
             || n.StartsWith("legacy-fabric-api-")
             || n.Equals("optifine.jar")
             || Loaders.LegacyStackInstaller.IsStackJar(jarName)
-            || IsBundledPerfJar(jarName);
+            || IsBundledPerfJar(jarName)
+            || IsCatalogOnlyPerfJar(jarName);
     }
 
     /// <summary>
@@ -298,11 +299,21 @@ public static class ModManager
             || n.StartsWith("indium-")
             || n.StartsWith("ferritecore-")
             || n.StartsWith("krypton-")
-            || n.StartsWith("immediatelyfast-fabric-")
+            || n.StartsWith("immediatelyfast-")
             || n.StartsWith("modernfix-fabric-")
             || n.StartsWith("modmenu-")
             || IsIrisJar(n);
     }
+
+    /// <summary>
+    /// Perf jars the standalone catalog installs but that no Origin build bundles
+    /// jar-in-jar (EntityCulling). They are managed (read-only on the Mods page,
+    /// one copy per family so a hand-dropped twin can't cause a duplicate mod id)
+    /// but are NOT in <see cref="IsBundledPerfJar"/>: that set is what the 1.21.1
+    /// launch path purges, and nothing bundled there collides with these.
+    /// </summary>
+    public static bool IsCatalogOnlyPerfJar(string jarName) =>
+        jarName.StartsWith("entityculling-fabric-", StringComparison.OrdinalIgnoreCase);
 
     // Iris has shipped THREE canonical filename shapes over the catalog's era
     // range: "iris-fabric-1.8.8+mc1.21.1", "iris-mc1.20-1.6.4", and the plain
@@ -327,9 +338,13 @@ public static class ModManager
         "indium-",
         "ferritecore-",
         "krypton-",
-        "immediatelyfast-fabric-",
+        // Bare "immediatelyfast-": the 1.18.2 and 1.19.3 builds are named
+        // "ImmediatelyFast-1.1.12+..." (no "Fabric"), so the longer prefix left
+        // them unmanaged: toggleable on the Mods page and never de-duplicated.
+        "immediatelyfast-",
         "modernfix-fabric-",
         "modmenu-",
+        "entityculling-fabric-",
     };
 
     /// <summary>

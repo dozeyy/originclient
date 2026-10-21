@@ -31,6 +31,13 @@ public static class PerfModInstaller
             var tempPath = destPath + ".download";
             await using (var fileStream = File.Create(tempPath))
                 await response.Content.CopyToAsync(fileStream, ct);
+
+            // Never promote a download that doesn't hash to the pinned file.
+            if (!mod.Matches(tempPath))
+            {
+                try { File.Delete(tempPath); } catch { /* best effort */ }
+                throw new InvalidDataException($"{mod.FileName} did not match its pinned SHA-512; not installed.");
+            }
             File.Move(tempPath, destPath, overwrite: true);
         }
     }

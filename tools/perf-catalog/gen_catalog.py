@@ -50,7 +50,7 @@ UA = "origin-launcher-catalog-gen/1.0 (dev tooling; contact will@willhenry.me)"
 
 
 def newest_version(project: str, mc_version: str):
-    """Return (version_number, url, filename) for the newest Fabric release of
+    """Return (version_number, url, filename, sha512) for the newest Fabric release of
     `project` that lists `mc_version`, or None if there is no such build."""
     q = urllib.parse.urlencode({
         "loaders": json.dumps(["fabric"]),
@@ -70,15 +70,15 @@ def newest_version(project: str, mc_version: str):
     primary = next((f for f in files if f.get("primary")), None) or (files[0] if files else None)
     if not primary:
         return None
-    return top["version_number"], primary["url"], primary["filename"]
+    return top["version_number"], primary["url"], primary["filename"], primary["hashes"]["sha512"]
 
 
 def perfmod_cs(entry):
     """Render a (version, url, filename) tuple as `new PerfMod(...)`, or `null`."""
     if entry is None:
         return "null"
-    version, url, filename = entry
-    return f'new PerfMod("{version}", "{url}", "{filename}")'
+    version, url, filename, sha512 = entry
+    return f'new PerfMod("{version}", "{url}", "{filename}", "{sha512}")'
 
 
 def main(mc_versions):

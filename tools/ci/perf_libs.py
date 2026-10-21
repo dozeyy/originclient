@@ -40,7 +40,7 @@ UA = "originclient-ci/1.0 (github.com/dozeyy/originclient)"
 PIN = re.compile(r'^\s*modRuntimeOnly\s+files\(\s*"libs/([^"/\\]+\.jar)"\s*\)', re.M)   # no path separators in the name
 CATALOG = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                        "src", "OriginLauncher.App", "Core", "Loaders", "PerformanceModCatalog.Data.cs")
-PERF_MOD = re.compile(r'new PerfMod\("[^"]*", "[^"]*", "([^"/\\]+\.jar)"\)')
+PERF_MOD = re.compile(r'new PerfMod\("[^"]*", "[^"]*", "([^"/\\]+\.jar)"(?:, "[0-9a-fA-F]{128}")?\)')   # optional 4th arg = pinned SHA-512
 DOWNLOAD_HOST = "cdn.modrinth.com"   # the only host a jar may be fetched from
 SLUGS = (("sodium", "sodium"), ("iris", "iris"))   # (file-name prefix, Modrinth project)
 
