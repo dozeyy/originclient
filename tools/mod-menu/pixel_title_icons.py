@@ -188,29 +188,8 @@ overlay(_quit, [
 ], {"w": "#ffffff"})
 ICONS["@px-quit"] = _quit
 
-# Mod-menu module + tab icons (data in pixel_module_icons.py): same palette rules, same grid.
-from pixel_module_icons import ART as _MODULE_ART  # noqa: E402
-
-for _id, (_rows, _pal) in _MODULE_ART.items():
-    if _id != "@general_old":
-        ICONS[_id] = bitmap(_rows, _pal)
-
-# Settings tab: a cog -- shaded steel disc, dark hub, notches cut at the compass points.
-_cog = disc(("#e4e4ee", "#b0b0c0", "#7c7c92", "#565668"))
-overlay(_cog, [
-    "............",
-    "............",
-    "............",
-    "............",
-    "....kkkk....",
-    "....knnk....",
-    "....knnk....",
-    "....kkkk....",
-], {"n": "#23232e"}, 0, 2)
-for _x, _y in ((5, 0), (6, 0), (5, 11), (6, 11), (0, 5), (0, 6), (11, 5), (11, 6),
-               (1, 2), (2, 1), (9, 1), (10, 2), (1, 9), (2, 10), (9, 10), (10, 9)):
-    _cog[_y][_x] = None
-ICONS["@general"] = _cog
+# Dock icons only (Will, 2026-10-20): mod-menu module/tab icons stay monochrome vector.
+# pixel_module_icons.py is kept as unused art for a future decision but is NOT imported.
 # ---------------------------------------------------------------------------------------------
 
 
