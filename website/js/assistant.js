@@ -282,6 +282,10 @@ function boot() {
         fileRow.hidden = true;
         send.disabled = true;
         assistantStatus.textContent = 'Claude replied. Your chat is only kept in this browser tab.';
+        if (result.limitReached) {
+          assistantStatus.textContent = 'Claude finished your request. This month’s free AI allowance is now used up.';
+          limitDialog.showModal();
+        }
       } catch (error) {
         userMessage.remove();
         pendingMessage.classList.remove('chat-message--pending');
