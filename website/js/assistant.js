@@ -278,7 +278,7 @@ function boot() {
 
         pendingMessage.classList.remove('chat-message--pending');
         pendingMessage.textContent = result.answer;
-        conversation.push({ role: 'user', content: storedPrompt }, { role: 'assistant', content: result.answer });
+        conversation.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
         if (conversation.length > 18) conversation = conversation.slice(-18);
         updateUsage(result.usage);
         question.value = '';
