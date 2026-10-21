@@ -88,6 +88,10 @@
          the one-retry guard and the secret-free Copy report (CrashAnalyzer/CrashDiagnoser read files, so they stay out). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashModels.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashClassifier.cs" LinkBase="Launch" />
+    <!-- Other clients' core jars (Feather, Lunar, ...): never imported, blamed first in a crash stack. -->
+    <Compile Include="..\OriginLauncher.App\Core\ClientCoreMods.cs" LinkBase="Launch" />
+    <!-- Mod blame from crash logs (ModManager is stood in for by CrashAnalyzerStubs.cs). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashAnalyzer.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashReportBundle.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" LinkBase="Launch" />
     <!-- Heap cap + G1 flags for 1.8.9-era versions, and the pinned Temurin 8 provisioner (pure; network faked). -->
