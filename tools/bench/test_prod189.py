@@ -560,5 +560,80 @@ class ShaderPack(Tmp):
         self.assertFalse(P.shaders_were_on(self.p("missing.json")))
 
 
+class JvmAb(unittest.TestCase):
+    """U6.4: each named JVM set is the shipped one with ONE change, so its delta belongs to that change."""
+
+    def test_one_change_each(self):
+        base = P.LAUNCHER_JVM.split()
+        for name, want_gone, want_new in (
+                ("g1-pause40", {"-XX:MaxGCPauseMillis=200"}, {"-XX:MaxGCPauseMillis=40"}),
+                ("g1-young15", {"-XX:G1NewSizePercent=25", "-XX:G1MaxNewSizePercent=35"},
+                 {"-XX:G1NewSizePercent=15", "-XX:G1MaxNewSizePercent=25"}),
+                ("heap2g", {"-Xms4096M", "-Xmx4096M"}, {"-Xms2048M", "-Xmx2048M"}),
+                ("heap6g", {"-Xms4096M", "-Xmx4096M"}, {"-Xms6144M", "-Xmx6144M"})):
+            flags = P.JVM_AB[name].split()
+            self.assertEqual(set(base) - set(flags), want_gone, name)
+            self.assertEqual(set(flags) - set(base), want_new, name)
+
+    def test_other_collectors_carry_no_g1_flag(self):
+        for name, gc in (("parallel", "-XX:+UseParallelGC"), ("cms", "-XX:+UseConcMarkSweepGC")):
+            flags = P.JVM_AB[name].split()
+            self.assertIn(gc, flags)
+            self.assertNotIn("-XX:+UseG1GC", flags)
+            self.assertFalse([f for f in flags if f.startswith("-XX:G1")], name)
+            self.assertIn("-Xmx4096M", flags)
+
+    def test_cli_variant_overrides_jvm(self):
+        a = P.build_parser().parse_args(["run", "--origin-jar", "x", "--out", "o", "--jvm-variant", "cms", "--no-betterfps"])
+        self.assertEqual((a.jvm_variant, a.no_betterfps), ("cms", True))
+
+
+class JarKeys(Tmp):
+    """E3: saved-key literals come out of the jar's String constants, never from field names."""
+
+    @staticmethod
+    def _class():
+        def utf8(s):
+            b = s.encode("utf-8")
+            return b"\x01" + len(b).to_bytes(2, "big") + b
+        pool = [utf8("ofFogType:"), b"\x08\x00\x01",          # 1, 2: String "ofFogType:"
+                utf8("ofFieldOnly:"),                          # 3: a Utf8 no String points at (a name, not a literal)
+                b"\x05" + (7).to_bytes(8, "big"),              # 4-5: a long takes two slots
+                utf8("ofAfterLong:"), b"\x08\x00\x06",         # 6, 7
+                utf8("ofNoColon"), b"\x08\x00\x08"]            # 8, 9: a load-side literal, not a save one
+        return b"\xca\xfe\xba\xbe\x00\x00\x00\x34" + (10).to_bytes(2, "big") + b"".join(pool) + b"\x00" * 8
+
+    def _jar(self):
+        path = self.p("optifine.jar")
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("avh.class", self._class())
+            z.writestr("patch/other.xdelta", b"\x00\x01ofSky:\x02")
+            z.writestr("notes/", b"")
+        return path
+
+    def _keys(self, *names):
+        path = self.p("keys.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("# comment\n" + "".join("%s:x\n" % n for n in names) + "key_of.key.zoom:46\n")
+        return path
+
+    def test_reads_string_constants_only(self):
+        found = P.optifine_jar_saved_keys(self._jar())
+        self.assertEqual(sorted(found), ["ofAfterLong", "ofFogType", "ofSky"])
+        self.assertEqual(found["ofFogType"], ["avh.class"])
+        self.assertEqual(found["ofSky"], ["patch/other.xdelta"])
+
+    def test_cli_passes_when_every_listed_key_is_in_the_jar(self):
+        argv = ["jar-keys", "--jar", self._jar(), "--sha1", ""]
+        self.assertEqual(P.main(argv + ["--keys", self._keys("ofFogType", "ofSky")]), 0)
+
+    def test_cli_fails_on_a_listed_key_the_jar_never_writes(self):
+        argv = ["jar-keys", "--jar", self._jar(), "--sha1", ""]
+        self.assertEqual(P.main(argv + ["--keys", self._keys("ofFogType", "ofFieldOnly")]), 1)
+
+    def test_cli_refuses_another_jar(self):
+        self.assertEqual(P.main(["jar-keys", "--jar", self._jar(), "--keys", self._keys("ofFogType")]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

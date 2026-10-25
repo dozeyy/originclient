@@ -62,6 +62,9 @@ on:
       size:
         description: "Window WxH (default 1280x720; a small one lifts llvmpipe above 30 FPS to check frame caps)"
         default: "1280x720"
+      extra:
+        description: "Extra variants (U6.4 A/B), comma list: optifine-only (the control, for preset mode), jvm-g1-pause40, jvm-g1-young15, jvm-parallel, jvm-cms, jvm-heap2g, jvm-heap6g, java-zulu8, no-betterfps"
+        default: ""
 
 permissions:
   contents: read
@@ -112,18 +115,19 @@ jobs:
           I_SHOTS: ${{ github.event.inputs.shots }}
           I_SIZE: ${{ github.event.inputs.size }}
           I_SHADER: ${{ github.event.inputs.shader }}
+          I_EXTRA: ${{ github.event.inputs.extra }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import os, re
           cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": "",
-                 "presets": "", "prof": "0", "shots": "0", "size": "1280x720", "shader": "0"}
+                 "presets": "", "prof": "0", "shots": "0", "size": "1280x720", "shader": "0", "extra": ""}
           if os.environ.get("I_RUNS"):
               cfg.update(runs=os.environ["I_RUNS"], scenes=os.environ.get("I_SCENES") or cfg["scenes"],
                          warmup=os.environ.get("I_WARMUP") or "15", duration=os.environ.get("I_DURATION") or "45",
                          label=os.environ.get("I_LABEL", ""), presets=os.environ.get("I_PRESETS", ""),
                          prof=os.environ.get("I_PROF") or "0",
                          shots=os.environ.get("I_SHOTS") or "0", size=os.environ.get("I_SIZE") or "1280x720",
-                         shader=os.environ.get("I_SHADER") or "0")
+                         shader=os.environ.get("I_SHADER") or "0", extra=os.environ.get("I_EXTRA", ""))
           else:
               m = re.findall(r"\[bench-189([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
@@ -132,9 +136,11 @@ jobs:
                       if k in cfg and re.fullmatch(r"[A-Za-z0-9._,-]+", v):
                           cfg[k] = v
           scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause)"
+          ab = r"(optifine-only|jvm-(g1-pause40|g1-young15|parallel|cms|heap2g|heap6g)|java-zulu8|no-betterfps)"
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
                          ("presets", r"|(competitive|balanced|quality)(,(competitive|balanced|quality))*"),
-                         ("prof", r"[01]"), ("shots", r"[01]"), ("shader", r"[01]"), ("size", r"\d{3,4}x\d{3,4}"), ("scenes", scene + "(," + scene + ")*")):
+                         ("prof", r"[01]"), ("shots", r"[01]"), ("shader", r"[01]"), ("size", r"\d{3,4}x\d{3,4}"), ("scenes", scene + "(," + scene + ")*"),
+                         ("extra", "|" + ab + "(," + ab + ")*")):
               if not re.fullmatch(pat, cfg[k]):
                   raise SystemExit("bench-189: bad %s=%r" % (k, cfg[k]))
           for k, v in cfg.items():
@@ -145,9 +151,19 @@ jobs:
 
       # Game JDK first, Gradle's second (the LAST setup-java wins JAVA_HOME; JAVA_HOME_8_X64 stays exported).
       - name: Set up Temurin 8 (the game's Java)
+        id: temurin8
         uses: actions/setup-java@v6
         with:
           distribution: temurin
+          java-version: "8"
+      # U6.4 candidate I: a second Java 8 vendor, only when the java-zulu8 variant is asked for. JAVA_HOME_8_X64 is
+      # then Zulu's, so the run step takes Temurin from steps.temurin8.outputs.path.
+      - name: Set up Zulu 8 (Java vendor A/B)
+        id: zulu8
+        if: contains(steps.cfg.outputs.extra, 'java-zulu8')
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
           java-version: "8"
       - name: Set up Java 21 (Gradle)
         uses: actions/setup-java@v6
@@ -203,10 +219,14 @@ jobs:
           SHOTS: ${{ steps.cfg.outputs.shots }}
           SIZE: ${{ steps.cfg.outputs.size }}
           SHADER: ${{ steps.cfg.outputs.shader }}
+          EXTRA: ${{ steps.cfg.outputs.extra }}
+          TEMURIN8: ${{ steps.temurin8.outputs.path }}
+          ZULU8: ${{ steps.zulu8.outputs.path }}
         run: |
           set -u
-          JAVA8="$JAVA_HOME_8_X64/bin/java"
+          JAVA8="$TEMURIN8/bin/java"
           "$JAVA8" -version
+          if [ -n "$ZULU8" ]; then "$ZULU8/bin/java" -version; fi
           OUT="$GITHUB_WORKSPACE/artifacts/bench-189/out"
           mkdir -p "$OUT"
           fail=0
@@ -219,16 +239,23 @@ jobs:
             if [ -n "$PRESETS" ]; then
               # preset mode: the shipped defaults, then each preset (the folder name is the variant name)
               order="origin-default"; for pr in ${PRESETS//,/ }; do order="$order preset-$pr"; done
-              if [ $((r % 2)) -eq 0 ]; then order=$(echo $order | tr ' ' '\n' | tac | tr '\n' ' '); fi
-            elif [ $((r % 2)) -eq 1 ]; then order="optifine-only origin-default"; else order="origin-default optifine-only"; fi
+            else order="optifine-only origin-default"; fi
+            # U6.4 extras ride in the same round (each name once); even rounds run the whole list reversed
+            for x in ${EXTRA//,/ }; do case " $order " in *" $x "*) ;; *) order="$order $x" ;; esac; done
+            if [ $((r % 2)) -eq 0 ]; then order=$(echo $order | tr ' ' '\n' | tac | tr '\n' ' '); fi
             for v in $order; do
-              extra=""; pv="$v"
-              case "$v" in preset-*) pv="origin-default"; extra="--preset tools/bench/presets-189/${v#preset-}.json" ;; esac
+              vargs=""; pv="$v"; java="$JAVA8"
+              case "$v" in
+                preset-*) pv="origin-default"; vargs="--preset tools/bench/presets-189/${v#preset-}.json" ;;
+                jvm-*) pv="origin-default"; vargs="--jvm-variant ${v#jvm-}" ;;
+                java-zulu8) pv="origin-default"; java="$ZULU8/bin/java" ;;
+                no-betterfps) pv="origin-default"; vargs="--no-betterfps" ;;
+              esac
               for attempt in 1 2; do
                 echo "::group::round $r  $v  (attempt $attempt)"
                 rm -rf "$OUT/$v/run-$r"
                 if xvfb-run -a -s "-screen 0 ${W}x${H}x24" python3 tools/bench/prod189.py run \
-                     --variant "$pv" $extra $shotarg --origin-jar src/mods/versions/1.8.9/build/libs --java "$JAVA8" \
+                     --variant "$pv" $vargs $shotarg --origin-jar src/mods/versions/1.8.9/build/libs --java "$java" \
                      --out "$OUT/$v/run-$r" --scenes "$SCENES" --warmup "$WARMUP" --duration "$DURATION" \
                      --width "$W" --height "$H" --label "CI, relative only" --save-options --ignore-focus; then
                   echo "::endgroup::"
@@ -242,10 +269,25 @@ jobs:
           done
           echo "FAILED_LAUNCHES=$fail" >> "$GITHUB_ENV"
 
+      # E3: the verified key list (tools/bench/optifine-keys-189.txt) checked against the real, SHA-1-pinned jar the
+      # runs above used: every of* key must be a saved-key literal ("ofFogType:") in it. javap shows the same literals.
+      - name: OptiFine keys from the jar (E3)
+        if: always()
+        run: |
+          jar=$(find artifacts/bench-189/work/downloads -name 'OptiFine_1.8.9_HD_U_M5.jar' | head -n 1)
+          if [ -z "$jar" ]; then echo "no OptiFine jar was fetched"; exit 1; fi
+          python3 tools/bench/prod189.py jar-keys --jar "$jar" | tee jar-keys.txt
+          for cls in $(unzip -Z1 "$jar" | grep '\.class$'); do
+            n=$(javap -v -cp "$jar" "${cls%.class}" 2>/dev/null | grep -cE '// of[A-Z][A-Za-z0-9]*:$' || true)
+            if [ "${n:-0}" -gt 0 ]; then echo "javap ${cls}: $n String constants of the form of<Key>:" | tee -a jar-keys.txt; fi
+          done
+          { echo '### OptiFine keys from the jar (E3)'; echo '```'; cat jar-keys.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Summary (medians, min-max, change vs the OptiFine-only baseline)
         if: always()
         env:
           PRESETS: ${{ steps.cfg.outputs.presets }}
+          EXTRA: ${{ steps.cfg.outputs.extra }}
         run: |
           OUT="artifacts/bench-189/out"
           # --max-regression-pct 20: fail only on a big drop of Origin vs the OptiFine-only baseline. A CI runner is
@@ -256,8 +298,9 @@ jobs:
             python3 tools/bench/summarize.py aggregate "$OUT" --baseline origin-default --require-valid \
               --label "CI, relative only" | tee -a "$GITHUB_STEP_SUMMARY"
           else
+            gate="--max-regression-pct 20"; if [ -n "${EXTRA:-}" ]; then gate=""; fi
             python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --require-valid \
-              --max-regression-pct 20 --label "CI, relative only" \
+              $gate --label "CI, relative only" \
               | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 

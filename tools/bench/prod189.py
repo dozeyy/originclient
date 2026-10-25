@@ -96,6 +96,21 @@ LAUNCHER_JVM = ("-Xms4096M -Xmx4096M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -X
                 "-XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 "
                 "-XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1")
 
+# U6.4 candidate H (GC) and RamAdvice heap sizes: named JVM flag sets for the bench A/B (--jvm-variant). Each is
+# the shipped LAUNCHER_JVM with ONE thing changed, so a delta vs origin-default belongs to that one change.
+_G1_ONLY = [f for f in LAUNCHER_JVM.split() if f.startswith("-XX:G1") or f in (
+    "-XX:+UseG1GC", "-XX:+ParallelRefProcEnabled", "-XX:MaxGCPauseMillis=200", "-XX:+UnlockExperimentalVMOptions",
+    "-XX:SurvivorRatio=32", "-XX:MaxTenuringThreshold=1", "-XX:InitiatingHeapOccupancyPercent=15")]
+JVM_AB = {
+    "g1-pause40": LAUNCHER_JVM.replace("-XX:MaxGCPauseMillis=200", "-XX:MaxGCPauseMillis=40"),
+    "g1-young15": LAUNCHER_JVM.replace("-XX:G1NewSizePercent=25", "-XX:G1NewSizePercent=15")
+                              .replace("-XX:G1MaxNewSizePercent=35", "-XX:G1MaxNewSizePercent=25"),
+    "parallel": " ".join([f for f in LAUNCHER_JVM.split() if f not in _G1_ONLY] + ["-XX:+UseParallelGC"]),
+    "cms": " ".join([f for f in LAUNCHER_JVM.split() if f not in _G1_ONLY] + ["-XX:+UseConcMarkSweepGC", "-XX:+UseParNewGC"]),
+    "heap2g": LAUNCHER_JVM.replace("-Xms4096M -Xmx4096M", "-Xms2048M -Xmx2048M"),
+    "heap6g": LAUNCHER_JVM.replace("-Xms4096M -Xmx4096M", "-Xms6144M -Xmx6144M"),
+}
+
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OriginBench"
 VARIANTS = ("origin-default", "optifine-only")
 
@@ -584,6 +599,82 @@ def cmd_check_roundtrip(args):
     return 1 if bad else 0
 
 
+# E3 (Phase 6): the saved key names read straight out of the OptiFine jar, not only from a file a game wrote.
+# OptiFine writes each option as  printWriter.println("ofFogType:" + ofFogType), so every saved key is a String
+# constant "<key>:" in the patched GameSettings class. Class entries are parsed properly (String constants
+# only, so field names and method names cannot count); any other entry (a binary patch) is scanned as bytes.
+_SAVED_KEY = re.compile(r"^(of[A-Z][A-Za-z0-9]*):$")
+_SAVED_KEY_BYTES = re.compile(rb"of[A-Z][A-Za-z0-9]*:")
+
+
+def class_string_constants(data):
+    """The String literals (CONSTANT_String) of one .class file. Raises ValueError on a non-class blob."""
+    if data[:4] != b"\xca\xfe\xba\xbe":
+        raise ValueError("not a class file")
+    count = int.from_bytes(data[8:10], "big")
+    pos, i, utf8, strings = 10, 1, {}, []
+    sizes = {3: 4, 4: 4, 5: 8, 6: 8, 7: 2, 8: 2, 9: 4, 10: 4, 11: 4, 12: 4, 15: 3, 16: 2, 17: 4, 18: 4, 19: 2, 20: 2}
+    while i < count:
+        tag = data[pos]
+        if tag == 1:
+            n = int.from_bytes(data[pos + 1:pos + 3], "big")
+            utf8[i] = data[pos + 3:pos + 3 + n].decode("utf-8", "replace")
+            pos += 3 + n
+        elif tag in sizes:
+            if tag == 8:
+                strings.append(int.from_bytes(data[pos + 1:pos + 3], "big"))
+            pos += 1 + sizes[tag]
+            if tag in (5, 6):
+                i += 1          # long and double take two constant-pool slots
+        else:
+            raise ValueError("unknown constant tag %d at %d" % (tag, pos))
+        i += 1
+    return [utf8.get(s, "") for s in strings]
+
+
+def optifine_jar_saved_keys(jar_path):
+    """{key: [jar entries that write it]} for every "of<Key>:" literal in the jar."""
+    found = {}
+    with zipfile.ZipFile(jar_path) as z:
+        for name in z.namelist():
+            if name.endswith("/"):
+                continue
+            data = z.read(name)
+            if name.endswith(".class"):
+                try:
+                    keys = [m.group(1) for m in map(_SAVED_KEY.match, class_string_constants(data)) if m]
+                except (ValueError, IndexError):
+                    keys = []
+            else:
+                keys = [m.group(0)[:-1].decode("ascii") for m in _SAVED_KEY_BYTES.finditer(data)]
+            for k in keys:
+                found.setdefault(k, [])
+                if name not in found[k]:
+                    found[k].append(name)
+    return found
+
+
+def cmd_jar_keys(args):
+    """Every of* key in the verified list must be a saved-key literal in the real jar (exit 1 when one is not)."""
+    if args.sha1 and sha1_file(args.jar) != args.sha1:
+        raise ProvisionError("%s is not the pinned OptiFine build (SHA-1 mismatch)" % args.jar)
+    found = optifine_jar_saved_keys(args.jar)
+    listed = {k for k in load_key_list(args.keys) if k.startswith("of")}
+    if not listed:
+        raise ProvisionError("%s is missing or empty" % args.keys)
+    missing = sorted(listed - set(found))
+    extra = sorted(set(found) - listed)
+    entries = sorted({e for es in found.values() for e in es})
+    print("OptiFine jar %s: %d saved-key literals in %s" % (os.path.basename(args.jar), len(found), ", ".join(entries) or "-"))
+    print("verified list %s: %d of* keys; in the jar: %d; missing from the jar: %d; in the jar only: %d"
+          % (os.path.basename(args.keys), len(listed), len(listed & set(found)), len(missing), len(extra)))
+    for k in missing:
+        print("  MISSING from the jar: %s" % k)
+    for k in extra:
+        print("  in the jar, not in the list: %s" % k)
+    return 1 if missing else 0
+
+
 def game_command(java, prov, game_dir, jvm_flags, width, height):
     values = {"auth_player_name": "OriginBench", "version_name": FORGE_VERSION_ID, "game_directory": game_dir,
               "assets_root": prov["assets"], "assets_index_name": prov["assetIndex"],
@@ -668,6 +759,8 @@ def bench_env(args, variant, out_dir, build_label):
 
 def cmd_run(args):
     """Provision (cached) -> fresh game folder -> start -> collect bench.json etc. into --out."""
+    if getattr(args, "jvm_variant", None):
+        args.jvm = JVM_AB[args.jvm_variant]
     osn = os_name()
     cache = os.path.abspath(args.cache)
     os.makedirs(cache, exist_ok=True)
@@ -685,7 +778,9 @@ def cmd_run(args):
     optifine = os.path.join(mods_dir, OPTIFINE_FILE)
     if not (os.path.isfile(optifine) and sha1_file(optifine) == OPTIFINE_SHA1):
         ensure_file(optifine, optifine_urls(), OPTIFINE_SHA1)
-    stack = [ensure_file(os.path.join(mods_dir, n), [u], sha256=STACK_SHA256[n]) for n, u in STACK_MODS]
+    # --no-betterfps (U6.4 candidate J): the shipped stack minus BetterFps, nothing else changed
+    stack_mods = [(n, u) for n, u in STACK_MODS if not (args.no_betterfps and n.startswith("BetterFps"))]
+    stack = [ensure_file(os.path.join(mods_dir, n), [u], sha256=STACK_SHA256[n]) for n, u in stack_mods]
 
     out = os.path.abspath(args.out)
     game_dir = os.path.join(os.path.abspath(args.work), "game-%s-%d" % (args.variant, os.getpid()))
@@ -699,7 +794,8 @@ def cmd_run(args):
         record["shaderPack"] = install_shaderpack(game_dir, args.shaderpack)
     record.update({"java": jver, "javaPath": java, "os": osn, "optifineSha1": sha1_file(optifine),
                    "forge": "11.15.1.2318", "jvmFlags": args.jvm, "label": args.label,
-                   "originJar": os.path.basename(origin_jar)})
+                   "originJar": os.path.basename(origin_jar),
+                   "stackMods": [n for n, _ in stack_mods]})
     build_label = "%s (%s)" % (os.path.basename(origin_jar), args.label)
     cmd = game_command(java, prov, game_dir, args.jvm, args.width, args.height)
     log("start %s -> %s" % (args.variant, out))
@@ -739,6 +835,7 @@ def build_parser():
     r.add_argument("--width", type=int, default=1920)
     r.add_argument("--height", type=int, default=1080)
     r.add_argument("--jvm", default=LAUNCHER_JVM)
+    r.add_argument("--jvm-variant", choices=sorted(JVM_AB), help="U6.4 A/B: a named flag set from JVM_AB (overrides --jvm)")
     r.add_argument("--label", default="")
     r.add_argument("--timeout", type=int, default=900)
     r.add_argument("--shots", action="store_true")
@@ -747,9 +844,14 @@ def build_parser():
     r.add_argument("--preset", help="preset JSON (options / optionsof); OptiFine keys must be in optifine-keys-189.txt")
     r.add_argument("--shaderpack", help="a shader pack FOLDER (tools/bench/shaderpack-189/origin-bench) to install and select (B-04)")
     r.add_argument("--keep-game", action="store_true")
+    r.add_argument("--no-betterfps", action="store_true", help="leave BetterFps out of the stack (U6.4 J A/B)")
     c = sub.add_parser("check-roundtrip", help="fail when the game saved back a different value than the preset wrote")
     c.add_argument("--preset", required=True)
     c.add_argument("--saved", nargs="+", required=True, help="run folder(s) holding the saved options.txt + optionsof.txt")
+    j = sub.add_parser("jar-keys", help="E3: check the verified OptiFine key list against the saved-key literals in the real jar")
+    j.add_argument("--jar", required=True)
+    j.add_argument("--keys", default=KEYS_FILE)
+    j.add_argument("--sha1", default=OPTIFINE_SHA1, help="refuse any other jar (empty = skip, tests only)")
     return ap
 
 
@@ -758,6 +860,8 @@ def main(argv=None):
     try:
         if args.cmd == "check-roundtrip":
             return cmd_check_roundtrip(args)
+        if args.cmd == "jar-keys":
+            return cmd_jar_keys(args)
         return cmd_run(args)
     except ProvisionError as e:
         sys.stderr.write("prod189: FAILED: %s\n" % e)
