@@ -533,9 +533,9 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 
 	@Override
 	public boolean charTyped(CharacterEvent event) {
-		char chr = (char) event.codepoint();
-		if (searchFocused && chr >= 32 && search.length() < 30) {
-			search += chr;
+		int chr = event.codepoint();
+		if (searchFocused && OriginTextInput.typable(chr) && search.length() < 30) {
+			search = OriginTextInput.append(search, chr);
 			scrollTarget = scroll = 0;
 			return true;
 		}
@@ -545,7 +545,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 	@Override
 	public boolean keyPressed(KeyEvent event) {
 		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
-			search = search.substring(0, search.length() - 1);
+			search = OriginTextInput.dropLast(search);
 			scrollTarget = scroll = 0;
 			return true;
 		}

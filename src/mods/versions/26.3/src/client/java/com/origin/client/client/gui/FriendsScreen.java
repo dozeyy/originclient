@@ -1871,12 +1871,13 @@ public class FriendsScreen extends OriginWindow {
 
 	@Override
 	public boolean charTyped(CharacterEvent event) {
-		return typed((char) event.codepoint()) || super.charTyped(event);
+		return typed(event.codepoint()) || super.charTyped(event);
 	}
 
 	/** One typed (or pasted) character, routed as 1.21.1's charTyped; false = not ours (super gets it). */
-	private boolean typed(char chr) {
-		if (!net.minecraft.util.StringUtil.isAllowedChatCharacter(chr)) {
+	private boolean typed(int chr) {
+		if (chr > Character.MAX_VALUE ? !Character.isValidCodePoint(chr)
+				: !net.minecraft.util.StringUtil.isAllowedChatCharacter((char) chr)) {
 			return false;
 		}
 		if (SocialClient.status() != SocialClient.Status.READY) {
@@ -1892,7 +1893,7 @@ public class FriendsScreen extends OriginWindow {
 		}
 		if (focus == Focus.SEARCH) {
 			if ((Character.isLetterOrDigit(chr) || chr == '_') && chr < 128 && search.length() < 16) {
-				search += chr;
+				search = OriginTextInput.append(search, chr);
 				listTarget = 0;
 			}
 			return true;
@@ -1900,7 +1901,7 @@ public class FriendsScreen extends OriginWindow {
 		if (focus == Focus.CHAT) {
 			String ct = chatText();
 			if (ct.length() < MAX_CHAT) {
-				setChatText(ct + chr);
+				setChatText(OriginTextInput.append(ct, chr));
 			}
 			return true;
 		}
@@ -1954,9 +1955,7 @@ public class FriendsScreen extends OriginWindow {
 				}
 				if (event.isPaste()) {
 					String clip = Minecraft.getInstance().keyboardHandler.getClipboard().replace('\n', ' ');
-					for (char c : clip.toCharArray()) {
-						typed(c);
-					}
+					clip.codePoints().forEach(this::typed);
 					return true;
 				}
 			}
@@ -1969,7 +1968,7 @@ public class FriendsScreen extends OriginWindow {
 			return s;
 		}
 		if (!word) {
-			return s.substring(0, s.length() - 1);
+			return OriginTextInput.dropLast(s);
 		}
 		String t = s.stripTrailing();
 		int i = t.lastIndexOf(' ');

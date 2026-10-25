@@ -1,6 +1,7 @@
 package com.origin.client.client.waypoints;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.origin.client.client.gui.OriginTextInput;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginUi;
@@ -817,7 +818,7 @@ public class WaypointScreen extends OriginWindow {
 
 	@Override
 	public boolean charTyped(CharacterEvent event) {
-		char chr = (char) event.codepoint();
+		int chr = event.codepoint();
 		if (OriginColorPicker.isOpen() || focus < 0 || editing == null) {
 			return super.charTyped(event);
 		}
@@ -828,11 +829,11 @@ public class WaypointScreen extends OriginWindow {
 		boolean coord = focus >= 2;
 		if (coord) {
 			if ((chr >= '0' && chr <= '9') || (chr == '-' && cur.isEmpty())) {
-				setFocused(cur + chr);
+				setFocused(OriginTextInput.append(cur, chr));
 				applyBuffers();
 			}
-		} else if (chr >= 32) {
-			setFocused(cur + chr);
+		} else if (OriginTextInput.typable(chr)) {
+			setFocused(OriginTextInput.append(cur, chr));
 			applyBuffers();
 		}
 		return true;
@@ -848,7 +849,7 @@ public class WaypointScreen extends OriginWindow {
 		if (focus >= 0 && keyCode == InputConstants.KEY_BACKSPACE) {
 			String cur = focused();
 			if (cur != null && !cur.isEmpty()) {
-				setFocused(cur.substring(0, cur.length() - 1));
+				setFocused(OriginTextInput.dropLast(cur));
 				applyBuffers();
 			}
 			return true;
