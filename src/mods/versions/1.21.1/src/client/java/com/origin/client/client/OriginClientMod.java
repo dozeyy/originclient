@@ -78,6 +78,9 @@ public class OriginClientMod implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		OriginBootLog.mark("origin-client-init-begin");
+		// B-30: the loading screen's art (logo bake, boot-font sheet) and classes are
+		// prepared on a background thread now, so its first frame only uploads.
+		com.origin.client.client.render.LoadingPrep.start();
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the

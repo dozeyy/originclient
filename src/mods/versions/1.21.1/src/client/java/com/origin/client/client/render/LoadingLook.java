@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import com.origin.client.client.theme.OriginTheme;
 
 /**
  * The one loading picture (docs/overhaul/DESIGN-SYSTEM.md section 15.3, Phase 4 U4.2):
@@ -35,14 +36,9 @@ import net.minecraft.client.gui.GuiGraphics;
  * and falls back to Minecraft's font if that is not ready.
  */
 final class LoadingLook {
-	/** color.bg */
-	static final int BG = 0xFF0E1110;
-	/** Rail track: white 8 %. */
-	static final int RAIL_TRACK = 0x14FFFFFF;
-	/** Rail fill: accent. */
-	static final int RAIL_FILL = 0xFF5FD09B;
-	/** Caption: color.textDim, rgba(241,233,210,.68). */
-	static final int CAPTION = 0xADF1E9D2;
+	// Colours: OriginTheme's loading tokens (DESIGN-SYSTEM 17.3), never copied here:
+	// CLEAN_BG (color.bg), CLEAN_BAR_TRACK (white 8 %), CLEAN_BAR_FILL (accent),
+	// CLEAN_CAPTION (color.textDim).
 
 	/** Logo box, design px. */
 	private static final double LOGO = 72.0;
@@ -103,21 +99,56 @@ final class LoadingLook {
 	 * @param boot     draw the caption in the boot font (the startup load) instead of Inter
 	 */
 	static void draw(GuiGraphics g, float layer, double cyFrac, double fill, String caption, boolean boot) {
+		draw(g, layer, cyFrac, fill, caption, boot, true);
+	}
+
+	/**
+	 * As above; {@code logo} false leaves the logo out (the loading -> title hand-off draws
+	 * it itself, in flight: OriginScreenRenderer.renderLoadingFade). The logo's box this
+	 * frame is then still readable through {@link #logoCxGui()} and its siblings.
+	 */
+	static void draw(GuiGraphics g, float layer, double cyFrac, double fill, String caption, boolean boot, boolean logo) {
 		Minecraft mc = Minecraft.getInstance();
 		layout(Math.round(mc.getWindow().getHeight() * cyFrac));
 		int gw = mc.getWindow().getGuiScaledWidth(), gh = mc.getWindow().getGuiScaledHeight();
 
 		// The backdrop is flat color.bg, the same colour as the launcher's launch cover.
-		g.fill(0, 0, gw, gh, fade(BG, layer));
+		g.fill(0, 0, gw, gh, fade(OriginTheme.CLEAN_BG, layer));
 
 		// The official logo, through the one drawing path (origin_logo.png at LOGO_PATH).
-		OriginScreenRenderer.drawLogo(g, physW / 2.0 / gs, logoCy / gs, logoBox / gs, layer);
+		if (logo) {
+			long t0 = com.origin.client.client.OriginFrameLog.partStart();
+			OriginScreenRenderer.drawLogo(g, logoCxGui(), logoCyGui(), logoSizeGui(), layer);
+			com.origin.client.client.OriginFrameLog.part("o:logo", t0);
+		}
 
 		// The rail and the caption.
+		long t0 = com.origin.client.client.OriginFrameLog.partStart();
 		rail(g, layer, fill);
+		com.origin.client.client.OriginFrameLog.part("o:rail", t0);
 		if (caption != null && !caption.isEmpty()) {
+			t0 = com.origin.client.client.OriginFrameLog.partStart();
 			caption(g, layer, caption, boot, gw);
+			com.origin.client.client.OriginFrameLog.part("o:caption", t0);
 		}
+	}
+
+	// The logo's box in GUI px, as the last draw() laid it out (the hand-off flies it from here).
+	static double logoCxGui() {
+		return physW / 2.0 / gs;
+	}
+
+	static double logoCyGui() {
+		return logoCy / gs;
+	}
+
+	static double logoSizeGui() {
+		return logoBox / gs;
+	}
+
+	/** The logo's box size in physical px at this window's height (what drawLogo bakes). */
+	static int logoPhys() {
+		return (int) Math.round(LOGO * scale());
 	}
 
 	// ---- the rail ----
@@ -128,8 +159,8 @@ final class LoadingLook {
 		PoseStack pose = g.pose();
 		pose.pushPose();
 		pose.scale(1f / gs, 1f / gs, 1f);
-		pill(g, x, y, w, h, fade(RAIL_TRACK, layer));
-		int fillArgb = fade(RAIL_FILL, layer);
+		pill(g, x, y, w, h, fade(OriginTheme.CLEAN_BAR_TRACK, layer));
+		int fillArgb = fade(OriginTheme.CLEAN_BAR_FILL, layer);
 		if (fill < 0) {
 			// Indeterminate: a segment slides across (never a made-up percentage).
 			double t = (RingField.sceneMs() % SWEEP_MS) / SWEEP_MS;
@@ -186,7 +217,7 @@ final class LoadingLook {
 			// Whole physical pixels per font pixel: 1 at 1080p, 2 at 1620p, 3 at 4K.
 			int per = Math.max(1, (int) Math.floor(CAPTION_EM * k / 8.0 + 0.25));
 			double scale = per / (double) gs;
-			OriginScreenRenderer.bootText(g, text, cx, captionMid / gs - 3.5 * scale, (float) scale, 0, CAPTION, 0.5f);
+			OriginScreenRenderer.bootText(g, text, cx, captionMid / gs - 3.5 * scale, (float) scale, 0, OriginTheme.CLEAN_CAPTION, 0.5f);
 			return;
 		}
 		if (com.origin.client.client.gui.OriginSdfFont.active()) {
@@ -194,11 +225,11 @@ final class LoadingLook {
 			float w = com.origin.client.client.gui.OriginSdfFont.widthEm(text, em, 0f, false);
 			float cap = com.origin.client.client.gui.OriginSdfFont.capHeight(em, false);
 			com.origin.client.client.gui.OriginSdfFont.drawEm(g, text, (float) (cx - w / 2.0), (float) (captionMid / gs + cap / 2.0),
-					em, 0f, fade(CAPTION, layer), false);
+					em, 0f, fade(OriginTheme.CLEAN_CAPTION, layer), false);
 			return;
 		}
 		Font font = Minecraft.getInstance().font;
-		g.drawString(font, text, (int) Math.round(cx - font.width(text) / 2.0), (int) Math.round(captionMid / gs - 4), fade(CAPTION, layer), true);
+		g.drawString(font, text, (int) Math.round(cx - font.width(text) / 2.0), (int) Math.round(captionMid / gs - 4), fade(OriginTheme.CLEAN_CAPTION, layer), true);
 	}
 
 	/** A colour with its alpha scaled by {@code k} (0..1). */

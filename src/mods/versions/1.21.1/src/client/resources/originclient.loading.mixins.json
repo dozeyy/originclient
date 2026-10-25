@@ -12,6 +12,7 @@
 		"ProgressScreenMixin",
 		"ConnectScreenMixin",
 		"LoadingOverlayRevealMixin",
+		"LoadingOverlayCoverMixin",
 		"TitleScreenFadeMixin",
 		"ReloadTaskBudgetMixin",
 		"FrameLogMixin",
