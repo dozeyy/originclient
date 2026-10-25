@@ -1,18 +1,23 @@
 package com.origin.client.client.render;
 
 /**
- * The title composition on Minecraft's own buttons (Will, 2026-10-19), shared
- * by the title mixin (widget positions) and OriginScreenRenderer (logo,
- * wordmark, account chip). All values are GUI px:
+ * The title composition (Will, 2026-10-19; Workbench skin, Phase 4), shared by
+ * the title mixin (widget positions) and OriginScreenRenderer (logo, wordmark,
+ * account chip). The geometry is the 1.21.1 layout Will approved; Phase 4 only
+ * re-skinned it (soft panels, bare dock glyphs, the official wordmark image).
+ * All values are GUI px:
  *
- *   [chip]
+ *   [chip 16 tall]
  *                        (logo 34)
- *                         ORIGIN
- *               [        Singleplayer        ]   200 x 20 (vanilla's size)
- *               [        Multiplayer         ]   rows 24 apart (vanilla's step)
+ *                    [wordmark 11 tall]   official wordmark.png, never text
+ *               [        Singleplayer        ]   200 x 20, soft panel
+ *               [        Multiplayer         ]   rows 24 apart
  *               [   Options   ][    Mods     ]   98 + 4 + 98
  *
- *     (realms)(friends)(cosmetics)(lang)(access)(quit)   20 x 20, gap 4
+ *     realms friends cosmetics lang access quit   20 x 20 cards, gap 4, the worded
+ *                                                 buttons' card with a 12 px glyph
+ *                                                 (8 clear of the footer line)
+ *   Minecraft 1.21.1 . Origin          Copyright Mojang AB...   FOOTER_TOP up
  *
  * The block sits a touch below centre and is clamped so the logo never meets
  * the corner chip and the buttons never meet the icon row. Other mods can add
@@ -24,13 +29,29 @@ package com.origin.client.client.render;
  * false) the title mixin pairs the added buttons two to a row.
  */
 public final class TitleLayout {
-	/** Corner chip (player head + name): inset and height (a vanilla button's). */
-	public static final int CORNER = 10;
-	public static final int CORNER_SIZE = 20;
+	/** Corner chip (player head + name): inset and height (the spec's 6 / 16). */
+	public static final int CORNER = 6;
+	public static final int CORNER_SIZE = 16;
 
 	private static final int BUTTON_H = 20, ROW_STEP = 24, MIN_ROW_STEP = 21, MAIN_W = 200;
-	private static final int DOCK = 20, DOCK_GAP = 4, DOCK_BOTTOM = 14;
-	private static final int MARK = 34, MARK_ABOVE = 60, WORD_ABOVE = 16;
+	/**
+	 * The footer line (version left, copyright right): its 8 GUI px line box starts FOOTER_TOP above the screen
+	 * bottom (its bottom edge 6 GUI px up). The dock's bottom edge sits DOCK_FOOTER_CLEAR above that line, so the
+	 * tiles never touch or run over the footer text at any width (judge 2026-10-25: the Quit tile sat 2 GUI px
+	 * above the copyright at 1080p and ran into it at 1366 x 768).
+	 */
+	public static final int FOOTER_TOP = 14;
+	private static final int DOCK_FOOTER_CLEAR = 8;
+	private static final int DOCK = 20, DOCK_GAP = 4, DOCK_BOTTOM = FOOTER_TOP + DOCK_FOOTER_CLEAR;
+	private static final int MARK = 34, MARK_ABOVE = 60;
+	/**
+	 * The wordmark image: 11 GUI px tall (its ink 8.2 of that), 6 GUI px of visible gap under the logo's ink
+	 * (spec 15.2). origin_logo.png's ink ends 11.4 below its box centre and origin_wordmark.png's ink starts
+	 * 1.4 inside its box, so its centre sits 21.5 under the logo centre = 38.5 above the first row. Wordmark-only
+	 * headers (no room for the logo) keep it 22 above the first row.
+	 */
+	public static final int WORD_H = 11;
+	private static final double WORD_CENTER_ABOVE_FULL = MARK_ABOVE - 21.5, WORD_CENTER_ABOVE_ONLY = 22;
 	/** Space above the first row with the full header (logo + wordmark) and wordmark only. */
 	private static final int HEADER_FULL = MARK_ABOVE + MARK / 2, HEADER_WORD = 34;
 	/** Gap kept between the chip and the header, and between the stack and the icon row. */
@@ -43,7 +64,8 @@ public final class TitleLayout {
 	public final int mainX, mainW, mainTop, buttonH, rowStep, pairGap;
 	public final int dockY, dockSize, dockGap;
 	/** markSize 0: no logo this frame. showWordmark false: no wordmark either. */
-	public final int markCenterX, markCenterY, markSize, wordBaseline;
+	public final int markCenterX, markCenterY, markSize;
+	public final double wordCenterY;
 	public final boolean showWordmark;
 	/** False when even with no header and the tightest rows the stack would meet the icon row. */
 	public final boolean fits;
@@ -62,7 +84,7 @@ public final class TitleLayout {
 		this.markCenterX = sw / 2;
 		this.markCenterY = mainTop - MARK_ABOVE;
 		this.markSize = header == HEADER_FULL ? MARK : 0;
-		this.wordBaseline = mainTop - WORD_ABOVE;
+		this.wordCenterY = mainTop - (header == HEADER_FULL ? WORD_CENTER_ABOVE_FULL : WORD_CENTER_ABOVE_ONLY);
 		this.showWordmark = header > 0;
 	}
 
