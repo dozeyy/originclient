@@ -8,7 +8,8 @@ namespace OriginLauncher.App.UI.Controls;
 
 /// <summary>
 /// The giant version numeral on Home: Inter ExtraBold at its natural width (never squashed), -0.04 em tracking,
-/// neutral ink. It stands in the free band between the top bar's bottom edge and the Home strip's top edge
+/// parchment ink at 94 % (Brush.NumeralInk), alone on the art: nothing is drawn around it (Will, 2026-10-25: rings
+/// around it read as a fake logo; the only logo is the real image). It stands in the free band between the top bar's bottom edge and the Home strip's top edge
 /// (<see cref="SetBand"/>, reported by HomePage), its figures centred in that band and its ink centred across the
 /// window; size and placement are <see cref="NumeralBand"/>. A change rolls the old characters up and out and the
 /// new ones in from below, 28 ms apart (mockup: 320 ms in / 420 ms out, 140 ms overlap).

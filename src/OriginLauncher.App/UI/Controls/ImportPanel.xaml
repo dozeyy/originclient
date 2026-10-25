@@ -131,7 +131,6 @@
         <Style x:Key="Import.StepDot" TargetType="Border">
             <Setter Property="Width" Value="{StaticResource Size.Badge}"/>
             <Setter Property="Height" Value="{StaticResource Size.Badge}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Full}"/>
             <Setter Property="ui:Capsule.On" Value="True"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>

@@ -226,7 +226,6 @@
              badge height, radius = height / 2, so a "1" is a circle and "12" a pill with the same round ends. -->
         <Style x:Key="Social.Badge" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Brush.Accent}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Full}"/>
             <Setter Property="ui:Capsule.On" Value="True"/>
             <Setter Property="MinWidth" Value="{StaticResource Size.Badge}"/>
             <Setter Property="Height" Value="{StaticResource Size.Badge}"/>

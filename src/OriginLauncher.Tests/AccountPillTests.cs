@@ -77,10 +77,11 @@ public class AccountPillTests
     [Fact]
     public void StoreOpensTheConfiguredStoreAndIsAGhostBarControl()
     {
+        // Will, 2026-10-25: the Store is back in the top bar, and Home has no Store card and no profile switcher.
         var xaml = XDocument.Load(Path.Combine(AppDir, "MainWindow.xaml"));
         var store = xaml.Descendants(Wpf + "Button").Single(b => (string?)b.Attribute(X + "Name") == "StoreButton");
         Assert.Equal("{StaticResource Button.Chrome}", (string?)store.Attribute("Style"));
-        // First of the right-hand group after the update badge, before Import and Friends (DESIGN-SYSTEM 11.7).
+        // First of the right-hand group after the update badge, before Import and Friends (DESIGN-SYSTEM 11.4).
         var group = xaml.Descendants(Wpf + "StackPanel").Single(p => (string?)p.Attribute(X + "Name") == "BarActions");
         var names = group.Elements().Select(e => (string?)e.Attribute(X + "Name")).Where(n => n != null).ToList();
         Assert.True(names.IndexOf("StoreButton") < names.IndexOf("ImportButton"));
@@ -89,6 +90,9 @@ public class AccountPillTests
         Assert.Null(store.Attribute("ToolTip")); // only Import, Friends, Minimize and Close carry hover labels
         var main = File.ReadAllText(Path.Combine(AppDir, "MainWindow.xaml.cs"));
         Assert.Matches(@"StoreButton_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Store\)", main);
+        var home = File.ReadAllText(Path.Combine(AppDir, "UI", "Pages", "HomePage.xaml"));
+        Assert.DoesNotContain("StoreCard", home);
+        Assert.DoesNotContain("ProfileRow", home);
     }
 
     [Fact]

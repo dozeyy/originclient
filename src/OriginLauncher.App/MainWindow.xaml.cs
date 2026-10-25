@@ -62,7 +62,6 @@ public partial class MainWindow : Window
         Intro.Play(this);
 
         // Home's profile chip opens Profiles; its launch screen covers the bar too.
-        _homePage.ProfilesRequested += (_, _) => NavigateTo(LauncherPage.Profiles);
         _homePage.LaunchSceneChanged += SetTopBarHidden;
         RefreshAccountChip();
 
@@ -392,6 +391,9 @@ public partial class MainWindow : Window
 
     internal void TourHideVersions() => _homePage.TourHideVersions();
 
+    // Render mode only: the version Home shows now (the selector shots check a pick reached it).
+    internal string? TourHomeVersion => _homePage.CurrentVersion;
+
     internal void TourSetAccountOpen(bool open)
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
@@ -426,10 +428,10 @@ public partial class MainWindow : Window
             + $"storeLabel={StoreLabel.Visibility} wordmark={BarWordmark.Visibility} {TourTopBarFit()}";
     }
 
-    internal Button TourStoreButton => StoreButton;
     internal Button TourAccountButton => AccountButton;
+    internal Button TourStoreButton => StoreButton;
 
-    /// <summary>Render mode: the Store or the account pill as under the mouse (a render has no mouse): the hover fill, edge and ink.</summary>
+    /// <summary>Render mode: the account pill as under the mouse (a render has no mouse): the hover fill, edge and ink.</summary>
     internal void TourHover(Button button, bool on)
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
@@ -583,7 +585,7 @@ public partial class MainWindow : Window
             DragMove();
     }
 
-    // The tabs stay centred on the window until the right-hand actions (update, import,
+    // The tabs stay centred on the window until the right-hand actions (update, Store, import,
     // friends, account, window buttons) would come within Space.5 of SETTINGS, as at
     // 980 px with an update waiting; then they slide left just enough, never past the brand.
     // A render transform, so moving them never re-runs layout.
@@ -603,7 +605,7 @@ public partial class MainWindow : Window
         StoreLabel.Visibility = StoreArrow.Visibility = v;
     }
 
-    /// <summary>Render mode: show the hover arrows as if the mouse were over both buttons (a render has no mouse).</summary>
+    /// <summary>Render mode: show the hover arrows as if the mouse were over the Website and Store buttons (a render has no mouse).</summary>
     internal void TourShowLinkHints(bool show)
     {
         foreach (var holder in new[] { WebsiteArrow, StoreArrow })
@@ -846,13 +848,14 @@ public partial class MainWindow : Window
         ApplyBarSurface(hidden ? 200 : 320);
     }
 
+    private void StoreButton_Click(object sender, RoutedEventArgs e) =>
+        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Store);
+
     private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
 
     private void WebsiteButton_Click(object sender, RoutedEventArgs e) =>
         Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Website);
 
-    private void StoreButton_Click(object sender, RoutedEventArgs e) =>
-        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Store);
 
     // null = no tab lit (the Import page is not one of the four).
     private void SetNavigationSelection(LauncherPage? page)

@@ -46,6 +46,18 @@
     <system:Double x:Key="Size.ControlMd">32</system:Double>
     <system:Double x:Key="Size.ControlLg">36</system:Double>
     <system:Double x:Key="Size.ControlXl">40</system:Double>
+    <!-- The Home strip (Workbench mockup): the version card, Join and Play are one 64 tall row of cards (Radius.Lg);
+         the thumbnail is 48 (8 in from the card's edge); Play is 208 wide. The status dot is 8; the nav's active dot 4. -->
+    <system:Double x:Key="Size.StripControl">64</system:Double>
+    <system:Double x:Key="Size.StripTile">48</system:Double>
+    <system:Double x:Key="Size.PlayWidth">208</system:Double>
+    <system:Double x:Key="Size.StatusDot">8</system:Double>
+    <system:Double x:Key="Size.NavDot">4</system:Double>
+    <!-- The My mods switch on Home (mockup .sw2): 36 x 20 track, 14 knob inset 3, so the travel is 36 - 14 - 6 = 16. -->
+    <system:Double x:Key="Size.HomeSwitchWidth">36</system:Double>
+    <system:Double x:Key="Size.HomeSwitchHeight">20</system:Double>
+    <system:Double x:Key="Size.HomeSwitchKnob">14</system:Double>
+    <system:Double x:Key="Size.HomeSwitchTravel">16</system:Double>
     <!-- The top bar holds 32 tall controls with 8 above and below. List rows are 64 tall. Drawers (Accounts,
          Friends, Import) are 380 wide. -->
     <system:Double x:Key="Size.Bar">48</system:Double>
@@ -55,6 +67,15 @@
     <system:Double x:Key="Size.Progress">3</system:Double>
     <system:Double x:Key="Size.Dot">6</system:Double>
     <system:Double x:Key="Size.Badge">20</system:Double>
+    <!-- Version selector (11.3, 11.6): the sheet takes Share of the window width, never narrower than Min (the old fixed
+         sheet) and never wider than Max. Step 2's panel (the family card grown) takes FamilyPanel.Share of the sheet,
+         between FamilyPanel.Min and FamilyPanel.Max. -->
+    <system:Double x:Key="Size.Sheet.Min">912</system:Double>
+    <system:Double x:Key="Size.Sheet.Max">1600</system:Double>
+    <system:Double x:Key="Size.Sheet.Share">0.8</system:Double>
+    <system:Double x:Key="Size.FamilyPanel.Min">320</system:Double>
+    <system:Double x:Key="Size.FamilyPanel.Max">520</system:Double>
+    <system:Double x:Key="Size.FamilyPanel.Share">0.44</system:Double>
     <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
     <system:Double x:Key="Size.SliderBox">20</system:Double>
     <system:Double x:Key="Size.SliderTrack">4</system:Double>
@@ -99,13 +120,15 @@
     <CornerRadius x:Key="Radius.Sm">6</CornerRadius>
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
-    <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- No "full" radius token: a 999 radius renders an ellipse in WPF. Capsules use ui:Capsule.On (UI/Capsule.cs). -->
     <!-- Dialogs (the approved Workbench mockup, A-Workbench-2 "Shape and motion": card 12, control 8, dialog 16): every
          dialog, sheet-over-scrim and the crash windows' main card. One step rounder than a card so a dialog never reads
          as another card on the page. -->
     <CornerRadius x:Key="Radius.Dialog">16</CornerRadius>
     <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
     <system:Double x:Key="Radius.Lg.Value">12</system:Double>
+    <!-- A card's picture: the card's corner on its top two corners only. -->
+    <CornerRadius x:Key="Radius.Lg.Top">12,12,0,0</CornerRadius>
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->

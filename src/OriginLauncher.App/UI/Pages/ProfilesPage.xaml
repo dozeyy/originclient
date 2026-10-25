@@ -1,6 +1,7 @@
 <UserControl x:Class="OriginLauncher.App.UI.Pages.ProfilesPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:OriginLauncher.App.UI"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
@@ -100,7 +101,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Border x:Name="StatusDot" Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
-                            CornerRadius="{StaticResource Radius.Full}" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
+                            ui:Capsule.On="True" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
                             Background="{StaticResource Brush.Accent}"/>
                     <TextBlock Grid.Column="1" x:Name="StatusText" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
                                TextTrimming="None"/>

@@ -1,43 +1,46 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
 
 namespace OriginLauncher.App.UI;
 
 /// <summary>
-/// A true Apple capsule: a Border's corner radius is exactly half its real height, kept in step as the height changes.
-/// Why this exists: WPF's Border shrinks an oversized radius (Radius.Full, 999) separately along each axis, so on any
-/// box wider than it is tall the corners become 50%-wide by 50%-tall ellipses and the whole shape is an oval, never a
-/// capsule (Will, 2026-10-25: "pill shaped like apple and never oval shaped ever again"; DECISIONS.md Look).
-/// Every pill, chip and badge sets <c>ui:Capsule.On="True"</c> (Surface.Capsule does it for its users). Round status
-/// dots and circular avatars are squares, where height / 2 is already a circle.
+/// The one way to make a capsule (pill, chip, badge, switch track): <c>ui:Capsule.On="True"</c> on a Border keeps
+/// its corner radius at exactly half its short side, so the ends are true semicircles and the long sides stay straight
+/// (Will, 2026-10-25: "pill shaped like apple and never oval shaped ever again").
+///
+/// Why not a huge CornerRadius (the old Radius.Full = 999): WPF's Border scales over-large radii per axis, each to its
+/// own side, so a 999 radius on a 96 x 20 box becomes 48 x 10 elliptical corners that meet in the middle, and the
+/// capsule renders as an ellipse. A square box still comes out a circle here, so round dots can use it too.
+/// The radius is set only when the size changes; nothing runs per frame.
 /// </summary>
 public static class Capsule
 {
     public static readonly DependencyProperty OnProperty = DependencyProperty.RegisterAttached(
-        "On", typeof(bool), typeof(Capsule), new PropertyMetadata(false, OnChanged));
+        "On", typeof(bool), typeof(Capsule), new PropertyMetadata(false, OnOnChanged));
 
-    public static bool GetOn(DependencyObject element) => (bool)element.GetValue(OnProperty);
+    public static bool GetOn(DependencyObject d) => (bool)d.GetValue(OnProperty);
+    public static void SetOn(DependencyObject d, bool value) => d.SetValue(OnProperty, value);
 
-    public static void SetOn(DependencyObject element, bool value) => element.SetValue(OnProperty, value);
-
-    private static void OnChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnOnChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is not Border border) return;
-        border.SizeChanged -= Resized;
-        if (e.NewValue is not true) return;
-        border.SizeChanged += Resized;
-        Apply(border);
+        if (d is not Border b) return;
+        b.SizeChanged -= OnSizeChanged;
+        if (e.NewValue is true)
+        {
+            b.SizeChanged += OnSizeChanged;
+            Apply(b);
+        }
     }
 
-    // Layout raises SizeChanged before the first frame is drawn, so the oval never shows.
-    private static void Resized(object sender, SizeChangedEventArgs e)
-    {
-        if (e.HeightChanged) Apply((Border)sender);
-    }
+    private static void OnSizeChanged(object sender, SizeChangedEventArgs e) => Apply((Border)sender);
 
-    private static void Apply(Border border)
+    /// <summary>Half the short side, the radius of a true capsule (0 before the first layout).</summary>
+    public static double RadiusFor(double width, double height) => Math.Max(0, Math.Min(width, height) / 2);
+
+    private static void Apply(Border b)
     {
-        var height = border.ActualHeight;
-        if (height > 0) border.CornerRadius = new CornerRadius(height / 2);
+        var r = RadiusFor(b.ActualWidth, b.ActualHeight);
+        if (b.CornerRadius.TopLeft != r || b.CornerRadius.BottomRight != r) b.CornerRadius = new CornerRadius(r);
     }
 }

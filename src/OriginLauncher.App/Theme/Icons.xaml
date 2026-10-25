@@ -14,6 +14,9 @@
     <!-- The small "opens in your browser" arrow after a link's label in the top bar: 10 px, a 1.25 line, 3 px in from
          the label's end. It lives in a zero-width Canvas, so it takes no layout space whatever its size. -->
     <system:Double x:Key="Icon.SizeLinkHint">10</system:Double>
+    <!-- The glyph inside a status capsule (Padding.Capsule.Sm): 10 px, a 1.7 line, 6 before the caps. -->
+    <system:Double x:Key="Icon.SizeCapsule">10</system:Double>
+    <Thickness x:Key="Margin.CapsuleIcon">0,0,6,0</Thickness>
     <system:Double x:Key="Icon.StrokeLinkHint">1.25</system:Double>
     <system:Double x:Key="Icon.LinkHintOffset">3</system:Double>
 
@@ -46,6 +49,7 @@
     <Geometry x:Key="Icon.Folder">M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z</Geometry>
     <Geometry x:Key="Icon.Trash">M3,6 L5,6 21,6 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10,11 L10,17 M14,11 L14,17</Geometry>
     <Geometry x:Key="Icon.Back">M19,12 L5,12 M12,19 L5,12 12,5</Geometry>
+    <Geometry x:Key="Icon.ArrowUpRight">M7,17 L17,7 M8,7 L17,7 L17,16</Geometry>
     <Geometry x:Key="Icon.External">M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15,3 L21,3 21,9 M10,14 L21,3</Geometry>
 
     <!-- External-link arrow after the label of a button that leaves the launcher (Website, Store). It lives in a
@@ -113,9 +117,14 @@
     <Geometry x:Key="Icon.Alert">M12,8 L12,12 M12,16 L12.01,16 M3,12 A9,9 0 1 0 21,12 A9,9 0 1 0 3,12 Z</Geometry>
     <Geometry x:Key="Icon.Block">M3,12 A9,9 0 1 0 21,12 A9,9 0 1 0 3,12 Z M5.6,5.6 L18.4,18.4</Geometry>
     <Geometry x:Key="Icon.Arrow.Down">M12,5 L12,19 M19,12 L12,19 L5,12</Geometry>
+    <!-- Downloads when you press Play: an arrow onto a line (the Workbench mockup's release-row capsule). Not the cloud
+         of Icon.Download, which is too busy at a capsule's 10 px. -->
+    <Geometry x:Key="Icon.DownloadArrow">M12,4 L12,15 M7.5,10.5 L12,15 L16.5,10.5 M5,19.5 L19,19.5</Geometry>
 
     <!-- Mod profiles (Feather layers / edit-2 / copy, MIT; plus and check are above). -->
     <Geometry x:Key="Icon.Profiles">M12,2 L2,7 12,12 22,7 Z M2,17 L12,22 22,17 M2,12 L12,17 22,12</Geometry>
+    <!-- Play: a solid rounded triangle (the Play button's glyph; filled, so its Path sets Fill). -->
+    <Geometry x:Key="Icon.Play">M7,4.5 L19,12 L7,19.5 Z</Geometry>
     <!-- Origin Store (Feather shopping-bag, MIT). -->
     <Geometry x:Key="Icon.Store">M6,2 L3,6 V20 A2,2 0 0 0 5,22 H19 A2,2 0 0 0 21,20 V6 L18,2 Z M3,6 H21 M16,10 A4,4 0 0 1 8,10</Geometry>
     <Geometry x:Key="Icon.Edit">M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z</Geometry>

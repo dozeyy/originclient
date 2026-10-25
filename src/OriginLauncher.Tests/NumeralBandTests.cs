@@ -26,13 +26,13 @@ public class NumeralBandTests
     }
 
     [Fact]
-    public void Spec_size_at_the_default_window_is_a_quarter_of_the_height()
+    public void Spec_size_at_the_default_window_is_32_percent_of_the_height()
     {
-        // DESIGN-SYSTEM 11.6: Home 1180 x 740 has figures 185 tall (font 254); 960 x 600 has 150 (font 206).
+        // DESIGN-SYSTEM 11.6: Home 1180 x 740 has figures 237 tall; 960 x 600 has 192.
         var (top, bottom) = NumeralBand.Band(740, 48, 740 - 108);
-        Assert.Equal(185, Caps * NumeralBand.FontSize(1180, 740, top, bottom, Caps, 2.2), 0);
+        Assert.Equal(237, Caps * NumeralBand.FontSize(1180, 740, top, bottom, Caps, 2.2), 0);
         (top, bottom) = NumeralBand.Band(600, 48, 600 - 108);
-        Assert.Equal(150, Caps * NumeralBand.FontSize(960, 600, top, bottom, Caps, 2.2), 0);
+        Assert.Equal(192, Caps * NumeralBand.FontSize(960, 600, top, bottom, Caps, 2.2), 0);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class NumeralBandTests
     [Fact]
     public void A_short_window_is_held_to_the_band()
     {
-        // Band 100 tall: figures at most 60 of it even though a quarter of the height would be larger.
+        // Band 100 tall: figures at most 60 of it even though 32 % of the height would be larger.
         var (top, bottom) = NumeralBand.Band(300, 48, 148);
         var fs = NumeralBand.FontSize(1180, 300, top, bottom, Caps, 2.2);
         Assert.Equal(60, Caps * fs, 6);

@@ -49,8 +49,9 @@ public class OriginLinksTests
         var xaml = File.ReadAllText(Path.Combine(app, "MainWindow.xaml"));
         Assert.Matches("x:Name=\"WebsiteButton\" Click=\"WebsiteButton_Click\"", xaml);
         Assert.Matches("x:Name=\"StoreButton\" Click=\"StoreButton_Click\"", xaml);
-        // The Store lives in the top bar now, not under Play.
-        Assert.DoesNotContain("StoreButton", home);
+        // The Store lives in the top bar (Will, 2026-10-25), not on Home.
+        Assert.DoesNotContain("StoreCard", home);
+        Assert.DoesNotContain("OriginLinks.Store", home);
         Assert.DoesNotContain("new Uri(\"https://originclient.org", main);
     }
 

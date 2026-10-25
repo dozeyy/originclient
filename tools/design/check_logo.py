@@ -51,6 +51,7 @@ VENDOR_MIN = re.compile(r"(?:^|/)vendor/[^/]+\.min\.js$")
 # are allowed; retiring the field is a separate in-game unit.
 INGAME_RING_FIELD = re.compile(r"^src/mods/(?:shared|versions/[^/]+|staged/[^/]+)/.*/textures/ui/(?:ring-[0-3]\.png|rings\.json)$")
 
+
 CODE_EXT = {".xaml", ".cs", ".java", ".kt", ".js", ".mjs", ".ts", ".html", ".htm", ".css", ".svg", ".py", ".json", ".glsl"}
 IMAGE_EXT = {".png", ".ico", ".svg", ".jpg", ".jpeg", ".webp"}
 

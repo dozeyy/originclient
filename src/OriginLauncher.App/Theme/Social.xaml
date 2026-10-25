@@ -229,7 +229,7 @@
                 <ControlTemplate TargetType="ToggleButton">
                     <!-- A capsule chip (radius = height / 2, ui:Capsule), like every chip. -->
                     <Border x:Name="Bd" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.SoftStroke}"
-                            BorderThickness="1" CornerRadius="{StaticResource Radius.Full}" ui:Capsule.On="True"
+                            BorderThickness="1" ui:Capsule.On="True"
                             Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}"

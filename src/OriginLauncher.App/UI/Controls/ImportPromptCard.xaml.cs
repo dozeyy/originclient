@@ -91,8 +91,8 @@ public partial class ImportPromptCard : UserControl
             Width = 28,
             Height = 28,
             Margin = new Thickness(0, 0, 10, 0),
-            // A round well inside the capsule chip, concentric with its ends.
-            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Full"),
+            // A round well inside the capsule chip, concentric with its ends (half its 28 side: a circle).
+            CornerRadius = new CornerRadius(14),
             Background = (Brush)Application.Current.FindResource("Brush.Bg"),
             Child = logo != null
                 ? new Image { Source = logo, Width = 18, Height = 18 }
@@ -134,7 +134,6 @@ public partial class ImportPromptCard : UserControl
         {
             Padding = new Thickness(6, 6, 14, 6),
             Margin = new Thickness(0, 0, 8, 8),
-            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Full"),
             Background = (Brush)Application.Current.FindResource("Brush.Card"),
             BorderBrush = (Brush)Application.Current.FindResource("Brush.SoftStroke"),
             BorderThickness = new Thickness(1),

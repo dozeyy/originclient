@@ -9,14 +9,14 @@ using System.Windows.Threading;
 namespace OriginLauncher.App.UI.Controls;
 
 /// <summary>
-/// The Poster backdrop behind every page: the version family's art in greyscale,
-/// darkened by the bottom scrim, with the giant version numeral (VersionNumeral) in front of it.
+/// The backdrop behind every page: the version family's art in full colour (Will's approved Workbench Home:
+/// no greyscale), darkened only by one soft shade that starts 40 % of the way down, with the giant version numeral
+/// (VersionNumeral) in front of it.
 ///
-/// Layers (back to front): two grey art layers (the family crossfade swaps
-/// between them), a colour layer (the launch bloom), the bottom scrim (7:1 text
-/// over art), the numeral, and the page dim (every page but Home). There is
-/// no top scrim: the top bar is its own surface (MainWindow BarGlass / BarSurface),
-/// so the art runs full strength right up under it (DESIGN-SYSTEM 12).
+/// Layers (back to front): two colour art layers (the family crossfade swaps between them), the shade
+/// (Fill.ArtShade, 7:1 text over art at the bottom row), the numeral with its orbit thread, and the page dim
+/// (every page but Home). There is no top scrim: the top bar is its own surface (MainWindow BarGlass /
+/// BarSurface), so the art runs full strength right up under it (DESIGN-SYSTEM 12).
 ///
 /// Art is decoded off the UI thread, frozen, and picked by the window's physical
 /// width with room for the 1.19x peak scale (1280 / 2560 / 3840 wide, see TierFor).
@@ -53,6 +53,8 @@ public sealed class ArtStage : Grid
     internal (Rect? Ink, double BandTop, double BandBottom) NumeralGeometry =>
         (_numeral.InkRect, _numeral.CurrentBand.Top, _numeral.CurrentBand.Bottom);
 
+    /// <summary>The orbit thread's capsule size, for the render tour's measurements.</summary>
+
     /// <summary>Show <paramref name="version"/>'s family now, or as soon as the stage exists.</summary>
     public static void Request(string? version, bool animate)
     {
@@ -69,8 +71,7 @@ public sealed class ArtStage : Grid
     private readonly ScaleTransform _launchZoom = new();
     private readonly TranslateTransform _drift = new();
     private readonly ScaleTransform _driftScale = new(1.05, 1.05);
-    private readonly Layer[] _grey = [new(), new()];
-    private readonly Layer _colour = new();
+    private readonly Layer[] _art = [new(), new()];
     private int _front;
     private readonly VersionNumeral _numeral = new();
     private readonly Border _dim;
@@ -99,20 +100,15 @@ public sealed class ArtStage : Grid
         Background = (Brush)Application.Current.FindResource("Brush.Bg");
 
         _stage.RenderTransform = new TransformGroup { Children = { _driftScale, _drift, _launchZoom } };
-        _colour.Image.Opacity = 0;
-        _grey[1].Image.Opacity = 0;
-        _stage.Children.Add(_grey[0].Image);
-        _stage.Children.Add(_grey[1].Image);
-        _stage.Children.Add(_colour.Image);
+        _art[1].Image.Opacity = 0;
+        _stage.Children.Add(_art[0].Image);
+        _stage.Children.Add(_art[1].Image);
         Children.Add(_stage);
 
-        Children.Add(new Border
-        {
-            Height = 330, VerticalAlignment = VerticalAlignment.Bottom,
-            Background = (Brush)Application.Current.FindResource("Brush.ScrimBottom"),
-        });
-        // The numeral sits ABOVE the scrim: on a short window the scrim reaches up into the figures, and a gradient
-        // across them would tint the neutral ink (the scrim's job is the strip's text, not the numeral).
+        // The one darkening: clear down to 40 %, then up to the strong end at the bottom edge (Fill.ArtShade). Full
+        // height, so it follows the window instead of a fixed 330 px that crept into the numeral on a short one.
+        Children.Add(new Border { Background = (Brush)Application.Current.FindResource("Fill.ArtShade") });
+        // The numeral sits ABOVE the shade, which is clear where the figures stand.
         Children.Add(_numeral);
         if (!double.IsNaN(_stripTop)) _numeral.SetBand(_stripTop);
         _dim = new Border { Background = (Brush)Application.Current.FindResource("Brush.PageDim"), Opacity = 0 };
@@ -141,18 +137,17 @@ public sealed class ArtStage : Grid
         _artKey = key;
         if (first || !animate || Motion.Off)
         {
-            Load(_grey[_front].Image, key, "g", fadeIn: first && !Motion.Off);
-            Load(_colour.Image, key, "c", fadeIn: false);
+            Load(_art[_front].Image, key, "c", fadeIn: first && !Motion.Off);
             return;
         }
 
         // Old layer drifts left and fades; the new one slides in from the right, settling from 1.06.
-        var old = _grey[_front];
+        var old = _art[_front];
         _front = 1 - _front;
-        var next = _grey[_front];
+        var next = _art[_front];
         Panel.SetZIndex(old.Image, 0);
         Panel.SetZIndex(next.Image, 1);
-        Load(next.Image, key, "g", fadeIn: false, then: () =>
+        Load(next.Image, key, "c", fadeIn: false, then: () =>
         {
             next.Image.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 700));
             next.Shift.BeginAnimation(TranslateTransform.XProperty, Motion.FromTo(48, 0, 700));
@@ -161,7 +156,6 @@ public sealed class ArtStage : Grid
             old.Image.BeginAnimation(OpacityProperty, Motion.FromTo(1, 0, 560));
             old.Shift.BeginAnimation(TranslateTransform.XProperty, Motion.FromTo(0, -48, 560));
         });
-        Load(_colour.Image, key, "c", fadeIn: false);
     }
 
     /// <summary>Home shows the numeral and clear art; every other page dims both.</summary>
@@ -173,10 +167,9 @@ public sealed class ArtStage : Grid
         _numeral.BeginAnimation(OpacityProperty, Motion.To(home ? 1 : 0, 260));
     }
 
-    /// <summary>The launch bloom: the art fades to colour (900 ms) and slowly pushes in to 1.08 (12 s).</summary>
+    /// <summary>The launch push-in: the art slowly zooms to 1.08 (12 s) as the numeral fades; it is already in colour.</summary>
     public void BeginLaunch()
     {
-        _colour.Image.BeginAnimation(OpacityProperty, Motion.To(1, 900));
         _numeral.BeginAnimation(OpacityProperty, Motion.To(0, 260));
         var zoom = new DoubleAnimation(1.08, Motion.Ms(12000));
         _launchZoom.BeginAnimation(ScaleTransform.ScaleXProperty, zoom);
@@ -185,7 +178,6 @@ public sealed class ArtStage : Grid
 
     public void EndLaunch()
     {
-        _colour.Image.BeginAnimation(OpacityProperty, Motion.To(0, 420));
         if (_home) _numeral.BeginAnimation(OpacityProperty, Motion.To(1, 420));
         _launchZoom.BeginAnimation(ScaleTransform.ScaleXProperty, Motion.To(1, 600));
         _launchZoom.BeginAnimation(ScaleTransform.ScaleYProperty, Motion.To(1, 600));
@@ -245,15 +237,15 @@ public sealed class ArtStage : Grid
         if (_tier != 0) Cache.Clear();   // other tiers' frames are dead weight now (shown layers keep their own)
         _tier = tier;
         if (_artKey == null) return;
-        Load(_grey[_front].Image, _artKey, "g", fadeIn: false);
-        Load(_colour.Image, _artKey, "c", fadeIn: false);
+        Load(_art[_front].Image, _artKey, "c", fadeIn: false);
     }
 
-    // Decoded art by file name, least recently used out first. Six frames = the current family's grey and
-    // colour layers plus those of the two families the arrow keys step to, so stepping and the crossfade
-    // never wait on a decode; at 3840 that is a few hundred MB at most, at 1280 about 20 MB. A layer on
+    // Decoded art by file name, least recently used out first. Three frames = the current family plus the two
+    // families the arrow keys step to, so stepping and the crossfade never wait on a decode (six held both the
+    // grey and colour layers before Home went colour only); at 3840 that is a few hundred MB at most, at 1280
+    // about 20 MB. A layer on
     // screen holds its own reference, so eviction never blanks it.
-    private const int CacheFrames = 6;
+    private const int CacheFrames = 3;
     private static readonly Dictionary<string, (BitmapSource Bmp, long Stamp)> Cache = new();
     private static long _stamp;
 

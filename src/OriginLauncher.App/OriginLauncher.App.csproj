@@ -24,12 +24,12 @@
 
   <ItemGroup>
     <Resource Include="Assets\origin.ico" />
-    <!-- Poster art (Assets/SOURCES.md): per version family, a greyscale home layer
-         (g1280/g2560/g3840), a colour bloom layer for launch (c1280/c2560/c3840) and picker
-         thumbs (tg grey, tc colour). ArtStage picks the tier by the window's pixel width and
-         falls back to a lower tier if a file is absent. Rebuilt by tools/launcher-art/build_art.py;
-         the glob picks up any tier that file writes. -->
-    <Resource Include="Assets\Art\*.jpg" />
+    <!-- Home art (Assets/SOURCES.md): per version family, the full-colour layer (c1280/c2560/c3840) that Home shows
+         at rest and under the launch screen, and picker thumbs (tg grey, tc colour). ArtStage picks the tier by the
+         window's pixel width and falls back to a lower tier if a file is absent. Rebuilt by
+         tools/launcher-art/build_art.py; the glob picks up any tier that file writes. The greyscale home layers
+         (g1280/g2560/g3840) are not embedded any more: Home is colour (Workbench), nothing reads them. -->
+    <Resource Include="Assets\Art\*.jpg" Exclude="Assets\Art\*-g1280.jpg;Assets\Art\*-g2560.jpg;Assets\Art\*-g3840.jpg" />
     <!-- Other launchers' logos for the import screens, and the Origin wordmark. -->
     <Resource Include="Assets\Logos\*.png" />
     <Resource Include="Assets\Brand\*.png" />

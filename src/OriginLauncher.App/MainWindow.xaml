@@ -132,9 +132,9 @@
                                        Foreground="{StaticResource Brush.Warning}"/>
                         </StackPanel>
                     </Button>
-                    <!-- Store: first in the group, a normal ghost control (DESIGN-SYSTEM 11.7): gold bag, "Store", and the
-                         hover arrow after it (it opens the browser). Opens OriginLinks.Store. Under the fit rule the label
-                         and arrow go and it is the bag alone (accessible name below). -->
+                    <!-- Store: first in the group, a ghost control (DESIGN-SYSTEM 11.4): gold bag, "Store", and the hover
+                         arrow after it (it opens the browser). Opens OriginLinks.Store. Under the fit rule the label and arrow
+                         go and it is the bag alone (accessible name below). -->
                     <Button x:Name="StoreButton" Click="StoreButton_Click"
                             Style="{StaticResource Button.Chrome}"
                             Padding="8" Margin="0,0,4,0" MinHeight="{StaticResource Size.ControlMd}"
