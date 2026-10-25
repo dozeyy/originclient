@@ -174,3 +174,4 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 
 ## 2026-10-25 — Website assistant Anthropic key disabled
 - Will disabled the origin-assistant-api Worker's Anthropic API key in the Claude Console (2026-10-25). Closes the archive note at line 5552. The Cloudflare Worker itself may still exist (not checked).
+- Will deleted the Cloudflare Worker too (2026-10-25). Website assistant fully gone.
