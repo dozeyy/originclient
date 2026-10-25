@@ -668,6 +668,9 @@ public partial class ProfilesPage : UserControl
         // The letter tile shows the letter the card would get.
         if (IconRow.Children.Count > 0 && ((Button)IconRow.Children[0]).Content is Border { Child: TextBlock letter })
             letter.Text = initial;
+        // The colour swatches preview the current emblem (icon or letter) in each colour.
+        foreach (Button swatch in TintRow.Children)
+            ((Border)swatch.Content).Child = SwatchFace((string)swatch.Tag);
     }
 
     // The emblem row: the first letter, then one tile per icon; the picked one wears
@@ -752,13 +755,30 @@ public partial class ProfilesPage : UserControl
                     BorderThickness = new Thickness(2),
                     BorderBrush = Brushes.Transparent,
                     // The hue lives in the glyph as well as the tile, so the six read as six colours and not as greys.
-                    Child = ProfileLook.EmblemGlyph("Star", ProfileLook.InkBrush(name)),
+                    Child = SwatchFace(name),
                 },
             };
             System.Windows.Automation.AutomationProperties.SetName(swatch, $"Colour {name}");
             swatch.Click += (_, _) => PickTint(name);
             TintRow.Children.Add(swatch);
         }
+    }
+
+    // What a colour swatch draws: the emblem the profile currently has (the picked icon, else its first letter)
+    // in that colour's ink, so the swatch previews the real result.
+    private UIElement SwatchFace(string tint)
+    {
+        var ink = ProfileLook.InkBrush(tint);
+        if (ProfileLook.EmblemGlyph(_formIcon, ink) is { } glyph) return glyph;
+        return new TextBlock
+        {
+            Text = ProfileLook.Initial(NameBox.Text),
+            Style = (Style)FindResource("Text.Body"),
+            FontWeight = FontWeights.Bold,
+            Foreground = ink,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
     }
 
     private void PickTint(string name)
