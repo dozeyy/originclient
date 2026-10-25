@@ -186,6 +186,7 @@ Where hue may appear:
   rows): a 28 x 28 tile, `radius.sm`, filled with the hue at 16 %, glyph at 100 %
   (glyph-on-tile contrast 5.1-7.2).
 - **Dots, badges, progress fills.**
+- **The update chip** (11.4): its fill is the hue at 12 % (20 % on hover), glyph and label at 100 %.
 
 Never on large fills, on a numeral on art, on body text, or as a box around a navigation or
 dock icon (Will: "remove the unnecessary boxes").
@@ -489,9 +490,11 @@ number stands on the picture's ground, in its darkest corner, at a size taken fr
   Measured at font 254: 26.3 is 522 px (44 % of 1180), the longest key 1.21.10 is 748 (63 %), so
   nothing shrinks at the default window.
 - **Figures:** `type.numeral`: Inter 800, natural width (no horizontal squash), proportional
-  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow. Shadow
-  `0 1 2` black at 40 % (WPF `DropShadowEffect` depth 1, blur 2, opacity .4) for legibility
-  on bright art; the preview renders the same.
+  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow. A 1 px
+  legibility shadow on bright art, drawn, never an effect: `ArtStage.OnRender` draws the same
+  `FormattedText` once at +1 px y in black at 40 %, then the white text on top. No
+  `DropShadowEffect` (section 7: no effects on animating elements, and the numeral crossfades,
+  section 13). The preview's CSS `text-shadow` stands in for this OnRender pass.
 - **Eyebrow:** the update name in `type.label` caps, `color.onArt`, above the figures' cap line
   by max(8, figures x 0.08), same left edge (Home: `type.labelLg`, 15 gap).
 - **Range** (cards only): "1.21 - 1.21.11" in `caption` `color.onArt`, 12 after the figures, on
