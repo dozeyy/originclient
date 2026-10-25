@@ -50,16 +50,14 @@ public final class OriginAssets {
 			UI + "button_fill.png", UI + "button_border.png", UI + "switch_track.png", UI + "switch_knob.png",
 			UI + "radial_glow.png", com.origin.client.client.gui.OriginUi.LOGO_PATH, UI + "star.png",
 			FONT + "inter_msdf.png", FONT + "inter_msdf_bold.png",
-			// The menu backdrop's rings, grain and vignette: last, since the loading
+			// The menu backdrop's grain and vignette: last, since the loading
 			// picture doesn't need them. They used to be decoded on the render thread
 			// inside the first loading frame (B-30); now only their upload is left,
 			// and that runs as the final uploadSlice step.
-			UI + "ring-0.png", UI + "ring-1.png", UI + "ring-2.png", UI + "ring-3.png",
 			UI + "grain.png", UI + "vignette.png",
 	};
 	private static final String[] JSONS = {
 			UI + "mod_icons.json", UI + "buttons.json", FONT + "inter_msdf.json", FONT + "inter_msdf_bold.json",
-			UI + "rings.json",
 	};
 
 	private static final Map<String, Slot<NativeImage>> images = new ConcurrentHashMap<>();
@@ -215,7 +213,7 @@ public final class OriginAssets {
 				com.origin.client.client.gui.OriginSdfFont.preload();
 				return true;
 			},
-			// Last: the menu rings, grain and vignette (the startup loading picture
+			// Last: the menu grain and vignette (the startup loading picture
 			// itself doesn't use them), uploaded before the title needs them.
 			() -> {
 				com.origin.client.client.render.OriginScreenRenderer.preloadMenuArt();

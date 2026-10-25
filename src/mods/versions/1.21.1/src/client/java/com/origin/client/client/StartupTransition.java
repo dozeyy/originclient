@@ -67,11 +67,11 @@ public final class StartupTransition {
 	}
 
 	/**
-	 * The hand-off's clock in ms (never 0): RingField's scene clock, which glides
+	 * The hand-off's clock in ms (never 0): SceneClock's scene clock, which glides
 	 * through uneven frames and drops a freeze instead of jumping past it.
 	 */
 	public static long clockMs() {
-		return 1L + (long) com.origin.client.client.render.RingField.sceneMs();
+		return 1L + (long) com.origin.client.client.render.SceneClock.sceneMs();
 	}
 
 	/**

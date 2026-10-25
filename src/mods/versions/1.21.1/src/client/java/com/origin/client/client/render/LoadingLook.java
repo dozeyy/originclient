@@ -17,24 +17,23 @@ import com.origin.client.client.theme.OriginTheme;
  *   the official logo     72 design px box, centred at 44 % of the height on EVERY loading
  *                         screen (Connecting included: its Cancel button moves, the logo
  *                         never does, so the logo carries across the screens)
- *   the orbit             the title's three faint pills around it (OrbitHairlines); the 120 deg
- *                         one carries the progress: an emerald stroke fills along its path with
- *                         the real fraction (OrbitProgress), or a segment travels it with no measure
- *   14 below the orbit    the caption: Inter at TITLE_SMALL_EM (the same size as Connecting's
+ *   24 below the logo     the progress bar: 200 design px wide, 2 GUI px tall, capsule ends,
+ *                         an emerald fill over a 1 GUI px hairline track with the real fraction,
+ *                         or a segment sliding along it when there is no measure (Connecting)
+ *   12 below the bar      the caption: Inter at TITLE_SMALL_EM (the same size as Connecting's
  *                         Cancel label), textMuted, the real stage name (+ a percentage only
  *                         where Minecraft reports one)
  * </pre>
  *
- * <p>The straight rail of the first Workbench pass is only a fallback now: it is drawn under the
- * orbit when the ring has latched off (OrbitProgress.failed).
+ * <p>No rings, orbits or pills: the only ring shapes on these screens are inside origin_logo.png
+ * itself, never redrawn around it (Will, 2026-10-25: drawn look-alikes read as a fake logo).
  *
  * "Design px" are physical pixels at 1080p, scaled by window height / 1080 (never below
  * 0.75), so the picture looks the same at any resolution or GUI scale. Everything is drawn
- * in whole physical pixels (the pose is scaled back to 1 GUI unit = 1 pixel), so the rail
+ * in whole physical pixels (the pose is scaled back to 1 GUI unit = 1 pixel), so the bar
  * is crisp at every GUI scale.
  *
- * <p>Cost: one fill, one cached orbit-buffer draw, one logo blit, one progress-stroke batch (cached
- * geometry, quads only), one caption line. No shader, no blur,
+ * <p>Cost: one fill, one logo blit, a few bar fills, one caption line. No shader, no blur,
  * no texture beyond the logo (baked once per size by OriginScreenRenderer.drawLogo) and, for
  * the startup caption only, the boot font. Nothing is allocated per frame: the geometry lives
  * in static fields (render thread only) and the caption strings are cached by their callers.
@@ -46,39 +45,27 @@ import com.origin.client.client.theme.OriginTheme;
  */
 final class LoadingLook {
 	// Colours: OriginTheme's loading tokens (DESIGN-SYSTEM 17.3), never copied here:
-	// CLEAN_BG (color.bg), LOADING_ORBIT (the pills / the ring's track), CLEAN_BAR_FILL (the
-	// emerald progress, #5FD09B), CLEAN_BAR_TRACK (fallback rail track), TITLE_TEXT_MUTED (caption).
+	// CLEAN_BG (color.bg), CLEAN_BAR_FILL (the emerald progress, #5FD09B), CLEAN_BAR_TRACK (the
+	// hairline track), TITLE_TEXT_MUTED (caption).
 
 	/** Logo box, design px. */
 	private static final double LOGO = 72.0;
 	/** Logo centre, share of the window height: the same on every loading screen. */
 	static final double LOGO_AT = 0.44;
-	private static final double RAIL_W = 200.0;
-	/** Fallback rail only: 2 GUI px tall over a 1 GUI px hairline track. */
-	private static final int RAIL_GUI = 2, TRACK_GUI = 1;
-	// The title's three-pill orbit (0 / 60 / 120 deg), scaled around the logo: long half-extent ORBIT_A x the
-	// logo box, short half-extent (= the pill ends' radius) in the title's 0.171 / 0.476 proportion.
-	private static final double ORBIT_A = 1.5, ORBIT_SHORT = 0.171 / 0.476;
-	/** How far the pills reach below their centre, per unit of long half-extent: the 60 / 120 deg pills reach
-	 *  furthest, (a - b) sin 60 + b = a ((1 - s) sin 60 + s). */
-	private static final double ORBIT_REACH = (1.0 - ORBIT_SHORT) * Math.sin(Math.toRadians(60.0)) + ORBIT_SHORT;
-	private static final OrbitHairlines ORBIT = new OrbitHairlines(3, 0.0);
-	/** The progress ring: the 120 deg pill (lower left to upper right, A-Workbench-3), its stroke 2.5 design px. */
-	private static final double PROGRESS_TILT = 120.0, PROGRESS_W = 2.5;
-	private static final OrbitProgress PROGRESS = new OrbitProgress();
-	/** Orbit bottom to the caption's line box, design px. */
-	private static final double GAP_CAPTION = 14.0;
+	/** Bar width and the gaps logo bottom -> bar and bar -> caption, design px (DESIGN-SYSTEM 15.3). */
+	private static final double BAR_W = 200.0, GAP_BAR = 24.0, GAP_CAPTION = 12.0;
+	/** The bar: 2 GUI px tall (capsule ends, radius h/2) over a 1 GUI px hairline track. */
+	private static final int BAR_GUI = 2, TRACK_GUI = 1;
 	/** The caption's line box, GUI px (an 8 GUI px em in a 10 px line, like a vanilla text line). */
 	private static final double CAPTION_LINE_GUI = 10.0;
 	/** Inter's cap height per em (what the boot-font caption matches before Inter exists). */
 	private static final double INTER_CAP_PER_EM = 0.727;
-	/** No measure: the stroke breathes from the fill's own start (0 = the pill's top) between these shares of the
-	 *  loop, one breath per 1.6 s, so Connecting and world loading show one progress element on one path. */
-	private static final double SWEEP_MIN = 0.06, SWEEP_MAX = 0.30, SWEEP_MS = 1600.0;
+	/** No measure: one slide of the segment across the bar, and the segment's share of the bar. */
+	private static final double SWEEP_MS = 1600.0, SWEEP_SEG = 0.26;
 
 	// The frame's geometry, in physical pixels (computed by layout()).
-	private static int gs, physW, physH;
-	private static double k, logoBox, logoCy, orbitA, orbitBottom, captionMid;
+	private static int gs, physW, barTop;
+	private static double k, logoBox, logoCy, captionMid;
 
 	private LoadingLook() {
 	}
@@ -94,8 +81,8 @@ final class LoadingLook {
 	static double belowCentreGui() {
 		Minecraft mc = Minecraft.getInstance();
 		double g = Math.max(1, Math.round(mc.getWindow().getGuiScale()));
-		double box = Math.round(LOGO * scale());
-		return (box * ORBIT_A * ORBIT_REACH + GAP_CAPTION * scale()) / g + CAPTION_LINE_GUI;
+		double s = scale(), box = Math.round(LOGO * s);
+		return (box / 2.0 + (GAP_BAR + GAP_CAPTION) * s) / g + BAR_GUI + CAPTION_LINE_GUI;
 	}
 
 	/** The logo centre's height, GUI px, on every loading screen at this window size (what draw() uses). */
@@ -108,13 +95,11 @@ final class LoadingLook {
 		Minecraft mc = Minecraft.getInstance();
 		gs = Math.max(1, (int) Math.round(mc.getWindow().getGuiScale()));
 		physW = mc.getWindow().getWidth();
-		physH = mc.getWindow().getHeight();
 		k = scale();
 		logoBox = Math.round(LOGO * k);
 		logoCy = cyPhys;
-		orbitA = logoBox * ORBIT_A;
-		orbitBottom = logoCy + orbitA * ORBIT_REACH;
-		captionMid = orbitBottom + GAP_CAPTION * k + CAPTION_LINE_GUI * gs / 2.0;
+		barTop = (int) Math.round(logoCy + logoBox / 2.0 + GAP_BAR * k);
+		captionMid = barTop + BAR_GUI * gs + GAP_CAPTION * k + CAPTION_LINE_GUI * gs / 2.0;
 	}
 
 	/**
@@ -122,7 +107,7 @@ final class LoadingLook {
 	 *
 	 * @param layer    whole-picture opacity 0..1 (the loading -> title dissolve; 1 elsewhere)
 	 * @param cyFrac   logo centre as a share of the window height (LOGO_AT, or higher to clear a button)
-	 * @param fill     rail fill 0..1, or a negative number for the sweep (no real measure)
+	 * @param fill     bar fill 0..1, or a negative number for the sweep (no real measure)
 	 * @param caption  the stage line, "" for none
 	 * @param boot     draw the caption in the boot font (the startup load) instead of Inter
 	 */
@@ -143,14 +128,6 @@ final class LoadingLook {
 		// The backdrop is flat color.bg, the same colour as the launcher's launch cover.
 		g.fill(0, 0, gw, gh, fade(OriginTheme.CLEAN_BG, layer));
 
-		// The faint orbit pills behind the logo (A-Workbench-3), the title's rings' siblings. They stay
-		// through the loading -> title hand-off (logo false) and fade with the layer.
-		double aGui = orbitA / gs;
-		if (aGui > 1.0) {
-			ORBIT.draw(g, (float) logoCxGui(), (float) logoCyGui(), (float) aGui, (float) (aGui * ORBIT_SHORT),
-					OriginTheme.LOADING_ORBIT, layer);
-		}
-
 		// The official logo, through the one drawing path (origin_logo.png at LOGO_PATH).
 		if (logo) {
 			long t0 = com.origin.client.client.OriginFrameLog.partStart();
@@ -158,12 +135,9 @@ final class LoadingLook {
 			com.origin.client.client.OriginFrameLog.part("o:logo", t0);
 		}
 
-		// The progress (the emerald stroke on the 120 deg pill; the straight rail only if the ring latched
-		// off) and the caption.
+		// The progress bar, then the caption.
 		long t0 = com.origin.client.client.OriginFrameLog.partStart();
-		if (!ring(g, layer, fill)) {
-			rail(g, layer, fill);
-		}
+		bar(g, layer, fill);
 		com.origin.client.client.OriginFrameLog.part("o:rail", t0);
 		if (caption != null && !caption.isEmpty()) {
 			t0 = com.origin.client.client.OriginFrameLog.partStart();
@@ -190,33 +164,12 @@ final class LoadingLook {
 		return (int) Math.round(LOGO * scale());
 	}
 
-	// ---- the progress ring ----
+	// ---- the progress bar ----
 
-	/** The emerald stroke along the progress pill: the real fill, or a travelling segment for none. */
-	private static boolean ring(GuiGraphics g, float layer, double fill) {
-		if (PROGRESS.failed() || orbitA / gs <= 1.0) {
-			return false;
-		}
-		double from, to;
-		if (fill < 0) {
-			double t = (RingField.sceneMs() % SWEEP_MS) / SWEEP_MS;
-			from = 0.0;
-			to = SWEEP_MIN + (SWEEP_MAX - SWEEP_MIN) * (0.5 - 0.5 * Math.cos(2.0 * Math.PI * t));
-		} else {
-			from = 0.0;
-			to = Math.max(0.0, Math.min(1.0, fill));
-		}
-		float width = (float) Math.max(2.0, PROGRESS_W * k);
-		return PROGRESS.draw(g, gs, physW / 2.0, logoCy, orbitA, orbitA * ORBIT_SHORT, PROGRESS_TILT,
-				from, to, width, fade(OriginTheme.CLEAN_BAR_FILL, layer));
-	}
-
-	// ---- the fallback rail (only when the ring latched off) ----
-
-	private static void rail(GuiGraphics g, float layer, double fill) {
-		int w = (int) Math.round(RAIL_W * k), h = RAIL_GUI * gs;
+	private static void bar(GuiGraphics g, float layer, double fill) {
+		int w = (int) Math.round(BAR_W * k), h = BAR_GUI * gs;
 		int x = (int) Math.round((physW - w) / 2.0);
-		int y = (int) Math.round(orbitBottom + (GAP_CAPTION * k - h) / 2.0);
+		int y = barTop;
 		PoseStack pose = g.pose();
 		pose.pushPose();
 		pose.scale(1f / gs, 1f / gs, 1f);
@@ -226,9 +179,9 @@ final class LoadingLook {
 		int fillArgb = fade(OriginTheme.CLEAN_BAR_FILL, layer);
 		if (fill < 0) {
 			// Indeterminate: a segment slides across (never a made-up percentage).
-			double t = (RingField.sceneMs() % SWEEP_MS) / SWEEP_MS;
+			double t = (SceneClock.sceneMs() % SWEEP_MS) / SWEEP_MS;
 			double eased = t * t * (3.0 - 2.0 * t);
-			double seg = w * 0.26;   // fallback rail only: a quarter-width segment
+			double seg = w * SWEEP_SEG;
 			double from = -seg + eased * (w + seg);
 			int a = (int) Math.round(Math.max(0, from)), b = (int) Math.round(Math.min(w, from + seg));
 			pill(g, x + a, y, b - a, h, fillArgb);

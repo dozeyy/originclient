@@ -54,7 +54,7 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19): the title with one button held in
 		// its hover state, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
 		TITLE_HOVER, TITLE_HOVER_BTN, TITLE_PRESS, TITLE_FOCUS, CONTROLS, LEVEL_LOADING, CONNECTING,
-		// The world-loading screen half way: the progress ring's real fill (design set only).
+		// The world-loading screen half way: the progress bar's real fill (design set only).
 		LEVEL_LOADING_MID,
 		// ...and, LAST in the clean set because they create a world: the Create World screen (a fresh game dir
 		// has no saves, so Singleplayer goes straight there), the pause menu inside that new world, then the
