@@ -31,6 +31,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />
     <!-- Recommended-for-this-PC preset: tier picking + the era-aware options.txt write (HardwareProbe is registry glue and stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Performance\PerformancePreset.cs" LinkBase="Performance" />
+    <!-- The 1.8.9 performance presets (Competitive / Balanced / Quality): the bundle table, previewing, applying
+         and undoing them on options.txt, optionsof.txt and Origin's config (pure; temp folders in the tests). -->
+    <Compile Include="..\OriginLauncher.App\Core\Presets\*.cs" LinkBase="Presets" />
     <!-- Player heads: skin -> face + hat, default heads, cache key, Mojang profile parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Skins\SkinFace.cs" LinkBase="Skins" />
     <!-- Only the top folder: Core/Social/Launcher is the WPF/account glue. -->

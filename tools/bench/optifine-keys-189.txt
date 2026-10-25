@@ -1,0 +1,83 @@
+# OptiFine HD_U_M5 (1.8.9) optionsof.txt keys, VERIFIED (U6.0, Phase 6).
+#
+# Source: a fresh production-like boot (Forge 11.15.1.2318 + OptiFine HD_U_M5, jar SHA-1 d362d58a28f5373b141b9e426e8e160638bfafcd)
+# that called GameSettings.saveOptions(), in the bench-189 CI workflow (run 40182245060, 2 variants x 2 runs).
+# All 4 written optionsof.txt files have exactly this key list, in this order. Format: key:value, the value being
+# what a FRESH install wrote (defaults on that run; some, like render distance, can depend on the machine).
+# Cross-check: GameSettings declares 72 fields named of<Upper>* (reflection dump of-fields.txt). 71 of them are the
+# keys of the same name below; the 72nd, ofKeyBindZoom, is saved as key_of.key.zoom (the zoom key binding).
+# javap on the OptiFine jar cannot list them: the jar holds patches, not GameSettings.class (javap: class not found).
+# Presets (Phase 6.2) may only write keys listed here; tools/bench/prod189.py apply_preset refuses anything else.
+#
+ofFogType:1
+ofFogStart:0.8
+ofMipmapType:0
+ofOcclusionFancy:false
+ofSmoothFps:false
+ofSmoothWorld:true
+ofAoLevel:1.0
+ofClouds:0
+ofCloudsHeight:0.0
+ofTrees:0
+ofDroppedItems:0
+ofRain:0
+ofAnimatedWater:0
+ofAnimatedLava:0
+ofAnimatedFire:true
+ofAnimatedPortal:true
+ofAnimatedRedstone:true
+ofAnimatedExplosion:true
+ofAnimatedFlame:true
+ofAnimatedSmoke:true
+ofVoidParticles:true
+ofWaterParticles:true
+ofPortalParticles:true
+ofPotionParticles:true
+ofFireworkParticles:true
+ofDrippingWaterLava:true
+ofAnimatedTerrain:true
+ofAnimatedTextures:true
+ofRainSplash:true
+ofLagometer:false
+ofShowFps:false
+ofAutoSaveTicks:4000
+ofBetterGrass:3
+ofConnectedTextures:2
+ofWeather:true
+ofSky:true
+ofStars:true
+ofSunMoon:true
+ofVignette:0
+ofChunkUpdates:1
+ofChunkUpdatesDynamic:false
+ofTime:0
+ofClearWater:false
+ofAaLevel:0
+ofAfLevel:1
+ofProfiler:false
+ofBetterSnow:false
+ofSwampColors:true
+ofRandomEntities:true
+ofSmoothBiomes:true
+ofCustomFonts:true
+ofCustomColors:true
+ofCustomItems:true
+ofCustomSky:true
+ofShowCapes:true
+ofNaturalTextures:false
+ofEmissiveTextures:true
+ofLazyChunkLoading:true
+ofRenderRegions:false
+ofSmartAnimations:false
+ofDynamicFov:true
+ofAlternateBlocks:true
+ofDynamicLights:3
+ofScreenshotSize:1
+ofCustomEntityModels:true
+ofCustomGuis:true
+ofShowGlErrors:true
+ofFullscreenMode:Default
+ofFastMath:false
+ofFastRender:false
+ofTranslucentBlocks:0
+key_of.key.zoom:46
