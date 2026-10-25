@@ -5550,3 +5550,9 @@ Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible f
 - v1.0.64 (2026-10-20): Recommended-for-this-PC video preset (Low/Balanced/High); faster launcher startup; background warm-up of the picked version's files before Play; in-game smoothness (unfocused background mode, cheaper menus); EntityCulling and FerriteCore speed mods added.
 - v1.0.65 (2026-10-20): Redrawn colour pixel dock icons on the main menu; mod-menu icons back to monochrome vector; globe icon cleaned up.
 - The website AI assistant (Cloudflare Worker origin-assistant-api + assistant page) existed from about v1.0.62-65; removed from the site 2026-10-25 (see Website entry). Will still has to delete the Worker and revoke its Anthropic key himself.
+
+## 2026-10-25 - Sodium/Iris per-profile pin spike (docs/overhaul/spike-sodium-iris.md)
+- Origin's Sodium/Iris mixin configs are required:false + defaultRequire 0: a different Sodium/Iris never crashes through Origin's mixins, it fails SILENTLY (check "Mixin apply failed" lines; "Applied 13/13" in the CI perf log can mislead).
+- Booted clean: 1.21.11 on Sodium 0.8.0 to 0.8.15-beta.1 (all 10 Origin mixins); 1.21.1 on 0.6.0, 0.6.5 and 0.6.13 (all 13). 1.21.1 + Sodium 0.8.13/Iris 1.8.14-beta.1 loses 4 of 13 Origin mixins.
+- Fabric Loader prefers a top-level jar over a nested jar with the same id, so per-profile pins can ship as top-level jars without rebuilding Origin. Sodium and Iris must move as a PAIR (Sodium 0.6.5 + Iris 1.8.8 crashes in Iris with NoClassDefFoundError; the loader doesn't stop it).
+- Pick for 5.2: one Origin jar per MC version, Sodium+Iris pinned as one pair per profile via the A1 component store, a CI-booted allowed-pair list per module, and a fallback to Origin's own pair with a notice. docs/overhaul/spike-tools/sigcheck.py predicts boot results in seconds.
