@@ -37,6 +37,8 @@ public final class OriginUi {
 
 	/** The one reference to the official logo (a classpath path). Everything that reads the logo uses this. */
 	public static final String LOGO_PATH = "/assets/originclient/textures/ui/origin_logo.png";
+	/** The official wordmark image (byte-identical to the launcher's Assets/Brand/wordmark.png); never redrawn. */
+	public static final String WORDMARK_PATH = "/assets/originclient/textures/ui/origin_wordmark.png";
 	private static ResourceLocation trackTex, knobTex, glowTex, logoTex, starTex;
 
 	// Theme-matched toggles: familiar state language without borrowing the
@@ -136,6 +138,38 @@ public final class OriginUi {
 	 */
 	public static void bevelPanel(GuiGraphics g, int x, int y, int w, int h, int cut, int fill, int border) {
 		panel(g, x, y, w, h, cut, fill, border);
+	}
+
+	/**
+	 * {@link #panel} at the EXACT radius (GUI px, no Workbench normalisation): the title's Workbench
+	 * cards (radius 3), focus ring and tooltip panel (radius 4), which 1.21.1 draws with its rounded-box
+	 * SDF shader. Same baked physical-resolution masks as panel, so corners are anti-aliased per screen
+	 * pixel and the ring is 1 GUI px; small boxes (the 20 x 20 dock) are two blits, wide ones the corner
+	 * path. The ring is drawn OVER the fill, which composites exactly like 1.21.1's flattened edge colour.
+	 */
+	public static void panelExact(GuiGraphics g, int x, int y, int w, int h, int r, int fill, int border) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+		if (w <= MASK_MAX && h <= MASK_MAX) {
+			ResourceLocation box = boxMask(w, h, r);
+			if (box != null) {
+				int s = guiScale();
+				int pw = w * s, ph = h * s;
+				if (((fill >>> 24) & 0xFF) > 0) {
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, 0f, w, h, pw, ph, pw, ph * 2, fill);
+				}
+				if (((border >>> 24) & 0xFF) > 0) {
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, (float) ph, w, h, pw, ph, pw, ph * 2, border);
+				}
+				return;
+			}
+		}
+		roundedFill(g, x, y, w, h, r, fill);
+		if (((border >>> 24) & 0xFF) > 0) {
+			roundedStroke(g, x, y, w, h, r, border);
+		}
 	}
 
 	/**

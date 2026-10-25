@@ -94,6 +94,11 @@ public final class ModIcons {
 		drawRaw(g, id, x, y, size, argb);
 	}
 
+	/** The glyph with no shadow copy: the title's Workbench cards (1.21.1 skin 2) draw flat parchment glyphs. */
+	public static void drawFlat(GuiGraphics g, String id, int x, int y, int size, int argb) {
+		drawRaw(g, id, x, y, size, argb);
+	}
+
 	// --- Colour pixel icons (Will, 2026-10-20) -------------------------------------------
 	// tools/mod-menu/pixel_title_icons.py bakes hard-pixel RGBA art (3-4 vanilla tones + dark
 	// outline) into mod_icons_px.png: 12 px cells, drawn NEAREST at whole GUI pixels. An id found
