@@ -39,9 +39,9 @@ public enum InstallPieces
     OriginMod = 4,
 
     /// <summary>
-    /// InstallVerification holds a valid stamp for the version: a full verify passed under this launcher build
-    /// within the last week. Without it Play runs a full verify (and repairs what it finds), so the version is
-    /// not shown as Installed. It ages out after a launcher update or 7 days, so Partial can mean "verify due".
+    /// INFORMATIONAL ONLY, set in Present, never in Missing, and never part of the Partial rule: InstallVerification
+    /// holds a valid stamp (a full verify passed under this launcher build within the last week). Its absence is
+    /// <see cref="InstalledVersionInfo.VerifyDue"/>; Play re-verifies by itself, so nothing is shown for it.
     /// </summary>
     Verified = 8,
 }
@@ -52,7 +52,13 @@ public sealed record InstalledVersionInfo(
     InstallState State,
     InstallPieces Present,
     InstallPieces Missing,
-    DateTime CheckedUtc);
+    DateTime CheckedUtc,
+    bool VerifyDue = false)
+{
+    // VerifyDue: every file is there (Installed or UpdateReady) but InstallVerification has no valid stamp (a launcher
+    // update or 7 days since the last full verify), so the next Play re-verifies the install first. The state stays
+    // driven by real files only; the selector shows nothing for this.
+}
 
 /// <summary>Where a legacy (Forge) version keeps its loader: the profile id under versions/ and the universal jar under libraries/.</summary>
 public sealed record LegacyLoaderLayout(string VersionId, string LibraryRelativePath);
@@ -187,7 +193,7 @@ public sealed partial class InstalledVersions
             _cache.TryGetValue(info.Version, out previous);
             _cache[info.Version] = info;
         }
-        if (previous == null || previous.State != info.State || previous.Missing != info.Missing)
+        if (previous == null || previous.State != info.State || previous.Missing != info.Missing || previous.VerifyDue != info.VerifyDue)
         {
             try { Changed?.Invoke(info.Version); } catch { /* a listener's bug must not break a refresh */ }
         }
@@ -226,17 +232,20 @@ public sealed partial class InstalledVersions
             if (present == InstallPieces.None)
                 return Result(version, InstallState.NotInstalled, present, required);
 
-            // The pieces exist, but Play still has a full verify ahead of it (no valid stamp): not Installed yet.
-            if (missing == InstallPieces.None && _hasVerifiedStamp != null)
-            {
-                if (_hasVerifiedStamp(root, version)) present |= InstallPieces.Verified;
-                else missing |= InstallPieces.Verified;
-            }
             if (missing != InstallPieces.None)
                 return Result(version, InstallState.Partial, present, missing);
 
+            // Every file is there. The stamp does not change the state (after each launcher update every stamp is
+            // stale, and that must not make every version look broken); it only says Play will verify first.
+            var verifyDue = false;
+            if (_hasVerifiedStamp != null)
+            {
+                if (_hasVerifiedStamp(root, version)) present |= InstallPieces.Verified;
+                else verifyDue = true;
+            }
+
             return Result(version, OriginJarIsStale(version, installedOrigin) ? InstallState.UpdateReady : InstallState.Installed,
-                present, InstallPieces.None);
+                present, InstallPieces.None, verifyDue);
         }
         catch
         {
@@ -244,8 +253,8 @@ public sealed partial class InstalledVersions
         }
     }
 
-    private InstalledVersionInfo Result(string version, InstallState state, InstallPieces present, InstallPieces missing) =>
-        new(version, state, present, missing, DateTime.UtcNow);
+    private InstalledVersionInfo Result(string version, InstallState state, InstallPieces present, InstallPieces missing, bool verifyDue = false) =>
+        new(version, state, present, missing, DateTime.UtcNow, verifyDue);
 
     // Client and Loader always; the Origin jar only when this launcher has one for the version on disk
     // (a dev build without the module output could never install it, and must not show Partial forever).

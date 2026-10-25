@@ -347,22 +347,64 @@ public class InstalledVersionsTests : IDisposable
     }
 
     [Fact]
-    public void NoValidVerificationStamp_IsPartial_NotInstalled()
+    public void StaleVerificationStamp_WithAllFiles_StaysInstalled_AndFlagsVerifyDue()
     {
         FullFabric();
         var info = Make(stamp: (_, _) => false).Check(Fabric);
-        Assert.Equal(InstallState.Partial, info.State);
-        Assert.Equal(InstallPieces.Verified, info.Missing);
+        Assert.Equal(InstallState.Installed, info.State);
+        Assert.True(info.VerifyDue);
+        Assert.Equal(InstallPieces.None, info.Missing);
+        Assert.False(info.Present.HasFlag(InstallPieces.Verified));
     }
 
     [Fact]
-    public void ValidVerificationStamp_IsInstalled_AndAskedWithTheRootAndVersion()
+    public void StaleVerificationStamp_WithStaleOriginJar_IsStillUpdateReady()
+    {
+        FullFabric();
+        OriginJar(Fabric, bundledBytes: 400);
+        var info = Make(stamp: (_, _) => false).Check(Fabric);
+        Assert.Equal(InstallState.UpdateReady, info.State);
+        Assert.True(info.VerifyDue);
+    }
+
+    [Fact]
+    public void StaleVerificationStamp_WithAMissingFile_IsPartialForTheFileOnly()
+    {
+        Client(Fabric);
+        OriginJar(Fabric);
+        var info = Make(stamp: (_, _) => false).Check(Fabric);
+        Assert.Equal(InstallState.Partial, info.State);
+        Assert.Equal(InstallPieces.Loader, info.Missing); // the stamp is never a missing piece
+        Assert.False(info.VerifyDue);
+    }
+
+    [Fact]
+    public void RefreshReportsVerifyDueChange()
+    {
+        FullFabric();
+        var due = true;
+        var sut = Make(stamp: (_, _) => !due);
+        var seen = new List<string>();
+        sut.Changed += seen.Add;
+        sut.RefreshAsync(Fabric).GetAwaiter().GetResult();
+        sut.RefreshAsync(Fabric).GetAwaiter().GetResult();
+        Assert.Single(seen);
+        due = false; // a full verify has passed since
+        sut.RefreshAsync(Fabric).GetAwaiter().GetResult();
+        Assert.Equal(2, seen.Count);
+        Assert.False(sut.Get(Fabric)!.VerifyDue);
+        Assert.Equal(InstallState.Installed, sut.StateOf(Fabric));
+    }
+
+    [Fact]
+    public void ValidVerificationStamp_IsInstalled_NotDue_AndAskedWithTheRootAndVersion()
     {
         FullFabric();
         string? seenRoot = null, seenVersion = null;
         var info = Make(stamp: (root, version) => { seenRoot = root; seenVersion = version; return true; }).Check(Fabric);
         Assert.Equal(InstallState.Installed, info.State);
         Assert.True(info.Present.HasFlag(InstallPieces.Verified));
+        Assert.False(info.VerifyDue);
         Assert.Equal(Root(Fabric), seenRoot);
         Assert.Equal(Fabric, seenVersion);
     }
