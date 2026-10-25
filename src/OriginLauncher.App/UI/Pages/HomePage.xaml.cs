@@ -1513,23 +1513,28 @@ public partial class HomePage : UserControl
     {
         StatusText.Text = text;
         // An error is the one line the player must be able to read in full (which mods, what to do): it wraps to
-        // at most three lines at the same 360 px, centred on the one-line slot so the row (and Play) never moves.
-        // Every other tone stays one trimmed line. The tooltip carries the full text either way as a fallback.
+        // at most three lines at the same 360 px. It grows DOWNWARD only, from a fixed gap under the pills
+        // (Space.2) whatever the line count, and the row stays one line tall so Play never moves. Every other tone
+        // stays one trimmed line. The tooltip carries the full text either way as a fallback.
         var isError = tone == StatusTone.Error;
         StatusText.TextWrapping = isError ? TextWrapping.Wrap : TextWrapping.NoWrap;
         StatusText.MaxHeight = isError ? (double)FindResource("Size.StatusLinesMax") : double.PositiveInfinity;
         StatusText.ToolTip = isError ? text : null;
-        // The row must stay one line tall: a fixed Height on the row would also cap the text's own measure at one
-        // line, so instead the extra lines are cancelled out with a negative margin (half above, half below) and
-        // the layout still sees a single 16 px line.
+        // A fixed Height on the row would also cap the text's own measure at one line, so the extra lines are
+        // cancelled out with a negative bottom margin and the layout still sees a single 16 px line. The top margin
+        // pulls the first line up from the row's idle gap to the error gap, and the dot follows the first line.
         var line = (double)FindResource("Size.StatusLine");
-        StatusText.Margin = new Thickness(0);
+        var lift = isError ? Math.Max(0, StatusRow.Margin.Top - (double)FindResource("Space.2")) : 0;
+        var extra = 0.0;
         if (isError)
         {
             StatusText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var extra = Math.Max(0, StatusText.DesiredSize.Height - line);
-            StatusText.Margin = new Thickness(0, -extra / 2, 0, -extra / 2);
+            extra = Math.Max(0, StatusText.DesiredSize.Height - line);
         }
+        StatusText.VerticalAlignment = VerticalAlignment.Top;
+        StatusText.Margin = new Thickness(0, -lift, 0, lift - extra);
+        StatusDot.VerticalAlignment = VerticalAlignment.Top;
+        StatusDot.Margin = new Thickness(0, (line - StatusDot.Height) / 2 - lift, 10, 0);
         // Ready is the family accent (an indicator, so the one hue may show); the
         // rest keep their status colours. By reference: FamilyTheme swaps Brush.Acc.
         var brushKey = tone switch

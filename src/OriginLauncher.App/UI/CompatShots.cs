@@ -43,15 +43,17 @@ internal static class CompatShots
         // Render mode is signed out (no selected account), so Note() would only store the text; SetStatus is what
         // Note() calls for the selected account, with the tone Note() maps LaunchTone.Error to.
         var tone = home.GetType().GetMethod("ToneOf", Any | BindingFlags.Static)!.Invoke(null, new object[] { LaunchTone.Error })!;
-        var ex = new IncompatibleModsException("1.21.1",
+        // The page's own selected version, so the sentence names the version the picture shows.
+        var version = (string?)Field(home, "_selectedVersion") ?? "1.21.1";
+        var ex = new IncompatibleModsException(version,
             new[] { "Old Mod", "Some Lib" },
-            new[] { "Old Mod: needs Minecraft 1.20.4, not 1.21.1.", "Some Lib: it needs Fabric API." });
+            new[] { $"Old Mod: needs Minecraft 1.20.4, not {version}.", "Some Lib: it needs Fabric API." });
         Call(home, "SetStatus", new[] { ex.Message, tone });
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, "31-compat-home-blocked");
 
         // 2b. The same with long names and the "(and N more)" tail: the longest message the page will ever show.
-        var many = new IncompatibleModsException("1.21.11",
+        var many = new IncompatibleModsException(version,
             new[] { "Zoomify Extended Edition Pro", "Sodium Extra Optimized Renderer", "Three", "Four", "Five" },
             new[] { "a", "b", "c", "d", "e" });
         Call(home, "SetStatus", new[] { many.Message, tone });

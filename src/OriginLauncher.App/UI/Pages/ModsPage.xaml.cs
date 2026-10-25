@@ -442,7 +442,7 @@ public partial class ModsPage : UserControl
 
         var prompt = NameText($"Remove {mod.DisplayName}?", false);
         prompt.VerticalAlignment = VerticalAlignment.Center;
-        prompt.Margin = new Thickness(14, 0, 12, 0);
+        prompt.Margin = new Thickness(Space("Space.3"), 0, Space("Space.2"), 0);
         Grid.SetColumn(prompt, 1);
         grid.Children.Add(prompt);
 
@@ -617,6 +617,9 @@ public partial class ModsPage : UserControl
         ApplyImport(report, before, version, profileId);
     }
 
+    // A spacing token (Theme/Spacing.xaml, the 8 px grid) as a number for code-built layout.
+    private double Space(string key) => (double)FindResource(key);
+
     // "Sodium 0.5.0 is already installed. Replace it with 0.6.13?" with explicit Replace / Keep old; the same inline
     // pattern as the Remove confirm, so nothing is overwritten by accident.
     private FrameworkElement BuildReplaceRow(ReplaceOffer offer)
@@ -635,7 +638,7 @@ public partial class ModsPage : UserControl
         var prompt = NameText(offer.Question, false);
         prompt.VerticalAlignment = VerticalAlignment.Center;
         prompt.TextWrapping = TextWrapping.Wrap;
-        prompt.Margin = new Thickness(14, 0, 12, 0);
+        prompt.Margin = new Thickness(Space("Space.3"), 0, Space("Space.2"), 0);
         Grid.SetColumn(prompt, 1);
         grid.Children.Add(prompt);
 
@@ -643,7 +646,7 @@ public partial class ModsPage : UserControl
         {
             Content = "Replace",
             Style = (Style)FindResource("Button.Primary.Small"),
-            Margin = new Thickness(0, 0, 8, 0),
+            Margin = new Thickness(0, 0, Space("Space.2"), 0),
             VerticalAlignment = VerticalAlignment.Center
         };
         replace.Click += (_, _) => AnswerReplace(offer, true);

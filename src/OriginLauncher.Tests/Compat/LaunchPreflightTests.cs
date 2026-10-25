@@ -288,6 +288,8 @@ public sealed class LaunchPreflightTests : IDisposable
         var coldMs = sw.Elapsed.TotalMilliseconds;
         Assert.Equal(150, cold.ModCount);
         Assert.Empty(cold.Blocking);
+        // Measured 2026-10-25: 33 ms on Will's PC. Cold means every jar opened once, so this is the price of a changed set.
+        Assert.True(coldMs < 400, $"a cold check of 150 jars took {coldMs:F0} ms");
 
         // Jar metadata cached, verdict not: what a changed set costs once the jars have been read.
         LaunchPreflight.ClearCache();
@@ -308,5 +310,69 @@ public sealed class LaunchPreflightTests : IDisposable
             + $"re-check with jars cached {rescanMs:F1} ms, warm launch (verdict cached) {warmMs:F2} ms");
         Assert.True(warmMs < 25, $"warm launch took {warmMs:F2} ms");
         Assert.True(warmMs < coldMs, "the verdict cache must beat a cold check");
+    }
+
+    // ---- real jars --------------------------------------------------------------------------------------------
+
+    // The repo checkout (or the main checkout when this is a git worktree) holds the built mod; the gradle cache of a
+    // machine that built it holds Fabric API. CI runners have neither, so this test then does nothing (and says so).
+    private static string? FindRealJar(string folder, string prefix, string suffix = ".jar")
+    {
+        if (!Directory.Exists(folder)) return null;
+        return Directory.GetFiles(folder, prefix + "*" + suffix, SearchOption.AllDirectories)
+            .Where(f => !f.EndsWith("-sources.jar", StringComparison.OrdinalIgnoreCase) && !f.EndsWith("-dev.jar", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(f => f, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+    }
+
+    private static string? RepoRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+        {
+            var git = Path.Combine(dir.FullName, ".git");
+            if (Directory.Exists(git)) return dir.FullName;
+            if (File.Exists(git)) // a worktree: ".git" is a file naming <main>/.git/worktrees/<name>
+            {
+                var line = File.ReadAllText(git).Trim();
+                if (line.StartsWith("gitdir:", StringComparison.Ordinal))
+                {
+                    var gitdir = line["gitdir:".Length..].Trim();
+                    var marker = Path.DirectorySeparatorChar + ".git" + Path.DirectorySeparatorChar;
+                    var at = gitdir.Replace('/', Path.DirectorySeparatorChar).IndexOf(marker, StringComparison.Ordinal);
+                    if (at > 0) return gitdir.Replace('/', Path.DirectorySeparatorChar)[..at];
+                }
+                return dir.FullName;
+            }
+        }
+        return null;
+    }
+
+    [Fact]
+    public void ColdCheckOfTheRealFabricApiAndOriginJarsIsFast()
+    {
+        var gradle = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gradle", "caches", "modules-2", "files-2.1", "net.fabricmc.fabric-api", "fabric-api");
+        var fabricApi = FindRealJar(gradle, "fabric-api-0.116");
+        var root = RepoRoot();
+        var origin = root == null ? null : FindRealJar(Path.Combine(root, "src", "mods", "versions", "1.21.1", "build", "libs"), "originclient-");
+        if (fabricApi == null || origin == null)
+        {
+            _out.WriteLine("real jars not reachable here (Fabric API 0.116 in the gradle cache, the built 1.21.1 originclient jar): skipped");
+            return;
+        }
+
+        System.IO.File.Copy(fabricApi, Path.Combine(_mods, Path.GetFileName(fabricApi)));
+        System.IO.File.Copy(origin, Path.Combine(_mods, Path.GetFileName(origin)));
+        Jar(_mods, "cool-1.0.jar", "cool", needs: new[] { ("fabric-api", ">=0.100.0") });
+        ModFolderScanner.ClearCache();
+        LaunchPreflight.ClearCache();
+
+        var sw = Stopwatch.StartNew();
+        var verdict = LaunchPreflight.Evaluate("1.21.1", _mods, null, true, IsManaged, IsProvisioned);
+        var coldMs = sw.Elapsed.TotalMilliseconds;
+        var size = new FileInfo(fabricApi).Length + new FileInfo(origin).Length;
+        _out.WriteLine($"real jars ({Path.GetFileName(fabricApi)}, {Path.GetFileName(origin)}, {size / 1024} KB): cold check {coldMs:F0} ms; blocking: {string.Join(" / ", verdict.Blocking)}");
+        Assert.Empty(verdict.Blocking);
+        // Measured 2026-10-25 on Will's PC: 75 ms for these two jars (18 MB, Fabric API's ~70 nested modules included).
+        // The limit leaves a slow CI disk about six times that; a cold check that reaches it is a regression.
+        Assert.True(coldMs < 500, $"a cold check of Fabric API + Origin took {coldMs:F0} ms");
     }
 }
