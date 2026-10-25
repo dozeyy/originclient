@@ -60,7 +60,7 @@ internal static class ImportedModFit
         if (turnedOff.Count == 0) return decisions.ToList();
 
         return decisions.Select(d => turnedOff.TryGetValue(d, out var reason)
-            ? d with { Outcome = ModOutcome.CopiedDisabled, Reason = reason, DestFileName = d.DestFileName + ".disabled" }
+            ? d with { Outcome = ModOutcome.CopiedDisabled, Reason = reason, DestFileName = d.DestFileName is { } dest ? dest + ".disabled" : null }
             : d).ToList();
     }
 
