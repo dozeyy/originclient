@@ -107,6 +107,18 @@ public final class CapePhysics {
 	// relative to the cape's GL resting spot, with that joint's twist applied.
 	// Rotations and translations only, so a frame's 3x3 part turns the normals.
 	private static final ModelCosmetic.Mat[] JOINT = new ModelCosmetic.Mat[N + 1];
+	static {
+		// Allocated once: joint() copies into these instead of cloning a Mat per joint per cape per frame.
+		for (int i = 0; i < JOINT.length; i++) {
+			JOINT[i] = new ModelCosmetic.Mat();
+		}
+	}
+	// Per-draw scratch (Phase 6 pick 1: three float[N] and a Mat used to be allocated per cape per frame).
+	// render() is the only user and runs on the render thread (it makes GL calls), never re-entered.
+	private static final float[] REL_P = new float[N];
+	private static final float[] REL_R = new float[N];
+	private static final float[] CUM_R = new float[N];
+	private static final ModelCosmetic.Mat POSE = new ModelCosmetic.Mat();
 
 	/**
 	 * Draws `p`'s Origin cape with physics, replacing vanilla's LayerCape.doRenderLayer.
@@ -153,9 +165,9 @@ public final class CapePhysics {
 
 		float t = ageInTicks / 20f;
 		float calm = lerp(partialTick, s.calmPrev, s.calm);
-		float[] relP = new float[N];
-		float[] relR = new float[N];
-		float[] cumR = new float[N];
+		float[] relP = REL_P;
+		float[] relR = REL_R;
+		float[] cumR = CUM_R;
 		float prevP = 0f;
 		float prevR = 0f;
 		for (int i = 0; i < N; i++) {
@@ -185,7 +197,8 @@ public final class CapePhysics {
 		// joint takes HALF its bend, so the bands above and below meet on the bisector
 		// with no gap; the cape's Y twist (vanilla's 180 - roll) is blended the same way.
 		// 1.8.9: the chain is on the CPU (pure maths, nothing to unwind if it throws).
-		ModelCosmetic.Mat pose = new ModelCosmetic.Mat();
+		ModelCosmetic.Mat pose = POSE;
+		pose.reset();
 		for (int i = 0; i < N; i++) {
 			if (i > 0) {
 				pose.translate(0f, SEG_PX / 16f, 0f);   // down to this joint
@@ -225,7 +238,7 @@ public final class CapePhysics {
 			pose.rotateX(bendP * DEG);
 			pose.rotateZ(bendR * DEG);
 			pose.rotateY(twist * DEG);
-			JOINT[j] = pose.copy();
+			pose.copyInto(JOINT[j]);
 		} finally {
 			pose.pop();
 		}

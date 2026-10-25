@@ -10,8 +10,6 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +57,9 @@ public final class ModelCosmetic {
 	private final int frames;
 	private final float fps;
 	private boolean failed = false;
+	// Reused matrices (render thread only, like `off`): one per model, never shared between threads.
+	private final Mat poseScratch = new Mat();
+	private final Mat pointScratch = new Mat();
 
 	private ModelCosmetic(CosmeticDef def) {
 		this.id = def.meta.id();
@@ -229,7 +230,8 @@ public final class ModelCosmetic {
 		Tessellator tess = Tessellator.getInstance();
 		WorldRenderer wr = tess.getWorldRenderer();
 		wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR_NORMAL);
-		Mat pose = new Mat();
+		Mat pose = poseScratch;   // reused, not new: Phase 6 pick 1 (no per-pass garbage)
+		pose.reset();
 		for (int root : geo.roots) {
 			drawBone(pose, wr, root, kind, fit, vOff, invU, invV);
 		}
@@ -359,62 +361,96 @@ public final class ModelCosmetic {
 	 * 1.8.9: the PoseStack the bones need, on the CPU (row-major 4x4; moved here
 	 * from the old HeadModels). Only rotations and translations are used, so
 	 * normals take the 3x3 part.
+	 *
+	 * Allocation-free (Phase 6 pick 1: this used to build a float[16] per
+	 * translate / rotate / multiply plus a clone per push, about 16 KB of garbage
+	 * per cosmetic wearer per frame). One Mat is built once and reused: the stack
+	 * is a fixed array of 16-float slots that push / pop copy into, and every
+	 * translate / rotate edits the matrix in place. Each edit is the old full
+	 * multiply with its zero and one factor terms dropped, so the numbers match
+	 * the old code (the sums keep the old order). NOT thread-safe: one Mat is only
+	 * ever used from the render thread (see the owners).
 	 */
 	static final class Mat {
-		private float[] m = identity();
-		private final Deque<float[]> stack = new ArrayDeque<>();
+		private static final int START_DEPTH = 16;   // a model's bone chain is shorter; grows once if a deeper one ever shows up
+		private final float[] m = new float[16];
+		private float[][] stack = new float[START_DEPTH][16];
+		private int sp = 0;
 
-		private static float[] identity() {
-			return new float[] {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+		Mat() {
+			reset();
+		}
+
+		/** Back to the identity with an empty stack: a reused Mat starts every pass from here. */
+		void reset() {
+			m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 0;
+			m[4] = 0; m[5] = 1; m[6] = 0; m[7] = 0;
+			m[8] = 0; m[9] = 0; m[10] = 1; m[11] = 0;
+			m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
+			sp = 0;
 		}
 
 		void push() {
-			stack.push(m.clone());
+			if (sp == stack.length) {
+				float[][] bigger = new float[sp * 2][];
+				System.arraycopy(stack, 0, bigger, 0, sp);
+				for (int i = sp; i < bigger.length; i++) {
+					bigger[i] = new float[16];
+				}
+				stack = bigger;
+			}
+			System.arraycopy(m, 0, stack[sp++], 0, 16);
 		}
 
-		/** A snapshot of the current matrix (no stack), e.g. CapePhysics' joint frames. */
-		Mat copy() {
-			Mat c = new Mat();
-			c.m = m.clone();
-			return c;
+		/** Copies the current matrix into `dst` (e.g. CapePhysics' preallocated joint frames); no stack. */
+		void copyInto(Mat dst) {
+			System.arraycopy(m, 0, dst.m, 0, 16);
 		}
 
 		void pop() {
-			if (!stack.isEmpty()) {
-				m = stack.pop();
+			if (sp > 0) {
+				System.arraycopy(stack[--sp], 0, m, 0, 16);
 			}
 		}
 
+		/** this = this * T(x, y, z): only the last column changes. */
 		void translate(float x, float y, float z) {
 			if (x != 0f || y != 0f || z != 0f) {
-				mul(new float[] {1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1});
+				m[3] = m[0] * x + m[1] * y + m[2] * z + m[3];
+				m[7] = m[4] * x + m[5] * y + m[6] * z + m[7];
+				m[11] = m[8] * x + m[9] * y + m[10] * z + m[11];
+				m[15] = m[12] * x + m[13] * y + m[14] * z + m[15];
 			}
 		}
 
+		/** this = this * Rx(a): only columns 1 and 2 change. */
 		void rotateX(float a) {
 			float c = (float) Math.cos(a), s = (float) Math.sin(a);
-			mul(new float[] {1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1});
+			for (int i = 0; i < 16; i += 4) {
+				float b = m[i + 1], d = m[i + 2];
+				m[i + 1] = b * c + d * s;
+				m[i + 2] = b * -s + d * c;
+			}
 		}
 
+		/** this = this * Ry(a): only columns 0 and 2 change. */
 		void rotateY(float a) {
 			float c = (float) Math.cos(a), s = (float) Math.sin(a);
-			mul(new float[] {c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1});
+			for (int i = 0; i < 16; i += 4) {
+				float b = m[i], d = m[i + 2];
+				m[i] = b * c + d * -s;
+				m[i + 2] = b * s + d * c;
+			}
 		}
 
+		/** this = this * Rz(a): only columns 0 and 1 change. */
 		void rotateZ(float a) {
 			float c = (float) Math.cos(a), s = (float) Math.sin(a);
-			mul(new float[] {c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
-		}
-
-		/** this = this * r (post-multiply, like PoseStack.mulPose / translate). */
-		private void mul(float[] r) {
-			float[] o = new float[16];
-			for (int i = 0; i < 4; i++) {
-				for (int j = 0; j < 4; j++) {
-					o[i * 4 + j] = m[i * 4] * r[j] + m[i * 4 + 1] * r[4 + j] + m[i * 4 + 2] * r[8 + j] + m[i * 4 + 3] * r[12 + j];
-				}
+			for (int i = 0; i < 16; i += 4) {
+				float b = m[i], d = m[i + 1];
+				m[i] = b * c + d * s;
+				m[i + 1] = b * -s + d * c;
 			}
-			m = o;
 		}
 
 		float x(float x, float y, float z) {
