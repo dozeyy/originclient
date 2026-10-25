@@ -69,8 +69,105 @@ public final class ParticleFilter {
 		return v > 0 ? v : def;
 	}
 
+	// ---- per-config-epoch snapshot ----
+	// Every spawn used to re-read ~12 config keys (string concat + monitor + map walks each); the settings only
+	// change when the config epoch (ModsConfig.rev) moves, so they are resolved once per epoch. The same reads in
+	// the same order feed the same checks, so behaviour is identical -- only the repeated lookups are gone.
+
+	/** Everything the filter needs for one particle type, resolved once per epoch. */
+	private static final class TypeInfo {
+		final boolean hide;          // row toggle off, its Hide flag, or the block-break flag
+		final boolean ctxAll;        // Show on Self/Players/Entities all ON: no entity sweep
+		final boolean self, players, entities;
+		final boolean reducedHides;  // dropped by mode "Reduced"
+		final double multiplier;
+		final double scale;          // per-type Scale (1 = untouched)
+		final boolean sound;
+
+		TypeInfo(String path) {
+			boolean h = Mods.hasOption("particles", "p_" + path) && !Mods.bool("particles", "p_" + path);
+			h = h || Mods.bool("particles", "p_" + path + "_hide");
+			h = h || (path.equals("block") && Mods.bool("particles", "hideBlockBreak"));
+			hide = h;
+			self = flag("p_" + path + "_self", true);
+			players = flag("p_" + path + "_players", true);
+			entities = flag("p_" + path + "_entities", true);
+			ctxAll = self && players && entities;
+			reducedHides = path.equals("explosion") || path.equals("explosion_emitter") || path.equals("poof")
+					|| path.equals("crit") || path.equals("enchanted_hit") || path.equals("effect")
+					|| path.equals("entity_effect") || path.equals("firework") || path.equals("large_smoke");
+			multiplier = slider("multiplier", 1.0) * slider("p_" + path + "_multiplier", 1.0);
+			scale = slider("p_" + path + "_scale", 1.0);
+			sound = flag("p_" + path + "_sound", false);
+		}
+	}
+
+	private static final class Snap {
+		final int rev;
+		final boolean on, hideAll, hideFirstPerson, modeOff, modeReduced, hideBlockBreak;
+		final float globalScale;
+		final java.util.concurrent.ConcurrentHashMap<String, TypeInfo> types = new java.util.concurrent.ConcurrentHashMap<>();
+
+		Snap(int rev) {
+			this.rev = rev;
+			on = Mods.on("particles");
+			if (!on) {
+				hideAll = hideFirstPerson = modeOff = modeReduced = hideBlockBreak = false;
+				globalScale = 1f;
+				return;
+			}
+			hideAll = Mods.bool("particles", "hideAll");
+			hideFirstPerson = Mods.bool("particles", "hideFirstPerson");
+			String mode = Mods.mode("particles", "mode");
+			modeOff = mode.equals("Off");
+			modeReduced = mode.equals("Reduced");
+			double s = Mods.num("particles", "scale");
+			globalScale = s > 0 && Math.abs(s - 1.0) > 0.001 ? (float) s : 1f;
+			hideBlockBreak = hideAll || Mods.bool("particles", "hideBlockBreak")
+					|| (Mods.hasOption("particles", "p_block") && !Mods.bool("particles", "p_block"))
+					|| Mods.bool("particles", "p_block_hide");
+		}
+
+		TypeInfo type(String path) {
+			TypeInfo t = types.get(path);
+			if (t == null) {
+				t = new TypeInfo(path);
+				types.put(path, t);
+			}
+			return t;
+		}
+	}
+
+	private static volatile Snap snap;
+
+	private static Snap snap() {
+		Snap s = snap;
+		int r = Mods.configRev();
+		if (s == null || s.rev != r) {
+			s = new Snap(r);
+			snap = s;
+		}
+		return s;
+	}
+
+	// particle id -> modern id; both tables are static, so this never needs invalidating
+	private static final String[] PATH_BY_ID = new String[256];
+	private static final boolean[] PATH_KNOWN = new boolean[256];
+
 	/** The modern particle id ("crit", "block", ...) for a 1.8.9 particle id, or null if none. */
 	public static String typePath(int particleId) {
+		if (particleId >= 0 && particleId < 256 && PATH_KNOWN[particleId]) {
+			return PATH_BY_ID[particleId];
+		}
+		String path = resolvePath(particleId);
+		if (particleId >= 0 && particleId < 256) {
+			PATH_BY_ID[particleId] = path;
+			PATH_KNOWN[particleId] = true; // written after the value; a racing reader at worst resolves it again
+		}
+		return path;
+	}
+
+	private static String resolvePath(int particleId) {
 		EnumParticleTypes t = EnumParticleTypes.getParticleFromId(particleId);
 		if (t == null) {
 			return null;
@@ -84,30 +181,26 @@ public final class ParticleFilter {
 
 	/** Global Scale slider (live, per frame) -- 1 when the mod is off or neutral. */
 	public static float globalScale() {
-		if (!Mods.on("particles")) {
-			return 1f;
-		}
-		double s = Mods.num("particles", "scale");
-		return s > 0 && Math.abs(s - 1.0) > 0.001 ? (float) s : 1f;
+		return snap().globalScale;
 	}
 
 	/** Hide All / Hide Block-Breaking: gates block break + hit particles (addBlockDestroyEffects / addBlockHitEffects). */
 	public static boolean hideBlockBreak() {
-		return Mods.on("particles") && (Mods.bool("particles", "hideAll") || Mods.bool("particles", "hideBlockBreak")
-				|| (Mods.hasOption("particles", "p_block") && !Mods.bool("particles", "p_block"))
-				|| Mods.bool("particles", "p_block_hide"));
+		Snap s = snap();
+		return s.on && s.hideBlockBreak;
 	}
 
 	/** Whether a spawn of this particle type at this position should be dropped. */
 	public static boolean hidden(int particleId, double x, double y, double z) {
-		if (!Mods.on("particles")) {
+		Snap s = snap();
+		if (!s.on) {
 			return false;
 		}
-		if (Mods.bool("particles", "hideAll")) {
+		if (s.hideAll) {
 			return true;
 		}
 		// Hide particles that spawn right next to you in first person.
-		if (Mods.bool("particles", "hideFirstPerson")) {
+		if (s.hideFirstPerson) {
 			Minecraft mc = Minecraft.getMinecraft();
 			if (mc.thePlayer != null && mc.gameSettings.thirdPersonView == 0
 					&& mc.thePlayer.getPositionEyes(1.0F).squareDistanceTo(new net.minecraft.util.Vec3(x, y, z)) < 4.0) {
@@ -115,36 +208,26 @@ public final class ParticleFilter {
 			}
 		}
 		String path = typePath(particleId);
-		if (path != null) {
+		TypeInfo ti = path == null ? null : s.type(path);
+		if (ti != null) {
 			// per-particle-type controls: master row toggle off, or its Hide flag
 			// (only for types that actually have a row — unknown types pass through)
-			if (Mods.hasOption("particles", "p_" + path) && !Mods.bool("particles", "p_" + path)) {
+			if (ti.hide) {
 				return true;
 			}
-			if (Mods.bool("particles", "p_" + path + "_hide")) {
-				return true;
-			}
-			if (path.equals("block") && Mods.bool("particles", "hideBlockBreak")) {
-				return true;
-			}
-			if (hiddenByContext(path, x, y, z)) {
+			if (hiddenByContext(ti, x, y, z)) {
 				return true;
 			}
 		}
-		String mode = Mods.mode("particles", "mode");
-		if (mode.equals("Off")) {
+		if (s.modeOff) {
 			return true;
 		}
-		if (mode.equals("Reduced") && path != null) {
-			if (path.equals("explosion") || path.equals("explosion_emitter") || path.equals("poof")
-					|| path.equals("crit") || path.equals("enchanted_hit") || path.equals("effect")
-					|| path.equals("entity_effect") || path.equals("firework") || path.equals("large_smoke")) {
-				return true;
-			}
+		if (s.modeReduced && ti != null && ti.reducedHides) {
+			return true;
 		}
 		// Multiplier < 1 thins the stream. Extra copies never re-roll this.
-		if (path != null && !spawningExtra) {
-			double m = multiplier(path);
+		if (ti != null && !spawningExtra) {
+			double m = ti.multiplier;
 			if (m < 1.0 && random() >= m) {
 				return true;
 			}
@@ -156,13 +239,13 @@ public final class ParticleFilter {
 	 * Show on Self / Players / Entities. A particle carries no source entity, so
 	 * "on X" is decided by what the spawn point sits inside. All three default to
 	 * ON, and the entity sweep only runs when a row actually turns one OFF — with
-	 * default settings this costs three config reads and nothing else.
+	 * default settings this costs nothing beyond the snapshot flags.
 	 */
-	private static boolean hiddenByContext(String path, double x, double y, double z) {
-		boolean self = flag("p_" + path + "_self", true);
-		boolean players = flag("p_" + path + "_players", true);
-		boolean entities = flag("p_" + path + "_entities", true);
-		if (self && players && entities) {
+	private static boolean hiddenByContext(TypeInfo ti, double x, double y, double z) {
+		boolean self = ti.self;
+		boolean players = ti.players;
+		boolean entities = ti.entities;
+		if (ti.ctxAll) {
 			return false;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
@@ -200,10 +283,6 @@ public final class ParticleFilter {
 				.isVecInside(new net.minecraft.util.Vec3(x, y, z));
 	}
 
-	private static double multiplier(String path) {
-		return slider("multiplier", 1.0) * slider("p_" + path + "_multiplier", 1.0);
-	}
-
 	// ThreadLocalRandom, not World.rand: the same code on every era.
 	private static double random() {
 		return ThreadLocalRandom.current().nextDouble();
@@ -217,24 +296,28 @@ public final class ParticleFilter {
 	public static void afterSpawn(EffectRenderer engine, EntityFX particle, int particleId,
 								  double x, double y, double z,
 								  double xSpeed, double ySpeed, double zSpeed, int... params) {
-		if (!Mods.on("particles") || spawningExtra) {
+		Snap snap = snap();
+		if (!snap.on || spawningExtra) {
 			return;
 		}
 		String path = typePath(particleId);
 		if (path == null) {
 			return;
 		}
+		TypeInfo ti = snap.type(path);
 		if (particle != null) {
-			double s = slider("p_" + path + "_scale", 1.0);
+			double s = ti.scale;
 			if (Math.abs(s - 1.0) > 0.001) {
 				particle.multipleParticleScaleBy((float) s);
 			}
 		}
-		playSound(path, x, y, z);
+		if (ti.sound) {
+			playSound(path, x, y, z);
+		}
 
 		// Multiplier > 1: one extra copy, jittered so it reads as "more particles"
 		// instead of a second particle hiding exactly behind the first.
-		double m = multiplier(path);
+		double m = ti.multiplier;
 		if (m > 1.0 && random() < m - 1.0) {
 			spawningExtra = true;
 			try {
@@ -250,9 +333,6 @@ public final class ParticleFilter {
 	}
 
 	private static void playSound(String path, double x, double y, double z) {
-		if (!flag("p_" + path + "_sound", false)) {
-			return;
-		}
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc.theWorld == null) {
 			return;

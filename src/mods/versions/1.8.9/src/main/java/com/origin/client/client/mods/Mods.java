@@ -1312,13 +1312,34 @@ public final class Mods {
 		if (!UNAVAILABLE.isEmpty() && unavailable(modId)) {
 			return false; // 1.8.9: nothing for it to act on (see addUnavailable)
 		}
+		// Per-config-epoch answer cache: on() is asked hundreds of times a frame (every mixin hook, every HUD
+		// element) and each ask was a monitor + map walk. The epoch (ModsConfig.rev) moves on every save, reload
+		// and slider drag, so a flipped toggle is seen on the very next call.
+		int r = ModsConfig.rev;
+		if (r != onCacheRev) {
+			ON_CACHE.clear();
+			onCacheRev = r;
+		}
+		Boolean cached = ON_CACHE.get(modId);
+		if (cached != null) {
+			return cached;
+		}
+		boolean result;
 		com.google.gson.JsonElement v = raw(modId).get("enabled");
 		if (v != null) {
-			return v.getAsBoolean();
+			result = v.getAsBoolean();
+		} else {
+			Mod m = byId(modId);
+			result = m != null && m.defaultOn();
 		}
-		Mod m = byId(modId);
-		return m != null && m.defaultOn();
+		if (ModsConfig.rev == r) { // a save during the lookup means the value may already be stale: do not keep it
+			ON_CACHE.put(modId, result);
+		}
+		return result;
 	}
+
+	private static final java.util.concurrent.ConcurrentHashMap<String, Boolean> ON_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+	private static volatile int onCacheRev = -1;
 
 	public static void setOn(String modId, boolean on) {
 		raw(modId).put("enabled", new JsonPrimitive(on));
@@ -1414,6 +1435,7 @@ public final class Mods {
 	// synchronously each call; the mod menu calls save() once on release.
 	public static void setUnsaved(String modId, String key, double v) {
 		raw(modId).put(key, new JsonPrimitive(v));
+		ModsConfig.touch(); // not saved, but readers that cache per config epoch (on()) must still see it
 	}
 
 	public static void save() {
@@ -1547,6 +1569,7 @@ public final class Mods {
 		seed("fullbright", legacy.fullbrightEnabled);
 		ModsConfig.VALUES.computeIfAbsent("zoom", k -> new java.util.HashMap<>())
 				.put("fov", new JsonPrimitive(legacy.zoomFov));
+		ModsConfig.touch();
 	}
 
 	private static void seed(String id, boolean on) {
