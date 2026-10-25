@@ -59,8 +59,9 @@ public sealed class LaunchPreflightTests : IDisposable
         var ex = Assert.Throws<IncompatibleModsException>(() => Run());
         Assert.Contains("old", ex.Message);
         Assert.Contains("1.21.1", ex.Message);
-        Assert.Contains("Mods page", ex.Message);
+        Assert.Contains("Turn it off on the Mods page.", ex.Message);
         Assert.Single(ex.Reasons);
+        Assert.Single(ex.Names);
     }
 
     [Fact]
@@ -68,7 +69,8 @@ public sealed class LaunchPreflightTests : IDisposable
     {
         Jar(_mods, "addon-1.0.jar", "addon", needs: new[] { ("somelib", ">=1.0") });
         var ex = Assert.Throws<IncompatibleModsException>(() => Run());
-        Assert.Contains("somelib", ex.Message);
+        Assert.Contains("addon", ex.Message);       // Home names the mod that stops the game
+        Assert.Contains("somelib", ex.Reasons[0]);  // the reason (what it needs) goes to the log
     }
 
     [Fact]
@@ -86,7 +88,38 @@ public sealed class LaunchPreflightTests : IDisposable
         for (var i = 0; i < 5; i++) Jar(_mods, $"bad{i}-1.0.jar", $"bad{i}", mc: "~1.16.5");
         var ex = Assert.Throws<IncompatibleModsException>(() => Run());
         Assert.Equal(5, ex.Reasons.Count);
-        Assert.Contains("(and 2 more)", ex.Message);
+        Assert.Equal(5, ex.Names.Count);
+        Assert.Contains("(and 3 more)", ex.Message);
+        Assert.Contains("Turn them off on the Mods page.", ex.Message);
+        // Only the first two are named; the rest are counted.
+        Assert.Contains(ex.Names[0], ex.Message);
+        Assert.Contains(ex.Names[1], ex.Message);
+        Assert.DoesNotContain(ex.Names[2], ex.Message);
+    }
+
+    [Fact]
+    public void TheHomeLineNamesTwoModsAndGivesOneInstruction()
+    {
+        var ex = new IncompatibleModsException("1.21.1",
+            new[] { "Old Mod", "Some Lib", "Third", "Fourth" },
+            new[] { "Old Mod: x.", "Some Lib: y.", "Third: z.", "Fourth: w." });
+        Assert.Equal("Old Mod and Some Lib (and 2 more) won't start on Minecraft 1.21.1. Turn them off on the Mods page.", ex.Message);
+
+        var one = new IncompatibleModsException("1.21.1", new[] { "Old Mod" }, new[] { "Old Mod: x." });
+        Assert.Equal("Old Mod won't start on Minecraft 1.21.1. Turn it off on the Mods page.", one.Message);
+    }
+
+    [Fact]
+    public void LongModNamesAreCutSoTheLineFitsThreeRows()
+    {
+        var longName = new string('W', 60);
+        var ex = new IncompatibleModsException("1.21.11",
+            new[] { longName, longName, longName }, new[] { "a", "b", "c" });
+        Assert.DoesNotContain(longName, ex.Message);
+        Assert.Contains("...", ex.Message);
+        // Worst case: two cut names + count + instruction. ~55 characters per 360 px row, 3 rows.
+        Assert.True(ex.Message.Length <= 150, ex.Message.Length + ": " + ex.Message);
+        Assert.True(ex.Message.All(c => c < 128), "ASCII only");
     }
 
     [Fact]

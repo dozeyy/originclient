@@ -1510,6 +1510,13 @@ public partial class HomePage : UserControl
     private void SetStatus(string text, StatusTone tone)
     {
         StatusText.Text = text;
+        // An error is the one line the player must be able to read in full (which mods, what to do): it wraps to
+        // at most three lines at the same 360 px, centred on the one-line slot so the row (and Play) never moves.
+        // Every other tone stays one trimmed line. The tooltip carries the full text either way as a fallback.
+        var isError = tone == StatusTone.Error;
+        StatusText.TextWrapping = isError ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        StatusText.MaxHeight = isError ? (double)FindResource("Size.StatusLinesMax") : double.PositiveInfinity;
+        StatusText.ToolTip = isError ? text : null;
         // Ready is the family accent (an indicator, so the one hue may show); the
         // rest keep their status colours. By reference: FamilyTheme swaps Brush.Acc.
         var brushKey = tone switch

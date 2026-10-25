@@ -12,23 +12,41 @@ namespace OriginLauncher.App.Core.Compat;
 /// </summary>
 public sealed class IncompatibleModsException : Exception
 {
-    public IncompatibleModsException(string version, IReadOnlyList<string> reasons, int total)
-        : base(BuildMessage(version, reasons, total))
+    /// <summary>Longest mod name shown on Home; longer ones are cut with "..." (ASCII only).</summary>
+    public const int NameLimit = 24;
+
+    public IncompatibleModsException(string version, IReadOnlyList<string> names, IReadOnlyList<string> reasons)
+        : base(BuildMessage(version, names))
     {
         Version = version;
+        Names = names;
         Reasons = reasons;
     }
 
     public string Version { get; }
 
+    /// <summary>Display name of every mod that would stop the game, in the order found.</summary>
+    public IReadOnlyList<string> Names { get; }
+
+    /// <summary>One plain line per mod ("Name: why"), for the log.</summary>
     public IReadOnlyList<string> Reasons { get; }
 
-    private static string BuildMessage(string version, IReadOnlyList<string> reasons, int total)
+    // Home shows this in a 360 px, 3 line status: at most two names, a count for the rest, one instruction. The
+    // per-mod reasons stay in Reasons and the preflight log, not on the Home line.
+    private static string BuildMessage(string version, IReadOnlyList<string> names)
     {
-        var shown = string.Join(" ", reasons.Take(3));
-        var more = total > 3 ? $" (and {total - 3} more)" : "";
+        var shown = names.Take(2).Select(Short).ToList();
+        var list = shown.Count == 1 ? shown[0] : $"{shown[0]} and {shown[1]}";
+        var more = names.Count > 2 ? $" (and {names.Count - 2} more)" : "";
+        var plural = names.Count > 1;
         // TODO(Phase 5.3): "Fix Compatibility" button: RepairPlanner.Plan on this report, one click to turn the mods off.
-        return $"Minecraft {version} won't start with these mods. {shown}{more} Turn them off on the Mods page, then press Play again.";
+        return $"{list}{more} won't start on Minecraft {version}. Turn {(plural ? "them" : "it")} off on the Mods page.";
+    }
+
+    private static string Short(string name)
+    {
+        name = name.Trim();
+        return name.Length <= NameLimit ? name : name.Substring(0, NameLimit - 3).TrimEnd() + "...";
     }
 }
 
@@ -38,6 +56,9 @@ public sealed class IncompatibleModsException : Exception
 /// <param name="ModCount">How many jars were in the launch set.</param>
 public sealed record LaunchVerdict(IReadOnlyList<string> Blocking, IReadOnlyList<string> Soft, int ModCount)
 {
+    /// <summary>Display name of each mod in <see cref="Blocking"/>, same order.</summary>
+    public IReadOnlyList<string> BlockingNames { get; init; } = Array.Empty<string>();
+
     public static readonly LaunchVerdict Clear = new(Array.Empty<string>(), Array.Empty<string>(), 0);
 }
 
@@ -93,7 +114,7 @@ public static class LaunchPreflight
         {
             var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct);
             if (verdict.Blocking.Count > 0)
-                throw new IncompatibleModsException(version, verdict.Blocking, verdict.Blocking.Count);
+                throw new IncompatibleModsException(version, verdict.BlockingNames, verdict.Blocking);
         }
         catch (Exception ex) when (ex is IncompatibleModsException || (ex is OperationCanceledException && ct.IsCancellationRequested))
         {
@@ -149,18 +170,22 @@ public static class LaunchPreflight
 
         var report = CompatEngine.Check(entries, platform);
         var blocking = new List<string>();
+        var blockingNames = new List<string>();
         var soft = new List<string>();
         var blockedMods = new HashSet<ModFile>(ReferenceEqualityComparer.Instance);
         foreach (var f in report.Findings)
         {
             if (f.Severity == Severity.Info) continue;
             if (IsHard(f, platform) && blockedMods.Add(f.Subject))
+            {
                 blocking.Add($"{f.Subject.DisplayName}: {ReasonOf(report, f)}");
+                blockingNames.Add(f.Subject.DisplayName);
+            }
             else
                 soft.Add($"{f.Subject.DisplayName} [{f.Kind}, {f.Severity}, {f.Certainty}]: {f.Summary}");
         }
 
-        var verdict = new LaunchVerdict(blocking, soft, launchSet.Count);
+        var verdict = new LaunchVerdict(blocking, soft, launchSet.Count) { BlockingNames = blockingNames };
         if (blocking.Count == 0 && !anyUnreadable)
         {
             if (Verdicts.Count >= VerdictCacheLimit) Verdicts.Clear();

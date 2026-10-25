@@ -43,21 +43,17 @@ internal static class CompatShots
         // Render mode is signed out (no selected account), so Note() would only store the text; SetStatus is what
         // Note() calls for the selected account, with the tone Note() maps LaunchTone.Error to.
         var tone = home.GetType().GetMethod("ToneOf", Any | BindingFlags.Static)!.Invoke(null, new object[] { LaunchTone.Error })!;
-        var ex = new IncompatibleModsException("1.21.1", new[]
-        {
-            "Old Mod needs Minecraft 1.20.4, not 1.21.1.",
-            "Some Lib is missing: it needs Fabric API.",
-        }, 2);
+        var ex = new IncompatibleModsException("1.21.1",
+            new[] { "Old Mod", "Some Lib" },
+            new[] { "Old Mod: needs Minecraft 1.20.4, not 1.21.1.", "Some Lib: it needs Fabric API." });
         Call(home, "SetStatus", new[] { ex.Message, tone });
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, "31-compat-home-blocked");
 
-        // 2b. The same with the "(and N more)" tail: the longest message the page will ever show.
-        var many = new IncompatibleModsException("1.21.1", new[]
-        {
-            "Old Mod needs Minecraft 1.20.4, not 1.21.1.", "Some Lib is missing: it needs Fabric API.",
-            "Zoomify and Sodium Extra cannot run together.", "Four.", "Five.",
-        }, 5);
+        // 2b. The same with long names and the "(and N more)" tail: the longest message the page will ever show.
+        var many = new IncompatibleModsException("1.21.11",
+            new[] { "Zoomify Extended Edition Pro", "Sodium Extra Optimized Renderer", "Three", "Four", "Five" },
+            new[] { "a", "b", "c", "d", "e" });
         Call(home, "SetStatus", new[] { many.Message, tone });
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, "31b-compat-home-blocked-long");
