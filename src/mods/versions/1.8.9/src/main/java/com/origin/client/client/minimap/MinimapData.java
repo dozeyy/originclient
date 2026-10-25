@@ -65,6 +65,14 @@ public final class MinimapData {
 	// Per-frame caps: the scan budget is checked before each chunk, so a frame spends at
 	// most BUDGET_NS plus one chunk's scan (~0.1-0.4 ms) on terrain, whatever happens.
 	private static final long BUDGET_NS = 1_000_000L;
+	// One reusable position for the whole scan instead of a `new BlockPos` per column and per y step
+	// (a 16x16 chunk allocated 500+; the HUD bench measured 181 KB/frame for the minimap). Render
+	// thread only, like everything here; nothing the scan calls (Chunk.getBlockState/getLightFor, the
+	// biome colour helpers, Block.colorMultiplier) keeps the position -- vanilla's own chunk renderer
+	// hands blocks mutable positions the same way. DEPTH_POS is the water-depth walk's own, so it
+	// cannot move SCAN_POS while baseRgb still needs the column's surface position.
+	private static final BlockPos.MutableBlockPos SCAN_POS = new BlockPos.MutableBlockPos();
+	private static final BlockPos.MutableBlockPos DEPTH_POS = new BlockPos.MutableBlockPos();
 	private static final int MAX_SCANS = 6;
 	private static final int MAX_CLEARS = 160;
 	// Periodic refresh: the 3x3 chunks around the player every second (block edits you
@@ -358,6 +366,19 @@ public final class MinimapData {
 
 	private static void scan(Minecraft mc, WorldClient level, Chunk chunk, int cx, int cz,
 							 Look look, int sig, long now) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MM_SCAN);
+		}
+		try {
+			scanChunk(level, chunk, cx, cz, look, sig, now);
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MM_SCAN);
+			}
+		}
+	}
+
+	private static void scanChunk(WorldClient level, Chunk chunk, int cx, int cz, Look look, int sig, long now) {
 		int minY = 0;     // 1.8.9 world floor
 		int maxY = 255;
 		int bx = cx << 4, bz = cz << 4;
@@ -410,7 +431,7 @@ public final class MinimapData {
 					if (look.lighting()) {
 						// clamped: Chunk.getLightFor indexes its 16 sections by y >> 4 (256 = out of range)
 						int ly = Math.min(255, colHeight[i] + 1);
-						int block = chunk.getLightFor(EnumSkyBlock.BLOCK, new BlockPos(bx + lx, ly, bz + lz));   // 1.8.9 NAME UNVERIFIED
+						int block = chunk.getLightFor(EnumSkyBlock.BLOCK, SCAN_POS.set(bx + lx, ly, bz + lz));   // 1.8.9 NAME UNVERIFIED
 						f *= Math.max(ambient, block / 15f);
 					}
 					argb = scaleRgb(argb, f);
@@ -448,12 +469,12 @@ public final class MinimapData {
 		int y = Math.min(maxY, chunk.getHeightValue(x & 15, z & 15));   // 1.8.9 NAME UNVERIFIED: Chunk.getHeightValue / getBlockState
 		colWater[i] = false;
 		colDepth[i] = 0;
-		BlockPos pos = new BlockPos(x, y, z);
+		BlockPos.MutableBlockPos pos = SCAN_POS.set(x, y, z);
 		IBlockState state = chunk.getBlockState(pos);
 		MapColor color = mapColor(state);
 		while (color == MapColor.airColor && y > minY) {
 			y--;
-			pos = new BlockPos(x, y, z);
+			pos.set(x, y, z);
 			state = chunk.getBlockState(pos);
 			color = mapColor(state);
 		}
@@ -465,7 +486,7 @@ public final class MinimapData {
 		if (liquid(state.getBlock())) {
 			int depth = 0;
 			for (int yy = y - 1; yy > minY && depth < 16; yy--) {
-				if (!liquid(chunk.getBlockState(new BlockPos(x, yy, z)).getBlock())) {
+				if (!liquid(chunk.getBlockState(DEPTH_POS.set(x, yy, z)).getBlock())) {
 					break;
 				}
 				depth++;
@@ -487,7 +508,7 @@ public final class MinimapData {
 		boolean sawAir = false;
 		int stop = Math.max(minY, top - CAVE_SCAN_DEPTH);
 		for (int y = top; y > stop; y--) {
-			BlockPos pos = new BlockPos(x, y, z);
+			BlockPos.MutableBlockPos pos = SCAN_POS.set(x, y, z);
 			IBlockState state = chunk.getBlockState(pos);
 			if (state.getBlock().getMaterial() == Material.air) {
 				sawAir = true;

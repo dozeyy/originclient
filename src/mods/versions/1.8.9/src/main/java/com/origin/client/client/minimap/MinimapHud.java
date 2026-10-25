@@ -316,8 +316,14 @@ public final class MinimapHud {
 			return;
 		}
 		float s = scale();
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MM_INFO);
+		}
 		List<Info> lines = info(mc);
 		int[] b = box(mc, lines);
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MM_INFO);
+		}
 		int mw = mapW(), mh = mapH();
 		boolean circle = circle();
 		Pose pose = g.pose();
@@ -347,10 +353,17 @@ public final class MinimapHud {
 		MinimapRenderer.View v = new MinimapRenderer.View(cx, cy, mw / 2f, mh / 2f, circle, px, pz, ppb, angle);
 
 		if (world) {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MM_UPDATE);
+			}
 			try {
 				MinimapData.update(mc, v.radiusBlocks(), look(mc));
 			} catch (Throwable t) {
 				// terrain just stops updating this frame; the map itself still draws
+			} finally {
+				if (com.origin.client.client.BenchProf.ON) {
+					com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MM_UPDATE);
+				}
 			}
 		}
 
@@ -359,9 +372,15 @@ public final class MinimapHud {
 		// already written depth (hotbar items, effect icons) and would hide it.
 		boolean depthWas = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_DEPTH_TEST);
 		GlStateManager.disableDepth();
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MM_DRAWMAP);
+		}
 		try {
 			drawMap(g, mc, v, world, partial, yawRad);
 		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MM_DRAWMAP);
+			}
 			if (depthWas) {
 				GlStateManager.enableDepth();
 			}

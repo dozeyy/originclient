@@ -45,10 +45,33 @@ public final class ModsConfig {
 	private ModsConfig() {
 	}
 
-	static synchronized void ensureLoaded() {
+	// Every Mods.on/bool/num read starts here, hundreds a frame; once the file is loaded this must not take the
+	// class monitor. `ready` flips after the load finishes (a second thread still waits on the monitor until then).
+	private static volatile boolean ready = false;
+
+	static void ensureLoaded() {
+		if (!ready) {
+			loadOnce();
+		}
+	}
+
+	/** Bumps {@link #rev} for a change that is not followed by save() (slider drags). */
+	static synchronized void touch() {
+		rev++;
+	}
+
+	private static synchronized void loadOnce() {
 		if (loaded) {
 			return;
 		}
+		try {
+			loadBody();
+		} finally {
+			ready = true;
+		}
+	}
+
+	private static void loadBody() {
 		loaded = true;
 		if (Files.exists(PATH)) {
 			try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {

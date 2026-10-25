@@ -232,14 +232,32 @@ public final class HudElements {
 		}
 	}
 
+	// Both strings are asked for twice a frame (measure + render). They are rebuilt only when one of their inputs
+	// changed (a click-rate tick, an option flip, a player joining), so a steady frame allocates nothing here.
+	private static String cpsCached;
+	private static int cpsKeyL = -1, cpsKeyR = -1, cpsKeyOpts = -1;
+
 	private static String cpsText() {
-		String value = String.valueOf(ClickStats.leftCps());
-		if (Mods.bool("cps", "rightClick")) {
-			value += " | " + ClickStats.rightCps();
+		int left = ClickStats.leftCps();
+		boolean right = Mods.bool("cps", "rightClick");
+		int rightCps = right ? ClickStats.rightCps() : -1;
+		int opts = (right ? 1 : 0) | (Mods.bool("cps", "showText") ? 2 : 0) | (Mods.bool("cps", "reverseText") ? 4 : 0);
+		if (cpsCached != null && left == cpsKeyL && rightCps == cpsKeyR && opts == cpsKeyOpts) {
+			return cpsCached;
 		}
-		return !Mods.bool("cps", "showText") ? value
-				: Mods.bool("cps", "reverseText") ? value + " CPS" : "CPS: " + value;
+		String value = String.valueOf(left);
+		if (right) {
+			value += " | " + rightCps;
+		}
+		cpsCached = (opts & 2) == 0 ? value : (opts & 4) != 0 ? value + " CPS" : "CPS: " + value;
+		cpsKeyL = left;
+		cpsKeyR = rightCps;
+		cpsKeyOpts = opts;
+		return cpsCached;
 	}
+
+	private static String serverCached, serverKeyIp;
+	private static int serverKeyPlayers = -1;
 
 	private static String serverText(Minecraft mc) {
 		ServerData server = mc.getCurrentServerData();
@@ -247,7 +265,13 @@ public final class HudElements {
 			return "Singleplayer";
 		}
 		int players = mc.getNetHandler() != null ? mc.getNetHandler().getPlayerInfoMap().size() : 0;
-		return server.serverIP + " (" + players + ")";
+		if (serverCached != null && players == serverKeyPlayers && java.util.Objects.equals(server.serverIP, serverKeyIp)) {
+			return serverCached;
+		}
+		serverKeyIp = server.serverIP;
+		serverKeyPlayers = players;
+		serverCached = server.serverIP + " (" + players + ")";
+		return serverCached;
 	}
 
 	// The Coordinates box asks for its lines twice a frame (measure, then render), and
@@ -935,10 +959,29 @@ public final class HudElements {
 		p.popPose();
 	}
 
+	// The animation id of each key ("ks:" + label + x) was concatenated per key per frame; the nine keys sit at fixed
+	// spots, so the id string is built once per (spot, label). Same id text as before, so OriginUi.anim state is shared.
+	// Direct-mapped by spot (no boxing: a HashMap<Integer,..> allocated an Integer per key per frame above 127). A slot
+	// shared by two spots just evicts and rebuilds the same text, so a collision costs a string, never a wrong id.
+	private static final int[] KS_SPOT = new int[32];
+	private static final String[][] KS_KEYS = new String[32][];
+
+	private static String ksAnimKey(String label, int x, int y) {
+		int spot = (x << 12) ^ y;
+		int slot = (spot ^ (spot >>> 5) ^ (spot >>> 11)) & 31;
+		String[] e = KS_KEYS[slot];
+		if (e == null || KS_SPOT[slot] != spot || !e[0].equals(label)) {
+			e = new String[]{label, "ks:" + label + x};
+			KS_SPOT[slot] = spot;
+			KS_KEYS[slot] = e;
+		}
+		return e[1];
+	}
+
 	private static void key(Gfx g, Minecraft mc, int x, int y, int w, int h, String label, boolean down) {
 		// Key Fade Delay drives the press/release fade between the two color sets
 		double fade = Math.max(50, Mods.num("keystrokes", "keyFadeDelay"));
-		float k = OriginUi.anim("ks:" + label + x, down, fade);
+		float k = OriginUi.anim(ksAnimKey(label, x, y), down, fade);
 		int bgUp = OriginColorPicker.liveColor("keystrokes", "bgColor");
 		int bgDown = OriginColorPicker.liveColor("keystrokes", "bgColorPressed");
 		int fill = com.origin.client.client.theme.OriginTheme.lerpColor(bgUp, bgDown, k);
@@ -1088,22 +1131,49 @@ public final class HudElements {
 				com.origin.client.client.BenchProf.begin(prof);
 			}
 			HudPos pos = e.pos();
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_MEASURE);
+			}
 			int[] size = e.measure().apply(mc);
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_MEASURE);
+			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(sw, w), y = pos.y(sh, h);
-			drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_BACKING);
+			}
+			// Fills inside one element go out as one draw (Gfx batching; draw order is kept by flush-on-
+			// anything-else). The minimap is left out: it flips raw GL state (depth) and draws its own
+			// geometry between its Gfx calls, which the batch cannot see.
+			boolean batch = !"minimap".equals(e.modId());
+			if (batch) {
+				Gfx.batchBegin();
+			}
 			Pose p = g.pose();
 			int depth = p.depth();
-			p.pushPose();
-			p.translate(x, y, 0);
-			p.scale((float) pos.scale, (float) pos.scale, 1f);
 			try {
-				e.renderer().render(g, mc, size[0], size[1]);
-			} catch (Throwable t) {
-				// One bad element must never take the HUD down.
+				drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
+				if (com.origin.client.client.BenchProf.ON) {
+					com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_BACKING);
+					com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_RENDER);
+				}
+				p.pushPose();
+				p.translate(x, y, 0);
+				p.scale((float) pos.scale, (float) pos.scale, 1f);
+				try {
+					e.renderer().render(g, mc, size[0], size[1]);
+				} catch (Throwable t) {
+					// One bad element must never take the HUD down.
+				}
+				popTo(p, depth);
+			} finally {
+				if (batch) {
+					Gfx.batchEnd();
+				}
 			}
-			popTo(p, depth);
 			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_RENDER);
 				com.origin.client.client.BenchProf.end(prof);
 			}
 		}
