@@ -39,6 +39,12 @@ public static class RenderTour
                                                Snap(setup, outDir, "09-done");
         setup.TourProblem();                   Snap(setup, outDir, "10-problem-offline");
         setup.TourOriginOpen();                Snap(setup, outDir, "11-origin-open");
+        // Customize: closed is shot 01 (the footer's Customize button); open at its defaults, open with memory and
+        // version changed (Use recommended turns on), and open with the keyboard ring on the memory slider.
+        setup.TourCustomize(changed: false);   Snap(setup, outDir, "18-ready-customize-open");
+        setup.TourCustomize(changed: true);    Snap(setup, outDir, "19-ready-customize-changed");
+        setup.TourCustomize(changed: false, keyboardFocusOnSlider: true);
+                                               Snap(setup, outDir, "20-ready-customize-keyboard-focus");
         setup.Close();
 
         var uninstall = new UninstallWindow(InstallLocation.Default) { ShowActivated = false };

@@ -130,6 +130,9 @@
                                    Foreground="{StaticResource Brush.DangerText}" Text="Some files could not be removed"/>
                     </Grid>
                     <TextBlock x:Name="ProblemBody" Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.4}"/>
+                    <!-- The folder on its own line, shortened in the middle so it never wraps mid-path. -->
+                    <TextBlock x:Name="ProblemPath" Style="{StaticResource Text.Caption}" TextWrapping="NoWrap"
+                               Margin="{StaticResource Top.2}" SizeChanged="ProblemPath_SizeChanged"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="ProblemCloseButton" Style="{StaticResource Button.Primary}" Content="Close" Click="Close_Click"/>

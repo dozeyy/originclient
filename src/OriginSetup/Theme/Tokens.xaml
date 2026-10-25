@@ -100,6 +100,14 @@
          the ink, not the box, sits on the 32 gutter. -->
     <Thickness x:Key="Ink.Hero">-3,0,0,0</Thickness>
     <Thickness x:Key="Margin.Dot">0,5,8,0</Thickness>
+    <Thickness x:Key="Pad.ComboText">12,0,36,0</Thickness>
+    <Thickness x:Key="Pad.Item">10,6</Thickness>
+    <Thickness x:Key="Pad.List">4</Thickness>
+    <Thickness x:Key="Margin.Chevron">0,0,12,0</Thickness>
+    <Thickness x:Key="Margin.Glyph">8,0,0,0</Thickness>
+    <Thickness x:Key="Margin.List">0,4,0,0</Thickness>
+    <Thickness x:Key="Margin.Ring">-4</Thickness>
+    <Thickness x:Key="Margin.SliderRing">-6,-2</Thickness>
 
     <!-- ===== Control sizes (spec 5): one height per step ===== -->
     <system:Double x:Key="Size.ControlSm">28</system:Double>
@@ -108,9 +116,17 @@
     <system:Double x:Key="Size.Checkbox">16</system:Double>
     <system:Double x:Key="Size.Progress">3</system:Double>
     <system:Double x:Key="Size.Dot">6</system:Double>
+    <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. Dropdown: field width and list height cap. -->
+    <system:Double x:Key="Size.SliderBox">20</system:Double>
+    <system:Double x:Key="Size.SliderTrack">4</system:Double>
+    <system:Double x:Key="Size.SliderThumb">16</system:Double>
+    <system:Double x:Key="Size.ComboWidth">224</system:Double>
+    <system:Double x:Key="Size.ListMaxHeight">224</system:Double>
     <!-- The window (spec 14) and its title bar. -->
     <system:Double x:Key="Size.WindowWidth">640</system:Double>
     <system:Double x:Key="Size.WindowHeight">440</system:Double>
+    <!-- The window while Customize is open on the Ready page: 144 taller, so the footer stays pinned 32 up. -->
+    <system:Double x:Key="Size.WindowHeightOpen">584</system:Double>
     <system:Double x:Key="Size.TitleBar">40</system:Double>
     <system:Double x:Key="Size.DialogMaxWidth">440</system:Double>
     <!-- Brand sizes (spec 1.3): title bar logo 20; hero logo 48 with a 24 tall wordmark. -->

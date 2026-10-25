@@ -79,13 +79,63 @@
 
                     <CheckBox x:Name="StartupCheck" Margin="{StaticResource Top.4}"
                               Content="Open Origin when Windows starts"/>
+
+                    <!-- Customize (closed by default; the footer's Customize button opens it and the window grows to
+                         fit): memory for Minecraft and the version Origin opens on. Both are optional: untouched,
+                         the installer hands the launcher nothing and it picks its own defaults. -->
+                    <StackPanel x:Name="CustomizePanel" Visibility="Collapsed" Margin="{StaticResource Top.4}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource Text.Body}" Text="Memory for Minecraft"/>
+                            <TextBlock x:Name="RamValue" Grid.Column="1" Style="{StaticResource Text.BodyStrong}"/>
+                        </Grid>
+                        <Slider x:Name="RamSlider" Style="{StaticResource Slider.Workbench}" Margin="{StaticResource Top.2}"
+                                SmallChange="256" LargeChange="1024" TickFrequency="256" IsSnapToTickEnabled="True"
+                                ValueChanged="RamSlider_ValueChanged" AutomationProperties.Name="Memory for Minecraft"/>
+                        <Grid Margin="{StaticResource Top.2}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="RamHint" Style="{StaticResource Text.Caption}" VerticalAlignment="Center"/>
+                            <Button x:Name="RamResetButton" Grid.Column="1" Style="{StaticResource Button.GhostSm}"
+                                    Content="Use recommended" Click="RamResetButton_Click"/>
+                        </Grid>
+                        <Grid Margin="{StaticResource Top.3}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource Text.Body}" VerticalAlignment="Center" Text="Default version"/>
+                            <ComboBox x:Name="VersionCombo" Grid.Column="1" Style="{StaticResource Combo.Workbench}"
+                                      AutomationProperties.Name="Default Minecraft version"/>
+                        </Grid>
+                    </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="ReadyCancelButton" Style="{StaticResource Button.Ghost}" Content="Cancel" Click="CloseButton_Click"/>
-                    <Button x:Name="InstallButton" Style="{StaticResource Button.Primary}" Margin="{StaticResource Left.2}"
-                            Content="Install" Click="InstallButton_Click" IsDefault="True"/>
-                </StackPanel>
+                <!-- Footer: Customize on the left (it never moves, open or closed), Cancel and Install on the right. -->
+                <Grid Grid.Row="1">
+                    <Button x:Name="CustomizeButton" Style="{StaticResource Button.Ghost}" HorizontalAlignment="Left"
+                            Click="CustomizeButton_Click" AutomationProperties.Name="Customize install options">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Customize" VerticalAlignment="Center"/>
+                            <Path x:Name="CustomizeChevron" Data="{StaticResource Icon.Chevron}" Style="{StaticResource Setup.Glyph}"
+                                  Margin="{StaticResource Margin.Glyph}" RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="CustomizeTurn" Angle="0"/>
+                                </Path.RenderTransform>
+                            </Path>
+                        </StackPanel>
+                    </Button>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="ReadyCancelButton" Style="{StaticResource Button.Ghost}" Content="Cancel" Click="CloseButton_Click"/>
+                        <Button x:Name="InstallButton" Style="{StaticResource Button.Primary}" Margin="{StaticResource Left.2}"
+                                Content="Install" Click="InstallButton_Click" IsDefault="True"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
 
             <!-- ============ INSTALLING ============ -->

@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Install;
 using OriginSetup.Engine;
 
@@ -30,6 +31,10 @@ public partial class SetupWindow : Window
     private readonly FrameworkElement[] _pages;
 
     private string _location;
+    private readonly int _recommendedRamMb;
+    private bool _ramChanged;
+    private bool _customizeOpen;
+    private bool _loading = true;
     private bool _installing;
     private CancellationTokenSource? _cts;
     private InstallOptions? _pendingOptions;
@@ -53,6 +58,22 @@ public partial class SetupWindow : Window
         _progressTimer.Tick += (_, _) => RenderProgress();
 
         StartupCheck.IsChecked = SafeIsStartWithWindows();
+
+        // Customize: memory starts on this PC's recommended amount, the version on "Newest". Only a change the
+        // player makes is handed to the launcher (InstallButton_Click), so untouched means the launcher's own defaults.
+        int totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
+        _recommendedRamMb = RamAdvice.RecommendedMb(totalMb);
+        RamSlider.Minimum = RamAdvice.SliderMinimumMb;
+        RamSlider.Maximum = RamAdvice.MaximumMb(totalMb);
+        RamSlider.Value = _recommendedRamMb;
+        RamValue.Text = FormatRam(_recommendedRamMb);
+        RamHint.Text = $"Recommended for your PC: {FormatRam(_recommendedRamMb)} of {Math.Round(totalMb / 1024d):0} GB";
+        RamResetButton.IsEnabled = false;
+        VersionCombo.Items.Add(new ComboBoxItem { Content = "Newest (recommended)", Tag = null });
+        foreach (var v in VersionChoices.Embedded())
+            VersionCombo.Items.Add(new ComboBoxItem { Content = "Minecraft " + v, Tag = v });
+        VersionCombo.SelectedIndex = 0;
+        _loading = false;
 
         // An existing install keeps its folder (moving it is an uninstall + install); otherwise the default.
         _location = _existing?.Directory ?? InstallLocation.Default;
@@ -132,6 +153,8 @@ public partial class SetupWindow : Window
         {
             Directory = dir!,
             StartWithWindows = StartupCheck.IsChecked == true,
+            RamMb = _ramChanged ? (int)RamSlider.Value : (int?)null,
+            DefaultVersion = (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string,
             SourceZip = _sourceZip,
         };
 
@@ -143,6 +166,43 @@ public partial class SetupWindow : Window
         }
         BeginInstall(options);
     }
+
+    // ---------- Customize ----------
+
+    private void CustomizeButton_Click(object sender, RoutedEventArgs e) => SetCustomize(!_customizeOpen);
+
+    // Open or close the section; the window grows by exactly its height and the footer stays pinned (spec 14).
+    private void SetCustomize(bool open)
+    {
+        _customizeOpen = open;
+        CustomizePanel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        CustomizeTurn.Angle = open ? 180 : 0;
+        FitHeight(ReadyPage.Visibility == Visibility.Visible);
+    }
+
+    // The tall size belongs to the Ready page with Customize open; every other state uses the standard 440.
+    private void FitHeight(bool onReady)
+    {
+        double h = (double)FindResource(onReady && _customizeOpen ? "Size.WindowHeightOpen" : "Size.WindowHeight");
+        if (Math.Abs(Height - h) < 0.5) return;
+        Height = h;
+        // Growing must not push the footer below the screen: slide the window up instead.
+        var work = SystemParameters.WorkArea;
+        if (!double.IsNaN(Top) && Top + h > work.Bottom) Top = Math.Max(work.Top, work.Bottom - h);
+    }
+
+    private void RamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (RamValue == null) return; // fires once while the window is being built
+        RamValue.Text = FormatRam((int)e.NewValue);
+        if (_loading) return;
+        _ramChanged = (int)e.NewValue != _recommendedRamMb;
+        RamResetButton.IsEnabled = _ramChanged;
+    }
+
+    private void RamResetButton_Click(object sender, RoutedEventArgs e) => RamSlider.Value = _recommendedRamMb;
+
+    private static string FormatRam(int mb) => $"{mb / 1024d:0.##} GB";
 
     // ---------- Location ----------
 
@@ -403,6 +463,7 @@ public partial class SetupWindow : Window
     private void ShowPage(FrameworkElement page)
     {
         PageMotion.Show(page, _pages);
+        FitHeight(page == ReadyPage);
         InstallButton.IsDefault = page == ReadyPage;
         LaunchButton.IsDefault = page == DonePage;
         RetryButton.IsDefault = page == ProblemPage && RetryButton.Visibility == Visibility.Visible;
@@ -444,8 +505,28 @@ public partial class SetupWindow : Window
         _noteOverride = null;
         BrowseButton.IsEnabled = _existing == null;
         FillReady();
+        // Every tour state starts from the defaults: Customize closed, memory recommended, version Newest.
+        SetCustomize(false);
+        RamSlider.Value = _recommendedRamMb;
+        VersionCombo.SelectedIndex = 0;
+        Chrome.SetKeyFocus(RamSlider, false);
         ShowPage(ReadyPage);
         UpdateLocation();
+    }
+
+    /// <summary>Ready with Customize open; changed = memory moved off the recommendation and an explicit version picked.</summary>
+    internal void TourCustomize(bool changed, bool keyboardFocusOnSlider = false)
+    {
+        TourReady(null);
+        SetCustomize(true);
+        if (changed)
+        {
+            RamSlider.Value = _recommendedRamMb - 1024 >= RamSlider.Minimum ? _recommendedRamMb - 1024 : _recommendedRamMb + 1024;
+            if (VersionCombo.Items.Count > 1) VersionCombo.SelectedIndex = 1;
+        }
+        Chrome.SetKeyFocus(RamSlider, keyboardFocusOnSlider);
+        UpdateLayout();
+        WindowFrame.FitPath(LocationText, _location);
     }
 
     internal void TourLocationProblem(string problem)

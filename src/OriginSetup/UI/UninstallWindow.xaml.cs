@@ -59,8 +59,7 @@ public partial class UninstallWindow : Window
         }
         else
         {
-            ProblemBody.Text = ProblemBodyFor(_dir);
-            ShowPage(ProblemPage);
+            ShowProblem();
             ProblemCloseButton.IsDefault = true;
         }
     }
@@ -83,8 +82,21 @@ public partial class UninstallWindow : Window
         if (e.WidthChanged) WindowFrame.FitPath(KeptPath, Handoff.DataRoot);
     }
 
-    private static string ProblemBodyFor(string dir) =>
-        $"Some files were in use and couldn't be deleted (Minecraft may still be running). You can delete the folder yourself: {dir}";
+    private const string ProblemBodyText =
+        "Some files were in use and couldn't be deleted (Minecraft may still be running). You can delete the folder yourself:";
+
+    private void ShowProblem()
+    {
+        ProblemBody.Text = ProblemBodyText;
+        ShowPage(ProblemPage);
+        Dispatcher.BeginInvoke(new Action(() => WindowFrame.FitPath(ProblemPath, _dir)),
+            System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void ProblemPath_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.WidthChanged) WindowFrame.FitPath(ProblemPath, _dir);
+    }
 
     // Same rail + step line + percent as the installer's; the wording follows what Uninstaller.Run is doing.
     private void RenderProgress(double f, bool removeData)
@@ -136,9 +148,5 @@ public partial class UninstallWindow : Window
 
     internal void TourDone(bool keptData) => ShowDone(keptData);
 
-    internal void TourProblem()
-    {
-        ProblemBody.Text = ProblemBodyFor(_dir);
-        ShowPage(ProblemPage);
-    }
+    internal void TourProblem() => ShowProblem();
 }

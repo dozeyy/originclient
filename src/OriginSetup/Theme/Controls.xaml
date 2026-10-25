@@ -241,6 +241,170 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ===== Slider (spec 11): 4 track, accent fill up to the thumb, 16 round thumb, keyboard ring ===== -->
+    <Style x:Key="Slider.Fill" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Grid Background="Transparent">
+                        <Border Height="{StaticResource Size.SliderTrack}" CornerRadius="{StaticResource Radius.Full}"
+                                Background="{StaticResource Brush.Accent}" VerticalAlignment="Center"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Slider.Rest" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Grid Background="Transparent"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Slider.Thumb" TargetType="Thumb">
+        <Setter Property="Width" Value="{StaticResource Size.SliderThumb}"/>
+        <Setter Property="Height" Value="{StaticResource Size.SliderThumb}"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Ellipse x:Name="Dot" Fill="{StaticResource Brush.Text}"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Dot" Property="Fill" Value="{StaticResource Brush.AccentHover}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <ControlTemplate x:Key="Template.Slider" TargetType="Slider">
+        <Grid Height="{StaticResource Size.SliderBox}" Background="Transparent" SnapsToDevicePixels="True">
+            <Border x:Name="Ring" Margin="{StaticResource Margin.SliderRing}" BorderThickness="2" BorderBrush="{StaticResource Brush.AccentBorder}"
+                    CornerRadius="{StaticResource Radius.Ring.Sm}" Visibility="Collapsed" IsHitTestVisible="False"/>
+            <Border Height="{StaticResource Size.SliderTrack}" CornerRadius="{StaticResource Radius.Full}"
+                    Background="{StaticResource Brush.ProgressTrack}" VerticalAlignment="Center"/>
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource Slider.Fill}"/>
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Style="{StaticResource Slider.Thumb}"/>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="Slider.IncreaseLarge" Style="{StaticResource Slider.Rest}"/>
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="ui:Chrome.KeyFocus" Value="True">
+                <Setter TargetName="Ring" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="Slider.Workbench" TargetType="Slider">
+        <Setter Property="Template" Value="{StaticResource Template.Slider}"/>
+        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <!-- ===== Dropdown (spec 11): the location field's look (36 tall, field fill, strong edge, radius.md), a line
+         chevron on the right, a panel-fill list with radius.md and radius.sm rows. Same keyboard ring as a button. ===== -->
+    <Style x:Key="Combo.Item" TargetType="ComboBoxItem">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="Padding" Value="{StaticResource Pad.Item}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Row" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            CornerRadius="{StaticResource Radius.Sm}" SnapsToDevicePixels="True">
+                        <ContentPresenter/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource Brush.GhostHover}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <ControlTemplate x:Key="Template.ComboToggle" TargetType="ToggleButton">
+        <Border x:Name="Edge" Background="{StaticResource Brush.Field}" BorderBrush="{StaticResource Brush.Stroke}"
+                BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"/>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Edge" Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <ControlTemplate x:Key="Template.Combo" TargetType="ComboBox">
+        <Grid SnapsToDevicePixels="True">
+            <Border x:Name="Ring" Margin="{StaticResource Margin.Ring}" BorderThickness="2"
+                    BorderBrush="{StaticResource Brush.AccentBorder}" CornerRadius="{StaticResource Radius.Ring.Md}"
+                    Visibility="Collapsed" IsHitTestVisible="False"/>
+            <ToggleButton Template="{StaticResource Template.ComboToggle}" Focusable="False" ClickMode="Press"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+            <ContentPresenter Margin="{StaticResource Pad.ComboText}" VerticalAlignment="Center" HorizontalAlignment="Left"
+                              IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}"
+                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+            <Path Data="{StaticResource Icon.Chevron}" Stretch="Uniform" Width="{StaticResource Icon.SizeWindow}"
+                  Height="{StaticResource Icon.SizeWindow}" Stroke="{StaticResource Brush.TextDim}"
+                  StrokeThickness="{StaticResource Icon.Stroke}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  StrokeLineJoin="Round" HorizontalAlignment="Right" Margin="{StaticResource Margin.Chevron}"
+                  IsHitTestVisible="False"/>
+            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                   AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+                <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                        MaxHeight="{StaticResource Size.ListMaxHeight}" Margin="{StaticResource Margin.List}"
+                        Background="{StaticResource Brush.Panel}" BorderBrush="{StaticResource Brush.Stroke}"
+                        BorderThickness="1" CornerRadius="{StaticResource Radius.Md}" Padding="{StaticResource Pad.List}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                    </ScrollViewer>
+                </Border>
+            </Popup>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="ui:Chrome.KeyFocus" Value="True">
+                <Setter TargetName="Ring" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="Combo.Workbench" TargetType="ComboBox">
+        <Setter Property="Template" Value="{StaticResource Template.Combo}"/>
+        <Setter Property="Height" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Width" Value="{StaticResource Size.ComboWidth}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="ItemContainerStyle" Value="{StaticResource Combo.Item}"/>
+    </Style>
+
     <!-- The one progress element (spec 11.11): 3 tall, full radius, a faint track, an accent fill. The fill
          grows by code (PageMotion.Width) to the real fraction; there is never a fake percentage. -->
     <Style x:Key="Setup.ProgressTrack" TargetType="Border">
