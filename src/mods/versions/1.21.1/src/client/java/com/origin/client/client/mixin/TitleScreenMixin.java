@@ -48,7 +48,6 @@ import java.util.List;
 //                 [   Options    ][    Mods    ]
 //
 //     realms friends cosmetics lang access quit          12 px parchment glyphs on 20 x 20 Workbench cards
-//     (faint orbit hairlines behind it all: OriginScreenRenderer.renderTitleOrbits)
 //     Minecraft 1.21.1 . Origin (middle dot)     Copyright Mojang AB. Do not distribute!
 //
 // Background: THIS version's own Mojang panorama (vanilla draws it), blurred
@@ -59,8 +58,9 @@ import java.util.List;
 // Workbench panels (OriginButtonRenderer skin 2: titleControl, registered below
 // with setTitleButton); the dock is the same card with a glyph (setTitleDock).
 // Both fall back to the stock vanilla button on a draw failure or when the
-// Main Menu Style is vanilla. Every dock glyph gets a one-line tooltip saying what it does (vanilla Tooltip); worded buttons get
-// none -- their label already says it (Will, 2026-10-19). Mods / Friends /
+// Main Menu Style is vanilla. Every dock glyph carries a one-line tooltip saying what it does, for narration only:
+// it is never drawn (WidgetTooltipHolderMixin; a hover card beside the dock read as a second button, Will
+// 2026-10-25). Worded buttons get none -- their label already says it (Will, 2026-10-19). Mods / Friends /
 // Cosmetics are Origin's, added as real widgets through ScreenInvoker. Mod
 // Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
 // screen event after our init hook, which also bumps buttons -- so positions
@@ -182,7 +182,6 @@ public class TitleScreenMixin {
 			return;
 		}
 		OriginScreenRenderer.renderTitleBackdropOver((Screen) (Object) this, guiGraphics, partialTick);
-		OriginScreenRenderer.renderTitleOrbits(guiGraphics);
 		OriginScreenRenderer.renderTitleAccountChip(guiGraphics);
 	}
 
@@ -332,13 +331,13 @@ public class TitleScreenMixin {
 		return net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
 	}
 
-	/** Dock action: the worded buttons' card with a parchment glyph, and what it does as its tooltip. */
+	/** Dock action: the worded buttons' card with a parchment glyph; what it does is its (narrated, never drawn) tooltip. */
 	@Unique
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
 		OriginButtonRenderer.setTitleDock(w, icon);
 		originclient$tip(w, tip);
 		if (w != null) {
-			OriginButtonRenderer.setDockTip(w.getTooltip());   // placed beside the dock (WidgetTooltipHolderMixin)
+			OriginButtonRenderer.setDockTip(w.getTooltip());   // narrated, never drawn (WidgetTooltipHolderMixin)
 		}
 	}
 

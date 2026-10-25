@@ -945,21 +945,6 @@ public final class OriginScreenRenderer {
 	private static UUID titleSkinProfileId;
 	private static Supplier<net.minecraft.client.resources.PlayerSkin> titleSkinSupplier;
 
-	// The title's three orbit hairlines (A-Workbench-3): 0 / 60 / 120 deg, centred at 44.5 % of the
-	// height, pills 0.952 x 0.342 of the height (half-extents 0.476 / 0.171), parchment ~10 %. Baked once per screen size.
-	private static final OrbitHairlines TITLE_ORBITS = new OrbitHairlines(3, 0.0);
-
-	/** Main menu: the faint orbit hairlines over the dimmed panorama, under the logo and buttons. */
-	public static void renderTitleOrbits(GuiGraphics guiGraphics) {
-		if (broken) {
-			return;
-		}
-		Minecraft mc = Minecraft.getInstance();
-		float h = mc.getWindow().getGuiScaledHeight();
-		float w = mc.getWindow().getGuiScaledWidth();
-		TITLE_ORBITS.draw(guiGraphics, w / 2f, h * 0.445f, h * 0.476f, h * 0.171f, OriginTheme.TITLE_ORBIT, 1f);
-	}
-
 	/**
 	 * Main menu: the Origin logo and wordmark above the button stack, still
 	 * (the loading screen dissolves over it after the first load).
