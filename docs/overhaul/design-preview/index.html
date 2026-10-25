@@ -20,7 +20,7 @@
   --text:#f1e9d2; --dim:rgba(241,233,210,.68); --muted:rgba(241,233,210,.52);
   --acc:#5fd09b; --acc-h:#83e2b5; --acc-p:#4cb985; --acc-soft:rgba(95,208,155,.14); --acc-border:rgba(95,208,155,.6); --on-acc:#0a1710;
   --success:#68c490; --warning:#e9c46a; --danger:#d9675a; --danger-text:#f98e80; --danger-soft:rgba(217,103,90,.14); --info:#6faee8;
-  --scrim:rgba(10,13,12,.64);
+  --scrim:rgba(10,13,12,.64); --numeral:#f5f5f5; --on-art:rgba(245,245,245,.82);
   --hue-emerald:#5fd09b; --hue-sky:#6faee8; --hue-gold:#e9c46a; --hue-lilac:#b49ce8; --hue-coral:#e08a6b;
   --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:12px;
   --h-sm:28px; --h-md:32px; --h-lg:36px; --h-xl:40px;
@@ -112,8 +112,13 @@ p{margin:0}
 .btn--ghost.is-disabled,.btn--icon.is-disabled{color:var(--muted);opacity:.6}
 .btn--danger.is-disabled{background:var(--soft);color:var(--muted)}
 .btn.is-loading{pointer-events:none}
-.btn--primary.is-loading{background:var(--card);border-color:var(--stroke);color:var(--text)}
-.btn--play{min-width:136px;font:700 16px/20px var(--sans);letter-spacing:-.01em;gap:10px}
+.btn--play.is-loading{background:var(--card);border-color:var(--stroke);color:var(--text)}
+.btn .lbl{display:inline-flex;align-items:center;gap:inherit}
+.btn.is-loading:not(.btn--play) .lbl{visibility:hidden}
+.btn.is-loading:not(.btn--play)>.spin{position:absolute;left:50%;top:50%;margin:-7px 0 0 -7px}
+.btn--primary .spin{border-color:var(--on-acc);border-right-color:transparent}
+.btn--danger .spin{border-color:var(--danger-text);border-right-color:transparent}
+.btn--play{width:144px;font:700 16px/20px var(--sans);letter-spacing:-.01em;gap:10px}
 .btn--play .ic{width:14px;height:14px}
 .btn .rail-in{position:absolute;left:8px;right:8px;bottom:6px;height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
 .btn .rail-in i{display:block;height:100%;background:var(--acc);border-radius:inherit}
@@ -163,44 +168,57 @@ p{margin:0}
 .menu-sep{height:1px;background:var(--soft);margin:4px 2px}
 
 /* ===== Top bar ===== */
-.topbar{height:48px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 8px 0 16px;background:var(--glass);border-bottom:1px solid var(--soft);position:relative;z-index:2}
-.tabs{display:flex;gap:4px}
+.topbar{height:48px;display:flex;align-items:center;padding:0 8px 0 12px;background:var(--glass);border-bottom:1px solid var(--soft);position:relative;z-index:2;container:bar/inline-size}
+.tabs{display:flex;gap:4px;flex:1 1 auto;justify-content:center;margin:0 24px;min-width:0}
 .tab{height:32px;padding:0 12px;border-radius:var(--r-sm);display:inline-flex;align-items:center;font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);cursor:pointer;transition:background var(--dur-hover) var(--ease),color var(--dur-hover) var(--ease)}
 .tab:hover,.tab.is-hover{background:rgba(255,255,255,.04);color:var(--text)}
 .tab.sel{background:rgba(255,255,255,.07);color:var(--text)}
-.bar-r{display:flex;align-items:center;justify-content:flex-end;gap:4px}
-.vdiv{width:1px;height:16px;background:var(--soft);margin:0 8px}
+.bar-r{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex:none}
+.vdiv{width:1px;height:20px;background:rgba(255,255,255,.14);margin:0 8px;flex:none}
 .store .bag{color:var(--hue-gold)}
 .store .ext{color:var(--muted)}
 .store{color:var(--dim)}
+.store.is-compact{width:32px;padding:0;gap:0}.store.is-compact .lbl,.store.is-compact .ext{display:none}
+.brand{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 4px;border-radius:var(--r-sm);flex:none;color:var(--muted);text-decoration:none;transition:background-color var(--dur-hover) var(--ease)}
+.brand .brand-logo{width:24px;height:24px}.brand .wm{height:16px;width:auto;display:block}
+.brand .ext{opacity:0;margin-left:-2px;transition:opacity var(--dur-hover) var(--ease)}
+.brand:hover,.brand.is-hover{background:var(--soft)}.brand:hover .ext,.brand.is-hover .ext{opacity:1}
+.brand:focus-visible,.brand.is-focus{outline:2px solid var(--acc-border);outline-offset:2px}
+/* Top bar width rules: Store gives up its label below 1100, then the wordmark below 1000. */
+@container bar (max-width:1099px){.store{width:32px;padding:0;gap:0}.store .lbl,.store .ext{display:none}}
+@container bar (max-width:999px){.brand .wm{display:none}.brand{padding:0 4px}}
 .friends{color:var(--hue-sky)}
 
 /* ===== Account pill ===== */
-.acct{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 4px;border-radius:var(--r-md);background:rgba(255,255,255,.04);border:1px solid var(--soft);cursor:pointer;color:var(--text);font:600 13.5px/20px var(--sans);transition:background var(--dur-hover) var(--ease),border-color var(--dur-hover) var(--ease)}
+.acct{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 4px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--soft);cursor:pointer;color:var(--text);font:600 13.5px/20px var(--sans);transition:background var(--dur-hover) var(--ease),border-color var(--dur-hover) var(--ease)}
 .acct:hover,.acct.is-hover{background:var(--card-alt);border-color:var(--stroke)}
 .acct .name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct .chev{color:var(--dim);margin-left:-2px}
-.head{width:24px;height:24px;border-radius:var(--r-xs);display:block;image-rendering:pixelated;flex:none;overflow:hidden}
+.head{width:24px;height:24px;border-radius:2px;display:block;image-rendering:pixelated;flex:none;overflow:hidden}
 .head svg{display:block;width:100%;height:100%}
 
 /* ===== Version card ===== */
 .vgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 @media (max-width:860px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.vcard{position:relative;aspect-ratio:16/10;border-radius:var(--r-lg);overflow:hidden;container-type:inline-size;cursor:pointer;background:var(--bg-sunken);isolation:isolate}
+.vcard{display:block;position:relative;aspect-ratio:16/10;border-radius:var(--r-lg);overflow:hidden;container-type:inline-size;cursor:pointer;background:var(--bg-sunken);isolation:isolate}
 .vcard img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:filter var(--dur-hover) var(--ease)}
-.vcard::before{content:"";position:absolute;inset:0;z-index:1;background:radial-gradient(85% 75% at 0% 100%,rgba(14,17,16,.88) 0%,rgba(14,17,16,.55) 45%,rgba(14,17,16,0) 100%),linear-gradient(to top,rgba(14,17,16,.62) 0%,rgba(14,17,16,0) 38%),rgba(14,17,16,.08)}
+.vcard::before{content:"";position:absolute;inset:0;z-index:1;background:radial-gradient(100% 80% at 0% 100%,rgba(14,17,16,.88) 0%,rgba(14,17,16,.5) 45%,rgba(14,17,16,0) 100%),rgba(14,17,16,.06)}
 .vcard::after{content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--soft);transition:box-shadow var(--dur-hover) var(--ease)}
 .vcard:hover::after,.vcard.is-hover::after{box-shadow:inset 0 0 0 1px var(--stroke)}
 .vcard:hover img,.vcard.is-hover img{filter:brightness(1.06)}
 .vcard.sel{overflow:visible}
 .vcard.sel::after{box-shadow:inset 0 0 0 1px var(--stroke),0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
 .vcard.sel img,.vcard.sel::before{border-radius:var(--r-lg)}
-.vcard .plate{position:absolute;left:12px;right:12px;bottom:12px;z-index:2;display:grid;grid-template-columns:auto 1fr;align-items:end}
-.vcard .eb{grid-column:1/-1;font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:rgba(241,233,210,.8);margin-bottom:6px;text-shadow:0 1px 2px rgba(0,0,0,.45)}
-.vcard .num{font-weight:800;font-size:25cqw;line-height:.73;letter-spacing:-.045em;font-variant-numeric:tabular-nums;color:var(--text);margin-left:-.04em}
-.vcard .range{justify-self:end;font:500 12px/1 var(--sans);color:rgba(241,233,210,.78);white-space:nowrap;padding-left:8px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
-.vcard .eb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-@container (max-width:220px){.vcard .eb{font-size:9.5px;letter-spacing:.08em;margin-bottom:4px}.vcard .range{display:none}.vcard .plate{left:10px;right:10px;bottom:10px}.vcard .badge{top:8px;left:8px;height:18px;padding:0 6px;font-size:11px}}
+.vcard .plate{position:absolute;left:12px;right:12px;bottom:12px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+/* Numerals on art (DESIGN-SYSTEM 11.6): one rule for Home and cards. */
+.eb{font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--on-art);text-shadow:0 1px 2px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-box:trim-both cap alphabetic;margin-bottom:8px}
+.num{display:block;font-weight:800;line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral);text-box:trim-both cap alphabetic;white-space:nowrap}
+.numrow{display:flex;align-items:flex-end;gap:12px;max-width:100%}
+.vcard .num{font-size:21.5cqw}
+.range{font:500 12px/16px var(--sans);color:var(--on-art);white-space:nowrap;text-box:trim-both cap alphabetic;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+@container (max-width:220px){.vcard .eb{font-size:9.5px;letter-spacing:.08em;margin-bottom:6px}.vcard .range{display:none}.vcard .plate{left:10px;right:10px;bottom:10px}.vcard .badge{top:8px;left:8px;height:18px;padding:0 6px;font-size:11px}}
+.gl{position:absolute;z-index:4;pointer-events:none}.gl.h{left:0;right:0;border-top:1px dashed rgba(111,174,232,.9)}.gl.v{top:0;bottom:0;border-left:1px dashed rgba(111,174,232,.9)}
+.gl-t{position:absolute;z-index:4;pointer-events:none;font:600 10.5px/14px var(--sans);color:#8ec2f0;background:rgba(14,17,16,.82);padding:1px 6px;border-radius:4px;white-space:nowrap}
 .vcard .badge{position:absolute;top:10px;left:10px;z-index:2;background:rgba(23,28,25,.8);color:var(--text)}
 
 /* ===== Sheet (version selector) ===== */
@@ -230,8 +248,11 @@ p{margin:0}
 .home .art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .home .shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(14,17,16,.82) 0px,rgba(14,17,16,.5) 120px,rgba(14,17,16,0) 264px)}
 .home .topbar{position:absolute;left:0;right:0;top:0}
-.home .band{position:absolute;left:0;right:0;top:72px;height:556px;display:flex;align-items:center;justify-content:center}
-.home .numeral{font-weight:800;font-size:337px;line-height:1;letter-spacing:-.045em;font-variant-numeric:tabular-nums;color:rgba(241,233,210,.94);text-box:trim-both cap alphabetic;margin:0}
+.home .corner{position:absolute;inset:0;background:radial-gradient(64% 70% at 0% 100%,rgba(14,17,16,.86) 0%,rgba(14,17,16,.5) 45%,rgba(14,17,16,0) 100%)}
+.home .hero{position:absolute;left:24px;bottom:88px;display:flex;flex-direction:column;align-items:flex-start;z-index:1}
+.home .hero .eb{font-size:15px;line-height:18px;margin-bottom:15px}
+.home .num{font-size:254px}
+.navwin{background:var(--bg)}
 .home .strip{position:absolute;left:24px;right:24px;bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
 .home .grp{display:flex;align-items:center;gap:8px}
 .home .rgt{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
@@ -298,8 +319,8 @@ p{margin:0}
 .cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:600px){.cmp{grid-template-columns:1fr}}
 .cmp .box2{background:var(--bg-sunken);border-radius:var(--r-lg);border:1px solid var(--soft);height:200px;display:grid;place-items:center;overflow:hidden;position:relative}
-.cmp .n2{font-weight:800;font-size:112px;line-height:1;letter-spacing:-.045em;font-variant-numeric:tabular-nums;color:rgba(241,233,210,.94)}
-.cmp .squash{transform:scaleX(.7)}
+.cmp .n2{font-weight:800;font-size:112px;line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral)}
+.cmp .squash{transform:scaleX(.7);color:rgba(241,233,210,.94);letter-spacing:-.045em;font-variant-numeric:tabular-nums}
 .cmp .tag{position:absolute;left:12px;top:10px}
 
 /* State matrix */
@@ -373,10 +394,10 @@ p{margin:0}
 <!-- 1 Brand -->
 <section class="sec">
   <div class="sec-h"><span class="eyebrow">1 &middot; Brand</span><h2>The real logo and wordmark</h2><p class="lede">One master file each, exported only by plain resampling. Clear space is 25 % of the logo box on every side.</p></div>
-  <div class="grid g2" style="align-items:start">
-    <div class="panel">
+  <div class="grid g2">
+    <div class="panel" style="display:flex;flex-direction:column">
       <h3>Logo sizes</h3>
-      <div class="row" style="align-items:flex-end;gap:24px">
+      <div class="row" style="align-items:flex-end;align-content:center;gap:24px;flex:1;padding:8px 0">
         <div class="stack" style="align-items:center"><img class="brand-logo" src="assets/origin_logo.png" width="16" height="16" alt=""><span class="note">16</span></div>
         <div class="stack" style="align-items:center"><img class="brand-logo" src="assets/origin_logo.png" width="20" height="20" alt=""><span class="note">20 setup bar</span></div>
         <div class="stack" style="align-items:center"><img class="brand-logo" src="assets/origin_logo.png" width="24" height="24" alt=""><span class="note">24 top bar</span></div>
@@ -458,7 +479,7 @@ p{margin:0}
     </div>
     <div class="cmp">
       <div class="box2"><span class="badge tag">Before: ArtStage.Narrow 0.7</span><span class="n2 squash">26.3</span></div>
-      <div class="box2"><span class="badge tag" style="color:var(--text)"><span class="dot dot--ok"></span>After: natural width</span><span class="n2">26.3</span></div>
+      <div class="box2"><span class="badge tag" style="color:var(--text)"><span class="dot dot--ok"></span>After: natural width, neutral white</span><span class="n2">26.3</span></div>
     </div>
   </div>
 </section>
@@ -471,15 +492,15 @@ p{margin:0}
       <div class="s"><button class="btn btn--secondary btn--sm" type="button"><svg class="ic ic-14"><use href="#i-back"/></svg>All versions</button><span class="note">sm 28 &middot; r6 &middot; pad 10</span></div>
       <div class="s"><button class="btn btn--secondary" type="button"><svg class="ic"><use href="#i-layers"/></svg>Default<svg class="ic ic-12 chev" style="color:var(--dim)"><use href="#i-chev"/></svg></button><span class="note">md 32 &middot; r6 &middot; pad 12</span></div>
       <div class="s"><button class="btn btn--secondary btn--lg" type="button">Copy details</button><span class="note">lg 36 &middot; r8 &middot; pad 14</span></div>
-      <div class="s"><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button><span class="note">xl 40 &middot; r8 &middot; min 136</span></div>
-      <div class="s"><span class="vcard" style="width:160px;display:block"><img src="assets/art/1.20-tc.jpg" alt=""><span class="plate"><span class="eb">Trails &amp; Tales</span><span class="num">1.20</span></span></span><span class="note">card &middot; r12</span></div>
+      <div class="s"><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button><span class="note">xl 40 &middot; r8 &middot; Play fixed 144</span></div>
+      <div class="s"><span class="vcard" style="width:160px;display:block"><img src="assets/art/1.20-tc.jpg" alt=""><span class="plate"><span class="eb">Trails &amp; Tales</span><span class="numrow"><span class="num">1.20</span></span></span></span><span class="note">card &middot; r12</span></div>
     </div>
   </div>
 </section>
 
 <!-- 5 Buttons -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">5 &middot; Buttons</span><h2>Every variant, every state</h2><p class="lede">States are forced here so they can be compared. The last row is live: hover, press and Tab through it.</p></div>
+  <div class="sec-h"><span class="eyebrow">5 &middot; Buttons</span><h2>Every variant, every state</h2><p class="lede">States are forced here so they can be compared. Loading never changes a button&rsquo;s width: the label keeps its space and a spinner takes its place. Play is fixed at 144 in every state. The last row is live.</p></div>
   <div class="panel scroll-x">
     <table class="mx">
       <thead><tr><th></th><th>Rest</th><th>Hover</th><th>Press</th><th>Focus</th><th>Disabled</th><th>Loading</th></tr></thead>
@@ -490,21 +511,21 @@ p{margin:0}
           <td><button class="btn btn--primary btn--lg is-press" type="button">Install</button></td>
           <td><button class="btn btn--primary btn--lg is-focus" type="button">Install</button></td>
           <td><button class="btn btn--primary btn--lg is-disabled" type="button">Install</button></td>
-          <td><button class="btn btn--primary btn--lg is-loading" type="button"><span class="spin"></span>Installing</button></td></tr>
+          <td><button class="btn btn--primary btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Install</span></button></td></tr>
         <tr><td class="k">Secondary</td>
           <td><button class="btn btn--secondary btn--lg" type="button">Copy details</button></td>
           <td><button class="btn btn--secondary btn--lg is-hover" type="button">Copy details</button></td>
           <td><button class="btn btn--secondary btn--lg is-press" type="button">Copy details</button></td>
           <td><button class="btn btn--secondary btn--lg is-focus" type="button">Copy details</button></td>
           <td><button class="btn btn--secondary btn--lg is-disabled" type="button">Copy details</button></td>
-          <td><button class="btn btn--secondary btn--lg is-loading" type="button"><span class="spin"></span>Checking</button></td></tr>
+          <td><button class="btn btn--secondary btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Copy details</span></button></td></tr>
         <tr><td class="k">Ghost</td>
           <td><button class="btn btn--ghost btn--lg" type="button">Install only</button></td>
           <td><button class="btn btn--ghost btn--lg is-hover" type="button">Install only</button></td>
           <td><button class="btn btn--ghost btn--lg is-press" type="button">Install only</button></td>
           <td><button class="btn btn--ghost btn--lg is-focus" type="button">Install only</button></td>
           <td><button class="btn btn--ghost btn--lg is-disabled" type="button">Install only</button></td>
-          <td><button class="btn btn--ghost btn--lg is-loading" type="button"><span class="spin"></span>Installing</button></td></tr>
+          <td><button class="btn btn--ghost btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Install only</span></button></td></tr>
         <tr><td class="k">Icon</td>
           <td><button class="btn btn--icon" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button></td>
           <td><button class="btn btn--icon is-hover" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button></td>
@@ -518,7 +539,7 @@ p{margin:0}
           <td><button class="btn btn--danger btn--lg is-press" type="button">Uninstall</button></td>
           <td><button class="btn btn--danger btn--lg is-focus" type="button">Uninstall</button></td>
           <td><button class="btn btn--danger btn--lg is-disabled" type="button">Uninstall</button></td>
-          <td><button class="btn btn--danger btn--lg is-loading" type="button"><span class="spin" style="border-color:var(--danger-text);border-right-color:transparent"></span>Removing</button></td></tr>
+          <td><button class="btn btn--danger btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Uninstall</span></button></td></tr>
         <tr><td class="k">Play (xl)</td>
           <td><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></td>
           <td><button class="btn btn--primary btn--xl btn--play is-hover" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></td>
@@ -572,62 +593,60 @@ p{margin:0}
 
 <!-- 7 Top bar, account pill, Store -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">7 &middot; Navigation</span><h2>Top bar, Store and account</h2><p class="lede">48 px, translucent surface, no blur. Store sits first in the right group with a gold glyph: easy to find, never competing with Play. The account control is a rounded rectangle built around the square head.</p></div>
+  <div class="sec-h"><span class="eyebrow">7 &middot; Navigation</span><h2>Top bar, Website, Store and account</h2><p class="lede">48 px, translucent, no blur. The tabs centre in the space left between the two groups and keep at least 24 px from each. A narrower window gives up width in one order: below 1100 Store shows only its icon, below 1000 the wordmark goes and the logo stays. The brand lockup is the Website link.</p></div>
   <div class="stack" style="gap:16px">
-    <div class="scroll-x" style="border-radius:var(--r-md);box-shadow:0 0 0 1px var(--soft)">
-      <div class="topbar" style="min-width:1040px">
-        <span class="lockup"><img class="brand-logo" src="assets/origin_logo.png" alt="Origin"><img class="wm" src="assets/wordmark.png" alt=""></span>
-        <nav class="tabs"><span class="tab sel">Home</span><span class="tab is-hover">Mods</span><span class="tab">Profiles</span><span class="tab">Settings</span></nav>
-        <div class="bar-r">
-          <a class="btn btn--ghost store" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg>Store<svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
-          <button class="btn btn--icon" type="button" aria-label="Import" title="Import"><svg class="ic"><use href="#i-import"/></svg></button>
-          <button class="btn btn--icon" type="button" aria-label="Friends" title="Friends"><svg class="ic friends"><use href="#i-users"/></svg><span class="count">2</span></button>
-          <span class="vdiv"></span>
-          <span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
-          <span style="width:8px"></span>
-          <button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button>
-          <button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button>
-        </div>
+    <div><div class="frame navproof" data-w="1440" data-h="48"><div class="win navwin" style="width:1440px;height:48px"><div class="bar-slot" data-name="Player842"></div></div></div><p class="cap"><b>1440.</b> Full bar. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="1180" data-h="48"><div class="win navwin" style="width:1180px;height:48px"><div class="bar-slot" data-name="Player842"></div></div></div><p class="cap"><b>1180, the default window.</b> Full bar. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="Player842"></div></div></div><p class="cap"><b>960, the minimum window.</b> Store is its icon, the logo stands alone. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="AVeryLongMinecraftName_"></div></div></div><p class="cap"><b>960 with the longest name.</b> The name ellipsizes at 160. <span class="m"></span></p></div>
+  </div>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="panel">
+      <h3>Website and Store</h3>
+      <div class="row">
+        <a class="brand" href="#" onclick="return false" title="originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <span style="position:relative;display:inline-block"><a class="brand is-hover" href="#" onclick="return false"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a></span>
+        <span class="tip">originclient.org</span>
       </div>
+      <div class="row" style="margin-top:12px">
+        <a class="btn btn--ghost store" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="btn btn--ghost store is-hover" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="btn btn--ghost store is-focus" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="btn btn--ghost store is-compact" href="#" onclick="return false" aria-label="Store" title="Store"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+      </div>
+      <div class="spec"><span><b>Brand lockup</b> opens originclient.org; arrow and tooltip on hover</span><span><b>Store</b> opens originclient.org/store</span><span><b>Settings, About</b> lists both links again</span></div>
     </div>
-    <div class="grid g3">
-      <div class="panel">
-        <h3>Store entry states</h3>
-        <div class="row">
-          <a class="btn btn--ghost store" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg>Store<svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
-          <a class="btn btn--ghost store is-hover" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg>Store<svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
-          <a class="btn btn--ghost store is-focus" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg>Store<svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
-        </div>
-        <div class="spec"><span><b>Opens</b> originclient.org/store in the browser</span><span><b>Replaces</b> the Website button</span></div>
+    <div class="panel">
+      <h3>Account pill, enlarged</h3>
+      <div class="anat-wrap"><div class="anat"><span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span></div></div>
+      <dl class="kv"><dt>Container</dt><dd>32 tall, radius 6 (the 28-32 control rule)</dd><dt>Head</dt><dd>24 (3x the face), inset 4, radius 2 (6 minus the inset)</dd><dt>Gaps</dt><dd>head 8 name, name 6 chevron, 10 right</dd></dl>
+    </div>
+    <div class="panel">
+      <h3>Account states</h3>
+      <div class="stack" style="align-items:flex-start">
+        <span class="acct is-hover"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
+        <span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">AVeryLongMinecraftName_</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
+        <button class="btn btn--ghost" type="button"><svg class="ic"><use href="#i-user"/></svg>Sign in</button>
       </div>
-      <div class="panel">
-        <h3>Account pill, enlarged</h3>
-        <div class="anat-wrap"><div class="anat"><span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span></div></div>
-        <dl class="kv"><dt>Container</dt><dd>32 tall, radius 8, rounded rectangle</dd><dt>Head</dt><dd>24 (3x the face), inset 4, radius 4</dd><dt>Gaps</dt><dd>head 8 name, name 6 chevron, 10 right</dd></dl>
-      </div>
-      <div class="panel">
-        <h3>Account states</h3>
-        <div class="stack" style="align-items:flex-start">
-          <span class="acct is-hover"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
-          <span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">AVeryLongMinecraftName_</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
-          <button class="btn btn--ghost" type="button"><svg class="ic"><use href="#i-user"/></svg>Sign in</button>
-        </div>
-        <div class="spec"><span>Hover, long name (ellipsis at 160), signed out</span></div>
-      </div>
+      <div class="spec"><span>Hover, long name (ellipsis at 160), signed out</span></div>
     </div>
   </div>
 </section>
 
 <!-- 8 Version cards -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">8 &middot; Version cards</span><h2>The number is set into the art</h2><p class="lede">A shade grows from the bottom-left corner only, so the art stays bright everywhere else. The numeral sits on the card's ground line in the same voice as the Home numeral. Short and long labels use one placement rule.</p></div>
+  <div class="sec-h"><span class="eyebrow">8 &middot; Numerals on art</span><h2>One rule: the number stands on the ground line</h2><p class="lede">Every version number set on art, on Home and on every card, follows the same rule. It stands in the picture&rsquo;s bottom-left corner, inside a shade that grows from that corner, with its first figure&rsquo;s ink on the gutter and its baseline on the ground line. Its figures are a quarter of the picture&rsquo;s height, so it scales with the art, not with the type around it. Neutral white, proportional lining figures, never tinted.</p></div>
+  <div class="grid g2" style="margin-bottom:24px;align-items:start">
+    <div><div id="ruleCard"></div><p class="cap"><b>Card.</b> Gutter 12, ground line 12 above the bottom edge, figures 25 % of the card&rsquo;s height, eyebrow 8 above the figures, range 12 after them on the baseline.</p></div>
+    <div><div class="frame guides" data-w="1180" data-h="740" id="ruleHome"></div><p class="cap"><b>Home.</b> Gutter 24, ground line 24 above the control strip, figures 25 % of the window&rsquo;s height, eyebrow 15 above them. The same corner shade.</p></div>
+  </div>
   <div class="vgrid" id="families"></div>
-  <div class="spec"><span><b>Rest</b> 26</span><span><b>Hover</b> 1.21</span><span><b>Selected</b> 1.20</span><span><b>Numeral</b> 25 % of card width (= 40 % of height), Inter 800, -0.045 em</span></div>
+  <div class="spec"><span><b>Rest</b> 26</span><span><b>Hover</b> 1.21</span><span><b>Selected</b> 1.20: the ring alone, so the badge keeps its count</span></div>
 </section>
 
 <!-- 9 Version selector -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">9 &middot; Version selector</span><h2>Two steps: family, then release</h2><p class="lede">Opens as a sheet under the top bar. Single-release families select straight away. Releases say whether they are on disk.</p></div>
+  <div class="sec-h"><span class="eyebrow">9 &middot; Version selector</span><h2>Two steps: family, then release</h2><p class="lede">Opens as a sheet under the top bar. Single-release families select straight away. The release list shows every release of the family, newest first, each saying whether it is on disk.</p></div>
   <div class="stack" style="gap:24px">
     <div class="sheet">
       <div class="sheet-h"><div><h2>Choose a version</h2><p class="note">8 families, 26 releases. Origin installs what each one needs.</p></div><button class="btn btn--icon" type="button" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
@@ -637,7 +656,7 @@ p{margin:0}
       <div class="sheet-h"><button class="btn btn--ghost btn--sm" type="button" style="margin-left:-10px"><svg class="ic ic-14"><use href="#i-back"/></svg>All versions</button><button class="btn btn--icon" type="button" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
       <div class="step2">
         <div class="stack" style="gap:16px">
-          <span class="vcard"><img src="assets/art/1.21-tc.jpg" alt=""><span class="badge"><span class="dot dot--ok"></span>2 of 10 installed</span><span class="plate"><span class="eb">Tricky Trials</span><span class="num">1.21</span><span class="range">1.21 &ndash; 1.21.11</span></span></span>
+          <div id="stepCard"></div>
           <p style="color:var(--dim)">Explore the new trial chambers and outsmart their spawners for loot from ominous vaults. Battle the wind-charging Breeze and the crossbow-wielding Bogged.</p>
         </div>
         <div>
@@ -648,7 +667,10 @@ p{margin:0}
             <div class="rel-i"><span class="v">1.21.7</span><span class="st">Downloads when you press Play</span></div>
             <div class="rel-i"><span class="v">1.21.6</span><span class="st">Downloads when you press Play</span></div>
             <div class="rel-i"><span class="v">1.21.4</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.3</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.2</span><span class="st">Downloads when you press Play</span></div>
             <div class="rel-i"><span class="v">1.21.1</span><span class="st ok"><span class="dot dot--ok"></span>Installed</span></div>
+            <div class="rel-i"><span class="v">1.21</span><span class="st">Downloads when you press Play</span></div>
           </div>
           <div class="sheet-f"><button class="btn btn--ghost btn--lg" type="button">Install only</button><button class="btn btn--primary btn--lg" type="button"><svg class="ic ic-14 ic-fill"><use href="#i-play"/></svg>Play 1.21.11</button></div>
         </div>
@@ -659,25 +681,12 @@ p{margin:0}
 
 <!-- 10 Launcher Home -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">10 &middot; Launcher</span><h2>Home at 1180 x 740</h2><p class="lede">One row of 40 px controls, 24 from the edges. The numeral is centred in the free band between the bar and the status line, at natural width, never tinted.</p></div>
-  <div class="frame" data-w="1180" data-h="740"><div class="win home">
+  <div class="sec-h"><span class="eyebrow">10 &middot; Launcher</span><h2>Home at 1180 x 740</h2><p class="lede">One row of 40 px controls, 24 from the edges. The release number stands in the art&rsquo;s shaded corner on the ground line 24 above the strip, at a quarter of the window&rsquo;s height, under the update&rsquo;s name. The rest of the picture stays clear.</p></div>
+  <div class="frame" data-w="1180" data-h="740" id="homeFrame"><div class="win home">
     <img class="art" src="assets/art/26-c1280.jpg" alt="">
-    <div class="shade"></div>
-    <div class="topbar">
-      <span class="lockup"><img class="brand-logo" src="assets/origin_logo.png" alt="Origin"><img class="wm" src="assets/wordmark.png" alt=""></span>
-      <nav class="tabs"><span class="tab sel">Home</span><span class="tab">Mods</span><span class="tab">Profiles</span><span class="tab">Settings</span></nav>
-      <div class="bar-r">
-        <a class="btn btn--ghost store" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg>Store<svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
-        <button class="btn btn--icon" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button>
-        <button class="btn btn--icon" type="button" aria-label="Friends"><svg class="ic friends"><use href="#i-users"/></svg><span class="count">2</span></button>
-        <span class="vdiv"></span>
-        <span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
-        <span style="width:8px"></span>
-        <button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button>
-        <button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button>
-      </div>
-    </div>
-    <div class="band"><p class="numeral">26.3</p></div>
+    <div class="shade"></div><div class="corner"></div>
+    <div class="bar-slot" data-name="Player842"></div>
+    <div class="hero"><span class="eb">The Latest Releases</span><span class="num">26.3</span></div>
     <div class="strip">
       <div class="grp">
         <button class="btn btn--secondary btn--xl vsel" type="button"><img class="thumb" src="assets/art/26-tc.jpg" alt=""><span class="vn">26.3</span><span class="vt">The Latest Releases</span><svg class="ic ic-12 chev" style="color:var(--dim)"><use href="#i-chev"/></svg></button>
@@ -689,7 +698,7 @@ p{margin:0}
       </div>
     </div>
   </div></div>
-  <p class="cap"><b>Home.</b> Colour art of the selected family, a bottom shade only. Store in the bar, Play alone in emerald.</p>
+  <p class="cap"><b>Home.</b> Colour art of the selected family, the corner shade and a bottom scrim for the strip. <span class="m" id="homeM"></span></p>
   <div class="panel" style="margin-top:16px">
     <h3>Play through a launch</h3>
     <div class="row" style="gap:24px;align-items:flex-end">
@@ -699,12 +708,13 @@ p{margin:0}
       <div class="stack" style="align-items:flex-end"><span class="status">Hover while preparing</span><button class="btn btn--primary btn--xl btn--play is-loading" type="button" style="font-size:13.5px;font-weight:600;background:var(--card-alt)">Cancel<span class="rail-in"><i style="width:42%"></i></span></button></div>
       <div class="stack" style="align-items:flex-end"><span class="status"><span class="dot dot--on"></span>Minecraft 26.3 is running</span><button class="btn btn--primary btn--xl btn--play is-disabled" type="button"><span class="dot dot--on"></span>Playing</button></div>
     </div>
+    <p class="note" style="margin-top:12px">Play is 144 wide in every state, so nothing beside it moves during a launch.</p>
   </div>
 </section>
 
 <!-- 11 Installer -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">11 &middot; Origin Setup</span><h2>Installer and uninstaller</h2><p class="lede">640 x 440, one screen per flow, no wizard steps. The uninstaller keeps your worlds unless you tick the box.</p></div>
+  <div class="sec-h"><span class="eyebrow">11 &middot; Origin Setup</span><h2>Installer and uninstaller</h2><p class="lede">640 x 440, one screen per flow, no wizard steps. Every state keeps the logo and wordmark at the top, so the content starts in the same place and nothing floats. The uninstaller keeps your worlds unless you tick the box.</p></div>
   <div class="grid g2">
     <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
       <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
@@ -719,26 +729,30 @@ p{margin:0}
     </div></div><p class="cap"><b>Ready.</b> One screen: where, shortcuts, Install.</p></div>
     <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
       <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
-      <div class="body" style="justify-content:center;padding-bottom:40px">
-        <div style="font:600 16px/22px var(--sans)">Installing Origin</div>
-        <div class="rail" style="margin-top:16px"><i style="width:31%"></i></div>
+      <div class="body">
+        <div class="hero"><img class="lg" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"></div>
+        <div class="disp">Installing Origin</div>
+        <p style="color:var(--dim);margin-top:6px">This takes about a minute. You can keep using your PC.</p>
+        <div class="rail" style="margin-top:24px"><i style="width:31%"></i></div>
         <div class="note tnum" style="margin-top:12px;color:var(--dim)">Copying files, 128 of 412</div>
       </div>
       <div class="foot"><button class="btn btn--ghost btn--lg" type="button">Cancel</button></div>
-    </div></div><p class="cap"><b>Installing.</b> Real counts, one rail, Cancel only.</p></div>
+    </div></div><p class="cap"><b>Installing.</b> Same top as Ready, real counts, one rail, Cancel only.</p></div>
     <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
       <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
       <div class="body">
         <div class="hero"><img class="lg" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"></div>
-        <div class="row" style="gap:10px"><span class="dot dot--ok" style="width:8px;height:8px"></span><span style="font:600 16px/22px var(--sans)">Origin is installed</span></div>
+        <div class="disp">Origin is installed</div>
         <p style="color:var(--dim);margin-top:6px">Sign in with your Microsoft account the first time you open it.</p>
+        <span class="status" style="margin-top:20px"><span class="dot dot--ok"></span>Shortcuts added to the desktop and Start menu</span>
       </div>
       <div class="foot"><button class="btn btn--ghost btn--lg" type="button">Close</button><button class="btn btn--primary btn--lg" type="button">Open Origin</button></div>
     </div></div><p class="cap"><b>Done.</b> The next step is the primary.</p></div>
     <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
       <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
-      <div class="body" style="justify-content:center;padding-bottom:24px">
-        <div style="font:600 16px/22px var(--sans)">Uninstall Origin?</div>
+      <div class="body">
+        <div class="hero"><img class="lg" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"></div>
+        <div class="disp">Uninstall Origin?</div>
         <p style="color:var(--dim);margin-top:6px">Origin and its shortcuts are removed. Your worlds, settings and accounts stay in AppData\Local\OriginLauncher.</p>
         <span class="check" style="margin-top:20px"><span class="box"></span>Also delete my worlds, settings and accounts</span>
       </div>
@@ -826,19 +840,81 @@ p{margin:0}
 </main>
 
 <script>
-// Families from VersionCatalog.cs (key, update name, range).
-const F=[["26","The Latest Releases","26.1 \u2013 26.3","26","2 of 5 installed"],["1.21","Tricky Trials","1.21 \u2013 1.21.11","1.21","2 of 10 installed"],["1.20","Trails & Tales","1.20 \u2013 1.20.4","1.20","Not installed"],["1.19","The Wild Update","1.19.2 \u2013 1.19.4","1.19","Not installed"],["1.18","Caves & Cliffs II","1.18.2","1.18","Not installed"],["1.17","Caves & Cliffs I","1.17.1","1.17","Not installed"],["1.16","The Nether Update","1.16.5","1.16","Not installed"],["1.8","The Bountiful Update","1.8.9","1.8","1 of 1 installed"]];
-function cards(el,states){
-  el.innerHTML=F.map((f,i)=>{const s=states[i]||"";const inst=!f[4].startsWith("Not");
-    const badge=s==="sel"?'<span class="badge"><span class="dot dot--on"></span>Selected</span>':'<span class="badge">'+(inst?'<span class="dot dot--ok"></span>':'<span class="dot"></span>')+f[4]+'</span>';
-    return '<span class="vcard '+(s==="sel"?"sel":s==="hov"?"is-hover":"")+'" tabindex="0"><img src="assets/art/'+f[3]+'-tc.jpg" alt="">'+badge+'<span class="plate"><span class="eb">'+f[1].replace("&","&amp;")+'</span><span class="num">'+f[0]+'</span><span class="range">'+f[2]+'</span></span></span>';}).join("");
+// Families from VersionCatalog.cs: key, update name, range, art, installed count.
+const F=[["26","The Latest Releases","26.1 – 26.3","26","2 of 5 installed"],["1.21","Tricky Trials","1.21 – 1.21.11","1.21","2 of 10 installed"],["1.20","Trails & Tales","1.20 – 1.20.4","1.20","Not installed"],["1.19","The Wild Update","1.19.2 – 1.19.4","1.19","Not installed"],["1.18","Caves & Cliffs II","1.18.2","1.18","Not installed"],["1.17","Caves & Cliffs I","1.17.1","1.17","Not installed"],["1.16","The Nether Update","1.16.5","1.16","Not installed"],["1.8","The Bountiful Update","1.8.9","1.8","1 of 1 installed"]];
+const esc=t=>t.replace(/&/g,"&amp;");
+// One card. Selected is the ring alone, so the badge always keeps the installed count.
+function card(f,s){
+  const inst=!f[4].startsWith("Not");
+  const badge='<span class="badge">'+(inst?'<span class="dot dot--ok"></span>':'<span class="dot"></span>')+f[4]+'</span>';
+  return '<span class="vcard '+(s==="sel"?"sel":s==="hov"?"is-hover":"")+'" tabindex="0"><img src="assets/art/'+f[3]+'-tc.jpg" alt="">'+badge+
+    '<span class="plate"><span class="eb">'+esc(f[1])+'</span><span class="numrow"><span class="num">'+f[0]+'</span><span class="range">'+f[2]+'</span></span></span></span>';
 }
+function cards(el,states){el.innerHTML=F.map((f,i)=>card(f,states[i]||"")).join("");}
+// The launcher top bar. The brand lockup is the Website link.
+function bar(name){
+  return '<div class="topbar">'+
+    '<a class="brand" href="#" onclick="return false" title="originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>'+
+    '<nav class="tabs"><span class="tab sel">Home</span><span class="tab">Mods</span><span class="tab">Profiles</span><span class="tab">Settings</span></nav>'+
+    '<div class="bar-r">'+
+      '<a class="btn btn--ghost store" href="#" onclick="return false" title="Store"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>'+
+      '<button class="btn btn--icon" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button>'+
+      '<button class="btn btn--icon" type="button" aria-label="Friends"><svg class="ic friends"><use href="#i-users"/></svg><span class="count">2</span></button>'+
+      '<span class="vdiv"></span>'+
+      '<span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">'+name+'</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>'+
+      '<span style="width:8px;flex:none"></span>'+
+      '<button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button>'+
+      '<button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button>'+
+    '</div></div>';
+}
+document.querySelectorAll(".bar-slot").forEach(el=>{el.outerHTML=bar(el.dataset.name);});
 cards(document.getElementById("families"),["","hov","sel"]);
 cards(document.getElementById("families2"),["sel"]);
+document.getElementById("stepCard").innerHTML=card(F[1],"");
+document.getElementById("ruleCard").innerHTML=card(F[1],"");
+document.getElementById("ruleCard").firstElementChild.classList.add("guides");
+document.getElementById("ruleHome").appendChild(document.querySelector("#homeFrame .win").cloneNode(true));
+
+// Ink alignment: shift each numeral by its first figure's left side bearing so the ink, not the box, sits on the gutter.
+const cv=document.createElement("canvas").getContext("2d");
+function ink(){document.querySelectorAll(".num").forEach(el=>{
+  const fs=parseFloat(getComputedStyle(el).fontSize);cv.font="800 "+fs+"px Inter";
+  el.style.marginLeft=cv.measureText(el.textContent.trim()[0]).actualBoundingBoxLeft+"px";});}
 // Scale fixed-size window mocks to their column.
 function fit(){document.querySelectorAll(".frame").forEach(fr=>{const w=+fr.dataset.w,h=+fr.dataset.h,k=fr.clientWidth/w;fr.style.height=(h*k)+"px";fr.firstElementChild.style.transform="scale("+k+")";});}
-addEventListener("resize",fit);fit();
-document.fonts&&document.fonts.ready.then(fit);
+const scaleOf=el=>{const w=el.closest(".win");return w?w.getBoundingClientRect().width/w.offsetWidth:1;};
+// Print the measured gaps and numeral size into the captions, so the preview proves its own rules.
+function measure(){
+  document.querySelectorAll(".navproof").forEach(fr=>{
+    const k=scaleOf(fr.querySelector(".topbar")),r=s=>fr.querySelector(s).getBoundingClientRect();
+    const tabs=fr.querySelectorAll(".tab"),t0=tabs[0].getBoundingClientRect(),t1=tabs[tabs.length-1].getBoundingClientRect();
+    const gl=Math.round((t0.left-r(".brand").right)/k),gr=Math.round((r(".bar-r").left-t1.right)/k);
+    const m=fr.parentElement.querySelector(".m");m.textContent="Measured: "+gl+" px from the brand to the tabs, "+gr+" px from the tabs to the right group.";
+    m.style.color=(gl>=24&&gr>=24)?"":"var(--danger-text)";
+  });
+  const n=document.querySelector("#homeFrame .num"),k=scaleOf(n),b=n.getBoundingClientRect(),fs=parseFloat(getComputedStyle(n).fontSize);
+  cv.font="800 "+fs+"px Inter";cv.letterSpacing=(-.04*fs)+"px";const mm=cv.measureText(n.textContent);cv.letterSpacing="0px";
+  const h=Math.round(b.height/k),w=Math.round(mm.actualBoundingBoxLeft+mm.actualBoundingBoxRight);
+  document.getElementById("homeM").textContent="Measured: figures "+h+" px tall ("+Math.round(h/740*100)+" % of 740), ink "+w+" px wide ("+Math.round(w/1180*100)+" % of 1180), font "+fs+" px.";
+}
+// Dashed guides on the two rule figures: cap line, ground line, gutter.
+function guides(){
+  document.querySelectorAll(".guides .gl,.guides .gl-t").forEach(e=>e.remove());
+  [document.querySelector("#ruleCard .vcard"),document.querySelector("#ruleHome .win")].forEach(host=>{
+    if(!host)return;const n=host.querySelector(".num"),k=scaleOf(n)||1,hr=host.getBoundingClientRect(),r=n.getBoundingClientRect();
+    const top=(r.top-hr.top)/k,bot=(r.bottom-hr.top)/k,left=(r.left-hr.left)/k-parseFloat(n.style.marginLeft||0),right=(r.right-hr.left)/k;
+    const big=host.classList.contains("win"),fz=big?2.2:1;
+    const add=(cls,css,txt)=>{const e=document.createElement("span");e.className=cls;e.style.cssText=css;if(txt)e.textContent=txt;host.appendChild(e);};
+    add("gl h","top:"+top+"px");add("gl h","top:"+bot+"px");add("gl v","left:"+left+"px");
+    const hh=host.offsetHeight,lab=(y,txt)=>add("gl-t","top:"+y+"px;right:"+(8*fz)+"px;transform:scale("+fz+");transform-origin:100% 0",txt);
+    lab(top-20*fz,"figures 25 % of height");lab(bot-20*fz,"ground line");
+    add("gl-t","top:"+(hh*.4)+"px;left:"+(left+6*fz)+"px;transform:scale("+fz+");transform-origin:0 0","gutter");
+  });
+}
+function all(){ink();fit();measure();guides();}
+addEventListener("resize",all);all();
+document.fonts&&document.fonts.ready.then(all);
 </script>
+
 </body>
 </html>

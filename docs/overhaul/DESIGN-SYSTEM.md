@@ -133,7 +133,10 @@ outside the deleted list.
 | `color.field` | `rgba(0,0,0,.28)` | text inputs and search |
 | `color.line` | `rgba(255,255,255,.06)` | hairlines at rest: card edges, dividers |
 | `color.lineStrong` | `rgba(255,255,255,.10)` | control edges, hover edges, menu edges |
-| `color.text` | `#F1E9D2` (parchment) | primary text, the Home numeral |
+| `color.text` | `#F1E9D2` (parchment) | primary text |
+| `color.numeral` | `#F5F5F5` (neutral white, no hue) | every version number set on art: Home and cards (11.6) |
+| `color.onArt` | `rgba(245,245,245,.82)` | eyebrow and range beside a numeral on art |
+| `color.cornerShade` | `color.bg` from 88 % to 0 | the radial shade a numeral on art stands in (11.6) |
 | `color.textDim` | `rgba(241,233,210,.68)` | secondary text, inactive nav, icons at rest |
 | `color.textMuted` | `rgba(241,233,210,.52)` | meta, placeholders, captions (4.5:1 on `bg` and `surface`) |
 | `color.accent` | `#5FD09B` (emerald) | primary fill, switch on, progress fill, selected ring, focus |
@@ -184,7 +187,7 @@ Where hue may appear:
   (glyph-on-tile contrast 5.1-7.2).
 - **Dots, badges, progress fills.**
 
-Never on large fills, on the Home numeral, on body text, or as a box around a navigation or
+Never on large fills, on a numeral on art, on body text, or as a box around a navigation or
 dock icon (Will: "remove the unnecessary boxes").
 
 ---
@@ -208,9 +211,11 @@ dock icon (Will: "remove the unnecessary boxes").
 | `type.action` | 16 / 20 | 700 | -0.01 em | Sentence | the Play label only |
 | `type.heading` | 22 / 28 | 700 | -0.015 em | Sentence | page and sheet titles |
 | `type.display` | 32 / 36 | 800 | -0.03 em | Sentence | installer hero line, empty-state headline |
-| `type.numeral` | fluid | 800 | -0.045 em | Figures | the Home numeral and version-card numerals |
+| `type.numeral` | figures = 25 % of the art's height | 800 | -0.04 em | Figures | every numeral on art: Home and version cards (11.6) |
 
-- **Numerals:** Inter 800 at its **natural width**, tabular figures (`tnum`), -0.045 em tracking.
+- **Numerals on art:** Inter 800 at its **natural width**, proportional lining figures (`pnum lnum`,
+  so a narrow 1 does not leave a hole), -0.04 em tracking, `color.numeral`. Tabular figures (`tnum`)
+  stay for numbers in lists, progress and the version selector, where columns must line up.
   **Fix the squashed Home numeral:** delete `ArtStage.Narrow = 0.7` (`UI/Controls/ArtStage.cs:348`),
   its glyph-advance multiply (`:405-410`), the width multiply (`:448`) and the
   `ScaleTransform(Narrow, 1)` in `Glyph.OnRender` (`:461-467`). Section 13 gives the sizing rule.
@@ -268,14 +273,14 @@ dock icon (Will: "remove the unnecessary boxes").
 
 | Token | px | Used for |
 |---|---|---|
-| `radius.xs` | 4 | badges inside cards, checkbox, the player head in a 32 control, art thumbnails in controls |
+| `radius.xs` | 4 | badges inside cards, checkbox, art thumbnails in controls |
 | `radius.sm` | 6 | controls 28-32 tall, menu items, tooltips, Settings tiles |
 | `radius.md` | 8 | controls 36-40 tall, inputs, dropdown menus, the window (Win 11) |
 | `radius.lg` | 12 | version cards, sheets, dialogs, the installer content card |
 | `radius.full` | 999 | dots, switches, progress rails, single-line status badges |
 
 - **Concentric rule:** anything inset inside a rounded container gets radius = outer radius -
-  inset (minimum 2). For example, the account pill (8) with a 4 px inset head gets head radius 4.
+  inset (minimum 2). For example, the account control (6) with a 4 px inset head gets head radius 2.
 - **Full rounding** is only for things without an image edge. A container holding a square
   thing (a player head or an art thumbnail) is a rounded rectangle, never a pill.
 - In game: 4 GUI px for title buttons 20 tall (the same 0.2 ratio as the launcher's 40 / 8).
@@ -303,9 +308,9 @@ dock icon (Will: "remove the unnecessary boxes").
 | Hover | `accentHover` | `surfaceHover`, edge `rgba(255,255,255,.14)` | fill `rgba(255,255,255,.06)`, glyph `text` | fill `surfaceHover`; card edge `lineStrong`, art brightness 1.06 |
 | Press | `accentPress`, scale .97 | `surfacePress`, scale .97 | fill `rgba(255,255,255,.04)`, scale .97 | no scale (geometry of large targets never moves) |
 | Focus (keyboard only) | 2 px `accentLine` ring, 2 px gap, radius + 2 | same | same | same |
-| Selected | n/a | n/a | tab: fill `rgba(255,255,255,.07)` + `text` (the Mod Menu's tab) | row: `accentSoft` + check glyph in `accent`; card: 2 px `accent` ring at 2 px gap |
+| Selected | n/a | n/a | tab: fill `rgba(255,255,255,.07)` + `text` (the Mod Menu's tab) | row: `accentSoft` + check glyph in `accent`; card: 2 px `accent` ring at 2 px gap, nothing else changes (the badge keeps its installed count) |
 | Disabled | `surfaceRaised` fill, `textMuted`, no edge | `textMuted`, `line` edge | `textMuted` at 60 % | 50 % opacity |
-| Loading | width locked, label becomes progress (section 11.11) | spinner 14 + verb | spinner replaces glyph | skeleton fill `surfaceRaised`, no shimmer |
+| Loading | width locked to the rest width: the label is hidden but keeps its space, a 14 spinner sits centred. Play is the one exception: progress text inside its fixed 144 (11.11) | same | spinner replaces glyph | skeleton fill `surfaceRaised`, no shimmer |
 | Danger | n/a, never a filled red primary | `dangerSoft` fill, `dangerText` label, hover fill .22 | `dangerText` glyph on hover only (Quit) | |
 
 - Disabled controls take no hover and show the default cursor. The Hand cursor appears on
@@ -402,7 +407,9 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
   card at large size + description in `body` `textDim`. Right: list of releases, rows `lg` 36,
   `radius.sm`, version in `bodyStrong` `tnum`, status in `caption` ("Installed" with a 6 px
   `success` dot, or "Downloads when you press Play" in `textMuted`), selected row `accentSoft`
-  + check. Footer, right-aligned: ghost `lg` "Install only", primary `lg` "Play 1.21.11".
+  + check. Every release of the family is listed, newest first, never truncated (1.21 has 10
+  rows; the list scrolls inside the sheet past 10). Footer, right-aligned: ghost `lg` "Install
+  only", primary `lg` "Play 1.21.11".
 - The selection writes `LauncherSettings.SelectedVersion` through `SettingsStore.Update`
   only. Installed state comes from a disk check off the UI thread. Until it returns, the
   status shows nothing (no placeholder text).
@@ -411,20 +418,35 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
 
 - 48 tall, full window width, `color.nav` with a 1 px `color.line` bottom hairline. No blur. It
   stays fixed while pages scroll under it (it is already a sibling of `PageHost`). It is the
-  window's drag area.
-- **Left (pad 16):** brand lockup (logo 24, 6 gap, wordmark 16). Clicking it goes Home.
+  window's drag area (the controls in it are not).
+- **Layout is a row, not a 3-column grid:** left group (pad 12), tabs, right group (pad 8). Both
+  groups keep their natural width. The tabs take the space left between them and centre in it,
+  with **at least 24 px** from each group. They never overlap and never touch either group.
+- **Left, brand lockup = the Website link:** logo 24, 6 gap, wordmark 16, inside a ghost hit area
+  32 tall (`radius.sm`, pad 4 / 6). Hover: fill `rgba(255,255,255,.06)` and a 12 px external
+  arrow in `textMuted` fades in after the wordmark; tooltip "originclient.org". Click opens
+  `https://originclient.org` through `Core.Promos.ExternalLink.Open`. Settings > About lists the
+  Website and the Store again, so neither link depends on the bar alone.
 - **Centre:** tabs Home, Mods, Profiles, Settings. `md` 32, pad X 12, `type.label`, gap 4. Rest
   `textDim`, hover `text` + `rgba(255,255,255,.04)`, selected `text` + `rgba(255,255,255,.07)`
-  fill (the Mod Menu's own selected tab), `radius.sm`. Centred on the window, not the free space.
+  fill (the Mod Menu's own selected tab), `radius.sm`.
 - **Right (pad 8):** [update chip when available] Store, Import (icon), Friends (icon + count
-  badge), 1 px x 16 `line` divider (8 margins), account pill, 8 gap, minimise, close. Gaps 4
-  inside the group.
+  badge), divider 1 x 20 at `rgba(255,255,255,.14)` (8 margins), account control, 8 gap,
+  minimise, close. Gaps 4 inside the group.
+- **Narrow windows give up width in this order** (window width):
+  1. 1100 and wider: everything at full size.
+  2. Below 1100: Store becomes an icon button 32 (gold bag only, tooltip "Store"). The label and
+     the arrow go.
+  3. Below 1000: the wordmark hides; the logo stays as the Website link.
+  4. The account name ellipsizes at 160 at every width.
+  Measured in the preview: 279 / 279 px either side of the tabs at 1440, 149 / 149 at 1180,
+  119 / 119 at 960, and 72 / 72 at 960 with a 23-character name. The window minimum is 960.
 
 ### 11.5 Account pill
 
-- A rounded rectangle, not a pill: `md` 32 tall, `radius.md` 8, fill `rgba(255,255,255,.04)`, 1 px
+- A rounded rectangle, not a pill: `md` 32 tall, `radius.sm` 6 (the 28-32 control rule), fill `rgba(255,255,255,.04)`, 1 px
   `line`. Hover `surfaceHover` with `lineStrong`.
-- Anatomy: 4 inset, **head 24 x 24 at `radius.xs` 4** (concentric: 8 - 4), 8 gap, name in
+- Anatomy: 4 inset, **head 24 x 24 at radius 2** (concentric: 6 - 4), 8 gap, name in
   `bodyStrong` (max 160, ellipsis), 6 gap, chevron-down 12 `textDim`, 10 right pad.
 - The head is the skin's face plus hat layer at exactly 3x, nearest-neighbour, with no border and
   no circle mask. A missing skin shows the default Steve face, never an empty box.
@@ -432,28 +454,40 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
   name reads "Offline" with a `warning` dot at the head's bottom-right (6 px, 2 px `nav` ring).
 - Opens the account drawer (right, 380, `surface`).
 
-### 11.6 Version card (number set into the art)
+### 11.6 Numerals on art: the ground-line rule (Home and every card)
 
-The number is part of the picture's composition, not a label on top of it:
-- Art fills the card (16:10, `object-fit: cover`, focal point centred), `radius.lg`, 1 px
-  `line` inner edge.
-- **Corner shade:** a soft radial shade anchored at the bottom-left corner (ellipse 85 % x 75 %,
-  `color.bg` from 88 % at the corner to 0), plus a whole-card dim of 8 %. The art stays bright
-  where the number is not.
-- **Numeral:** the family key ("26", "1.21", "1.8") in `type.numeral`, `color.text`, font size =
-  card height x 0.40, shrunk to fit 70 % of the card width when needed. Its left edge is on the
-  12 px inner margin and its baseline is 12 px above the bottom. It reads as a plate caption cut
-  into the scene's ground. Use the same voice as the Home numeral, at a smaller size.
-- **Eyebrow:** the update name ("TRICKY TRIALS") in `type.label`, `text` at 80 %, 4 px above the
-  numeral's cap line, same left edge.
-- **Range** ("1.21 - 1.21.11") in `caption` `textDim`, right-aligned on the numeral's baseline.
-  Short and long labels share the same placement. Only the numeral's size adapts.
-- **Status badge** top-left at 10 / 10: `badge` (20 tall, `radius.full`, `surface` at 80 %,
+Will: the large version number must feel like an intentional part of the image composition. One
+rule places every version number set on art, the Home numeral and every version card alike. The
+number stands on the picture's ground, in its darkest corner, at a size taken from the picture:
+
+- **Corner:** bottom-left, always. A radial `color.cornerShade` grows from that corner (cards:
+  ellipse 100 % x 80 %; Home: 64 % x 70 %), `color.bg` from 88 % at the corner, 50 % at 45 %, 0 at
+  the edge. Cards add a whole-card dim of 6 %. The rest of the picture stays bright.
+- **Gutter:** the first figure's **ink** (not its text box) sits on the gutter: 12 on a card,
+  24 on Home. Compensate the first glyph's left side bearing (WPF: `GlyphTypeface` left side
+  bearing x size; web: canvas `actualBoundingBoxLeft`).
+- **Ground line:** the figures' baseline. 12 above the card's bottom edge; on Home, 24 above the
+  top of the control strip (88 from the window's bottom at 1180 x 740).
+- **Size:** figure height (cap height) = **25 % of the art's height**. Inter's figures are
+  0.7275 em, so font size = art height x 0.344. Card 16:10: font = 21.5 % of the card's width.
+  Home 1180 x 740: figures 185, font 254. Home 960 x 600: figures 150, font 206.
+- **Width cap:** the ink is never wider than 2/3 of the art; past that the font shrinks to fit.
+  Measured at font 254: 26.3 is 522 px (44 % of 1180), the longest key 1.21.10 is 748 (63 %), so
+  nothing shrinks at the default window.
+- **Figures:** `type.numeral`: Inter 800, natural width (no horizontal squash), proportional
+  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow, a 1 px 40 %
+  shadow only for legibility on bright art.
+- **Eyebrow:** the update name in `type.label` caps, `color.onArt`, above the figures' cap line
+  by max(8, figures x 0.08), same left edge (Home: 15 px label, 15 gap).
+- **Range** (cards only): "1.21 - 1.21.11" in `caption` `color.onArt`, 12 after the figures, on
+  their baseline. Hidden on cards narrower than 220.
+- **Status badge** (cards) top-left at 10 / 10: `badge` (20 tall, `radius.full`, `surface` at 80 %,
   `caption`, 6 px dot): "2 of 10 installed" (`success` dot) or "Not installed" (muted dot).
-- States: hover edge `lineStrong` + art brightness 1.06 (no scale). Selected: 2 px `accent` ring at
-  2 px gap and the badge reads "Selected". Focus: the same ring in `accentLine`.
-- Never bake the number into the art files. Short labels ("26") and long ones ("1.21") use the
-  same rule.
+- **Card states:** hover edge `lineStrong` + art brightness 1.06 (no scale). Selected: 2 px
+  `accent` ring at 2 px gap and nothing else changes, so the badge keeps its count. Focus: the
+  same ring in `accentLine`.
+- Never bake the number into the art files. Short keys ("26") and long ones ("1.21.11") use the
+  same rule; only the width cap can shrink a long one.
 
 ### 11.7 Store entry
 
@@ -461,8 +495,10 @@ The number is part of the picture's composition, not a label on top of it:
   label "Store" in `bodyStrong` `textDim`, a trailing external-arrow glyph 12 in `textMuted`
   (it opens the browser). Hover: label `text`, fill `rgba(255,255,255,.06)`.
 - Opens `https://originclient.org/store` through `Core.Promos.ExternalLink.Open` (the Store
-  page's live URL, `services/cosmetics/src/stripe.js:31` `STORE_PAGE`). It replaces the
-  Website button (`MainWindow.xaml:115-126`).
+  page's live URL, `services/cosmetics/src/stripe.js:31` `STORE_PAGE`). It takes the Website
+  button's slot (`MainWindow.xaml:115-126`); the Website link moves to the brand lockup (11.4)
+  and Settings > About. The Website link is never dropped.
+- Below 1100 px of window width it is an icon button 32 (bag only, tooltip "Store").
 - It is never a card, never in the Play strip, and has no promo art. Discovery comes from the
   gold glyph and a constant position.
 
@@ -504,7 +540,7 @@ The number is part of the picture's composition, not a label on top of it:
   `ease.inOut`. There is never a fake percentage.
 - **Spinner:** 14 (12 in `sm`), 1.7 stroke 270-degree arc in `textDim`, 0.8 s linear. Only inside
   controls waiting on the network (sign-in, Fix compatibility).
-- **Play while preparing:** the button keeps its size. Fill becomes `surfaceRaised` + `lineStrong`,
+- **Play while preparing:** the button keeps its fixed 144 width. Fill becomes `surfaceRaised` + `lineStrong`,
   the label reads "Preparing 42 %" (`bodyStrong`, `tnum`), and a progress rail runs inside the
   bottom edge (8 inset, 6 from the bottom). On hover the label becomes "Cancel". The status line
   above Play names the step ("Downloading libraries, 128 of 412 MB"). While the game runs, the label
@@ -535,29 +571,31 @@ The number is part of the picture's composition, not a label on top of it:
 ## 13. Launcher Home layout
 
 ```
-+-- top bar 48 ---------------------------------------------------------------+
-| [logo][wordmark]        HOME  MODS  PROFILES  SETTINGS      Store i f | (h) Name v  - x |
-+----------------------------------------------------------------------------+
-|                                                                            |
-|                          free band (bar bottom -> strip top - 24)          |
-|                               2 6 . 3   (numeral, centred in band)          |
-|                                                                            |
-|                                                              * Ready to play|
-| [thumb 26.3  The Latest Releases v] [o No profile v]      My mods [=] [> Play]|
-+---------------------------------------------- 24 inset ---------------------+
++-- top bar 48 --------------------------------------------------------------------+
+| [logo][wordmark]>   |24|  HOME  MODS  PROFILES  SETTINGS  |24|  Store i f | (h) Name v  - x |
++----------------------------------------------------------------------------------+
+|                                                                                  |
+|  (corner shade grows from the bottom-left)                                        |
+|                                                                                  |
+|  THE LATEST RELEASES                 <- eyebrow, 15 above the cap line            |
+|  2 6 . 3                             <- figures 185 = 25 % of 740, ink on gutter 24 |
+|  ----------------------------------- ground line, 24 above the strip              |
+|                                                                   * Ready to play |
+| [thumb 26.3  The Latest Releases v] [o No profile v]          My mods [=] [> Play] |
++---------------------------------------------- 24 inset ---------------------------+
 ```
 
 - **Strip:** one row of `xl` 40 controls, 24 from the left, right and bottom edges. Left group:
   the version selector (thumb 32 x 24 `radius.xs`, numeral `bodyStrong` 700 `tnum`, update name in
   `caption` `textDim`, chevron), 8, then the profile dropdown. Right group: "My mods" switch (label
-  + 32 x 18 switch), 16, then Play (min width 136, play glyph 14 + `type.action`). The status
-  line (`caption`, 6 px dot) sits 8 above Play, right-aligned.
-- **Numeral:** `type.numeral`, `color.text` at 94 %, no accent tint ever. Font size is set so cap
-  height = 44 % of the free band (band = from the bar bottom to the top of the status line,
-  minus 24 each side), capped so the width is at most 60 % of the window (about 340 px at
-  1180 x 740). Centred
-  horizontally on the window and vertically in the band (replaces the fixed 0.42 x height at
-  `ArtStage.cs:422`). One `FormattedText` per change, not per glyph per resize.
+  + 32 x 18 switch), 16, then Play (**fixed width 144** in every state, play glyph 14 +
+  `type.action`). The status line (`caption`, 6 px dot) sits 8 above Play, right-aligned.
+- **Numeral:** the selected release ("26.3") placed by the ground-line rule (11.6), the same rule
+  as the cards. At 1180 x 740: font 254, figures 185 tall (25 % of 740), ink 522 wide (44 % of
+  1180), first figure's ink at x 24, baseline 88 above the window's bottom, eyebrow "THE LATEST
+  RELEASES" 15 above. At 960 x 600: font 206, figures 150. Ink width capped at 2/3 of the window
+  (11.6). Replaces the fixed 0.42 x height and the centred band at `ArtStage.cs:422`. One
+  `FormattedText` per change, not per glyph per resize. Crossfades with the art (`motion.scene`).
 - At 960 x 600 the update name in the version selector drops first, then the "My mods" label
   (the switch stays, with a tooltip).
 
@@ -569,18 +607,22 @@ The number is part of the picture's composition, not a label on top of it:
   Title bar 40: logo 20 + "Origin Setup" (`bodyStrong`) left at 16, ghost icon buttons
   minimise and close (32) right at 4. The bar is the drag area. Content gutter 32. Footer: 32
   from the bottom, buttons right-aligned, `lg` 36, 8 apart.
-- **No wizard steps.** Each flow is one screen with states:
+- **No wizard steps.** Each flow is one screen with states. **Every state keeps the hero** (logo
+  48 + wordmark 24, stacked, 8 below the title bar) and starts its content in the same place
+  under it, top-aligned. The footer stays pinned 32 from the bottom. Nothing is centred
+  vertically, so no state floats in an empty window.
   - **Ready:** logo 48 + wordmark 24 stacked. Then `type.display` "Install Origin", `body` `textDim`
     one line, then a location field (input `lg` with a ghost "Change" inside on the right, the
     path ellipsized in the middle), then checkboxes "Desktop shortcut" and "Start menu shortcut"
     (both on), then the footer: ghost "Cancel" and primary "Install".
-  - **Installing:** `type.title` "Installing Origin", progress rail full content width, `caption`
+  - **Installing:** `type.display` "Installing Origin", `body` `textDim` "This takes about a minute.
+    You can keep using your PC.", progress rail full content width (24 below), `caption`
     step text ("Copying files, 128 of 412"), and the footer: ghost "Cancel". Real progress only.
-  - **Done:** a `success` dot + `type.title` "Origin is installed", then the footer: ghost "Close"
-    and primary "Open Origin".
-  - **Error:** `danger` dot + `type.title` naming what failed, `body` with the fix, footer: ghost
-    "Close", secondary "Copy details", primary "Try again".
-- **Uninstaller, Confirm:** `type.title` "Uninstall Origin?", `body` "Origin and its shortcuts are
+  - **Done:** `type.display` "Origin is installed", `body` one line, a `success` status line, then
+    the footer: ghost "Close" and primary "Open Origin".
+  - **Error:** `type.display` naming what failed, a `danger` status line, `body` with the
+    fix, footer: ghost "Close", secondary "Copy details", primary "Try again".
+- **Uninstaller, Confirm:** `type.display` "Uninstall Origin?", `body` "Origin and its shortcuts are
   removed.", then the checkbox "Also delete my worlds, settings and accounts" **off by default**
   (`body`, `dangerText` only when checked), then the footer: ghost "Keep Origin" (default focus)
   and danger "Uninstall". Removing: rail + step text. Done: "Origin was removed" + where kept
@@ -711,7 +753,7 @@ Status: **reuse** = the key exists, so only its value changes; **new** = the key
 | color.danger / dangerText / dangerSoft | `Color.Danger` / `Color.DangerText` / `Color.DangerSoft` | `#FFD9675A` / `#FFF98E80` / `#24D9675A` | reuse / new / new |
 | color.scrim | `Brush.Scrim` | `#A30A0D0C` | reuse |
 | page dim | `Brush.PageDim` | `#EB0E1110` | reuse |
-| numeral ink | `Brush.NumeralInk` | `#F0F1E9D2` | reuse |
+| numeral ink | `Brush.NumeralInk` | `#FFF5F5F5` | re-value (neutral white, was parchment) |
 | progress track | `Brush.ProgressTrack` | `#14FFFFFF` | reuse |
 | hue.* | `Color.Hue.Emerald/Sky/Gold/Lilac/Coral` (+ `Brush.HueTile.*` at 16 %) | section 2.3 | new (replace `Tint.*`, `TintInk.*`) |
 | family hue | `Brush.Acc`, `FamilyTheme.cs` table | none | retire (colour lives in hues, not per family) |
