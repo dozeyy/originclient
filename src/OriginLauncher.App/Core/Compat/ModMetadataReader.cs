@@ -3,42 +3,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace OriginLauncher.App.Core.Import.Mods;
-
-public enum ModLoader { Unknown, Fabric, Quilt, Forge, NeoForge, LegacyForge }
-
-/// <summary>One "depends" / "breaks" entry: a mod id and the version requirements (any one may hold).</summary>
-public sealed record ModDependency(string Id, IReadOnlyList<string> Ranges)
-{
-    public VersionPredicate Predicate => VersionPredicate.Parse(Ranges);
-}
-
-/// <summary>A mod jar nested inside another (jar-in-jar): its own id, version and name.</summary>
-public sealed record NestedMod(string Id, string? Version, string? Name);
-
-/// <summary>What a mod jar says about itself. Identity comes from metadata, never from the file name.</summary>
-public sealed record ModInfo
-{
-    public required string FileName { get; init; }
-    public ModLoader Loader { get; init; }
-    public string? Id { get; init; }
-    public string? Version { get; init; }
-    public string? Name { get; init; }
-
-    /// <summary>mcmod.info's "mcversion" (legacy Forge only).</summary>
-    public string? McVersion { get; init; }
-    public IReadOnlyList<ModDependency> Depends { get; init; } = Array.Empty<ModDependency>();
-    public IReadOnlyList<ModDependency> Breaks { get; init; } = Array.Empty<ModDependency>();
-    public IReadOnlyList<string> Provides { get; init; } = Array.Empty<string>();
-    public IReadOnlyList<NestedMod> Nested { get; init; } = Array.Empty<NestedMod>();
-
-    /// <summary>The file is not a readable zip/jar at all.</summary>
-    public bool ReadFailed { get; init; }
-
-    /// <summary>The requirement on Minecraft ("depends": {"minecraft": ...}), or null when the mod names none.</summary>
-    public VersionPredicate? MinecraftRange =>
-        Depends.FirstOrDefault(d => d.Id == "minecraft") is { } d ? d.Predicate : null;
-}
+namespace OriginLauncher.App.Core.Compat;
 
 // Reads the small metadata file(s) of a mod jar — fabric.mod.json, quilt.mod.json,
 // META-INF/mods.toml, META-INF/neoforge.mods.toml, mcmod.info — and nothing else.
@@ -118,6 +83,10 @@ public static class ModMetadataReader
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return new ModInfo { FileName = fileName, Loader = ModLoader.Fabric };
 
+            var provides = new List<string>();
+            var providedVersions = new Dictionary<string, string>(StringComparer.Ordinal);
+            ReadProvides(root, provides, providedVersions);
+
             var nested = new List<NestedMod>();
             if (readNested && root.TryGetProperty("jars", out var jars) && jars.ValueKind == JsonValueKind.Array)
             {
@@ -126,7 +95,8 @@ public static class ModMetadataReader
                     if (jarEntry.ValueKind != JsonValueKind.Object || !jarEntry.TryGetProperty("file", out var file)
                         || file.ValueKind != JsonValueKind.String) continue;
                     var nestedInfo = depth >= MaxNestingDepth ? null : ReadNestedJar(zip, file.GetString()!, depth + 1, budget);
-                    if (nestedInfo?.Id != null) nested.Add(new NestedMod(nestedInfo.Id, nestedInfo.Version, nestedInfo.Name));
+                    if (nestedInfo?.Id != null)
+                        nested.Add(new NestedMod(nestedInfo.Id, nestedInfo.Version, nestedInfo.Name) { Provides = nestedInfo.Provides });
                     // Jar-in-jar of jar-in-jar (Fabric API's modules inside a bundle): count their ids too.
                     if (nestedInfo != null) nested.AddRange(nestedInfo.Nested);
                 }
@@ -141,7 +111,11 @@ public static class ModMetadataReader
                 Name = Str(root, "name"),
                 Depends = Dependencies(root, "depends"),
                 Breaks = Dependencies(root, "breaks"),
-                Provides = StringList(root, "provides"),
+                Recommends = Dependencies(root, "recommends"),
+                Conflicts = Dependencies(root, "conflicts"),
+                Provides = provides,
+                ProvidedVersions = providedVersions,
+                Environment = ReadEnvironment(root),
                 Nested = nested,
             };
         }
@@ -230,7 +204,10 @@ public static class ModMetadataReader
         };
     }
 
-    // mcmod.info: a JSON array of mods, or {"modList": [...]}.
+    // mcmod.info: a JSON array of mods, or {"modList": [...]}. The first mod is the jar's identity; the others are
+    // listed as provided ids (FML refuses two jars with the same mod id, whichever entry carries it).
+    // "requiredMods" / "dependencies" are read as plain mod ids with no version: FML 1.8.9 only enforces the
+    // @Mod(dependencies = ...) annotation inside the class files, never this file, so they are a hint, not a fact.
     private static ModInfo ReadLegacy(string fileName, string json)
     {
         try
@@ -241,11 +218,20 @@ public static class ModMetadataReader
             if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0 && root[0].ValueKind == JsonValueKind.Object)
             {
                 var first = root[0];
+                var provides = new List<string>();
+                for (var i = 1; i < root.GetArrayLength(); i++)
+                    if (root[i].ValueKind == JsonValueKind.Object && Str(root[i], "modid") is { Length: > 0 } other) provides.Add(other);
+                var depends = new List<ModDependency>();
+                foreach (var key in new[] { "requiredMods", "dependencies" })
+                    foreach (var raw in StringList(first, key))
+                        if (LegacyDependencyId(raw) is { } id && depends.All(d => d.Id != id))
+                            depends.Add(new ModDependency(id, new[] { "*" }));
                 return new ModInfo
                 {
                     FileName = fileName, Loader = ModLoader.LegacyForge,
                     Id = Str(first, "modid"), Version = Str(first, "version"),
                     Name = Str(first, "name"), McVersion = Str(first, "mcversion"),
+                    Provides = provides, Depends = depends,
                 };
             }
         }
@@ -254,6 +240,21 @@ public static class ModMetadataReader
             // fall through
         }
         return new ModInfo { FileName = fileName, Loader = ModLoader.LegacyForge };
+    }
+
+    // "required-after:Foo@[1.0,)" / "before:bar" / "Foo" -> "Foo"; the platform itself ("Forge", "FML", "mcp") is no mod.
+    private static string? LegacyDependencyId(string raw)
+    {
+        var text = raw.Trim();
+        var colon = text.IndexOf(':');
+        if (colon >= 0) text = text[(colon + 1)..];
+        var at = text.IndexOf('@');
+        if (at >= 0) text = text[..at];
+        text = text.Trim();
+        if (text.Length == 0 || text.Equals("Forge", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("FML", StringComparison.OrdinalIgnoreCase) || text.Equals("mcp", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("minecraft", StringComparison.OrdinalIgnoreCase)) return null;
+        return text;
     }
 
     private static string? ReadText(ZipArchive zip, string path)
@@ -275,6 +276,28 @@ public static class ModMetadataReader
     private static string? Str(JsonElement obj, string name) =>
         obj.ValueKind == JsonValueKind.Object && obj.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
             ? v.GetString() : null;
+
+    // "provides": ["a", {"id": "b", "version": "1.2"}]
+    private static void ReadProvides(JsonElement root, List<string> ids, Dictionary<string, string> versions)
+    {
+        if (!root.TryGetProperty("provides", out var v) || v.ValueKind != JsonValueKind.Array) return;
+        foreach (var item in v.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String) ids.Add(item.GetString()!);
+            else if (item.ValueKind == JsonValueKind.Object && Str(item, "id") is { Length: > 0 } id)
+            {
+                ids.Add(id);
+                if (Str(item, "version") is { Length: > 0 } version) versions[id] = version;
+            }
+        }
+    }
+
+    private static ModEnvironment ReadEnvironment(JsonElement root) => Str(root, "environment") switch
+    {
+        "client" => ModEnvironment.Client,
+        "server" => ModEnvironment.Server,
+        _ => ModEnvironment.Both,
+    };
 
     private static List<string> StringList(JsonElement obj, string name)
     {

@@ -1,4 +1,5 @@
 using OriginLauncher.App.Core.Import;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 using Xunit;
 

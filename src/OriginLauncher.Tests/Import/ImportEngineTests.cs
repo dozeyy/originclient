@@ -1,5 +1,6 @@
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Import;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 using OriginLauncher.App.Core.Profiles;
 using Xunit;

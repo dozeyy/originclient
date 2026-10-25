@@ -4,6 +4,7 @@ using System.Text;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Import.GameFiles;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 using OriginLauncher.App.Core.Import.Sources;
 using OriginLauncher.App.Core.Profiles;

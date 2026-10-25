@@ -1226,8 +1226,11 @@ public partial class HomePage : UserControl
                 SettingsStore.Update(s => s.RamMb = ram);
                 break;
             case CrashAction.DisableMod when diagnosis.ModJar is { } jar:
-                // The Mods tab's own switch: renames foo.jar to foo.jar.disabled, reversible there.
-                if (!Core.Mods.ModManager.SetEnabled(game.Version, jar, enabled: false).Ok)
+                // The shared repair path (Core/Compat): the jar is turned off (foo.jar -> foo.jar.disabled, reversible on
+                // the Mods tab) in the folder THIS game loaded it from - its mod profile's folder when it had one, so
+                // another profile's or account's mods are never touched. Origin's own jars are never turned off.
+                if (Core.Compat.CrashRepair.DisableBlamed(game.Version, _profileByKey.GetValueOrDefault(game.Key), jar,
+                        Core.Mods.ModManager.IsOriginProvisioned).Outcome != Core.Compat.CrashRepairOutcome.Disabled)
                     SaveExternalMods(false); // could not switch just that one off: Origin-only is the next best
                 break;
             case CrashAction.OriginOnly:

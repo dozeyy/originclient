@@ -1,4 +1,5 @@
 using System.IO;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 
 namespace OriginLauncher.App.Core.Import;
@@ -51,16 +52,8 @@ public sealed class SharedModsLedger
         {
             var name = Path.GetFileName(path);
             if (!IsModFile(name)) continue;
-            ModInfo? info = null;
-            try
-            {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                info = ModMetadataReader.Read(stream, name, readNested: false);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-            {
-                // in use or unreadable: its file name still keeps an import from landing on it
-            }
+            // In use or unreadable gives null: its file name still keeps an import from landing on it.
+            var info = ModFolderScanner.ReadInfo(path, readNested: false);
             var jar = new OriginJar(path, info?.Version, IsDisabledName(name), info?.Depends ?? Array.Empty<ModDependency>());
             ledger._originJars.Add(jar);
             if (ledger._files.TryAdd(FileKey(name), InOrigin)) ledger._originByFile[FileKey(name)] = jar;

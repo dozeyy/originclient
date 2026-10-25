@@ -1,4 +1,4 @@
-namespace OriginLauncher.App.Core.Import.Mods;
+namespace OriginLauncher.App.Core.Compat;
 
 // A small, data-only table of mods that are known not to work with what Origin
 // ships. Kept to cases that are certain and that a dependency check cannot see
@@ -20,7 +20,10 @@ public static class KnownIncompatible
     };
 
     /// <summary>The plain reason this mod can't be used with Origin, or null when it is not on the list.</summary>
-    public static string? Check(ModInfo mod, BuiltInModSet builtIns)
+    public static string? Check(ModInfo mod, BuiltInModSet builtIns) => Check(mod, builtIns.Find);
+
+    /// <summary>Same, with Origin's mods supplied as a lookup (the engine's own view of what Origin ships).</summary>
+    public static string? Check(ModInfo mod, Func<string, BuiltInMod?> findBuiltIn)
     {
         foreach (var rule in Rules)
         {
@@ -36,7 +39,7 @@ public static class KnownIncompatible
             }
             if (rule.NeedsBuiltIn != null)
             {
-                var built = builtIns.Find(rule.NeedsBuiltIn);
+                var built = findBuiltIn(rule.NeedsBuiltIn);
                 if (built == null) continue;
                 if (rule.BuiltInAtLeast != null && built.Version != null
                     && FabricVersion.Compare(built.Version, rule.BuiltInAtLeast) < 0) continue;
@@ -49,10 +52,10 @@ public static class KnownIncompatible
     // "2.3.2-b" counts as 2.3.2: the rule is about the number, whatever pre-release tag a build carries.
     private static bool CoreAtMost(FabricVersion version, FabricVersion max)
     {
-        for (var i = 0; i < Math.Max(version.Core.Count, max.Core.Count); i++)
+        for (var i = 0; i < Math.Max(version.Components.Count, max.Components.Count); i++)
         {
-            var a = i < version.Core.Count ? version.Core[i] : 0;
-            var b = i < max.Core.Count ? max.Core[i] : 0;
+            var a = version.Component(i);
+            var b = max.Component(i);
             if (a != b) return a < b;
         }
         return true;
