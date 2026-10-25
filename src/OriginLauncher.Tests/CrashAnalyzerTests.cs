@@ -95,18 +95,19 @@ public class CrashAnalyzerTests : IDisposable
     [Fact]
     public void A_crash_inside_the_entrypoint_mods_own_code_still_blames_that_mod()
     {
-        ModernFixJarOnly();
+        // A user mod, not ModernFix: ModernFix is a catalog perf jar Origin ships itself, so it is never blamed.
+        Jar("somemod-1.0.0.jar", "somemod", "com/example/somemod/SomeModPreLaunch.class");
         const string log = """
-Caused by: java.lang.RuntimeException: Could not execute entrypoint stage 'preLaunch' due to errors, provided by 'modernfix' at 'org.embeddedt.modernfix.ModernFixPreLaunchFabric'!
+Caused by: java.lang.RuntimeException: Could not execute entrypoint stage 'preLaunch' due to errors, provided by 'somemod' at 'com.example.somemod.SomeModPreLaunch'!
 	at net.fabricmc.loader.impl.FabricLoaderImpl.invokeEntrypoints(FabricLoaderImpl.java:416)
 Caused by: java.lang.IllegalStateException: boom
-	at knot//org.embeddedt.modernfix.ModernFixPreLaunchFabric.onPreLaunch(ModernFixPreLaunchFabric.java:12)
+	at knot//com.example.somemod.SomeModPreLaunch.onPreLaunch(SomeModPreLaunch.java:12)
 	at net.fabricmc.loader.impl.FabricLoaderImpl.invokeEntrypoints(FabricLoaderImpl.java:414)
 """;
 
         var analysis = CrashAnalyzer.Analyze(GameDir, Log(log));
 
         var culprit = Assert.Single(analysis.Culprits);
-        Assert.Equal("modernfix", culprit.ModId);
+        Assert.Equal("somemod", culprit.ModId);
     }
 }
