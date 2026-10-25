@@ -432,6 +432,10 @@ public partial class MainWindow : Window
         root.Arrange(new Rect(size));
         _homePage.TourReportStripTop();
         Stage.TourRelayout();
+        // The numeral's glyphs were just moved: arrange once more so the picture shows them there.
+        UI.RenderShots.Invalidate(root);
+        root.Measure(size);
+        root.Arrange(new Rect(size));
     }
 
     internal void TourGoTo(int page)

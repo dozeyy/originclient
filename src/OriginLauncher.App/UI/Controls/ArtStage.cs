@@ -13,8 +13,8 @@ namespace OriginLauncher.App.UI.Controls;
 /// darkened by the bottom scrim, with the giant version numeral (VersionNumeral) in front of it.
 ///
 /// Layers (back to front): two grey art layers (the family crossfade swaps
-/// between them), a colour layer (the launch bloom), the numeral, the bottom
-/// scrim (7:1 text over art), and the page dim (every page but Home). There is
+/// between them), a colour layer (the launch bloom), the bottom scrim (7:1 text
+/// over art), the numeral, and the page dim (every page but Home). There is
 /// no top scrim: the top bar is its own surface (MainWindow BarGlass / BarSurface),
 /// so the art runs full strength right up under it (DESIGN-SYSTEM 12).
 ///
@@ -106,14 +106,15 @@ public sealed class ArtStage : Grid
         _stage.Children.Add(_colour.Image);
         Children.Add(_stage);
 
-        Children.Add(_numeral);
-        if (!double.IsNaN(_stripTop)) _numeral.SetBand(_stripTop);
-
         Children.Add(new Border
         {
             Height = 330, VerticalAlignment = VerticalAlignment.Bottom,
             Background = (Brush)Application.Current.FindResource("Brush.ScrimBottom"),
         });
+        // The numeral sits ABOVE the scrim: on a short window the scrim reaches up into the figures, and a gradient
+        // across them would tint the neutral ink (the scrim's job is the strip's text, not the numeral).
+        Children.Add(_numeral);
+        if (!double.IsNaN(_stripTop)) _numeral.SetBand(_stripTop);
         _dim = new Border { Background = (Brush)Application.Current.FindResource("Brush.PageDim"), Opacity = 0 };
         Children.Add(_dim);
 
