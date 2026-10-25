@@ -533,5 +533,32 @@ class RoundTrip(Tmp):
         self.assertEqual(P.main(["check-roundtrip", "--preset", self._preset(), "--saved", bad]), 1)
 
 
+class ShaderPack(Tmp):
+    """B-04 shader variant: the bench's own pack is copied in, selected, and a run where it did not load fails."""
+    PACK = os.path.join(HERE, "shaderpack-189", "origin-bench")
+
+    def test_pack_is_copied_and_selected(self):
+        game = self.p("game")
+        os.makedirs(game)
+        self.assertEqual(P.install_shaderpack(game, self.PACK), "origin-bench")
+        self.assertTrue(os.path.isfile(os.path.join(game, "shaderpacks", "origin-bench", "shaders", "shadow.vsh")))
+        with open(os.path.join(game, "optionsshaders.txt"), encoding="ascii") as f:
+            self.assertEqual(f.read(), "shaderPack=origin-bench\n")
+
+    def test_a_folder_without_a_final_pass_is_refused(self):
+        os.makedirs(self.p("notapack", "shaders"))
+        with self.assertRaises(P.ProvisionError):
+            P.install_shaderpack(self.p(), self.p("notapack"))
+
+    def test_shaders_were_on_reads_the_game_flag(self):
+        for active, want in ((True, True), (False, False), (None, False)):
+            path = self.p("bench-%s.json" % active)
+            env = {} if active is None else {"shaderPackActive": active}
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"environment": env}, f)
+            self.assertEqual(P.shaders_were_on(path), want)
+        self.assertFalse(P.shaders_were_on(self.p("missing.json")))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -502,6 +502,28 @@ def apply_preset(game_dir, preset_path, keys_path=KEYS_FILE):
                 f.write("".join("%s:%s\n" % (k, v) for k, v in body.items()))
 
 
+def install_shaderpack(game_dir, pack_dir):
+    """Copy a shader pack folder into <game>/shaderpacks/<name>/ and select it the way OptiFine 1.8.9 stores the
+    choice (optionsshaders.txt, key shaderPack). Returns the pack name for stack.json. B-04: the shader variant."""
+    pack_dir = os.path.abspath(pack_dir)
+    if not os.path.isfile(os.path.join(pack_dir, "shaders", "final.fsh")):
+        raise ProvisionError("%s is not a shader pack folder (no shaders/final.fsh)" % pack_dir)
+    name = os.path.basename(pack_dir.rstrip("/\\"))
+    shutil.copytree(pack_dir, os.path.join(game_dir, "shaderpacks", name))
+    with open(os.path.join(game_dir, "optionsshaders.txt"), "w", encoding="ascii", newline="\n") as f:
+        f.write("shaderPack=%s\n" % name)
+    return name
+
+
+def shaders_were_on(bench_json):
+    """True when the game reported an active OptiFine shader pack (environment.shaderPackActive)."""
+    try:
+        with open(bench_json, encoding="utf-8") as f:
+            return bool(json.load(f).get("environment", {}).get("shaderPackActive"))
+    except (OSError, ValueError):
+        return False
+
+
 def _read_options(path):
     """options.txt / optionsof.txt -> {key: value} (the last line of a key wins, like the game's own reader)."""
     out = {}
@@ -673,6 +695,8 @@ def cmd_run(args):
     if args.preset:
         apply_preset(game_dir, args.preset)
         record["preset"] = os.path.basename(args.preset)
+    if args.shaderpack:
+        record["shaderPack"] = install_shaderpack(game_dir, args.shaderpack)
     record.update({"java": jver, "javaPath": java, "os": osn, "optifineSha1": sha1_file(optifine),
                    "forge": "11.15.1.2318", "jvmFlags": args.jvm, "label": args.label,
                    "originJar": os.path.basename(origin_jar)})
@@ -692,6 +716,10 @@ def cmd_run(args):
         shutil.rmtree(game_dir, ignore_errors=True)
     ok = os.path.isfile(os.path.join(out, "bench.json"))
     log("game exit %s, bench.json %s" % (code, "written" if ok else "MISSING (see %s)" % game_log))
+    if ok and args.shaderpack and not shaders_were_on(os.path.join(out, "bench.json")):
+        # a shader variant that silently fell back to the plain renderer would be measured as "shaders on"
+        log("FAILED: --shaderpack was given but bench.json says no shader pack was active (see %s)" % game_log)
+        return 1
     return 0 if ok else 1
 
 
@@ -717,6 +745,7 @@ def build_parser():
     r.add_argument("--ignore-focus", action="store_true", help="CI only: Xvfb never focuses the window, so do not mark scenes invalid for it")
     r.add_argument("--save-options", action="store_true", help="write options.txt/optionsof.txt before quitting (U6.0)")
     r.add_argument("--preset", help="preset JSON (options / optionsof); OptiFine keys must be in optifine-keys-189.txt")
+    r.add_argument("--shaderpack", help="a shader pack FOLDER (tools/bench/shaderpack-189/origin-bench) to install and select (B-04)")
     r.add_argument("--keep-game", action="store_true")
     c = sub.add_parser("check-roundtrip", help="fail when the game saved back a different value than the preset wrote")
     c.add_argument("--preset", required=True)
