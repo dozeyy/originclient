@@ -123,6 +123,8 @@
     <!-- Home's background warm-up of the picked version (pure file reads; the startup trace is its log). -->
     <Compile Include="..\OriginLauncher.App\Core\Versions\LaunchPrewarm.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\StartupTrace.cs" LinkBase="Versions" />
+    <!-- Which versions are installed / partial / missing / update-ready (pure disk reads; InstalledVersions.Shared.cs, the real wiring, stays out). -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\InstalledVersions.cs" LinkBase="Versions" />
   </ItemGroup>
 
   <ItemGroup>

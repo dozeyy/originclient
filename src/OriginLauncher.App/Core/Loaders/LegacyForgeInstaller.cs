@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using CmlLib.Core;
+using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.Core.Loaders;
 
@@ -38,6 +39,11 @@ public static class LegacyForgeInstaller
         };
 
     public static bool IsLegacy(string version) => Builds.ContainsKey(version);
+
+    // Where a legacy version keeps its Forge profile and universal jar, so InstalledVersions can tell
+    // "installed" from "half there" without running the installer. Null for a Fabric version. Read-only.
+    public static LegacyLoaderLayout? LayoutFor(string version) =>
+        Builds.TryGetValue(version, out var build) ? new LegacyLoaderLayout(build.VersionId, build.UniversalLibPath) : null;
 
     // Returns the version id to launch (the analogue of FabricInstaller.Install's
     // return). Idempotent: existing JSON/jar are left alone, so repeat launches

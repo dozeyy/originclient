@@ -359,6 +359,9 @@ public sealed class VersionManager
         finally
         {
             gate.Release();
+            // Provisioning ended, finished or failed: the version's files changed, so the selector's
+            // cached state is stale. Background and best-effort; it reads only and never throws.
+            _ = InstalledVersions.Shared.RefreshAsync(version);
         }
     }
 
