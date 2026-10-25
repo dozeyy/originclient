@@ -26,6 +26,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Exception (2026-10-25, Will approved the Workbench mockup and asked to "fix the font on the middle"): Origin's own title-screen text (buttons, player name, footer) uses Inter via the MSDF font; every other in-game text stays Minecraft's font.
 - In-game title dock icons are not coloured: same Workbench card colours and states as the title buttons, parchment glyphs (2026-10-25).
 - Ring/orbit/oval shapes exist ONLY inside the real logo PNG. Anywhere a drawn lookalike stood for the logo (title, loading, reload, connecting screens, any version), show `origin_logo.png` itself; loading progress is a plain capsule bar. No hover labels on the title dock icons (they look like extra buttons) (2026-10-25).
+- 26.2+ title dock keeps Mojang's own Friends button with the single-person glyph (Origin's Friends keeps the two-person glyph) (2026-10-25).
 - Workbench design system (`docs/overhaul/DESIGN-SYSTEM.md`): neutral base, small soft-hued accents, never big colour fills; Home version numeral stays neutral (2026-10-25).
 - Logos: only `textures/ui/origin_logo.png` (= `Assets/origin.ico`) and `Assets/Brand/wordmark.png`. Never redraw a logo in XAML, SVG, CSS or code (2026-10-25).
 - Icons: Origin's own icon set per the Icon Packs rules, not borrowed sets (2026-09-03).
