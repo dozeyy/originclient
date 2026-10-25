@@ -437,7 +437,7 @@ public static class CompatEngine
             {
                 _platform = run._platform;
                 Put("minecraft", _platform.McVersion, null, true);
-                Put("java", _platform.JavaVersion, null, true);
+                Put("java", string.IsNullOrEmpty(_platform.JavaVersion) ? null : _platform.JavaVersion, null, true); // unknown (pre-launch): meets any range
                 Put("fabricloader", _platform.LoaderVersion, null, true); // newest at install time: unknown, meets any range
                 if (_platform.BuiltIns != null)
                     foreach (var mod in _platform.BuiltIns.Mods) Put(mod.Id, mod.Version, null, true);

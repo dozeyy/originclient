@@ -16,6 +16,9 @@ public static class ModFolderScanner
     private const int CacheLimit = 4096;
     private static readonly ConcurrentDictionary<string, (Stamp Stamp, ModInfo Info)> Cache = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Forgets every cached read (tests that measure a cold read; nothing else needs it: a changed file re-reads itself).</summary>
+    public static void ClearCache() => Cache.Clear();
+
     /// <summary>
     /// The *.jar and *.jar.disabled files at the top of <paramref name="folder"/> (never sub-folders), by file name.
     /// A file <paramref name="isOriginProvisioned"/> names is <see cref="ModRole.Managed"/>; the rest get

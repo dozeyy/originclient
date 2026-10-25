@@ -11,6 +11,7 @@ using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Performance;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Import.Launcher;
@@ -935,6 +936,13 @@ public partial class HomePage : UserControl
             // No internet and this version still needs a download: a plain
             // "you're offline" line, no update check (it can't reach GitHub either).
             Note(key, ex.Message, LaunchTone.Warning);
+            WriteLaunchErrorLog(ex);
+        }
+        catch (IncompatibleModsException ex)
+        {
+            // Mods that cannot start the game, caught before it launched (Core/Compat/LaunchPreflight): a plain
+            // sentence naming them, not a loader crash. TODO(Phase 5.3): a "Fix Compatibility" button here.
+            Note(key, ex.Message, LaunchTone.Error);
             WriteLaunchErrorLog(ex);
         }
         catch (MicrosoftAuthException ex)
