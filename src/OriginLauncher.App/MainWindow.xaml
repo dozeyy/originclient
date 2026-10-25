@@ -120,9 +120,9 @@
                             <Path Data="{StaticResource Icon.Emblem.Globe}" Style="{StaticResource Icon.Base}"
                                   Width="18" Height="18"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <TextBlock Text="Website" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
+                            <TextBlock x:Name="WebsiteLabel" Text="Website" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <Path Style="{StaticResource Icon.LinkHint}"/>
+                            <Path x:Name="WebsiteArrow" Style="{StaticResource Icon.LinkHint}"/>
                         </StackPanel>
                     </Button>
                     <!-- Store: opens originclient.org/store in the default browser. Same ghost look as Website. -->
@@ -134,9 +134,9 @@
                             <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
                                   Width="18" Height="18"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <TextBlock Text="Store" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
+                            <TextBlock x:Name="StoreLabel" Text="Store" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <Path Style="{StaticResource Icon.LinkHint}"/>
+                            <Path x:Name="StoreArrow" Style="{StaticResource Icon.LinkHint}"/>
                         </StackPanel>
                     </Button>
                     <!-- Import from another launcher: opens the Import page. -->

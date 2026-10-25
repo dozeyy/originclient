@@ -486,11 +486,30 @@ public partial class MainWindow : Window
     // friends, account, window buttons) would come within Space.5 of SETTINGS, as at
     // 980 px with an update waiting; then they slide left just enough, never past the brand.
     // A render transform, so moving them never re-runs layout.
+    //
+    // When even the fully slid tabs would still touch the actions (Website and Store carry words), those two drop to
+    // icon-only: their labels and arrows collapse, and come back as soon as the full width fits again. The decision
+    // uses the width the actions would have WITH labels (_linkLabelExtra), so it cannot flip back and forth.
+    private bool _linkLabelsHidden;
+    private double _linkLabelExtra;
+
     private void TopBar_LayoutChanged(object sender, SizeChangedEventArgs e)
     {
         double width = TopBar.ActualWidth, tabs = NavTabs.ActualWidth;
         if (width <= 0 || tabs <= 0) return;
         var gap = (double)FindResource("Space.5");
+        if (!_linkLabelsHidden && WebsiteLabel.ActualWidth > 0 && StoreLabel.ActualWidth > 0)
+            _linkLabelExtra = WebsiteLabel.ActualWidth + StoreLabel.ActualWidth
+                + 2 * (WebsiteLabel.Margin.Left + WebsiteArrow.ActualWidth + WebsiteArrow.Margin.Left);
+        var actionsWithLabels = BarActions.ActualWidth + (_linkLabelsHidden ? _linkLabelExtra : 0);
+        var hide = BarBrand.ActualWidth + gap + tabs + gap + actionsWithLabels > width;
+        if (hide != _linkLabelsHidden && (hide || _linkLabelExtra > 0))
+        {
+            _linkLabelsHidden = hide;
+            var v = hide ? Visibility.Collapsed : Visibility.Visible;
+            WebsiteLabel.Visibility = StoreLabel.Visibility = WebsiteArrow.Visibility = StoreArrow.Visibility = v;
+            return; // the size change this causes runs this again and slides the tabs
+        }
         double tabsRight = (width + tabs) / 2, tabsLeft = (width - tabs) / 2;
         double overlap = tabsRight + gap - (width - BarActions.ActualWidth);
         double room = tabsLeft - (BarBrand.ActualWidth + gap);

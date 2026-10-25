@@ -233,7 +233,7 @@ public static class RenderShots
         SnapSettingsRailClick(window, outDir, "SecClient", "14f-settings-click-client");
         SnapSettingsRailClick(window, outDir, "SecStartup", "14g-settings-click-startup");
         // Click an item, then press End by hand: the click stops deciding and the first section in view is lit.
-        SnapSettingsKeyEnd(window, outDir, "SecClient", "14h-settings-key-end");
+        SnapSettingsKeyEnd(window, outDir, "SecStartup", "14h-settings-key-end");
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
