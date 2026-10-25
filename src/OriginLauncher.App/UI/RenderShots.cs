@@ -154,6 +154,27 @@ public static class RenderShots
         window.TourHideLaunch();
         Pump(500);
 
+        // Play on a version that isn't installed (U3.3): it says what it is doing, counts it, can be cancelled,
+        // and when it fails says why with a Retry. 1.8.9 = the Forge path, the one with the most to download.
+        window.TourShowLaunch("1.8.9");
+        window.TourReportLaunch("Installing");
+        Pump(500);
+        Snap(window, outDir, "08-launch-c-installing");
+        window.TourReportLaunch("Downloading libraries (96/240)");
+        Pump(900);
+        Snap(window, outDir, "08-launch-d-installing-counted");
+        window.TourCancelLaunch();
+        Pump(400);
+        Snap(window, outDir, "08-launch-e-cancelling");
+        window.TourFailLaunch(new Core.Versions.OfflineInstallException("1.8.9", new System.Net.Http.HttpRequestException("no route")), "1.8.9");
+        Pump(500);
+        Snap(window, outDir, "08-launch-f-failed-offline");
+        window.TourFailLaunch(new System.IO.IOException("disk", unchecked((int)0x80070070)), "1.8.9");
+        Pump(400);
+        Snap(window, outDir, "08-launch-g-failed-disk");
+        window.TourHideLaunch();
+        Pump(500);
+
         // Mod profiles, with made-up profiles (the real settings are never touched):
         // the Profiles page, its new-profile form, then Home with a profile that
         // has a server (profile row + the Join button under Play).
@@ -238,6 +259,8 @@ public static class RenderShots
         SnapSettingsRailClick(window, outDir, "SecStartup", "14g-settings-click-startup");
         // Click an item, then press End by hand: the click stops deciding and the first section in view is lit.
         SnapSettingsKeyEnd(window, outDir, "SecStartup", "14h-settings-key-end");
+        // Phase 3 U3.7b: every section on its own, input states, an open dropdown, confirm dialogs, toasts.
+        SettingsStatesShots.Run(window, outDir);
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
@@ -267,6 +290,9 @@ public static class RenderShots
                 Pump(300);
             }
         window.TourShowUpdateBadge(false);
+
+        // The account pill, the Store entry and the account drawer in every state (UI/AccountShots.cs).
+        AccountShots.Run(window, outDir);
 
         // The Home numeral in its band (bar bottom to strip top) at the three reference sizes: the shot plus the measured
         // ink against the band (numeral-fit.txt), so centring and air are numbers, not an eyeball.

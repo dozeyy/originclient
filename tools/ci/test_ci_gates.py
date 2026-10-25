@@ -766,5 +766,92 @@ class DevPinsMatchCatalog(unittest.TestCase):
         self.assertFalse(self._pin_matches("11.0.4", url, fn))
 
 
+class LaunchTimeForgeMarkers(unittest.TestCase):
+    """launch-time.yml must read 1.8.9 (Forge) like a Fabric version: the harness keys off Fabric's `Loading N mods:` line,
+    which Forge never prints, so a 1.8.9 launch showed no game mark at all (U3.3)."""
+    MARKS = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Launch", "GameLogMarks.cs"))
+    HARNESS = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Launch", "LaunchTimingHarness.cs"))
+    WORKFLOW = _read(os.path.join(ROOT, ".github", "workflows", "launch-time.yml"))
+    summarize = _load("launch_time_summarize", os.path.join(ROOT, "tools", "launch-time", "summarize.py"))
+
+    def test_harness_reads_marks_through_the_shared_rule_set(self):
+        self.assertIn("GameLogMarks.Of(line)", self.HARNESS)
+        # the old Fabric-only inline checks must not creep back in next to it
+        self.assertNotIn('line.Contains(" mods:")', self.HARNESS)
+
+    def test_forge_lines_are_marks(self):
+        self.assertIn("Forge Mod Loader version", self.MARKS)
+        self.assertIn("Forge Mod Loader has identified", self.MARKS)
+        self.assertIn('"game-forge-start"', self.MARKS)
+        # Forge's mod list is the SAME mark as Fabric's, so every summary and gate reads both
+        self.assertEqual(self.MARKS.count('"game-mods-listed"'), 1)
+
+    def test_every_mark_the_harness_can_write_is_known_to_the_summary(self):
+        for mark in re.findall(r'"(game-(?:fabric-start|forge-start|mods-listed))"', self.MARKS):
+            self.assertIn(mark, self.summarize.ORDER, mark)
+            self.assertIn(mark, self.summarize.WHAT, mark)
+
+    def _summary(self, files):
+        import contextlib
+        import io
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            for name, data in files.items():
+                with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.summarize.main(d)
+                self.summarize.installs(self.summarize.load(d))
+            return out.getvalue()
+
+    def test_a_189_cold_launch_shows_forge_rows_and_its_install_state(self):
+        text = self._summary({"b18-1-0.json": {
+            "version": "1.8.9", "error": None, "startupMs": 10, "javaPath": "x/runtime/java-runtime-legacy/bin/java.exe",
+            "installBefore": "NotInstalled", "installAfter": "Installed", "installJournalOpen": False,
+            "marks": [{"name": "process-start", "ms": 100}, {"name": "game-first-line", "ms": 300},
+                      {"name": "game-forge-start", "ms": 900}, {"name": "game-mods-listed", "ms": 2500}],
+            "requests": []}})
+        self.assertIn("| game-forge-start | to Forge (FML) start, 1.8.9 |", text)
+        self.assertIn("| game-mods-listed |", text)
+        self.assertIn("| b18-1-0.json | 1.8.9 | NotInstalled | Installed | closed | yes |", text)
+
+    def test_a_run_that_never_reached_the_mod_list_says_no(self):
+        text = self._summary({"b18-1-0.json": {
+            "version": "1.8.9", "error": None, "installBefore": "NotInstalled", "installAfter": "Installed",
+            "installJournalOpen": False, "marks": [{"name": "process-start", "ms": 100}], "requests": []}})
+        self.assertIn("| closed | no |", text)
+
+    def test_workflow_fails_a_cold_launch_that_did_not_install_by_itself(self):
+        self.assertIn("-fresh:($n -eq 0)", self.WORKFLOW)
+        self.assertIn("installJournalOpen", self.WORKFLOW)
+        self.assertIn("'NotInstalled', 'Partial'", self.WORKFLOW)
+        self.assertIn("$r.installAfter -ne 'Installed'", self.WORKFLOW)
+
+    def test_workflow_requires_the_install_stage_so_an_unwired_journal_cannot_pass(self):
+        self.assertIn('{ "Finishing" } else { "Installing" }', self.WORKFLOW)
+        self.assertIn("$r.installStages -notcontains $want", self.WORKFLOW)
+
+    def test_play_is_wired_through_the_install_journal(self):
+        vm = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Versions", "VersionManager.cs"))
+        body = vm.split("InstallAndBuildProcessAsync(", 1)[1].split("finally", 1)[0]
+        self.assertIn("InstallSession.RunAsync(", body)
+        self.assertIn("InstalledVersions.Shared", body)
+        self.assertIn("InstallJournal.Shared", body)
+        # an install that opens drops the verify stamp, so the next verify is a full one
+        self.assertIn("InstallVerification.Invalidate(", body)
+        session = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Versions", "InstallSession.cs"))
+        self.assertIn("dropVerifyStamp?.Invoke(version)", session)
+
+    def test_marker_is_kept_out_of_the_version_folder(self):
+        # InstanceMigration moves every unknown top-level name in a version folder into accounts/<key>/
+        paths = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "OriginPaths.cs"))
+        self.assertIn("string InstallState(string version)", paths)
+        self.assertNotIn("VersionRoot", paths.split("string InstallState(string version)", 1)[1].split("\n", 1)[0])
+        journal = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Versions", "InstallJournal.cs"))
+        self.assertIn("new(OriginPaths.InstallState", journal)
+        self.assertNotIn("new(OriginPaths.VersionRoot", journal)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

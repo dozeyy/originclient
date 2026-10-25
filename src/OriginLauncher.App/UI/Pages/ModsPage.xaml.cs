@@ -385,7 +385,7 @@ public partial class ModsPage : UserControl
         return border;
     }
 
-    // "ADDED": a full-radius badge, 20 tall (spec 5): a 6 px accent dot and the word, on the soft accent.
+    // "ADDED": a capsule badge (Radius.Full, Padding.Capsule.Sm): a 6 px accent dot and the word, on the soft accent.
     private Border AddedTag()
     {
         var label = new TextBlock
@@ -411,8 +411,7 @@ public partial class ModsPage : UserControl
         var tag = new Border
         {
             CornerRadius = (CornerRadius)FindResource("Radius.Full"),
-            Height = (double)FindResource("Size.Badge"),
-            Padding = new Thickness(8, 0, 8, 0),
+            Padding = (Thickness)FindResource("Padding.Capsule.Sm"),
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Child = line,
@@ -659,7 +658,7 @@ public partial class ModsPage : UserControl
         grid.Children.Add(IconWell(true, new ModEntry(offer.ExistingFileName, offer.ModName, true, false)));
 
         // Line 1 is the mod, line 2 the versions as one trimmed caption ("1.38.0 -> 1.39.2"), never wrapped mid-token;
-        // the whole question is in the tooltip for the cases that get cut.
+        // a long name trims.
         var prompt = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         prompt.Margin = new Thickness(Space("Space.3"), 0, Space("Space.2"), 0);
         prompt.Children.Add(NameText($"{offer.ModName} is already installed", false));
@@ -667,7 +666,6 @@ public partial class ModsPage : UserControl
         var versions = FileText(offer.NewVersion == null ? $"Replace {from} with this file?" : $"Replace {from} -> {offer.NewVersion}");
         versions.Margin = new Thickness(0, Space("Space.1"), 0, 0);
         prompt.Children.Add(versions);
-        prompt.ToolTip = offer.Question;
         Grid.SetColumn(prompt, 1);
         grid.Children.Add(prompt);
 

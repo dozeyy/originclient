@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace OriginLauncher.App.Core.Install;
 
 // Hand-off from the installer: choices the player made on its Customize page
-// (memory for Minecraft, default version). The installer can't write
+// (memory for Minecraft, default version, Settings Sync). The installer can't write
 // settings.json itself — SettingsStore.Update is the ONLY writer of settings
 // — so it drops this small file and the launcher applies it on its next
 // start, then deletes it. Format written by src/OriginSetup/Engine/Handoff.cs.
@@ -12,43 +12,16 @@ public static class SetupChoices
 {
     public const string FileName = "setup-choices.json";
 
-    private sealed class Choices
-    {
-        public int? RamMb { get; set; }
-        public string? SelectedVersion { get; set; }
-    }
-
-    public static void ApplyIfPresent()
-    {
-        var path = Path.Combine(OriginPaths.Root, FileName);
-        if (!File.Exists(path)) return;
-        try
+    public static void ApplyIfPresent() =>
+        SetupChoicesFile.Consume(Path.Combine(OriginPaths.Root, FileName), choices =>
         {
-            var choices = JsonSerializer.Deserialize<Choices>(File.ReadAllText(path));
-            if (choices != null)
-            {
-                var maxRam = RamAdvice.MaximumMb(SystemInfo.GetTotalPhysicalMemoryMb());
-                SettingsStore.Update(s =>
-                {
-                    if (choices.RamMb is int ram)
-                    {
-                        // The installer only sends RamMb when the player moved its slider.
-                        Launch.RamPolicy.SetManual(
-                            s, Math.Clamp(ram / RamAdvice.StepMb * RamAdvice.StepMb, RamAdvice.SliderMinimumMb, maxRam));
-                    }
-                    if (Versions.VersionCatalog.IsSupported(choices.SelectedVersion))
-                        s.SelectedVersion = choices.SelectedVersion;
-                });
-            }
-        }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
-        {
-            // A bad hand-off only loses the installer's suggestions — the
-            // launcher's own defaults still apply. Never block startup on it.
-        }
-        finally
-        {
-            try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
-    }
+            var maxRam = RamAdvice.MaximumMb(SystemInfo.GetTotalPhysicalMemoryMb());
+            SettingsStore.Update(s => choices.ApplyTo(s, maxRam, Versions.VersionCatalog.IsSupported));
+            // Same as turning the switch on in Settings: build the sync
+            // store from every instance. Off the startup path, and
+            // SettingsSync.Seed logs and swallows its own errors, so this
+            // can never fail or delay a launch.
+            if (choices.SyncSettingsAcrossVersions == true)
+                _ = Task.Run(SettingsSync.Seed);
+        });
 }

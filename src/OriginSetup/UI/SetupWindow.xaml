@@ -87,7 +87,7 @@
                               Content="Open Origin when Windows starts"/>
 
                     <!-- Customize (closed by default; the footer's Customize button opens it and the window grows to
-                         fit): memory for Minecraft and the version Origin opens on. Both are optional: untouched,
+                         fit): memory for Minecraft, the version Origin opens on and Settings Sync. All optional: untouched,
                          the installer hands the launcher nothing and it picks its own defaults. -->
                     <StackPanel x:Name="CustomizePanel" Visibility="Collapsed" Margin="{StaticResource Top.4}">
                         <Grid>
@@ -120,6 +120,10 @@
                             <ComboBox x:Name="VersionCombo" Grid.Column="1" Style="{StaticResource Combo.Workbench}"
                                       AutomationProperties.Name="Default Minecraft version"/>
                         </Grid>
+                        <!-- Settings Sync (launcher: Settings, first section). On unless the player turns it off, the
+                             same default the launcher has; only a change is handed over (InstallButton_Click). -->
+                        <CheckBox x:Name="SyncCheck" Margin="{StaticResource Top.3}"
+                                  Content="Sync settings across versions"/>
                     </StackPanel>
                 </StackPanel>
 

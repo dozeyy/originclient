@@ -14,7 +14,7 @@ namespace OriginLauncher.App.UI.Controls;
 /// </summary>
 public sealed class ToastQueue
 {
-    private static readonly TimeSpan ShortLife = TimeSpan.FromSeconds(7);
+    private static readonly TimeSpan ShortLife = TimeSpan.FromSeconds(5); // spec: a toast stays 5 s
     // A warp stays up longer: the service keeps it for two minutes.
     private static readonly TimeSpan WarpLife = TimeSpan.FromSeconds(30);
 

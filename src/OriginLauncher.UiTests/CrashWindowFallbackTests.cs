@@ -100,6 +100,8 @@ public class CrashWindowFallbackTests
 
             // Same Application, so the Home blank-after-picker regression runs here (HomeSceneRegression.cs).
             HomeSceneRegression.Run();
+            // ...and the restyled dropdowns' keyboard behaviour (DropdownKeyboardRegression.cs).
+            DropdownKeyboardRegression.Run();
         });
     }
 }

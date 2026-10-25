@@ -70,6 +70,19 @@
         </Setter>
     </Style>
 
+    <!-- Card-corner focus in parchment: for a tile that sits where the selected (emerald) ring sits, so keyboard focus
+         never reads as selected. Same frame and offset as Focus.Card. -->
+    <Style x:Key="Focus.Card.Neutral" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+                            BorderBrush="{DynamicResource Brush.Text}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <ControlTemplate x:Key="Template.Button" TargetType="Button">
         <Border x:Name="Bg"
                 Background="{TemplateBinding Background}"

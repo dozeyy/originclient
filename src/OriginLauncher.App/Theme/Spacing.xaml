@@ -20,6 +20,12 @@
     <system:Double x:Key="Space.10">40</system:Double>
     <system:Double x:Key="Space.12">48</system:Double>
 
+    <!-- Capsule padding (a pill, chip or badge, radius = height / 2): the 12 px caption chip is 24 tall (8 x 4 around a
+         16 px line, so the ink sits about 8 from every edge); the 11 px label badge is 20 tall (6 x 3). One token per size,
+         used by every capsule. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
+
     <!-- Layout margins that more than one style needs, as tokens. -->
     <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
     <Thickness x:Key="Margin.DropZone">24,20</Thickness>
@@ -28,6 +34,12 @@
     <!-- A dialog over a page: 24 at the sides and foot, and the top clears the 48 top bar plus 24 (Size.Bar + Space.6),
          so a tall dialog never slides under the bar. -->
     <Thickness x:Key="Margin.Dialog">24,72,24,24</Thickness>
+
+    <!-- A popup (menu, dropdown list) is a transparent window, so Shadow.Overlay needs empty room around the panel to
+         draw into. Popup.Bleed is that room (left, top, right, bottom); Popup.OffsetX shifts the window left by the
+         same amount so the PANEL still lines up with its anchor. Top is 4 so the panel opens 4 px below the anchor. -->
+    <Thickness x:Key="Popup.Bleed">16,4,16,28</Thickness>
+    <system:Double x:Key="Popup.OffsetX">-16</system:Double>
 
     <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
     <system:Double x:Key="Size.ControlSm">28</system:Double>
@@ -65,6 +77,22 @@
     <system:Double x:Key="Size.Logo.Hero">48</system:Double>
     <system:Double x:Key="Size.Logo.Intro">64</system:Double>
     <system:Double x:Key="Size.Wordmark.Hero">24</system:Double>
+    <!-- Account pill and rows (U3.5): a head is its container's height minus 8 (4 inset all round, concentric with
+         the container corner: the head's radius is the container's minus 4). 24 = 3 x 8 and 40 = 5 x 8, whole
+         multiples of the 8 x 8 face. The name stops at 160. A 10 px dot with a 2 px ring is the 6 px status dot
+         (Size.Dot) plus its ring. -->
+    <system:Double x:Key="Size.PillHead">24</system:Double>
+    <system:Double x:Key="Size.RowHead">40</system:Double>
+    <system:Double x:Key="Size.AccountName">160</system:Double>
+    <system:Double x:Key="Size.DotRinged">10</system:Double>
+    <system:Double x:Key="Size.DotRing">2</system:Double>
+    <CornerRadius x:Key="Radius.Head.Sm">2</CornerRadius>
+    <!-- Pill: 1 px edge + 3 = the 4 inset on the left; 9 + 1 = the 10 on the right. Row: 1 px edge + 3 = 4 all round.
+         Brand lockup: 6 to its left (the logo stays at the bar's 24), 14 to its right (the hover arrow's room). -->
+    <Thickness x:Key="Padding.AccountPill">3,0,9,0</Thickness>
+    <Thickness x:Key="Padding.AccountRow">3</Thickness>
+    <Thickness x:Key="Padding.Brand">6,4,14,4</Thickness>
+    <Thickness x:Key="Margin.OfflineDot">0,0,-2,-2</Thickness>
 
     <!-- ===== Corner radii (spec 6) ===== -->
     <CornerRadius x:Key="Radius.Xs">4</CornerRadius>

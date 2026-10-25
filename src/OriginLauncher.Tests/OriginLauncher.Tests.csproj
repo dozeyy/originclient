@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <Compile Include="..\OriginLauncher.App\Core\Promos\*.cs" LinkBase="Promos" />
+    <!-- Settings field rules (install folder, window size): the sentence shown under a rejected box. -->
+    <Compile Include="..\OriginLauncher.App\Core\FieldRules.cs" LinkBase="Settings" />
     <!-- Mods page icons: jar icon parsing and the in-memory result cache. -->
     <Compile Include="..\OriginLauncher.App\Core\Mods\Icons\*.cs" LinkBase="ModIcons" />
     <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />
@@ -44,6 +46,8 @@
     <Compile Include="..\OriginLauncher.App\UI\Controls\ToastQueue.cs" LinkBase="Social" />
     <!-- The Home numeral's placement maths (band, size, centring; pure). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\NumeralBand.cs" LinkBase="UI" />
+    <!-- Where a crisp player head is drawn (whole screen pixels per face pixel; pure). -->
+    <Compile Include="..\OriginLauncher.App\UI\Controls\HeadFit.cs" LinkBase="UI" />
     <!-- Only the top folder: Core/GameFolders/Launcher is the account/settings glue. -->
     <Compile Include="..\OriginLauncher.App\Core\GameFolders\*.cs" LinkBase="GameFolders" />
     <!-- When the launcher signs in to Minecraft: per-account session reuse, expiry,
@@ -56,6 +60,12 @@
     <Compile Include="..\OriginLauncher.App\Core\Accounts\AccountStore.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\Accounts\StoredAccount.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\OriginPaths.cs" LinkBase="Accounts" />
+    <!-- The installer -> launcher hand-off: the launcher's reader/apply rules and the installer's
+         own writer, round-tripped in SetupHandoffTests (never the real settings.json). The settings
+         model, RamAdvice and RamPolicy are linked further down. -->
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesData.cs" LinkBase="Install" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesFile.cs" LinkBase="Install" />
+    <Compile Include="..\OriginSetup\Engine\Handoff.cs" LinkBase="Install" />
     <!-- Mod profiles: the naming/server/selection rules, the profile list edits,
          the launch mods folder and the profile folder copy/delete (all pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Profiles\*.cs" LinkBase="Profiles" />
@@ -71,6 +81,7 @@
          import makes, the one-time first-run card rules and the Done page's summary reader. The rest of
          Core/Import/Launcher (backend, HTTP, startup, dry run) needs Windows and stays out. -->
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportRoots.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportLog.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSettingsRules.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportPrompt.cs" LinkBase="Import" />
     <!-- The Import drawer's words and decisions that need no WPF (plurals, the Import all label, the Done page's summary). -->
@@ -140,6 +151,11 @@
     <Compile Include="..\OriginLauncher.App\Core\StartupTrace.cs" LinkBase="Versions" />
     <!-- Which versions are installed / partial / missing / update-ready (pure disk reads; InstalledVersions.Shared.cs, the real wiring, stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Versions\InstalledVersions.cs" LinkBase="Versions" />
+    <!-- Play installs a missing/partial version (U3.3): the install journal + session, the failure text, the harness' game-log marks. -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\InstallJournal.cs" LinkBase="Versions" />
+    <Compile Include="..\OriginLauncher.App\Core\Versions\InstallSession.cs" LinkBase="Versions" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\PlayFailure.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\GameLogMarks.cs" LinkBase="Launch" />
     <!-- The pinned legacy Forge table (pure data, no CmlLib), so a test can assert the real 1.8.9 layout. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyForgeBuilds.cs" LinkBase="Loaders" />
   </ItemGroup>

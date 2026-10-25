@@ -278,7 +278,7 @@ public class ToastQueueTests
         var queue = new ToastQueue(capacity: 5);
         queue.Enqueue(Toast(SocialToastKind.Message), T0);
         queue.Enqueue(Toast(SocialToastKind.Warp), T0);
-        Assert.Equal(TimeSpan.FromSeconds(4), queue.TakeNext(T0 + TimeSpan.FromSeconds(3))!.Value.Left);
+        Assert.Equal(TimeSpan.FromSeconds(2), queue.TakeNext(T0 + TimeSpan.FromSeconds(3))!.Value.Left);
         Assert.Equal(TimeSpan.FromSeconds(27), queue.TakeNext(T0 + TimeSpan.FromSeconds(3))!.Value.Left);
     }
 }
