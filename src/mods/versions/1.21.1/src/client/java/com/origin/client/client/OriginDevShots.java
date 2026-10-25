@@ -54,6 +54,8 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19): the title with one button held in
 		// its hover state, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
 		TITLE_HOVER, TITLE_HOVER_BTN, TITLE_PRESS, TITLE_FOCUS, CONTROLS, LEVEL_LOADING, CONNECTING,
+		// The world-loading screen half way: the progress ring's real fill (design set only).
+		LEVEL_LOADING_MID,
 		// ...and, LAST in the clean set because they create a world: the Create World screen (a fresh game dir
 		// has no saves, so Singleplayer goes straight there), the pause menu inside that new world, then the
 		// world list with that save in it after Save and Quit.
@@ -230,6 +232,7 @@ public final class OriginDevShots {
 				case LEVEL_LOADING -> new net.minecraft.client.gui.screens.LevelLoadingScreen(
 						net.minecraft.server.level.progress.StoringChunkProgressListener.create(2));
 				case CONNECTING -> connectScreen();
+				case LEVEL_LOADING_MID -> midLoading();
 				case CREATE_TABS, WORLD_PAUSE -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
 				case WORLDS_SAVED -> {
 					Minecraft mc = Minecraft.getInstance();
@@ -247,6 +250,19 @@ public final class OriginDevShots {
 
 	/** ConnectScreen's (Screen, Component) constructor is private (javap, 1.21.1); no connection is started,
 	 *  so it just shows "Connecting to the server..." -- the state a player sees first. */
+	/** The world-loading screen with its chunk listener fed real FULL statuses until it reports ~50 %. */
+	private static Screen midLoading() {
+		net.minecraft.server.level.progress.StoringChunkProgressListener l =
+				net.minecraft.server.level.progress.StoringChunkProgressListener.create(2);
+		l.updateSpawnPos(new net.minecraft.world.level.ChunkPos(0, 0));
+		l.start();
+		for (int i = 0; i < 4096 && l.getProgress() < 50; i++) {
+			l.onStatusChange(new net.minecraft.world.level.ChunkPos(i % 64 - 32, i / 64 - 32),
+					net.minecraft.world.level.chunk.status.ChunkStatus.FULL);
+		}
+		return new net.minecraft.client.gui.screens.LevelLoadingScreen(l);
+	}
+
 	private static Screen connectScreen() {
 		try {
 			var c = net.minecraft.client.gui.screens.ConnectScreen.class.getDeclaredConstructor(

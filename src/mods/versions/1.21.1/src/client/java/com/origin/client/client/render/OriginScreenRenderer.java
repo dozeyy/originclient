@@ -574,33 +574,42 @@ public final class OriginScreenRenderer {
 	/**
 	 * Connecting to a server: the same loading picture as the other screens, the
 	 * connection status as its caption. ConnectScreenMixin takes the draw over and
-	 * calls this, then draws the screen's own Cancel button on top. The picture is
-	 * lifted just far enough to sit above that button when the window is short.
+	 * calls this, then draws the screen's own Cancel button on top. The logo sits at
+	 * exactly the spot every other loading screen uses (judge 2026-10-25: it used to be
+	 * lifted to clear Cancel and jumped ~11 px between Connecting and the world load);
+	 * Cancel is seated below the picture instead ({@link #connectCancelTop}).
 	 *
-	 * @param cancelTopGui the Cancel button's top edge in GUI px
+	 * @param cancelTopGui the Cancel button's top edge in GUI px (unused: kept for the mixin's call)
 	 */
 	public static boolean renderConnecting(GuiGraphics guiGraphics, net.minecraft.network.chat.Component status, int cancelTopGui) {
 		if (broken) {
 			return false;
 		}
 		try {
-			Minecraft mc = Minecraft.getInstance();
 			RingField.sceneMs();   // advances the scene clock that times the sweep
-			double gh = Math.max(1, mc.getWindow().getGuiScaledHeight());
-			double fit = (cancelTopGui - 12 - LoadingLook.belowCentreGui()) / gh;
-			double at = Math.max(0.12, Math.min(LoadingLook.LOGO_AT, fit));
 			if (status != connectStatus) {
 				connectStatus = status;
 				connectCaption = status == null ? "" : status.getString().trim();
 			}
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			LoadingLook.draw(guiGraphics, 1f, at, -1, connectCaption, false);
+			LoadingLook.draw(guiGraphics, 1f, LoadingLook.LOGO_AT, -1, connectCaption, false);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		} finally {
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
+	}
+
+	/**
+	 * Where Connecting's Cancel button goes (GUI px, its top edge): at 62 % of the height (A-Workbench-3), and
+	 * always at least 12 GUI px under the loading picture's caption, so the picture never has to move for it;
+	 * kept 8 GUI px clear of the bottom when the window allows.
+	 */
+	public static int connectCancelTop(int screenH, int buttonH) {
+		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
+		int top = (int) Math.max(Math.round(screenH * 0.62) - buttonH / 2, Math.ceil(clearOfPicture));
+		return Math.max(0, Math.min(top, screenH - buttonH - 8));
 	}
 
 	private static net.minecraft.network.chat.Component connectStatus;
@@ -1070,7 +1079,13 @@ public final class OriginScreenRenderer {
 				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 			int tx = hx + head + gap;
-			guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, OriginTheme.TEXT, true);
+			if (com.origin.client.client.gui.OriginButtonRenderer.titleTextActive()) {
+				// Inter 600 in parchment at the button label's em (A-Workbench-3: the name reads like a label).
+				com.origin.client.client.gui.OriginButtonRenderer.drawTitleText(guiGraphics, name, tx, y + (chipH - 8) / 2f,
+						OriginTheme.TITLE_LABEL_EM, OriginTheme.TITLE_TEXT, true);
+			} else {
+				guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, OriginTheme.TEXT, true);
+			}
 		} catch (Throwable t) {
 			fail(t);
 		}

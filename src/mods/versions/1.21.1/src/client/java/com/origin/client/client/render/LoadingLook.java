@@ -14,20 +14,27 @@ import com.origin.client.client.theme.OriginTheme;
  *
  * <pre>
  *   flat color.bg
- *   the official logo     72 design px box, centred at 44 % of the height, the title's three
- *                         faint orbit pills around it, clear of the rail (OrbitHairlines)
- *   44 below              the rail: 200 design px wide, 2 GUI px tall fill (accent) over a
- *                         1 GUI px hairline track (white 8 %)
- *   12 below              the caption: textDim, the real stage name (+ a percentage only
+ *   the official logo     72 design px box, centred at 44 % of the height on EVERY loading
+ *                         screen (Connecting included: its Cancel button moves, the logo
+ *                         never does, so the logo carries across the screens)
+ *   the orbit             the title's three faint pills around it (OrbitHairlines); the 120 deg
+ *                         one carries the progress: an emerald stroke fills along its path with
+ *                         the real fraction (OrbitProgress), or a segment travels it with no measure
+ *   14 below the orbit    the caption: Inter at TITLE_SMALL_EM (the same size as Connecting's
+ *                         Cancel label), textMuted, the real stage name (+ a percentage only
  *                         where Minecraft reports one)
  * </pre>
+ *
+ * <p>The straight rail of the first Workbench pass is only a fallback now: it is drawn under the
+ * orbit when the ring has latched off (OrbitProgress.failed).
  *
  * "Design px" are physical pixels at 1080p, scaled by window height / 1080 (never below
  * 0.75), so the picture looks the same at any resolution or GUI scale. Everything is drawn
  * in whole physical pixels (the pose is scaled back to 1 GUI unit = 1 pixel), so the rail
  * is crisp at every GUI scale.
  *
- * <p>Cost: one fill, one cached orbit-buffer draw, one logo blit, a few rail fills, one caption line. No shader, no blur,
+ * <p>Cost: one fill, one cached orbit-buffer draw, one logo blit, one progress-stroke batch (cached
+ * geometry, quads only), one caption line. No shader, no blur,
  * no texture beyond the logo (baked once per size by OriginScreenRenderer.drawLogo) and, for
  * the startup caption only, the boot font. Nothing is allocated per frame: the geometry lives
  * in static fields (render thread only) and the caption strings are cached by their callers.
@@ -39,33 +46,38 @@ import com.origin.client.client.theme.OriginTheme;
  */
 final class LoadingLook {
 	// Colours: OriginTheme's loading tokens (DESIGN-SYSTEM 17.3), never copied here:
-	// CLEAN_BG (color.bg), CLEAN_BAR_TRACK (white 8 %), CLEAN_BAR_FILL (accent),
-	// CLEAN_CAPTION (color.textDim).
+	// CLEAN_BG (color.bg), LOADING_ORBIT (the pills / the ring's track), CLEAN_BAR_FILL (the
+	// emerald progress, #5FD09B), CLEAN_BAR_TRACK (fallback rail track), TITLE_TEXT_MUTED (caption).
 
 	/** Logo box, design px. */
 	private static final double LOGO = 72.0;
-	/** Logo centre, share of the window height. */
+	/** Logo centre, share of the window height: the same on every loading screen. */
 	static final double LOGO_AT = 0.44;
 	private static final double RAIL_W = 200.0;
-	/** The bar is 2 GUI px tall (A-Workbench-3) over a 1 GUI px hairline track. */
+	/** Fallback rail only: 2 GUI px tall over a 1 GUI px hairline track. */
 	private static final int RAIL_GUI = 2, TRACK_GUI = 1;
-	/** The faint orbit pill behind the logo: half-extents (long, short) as shares of the logo box, tilted 120 deg. */
-	// The title's three-pill orbit (0 / 60 / 120 deg), scaled around the logo. Long half-extent:
-	// ORBIT_A x the logo box, shrunk when needed so the whole orbit ends ORBIT_CLEAR_GUI above the
-	// rail. Short half-extent (= the pill ends' radius) keeps the title's 0.171 / 0.476 proportion.
-	private static final double ORBIT_A = 1.0, ORBIT_SHORT = 0.171 / 0.476, ORBIT_CLEAR_GUI = 8.0;
+	// The title's three-pill orbit (0 / 60 / 120 deg), scaled around the logo: long half-extent ORBIT_A x the
+	// logo box, short half-extent (= the pill ends' radius) in the title's 0.171 / 0.476 proportion.
+	private static final double ORBIT_A = 1.5, ORBIT_SHORT = 0.171 / 0.476;
+	/** How far the pills reach below their centre, per unit of long half-extent: the 60 / 120 deg pills reach
+	 *  furthest, (a - b) sin 60 + b = a ((1 - s) sin 60 + s). */
+	private static final double ORBIT_REACH = (1.0 - ORBIT_SHORT) * Math.sin(Math.toRadians(60.0)) + ORBIT_SHORT;
 	private static final OrbitHairlines ORBIT = new OrbitHairlines(3, 0.0);
-	/** Logo box to rail, rail to caption, design px. */
-	// GAP_RAIL was 24; 44 leaves the orbit pills room to wrap the logo and still clear the rail.
-	private static final double GAP_RAIL = 44.0, GAP_CAPTION = 12.0;
-	/** The caption's line box, design px (type.caption is 12 / 16). */
-	private static final double CAPTION_BOX = 16.0, CAPTION_EM = 12.0;
-	/** The sweep: a 28 % segment, one pass per 1.2 s. */
-	private static final double SWEEP_SHARE = 0.28, SWEEP_MS = 1200.0;
+	/** The progress ring: the 120 deg pill (lower left to upper right, A-Workbench-3), its stroke 2.5 design px. */
+	private static final double PROGRESS_TILT = 120.0, PROGRESS_W = 2.5;
+	private static final OrbitProgress PROGRESS = new OrbitProgress();
+	/** Orbit bottom to the caption's line box, design px. */
+	private static final double GAP_CAPTION = 14.0;
+	/** The caption's line box, GUI px (an 8 GUI px em in a 10 px line, like a vanilla text line). */
+	private static final double CAPTION_LINE_GUI = 10.0;
+	/** Inter's cap height per em (what the boot-font caption matches before Inter exists). */
+	private static final double INTER_CAP_PER_EM = 0.727;
+	/** No measure: a 26 % segment travels the ring, one lap per 1.6 s. */
+	private static final double SWEEP_SHARE = 0.26, SWEEP_MS = 1600.0;
 
 	// The frame's geometry, in physical pixels (computed by layout()).
 	private static int gs, physW, physH;
-	private static double k, logoBox, logoCy, railTop, railW, railH, captionMid;
+	private static double k, logoBox, logoCy, orbitA, orbitBottom, captionMid;
 
 	private LoadingLook() {
 	}
@@ -75,15 +87,20 @@ final class LoadingLook {
 	}
 
 	/**
-	 * GUI px from the logo's centre down to the caption's bottom edge at this window's scale:
-	 * what a screen with a button below the picture needs to know to fit it above the button.
+	 * GUI px from the logo's centre down to the caption's bottom edge at this window's scale: what a
+	 * screen with a button below the picture (Connecting's Cancel) needs to keep the button clear of it.
 	 */
 	static double belowCentreGui() {
 		Minecraft mc = Minecraft.getInstance();
-		double kk = scale();
-		double rail = RAIL_GUI * Math.max(1, Math.round(mc.getWindow().getGuiScale()));
-		double phys = Math.round(LOGO * kk) / 2.0 + GAP_RAIL * kk + rail + (GAP_CAPTION + CAPTION_BOX) * kk;
-		return phys / Math.max(1.0, mc.getWindow().getGuiScale());
+		double g = Math.max(1, Math.round(mc.getWindow().getGuiScale()));
+		double box = Math.round(LOGO * scale());
+		return (box * ORBIT_A * ORBIT_REACH + GAP_CAPTION * scale()) / g + CAPTION_LINE_GUI;
+	}
+
+	/** The logo centre's height, GUI px, on every loading screen at this window size (what draw() uses). */
+	static double logoCentreGui() {
+		Minecraft mc = Minecraft.getInstance();
+		return Math.round(mc.getWindow().getHeight() * LOGO_AT) / (double) Math.max(1, Math.round(mc.getWindow().getGuiScale()));
 	}
 
 	private static void layout(double cyPhys) {
@@ -94,10 +111,9 @@ final class LoadingLook {
 		k = scale();
 		logoBox = Math.round(LOGO * k);
 		logoCy = cyPhys;
-		railW = Math.round(RAIL_W * k);
-		railH = RAIL_GUI * gs;
-		railTop = Math.round(logoCy + logoBox / 2.0 + GAP_RAIL * k);
-		captionMid = railTop + railH + GAP_CAPTION * k + CAPTION_BOX * k / 2.0;
+		orbitA = logoBox * ORBIT_A;
+		orbitBottom = logoCy + orbitA * ORBIT_REACH;
+		captionMid = orbitBottom + GAP_CAPTION * k + CAPTION_LINE_GUI * gs / 2.0;
 	}
 
 	/**
@@ -126,15 +142,11 @@ final class LoadingLook {
 		// The backdrop is flat color.bg, the same colour as the launcher's launch cover.
 		g.fill(0, 0, gw, gh, fade(OriginTheme.CLEAN_BG, layer));
 
-		// One faint orbit hairline behind the logo (A-Workbench-3), the title's rings' sibling. It
-		// stays through the loading -> title hand-off (logo false) and fades with the layer.
-		// A pill (half-length a, end radius b) tilted t reaches (a - b)|sin t| + b above and below its
-		// centre; the 60 / 120 deg pills reach furthest: (a - b) sin 60 + b = a (1 - s) sin 60 + a s.
-		double reach = (1.0 - ORBIT_SHORT) * Math.sin(Math.toRadians(60.0)) + ORBIT_SHORT;
-		double room = (railTop - logoCy) / gs - ORBIT_CLEAR_GUI;   // GUI px from the logo centre to 8 above the rail
-		double a = Math.min(logoSizeGui() * ORBIT_A, room / reach);
-		if (a > 1.0) {
-			ORBIT.draw(g, (float) logoCxGui(), (float) logoCyGui(), (float) a, (float) (a * ORBIT_SHORT),
+		// The faint orbit pills behind the logo (A-Workbench-3), the title's rings' siblings. They stay
+		// through the loading -> title hand-off (logo false) and fade with the layer.
+		double aGui = orbitA / gs;
+		if (aGui > 1.0) {
+			ORBIT.draw(g, (float) logoCxGui(), (float) logoCyGui(), (float) aGui, (float) (aGui * ORBIT_SHORT),
 					OriginTheme.LOADING_ORBIT, layer);
 		}
 
@@ -145,9 +157,12 @@ final class LoadingLook {
 			com.origin.client.client.OriginFrameLog.part("o:logo", t0);
 		}
 
-		// The rail and the caption.
+		// The progress (the emerald stroke on the 120 deg pill; the straight rail only if the ring latched
+		// off) and the caption.
 		long t0 = com.origin.client.client.OriginFrameLog.partStart();
-		rail(g, layer, fill);
+		if (!ring(g, layer, fill)) {
+			rail(g, layer, fill);
+		}
 		com.origin.client.client.OriginFrameLog.part("o:rail", t0);
 		if (caption != null && !caption.isEmpty()) {
 			t0 = com.origin.client.client.OriginFrameLog.partStart();
@@ -174,11 +189,33 @@ final class LoadingLook {
 		return (int) Math.round(LOGO * scale());
 	}
 
-	// ---- the rail ----
+	// ---- the progress ring ----
+
+	/** The emerald stroke along the progress pill: the real fill, or a travelling segment for none. */
+	private static boolean ring(GuiGraphics g, float layer, double fill) {
+		if (PROGRESS.failed() || orbitA / gs <= 1.0) {
+			return false;
+		}
+		double from, to;
+		if (fill < 0) {
+			double t = (RingField.sceneMs() % SWEEP_MS) / SWEEP_MS;
+			from = t;
+			to = t + SWEEP_SHARE;
+		} else {
+			from = 0.0;
+			to = Math.max(0.0, Math.min(1.0, fill));
+		}
+		float width = (float) Math.max(2.0, PROGRESS_W * k);
+		return PROGRESS.draw(g, gs, physW / 2.0, logoCy, orbitA, orbitA * ORBIT_SHORT, PROGRESS_TILT,
+				from, to, width, fade(OriginTheme.CLEAN_BAR_FILL, layer));
+	}
+
+	// ---- the fallback rail (only when the ring latched off) ----
 
 	private static void rail(GuiGraphics g, float layer, double fill) {
-		int w = (int) railW, h = (int) railH;
-		int x = (int) Math.round((physW - railW) / 2.0), y = (int) railTop;
+		int w = (int) Math.round(RAIL_W * k), h = RAIL_GUI * gs;
+		int x = (int) Math.round((physW - w) / 2.0);
+		int y = (int) Math.round(orbitBottom + (GAP_CAPTION * k - h) / 2.0);
 		PoseStack pose = g.pose();
 		pose.pushPose();
 		pose.scale(1f / gs, 1f / gs, 1f);
@@ -238,23 +275,26 @@ final class LoadingLook {
 
 	private static void caption(GuiGraphics g, float layer, String text, boolean boot, int gw) {
 		double cx = gw / 2.0;
+		float em = OriginTheme.TITLE_SMALL_EM;   // GUI px: the same size as Connecting's Cancel label
+		int argb = fade(OriginTheme.TITLE_TEXT_MUTED, layer);
 		if (boot) {
-			// Whole physical pixels per font pixel: 1 at 1080p, 2 at 1620p, 3 at 4K.
-			int per = Math.max(1, (int) Math.floor(CAPTION_EM * k / 8.0 + 0.25));
+			// Before Inter exists: Minecraft's ascii.png in whole physical pixels per font pixel, sized so its
+			// 7-pixel caps come closest to Inter's cap height at this em (the line keeps its size later).
+			double capPhys = em * INTER_CAP_PER_EM * gs;
+			int per = Math.max(1, (int) Math.round(capPhys / 7.0));
 			double scale = per / (double) gs;
-			OriginScreenRenderer.bootText(g, text, cx, captionMid / gs - 3.5 * scale, (float) scale, 0, OriginTheme.CLEAN_CAPTION, 0.5f);
+			OriginScreenRenderer.bootText(g, text, cx, captionMid / gs - 3.5 * scale, (float) scale, 0, argb, 0.5f);
 			return;
 		}
 		if (com.origin.client.client.gui.OriginSdfFont.active()) {
-			float em = (float) (CAPTION_EM * k / gs);
 			float w = com.origin.client.client.gui.OriginSdfFont.widthEm(text, em, 0f, false);
 			float cap = com.origin.client.client.gui.OriginSdfFont.capHeight(em, false);
 			com.origin.client.client.gui.OriginSdfFont.drawEm(g, text, (float) (cx - w / 2.0), (float) (captionMid / gs + cap / 2.0),
-					em, 0f, fade(OriginTheme.CLEAN_CAPTION, layer), false);
+					em, 0f, argb, false);
 			return;
 		}
 		Font font = Minecraft.getInstance().font;
-		g.drawString(font, text, (int) Math.round(cx - font.width(text) / 2.0), (int) Math.round(captionMid / gs - 4), fade(OriginTheme.CLEAN_CAPTION, layer), true);
+		g.drawString(font, text, (int) Math.round(cx - font.width(text) / 2.0), (int) Math.round(captionMid / gs - 4), argb, true);
 	}
 
 	/** A colour with its alpha scaled by {@code k} (0..1). */

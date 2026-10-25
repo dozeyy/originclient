@@ -125,12 +125,14 @@ public final class OriginTheme {
 	// CLEAN_* set above. Colours are the spec's tokens as ARGB; radii and edges are GUI px.
 	public static final int TITLE_RADIUS = 4;                  // buttons 20 tall: the launcher's 40/8 ratio
 	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
-	public static final int TITLE_BTN_FILL_HOVER = 0xE6232A26; // surfaceHover at 90 %
+	// Hover: clearly lighter than rest (judge 2026-10-25: #232A26 at 90 % moved the composite by ~4 levels
+	// and could not be seen). #2E3631 at 92 % lifts it ~12 levels, like the target's hover card.
+	public static final int TITLE_BTN_FILL_HOVER = 0xEB2E3631;
 	// Press: surfacePress's hue pushed to near-black at 95 %. The spec value (#191E1B at 90 %) composited to
 	// about the resting fill and could not be seen (judge, title_press); the label also drops 1 GUI px.
 	public static final int TITLE_BTN_FILL_PRESS = 0xF20B0F0D;
 	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
-	public static final int TITLE_BTN_EDGE_HOVER = 0x24FFFFFF;
+	public static final int TITLE_BTN_EDGE_HOVER = 0x40FFFFFF;    // white 25 %: the hairline firms with the fill
 	public static final int TITLE_FOCUS = 0x995FD09B;          // accentLine, 1 GUI px ring
 	public static final int TITLE_TOOLTIP_FILL = 0xF51D2320;   // surfaceRaised at 96 %: tooltip over the panorama (11.8)
 	public static final int TITLE_TEXT_MUTED =0x85F1E9D2;     // textMuted: disabled labels
@@ -140,22 +142,14 @@ public final class OriginTheme {
 	public static final int TITLE_BTN_RADIUS = 3;
 	public static final int TITLE_TEXT = 0xFFF1E9D2;           // parchment, fixed (never theme-repainted)
 	public static final float TITLE_LABEL_EM = 9.0f;           // Inter 600 em, GUI px
-	// Dock tiles: the glyph's own hue at ~18 % behind it, a 1 GUI px edge in the hue, rounded square.
-	public static final int TITLE_DOCK_RADIUS = 5;
-	public static final int TITLE_DOCK_TILE_A = 0x2E;          // 18 %
-	public static final int TITLE_DOCK_TILE_A_HOVER = 0x47;    // 28 %
-	public static final int TITLE_DOCK_TILE_A_PRESS = 0x5C;    // 36 %
-	public static final int TITLE_DOCK_EDGE_A = 0x4D;          // 30 %
-	public static final int TITLE_DOCK_EDGE_A_HOVER = 0x80;    // 50 %
+	// The title's quiet text (footer line, copyright, dock tooltips): Inter regular at 8 GUI px em, textMuted
+	// (A-Workbench-3; DECISIONS 2026-10-25 allows Inter on Origin's own title text). The player name is Inter 600
+	// at the label em in parchment. Every one falls back to Minecraft's font when the SDF face is not live.
+	public static final float TITLE_SMALL_EM = 8.0f;
 	// Orbit pills (1 physical px, parchment): ~10 % over the title's busy panorama (6 % vanished at
 	// 1920 x 1080, CI shots 2026-10-25), ~6 % on the loading screens' flat backdrop.
 	public static final int TITLE_ORBIT = 0x1AF1E9D2;
 	public static final int LOADING_ORBIT = 0x0FF1E9D2;
-	// Destination hues (spec 2.3, dark theme values): dock glyphs.
-	public static final int HUE_EMERALD = 0xFF5FD09B;
-	public static final int HUE_SKY = 0xFF6FAEE8;
-	public static final int HUE_GOLD = 0xFFE9C46A;
-	public static final int HUE_CORAL = 0xFFE08A6B;
 
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;

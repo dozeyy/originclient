@@ -74,35 +74,41 @@ public final class OrbitHairlines {
 		}
 	}
 
+	/**
+	 * One pill's outline as a closed loop of points {x0, y0, x1, y1, ...} (the last joins the first), centred on
+	 * (cx, cy), half-extents a (long) x b (short, = the end radius), tilted {@code tiltDeg}. The one geometry for
+	 * the hairlines and the loading screen's progress ring (OrbitProgress), so the fill lies exactly on its track.
+	 *
+	 * <p>Stadium outline in the ring's own frame: the right semicircle about (L, 0) from -90 to +90 deg, then the
+	 * left one about (-L, 0) from +90 to +270 deg; consecutive arcs join with one straight segment, the stadium's
+	 * flat sides. L = a - b, so the long extent is 2a and the short one 2b (never an ellipse).
+	 */
+	static float[] stadium(double cx, double cy, double a, double b, double tiltDeg) {
+		double half = Math.max(0.0, a - b), rad = Math.min(a, b);
+		double tilt = Math.toRadians(tiltDeg), ct = Math.cos(tilt), st = Math.sin(tilt);
+		int n = 2 * (ARC_SEGMENTS + 1);
+		float[] out = new float[2 * n];
+		for (int k = 0; k < n; k++) {
+			boolean right = k <= ARC_SEGMENTS;
+			int j = right ? k : k - (ARC_SEGMENTS + 1);
+			double phi = Math.PI * (j / (double) ARC_SEGMENTS) + (right ? -Math.PI / 2.0 : Math.PI / 2.0);
+			double ex = (right ? half : -half) + rad * Math.cos(phi), ey = rad * Math.sin(phi);
+			out[2 * k] = (float) (cx + ex * ct - ey * st);
+			out[2 * k + 1] = (float) (cy + ex * st + ey * ct);
+		}
+		return out;
+	}
+
 	private void rebuild(float cx, float cy, float a, float b, int argb) {
 		int r = (argb >> 16) & 0xFF, gg = (argb >> 8) & 0xFF, bl = argb & 0xFF, al = (argb >>> 24) & 0xFF;
 		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
-		// Stadium outline in the ring's own frame: a top side from (-L, -b) to (L, -b), the right
-		// semicircle about (L, 0), the bottom side back to (-L, b), the left semicircle about (-L, 0).
-		// L = a - b, so the long extent is 2a and the short one 2b (never an ellipse).
-		double half = Math.max(0.0, a - b), rad = Math.min(a, b);
 		for (int i = 0; i < rings; i++) {
-			double tilt = Math.toRadians(firstDeg + i * 60.0);
-			double ct = Math.cos(tilt), st = Math.sin(tilt);
-			boolean first = true;
-			float px = 0, py = 0;
-			for (int s = 0; s <= 2 * (ARC_SEGMENTS + 1); s++) {
-				// Points 0..ARC: right arc from -90 to +90 deg; ARC+1..2*ARC+1: left arc from +90 to +270 deg.
-				// Consecutive arcs join with one straight segment: the stadium's flat sides.
-				int k = s % (2 * (ARC_SEGMENTS + 1));
-				boolean right = k <= ARC_SEGMENTS;
-				int j = right ? k : k - (ARC_SEGMENTS + 1);
-				double phi = Math.PI * (j / (double) ARC_SEGMENTS) + (right ? -Math.PI / 2.0 : Math.PI / 2.0);
-				double ex = (right ? half : -half) + rad * Math.cos(phi), ey = rad * Math.sin(phi);
-				float x = (float) (cx + ex * ct - ey * st);
-				float y = (float) (cy + ex * st + ey * ct);
-				if (!first) {
-					bb.addVertex(px, py, 0f).setColor(r, gg, bl, al);
-					bb.addVertex(x, y, 0f).setColor(r, gg, bl, al);
-				}
-				first = false;
-				px = x;
-				py = y;
+			float[] pts = stadium(cx, cy, a, b, firstDeg + i * 60.0);
+			int n = pts.length / 2;
+			for (int p = 0; p < n; p++) {
+				int q = (p + 1) % n;   // closed: the last point joins the first
+				bb.addVertex(pts[2 * p], pts[2 * p + 1], 0f).setColor(r, gg, bl, al);
+				bb.addVertex(pts[2 * q], pts[2 * q + 1], 0f).setColor(r, gg, bl, al);
 			}
 		}
 		MeshData mesh = bb.build();

@@ -14,8 +14,10 @@ package com.origin.client.client.render;
  *               [        Multiplayer         ]   rows 24 apart
  *               [   Options   ][    Mods     ]   98 + 4 + 98
  *
- *     realms friends cosmetics lang access quit   20 x 20 hit boxes, gap 4,
- *                                                 bare 12 px glyphs (no squares)
+ *     realms friends cosmetics lang access quit   20 x 20 cards, gap 4, the worded
+ *                                                 buttons' card with a 12 px glyph
+ *                                                 (8 clear of the footer line)
+ *   Minecraft 1.21.1 . Origin          Copyright Mojang AB...   FOOTER_TOP up
  *
  * The block sits a touch below centre and is clamped so the logo never meets
  * the corner chip and the buttons never meet the icon row. Other mods can add
@@ -32,7 +34,15 @@ public final class TitleLayout {
 	public static final int CORNER_SIZE = 16;
 
 	private static final int BUTTON_H = 20, ROW_STEP = 24, MIN_ROW_STEP = 21, MAIN_W = 200;
-	private static final int DOCK = 20, DOCK_GAP = 4, DOCK_BOTTOM = 14;
+	/**
+	 * The footer line (version left, copyright right): its 8 GUI px line box starts FOOTER_TOP above the screen
+	 * bottom (its bottom edge 6 GUI px up). The dock's bottom edge sits DOCK_FOOTER_CLEAR above that line, so the
+	 * tiles never touch or run over the footer text at any width (judge 2026-10-25: the Quit tile sat 2 GUI px
+	 * above the copyright at 1080p and ran into it at 1366 x 768).
+	 */
+	public static final int FOOTER_TOP = 14;
+	private static final int DOCK_FOOTER_CLEAR = 8;
+	private static final int DOCK = 20, DOCK_GAP = 4, DOCK_BOTTOM = FOOTER_TOP + DOCK_FOOTER_CLEAR;
 	private static final int MARK = 34, MARK_ABOVE = 60;
 	/**
 	 * The wordmark image: 11 GUI px tall (its ink 8.2 of that), 6 GUI px of visible gap under the logo's ink

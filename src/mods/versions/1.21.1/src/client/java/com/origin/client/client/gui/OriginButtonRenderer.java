@@ -32,8 +32,9 @@ import com.origin.client.client.theme.OriginTheme;
 //     TitleScreenMixin (setTitleButton / setTitleDock) and draw through
 //     titleControl(): a Workbench card (radius 3 GUI px, OriginTheme.TITLE_*
 //     tokens, Inter 600 label in parchment -- A-Workbench-3, approved 2026-10-25)
-//     for the worded buttons, and for the dock a glyph in its hue on a soft tile of
-//     that hue. A widget that was not registered is untouched vanilla. Labels fall
+//     for the worded buttons, and for the dock the SAME card with a parchment glyph
+//     (Will, 2026-10-25: dock icons "not colored", same scheme as the normal buttons).
+//     A widget that was not registered is untouched vanilla. Labels fall
 //     back to Minecraft's font when the SDF face is not live. The same skin also owns the title's footer line colour
 //     (setTitleFooter / footerColor) and its tooltip panel (renderTitleTooltip,
 //     reached from TooltipRenderUtilMixin only while the title screen is up).
@@ -102,8 +103,9 @@ public final class OriginButtonRenderer {
 	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
 	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
 
-	/** icon: an atlas id (null = none); iconOnly: a dock glyph (no panel) vs a worded panel button; hue: the dock glyph's colour. */
-	private record TitlePresentation(String icon, boolean iconOnly, int hue) {
+	/** icon: an atlas id (null = none); iconOnly: a dock glyph card vs a worded card; small: the loading
+	 *  screens' secondary button (label at TITLE_SMALL_EM, textMuted at rest, parchment on hover). */
+	private record TitlePresentation(String icon, boolean iconOnly, boolean small) {
 	}
 
 	public static void markPrimary(Object widget) {
@@ -116,15 +118,23 @@ public final class OriginButtonRenderer {
 	 *  centred and an optional 8 GUI px leading glyph (icon null = label only). */
 	public static void setTitleButton(Object widget, String icon) {
 		if (widget != null) {
-			TITLE.put(widget, new TitlePresentation(icon, false, 0));
+			TITLE.put(widget, new TitlePresentation(icon, false, false));
 		}
 	}
 
-	/** A title dock action: no panel, just the glyph in its hue (OriginTheme.HUE_*),
-	 *  with a plate behind it only while hovered. */
-	public static void setTitleDock(Object widget, String icon, int hue) {
+	/** Connecting's Cancel: the same card, its label the loading caption's size (TITLE_SMALL_EM) and muted at
+	 *  rest, so the status line and the button read as one type size (judge 2026-10-25). */
+	public static void setLoadingButton(Object widget) {
+		if (widget != null) {
+			TITLE.put(widget, new TitlePresentation(null, false, true));
+		}
+	}
+
+	/** A title dock action: the worded buttons' card (same fill, hairline, radius, hover and
+	 *  press) with the glyph centred in parchment instead of a label. */
+	public static void setTitleDock(Object widget, String icon) {
 		if (widget != null && icon != null) {
-			TITLE.put(widget, new TitlePresentation(icon, true, hue));
+			TITLE.put(widget, new TitlePresentation(icon, true, false));
 		}
 	}
 
@@ -138,8 +148,7 @@ public final class OriginButtonRenderer {
 	// ---- skin 2: the title screen's controls (Phase 4, Workbench) ----
 	// Spec: docs/overhaul/DESIGN-SYSTEM.md 15.2 + docs/overhaul/design/A-Workbench-3.jpg. Worded
 	// buttons are a card (radius 3 GUI px, 1 GUI px edge) with an Inter 600 label centred and an
-	// optional 8 GUI px leading glyph; the dock is glyphs (12 GUI px, in their hue, 85 % at rest)
-	// on soft-hue tiles that firm on hover. Hover/press use the shared 48 / 64 ms
+	// optional 8 GUI px leading glyph; the dock is the same card with a 12 GUI px parchment glyph. Hover/press use the shared 48 / 64 ms
 	// ease; geometry never moves under the pointer. One SDF quad per panel (the
 	// edge is folded into the fill colour, see flatten), so this adds no draw calls
 	// over the vanilla sprite it replaces.
@@ -163,8 +172,7 @@ public final class OriginButtonRenderer {
 			}
 			if (enabled && button.isFocused()) {
 				// Keyboard focus: a 1 GUI px accentLine ring on the control's own box, never colour alone.
-				int ring = tp.iconOnly() ? OriginTheme.TITLE_DOCK_RADIUS : OriginTheme.TITLE_BTN_RADIUS;
-				OriginUi.roundRect(g, x, y, w, h, ring, 0, OriginTheme.TITLE_FOCUS, 1f);
+				OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_BTN_RADIUS, 0, OriginTheme.TITLE_FOCUS, 1f);
 			}
 			return true;
 		} catch (Throwable t) {
@@ -177,6 +185,69 @@ public final class OriginButtonRenderer {
 
 	private static void drawPanelButton(GuiGraphics g, AbstractButton button, TitlePresentation tp,
 										int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
+		drawCard(g, x, y, w, h, enabled, hv, pressed);
+
+		// The label: Inter 600 in parchment (A-Workbench-3, approved 2026-10-25; title buttons and
+		// Connecting's Cancel only), centred on its cap height. Falls back to Minecraft's font when
+		// the SDF face is not live. The width is measured once per widget and again only when the
+		// widget's message Component is replaced, so an ordinary frame measures nothing.
+		float em = tp.small() ? OriginTheme.TITLE_SMALL_EM : OriginTheme.TITLE_LABEL_EM;
+		Label lab = label(button, OriginSdfFont.active(), em);
+		int textColor = !enabled ? OriginTheme.TITLE_TEXT_MUTED
+				: tp.small() ? OriginTheme.lerpColor(OriginTheme.TITLE_TEXT_MUTED, OriginTheme.TITLE_TEXT, pressed ? 1.0 : hv)
+				: OriginTheme.TITLE_TEXT;
+		boolean lead = tp.icon() != null;
+		float groupW = lead ? LEAD_ICON + LEAD_GAP + lab.width : lab.width;
+		float gx = x + (w - groupW) / 2f;
+		// Press: the label (and glyph) sit 1 GUI px lower; the panel itself never moves under the pointer.
+		int dy = pressed ? 1 : 0;
+		if (lead) {
+			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TITLE_TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
+			ModIcons.drawFlat(g, tp.icon(), Math.round(gx), y + (h - LEAD_ICON) / 2 + dy, LEAD_ICON, iconColor);
+			gx += LEAD_ICON + LEAD_GAP;
+		}
+		if (lab.sdf) {
+			OriginSdfFont.drawEm(g, lab.text, gx, y + h / 2f + lab.cap / 2f + dy, em, 0f, textColor, true);
+		} else {
+			g.drawString(Minecraft.getInstance().font, lab.text, Math.round(gx), y + (h - 8) / 2 + dy, textColor, true);
+		}
+	}
+
+	/** A title button's label, measured once: its text, advance width and cap height (GUI px), and which font measured it. */
+	private static final class Label {
+		Component message;
+		String text;
+		float width, cap, em;
+		boolean sdf;
+	}
+
+	private static final Map<Object, Label> LABELS = new WeakHashMap<>();
+
+	private static Label label(AbstractButton button, boolean sdf, float em) {
+		Component message = button.getMessage();
+		Label lab = LABELS.get(button);
+		if (lab == null) {
+			lab = new Label();
+			LABELS.put(button, lab);
+		} else if (lab.message == message && lab.sdf == sdf && lab.em == em) {
+			return lab;
+		}
+		lab.message = message;
+		lab.text = message.getString();
+		lab.sdf = sdf;
+		lab.em = em;
+		if (sdf) {
+			lab.width = OriginSdfFont.widthEm(lab.text, em, 0f, true);
+			lab.cap = OriginSdfFont.capHeight(em, true);
+		} else {
+			lab.width = Minecraft.getInstance().font.width(lab.text);
+			lab.cap = 7f;
+		}
+		return lab;
+	}
+
+	/** The Workbench card behind every title control (worded or dock): fill + 1 GUI px hairline, radius 3. */
+	private static void drawCard(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
 		int fill, edge;
 		if (!enabled) {
 			fill = OriginTheme.withAlpha(OriginTheme.TITLE_BTN_FILL, 0x7D);   // 60 % of the rest fill
@@ -189,85 +260,16 @@ public final class OriginButtonRenderer {
 			edge = OriginTheme.lerpColor(OriginTheme.TITLE_BTN_EDGE, OriginTheme.TITLE_BTN_EDGE_HOVER, hv);
 		}
 		OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_BTN_RADIUS, fill, flatten(fill, edge), 1f);
-
-		// The label: Inter 600 in parchment (A-Workbench-3, approved 2026-10-25; title buttons and
-		// Connecting's Cancel only), centred on its cap height. Falls back to Minecraft's font when
-		// the SDF face is not live. The width is measured once per widget and again only when the
-		// widget's message Component is replaced, so an ordinary frame measures nothing.
-		Label lab = label(button, OriginSdfFont.active());
-		int textColor = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
-		boolean lead = tp.icon() != null;
-		float groupW = lead ? LEAD_ICON + LEAD_GAP + lab.width : lab.width;
-		float gx = x + (w - groupW) / 2f;
-		// Press: the label (and glyph) sit 1 GUI px lower; the panel itself never moves under the pointer.
-		int dy = pressed ? 1 : 0;
-		if (lead) {
-			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TITLE_TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
-			ModIcons.drawFlat(g, tp.icon(), Math.round(gx), y + (h - LEAD_ICON) / 2 + dy, LEAD_ICON, iconColor);
-			gx += LEAD_ICON + LEAD_GAP;
-		}
-		if (lab.sdf) {
-			OriginSdfFont.drawEm(g, lab.text, gx, y + h / 2f + lab.cap / 2f + dy, OriginTheme.TITLE_LABEL_EM, 0f, textColor, true);
-		} else {
-			g.drawString(Minecraft.getInstance().font, lab.text, Math.round(gx), y + (h - 8) / 2 + dy, textColor, true);
-		}
 	}
 
-	/** A title button's label, measured once: its text, advance width and cap height (GUI px), and which font measured it. */
-	private static final class Label {
-		Component message;
-		String text;
-		float width, cap;
-		boolean sdf;
-	}
-
-	private static final Map<Object, Label> LABELS = new WeakHashMap<>();
-
-	private static Label label(AbstractButton button, boolean sdf) {
-		Component message = button.getMessage();
-		Label lab = LABELS.get(button);
-		if (lab == null) {
-			lab = new Label();
-			LABELS.put(button, lab);
-		} else if (lab.message == message && lab.sdf == sdf) {
-			return lab;
-		}
-		lab.message = message;
-		lab.text = message.getString();
-		lab.sdf = sdf;
-		if (sdf) {
-			lab.width = OriginSdfFont.widthEm(lab.text, OriginTheme.TITLE_LABEL_EM, 0f, true);
-			lab.cap = OriginSdfFont.capHeight(OriginTheme.TITLE_LABEL_EM, true);
-		} else {
-			lab.width = Minecraft.getInstance().font.width(lab.text);
-			lab.cap = 7f;
-		}
-		return lab;
-	}
-
-	// Dock tile (A-Workbench-3; Will 2026-10-25: "add a background on the bottom icons"): every
-	// glyph sits on its own rounded tile in the glyph's hue at ~18 % with a 1 GUI px edge in the
-	// same hue; hover firms both, press firms the fill further. One SDF quad per tile (the edge is
-	// folded into the fill, see flatten). Every tile is the dock's own box (TitleLayout: 20 x 20,
-	// gap 4), so all five are the same size and evenly spaced, the glyph centred on each.
+	// Dock action (Will, 2026-10-25: "make the icons on the bottom of the title screen not colored and
+	// the same colorscheme as the normal buttons"): the worded buttons' card exactly, with the glyph
+	// centred in parchment (muted when disabled). Every tile is the dock's own box (TitleLayout: 20 x 20,
+	// gap 4), so all five are the same size and evenly spaced. Press drops the glyph 1 GUI px, like a label.
 	private static void drawDock(GuiGraphics g, TitlePresentation tp, int x, int y, int w, int h,
 								 boolean enabled, double hv, boolean pressed) {
-		int fill, edge;
-		if (!enabled) {
-			fill = 0x0AFFFFFF;
-			edge = OriginTheme.TITLE_BTN_EDGE;
-		} else {
-			int fa = pressed ? OriginTheme.TITLE_DOCK_TILE_A_PRESS : (int) Math.round(OriginTheme.TITLE_DOCK_TILE_A
-					+ (OriginTheme.TITLE_DOCK_TILE_A_HOVER - OriginTheme.TITLE_DOCK_TILE_A) * hv);
-			int ea = (int) Math.round(OriginTheme.TITLE_DOCK_EDGE_A
-					+ (OriginTheme.TITLE_DOCK_EDGE_A_HOVER - OriginTheme.TITLE_DOCK_EDGE_A) * (pressed ? 1.0 : hv));
-			fill = OriginTheme.withAlpha(tp.hue(), fa);
-			edge = OriginTheme.withAlpha(tp.hue(), ea);
-		}
-		OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_DOCK_RADIUS, fill, flatten(fill, edge), 1f);
-		int color = enabled
-				? OriginTheme.withAlpha(tp.hue(), (int) Math.round(0xD9 + (0xFF - 0xD9) * hv))   // 85 % -> 100 %
-				: OriginTheme.TITLE_TEXT_MUTED;
+		drawCard(g, x, y, w, h, enabled, hv, pressed);
+		int color = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
 		ModIcons.drawFlat(g, tp.icon(), x + (w - GLYPH) / 2, y + (h - GLYPH) / 2 + (pressed ? 1 : 0), GLYPH, color);
 	}
 
@@ -293,6 +295,142 @@ public final class OriginButtonRenderer {
 		int base = hovered ? OriginTheme.TEXT : OriginTheme.TITLE_TEXT_MUTED;
 		int a = (int) Math.round(((base >>> 24) & 0xFF) * (((vanillaArgb >>> 24) & 0xFF) / 255.0));
 		return (Math.max(a, 4) << 24) | (base & 0xFFFFFF);   // alpha < 4 would be read as opaque by drawString
+	}
+
+	// ---- Inter on the title's own text (player name, footer, copyright, tooltips) ----
+	// Placed on Minecraft's 8 GUI px line box (vanilla's caps fill top..top+7) so the swap moves nothing: the
+	// Inter cap height is centred on the same line. Every caller falls back to vanilla's font when this says no.
+
+	/** True when the title's own text should be Inter: Origin title on, title skin not latched, SDF face live. */
+	public static boolean titleTextActive() {
+		return !titleBroken && !com.origin.client.client.OriginStyle.vanillaTitle() && OriginSdfFont.active();
+	}
+
+	/** Inter text whose 8 GUI px line box starts at {@code top} (what vanilla drawString(..., y) would fill). */
+	public static void drawTitleText(GuiGraphics g, String text, float x, float top, float em, int argb, boolean bold) {
+		OriginSdfFont.drawEm(g, text, x, top + 3.5f + OriginSdfFont.capHeight(em, bold) / 2f, em, 0f, argb, bold);
+	}
+
+	/** As above in a bare matrix's space (the tooltip text pass). */
+	public static void drawTitleText(org.joml.Matrix4f m, String text, float x, float top, float em, int argb, boolean bold) {
+		OriginSdfFont.drawEm(m, text, x, top + 3.5f + OriginSdfFont.capHeight(em, bold) / 2f, em, 0f, argb, bold);
+	}
+
+	public static float titleTextWidth(String text, float em, boolean bold) {
+		return OriginSdfFont.widthEm(text, em, 0f, bold);
+	}
+
+	/**
+	 * The footer's left line, "{@code left} . {@code right}" in Inter. The Inter atlas has no middle dot (it would
+	 * draw as a blank gap), so the dot is a square of whole physical pixels on the x-height middle. Returns the
+	 * line's right edge (GUI px), like drawString.
+	 */
+	public static int drawTitleFooterLine(GuiGraphics g, String left, String right, int x, int top, int argb) {
+		float em = OriginTheme.TITLE_SMALL_EM;
+		float cap = OriginSdfFont.capHeight(em, false);
+		float baseline = top + 3.5f + cap / 2f;
+		float lw = titleTextWidth(left, em, false), space = titleTextWidth(" ", em, false);
+		drawTitleText(g, left, x, top, em, argb, false);
+		int gs = Math.max(1, com.origin.client.client.gui.OriginSurface.scale());
+		int dot = Math.max(1, Math.round(1.1f * gs));                     // physical px
+		float dotCx = x + lw + space, dotCy = baseline - cap * 0.36f;     // GUI px: x-height middle
+		var pose = g.pose();
+		pose.pushPose();
+		pose.scale(1f / gs, 1f / gs, 1f);
+		int dx = Math.round(dotCx * gs - dot / 2f), dy = Math.round(dotCy * gs - dot / 2f);
+		g.fill(dx, dy, dx + dot, dy + dot, argb);
+		pose.popPose();
+		float rx = dotCx + space;
+		drawTitleText(g, right, rx, top, em, argb, false);
+		return Math.round(rx + titleTextWidth(right, em, false));
+	}
+
+	/** The copyright button's text width in Inter (GUI px, rounded up), so its hit box matches what is drawn. */
+	public static int titleFooterWidth(String text) {
+		return (int) Math.ceil(titleTextWidth(text, OriginTheme.TITLE_SMALL_EM, false));
+	}
+
+	/**
+	 * Draws the registered copyright button's text in Inter (PlainTextButtonMixin redirects the button's one
+	 * drawString here). {@code argb} is already footerColor's (textMuted, text on hover, vanilla's fade alpha);
+	 * hover swaps the colour to parchment. False = not ours or Inter not live: the caller draws vanilla text.
+	 */
+	public static boolean renderTitleFooterButton(GuiGraphics g, net.minecraft.client.gui.components.PlainTextButton b,
+												  int x, int y, int argb) {
+		if (!isTitleFooter(b) || !titleTextActive()) {
+			return false;
+		}
+		try {
+			String text = FOOTER_TEXT.get(b);
+			if (text == null) {
+				text = b.getMessage().getString();   // fixed for the widget's life: read once
+				FOOTER_TEXT.put(b, text);
+			}
+			if (b.isHoveredOrFocused()) {
+				argb = (argb & 0xFF000000) | (OriginTheme.TITLE_TEXT & 0xFFFFFF);
+			}
+			drawTitleText(g, text, x, y, OriginTheme.TITLE_SMALL_EM, argb, false);
+			return true;
+		} catch (Throwable t) {
+			titleBroken = true;
+			com.origin.client.OriginClient.LOGGER.error("Origin title footer failed; vanilla text for this session", t);
+			return false;
+		}
+	}
+
+	private static final Map<Object, String> FOOTER_TEXT = new WeakHashMap<>();
+
+	// Title tooltips in Inter (ClientTextTooltipMixin): the line's text, read once per line object (vanilla's
+	// Tooltip keeps its split lines, so the same FormattedCharSequence comes back every frame), and its width.
+	private record TipLine(String text, int width) {
+	}
+
+	private static final Map<Object, TipLine> TIP_LINES = new WeakHashMap<>();
+
+	/** The tooltip line as Inter text while the Origin title is up; null = vanilla draws and measures it. */
+	private static TipLine titleTip(net.minecraft.util.FormattedCharSequence seq) {
+		Minecraft mc = Minecraft.getInstance();
+		if (seq == null || mc == null || !(mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen) || !titleTextActive()) {
+			return null;
+		}
+		TipLine line = TIP_LINES.get(seq);
+		if (line == null) {
+			StringBuilder sb = new StringBuilder();
+			seq.accept((index, style, codePoint) -> {
+				sb.appendCodePoint(codePoint);
+				return true;
+			});
+			String text = sb.toString();
+			line = new TipLine(text, (int) Math.ceil(titleTextWidth(text, OriginTheme.TITLE_SMALL_EM, false)));
+			TIP_LINES.put(seq, line);
+		}
+		return line;
+	}
+
+	/** Tooltip line width in Inter, or -1 = vanilla's. */
+	public static int titleTipWidth(net.minecraft.util.FormattedCharSequence seq) {
+		try {
+			TipLine line = titleTip(seq);
+			return line == null ? -1 : line.width();
+		} catch (Throwable t) {
+			return -1;
+		}
+	}
+
+	/** Draws a tooltip line in Inter (parchment); false = vanilla draws it. */
+	public static boolean renderTitleTip(net.minecraft.util.FormattedCharSequence seq, int x, int y, org.joml.Matrix4f m) {
+		try {
+			TipLine line = titleTip(seq);
+			if (line == null) {
+				return false;
+			}
+			drawTitleText(m, line.text(), x, y, OriginTheme.TITLE_SMALL_EM, OriginTheme.TITLE_TEXT, false);
+			return true;
+		} catch (Throwable t) {
+			titleBroken = true;
+			com.origin.client.OriginClient.LOGGER.error("Origin title tooltip text failed; vanilla text for this session", t);
+			return false;
+		}
 	}
 
 	/**

@@ -31,6 +31,8 @@ public final class LoadingPrep {
 	private static final String[] CLASSES = {
 			"com.origin.client.client.render.OriginScreenRenderer",
 			"com.origin.client.client.render.LoadingLook",
+			"com.origin.client.client.render.OrbitHairlines",
+			"com.origin.client.client.render.OrbitProgress",
 			"com.origin.client.client.render.LoadBar",
 			"com.origin.client.client.render.RingField",
 			"com.origin.client.client.render.RingField$Mood",
