@@ -79,12 +79,12 @@ dependencies {
 
 	// The shader speed-ups (Settings > Performance: Limit Far / Off-Map / Half-Rate Shadows, Smart
 	// Terrain Updates) mix into Sodium and Iris, so they compile against the exact pair the launcher
-	// installs for 1.21.11 (PerformanceModCatalog: sodium-fabric-0.8.12+mc1.21.11, Modrinth version
-	// id NFkjnzWE; iris-fabric-1.10.7+mc1.21.11, version id fDpuVzVr). compileOnly: never bundled;
+	// installs for 1.21.11 (PerformanceModCatalog: sodium-fabric-0.8.14+mc1.21.11, Modrinth version
+	// id rkdTcxoT; iris-fabric-1.10.8+mc1.21.11, version id ka9PDlsN). compileOnly: never bundled;
 	// Iris members the features call at runtime are bound by reflection and fail soft
 	// (render/IrisState, HalfRateShadows).
-	modCompileOnly "maven.modrinth:sodium:NFkjnzWE"   // version id: unique, unlike a version number
-	modCompileOnly "maven.modrinth:iris:fDpuVzVr"
+	modCompileOnly "maven.modrinth:sodium:rkdTcxoT"   // version id: unique, unlike a version number
+	modCompileOnly "maven.modrinth:iris:ka9PDlsN"
 
 	// The perf/shader stack (Sodium, Iris, Lithium, ...) is NOT bundled here —
 	// the launcher installs the matching 1.21.11 stack from its
@@ -110,9 +110,9 @@ dependencies {
 	// pair players actually get. They had drifted (0.8.13/1.10.4 named here vs
 	// 0.8.12/1.10.7 shipped), which silently disabled the shader integration in
 	// dev because the .exists() guard never matched. Corrected 2026-07-27.
-	if (file("libs/sodium-fabric-0.8.12+mc1.21.11.jar").exists()) {
-		modRuntimeOnly files("libs/sodium-fabric-0.8.12+mc1.21.11.jar")
-		modRuntimeOnly files("libs/iris-fabric-1.10.7+mc1.21.11.jar")
+	if (file("libs/sodium-fabric-0.8.14+mc1.21.11.jar").exists()) {
+		modRuntimeOnly files("libs/sodium-fabric-0.8.14+mc1.21.11.jar")
+		modRuntimeOnly files("libs/iris-fabric-1.10.8+mc1.21.11.jar")
 	}
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loading Iris via a raw
@@ -120,7 +120,7 @@ dependencies {
 	// nested jars never reach the runClient dev classpath — same dev-only class
 	// of bug the 1.21.1 and 1.20.4 modules already document/fix. glsl-transformer
 	// tracks the Sodium 0.8 / Iris 1.10 line (3.0.0-pre3), matching what
-	// iris-fabric-1.10.7+mc1.21.11.jar nests (confirm via its META-INF/jars/ at
+	// iris-fabric-1.10.8+mc1.21.11.jar nests (confirm via its META-INF/jars/ at
 	// build time). Dev-runtime only — a real launcher install extracts these
 	// from inside Iris's own jar via Fabric Loader's nested-jar mechanism.
 	runtimeOnly "org.anarres:jcpp:1.4.14"

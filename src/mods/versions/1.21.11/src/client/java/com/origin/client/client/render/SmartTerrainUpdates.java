@@ -20,7 +20,7 @@ import java.util.ArrayDeque;
 
 /**
  * SETTINGS > Performance > Smart Terrain Updates (1.21.11 port of 1.21.1, default OFF). Shader packs only.
- * Runs only on Sodium 0.8.12 + Iris 1.10.7 (SodiumIrisBuilds.SMART_TERRAIN; Mods hides the toggle otherwise).
+ * Runs only on Sodium 0.8.12 + Iris 1.10.7 or 0.8.14 + 1.10.8 (SodiumIrisBuilds.SMART_TERRAIN; Mods hides the toggle otherwise).
  *
  * <p>What it saves (read from Sodium 0.8.12+mc1.21.11 / Iris 1.10.7+mc1.21.11 bytecode, 2026-10-20): Sodium
  * walks its chunk graph (which sections are visible) only when something changed. With a shader pack,
@@ -32,7 +32,7 @@ import java.util.ArrayDeque;
  *
  * <p>Reuse is allowed only when ALL of this holds since the last real main walk (any doubt = walk):
  * <ul>
- * <li>Sodium 0.8.12 and Iris 1.10.7 exactly (the internals below were read from those builds);</li>
+ * <li>Sodium 0.8.12 + Iris 1.10.7, or Sodium 0.8.14 + Iris 1.10.8 (the internals below were read from those builds);</li>
  * <li>same RenderSectionManager (a render-distance change, shader reload or dimension change makes
  *     a new one) and a shader pack in use;</li>
  * <li>camera: same position, pitch, yaw, rotation, ChunkRenderMatrices projection + modelView, Sodium
@@ -583,7 +583,7 @@ public final class SmartTerrainUpdates {
 			return "Origin Smart Terrain: off after an error";
 		}
 		if (!VERSIONS_OK) {
-			return "Origin Smart Terrain: off (needs Sodium 0.8.12 + Iris 1.10.7)";
+			return "Origin Smart Terrain: off (needs Sodium 0.8.14 + Iris 1.10.8)";
 		}
 		if (lastSecAt == 0 || System.nanoTime() - lastSecAt > 3_000_000_000L) {
 			return null;   // no shader frames lately
