@@ -157,7 +157,7 @@ public static class RenderShots
         // Play on a version that isn't installed (U3.3): it says what it is doing, counts it, can be cancelled,
         // and when it fails says why with a Retry. 1.8.9 = the Forge path, the one with the most to download.
         window.TourShowLaunch("1.8.9");
-        window.TourReportLaunch("Installing Minecraft 1.8.9");
+        window.TourReportLaunch("Installing");
         Pump(500);
         Snap(window, outDir, "08-launch-c-installing");
         window.TourReportLaunch("Downloading libraries (96/240)");
