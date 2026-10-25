@@ -28,6 +28,19 @@ public static class Motion
 
     private static IEasingFunction Freeze(EasingFunctionBase e) { e.Freeze(); return e; }
 
+    /// <summary><paramref name="from"/> held through the delay, then eased to <paramref name="to"/>. Fill stops
+    /// back to the property's own value, so a zero duration or an interrupted clock leaves the plain end state.</summary>
+    public static DoubleAnimationUsingKeyFrames Hold(double from, double to, TimeSpan delay, TimeSpan length)
+    {
+        var a = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
+        a.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        if (delay > TimeSpan.Zero)
+            a.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(delay)));
+        a.KeyFrames.Add(new EasingDoubleKeyFrame(to, KeyTime.FromTimeSpan(delay + length),
+            new CubicEase { EasingMode = EasingMode.EaseOut }));
+        return a;
+    }
+
     public static DoubleAnimation To(double to, double ms, IEasingFunction? ease = null, double delayMs = 0) =>
         new(to, Ms(ms)) { EasingFunction = ease ?? Out, BeginTime = Delay(delayMs) };
 
@@ -36,7 +49,7 @@ public static class Motion
 
     /// <summary>
     /// The ONE way to put a colour brush that tweens into a resource dictionary
-    /// (Brush.Acc): a fresh brush under <paramref name="key"/>, going from → to.
+    /// (Brush.Accent): a fresh brush under <paramref name="key"/>, going from → to.
     /// Application and theme dictionaries freeze every Freezable written into them
     /// (ResourceDictionary.SealValue; proven 2026-10-20: IsFrozen flips to true on the
     /// assignment itself, no consumer needed), and BeginAnimation on a frozen brush
@@ -47,7 +60,7 @@ public static class Motion
     /// animated colour, so rapid changes start from what is on screen.
     /// Because the published brush stays unfrozen and is SHARED by every consumer, it
     /// must never be animated through XAML: a Storyboard aimed at a property bound to
-    /// it (e.g. Background.Color on a {DynamicResource Brush.Acc} Background) animates
+    /// it (e.g. Background.Color on a {DynamicResource Brush.Accent} Background) animates
     /// the shared brush in place and recolours every accent element at once. Animate a
     /// local brush there instead.
     /// </summary>

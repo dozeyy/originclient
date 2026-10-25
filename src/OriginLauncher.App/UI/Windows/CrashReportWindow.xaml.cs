@@ -78,8 +78,8 @@ public partial class CrashReportWindow : Window
                 CulpritList.Children.Add(new TextBlock
                 {
                     Text = line,
-                    Foreground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF0, 0xE8)),
-                    FontSize = 13,
+                    Foreground = (Brush)Application.Current.FindResource("Brush.Text"),
+                    FontSize = (double)Application.Current.FindResource("FontSize.Body"),
                     Margin = new Thickness(0, 2, 0, 2),
                     TextWrapping = TextWrapping.Wrap
                 });

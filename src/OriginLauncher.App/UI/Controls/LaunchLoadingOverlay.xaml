@@ -18,11 +18,10 @@
             <StackPanel.RenderTransform>
                 <TranslateTransform x:Name="LoadingStageTranslate"/>
             </StackPanel.RenderTransform>
-            <controls:OriginMark x:Name="Mark" Width="44" Height="44" Margin="0,0,0,22"
-                                  RenderTransformOrigin="0.5,0.5"/>
+            <controls:BrandLogo x:Name="Mark" Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}" Margin="0,0,0,24"/>
 
             <controls:TrackedText x:Name="EyebrowText" Text="PREPARING MINECRAFT" Tracking="0.16"
-                                  FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                  FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
                                   Foreground="{StaticResource Brush.OnPhoto}" HorizontalAlignment="Center"/>
             <!-- The big line: the real percentage while a stage has a count, else
                  the version (never a made-up number; Core/Launch/StageProgress). The
@@ -32,10 +31,10 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,12"
                         TextOptions.TextFormattingMode="Ideal">
                 <controls:TrackedText x:Name="VersionText" Text="1.21.1" Tracking="-0.01"
-                                      FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.LaunchCount}"
+                                      FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Display}"
                                       FontWeight="ExtraBold" Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Bottom"/>
                 <controls:TrackedText x:Name="PercentText" Text="%" Tracking="0" Visibility="Collapsed"
-                                      FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.LaunchPercent}"
+                                      FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Title}"
                                       FontWeight="Bold" Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Bottom"
                                       Margin="6,0,0,0"/>
             </StackPanel>
@@ -48,21 +47,21 @@
                  The fill is a full-width bar scaled from its left edge (a GPU
                  transform, no layout per frame), pixel snapping off so its end
                  moves smoothly. The colour is the family accent (an indicator). -->
-            <Border x:Name="ProgressTrack" Width="420" Height="4" CornerRadius="{StaticResource Radius.Bar}"
+            <Border x:Name="ProgressTrack" Width="420" Height="4" CornerRadius="{StaticResource Radius.Track}"
                     Background="{StaticResource Brush.ProgressTrack}" HorizontalAlignment="Center"
                     ClipToBounds="True" Margin="0,0,0,16"
                     SnapsToDevicePixels="False" UseLayoutRounding="False">
                 <Grid>
-                    <Border x:Name="ProgressFill" Height="4" CornerRadius="{StaticResource Radius.Bar}"
-                            Background="{DynamicResource Brush.Acc}" Visibility="Collapsed"
+                    <Border x:Name="ProgressFill" Height="4" CornerRadius="{StaticResource Radius.Track}"
+                            Background="{DynamicResource Brush.Accent}" Visibility="Collapsed"
                             SnapsToDevicePixels="False" UseLayoutRounding="False"
                             RenderTransformOrigin="0,0.5">
                         <Border.RenderTransform>
                             <ScaleTransform x:Name="ProgressScale" ScaleX="0"/>
                         </Border.RenderTransform>
                     </Border>
-                    <Border x:Name="ProgressSweep" Width="96" Height="4" CornerRadius="{StaticResource Radius.Bar}"
-                            Background="{DynamicResource Brush.Acc}" HorizontalAlignment="Left">
+                    <Border x:Name="ProgressSweep" Width="96" Height="4" CornerRadius="{StaticResource Radius.Track}"
+                            Background="{DynamicResource Brush.Accent}" HorizontalAlignment="Left">
                         <Border.RenderTransform>
                             <TranslateTransform x:Name="ProgressTranslate" X="-70"/>
                         </Border.RenderTransform>
@@ -83,7 +82,7 @@
         <!-- Bottom left: what is starting - the family, then account and profile. -->
         <StackPanel x:Name="CaptionPanel" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="32,0,0,32">
             <controls:TrackedText x:Name="CaptionFamily" Text="TRICKY TRIALS" Tracking="0.16"
-                                  FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                  FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
                                   Foreground="{StaticResource Brush.OnPhoto}"/>
             <TextBlock x:Name="CaptionDetail" Style="{StaticResource Text.Caption}" Margin="0,6,0,0" Foreground="{StaticResource Brush.TextDim}"
                        TextTrimming="CharacterEllipsis" MaxWidth="480"/>

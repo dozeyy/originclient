@@ -26,9 +26,9 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="{x:Type controls:ToastVm}">
                     <Border Margin="0,8,0,0" Padding="12,8" Cursor="Hand"
-                            Background="{StaticResource Brush.PanelElevated}"
+                            Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Card}" Effect="{StaticResource Shadow.Card}"
+                            CornerRadius="{StaticResource Radius.Lg}" Effect="{StaticResource Shadow.Overlay}"
                             MouseLeftButtonUp="Toast_Click" MouseEnter="Toast_MouseEnter" MouseLeave="Toast_MouseLeave">
                         <Border.Triggers>
                             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
@@ -48,14 +48,14 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Border Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center"
-                                    Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Swatch}">
+                                    Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Xs}">
                                 <Grid>
-                                    <Border Background="{Binding Tint}" Opacity="0.2" CornerRadius="{StaticResource Radius.Swatch}"/>
+                                    <Border Background="{Binding Tint}" Opacity="0.2" CornerRadius="{StaticResource Radius.Xs}"/>
                                     <Path Data="{Binding Icon}" Style="{StaticResource Icon.Small}" Stroke="{Binding Tint}"/>
                                 </Grid>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" ToolTip="{Binding Body}">
-                                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Label}" LineHeight="18"/>
+                                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.BodyStrong}" LineHeight="18"/>
                                 <TextBlock Text="{Binding Body}" Style="{StaticResource Social.Caption}"
                                            TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>

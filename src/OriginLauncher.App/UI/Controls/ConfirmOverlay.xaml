@@ -16,7 +16,7 @@
         <Border Style="{StaticResource Surface.Dialog}" HorizontalAlignment="Center" VerticalAlignment="Center"
                 MaxWidth="440" Margin="24">
             <StackPanel>
-                <TextBlock x:Name="TitleText" Style="{StaticResource Text.H2}" TextWrapping="Wrap"/>
+                <TextBlock x:Name="TitleText" Style="{StaticResource Text.Title}" TextWrapping="Wrap"/>
                 <TextBlock x:Name="MessageText" Style="{StaticResource Text.BodyDim}"
                            TextWrapping="Wrap" Margin="0,10,0,0"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">

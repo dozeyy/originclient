@@ -813,7 +813,7 @@ public partial class PromoBanner : UserControl
     private void ClipLayers()
     {
         // One pixel inside the card border, so the clip follows the rounded frame without a gap.
-        var r = Math.Max(0, ((CornerRadius)FindResource("Radius.Card")).TopLeft - 1);
+        var r = Math.Max(0, ((CornerRadius)FindResource("Radius.Lg")).TopLeft - 1);
         Layers.Clip = new RectangleGeometry(new Rect(Layers.RenderSize), r, r);
     }
 

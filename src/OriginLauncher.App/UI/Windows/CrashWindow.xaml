@@ -24,7 +24,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" x:Name="Heading" Text="Origin Launcher ran into a problem"
-                   Style="{StaticResource Text.H1}"/>
+                   Style="{StaticResource Text.Heading}"/>
 
         <TextBlock Grid.Row="1" x:Name="Summary" Style="{StaticResource Text.BodyDim}" LineHeight="20"
                    TextWrapping="Wrap" Margin="0,8,0,0"
@@ -32,7 +32,7 @@
 
         <Border Grid.Row="2" Margin="0,16,0,0" Background="{StaticResource Brush.Panel}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Card}">
+                CornerRadius="{StaticResource Radius.Lg}">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="{StaticResource Brush.Text}" BorderThickness="0"
                      FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Caption}" Padding="16"

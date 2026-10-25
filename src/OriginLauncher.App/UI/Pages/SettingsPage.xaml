@@ -9,7 +9,7 @@
     <UserControl.Resources>
         <!-- One setting per card (Poster): the shared card (Theme/Surfaces.xaml) with title + one-line why on the
              left, the control on the right. Sections are plain eyebrow headings above their cards. The type is
-             the app scale: title = Text.Label (13.5), why / field label = Text.Caption (12). -->
+             the app scale: title = Text.BodyStrong (13.5), why / field label = Text.Caption (12). -->
         <Style x:Key="SettingCard" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
             <Setter Property="MinHeight" Value="64"/>
         </Style>
@@ -17,11 +17,11 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
         </Style>
-        <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
+        <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
             <Setter Property="Margin" Value="0,32,0,10"/>
         </Style>
-        <Style x:Key="SettingTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}"/>
+        <Style x:Key="SettingTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.BodyStrong}"/>
         <Style x:Key="SettingWhy" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="TextTrimming" Value="None"/>
@@ -40,9 +40,9 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Grid Background="Transparent">
-                            <Border x:Name="Hover" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Sharp}" Opacity="0"/>
+                            <Border x:Name="Hover" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}" Opacity="0"/>
                             <Rectangle x:Name="Bar" Width="2" HorizontalAlignment="Left" Margin="0,9" Opacity="0"
-                                       Fill="{DynamicResource Brush.Acc}"/>
+                                       Fill="{DynamicResource Brush.Accent}"/>
                             <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -78,32 +78,32 @@
             </Grid.ColumnDefinitions>
 
             <!-- The title spans the rail's column too, so it starts at the page's left edge like every page. -->
-            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="SETTINGS" Style="{StaticResource Text.Poster}"
+            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="SETTINGS" Style="{StaticResource Text.Heading}"
                        HorizontalAlignment="Left"/>
 
             <!-- The rail stays put while the column scrolls (moved in code). -->
             <StackPanel x:Name="Rail" Grid.Row="1" Grid.Column="0" VerticalAlignment="Top" Margin="0,24,0,0"
-                        TextElement.FontSize="11" TextElement.FontWeight="SemiBold">
+                        TextElement.FontSize="{StaticResource FontSize.Label}" TextElement.FontWeight="SemiBold">
                 <StackPanel.RenderTransform>
                     <TranslateTransform x:Name="RailShift"/>
                 </StackPanel.RenderTransform>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecPerformance" Checked="Rail_Checked" Click="Rail_Click" IsChecked="True">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Mint}"/><controls:TrackedText Text="PERFORMANCE" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Emerald}"/><controls:TrackedText Text="PERFORMANCE" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecGame" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Sky}"/><controls:TrackedText Text="GAME" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Sky}"/><controls:TrackedText Text="GAME" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecJvm" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Violet}"/><controls:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Lilac}"/><controls:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecClient" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{DynamicResource Brush.Acc}"/><controls:TrackedText Text="ORIGIN CLIENT" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{DynamicResource Brush.Accent}"/><controls:TrackedText Text="ORIGIN CLIENT" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecStartup" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Gold}"/><controls:TrackedText Text="STARTUP" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Gold}"/><controls:TrackedText Text="STARTUP" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton x:Name="RailDeveloper" Style="{StaticResource RailItem}" Tag="SecDeveloper" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Edit}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Coral}"/><controls:TrackedText Text="DEVELOPER" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Edit}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Coral}"/><controls:TrackedText Text="DEVELOPER" Tracking="0.16"/></StackPanel>
                 </RadioButton>
             </StackPanel>
 
@@ -132,7 +132,7 @@
                             <!-- The readout comes first: setting Minimum fires ValueChanged during load, and the
                                  handler writes to it. -->
                             <TextBlock Grid.Column="1" x:Name="RamValueText" Text="4096 MB" MinWidth="80" TextAlignment="Right"
-                                       FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.CardTitle}" FontWeight="ExtraBold"
+                                       FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Title}" FontWeight="ExtraBold"
                                        Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="24,0,0,0"/>
                             <Slider x:Name="RamSlider" Minimum="1024" SmallChange="256" VerticalAlignment="Center"
                                     LargeChange="1024" TickFrequency="256" IsSnapToTickEnabled="True"

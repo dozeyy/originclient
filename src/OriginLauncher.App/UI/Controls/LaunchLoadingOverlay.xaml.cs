@@ -89,10 +89,8 @@ public partial class LaunchLoadingOverlay : UserControl
         CancelButton.ToolTip = null;
         LoaderCaptionText.Visibility = Visibility.Collapsed;
         CaptionFamily.Text = FamilyTheme.Of(version).Label;
-        // The bar is this version's colour, not whichever family Home last showed.
-        var accent = FamilyTheme.AccentBrush(version);
-        ProgressFill.Background = accent;
-        ProgressSweep.Background = accent;
+        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Accent");
+        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Accent");
         CaptionDetail.Text = caption ?? "";
         CaptionDetail.Visibility = string.IsNullOrEmpty(caption) ? Visibility.Collapsed : Visibility.Visible;
         CaptionPanel.Visibility = Visibility.Visible;
@@ -106,9 +104,8 @@ public partial class LaunchLoadingOverlay : UserControl
     public void ShowUpdate(string newVersion)
     {
         _launchMode = false;
-        // A launcher update belongs to no version: back to the family on screen.
-        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Acc");
-        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Acc");
+        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Accent");
+        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Accent");
         EyebrowText.Text = $"UPDATING ORIGIN LAUNCHER TO {newVersion}";
         CancelButton.Visibility = Visibility.Collapsed;
         LoaderCaptionText.Text = "Getting the newest version";
@@ -181,17 +178,18 @@ public partial class LaunchLoadingOverlay : UserControl
         ShowCount(false);
         SetShown(0);
 
-        // The mark doubles as the spinner. Reduced motion leaves it still.
-        var transform = new RotateTransform();
-        Mark.RenderTransform = transform;
+        // The mark is the loading indicator: it breathes (a slow opacity pulse). The drawing itself is never rotated
+        // or scaled (design system 1.3). Reduced motion leaves it still.
         StopClock(ref _spinClock);
         if (!SystemParameters.ClientAreaAnimation) return;
-        var spin = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(2.5)))
+        var pulse = new DoubleAnimation(1, 0.45, new Duration(TimeSpan.FromSeconds(1.2)))
         {
-            RepeatBehavior = RepeatBehavior.Forever
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
         };
-        _spinClock = spin.CreateClock();
-        transform.ApplyAnimationClock(RotateTransform.AngleProperty, _spinClock);
+        _spinClock = pulse.CreateClock();
+        Mark.ApplyAnimationClock(OpacityProperty, _spinClock);
     }
 
     /// <summary>

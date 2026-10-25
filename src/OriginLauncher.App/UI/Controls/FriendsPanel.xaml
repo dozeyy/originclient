@@ -50,8 +50,8 @@
         </Style>
         <Style x:Key="Social.IconPrimary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
-            <Setter Property="MinWidth" Value="{StaticResource Size.IconButton}"/>
-            <Setter Property="MinHeight" Value="{StaticResource Size.IconButton}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -59,15 +59,15 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid SnapsToDevicePixels="True">
-                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Acc}" BorderThickness="1" CornerRadius="{StaticResource Radius.Control}"/>
-                            <Border x:Name="Hl" Background="{DynamicResource Brush.Acc}" Opacity="0.22" CornerRadius="{StaticResource Radius.Control}"/>
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"/>
+                            <Border x:Name="Hl" Background="{DynamicResource Brush.Accent}" Opacity="0.22" CornerRadius="{StaticResource Radius.Md}"/>
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
                                               VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Hl" Property="Opacity" Value="0.42"/>
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -83,8 +83,8 @@
         </Style>
         <Style x:Key="Social.IconRaised" TargetType="Button" BasedOn="{StaticResource Button.Base}">
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
-            <Setter Property="MinWidth" Value="{StaticResource Size.IconButton}"/>
-            <Setter Property="MinHeight" Value="{StaticResource Size.IconButton}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="8,0,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -92,8 +92,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid SnapsToDevicePixels="True">
-                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Control}"/>
-                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="{StaticResource Radius.Control}"/>
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"/>
+                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="{StaticResource Radius.Md}"/>
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
                                               VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Grid>
@@ -115,7 +115,7 @@
         </Style.Triggers>
         </Style>
         <Style x:Key="Social.TileChat" TargetType="Button" BasedOn="{StaticResource Button.Base}">
-            <Setter Property="Foreground" Value="{DynamicResource Brush.Acc}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}"/>
             <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
@@ -126,15 +126,15 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid SnapsToDevicePixels="True">
-                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Acc}" BorderThickness="1" CornerRadius="{StaticResource Radius.Control}"/>
-                            <Border x:Name="Hl" Background="{DynamicResource Brush.Acc}" Opacity="0.14" CornerRadius="{StaticResource Radius.Control}"/>
+                            <Border x:Name="Bd" Background="{StaticResource Brush.BgAlt}" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"/>
+                            <Border x:Name="Hl" Background="{DynamicResource Brush.Accent}" Opacity="0.14" CornerRadius="{StaticResource Radius.Md}"/>
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
                                               VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Hl" Property="Opacity" Value="0.3"/>
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -160,8 +160,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid SnapsToDevicePixels="True">
-                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Control}"/>
-                            <Border x:Name="Hl" Background="{StaticResource Brush.Text}" Opacity="0" CornerRadius="{StaticResource Radius.Control}"/>
+                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"/>
+                            <Border x:Name="Hl" Background="{StaticResource Brush.Text}" Opacity="0" CornerRadius="{StaticResource Radius.Md}"/>
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
                                               VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Grid>
@@ -194,8 +194,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid SnapsToDevicePixels="True">
-                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Control}"/>
-                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="{StaticResource Radius.Control}"/>
+                            <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"/>
+                            <Border x:Name="Hl" Background="{StaticResource Brush.Danger}" Opacity="0" CornerRadius="{StaticResource Radius.Md}"/>
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
                                               VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Grid>
@@ -224,8 +224,8 @@
         </Style>
         <!-- Unread count: a light chip with dark digits (the mockup's Chat 1). -->
         <Style x:Key="Social.Badge" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource Brush.Acc}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
+            <Setter Property="Background" Value="{DynamicResource Brush.Accent}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
             <Setter Property="MinWidth" Value="18"/>
             <Setter Property="MinHeight" Value="18"/>
             <Setter Property="Padding" Value="5,0"/>
@@ -275,7 +275,7 @@
         <DataTemplate DataType="{x:Type controls:WarpVm}">
             <Border Margin="0,10,0,2" Padding="12,10" Background="{StaticResource Brush.AccentSoft}"
                     BorderBrush="{StaticResource Brush.AccentBorder}" BorderThickness="1"
-                    CornerRadius="{StaticResource Radius.Card}">
+                    CornerRadius="{StaticResource Radius.Lg}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -315,7 +315,7 @@
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
                                 Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
-                            <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
+                            <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Label}"
                                        FontWeight="Bold" Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <Button Content="Join" Style="{StaticResource Social.Join}"
@@ -440,7 +440,7 @@
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
                                 Style="{StaticResource Social.Badge}" ToolTip="Unread messages">
-                            <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
+                            <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Label}"
                                        FontWeight="Bold" Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <Button Content="Join" Style="{StaticResource Social.Join}"
@@ -670,11 +670,11 @@
             <StackPanel x:Name="MessagePane" Margin="16,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
                 <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Swatch}">
+                        CornerRadius="{StaticResource Radius.Xs}">
                     <Path Data="{StaticResource Icon.Friends}" Style="{StaticResource Icon.Base}"
                           Width="24" Height="24" Stroke="{StaticResource Brush.TextDim}"/>
                 </Border>
-                <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.H2}" Margin="0,18,0,0"
+                <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.Title}" Margin="0,18,0,0"
                            TextWrapping="Wrap" TextTrimming="None"/>
                 <TextBlock x:Name="MessageBody" Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0"
                            TextWrapping="Wrap" TextTrimming="None"/>
@@ -703,11 +703,11 @@
             <StackPanel x:Name="EmptyPane" Margin="16,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
                 <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Swatch}">
+                        CornerRadius="{StaticResource Radius.Xs}">
                     <Path Data="{StaticResource Icon.UserPlus}" Style="{StaticResource Icon.Base}"
                           Width="24" Height="24" Stroke="{StaticResource Brush.TextDim}"/>
                 </Border>
-                <TextBlock Text="No friends yet" Style="{StaticResource Text.H2}" Margin="0,18,0,0"/>
+                <TextBlock Text="No friends yet" Style="{StaticResource Text.Title}" Margin="0,18,0,0"/>
                 <TextBlock Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None"
                            Text="Add someone by their Minecraft username. They need Origin too. Friends can chat, party up and join each other's servers."/>
                 <Button Content="Add a friend" Style="{StaticResource Button.Primary.Medium}" Margin="0,22,0,0"
@@ -760,7 +760,7 @@
 
                 <!-- The dark well the conversation sits in. -->
                 <Border Grid.Row="1" Margin="16,8,16,8" Background="{StaticResource Brush.BgAlt}"
-                        CornerRadius="{StaticResource Radius.Card}">
+                        CornerRadius="{StaticResource Radius.Lg}">
                     <Grid>
                         <ScrollViewer x:Name="ChatScroll" Padding="12,0,8,8" VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled" ScrollChanged="ChatScroll_ScrollChanged">

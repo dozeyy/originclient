@@ -28,11 +28,11 @@
              names which one crashed: "<account> · Minecraft <version>". -->
         <StackPanel Grid.Row="0">
             <!-- A soft warm tag for the cause (CrashClassifier's Tag), then the plain-language headline. -->
-            <TextBlock x:Name="CauseTag" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Warning}"
+            <TextBlock x:Name="CauseTag" Style="{StaticResource Text.BodyStrong}" Foreground="{StaticResource Brush.Warning}"
                        Margin="0,0,0,4"/>
-            <TextBlock x:Name="HeadlineText" Text="Minecraft closed unexpectedly" Style="{StaticResource Text.H1}"
+            <TextBlock x:Name="HeadlineText" Text="Minecraft closed unexpectedly" Style="{StaticResource Text.Heading}"
                        TextWrapping="Wrap"/>
-            <TextBlock x:Name="WhoText" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Acc}"
+            <TextBlock x:Name="WhoText" Style="{StaticResource Text.BodyStrong}" Foreground="{StaticResource Brush.Accent}"
                        Margin="0,6,0,0" Visibility="Collapsed"/>
         </StackPanel>
 
@@ -42,7 +42,7 @@
         <!-- One row per implicated mod; hidden when the culprit is unknown. -->
         <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,16,0,0" Background="{StaticResource Brush.Panel}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Card}" Padding="16"
+                CornerRadius="{StaticResource Radius.Lg}" Padding="16"
                 Visibility="Collapsed">
             <StackPanel x:Name="CulpritList"/>
         </Border>
@@ -50,10 +50,10 @@
         <!-- Technical detail stays behind "Show details": a player should not meet a stack trace first. -->
         <Border Grid.Row="3" x:Name="DetailsPanel" Visibility="Collapsed" Height="200" Margin="0,8,0,0" Background="{StaticResource Brush.Panel}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Card}">
+                CornerRadius="{StaticResource Radius.Lg}">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="{StaticResource Brush.TextDim}" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Eyebrow}" Padding="16"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Label}" Padding="16"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>

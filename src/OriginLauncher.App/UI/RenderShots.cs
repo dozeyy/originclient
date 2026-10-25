@@ -594,7 +594,7 @@ public static class RenderShots
     /// skipped: it is moving, not laid out.</item>
     /// <item>TRIMMED: a one-line text drawn with an ellipsis because it doesn't fit. Long names and status/server
     /// lines may trim (the tooltip has the rest): those are warnings in trim-checks.txt. A button's own label and a
-    /// header title (Text.H1 / Text.H2) must never trim: those count as cut.</item>
+    /// header title (Text.Heading / Text.Title) must never trim: those count as cut.</item>
     /// </list>
     /// Each cut goes to clip-errors.txt, which fails the launcher-shots workflow; clip-checks.txt counts what was checked.
     /// </summary>
@@ -608,8 +608,8 @@ public static class RenderShots
         // content pushed past it by a negative margin, an overhang or a static transform.
         var clips = new List<(Rect Rect, FrameworkElement By, bool Slot)>();
         var reported = new HashSet<FrameworkElement>();
-        var h1 = Application.Current.TryFindResource("Text.H1");
-        var h2 = Application.Current.TryFindResource("Text.H2");
+        var h1 = Application.Current.TryFindResource("Text.Heading");
+        var h2 = Application.Current.TryFindResource("Text.Title");
 
         // floor: the first entry of `clips` that applies. Inside a scroll viewport, content past an outer edge is
         // just scrolled out of view (the viewport can reach it), so only edges inside the viewport count there.

@@ -167,12 +167,23 @@ public partial class ModsPage : UserControl
             Data = (mod != null ? ModIcons.For(mod) : null) ?? (Geometry)FindResource("Icon.Jar"),
             Style = (Style)FindResource("Icon.Base"),
             Stroke = (Brush)FindResource(dim ? "Brush.TextMuted" : "Brush.TextDim"),
-            Width = 18,
-            Height = 18,
+            Width = (double)FindResource("Icon.SizeLarge"),
+            Height = (double)FindResource("Icon.SizeLarge"),
         };
         // The generated icon is the instant placeholder; the mod's real icon (if any) fades in over it.
         var host = new Grid();
         host.Children.Add(glyph);
+        // Origin Client's own entry wears the official logo image, never a drawn glyph (design system 1.5).
+        if (mod != null && ModIcons.IsOrigin(mod))
+        {
+            glyph.Visibility = Visibility.Collapsed;
+            host.Children.Add(new Controls.BrandLogo
+            {
+                Width = (double)FindResource("Size.Logo.Bar"),
+                Height = (double)FindResource("Size.Logo.Bar"),
+                Opacity = dim ? 0.55 : 1,
+            });
+        }
         well.Child = host;
         // Accent only: a soft tint behind the glyph and the glyph in the same hue
         // (dimmer when the mod is switched off). Unknown jars stay neutral.
@@ -374,26 +385,26 @@ public partial class ModsPage : UserControl
         var label = new TextBlock
         {
             Text = "ADDED",
-            FontSize = (double)FindResource("FontSize.Eyebrow"),
+            FontSize = (double)FindResource("FontSize.Label"),
             FontWeight = FontWeights.Bold,
             Foreground = (Brush)FindResource("Brush.Text"),
             VerticalAlignment = VerticalAlignment.Center,
         };
         var square = new Border { Width = 6, Height = 6, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
-        square.SetResourceReference(Border.BackgroundProperty, "Brush.Acc");
+        square.SetResourceReference(Border.BackgroundProperty, "Brush.Accent");
         var line = new StackPanel { Orientation = Orientation.Horizontal };
         line.Children.Add(square);
         line.Children.Add(label);
         var tag = new Border
         {
-            CornerRadius = (CornerRadius)FindResource("Radius.Chip"),
+            CornerRadius = (CornerRadius)FindResource("Radius.Sm"),
             Padding = new Thickness(6, 2, 6, 2),
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Child = line,
         };
         // The version accent, softly, behind the white label (contrast stays on the text).
-        tag.SetResourceReference(Border.BackgroundProperty, "Brush.AccSoft");
+        tag.SetResourceReference(Border.BackgroundProperty, "Brush.AccentSoft");
         return tag;
     }
 
@@ -403,8 +414,8 @@ public partial class ModsPage : UserControl
     {
         var tint = new Rectangle { IsHitTestVisible = false, Margin = new Thickness(-13, -11, -13, -11), Opacity = 0.28 };
         var edge = new Rectangle { IsHitTestVisible = false, Width = 3, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-13, -11, 0, -11) };
-        tint.SetResourceReference(Shape.FillProperty, "Brush.Acc");
-        edge.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+        tint.SetResourceReference(Shape.FillProperty, "Brush.Accent");
+        edge.SetResourceReference(Shape.FillProperty, "Brush.Accent");
         Grid.SetColumnSpan(tint, 4);
         Grid.SetColumnSpan(edge, 4);
         grid.Children.Insert(0, tint);
@@ -603,8 +614,8 @@ public partial class ModsPage : UserControl
         _dragOver = over;
         var ms = 180;
         DropZone.Background = (Brush)FindResource(over ? "Brush.Card" : hover ? "Brush.Card" : "Brush.Panel");
-        if (over) DropDash.SetResourceReference(Shape.StrokeProperty, "Brush.Acc");
-        else DropDash.Stroke = (Brush)FindResource(hover ? "Brush.TextMuted" : "Brush.Track");
+        if (over) DropDash.SetResourceReference(Shape.StrokeProperty, "Brush.Accent");
+        else DropDash.Stroke = (Brush)FindResource(hover ? "Brush.TextMuted" : "Brush.ProgressTrack");
         JarIcon.Stroke = (Brush)FindResource(over || hover ? "Brush.Text" : "Brush.TextDim");
 
         Animate(DropScale, ScaleTransform.ScaleXProperty, over ? 1.015 : 1, ms);

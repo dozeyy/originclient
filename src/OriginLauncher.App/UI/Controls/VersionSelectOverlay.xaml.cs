@@ -258,9 +258,7 @@ public partial class VersionSelectOverlay : UserControl
         public FamilyTile(VersionGroup group)
         {
             Group = group;
-            var accent = new SolidColorBrush(FamilyTheme.Of(group.Newest).Accent);
-            accent.Freeze();
-            Accent = accent;
+            Accent = (Brush)Application.Current.FindResource("Brush.Accent");
         }
 
         public VersionGroup Group { get; }

@@ -83,25 +83,15 @@ def check_handoff() -> list[str]:
 # files cannot be one copy. Instead both sides are READ and every key defined in both is compared. Nothing is
 # hard-coded here except the list of keys that are allowed to differ and why: a key that differs and is NOT listed
 # fails the build, and a listed key that has started to agree fails too ("remove it"), so the list cannot rot.
-# When the launcher palette moves to the Workbench set (Phase 3, unit U3.0) its Color.* entries start to agree and
-# the Color. exception below must be deleted.
+# Empty since Phase 3 U3.0 (the launcher and the installer share the Workbench tokens, same names, same values).
 THEME_FAMILIES = ("Color.", "Size.Control", "Radius.", "Font.", "FontSize.", "LineHeight.", "Space.")
 
 # prefix -> why the two files may differ today. A prefix is "in use" while at least one common key under it differs.
-KNOWN_DIVERGENCE = {
-    "Color.": "launcher palette is still the old monochrome set until U3.0 moves it to Workbench; the installer is already Workbench",
-    "Size.Control": "installer controls are 28/32/36 (Sm/Md/Lg) in a 640 x 440 window, the launcher's 32/40/48 (Sm/Control/Lg) fill a 1080p window",
-    "FontSize.Display": "installer hero title is 32, the launcher's Play-screen display is 40",
-    "Space.": "installer spacing is a 4-based ladder with 12/20 steps (Space.3 = 12), the launcher's is 4/8/16/24/32/48",
-}
+KNOWN_DIVERGENCE: dict[str, str] = {}   # Phase 3 U3.0: the launcher moved to the Workbench tokens, nothing diverges
 
 
 # (launcher key, installer key): the launcher names corner radii by role, the installer by size.
-PAIRED_KEYS = [
-    ("Radius.Control", "Radius.Md"),   # buttons, fields, dropdowns
-    ("Radius.Chip", "Radius.Xs"),      # chips and checkbox corners
-    ("Radius.Bar", "Radius.Track"),    # progress and slider rails
-]
+PAIRED_KEYS: list[tuple[str, str]] = []   # both apps now use the same Radius.* names (U3.0)
 
 
 def _theme_values(paths: list[Path]) -> dict[str, str]:

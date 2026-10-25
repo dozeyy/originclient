@@ -2,150 +2,133 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
-    <!-- Poster type: Inter (OFL, the same face as the in-game Origin menus, bundled
-         from tools/font-atlas/fonts) for everything. Display sizes (page titles, PLAY,
-         the launch count) are Inter ExtraBold at its true width, laid out in Ideal mode:
-         the old horizontal squish and the window's pixel-snapped Display mode made big
-         caps look smeared and wobbly (Will, 2026-10-19). Segoe UI is fail-soft only. Monocraft stays bundled for
-         monospace fields (Font.Mono). -->
-    <FontFamily x:Key="Font.Display">/OriginLauncher.App;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
+    <!--
+        Origin launcher type: the Workbench design system (docs/overhaul/DESIGN-SYSTEM.md section 3). Inter (OFL,
+        bundled static TTFs 400-800, the same face as the in-game menus) is the only UI face; Segoe UI is the
+        fail-soft fallback only. Technical text (crash details, paths) is Consolas. Sizes and line heights are the
+        spec's type.* rows; the Text.* styles below are the only way text is sized, so a block is the same height
+        on every machine (every style fixes its line height).
+
+        Display sizes (the Heading and Display styles) are laid out in Ideal mode so big Inter stays smooth.
+        Sentence case everywhere; the one UPPERCASE style is Text.Label, authored in caps (a TextBlock has no
+        letter-spacing or case switch). The giant version numeral on Home is not a style: ArtStage draws it.
+    -->
     <FontFamily x:Key="Font.Primary">/OriginLauncher.App;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
-    <FontFamily x:Key="Font.Mono">Consolas, /OriginLauncher.App;component/Assets/Fonts/#Monocraft</FontFamily>
+    <FontFamily x:Key="Font.Mono">Consolas, Courier New</FontFamily>
 
-    <system:Double x:Key="FontSize.Display">40</system:Double>
-    <system:Double x:Key="FontSize.H1">26</system:Double>
-    <system:Double x:Key="FontSize.H2">16</system:Double>
-    <system:Double x:Key="FontSize.Body">13.5</system:Double>
+    <system:Double x:Key="FontSize.Label">11</system:Double>
     <system:Double x:Key="FontSize.Caption">12</system:Double>
-    <system:Double x:Key="FontSize.Eyebrow">11</system:Double>
-    <system:Double x:Key="FontSize.Poster">52</system:Double>
-    <!-- Home's bottom strip: PLAY, the version number in its pill. -->
-    <system:Double x:Key="FontSize.PlayWord">40</system:Double>
-    <system:Double x:Key="FontSize.PillNumber">20</system:Double>
-    <!-- The launch screen's count ("42" and its smaller "%"). -->
-    <system:Double x:Key="FontSize.LaunchCount">112</system:Double>
-    <system:Double x:Key="FontSize.LaunchPercent">42</system:Double>
-    <!-- A dialog's poster title ("NEW PROFILE") and a card's name. -->
-    <system:Double x:Key="FontSize.DialogTitle">30</system:Double>
-    <system:Double x:Key="FontSize.CardTitle">18</system:Double>
+    <system:Double x:Key="FontSize.Body">13.5</system:Double>
+    <system:Double x:Key="FontSize.Title">16</system:Double>
+    <system:Double x:Key="FontSize.Action">16</system:Double>
+    <system:Double x:Key="FontSize.Heading">22</system:Double>
+    <system:Double x:Key="FontSize.Display">32</system:Double>
+    <system:Double x:Key="LineHeight.Label">14</system:Double>
+    <system:Double x:Key="LineHeight.Caption">16</system:Double>
+    <system:Double x:Key="LineHeight.Body">20</system:Double>
+    <system:Double x:Key="LineHeight.Title">22</system:Double>
+    <system:Double x:Key="LineHeight.Action">20</system:Double>
+    <system:Double x:Key="LineHeight.Heading">28</system:Double>
+    <system:Double x:Key="LineHeight.Display">36</system:Double>
 
-    <!-- Condensed caps for page titles (MODS, PROFILES, SETTINGS...). -->
-    <Style x:Key="Text.Poster" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Poster}"/>
-        <Setter Property="FontWeight" Value="ExtraBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="{StaticResource FontSize.Poster}"/>
+    <!-- type.label: nav tabs, eyebrows, badges and section labels. Author the text in caps. -->
+    <Style x:Key="Text.Label" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Label}"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
-        <Setter Property="TextOptions.TextRenderingMode" Value="Grayscale"/>
     </Style>
 
-    <Style x:Key="Text.Display" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Display}"/>
-        <Setter Property="FontWeight" Value="ExtraBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="44"/>
-        <Setter Property="TextWrapping" Value="Wrap"/>
-        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
-    </Style>
-
-    <Style x:Key="Text.H1" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.H1}"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+    <!-- type.caption: status lines, meta, helper text. -->
+    <Style x:Key="Text.Caption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
     </Style>
 
-    <Style x:Key="Text.H2" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.H2}"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    <Style x:Key="Text.CaptionDim" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
     </Style>
 
+    <!-- type.body: default text and descriptions. -->
     <Style x:Key="Text.Body" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Body}"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-        <Setter Property="LineHeight" Value="20"/>
     </Style>
 
     <Style x:Key="Text.BodyDim" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
         <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
     </Style>
 
-    <Style x:Key="Text.Label" TargetType="TextBlock">
+    <!-- type.bodyStrong: button labels, names, row titles. -->
+    <Style x:Key="Text.BodyStrong" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <!-- type.title: card titles, dialog titles. -->
+    <Style x:Key="Text.Title" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Title}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="20"/>
-    </Style>
-
-    <!-- TextBlock has no CharacterCasing or letter-spacing: author eyebrow content in
-         caps; the tracked poster eyebrows use controls:TrackedText. -->
-    <Style x:Key="Text.Eyebrow" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
-    </Style>
-
-    <!-- The profile pill's one line on Home: just the profile's name (Will, 2026-10-19:
-         no subtitles in the pills). -->
-    <Style x:Key="Text.PillTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.H2}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-    </Style>
-
-    <!-- Home's status line beside Play ("Ready to play"). -->
-    <Style x:Key="Text.Status" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
-        <Setter Property="FontWeight" Value="Medium"/>
-    </Style>
-
-    <!-- A card's name (profiles, import results): bold display face, two lines at most. -->
-    <Style x:Key="Text.CardTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.CardTitle}"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="22"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Title}"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
     </Style>
 
-    <!-- A card's quiet lines ("Plays as", "6 mods", "Joins ..."). -->
-    <Style x:Key="Text.Meta" TargetType="TextBlock">
+    <!-- type.action: the Play label only. -->
+    <Style x:Key="Text.Action" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
-        <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Action}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Action}"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+    </Style>
+
+    <!-- type.heading: page and sheet titles. -->
+    <Style x:Key="Text.Heading" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Heading}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Heading}"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
+    </Style>
+
+    <!-- type.display: an empty-state or hero headline. -->
+    <Style x:Key="Text.Display" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Display}"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Display}"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
     </Style>
 
     <!-- A form field's label, 8 px above its box. -->
-    <Style x:Key="Text.FieldLabel" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+    <Style x:Key="Text.FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
         <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="Margin" Value="0,0,0,8"/>
-    </Style>
-
-    <Style x:Key="Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.BodyDim}">
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
-        <Setter Property="LineHeight" Value="18"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="Margin" Value="{StaticResource Margin.Below.2}"/>
     </Style>
 
 </ResourceDictionary>

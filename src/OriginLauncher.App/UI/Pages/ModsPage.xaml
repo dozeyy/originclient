@@ -13,7 +13,7 @@
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="40"/>
             <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Sharp}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
         </Style>
     </UserControl.Resources>
 
@@ -36,7 +36,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="MODS" Style="{StaticResource Text.Poster}"/>
+                        <TextBlock Text="MODS" Style="{StaticResource Text.Heading}"/>
                         <Border x:Name="VersionChip" Style="{StaticResource Surface.Chip}" Margin="12,0,0,8" VerticalAlignment="Bottom">
                             <TextBlock x:Name="VersionChipText" Text="1.21.1" Style="{StaticResource Surface.ChipText}"/>
                         </Border>
@@ -52,8 +52,8 @@
                               Margin="24,8,0,0" VerticalAlignment="Top" ToolTip="Load the .jar mods you added"
                               AutomationProperties.Name="Load your mods"
                               Checked="YourModsSwitch_Changed" Unchecked="YourModsSwitch_Changed">
-                    <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Display}"
-                                          FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                    <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Primary}"
+                                          FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                 </ToggleButton>
             </Grid>
@@ -73,20 +73,20 @@
                     <ScaleTransform x:Name="DropScale"/>
                 </Grid.RenderTransform>
                 <!-- The accent light rising from the bottom edge while a jar is over. -->
-                <Rectangle x:Name="DropLit" Fill="{DynamicResource Brush.Acc}" Opacity="0" IsHitTestVisible="False">
+                <Rectangle x:Name="DropLit" Fill="{DynamicResource Brush.Accent}" Opacity="0" IsHitTestVisible="False">
                     <Rectangle.OpacityMask>
                         <RadialGradientBrush Center="0.5,1" GradientOrigin="0.5,1" RadiusX="0.6" RadiusY="0.9">
-                            <GradientStop Color="#29000000" Offset="0"/>
-                            <GradientStop Color="#00000000" Offset="0.6"/>
+                            <GradientStop Color="{StaticResource Color.MaskSoft}" Offset="0"/>
+                            <GradientStop Color="{StaticResource Color.MaskClear}" Offset="0.6"/>
                         </RadialGradientBrush>
                     </Rectangle.OpacityMask>
                 </Rectangle>
-                <Rectangle x:Name="DropDash" Stroke="{StaticResource Brush.Track}" StrokeThickness="2" StrokeDashArray="5 4"
+                <Rectangle x:Name="DropDash" Stroke="{StaticResource Brush.ProgressTrack}" StrokeThickness="2" StrokeDashArray="5 4"
                            RadiusX="4" RadiusY="4" IsHitTestVisible="False"/>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Border x:Name="JarWell" Width="64" Height="64" Background="{StaticResource Brush.Bg}"
-                            CornerRadius="{StaticResource Radius.Sharp}" RenderTransformOrigin="0.5,0.5" Margin="0,0,20,0">
+                            CornerRadius="{StaticResource Radius.Md}" RenderTransformOrigin="0.5,0.5" Margin="0,0,20,0">
                         <Border.RenderTransform>
                             <TransformGroup>
                                 <ScaleTransform x:Name="JarScale"/>
@@ -98,31 +98,31 @@
                     </Border>
                     <Grid VerticalAlignment="Center">
                         <StackPanel x:Name="IdleText">
-                            <TextBlock x:Name="DropTitle" Text="Drag and drop mod jars here" Style="{StaticResource Text.H2}"/>
+                            <TextBlock x:Name="DropTitle" Text="Drag and drop mod jars here" Style="{StaticResource Text.Title}"/>
                             <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
                                 <Run Text="or"/>
                                 <Run Text="browse" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
                             </TextBlock>
                         </StackPanel>
-                        <TextBlock x:Name="OverText" Text="Release to add" Style="{StaticResource Text.H2}" Opacity="0"
+                        <TextBlock x:Name="OverText" Text="Release to add" Style="{StaticResource Text.Title}" Opacity="0"
                                    VerticalAlignment="Center"/>
                     </Grid>
                 </StackPanel>
 
                 <!-- The "ghost" of what is being carried: how many jars. -->
                 <Border x:Name="Ghost" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,22,140,0"
-                        Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Control}"
+                        Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Md}"
                         Padding="12,10,20,10" Opacity="0" IsHitTestVisible="False" RenderTransformOrigin="0.5,0.5">
                     <Border.RenderTransform>
                         <RotateTransform x:Name="GhostTilt"/>
                     </Border.RenderTransform>
                     <StackPanel Orientation="Horizontal">
-                        <Border Width="36" Height="36" Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Sharp}"
+                        <Border Width="36" Height="36" Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}"
                                 Margin="0,0,12,0">
                             <Path Data="{StaticResource Icon.Jar}" Style="{StaticResource Icon.Base}"
                                   Stroke="{StaticResource Brush.Text}"/>
                         </Border>
-                        <TextBlock x:Name="GhostText" Text="1 mod jar" Style="{StaticResource Text.Label}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="GhostText" Text="1 mod jar" Style="{StaticResource Text.BodyStrong}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -139,9 +139,9 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <controls:TrackedText x:Name="UserHeader" Text="MY MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
+                    <controls:TrackedText x:Name="UserHeader" Text="MY MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Label}"
                                           FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
-                    <TextBlock x:Name="UserCount" Text="0" FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="Bold" Margin="8,0,0,0"
+                    <TextBlock x:Name="UserCount" Text="0" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold" Margin="8,0,0,0"
                                Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" x:Name="UserHint" Text="Switch one off to keep it without loading it"
@@ -156,7 +156,7 @@
                 </Button>
             </Grid>
             <StackPanel x:Name="UserModsPanel"/>
-            <Border x:Name="UserEmptyState" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Card}" Padding="16">
+            <Border x:Name="UserEmptyState" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Lg}" Padding="16">
                 <TextBlock x:Name="UserEmptyText" Text="No mods yet. Drop a jar above to add one."
                            Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"/>
             </Border>
@@ -165,9 +165,9 @@
             <StackPanel x:Name="BuiltInSection" Visibility="Collapsed" Margin="0,32,0,0">
                 <Grid Margin="0,0,0,10">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <controls:TrackedText Text="BUILT IN" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
+                        <controls:TrackedText Text="BUILT IN" Tracking="0.16" FontSize="{StaticResource FontSize.Label}"
                                               FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
-                        <TextBlock x:Name="BuiltInCount" Text="0" FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="Bold" Margin="8,0,0,0"
+                        <TextBlock x:Name="BuiltInCount" Text="0" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold" Margin="8,0,0,0"
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Text="Kept up to date by Origin" Style="{StaticResource Text.Caption}"

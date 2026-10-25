@@ -29,26 +29,26 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" CornerRadius="{StaticResource Radius.Sharp}" ClipToBounds="True"
+                            <Border Grid.Row="0" CornerRadius="{StaticResource Radius.Md}" ClipToBounds="True"
                                     Background="{StaticResource Brush.Bg}" Height="{Binding ThumbHeight}">
                                 <Grid>
                                     <Image Source="{Binding Grey}" Stretch="UniformToFill"/>
                                     <Image x:Name="Colour" Source="{Binding Colour}" Stretch="UniformToFill" Opacity="0"/>
                                     <Rectangle x:Name="Bar" Height="3" VerticalAlignment="Bottom" Fill="{Binding Accent}" Opacity="0"/>
-                                    <Border x:Name="CurrentTag" Visibility="{Binding CurrentVisibility}" Background="#E6111111"
-                                            CornerRadius="{StaticResource Radius.Knob}" Padding="6,3"
+                                    <Border x:Name="CurrentTag" Visibility="{Binding CurrentVisibility}" Background="{StaticResource Brush.ScrimMid}"
+                                            CornerRadius="{StaticResource Radius.Xs}" Padding="6,3"
                                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6">
-                                        <controls:TrackedText Text="PLAYING" Tracking="0.12" FontSize="10" FontWeight="Bold"
+                                        <controls:TrackedText Text="PLAYING" Tracking="0.12" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold"
                                                               Foreground="{StaticResource Brush.Text}"/>
                                     </Border>
                                 </Grid>
                             </Border>
-                            <TextBlock Grid.Row="1" Text="{Binding Range}" Margin="0,8,0,0" FontSize="15" FontWeight="Bold"
+                            <TextBlock Grid.Row="1" Text="{Binding Range}" Margin="0,8,0,0" FontSize="{StaticResource FontSize.Title}" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text}" TextTrimming="CharacterEllipsis"/>
                             <!-- Wraps to a second line before it is cut (tiles narrow to ~107 px at the smallest window). -->
-                            <TextBlock Grid.Row="2" Text="{Binding Name}" Margin="0,2,0,16" FontSize="11.5"
+                            <TextBlock Grid.Row="2" Text="{Binding Name}" Margin="0,2,0,16" FontSize="{StaticResource FontSize.Caption}"
                                        Foreground="{StaticResource Brush.TextMuted}" TextTrimming="CharacterEllipsis"
-                                       TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="15" MaxHeight="30"/>
+                                       TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="{StaticResource LineHeight.Caption}" MaxHeight="32"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -99,15 +99,15 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Body" Background="{StaticResource Brush.GhostFill}" BorderBrush="{StaticResource Brush.GhostEdge}"
-                                BorderThickness="1" CornerRadius="{StaticResource Radius.Control}"
+                        <Border x:Name="Body" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Stroke}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.GhostFillHover}"/>
-                                <Setter TargetName="Body" Property="BorderBrush" Value="{StaticResource Brush.GhostEdgeHover}"/>
+                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                                <Setter TargetName="Body" Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
@@ -156,7 +156,7 @@
                     </ListBox>
 
                     <!-- The family's versions as chips, then Play. -->
-                    <Border Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Sharp}" Padding="20,16,20,12" Margin="0,8,0,0">
+                    <Border Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}" Padding="20,16,20,12" Margin="0,8,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -164,7 +164,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <controls:TrackedText x:Name="ChipsLabel" Text="TRICKY TRIALS" Tracking="0.16"
-                                                  FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                                  FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
                                                   Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" Margin="0,0,12,4"/>
                             <WrapPanel Grid.Column="1" x:Name="ChipsPanel" VerticalAlignment="Center"
                                        AutomationProperties.Name="Version"/>

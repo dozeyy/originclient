@@ -224,8 +224,8 @@ public partial class HomePage : UserControl
     {
         var shift = new TranslateTransform();
         element.RenderTransform = shift;
-        element.BeginAnimation(OpacityProperty, OriginMark.Hold(0, 1, delay, length));
-        shift.BeginAnimation(TranslateTransform.YProperty, OriginMark.Hold(rise, 0, delay, length));
+        element.BeginAnimation(OpacityProperty, Motion.Hold(0, 1, delay, length));
+        shift.BeginAnimation(TranslateTransform.YProperty, Motion.Hold(rise, 0, delay, length));
     }
 
     private void StartPlayersOnline()
@@ -1455,7 +1455,7 @@ public partial class HomePage : UserControl
         if (PlayButton.Template.FindName("FillScale", PlayButton) is ScaleTransform fill)
             fill.ScaleX = fill.ScaleY = hover ? 1 : 0;
         if (PlayButton.Template.FindName("Arrow", PlayButton) is System.Windows.Shapes.Path arrow)
-            arrow.Stroke = new SolidColorBrush(hover ? Color.FromRgb(0x0E, 0x0E, 0x0E) : Color.FromRgb(0xE6, 0xE6, 0xE6));
+            arrow.Stroke = new SolidColorBrush(((SolidColorBrush)FindResource(hover ? "Brush.TextOnAccent" : "Brush.Text")).Color);
     }
 
     /// <summary>Render mode only: back to the real Play state after <see cref="TourShowReady"/>.</summary>
@@ -1500,10 +1500,10 @@ public partial class HomePage : UserControl
     {
         StatusText.Text = text;
         // Ready is the family accent (an indicator, so the one hue may show); the
-        // rest keep their status colours. By reference: FamilyTheme swaps Brush.Acc.
+        // rest keep their status colours. By reference: FamilyTheme swaps Brush.Accent.
         var brushKey = tone switch
         {
-            StatusTone.Success => "Brush.Acc",
+            StatusTone.Success => "Brush.Accent",
             StatusTone.Warning => "Brush.Warning",
             StatusTone.Error => "Brush.Danger",
             _ => "Brush.TextDim"

@@ -557,16 +557,20 @@ internal static class LauncherLogos
     /// Each launcher's own colour, the one its logo wears (white logos: the colour its brand is known by). Used only as an
     /// accent: a faint wash across a tile's corner and a hairline round the logo, never a fill.
     /// </summary>
-    private static Color ColourOf(SourceKind kind) => kind switch
+    private static Color ColourOf(SourceKind kind) => ColorToken(kind switch
     {
-        SourceKind.OfficialLauncher => Color.FromRgb(0x62, 0xB5, 0x43),
-        SourceKind.CurseForge => Color.FromRgb(0xF1, 0x64, 0x36),
-        SourceKind.Modrinth => Color.FromRgb(0x1B, 0xD9, 0x6A),
-        SourceKind.Prism => Color.FromRgb(0xE8, 0x71, 0x8D),
-        SourceKind.Lunar => Color.FromRgb(0x4D, 0xA6, 0xFF),
-        SourceKind.Feather => Color.FromRgb(0x8F, 0xA8, 0xFF),
-        _ => Color.FromRgb(0xE0, 0xE0, 0xE0),
-    };
+        SourceKind.OfficialLauncher => "Color.Hue.Emerald",
+        SourceKind.CurseForge => "Color.Hue.Coral",
+        SourceKind.Modrinth => "Color.Hue.Gold",
+        SourceKind.Prism => "Color.Hue.Lilac",
+        SourceKind.Lunar => "Color.Hue.Sky",
+        SourceKind.Feather => "Color.Hue.Sky",
+        _ => "Color.TextDim",
+    });
+
+    // Colours are tokens (Theme/Colors.xaml); the five hues keep a launcher's tile recognisable without a brand-colour table.
+    private static Color ColorToken(string key) =>
+        Application.Current?.TryFindResource(key) is Color c ? c : Colors.Transparent;
 
     private static readonly Dictionary<SourceKind, Brush> Washes = new();
     private static readonly Dictionary<SourceKind, Brush> Edges = new();

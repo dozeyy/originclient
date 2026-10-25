@@ -38,10 +38,10 @@
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
                                             <Border x:Name="ThumbBg" Background="{StaticResource Brush.Stroke}"
-                                                    CornerRadius="{StaticResource Radius.Sharp}" Margin="2,0"/>
+                                                    CornerRadius="{StaticResource Radius.Full}" Margin="2,0"/>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="ThumbBg" Property="Background" Value="{StaticResource Brush.Track}"/>
+                                                    <Setter TargetName="ThumbBg" Property="Background" Value="{StaticResource Brush.ProgressTrack}"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -62,12 +62,12 @@
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="CaretBrush" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="SelectionBrush" Value="{StaticResource Brush.Track}"/>
-        <Setter Property="Background" Value="{StaticResource Brush.Inset}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource Brush.ProgressTrack}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
         <Setter Property="Padding" Value="12,9"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
-        <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
         <!-- Centered is right for the single-line boxes that make up most of the
              app; a multi-line box (Settings -> JVM arguments) sets
              VerticalContentAlignment="Top" and the template honours it. -->
@@ -79,7 +79,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Control}">
+                            CornerRadius="{StaticResource Radius.Md}">
                         <!-- No Margin here: a TextBox applies its own Padding to the text. -->
                         <ScrollViewer x:Name="PART_ContentHost"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
@@ -116,22 +116,22 @@
         </Setter>
     </Style>
 
-    <!-- Slider: grey track, the filled part in the version's accent, a light square knob. -->
+    <!-- Slider: progress-track groove, the filled part in the accent, a round accent knob. -->
     <Style x:Key="Input.Slider" TargetType="Slider">
-        <Setter Property="Height" Value="24"/>
+        <Setter Property="Height" Value="{StaticResource Size.SliderBox}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
                     <Grid VerticalAlignment="Center">
-                        <Border Height="4" Background="{StaticResource Brush.Track}" CornerRadius="{StaticResource Radius.Bar}"/>
+                        <Border Height="{StaticResource Size.SliderTrack}" Background="{StaticResource Brush.ProgressTrack}" CornerRadius="{StaticResource Radius.Track}"/>
                         <Track x:Name="PART_Track">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Style="{x:Null}" Background="Transparent" BorderThickness="0"
                                               Command="Slider.DecreaseLarge">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
-                                            <Border Height="4" Background="{DynamicResource Brush.Acc}" CornerRadius="{StaticResource Radius.Bar}"/>
+                                            <Border Height="{StaticResource Size.SliderTrack}" Background="{DynamicResource Brush.Accent}" CornerRadius="{StaticResource Radius.Track}"/>
                                         </ControlTemplate>
                                     </RepeatButton.Template>
                                 </RepeatButton>
@@ -153,10 +153,9 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border x:Name="Knob" Width="16" Height="16"
+                                            <Border x:Name="Knob" Width="{StaticResource Size.SliderThumb}" Height="{StaticResource Size.SliderThumb}"
                                                     Background="{StaticResource Brush.Accent}"
-                                                    BorderBrush="#33000000"
-                                                    BorderThickness="1" CornerRadius="{StaticResource Radius.Knob}"
+                                                    CornerRadius="{StaticResource Radius.Full}"
                                                     RenderTransformOrigin="0.5,0.5">
                                                 <Border.RenderTransform>
                                                     <ScaleTransform x:Name="KnobScale" ScaleX="1" ScaleY="1"/>
@@ -221,7 +220,7 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <!-- Right padding leaves room for the dropdown chevron. -->
         <Setter Property="Padding" Value="14,9,34,9"/>
-        <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
@@ -235,19 +234,19 @@
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Grid>
-                                        <Border x:Name="Bd" CornerRadius="{StaticResource Radius.Control}" BorderThickness="1"
+                                        <Border x:Name="Bd" CornerRadius="{StaticResource Radius.Md}" BorderThickness="1"
                                                 SnapsToDevicePixels="True">
                                             <Border.Background>
-                                                <SolidColorBrush Color="{StaticResource Color.GhostFill}"/>
+                                                <SolidColorBrush Color="{StaticResource Color.Card}"/>
                                             </Border.Background>
                                             <Border.BorderBrush>
-                                                <SolidColorBrush Color="{StaticResource Color.GhostEdge}"/>
+                                                <SolidColorBrush Color="{StaticResource Color.Stroke}"/>
                                             </Border.BorderBrush>
                                         </Border>
-                                        <Border x:Name="OpenEdge" CornerRadius="{StaticResource Radius.Control}" BorderThickness="1"
+                                        <Border x:Name="OpenEdge" CornerRadius="{StaticResource Radius.Md}" BorderThickness="1"
                                                 Opacity="0">
                                             <Border.BorderBrush>
-                                                <SolidColorBrush Color="{StaticResource Color.GhostEdgeHover}"/>
+                                                <SolidColorBrush Color="{StaticResource Color.StrokeHover}"/>
                                             </Border.BorderBrush>
                                         </Border>
                                     </Grid>
@@ -257,9 +256,9 @@
                                                 <BeginStoryboard>
                                                     <Storyboard>
                                                         <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Background.Color"
-                                                                        To="{StaticResource Color.GhostFillHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                                        To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Hover}"/>
                                                         <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="BorderBrush.Color"
-                                                                        To="{StaticResource Color.GhostEdgeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
                                             </Trigger.EnterActions>
@@ -267,9 +266,9 @@
                                                 <BeginStoryboard>
                                                     <Storyboard>
                                                         <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Background.Color"
-                                                                        To="{StaticResource Color.GhostFill}" Duration="{StaticResource Motion.Hover}"/>
+                                                                        To="{StaticResource Color.Card}" Duration="{StaticResource Motion.Hover}"/>
                                                         <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="BorderBrush.Color"
-                                                                        To="{StaticResource Color.GhostEdge}" Duration="{StaticResource Motion.Hover}"/>
+                                                                        To="{StaticResource Color.Stroke}" Duration="{StaticResource Motion.Hover}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
                                             </Trigger.ExitActions>
@@ -288,8 +287,8 @@
                                           Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
                         <!-- The dropdown arrow: a chevron, so a combo box reads as one. -->
-                        <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
-                              Width="10" Height="10" Margin="0,0,14,0"
+                        <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
+                              Margin="0,0,12,0"
                               HorizontalAlignment="Right" VerticalAlignment="Center"
                               Stroke="{StaticResource Brush.TextDim}" IsHitTestVisible="False"/>
                         <!-- Placeholder: the combo box's Tag, shown while nothing is picked. -->
@@ -303,10 +302,10 @@
                                AllowsTransparency="True"
                                Focusable="False"
                                PopupAnimation="Fade">
-                            <Border Background="{StaticResource Brush.PanelElevated}"
+                            <Border Background="{StaticResource Brush.Card}"
                                     BorderBrush="{StaticResource Brush.SoftStroke}"
                                     BorderThickness="1"
-                                    CornerRadius="{StaticResource Radius.Control}"
+                                    CornerRadius="{StaticResource Radius.Md}"
                                     Margin="0,4,0,0"
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
                                 <ScrollViewer MaxHeight="240" Margin="4">
@@ -337,7 +336,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBoxItem">
-                    <Border x:Name="Bg" CornerRadius="{StaticResource Radius.Sharp}" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="Bg" CornerRadius="{StaticResource Radius.Md}" Padding="{TemplateBinding Padding}">
                         <ContentPresenter/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -355,20 +354,17 @@
         </Setter>
     </Style>
 
-    <!-- Slider switch (Will, 2026-10-19, My mods on Home: "maybe a slider would be better
-         like a slider on or off"). No box: the toggle's Content (a caps label) sits to
-         the left of a 44 x 24 track, and the whole row is one hit target.
-         Off  a dark inset track, 1 px edge, grey knob on the left.
-         On   the track fills with the family accent (Brush.Acc) inside a soft accent
-              glow (Brush.AccSoft); the knob turns white, slides right (140 ms ease-out)
-              and shows a small dark tick.
-         Hover brightens the track (a light veil over either state); press squashes the
-         knob. Space and Enter toggle; focus draws the accent ring (Focus.Button).
-         Reusable: any page can drop it in with its own label, or with no Content. -->
+    <!-- Switch (spec 5): a 32 x 18 track with a 14 knob. The toggle's Content (a caps label) sits to the left of the
+         track and the whole row is one hit target.
+         Off  the progress-track fill, a 1 px stroke, the muted knob on the left.
+         On   the track fills with the accent, the knob turns to text colour and slides right (Motion.Release).
+         Hover brightens the stroke; press squashes the knob. Space and Enter toggle; focus draws the pill ring.
+         No glow and no tick (Workbench: no glow; a tick does not fit in 14 px). Reusable: drop it in with its own
+         label, or with no Content. -->
     <Style x:Key="Toggle.Slider" TargetType="ToggleButton">
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
-        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Pill}"/>
         <Setter Property="KeyboardNavigation.AcceptsReturn" Value="True"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -380,23 +376,21 @@
                         </Grid.ColumnDefinitions>
                         <ContentPresenter x:Name="Label" VerticalAlignment="Center" Margin="0,0,12,0"
                                           TextElement.Foreground="{TemplateBinding Foreground}"/>
-                        <Grid Grid.Column="1" Width="44" Height="24" VerticalAlignment="Center">
-                            <Border x:Name="Glow" Margin="-4" CornerRadius="{StaticResource Radius.SwitchGlow}"
-                                    Background="{DynamicResource Brush.AccSoft}" Opacity="0"/>
-                            <Border x:Name="Track" CornerRadius="{StaticResource Radius.Switch}" BorderThickness="1">
+                        <Grid Grid.Column="1" Width="{StaticResource Size.SwitchWidth}" Height="{StaticResource Size.SwitchHeight}"
+                              VerticalAlignment="Center">
+                            <Border x:Name="Track" CornerRadius="{StaticResource Radius.Full}" BorderThickness="1">
                                 <Border.Background>
-                                    <SolidColorBrush Color="{StaticResource Color.SwitchTrack}"/>
+                                    <SolidColorBrush Color="{StaticResource Color.ProgressTrack}"/>
                                 </Border.Background>
                                 <Border.BorderBrush>
-                                    <SolidColorBrush Color="{StaticResource Color.SwitchEdge}"/>
+                                    <SolidColorBrush Color="{StaticResource Color.Stroke}"/>
                                 </Border.BorderBrush>
                             </Border>
-                            <Border x:Name="TrackOn" CornerRadius="{StaticResource Radius.Switch}"
-                                    Background="{DynamicResource Brush.Acc}" Opacity="0"/>
-                            <Border x:Name="Veil" CornerRadius="{StaticResource Radius.Switch}"
-                                    Background="{StaticResource Brush.OnPhoto}" Opacity="0"/>
-                            <Border x:Name="Knob" Width="18" Height="18" CornerRadius="{StaticResource Radius.Knob}"
-                                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"
+                            <Border x:Name="TrackOn" CornerRadius="{StaticResource Radius.Full}"
+                                    Background="{StaticResource Brush.Accent}" Opacity="0"/>
+                            <Border x:Name="Knob" Width="{StaticResource Size.SwitchKnob}" Height="{StaticResource Size.SwitchKnob}"
+                                    CornerRadius="{StaticResource Radius.Full}"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0"
                                     RenderTransformOrigin="0.5,0.5">
                                 <Border.Background>
                                     <SolidColorBrush Color="{StaticResource Color.SwitchKnobOff}"/>
@@ -407,13 +401,6 @@
                                         <TranslateTransform X="0"/>
                                     </TransformGroup>
                                 </Border.RenderTransform>
-                                <Path x:Name="Tick" Data="M4.5,9.2 L7.6,12.2 L13.5,6" Opacity="0"
-                                      StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                      StrokeLineJoin="Round" Width="18" Height="18">
-                                    <Path.Stroke>
-                                        <SolidColorBrush Color="{StaticResource Color.SwitchTick}"/>
-                                    </Path.Stroke>
-                                </Path>
                             </Border>
                         </Grid>
                     </Grid>
@@ -426,24 +413,16 @@
                             <Trigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Veil" Storyboard.TargetProperty="Opacity"
-                                                         To="0.1" Duration="{StaticResource Motion.Hover}"/>
-                                        <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="Background.Color"
-                                                        To="{StaticResource Color.SwitchTrackHover}" Duration="{StaticResource Motion.Hover}"/>
                                         <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="BorderBrush.Color"
-                                                        To="{StaticResource Color.SwitchEdgeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
                             <Trigger.ExitActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Veil" Storyboard.TargetProperty="Opacity"
-                                                         To="0" Duration="{StaticResource Motion.Hover}"/>
-                                        <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="Background.Color"
-                                                        To="{StaticResource Color.SwitchTrack}" Duration="{StaticResource Motion.Hover}"/>
                                         <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="BorderBrush.Color"
-                                                        To="{StaticResource Color.SwitchEdge}" Duration="{StaticResource Motion.Hover}"/>
+                                                        To="{StaticResource Color.Stroke}" Duration="{StaticResource Motion.Hover}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.ExitActions>
@@ -480,15 +459,11 @@
                                     <Storyboard>
                                         <DoubleAnimation Storyboard.TargetName="TrackOn" Storyboard.TargetProperty="Opacity"
                                                          To="1" Duration="{StaticResource Motion.Release}"/>
-                                        <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity"
-                                                         To="1" Duration="{StaticResource Motion.Release}"/>
-                                        <DoubleAnimation Storyboard.TargetName="Tick" Storyboard.TargetProperty="Opacity"
-                                                         To="1" Duration="{StaticResource Motion.Release}"/>
                                         <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Background.Color"
-                                                        To="{StaticResource Color.SwitchKnobOn}" Duration="{StaticResource Motion.Release}"/>
+                                                        To="{StaticResource Color.Text}" Duration="{StaticResource Motion.Release}"/>
                                         <DoubleAnimation Storyboard.TargetName="Knob"
                                                          Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
-                                                         To="20" Duration="{StaticResource Motion.Release}">
+                                                         To="{StaticResource Size.SwitchTravel}" Duration="{StaticResource Motion.Release}">
                                             <DoubleAnimation.EasingFunction>
                                                 <CubicEase EasingMode="EaseOut"/>
                                             </DoubleAnimation.EasingFunction>
@@ -500,10 +475,6 @@
                                 <BeginStoryboard>
                                     <Storyboard>
                                         <DoubleAnimation Storyboard.TargetName="TrackOn" Storyboard.TargetProperty="Opacity"
-                                                         To="0" Duration="{StaticResource Motion.Release}"/>
-                                        <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity"
-                                                         To="0" Duration="{StaticResource Motion.Release}"/>
-                                        <DoubleAnimation Storyboard.TargetName="Tick" Storyboard.TargetProperty="Opacity"
                                                          To="0" Duration="{StaticResource Motion.Release}"/>
                                         <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Background.Color"
                                                         To="{StaticResource Color.SwitchKnobOff}" Duration="{StaticResource Motion.Release}"/>

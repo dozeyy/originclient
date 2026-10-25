@@ -14,9 +14,9 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
-                    <Border Background="{StaticResource Brush.PanelElevated}"
+                    <Border Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Dialog}" Padding="4"
+                            CornerRadius="{StaticResource Radius.Lg}" Padding="4"
                             MinWidth="196" SnapsToDevicePixels="True">
                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
                     </Border>
@@ -28,13 +28,13 @@
     <!-- Icon (optional) + header. Set Foreground for a destructive item. -->
     <Style x:Key="Menu.Item" TargetType="MenuItem">
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="Padding" Value="10,0"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
                     <Border x:Name="Bd" Background="Transparent"
-                            CornerRadius="{StaticResource Radius.Control}"
+                            CornerRadius="{StaticResource Radius.Sm}" MinHeight="{StaticResource Size.ControlMd}"
                             Padding="{TemplateBinding Padding}"
                             TextElement.Foreground="{TemplateBinding Foreground}">
                         <Grid>

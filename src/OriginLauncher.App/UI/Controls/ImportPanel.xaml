@@ -17,7 +17,7 @@
            ProgressPane   "Importing": one big percentage and bar, a row per setup (waiting, copying, done)
            DonePane       "You're all set": what came over and the versions it went to (imports make no profiles)
            FailedPane     "Nothing changed": the reason
-         Every colour, type and shape is a Theme token; the orange tick, dot and bar are the Poster accent (Brush.Acc, indicators only). -->
+         Every colour, type and shape is a Theme token; the orange tick, dot and bar are the Poster accent (Brush.Accent, indicators only). -->
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
@@ -79,7 +79,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
                         <Border Background="Transparent">
-                            <Border x:Name="Box" Width="22" Height="22" CornerRadius="{StaticResource Radius.Chip}"
+                            <Border x:Name="Box" Width="22" Height="22" CornerRadius="{StaticResource Radius.Sm}"
                                     Background="{StaticResource Brush.Bg}" BorderBrush="{StaticResource Brush.Stroke}"
                                     BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}"
@@ -92,13 +92,13 @@
                                 <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.Acc}"/>
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.Accent}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                                 <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="{x:Null}">
-                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.Acc}"/>
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.Accent}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                                 <Setter TargetName="Mark" Property="Data" Value="{StaticResource Icon.Minus}"/>
                                 <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
                             </Trigger>
@@ -118,7 +118,7 @@
         </Style>
 
                 <!-- The three counts under a tile and the four on Done: a number, then its label in small caps. -->
-        <Style x:Key="Import.StatNumber" TargetType="TextBlock" BasedOn="{StaticResource Text.CardTitle}">
+        <Style x:Key="Import.StatNumber" TargetType="TextBlock" BasedOn="{StaticResource Text.Title}">
             <Setter Property="FontSize" Value="24"/>
             <Setter Property="LineHeight" Value="28"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
@@ -129,7 +129,7 @@
             <Setter Property="Margin" Value="8,0,0,0"/>
         </Style>
 
-                <!-- "Bring everything from Lunar" on a tile: the soft accent wash (Brush.AccSoft), the accent edge on hover. -->
+                <!-- "Bring everything from Lunar" on a tile: the soft accent wash (Brush.AccentSoft), the accent edge on hover. -->
         <Style x:Key="Import.FastButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
@@ -143,14 +143,14 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{DynamicResource Brush.AccSoft}" BorderBrush="Transparent" BorderThickness="1"
-                                CornerRadius="{StaticResource Radius.Control}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <Border x:Name="Bd" Background="{DynamicResource Brush.AccentSoft}" BorderBrush="Transparent" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius.Md}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                             <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
                                        TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
@@ -179,7 +179,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Border x:Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}"
-                                BorderThickness="1" CornerRadius="{StaticResource Radius.Chip}" Padding="{TemplateBinding Padding}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Sm}" Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False"/>
                         </Border>
@@ -189,8 +189,8 @@
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.AccSoft}"/>
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.AccentSoft}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -236,7 +236,7 @@
 
         <DataTemplate DataType="{x:Type controls:ImportTitleVm}">
             <StackPanel Margin="2,12,0,12">
-                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H2}" TextWrapping="Wrap" TextTrimming="None"
+                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Title}" TextWrapping="Wrap" TextTrimming="None"
                            Margin="0,0,0,4" Visibility="{Binding HasTitle, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="{Binding Sub}" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"
                            Visibility="{Binding HasSub, Converter={StaticResource BoolToVis}}"/>
@@ -271,7 +271,7 @@
                     </Grid.RowDefinitions>
                     <!-- The launcher's own colour, faint, in the tile's top-left corner (an accent, never a fill). It
                          reaches the tile's edge through the padding and takes no clicks. -->
-                    <Border Grid.RowSpan="3" Margin="-16" CornerRadius="{StaticResource Radius.Card}"
+                    <Border Grid.RowSpan="3" Margin="-16" CornerRadius="{StaticResource Radius.Lg}"
                             Background="{Binding TintWash}" IsHitTestVisible="False"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -281,7 +281,7 @@
                         </Grid.ColumnDefinitions>
                         <Border x:Name="Avatar" Width="44" Height="44" Background="{StaticResource Brush.Bg}"
                                 BorderBrush="{Binding TintEdge}" BorderThickness="1"
-                                CornerRadius="{StaticResource Radius.Control}" Margin="0,0,14,0" VerticalAlignment="Center">
+                                CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0" VerticalAlignment="Center">
                             <Grid>
                                 <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                                 <Image x:Name="LogoImage" Source="{Binding Logo}" Width="28" Height="28"
@@ -290,7 +290,7 @@
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" FontWeight="Bold"
-                                       FontSize="15" TextTrimming="CharacterEllipsis"/>
+                                       FontSize="{StaticResource FontSize.Title}" TextTrimming="CharacterEllipsis"/>
                             <TextBlock Text="{Binding PathText}" Style="{StaticResource Social.Caption}"
                                        ToolTip="{Binding PathText}" Margin="0,2,0,0"/>
                         </StackPanel>
@@ -302,25 +302,25 @@
                     </Grid>
                     <!-- Cell padding 8 and gap 4: "INSTANCES" (62 px) must fit a third of the smallest window's tile. -->
                     <UniformGrid Grid.Row="1" Columns="3" Margin="0,14,0,0">
-                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}"
                                 Padding="8,10" Margin="0,0,4,0">
                             <StackPanel>
                                 <TextBlock Text="{Binding SetupsText}" Style="{StaticResource Import.StatNumber}"/>
-                                <TextBlock Text="{Binding SetupsLabel}" Style="{StaticResource Text.Eyebrow}" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding SetupsLabel}" Style="{StaticResource Text.Label}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
-                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}"
                                 Padding="8,10" Margin="0,0,4,0">
                             <StackPanel>
                                 <TextBlock Text="{Binding WorldsText}" Style="{StaticResource Import.StatNumber}"/>
-                                <TextBlock Text="WORLDS" Style="{StaticResource Text.Eyebrow}" Margin="0,2,0,0"/>
+                                <TextBlock Text="WORLDS" Style="{StaticResource Text.Label}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
-                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}"
                                 Padding="8,10">
                             <StackPanel>
                                 <TextBlock Text="{Binding ModsText}" Style="{StaticResource Import.StatNumber}"/>
-                                <TextBlock Text="MODS" Style="{StaticResource Text.Eyebrow}" Margin="0,2,0,0"/>
+                                <TextBlock Text="MODS" Style="{StaticResource Text.Label}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -344,7 +344,7 @@
         <!-- One launcher's small logo in the "not found" row. -->
         <DataTemplate DataType="{x:Type controls:MissingLauncherVm}">
             <Border Width="28" Height="28" Margin="0,0,6,0" Background="{StaticResource Brush.Bg}"
-                    CornerRadius="{StaticResource Radius.Chip}" ToolTip="{Binding Title}">
+                    CornerRadius="{StaticResource Radius.Sm}" ToolTip="{Binding Title}">
                 <Grid>
                     <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     <Image x:Name="LogoImage" Source="{Binding Logo}" Width="18" Height="18"
@@ -368,7 +368,7 @@
                 <Border.CornerRadius>
                     <MultiBinding Converter="{StaticResource Social.CardCorners}">
                         <Binding Path="Pos"/>
-                        <Binding Source="{StaticResource Radius.Card}"/>
+                        <Binding Source="{StaticResource Radius.Lg}"/>
                     </MultiBinding>
                 </Border.CornerRadius>
                 <Grid>
@@ -382,7 +382,7 @@
                               ToolTip="Tick or untick every setup" AutomationProperties.Name="{Binding TickName}"/>
                     <Border Grid.Column="1" Width="36" Height="36" Background="{StaticResource Brush.Bg}"
                             BorderBrush="{Binding TintEdge}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Control}" Margin="0,0,12,0" VerticalAlignment="Center">
+                            CornerRadius="{StaticResource Radius.Md}" Margin="0,0,12,0" VerticalAlignment="Center">
                         <Grid>
                             <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                             <Image x:Name="LogoImage" Source="{Binding Logo}" Width="24" Height="24"
@@ -410,10 +410,10 @@
                 <Border.CornerRadius>
                     <MultiBinding Converter="{StaticResource Social.CardCorners}">
                         <Binding Path="Pos"/>
-                        <Binding Source="{StaticResource Radius.Card}"/>
+                        <Binding Source="{StaticResource Radius.Lg}"/>
                     </MultiBinding>
                 </Border.CornerRadius>
-                <Border x:Name="Inner" Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+                <Border x:Name="Inner" Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}"
                         Padding="12,8,8,8" Margin="0,0,0,4" Cursor="Hand" ToolTip="{Binding RowTip}"
                         MouseLeftButtonUp="PickRow_MouseUp">
                     <Grid MinHeight="36">
@@ -433,9 +433,9 @@
                                        TextWrapping="Wrap" TextTrimming="None"/>
                         </StackPanel>
                         <Border x:Name="Badge" Grid.Column="2" Background="{StaticResource Brush.Card}"
-                                CornerRadius="{StaticResource Radius.Chip}" Padding="9,4" Margin="12,0,0,0"
+                                CornerRadius="{StaticResource Radius.Sm}" Padding="9,4" Margin="12,0,0,0"
                                 VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Badge}" Style="{StaticResource Text.Label}" FontSize="12"/>
+                            <TextBlock Text="{Binding Badge}" Style="{StaticResource Text.BodyStrong}" FontSize="{StaticResource FontSize.Caption}"/>
                         </Border>
                         <Button Grid.Column="3" Style="{StaticResource Social.Icon}" Margin="6,0,0,0" Click="PickReview_Click"
                                 ToolTip="Review this setup on its own" AutomationProperties.Name="{Binding ReviewName}">
@@ -459,7 +459,7 @@
 
         <!-- One setup while importing: waiting (plain), copying (a small bar and the step), done (a tick). -->
         <DataTemplate DataType="{x:Type controls:ProgressRowVm}">
-            <Border x:Name="Card" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
+            <Border x:Name="Card" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}"
                     Padding="14,10" Margin="0,0,0,4">
                 <Grid MinHeight="40">
                     <Grid.ColumnDefinitions>
@@ -470,7 +470,7 @@
                     </Grid.ColumnDefinitions>
                     <Border Width="32" Height="32" Background="{StaticResource Brush.Bg}"
                             BorderBrush="{Binding TintEdge}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Chip}" Margin="0,0,12,0" VerticalAlignment="Center">
+                            CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,12,0" VerticalAlignment="Center">
                         <Grid>
                             <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                             <Image x:Name="LogoImage" Source="{Binding Logo}" Width="20" Height="20"
@@ -482,20 +482,20 @@
                                    TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text="{Binding Launcher}" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
-                    <Border x:Name="Done" Grid.Column="2" Width="22" Height="22" CornerRadius="{StaticResource Radius.Chip}"
+                    <Border x:Name="Done" Grid.Column="2" Width="22" Height="22" CornerRadius="{StaticResource Radius.Sm}"
                             Background="{StaticResource Brush.Success}" VerticalAlignment="Center" Margin="0,0,16,0"
                             Visibility="Collapsed">
                         <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
                               StrokeThickness="2.4" Stroke="{StaticResource Brush.TextOnAccent}"/>
                     </Border>
                     <Border x:Name="Track" Grid.Column="2" Width="160" Height="4" Background="{StaticResource Brush.ProgressTrack}"
-                            CornerRadius="{StaticResource Radius.Bar}" VerticalAlignment="Center" Margin="0,0,16,0"
+                            CornerRadius="{StaticResource Radius.Track}" VerticalAlignment="Center" Margin="0,0,16,0"
                             Visibility="Collapsed">
-                        <Border Width="{Binding BarWidth}" HorizontalAlignment="Left" Background="{DynamicResource Brush.Acc}"
-                                CornerRadius="{StaticResource Radius.Bar}"/>
+                        <Border Width="{Binding BarWidth}" HorizontalAlignment="Left" Background="{DynamicResource Brush.Accent}"
+                                CornerRadius="{StaticResource Radius.Track}"/>
                     </Border>
-                    <TextBlock x:Name="StatusText" Grid.Column="3" Text="{Binding Status}" Style="{StaticResource Text.Label}"
-                               FontSize="12.5" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Right"
+                    <TextBlock x:Name="StatusText" Grid.Column="3" Text="{Binding Status}" Style="{StaticResource Text.BodyStrong}"
+                               FontSize="{StaticResource FontSize.Caption}" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Right"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
             </Border>
@@ -521,11 +521,11 @@
 
         <!-- A big number and its label (the four counts in "You're all set"). -->
         <DataTemplate x:Key="Import.StatBox" DataType="{x:Type controls:ImportStatVm}">
-            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Control}"
+            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}"
                     Padding="14,12" Margin="0,0,8,0">
                 <StackPanel>
-                    <TextBlock Text="{Binding Value}" Style="{StaticResource Import.StatNumber}" FontSize="32" LineHeight="36"/>
-                    <TextBlock Text="{Binding Label}" Style="{StaticResource Text.Eyebrow}" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding Value}" Style="{StaticResource Import.StatNumber}" FontSize="{StaticResource FontSize.Display}" LineHeight="{StaticResource LineHeight.Display}"/>
+                    <TextBlock Text="{Binding Label}" Style="{StaticResource Text.Label}" Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -541,7 +541,7 @@
                     </Grid.ColumnDefinitions>
                     <Border x:Name="Avatar" Width="36" Height="36" Background="{StaticResource Brush.Bg}"
                             BorderBrush="{Binding TintEdge}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Chip}" Margin="0,0,12,0" VerticalAlignment="Center">
+                            CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,12,0" VerticalAlignment="Center">
                         <Grid>
                             <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                             <Image x:Name="LogoImage" Source="{Binding Logo}" Width="22" Height="22"
@@ -553,7 +553,7 @@
                                    TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/>
                         <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
-                    <TextBlock x:Name="MoreText" Grid.ColumnSpan="2" Text="{Binding Name}" Style="{StaticResource Text.Label}"
+                    <TextBlock x:Name="MoreText" Grid.ColumnSpan="2" Text="{Binding Name}" Style="{StaticResource Text.BodyStrong}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                 </Grid>
             </Border>
@@ -576,14 +576,14 @@
              one tick per column (the same 6 x 84 px as the column heads). A greyed tick has nothing behind it; its
              tooltip says why. -->
         <DataTemplate DataType="{x:Type controls:GridRowVm}">
-            <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}" Padding="12,6"
+            <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}" Padding="12,6"
                     Margin="0,0,0,4">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="172"/>
                         <ColumnDefinition Width="504"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.ColumnSpan="2" Margin="-12,-6" CornerRadius="{StaticResource Radius.Card}"
+                    <Border Grid.ColumnSpan="2" Margin="-12,-6" CornerRadius="{StaticResource Radius.Lg}"
                             Background="{Binding TintWash}" IsHitTestVisible="False"/>
                     <Grid VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
@@ -591,7 +591,7 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Border Width="28" Height="28" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
-                                BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Margin="0,0,10,0">
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,10,0">
                             <Grid>
                                 <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                                 <Image x:Name="LogoImage" Source="{Binding Logo}" Width="18" Height="18"
@@ -781,7 +781,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Border x:Name="Frame" Grid.ColumnSpan="2" Margin="-10,-8" BorderBrush="{StaticResource Brush.Accent}"
-                            BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" IsHitTestVisible="False"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Md}" IsHitTestVisible="False"
                             Visibility="Collapsed"/>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
@@ -874,13 +874,13 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock x:Name="HeaderTitle" Text="BRING IT ALL OVER" Style="{StaticResource Text.Poster}"
+                    <TextBlock x:Name="HeaderTitle" Text="BRING IT ALL OVER" Style="{StaticResource Text.Heading}"
                                HorizontalAlignment="Left" TextTrimming="None" TextWrapping="Wrap"/>
                     <TextBlock x:Name="HeaderSubtitle" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
                                TextTrimming="None" MaxWidth="600" HorizontalAlignment="Left" Margin="0,10,0,0"
                                Visibility="Collapsed"/>
                     <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="0,14,0,0" Visibility="Collapsed">
-                        <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{DynamicResource Brush.Acc}"
+                        <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{DynamicResource Brush.Accent}"
                                  VerticalAlignment="Center" Margin="0,1,10,0"/>
                         <Path x:Name="ScanSpinner" Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
                               Width="14" Height="14" Margin="-3,0,7,0" Stroke="{StaticResource Brush.TextDim}"
@@ -1007,7 +1007,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="504"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="LAUNCHER" Style="{StaticResource Text.Eyebrow}" VerticalAlignment="Bottom"/>
+                        <TextBlock Text="LAUNCHER" Style="{StaticResource Text.Label}" VerticalAlignment="Bottom"/>
                         <ItemsControl x:Name="GridHeads" Grid.Column="1" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -1016,7 +1016,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding}" Style="{StaticResource Text.Eyebrow}" TextAlignment="Center"
+                                    <TextBlock Text="{Binding}" Style="{StaticResource Text.Label}" TextAlignment="Center"
                                                HorizontalAlignment="Center" VerticalAlignment="Bottom" TextWrapping="Wrap"
                                                TextTrimming="None"/>
                                 </DataTemplate>
@@ -1098,7 +1098,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
+                    <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}"
                             Padding="20,18,20,20" Margin="0,0,0,8">
                         <StackPanel>
                             <Grid>
@@ -1107,9 +1107,9 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
-                                    <TextBlock x:Name="ProgressPercent" Text="0" Style="{StaticResource Text.Poster}"
-                                               FontSize="48" LineHeight="52"/>
-                                    <TextBlock Text="%" Style="{StaticResource Text.Poster}" FontSize="22" LineHeight="26"
+                                    <TextBlock x:Name="ProgressPercent" Text="0" Style="{StaticResource Text.Heading}"
+                                               FontSize="{StaticResource FontSize.Display}" LineHeight="{StaticResource LineHeight.Display}"/>
+                                    <TextBlock Text="%" Style="{StaticResource Text.Heading}"
                                                VerticalAlignment="Bottom" Margin="2,0,0,5"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24,0,0,0">
@@ -1120,9 +1120,9 @@
                                 </StackPanel>
                             </Grid>
                             <Border x:Name="ProgressTrack" Height="6" Margin="0,16,0,0" Background="{StaticResource Brush.ProgressTrack}"
-                                    CornerRadius="{StaticResource Radius.Bar}" SizeChanged="ProgressTrack_SizeChanged">
-                                <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" Background="{DynamicResource Brush.Acc}"
-                                        CornerRadius="{StaticResource Radius.Bar}"/>
+                                    CornerRadius="{StaticResource Radius.Track}" SizeChanged="ProgressTrack_SizeChanged">
+                                <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" Background="{DynamicResource Brush.Accent}"
+                                        CornerRadius="{StaticResource Radius.Track}"/>
                             </Border>
                         </StackPanel>
                     </Border>
@@ -1133,7 +1133,7 @@
                 <ScrollViewer x:Name="DonePane" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Focusable="False" Padding="0,0,8,0" Margin="-3,-3,-3,0" Visibility="Collapsed">
                     <StackPanel Margin="3">
-                        <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}" Padding="32,28">
+                        <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}" Padding="32,28">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -1141,7 +1141,7 @@
                                 </Grid.ColumnDefinitions>
                                 <!-- The mark, with a green check badge on its corner: it worked. -->
                                 <Grid Width="96" Height="96" Margin="0,0,32,0" VerticalAlignment="Center">
-                                    <controls:OriginMark Width="88" Height="88" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                    <controls:BrandLogo Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                                     <Border Width="32" Height="32" CornerRadius="16" HorizontalAlignment="Right"
                                             VerticalAlignment="Bottom" Background="{StaticResource Brush.Success}"
                                             BorderBrush="{StaticResource Brush.Card}" BorderThickness="3">
@@ -1150,9 +1150,9 @@
                                     </Border>
                                 </Grid>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Text="IMPORT FINISHED" Style="{StaticResource Text.Eyebrow}"
+                                    <TextBlock Text="IMPORT FINISHED" Style="{StaticResource Text.Label}"
                                                Foreground="{StaticResource Brush.Success}"/>
-                                    <TextBlock x:Name="DoneTitle" Text="YOU'RE ALL SET" Style="{StaticResource Text.Poster}"
+                                    <TextBlock x:Name="DoneTitle" Text="YOU'RE ALL SET" Style="{StaticResource Text.Heading}"
                                                Margin="0,6,0,14" TextTrimming="None" TextWrapping="Wrap"/>
                                     <ItemsControl x:Name="DoneStats" Focusable="False" Margin="0,0,-8,0"
                                                   ItemTemplate="{StaticResource Import.StatBox}">
@@ -1165,7 +1165,7 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <TextBlock x:Name="DoneVersionsTitle" Text="READY TO PLAY" Style="{StaticResource Text.Eyebrow}"
+                        <TextBlock x:Name="DoneVersionsTitle" Text="READY TO PLAY" Style="{StaticResource Text.Label}"
                                    Margin="0,24,0,10"/>
                         <ItemsControl x:Name="DoneVersions" Focusable="False" Margin="0,0,-8,0"
                                       ItemTemplate="{StaticResource Import.VersionCard}">
@@ -1180,7 +1180,7 @@
                 </ScrollViewer>
 
                 <!-- Nothing changed: the reason is the page. -->
-                <Border x:Name="FailedPane" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Card}"
+                <Border x:Name="FailedPane" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}"
                         BorderBrush="{StaticResource Brush.Danger}" BorderThickness="1"
                         Padding="24,20" VerticalAlignment="Top" Visibility="Collapsed">
                     <Grid>
@@ -1204,7 +1204,7 @@
             </Grid>
 
             <!-- Footer: what is ready on the left, the page's buttons on the right. -->
-            <Grid x:Name="Footer" Grid.Row="3" Margin="0,16,0,0" MinHeight="{StaticResource Size.Control}">
+            <Grid x:Name="Footer" Grid.Row="3" Margin="0,16,0,0" MinHeight="{StaticResource Size.ControlMd}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>

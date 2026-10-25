@@ -19,9 +19,9 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToolTip">
-                    <Border Background="{StaticResource Brush.PanelElevated}"
+                    <Border Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Control}" Padding="10,5"
+                            CornerRadius="{StaticResource Radius.Sm}" Padding="8,4"
                             MaxWidth="320" SnapsToDevicePixels="True">
                         <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"
                                           TextElement.FontFamily="{TemplateBinding FontFamily}"

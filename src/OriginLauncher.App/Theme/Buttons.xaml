@@ -2,65 +2,104 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="clr-namespace:OriginLauncher.App.UI">
 
-    <!-- Keyboard focus: a 2 px frame in the tonal primary, 3 px outside the control. -->
+    <!--
+        Workbench buttons (docs/overhaul/DESIGN-SYSTEM.md sections 5, 8 and 11.1). Every colour, size and radius is a
+        token from Colors / Spacing / Typography; nothing is written here.
+
+        One template, four fills (Primary, Secondary, Ghost = Chrome, Danger) and the size steps of section 5:
+        sm 28 / md 32 / lg 36 / xl 40 tall, label 13.5 / 600. A style picks its step with MinHeight and its corner
+        with ui:Chrome.Corner (Radius.Sm on 28-32, Radius.Md on 36-40). The height is a MINIMUM so a larger label or
+        glyph grows the button instead of being cut; icon-only buttons size from their glyph
+        (OriginLauncher.Tests/IconButtonTests). A filled button's border is its own fill in every state, never
+        Transparent, because WPF paints a Border's Background inside the border line.
+
+        States (spec 8): hover and press change the fill, a press scales the button to .97 (UI/Press.cs, always
+        eases back to 1.0), disabled takes no hover and drops to 45 %, and the keyboard focus ring is a 2 px
+        accent-line frame 2 px off the edge (Focus.Button*), shown by the FocusVisualStyle for keyboard focus only.
+
+        Background and BorderBrush are LOCAL SolidColorBrush setters on every style, because the storyboards animate
+        their Colors and a shared (frozen) brush would throw. The press trigger is a MultiTrigger (over + pressed)
+        declared before the hover one, so that on release the exit action returns to the hover fill.
+    -->
+
+    <!-- Keyboard focus: a 2 px frame in the accent line, 2 px outside the control. Ring corner = control corner + 2. -->
     <Style x:Key="Focus.Button" TargetType="Control">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-3" CornerRadius="{StaticResource Radius.Focus}" BorderThickness="2"
-                            BorderBrush="{DynamicResource Brush.Acc}" Opacity="0.9"/>
+                    <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Md}" BorderThickness="2"
+                            BorderBrush="{DynamicResource Brush.AccentBorder}"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!-- The same frame for controls with Card-radius corners (the home banner). -->
+    <!-- The same frame for the 28 and 32 tall controls (Radius.Sm corners). -->
+    <Style x:Key="Focus.Button.Sm" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Sm}" BorderThickness="2"
+                            BorderBrush="{DynamicResource Brush.AccentBorder}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The same frame around a pill (the switch track): a fully rounded ring. -->
+    <Style x:Key="Focus.Pill" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-4" CornerRadius="{StaticResource Radius.Full}" BorderThickness="2"
+                            BorderBrush="{DynamicResource Brush.AccentBorder}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The same frame for controls with card corners (the home banner, version and profile cards). -->
     <Style x:Key="Focus.Card" TargetType="Control">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-3" CornerRadius="{StaticResource Radius.FocusCard}" BorderThickness="2"
-                            BorderBrush="{DynamicResource Brush.Acc}" Opacity="0.9"/>
+                    <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+                            BorderBrush="{DynamicResource Brush.AccentBorder}"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!--
-        Buttons (Poster): Primary is the lit tonal slab, Secondary a dark ghost outline,
-        Chrome nothing until hovered. Press scales to 0.985 in 80 ms and always eases back to 1.0.
+    <ControlTemplate x:Key="Template.Button" TargetType="Button">
+        <Border x:Name="Bg"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{Binding Path=(ui:Chrome.Corner), RelativeSource={RelativeSource TemplatedParent}}"
+                SnapsToDevicePixels="True">
+            <ContentPresenter Margin="{TemplateBinding Padding}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="Center"
+                              RecognizesAccessKey="True"/>
+        </Border>
+    </ControlTemplate>
 
-        Background stays a SolidColorBrush on every style here: derived styles
-        (Social.Action, the banner surface) re-template and animate
-        Background.Color, which a gradient brush would throw on.
-    -->
     <Style x:Key="Button.Base" TargetType="Button">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Padding" Value="16,10"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
         <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Control}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
-                    </Border>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Md}"/>
+        <Setter Property="ui:Press.Scale" Value="0.97"/>
+        <Setter Property="Template" Value="{StaticResource Template.Button}"/>
         <Style.Triggers>
             <!-- Press-scale: UI/Press.cs (never a storyboard on RenderTransform.ScaleX, see there).
                  Derived styles change only ui:Press.Scale. -->
@@ -74,47 +113,19 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Secondary (Will, 2026-10-20: "all the buttons this style look bad"): a ghost button, a dark
-         veil with a 1 px outline in the tonal primary and no raised surface, so it reads on the art
-         and on the page alike. Hover washes the fill and brightens the edge, press washes less
-         (and scales, UI/Press.cs). One border, nothing else to paint. Both brushes are LOCAL
-         (never Brush.Acc, which FamilyTheme tweens) because the storyboards animate their Colors.
-         Heights are the Size.Control* scale: this one is 40, .Small 32, Pill 48. The press trigger
-         is declared before the hover one so that when the pointer leaves mid-press both exits fire
-         and the hover exit (back to rest) is the one that wins. -->
+    <!-- Secondary: raised fill, strong edge (most actions). lg 36. -->
     <Style x:Key="Button.Secondary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background">
             <Setter.Value>
-                <SolidColorBrush Color="{StaticResource Color.GhostFill}"/>
+                <SolidColorBrush Color="{StaticResource Color.Card}"/>
             </Setter.Value>
         </Setter>
         <Setter Property="BorderBrush">
             <Setter.Value>
-                <SolidColorBrush Color="{StaticResource Color.GhostEdge}"/>
+                <SolidColorBrush Color="{StaticResource Color.Stroke}"/>
             </Setter.Value>
         </Setter>
-        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="Height" Value="{StaticResource Size.Control}"/>
-        <Setter Property="Padding" Value="16,0"/>
-        <Setter Property="HorizontalContentAlignment" Value="Center"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Control}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
-                    </Border>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
         <Style.Triggers>
             <MultiTrigger>
                 <MultiTrigger.Conditions>
@@ -125,8 +136,7 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.GhostFillPress}"
-                                            Duration="{StaticResource Motion.Press}"/>
+                                            To="{StaticResource Color.SurfacePress}" Duration="{StaticResource Motion.Press}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </MultiTrigger.EnterActions>
@@ -134,8 +144,7 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.GhostFillHover}"
-                                            Duration="{StaticResource Motion.Release}"/>
+                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </MultiTrigger.ExitActions>
@@ -145,19 +154,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.GhostFillHover}"
-                                            Duration="{StaticResource Motion.Hover}">
-                                <ColorAnimation.EasingFunction>
-                                    <QuadraticEase EasingMode="EaseOut"/>
-                                </ColorAnimation.EasingFunction>
-                            </ColorAnimation>
+                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Hover}"/>
                             <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                            To="{StaticResource Color.GhostEdgeHover}"
-                                            Duration="{StaticResource Motion.Hover}">
-                                <ColorAnimation.EasingFunction>
-                                    <QuadraticEase EasingMode="EaseOut"/>
-                                </ColorAnimation.EasingFunction>
-                            </ColorAnimation>
+                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -165,19 +164,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.GhostFill}"
-                                            Duration="{StaticResource Motion.Hover}">
-                                <ColorAnimation.EasingFunction>
-                                    <QuadraticEase EasingMode="EaseOut"/>
-                                </ColorAnimation.EasingFunction>
-                            </ColorAnimation>
+                                            To="{StaticResource Color.Card}" Duration="{StaticResource Motion.Hover}"/>
                             <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                            To="{StaticResource Color.GhostEdge}"
-                                            Duration="{StaticResource Motion.Hover}">
-                                <ColorAnimation.EasingFunction>
-                                    <QuadraticEase EasingMode="EaseOut"/>
-                                </ColorAnimation.EasingFunction>
-                            </ColorAnimation>
+                                            To="{StaticResource Color.Stroke}" Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
@@ -185,15 +174,16 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Secondary at header-action size (Profiles Import/Cancel, a row's Change, the drawers'
-         footers): 32 px. -->
+    <!-- Secondary at md (32): Profiles Import/Cancel, a row's Change, the drawers' footers. -->
     <Style x:Key="Button.Secondary.Small" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
-        <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
         <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
     </Style>
 
-    <!-- Title-bar / icon buttons: no surface at rest, a soft one on hover. The rest
-         colour is the hover colour at alpha 0 so the fade only animates alpha. -->
+    <!-- Ghost / icon: no fill or edge at rest, a soft wash on hover. Title-bar and toolbar icon buttons. md 32. The
+         rest colour is the hover colour at alpha 0 so the fade only animates alpha. -->
     <Style x:Key="Button.Chrome" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background">
             <Setter.Value>
@@ -202,7 +192,9 @@
         </Setter>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="ui:Press.Scale" Value="0.95"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
@@ -210,8 +202,7 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.SoftStroke}"
-                                            Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.GhostHover}" Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -219,8 +210,7 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.GhostRest}"
-                                            Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.GhostRest}" Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
@@ -228,46 +218,55 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Primary (r2): the light tonal surface, a white top edge, a dark bottom edge
-         and one static drop shadow (never animated: WPF blur re-rasterises). -->
+    <!-- Primary: the one emerald fill per decision area. lg 36 (dialogs); Play is the primary at xl. Flat: no sheen,
+         no gradient edge, no shadow. -->
     <Style x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
-        <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Padding" Value="24,14"/>
-        <Setter Property="Effect" Value="{StaticResource Shadow.Raised}"/>
-        <Setter Property="Template">
+        <Setter Property="Background">
             <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Grid SnapsToDevicePixels="True">
-                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Control}"/>
-                        <Border CornerRadius="{StaticResource Radius.Control}" Background="{StaticResource Fill.PrimarySheen}"/>
-                        <Border CornerRadius="{StaticResource Radius.Control}" BorderThickness="0,1,0,1">
-                            <Border.BorderBrush>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="{StaticResource Color.EdgePrimary}" Offset="0"/>
-                                    <GradientStop Color="{StaticResource Color.EdgePrimary}" Offset="0.5"/>
-                                    <GradientStop Color="{StaticResource Color.EdgePrimaryBottom}" Offset="0.5"/>
-                                    <GradientStop Color="{StaticResource Color.EdgePrimaryBottom}" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.BorderBrush>
-                        </Border>
-                        <ContentPresenter Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
-                    </Grid>
-                </ControlTemplate>
+                <SolidColorBrush Color="{StaticResource Color.Accent}"/>
             </Setter.Value>
         </Setter>
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.Accent}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
         <Style.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsPressed" Value="True"/>
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.AccentPress}" Duration="{StaticResource Motion.Press}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.AccentPress}" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Release}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
             <Trigger Property="IsMouseOver" Value="True">
                 <Trigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.AccentHover}"
-                                            Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -275,52 +274,30 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.Accent}"
-                                            Duration="{StaticResource Motion.Release}"/>
+                                            To="{StaticResource Color.Accent}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.Accent}" Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
-            </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.AccentPress}" Duration="{StaticResource Motion.Press}"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.Accent}" Duration="{StaticResource Motion.Release}"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.ExitActions>
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.45"/>
-                <Setter Property="Effect" Value="{x:Null}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- Top-bar page tab: tracked caps label, muted at rest, full text when
-         current, with a 2 px underline in the version's accent that grows from
-         the centre (scaleX) under the current page. -->
+    <!-- Top-bar page tab: the label muted at rest, full text when current, with a 2 px underline in the accent that
+         grows from the centre (scaleX) under the current page. md 32. -->
     <Style x:Key="Button.NavItem" TargetType="ToggleButton">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Padding" Value="14,0"/>
-        <Setter Property="Height" Value="36"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -329,9 +306,9 @@
                         <ContentPresenter Margin="{TemplateBinding Padding}"
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        <Border x:Name="Indicator" Height="2" Margin="14,0,14,2"
+                        <Border x:Name="Indicator" Height="2" Margin="12,0,12,0"
                                 VerticalAlignment="Bottom"
-                                Background="{DynamicResource Brush.Acc}"
+                                Background="{StaticResource Brush.Accent}"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform ScaleX="0"/>
@@ -374,11 +351,10 @@
     </Style>
 
     <!--
-        Play (option 6): no slab. The content (the big tracked PLAY) sits left of a
-        58 px ring drawn in the version's accent. Hover fills the ring with the
-        accent from the centre (scale 0 to 1, expo ease) and the arrow turns dark; the
-        arrow itself never moves (Will, 2026-10-20). Press scales the whole control to
-        0.97 (ui:Press) and the ring to 0.94. Only scale, opacity and colour animate.
+        Play: the content (the PLAY word) sits left of a ring in the accent. Hover fills the ring with the accent
+        from the centre (scale 0 to 1, expo ease) and the arrow turns onAccent; the arrow itself never moves. Press
+        scales the whole control to .97 (ui:Press) and the ring to .94. Only scale, opacity and colour animate.
+        The arrow brush is local because the storyboard animates its Color.
     -->
     <Style x:Key="Button.PlayHero" TargetType="Button">
         <Setter Property="Cursor" Value="Hand"/>
@@ -396,21 +372,25 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <!-- No pool of its own: the bottom scrim (ArtStage) already holds PLAY at 7:1. -->
-                        <ContentPresenter x:Name="Word" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,18,0"/>
-                        <Grid Grid.Column="1" x:Name="Ring" Width="58" Height="58" VerticalAlignment="Center"
+                        <ContentPresenter x:Name="Word" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <Grid Grid.Column="1" x:Name="Ring" Width="56" Height="56" VerticalAlignment="Center"
                               RenderTransformOrigin="0.5,0.5">
                             <Grid.RenderTransform>
                                 <ScaleTransform x:Name="RingScale" ScaleX="1" ScaleY="1"/>
                             </Grid.RenderTransform>
-                            <Ellipse x:Name="RingFill" Fill="{DynamicResource Brush.Acc}" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse x:Name="RingFill" Fill="{StaticResource Brush.Accent}" RenderTransformOrigin="0.5,0.5">
                                 <Ellipse.RenderTransform>
                                     <ScaleTransform x:Name="FillScale" ScaleX="0" ScaleY="0"/>
                                 </Ellipse.RenderTransform>
                             </Ellipse>
-                            <Ellipse x:Name="RingStroke" Stroke="{DynamicResource Brush.Acc}" StrokeThickness="2"/>
+                            <Ellipse x:Name="RingStroke" Stroke="{StaticResource Brush.Accent}" StrokeThickness="2"/>
                             <Path x:Name="Arrow" Data="M5,12 H19 M13,6 L19,12 L13,18" Width="24" Height="24" Stretch="None"
                                   StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#FFE6E6E6"/>
+                                  HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path.Stroke>
+                                    <SolidColorBrush Color="{StaticResource Color.Text}"/>
+                                </Path.Stroke>
+                            </Path>
                         </Grid>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -424,7 +404,7 @@
                                         <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="{StaticResource Motion.Settle}">
                                             <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="7"/></DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="#FF0E0E0E" Duration="{StaticResource Motion.Scene}"/>
+                                        <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="{StaticResource Color.TextOnAccent}" Duration="{StaticResource Motion.Scene}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
@@ -433,7 +413,7 @@
                                     <Storyboard>
                                         <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleX" To="0" Duration="{StaticResource Motion.Scene}"/>
                                         <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleY" To="0" Duration="{StaticResource Motion.Scene}"/>
-                                        <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="#FFE6E6E6" Duration="{StaticResource Motion.Hover}"/>
+                                        <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="{StaticResource Color.Text}" Duration="{StaticResource Motion.Hover}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.ExitActions>
@@ -460,8 +440,8 @@
                         <Trigger Property="Tag" Value="busy">
                             <Setter TargetName="Ring" Property="Opacity" Value="0.35"/>
                         </Trigger>
-                        <!-- Can't play yet (signed out, no version, an import running): a quiet, neutral
-                             PLAY. The accent is for things you can act on, so the ring goes grey. -->
+                        <!-- Can't play yet (signed out, no version, an import running): a quiet, neutral PLAY. The
+                             accent is for things you can act on, so the ring goes grey. -->
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Word" Property="Opacity" Value="0.5"/>
                             <Setter TargetName="RingStroke" Property="Stroke" Value="{StaticResource Brush.Stroke}"/>
@@ -475,81 +455,88 @@
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="ui:Press.Down" Value="True"/>
             </Trigger>
-            <!-- The disabled look is in the template (word dimmed, ring neutral): dimming the whole
-                 control left a muddy half-accent ring. -->
+            <!-- The disabled look is in the template (word dimmed, ring neutral): dimming the whole control left a
+                 muddy half-accent ring. -->
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Cursor" Value="Arrow"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- Primary on the shared control scale: Medium is 40 (the usual button), Small 32 (row and header
-         actions). No drop shadow at these sizes: they sit on a card or a drawer, not on the art. -->
+    <!-- Primary on the size steps: Medium is lg 36 (the usual button), Small is md 32 (row and header actions). -->
     <Style x:Key="Button.Primary.Medium" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
-        <Setter Property="Height" Value="{StaticResource Size.Control}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
         <Setter Property="Padding" Value="16,0"/>
-        <Setter Property="Effect" Value="{x:Null}"/>
     </Style>
     <Style x:Key="Button.Primary.Small" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
-        <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
         <Setter Property="Padding" Value="12,0"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
-        <Setter Property="Effect" Value="{x:Null}"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
     </Style>
 
-    <!-- Icon-only primary (chat send): a Control-sized square that grows with its glyph (Min*, never fixed). -->
+    <!-- Icon-only primary (chat send): a lg-sized square that grows with its glyph (Min*, never fixed). -->
     <Style x:Key="Button.Primary.Icon" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
-        <Setter Property="MinWidth" Value="{StaticResource Size.Control}"/>
-        <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/>
-        <Setter Property="Padding" Value="12"/>
-        <Setter Property="Effect" Value="{x:Null}"/>
+        <Setter Property="MinWidth" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="10"/>
     </Style>
 
-    <!-- Home pill (version / profile / Join): Secondary at the Home strip's height (48), content
-         stretched so a pill can hold an emblem, a name and a chevron. -->
+    <!-- Home strip pill (version / profile / Join): Secondary at xl 40, content stretched so a pill can hold an
+         emblem, a name and a chevron. -->
     <Style x:Key="Button.Pill" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="Padding" Value="16,0,12,0"/>
-        <Setter Property="Height" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlXl}"/>
         <Setter Property="FontWeight" Value="Normal"/>
     </Style>
 
-    <!-- The destructive confirm (Remove, Block, Kick, Uninstall): redstone, not the emerald primary. Lives here (not Social.xaml) so Origin Setup, which links Buttons.xaml, uses the same one. -->
+    <!-- Danger: a soft red fill with red text, never a filled red primary (Remove, Block, Kick, Uninstall). lg 36. -->
     <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Base}">
-        <Setter Property="Background" Value="{StaticResource Brush.Danger}"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Height" Value="{StaticResource Size.Control}"/>
-        <Setter Property="Padding" Value="16,0"/>
-        <Setter Property="Template">
+        <Setter Property="Background">
             <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg" Background="{TemplateBinding Background}"
-                            CornerRadius="{StaticResource Radius.Control}" SnapsToDevicePixels="True">
-                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
-                                          VerticalAlignment="Center" RecognizesAccessKey="True"/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.DangerStrong}"/>
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.DangerStrong}"/>
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
+                <SolidColorBrush Color="{StaticResource Color.DangerSoft}"/>
             </Setter.Value>
         </Setter>
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.DangerSoft}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Foreground" Value="{StaticResource Brush.DangerText}"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.DangerSoftHover}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.DangerSoftHover}" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.DangerSoft}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.DangerSoft}" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
-    <!-- The same destructive confirm at the small size, beside Button.Secondary.Small (inline "Delete? / Cancel"). -->
+    <!-- The same destructive confirm at md 32, beside Button.Secondary.Small (inline "Delete? / Cancel"). -->
     <Style x:Key="Button.Danger.Small" TargetType="Button" BasedOn="{StaticResource Button.Danger}">
-        <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
         <Setter Property="Padding" Value="12,0"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
     </Style>
 
 </ResourceDictionary>

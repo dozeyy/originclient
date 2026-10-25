@@ -390,7 +390,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         HeaderTitle.Text = title.ToUpperInvariant();
         if (compact)
         {
-            HeaderTitle.FontSize = (double)FindResource("FontSize.DialogTitle");
+            HeaderTitle.FontSize = (double)FindResource("FontSize.Heading");
             HeaderTitle.LineHeight = HeaderTitle.FontSize;
             HeaderSubtitle.Margin = new Thickness(0, 4, 0, 0);
         }
