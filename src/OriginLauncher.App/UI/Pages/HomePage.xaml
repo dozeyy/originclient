@@ -104,24 +104,6 @@
             <!-- Play, Join and the My mods switch: centred in row 0 with the pills, so the pills'
                  centre line, Join's and the Play ring's are one line (PLAY's caps centre on the ring). -->
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- The Origin Store: capes and cosmetics. One quiet pill the size of its words (Join's
-                     shape: a gold glyph, a name, a one-line caption), no art, no glow: it is easy to find
-                     and never competes with Play. Opens OriginLinks.Store in the default browser. -->
-                <Button x:Name="StoreButton" Style="{StaticResource Button.Pill}" Margin="0,0,24,0"
-                        VerticalAlignment="Center" Click="StoreButton_Click"
-                        AutomationProperties.Name="Open the Origin Store in your browser">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
-                              VerticalAlignment="Center" Margin="0,0,12,0"
-                              Stroke="{StaticResource TintInk.Gold}"/>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Origin Store" Style="{StaticResource Text.Label}" LineHeight="18"/>
-                            <TextBlock Text="Capes and cosmetics" Style="{StaticResource Text.Caption}"
-                                       Foreground="{StaticResource Brush.TextDim}" LineHeight="16"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
-
                 <!-- My mods (Will, 2026-10-19: "maybe a slider would be better like a slider on
                      or off"): the Mods page's YOUR MODS switch on Home, the same setting
                      (LauncherSettings.PlayWithExternalMods). No box: a caps label and the
@@ -175,6 +157,23 @@
                     </Grid>
                 </Button>
             </StackPanel>
+            <!-- The Origin Store: capes and cosmetics. A small quiet chip on the strip's second line,
+                 level with the status line and under Play's column: easy to find, never competing with
+                 Play, and it takes no width from the pills (the first line is full when a profile,
+                 Join and RUNNING are all up). The gold glyph is the soft accent; no art, no glow.
+                 Opens OriginLinks.Store in the default browser. -->
+            <Button x:Name="StoreButton" Grid.Row="1" Grid.Column="1" Style="{StaticResource Button.Secondary.Small}"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,0,0"
+                    Click="StoreButton_Click"
+                    AutomationProperties.Name="Open the Origin Store in your browser">
+                <StackPanel Orientation="Horizontal">
+                    <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Small}"
+                          VerticalAlignment="Center" Margin="0,0,8,0" Stroke="{StaticResource TintInk.Gold}"/>
+                    <TextBlock Text="Origin Store" Style="{StaticResource Text.Status}" VerticalAlignment="Center"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                </StackPanel>
+            </Button>
+
         </Grid>
 
         <!-- Version picker above Home content, below the launch screen, so a launch
