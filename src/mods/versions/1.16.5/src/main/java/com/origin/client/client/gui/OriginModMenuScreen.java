@@ -213,7 +213,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 		// Things that only matter on a server (Hypixel, lobbies, teams, chat macros).
 		for (String id : new String[]{"serveraddress", "hypixel", "hypixelbedwars", "teamview", "autogg",
-				"quickplay", "nickhider", "discord", "autotext", "friends"}) {
+				"quickplay", "nickhider", "autotext", "friends"}) {
 			CATS.put(id, Cat.SERVER);
 		}
 	}

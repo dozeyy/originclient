@@ -5,7 +5,7 @@ import net.minecraft.client.Minecraft;
 
 /**
  * The per-tick / per-frame entry points of the server-integration mods (Lunar
- * parity batch 3b: Team View, Discord Status, Hypixel, Hypixel Bed Wars). Every
+ * parity batch 3b: Team View, Discord presence (always on), Hypixel, Hypixel Bed Wars). Every
  * call is wrapped so a failure in one of these mods can never break a tick, a
  * frame or an incoming chat line -- it just leaves that mod quiet.
  *
