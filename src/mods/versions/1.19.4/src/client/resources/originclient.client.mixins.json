@@ -13,6 +13,7 @@
 		"TabButtonMixin",
 		"ImageButtonMixin",
 		"AbstractWidgetAccessor",
+		"AbstractWidgetTooltipMixin",
 		"GameRendererMixin",
 		"GuiHudMixin",
 		"MouseHandlerMixin",

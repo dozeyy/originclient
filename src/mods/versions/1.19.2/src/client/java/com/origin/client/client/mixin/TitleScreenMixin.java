@@ -58,9 +58,9 @@ import java.util.function.BiConsumer;
 // line, no splash. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own
 // widgets are only REPOSITIONED (clicks and actions untouched) and draw as
 // stock Minecraft buttons; the icon row draws vanilla's button art with
-// Origin's icon on top (OriginButtonRenderer.vanillaIconButton). Every icon
-// square gets a one-line tooltip saying what it does (vanilla Tooltip); worded
-// buttons get none -- their label already says it (Will, 2026-10-19). Mods /
+// Origin's icon on top (OriginButtonRenderer.vanillaIconButton). The icon
+// squares show no hover card (Will, 2026-10-25: a card beside a dock glyph
+// read as a second button); worded buttons say it in their label. Mods /
 // Friends / Cosmetics are Origin's, added as real widgets through
 // ScreenInvoker. Mod Menu's own "Mods" button is hidden every frame (it is
 // added by Mod Menu's screen event after our init hook, which also bumps
@@ -348,40 +348,10 @@ public class TitleScreenMixin {
 				|| net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
 	}
 
-	// Icon square -> its tooltip line. 1.19.2 has no Tooltip API (it arrived in
-	// 1.19.3), so render TAIL draws the hovered square's line with vanilla's own
-	// Screen.renderTooltip -- the same box and font a 1.19.3+ Tooltip uses.
+	/** Icon-only square: vanilla's button with the Origin symbol (no hover card, Will 2026-10-25). */
 	@Unique
-	private final java.util.IdentityHashMap<AbstractWidget, Component> originclient$tips = new java.util.IdentityHashMap<>();
-
-	/** Icon-only square: vanilla's button with the Origin symbol, and what it does as its tooltip. */
-	@Unique
-	private void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
+	private void originclient$iconOnly(AbstractWidget w, String icon) {
 		OriginButtonRenderer.setTitlePresentation(w, icon, true);
-		if (w != null) {
-			originclient$tips.put(w, Component.literal(tip));
-		}
-	}
-
-	// Target: TitleScreen.render TAIL (after every widget drew). Why: vanilla
-	// tooltips on the icon squares only (worded buttons get none). If this stops
-	// applying: the icon row has no tooltips; nothing else changes.
-	@Inject(method = "render", at = @At("TAIL"))
-	private void originclient$iconTooltip(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		if (!originclient$origin() || originclient$tips.isEmpty()) {
-			return;
-		}
-		try {
-			for (AbstractWidget w : originclient$icons) {
-				Component tip = originclient$tips.get(w);
-				if (tip != null && w.visible && w.isHoveredOrFocused() && w.isMouseOver(mouseX, mouseY)) {
-					((Screen) (Object) this).renderTooltip(poseStack, tip, mouseX, mouseY);
-					return;
-				}
-			}
-		} catch (Throwable ignored) {
-			// fail-soft: no tooltip this frame
-		}
 	}
 
 	/**
@@ -401,7 +371,6 @@ public class TitleScreenMixin {
 			originclient$navPos.clear();
 			originclient$icons.clear();
 			originclient$iconPos.clear();
-			originclient$tips.clear();
 			List<AbstractWidget> main = new ArrayList<>();
 			List<AbstractWidget> images = new ArrayList<>();
 			for (GuiEventListener child : self.children()) {
@@ -485,7 +454,7 @@ public class TitleScreenMixin {
 			List<AbstractWidget> dock = new ArrayList<>();
 			if (realms != null) {
 				if (originclient$REALMS_WORKS) {
-					originclient$iconOnly(realms, "@px-realms", "Play on Minecraft Realms");
+					originclient$iconOnly(realms, "@px-realms");
 					dock.add(realms);
 				} else {
 					// Realms only joins on the latest release (see REALMS_WORKS): hide the dead button, keep the slot out of the dock
@@ -494,25 +463,25 @@ public class TitleScreenMixin {
 				}
 			}
 			if (originclient$friendsNav != null) {
-				originclient$iconOnly(originclient$friendsNav, "@px-friends", "Friends: see who is online and join them");
+				originclient$iconOnly(originclient$friendsNav, "@px-friends");
 				dock.add(originclient$friendsNav);
 			}
 			if (originclient$cosmeticsNav != null) {
-				originclient$iconOnly(originclient$cosmeticsNav, "@px-shirt", "Cosmetics: capes and more for your player");
+				originclient$iconOnly(originclient$cosmeticsNav, "@px-shirt");
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : images) {
 				// narrator.button.language / narrator.button.accessibility
 				String key = originclient$translationKey(icon.getMessage());
 				if (key.endsWith(".language")) {
-					originclient$iconOnly(icon, "@px-language", "Change the game's language");
+					originclient$iconOnly(icon, "@px-language");
 				} else if (key.endsWith(".accessibility")) {
-					originclient$iconOnly(icon, "@px-access", "Accessibility settings");
+					originclient$iconOnly(icon, "@px-access");
 				}
 				dock.add(icon);
 			}
 			if (quit != null) {
-				originclient$iconOnly(quit, "@px-quit", "Quit the game");
+				originclient$iconOnly(quit, "@px-quit");
 				dock.add(quit);
 			}
 			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;

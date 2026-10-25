@@ -1,7 +1,5 @@
 package com.origin.client.client.render;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -12,8 +10,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
@@ -21,22 +17,21 @@ import org.lwjgl.opengl.GL11;
 
 // Shared Origin screen rendering, used by the loading screen
 // (LoadingOverlayMixin), the main menu (TitleScreenMixin) and every out-of-world
-// menu (the beforeRender backdrop in OriginClientMod + ScreenBackgroundMixin).
-// The clean look (Will's approved mockup, 2026-10-19, ported from 1.21.1):
+// menu (ScreenBackgroundMixin):
 //
-//  - STARTUP LOADING: near-black with a soft centre lift, the real Origin logo,
-//    the ORIGIN wordmark in Minecraft's own letters, a thin bar and the percent.
-//  - MINECRAFT'S MENUS + WORLD LOADING: this version's own panorama, blurred
-//    (MenuBlur, this era has no vanilla menu blur), dimmed and vignetted.
-//  - ORIGIN'S OWN SCREENS (Right Shift mod menu family): the charcoal + rings
-//    backdrop (renderTitleBackground), unchanged.
+//  - LOADING (startup, world load, Connecting): the one loading picture
+//    (LoadingLook, ported from 1.21.1): the real Origin logo, a plain capsule bar
+//    and one caption. Startup sits on near-black with a soft centre lift; the
+//    world load and Connecting keep this version's own blurred panorama.
+//  - ORIGIN'S OWN SCREENS (Right Shift mod menu family): charcoal + glow + grain
+//    + vignette (renderTitleBackground).
+// No drawn rings anywhere: the only ring shapes are inside origin_logo.png itself
+// (Will, 2026-10-25: drawn look-alikes read as a fake logo).
 //
 // Textures load via the classloader (not the resource manager), so this is
 // safe during the earliest loading overlay while resources are still loading,
 // and degrades gracefully if any asset fails rather than crashing.
 public final class OriginScreenRenderer {
-	private static final Gson GSON = new Gson();
-	private static final int TEX = 768;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
@@ -49,11 +44,6 @@ public final class OriginScreenRenderer {
 	private static volatile boolean broken = false;
 
 	private static volatile boolean loaded = false;
-	private static boolean ringsFailed = false;
-	private static final List<Ring> rings = new ArrayList<>();
-	// The rings' rotation inputs as arrays, for RingField (built with `rings`).
-	private static double[] ringAngle0 = new double[0], ringPeriod = new double[0];
-	private static boolean[] ringReverse = new boolean[0];
 	private static ResourceLocation grainId;
 
 	// Edge vignette (transparent core -> soft black corners). Blitted full-screen
@@ -75,33 +65,12 @@ public final class OriginScreenRenderer {
 	private static final double FILL_TAU = 140.0;
 
 	// ---- Main-menu ambient layer ----
-	// Ellipse height:width of the ring textures (generate_textures HEIGHT_RATIO),
-	// needed to place a body on a ring's path.
-	private static final double RING_HEIGHT_RATIO = 0.37;
-
 	// Cursor-follow glow (the website's two-layer spotlight): one radial
 	// gradient texture drawn twice -- a tight core that snaps to the cursor
 	// and a soft halo that trails it with lerped physics, both blooming when
 	// hovering a clickable. State is static: one cursor, one glow.
 	private static ResourceLocation radialGlowId;
 	private static final int RADIAL_TEX = 512;
-
-	// one animated brand ring (Java-8 final class, was a record).
-	private static final class Ring {
-		private final ResourceLocation texture; private final double widthFrac; private final float opacity;
-		private final double angle0; private final double periodSeconds; private final boolean reverse;
-		Ring(ResourceLocation texture, double widthFrac, float opacity,
-			 double angle0, double periodSeconds, boolean reverse) {
-			this.texture = texture; this.widthFrac = widthFrac; this.opacity = opacity;
-			this.angle0 = angle0; this.periodSeconds = periodSeconds; this.reverse = reverse;
-		}
-		ResourceLocation texture() { return texture; }
-		double widthFrac() { return widthFrac; }
-		float opacity() { return opacity; }
-		double angle0() { return angle0; }
-		double periodSeconds() { return periodSeconds; }
-		boolean reverse() { return reverse; }
-	}
 
 	private OriginScreenRenderer() {
 	}
@@ -121,9 +90,9 @@ public final class OriginScreenRenderer {
 	// ---- Public entry points ----
 
 	/**
-	 * Startup resource-load screen: near-black with a soft centre lift, the real
-	 * Origin logo (still), the "ORIGIN" wordmark beneath it, a thin bar and the
-	 * percent (renderLoading0).
+	 * Startup resource-load screen: near-black with a soft centre lift and the one
+	 * loading picture (LoadingLook: the real Origin logo, the plain capsule bar and
+	 * the "Loading resources NN%" caption).
 	 */
 	public static void renderLoading(Gfx guiGraphics, float progress) {
 		// The game is on screen now (Origin's scene, or vanilla's if ours
@@ -189,7 +158,7 @@ public final class OriginScreenRenderer {
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
 			// The title shows the real Origin logo, still, so the loading layer simply
-			// dissolves over it. The title underneath already drives the ring field.
+			// dissolves over it.
 			renderLoading0(guiGraphics, 1f, false);
 			guiGraphics.flush();
 			return true;
@@ -223,15 +192,12 @@ public final class OriginScreenRenderer {
 
 	private static void renderLoading0(Gfx guiGraphics, float progress, boolean drive) {
 		ensureLoaded();
-		if (drive) {
-			field(RingField.Mood.LOADING);
-		}
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
 		float clamped = Math.max(0f, Math.min(1f, progress));
 
-		double scene = RingField.sceneMs();
+		double scene = SceneClock.sceneMs();
 		// The fill only ever moves forward within a load and is full exactly when
 		// the reload is done (LoadBar: the reload's own fraction dips mid-load as
 		// work is queued); a load after a finished one starts it over. The
@@ -245,21 +211,14 @@ public final class OriginScreenRenderer {
 			// loader's worth per frame now, so the title's first frames don't.
 			com.origin.client.client.OriginAssets.uploadSlice();
 		}
-		// Clean splash (Will's approved mockup, 2026-10-19): solid near-black with a
-		// soft centre lift, the REAL Origin logo (still), the ORIGIN wordmark, a
-		// thin bar and the real percent.
+		// The loading picture (LoadingLook, ported from 1.21.1): near-black with a soft
+		// centre lift, the real Origin logo, the plain capsule bar and the stage line
+		// with the reload's real percentage.
 		RenderSystem.color4f(1f, 1f, 1f, 1f);
 		fillLayer(guiGraphics, 0, 0, w, h, fade(OriginTheme.CLEAN_BG));
 		drawCenterLift(guiGraphics, w, h, 0.05f);
-		double size = clampD(h * 0.11, 24, 44);
-		double markCy = h * 0.44;
-		drawLogo(guiGraphics, w / 2.0, markCy, size, layerAlpha);
-		double wordBase = markCy + size / 2.0 + 19;
-		drawWordmarkText(guiGraphics, w / 2.0, wordBase, fade(0xFFFFFFFF));
-		double barW = Math.min(160, w * 0.5);
-		double barTop = wordBase + 9;
-		drawThinBar(guiGraphics, w / 2.0, barTop, barW, (float) loadFill, false);
-		bootText(guiGraphics, percentLabel(loadFill), w / 2.0 + barW / 2.0, barTop + 5, 1f, 0, fade(OriginTheme.CLEAN_TEXT_FAINT), 1f);
+		RenderSystem.color4f(1f, 1f, 1f, 1f);   // the lift's shade() leaves the dissolve in the colour
+		LoadingLook.draw(guiGraphics, layerAlpha, loadFill, startupCaption(loadFill), true);
 	}
 
 	// The title's first-use costs (textures, driver shader builds, glyphs) used to
@@ -274,16 +233,17 @@ public final class OriginScreenRenderer {
 				? ((com.origin.client.client.mixin.loading.LoadingOverlayAccessor) overlay).originclient$reload() : null;
 	}
 
-	// The splash's "NN%" for a fill, rebuilt only when the whole percent changes
-	// (no string built per frame while it holds still).
+	// The startup caption ("Loading resources NN%") for a fill, rebuilt only when
+	// the whole percent changes (no string built per frame while it holds still).
+	// ASCII on purpose: it is drawn in the boot font before any translation exists.
 	private static int pctShown = -1;
-	private static String pctLabel = "0%";
+	private static String pctLabel = "Loading resources 0%";
 
-	private static String percentLabel(double fill) {
+	private static String startupCaption(double fill) {
 		int pct = (int) Math.round(Math.max(0.0, Math.min(1.0, fill)) * 100);
 		if (pct != pctShown) {
 			pctShown = pct;
-			pctLabel = pct + "%";
+			pctLabel = "Loading resources " + pct + "%";
 		}
 		return pctLabel;
 	}
@@ -307,7 +267,6 @@ public final class OriginScreenRenderer {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
-			// The screen underneath drives the ring field: don't pull it back.
 			renderLoading0(guiGraphics, 1f, false);
 			guiGraphics.flush();
 			return true;
@@ -320,13 +279,10 @@ public final class OriginScreenRenderer {
 
 	/**
 	 * Full-screen loading/progress scene for the world-load screens
-	 * (LevelLoadingScreen, ReceivingLevelScreen, ProgressScreen): the same
-	 * charcoal + rings + grain background as the menus, the screen's title in
-	 * the default font, and a smooth indeterminate bar. Drawn as a HEAD-cancel
-	 * takeover, so it replaces vanilla's chunk map / dirt / progress clutter
-	 * with one clean Origin scene. Indeterminate (not tied to a real percent):
-	 * reading each screen's internal progress field would need an unverifiable
-	 * @Shadow, and a calm sweeping bar reads as premium regardless.
+	 * (LevelLoadingScreen, ReceivingLevelScreen, ProgressScreen): this version's
+	 * own panorama behind the one loading picture (LoadingLook), the screen's own
+	 * title as the caption. Drawn as a HEAD-cancel takeover, so it replaces
+	 * vanilla's chunk map / dirt / progress clutter with one clean Origin scene.
 	 */
 	public static boolean renderLoadingScene(Gfx guiGraphics, net.minecraft.network.chat.Component title) {
 		return renderLoadingScene(guiGraphics, title, -1f);
@@ -363,143 +319,97 @@ public final class OriginScreenRenderer {
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
 
-		// Clean loading scene (Will's approved mockup, 2026-10-19): this version's
-		// own panorama, blurred and dimmed, the real logo, the world's name, a thin
-		// bar and vanilla's own stage line. Solid background if the panorama can't draw.
+		// This version's own panorama, blurred and dimmed, behind the loading picture.
+		// Solid background if the panorama can't draw.
 		if (!backdrop(mc.screen, guiGraphics, mc.getDeltaFrameTime(), true, OriginTheme.CLEAN_DIM_LOADING)) {
 			fillLayer(guiGraphics, 0, 0, w, h, OriginTheme.CLEAN_BG);
 		}
 
 		// The fill glides to each new count and only moves forward within one world
 		// load; it sweeps until the load's first measured stage (LoadBar.scene).
-		double now = RingField.sceneMs();
+		double now = SceneClock.sceneMs();
 		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
 		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
 			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		}
-		// World loading: the world's name big, vanilla's own "Preparing spawn area:
-		// N%" line small. Never an invented stage name. The strings are rebuilt only
-		// when the title, the world or the whole percent changes (sceneLabels).
-		String levelName = null;
-		if (progress >= 0f) {
-			try {
-				if (mc.getSingleplayerServer() != null) {
-					levelName = mc.getSingleplayerServer().getWorldData().getLevelName();
-				}
-			} catch (Throwable ignored) {
-				levelName = null;
-			}
-		}
+		// The caption: vanilla's own "Preparing spawn area: N%" while the spawn area
+		// loads, else the screen's title; never an invented stage name. Rebuilt only
+		// when the title, the whole percent or the language changes (compared by
+		// reference: the screen keeps one title Component).
 		int pct = progress >= 0f ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : -1;
 		String lang = mc.options.languageCode;
-		if (title != labelTitle || levelName != labelLevel || pct != labelPct || !java.util.Objects.equals(lang, labelLang)) {
+		if (title != labelTitle || pct != labelPct || !java.util.Objects.equals(lang, labelLang)) {
 			labelTitle = title;
-			labelLang = lang;
-			labelLevel = levelName;
 			labelPct = pct;
-			sceneLabels(title, levelName, pct);
+			labelLang = lang;
+			labelCaption = sceneCaption(title, pct);
 		}
-		String big = labelBig, small = labelSmall;
-		drawSceneText(guiGraphics, w, h, big, small, sceneFill);
+		RenderSystem.color4f(1f, 1f, 1f, 1f);
+		LoadingLook.draw(guiGraphics, 1f, sceneFill, labelCaption, false);
 	}
 
-	// The loading scene's labels and what they were built from (compared by
-	// reference: the screen keeps one title Component, the server one level name;
-	// plus the language code, so a language change rebuilds the translated lines).
+	// The loading scene's caption and what it was built from.
 	private static net.minecraft.network.chat.Component labelTitle;
 	private static String labelLang;
-	private static String labelLevel;
 	private static int labelPct = Integer.MIN_VALUE;
-	private static String labelBig = "", labelSmall = "";
+	private static String labelCaption = "";
 
-	/** Builds the scene's big and small lines (pct < 0: no world load, title only). */
-	private static void sceneLabels(net.minecraft.network.chat.Component title, String levelName, int pct) {
-		String big = title == null ? "" : title.getString().trim();
-		String small = "";
+	/** The stage line: vanilla's spawn line while the spawn area loads (pct >= 0), else the screen's title. */
+	private static String sceneCaption(net.minecraft.network.chat.Component title, int pct) {
 		if (pct >= 0) {
-			if (levelName != null && !levelName.trim().isEmpty()) {
-				big = levelName;
-			} else if (big.isEmpty() && net.minecraft.client.resources.language.I18n.exists("menu.loadingLevel")) {
-				big = net.minecraft.client.resources.language.I18n.get("menu.loadingLevel");   // vanilla "Loading world"
-			}
-			small = net.minecraft.client.resources.language.I18n.get("menu.preparingSpawn", pct);
+			return net.minecraft.client.resources.language.I18n.get("menu.preparingSpawn", pct);
 		}
-		labelBig = big;
-		labelSmall = small;
-	}
-
-	/** The loading scene's centred logo, title, bar and stage line (fill < 0: sweeping). */
-	private static void drawSceneText(Gfx guiGraphics, int w, int h, String big, String small, double fill) {
-		double cy = h * 0.42;
-		double logo = 22;
-		drawLogo(guiGraphics, w / 2.0, cy, logo, 1f);
-		double titleMid = cy + logo / 2.0 + 13;
-		drawCenteredLabel(guiGraphics, big, w / 2.0, titleMid, OriginTheme.CLEAN_TEXT);
-		double barW = Math.min(160, w * 0.5);
-		double barTop = titleMid + 10;
-		drawThinBar(guiGraphics, w / 2.0, barTop, barW, (float) fill, fill < 0);
-		if (!small.isEmpty()) {
-			drawCenteredLabel(guiGraphics, small, w / 2.0, barTop + 10, OriginTheme.CLEAN_TEXT_DIM);
-		}
+		return title == null ? "" : title.getString().trim();
 	}
 
 	/**
-	 * Connecting to a server (ConnectScreen keeps its vanilla render: the status
-	 * line and Cancel stay, the backdrop comes from ScreenBackgroundMixin). This
-	 * adds the logo above the status line and the thin sweeping bar under it.
+	 * Connecting to a server: the same loading picture as the other screens, the
+	 * connection status as its caption, over this version's own menu backdrop
+	 * (ScreenBackgroundMixin). ConnectScreenMixin calls this in place of vanilla's
+	 * status line; the screen's own Cancel button draws after it, seated below the
+	 * picture ({@link #connectCancelTop}). The logo sits at exactly the spot every
+	 * other loading screen uses. False when Origin rendering is off or the draw
+	 * failed: the caller then draws vanilla's status line.
+	 *
+	 * @param pose the frame's PoseStack (pre-1.20 GameRenderer makes a new one every
+	 *             frame, so one Gfx is re-pointed at it instead of allocated per frame)
 	 */
-	public static void renderConnectingBar(Gfx guiGraphics) {
-		// TAIL-additive over the vanilla connect screen; skip when broken.
+	public static boolean renderConnecting(PoseStack pose, net.minecraft.network.chat.Component status) {
 		if (broken) {
-			return;
+			return false;
 		}
 		try {
-			ensureLoaded();
-			Minecraft mc = Minecraft.getInstance();
-			int w = mc.getWindow().getGuiScaledWidth();
-			int h = mc.getWindow().getGuiScaledHeight();
-			// Vanilla draws the status line with its top at height/2 - 50.
-			double statusMid = h / 2.0 - 50 + 3.5;
-			drawLogo(guiGraphics, w / 2.0, statusMid - 26, 22, 1f);
-			drawThinBar(guiGraphics, w / 2.0, statusMid + 11, Math.min(160, w * 0.5), 0f, true);
+			if (status != connectStatus) {
+				connectStatus = status;
+				connectCaption = status == null ? "" : status.getString().trim();
+			}
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.color4f(1f, 1f, 1f, 1f);
+			LoadingLook.draw(CONNECT_GFX.rebind(pose), 1f, -1, connectCaption, false);
+			return true;
 		} catch (Throwable t) {
-			fail(t);
+			return fail(t);
+		} finally {
+			RenderSystem.color4f(1f, 1f, 1f, 1f);
 		}
-	}
-
-	/** One label in Minecraft's own font (with its shadow), centred on (cx, midY). */
-	private static void drawCenteredLabel(Gfx g, String s, double cx, double midY, int argb) {
-		if (s == null || s.isEmpty()) {
-			return;
-		}
-		Font font = Minecraft.getInstance().font;
-		g.drawString(font, s, (int) Math.round(cx - font.width(s) / 2.0), (int) Math.round(midY - 4), argb, true);
 	}
 
 	/**
-	 * The thin loading bar (160 x 1.5 GUI px in the mockup): a faint track and a
-	 * white fill, both at physical-pixel precision so a 1.5px bar is a real
-	 * 3px (scale 2) line and the fill end glides instead of stepping.
-	 * {@code sweep}: an indeterminate segment ping-pongs along the track.
+	 * Where Connecting's Cancel button goes (GUI px, its top edge): at 62 % of the
+	 * height, and always at least 12 GUI px under the loading picture's caption, so
+	 * the picture never has to move for it; kept 8 GUI px clear of the bottom when
+	 * the window allows (1.21.1's rule).
 	 */
-	private static void drawThinBar(Gfx g, double cx, double top, double barW, float progress, boolean sweep) {
-		double x0 = Math.round(cx - barW / 2.0);
-		double bh = 1.5;
-		RenderSystem.color4f(1f, 1f, 1f, 1f);
-		com.origin.client.client.gui.OriginSurface.fillPhysical(g, x0, top, x0 + barW, top + bh, fade(OriginTheme.CLEAN_BAR_TRACK));
-		if (sweep) {
-			double segW = barW * 0.28;
-			double t = (RingField.sceneMs() % 1800.0) / 1800.0;
-			double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI);
-			double sx = x0 + eased * (barW - segW);
-			com.origin.client.client.gui.OriginSurface.fillPhysical(g, sx, top, sx + segW, top + bh, fade(OriginTheme.CLEAN_BAR_FILL));
-		} else {
-			double fw = barW * Math.max(0f, Math.min(1f, progress));
-			if (fw > 0.01) {
-				com.origin.client.client.gui.OriginSurface.fillPhysical(g, x0, top, x0 + fw, top + bh, fade(OriginTheme.CLEAN_BAR_FILL));
-			}
-		}
+	public static int connectCancelTop(int screenH, int buttonH) {
+		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
+		int top = (int) Math.max(Math.round(screenH * 0.62) - buttonH / 2, Math.ceil(clearOfPicture));
+		return Math.max(0, Math.min(top, screenH - buttonH - 8));
 	}
+
+	private static final Gfx CONNECT_GFX = new Gfx(null);
+	private static net.minecraft.network.chat.Component connectStatus;
+	private static String connectCaption = "";
 
 	/** A colour with layerAlpha (the loading -> title dissolve) multiplied into its alpha. */
 	private static int fade(int argb) {
@@ -509,10 +419,6 @@ public final class OriginScreenRenderer {
 	private static int fadeA(int argb, float k) {
 		int a = Math.round(((argb >>> 24) & 0xFF) * Math.max(0f, Math.min(1f, k)));
 		return (a << 24) | (argb & 0xFFFFFF);
-	}
-
-	private static double clampD(double v, double lo, double hi) {
-		return Math.max(lo, Math.min(hi, v));
 	}
 
 	// ---- clean backdrop: this version's own panorama ----
@@ -627,7 +533,7 @@ public final class OriginScreenRenderer {
 	private static boolean logoFailed;
 
 	/** Draws the logo centred on (cx, cy), {@code size} GUI px square, at alpha. */
-	private static void drawLogo(Gfx g, double cx, double cy, double size, float alpha) {
+	static void drawLogo(Gfx g, double cx, double cy, double size, float alpha) {
 		int gs = com.origin.client.client.gui.OriginSurface.scale();
 		int ps = (int) Math.round(size * gs);
 		ResourceLocation id = logoAt(ps);
@@ -718,14 +624,10 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Menu background, "living rings" (Will 2026-10-18): the loading scene's own
-	 * rings, never a panorama, so the menus read as the same place the game
-	 * loaded into. RingField slows them to a third, lets them drift and leans
-	 * them towards the mouse. Returns true only if the Origin backdrop actually
+	 * The backdrop behind Origin's own screens (mod menu, HUD editor, Origin
+	 * windows): charcoal, one soft jade glow, the grain and the vignette. No drawn
+	 * rings (Will, 2026-10-25). Returns true only if the Origin backdrop actually
 	 * drew; callers that cancel vanilla's own backdrop must key off this.
-	 *
-	 * Cheap on purpose: one fill, four ring blits, the grain tiles, one glow and
-	 * the vignette — no cubemap, no blur pass.
 	 */
 	public static boolean renderTitleBackground(Gfx guiGraphics) {
 		if (broken) {
@@ -733,16 +635,12 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			ensureLoaded();
-			field(RingField.Mood.MENU);
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 			fillLayer(guiGraphics, 0, 0, w, h, OriginTheme.BG);
 			drawMenuGlow(guiGraphics, w, h);
-			if (!ringsFailed) {
-				drawRings(guiGraphics, w, h);
-				drawGrain(guiGraphics, w, h);
-			}
+			drawGrain(guiGraphics, w, h);
 			drawVignette(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
@@ -750,7 +648,7 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** One restrained jade highlight, top right, under the rings (kept from the Ion Jade grade). */
+	/** One restrained jade highlight, top right, under the grain (kept from the Ion Jade grade). */
 	private static void drawMenuGlow(Gfx guiGraphics, int w, int h) {
 		if (radialGlowId == null) {
 			return;
@@ -856,7 +754,7 @@ public final class OriginScreenRenderer {
 	 * Main menu: a small account chip (player head + username) in the top-left,
 	 * on a vanilla button. Head via the skin manager (default skin shows first,
 	 * the real one pops in async); if the head can't be resolved the chip falls
-	 * back to the Origin ring mark, and if the whole chip throws it flips the
+	 * back to the Origin logo, and if the whole chip throws it flips the
 	 * renderer to vanilla like any Origin draw.
 	 */
 	public static void renderTitleAccountChip(Gfx guiGraphics) {
@@ -946,55 +844,6 @@ public final class OriginScreenRenderer {
 	}
 
 	// ---- Primitives ----
-
-	/** Advance the shared rings (RingField) for this frame's scene. */
-	private static void field(RingField.Mood mood) {
-		double mx = 0.5, my = 0.5;
-		if (mood == RingField.Mood.MENU) {
-			Minecraft mc = Minecraft.getInstance();
-			mx = mc.mouseHandler.xpos() / Math.max(1, mc.getWindow().getScreenWidth());
-			my = mc.mouseHandler.ypos() / Math.max(1, mc.getWindow().getScreenHeight());
-		}
-		RingField.update(mood, ringAngle0, ringPeriod, ringReverse, mx, my);
-	}
-
-	private static double ringAngle(int i) {
-		Ring ring = rings.get(i);
-		return RingField.angle(i, ring.angle0(), ring.periodSeconds(), ring.reverse());
-	}
-
-	/** Every ring where RingField has it. */
-	private static void drawRings(Gfx guiGraphics, int w, int h) {
-		for (int i = 0; i < rings.size(); i++) {
-			Ring ring = rings.get(i);
-			drawRingAt(guiGraphics, ring, w / 2.0 + RingField.offsetX(i, w), h / 2.0 + RingField.offsetY(i, w),
-					ringAngle(i), ring.widthFrac() * w * 0.99, RING_HEIGHT_RATIO, ring.opacity());
-		}
-		shade(1f, 1f, 1f, 1f);
-	}
-
-	/** One ring texture as an ellipse of on-screen width {@code major} (GUI units). */
-	private static void drawRingAt(Gfx guiGraphics, Ring ring, double cx, double cy, double angle,
-								   double major, double aspect, float alpha) {
-		if (alpha <= 0.002f) {
-			return;
-		}
-		// The ellipse fills 0.9 of its square texture.
-		float scale = (float) (major / (0.9 * TEX));
-		PoseStack pose = guiGraphics.pose();
-		pose.pushPose();
-		pose.translate(cx, cy, 0);
-		// Wrapped to [0,360) in double before the float cast (RingField does):
-		// a float holding a large absolute angle would step visibly.
-		pose.mulPose(com.mojang.math.Vector3f.ZP.rotationDegrees((float) (angle % 360.0)));
-		pose.scale(scale, (float) (scale * aspect / RING_HEIGHT_RATIO), 1f);
-		pose.translate(-TEX / 2f, -TEX / 2f, 0);
-		RenderSystem.enableBlend();
-		shade(1f, 1f, 1f, alpha);
-		guiGraphics.blit(ring.texture(), 0, 0, 0, 0, TEX, TEX, TEX, TEX);
-		pose.popPose();
-		shade(1f, 1f, 1f, 1f);
-	}
 
 	private static void drawGrain(Gfx guiGraphics, int w, int h) {
 		if (grainId == null) {
@@ -1136,7 +985,7 @@ public final class OriginScreenRenderer {
 	 * with vanilla's drop shadow. {@code anchor}: 0 = x is the left edge, 0.5 =
 	 * centre, 1 = right edge. Draws nothing if the sheet couldn't be read.
 	 */
-	private static void bootText(Gfx g, String text, double x, double top, float scale, int tracking,
+	static void bootText(Gfx g, String text, double x, double top, float scale, int tracking,
 								 int argb, float anchor) {
 		if (text == null || text.isEmpty() || !ensureBootFont()) {
 			return;
@@ -1203,41 +1052,13 @@ public final class OriginScreenRenderer {
 		loaded = true;
 		try {
 			Minecraft mc = Minecraft.getInstance();
-			JsonObject meta;
-			try (InputStream in = open("/assets/originclient/textures/ui/rings.json")) {
-				meta = GSON.fromJson(new String(com.origin.client.client.IoCompat.readAllBytes(in), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-			}
-			com.google.gson.JsonArray arr = meta.getAsJsonArray("rings");
-			for (int i = 0; i < arr.size(); i++) {
-				JsonObject r = arr.get(i).getAsJsonObject();
-				int index = r.get("index").getAsInt();
-				ResourceLocation id = registerTexture(mc, "origin_ring_" + index,
-						"/assets/originclient/textures/ui/ring-" + index + ".png");
-				rings.add(new Ring(id,
-						r.get("widthFrac").getAsDouble(),
-						r.get("opacity").getAsFloat(),
-						r.get("angle0").getAsDouble(),
-						r.get("periodSeconds").getAsDouble(),
-						r.get("reverse").getAsBoolean()));
-			}
-			int n = rings.size();
-			double[] a0 = new double[n], period = new double[n];
-			boolean[] reverse = new boolean[n];
-			for (int i = 0; i < n; i++) {
-				a0[i] = rings.get(i).angle0();
-				period[i] = rings.get(i).periodSeconds();
-				reverse[i] = rings.get(i).reverse();
-			}
-			ringAngle0 = a0;
-			ringPeriod = period;
-			ringReverse = reverse;
 			grainId = registerTexture(mc, "origin_grain", "/assets/originclient/textures/ui/grain.png");
 		} catch (Exception e) {
-			ringsFailed = true;
-			com.origin.client.OriginClient.LOGGER.warn("Origin screen ring/grain textures failed to load; using plain background", e);
+			grainId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin grain texture failed to load; skipping grain", e);
 		}
 
-		// Vignette loads independently of the rings: a failure just skips the
+		// Vignette loads independently of the grain: a failure just skips the
 		// edge darkening, it doesn't disable the backdrop.
 		try {
 			Minecraft mc = Minecraft.getInstance();
