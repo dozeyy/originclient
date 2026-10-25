@@ -11,9 +11,12 @@
          player answers (Import opens the import drawer, Not now closes it) and is never shown again. -->
     <Grid>
         <Rectangle Fill="{StaticResource Brush.Scrim}"/>
-        <Border x:Name="Card" MaxWidth="680" Margin="32,80,32,32" Padding="32,30,32,26"
+        <!-- A dialog over the scrim (Workbench: the dialog corner, Radius.Dialog, and the strong 1 px edge of a sheet).
+             No shadow: the card itself animates in, and effects never go on an animating element. -->
+        <Border x:Name="Card" MaxWidth="680" Margin="32,80,32,32" Padding="32,24"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Lg}">
+                Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Dialog}"
+                BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="CardLift"/>
             </Border.RenderTransform>
@@ -28,9 +31,9 @@
                            Margin="0,6,0,0"/>
 
                 <!-- One chip per launcher with setups to bring: logo, name, how many setups. -->
-                <WrapPanel x:Name="LaunchersPanel" Margin="0,18,0,0"/>
+                <WrapPanel x:Name="LaunchersPanel" Margin="0,20,0,0"/>
 
-                <Grid Margin="0,22,0,0">
+                <Grid Margin="0,16,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>

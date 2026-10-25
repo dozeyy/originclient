@@ -53,6 +53,8 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
 
     private async void MicrosoftSignInPanel_Loaded(object sender, RoutedEventArgs e)
     {
+        // A render-shots run (scratch data root) pictures the card only: no browser process, no Microsoft page.
+        if (OriginLauncher.App.Core.OriginPaths.IsScratchRoot) return;
         try
         {
             await WebView.EnsureCoreWebView2Async();

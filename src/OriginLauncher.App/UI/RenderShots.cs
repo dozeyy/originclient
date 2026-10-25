@@ -141,6 +141,20 @@ public static class RenderShots
         Pump(600);
         Snap(window, outDir, "06-signed-out");
 
+        // The Microsoft sign-in card (no browser in a shots run): loading, then an outcome the player must read.
+        window.TourSetFriendsOpen(false);
+        Pump(400);
+        window.TourShowSignIn(null, null);
+        Pump(500);
+        Snap(window, outDir, "06b-sign-in");
+        window.TourCloseSignIn();
+        Pump(300);
+        window.TourShowSignIn("Couldn't add this account", "Couldn't save this account. Please try again.");
+        Pump(500);
+        Snap(window, outDir, "06c-sign-in-message");
+        window.TourCloseSignIn();
+        Pump(300);
+
         // The Play press: the plain launch progress screen, first with a stage
         // that has no count (the sliding block), then one with real counts (the fill).
         window.TourSetFriendsOpen(false);
@@ -376,6 +390,7 @@ public static class RenderShots
         window.TourClearToasts();
 
         SnapCrashWindows(outDir);
+        SnapStartupIntro(outDir);
         window.Close();
     }
 
@@ -513,6 +528,10 @@ public static class RenderShots
             report.Show();
             Pump(400);
             Snap(report, dir, "41-crash-report-window");
+            // The same report with the technical details unfolded (the fold's open state).
+            report.DetailsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Pump(300);
+            Snap(report, dir, "41b-crash-report-details");
             report.Close();
 
             // The most common cause: out of memory, with its one-click fix.
@@ -528,6 +547,33 @@ public static class RenderShots
         catch (Exception e)
         {
             File.WriteAllText(Path.Combine(dir, "crash-windows-error.txt"), e.ToString());
+        }
+    }
+
+    // The opening frame (the logo on the bg) at the window's size: a shots run has motion off, which skips the intro,
+    // so it is pictured on its own at its end state (full size, fully in).
+    private static void SnapStartupIntro(string dir)
+    {
+        try
+        {
+            var intro = new Controls.StartupIntro();
+            intro.Mark.Opacity = 1;
+            intro.MarkScale.ScaleX = 1;
+            intro.MarkScale.ScaleY = 1;
+            var host = new Window
+            {
+                Width = 1180, Height = 740, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize,
+                ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = 0, Top = 0,
+                Content = intro,
+            };
+            host.Show();
+            Pump(400);
+            Snap(host, dir, "00-startup-intro", size: new Size(host.Width, host.Height));
+            host.Close();
+        }
+        catch (Exception e)
+        {
+            File.WriteAllText(Path.Combine(dir, "startup-intro-error.txt"), e.ToString());
         }
     }
 

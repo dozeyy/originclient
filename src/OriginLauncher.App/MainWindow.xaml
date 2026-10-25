@@ -253,11 +253,12 @@
              the app (not a separate OS window) so the whole OAuth flow stays
              inside the launcher. Only ever shown while AccountPanel is already
              open, so it reuses that panel's Scrim rather than needing its own. -->
+        <!-- The dialog corner (Radius.Dialog, 16), like every dialog over the scrim. -->
         <Border x:Name="SignInPanel" Width="460" Height="640"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
                 Background="{StaticResource Brush.Card}"
-                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Lg}"
+                BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Dialog}"
                 Opacity="0" Visibility="Collapsed" IsHitTestVisible="False"
                 RenderTransformOrigin="0.5,0.5">
             <Border.Effect><StaticResource ResourceKey="Shadow.Overlay"/></Border.Effect>

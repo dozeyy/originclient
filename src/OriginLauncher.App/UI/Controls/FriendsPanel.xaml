@@ -222,13 +222,15 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
         </Style>
-        <!-- Unread count: a light chip with dark digits (the mockup's Chat 1). -->
+        <!-- Unread count: an accent capsule with dark digits (the mockup's Chat 1). Every badge is a capsule: the 20
+             badge height, radius = height / 2, so a "1" is a circle and "12" a pill with the same round ends. -->
         <Style x:Key="Social.Badge" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Brush.Accent}"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
-            <Setter Property="MinWidth" Value="18"/>
-            <Setter Property="MinHeight" Value="18"/>
-            <Setter Property="Padding" Value="5,0"/>
+            <Setter Property="ui:Capsule.On" Value="True"/>
+            <Setter Property="MinWidth" Value="{StaticResource Size.Badge}"/>
+            <Setter Property="Height" Value="{StaticResource Size.Badge}"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -668,30 +670,28 @@
 
             <!-- Signed out / connecting / unreachable. -->
             <StackPanel x:Name="MessagePane" Margin="16,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
-                <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Xs}">
+                <Border Style="{StaticResource Surface.Tile}" HorizontalAlignment="Left" Background="{StaticResource Brush.HueTile.Sky}">
                     <Path Data="{StaticResource Icon.Friends}" Style="{StaticResource Icon.Base}"
-                          Width="24" Height="24" Stroke="{StaticResource Brush.TextDim}"/>
+                          Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}" Stroke="{StaticResource Brush.Hue.Sky}"/>
                 </Border>
-                <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.Title}" Margin="0,18,0,0"
+                <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.Title}" Margin="0,16,0,0"
                            TextWrapping="Wrap" TextTrimming="None"/>
                 <TextBlock x:Name="MessageBody" Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0"
                            TextWrapping="Wrap" TextTrimming="None"/>
                 <StackPanel x:Name="FeatureList" Margin="0,18,0,0" Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <Path Data="{StaticResource Icon.Chat}" Style="{StaticResource Icon.Base}"
-                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,10,0"/>
+                              Stroke="{StaticResource Brush.Hue.Sky}" Margin="0,0,12,0"/>
                         <TextBlock Text="Message friends" Style="{StaticResource Text.Body}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <Path Data="{StaticResource Icon.Friends}" Style="{StaticResource Icon.Base}"
-                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,10,0"/>
+                              Stroke="{StaticResource Brush.Hue.Lilac}" Margin="0,0,12,0"/>
                         <TextBlock Text="Party up, with chat" Style="{StaticResource Text.Body}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <Path Data="{StaticResource Icon.External}" Style="{StaticResource Icon.Base}"
-                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,10,0"/>
+                              Stroke="{StaticResource Brush.Hue.Emerald}" Margin="0,0,12,0"/>
                         <TextBlock Text="Join their server in one click" Style="{StaticResource Text.Body}"/>
                     </StackPanel>
                 </StackPanel>
@@ -701,13 +701,11 @@
 
             <!-- Signed in, nobody yet. -->
             <StackPanel x:Name="EmptyPane" Margin="16,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
-                <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Xs}">
+                <Border Style="{StaticResource Surface.Tile}" HorizontalAlignment="Left" Background="{StaticResource Brush.HueTile.Emerald}">
                     <Path Data="{StaticResource Icon.UserPlus}" Style="{StaticResource Icon.Base}"
-                          Width="24" Height="24" Stroke="{StaticResource Brush.TextDim}"/>
+                          Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}" Stroke="{StaticResource Brush.Hue.Emerald}"/>
                 </Border>
-                <TextBlock Text="No friends yet" Style="{StaticResource Text.Title}" Margin="0,18,0,0"/>
+                <TextBlock Text="No friends yet" Style="{StaticResource Text.Title}" Margin="0,16,0,0"/>
                 <TextBlock Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None"
                            Text="Add someone by their Minecraft username. They need Origin too. Friends can chat, party up and join each other's servers."/>
                 <Button Content="Add a friend" Style="{StaticResource Button.Primary.Medium}" Margin="0,22,0,0"

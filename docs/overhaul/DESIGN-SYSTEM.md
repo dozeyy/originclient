@@ -281,8 +281,9 @@ dock icon (Will: "remove the unnecessary boxes").
 | `radius.xs` | 4 | badges inside cards, checkbox, art thumbnails in controls |
 | `radius.sm` | 6 | controls 28-32 tall, menu items, tooltips, Settings tiles |
 | `radius.md` | 8 | controls 36-40 tall, inputs, dropdown menus, the window (Win 11) |
-| `radius.lg` | 12 | version cards, sheets, dialogs, the installer content card |
-| `radius.full` | 999 | dots, switches, progress rails, single-line status badges |
+| `radius.lg` | 12 | version cards, sheets, the installer content card |
+| `radius.dialog` | 16 | every dialog over a scrim (confirm, profile form, sign-in, the welcome card); launcher only (`Radius.Dialog`) |
+| `radius.full` | 999 | dots, switches, progress rails, single-line status badges. In WPF a 999 radius on a box wider than tall draws an **oval**: every pill, chip and badge also sets `ui:Capsule.On` (radius = height / 2, `UI/Capsule.cs`; Surface.Capsule does it) |
 
 - **Concentric rule:** anything inset inside a rounded container gets radius = outer radius -
   inset (minimum 2). For example, the account control (6) with a 4 px inset head gets head radius 2.

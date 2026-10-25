@@ -121,6 +121,10 @@
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
     <!-- No "full" radius token: a 999 radius renders an ellipse in WPF. Capsules use ui:Capsule.On (UI/Capsule.cs). -->
+    <!-- Dialogs (the approved Workbench mockup, A-Workbench-2 "Shape and motion": card 12, control 8, dialog 16): every
+         dialog, sheet-over-scrim and the crash windows' main card. One step rounder than a card so a dialog never reads
+         as another card on the page. -->
+    <CornerRadius x:Key="Radius.Dialog">16</CornerRadius>
     <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
     <system:Double x:Key="Radius.Lg.Value">12</system:Double>
     <!-- A card's picture: the card's corner on its top two corners only. -->

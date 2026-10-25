@@ -365,11 +365,43 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         BringButton.Visibility = V(pane is Pane.Launchers or Pane.Pick);
         BrowseButton.Visibility = V(pane is Pane.Launchers or Pane.Pick or Pane.Versions);
         CancelButton.Visibility = V(pane == Pane.Importing);
+        SetStep(pane switch
+        {
+            Pane.Launchers => 1,
+            Pane.Importing => 3,
+            Pane.Done or Pane.Failed => 4,
+            _ => 2, // every "what to bring" page: the grid, the pick list, the per-version pages, review, details
+        });
         if (pane is not Pane.Single) PlanningRow.Visibility = Visibility.Collapsed;
         if (pane is not Pane.Review) ShowReviewPlanning(false);
         if (pane is not (Pane.Launchers or Pane.Pick or Pane.Versions)) _flash = null;
         UpdateScanSpinner();
         RefreshNotice();
+    }
+
+    // The four-step row under the header (Source, What to bring, Importing, Report): steps before the current one are
+    // done (emerald tick on the soft emerald wash), the current one carries the accent ring and full text, later ones
+    // stay a plain hairline ring in muted text.
+    private void SetStep(int current)
+    {
+        var dots = new[] { StepDot1, StepDot2, StepDot3, StepDot4 };
+        var nums = new[] { StepNum1, StepNum2, StepNum3, StepNum4 };
+        var ticks = new[] { StepTick1, StepTick2, StepTick3, StepTick4 };
+        var texts = new[] { StepText1, StepText2, StepText3, StepText4 };
+        for (var i = 0; i < 4; i++)
+        {
+            var n = i + 1;
+            var done = n < current;
+            var cur = n == current;
+            if (done) dots[i].SetResourceReference(Border.BackgroundProperty, "Brush.HueTile.Emerald");
+            else dots[i].ClearValue(Border.BackgroundProperty);
+            dots[i].SetResourceReference(Border.BorderBrushProperty, cur ? "Brush.AccentBorder" : "Brush.Stroke");
+            if (done) dots[i].BorderBrush = Brushes.Transparent;
+            nums[i].Visibility = V(!done);
+            ticks[i].Visibility = V(done);
+            nums[i].SetResourceReference(TextBlock.ForegroundProperty, cur ? "Brush.Text" : "Brush.TextMuted");
+            texts[i].SetResourceReference(TextBlock.ForegroundProperty, cur ? "Brush.Text" : done ? "Brush.TextDim" : "Brush.TextMuted");
+        }
     }
 
     private static bool CanGoBack(Pane pane) =>
@@ -2760,13 +2792,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private void ShowFailed(ImportDoneModel m)
     {
         ShowPane(Pane.Failed);
-        SetHeader("Import", "Nothing changed");
-        // Red only when it really failed; a stop the player asked for is neutral.
+        SetHeader("Nothing changed", null);
+        // The soft danger tile only when it really failed; a stop the player asked for gets a neutral tile. The card
+        // and the title stay neutral either way (Workbench: colour lives in the small tile, never a red frame).
         var stopped = m.Cancelled && string.IsNullOrEmpty(m.Error);
-        var accent = (Brush)FindResource(stopped ? "Brush.TextMuted" : "Brush.Danger");
-        FailedPane.BorderBrush = stopped ? (Brush)FindResource("Brush.Stroke") : accent;
-        FailedBadge.Background = accent;
-        FailedTitle.Foreground = stopped ? (Brush)FindResource("Brush.TextDim") : accent;
+        FailedBadge.SetResourceReference(Border.BackgroundProperty, stopped ? "Brush.CardAlt" : "Brush.DangerSoft");
+        FailedGlyph.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, stopped ? "Brush.TextDim" : "Brush.DangerText");
+        FailedGlyph.Data = (Geometry)FindResource(stopped ? "Icon.Close" : "Icon.Alert");
         FailedTitle.Text = stopped ? "Import stopped" : "Import failed";
         FailedReason.Text = stopped ? "You stopped it." : string.IsNullOrEmpty(m.Error) ? "The import didn't finish." : m.Error;
         SetFooter(null, "Close", () => CloseRequested?.Invoke(this, EventArgs.Empty), "Try again", TryAgain);
