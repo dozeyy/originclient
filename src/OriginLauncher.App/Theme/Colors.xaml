@@ -127,6 +127,7 @@
     <SolidColorBrush x:Key="Brush.GhostPress" Color="{StaticResource Color.GhostPress}"/>
     <SolidColorBrush x:Key="Brush.ProgressTrack" Color="{StaticResource Color.ProgressTrack}"/>
     <SolidColorBrush x:Key="Brush.Scrim" Color="{StaticResource Color.Scrim}"/>
+    <SolidColorBrush x:Key="Brush.ScrimMid" Color="{StaticResource Color.ScrimMid}"/>
     <SolidColorBrush x:Key="Brush.PageDim" Color="{StaticResource Color.PageDim}"/>
     <SolidColorBrush x:Key="Brush.LaunchScrim" Color="{StaticResource Color.LaunchScrim}"/>
     <SolidColorBrush x:Key="Brush.SwitchKnobOff" Color="{StaticResource Color.SwitchKnobOff}"/>
