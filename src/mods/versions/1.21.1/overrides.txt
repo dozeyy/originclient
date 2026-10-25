@@ -107,3 +107,20 @@ client/java/com/origin/client/client/theme/OriginTheme.java
 # (Mods.java, already forked above); the other modules still read the option.
 # Promote to shared/ (delete this line) when the look is ported to every version.
 client/java/com/origin/client/client/OriginStyle.java
+
+# Phase 4 U4.2 (2026-10-25) - the redone loading screens. 1.21.1 draws "Connecting to
+# the server" and the world-creation progress stages as the one Origin loading picture
+# (LoadingLook), with the screen's real status/stage as the caption. The other versions
+# keep the shared mixins until their own loading screens are redone.
+client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
+client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
+
+# DELIBERATE FORK (2026-10-25, Will: "pill shaped like apple and never oval shaped ever
+# again") - the menu background rings are pills (stadiums), not ellipses, on 1.21.1.
+# Made by: python tools/loading-screen/generate_textures.py --stadium 1.21.1
+# shared/ keeps the oval set for the other modules until each is ported.
+client/resources/assets/originclient/textures/ui/ring-0.png
+client/resources/assets/originclient/textures/ui/ring-1.png
+client/resources/assets/originclient/textures/ui/ring-2.png
+client/resources/assets/originclient/textures/ui/ring-3.png

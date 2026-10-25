@@ -139,15 +139,23 @@ public abstract class LoadingOverlayRevealMixin {
 			ci.cancel();
 			return;
 		}
+		// The game's first load landing on an Origin title (DESIGN-SYSTEM 15.3): the
+		// loading logo moves onto the title's mark instead of dissolving, so the title
+		// leaves its own mark out under it. Anything else (a later resource reload,
+		// the vanilla Main Menu Style, a broken title backdrop) keeps the plain fade.
+		boolean fly = !this.fadeIn && screen instanceof net.minecraft.client.gui.screens.TitleScreen
+				&& OriginScreenRenderer.logoFlightReady();
 		if (screen != null) {
-			screen.render(guiGraphics, mouseX, mouseY, partialTick);
+			StartupTransition.setTitleMarkInFlight(fly);
+			try {
+				screen.render(guiGraphics, mouseX, mouseY, partialTick);
+			} finally {
+				StartupTransition.setTitleMarkInFlight(false);
+			}
 		}
 		guiGraphics.flush();
 		float alpha = (float) (1.0 - StartupTransition.ease(t / (double) StartupTransition.REVEAL_MS));
-		// The game's first load landing on the title: the loading mark flies onto
-		// the title's logo instead of dissolving (a later resource reload just fades).
-		boolean toTitle = !this.fadeIn && screen instanceof net.minecraft.client.gui.screens.TitleScreen;
-		if (OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha, toTitle)) {
+		if (OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha, fly)) {
 			ci.cancel();
 		}
 	}

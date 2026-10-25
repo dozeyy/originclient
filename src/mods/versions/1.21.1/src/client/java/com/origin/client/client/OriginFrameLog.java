@@ -60,7 +60,10 @@ public final class OriginFrameLog {
 
 	// The frame in progress.
 	private static long frameStart = 0, renderStart = 0, swapStart = 0, titleStart = 0, taskStart = 0;
-	private static double curTasks, curRender, curSwap, curTitle;
+	private static double curTasks, curRender, curSwap, curTitle, curOrigin, curPre, curOverlay;
+	private static long overlayStart;
+	/** The first this-many frames each print one "early" line (B-30: the loading screen's first frame). */
+	private static final int EARLY_FRAMES = 6;
 	private static StringBuilder curNamed;
 	private static int titleFrames = 0;
 	private static boolean titleThisFrame = false;
@@ -136,7 +139,7 @@ public final class OriginFrameLog {
 		start[i] = now;
 		phase[i] = current;
 		frameStart = now;
-		curTasks = curRender = curSwap = curTitle = 0;
+		curTasks = curRender = curSwap = curTitle = curOrigin = curPre = curOverlay = 0;
 		curNamed = null;
 		titleThisFrame = false;
 	}
@@ -225,6 +228,48 @@ public final class OriginFrameLog {
 		pollTagged = true;
 		if (ms >= TASK_MS) {
 			named(listener, ms);
+		}
+	}
+
+	/**
+	 * B-30: starts timing a named slice of one of the first {@link #EARLY_FRAMES} frames
+	 * (0 = not timing: the log is off, or the early frames are over). Pass the result to
+	 * {@link #part}; the slices are listed on that frame's "early frame" line.
+	 */
+	public static long partStart() {
+		return ENABLED && !finished && n > 0 && n <= EARLY_FRAMES ? System.nanoTime() : 0L;
+	}
+
+	/** Ends a slice begun by {@link #partStart} (a no-op for 0). */
+	public static void part(String name, long t0) {
+		if (t0 != 0L && ENABLED && !finished) {
+			named(name, (System.nanoTime() - t0) / 1e6);
+		}
+	}
+
+	/** The Origin startup loading picture was drawn this frame in {@code ms} (dev frame log only). */
+	public static void originLoadingDraw(double ms) {
+		if (ENABLED && !finished) {
+			curOrigin += ms;
+		}
+	}
+
+	/** The loading overlay's render() starts (dev frame log only): time since the GUI render began, and its own clock. */
+	public static void overlayBegin() {
+		if (ENABLED && !finished) {
+			long now = System.nanoTime();
+			if (renderStart != 0) {
+				curPre += (now - renderStart) / 1e6;
+			}
+			overlayStart = now;
+		}
+	}
+
+	/** The loading overlay's render() ends, Origin's picture included. */
+	public static void overlayEnd() {
+		if (ENABLED && !finished && overlayStart != 0) {
+			curOverlay += (System.nanoTime() - overlayStart) / 1e6;
+			overlayStart = 0;
 		}
 	}
 
@@ -436,6 +481,13 @@ public final class OriginFrameLog {
 		gcCount[i] = (int) (gc[1] - lastGcCount);
 		lastGcMs = gc[0];
 		lastGcCount = gc[1];
+		if (i < EARLY_FRAMES) {
+			// B-30: the loading screen's own first frames. originDraw is the Origin
+			// loading picture's draw alone (OriginScreenRenderer.renderLoading), inside render.
+			com.origin.client.OriginClient.LOGGER.info(P + "early frame #{} frame={} ms render={} (before overlay={} overlay={}) originDraw={} tasks={} swap={} gc={} ms uptime {} s parts=[{}]",
+					i, fmt(frameMs[i]), fmt(renderMs[i]), fmt(curPre), fmt(curOverlay), fmt(curOrigin), fmt(tasksMs[i]), fmt(swapMs[i]), fmt(gcMs[i]), uptimeS(),
+					tasks[i] == null ? "" : tasks[i]);
+		}
 		double scene = com.origin.client.client.render.RingField.peekMs();
 		sceneStep[i] = Double.isNaN(lastScene) ? 0f : (float) (scene - lastScene);
 		lastScene = scene;

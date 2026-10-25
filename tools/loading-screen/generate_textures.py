@@ -53,8 +53,10 @@ RINGS = [
 ]
 
 
-def make_ring(stroke_px: float, blur: float) -> Image.Image:
-    """One white AA elliptical stroke on transparent, centered in a square."""
+def make_ring(stroke_px: float, blur: float, stadium: bool = False) -> Image.Image:
+    """One white AA ring stroke on transparent, centered in a square: an ellipse, or with
+    stadium=True a pill (two straight sides, semicircle ends of radius minor/2 -- Will,
+    2026-10-25: "pill shaped like apple and never oval shaped ever again"). Same box either way."""
     big = TEX * SS
     canvas = Image.new("L", (big, big), 0)  # coverage mask, drawn opaque
     draw = ImageDraw.Draw(canvas)
@@ -63,7 +65,11 @@ def make_ring(stroke_px: float, blur: float) -> Image.Image:
     minor = major * HEIGHT_RATIO
     cx = cy = big / 2
     bbox = [cx - major / 2, cy - minor / 2, cx + major / 2, cy + minor / 2]
-    draw.ellipse(bbox, outline=255, width=max(1, round(stroke_px * SS)))
+    width = max(1, round(stroke_px * SS))
+    if stadium:
+        draw.rounded_rectangle(bbox, radius=minor / 2, outline=255, width=width)
+    else:
+        draw.ellipse(bbox, outline=255, width=width)
 
     small = canvas.resize((TEX, TEX), Image.LANCZOS)  # supersample -> AA edges
     if blur > 0:
@@ -144,7 +150,23 @@ def make_vignette() -> Image.Image:
     return Image.merge("RGBA", (black, black, black, img))
 
 
+def main_stadium(module: str):
+    """Pill-shaped ring-{0..3}.png for ONE version module (its own resources; list the four
+    paths in that module's overrides.txt). Same sizes, strokes and blur as the shared ovals;
+    rings.json is unchanged, so the shared copy still describes them."""
+    out = (HERE / ".." / ".." / "src" / "mods" / "versions" / module / "src" / "client" /
+           "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    for i, (name, _w, stroke, _o, blur, _a, _p, _r) in enumerate(RINGS):
+        make_ring(stroke, blur, stadium=True).save(out / f"ring-{i}.png")
+        print(f"ring {name} (pill) -> {out / f'ring-{i}.png'}")
+
+
 def main():
+    import sys
+    if len(sys.argv) == 3 and sys.argv[1] == "--stadium":
+        main_stadium(sys.argv[2])   # python generate_textures.py --stadium 1.21.1
+        return
     OUT.mkdir(parents=True, exist_ok=True)
     meta = {"texSize": TEX, "heightRatio": HEIGHT_RATIO, "fillFrac": FILL_FRAC, "rings": []}
 

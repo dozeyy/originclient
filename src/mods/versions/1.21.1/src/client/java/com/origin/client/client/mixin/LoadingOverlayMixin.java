@@ -28,8 +28,22 @@ public class LoadingOverlayMixin {
 	@Shadow
 	private float currentProgress;
 
+	// Proves this mixin (and so the TAIL draw below) applied before
+	// LoadingOverlayCoverMixin skips vanilla's logo and bar under it; then the dev
+	// frame log only (one static-final check when off): where the first frame's time goes.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$overlayBegin(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		OriginScreenRenderer.loadingHookLive();
+		if (com.origin.client.client.OriginFrameLog.ENABLED) {
+			com.origin.client.client.OriginFrameLog.overlayBegin();
+		}
+	}
+
 	@Inject(method = "render", at = @At("TAIL"))
 	private void originclient$drawOriginLoading(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		OriginScreenRenderer.renderLoading(guiGraphics, this.currentProgress);
+		if (com.origin.client.client.OriginFrameLog.ENABLED) {
+			com.origin.client.client.OriginFrameLog.overlayEnd();
+		}
 	}
 }
