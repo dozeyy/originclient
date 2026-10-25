@@ -37,7 +37,7 @@ public static class VersionStatus
     /// </summary>
     public static StatusLine? ForRelease(InstallState state) => state switch
     {
-        InstallState.Installed => new("Installed", StatusDot.Success),
+        InstallState.Installed => new("Installed, opens straight away", StatusDot.Success),
         InstallState.UpdateReady => new("Update ready", StatusDot.Info),
         InstallState.NotInstalled => new("Downloads when you press Play", StatusDot.Muted),
         InstallState.Partial => new("Finishes installing when you press Play", StatusDot.Warning),
@@ -45,7 +45,21 @@ public static class VersionStatus
     };
 
     /// <summary>
-    /// The badge on a family card (11.6): "2 of 10 installed", or for a family of one release the release's own state.
+    /// The capsule at the end of a release row: one caps word and the tone that tints it. Null while unknown (no
+    /// capsule, never a placeholder). The words are the action a player can expect: INSTALLED opens straight away,
+    /// DOWNLOAD fetches on Play, UPDATE and FINISH are the two in-between states.
+    /// </summary>
+    public static StatusLine? PillFor(InstallState state) => state switch
+    {
+        InstallState.Installed => new("INSTALLED", StatusDot.Success),
+        InstallState.UpdateReady => new("UPDATE", StatusDot.Info),
+        InstallState.NotInstalled => new("DOWNLOAD", StatusDot.Muted),
+        InstallState.Partial => new("FINISH", StatusDot.Warning),
+        _ => null,
+    };
+
+    /// <summary>
+    /// The status line under a family card (11.6): "2 of 10 installed" (no bubble around it), or for a family of one release the release's own state.
     /// Null while any release of the family is still unknown, so the count never flickers while the checks come in.
     /// A release with an Origin update waiting still counts as installed.
     /// </summary>

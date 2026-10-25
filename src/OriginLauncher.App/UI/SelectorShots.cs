@@ -11,11 +11,12 @@ namespace OriginLauncher.App.UI;
 // The sheet reads its states from disk, so a run over a scratch folder would show every version "Not installed". Instead
 // the overlay is pointed at SelectorFakeInstalls: a temp folder with real client / loader / Origin-jar files per version,
 // so the states come out of the production classifier. Pictures, at 960x600, 1180x740 and 1920x1080:
-//   p3sel-<size>-step1               the eight family cards, badges showing every state
+//   p3sel-<size>-step1               the eight family cards in full colour, the quiet status line under each
 //   p3sel-<size>-step1-focus         the keyboard on a card (focus ring)
-//   p3sel-<size>-step2-<family>      three families (1.21, 1.20, 1.19) with installed / not installed / update ready / partial rows
+//   p3sel-<size>-step2-<family>      three families (1.21, 1.20, 1.19), a capsule per row: INSTALLED / DOWNLOAD / UPDATE / FINISH
 //   p3sel-<size>-step2-1.21-focus    the keyboard on a release row
-// selector-states.txt lists the words each card and row shows, so the states can be read without opening a picture.
+// selector-states.txt lists the words each card and row (and its capsule) shows, so the states can be read without
+// opening a picture. The shots are compared with docs/overhaul/design/A-Workbench-2.jpg ("Choosing a version").
 internal static class SelectorShots
 {
     private static readonly Size[] Sizes = { new(960, 600), new(1180, 740), new(1920, 1080) };
@@ -80,7 +81,7 @@ internal static class SelectorShots
                 window.Activate();
                 overlay.TourFocus(4);
                 RenderShots.Pump(300);
-                var cardFrame = ImportShots.FocusFrame(window, overlay.TourCards()[4].Item, $"{label} card 1.18", focusLog);
+                var cardFrame = ImportShots.FocusFrame(window, overlay.TourFamilyItem(4), $"{label} card 1.18", focusLog);
                 RenderShots.Snap(window, outDir, $"p3sel-{label}-step1-focus", size: size, laidOut: inProcess, adorners: true);
                 cardFrame?.Invoke();
 
@@ -91,7 +92,7 @@ internal static class SelectorShots
                     RenderShots.Snap(window, outDir, $"p3sel-{label}-step2-{key}", size: size, laidOut: inProcess);
                     if (label == "960x600")
                         foreach (var v in VersionCatalog.Groups[index].Versions)
-                            report.AppendLine($"row {v}: {overlay.RowStatusOf(v)}");
+                            report.AppendLine($"row {v}: {overlay.RowPillOf(v)} / {overlay.RowStatusOf(v)}");
                 }
 
                 CardShots.Open(window, overlay, IndexOf("1.21"), size, inProcess);

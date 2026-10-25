@@ -48,7 +48,9 @@ internal static class VersionSelectorUiTests
         Assert.Equal("Not installed", sheet.BadgeTextOf("1.16"));
 
         sheet.ChooseFamily(1); // 1.21
-        Assert.Equal("Installed", sheet.RowStatusOf("1.21.1"));
+        Assert.Equal("Installed, opens straight away", sheet.RowStatusOf("1.21.1"));
+        Assert.Equal("INSTALLED", sheet.RowPillOf("1.21.1"));
+        Assert.Equal("DOWNLOAD", sheet.RowPillOf("1.21.11"));
         Assert.Equal("Update ready", sheet.RowStatusOf("1.21.2"));
         Assert.Equal("Finishes installing when you press Play", sheet.RowStatusOf("1.21"));
         Assert.Equal("Downloads when you press Play", sheet.RowStatusOf("1.21.11"));

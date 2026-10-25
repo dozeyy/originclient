@@ -25,12 +25,29 @@ public class VersionSelectModelTests
     // ---- wording ----
 
     [Theory]
-    [InlineData(InstallState.Installed, "Installed", StatusDot.Success)]
+    [InlineData(InstallState.Installed, "Installed, opens straight away", StatusDot.Success)]
     [InlineData(InstallState.UpdateReady, "Update ready", StatusDot.Info)]
     [InlineData(InstallState.NotInstalled, "Downloads when you press Play", StatusDot.Muted)]
     [InlineData(InstallState.Partial, "Finishes installing when you press Play", StatusDot.Warning)]
     public void EveryStateReadsAsWords(InstallState state, string text, StatusDot dot) =>
         Assert.Equal(new StatusLine(text, dot), VersionStatus.ForRelease(state));
+
+    // The capsule at the end of a row: one ASCII caps word, and a tone that matches the row's dot.
+    [Theory]
+    [InlineData(InstallState.Installed, "INSTALLED", StatusDot.Success)]
+    [InlineData(InstallState.UpdateReady, "UPDATE", StatusDot.Info)]
+    [InlineData(InstallState.NotInstalled, "DOWNLOAD", StatusDot.Muted)]
+    [InlineData(InstallState.Partial, "FINISH", StatusDot.Warning)]
+    public void EveryStateHasACapsule(InstallState state, string text, StatusDot dot)
+    {
+        Assert.Equal(new StatusLine(text, dot), VersionStatus.PillFor(state));
+        Assert.Equal(VersionStatus.ForRelease(state)!.Dot, VersionStatus.PillFor(state)!.Dot);
+        Assert.Equal(text.ToUpperInvariant(), text);
+        Assert.All(text, c => Assert.True(c < 128));
+    }
+
+    [Fact]
+    public void UnknownHasNoCapsule() => Assert.Null(VersionStatus.PillFor(InstallState.Unknown));
 
     [Fact]
     public void UnknownShowsNothing_NoPlaceholderNoError() => Assert.Null(VersionStatus.ForRelease(InstallState.Unknown));

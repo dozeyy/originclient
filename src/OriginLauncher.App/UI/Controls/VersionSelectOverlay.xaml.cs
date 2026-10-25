@@ -43,15 +43,13 @@ public partial class VersionSelectOverlay : UserControl
         FamilyList.SelectionChanged += (_, _) => { if (!_syncing) ShowPickRing(); };
         ReleaseList.ItemsSource = _rows;
         FamiliesCaption.Text = $"{_tiles.Count} families, {VersionCatalog.SupportedVersions.Count} releases. Origin installs what each one needs.";
-        FamilyList.SizeChanged += (_, _) => SizeCards();
-        Body.SizeChanged += (_, e) => { if (e.HeightChanged) SizeCards(); };
+        // The sheet's size follows the free band under the top bar (the window), not its own content.
+        Stage.SizeChanged += (_, _) => SizeCards();
         PreviewKeyDown += OnSheetKey;
         _installs = InstalledVersions.Shared;
         _installs.Changed += OnInstallChanged;
-        // Thumbnails decode off the UI thread at the size they draw (frozen bitmaps); the number's corner shade
-        // for each art is worked out there too, once (the token spec is read here, on the UI thread).
-        var scrimSpec = VersionCardNumeral.Spec();
-        foreach (var tile in _tiles) tile.LoadAsync(scrimSpec);
+        // Thumbnails decode off the UI thread (frozen bitmaps).
+        foreach (var tile in _tiles) tile.LoadAsync();
     }
 
     /// <summary>Raised when the player picks a specific version (a release in step 2, or a single-release family).
@@ -60,6 +58,9 @@ public partial class VersionSelectOverlay : UserControl
 
     /// <summary>Raised when the player clicks Play on a version.</summary>
     public event Action<string>? LaunchRequested;
+
+    /// <summary>Raised when the player clicks "Install x only": provision that version without starting the game.</summary>
+    public event Action<string>? InstallRequested;
 
     public bool IsOpen => Visibility == Visibility.Visible;
 
@@ -191,11 +192,19 @@ public partial class VersionSelectOverlay : UserControl
         FamilySide.DataContext = tile;
         _syncing = true;
         _rows.Clear();
-        foreach (var v in tile.Group.Versions) _rows.Add(new ReleaseRow(v, VersionStatus.ForRelease(_installs.StateOf(v))));
+        foreach (var v in tile.Group.Versions) _rows.Add(new ReleaseRow(v, _installs.StateOf(v)));
         ReleaseList.SelectedIndex = _nav.ReleaseIndex;
         _syncing = false;
-        LaunchText.Text = $"Play {_nav.Release}";
+        ReleasesLabel.Text = $"{tile.Group.Versions.Count} RELEASES";
+        ShowActions(_nav.Release);
         SizeCards();
+    }
+
+    // The two buttons name the release they act on.
+    private void ShowActions(string version)
+    {
+        LaunchText.Text = $"Play {version}";
+        InstallText.Text = $"Install {version} only";
     }
 
     // The highlight moved to a release (a key or a click): show it, keep the Play label on it, and keep Home's art in step.
@@ -204,7 +213,7 @@ public partial class VersionSelectOverlay : UserControl
         _syncing = true;
         ReleaseList.SelectedIndex = _nav.ReleaseIndex;
         _syncing = false;
-        LaunchText.Text = $"Play {version}";
+        ShowActions(version);
         ShowPickRing();
     }
 
@@ -262,49 +271,54 @@ public partial class VersionSelectOverlay : UserControl
         foreach (var tile in _tiles)
             tile.SetBadge(VersionStatus.ForFamily(tile.Group.Versions.Select(_installs.StateOf).ToList()));
         foreach (var row in _rows)
-            row.SetStatus(VersionStatus.ForRelease(_installs.StateOf(row.Version)));
+            row.SetState(_installs.StateOf(row.Version));
     }
 
     // ---- sizing ----
 
-    // The sheet's fixed heights (px), so the cards and the release list fit a short window without scrolling:
-    // the sheet's own top + bottom margin (8 + 16) and padding (24 + 24), step 1's heading block (28 + 16 + 16 gap),
-    // a card's text under the art (8 + 22 range line + 2 + 32 for a name on two lines) and the 12 px between rows;
-    // step 2's header (32 + 12), the family words under its card (8 + 22 + 4 + about 170 of description) and the
-    // Play row (12 + 36).
-    private const double SheetChrome = 8 + 16 + 24 + 24 + 2; // + the sheet's 1 px border
-    private const double FamiliesHeader = 28 + 16 + 16, CardText = 8 + 22 + 2 + 32, RowGap = 12;
-    private const double ReleasesHeader = 36 + 12, FamilyWords = 8 + 22 + 4 + 170, PlayRow = 12 + 36;
+    // The sheet's fixed sizes (px), so the cards and the release list fit a short window without scrolling:
+    // the sheet's own top + bottom margin (8 + 16), padding (24 + 24) and 1 px edges; step 1's heading block
+    // (28 + 16 + 16 gap); a card's text under the art (10 + 22 range line + 2 + 16 name + 4 + 16 status + 12, and
+    // the card's own 1 px edges) and the 12 px between rows; step 2's header (36 + 12), the family words under its
+    // art (12 + 16 + 2 + 28 + 8 + about 140 of description) and the actions row (12 + 36).
+    private const double SheetChrome = 8 + 16 + 24 + 24 + 2;
+    private const double SheetGutterX = 24 + 24, SheetInnerX = 24 + 24 + 2;
+    private const double FamiliesHeader = 28 + 16 + 16, CardText = 10 + 22 + 2 + 16 + 4 + 16 + 12 + 2, RowGap = 12;
+    private const double ReleasesHeader = 36 + 12, FamilyWords = 12 + 16 + 2 + 28 + 8 + 140, PlayRow = 12 + 36;
+    private const double CardEdges = 2;
     private const int Columns = 4;
 
+    private double Token(string key) => (double)FindResource(key);
+
+    // The sheet follows the window: Size.Sheet.Share of its width, between Size.Sheet.Min and Size.Sheet.Max, never
+    // wider than the window less the gutters. The cards stay 16:9 art at whatever width that gives; when the window is
+    // too short for two rows at that width the cards (and so the sheet) get narrower instead of squashing the art.
     private void SizeCards()
     {
-        if (_tiles.Count == 0 || FamilyList.ActualWidth <= 0) return;
-        // The list reaches 12 px past the sheet's edge (cancelling the last card's gap): a card is a quarter of it
-        // minus its own gap, and its art is 16:10.
-        var column = Math.Floor(FamilyList.ActualWidth / Columns) - RowGap;
-        var height = column * 10 / 16;
+        var stageW = Stage.ActualWidth;
+        var stageH = Stage.ActualHeight;
+        if (_tiles.Count == 0 || stageW <= 0 || stageH <= 0) return;
+        var sheet = Math.Min(stageW - SheetGutterX, Math.Clamp(stageW * Token("Size.Sheet.Share"), Token("Size.Sheet.Min"), Token("Size.Sheet.Max")));
+        var column = Math.Floor((sheet - SheetInnerX + RowGap) / Columns) - RowGap;
         var rows = (_tiles.Count + Columns - 1) / Columns;
-        var viewport = Body.ViewportHeight;
-        if (viewport > 0)
-            height = Math.Min(height, (viewport - SheetChrome - FamiliesHeader + RowGap) / rows - CardText - RowGap);
-        height = Math.Round(Math.Max(48, height));
-        // The range goes into the art when the card is wide enough for it, on every card alike (the rows stay level).
-        var rangeInArt = column >= (double)FindResource("Numeral.RangeMinCard");
+        var fit = (stageH - SheetChrome - FamiliesHeader + RowGap) / rows - CardText - RowGap;
+        if ((column - CardEdges) * 9 / 16 > fit) column = Math.Floor(fit * 16 / 9 + CardEdges);
+        column = Math.Max(column, 96);
+        var art = Math.Round((column - CardEdges) * 9 / 16);
         foreach (var tile in _tiles)
         {
             tile.CardWidth = column;
-            tile.ThumbHeight = height;
-            tile.RangeInArt = rangeInArt;
+            tile.ThumbHeight = art;
         }
+        Sheet.Width = Columns * column + (Columns - 1) * RowGap + SheetInnerX;
 
-        // Step 2: the family card is the side column's width at 16:10, shorter when the window is.
-        var side = ((GridLength)FindResource("Size.SheetSide")).Value;
-        var detail = side * 10 / 16;
-        if (viewport > 0) detail = Math.Clamp(viewport - SheetChrome - ReleasesHeader - FamilyWords, 96, detail);
+        // Step 2: the family column is a share of the sheet; its art is 16:9 at that width, shorter when the window is.
+        var side = Math.Round(Math.Clamp((Sheet.Width - SheetInnerX) * Token("Size.SheetSide.Share"), Token("Size.SheetSide"), Token("Size.SheetSide.Max")));
+        SideColumn.Width = new GridLength(side);
+        var detail = Math.Clamp(stageH - SheetChrome - ReleasesHeader - FamilyWords - PlayRow, 96, side * 9 / 16);
         foreach (var tile in _tiles) tile.DetailArtHeight = Math.Round(detail);
-        // Ten releases fit; more (none today) scroll inside the list, never push Play off the sheet.
-        if (viewport > 0) ReleaseList.MaxHeight = Math.Max(120, viewport - SheetChrome - ReleasesHeader - PlayRow);
+        // Ten releases fit; more (none today) scroll inside the panel, never push the buttons off the sheet.
+        ReleasePanel.MaxHeight = Math.Max(120, stageH - SheetChrome - ReleasesHeader - PlayRow);
     }
 
     // ---- events ----
@@ -336,6 +350,14 @@ public partial class VersionSelectOverlay : UserControl
     }
 
     private void Launch_Click(object sender, RoutedEventArgs e) => Launch();
+
+    // "Install x only": the release gets provisioned, the game does not start. Home shows the progress and the result.
+    private void Install_Click(object sender, RoutedEventArgs e)
+    {
+        if (_nav.Step != SelectorStep.Releases) return;
+        InstallRequested?.Invoke(_nav.Release);
+        CloseOverlay();
+    }
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseOverlay();
 
@@ -390,6 +412,9 @@ public partial class VersionSelectOverlay : UserControl
     /// <summary>The status text on a release row of the open family ("" while nothing is shown).</summary>
     internal string RowStatusOf(string version) => _rows.FirstOrDefault(r => r.Version == version)?.StatusText ?? "";
 
+    /// <summary>The capsule text on a release row of the open family ("INSTALLED", "DOWNLOAD"; "" while nothing is shown).</summary>
+    internal string RowPillOf(string version) => _rows.FirstOrDefault(r => r.Version == version)?.PillText ?? "";
+
     // Render mode only (UI/RenderShots.cs): open the picker, optionally on one
     // family (index into VersionCatalog.Groups) at step 2. They do nothing outside a
     // render-shots run (OriginPaths.IsScratchRoot). Nothing here picks a version.
@@ -436,30 +461,12 @@ public partial class VersionSelectOverlay : UserControl
         if (OriginPaths.IsScratchRoot) SizeCards();
     }
 
-    // Render mode only: each card's key, its container and the numbers the scrim was worked out from, in catalogue
-    // order (UI/CardShots.cs measures the rendered number's contrast on them).
-    internal IReadOnlyList<(string Key, FrameworkElement? Item, double ZoneLuminance, double Strength, double Reach)> TourCards() =>
-        _tiles.Select(t => (t.Group.Key, FamilyList.ItemContainerGenerator.ContainerFromItem(t) as FrameworkElement,
-            t.ZoneLuminance, t.ScrimStrength, t.ScrimReach)).ToList();
-
-    // Render mode only: put other art on one card (the shipped art is all dark; the shots also need light art) and
-    // work its scrim out exactly as for real art.
-    internal void TourSwapArt(int index, BitmapSource art)
-    {
-        if (!OriginPaths.IsScratchRoot || index < 0 || index >= _tiles.Count) return;
-        _tiles[index].Swap(art, VersionCardNumeral.Spec());
-    }
-
-    // Render mode only: the real art back on every card.
-    internal void TourRestoreArt()
-    {
-        if (!OriginPaths.IsScratchRoot) return;
-        var spec = VersionCardNumeral.Spec();
-        foreach (var t in _tiles) t.LoadAsync(spec);
-    }
+    // Render mode only: family card <paramref name="index"/>'s container, so a shot can draw its keyboard focus frame.
+    internal FrameworkElement? TourFamilyItem(int index) =>
+        OriginPaths.IsScratchRoot ? FamilyList.ItemContainerGenerator.ContainerFromIndex(index) as FrameworkElement : null;
 
     // The brush for a status dot, from the same tokens as every other dot (DESIGN-SYSTEM.md 11.9).
-    private static Brush DotBrush(StatusDot dot) => (Brush)Application.Current.FindResource(dot switch
+    private static Brush DotBrush(StatusDot dot) => BrushOf(dot switch
     {
         StatusDot.Success => "Brush.Success",
         StatusDot.Info => "Brush.Info",
@@ -467,43 +474,78 @@ public partial class VersionSelectOverlay : UserControl
         _ => "Brush.TextMuted",
     });
 
-    // One release row's data: the version and what is known about it on disk.
+    private static Brush BrushOf(string key) => (Brush)Application.Current.FindResource(key);
+
+    // One release row's data: the version, its detail line and the status capsule. The capsule is tinted by state with
+    // the hue tokens (installed emerald, update sky, unfinished gold) and a quiet outline for "not installed".
     private sealed class ReleaseRow : INotifyPropertyChanged
     {
-        private StatusLine? _status;
+        private StatusLine? _detail, _pill;
+        private StatusDot _tone = StatusDot.Muted;
 
-        public ReleaseRow(string version, StatusLine? status)
+        public ReleaseRow(string version, InstallState state)
         {
             Version = version;
-            _status = status;
+            Apply(state);
         }
 
         public string Version { get; }
-        public string StatusText => _status?.Text ?? "";
-        public Brush? DotBrush => _status == null ? null : VersionSelectOverlay.DotBrush(_status.Dot);
-        public Visibility StatusVisibility => _status == null ? Visibility.Collapsed : Visibility.Visible;
-
-        public void SetStatus(StatusLine? status)
+        public string StatusText => _detail?.Text ?? "";
+        public Brush DetailBrush => BrushOf("Brush.TextMuted");
+        public Visibility StatusVisibility => _pill == null ? Visibility.Collapsed : Visibility.Visible;
+        public string PillText => _pill?.Text ?? "";
+        public Brush PillForeground => _tone switch
         {
-            if (Equals(_status, status)) return;
-            _status = status;
+            StatusDot.Success => BrushOf("Brush.Hue.Emerald"),
+            StatusDot.Info => BrushOf("Brush.Hue.Sky"),
+            StatusDot.Warning => BrushOf("Brush.Hue.Gold"),
+            _ => BrushOf("Brush.TextMuted"),
+        };
+        public Brush PillBackground => _tone switch
+        {
+            StatusDot.Success => BrushOf("Brush.HueTile.Emerald"),
+            StatusDot.Info => BrushOf("Brush.HueTile.Sky"),
+            StatusDot.Warning => BrushOf("Brush.HueTile.Gold"),
+            _ => Brushes.Transparent,
+        };
+        // A tinted capsule has no visible edge (the same tint as its fill); the quiet one is outlined. The 1 px edge is
+        // always there so every capsule is the same size.
+        public Brush PillBorder => _tone switch
+        {
+            StatusDot.Success => BrushOf("Brush.HueTile.Emerald"),
+            StatusDot.Info => BrushOf("Brush.HueTile.Sky"),
+            StatusDot.Warning => BrushOf("Brush.HueTile.Gold"),
+            _ => BrushOf("Brush.Stroke"),
+        };
+
+        public void SetState(InstallState state)
+        {
+            Apply(state);
             Raise(nameof(StatusText));
-            Raise(nameof(DotBrush));
             Raise(nameof(StatusVisibility));
+            Raise(nameof(PillText));
+            Raise(nameof(PillForeground));
+            Raise(nameof(PillBackground));
+            Raise(nameof(PillBorder));
+        }
+
+        private void Apply(InstallState state)
+        {
+            _detail = VersionStatus.ForRelease(state);
+            _pill = VersionStatus.PillFor(state);
+            _tone = _pill?.Dot ?? StatusDot.Muted;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
-    // One family tile's data. The thumbnails arrive after decode; ThumbHeight
-    // follows the row width so the art keeps 16:10 at every window size.
+    // One family tile's data. The thumbnail arrives after decode; ThumbHeight follows the card width so the art keeps
+    // 16:9 at every window size.
     private sealed class FamilyTile : INotifyPropertyChanged
     {
-        private ImageSource? _grey, _colour;
+        private ImageSource? _colour;
         private double _thumbHeight = 82, _detailArtHeight = 200, _cardWidth = double.NaN;
-        private bool _rangeInArt;
-        private double _scrimStrength = 1, _scrimReach = 1;
         private StatusLine? _badge;
 
         public FamilyTile(VersionGroup group)
@@ -515,7 +557,6 @@ public partial class VersionSelectOverlay : UserControl
         public string Range => Group.Title;
         public string Name => Group.Tagline;
         public string Description => Group.Description;
-        public ImageSource? Grey { get => _grey; private set { _grey = value; Raise(nameof(Grey)); } }
         public ImageSource? Colour { get => _colour; private set { _colour = value; Raise(nameof(Colour)); } }
         // The card's width, a whole number of pixels (NaN until the first sizing pass). Left to the layout it is a quarter of
         // a width that is not always a multiple of four, and layout rounding then rounds every card up past its cell.
@@ -535,10 +576,10 @@ public partial class VersionSelectOverlay : UserControl
             get => _detailArtHeight;
             set { if (Math.Abs(_detailArtHeight - value) < 0.5) return; _detailArtHeight = value; Raise(nameof(DetailArtHeight)); }
         }
-        // The badge on the card: nothing until every release of the family has been read.
+        // The quiet status line under the card: nothing until every release of the family has been read.
         public string BadgeText => _badge?.Text ?? "";
         public Brush? BadgeDot => _badge == null ? null : DotBrush(_badge.Dot);
-        public Visibility BadgeVisibility => _badge == null ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility BadgeVisibility => _badge == null ? Visibility.Hidden : Visibility.Visible;
         public void SetBadge(StatusLine? badge)
         {
             if (Equals(_badge, badge)) return;
@@ -547,73 +588,17 @@ public partial class VersionSelectOverlay : UserControl
             Raise(nameof(BadgeDot));
             Raise(nameof(BadgeVisibility));
         }
-        // The number set into the art is the family's key ("1.21", "26"); the range beside it or under the card.
-        public string Number => Group.Key;
-        public string ArtRange => _rangeInArt ? Group.Title : "";
-        public Visibility RangeBelowVisibility => _rangeInArt ? Visibility.Collapsed : Visibility.Visible;
-        public bool RangeInArt
-        {
-            get => _rangeInArt;
-            set
-            {
-                if (_rangeInArt == value) return;
-                _rangeInArt = value;
-                Raise(nameof(ArtRange));
-                Raise(nameof(RangeBelowVisibility));
-            }
-        }
-        // How strong the corner shade under the number is for this art (CardArtScrim), and the art's mean
-        // luminance where the number stands (only the shot report reads that).
-        public double ScrimStrength { get => _scrimStrength; private set { _scrimStrength = value; Raise(nameof(ScrimStrength)); } }
-        public double ScrimReach { get => _scrimReach; private set { _scrimReach = value; Raise(nameof(ScrimReach)); } }
-        public double ZoneLuminance { get; private set; }
 
-        public void LoadAsync(ScrimSpec spec)
+        // Full-colour art, decoded off the UI thread (a frozen bitmap).
+        public void LoadAsync()
         {
             var key = Group.Key;
-            _ = Task.Run(() => Work(ArtStage.Decode($"{key}-tg.jpg", 320), ArtStage.Decode($"{key}-tc.jpg", 320), spec))
-                .ContinueWith(t => Apply(t.Result), TaskScheduler.FromCurrentSynchronizationContext());
+            _ = Task.Run(() => ArtStage.Decode($"{key}-tc.jpg", 480))
+                .ContinueWith(t => Colour = t.Result, TaskScheduler.FromCurrentSynchronizationContext());
         }
-
-        // Render mode only (VersionSelectOverlay.TourSwapArt): put other art on the card and work its scrim out the
-        // same way the real art's is.
-        public void Swap(BitmapSource art, ScrimSpec spec) => Apply(Work(art, art, spec));
-
-        private static (ImageSource? Grey, ImageSource? Colour, ScrimResult Result) Work(BitmapSource? grey, BitmapSource? colour, ScrimSpec spec)
-        {
-            // Both states of the thumb sit under the same number, so the shade must hold for the brighter one.
-            var result = new[] { grey, colour }.Select(b => Scrim(b, spec)).Where(r => r != null).Select(r => r!.Value)
-                .DefaultIfEmpty(new ScrimResult(1, 1, 0)).MaxBy(r => (r.Reach, r.Strength));
-            return (grey, colour, result);
-        }
-
-        private void Apply((ImageSource? Grey, ImageSource? Colour, ScrimResult Result) w)
-        {
-            Grey = w.Grey;
-            Colour = w.Colour;
-            ZoneLuminance = w.Result.ZoneLuminance;
-            ScrimReach = w.Result.Reach;
-            ScrimStrength = w.Result.Strength;
-        }
-
-        // The art-aware shade for one decoded thumb: read its pixels (frozen, so any thread may), average them to a
-        // coarse grid and ask CardArtScrim how strong the corner shade must be. Null if the art did not decode.
-        private static ScrimResult? Scrim(BitmapSource? bmp, ScrimSpec spec)
-        {
-            if (bmp == null) return null;
-            BitmapSource bgra = bmp.Format == PixelFormats.Bgra32 || bmp.Format == PixelFormats.Bgr32
-                ? bmp : new FormatConvertedBitmap(bmp, PixelFormats.Bgra32, null, 0);
-            var width = bgra.PixelWidth;
-            var height = bgra.PixelHeight;
-            var stride = width * 4;
-            var pixels = new byte[stride * height];
-            bgra.CopyPixels(pixels, stride, 0);
-            return CardArtScrim.Analyse(CardArtGrid.FromBgra(pixels, width, height, stride, GridCols, GridRows), spec);
-        }
-
-        private const int GridCols = 32, GridRows = 18;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
+

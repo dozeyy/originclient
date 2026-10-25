@@ -36,10 +36,18 @@
     <system:Double x:Key="Size.Checkbox">16</system:Double>
     <system:Double x:Key="Size.Progress">3</system:Double>
     <system:Double x:Key="Size.Dot">6</system:Double>
-    <!-- Version selector (11.3, 11.6): the sheet's widest, the family column of step 2, the status badge on a card. -->
-    <system:Double x:Key="Size.Sheet">960</system:Double>
-    <GridLength x:Key="Size.SheetSide">320</GridLength>
-    <system:Double x:Key="Size.Badge">20</system:Double>
+    <!-- Version selector (11.3, 11.6): the sheet takes Share of the window width, never narrower than Min (the old fixed
+         sheet) and never wider than Max; the family column of step 2 takes SideShare of the sheet, between Side and SideMax. -->
+    <system:Double x:Key="Size.Sheet.Min">912</system:Double>
+    <system:Double x:Key="Size.Sheet.Max">1600</system:Double>
+    <system:Double x:Key="Size.Sheet.Share">0.8</system:Double>
+    <system:Double x:Key="Size.SheetSide">320</system:Double>
+    <system:Double x:Key="Size.SheetSide.Max">560</system:Double>
+    <system:Double x:Key="Size.SheetSide.Share">0.38</system:Double>
+    <!-- Capsule (pill) padding, the one pair every capsule uses (a status pill, a SELECTED tag): the text's caps
+         centre in its line box, so these give equal ink gaps on all four sides. Corners are Radius.Full. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
     <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
     <system:Double x:Key="Size.SliderBox">20</system:Double>
     <system:Double x:Key="Size.SliderTrack">4</system:Double>
@@ -63,6 +71,8 @@
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
     <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- A card's picture: the card's corner on its top two corners only. -->
+    <CornerRadius x:Key="Radius.Lg.Top">12,12,0,0</CornerRadius>
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->

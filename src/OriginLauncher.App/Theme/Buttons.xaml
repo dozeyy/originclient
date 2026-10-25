@@ -174,6 +174,12 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Secondary at lg (36), the height of Primary.Medium beside it (the version sheet's Install / Play pair). -->
+    <Style x:Key="Button.Secondary.Medium" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="16,0"/>
+    </Style>
+
     <!-- Secondary at md (32): Profiles Import/Cancel, a row's Change, the drawers' footers. -->
     <Style x:Key="Button.Secondary.Small" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
         <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
