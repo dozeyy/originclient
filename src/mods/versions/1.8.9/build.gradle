@@ -48,6 +48,13 @@ loom {
 			// Dev runs load the classes dir, not the jar, so the manifest's
 			// TweakClass isn't seen there — pass the tweaker explicitly.
 			programArgs '--tweakClass', 'org.spongepowered.asm.launch.MixinTweaker'
+			// Benchmark runs only (tools/bench/bench-189.ps1 sets ORIGIN_BENCH_JVM): the
+			// heap + GC flags the launcher gives players, so dev numbers use the same JVM
+			// setup. Unset (every normal runClient) = no change.
+			def benchJvm = System.getenv('ORIGIN_BENCH_JVM')
+			if (benchJvm != null && !benchJvm.trim().isEmpty()) {
+				vmArgs(*benchJvm.trim().split(/\s+/))
+			}
 		}
 	}
 }

@@ -59,3 +59,6 @@ src/mods/versions/*/runthick-*.log
 # Claude Lean runtime data (per-machine state, trimmed-output logs, stats)
 .claude/lean/
 .claude/settings.local.json
+
+# Benchmark scratch (tools/bench/prod189.py): holds a downloaded OptiFine jar, which is never committed.
+artifacts/bench-189/

@@ -85,12 +85,21 @@ public class OriginClientMod {
 
 	/** Called once by OriginClient (FMLInitializationEvent). */
 	public static void init() {
+		if (OriginBench.probeOnly()) {
+			// CI "OptiFine-only" baseline (ORIGIN_BENCH_PROBE=1, benchmark mode only, never a player's
+			// game): Origin stays inert -- no hooks, keys, HUD or flush thread -- and only the
+			// benchmark runs, so its frame times are the stack without Origin's own work.
+			OriginBench.install();
+			return;
+		}
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		instance = new OriginClientMod();
 		OriginHooks.registerObject(instance);
 		// Every area's hooks class (Menu, ModMenu, Hud, World, Social, Server).
 		OriginHooks.registerAll();
+		// Benchmark mode (-Dorigin.bench=..., tools/bench/bench-189.ps1): off for players.
+		OriginBench.install();
 		// Resource Pack Hub: finish uninstalls that had to wait for Minecraft to
 		// release a pack (now, and after every resource reload). Its "Browse Packs"
 		// button on the Resource Packs screen is added by MenuHooks.
