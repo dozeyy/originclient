@@ -106,10 +106,27 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
 	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
-	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
+	public static final int CLEAN_DIM_TITLE = 0x590E1110;      // title (~35%), the Workbench bg hue (as 1.21.1)
 	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
 	public static final int CLEAN_BAR_TRACK = 0x14FFFFFF;      // progress bar hairline track, white 8 % (1.21.1)
 	public static final int CLEAN_BAR_FILL = 0xFF5FD09B;       // progress bar fill, the emerald accent (1.21.1)
+
+	// ---- Title screen, Workbench skin (1.21.1's tokens verbatim; docs/overhaul/DESIGN-SYSTEM.md 15.2) ----
+	// ONLY the title's controls read these (OriginButtonRenderer's title skin, the chip and footer in
+	// OriginScreenRenderer / OriginTitleScreen). Separate from BOX_* / PANEL on purpose: those feed the Mod Menu
+	// family, which must not change. Fixed (never theme-repainted). Radii and edges are GUI px.
+	public static final int TITLE_RADIUS = 4;                  // focus ring / tooltip radius (1.21.1 keeps it)
+	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
+	public static final int TITLE_BTN_FILL_HOVER = 0xEB2E3631; // clearly lighter than rest (judge 2026-10-25)
+	public static final int TITLE_BTN_FILL_PRESS = 0xF20B0F0D; // near-black press; the label also drops 1 GUI px
+	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
+	public static final int TITLE_BTN_EDGE_HOVER = 0x40FFFFFF; // white 25 %: the hairline firms with the fill
+	public static final int TITLE_TEXT_MUTED = 0x85F1E9D2;     // textMuted: disabled labels, the footer
+	public static final int TITLE_BTN_RADIUS = 3;              // Workbench cards (A-Workbench-3)
+	public static final int TITLE_TEXT = 0xFFF1E9D2;           // parchment
+	public static final float TITLE_LABEL_EM = 9.0f;           // Inter 600 em, GUI px (labels, the player name)
+	public static final float TITLE_SMALL_EM = 8.0f;           // Inter regular em, GUI px (the footer)
+	// No ring/orbit tokens: the only ring shapes are inside origin_logo.png (Will, 2026-10-25).
 
 	// ---- Shape: crafted, not pill-heavy ----
 	public static final int RADIUS_SM = 1;

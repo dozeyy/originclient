@@ -165,7 +165,17 @@ public final class ModIcons {
 	// (see ensureLoaded). Small fixed-size icons are instead area-averaged on the
 	// CPU to their exact device-pixel size, once, and drawn 1:1.
 	private static java.awt.image.BufferedImage atlasImg;
-	private static final java.util.Map<String, ResourceLocation> CRISP = new java.util.HashMap<>();
+	// Baked crisp icons per id, indexed by physical size (an array: a frame's lookup allocates nothing).
+	private static final int CRISP_MAX_PX = 256;
+	private static final java.util.Map<String, ResourceLocation[]> CRISP = new java.util.HashMap<>();
+
+	/**
+	 * The title's flat glyph (1.21.1's ModIcons.drawFlat): the crisp, physical-pixel bake tinted `argb`, with NO
+	 * shadow -- the Workbench dock and the worded buttons' lead glyphs sit flat on their card.
+	 */
+	public static void drawFlat(Gfx g, String id, int x, int y, int size, int argb) {
+		drawCrispRaw(g, id, x, y, size, argb);
+	}
 
 	public static void drawCrisp(Gfx g, String id, int x, int y, int size, int argb) {
 		if (((argb >>> 24) & 0xFF) > 2) {
@@ -189,10 +199,17 @@ public final class ModIcons {
 			if (c == null || atlasImg == null) {
 				return;
 			}
-			int scale = new net.minecraft.client.gui.ScaledResolution(net.minecraft.client.Minecraft.getMinecraft()).getScaleFactor();
-			int px = Math.max(1, size * scale);
-			String key = id + "@" + px;
-			ResourceLocation rl = CRISP.get(key);
+			int px = Math.max(1, size * Gfx.guiScale());
+			if (px > CRISP_MAX_PX) {
+				drawRaw(g, id, x, y, size, argb);
+				return;
+			}
+			ResourceLocation[] sizes = CRISP.get(id);
+			if (sizes == null) {
+				sizes = new ResourceLocation[CRISP_MAX_PX + 1];
+				CRISP.put(id, sizes);
+			}
+			ResourceLocation rl = sizes[px];
 			if (rl == null) {
 				java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(px, px, java.awt.image.BufferedImage.TYPE_INT_ARGB);
 				double step = cell / (double) px;
@@ -216,7 +233,7 @@ public final class ModIcons {
 				if (Gfx.registerTexture(rl, out, true) == null) {
 					return;
 				}
-				CRISP.put(key, rl);
+				sizes[px] = rl;
 			}
 			Gfx.defaultBlend();
 			GlStateManager.color(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,

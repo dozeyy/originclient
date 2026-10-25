@@ -106,11 +106,18 @@ public final class OriginButtonRenderer {
 		}
 	}
 
-	/** Gives a title-screen action its approved Origin symbol. Icon-only is used
-	 * for the bottom utility dock; labelled actions keep a compact centred pair. */
-	public static void setTitlePresentation(Object widget, String icon, boolean iconOnly) {
+	/** Registers a worded title button (Singleplayer, Multiplayer, Options, Mods): the Workbench card with an
+	 *  Inter label and an optional 8 GUI px leading glyph (null = label only). As 1.21.1's setTitleButton. */
+	public static void setTitleButton(Object widget, String icon) {
+		if (widget != null) {
+			TITLE.put(widget, new TitlePresentation(icon, false));
+		}
+	}
+
+	/** Registers a title dock action: the same card with a centred 12 GUI px parchment glyph. */
+	public static void setTitleDock(Object widget, String icon) {
 		if (widget != null && icon != null) {
-			TITLE.put(widget, new TitlePresentation(icon, iconOnly));
+			TITLE.put(widget, new TitlePresentation(icon, true));
 		}
 	}
 
@@ -223,21 +230,11 @@ public final class OriginButtonRenderer {
 		int x = button.xPosition, y = button.yPosition, w = button.width, h = button.height;
 		boolean enabled = button.enabled;
 		double hv = hoverEase(button, enabled && button.isMouseOver());
-		if (TITLE.get(button) != null) {
-			titleBox(g, button, enabled, hv);
-		} else {
-			box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
-		}
+		box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
 		return true;
 	}
 
 	private static void renderLabel(Gfx g, GuiButton button) {
-		boolean enabled = button.enabled;
-		TitlePresentation title = TITLE.get(button);
-		if (title != null) {
-			drawTitlePresentation(g, button, title, enabled, hoverEase(button, enabled && button.isMouseOver()));
-			return;
-		}
 		drawLabelCentered(g, button, button.xPosition + button.width / 2.0, button.yPosition + button.height / 2.0,
 				labelColor(button));
 	}
@@ -407,17 +404,6 @@ public final class OriginButtonRenderer {
 		}
 	}
 
-	/** Title controls are one opaque material at rest. Colour appears only as
-	 * direct hover/press feedback. 1.8.9: "pressed" is LWJGL's live left button. */
-	private static void titleBox(Gfx g, GuiButton button, boolean enabled, double hover) {
-		boolean pressed = enabled && button.isMouseOver() && Mouse.isButtonDown(0);
-		int fill = enabled ? OriginTheme.lerpColor(OriginTheme.PANEL, OriginTheme.PANEL_ALT, hover) : FILL_DISABLED;
-		if (pressed) {
-			fill = OriginTheme.lerpColor(OriginTheme.PANEL_ALT, OriginTheme.ACCENT, 0.15);
-		}
-		OriginUi.panel(g, button.xPosition, button.yPosition, button.width, button.height, RADIUS, fill, 0);
-	}
-
 	/** Centred label through OriginText (the one Origin text voice). Raw label
 	 *  text is kept as-is so "Options..." reads right; trimmed with "..." when it
 	 *  would overflow the box (Forge's GuiButtonExt trims the same way). */
@@ -432,31 +418,203 @@ public final class OriginButtonRenderer {
 		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
 	}
 
-	private static void drawTitlePresentation(Gfx g, GuiButton button, TitlePresentation title,
-											  boolean enabled, double hover) {
-		int x = button.xPosition, y = button.yPosition, w = button.width, h = button.height;
-		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : OriginTheme.MUTED;
-		int iconSize = Math.max(10, Math.min(12, h - 5));
-		if (title.iconOnly()) {
-			ModIcons.draw(g, title.icon(), x + (w - iconSize) / 2, y + (h - iconSize) / 2, iconSize, color);
-			return;
+	// ---- skin 2: the title screen's controls (1.21.1's Workbench title, DESIGN-SYSTEM 15.2) ----
+	// Worded buttons are a card (radius 3 GUI px, 1 GUI px edge) with an Inter 600 label centred and an optional
+	// 8 GUI px leading glyph; the dock is the same card with a 12 GUI px parchment glyph. Hover eases over the
+	// shared 48 / 64 ms; press darkens the card and drops the label / glyph 1 GUI px; geometry never moves.
+	// 1.8.9 (fixed-function, no SDF shader): the card is OriginUi's software AA box drawn in PHYSICAL pixels
+	// (radius 3 x guiScale, edge guiScale px), and Inter is OriginTtfFont -- the bundled Inter TTFs rasterised
+	// at the exact physical size (1.16.5's best-fit; the MSDF atlases need a shader this GL path lacks).
+	// No keyboard focus ring: 1.8.9's GuiButton has no focus state.
+	private static final int GLYPH = 12, LEAD_ICON = 8, LEAD_GAP = 6;
+	private static volatile boolean titleBroken = false;
+
+	/** Dev-shots only (OriginDevShots' title-press shot): the hovered title control draws pressed. */
+	public static volatile boolean devPress = false;
+
+	/**
+	 * Draws a registered title control; false = not ours (or latched): the caller draws vanilla's button.
+	 * {@code hovered} is vanilla's own hit test for this frame (GuiButton.hovered).
+	 */
+	public static boolean titleControl(Gfx g, GuiButton button, boolean hovered) {
+		TitlePresentation tp = TITLE.get(button);
+		if (tp == null || titleBroken || com.origin.client.client.OriginStyle.vanillaTitle()) {
+			return false;
 		}
-		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
-		String label = button.displayString == null ? "" : button.displayString;
-		float textScale = 0.82f;
-		int textW = Math.round(OriginText.widthBold(font, label) * textScale);
-		int gap = 4;
-		int groupW = iconSize + gap + textW;
-		int iconX = x + (w - groupW) / 2;
-		int iconY = y + (h - iconSize) / 2;
-		ModIcons.draw(g, title.icon(), iconX, iconY, iconSize, color);
-		int textX = iconX + iconSize + gap;
-		int textY = y + (h - Math.round(8 * textScale)) / 2;
-		g.pose().pushPose();
-		g.pose().translate(textX, textY, 0);
-		g.pose().scale(textScale, textScale, 1f);
-		OriginText.drawBold(g, font, label, 0, 0, color, true);
-		g.pose().popPose();
+		try {
+			boolean enabled = button.enabled;
+			double hv = hoverEase(button, enabled && hovered);
+			boolean pressed = enabled && hovered && (devPress || Mouse.isButtonDown(0));
+			int x = button.xPosition, y = button.yPosition, w = button.width, h = button.height;
+			if (tp.iconOnly()) {
+				drawDock(g, tp, x, y, w, h, enabled, hv, pressed);
+			} else {
+				drawPanelButton(g, button, tp, x, y, w, h, enabled, hv, pressed);
+			}
+			return true;
+		} catch (Throwable t) {
+			titleBroken = true;
+			com.origin.client.OriginClient.LOGGER.error(
+					"Origin title controls failed; falling back to vanilla widgets on the title for this session", t);
+			return false;
+		} finally {
+			Gfx.resetColor();
+		}
+	}
+
+	private static void drawPanelButton(Gfx g, GuiButton button, TitlePresentation tp,
+										int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
+		drawCard(g, x, y, w, h, enabled, hv, pressed);
+		// The label: Inter 600 in parchment, centred on its cap height; Minecraft's font when Inter is not live.
+		// Measured once per widget and again only when its displayString is replaced or the GUI scale changes.
+		float em = OriginTheme.TITLE_LABEL_EM;
+		Label lab = label(button, titleTextActive(), em);
+		int textColor = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
+		boolean lead = tp.icon() != null;
+		float groupW = lead ? LEAD_ICON + LEAD_GAP + lab.width : lab.width;
+		float gx = x + (w - groupW) / 2f;
+		int dy = pressed ? 1 : 0;
+		if (lead) {
+			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TITLE_TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
+			ModIcons.drawFlat(g, tp.icon(), Math.round(gx), y + (h - LEAD_ICON) / 2 + dy, LEAD_ICON, iconColor);
+			gx += LEAD_ICON + LEAD_GAP;
+		}
+		if (lab.ttf) {
+			drawInter(g, lab.text, gx, y + h / 2f + lab.cap / 2f + dy, em, textColor, true);
+		} else {
+			g.drawString(Minecraft.getMinecraft().fontRendererObj, lab.text, Math.round(gx), y + (h - 8) / 2 + dy, textColor, true);
+		}
+	}
+
+	/** A title button's label, measured once: text, advance width and cap height (GUI px), and which font measured it. */
+	private static final class Label {
+		String source;
+		String text;
+		float width, cap, em;
+		int gs;
+		boolean ttf;
+	}
+
+	private static final Map<Object, Label> LABELS = new WeakHashMap<>();
+
+	private static Label label(GuiButton button, boolean ttf, float em) {
+		String source = button.displayString;
+		int gs = Gfx.guiScale();
+		Label lab = LABELS.get(button);
+		if (lab == null) {
+			lab = new Label();
+			LABELS.put(button, lab);
+		} else if (lab.source == source && lab.ttf == ttf && lab.em == em && lab.gs == gs) {
+			return lab;
+		}
+		lab.source = source;
+		lab.text = source == null ? "" : source;
+		lab.ttf = ttf;
+		lab.em = em;
+		lab.gs = gs;
+		if (ttf) {
+			lab.width = OriginTtfFont.widthEm(lab.text, em * gs, 0f, true) / gs;
+			lab.cap = OriginTtfFont.capHeight(em * gs, true) / gs;
+		} else {
+			lab.width = Minecraft.getMinecraft().fontRendererObj.getStringWidth(lab.text);
+			lab.cap = 7f;
+		}
+		return lab;
+	}
+
+	/** The Workbench card behind every title control (worded or dock): fill + 1 GUI px hairline, radius 3. */
+	private static void drawCard(Gfx g, int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
+		int fill, edge;
+		if (!enabled) {
+			fill = OriginTheme.withAlpha(OriginTheme.TITLE_BTN_FILL, 0x7D);   // 60 % of the rest fill
+			edge = OriginTheme.TITLE_BTN_EDGE;
+		} else if (pressed) {
+			fill = OriginTheme.TITLE_BTN_FILL_PRESS;
+			edge = OriginTheme.TITLE_BTN_EDGE_HOVER;
+		} else {
+			fill = OriginTheme.lerpColor(OriginTheme.TITLE_BTN_FILL, OriginTheme.TITLE_BTN_FILL_HOVER, hv);
+			edge = OriginTheme.lerpColor(OriginTheme.TITLE_BTN_EDGE, OriginTheme.TITLE_BTN_EDGE_HOVER, hv);
+		}
+		// Physical pixels: a 3 GUI px radius at guiScale 2+ has to be shaded per physical pixel to read as
+		// 1.21.1's SDF corner, and the hairline is one GUI px = guiScale physical px. The edge is drawn OVER
+		// the fill, which is exactly 1.21.1's flatten(fill, edge).
+		int gs = Gfx.guiScale();
+		Pose pose = g.pose();
+		pose.pushPose();
+		pose.scale(1f / gs, 1f / gs, 1f);
+		OriginUi.roundRect(g, x * gs, y * gs, w * gs, h * gs, OriginTheme.TITLE_BTN_RADIUS * gs, fill, edge, gs);
+		pose.popPose();
+	}
+
+	// Dock action (Will, 2026-10-25: "make the icons on the bottom of the title screen not colored and the same
+	// colorscheme as the normal buttons"): the worded buttons' card, the glyph centred in parchment (muted when
+	// disabled). Press drops the glyph 1 GUI px, like a label.
+	private static void drawDock(Gfx g, TitlePresentation tp, int x, int y, int w, int h,
+								 boolean enabled, double hv, boolean pressed) {
+		drawCard(g, x, y, w, h, enabled, hv, pressed);
+		int color = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
+		ModIcons.drawFlat(g, tp.icon(), x + (w - GLYPH) / 2, y + (h - GLYPH) / 2 + (pressed ? 1 : 0), GLYPH, color);
+	}
+
+	// ---- Inter on the title's own text (player name, footer) ----
+	// Placed on Minecraft's 8 GUI px line box (vanilla's caps fill top..top+7) so the swap moves nothing. Every
+	// caller falls back to vanilla's font when titleTextActive() says no.
+
+	/** True when the title's own text should be Inter: Origin title on, title skin not latched, Inter loaded. */
+	public static boolean titleTextActive() {
+		return !titleBroken && !com.origin.client.client.OriginStyle.vanillaTitle() && OriginTtfFont.ready();
+	}
+
+	/** Inter at a GUI-px baseline / em: drawn 1:1 in physical pixels under a 1/guiScale pose. */
+	private static void drawInter(Gfx g, String text, float x, float baseline, float em, int argb, boolean bold) {
+		int gs = Gfx.guiScale();
+		Pose pose = g.pose();
+		pose.pushPose();
+		pose.scale(1f / gs, 1f / gs, 1f);
+		OriginTtfFont.drawEm(g, text, x * gs, baseline * gs, em * gs, 0f, argb, bold);
+		pose.popPose();
+	}
+
+	/** Inter text whose 8 GUI px line box starts at {@code top} (what vanilla drawString(..., y) would fill). */
+	public static void drawTitleText(Gfx g, String text, float x, float top, float em, int argb, boolean bold) {
+		drawInter(g, text, x, top + 3.5f + titleCap(em, bold) / 2f, em, argb, bold);
+	}
+
+	/** Advance width in GUI px. */
+	public static float titleTextWidth(String text, float em, boolean bold) {
+		int gs = Gfx.guiScale();
+		return OriginTtfFont.widthEm(text, em * gs, 0f, bold) / gs;
+	}
+
+	private static float titleCap(float em, boolean bold) {
+		int gs = Gfx.guiScale();
+		return OriginTtfFont.capHeight(em * gs, bold) / gs;
+	}
+
+	/**
+	 * The footer's left line, "{@code left} . {@code right}" in Inter (1.21.1's drawTitleFooterLine). The dot is a
+	 * square of whole physical pixels on the x-height middle, with the same measured gap both sides. Returns the
+	 * line's right edge (GUI px), like drawString.
+	 */
+	public static int drawTitleFooterLine(Gfx g, String left, String right, int x, int top, int argb) {
+		float em = OriginTheme.TITLE_SMALL_EM;
+		float cap = titleCap(em, false);
+		float baseline = top + 3.5f + cap / 2f;
+		float lw = titleTextWidth(left, em, false), space = em * 0.4f;
+		drawTitleText(g, left, x, top, em, argb, false);
+		int gs = Gfx.guiScale();
+		int dot = Math.max(1, Math.round(1.1f * gs));                       // physical px
+		float half = dot / (2f * gs);                                       // GUI px
+		float dotCx = x + lw + space + half, dotCy = baseline - cap * 0.36f;    // GUI px: x-height middle
+		Pose pose = g.pose();
+		pose.pushPose();
+		pose.scale(1f / gs, 1f / gs, 1f);
+		int dx = Math.round(dotCx * gs - dot / 2f), dy = Math.round(dotCy * gs - dot / 2f);
+		g.fill(dx, dy, dx + dot, dy + dot, argb);
+		pose.popPose();
+		float rx = dotCx + half + space;
+		drawTitleText(g, right, rx, top, em, argb, false);
+		return Math.round(rx + titleTextWidth(right, em, false));
 	}
 
 	/** Shared eased hover progress (0..1) for any widget, on wall-clock time. */

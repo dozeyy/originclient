@@ -27,6 +27,9 @@ public final class OriginUi {
 
 	/** The one reference to the official logo (a classpath path). Everything that reads the logo uses this. */
 	public static final String LOGO_PATH = "/assets/originclient/textures/ui/origin_logo.png";
+	/** The one reference to the official wordmark: a byte-identical copy of the launcher's
+	 *  Assets/Brand/wordmark.png (white art). Never text, never redrawn; the title is its only reader. */
+	public static final String WORDMARK_PATH = "/assets/originclient/textures/ui/origin_wordmark.png";
 	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, logoTex, starTex;
 	private static int panelTexSize = 96, panelCorner = 24;
 
@@ -107,6 +110,15 @@ public final class OriginUi {
 	 * -- a translucent border composites onto the fill, as the mock's do.
 	 */
 	public static void roundRect(Gfx g, float x, float y, float w, float h, float r, int fill, int border) {
+		roundRect(g, x, y, w, h, r, fill, border, 1);
+	}
+
+	/**
+	 * As above with an `edge`-unit thick border ring (the title's Workbench cards draw in physical pixels and need
+	 * a 1 GUI px hairline = guiScale physical px, as 1.21.1's SDF box draws it). Drawn OVER the fill, so the ring
+	 * reads as `border` composited onto the fill -- what 1.21.1's flatten() bakes into one colour.
+	 */
+	public static void roundRect(Gfx g, float x, float y, float w, float h, float r, int fill, int border, int edge) {
 		Gfx.flushBatch();   // own Tessellator draw: queued fills go out first (Gfx batching)
 		int x0 = Math.round(x), y0 = Math.round(y);
 		int wi = Math.round(x + w) - x0, hi = Math.round(y + h) - y0;
@@ -124,10 +136,10 @@ public final class OriginUi {
 		WorldRenderer buf = Tessellator.getInstance().getWorldRenderer();
 		buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
 		if (hasFill) {
-			roundShape(buf, x0, y0, wi, hi, rad, false, fill);
+			roundShape(buf, x0, y0, wi, hi, rad, 0, fill);
 		}
 		if (hasBorder) {
-			roundShape(buf, x0, y0, wi, hi, rad, true, border);
+			roundShape(buf, x0, y0, wi, hi, rad, Math.max(1, edge), border);
 		}
 		if (com.origin.client.client.BenchProf.ON) {
 			com.origin.client.client.BenchProf.countGfxDraw();
@@ -139,9 +151,10 @@ public final class OriginUi {
 		GlStateManager.enableTexture2D();
 	}
 
-	/** Emits a rounded box (ring=false) or its 1px inside ring (ring=true). */
+	/** Emits a rounded box (t = 0) or its t px thick inside ring (t >= 1). */
 	private static void roundShape(WorldRenderer buf, int x, int y, int w, int h, float rad,
-								   boolean ring, int color) {
+								   int t, int color) {
+		boolean ring = t > 0;
 		int K = (int) Math.ceil(rad);
 		if (ring && rad < 1f) {
 			K = 0;
@@ -154,19 +167,29 @@ public final class OriginUi {
 			quad(buf, x, y + kt, x + kl, y + h - kb, color);             // left band
 			quad(buf, x + w - kr, y + kt, x + w, y + h - kb, color);     // right band
 		} else {
-			quad(buf, x + kl, y, x + w - kr, y + 1, color);              // top
-			quad(buf, x + kl, y + h - 1, x + w - kr, y + h, color);      // bottom
-			quad(buf, x, y + kt, x + 1, y + h - kb, color);              // left
-			quad(buf, x + w - 1, y + kt, x + w, y + h - kb, color);      // right
+			// Straight runs between the corner squares, t thick. Where a corner square is thinner than t (radius
+			// under the edge width) the side bands also cover the strip beside that square.
+			quad(buf, x + kl, y, x + w - kr, y + t, color);              // top
+			quad(buf, x + kl, y + h - t, x + w - kr, y + h, color);      // bottom
+			quad(buf, x, y + Math.max(kt, t), x + t, y + h - Math.max(kb, t), color);          // left
+			quad(buf, x + w - t, y + Math.max(kt, t), x + w, y + h - Math.max(kb, t), color);  // right
+			if (t > kt) {
+				quad(buf, x, y + kt, x + kl, y + t, color);
+				quad(buf, x + w - kr, y + kt, x + w, y + t, color);
+			}
+			if (t > kb) {
+				quad(buf, x, y + h - t, x + kl, y + h - kb, color);
+				quad(buf, x + w - kr, y + h - t, x + w, y + h - kb, color);
+			}
 		}
 		if (K == 0) {
 			return;
 		}
 		// arc centres sit `rad` in from each edge
-		cornerRuns(buf, x, y, kl, kt, x + rad, y + rad, -1, -1, rad, ring, color);
-		cornerRuns(buf, x + w - kr, y, kr, kt, x + w - rad, y + rad, 1, -1, rad, ring, color);
-		cornerRuns(buf, x, y + h - kb, kl, kb, x + rad, y + h - rad, -1, 1, rad, ring, color);
-		cornerRuns(buf, x + w - kr, y + h - kb, kr, kb, x + w - rad, y + h - rad, 1, 1, rad, ring, color);
+		cornerRuns(buf, x, y, kl, kt, x + rad, y + rad, -1, -1, rad, t, color);
+		cornerRuns(buf, x + w - kr, y, kr, kt, x + w - rad, y + rad, 1, -1, rad, t, color);
+		cornerRuns(buf, x, y + h - kb, kl, kb, x + rad, y + h - rad, -1, 1, rad, t, color);
+		cornerRuns(buf, x + w - kr, y + h - kb, kr, kb, x + w - rad, y + h - rad, 1, 1, rad, t, color);
 	}
 
 	/**
@@ -176,7 +199,7 @@ public final class OriginUi {
 	 * square may be any size around the arc. Same-alpha runs batch into one quad.
 	 */
 	private static void cornerRuns(WorldRenderer buf, int sx0, int sy0, int sw, int sh,
-								   float acx, float acy, int dirX, int dirY, float rad, boolean ring, int color) {
+								   float acx, float acy, int dirX, int dirY, float rad, int t, int color) {
 		int base = (color >>> 24) & 0xFF;
 		int cr = (color >> 16) & 0xFF, cg = (color >> 8) & 0xFF, cb = color & 0xFF;
 		for (int py = sy0; py < sy0 + sh; py++) {
@@ -188,8 +211,8 @@ public final class OriginUi {
 					double dy = Math.max(0.0, (py + 0.5 - acy) * dirY);
 					double dist = Math.sqrt(dx * dx + dy * dy);
 					double cov = clamp01(rad - dist + 0.5);
-					if (ring) {
-						cov -= clamp01(rad - 1 - dist + 0.5);
+					if (t > 0) {
+						cov -= clamp01(rad - t - dist + 0.5);
 					}
 					a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
 				}
