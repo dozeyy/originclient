@@ -20,6 +20,7 @@
 		"CameraMixin",
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
+		"PlainTextButtonMixin",
 		"ScreenInvoker",
 		"PackSelectionScreenAccessor",
 		"ScreenBackgroundMixin",
