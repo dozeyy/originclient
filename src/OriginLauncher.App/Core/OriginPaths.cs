@@ -43,6 +43,10 @@ public static class OriginPaths
     public static string GameDir(string version, string accountKey) =>
         InstanceLayout.GameDir(Instances, version, accountKey);
 
+    /// <summary>The undo record of the last performance preset applied to one account's game folder (Core/Presets).</summary>
+    public static string PresetUndoFile(string version, string accountKey) =>
+        InstanceLayout.PresetUndoFile(GameDir(version, accountKey));
+
     /// <summary>A version's mods folder, shared by every account (Core/GameFolders/SharedMods.cs).</summary>
     public static string ModsDir(string version) => InstanceLayout.ModsDir(Instances, version);
 

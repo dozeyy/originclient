@@ -83,12 +83,13 @@ def check_handoff() -> list[str]:
 # files cannot be one copy. Instead both sides are READ and every key defined in both is compared. Nothing is
 # hard-coded here except the list of keys that are allowed to differ and why: a key that differs and is NOT listed
 # fails the build, and a listed key that has started to agree fails too ("remove it"), so the list cannot rot.
-# Empty since Phase 3 U3.0 (the launcher and the installer share the Workbench tokens, same names, same values).
+# Empty since Phase 3 U3.0: the launcher and the installer share the Workbench tokens, same names, same values.
+# A key may only be listed again with a real, lasting reason.
 THEME_FAMILIES = ("Color.", "Size.Control", "Radius.", "Font.", "FontSize.", "LineHeight.", "Space.")
 
-# prefix -> why the two files may differ today. A prefix is "in use" while at least one common key under it differs.
+# Exact key -> why the two files differ. The check fails on an entry that already agrees and on a key that no longer
+# exists in both files, so the list cannot outlive the difference.
 KNOWN_DIVERGENCE: dict[str, str] = {}   # Phase 3 U3.0: the launcher moved to the Workbench tokens, nothing diverges
-
 
 # (launcher key, installer key): the launcher names corner radii by role, the installer by size.
 PAIRED_KEYS: list[tuple[str, str]] = []   # both apps now use the same Radius.* names (U3.0)
@@ -126,13 +127,14 @@ def check_theme_parity() -> list[str]:
 
     differing = [k for k in common if launcher[k] != setup[k]]
     for key in differing:
-        if not any(key.startswith(prefix) for prefix in KNOWN_DIVERGENCE):
+        if key not in KNOWN_DIVERGENCE:
             problems.append(f"{key}: launcher {launcher[key]!r} vs installer {setup[key]!r} "
                             f"(the two apps share this token; make them agree, or list it in KNOWN_DIVERGENCE with the reason)")
-    for prefix, why in KNOWN_DIVERGENCE.items():
-        under = [k for k in common if k.startswith(prefix)]
-        if under and not any(k in differing for k in under):
-            problems.append(f"KNOWN_DIVERGENCE {prefix!r} ({why}) now agrees in every shared key; delete the entry")
+    for key, why in KNOWN_DIVERGENCE.items():
+        if key not in common:
+            problems.append(f"KNOWN_DIVERGENCE {key!r} is no longer defined in both files; delete the entry")
+        elif key not in differing:
+            problems.append(f"KNOWN_DIVERGENCE {key!r} ({why}) now agrees; delete the entry")
 
     # Same job under a different name: launcher key -> installer key. The names are listed, the values are read.
     for lk, sk in PAIRED_KEYS:
