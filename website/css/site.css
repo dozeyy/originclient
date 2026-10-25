@@ -303,10 +303,10 @@ h2 span, h1 span { color: var(--muted); }
 
 /* ---------- small screens ---------- */
 @media (max-width: 900px) {
-  /* Phones keep the Assistant and Store links in the pill; the brand mark leads home. */
+  /* Phones keep only the Store link in the pill; the brand mark leads home. */
   .top { display: flex; gap: 8px; }
   .top__nav { margin-left: auto; }
-  .top__nav a:not(.nav-store):not(.nav-assistant) { display: none; }
+  .top__nav a:not(.nav-store):not(.nav-home) { display: none; }
   .top__action { justify-self: auto; }
   .brand__word { display: none; }
   .hero { align-items: flex-end; padding-bottom: 48px; }
