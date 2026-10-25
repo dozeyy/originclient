@@ -50,6 +50,9 @@ on:
       gradle_args:
         description: "Extra Gradle args for runClient, e.g. --stacktrace (diagnostics)"
         default: ""
+      companions:
+        description: "true = also load the launcher's ImmediatelyFast + Mod Menu pins for the module (pair with gradle_args -PextraMods=run/extra-mods)"
+        default: "false"
 
 concurrency:
   group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}
@@ -133,6 +136,10 @@ jobs:
       # @Pseudo Sodium/Iris mixins. Skipped for modules with no libs/ pins (1.21.1 gets them from Gradle).
       - name: Fetch pinned Sodium + Iris into libs/
         run: python3 tools/ci/perf_libs.py "src/mods/versions/${{ matrix.version }}"
+
+      - name: Fetch the launcher's ImmediatelyFast + Mod Menu pins into run/extra-mods
+        if: github.event.inputs.companions == 'true'
+        run: python3 tools/ci/companion_mods.py "src/mods/versions/${{ matrix.version }}"
 
       - name: Download dependencies + assets (retried on Maven 429 / timeouts)
         run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.version }}"
