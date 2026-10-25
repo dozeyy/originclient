@@ -40,6 +40,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Social\*.cs" LinkBase="Social" />
     <!-- The Friends drawer's keyed list diff (pure: ObservableCollection only). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\KeyedDiff.cs" LinkBase="Social" />
+    <!-- The art-aware corner shade under a version number on a card (pure maths, no WPF types). -->
+    <Compile Include="..\OriginLauncher.App\UI\Controls\CardArtScrim.cs" LinkBase="Cards" />
     <!-- The toasts waiting behind the two on screen (pure). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\ToastQueue.cs" LinkBase="Social" />
     <!-- Only the top folder: Core/GameFolders/Launcher is the account/settings glue. -->

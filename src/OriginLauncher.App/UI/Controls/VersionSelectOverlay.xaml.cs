@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Versions;
 
@@ -31,8 +32,10 @@ public partial class VersionSelectOverlay : UserControl
         FamilyList.SizeChanged += (_, _) => SizeThumbs();
         Body.SizeChanged += (_, e) => { if (e.HeightChanged) SizeThumbs(); };
         PreviewKeyDown += OnSheetKey;
-        // Thumbnails decode off the UI thread at the size they draw (frozen bitmaps).
-        foreach (var tile in _tiles) tile.LoadAsync();
+        // Thumbnails decode off the UI thread at the size they draw (frozen bitmaps); the number's corner shade
+        // for each art is worked out there too, once (the token spec is read here, on the UI thread).
+        var scrimSpec = VersionCardNumeral.Spec();
+        foreach (var tile in _tiles) tile.LoadAsync(scrimSpec);
     }
 
     /// <summary>Raised when the player picks a specific version (keeps Home's
@@ -163,7 +166,13 @@ public partial class VersionSelectOverlay : UserControl
         if (Body.ViewportHeight > 0)
             height = Math.Min(height, (Body.ViewportHeight - ColumnPadding - ChipCardHeight - rows * TileTextRows) / rows);
         height = Math.Round(Math.Max(48, height));
-        foreach (var tile in _tiles) tile.ThumbHeight = height;
+        // The range goes into the art when the card is wide enough for it, on every card alike (the rows stay level).
+        var rangeInArt = column >= (double)FindResource("Numeral.RangeMinCard");
+        foreach (var tile in _tiles)
+        {
+            tile.ThumbHeight = height;
+            tile.RangeInArt = rangeInArt;
+        }
     }
 
     // Below this list width (px) the eight families wrap to two rows of four.
@@ -247,13 +256,26 @@ public partial class VersionSelectOverlay : UserControl
         Visibility = Visibility.Collapsed;
     }
 
+    // Render mode only: size the cards now (a hand layout at a size the desktop cannot hold reports no SizeChanged).
+    internal void TourRelayout()
+    {
+        if (OriginPaths.IsScratchRoot) SizeThumbs();
+    }
+
+    // Render mode only: each card's key, its container and the numbers the scrim was worked out from, in catalogue
+    // order (UI/CardShots.cs measures the rendered number's contrast on them).
+    internal IReadOnlyList<(string Key, FrameworkElement? Item, double ZoneLuminance, double Strength)> TourCards() =>
+        _tiles.Select(t => (t.Group.Key, FamilyList.ItemContainerGenerator.ContainerFromItem(t) as FrameworkElement,
+            t.ZoneLuminance, t.ScrimStrength)).ToList();
+
     // One family tile's data. The thumbnails arrive after decode; ThumbHeight
     // follows the row width so the art keeps 16:9 at every window size.
     private sealed class FamilyTile : INotifyPropertyChanged
     {
         private ImageSource? _grey, _colour;
         private double _thumbHeight = 82;
-        private bool _current;
+        private bool _current, _rangeInArt;
+        private double _scrimStrength = 1;
 
         public FamilyTile(VersionGroup group)
         {
@@ -277,18 +299,64 @@ public partial class VersionSelectOverlay : UserControl
             get => _current;
             set { _current = value; Raise(nameof(CurrentVisibility)); }
         }
+        // The number set into the art is the family's key ("1.21", "26"); the range beside it or under the card.
+        public string Number => Group.Key;
+        public string ArtRange => _rangeInArt ? Group.Title : "";
+        public Visibility RangeBelowVisibility => _rangeInArt ? Visibility.Collapsed : Visibility.Visible;
+        public bool RangeInArt
+        {
+            get => _rangeInArt;
+            set
+            {
+                if (_rangeInArt == value) return;
+                _rangeInArt = value;
+                Raise(nameof(ArtRange));
+                Raise(nameof(RangeBelowVisibility));
+            }
+        }
+        // How strong the corner shade under the number is for this art (CardArtScrim), and the art's mean
+        // luminance where the number stands (only the shot report reads that).
+        public double ScrimStrength { get => _scrimStrength; private set { _scrimStrength = value; Raise(nameof(ScrimStrength)); } }
+        public double ZoneLuminance { get; private set; }
         public Visibility CurrentVisibility => _current ? Visibility.Visible : Visibility.Collapsed;
 
-        public void LoadAsync()
+        public void LoadAsync(ScrimSpec spec)
         {
             var key = Group.Key;
-            _ = Task.Run(() => (ArtStage.Decode($"{key}-tg.jpg", 320), ArtStage.Decode($"{key}-tc.jpg", 320)))
+            _ = Task.Run(() =>
+                {
+                    var grey = ArtStage.Decode($"{key}-tg.jpg", 320);
+                    var colour = ArtStage.Decode($"{key}-tc.jpg", 320);
+                    // Both states of the thumb sit under the same number, so the shade must hold for the brighter one.
+                    var result = new[] { grey, colour }.Select(b => Scrim(b, spec)).Where(r => r != null).Select(r => r!.Value)
+                        .DefaultIfEmpty(new ScrimResult(1, 0)).MaxBy(r => r.Strength);
+                    return (grey, colour, result);
+                })
                 .ContinueWith(t =>
                 {
-                    Grey = t.Result.Item1;
-                    Colour = t.Result.Item2;
+                    Grey = t.Result.grey;
+                    Colour = t.Result.colour;
+                    ZoneLuminance = t.Result.result.ZoneLuminance;
+                    ScrimStrength = t.Result.result.Strength;
                 }, TaskScheduler.FromCurrentSynchronizationContext());
         }
+
+        // The art-aware shade for one decoded thumb: read its pixels (frozen, so any thread may), average them to a
+        // coarse grid and ask CardArtScrim how strong the corner shade must be. Null if the art did not decode.
+        private static ScrimResult? Scrim(BitmapSource? bmp, ScrimSpec spec)
+        {
+            if (bmp == null) return null;
+            BitmapSource bgra = bmp.Format == PixelFormats.Bgra32 || bmp.Format == PixelFormats.Bgr32
+                ? bmp : new FormatConvertedBitmap(bmp, PixelFormats.Bgra32, null, 0);
+            var width = bgra.PixelWidth;
+            var height = bgra.PixelHeight;
+            var stride = width * 4;
+            var pixels = new byte[stride * height];
+            bgra.CopyPixels(pixels, stride, 0);
+            return CardArtScrim.Analyse(CardArtGrid.FromBgra(pixels, width, height, stride, GridCols, GridRows), spec);
+        }
+
+        private const int GridCols = 32, GridRows = 18;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

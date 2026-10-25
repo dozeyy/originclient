@@ -36,6 +36,29 @@
     <system:Double x:Key="Size.StatusLinesMax">32</system:Double>
     <system:Double x:Key="Size.StatusWidth">400</system:Double>
 
+    <!-- type.numeral on a version card (DESIGN-SYSTEM.md 11.6): figures stand 25 % of the art's height; Inter's figures
+         are 0.7275 em tall, so the font size follows. The ink never runs wider than 2/3 of the card; tracking is -0.04 em.
+         The range beside it ("1.21 - 1.21.11") needs a card at least RangeMinCard wide. -->
+    <system:Double x:Key="Numeral.FigureShare">0.25</system:Double>
+    <system:Double x:Key="Numeral.FigureEm">0.7275</system:Double>
+    <system:Double x:Key="Numeral.InkMaxShare">0.6667</system:Double>
+    <system:Double x:Key="Numeral.Tracking">-0.04</system:Double>
+    <system:Double x:Key="Numeral.RangeMinCard">220</system:Double>
+    <!-- The corner shade the numeral stands in (spec color.cornerShade, colour = Color.Bg): an ellipse from the card's
+         bottom-left corner, alpha Peak at the corner, Mid at MidAt of the radius, 0 at the edge. Its overall strength
+         is chosen per art (CardArtScrim): never weaker than Floor, never more than 1. Contrast is the ratio the number
+         must hold over the art under it (WCAG AA body text); Zone is how much of the card (from the corner) the number
+         can occupy, which is where the art is measured. -->
+    <system:Double x:Key="Numeral.Shade.Peak">0.88</system:Double>
+    <system:Double x:Key="Numeral.Shade.Mid">0.5</system:Double>
+    <system:Double x:Key="Numeral.Shade.MidAt">0.45</system:Double>
+    <system:Double x:Key="Numeral.Shade.RadiusX">1</system:Double>
+    <system:Double x:Key="Numeral.Shade.RadiusY">0.8</system:Double>
+    <system:Double x:Key="Numeral.Shade.Floor">0.35</system:Double>
+    <system:Double x:Key="Numeral.Contrast">4.5</system:Double>
+    <system:Double x:Key="Numeral.Zone.Width">0.5</system:Double>
+    <system:Double x:Key="Numeral.Zone.Height">0.4</system:Double>
+
     <!-- type.label: nav tabs, eyebrows, badges and section labels. Author the text in caps. -->
     <Style x:Key="Text.Label" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>

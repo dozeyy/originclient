@@ -66,6 +66,10 @@
     <Color x:Key="Color.LaunchScrim">#990E1110</Color>
     <!-- The giant version numeral on art: neutral white, never a hue. -->
     <Color x:Key="Color.NumeralInk">#FFF5F5F5</Color>
+    <!-- Beside a numeral on art (the range on a version card): the numeral's white at 82 % (spec color.onArt). -->
+    <Color x:Key="Color.OnArt">#D1F5F5F5</Color>
+    <!-- The 1 px legibility shadow under a numeral on art: drawn, never an effect (spec 11.6): black at 40 %. -->
+    <Color x:Key="Color.NumeralShadow">#66000000</Color>
     <!-- Scrim ends over art (the only gradients): the bg colour at the strong and the clear end. -->
     <Color x:Key="Color.ScrimStrong">#EB0E1110</Color>
     <Color x:Key="Color.ScrimMid">#D60E1110</Color>
@@ -107,6 +111,8 @@
     <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}"/>
     <SolidColorBrush x:Key="Brush.OnPhoto" Color="{StaticResource Color.OnPhoto}"/>
     <SolidColorBrush x:Key="Brush.NumeralInk" Color="{StaticResource Color.NumeralInk}"/>
+    <SolidColorBrush x:Key="Brush.OnArt" Color="{StaticResource Color.OnArt}"/>
+    <SolidColorBrush x:Key="Brush.NumeralShadow" Color="{StaticResource Color.NumeralShadow}"/>
     <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>
     <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}"/>
     <SolidColorBrush x:Key="Brush.AccentPress" Color="{StaticResource Color.AccentPress}"/>

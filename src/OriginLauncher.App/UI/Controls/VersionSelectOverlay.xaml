@@ -34,6 +34,8 @@
                                 <Grid>
                                     <Image Source="{Binding Grey}" Stretch="UniformToFill"/>
                                     <Image x:Name="Colour" Source="{Binding Colour}" Stretch="UniformToFill" Opacity="0"/>
+                                    <!-- The number set into the art (11.6): bottom-left, in a corner shade chosen for this art. -->
+                                    <controls:VersionCardNumeral Text="{Binding Number}" Range="{Binding ArtRange}" Strength="{Binding ScrimStrength}"/>
                                     <Rectangle x:Name="Bar" Height="3" VerticalAlignment="Bottom" Fill="{Binding Accent}" Opacity="0"/>
                                     <Border x:Name="CurrentTag" Visibility="{Binding CurrentVisibility}" Background="{StaticResource Brush.ScrimMid}"
                                             CornerRadius="{StaticResource Radius.Xs}" Padding="6,3"
@@ -43,7 +45,8 @@
                                     </Border>
                                 </Grid>
                             </Border>
-                            <TextBlock Grid.Row="1" Text="{Binding Range}" Margin="0,8,0,0" FontSize="{StaticResource FontSize.Title}" FontWeight="Bold"
+                            <!-- The range moves into the art on cards wide enough for it (RangeInArt); otherwise it stays here. -->
+                            <TextBlock Grid.Row="1" Text="{Binding Range}" Visibility="{Binding RangeBelowVisibility}" Margin="0,8,0,0" FontSize="{StaticResource FontSize.Title}" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text}" TextTrimming="CharacterEllipsis"/>
                             <!-- Wraps to a second line before it is cut (tiles narrow to ~107 px at the smallest window). -->
                             <TextBlock Grid.Row="2" Text="{Binding Name}" Margin="0,2,0,16" FontSize="{StaticResource FontSize.Caption}"

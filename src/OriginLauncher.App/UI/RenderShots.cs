@@ -205,6 +205,9 @@ public static class RenderShots
         Snap(window, outDir, "11-versions-detail");
         window.TourHideVersions();
         Pump(300);
+        // The numbers set into the version cards: pictures at 960x600 and 1920x1080 over the lightest and darkest art,
+        // and the measured contrast of the number (UI/CardShots.cs).
+        CardShots.Run(window, outDir);
         window.TourSetAccountOpen(true);
         Pump(500);
         Snap(window, outDir, "12-accounts");
