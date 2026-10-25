@@ -31,16 +31,6 @@ public partial class LaunchLoadingOverlay : UserControl
     public LaunchLoadingOverlay()
     {
         InitializeComponent();
-        // The % sits on the count's baseline: lift it by the difference in how far
-        // each size reaches below its baseline.
-        Loaded += (_, _) =>
-        {
-            VersionText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            PercentText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var below = (VersionText.DesiredSize.Height - VersionText.Baseline)
-                        - (PercentText.DesiredSize.Height - PercentText.Baseline);
-            PercentText.Margin = new Thickness(6, 0, 0, Math.Max(0, below));
-        };
     }
 
     /// <summary>
@@ -68,10 +58,30 @@ public partial class LaunchLoadingOverlay : UserControl
         OnShown(value);
     }
 
+    // The % sits on the count's baseline: lift it by the difference in how far each size reaches below its baseline.
+    // Measured only once the % is visible (a collapsed element measures to nothing, which left it floating).
+    private void AlignPercentToBaseline()
+    {
+        var infinite = new Size(double.PositiveInfinity, double.PositiveInfinity);
+        VersionText.Measure(infinite);
+        PercentText.Measure(infinite);
+        var below = (VersionText.DesiredSize.Height - VersionText.Baseline)
+                    - (PercentText.DesiredSize.Height - PercentText.Baseline);
+        PercentText.Margin = new Thickness(PercentGap, 0, 0, Math.Max(0, below));
+    }
+
+    private const double PercentGap = 6;
+    private bool _percentAligned;
+
     private void ShowCount(bool counting)
     {
         _counting = counting;
         PercentText.Visibility = counting ? Visibility.Visible : Visibility.Collapsed;
+        if (counting && !_percentAligned)
+        {
+            AlignPercentToBaseline();
+            _percentAligned = true;
+        }
         if (!counting) VersionText.Text = _bigFallback;
     }
 

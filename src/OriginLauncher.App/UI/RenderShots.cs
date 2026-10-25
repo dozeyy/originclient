@@ -173,6 +173,7 @@ public static class RenderShots
         window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
         Pump(700);
         Snap(window, outDir, "09-profiles");
+        SnapScrolledPage(window, outDir, "09b-profiles-scrolled");
         window.TourShowProfiles(demoProfiles, demoCount, openForm: true);
         Pump(500);
         Snap(window, outDir, "10-profiles-form");
@@ -215,6 +216,7 @@ public static class RenderShots
         window.TourShowModsDemo(DemoMods, 0);
         Pump(600);
         Snap(window, outDir, "13b-mods-list");
+        SnapScrolledPage(window, outDir, "13e-mods-scrolled");
         window.TourShowModsDemo(DemoMods, 1);
         Pump(600);
         Snap(window, outDir, "13c-mods-dragover");
@@ -307,6 +309,7 @@ public static class RenderShots
         window.TourShowModsDemo(DemoMods, 0);
         Pump(600);
         Snap(window, outDir, "23b-min-mods-list");
+        SnapScrolledPage(window, outDir, "23c-min-mods-scrolled");
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "24-min-settings");
@@ -319,6 +322,7 @@ public static class RenderShots
         window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
         Pump(700);
         Snap(window, outDir, "25-min-profiles");
+        SnapScrolledPage(window, outDir, "25b-min-profiles-scrolled");
         window.TourShowHomeWithProfile(demoProfiles.ModProfiles[0]);
         Pump(700);
         Snap(window, outDir, "26-min-home-profile");
@@ -330,6 +334,32 @@ public static class RenderShots
 
         SnapCrashWindows(outDir);
         window.Close();
+    }
+
+    /// <summary>
+    /// The visible page scrolled well past the top bar (the page's longest scroller, to 60 %), so a shot proves content
+    /// goes UNDER the bar's surface and never collides with the nav (Will's 24c note). No scroller to move = no shot.
+    /// </summary>
+    private static void SnapScrolledPage(Window window, string dir, string name)
+    {
+        ScrollViewer? best = null;
+        void Walk(DependencyObject parent)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is ScrollViewer sv && sv.IsVisible && sv.ScrollableHeight > 1
+                    && (best == null || sv.ScrollableHeight > best.ScrollableHeight)) best = sv;
+                Walk(child);
+            }
+        }
+        Walk(window);
+        if (best == null) return;
+        best.ScrollToVerticalOffset(best.ScrollableHeight * 0.6);
+        Pump(400);
+        Snap(window, dir, name);
+        best.ScrollToVerticalOffset(0);
+        Pump(200);
     }
 
     /// <summary>Settings scrolled to its middle and its end, so the sections below the first screen are in the shots too.</summary>

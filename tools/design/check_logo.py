@@ -10,7 +10,10 @@ back anywhere in the launcher, the installer, the website or the mods:
      a file that also draws ellipses/rings (the "atom" construction of the old mark);
   2. a TorusGeometry (the three.js ring);
   3. a ring-mark file by name (OriginMark*, OrbitMark*, ring-0..3.png, rings.json);
-  4. a logo-like image (name contains logo or mark) whose bytes are not one of the official files.
+  4. a logo-like image (name contains logo or mark) whose bytes are not one of the official files;
+  5. the official logo copied under a name that does not say so (a.png, brand-1.png: only logo/mark/icon/wordmark
+     names may hold the official bytes), and, when Pillow is installed, a re-saved or redrawn lookalike of the logo
+     under ANY name (a 16 x 16 greyscale fingerprint within 0.1 of the official logo's, see lookalike()).
 
 Usage:  python tools/design/check_logo.py                 scan the repo, exit 1 on any hit (the build-check gate)
         python tools/design/check_logo.py --root DIR      scan DIR instead of the repo (tests, planted-defect proofs)
@@ -60,6 +63,56 @@ ELLIPSE = re.compile(r"(?i)\bEllipse(?:Geometry)?\b|<ellipse\b|ctx\.ellipse|\.el
 TORUS = re.compile(r"\bTorusGeometry\b|\bTorusKnot\w*\b")
 
 
+# Names allowed to hold the official bytes (the logo itself, the mod/app icon, the favicon family).
+OFFICIAL_NAME = re.compile(r"(?i)(^|[-_ .])(logo|mark|icon|wordmark|favicon|apple-touch-icon)([-_ .0-9]|$)|^origin\.ico$")
+# Derived icon sets that legitimately look like the logo (resized/padded favicons).
+LOOKALIKE_OK = re.compile(r"(?i)favicon|apple-touch-icon")
+LOOKALIKE_MIN_PX = 48
+LOOKALIKE_MAX_DIST = 0.1
+REFERENCE_LOGO = REPO / "src/mods/shared/src/client/resources/assets/originclient/textures/ui/origin_logo.png"
+_REFERENCE: list = []
+
+
+def _fingerprint(img) -> list[float]:
+    img = img.convert("RGBA")
+    from PIL import Image  # noqa: PLC0415 (optional dependency)
+    base = Image.new("RGBA", img.size, (0, 0, 0, 255))
+    base.alpha_composite(img)
+    return [float(v) for v in base.convert("L").resize((16, 16), Image.BILINEAR).tobytes()]
+
+
+def _ncc_distance(a: list[float], b: list[float]) -> float:
+    n = len(a)
+    ma, mb = sum(a) / n, sum(b) / n
+    va = sum((x - ma) ** 2 for x in a)
+    vb = sum((y - mb) ** 2 for y in b)
+    if va == 0 or vb == 0:
+        return 1.0
+    return 1 - sum((x - ma) * (y - mb) for x, y in zip(a, b)) / (va * vb) ** 0.5
+
+
+def lookalike(path: Path, reference: Path | None = None) -> bool:
+    """True when this raster is a near-copy of the official logo (resized, re-encoded, re-saved). Needs Pillow;
+    without it the check is skipped (the byte-identical check in scan() still runs)."""
+    try:
+        from PIL import Image  # noqa: PLC0415
+    except ImportError:
+        return False
+    try:
+        if not _REFERENCE:
+            ref = reference or REFERENCE_LOGO
+            if not ref.is_file():
+                return False
+            _REFERENCE.append(_fingerprint(Image.open(ref)))
+        img = Image.open(path)
+        w, h = img.size
+        if w < LOOKALIKE_MIN_PX or h < LOOKALIKE_MIN_PX or not 0.8 <= w / h <= 1.25:
+            return False
+        return _ncc_distance(_REFERENCE[0], _fingerprint(img)) < LOOKALIKE_MAX_DIST
+    except Exception:  # unreadable image: not our business
+        return False
+
+
 def skipped(parts: tuple[str, ...]) -> bool:
     for i, p in enumerate(parts[:-1]):
         if p in SKIP_DIRS:
@@ -87,10 +140,18 @@ def scan(root: Path) -> list[tuple[str, str]]:
             hits.append((rel, "ring-mark file name"))
             continue
 
-        if ext in IMAGE_EXT and ext != ".svg" and LOGO_LIKE.search(path.stem):
+        if ext in IMAGE_EXT and ext != ".svg":
             md5 = hashlib.md5(path.read_bytes()).hexdigest()
-            if md5 not in OFFICIAL_MD5:
-                hits.append((rel, f"logo-like image that is not an official file (md5 {md5})"))
+            if LOGO_LIKE.search(path.stem):
+                if md5 not in OFFICIAL_MD5:
+                    hits.append((rel, f"logo-like image that is not an official file (md5 {md5})"))
+                continue
+            if md5 in OFFICIAL_MD5:
+                if not OFFICIAL_NAME.search(name):
+                    hits.append((rel, "the official logo copied under a name that does not say so (use origin_logo.png)"))
+                continue
+            if ext == ".png" and not LOOKALIKE_OK.search(name) and lookalike(path):
+                hits.append((rel, "a re-saved or redrawn lookalike of the official logo (not an official file)"))
             continue
 
         if ext not in CODE_EXT:

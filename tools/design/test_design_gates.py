@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Proof that the two design gates CAN fail (build-check runs this next to the gates themselves).
 
-  check_tokens.py : a planted hex colour / literal font size / colour built in code is caught; a token reference is not
-  check_logo.py   : a planted hand-drawn mark (three tilted rings, TorusGeometry, ring file, unofficial logo image) is caught
+  check_tokens.py : a planted hex colour / literal font size / colour built in code / named colour (Brushes.White,
+                    Fill="Red") is caught; a token reference is not
+  check_logo.py   : a planted hand-drawn mark (three tilted rings, TorusGeometry, ring file, unofficial logo image, the
+                    official logo copied under a new name, a re-saved lookalike) is caught
 
 and that both are green on the real repo.
 
@@ -67,6 +69,21 @@ class TokenGate(unittest.TestCase):
     def test_colour_built_in_code_is_caught(self):
         hits = self._hits({"UI/Bad.cs": "var c = Color.FromRgb(0x62, 0xB5, 0x43);\n"})
         self.assertTrue(any(h[2] == "colour built in code" for h in hits))
+
+    def test_named_colours_in_code_are_caught(self):
+        for line in ("var b = Brushes.White;", "c = Colors.Red;", "new FrameworkPropertyMetadata(System.Windows.Media.Brushes.Black)"):
+            hits = self._hits({"UI/Bad.cs": line + "\n"})
+            self.assertTrue(any(h[2] == "named colour" for h in hits), line)
+
+    def test_named_colours_in_xaml_are_caught(self):
+        for attr in ('Fill="White"', 'Foreground="Red"', 'Background="Black"', 'Color="Gold"', 'BorderBrush="Silver"'):
+            hits = self._hits({"UI/Bad.xaml": "<Border %s/>" % attr})
+            self.assertTrue(any(h[2] == "named colour" for h in hits), attr)
+
+    def test_transparent_and_tokens_are_not_named_colours(self):
+        files = {"UI/Good.cs": "var c = Colors.Transparent; var b = Brushes.Transparent;\n",
+                 "UI/Good.xaml": '<Border Background="Transparent" Fill="{StaticResource Brush.Text}"/>'}
+        self.assertEqual(self._hits(files), [])
 
     def test_retinting_a_token_is_allowed(self):
         self.assertEqual(self._hits({"UI/Good.cs": "var c = Color.FromArgb(0x26, hue.R, hue.G, hue.B);\n"}), [])
@@ -137,6 +154,41 @@ class LogoGate(unittest.TestCase):
     def test_unofficial_logo_image_is_caught(self):
         self.assertEqual(self._hits({"src/App/Assets/origin-logo.png": b"a redrawn logo"}), ["src/App/Assets/origin-logo.png"])
         self.assertEqual(self._hits({"src/App/Assets/origin-logo.png": self.OFFICIAL}), [])
+
+    def test_official_logo_copied_under_a_new_name_is_caught(self):
+        self.assertEqual(self._hits({"src/App/Assets/brand-1.png": self.OFFICIAL}), ["src/App/Assets/brand-1.png"])
+        self.assertEqual(self._hits({"src/App/Assets/icon.png": self.OFFICIAL, "src/App/Assets/origin_logo.png": self.OFFICIAL}), [])
+
+    def test_redrawn_lookalike_under_any_name_is_caught(self):
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("Pillow not installed (the lookalike check is skipped without it)")
+        import io
+        ring = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+        from PIL import ImageDraw
+        d = ImageDraw.Draw(ring)
+        d.ellipse((20, 20, 108, 108), outline=(255, 255, 255, 255), width=6)
+        d.ellipse((44, 44, 84, 84), outline=(255, 255, 255, 255), width=6)
+        buf = io.BytesIO()
+        ring.save(buf, "PNG")
+        saved = list(logo._REFERENCE), logo.REFERENCE_LOGO
+        logo._REFERENCE.clear()
+        ref = Path(tempfile.mkdtemp()) / "ref.png"
+        ref.write_bytes(buf.getvalue())
+        logo.REFERENCE_LOGO = ref
+        try:
+            resaved = io.BytesIO()
+            ring.resize((200, 200)).save(resaved, "PNG")
+            other = io.BytesIO()
+            Image.new("RGBA", (128, 128), (200, 30, 30, 255)).save(other, "PNG")
+            self.assertEqual(self._hits({"website/img/hero-1.png": resaved.getvalue()}), ["website/img/hero-1.png"])
+            self.assertEqual(self._hits({"website/img/banner.png": other.getvalue()}), [])
+            self.assertEqual(self._hits({"website/img/favicon-192.png": resaved.getvalue()}), [])
+        finally:
+            logo._REFERENCE.clear()
+            logo._REFERENCE.extend(saved[0])
+            logo.REFERENCE_LOGO = saved[1]
 
     def test_exit_code_fails_on_a_hit(self):
         d = _tree({"src/mark.js": "const tilts = [0, 60, 120];"})

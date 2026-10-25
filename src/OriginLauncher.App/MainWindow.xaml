@@ -54,6 +54,12 @@
             <ContentControl x:Name="ImportPageHost" Visibility="Collapsed" IsTabStop="False" Focusable="False"
                             KeyboardNavigation.TabNavigation="Cycle"/>
 
+            <!-- The bar's surface (spec 11.4: color.nav, a 1 px hairline underneath, no blur, fixed). Pages scroll
+                 UNDER it and never read through it; on Home it fades out so the art runs to the top edge. -->
+            <Border x:Name="BarSurface" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" IsHitTestVisible="False"
+                    Background="{StaticResource Brush.PanelGlass}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                    BorderThickness="0,0,0,1" Opacity="0"/>
+
             <!-- The top bar: brand left, page tabs centred, actions right. -->
             <Grid x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" Margin="24,0,12,0"
                   SizeChanged="TopBar_LayoutChanged">

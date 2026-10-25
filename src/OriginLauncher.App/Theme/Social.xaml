@@ -212,7 +212,7 @@
     </Style>
 
     <!-- "What to bring": one kind of thing (Mods 12, Worlds 4) as a small switch block. Off = the card surface,
-         on = the accent block with a tick (Social.Check's language), mixed = the accent border with a dash (some
+         on = a soft accent wash, an accent edge and a tick (Social.Check's language), mixed = the accent border with a dash (some
          versions bring it, some don't). Built only from the tokens above; 28 px tall, wraps in its card. -->
     <Style x:Key="Import.Chip" TargetType="ToggleButton">
         <Setter Property="Cursor" Value="Hand"/>
@@ -232,7 +232,7 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}"
                                   Width="10" Height="10" StrokeThickness="2.6" Margin="0,0,6,0"
-                                  Stroke="{StaticResource Brush.TextOnAccent}" Visibility="Collapsed" VerticalAlignment="Center"/>
+                                  Stroke="{StaticResource Brush.Accent}" Visibility="Collapsed" VerticalAlignment="Center"/>
                             <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False"/>
                         </StackPanel>
                     </Border>
@@ -242,10 +242,10 @@
                             <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Accent}"/>
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
                             <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
-                            <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="{x:Null}">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>

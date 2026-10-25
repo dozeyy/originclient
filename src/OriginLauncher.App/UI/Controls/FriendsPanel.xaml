@@ -590,7 +590,7 @@
                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
             </Button>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock x:Name="HeaderTitle" Text="FRIENDS" Style="{StaticResource Drawer.Title}"/>
+                <TextBlock x:Name="HeaderTitle" Text="Friends" Style="{StaticResource Drawer.Title}"/>
                 <StackPanel x:Name="HeaderSubRow" Orientation="Horizontal" Visibility="Hidden">
                     <Ellipse x:Name="HeaderDot" Width="7" Height="7" Fill="{StaticResource Brush.Success}"
                              Margin="0,0,6,0" VerticalAlignment="Center" Visibility="Collapsed"/>

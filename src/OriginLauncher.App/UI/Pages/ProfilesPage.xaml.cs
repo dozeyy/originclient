@@ -526,7 +526,7 @@ public partial class ProfilesPage : UserControl
     {
         _editingId = editing?.Id;
         _pendingDelete = null;
-        FormTitle.Text = editing == null ? "NEW PROFILE" : "EDIT PROFILE";
+        FormTitle.Text = editing == null ? "New profile" : "Edit profile";
         SaveButton.Content = editing == null ? "Create profile" : "Save";
         PickTint(editing != null ? ProfileLook.TintName(editing) : FreshTint());
         PickIcon(ProfileLook.HasIcon(editing?.Icon) ? editing!.Icon : null);

@@ -264,7 +264,6 @@ public sealed class LauncherTileVm : LiveCardRowVm
     public bool HasLogo => Logo != null;
 
     /// <summary>The faint wash in the tile's corner and the hairline round its logo, in the launcher's own colour.</summary>
-    public Brush TintWash => LauncherLogos.Wash(Kind);
     public Brush TintEdge => LauncherLogos.Edge(Kind);
 
     /// <summary>Its folder isn't on this PC (the page lists it as a slim "Locate folder" row instead of a tile).</summary>
@@ -537,7 +536,6 @@ public sealed class GridRowVm : LiveCardRowVm
     public ImageSource? Logo => LauncherLogos.For(Kind);
     public bool HasLogo => Logo != null;
     public Brush TintEdge => LauncherLogos.Edge(Kind);
-    public Brush TintWash => LauncherLogos.Wash(Kind);
 
     public string Caption { get => _caption; set => Set(ref _caption, value); }
 
@@ -555,7 +553,7 @@ internal static class LauncherLogos
 
     /// <summary>
     /// Each launcher's own colour, the one its logo wears (white logos: the colour its brand is known by). Used only as an
-    /// accent: a faint wash across a tile's corner and a hairline round the logo, never a fill.
+    /// accent: a hairline round the logo, never a fill or a wash.
     /// </summary>
     private static Color ColourOf(SourceKind kind) => ColorToken(kind switch
     {
@@ -572,26 +570,7 @@ internal static class LauncherLogos
     private static Color ColorToken(string key) =>
         Application.Current?.TryFindResource(key) is Color c ? c : Colors.Transparent;
 
-    private static readonly Dictionary<SourceKind, Brush> Washes = new();
     private static readonly Dictionary<SourceKind, Brush> Edges = new();
-
-    /// <summary>The faint corner wash: the launcher's colour at about 14 % in the top-left, gone by the middle.</summary>
-    public static Brush Wash(SourceKind kind)
-    {
-        lock (Washes)
-        {
-            if (Washes.TryGetValue(kind, out var hit)) return hit;
-            var c = ColourOf(kind);
-            var brush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(0x24, c.R, c.G, c.B), 0),
-                    new GradientStop(Color.FromArgb(0x00, c.R, c.G, c.B), 0.7),
-                }, new Point(0, 0), new Point(1, 1));
-            brush.Freeze();
-            return Washes[kind] = brush;
-        }
-    }
 
     /// <summary>The hairline round a logo: the launcher's colour at about 40 %.</summary>
     public static Brush Edge(SourceKind kind)

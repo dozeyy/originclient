@@ -269,10 +269,6 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <!-- The launcher's own colour, faint, in the tile's top-left corner (an accent, never a fill). It
-                         reaches the tile's edge through the padding and takes no clicks. -->
-                    <Border Grid.RowSpan="3" Margin="-16" CornerRadius="{StaticResource Radius.Lg}"
-                            Background="{Binding TintWash}" IsHitTestVisible="False"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -583,8 +579,6 @@
                         <ColumnDefinition Width="*" MinWidth="172"/>
                         <ColumnDefinition Width="504"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.ColumnSpan="2" Margin="-12,-6" CornerRadius="{StaticResource Radius.Lg}"
-                            Background="{Binding TintWash}" IsHitTestVisible="False"/>
                     <Grid VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -874,7 +868,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock x:Name="HeaderTitle" Text="BRING IT ALL OVER" Style="{StaticResource Text.Heading}"
+                    <TextBlock x:Name="HeaderTitle" Text="Bring it all over" Style="{StaticResource Text.Heading}"
                                HorizontalAlignment="Left" TextTrimming="None" TextWrapping="Wrap"/>
                     <TextBlock x:Name="HeaderSubtitle" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
                                TextTrimming="None" MaxWidth="600" HorizontalAlignment="Left" Margin="0,10,0,0"
@@ -890,6 +884,7 @@
                             </Path.RenderTransform>
                         </Path>
                         <TextBlock x:Name="StatusText" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                   TextTrimming="None" TextWrapping="NoWrap"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
@@ -1152,7 +1147,7 @@
                                 <StackPanel Grid.Column="1">
                                     <TextBlock Text="IMPORT FINISHED" Style="{StaticResource Text.Label}"
                                                Foreground="{StaticResource Brush.Success}"/>
-                                    <TextBlock x:Name="DoneTitle" Text="YOU'RE ALL SET" Style="{StaticResource Text.Heading}"
+                                    <TextBlock x:Name="DoneTitle" Text="You're all set" Style="{StaticResource Text.Heading}"
                                                Margin="0,6,0,14" TextTrimming="None" TextWrapping="Wrap"/>
                                     <ItemsControl x:Name="DoneStats" Focusable="False" Margin="0,0,-8,0"
                                                   ItemTemplate="{StaticResource Import.StatBox}">

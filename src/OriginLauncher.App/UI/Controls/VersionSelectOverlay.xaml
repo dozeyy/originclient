@@ -83,7 +83,7 @@
         </Style>
 
         <!-- A version chip: a radio in the ghost-outline look of the other buttons (Size.ControlSm tall, so the
-             1.21.x family fits one row). Checked = the primary fill. -->
+             1.21.x family fits one row). Checked = a soft accent wash with an accent edge. -->
         <Style x:Key="VersionChip" TargetType="RadioButton">
             <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
             <Setter Property="MinWidth" Value="52"/>
@@ -111,9 +111,9 @@
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.Accent}"/>
-                                <Setter TargetName="Body" Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
-                                <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+                                <Setter TargetName="Body" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.95" ScaleY="0.95"/></Setter.Value></Setter>

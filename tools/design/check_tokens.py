@@ -7,7 +7,9 @@ every bypass:
 
   * a hex colour literal ("#RGB", "#RRGGBB", "#AARRGGBB") in a .xaml or .cs file outside the token files
     (comments are ignored), and
-  * a literal number used as a font size (FontSize="13" in XAML, FontSize = 13 / FontSize: 13 in C#).
+  * a literal number used as a font size (FontSize="13" in XAML, FontSize = 13 / FontSize: 13 in C#),
+  * a named colour: Colors.White / Brushes.Black in C#, or Fill="White" / Foreground="Red" in XAML (Transparent is
+    not a colour and stays allowed).
 
 Allowed: the token files themselves, UI/Windows/CrashFallback.cs (the last-resort window that must not depend on any
 resource dictionary, so its values are literal on purpose) and UI/RenderShots.cs (demo icon colours in the shot harness).
@@ -47,6 +49,28 @@ CS_FONTSIZE = re.compile(r"\bFontSize\s*(?:=|:)\s*-?\d")
 # rule is about writing a colour down, so only literal RGB channels count.
 CS_COLOR_CALL = re.compile(r"\bColor\.FromRgb\s*\(\s*(?:0x|\d)|\bColor\.FromArgb\s*\(\s*[^,()]+,\s*(?:0x|\d)")
 CS_COLOR_CTOR = re.compile(r"\bnew\s+Color\s*\{")
+# A named colour is still a colour written down: Colors.White, Brushes.Black (System.Windows.Media), also fully
+# qualified. Transparent is "no colour" and is fine.
+CS_NAMED_COLOR = re.compile(r"\b(?:Colors|Brushes)\.(?!Transparent\b)[A-Z][A-Za-z]+\b")
+# The WPF named colours (System.Windows.Media.Colors), used as an attribute value on a colour property in XAML.
+WPF_COLOR_NAMES = (
+    "AliceBlue AntiqueWhite Aqua Aquamarine Azure Beige Bisque Black BlanchedAlmond Blue BlueViolet Brown BurlyWood "
+    "CadetBlue Chartreuse Chocolate Coral CornflowerBlue Cornsilk Crimson Cyan DarkBlue DarkCyan DarkGoldenrod DarkGray "
+    "DarkGreen DarkKhaki DarkMagenta DarkOliveGreen DarkOrange DarkOrchid DarkRed DarkSalmon DarkSeaGreen DarkSlateBlue "
+    "DarkSlateGray DarkTurquoise DarkViolet DeepPink DeepSkyBlue DimGray DodgerBlue Firebrick FloralWhite ForestGreen "
+    "Fuchsia Gainsboro GhostWhite Gold Goldenrod Gray Green GreenYellow Honeydew HotPink IndianRed Indigo Ivory Khaki "
+    "Lavender LavenderBlush LawnGreen LemonChiffon LightBlue LightCoral LightCyan LightGoldenrodYellow LightGray "
+    "LightGreen LightPink LightSalmon LightSeaGreen LightSkyBlue LightSlateGray LightSteelBlue LightYellow Lime LimeGreen "
+    "Linen Magenta Maroon MediumAquamarine MediumBlue MediumOrchid MediumPurple MediumSeaGreen MediumSlateBlue "
+    "MediumSpringGreen MediumTurquoise MediumVioletRed MidnightBlue MintCream MistyRose Moccasin NavajoWhite Navy OldLace "
+    "Olive OliveDrab Orange OrangeRed Orchid PaleGoldenrod PaleGreen PaleTurquoise PaleVioletRed PapayaWhip PeachPuff "
+    "Peru Pink Plum PowderBlue Purple Red RosyBrown RoyalBlue SaddleBrown Salmon SandyBrown SeaGreen SeaShell Sienna "
+    "Silver SkyBlue SlateBlue SlateGray Snow SpringGreen SteelBlue Tan Teal Thistle Tomato Turquoise Violet Wheat White "
+    "WhiteSmoke Yellow YellowGreen"
+).split()
+XAML_NAMED_COLOR = re.compile(
+    r"\b(?:Fill|Stroke|Background|Foreground|BorderBrush|Color|OpacityMask|CaretBrush|SelectionBrush|TextDecorationBrush)"
+    r"""\s*=\s*["'](?:""" + "|".join(WPF_COLOR_NAMES) + r""")["']""")
 
 
 def strip_xaml_comments(text: str) -> str:
@@ -110,11 +134,15 @@ def scan_file(path: Path, rel: str) -> list[tuple[int, str, str]]:
         if is_xaml:
             if XAML_FONTSIZE.search(line):
                 hits.append((no, "literal FontSize", line.strip()))
+            if XAML_NAMED_COLOR.search(line):
+                hits.append((no, "named colour", line.strip()))
         else:
             if CS_FONTSIZE.search(line):
                 hits.append((no, "literal FontSize", line.strip()))
             if CS_COLOR_CALL.search(line) or CS_COLOR_CTOR.search(line):
                 hits.append((no, "colour built in code", line.strip()))
+            if CS_NAMED_COLOR.search(line):
+                hits.append((no, "named colour", line.strip()))
     return hits
 
 

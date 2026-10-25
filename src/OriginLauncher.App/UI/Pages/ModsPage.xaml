@@ -36,7 +36,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="MODS" Style="{StaticResource Text.Heading}"/>
+                        <TextBlock Text="Mods" Style="{StaticResource Text.Heading}"/>
                         <Border x:Name="VersionChip" Style="{StaticResource Surface.Chip}" Margin="12,0,0,8" VerticalAlignment="Bottom">
                             <TextBlock x:Name="VersionChipText" Text="1.21.1" Style="{StaticResource Surface.ChipText}"/>
                         </Border>
@@ -72,15 +72,6 @@
                 <Grid.RenderTransform>
                     <ScaleTransform x:Name="DropScale"/>
                 </Grid.RenderTransform>
-                <!-- The accent light rising from the bottom edge while a jar is over. -->
-                <Rectangle x:Name="DropLit" Fill="{DynamicResource Brush.Accent}" Opacity="0" IsHitTestVisible="False">
-                    <Rectangle.OpacityMask>
-                        <RadialGradientBrush Center="0.5,1" GradientOrigin="0.5,1" RadiusX="0.6" RadiusY="0.9">
-                            <GradientStop Color="{StaticResource Color.MaskSoft}" Offset="0"/>
-                            <GradientStop Color="{StaticResource Color.MaskClear}" Offset="0.6"/>
-                        </RadialGradientBrush>
-                    </Rectangle.OpacityMask>
-                </Rectangle>
                 <Rectangle x:Name="DropDash" Stroke="{StaticResource Brush.ProgressTrack}" StrokeThickness="2" StrokeDashArray="5 4"
                            RadiusX="4" RadiusY="4" IsHitTestVisible="False"/>
 

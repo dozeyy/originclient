@@ -31,10 +31,10 @@
     <Color x:Key="Color.Stroke">#1AFFFFFF</Color>
     <Color x:Key="Color.StrokeHover">#24FFFFFF</Color>
 
-    <!-- Text: parchment at 100 / 68 / 52 %. On a photo the same colour, over a scrim. -->
+    <!-- Text: parchment at 100 / 68 / 56 % (muted is 4.86:1 on the lightest card, CardAlt). On a photo the same colour, over a scrim. -->
     <Color x:Key="Color.Text">#FFF1E9D2</Color>
     <Color x:Key="Color.TextDim">#ADF1E9D2</Color>
-    <Color x:Key="Color.TextMuted">#85F1E9D2</Color>
+    <Color x:Key="Color.TextMuted">#8FF1E9D2</Color>
     <Color x:Key="Color.OnPhoto">#FFF1E9D2</Color>
 
     <!-- The one accent: emerald. AccentSoft is a wash behind a selected row or chip, AccentBorder the quiet outline
@@ -71,9 +71,6 @@
     <Color x:Key="Color.ScrimMid">#D60E1110</Color>
     <Color x:Key="Color.ScrimClear">#000E1110</Color>
     <Color x:Key="Color.ScrimSoft">#7A0E1110</Color>
-    <!-- Opacity-mask stops (only the alpha matters): the accent light rising from the Mods page edge. -->
-    <Color x:Key="Color.MaskSoft">#29000000</Color>
-    <Color x:Key="Color.MaskClear">#00000000</Color>
     <Color x:Key="Color.SheetShade">#730E1110</Color>
     <!-- A switch: off = dark track with a muted knob, on = emerald track with a parchment knob. -->
     <Color x:Key="Color.SwitchKnobOff">#85F1E9D2</Color>

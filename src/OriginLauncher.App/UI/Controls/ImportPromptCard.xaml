@@ -19,7 +19,7 @@
             </Border.RenderTransform>
             <StackPanel>
                 <controls:BrandLogo Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}" HorizontalAlignment="Left"/>
-                <TextBlock Text="WELCOME TO ORIGIN" Style="{StaticResource Text.Display}"
+                <TextBlock Text="Welcome to Origin" Style="{StaticResource Text.Display}"
                            HorizontalAlignment="Left" Margin="0,16,0,0" TextWrapping="Wrap"/>
                 <TextBlock x:Name="QuestionText" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
                            FontSize="{StaticResource FontSize.Title}" Margin="0,12,0,0" TextWrapping="Wrap"/>

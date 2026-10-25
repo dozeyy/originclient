@@ -138,7 +138,7 @@ outside the deleted list.
 | `color.onArt` | `rgba(245,245,245,.82)` | eyebrow and range beside a numeral on art |
 | `color.cornerShade` | `color.bg` from 88 % to 0 | the radial shade a numeral on art stands in (11.6) |
 | `color.textDim` | `rgba(241,233,210,.68)` | secondary text, inactive nav, icons at rest |
-| `color.textMuted` | `rgba(241,233,210,.52)` | meta, placeholders, captions (4.5:1 on `bg` and `surface`) |
+| `color.textMuted` | `rgba(241,233,210,.56)` | meta, placeholders, captions (4.5:1 or better on `bg`, `surface` and `surfaceRaised`: 4.86 on the lightest card) |
 | `color.accent` | `#5FD09B` (emerald) | primary fill, switch on, progress fill, selected ring, focus |
 | `color.accentHover` | `#83E2B5` | primary hover |
 | `color.accentPress` | `#4CB985` | primary press |
@@ -153,7 +153,7 @@ outside the deleted list.
 | `color.info` | `#6FAEE8` | informational notes |
 | `color.scrim` | `rgba(10,13,12,.64)` | behind dialogs and the version sheet |
 
-Measured contrast (WCAG): text on bg 15.7, textDim on raised 6.8, textMuted on bg 4.7,
+Measured contrast (WCAG): text on bg 15.7, textDim on raised 6.8, textMuted on bg 5.5, on the lightest card 4.86,
 accent on bg 9.9, dangerText on raised 7.0.
 
 ### 2.2 Light (launcher and installer only, a roadmap theme, built after dark)
@@ -763,7 +763,7 @@ Status: **reuse** = the key exists, so only its value changes; **new** = the key
 | color.lineStrong | `Color.Stroke` | `#1AFFFFFF` | reuse |
 | color.text | `Color.Text` (+ `Color.OnPhoto`) | `#FFF1E9D2` | reuse |
 | color.textDim | `Color.TextDim` | `#ADF1E9D2` | reuse |
-| color.textMuted | `Color.TextMuted` | `#85F1E9D2` | reuse |
+| color.textMuted | `Color.TextMuted` | `#8FF1E9D2` | reuse |
 | color.accent / hover / press | `Color.Accent` / `AccentHover` / `AccentPress` | `#FF5FD09B` / `#FF83E2B5` / `#FF4CB985` | reuse (was neutral #E0E0E0) |
 | color.accentSoft / accentLine | `Color.AccentSoft` / `Color.AccentBorder` | `#245FD09B` / `#995FD09B` | reuse |
 | color.onAccent | `Color.TextOnAccent` | `#FF0A1710` | reuse |

@@ -284,18 +284,18 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Top-bar page tab: the label muted at rest, full text when current, with a 2 px underline in the accent that
+    <!-- Top-bar page tab: the label dim at rest (type.label 11, TextDim), full text when current, with a 2 px underline in the accent that
          grows from the centre (scaleX) under the current page. md 32. -->
     <Style x:Key="Button.NavItem" TargetType="ToggleButton">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
         <Setter Property="Background" Value="Transparent"/>

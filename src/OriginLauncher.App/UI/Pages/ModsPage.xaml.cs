@@ -707,7 +707,6 @@ public partial class ModsPage : UserControl
         Animate(JarLift, TranslateTransform.YProperty, over ? -4 : 0, 260, Motion.Back);
         Animate(JarScale, ScaleTransform.ScaleXProperty, over ? 1.06 : 1, 260, Motion.Back);
         Animate(JarScale, ScaleTransform.ScaleYProperty, over ? 1.06 : 1, 260, Motion.Back);
-        Animate(DropLit, OpacityProperty, over ? 1 : 0, ms);
         Animate(IdleText, OpacityProperty, over ? 0 : 1, 120);
         Animate(OverText, OpacityProperty, over ? 1 : 0, 120);
         Animate(Ghost, OpacityProperty, over ? 1 : 0, ms);

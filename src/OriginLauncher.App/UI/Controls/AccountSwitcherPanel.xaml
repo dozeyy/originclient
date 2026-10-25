@@ -41,7 +41,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="ACCOUNTS" Style="{StaticResource Drawer.Title}"/>
+                <TextBlock Text="Accounts" Style="{StaticResource Drawer.Title}"/>
                 <TextBlock Text="One game window per account" Style="{StaticResource Drawer.Subtitle}"/>
             </StackPanel>
             <Button Grid.Column="1" Style="{StaticResource Social.Icon}" VerticalAlignment="Top"

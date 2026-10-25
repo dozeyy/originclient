@@ -92,6 +92,10 @@ jobs:
       - name: Check design tokens
         run: python3 tools/design/check_tokens.py
 
+      # Pillow powers the lookalike check (a re-saved or redrawn copy of the logo under any file name).
+      - name: Install Pillow for the logo gate
+        run: python3 -m pip install --quiet pillow
+
       - name: Check logo is never redrawn
         run: python3 tools/design/check_logo.py
 

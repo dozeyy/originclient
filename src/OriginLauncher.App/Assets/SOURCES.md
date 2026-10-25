@@ -86,8 +86,9 @@ Badlion, LabyMod and picked folders have no logo file, so their tiles show an in
 `wordmark.png` is the mod's own wordmark,
 `src/mods/shared/src/client/resources/assets/originclient/textures/ui/wordmark.png`.
 It is cropped to its ink box from `wordmark.json`, plus a 40 px margin.
-The three-ring mark is drawn in XAML (`UI/Controls/OriginMark.xaml`) using the geometry of
-`website/assets/favicon.svg`.
+The three-ring mark is the official logo image, `origin_logo.png` (the mod's `textures/ui/origin_logo.png`, 256 x 256, the same art as
+`Assets/origin.ico`), shown through `UI/Controls/BrandLogo.cs` (`Brand.Logo` in `Theme/Brand.xaml`). It is never redrawn in XAML, SVG, CSS or code;
+`tools/design/check_logo.py` fails the build if a ring drawing or a copied logo appears.
 
 ## Promo images (`Promos/`)
 

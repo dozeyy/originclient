@@ -78,7 +78,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- The title spans the rail's column too, so it starts at the page's left edge like every page. -->
-            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="SETTINGS" Style="{StaticResource Text.Heading}"
+            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Settings" Style="{StaticResource Text.Heading}"
                        HorizontalAlignment="Left"/>
 
             <!-- The rail stays put while the column scrolls (moved in code). -->
