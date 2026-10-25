@@ -46,6 +46,9 @@ public sealed class ArtStage : Grid
         Instance?._numeral.SetBand(stripTop);
     }
 
+    /// <summary>The render tour's manual layout raises no SizeChanged: place the numeral for the size it was laid out at.</summary>
+    internal void TourRelayout() => _numeral.Relayout();
+
     /// <summary>The numeral's ink and band, for the render tour's measurements.</summary>
     internal (Rect? Ink, double BandTop, double BandBottom) NumeralGeometry =>
         (_numeral.InkRect, _numeral.CurrentBand.Top, _numeral.CurrentBand.Bottom);

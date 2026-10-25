@@ -425,9 +425,13 @@ public partial class MainWindow : Window
             root.Arrange(new Rect(size));
             TopBar_LayoutChanged(this, null!);
         }
+        // A manual layout raises no SizeChanged, so what hangs on it (Home's density and the numeral's band) is run by hand.
+        _homePage.TourSettleDensity();
         UI.RenderShots.Invalidate(root);
         root.Measure(size);
         root.Arrange(new Rect(size));
+        _homePage.TourReportStripTop();
+        Stage.TourRelayout();
     }
 
     internal void TourGoTo(int page)

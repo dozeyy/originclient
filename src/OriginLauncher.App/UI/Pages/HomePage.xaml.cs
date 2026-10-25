@@ -116,6 +116,9 @@ public partial class HomePage : UserControl
         ReportStripTop();
     }
 
+    internal void TourSettleDensity() => ApplyDensity(ActualHeight);
+    internal void TourReportStripTop() => ReportStripTop();
+
     // Tells the art stage where the strip's top edge is (the page fills the window under the bar, so page y is
     // window y); the Home numeral is sized and centred in the band between the bar and this line.
     private void ReportStripTop()

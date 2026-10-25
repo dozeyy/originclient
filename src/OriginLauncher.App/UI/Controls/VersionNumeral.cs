@@ -46,6 +46,8 @@ public sealed class VersionNumeral : Canvas
         Layout(_shown);
     }
 
+    internal void Relayout() => Layout(_shown);
+
     /// <summary>The ink rectangle of the text on screen, for the render tour's measurements (null before layout).</summary>
     internal Rect? InkRect { get; private set; }
 
