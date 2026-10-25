@@ -30,7 +30,7 @@ CRITERIA:
   3. Fail-soft: every new draw/hook body catches Throwable, latches a health flag, and logs the first throwable.
   4. No per-frame allocation in draw paths (no new Gfx / GameProfile / list per frame).
   5. Shared code: shared/ + sync.py, or overrides.txt for a deliberate fork; `sync.py --check` passes.
-CONSTRAINTS: never open Minecraft or launcher windows on Will's PC (CI only). No MEMORY.md edits.
+CONSTRAINTS: never open Minecraft on Will's PC (in-game proof is CI dev-shots); building locally is fine. No MEMORY.md edits.
   Signatures come from bytecode (javap on the loom jar / the loom-cache sources jar / the 26.x api dump /
   ref-189), never from memory or the donor. Mark anything not proven as "likely".
 DONE WHEN: pushed to claude/<feature>-port-<group>; build-check green; dev-shots run <id> read (_sheet.jpg)

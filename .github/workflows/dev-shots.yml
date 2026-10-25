@@ -19,7 +19,7 @@
 # as boot-smoke.yml -- see the notes there.
 # A job FAILS when it captured fewer PNGs than its set planned (tools/ci/check_shots.py).
 # No Video Settings (Sodium) shot: the mod rail was removed on Will's call
-# (2026-10-12, MEMORY.md), and only 1.21.1 has Sodium on the CI dev classpath --
+# (2026-10-12, docs/memory-archive/), and only 1.21.1 has Sodium on the CI dev classpath --
 # every other module loads it from a gitignored libs/ jar that CI doesn't have.
 name: dev-shots
 

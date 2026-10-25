@@ -1,42 +1,52 @@
 # Origin
 
-> Project-specific config. Global rules, identity, model + skill routing live in
-> `~/.claude/` and load automatically — this file is ONLY what's unique to this
-> project. Keep it lean (it loads every session). Long logs go in `./MEMORY.md`.
+> Project rules. Global rules live in `~/.claude/` and load automatically; where they
+> differ, THIS file wins, except the global gate list and the Field Report one-line
+> replies. Standing decisions: `DECISIONS.md` (imported below, always loaded). Log of
+> results: `MEMORY.md` (short; the old 431 KB log is archived, grep only).
+
+@DECISIONS.md
 
 ## Working agreement (Will)
 
-1. **Before making changes**: ask whatever clarifying questions are needed.
-   Don't guess at intent on anything with more than one reasonable reading.
-2. **After making changes**: give a short plain-English summary — what changed
-   and exactly what Will should click/test. No jargon; Will doesn't touch the
-   code, so write the summary for a player, not a programmer.
+1. **Before changes:** ask only the 1-3 questions that change the plan, as clickable
+   choices. Anything already in `DECISIONS.md` is answered — don't ask it again.
+2. **After changes:** Field Report — one line that it's done, plus one short line each
+   for anything failed, untested, or that Will has to do (approved 2026-10-19). Detail
+   only when he asks. Plain words, written for a player, not a programmer.
 3. Keep the code optimized for **Claude readability** — Will never edits it.
    Comments explain constraints and reasons, one obvious way to do each thing.
-4. **Launch/terminal commands** (Will builds + runs on his own **Windows /
-   PowerShell** machine — the cloud sandbox can NEVER build: Fabric/Mojang
-   maven is 403-blocked there). Whenever handing Will commands to build or run
-   a client, give the WHOLE copy-paste sequence starting from a fresh
-   PowerShell — his shell opens at `C:\Users\Will`, NOT the repo, so ALWAYS
-   lead with the `cd` into the project root. Never assume he's already in the
-   right folder. Full shape:
-   ```powershell
-   cd "C:\Users\Will\Documents\Minecraft Mods\Origin Client"    # last-known repo path
-   git fetch origin <branch>
-   git checkout <branch>
-   cd src\mods\versions\1.21.1                    # the version module (holds gradlew.bat)
-   .\gradlew.bat runClient                        # Right Shift in-game opens the menu
-   ```
-   Windows paths + backslashes + `.bat`. If the repo path is wrong, have him
-   find it: `Get-ChildItem $HOME -Recurse -Depth 5 -Directory -Force -Filter ".git" -ErrorAction SilentlyContinue | ForEach-Object { $_.Parent.FullName }`.
+4. **Who does the work:** the main session does small, single-area work itself (~1-3
+   files in one area). Agents (`.claude/agents/`) only for big, multi-area, parallel
+   (ports across versions) or specialist work. code-reviewer ∥ verifier only for big or
+   risky changes (auth, updates, payments, release, cross-version ports).
+5. **Build and run it yourself.** A local session on Will's PC builds and runs things
+   itself (commands below) — never hand Will a build command to run. Only a cloud
+   session (Fabric/Mojang/Forge mavens blocked) hands off: there CI is the compiler.
+6. **CI once per change:** push once, read the run, and reuse that green run for the
+   merge. Never re-run CI that already passed on the same commit.
+7. **Done = Will can run it now:** it is built (or released) and he can open it without
+   doing anything else. A UI change also needs a screenshot of THAT build (launcher:
+   `--render-shots`; in game: CI dev-shots `_sheet.jpg`). "Compiles" is not done.
+8. **Judge loops** (`docs/overhaul/JUDGE.md`, 95/100; website judge 9/10) run only on
+   overhaul or redesign work, not on fixes.
+9. **Models:** this project pins the `implementation` lane to **opus** (reason: repeated
+   redo failures on Origin with sonnet coders). Reviewers are never below the author.
 
-5. **Website changes auto-deploy (Will, 2026-10-13).** For anything on the
-   website (`website/`), don't wait for Will's approval: have an independent
-   judge agent score it (fun, polish, mobile, accessibility, honest claims) and
-   keep improving until it rates **9/10 or higher**, then publish it yourself —
-   push ONLY the website commits to `main` (deploy-website.yml publishes on
-   push), never unreleased launcher/mod work. Never claim "every version" on
-   the site (Origin doesn't cover every Minecraft version).
+## Build, run, screenshot (local, Windows)
+Run from the repo root (`C:\Users\Will\Documents\Minecraft Mods\Origin Client`).
+- **Launcher build:** `dotnet build src/OriginLauncher.App/OriginLauncher.App.csproj -c Release -o bin/launcher`
+- **Launcher tests:** `dotnet test src/OriginLauncher.Tests` (installer: `src/OriginSetup.Tests`).
+- **Launcher screenshots:** `bin/launcher/OriginLauncher.App.exe --render-shots <dir>` (add
+  `--social` for the social screens). Made-up data in a temp scratch root, no clicks,
+  exits by itself — the only safe local launch.
+- **No data-dir override exists:** a normal launcher run uses Will's real
+  `%LocalAppData%\OriginLauncher` (gated). Will opens `bin\launcher\OriginLauncher.App.exe`
+  himself; agents don't run it interactively.
+- **Mod module:** `cd src/mods/versions/<mc>` then `./gradlew.bat build` (jar in `build/libs/`).
+  Never `runClient`/boot-smoke on Will's PC; in-game proof = push `claude/<name>` and read
+  CI dev-shots + boot-smoke (count the PNGs). Copying a jar into the live instance is gated.
+- **Website:** static files in `website/`; preview locally in the browser pane.
 
 ## Working order (Will, 2026-07-21)
 Perfect ONE version at a time, then move on — never spread half-finished work
@@ -95,6 +105,7 @@ application
    the versions already on stable Sodium 0.8; 1.21.1 ships stable Sodium 0.6.13
    (no Config API, and its 0.8 is a shader-breaking alpha), so it gets the same
    feature via a Sodium 0.6.13 GUI mixin instead — same look, different method.
+   (That mod rail was later removed at Will's call, 2026-10-12; the principle stands.)
 
 ## Repo layout (the boundaries that matter)
 ```
@@ -185,36 +196,32 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-25)
-- Overnight overhaul running (Will's work order, phases 0-7). The master checklist is `ORIGIN_PROGRESS.md`
-  (read it first); phase prompts, the judge rubric (95/100) and Will's requests are in `docs/overhaul/`.
+- Overhaul running (Will's work order, phases 0-7). The master checklist is `ORIGIN_PROGRESS.md`
+  (read it first for overhaul work); phase prompts, the judge rubric and Will's requests are in `docs/overhaul/`.
 - Latest release `launcher-v1.0.65`. The next release (v1.0.66+) is tagged once at the end of the run, after
   tests, CI boots and the judge all pass (Will's OK, 2026-10-25). Read git tags for the truth.
 - On main since v1.0.65: imported mods can't stop the game starting, launcher self-updates refuse a
   missing or wrong SHA-256, the website's AI helper is removed (GitHub card back, phone nav fixed), and the
   overhaul docs.
 - Auth: Minecraft `login_with_xbox` 403 (app approval pending); `OfflineTestMode` is the test path.
-- Full history: MEMORY.md (grep it; never read it whole).
+- History: `MEMORY.md` (short, indexed) and `docs/memory-archive/` (grep it; never read it whole).
 
 ## Roadmap (open items)
 - The overhaul phases and every open item live in `ORIGIN_PROGRESS.md`. Keep it current; don't duplicate it here.
 
 ## Token discipline (Claude Lean — `.claude/hooks/lean/README.md`)
 Usage is ~all re-reading of the conversation, so what enters it stays forever.
-These Origin rules override the global `~/.claude` ones where they differ (search-then-
-read-ranges is the global `context-efficiency.md` rule).
+Search, then read ranges (global `context-efficiency.md`).
 - Don't re-read a file that's unchanged and still in context (a hook denies it once;
   repeating the identical call goes through if it was summarized away).
 - Build/test output is auto-trimmed to errors + verdict; the full log path is printed.
-- MEMORY.md is grep-only — never read it whole, not even at session start.
+- Read `MEMORY.md` (short: archive index + new entries). `docs/memory-archive/` is
+  grep-only — never read it whole; open one section by its index line.
 - Screenshots: look at the folder's `_sheet.jpg` (every shot in one image; dev-shots
   makes it, `python tools/lean/contact_sheet.py <dir>` for any folder) before any
   single full-size shot.
-- **How work runs in Origin:** the main session does small, single-area work itself.
-  Dispatch agents only for parallel fan-outs (ports across versions), isolated heavy
-  research, or review/verify passes — each agent re-pays its own context. Use
-  Origin's agents in `.claude/agents/` (Will's claude-config set, adapted to Origin
-  with a token contract): coding/porting/debugging on opus, building/reviewing on
-  sonnet, mechanical on haiku (pinned ID per `model-routing.md`). Ask for short reports; CI checks at most every 3 min.
+- Agents: Origin's own set in `.claude/agents/` (Will's claude-config agents with an
+  Origin contract). Ask for short reports; CI checks at most every 3 min.
 
 # Compact instructions
 When compacting, keep: the user's current request and any decisions/"never" rules they

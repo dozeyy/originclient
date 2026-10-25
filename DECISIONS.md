@@ -1,0 +1,54 @@
+# Origin — standing decisions (Will's always / never rules)
+
+Always loaded (imported by `CLAUDE.md`). One rule per line, with the date Will set it.
+Newest wins; a superseded rule is noted under "Resolved conflicts". Add new rules here
+the day Will gives them (one line). Background: `docs/memory-archive/` (grep, never read whole).
+
+## Product
+- No loader choice, ever: Fabric for every live version; 1.8.9 runs Forge 11.15.1.2318 + OptiFine (2026-10-13).
+- 1.12.2 and 1.21.5 stay pulled (modules kept, out of picker and CI) (2026-08-06; 1.8.9 back live 2026-10-13).
+- 1.21.1 is the baseplate: every live version matches 1.21.1's look and features ("make each version match 1.21.1") (2026-08-01, 2026-10-11).
+- Working order: perfect 1.21.1, then 1.20, then the 26.x line, then down the list. One version at a time (2026-07-21).
+- Per-version best-fit: the method may differ per version, the look may not (2026-07-21).
+- No recipe viewer on a version where Fabric JEI doesn't exist; don't fake one (2026-10-12).
+- Video Settings mod rail is removed; don't bring it back without asking (2026-10-12).
+- Updates are mandatory for players. Releases are deliberate tags, never every main push (2026-07, RELEASING.md).
+- A launcher self-update with no valid SHA-256 is refused, and never blocks Play (2026-10-25).
+- Closing or crashing the game never closes the launcher; Play works again every time (2026-07-09).
+- Settings Sync is on by default and carries mod settings + HUD positions; every change hits disk instantly (2026-10-18).
+- Opening any screen must feel instant: no blocking entrance animations, no per-open loads (2026-10-18).
+- Launcher settings writes go through `SettingsStore.Update(mutate)` only.
+- One game window per account, several at once; mods shared per version (2026-10-12).
+
+## Look
+- Vanilla screens (title, pause, options, inventory, world select) use STOCK Minecraft buttons. Origin's widget skin only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-08-23).
+- In-game text is Minecraft's own font everywhere; no Inter/Space Grotesk/MSDF in game; no hand-rolled glyph rendering (2026-07-08, re-confirmed 2026-09-09).
+- Workbench design system (`docs/overhaul/DESIGN-SYSTEM.md`): neutral base, small soft-hued accents, never big colour fills; Home version numeral stays neutral (2026-10-25).
+- Logos: only `textures/ui/origin_logo.png` (= `Assets/origin.ico`) and `Assets/Brand/wordmark.png`. Never redraw a logo in XAML, SVG, CSS or code (2026-10-25).
+- Icons: Origin's own icon set per the Icon Packs rules, not borrowed sets (2026-09-03).
+- Numeral shadows are drawn in `ArtStage.OnRender`, never a WPF `DropShadowEffect` on animating elements (2026-10-25).
+
+## Website (originclient.org — served by Vercel, not GitHub Pages, 2026-10-18)
+- Never claim "every version" (2026-10-13).
+- Shaders on across the whole site experience (2026-10-11).
+- The site is the island in the sky. The scroll-through Install/Launch replicas and the in-game "Play" chapter are removed; don't re-add without asking (2026-10-11).
+- The AI helper page is removed (2026-10-25).
+- Website-only changes deploy without waiting for Will: push ONLY website commits to `main` (2026-10-13). Never ship unreleased launcher/mod work with them.
+
+## How Claude works here
+- Local sessions build and run things themselves; only cloud sessions hand Will commands or use CI as the compiler (2026-10-25).
+- Never open Minecraft (runClient, boot-smoke) on Will's PC: in-game proof comes from CI dev-shots / boot-smoke on a pushed `claude/<name>` branch (2026-10-18).
+- Launcher screenshots locally only through `OriginLauncher.App.exe --render-shots <scratch dir>` (made-up data, no clicks, exits by itself) (2026-10-25).
+- Never touch `%LocalAppData%\OriginLauncher` (Will's live data) without his go — that includes an interactive launcher run (gate list).
+- Never click or type into a window an agent didn't launch (an agent's clicks once landed in his FL Studio project, 2026-10-18).
+- CI trap: dev-shots can report success with 0 shots — count the PNGs (2026-10-18).
+- Judge loops (`docs/overhaul/JUDGE.md`, pass = 95/100; website judge 9/10) run only on overhaul or redesign work (2026-10-25).
+- Implementation runs on opus in this project (repeated redo failures on sonnet) (2026-10-25).
+- Done = Will can run it now: built locally (or released), plus a screenshot of that build for UI changes (2026-10-25).
+
+## Resolved conflicts
+- 2026-07-08 "default Minecraft text everywhere" vs 2026-09-09 Workbench role fonts (Space Grotesk/Inter in game): the later 2026-09-09 typography pass removed them again. Minecraft font in game; the WPF launcher uses its own bundled font.
+- 2026-10-18 "no windows on Will's PC, never run the launcher or --render-shots locally" vs 2026-10-25 "local sessions build and run it; verifier screenshots the launcher": 2026-10-25 wins for builds and `--render-shots`; the no-Minecraft-window and no-clicks-into-other-apps parts stand.
+- 2026-10-13 "website judge >= 9/10 before every publish" vs 2026-10-25 "judges only on overhaul/redesign work": small website fixes ship without a judge round.
+- CLAUDE.md "ask whatever clarifying questions" / "plain-English summary after every change" replaced 2026-10-25 by 1-3 clickable questions and the Field Report one-line done.
+- Palette history (Aurora -> Slate -> Ion Jade -> Workbench, 2026-09-03 to 2026-09-09): Workbench is current.

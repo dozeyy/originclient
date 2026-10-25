@@ -73,7 +73,7 @@ calling a version done.
   0.7.11 shadowed into the jar and loaded by its tweaker (Forge events first,
   fail-soft mixins second — OptiFine replaces whole vanilla classes, so HEAD/
   RETURN injections only there). Same package layout and public API as the
-  1.16.5 module it was ported from. The sandbox can't reach Forge's maven:
+  1.16.5 module it was ported from. Cloud sessions can't reach Forge's maven:
   `.github/workflows/ref-189.yml` compiles it and answers 1.8.9 name/SRG
   lookups in CI logs (PORT-189.md). (1.12.2's module is the old event-only
   Forge build, pulled.) Launcher side: `LegacyForgeInstaller` (bundled version JSON +
