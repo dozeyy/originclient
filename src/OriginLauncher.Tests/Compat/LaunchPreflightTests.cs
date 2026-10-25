@@ -73,13 +73,51 @@ public sealed class LaunchPreflightTests : IDisposable
     }
 
     [Fact]
+    public void PressingPlayAgainOnTheSameModSetLaunchesAnywayAndLogsIt()
+    {
+        Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
+        var first = Assert.Throws<IncompatibleModsException>(() => Run());
+        Assert.False(string.IsNullOrEmpty(first.SetKey));
+
+        // The player was told; Home remembers it and the next press goes through.
+        LaunchPreflight.AcceptSet(first.SetKey);
+        Run();
+        var log = System.IO.File.ReadAllText(_log);
+        Assert.Contains("THE PLAYER OVERRODE THIS", log);
+        Assert.Contains("STOPS THE GAME: old", log);
+    }
+
+    [Fact]
+    public void TheOverrideOnlyCoversTheExactSetItWasGivenFor()
+    {
+        Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
+        var first = Assert.Throws<IncompatibleModsException>(() => Run());
+        LaunchPreflight.AcceptSet(first.SetKey);
+
+        // A different broken jar joins the set: new fingerprint, the check applies again.
+        Jar(_mods, "older-1.0.jar", "older", mc: "~1.19.2");
+        var second = Assert.Throws<IncompatibleModsException>(() => Run());
+        Assert.NotEqual(first.SetKey, second.SetKey);
+        Assert.Equal(2, second.Names.Count);
+    }
+
+    [Fact]
+    public void AnOverrideKeyNobodyGaveIsIgnored()
+    {
+        Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
+        LaunchPreflight.AcceptSet("not-a-real-key");
+        LaunchPreflight.AcceptSet("");
+        Assert.Throws<IncompatibleModsException>(() => Run());
+    }
+
+    [Fact]
     public void AModForAnotherMinecraftVersionStopsTheLaunchWithASentence()
     {
         Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
         var ex = Assert.Throws<IncompatibleModsException>(() => Run());
         Assert.Contains("old", ex.Message);
         Assert.Contains("1.21.1", ex.Message);
-        Assert.Contains("Turn it off on the Mods page.", ex.Message);
+        Assert.Contains("Turn it off on the Mods page. Press Play again to start anyway.", ex.Message);
         Assert.Single(ex.Reasons);
         Assert.Single(ex.Names);
     }
@@ -110,7 +148,7 @@ public sealed class LaunchPreflightTests : IDisposable
         Assert.Equal(5, ex.Reasons.Count);
         Assert.Equal(5, ex.Names.Count);
         Assert.Contains("(and 3 more)", ex.Message);
-        Assert.Contains("Turn them off on the Mods page.", ex.Message);
+        Assert.Contains("Turn them off on the Mods page. Press Play again to start anyway.", ex.Message);
         // Only the first two are named; the rest are counted.
         Assert.Contains(ex.Names[0], ex.Message);
         Assert.Contains(ex.Names[1], ex.Message);
@@ -123,10 +161,10 @@ public sealed class LaunchPreflightTests : IDisposable
         var ex = new IncompatibleModsException("1.21.1",
             new[] { "Old Mod", "Some Lib", "Third", "Fourth" },
             new[] { "Old Mod: x.", "Some Lib: y.", "Third: z.", "Fourth: w." });
-        Assert.Equal("Old Mod and Some Lib (and 2 more) won't start on Minecraft 1.21.1. Turn them off on the Mods page.", ex.Message);
+        Assert.Equal("Old Mod and Some Lib (and 2 more) won't start on Minecraft 1.21.1. Turn them off on the Mods page. Press Play again to start anyway.", ex.Message);
 
         var one = new IncompatibleModsException("1.21.1", new[] { "Old Mod" }, new[] { "Old Mod: x." });
-        Assert.Equal("Old Mod won't start on Minecraft 1.21.1. Turn it off on the Mods page.", one.Message);
+        Assert.Equal("Old Mod won't start on Minecraft 1.21.1. Turn it off on the Mods page. Press Play again to start anyway.", one.Message);
     }
 
     [Fact]
@@ -138,7 +176,7 @@ public sealed class LaunchPreflightTests : IDisposable
         Assert.DoesNotContain(longName, ex.Message);
         Assert.Contains("...", ex.Message);
         // Worst case: two cut names + count + instruction. ~55 characters per 360 px row, 3 rows.
-        Assert.True(ex.Message.Length <= 150, ex.Message.Length + ": " + ex.Message);
+        Assert.True(ex.Message.Length <= 165, ex.Message.Length + ": " + ex.Message);
         Assert.True(ex.Message.All(c => c < 128), "ASCII only");
     }
 

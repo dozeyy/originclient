@@ -13,15 +13,19 @@ namespace OriginLauncher.App.Core.Compat;
 public sealed class IncompatibleModsException : Exception
 {
     /// <summary>Longest mod name shown on Home; longer ones are cut with "..." (ASCII only).</summary>
-    public const int NameLimit = 24;
+    public const int NameLimit = 20;
 
-    public IncompatibleModsException(string version, IReadOnlyList<string> names, IReadOnlyList<string> reasons)
+    public IncompatibleModsException(string version, IReadOnlyList<string> names, IReadOnlyList<string> reasons, string setKey = "")
         : base(BuildMessage(version, names))
     {
         Version = version;
         Names = names;
         Reasons = reasons;
+        SetKey = setKey;
     }
+
+    /// <summary>Identifies the exact mod set that was refused; <see cref="LaunchPreflight.AcceptSet"/> takes it.</summary>
+    public string SetKey { get; }
 
     public string Version { get; }
 
@@ -40,7 +44,7 @@ public sealed class IncompatibleModsException : Exception
         var more = names.Count > 2 ? $" (and {names.Count - 2} more)" : "";
         var plural = names.Count > 1;
         // TODO(Phase 5.3): "Fix Compatibility" button: RepairPlanner.Plan on this report, one click to turn the mods off.
-        return $"{list}{more} won't start on Minecraft {version}. Turn {(plural ? "them" : "it")} off on the Mods page.";
+        return $"{list}{more} won't start on Minecraft {version}. Turn {(plural ? "them" : "it")} off on the Mods page. Press Play again to start anyway.";
     }
 
     private static string Short(string name)
@@ -58,6 +62,9 @@ public sealed record LaunchVerdict(IReadOnlyList<string> Blocking, IReadOnlyList
 {
     /// <summary>Display name of each mod in <see cref="Blocking"/>, same order.</summary>
     public IReadOnlyList<string> BlockingNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>Fingerprint of the launch set this verdict is for (names, sizes, times, version).</summary>
+    public string SetKey { get; init; } = "";
 
     public static readonly LaunchVerdict Clear = new(Array.Empty<string>(), Array.Empty<string>(), 0);
 }
@@ -87,8 +94,22 @@ public static class LaunchPreflight
     private const int VerdictCacheLimit = 64;
     private static readonly ConcurrentDictionary<string, LaunchVerdict> Verdicts = new();
 
+    // Mod sets the player chose to launch anyway after being told (see AcceptSet). Per run of the launcher; a changed
+    // set has a different key, so it is checked again.
+    private static readonly ConcurrentDictionary<string, byte> Accepted = new();
+
+    /// <summary>
+    /// "Press Play again to start anyway": remembers that the player was told about this exact mod set (the key from
+    /// <see cref="IncompatibleModsException.SetKey"/>) and wants it launched regardless. Any change to the set (a jar
+    /// added, removed, turned off, rewritten) makes a new key and the check applies again.
+    /// </summary>
+    public static void AcceptSet(string setKey)
+    {
+        if (!string.IsNullOrEmpty(setKey)) Accepted[setKey] = 0;
+    }
+
     /// <summary>Forgets remembered verdicts (tests that measure a cold check).</summary>
-    public static void ClearCache() => Verdicts.Clear();
+    public static void ClearCache() { Verdicts.Clear(); Accepted.Clear(); }
 
     /// <summary>1.8.9 runs on Forge in Origin; every other version is Fabric. Java is unknown here (any "java" range is met).</summary>
     public static CompatPlatform PlatformFor(string mcVersion) =>
@@ -114,7 +135,17 @@ public static class LaunchPreflight
         {
             var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct);
             if (verdict.Blocking.Count > 0)
-                throw new IncompatibleModsException(version, verdict.BlockingNames, verdict.Blocking);
+            {
+                // The metadata can be wrong (a false positive must never lock a player out): once the player has seen
+                // the sentence and pressed Play again on this exact set, the game starts anyway.
+                if (Accepted.ContainsKey(verdict.SetKey))
+                {
+                    WriteLog(logPath, version, Describe(verdict).Prepend(
+                        "THE PLAYER OVERRODE THIS: pressed Play again on this exact mod set, so the game was launched anyway."));
+                    return;
+                }
+                throw new IncompatibleModsException(version, verdict.BlockingNames, verdict.Blocking, verdict.SetKey);
+            }
         }
         catch (Exception ex) when (ex is IncompatibleModsException || (ex is OperationCanceledException && ct.IsCancellationRequested))
         {
@@ -185,7 +216,7 @@ public static class LaunchPreflight
                 soft.Add($"{f.Subject.DisplayName} [{f.Kind}, {f.Severity}, {f.Certainty}]: {f.Summary}");
         }
 
-        var verdict = new LaunchVerdict(blocking, soft, launchSet.Count) { BlockingNames = blockingNames };
+        var verdict = new LaunchVerdict(blocking, soft, launchSet.Count) { BlockingNames = blockingNames, SetKey = key };
         if (blocking.Count == 0 && !anyUnreadable)
         {
             if (Verdicts.Count >= VerdictCacheLimit) Verdicts.Clear();

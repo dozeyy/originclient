@@ -942,6 +942,8 @@ public partial class HomePage : UserControl
         {
             // Mods that cannot start the game, caught before it launched (Core/Compat/LaunchPreflight): a plain
             // sentence naming them, not a loader crash. TODO(Phase 5.3): a "Fix Compatibility" button here.
+            // The metadata can be wrong: telling the player is enough, so the next Play on this same set goes through.
+            LaunchPreflight.AcceptSet(ex.SetKey);
             Note(key, ex.Message, LaunchTone.Error);
             WriteLaunchErrorLog(ex);
         }
