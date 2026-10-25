@@ -27,9 +27,9 @@ public partial class SettingsPage : UserControl
     private string? _jvmVersion;
 
     /// <summary>
-    /// Render mode (UI/RenderShots.cs): scrolls so the Settings Sync row sits a little below the top of the page, whole,
-    /// with the card above it for context. The row is below the fold at the default window size, and the half-way and
-    /// bottom shots are not guaranteed to land on it.
+    /// Render mode (UI/RenderShots.cs): scrolls so the Settings Sync row sits a little below the top of the page, whole.
+    /// Settings Sync is the first section now, so this lands near the top; the shot stays as the row's own cut-off check
+    /// at both window sizes.
     /// </summary>
     internal void TourScrollToSync()
     {

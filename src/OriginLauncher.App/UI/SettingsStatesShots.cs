@@ -99,7 +99,7 @@ internal static class SettingsStatesShots
             combo.IsDropDownOpen = true;
             RenderShots.Pump(500);
             RenderShots.Snap(window, dir, "14q-dropdown-open");
-            if (combo.Template.FindName("PART_Popup", combo) is Popup { Child: FrameworkElement list })
+            if (combo.Template.FindName("Popup", combo) is Popup { Child: FrameworkElement list })
                 SnapPopup(window, list, dir, "14q-dropdown-open-popup");
         }
         finally
@@ -166,14 +166,29 @@ internal static class SettingsStatesShots
     /// <summary>A popup's content saved at 2x over the window colour (its edges and shadow are transparent).</summary>
     private static void SnapPopup(Window window, FrameworkElement element, string dir, string name)
     {
-        var w = Math.Max(1, (int)Math.Ceiling(element.ActualWidth));
-        var h = Math.Max(1, (int)Math.Ceiling(element.ActualHeight));
+        // The shadow is drawn into the margin around the popup's content (Popup.Bleed), outside the element's own
+        // bounds, so the picture is cut from a rectangle that reaches past it on every side.
+        const double pad = 24;
+        var w = Math.Max(1, (int)Math.Ceiling(element.ActualWidth + 2 * pad));
+        var h = Math.Max(1, (int)Math.Ceiling(element.ActualHeight + 2 * pad));
         var bitmap = new RenderTargetBitmap(w * 2, h * 2, 192, 192, PixelFormats.Pbgra32);
+        var look = new VisualBrush(element)
+        {
+            Stretch = Stretch.None,
+            AlignmentX = AlignmentX.Left,
+            AlignmentY = AlignmentY.Top,
+            ViewboxUnits = BrushMappingMode.Absolute,
+            Viewbox = new Rect(-pad, -pad, w, h),
+            ViewportUnits = BrushMappingMode.Absolute,
+            Viewport = new Rect(0, 0, w, h),
+        };
         var back = new DrawingVisual();
         using (var dc = back.RenderOpen())
-            dc.DrawRectangle(window.Background, null, new Rect(0, 0, w * 2, h * 2));
+        {
+            dc.DrawRectangle(window.Background, null, new Rect(0, 0, w, h));
+            dc.DrawRectangle(look, null, new Rect(0, 0, w, h));
+        }
         bitmap.Render(back);
-        bitmap.Render(element);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var file = File.Create(Path.Combine(dir, name + ".png"));

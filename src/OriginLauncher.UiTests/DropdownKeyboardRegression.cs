@@ -30,7 +30,7 @@ internal static class DropdownKeyboardRegression
         using var source = new HwndSource(new HwndSourceParameters("dropdown-keyboard-test", 240, 40)) { RootVisual = combo };
         combo.ApplyTemplate();
         combo.UpdateLayout();
-        Assert.NotNull(combo.Template.FindName("PART_Popup", combo)); // the template keeps the popup the box opens
+        Assert.NotNull(combo.Template.FindName("Popup", combo)); // the template keeps the popup the box opens
 
         // F4 opens, F4 again closes.
         Press(combo, source, Key.F4);
