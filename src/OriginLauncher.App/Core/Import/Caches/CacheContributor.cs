@@ -1,5 +1,6 @@
 using System.IO;
 using OriginLauncher.App.Core.Import.Bulk;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 
 namespace OriginLauncher.App.Core.Import.Caches;
@@ -288,8 +289,8 @@ public sealed class CacheContributor : IImportPlanContributor
             var destination = Highest(enabled);
             if (!FabricVersion.TryParse(source, out var s) || !FabricVersion.TryParse(destination, out var d))
                 return "Distant Horizons' version couldn't be compared, so it will rebuild — left in the source.";
-            if (s.Core[0] != 2 || d.Core[0] != 2)
-                return $"Distant Horizons {(s.Core[0] != 2 ? "1.x" : "this")} data can't be used by Distant Horizons 2.x, so it will rebuild — left in the source.";
+            if (s.Component(0) != 2 || d.Component(0) != 2)
+                return $"Distant Horizons {(s.Component(0) != 2 ? "1.x" : "this")} data can't be used by Distant Horizons 2.x, so it will rebuild — left in the source.";
             if (d.CompareTo(s) < 0)
                 return "The imported Distant Horizons is older than the one that built this data, so it will rebuild — left in the source.";
             return null;

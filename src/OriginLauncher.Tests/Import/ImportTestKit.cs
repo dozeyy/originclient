@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using OriginLauncher.App.Core.Import;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 using OriginLauncher.App.Core.Profiles;
 

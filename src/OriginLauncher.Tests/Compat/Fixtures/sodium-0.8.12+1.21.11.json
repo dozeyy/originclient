@@ -1,0 +1,565 @@
+{
+ "meta": {
+  "schemaVersion": 1,
+  "id": "sodium",
+  "version": "0.8.12+mc1.21.11",
+  "name": "Sodium",
+  "description": "Sodium is a powerful rendering engine for Minecraft which greatly improves frame rates and micro-stutter, while fixing many graphical issues",
+  "authors": [
+   {
+    "name": "JellySquid (jellysquid3)",
+    "contact": {
+     "email": "jellysquid@pm.me",
+     "homepage": "https://jellysquid.me"
+    }
+   }
+  ],
+  "contributors": [
+   "IMS212",
+   "bytzo",
+   "PepperCode1",
+   "FlashyReese",
+   "altrisi",
+   "Grayray75",
+   "Madis0",
+   "Johni0702",
+   "comp500",
+   "coderbot16",
+   "Moulberry",
+   "MCRcortex",
+   "Altirix",
+   "embeddedt",
+   "pajicadvance",
+   "Kroppeb",
+   "douira",
+   "burgerindividual",
+   "TwistedZero",
+   "Leo40Git",
+   "haykam821",
+   "muzikbike"
+  ],
+  "contact": {
+   "homepage": "https://github.com/CaffeineMC/sodium",
+   "sources": "https://github.com/CaffeineMC/sodium",
+   "issues": "https://github.com/CaffeineMC/sodium/issues"
+  },
+  "license": "Polyform-Shield-1.0.0",
+  "icon": "sodium-icon.png",
+  "environment": "client",
+  "entrypoints": {
+   "client": [
+    "net.caffeinemc.mods.sodium.fabric.SodiumFabricMod"
+   ],
+   "preLaunch": [
+    "net.caffeinemc.mods.sodium.fabric.SodiumPreLaunch"
+   ]
+  },
+  "custom": {
+   "fabric-renderer-api-v1:contains_renderer": true,
+   "modmenu": {
+    "links": {
+     "modmenu.donate": "https://caffeinemc.net/donate",
+     "modmenu.discord": "https://caffeinemc.net/discord",
+     "modmenu.github_releases": "https://github.com/CaffeineMC/sodium/releases",
+     "modmenu.kofi": "https://caffeinemc.net/donate",
+     "modmenu.modrinth": "https://modrinth.com/mod/sodium"
+    }
+   }
+  },
+  "accessWidener": "sodium-fabric.accesswidener",
+  "mixins": [
+   "sodium-common.mixins.json",
+   "sodium-frapi.mixins.json",
+   "sodium-fabric.mixins.json"
+  ],
+  "depends": {
+   "fabricloader": ">=0.16.0",
+   "fabric-block-view-api-v2": "*",
+   "fabric-rendering-fluids-v1": ">=2.0.0",
+   "fabric-resource-loader-v0": "*"
+  },
+  "breaks": {
+   "embeddium": "*",
+   "optifabric": "*",
+   "canvas": "*",
+   "vulkanmod": "*",
+   "optimalaim": "<2.0.0",
+   "sodium-blendingregistry": "*",
+   "ocrenderfix_sodium": "*",
+   "betterfpsdist": "<=1.21-4.5",
+   "bobby": "<5.2.4",
+   "chunksfadein": "<2.0.2-1.21.2",
+   "cull-less-leaves": "<=1.3.0",
+   "cullleaves": "<=3.4.0-fabric",
+   "custom_hud": "<3.4.2",
+   "farsight": "<=1.21-4.3",
+   "iceberg": "<1.2.7",
+   "iris": "<=1.10.6",
+   "movingelevators": "<=1.4.7",
+   "notenoughcrashes": "<4.4.8",
+   "noxesium": "<2.3.3",
+   "reeses-sodium-options": "<2.0.2",
+   "fabric-api": "<0.140.0",
+   "sodium-extra": "<0.8.0",
+   "audio_engine_tweaks": "<1.2.12",
+   "sspb": "<6.0.0",
+   "moreculling": "<1.6.0-beta.2",
+   "simply-no-shading": "<7.6.2",
+   "betterend": "<=21.0.11",
+   "enchanteds_sodium_options": "<1.0.1"
+  },
+  "provides": [
+   "indium"
+  ],
+  "jars": [
+   {
+    "file": "META-INF/jars/fabric-api-base-1.0.5+4ebb5c083e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-block-view-api-v2-1.0.39+4ebb5c083e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-lifecycle-events-v1-2.6.15+4ebb5c083e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-renderer-api-v1-8.0.0+f4ffd2e53e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-rendering-fluids-v1-3.1.43+4ebb5c083e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-rendering-v1-16.2.7+f4ffd2e53e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-resource-loader-v0-3.3.4+4fc5413f3e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-resource-loader-v1-1.0.10+78c8b4663e.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-transitive-access-wideners-v1-7.0.8+0107c3da3e.jar"
+   }
+  ]
+ },
+ "nested": [
+  {
+   "file": "META-INF/jars/fabric-api-base-1.0.5+4ebb5c083e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-api-base",
+    "name": "Fabric API Base",
+    "version": "1.0.5+4ebb5c083e",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-api-base/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.17.3"
+    },
+    "description": "Contains the essentials for Fabric API modules.",
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-block-view-api-v2-1.0.39+4ebb5c083e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-block-view-api-v2",
+    "name": "Fabric BlockView API (v2)",
+    "version": "1.0.39+4ebb5c083e",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-block-view-api-v2/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.17.3"
+    },
+    "description": "Hooks for block views",
+    "mixins": [
+     "fabric-block-view-api-v2.mixins.json",
+     {
+      "config": "fabric-block-view-api-v2.client.mixins.json",
+      "environment": "client"
+     }
+    ],
+    "custom": {
+     "fabric-api:module-lifecycle": "stable",
+     "loom:injected_interfaces": {
+      "net/minecraft/class_1922": [
+       "net/fabricmc/fabric/api/blockview/v2/FabricBlockView"
+      ],
+      "net/minecraft/class_2586": [
+       "net/fabricmc/fabric/api/blockview/v2/RenderDataBlockEntity"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-lifecycle-events-v1-2.6.15+4ebb5c083e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-lifecycle-events-v1",
+    "name": "Fabric Lifecycle Events (v1)",
+    "version": "2.6.15+4ebb5c083e",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-lifecycle-events-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "entrypoints": {
+     "main": [
+      "net.fabricmc.fabric.impl.event.lifecycle.LifecycleEventsImpl"
+     ],
+     "client": [
+      "net.fabricmc.fabric.impl.client.event.lifecycle.ClientLifecycleEventsImpl"
+     ]
+    },
+    "mixins": [
+     "fabric-lifecycle-events-v1.mixins.json",
+     {
+      "config": "fabric-lifecycle-events-v1.client.mixins.json",
+      "environment": "client"
+     }
+    ],
+    "depends": {
+     "fabricloader": ">=0.17.3",
+     "fabric-api-base": "*"
+    },
+    "description": "Events for the game's lifecycle.",
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    },
+    "accessWidener": "fabric-lifecycle-events-v1.accesswidener"
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-renderer-api-v1-8.0.0+f4ffd2e53e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-renderer-api-v1",
+    "name": "Fabric Renderer API (v1)",
+    "version": "8.0.0+f4ffd2e53e",
+    "environment": "client",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-renderer-api-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "entrypoints": {
+     "client": [
+      "net.fabricmc.fabric.impl.renderer.DebugHudClient"
+     ]
+    },
+    "depends": {
+     "fabricloader": ">=0.17.3",
+     "minecraft": ">=1.21.5-beta.1",
+     "fabric-api-base": "*",
+     "fabric-rendering-v1": "*",
+     "fabric-transitive-access-wideners-v1": "*"
+    },
+    "suggests": {
+     "fabric-particles-v1": "*"
+    },
+    "description": "Defines rendering extensions for dynamic/fancy block and item models.",
+    "mixins": [
+     "fabric-renderer-api-v1.mixins.json"
+    ],
+    "accessWidener": "fabric-renderer-api-v1.accesswidener",
+    "custom": {
+     "fabric-api:module-lifecycle": "stable",
+     "loom:injected_interfaces": {
+      "net/minecraft/class_10889": [
+       "net/fabricmc/fabric/api/renderer/v1/model/FabricBlockModelPart"
+      ],
+      "net/minecraft/class_773": [
+       "net/fabricmc/fabric/api/renderer/v1/model/FabricBlockModels"
+      ],
+      "net/minecraft/class_1087": [
+       "net/fabricmc/fabric/api/renderer/v1/model/FabricBlockStateModel"
+      ],
+      "net/minecraft/class_778": [
+       "net/fabricmc/fabric/api/renderer/v1/render/FabricBlockModelRenderer"
+      ],
+      "net/minecraft/class_776": [
+       "net/fabricmc/fabric/api/renderer/v1/render/FabricBlockRenderManager"
+      ],
+      "net/minecraft/class_10444$class_10446": [
+       "net/fabricmc/fabric/api/renderer/v1/render/FabricLayerRenderState"
+      ],
+      "net/minecraft/class_11785": [
+       "net/fabricmc/fabric/api/renderer/v1/render/FabricRenderCommandQueue"
+      ],
+      "net/minecraft/class_9826": [
+       "net/fabricmc/fabric/api/renderer/v1/sprite/FabricErrorCollectingSpriteGetter"
+      ],
+      "net/minecraft/class_1059": [
+       "net/fabricmc/fabric/api/renderer/v1/sprite/FabricSpriteAtlasTexture"
+      ],
+      "net/minecraft/class_7766$class_7767": [
+       "net/fabricmc/fabric/api/renderer/v1/sprite/FabricStitchResult"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-rendering-fluids-v1-3.1.43+4ebb5c083e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-rendering-fluids-v1",
+    "name": "Fabric Rendering Fluids (v1)",
+    "version": "3.1.43+4ebb5c083e",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-rendering-fluids-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.17.3",
+     "fabric-api-base": "*"
+    },
+    "description": "Hooks for registering fluid renders.",
+    "mixins": [
+     {
+      "config": "fabric-rendering-fluids-v1.mixins.json",
+      "environment": "client"
+     }
+    ],
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-rendering-v1-16.2.7+f4ffd2e53e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-rendering-v1",
+    "name": "Fabric Rendering (v1)",
+    "version": "16.2.7+f4ffd2e53e",
+    "environment": "client",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-rendering-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "entrypoints": {
+     "client": [
+      "net.fabricmc.fabric.impl.client.rendering.hud.HudStatusBarHeightRegistryImpl"
+     ]
+    },
+    "depends": {
+     "fabricloader": ">=0.17.3",
+     "fabric-api-base": "*",
+     "fabric-lifecycle-events-v1": "*"
+    },
+    "description": "Hooks and registries for rendering-related things.",
+    "mixins": [
+     "fabric-rendering-v1.mixins.json"
+    ],
+    "custom": {
+     "fabric-api:module-lifecycle": "stable",
+     "loom:injected_interfaces": {
+      "com/mojang/blaze3d/pipeline/RenderPipeline": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderPipeline"
+      ],
+      "com/mojang/blaze3d/pipeline/RenderPipeline$Snippet": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderPipeline$Snippet"
+      ],
+      "com/mojang/blaze3d/pipeline/RenderPipeline$Builder": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderPipeline$Builder"
+      ],
+      "net/minecraft/class_3879": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricModel<TS;>"
+      ],
+      "net/minecraft/class_10017": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_10090": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_10090$class_10091": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_10444": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_10444$class_10446": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_11658": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_11791": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_11954": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_12074": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_12075": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_12076": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_12077": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ],
+      "net/minecraft/class_12078": [
+       "net/fabricmc/fabric/api/client/rendering/v1/FabricRenderState"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-resource-loader-v0-3.3.4+4fc5413f3e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-resource-loader-v0",
+    "name": "Fabric Resource Loader (v0)",
+    "version": "3.3.4+4fc5413f3e",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-resource-loader-v0/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.17.3",
+     "fabric-resource-loader-v1": "*"
+    },
+    "description": "Asset and data resource loading.",
+    "custom": {
+     "fabric-api:module-lifecycle": "deprecated"
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-resource-loader-v1-1.0.10+78c8b4663e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-resource-loader-v1",
+    "name": "Fabric Resource Loader (v1)",
+    "version": "1.0.10+78c8b4663e",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-resource-loader-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.17.3"
+    },
+    "description": "Asset and data resource loading.",
+    "accessWidener": "fabric-resource-loader-v1.accesswidener",
+    "mixins": [
+     "fabric-resource-loader-v1.mixins.json",
+     {
+      "config": "fabric-resource-loader-v1.client.mixins.json",
+      "environment": "client"
+     }
+    ],
+    "custom": {
+     "fabric-api:module-lifecycle": "stable",
+     "loom:injected_interfaces": {
+      "net/minecraft/server/MinecraftServer": [
+       "net/fabricmc/fabric/api/resource/v1/DataResourceStore"
+      ],
+      "net/minecraft/server/packs/resources/Resource": [
+       "net/fabricmc/fabric/api/resource/v1/FabricResource"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-transitive-access-wideners-v1-7.0.8+0107c3da3e.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-transitive-access-wideners-v1",
+    "name": "Fabric Transitive Access Wideners (v1)",
+    "version": "7.0.8+0107c3da3e",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-transitive-access-wideners-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.17.3"
+    },
+    "description": "Contains transitive access wideners that provide access to otherwise inaccessible Minecraft code.",
+    "accessWidener": "fabric-transitive-access-wideners-v1.accesswidener",
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    }
+   }
+  }
+ ]
+}

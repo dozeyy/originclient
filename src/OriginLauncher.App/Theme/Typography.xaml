@@ -18,6 +18,11 @@
     <system:Double x:Key="FontSize.Body">13.5</system:Double>
     <system:Double x:Key="FontSize.Caption">12</system:Double>
     <system:Double x:Key="FontSize.Eyebrow">11</system:Double>
+    <!-- Home's status line: one fixed line slot while idle; an error wraps to two rows at the status width (its
+         full text is in the tooltip) and the row takes both rows' height, so the card rises by one fixed step. -->
+    <system:Double x:Key="Size.StatusLine">16</system:Double>
+    <system:Double x:Key="Size.StatusLinesMax">32</system:Double>
+    <system:Double x:Key="Size.StatusWidth">400</system:Double>
     <system:Double x:Key="FontSize.Poster">52</system:Double>
     <!-- Home's bottom strip: PLAY, the version number in its pill. -->
     <system:Double x:Key="FontSize.PlayWord">40</system:Double>

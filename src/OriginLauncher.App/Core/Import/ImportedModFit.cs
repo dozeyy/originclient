@@ -1,3 +1,4 @@
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 
 namespace OriginLauncher.App.Core.Import;
@@ -76,20 +77,42 @@ internal static class ImportedModFit
 
     private const string ReasonPrefix = "Would stop the game from starting: ";
 
+    // The requirement check is the shared one (DependencyRules). Only "the dependency is in the folder at the wrong
+    // version" or "was just turned off here" counts: an id the folder never had may be nested inside a jar this read
+    // can't see, so it is never a reason (IgnoreUnknown).
     private static string? FindProblem(ModInfo? info, Dictionary<string, string?> present, HashSet<string> known)
     {
         if (info == null) return null;
+        var options = new DependencyOptions(IgnoreIds: Platform, IgnoreUnknown: true, ConflictChecks: false);
         var problems = new List<string>();
-        foreach (var dep in info.Depends.OrderBy(x => x.Id, StringComparer.Ordinal))
+        foreach (var p in DependencyRules.Evaluate(info, new FolderView(present, known), options))
         {
-            if (Platform.Contains(dep.Id) || !known.Contains(dep.Id)) continue;
-            var range = dep.Predicate;
-            if (!present.TryGetValue(dep.Id, out var version))
-                problems.Add($"needs {dep.Id}, which is turned off here");
-            else if (version != null && !range.IsSatisfiedBy(version))
-                problems.Add($"needs {dep.Id} {range.Display}, but Origin has {version}");
+            var dep = p.Dependency;
+            problems.Add(p.Kind == DependencyProblemKind.Missing
+                ? $"needs {dep.Id}, which is turned off here"
+                : $"needs {dep.Id} {dep.Predicate.Display}, but Origin has {p.Found}");
         }
         return problems.Count == 0 ? null
             : ReasonPrefix + string.Join("; ", problems) + ". Update that mod on the Mods page, then turn this one on.";
+    }
+
+    // The shared mods folder as it will be: an id the folder ever had but now has turned off is "known and absent".
+    private sealed class FolderView : IProvidedMods
+    {
+        private readonly Dictionary<string, string?> _present;
+        private readonly HashSet<string> _known;
+
+        public FolderView(Dictionary<string, string?> present, HashSet<string> known)
+        {
+            _present = present;
+            _known = known;
+        }
+
+        public bool TryGetVersions(string id, out IReadOnlyList<ProvidedVersion> versions)
+        {
+            if (_present.TryGetValue(id, out var version)) { versions = new[] { new ProvidedVersion(version, null, true) }; return true; }
+            versions = Array.Empty<ProvidedVersion>();
+            return _known.Contains(id);
+        }
     }
 }

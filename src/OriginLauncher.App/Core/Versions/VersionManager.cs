@@ -7,6 +7,7 @@ using CmlLib.Core.Installers;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
 using CmlLib.Core.VersionLoader;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
@@ -335,7 +336,8 @@ public sealed class VersionManager
         string version, string accountKey, MLaunchOption option,
         bool externalMods = true,
         string? profileId = null,
-        IProgress<string>? progress = null, CancellationToken ct = default)
+        IProgress<string>? progress = null, CancellationToken ct = default,
+        string? overrideSetKey = null)
     {
         // A mod profile only ever applies with the player's mods on, and only
         // by an id this launcher made (it becomes a folder name).
@@ -345,13 +347,15 @@ public sealed class VersionManager
         await gate.WaitAsync(ct);
         try
         {
-            return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct);
+            return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey);
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
             // A provisioning failure makes the files on disk a suspect, same as a
             // crashed boot: the next launch verifies in full instead of trusting them.
-            InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
+            // (A mod-compatibility stop is the player's mod set, not a suspect install.)
+            if (e is not IncompatibleModsException)
+                InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
             if (e is not OfflineInstallException && OfflineLaunch.IsNoConnection(e, ct))
                 throw new OfflineInstallException(version, e);
             throw;
@@ -366,10 +370,19 @@ public sealed class VersionManager
         }
     }
 
+    // Off the UI thread: the first check of a big mod set opens every jar once (later launches hit the verdict cache).
+    private static Task CheckModsAsync(
+        string version, string modsFolder, bool externalMods, string? profileId, string? overrideSetKey, CancellationToken ct) =>
+        Task.Run(() => LaunchPreflight.Run(
+            version, modsFolder,
+            profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null,
+            externalMods, ModManager.IsManaged, ModManager.IsOriginProvisioned,
+            Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"), ct, overrideSetKey), ct);
+
     private async Task<Process> InstallAndBuildCoreAsync(
         string version, string accountKey, MLaunchOption option,
         bool externalMods, string? profileId,
-        IProgress<string>? progress, CancellationToken ct)
+        IProgress<string>? progress, CancellationToken ct, string? overrideSetKey)
     {
         var path = new GameFolderPath(version, accountKey);
         // The shared root: where the install stamp and the loader profile live.
@@ -407,7 +420,7 @@ public sealed class VersionManager
         // choiceless exactly like the Fabric path below, which is everything
         // after this line.
         if (LegacyForgeInstaller.IsLegacy(version))
-            return await InstallLegacyAsync(version, path, option, externalMods, profileId, progress, ct);
+            return await InstallLegacyAsync(version, path, option, externalMods, profileId, progress, ct, overrideSetKey);
 
         // Fast path: a stamped instance already resolved this loader and passed
         // a full integrity check under this same launcher build, so both the
@@ -604,6 +617,11 @@ public sealed class VersionManager
         // account's profile game never disturbs another account's game, and
         // the profile's own folder is only ever read (the game holds the
         // copies), so editing or deleting a profile can't hurt a running game.
+        // The mods the game is about to load, checked by the shared compatibility engine BEFORE anything is synced
+        // or started: a hard incompatibility becomes a sentence on Home, not a loader crash. Origin-only launches are
+        // never checked; a checker failure is logged and the launch goes ahead (LaunchPreflight is fail-soft).
+        await CheckModsAsync(version, modsFolder, externalMods, profileId, overrideSetKey, ct);
+
         var gameModsFolder = modsFolder; // the shared folder, unless Origin-only or a profile
         if (!externalMods || profileId != null)
         {
@@ -685,7 +703,7 @@ public sealed class VersionManager
     // Self-contained: ends with its own game-file download + process build.
     private async Task<Process> InstallLegacyAsync(
         string version, GameFolderPath path, MLaunchOption option, bool externalMods, string? profileId,
-        IProgress<string>? progress, CancellationToken ct)
+        IProgress<string>? progress, CancellationToken ct, string? overrideSetKey)
     {
         var sharedRoot = OriginPaths.VersionRoot(version);
         var modsFolder = OriginPaths.ModsDir(version);
@@ -707,6 +725,9 @@ public sealed class VersionManager
         await LegacyStackInstaller.InstallAsync(version, modsFolder, progress, ct);
         LegacyStackInstaller.SeedSplashTheme(configFolder);
         SanitizeCorruptConfigs(configFolder);
+
+        // Same pre-launch check as the Fabric path (log-only on 1.8.9: Forge's mod metadata is advisory).
+        await CheckModsAsync(version, modsFolder, externalMods, profileId, overrideSetKey, ct);
 
         // A mod profile mirrors Origin's own jars plus the profile's folder —
         // none of the player's loose jars in the shared folder (SharedMods.Mirror).
