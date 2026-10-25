@@ -89,7 +89,7 @@
 
                 <!-- The status line: a 6 px square (the accent while live) and one line. The
                      players-online count joins it once it arrives, and only then. -->
-                <StackPanel x:Name="StatusRow" Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,12,0,0">
+                <StackPanel x:Name="StatusRow" Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,16,0,0">
                     <Rectangle x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.TextDim}"
                                VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Status}"
@@ -163,7 +163,7 @@
                  Join and RUNNING are all up). The gold glyph is the soft accent; no art, no glow.
                  Opens OriginLinks.Store in the default browser. -->
             <Button x:Name="StoreButton" Grid.Row="1" Grid.Column="1" Style="{StaticResource Button.Secondary.Small}"
-                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,0,0"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,9,0,0"
                     Click="StoreButton_Click"
                     AutomationProperties.Name="Open the Origin Store in your browser">
                 <StackPanel Orientation="Horizontal">
