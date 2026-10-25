@@ -56,6 +56,9 @@ on:
       shots:
         description: "1 = one screenshot per scene (taken in the warm-up, never in the numbers)"
         default: "0"
+      shader:
+        description: "1 = both variants run with the bench's own minimal shader pack (tools/bench/shaderpack-189, B-04)"
+        default: "0"
       size:
         description: "Window WxH (default 1280x720; a small one lifts llvmpipe above 30 FPS to check frame caps)"
         default: "1280x720"
@@ -108,17 +111,19 @@ jobs:
           I_PROF: ${{ github.event.inputs.prof }}
           I_SHOTS: ${{ github.event.inputs.shots }}
           I_SIZE: ${{ github.event.inputs.size }}
+          I_SHADER: ${{ github.event.inputs.shader }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import os, re
           cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": "",
-                 "presets": "", "prof": "0", "shots": "0", "size": "1280x720"}
+                 "presets": "", "prof": "0", "shots": "0", "size": "1280x720", "shader": "0"}
           if os.environ.get("I_RUNS"):
               cfg.update(runs=os.environ["I_RUNS"], scenes=os.environ.get("I_SCENES") or cfg["scenes"],
                          warmup=os.environ.get("I_WARMUP") or "15", duration=os.environ.get("I_DURATION") or "45",
                          label=os.environ.get("I_LABEL", ""), presets=os.environ.get("I_PRESETS", ""),
                          prof=os.environ.get("I_PROF") or "0",
-                         shots=os.environ.get("I_SHOTS") or "0", size=os.environ.get("I_SIZE") or "1280x720")
+                         shots=os.environ.get("I_SHOTS") or "0", size=os.environ.get("I_SIZE") or "1280x720",
+                         shader=os.environ.get("I_SHADER") or "0")
           else:
               m = re.findall(r"\[bench-189([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
@@ -129,7 +134,7 @@ jobs:
           scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause)"
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
                          ("presets", r"|(competitive|balanced|quality)(,(competitive|balanced|quality))*"),
-                         ("prof", r"[01]"), ("shots", r"[01]"), ("size", r"\d{3,4}x\d{3,4}"), ("scenes", scene + "(," + scene + ")*")):
+                         ("prof", r"[01]"), ("shots", r"[01]"), ("shader", r"[01]"), ("size", r"\d{3,4}x\d{3,4}"), ("scenes", scene + "(," + scene + ")*")):
               if not re.fullmatch(pat, cfg[k]):
                   raise SystemExit("bench-189: bad %s=%r" % (k, cfg[k]))
           for k, v in cfg.items():
@@ -197,6 +202,7 @@ jobs:
           ORIGIN_BENCH_PROF: ${{ steps.cfg.outputs.prof }}
           SHOTS: ${{ steps.cfg.outputs.shots }}
           SIZE: ${{ steps.cfg.outputs.size }}
+          SHADER: ${{ steps.cfg.outputs.shader }}
         run: |
           set -u
           JAVA8="$JAVA_HOME_8_X64/bin/java"
@@ -206,6 +212,8 @@ jobs:
           fail=0
           shotarg=""
           if [ "$SHOTS" = "1" ]; then shotarg="--shots"; fi
+          # B-04: both variants get the same pack, so the delta stays "Origin's cost", now with shaders on
+          if [ "$SHADER" = "1" ]; then shotarg="$shotarg --shaderpack tools/bench/shaderpack-189/origin-bench"; fi
           W="${SIZE%x*}"; H="${SIZE#*x}"
           for r in $(seq 1 "$RUNS"); do
             if [ -n "$PRESETS" ]; then

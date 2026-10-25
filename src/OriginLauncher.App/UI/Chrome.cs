@@ -14,4 +14,14 @@ public static class Chrome
 
     public static CornerRadius GetCorner(DependencyObject d) => (CornerRadius)d.GetValue(CornerProperty);
     public static void SetCorner(DependencyObject d, CornerRadius v) => d.SetValue(CornerProperty, v);
+
+    /// <summary>
+    /// A field whose value is rejected: the text field template (Theme/Inputs.xaml) draws a Danger edge, and the page
+    /// shows the reason right under it in the Input.ErrorText style. Cleared as soon as the value is fixed.
+    /// </summary>
+    public static readonly DependencyProperty InvalidProperty = DependencyProperty.RegisterAttached(
+        "Invalid", typeof(bool), typeof(Chrome), new FrameworkPropertyMetadata(false));
+
+    public static bool GetInvalid(DependencyObject d) => (bool)d.GetValue(InvalidProperty);
+    public static void SetInvalid(DependencyObject d, bool v) => d.SetValue(InvalidProperty, v);
 }

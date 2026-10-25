@@ -7,26 +7,23 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- A profile card: the shared card (Theme/Surfaces.xaml), 8 px apart in the grid. The selected one gets
-             the family accent as its border (set in code). -->
-        <Style x:Key="Card.Profile" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
-            <Setter Property="Margin" Value="0,0,8,8"/>
-        </Style>
+        <!-- A profile card: the shared card (Theme/Surfaces.xaml). Every card sits inside a ring wrapper built in
+             code (2 px accent ring at a 2 px gap when selected, the same space transparent when not), so the grid
+             stays even and the selected state never shifts a neighbour. -->
+        <Style x:Key="Card.Profile" TargetType="Border" BasedOn="{StaticResource Surface.Card}"/>
 
-        <!-- The dashed "New profile" card at the end of the grid. -->
+        <!-- The dashed "New profile" card at the end of the grid: a thin dashed edge at the card's own radius. -->
         <Style x:Key="Card.New" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="0,0,8,8"/>
-            <Setter Property="MinHeight" Value="96"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
-            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card.Neutral}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid x:Name="Body" Background="Transparent">
-                            <Rectangle x:Name="Dash" Stroke="{StaticResource Brush.ProgressTrack}" StrokeThickness="2" StrokeDashArray="5 4"
-                                       RadiusX="4" RadiusY="4"/>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Rectangle x:Name="Dash" Stroke="{StaticResource Brush.Stroke}" StrokeThickness="1" StrokeDashArray="4 4"
+                                       RadiusX="{StaticResource Radius.Lg.Value}" RadiusY="{StaticResource Radius.Lg.Value}"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -43,7 +40,7 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <!-- Mod profiles as cards (Poster): a named set of the player's own mods for
+    <!-- Mod profiles as cards (Workbench): a named set of the player's own mods for
          ONE Minecraft version, optionally with a server. The page sits on the
          dimmed art; the top inset clears the 56 px bar. The create / edit form is a
          centred dialog over the page (FormLayer), not a panel that pushes the cards. -->
@@ -66,7 +63,7 @@
                     <TextBlock Text="Profiles" Style="{StaticResource Text.Heading}" HorizontalAlignment="Left"/>
                     <TextBlock Text="Your setups. Each one keeps its own mods for one version, and can remember a server to join."
                                Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"
-                               Margin="0,10,0,0"/>
+                               Margin="0,8,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="24,8,0,0">
                     <Button x:Name="ImportButton" Style="{StaticResource Button.Secondary.Small}"
@@ -93,15 +90,29 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Status line (errors, "close Minecraft first", copy notes) -->
-            <TextBlock x:Name="StatusText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
-                       Visibility="Collapsed" Margin="0,0,0,16"/>
+            <!-- Status strip (errors, "close Minecraft first", copy notes): a dot says the tone, danger for a
+                 failure, accent for a note. Hidden when there is nothing to say. -->
+            <Border x:Name="StatusBox" Visibility="Collapsed" Margin="0,0,0,16" Padding="12,8"
+                    CornerRadius="{StaticResource Radius.Md}" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="StatusDot" Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
+                            CornerRadius="{StaticResource Radius.Full}" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
+                            Background="{StaticResource Brush.Accent}"/>
+                    <TextBlock Grid.Column="1" x:Name="StatusText" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
+                               TextTrimming="None"/>
+                </Grid>
+            </Border>
 
             <!-- "No profile" first, then one card per profile, then the dashed
                  "New profile" card (all built in code). Three across, then the next row
-                 (Will, 2026-10-19), equal widths and rows; each card's 8 px right and bottom
-                 margin is the gap both ways, and the -8 cancels the last column's. -->
-            <UniformGrid x:Name="RowsPanel" Columns="3" Margin="0,0,-8,0"/>
+                 (Will, 2026-10-19), equal widths and rows. Each cell is a card plus its 4 px ring space
+                 (2 px ring, 2 px gap), so cells touch and the cards sit 8 px apart; the -4 pulls the
+                 ring space out so the cards line up with the page column. -->
+            <UniformGrid x:Name="RowsPanel" Columns="3" Margin="-4"/>
 
         </StackPanel>
         </controls:PageColumn>
@@ -112,21 +123,23 @@
          stray click). The emblem in the corner previews the card as you type. -->
     <Grid x:Name="FormPanel" Visibility="Collapsed" Background="{StaticResource Brush.Scrim}"
           KeyDown="FormPanel_KeyDown">
-        <Border Style="{StaticResource Surface.Dialog}" Width="560" HorizontalAlignment="Center"
-                VerticalAlignment="Center" Margin="32,72,32,32">
-            <!-- Scrolls only when the window is too short for the whole form. -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                <ScrollViewer.Resources>
-                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
-                </ScrollViewer.Resources>
-            <StackPanel>
+        <Border Style="{StaticResource Surface.Dialog}" Width="{StaticResource Size.Dialog}" HorizontalAlignment="Center"
+                VerticalAlignment="Center" Margin="{StaticResource Margin.Dialog}">
+            <!-- Header and footer stay put; only the fields scroll, when the window is too short for the whole form,
+                 so Create / Save is always on screen. -->
+            <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
                 <Grid Margin="0,0,0,20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border x:Name="FormEmblem" Width="40" Height="40" CornerRadius="{StaticResource Radius.Md}"
+                    <Border x:Name="FormEmblem" Width="{StaticResource Size.TileLg}" Height="{StaticResource Size.TileLg}" CornerRadius="{StaticResource Radius.Sm}"
                             Background="{StaticResource Tint.Slate}" VerticalAlignment="Center">
                         <Grid>
                             <TextBlock x:Name="FormInitial" Text="P" Style="{StaticResource Text.Title}"
@@ -137,7 +150,7 @@
                     </Border>
                     <TextBlock x:Name="FormTitle" Grid.Column="1" Text="New profile" Style="{StaticResource Text.Heading}"
                                FontSize="{StaticResource FontSize.Heading}" LineHeight="{StaticResource FontSize.Heading}"
-                               VerticalAlignment="Center" Margin="14,2,0,0"/>
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
                     <Button Grid.Column="2" Style="{StaticResource Social.Icon}" Margin="0,0,-8,0" Click="CancelButton_Click"
                             ToolTip="Close" AutomationProperties.Name="Close">
                         <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
@@ -145,13 +158,25 @@
                     </Button>
                 </Grid>
 
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False">
+                <ScrollViewer.Resources>
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
+                </ScrollViewer.Resources>
+            <StackPanel>
                 <TextBlock Text="Name" Style="{StaticResource Text.FieldLabel}"/>
-                <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
-                         AutomationProperties.Name="Profile name" Margin="0,0,0,16" TextChanged="NameBox_TextChanged"/>
+                <StackPanel Margin="0,0,0,16">
+                    <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
+                             AutomationProperties.Name="Profile name" TextChanged="NameBox_TextChanged"/>
+                    <!-- The name rule's error, right under the box it belongs to (the server rule's sits at the foot). -->
+                    <TextBlock x:Name="NameError" Foreground="{StaticResource Brush.DangerText}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               Visibility="Collapsed" Margin="0,8,0,0"/>
+                </StackPanel>
 
                 <TextBlock Text="Emblem" Style="{StaticResource Text.FieldLabel}"/>
-                <!-- 21 tiles (the letter, then ProfileLook.EmblemIcons) in rows of 11. -->
-                <WrapPanel x:Name="IconRow" Orientation="Horizontal" Margin="0,0,0,10"/>
+                <!-- 21 tiles (the letter, then ProfileLook.EmblemIcons), 28 square at a 4 px gap: 12 across in the
+                     440 dialog, two even rows. -->
+                <WrapPanel x:Name="IconRow" Orientation="Horizontal" Margin="0,0,0,12"/>
 
                 <TextBlock Text="Colour" Style="{StaticResource Text.FieldLabel}"/>
                 <StackPanel x:Name="TintRow" Orientation="Horizontal" Margin="0,0,0,16"/>
@@ -179,18 +204,21 @@
                 <TextBlock x:Name="VersionHint" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                            Text="A profile belongs to one version. With a server, Home shows Join next to Play."/>
 
-                <TextBlock x:Name="FormError" Foreground="{StaticResource Brush.Danger}"
-                           Style="{StaticResource Text.Body}" TextWrapping="Wrap"
-                           Visibility="Collapsed" Margin="0,12,0,0"/>
+                <!-- An error is a caption in the danger text (the box it belongs to also wears a danger edge). -->
+                <TextBlock x:Name="FormError" Foreground="{StaticResource Brush.DangerText}"
+                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                           Visibility="Collapsed" Margin="0,8,0,0"/>
+            </StackPanel>
+            </ScrollViewer>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                    <Button Content="Cancel" Style="{StaticResource Button.Secondary}"
+                <!-- Footer (outside the scroll area): a ghost Cancel, then the primary; both lg (36). -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                    <Button Content="Cancel" Style="{StaticResource Button.Ghost}"
                             Margin="0,0,8,0" Click="CancelButton_Click"/>
                     <Button x:Name="SaveButton" Content="Create profile" Style="{StaticResource Button.Primary.Medium}"
                             Click="SaveButton_Click"/>
                 </StackPanel>
-            </StackPanel>
-            </ScrollViewer>
+            </Grid>
         </Border>
     </Grid>
     </Grid>

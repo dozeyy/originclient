@@ -328,7 +328,7 @@ public partial class MainWindow : Window
         _friendsOpen = open;
         SocialHub.Service.SetDrawerOpen(open);
         _friendsPanel.SetShown(open);
-        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width + 32 : 32, 104);
+        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width : 0, 104); // bottom-centre of what the drawer leaves free
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
@@ -383,6 +383,10 @@ public partial class MainWindow : Window
     internal void TourReportLaunch(string stage) => _homePage.TourReportLaunch(stage);
 
     internal void TourHideLaunch() => _homePage.TourHideLaunch();
+
+    internal void TourCancelLaunch() => _homePage.TourCancelLaunch();
+
+    internal void TourFailLaunch(Exception error, string version) => _homePage.TourFailLaunch(error, version);
 
     internal void TourShowVersions(int detailIndex) => _homePage.TourShowVersions(detailIndex);
 

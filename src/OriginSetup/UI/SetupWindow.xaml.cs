@@ -46,6 +46,7 @@ public partial class SetupWindow : Window
     private readonly DispatcherTimer _locationCheck;
     private readonly int _recommendedRamMb;
     private bool _ramChanged;
+    private bool _syncInitial; // Settings Sync as the existing install has it (on for a fresh PC, like the launcher's default)
     private bool _customizeOpen;
     private bool _loading = true;
     private bool _installing;
@@ -74,6 +75,8 @@ public partial class SetupWindow : Window
         _locationCheck.Tick += (_, _) => { _locationCheck.Stop(); CheckLocation(); };
 
         StartupCheck.IsChecked = SafeIsStartWithWindows();
+        _syncInitial = Handoff.IsSettingsSyncOn(Handoff.SettingsPath);
+        SyncCheck.IsChecked = _syncInitial;
 
         // Customize: memory starts on this PC's recommended amount, the version on "Newest". Only a change the
         // player makes is handed to the launcher (InstallButton_Click), so untouched means the launcher's own defaults.
@@ -173,6 +176,9 @@ public partial class SetupWindow : Window
             StartWithWindows = StartupCheck.IsChecked == true,
             RamMb = _ramChanged ? (int)RamSlider.Value : (int?)null,
             DefaultVersion = (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string,
+            // Only a change is handed over, so updating over an install that already has sync on (or off)
+            // never flips it by accident.
+            SettingsSync = (SyncCheck.IsChecked == true) != _syncInitial ? SyncCheck.IsChecked == true : (bool?)null,
             SourceZip = _sourceZip,
         };
 
@@ -562,6 +568,7 @@ public partial class SetupWindow : Window
         SetCustomize(false);
         RamSlider.Value = _recommendedRamMb;
         VersionCombo.SelectedIndex = 0;
+        SyncCheck.IsChecked = _syncInitial;
         Chrome.SetKeyFocus(RamSlider, false);
         ShowPage(ReadyPage);
         UpdateLayout(); // the path is shortened to the width laid out, so lay out first
@@ -577,6 +584,7 @@ public partial class SetupWindow : Window
         {
             RamSlider.Value = _recommendedRamMb - 1024 >= RamSlider.Minimum ? _recommendedRamMb - 1024 : _recommendedRamMb + 1024;
             if (VersionCombo.Items.Count > 1) VersionCombo.SelectedIndex = 1;
+            SyncCheck.IsChecked = !_syncInitial; // a changed choice, so the shot shows the box both ways
         }
         Chrome.SetKeyFocus(RamSlider, keyboardFocusOnSlider);
         UpdateLayout();

@@ -70,6 +70,19 @@
         </Setter>
     </Style>
 
+    <!-- Card-corner focus in parchment: for a tile that sits where the selected (emerald) ring sits, so keyboard focus
+         never reads as selected. Same frame and offset as Focus.Card. -->
+    <Style x:Key="Focus.Card.Neutral" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+                            BorderBrush="{DynamicResource Brush.Text}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <ControlTemplate x:Key="Template.Button" TargetType="Button">
         <Border x:Name="Bg"
                 Background="{TemplateBinding Background}"
@@ -601,6 +614,32 @@
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Sm}"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
+    </Style>
+
+    <!-- sm 28 (spec 5, "inline actions"): the button that lives INSIDE a row or card (Use profile, Replace, Keep old,
+         Remove / Delete confirms), 12 / 600 label, Radius.Sm. A toolbar action is the md 32 ".Small" above. -->
+    <Style x:Key="Button.Secondary.Inline" TargetType="Button" BasedOn="{StaticResource Button.Secondary.Small}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+    </Style>
+    <Style x:Key="Button.Primary.Inline" TargetType="Button" BasedOn="{StaticResource Button.Primary.Small}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+    </Style>
+    <Style x:Key="Button.Danger.Inline" TargetType="Button" BasedOn="{StaticResource Button.Danger.Small}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+    </Style>
+
+    <!-- Ghost at lg 36 (spec 11.1): "Cancel" beside a dialog's primary, no fill or edge, label TextDim. -->
+    <Style x:Key="Button.Ghost" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Md}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
     </Style>
 
 </ResourceDictionary>

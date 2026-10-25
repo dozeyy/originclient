@@ -9,7 +9,7 @@ namespace OriginLauncher.App.UI;
 /// ToolTipService settings are read from the control that owns the tip, so they cannot live in that style: they
 /// are set once, as the defaults of every element, before the first window exists.
 ///
-///   - Opens after 400 ms (the stock 500 ms feels slow on an icon rail) and stays up long enough to read.
+///   - Opens after 300 ms (the stock 500 ms feels slow on an icon rail) and stays up long enough to read.
 ///   - BetweenShowDelay: for 700 ms after one label closes, the next opens at once, so sliding across the
 ///     nav rail or the top-right icons reads each label without waiting again.
 ///   - Placement is below the control (a nav item asks for Right with ToolTipService.Placement), centred on
@@ -20,11 +20,11 @@ namespace OriginLauncher.App.UI;
 /// </summary>
 internal static class ToolTipDefaults
 {
-    internal const int OpenDelayMs = 400;
+    internal const int OpenDelayMs = 300;
     internal const int BetweenShowMs = 700;
     internal const int ShowDurationMs = 8000;
     /// <summary>Space between the control and its label, and the least space the label keeps to the window edge.</summary>
-    internal const double Gap = 6;
+    internal const double Gap = 8;
     internal const double EdgeMargin = 6;
 
     private static bool _applied;

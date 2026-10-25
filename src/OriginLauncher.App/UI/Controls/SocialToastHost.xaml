@@ -6,16 +6,17 @@
              xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d">
 
-    <!-- Origin-style toasts for social events (new DM, friend request, party
-         invite, party warp, notices). Compact (one line of text, the action beside
-         it) so they stay in the bottom-right corner, clear of the Play card:
-         at most two show, newest last, with "+N more" for the rest (it opens the
-         drawer). Each fades in and dismisses itself (paused on hover).
+    <!-- Toasts for social events (new DM, friend request, party invite, party warp, notices), Workbench spec 5:
+         bottom-centre, Card fill + strong line, Radius.Md, Shadow.Overlay, caption text, an optional secondary
+         action, gone after 5 s (ToastQueue). At most two show, newest last, with "+N more" for the rest (it opens
+         the drawer). Each fades in and rises 4 px (Motion.Enter) and dismisses itself (paused on hover).
+         No hover labels (only Import, Friends, Minimize and Close have them): the dismiss button is named for
+         screen readers, and a long message wraps instead of hiding behind a label.
          The host has no background, so empty space never blocks a click. -->
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-        <!-- Same buttons as the Friends drawer: Join is the tonal primary (Social.Join), dismiss the 32 px icon button. -->
-        <Style x:Key="Toast.Join" TargetType="Button" BasedOn="{StaticResource Social.Join}"/>
+        <!-- The optional action is a secondary button at md 32 (Reply, Join, Accept); dismiss is the 32 px icon button. -->
+        <Style x:Key="Toast.Join" TargetType="Button" BasedOn="{StaticResource Button.Secondary.Small}"/>
         <Style x:Key="Toast.Dismiss" TargetType="Button" BasedOn="{StaticResource Social.Icon}">
             <Setter Property="Margin" Value="8,0,0,0"/>
         </Style>
@@ -25,17 +26,27 @@
         <ItemsControl x:Name="ToastList">
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="{x:Type controls:ToastVm}">
-                    <Border Margin="0,8,0,0" Padding="12,8" Cursor="Hand"
+                    <Border x:Name="ToastCard" Margin="0,8,0,0" Padding="12,8" Cursor="Hand"
                             Background="{StaticResource Brush.Card}"
-                            BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Lg}" Effect="{StaticResource Shadow.Overlay}"
+                            BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Md}" Effect="{StaticResource Shadow.Overlay}"
                             MouseLeftButtonUp="Toast_Click" MouseEnter="Toast_MouseEnter" MouseLeave="Toast_MouseLeave">
+                        <Border.RenderTransform>
+                            <TranslateTransform Y="4"/>
+                        </Border.RenderTransform>
                         <Border.Triggers>
                             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                                 <BeginStoryboard>
                                     <Storyboard>
                                         <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1"
-                                                         Duration="{StaticResource Motion.Scene}"/>
+                                                         Duration="{StaticResource Motion.Enter}"/>
+                                        <DoubleAnimation Storyboard.TargetName="ToastCard"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                         From="4" To="0" Duration="{StaticResource Motion.Enter}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </EventTrigger>
@@ -54,16 +65,17 @@
                                     <Path Data="{Binding Icon}" Style="{StaticResource Icon.Small}" Stroke="{Binding Tint}"/>
                                 </Grid>
                             </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" ToolTip="{Binding Body}">
-                                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.BodyStrong}" LineHeight="18"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.BodyStrong}" LineHeight="18"
+                                           TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Text="{Binding Body}" Style="{StaticResource Social.Caption}"
-                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="36"/>
                             </StackPanel>
                             <Button Grid.Column="2" Content="{Binding ActionText}" Style="{StaticResource Toast.Join}"
                                     Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}"
                                     Click="Action_Click"/>
                             <Button Grid.Column="3" Style="{StaticResource Toast.Dismiss}" Click="Dismiss_Click"
-                                    ToolTip="Dismiss" AutomationProperties.Name="Dismiss">
+                                    AutomationProperties.Name="Dismiss">
                                 <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             </Button>
@@ -76,6 +88,6 @@
         <!-- More toasts are waiting: one press opens the drawer, where they all live. -->
         <Button x:Name="MoreButton" Style="{StaticResource Social.Action}" Margin="0,8,0,0"
                 HorizontalAlignment="Right" Visibility="Collapsed"
-                Click="More_Click" ToolTip="Open friends"/>
+                Click="More_Click" AutomationProperties.Name="Open friends"/>
     </StackPanel>
 </UserControl>

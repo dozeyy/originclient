@@ -64,7 +64,7 @@ jobs:
           }
           Write-Host "Rendered $($shots.Count) screens."
           # The Import drawer's tour writes its own error file instead of stopping the render: a failed tour is a failed run.
-          foreach ($f in 'launcher-shots\import-error.txt', 'launcher-shots\import-card-error.txt') {
+          foreach ($f in 'launcher-shots\import-error.txt', 'launcher-shots\import-card-error.txt', 'launcher-shots\settings-states-error.txt') {
             if (Test-Path $f) { Get-Content $f; Write-Host "::error::Import drawer render reported an error ($f)"; exit 1 }
           }
 

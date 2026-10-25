@@ -128,7 +128,8 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "21"
+          # 26.x modules build on JDK 25 (live-modules.json "java"); every other module on 21.
+          java-version: ${{ startsWith(matrix.version, '26.') && '25' || '21' }}
       - name: Build
         working-directory: src/mods/versions/${{ matrix.version }}
         run: |
@@ -208,7 +209,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $out | Out-Null
           $variants = @('b'); if (Test-Path a) { $variants = @('a', 'b') }
           $script:failed = 0
-          function Launch($v, $root, $ver, $json, $label, [switch]$expectFail) {
+          function Launch($v, $root, $ver, $json, $label, [switch]$expectFail, [switch]$fresh) {
             $p = Start-Process "pub-$v/OriginLauncher.App.exe" -ArgumentList "--launch-timing `"$root`" $ver `"$json`"" -PassThru
             if (-not $p.WaitForExit(600000)) { Write-Host "::warning::$label hung; killed"; $p.Kill($true); $p.WaitForExit() }
             $start = '-'
@@ -218,6 +219,22 @@ jobs:
               if ($r.error) {
                 Write-Host "::warning::$label failed: $($r.error.Split("`n")[0])"
                 if (-not $expectFail) { $script:failed++ }
+              }
+              # Play on a version with nothing installed (U3.3) installs it by itself and leaves it installed:
+              # the folder was empty before, every piece is there after, and the install journal is closed.
+              # (Variant a is the base ref, which doesn't write these fields.)
+              if ($fresh -and $v -eq 'b' -and -not $r.error) {
+                if ($r.installBefore -notin @('NotInstalled', 'Partial') -or $r.installAfter -ne 'Installed' -or $r.installJournalOpen) {
+                  Write-Host "::error::$label : install state before=$($r.installBefore) after=$($r.installAfter) journalOpen=$($r.installJournalOpen) (wanted NotInstalled -> Installed, journal closed)"
+                  $script:failed++
+                }
+                # The journal must be WIRED, not just closed: Play said what it was doing before the first
+                # download ("Installing ..." on an empty folder, "Finishing ..." on a part-installed one).
+                $want = if ($r.installBefore -eq 'Partial') { "Finishing" } else { "Installing" }
+                if ($r.installStages -notcontains $want) {
+                  Write-Host "::error::$label : Play never reported '$want' (stages: $($r.installStages -join ' | ')) - the install journal is not wired into Play"
+                  $script:failed++
+                }
               }
             } else { Write-Host "::warning::$label wrote no result (exit $($p.ExitCode))"; $script:failed++ }
             Write-Host "$label : Play -> java start $start ms (exit $($p.ExitCode))"
@@ -229,7 +246,7 @@ jobs:
               $root = "$env:RUNNER_TEMP/root-$v-$i"
               for ($n = 0; $n -le [int]$env:WARM; $n++) {
                 $kind = if ($n -eq 0) { 'cold' } else { 'warm' }
-                Launch $v $root '1.21.1' "$out/$v-$i-$n.json" "$v round $i $kind #$n"
+                Launch $v $root '1.21.1' "$out/$v-$i-$n.json" "$v round $i $kind #$n" -fresh:($n -eq 0)
               }
               if ($i -eq 1 -and $env:OFFLINE -eq '1') {
                 # No network: every HttpClient in the launcher honours these, and
@@ -256,7 +273,7 @@ jobs:
                   if ($ver -eq '1.21.1') { continue }
                   $tag = $v + $ver.Replace('.', '')
                   for ($n = 0; $n -le 1; $n++) {
-                    Launch $v $root $ver "$out/$tag-1-$n.json" "$v $ver #$n"
+                    Launch $v $root $ver "$out/$tag-1-$n.json" "$v $ver #$n" -fresh:($n -eq 0)
                   }
                 }
               }

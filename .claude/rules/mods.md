@@ -47,9 +47,9 @@ one.
 
 **Verification bar:** compiling clean only proves mixin *targets exist*.
 `@Inject` descriptor and `@Shadow` mismatches only surface at mixin **apply**
-time — always smoke-test a new/ported build with `./gradlew runClient`
-(offline dev account) and confirm zero `Mixin apply ... failed` lines before
-calling a version done.
+time — prove a new/ported build in CI, never with `runClient` on Will's PC: push
+`claude/<name>`, run boot-smoke + dev-shots for the touched modules, and grep the
+run log for `Mixin apply ... failed` (must be zero) before calling a version done.
 
 ## Mod stack (full detail)
 - Mod: Java + Fabric (loader + API) + Loom + official Mojang mappings. 1.21.x
@@ -73,7 +73,7 @@ calling a version done.
   0.7.11 shadowed into the jar and loaded by its tweaker (Forge events first,
   fail-soft mixins second — OptiFine replaces whole vanilla classes, so HEAD/
   RETURN injections only there). Same package layout and public API as the
-  1.16.5 module it was ported from. The sandbox can't reach Forge's maven:
+  1.16.5 module it was ported from. Cloud sessions can't reach Forge's maven:
   `.github/workflows/ref-189.yml` compiles it and answers 1.8.9 name/SRG
   lookups in CI logs (PORT-189.md). (1.12.2's module is the old event-only
   Forge build, pulled.) Launcher side: `LegacyForgeInstaller` (bundled version JSON +

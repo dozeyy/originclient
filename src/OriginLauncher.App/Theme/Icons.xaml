@@ -161,6 +161,8 @@
     <Geometry x:Key="Icon.Emblem.Torch.Solid">M11.29,10.31 L13.69,12.71 4.15,22.26 1.74,19.85 Z M16,6.2 L16.86,9.64 A1.5,1.5 0 1 1 14.13,9.21 Z</Geometry>
     <Geometry x:Key="Icon.Emblem.Chest">M3,5 H21 V20 H3 Z M3,10 H21</Geometry>
     <Geometry x:Key="Icon.Emblem.Chest.Solid">M10,9 H14 V14 H10 Z</Geometry>
+    <!-- Two arrows chasing each other: Settings Sync (U3.7b). -->
+    <Geometry x:Key="Icon.Sync">M23,4 L23,10 L17,10 M1,20 L1,14 L7,14 M3.51,9 A9,9 0 0 1 18.36,5.64 L23,10 M1,14 L5.64,18.36 A9,9 0 0 0 20.49,15</Geometry>
     <Geometry x:Key="Icon.Globe">M12,3 A9,9 0 1 0 12.001,3 Z M3,12 H21 M12,3 A14,14 0 0 1 12,21 A14,14 0 0 1 12,3 Z</Geometry>
 
 </ResourceDictionary>

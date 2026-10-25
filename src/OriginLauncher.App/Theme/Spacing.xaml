@@ -20,8 +20,26 @@
     <system:Double x:Key="Space.10">40</system:Double>
     <system:Double x:Key="Space.12">48</system:Double>
 
+    <!-- Capsule padding (a pill, chip or badge, radius = height / 2): the 12 px caption chip is 24 tall (8 x 4 around a
+         16 px line, so the ink sits about 8 from every edge); the 11 px label badge is 20 tall (6 x 3). One token per size,
+         used by every capsule. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
+
     <!-- Layout margins that more than one style needs, as tokens. -->
     <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
+    <Thickness x:Key="Margin.DropZone">24,20</Thickness>
+    <!-- The status strip's 6 px dot: 8 down puts it on the first text line's centre, 12 to the text. -->
+    <Thickness x:Key="Margin.StatusDot">0,8,12,0</Thickness>
+    <!-- A dialog over a page: 24 at the sides and foot, and the top clears the 48 top bar plus 24 (Size.Bar + Space.6),
+         so a tall dialog never slides under the bar. -->
+    <Thickness x:Key="Margin.Dialog">24,72,24,24</Thickness>
+
+    <!-- A popup (menu, dropdown list) is a transparent window, so Shadow.Overlay needs empty room around the panel to
+         draw into. Popup.Bleed is that room (left, top, right, bottom); Popup.OffsetX shifts the window left by the
+         same amount so the PANEL still lines up with its anchor. Top is 4 so the panel opens 4 px below the anchor. -->
+    <Thickness x:Key="Popup.Bleed">16,4,16,28</Thickness>
+    <system:Double x:Key="Popup.OffsetX">-16</system:Double>
 
     <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
     <system:Double x:Key="Size.ControlSm">28</system:Double>
@@ -55,6 +73,7 @@
     <system:Double x:Key="Size.Checkbox">16</system:Double>
     <system:Double x:Key="Size.Progress">3</system:Double>
     <system:Double x:Key="Size.Dot">6</system:Double>
+    <system:Double x:Key="Size.Badge">20</system:Double>
     <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
     <system:Double x:Key="Size.SliderBox">20</system:Double>
     <system:Double x:Key="Size.SliderTrack">4</system:Double>
@@ -64,6 +83,12 @@
     <system:Double x:Key="Size.SwitchHeight">18</system:Double>
     <system:Double x:Key="Size.SwitchKnob">14</system:Double>
     <system:Double x:Key="Size.SwitchTravel">14</system:Double>
+    <!-- Tiles (spec 2.3 / 10): the icon square that labels a list row or a card. 40 (Lg) on a list row, a card or a
+         dialog header; 28 (Sm) for the small squares inside them (mod squares, emblem and colour pickers). Hue only inside a tile, never as a box around a bare icon. -->
+    <system:Double x:Key="Size.TileSm">28</system:Double>
+    <system:Double x:Key="Size.TileLg">40</system:Double>
+    <!-- A dialog's width (spec 11.10: max 440) and the swatch / emblem pickers inside the profile form. -->
+    <system:Double x:Key="Size.Dialog">440</system:Double>
     <!-- Brand sizes (spec 1.3): the top bar mark 24 with a 16 tall wordmark. -->
     <system:Double x:Key="Size.Emblem">24</system:Double>
     <system:Double x:Key="Size.Logo.Bar">24</system:Double>
@@ -94,6 +119,8 @@
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
     <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
+    <system:Double x:Key="Radius.Lg.Value">12</system:Double>
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->
