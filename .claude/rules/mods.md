@@ -47,9 +47,9 @@ one.
 
 **Verification bar:** compiling clean only proves mixin *targets exist*.
 `@Inject` descriptor and `@Shadow` mismatches only surface at mixin **apply**
-time — always smoke-test a new/ported build with `./gradlew runClient`
-(offline dev account) and confirm zero `Mixin apply ... failed` lines before
-calling a version done.
+time — prove a new/ported build in CI, never with `runClient` on Will's PC: push
+`claude/<name>`, run boot-smoke + dev-shots for the touched modules, and grep the
+run log for `Mixin apply ... failed` (must be zero) before calling a version done.
 
 ## Mod stack (full detail)
 - Mod: Java + Fabric (loader + API) + Loom + official Mojang mappings. 1.21.x

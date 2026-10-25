@@ -503,8 +503,7 @@ def main():
     if cmd == "statusline":
         return statusline(inp)
     sid = inp.get("session_id")
-    key = sid
-    st = load_state(key)
+    st = load_state(sid)
     out = None
     tool = inp.get("tool_name") or ""
     if cmd == "pre-tool":
@@ -530,7 +529,7 @@ def main():
             st["last_denied"] = None
             _stat("compact", session=sid)
             out = {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": state_card(st)}}
-    save_state(key, st)
+    save_state(sid, st)
     if out:
         reply(out)
 

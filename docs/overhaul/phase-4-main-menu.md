@@ -74,7 +74,7 @@ frame Origin can draw and replays the hand-off), lightweight (no shader dependen
 version-specific buttons stay (section 2 table).
 
 **U4.5 (backlog).** For each listed B-item: reproduce on the module named in `audit/ledger.md` section 1-2 (dev-shots, boot-smoke, or
-`runClient` / the installed game on Will's PC under S1), mark Done and tested with evidence, or fix it in the wave's branch. B-25
+Will's own run of the installed game after a release under S1; agents never `runClient` on his PC), mark Done and tested with evidence, or fix it in the wave's branch. B-25
 (1.16.5/1.17 items): the original list is lost; record what was checked and mark the rest "Needs my decision".
 
 **U4.6.** Replace `(char) event.codepoint()` with code-point-safe insertion (`Character.toChars`) in `WaypointScreen` and the Mod Menu's
@@ -100,7 +100,7 @@ Track D (Phase 7) updates a module's dependencies only after that module's wave 
   hand-off; **`menu_*` shots pixel-compared with the module's `p0-baseline` shots** (script the compare; any changed pixel in a Mod Menu
   shot fails the wave unless it is outside the Mod Menu's frame).
 - Draw-call / frame-time check from the frame log vs the `p0-baseline` run: no regression over 10 % on title or loading frames.
-- Real install (S1): on Will's PC, `runClient` per wave (one module), or the installed game after the release, to confirm the menu on
+- Real install (S1): Will opens the installed game after the release (agents never `runClient` on his PC) to confirm the menu on
   real GPU; never touch his worlds or saves, back up `options.txt` before any run that might change it.
 - design-reviewer reads every wave's sheets against 1.21.1 (same look, era-fair differences only) and the spec.
 - code-reviewer + verifier per wave (S2).

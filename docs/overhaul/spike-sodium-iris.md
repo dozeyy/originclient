@@ -31,7 +31,7 @@ accessor did not apply) and anything that holds Sodium types in a class that loa
 
 ## 2. Evidence: real boots
 
-Harness: `gradlew runClient` (dev) or `prodClient` (built jar, production namespace), dev-shots world flow
+Harness (historical spike run; today this runs only in CI, never `runClient` on Will's PC): `gradlew runClient` (dev) or `prodClient` (built jar, production namespace), dev-shots world flow
 (`ORIGIN_SHOTS_SET=world`), the CI shader pack with shadows on, `-Dmixin.debug.verbose=true`,
 `tools/ci/perf_log.py`. "applied" below means a `Mixing X into Y` line AND zero `Mixin apply ... failed` lines;
 perf_log's count alone is not enough (see top-new). Scripts in `docs/overhaul/spike-tools/`.

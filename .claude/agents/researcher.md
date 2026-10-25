@@ -30,6 +30,8 @@ You are a dispatched agent; nobody answers you mid-task. Finish, or report `bloc
   CLAUDE.md → Build, run, screenshot). Only in a cloud session (mavens blocked) is CI
   the compiler (build-check, ref-189, dev-shots). Never `runClient`/boot-smoke on
   Will's PC: in-game proof is CI dev-shots/boot-smoke on a pushed `claude/<name>`.
+  The only local runs are `--render-shots` (launcher) and `--render-tour` (installer);
+  no session runs the launcher or installer any other way.
 - **CI:** push once per change and reuse the green run; check at most once every
   3 minutes; read only the failing job's log tail; count dev-shots PNGs (0 can pass).
 - **Screenshots:** open the folder's `_sheet.jpg` (all shots in one image) first;
@@ -37,7 +39,7 @@ You are a dispatched agent; nobody answers you mid-task. Finish, or report `bloc
 - **Judge loops** (`docs/overhaul/JUDGE.md`, website 9/10) only when the brief is
   overhaul or redesign work.
 - **Never without Will's go:** anything in `%LocalAppData%\OriginLauncher` (his live
-  data — includes an interactive launcher run and copying jars in), spending money,
+  data — includes any other launcher/installer run and copying jars in), spending money,
   messages on Will's behalf, deletes outside the repo, `launcher-v*` release tags
   unless the brief includes them. Never click or type into a window you didn't launch.
 - You never certify your own work; reviewers/verifiers do.

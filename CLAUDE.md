@@ -20,14 +20,19 @@
    files in one area). Agents (`.claude/agents/`) only for big, multi-area, parallel
    (ports across versions) or specialist work. code-reviewer ∥ verifier only for big or
    risky changes (auth, updates, payments, release, cross-version ports).
-5. **Build and run it yourself.** A local session on Will's PC builds and runs things
-   itself (commands below) — never hand Will a build command to run. Only a cloud
+5. **Build it and screenshot it yourself.** A local session on Will's PC builds, tests and
+   takes the screenshots itself (commands below) — never hand Will a build command to run.
+   No session (main or agent) runs the launcher or installer interactively or opens
+   Minecraft: the only local runs are `--render-shots` and `--render-tour`. Only a cloud
    session (Fabric/Mojang/Forge mavens blocked) hands off: there CI is the compiler.
 6. **CI once per change:** push once, read the run, and reuse that green run for the
    merge. Never re-run CI that already passed on the same commit.
 7. **Done = Will can run it now:** it is built (or released) and he can open it without
    doing anything else. A UI change also needs a screenshot of THAT build (launcher:
-   `--render-shots`; in game: CI dev-shots `_sheet.jpg`). "Compiles" is not done.
+   `--render-shots`; installer: `--render-tour`; in game: CI dev-shots `_sheet.jpg`).
+   "Compiles" is not done. An in-game change is only runnable once it reaches his
+   instance, which is a gated deploy or a release: it is done at release; until then the
+   report carries one line, "gated deploy left".
 8. **Judge loops** (`docs/overhaul/JUDGE.md`, 95/100; website judge 9/10) run only on
    overhaul or redesign work, not on fixes.
 9. **Models:** this project pins the `implementation` lane to **opus** (reason: repeated
@@ -39,10 +44,14 @@ Run from the repo root (`C:\Users\Will\Documents\Minecraft Mods\Origin Client`).
 - **Launcher tests:** `dotnet test src/OriginLauncher.Tests` (installer: `src/OriginSetup.Tests`).
 - **Launcher screenshots:** `bin/launcher/OriginLauncher.App.exe --render-shots <dir>` (add
   `--social` for the social screens). Made-up data in a temp scratch root, no clicks,
-  exits by itself — the only safe local launch.
-- **No data-dir override exists:** a normal launcher run uses Will's real
-  `%LocalAppData%\OriginLauncher` (gated). Will opens `bin\launcher\OriginLauncher.App.exe`
-  himself; agents don't run it interactively.
+  exits by itself.
+- **Installer build + screenshots:** `dotnet build src/OriginSetup/OriginSetup.csproj -c Release -o bin/setup`,
+  then `bin/setup/OriginSetup.exe --render-tour <dir>`: every installer/uninstaller screen as
+  PNGs, installs nothing, no network, exits by itself (it only reads the registry and
+  `settings.json`; writes PNGs + `%TEMP%\OriginSetup.log`).
+- These two flags are the ONLY local runs. **No data-dir override exists:** any other
+  launcher or installer run uses Will's real `%LocalAppData%\OriginLauncher` (gated), so no
+  session runs either interactively. Will opens `bin\launcher\OriginLauncher.App.exe` himself.
 - **Mod module:** `cd src/mods/versions/<mc>` then `./gradlew.bat build` (jar in `build/libs/`).
   Never `runClient`/boot-smoke on Will's PC; in-game proof = push `claude/<name>` and read
   CI dev-shots + boot-smoke (count the PNGs). Copying a jar into the live instance is gated.
@@ -154,9 +163,9 @@ Java 25. Full detail: `.claude/rules/mods.md` (auto-loads under `src/mods/`) and
 
 **Verification bar:** compiling clean only proves mixin *targets exist*.
 `@Inject` descriptor and `@Shadow` mismatches only surface at mixin **apply**
-time — always smoke-test a new/ported build with `./gradlew runClient`
-(offline dev account) and confirm zero `Mixin apply ... failed` lines before
-calling a version done.
+time — prove a new/ported build in CI, never with `runClient` on Will's PC: push
+`claude/<name>`, run boot-smoke + dev-shots for the touched modules, and grep the
+run log for `Mixin apply ... failed` (must be zero) before calling a version done.
 
 ## Releasing (main → tag)
 `main` always reflects at least the latest release. To ship, from a green main:
