@@ -40,13 +40,15 @@ internal static class CompatShots
         window.TourGoTo(0);
         RenderShots.Pump(500);
         var home = Field(window, "_homePage");
-        var key = (string?)Call(home, "SelectedKey", Array.Empty<object>()) ?? "offline";
+        // Render mode is signed out (no selected account), so Note() would only store the text; SetStatus is what
+        // Note() calls for the selected account, with the tone Note() maps LaunchTone.Error to.
+        var tone = home.GetType().GetMethod("ToneOf", Any)!.Invoke(null, new object[] { LaunchTone.Error })!;
         var ex = new IncompatibleModsException("1.21.1", new[]
         {
             "Old Mod needs Minecraft 1.20.4, not 1.21.1.",
             "Some Lib is missing: it needs Fabric API.",
         }, 2);
-        Call(home, "Note", new object[] { key, ex.Message, LaunchTone.Error });
+        Call(home, "SetStatus", new[] { ex.Message, tone });
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, "31-compat-home-blocked");
 
@@ -56,7 +58,7 @@ internal static class CompatShots
             "Old Mod needs Minecraft 1.20.4, not 1.21.1.", "Some Lib is missing: it needs Fabric API.",
             "Zoomify and Sodium Extra cannot run together.", "Four.", "Five.",
         }, 5);
-        Call(home, "Note", new object[] { key, many.Message, LaunchTone.Error });
+        Call(home, "SetStatus", new[] { many.Message, tone });
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, "31b-compat-home-blocked-long");
     }
