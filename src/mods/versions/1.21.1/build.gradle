@@ -203,7 +203,7 @@ dependencies {
 	// propagate a nested mod's own nested jars onto the runClient classpath, so
 	// without this the client crashes at window init with NoClassDefFoundError
 	// net/lenni0451/reflect/accessor/FieldAccessor. Version matches the bundled
-	// Reflect-1.6.2.jar inside immediatelyfast 1.6.11. Dev-runtime only; the
+	// Reflect-1.6.2.jar inside immediatelyfast 1.6.15. Dev-runtime only; the
 	// shipped launcher jar gets it via recursive JiJ.
 	runtimeOnly "net.lenni0451:Reflect:1.6.2"
 
