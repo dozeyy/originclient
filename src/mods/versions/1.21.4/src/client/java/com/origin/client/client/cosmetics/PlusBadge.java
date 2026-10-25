@@ -51,7 +51,7 @@ public final class PlusBadge {
 	private static final int RGB = 0xE0E0E0;
 
 	private static final int[] LEVELS = {32, 64, 128};
-	private static final String SOURCE = "/assets/originclient/textures/ui/origin_logo.png";
+	private static final String SOURCE = com.origin.client.client.gui.OriginUi.LOGO_PATH;
 
 	// null = not built yet; an array of nulls = tried and failed (never retried).
 	private static ResourceLocation[] textures = null;

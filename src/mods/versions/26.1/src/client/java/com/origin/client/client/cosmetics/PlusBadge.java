@@ -59,7 +59,7 @@ public final class PlusBadge {
 	private static final String GLYPHS = "";
 
 	private static final int[] LEVELS = {32, 64, 128};
-	private static final String SOURCE = "/assets/originclient/textures/ui/origin_logo.png";
+	private static final String SOURCE = com.origin.client.client.gui.OriginUi.LOGO_PATH;
 
 	// null = not built yet; set together with failed = true when building failed (never retried).
 	private static Identifier[] textures = null;

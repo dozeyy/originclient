@@ -584,7 +584,7 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			if (logoSrc == null) {
-				try (InputStream in = open("/assets/originclient/textures/ui/origin_logo.png")) {
+				try (InputStream in = open(com.origin.client.client.gui.OriginUi.LOGO_PATH)) {
 					logoSrc = NativeImage.read(in);
 				}
 			}
