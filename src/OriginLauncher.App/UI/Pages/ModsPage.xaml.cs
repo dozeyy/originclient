@@ -22,9 +22,10 @@ namespace OriginLauncher.App.UI.Pages;
 // is pushed in by MainWindow from HomePage's live selection (see ShowVersion),
 // so switching versions on Home swaps this whole list to match.
 //
-// Poster look: a dashed drop zone that behaves like drag and drop should (it
-// grows and lights while a jar is over it, says "Release to add", and the new
-// rows land below), then your mods as rows, then Origin's built-in mods as tiles.
+// Workbench look: a dashed drop zone that behaves like drag and drop should (it
+// lights the dashes and says "Release to add N mod jars" while a jar is over it,
+// and the new rows land below), then your mods as rows, then Origin's built-in
+// mods as cards. Status (an add's result or a refusal) is one strip under the zone.
 public partial class ModsPage : UserControl
 {
     private string? _version;
@@ -39,7 +40,6 @@ public partial class ModsPage : UserControl
     public ModsPage()
     {
         InitializeComponent();
-        SizeChanged += (_, _) => ApplyDensity();
     }
 
     /// <summary>Point the page at a version and rebuild. Null = nothing
@@ -59,13 +59,6 @@ public partial class ModsPage : UserControl
         HideStatus();
         SetZone(over: false, hover: false, count: 0);
         Refresh();
-    }
-
-    // Short windows pull the column up under the bar (the drop zone stays on screen).
-    private void ApplyDensity()
-    {
-        var compact = ActualHeight > 0 && ActualHeight < 680;
-        DropZone.Height = compact ? 140 : 168;
     }
 
     // The YOUR MODS switch mirrors the saved setting; the launch reads the same
@@ -112,6 +105,8 @@ public partial class ModsPage : UserControl
             UserEmptyText.Text = "Choose a version first";
             UserEmptyState.Visibility = Visibility.Visible;
             UserCount.Text = "0";
+            UserHint.Visibility = Visibility.Collapsed;
+            OpenFolderButton.IsEnabled = false;
             BuiltInSection.Visibility = Visibility.Collapsed;
             return;
         }
@@ -138,6 +133,7 @@ public partial class ModsPage : UserControl
             }
         }
 
+        OpenFolderButton.IsEnabled = true;
         UserCount.Text = user.Count.ToString();
         UserEmptyText.Text = "No mods yet. Drop a jar above to add one.";
         UserEmptyState.Visibility = user.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -295,7 +291,7 @@ public partial class ModsPage : UserControl
             Width = side,
             Height = side,
             IsHitTestVisible = false,
-            Clip = new RectangleGeometry(new Rect(0, 0, side, side), 4, 4),
+            Clip = new RectangleGeometry(new Rect(0, 0, side, side), TileRadius, TileRadius),
         };
         RenderOptions.SetBitmapScalingMode(image, wholeMultiple ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
         host.Children.Add(image);
@@ -318,6 +314,9 @@ public partial class ModsPage : UserControl
         image.BeginAnimation(OpacityProperty, fadeIn);
     }
 
+    // The tile's corner radius (token Radius.Sm) as a number, for the icon clip.
+    private static double TileRadius => ((CornerRadius)Application.Current.FindResource("Radius.Sm")).TopLeft;
+
     private static TextBlock NameText(string text, bool dim) => new()
     {
         Text = text,
@@ -331,7 +330,7 @@ public partial class ModsPage : UserControl
     {
         Text = text,
         FontSize = (double)Application.Current.FindResource("FontSize.Caption"),
-        Margin = new Thickness(0, 2, 0, 0),
+        Margin = new Thickness(0, 4, 0, 0),
         Foreground = (Brush)Application.Current.FindResource("Brush.TextMuted"),
         TextTrimming = TextTrimming.CharacterEllipsis,
     };
@@ -369,7 +368,6 @@ public partial class ModsPage : UserControl
             IsChecked = mod.Enabled,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 12, 0),
-            ToolTip = mod.Enabled ? "On: loads in-game" : "Off: skipped at launch"
         };
         System.Windows.Automation.AutomationProperties.SetName(toggle, $"Enable {mod.DisplayName}");
         toggle.Checked += (s, _) => OnToggle(mod.FileName, true, (ToggleButton)s);
@@ -377,7 +375,7 @@ public partial class ModsPage : UserControl
         Grid.SetColumn(toggle, 2);
         grid.Children.Add(toggle);
 
-        var remove = IconButton("Icon.Trash", "Remove mod", $"Remove {mod.DisplayName}");
+        var remove = IconButton("Icon.Trash", $"Remove {mod.DisplayName}");
         remove.Click += (_, _) => { _pendingRemove = mod.FileName; Refresh(); };
         Grid.SetColumn(remove, 3);
         grid.Children.Add(remove);
@@ -387,7 +385,7 @@ public partial class ModsPage : UserControl
         return border;
     }
 
-    // "ADDED": a Card chip with an accent square, like the mockup's new-row tag.
+    // "ADDED": a full-radius badge, 20 tall (spec 5): a 6 px accent dot and the word, on the soft accent.
     private Border AddedTag()
     {
         var label = new TextBlock
@@ -398,43 +396,52 @@ public partial class ModsPage : UserControl
             Foreground = (Brush)FindResource("Brush.Text"),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        var square = new Border { Width = 6, Height = 6, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
-        square.SetResourceReference(Border.BackgroundProperty, "Brush.Accent");
+        var dot = new Border
+        {
+            Width = (double)FindResource("Size.Dot"),
+            Height = (double)FindResource("Size.Dot"),
+            CornerRadius = (CornerRadius)FindResource("Radius.Full"),
+            Margin = new Thickness(0, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        dot.SetResourceReference(Border.BackgroundProperty, "Brush.Accent");
         var line = new StackPanel { Orientation = Orientation.Horizontal };
-        line.Children.Add(square);
+        line.Children.Add(dot);
         line.Children.Add(label);
         var tag = new Border
         {
-            CornerRadius = (CornerRadius)FindResource("Radius.Sm"),
-            Padding = new Thickness(6, 2, 6, 2),
+            CornerRadius = (CornerRadius)FindResource("Radius.Full"),
+            Height = (double)FindResource("Size.Badge"),
+            Padding = new Thickness(8, 0, 8, 0),
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Child = line,
         };
-        // The version accent, softly, behind the white label (contrast stays on the text).
         tag.SetResourceReference(Border.BackgroundProperty, "Brush.AccentSoft");
         return tag;
     }
 
-    // The accent flash a landed row gives once: a tint over the row and a 3 px
-    // edge on its left that fade out (opacity only; both ignore the mouse).
+    // The flash a landed row gives once: the soft accent over the row, fading out (opacity only; ignores the
+    // mouse). No edge, no glow (spec 1).
     private static void AddLandingLight(Grid grid)
     {
-        var tint = new Rectangle { IsHitTestVisible = false, Margin = new Thickness(-13, -11, -13, -11), Opacity = 0.28 };
-        var edge = new Rectangle { IsHitTestVisible = false, Width = 3, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-13, -11, 0, -11) };
-        tint.SetResourceReference(Shape.FillProperty, "Brush.Accent");
-        edge.SetResourceReference(Shape.FillProperty, "Brush.Accent");
+        var tint = new Rectangle
+        {
+            IsHitTestVisible = false,
+            Margin = new Thickness(-13, -11, -13, -11),
+            RadiusX = TileRadius + 2,
+            RadiusY = TileRadius + 2,
+            Opacity = 1,
+        };
+        tint.SetResourceReference(Shape.FillProperty, "Brush.AccentSoft");
         Grid.SetColumnSpan(tint, 4);
-        Grid.SetColumnSpan(edge, 4);
         grid.Children.Insert(0, tint);
-        grid.Children.Add(edge);
         if (Motion.Off)
         {
             tint.Opacity = 0;
             return;
         }
-        tint.BeginAnimation(OpacityProperty, Motion.FromTo(0.28, 0, 900, Motion.Out));
-        edge.BeginAnimation(OpacityProperty, Motion.FromTo(1, 0, 900, Motion.Out, 700));
+        tint.BeginAnimation(OpacityProperty, Motion.FromTo(1, 0, 1100, Motion.Out, 300));
     }
 
     // Inline destructive-action confirm (nothing lost by accident): the row
@@ -462,7 +469,7 @@ public partial class ModsPage : UserControl
         var confirm = new Button
         {
             Content = "Remove",
-            Style = (Style)FindResource("Button.Danger.Small"),
+            Style = (Style)FindResource("Button.Danger.Inline"),
             Margin = new Thickness(0, 0, 8, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -470,7 +477,7 @@ public partial class ModsPage : UserControl
         {
             var result = ModManager.Remove(_version!, mod.FileName, _profile?.Id);
             _pendingRemove = null;
-            if (!result.Ok) ShowStatus(result.Error);
+            if (!result.Ok) ShowStatus(result.Error, error: true);
             else HideStatus();
             Refresh();
         };
@@ -480,7 +487,7 @@ public partial class ModsPage : UserControl
         var cancel = new Button
         {
             Content = "Cancel",
-            Style = (Style)FindResource("Button.Secondary.Small"),
+            Style = (Style)FindResource("Button.Secondary.Inline"),
             VerticalAlignment = VerticalAlignment.Center
         };
         cancel.Click += (_, _) => { _pendingRemove = null; Refresh(); };
@@ -491,32 +498,36 @@ public partial class ModsPage : UserControl
         return border;
     }
 
-    // A built-in mod: a read-only tile (Origin installs and updates it).
+    // A built-in mod: a read-only card (Origin installs and updates it). The tile leads, the name and what it does
+    // sit beside it, so a card is as tall as a row and the grid stays dense.
     private FrameworkElement BuildManagedTile(ModEntry mod)
     {
         var tile = new Border
         {
             Style = (Style)FindResource("Surface.Card"),
             Margin = new Thickness(0, 0, 4, 4),
+            Padding = new Thickness(12, 10, 12, 10),
         };
-        var stack = new StackPanel();
-        var well = IconWell(false, mod);
-        well.HorizontalAlignment = HorizontalAlignment.Left;
-        well.Margin = new Thickness(0, 0, 0, 12);
-        stack.Children.Add(well);
-        stack.Children.Add(NameText(mod.DisplayName, false));
-        stack.Children.Add(FileText(ModIcons.Blurb(mod)));
-        tile.Child = stack;
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.Children.Add(IconWell(false, mod));
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Space("Space.3"), 0, 0, 0) };
+        text.Children.Add(NameText(mod.DisplayName, false));
+        text.Children.Add(FileText(ModIcons.Blurb(mod)));
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+        tile.Child = grid;
         System.Windows.Automation.AutomationProperties.SetName(tile, $"{mod.DisplayName}, built in");
         return tile;
     }
 
-    private Button IconButton(string iconKey, string tooltip, string automationName)
+    // An icon sitting directly in a button, no box; no hover label (spec 9), the automation name carries the meaning.
+    private Button IconButton(string iconKey, string automationName)
     {
         var button = new Button
         {
             Style = (Style)FindResource("Social.Icon"),
-            ToolTip = tooltip,
         };
         var path = new Path
         {
@@ -539,7 +550,6 @@ public partial class ModsPage : UserControl
         var result = ModManager.SetEnabled(_version, fileName, enable, _profile?.Id);
         if (result.Ok)
         {
-            toggle.ToolTip = enable ? "On: loads in-game" : "Off: skipped at launch";
             HideStatus();
         }
         else
@@ -548,7 +558,7 @@ public partial class ModsPage : UserControl
             _suppressToggle = true;
             toggle.IsChecked = !enable;
             _suppressToggle = false;
-            ShowStatus(result.Error);
+            ShowStatus(result.Error, error: true);
         }
     }
 
@@ -556,7 +566,7 @@ public partial class ModsPage : UserControl
     {
         if (_version == null) return;
         var result = ModManager.OpenFolder(_version, _profile?.Id);
-        if (!result.Ok) ShowStatus(result.Error);
+        if (!result.Ok) ShowStatus(result.Error, error: true);
     }
 
     // Browse: the same add path as a drop, through the system file picker.
@@ -583,7 +593,7 @@ public partial class ModsPage : UserControl
         var version = _version;
         var profileId = _profile?.Id;
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        ShowStatus(files.Length == 1 ? "Adding 1 mod..." : $"Adding {files.Length} mods...");
+        ShowStatus(files.Length == 1 ? "Adding 1 mod..." : $"Adding {files.Length} mods...", error: false);
 
         var report = await Task.Run(() => ModManager.Import(version, files, profileId));
         _adding = false;
@@ -598,14 +608,14 @@ public partial class ModsPage : UserControl
         _pendingReplace.AddRange(report.NeedsReplace);
         if (!report.Ok)
         {
-            ShowStatus(report.Error);
+            ShowStatus(report.Error, error: true);
             Refresh();
             return;
         }
         var after = ModManager.Enumerate(version, profileId);
         var landed = after.Where(m => !before.Contains(m.FileName)).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var message = report.Message;
-        if (message.Length > 0) ShowStatus(message); else HideStatus();
+        if (message.Length > 0) ShowStatus(message, error: false); else HideStatus();
         Refresh(landed);
         if (report.Added > 0) Pop(JarScale);
     }
@@ -648,17 +658,23 @@ public partial class ModsPage : UserControl
 
         grid.Children.Add(IconWell(true, new ModEntry(offer.ExistingFileName, offer.ModName, true, false)));
 
-        var prompt = NameText(offer.Question, false);
-        prompt.VerticalAlignment = VerticalAlignment.Center;
-        prompt.TextWrapping = TextWrapping.Wrap;
+        // Line 1 is the mod, line 2 the versions as one trimmed caption ("1.38.0 -> 1.39.2"), never wrapped mid-token;
+        // the whole question is in the tooltip for the cases that get cut.
+        var prompt = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         prompt.Margin = new Thickness(Space("Space.3"), 0, Space("Space.2"), 0);
+        prompt.Children.Add(NameText($"{offer.ModName} is already installed", false));
+        var from = offer.ExistingVersion ?? "this version";
+        var versions = FileText(offer.NewVersion == null ? $"Replace {from} with this file?" : $"Replace {from} -> {offer.NewVersion}");
+        versions.Margin = new Thickness(0, Space("Space.1"), 0, 0);
+        prompt.Children.Add(versions);
+        prompt.ToolTip = offer.Question;
         Grid.SetColumn(prompt, 1);
         grid.Children.Add(prompt);
 
         var replace = new Button
         {
             Content = "Replace",
-            Style = (Style)FindResource("Button.Primary.Small"),
+            Style = (Style)FindResource("Button.Primary.Inline"),
             Margin = new Thickness(0, 0, Space("Space.2"), 0),
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -669,7 +685,7 @@ public partial class ModsPage : UserControl
         var keep = new Button
         {
             Content = "Keep old",
-            Style = (Style)FindResource("Button.Secondary.Small"),
+            Style = (Style)FindResource("Button.Secondary.Inline"),
             VerticalAlignment = VerticalAlignment.Center
         };
         keep.Click += (_, _) => AnswerReplace(offer, false);
@@ -690,28 +706,21 @@ public partial class ModsPage : UserControl
 
     // ---- the drop zone's states -----------------------------------------
 
-    // idle -> hover (a little brighter) -> over (a jar is being carried in):
-    // grows 1.5 %, lights in the family accent, the dashes take the accent,
-    // the well lifts and the line reads "Release to add".
+    // idle -> hover (a little brighter) -> over (a jar is being carried in): the zone lights in the card
+    // surface, the dashes take the accent, the arrow lifts and the line reads "Release to add 2 mod jars".
+    // No grow, no glow (spec 1).
     private void SetZone(bool over, bool hover, int count)
     {
         _dragOver = over;
-        var ms = 180;
-        DropZone.Background = (Brush)FindResource(over ? "Brush.Card" : hover ? "Brush.Card" : "Brush.Panel");
+        DropZone.Background = (Brush)FindResource(over || hover ? "Brush.Card" : "Brush.Panel");
         if (over) DropDash.SetResourceReference(Shape.StrokeProperty, "Brush.Accent");
-        else DropDash.Stroke = (Brush)FindResource(hover ? "Brush.TextMuted" : "Brush.ProgressTrack");
+        else DropDash.Stroke = (Brush)FindResource(hover ? "Brush.TextMuted" : "Brush.Stroke");
         JarIcon.Stroke = (Brush)FindResource(over || hover ? "Brush.Text" : "Brush.TextDim");
 
-        Animate(DropScale, ScaleTransform.ScaleXProperty, over ? 1.015 : 1, ms);
-        Animate(DropScale, ScaleTransform.ScaleYProperty, over ? 1.015 : 1, ms);
-        Animate(JarLift, TranslateTransform.YProperty, over ? -4 : 0, 260, Motion.Back);
-        Animate(JarScale, ScaleTransform.ScaleXProperty, over ? 1.06 : 1, 260, Motion.Back);
-        Animate(JarScale, ScaleTransform.ScaleYProperty, over ? 1.06 : 1, 260, Motion.Back);
+        Animate(JarLift, TranslateTransform.YProperty, over ? -3 : 0, 260, Motion.Back);
         Animate(IdleText, OpacityProperty, over ? 0 : 1, 120);
         Animate(OverText, OpacityProperty, over ? 1 : 0, 120);
-        Animate(Ghost, OpacityProperty, over ? 1 : 0, ms);
-        Animate(GhostTilt, RotateTransform.AngleProperty, over ? -4 : 0, 260, Motion.Back);
-        if (over) GhostText.Text = count == 1 ? "1 mod jar" : $"{count} mod jars";
+        if (over) OverText.Text = count == 1 ? "Release to add 1 mod jar" : $"Release to add {count} mod jars";
     }
 
     private static void Animate(IAnimatable target, DependencyProperty property, double to, int ms, IEasingFunction? ease = null)
@@ -777,15 +786,20 @@ public partial class ModsPage : UserControl
             : 0;
     }
 
-    private void ShowStatus(string? message)
+    // One strip under the zone. A failure reads in the danger colour (dot + text); a note (adding, added,
+    // some skipped) reads in the normal text with the accent dot.
+    private void ShowStatus(string? message, bool error)
     {
         StatusText.Text = message ?? "Something went wrong.";
-        StatusText.Visibility = Visibility.Visible;
+        StatusText.SetResourceReference(TextBlock.ForegroundProperty, error ? "Brush.DangerText" : "Brush.Text");
+        StatusDot.SetResourceReference(Border.BackgroundProperty, error ? "Brush.Danger" : "Brush.Accent");
+        StatusBox.SetResourceReference(Border.BackgroundProperty, error ? "Brush.DangerSoft" : "Brush.Card");
+        StatusBox.Visibility = Visibility.Visible;
     }
 
     private void HideStatus()
     {
-        StatusText.Visibility = Visibility.Collapsed;
+        StatusBox.Visibility = Visibility.Collapsed;
     }
 
     // Render mode only (UI/RenderShots.cs): made-up rows, optionally with a jar
@@ -794,10 +808,33 @@ public partial class ModsPage : UserControl
     {
         if (!OriginPaths.IsScratchRoot) return;
         _demo = mods;
+        HideStatus();
         // carrying == -1: the "just dropped" shot, the first of the player's mods lands.
         var first = carrying < 0 ? mods.FirstOrDefault(m => !m.IsManaged) : null;
         Refresh(first == null ? null : new HashSet<string> { first.FileName });
         SetZone(over: carrying > 0, hover: false, count: Math.Max(carrying, 0));
         if (first != null) Pop(JarScale);
+    }
+
+    // Render mode only: the status strip in either tone (UI/ModsProfilesShots.cs).
+    internal void TourShowStatus(string message, bool error)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        ShowStatus(message, error);
+    }
+
+    // Render mode only: the "Remove <name>?" confirm on the named demo row.
+    internal void TourConfirmRemove(string fileName)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        _pendingRemove = fileName;
+        Refresh();
+    }
+
+    // Render mode only: the page with no version chosen.
+    internal void TourNoVersion()
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        ShowVersion(null);
     }
 }

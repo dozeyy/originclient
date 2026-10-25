@@ -83,6 +83,33 @@ public partial class ProfilesPage : UserControl
         ServerAddressBox.Text = "play.example.net";
     }
 
+    // CI render: the saved-form error (a taken name), with the name box wearing the danger edge.
+    internal void TourFormError(string name, string message)
+    {
+        OpenForm(null);
+        NameBox.Text = name;
+        ShowFormError(message, ProfileRules.ValidateServer(ServerNameBox.Text, ServerAddressBox.Text) == message);
+    }
+
+    // CI render: the edit form on the first demo profile (the version is fixed, the button says Save).
+    internal void TourEditForm()
+    {
+        var first = Current().ModProfiles.FirstOrDefault(ProfileRules.IsUsable);
+        if (first != null) OpenForm(first);
+    }
+
+    // CI render: the status strip in either tone.
+    internal void TourShowStatus(string message, bool error) => ShowStatus(message, error);
+
+    // CI render: the inline "Delete <name>?" card on the first demo profile.
+    internal void TourAskDelete()
+    {
+        var first = Current().ModProfiles.FirstOrDefault(ProfileRules.IsUsable);
+        if (first == null) return;
+        _pendingDelete = first.Id;
+        Rebuild();
+    }
+
     /// <summary>CI screen render: presses the header's Import button the way a click does.</summary>
     internal void TourClickImport() => ImportButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
@@ -102,32 +129,50 @@ public partial class ProfilesPage : UserControl
         var player = _demo != null ? "OriginPlayer" : account?.Gamertag;
         var playerUuid = account?.Id ?? ""; // the head beside "Plays as" (no account / demo = default head)
 
-        RowsPanel.Children.Add(BuildNoneCard(selectedId == null));
+        RowsPanel.Children.Add(Ringed(BuildNoneCard(selectedId == null), selectedId == null));
         foreach (var profile in profiles)
         {
-            RowsPanel.Children.Add(profile.Id == _pendingDelete
+            var selected = profile.Id == selectedId;
+            RowsPanel.Children.Add(Ringed(profile.Id == _pendingDelete
                 ? BuildConfirmCard(profile)
-                : BuildProfileCard(profile, profile.Id == selectedId, player, playerUuid));
+                : BuildProfileCard(profile, selected, player, playerUuid), selected, profile.Id == _pendingDelete));
         }
-        RowsPanel.Children.Add(BuildNewCard());
+        RowsPanel.Children.Add(Ringed(BuildNewCard(), false));
     }
 
-    // The selected card's ring is the accent.
-    private Border CardShell(bool selected, string? version = null)
+    // The selected card's ring (spec 6): 2 px accent at a 2 px gap from the card. Every cell has the ring space,
+    // transparent when not selected, so selecting never shifts a card. A card asking to be deleted wears the same
+    // ring in danger instead (one ring, never two; the card inside keeps its normal edge) and is only as tall as
+    // its question, so it does not stand as an empty box beside its neighbours.
+    private Border Ringed(FrameworkElement card, bool selected, bool danger = false)
     {
-        var card = new Border { Style = (Style)FindResource("Card.Profile") };
-        if (selected) card.SetResourceReference(Border.BorderBrushProperty, "Brush.Accent");
-        return card;
+        var ring = new Border
+        {
+            BorderThickness = new Thickness(2),
+            Padding = new Thickness(2),
+            CornerRadius = (CornerRadius)FindResource("Radius.Ring.Lg"),
+            BorderBrush = Brushes.Transparent,
+            Child = card,
+        };
+        if (danger)
+        {
+            ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Danger");
+            ring.VerticalAlignment = VerticalAlignment.Top;
+        }
+        else if (selected) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Accent");
+        return ring;
     }
+
+    private Border CardShell() => new() { Style = (Style)FindResource("Card.Profile") };
 
     // The emblem: the profile's initial on its own muted tint (ProfileLook).
     private Border Emblem(string initial, Brush tint)
     {
         var emblem = new Border
         {
-            Width = 44,
-            Height = 44,
-            CornerRadius = (CornerRadius)FindResource("Radius.Md"),
+            Width = (double)FindResource("Size.TileLg"),
+            Height = (double)FindResource("Size.TileLg"),
+            CornerRadius = (CornerRadius)FindResource("Radius.Sm"),
             Background = tint,
             VerticalAlignment = VerticalAlignment.Top,
         };
@@ -209,7 +254,7 @@ public partial class ProfilesPage : UserControl
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.Children.Add(emblem);
 
-        var text = new StackPanel { Margin = new Thickness(14, 1, 8, 0), VerticalAlignment = VerticalAlignment.Top };
+        var text = new StackPanel { Margin = new Thickness(12, 0, 8, 0), VerticalAlignment = VerticalAlignment.Top };
         text.Children.Add(Title(name));
         text.Children.Add(second);
         AddAt(grid, 1, text);
@@ -281,9 +326,7 @@ public partial class ProfilesPage : UserControl
             UIElement face = name != null
                 ? new TextBlock { Text = ProfileLook.Initial(name), FontFamily = (FontFamily)FindResource("Font.Primary"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.TextDim"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
                 : Glyph("Icon.Jar", 14, "Brush.TextMuted");
-            var square = ModSquare(face);
-            if (name != null) square.ToolTip = name;
-            line.Children.Add(square);
+            line.Children.Add(ModSquare(face));
         }
         if (count > shown)
             line.Children.Add(ModSquare(new TextBlock { Text = $"+{count - shown}", FontFamily = (FontFamily)FindResource("Font.Primary"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.Text"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }));
@@ -295,11 +338,11 @@ public partial class ProfilesPage : UserControl
 
     private Border ModSquare(UIElement content) => new()
     {
-        Width = 26,
-        Height = 26,
+        Width = (double)FindResource("Size.TileSm"),
+        Height = (double)FindResource("Size.TileSm"),
         Margin = new Thickness(0, 0, 4, 0),
         Background = (Brush)FindResource("Brush.Bg"),
-        CornerRadius = (CornerRadius)FindResource("Radius.Md"),
+        CornerRadius = (CornerRadius)FindResource("Radius.Sm"),
         Child = content,
     };
 
@@ -359,7 +402,7 @@ public partial class ProfilesPage : UserControl
 
     private FrameworkElement BuildNoneCard(bool selected)
     {
-        var card = CardShell(selected);
+        var card = CardShell();
         var sub = Small("Plain Origin");
         sub.Margin = new Thickness(0, 6, 0, 0);
         var head = CardHead(MarkEmblem(), "No profile", sub);
@@ -373,13 +416,13 @@ public partial class ProfilesPage : UserControl
 
     private FrameworkElement BuildProfileCard(ModProfile profile, bool selected, string? player, string playerUuid)
     {
-        var card = CardShell(selected, profile.Version);
+        var card = CardShell();
 
-        var edit = IconButton("Icon.Edit", "Edit", $"Edit {profile.Name}");
+        var edit = IconButton("Icon.Edit", $"Edit {profile.Name}");
         edit.Click += (_, _) => OpenForm(profile);
-        var copy = IconButton("Icon.Copy", "Duplicate", $"Duplicate {profile.Name}");
+        var copy = IconButton("Icon.Copy", $"Duplicate {profile.Name}");
         copy.Click += (_, _) => Duplicate(profile);
-        var delete = IconButton("Icon.Trash", "Delete", $"Delete {profile.Name}");
+        var delete = IconButton("Icon.Trash", $"Delete {profile.Name}");
         delete.Click += (_, _) => AskDelete(profile);
 
         var head = CardHead(ProfileEmblem(profile), profile.Name, PlaysAs(player, playerUuid), edit, copy, delete);
@@ -394,10 +437,16 @@ public partial class ProfilesPage : UserControl
     // turns into the question, with Delete / Cancel.
     private FrameworkElement BuildConfirmCard(ModProfile profile)
     {
-        var card = CardShell(false);
-        card.BorderBrush = (Brush)FindResource("Brush.Danger");
+        var card = CardShell();
 
-        var sub = Small("Its mods are deleted with it");
+        // The real count: "Its 6 mods are deleted with it." / "Its 1 mod is ..." / nothing to lose when empty.
+        var mods = _countMods(profile);
+        var sub = Small(mods switch
+        {
+            0 => "It has no mods.",
+            1 => "Its 1 mod is deleted with it.",
+            _ => $"Its {mods} mods are deleted with it.",
+        });
         sub.Margin = new Thickness(0, 6, 0, 0);
         var head = CardHead(ProfileEmblem(profile), $"Delete {profile.Name}?", sub);
 
@@ -405,7 +454,7 @@ public partial class ProfilesPage : UserControl
         var confirm = new Button
         {
             Content = "Delete",
-            Style = (Style)FindResource("Button.Danger.Small"),
+            Style = (Style)FindResource("Button.Danger.Inline"),
             Margin = new Thickness(0, 0, 8, 0),
         };
         confirm.Click += (_, _) => ConfirmDelete(profile);
@@ -413,7 +462,7 @@ public partial class ProfilesPage : UserControl
         var cancel = new Button
         {
             Content = "Cancel",
-            Style = (Style)FindResource("Button.Secondary.Small"),
+            Style = (Style)FindResource("Button.Secondary.Inline"),
         };
         cancel.Click += (_, _) => { _pendingDelete = null; Rebuild(); };
         buttons.Children.Add(cancel);
@@ -459,8 +508,15 @@ public partial class ProfilesPage : UserControl
         if (selected)
         {
             var mark = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Height = (double)FindResource("Size.ControlSm") };
-            var dot = new Rectangle { Width = 8, Height = 8, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
-            dot.SetResourceReference(Shape.FillProperty, "Brush.Accent");
+            var dot = new Border
+            {
+                Width = (double)FindResource("Size.Dot"),
+                Height = (double)FindResource("Size.Dot"),
+                CornerRadius = (CornerRadius)FindResource("Radius.Full"),
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            dot.SetResourceReference(Border.BackgroundProperty, "Brush.Accent");
             mark.Children.Add(dot);
             mark.Children.Add(Small(running ? "Selected / Running" : "Selected", bold: true));
             return mark;
@@ -468,7 +524,7 @@ public partial class ProfilesPage : UserControl
         var button = new Button
         {
             Content = "Use profile",
-            Style = (Style)FindResource("Button.Secondary.Small"),
+            Style = (Style)FindResource("Button.Secondary.Inline"),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -477,12 +533,12 @@ public partial class ProfilesPage : UserControl
         return button;
     }
 
-    private Button IconButton(string iconKey, string tooltip, string automationName)
+    // An icon sitting directly in a button, no box; no hover label (spec 9), the automation name carries the meaning.
+    private Button IconButton(string iconKey, string automationName)
     {
         var button = new Button
         {
             Style = (Style)FindResource("Social.Icon"),
-            ToolTip = tooltip,
         };
         var path = new Path
         {
@@ -542,7 +598,7 @@ public partial class ProfilesPage : UserControl
             ? "A profile belongs to one version. With a server, Home shows Join next to Play."
             : "This profile's version is fixed. With a server, Home shows Join next to Play.";
 
-        FormError.Visibility = Visibility.Collapsed;
+        ClearFormError();
         FormPanel.Visibility = Visibility.Visible;
         HideStatus();
         Rebuild();
@@ -573,7 +629,32 @@ public partial class ProfilesPage : UserControl
         }
     }
 
-    private void NameBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateFormEmblem();
+    private void NameBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateFormEmblem();
+        if (NameError.Visibility == Visibility.Visible) ClearFormError(); // typing answers the error
+    }
+
+    // An error is a caption in dangerText plus a danger edge on the box it belongs to (spec 6). The edge is a
+    // fresh brush so the box's own focus animation can still recolour it.
+    private void ShowFormError(string message, bool onServer)
+    {
+        ClearFormError();
+        var caption = onServer ? FormError : NameError;
+        caption.Text = message;
+        caption.Visibility = Visibility.Visible;
+        var box = onServer ? ServerAddressBox : NameBox;
+        var edge = new SolidColorBrush(((SolidColorBrush)FindResource("Brush.Danger")).Color);
+        box.BorderBrush = edge;
+    }
+
+    private void ClearFormError()
+    {
+        FormError.Visibility = Visibility.Collapsed;
+        NameError.Visibility = Visibility.Collapsed;
+        NameBox.ClearValue(Control.BorderBrushProperty);
+        ServerAddressBox.ClearValue(Control.BorderBrushProperty);
+    }
 
     private void UpdateFormEmblem()
     {
@@ -599,7 +680,8 @@ public partial class ProfilesPage : UserControl
                 ? new TextBlock
                 {
                     Text = "P",
-                    Style = (Style)FindResource("Text.Title"),
+                    Style = (Style)FindResource("Text.Body"),
+                    FontWeight = FontWeights.Bold,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 }
@@ -607,17 +689,16 @@ public partial class ProfilesPage : UserControl
             var tile = new Button
             {
                 Style = (Style)FindResource("Button.Chrome"),
-                Width = 40,
-                Height = 40,
+                Width = (double)FindResource("Size.TileSm"),
+                Height = (double)FindResource("Size.TileSm"),
                 Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 6, 6),
+                Margin = new Thickness(0, 0, 4, 4),
                 Tag = icon,
-                ToolTip = icon ?? "First letter",
                 Content = new Border
                 {
-                    Width = 40,
-                    Height = 40,
-                    CornerRadius = (CornerRadius)FindResource("Radius.Xs"),
+                    Width = (double)FindResource("Size.TileSm"),
+                    Height = (double)FindResource("Size.TileSm"),
+                    CornerRadius = (CornerRadius)FindResource("Radius.Sm"),
                     Background = (Brush)FindResource("Brush.Field"),
                     BorderThickness = new Thickness(2),
                     BorderBrush = Brushes.Transparent,
@@ -657,20 +738,21 @@ public partial class ProfilesPage : UserControl
             var swatch = new Button
             {
                 Style = (Style)FindResource("Button.Chrome"),
-                Width = 36,
-                Height = 36,
+                Width = (double)FindResource("Size.TileSm"),
+                Height = (double)FindResource("Size.TileSm"),
                 Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 8, 0),
+                Margin = new Thickness(0, 0, 4, 0),
                 Tag = name,
-                ToolTip = name,
                 Content = new Border
                 {
-                    Width = 36,
-                    Height = 36,
-                    CornerRadius = (CornerRadius)FindResource("Radius.Xs"),
+                    Width = (double)FindResource("Size.TileSm"),
+                    Height = (double)FindResource("Size.TileSm"),
+                    CornerRadius = (CornerRadius)FindResource("Radius.Sm"),
                     Background = ProfileLook.TintBrush(name),
                     BorderThickness = new Thickness(2),
                     BorderBrush = Brushes.Transparent,
+                    // The hue lives in the glyph as well as the tile, so the six read as six colours and not as greys.
+                    Child = ProfileLook.EmblemGlyph("Star", ProfileLook.InkBrush(name)),
                 },
             };
             System.Windows.Automation.AutomationProperties.SetName(swatch, $"Colour {name}");
@@ -735,8 +817,9 @@ public partial class ProfilesPage : UserControl
 
         if (error != null)
         {
-            FormError.Text = error;
-            FormError.Visibility = Visibility.Visible;
+            // The error names one of the boxes: the server rule is checked after the name rule, so an error that
+            // is the server rule's own words belongs to the address box; anything else to the name box.
+            ShowFormError(error, ProfileRules.ValidateServer(serverName, address) == error);
             return;
         }
 
@@ -745,7 +828,7 @@ public partial class ProfilesPage : UserControl
             try { System.IO.Directory.CreateDirectory(OriginPaths.ProfileModsDir(created.Version, created.Id)); }
             catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { /* made on first use */ }
             _homeVersion = created.Version;
-            ShowStatus($"Created \"{created.Name}\". Add its mods on the Mods page.");
+            ShowStatus($"Created \"{created.Name}\". Add its mods on the Mods page.", error: false);
         }
         else
         {
@@ -768,7 +851,7 @@ public partial class ProfilesPage : UserControl
             SettingsStore.Update(s => error = ProfileBook.Duplicate(s.ModProfiles, source.Id, out copy));
             if (error != null || copy == null)
             {
-                ShowStatus(error);
+                ShowStatus(error, error: true);
                 return;
             }
 
@@ -777,7 +860,7 @@ public partial class ProfilesPage : UserControl
             var copyError = await Task.Run(() => ProfileFolders.CopyMods(sourceMods, copyMods));
             ShowStatus(copyError == null
                 ? $"Copied to \"{copy.Name}\"."
-                : $"Created \"{copy.Name}\", but not every mod could be copied. {copyError}");
+                : $"Created \"{copy.Name}\", but not every mod could be copied. {copyError}", error: copyError != null);
         }
         finally
         {
@@ -790,7 +873,7 @@ public partial class ProfilesPage : UserControl
     {
         if (_isInUse(profile.Id))
         {
-            ShowStatus($"\"{profile.Name}\" is being used by a game that's running. Close Minecraft first.");
+            ShowStatus($"\"{profile.Name}\" is being used by a game that's running. Close Minecraft first.", error: true);
             return;
         }
         HideStatus();
@@ -806,7 +889,7 @@ public partial class ProfilesPage : UserControl
         // The game may have started since the confirm was asked.
         if (_isInUse(profile.Id))
         {
-            ShowStatus($"\"{profile.Name}\" is being used by a game that's running. Close Minecraft first.");
+            ShowStatus($"\"{profile.Name}\" is being used by a game that's running. Close Minecraft first.", error: true);
             Rebuild();
             return;
         }
@@ -817,7 +900,7 @@ public partial class ProfilesPage : UserControl
             var error = await Task.Run(() => ProfileFolders.Delete(OriginPaths.ProfileDir(profile.Version, profile.Id)));
             if (error != null)
             {
-                ShowStatus(error);
+                ShowStatus(error, error: true);
                 return;
             }
             SettingsStore.Update(s =>
@@ -826,7 +909,7 @@ public partial class ProfilesPage : UserControl
                 if (s.SelectedProfileId == profile.Id) s.SelectedProfileId = null;
             });
             if (_editingId == profile.Id) CloseForm();
-            ShowStatus($"Deleted \"{profile.Name}\".");
+            ShowStatus($"Deleted \"{profile.Name}\".", error: false);
         }
         finally
         {
@@ -837,11 +920,16 @@ public partial class ProfilesPage : UserControl
 
     // ---- status line -----------------------------------------------------
 
-    private void ShowStatus(string? message)
+    // One strip under the header: a failure reads in the danger colour (dot + text), a note in the normal text with
+    // the accent dot. Same strip as the Mods page.
+    private void ShowStatus(string? message, bool error)
     {
         StatusText.Text = message ?? "Something went wrong.";
-        StatusText.Visibility = Visibility.Visible;
+        StatusText.SetResourceReference(TextBlock.ForegroundProperty, error ? "Brush.DangerText" : "Brush.Text");
+        StatusDot.SetResourceReference(Border.BackgroundProperty, error ? "Brush.Danger" : "Brush.Accent");
+        StatusBox.SetResourceReference(Border.BackgroundProperty, error ? "Brush.DangerSoft" : "Brush.Card");
+        StatusBox.Visibility = Visibility.Visible;
     }
 
-    private void HideStatus() => StatusText.Visibility = Visibility.Collapsed;
+    private void HideStatus() => StatusBox.Visibility = Visibility.Collapsed;
 }
