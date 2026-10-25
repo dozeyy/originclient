@@ -415,14 +415,17 @@ public partial class MainWindow : Window
     internal void TourLayoutAt(Size size)
     {
         var root = (FrameworkElement)Content;
-        for (var i = 0; i < 3; i++)
-        {
-            root.Measure(size);
-            root.Arrange(new Rect(size));
-            TopBar_LayoutChanged(this, null!);
-        }
         root.Measure(size);
         root.Arrange(new Rect(size));
+        // UpdateLayout, not another Measure: a Measure at the size already used is skipped, so the labels the rule
+        // just showed or hid would keep their old sizes. UpdateLayout re-measures every dirty element with its own
+        // previous (wide) constraint and raises the SizeChanged events that run the rule.
+        for (var i = 0; i < 3; i++)
+        {
+            root.UpdateLayout();
+            TopBar_LayoutChanged(this, null!);
+        }
+        root.UpdateLayout();
     }
 
     internal void TourGoTo(int page)
