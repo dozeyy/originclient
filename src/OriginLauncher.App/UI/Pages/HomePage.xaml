@@ -104,6 +104,24 @@
             <!-- Play, Join and the My mods switch: centred in row 0 with the pills, so the pills'
                  centre line, Join's and the Play ring's are one line (PLAY's caps centre on the ring). -->
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- The Origin Store: capes and cosmetics. One quiet pill the size of its words (Join's
+                     shape: a gold glyph, a name, a one-line caption), no art, no glow: it is easy to find
+                     and never competes with Play. Opens OriginLinks.Store in the default browser. -->
+                <Button x:Name="StoreButton" Style="{StaticResource Button.Pill}" Margin="0,0,24,0"
+                        VerticalAlignment="Center" Click="StoreButton_Click"
+                        AutomationProperties.Name="Open the Origin Store in your browser">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
+                              VerticalAlignment="Center" Margin="0,0,12,0"
+                              Stroke="{StaticResource TintInk.Gold}"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Origin Store" Style="{StaticResource Text.Label}" LineHeight="18"/>
+                            <TextBlock Text="Capes and cosmetics" Style="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.TextDim}" LineHeight="16"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+
                 <!-- My mods (Will, 2026-10-19: "maybe a slider would be better like a slider on
                      or off"): the Mods page's YOUR MODS switch on Home, the same setting
                      (LauncherSettings.PlayWithExternalMods). No box: a caps label and the

@@ -357,6 +357,10 @@ public partial class HomePage : UserControl
         }
     }
 
+    // The Origin Store card: the store address lives in Core/Promos/OriginLinks.
+    private void StoreButton_Click(object sender, RoutedEventArgs e) =>
+        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Store);
+
     private async void JoinButton_Click(object sender, RoutedEventArgs e)
     {
         if (_joinProfile is { HasServer: true } profile)
