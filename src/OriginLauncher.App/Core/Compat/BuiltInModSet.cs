@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using OriginLauncher.App.Core.Sync;
 
-namespace OriginLauncher.App.Core.Import.Mods;
+namespace OriginLauncher.App.Core.Compat;
 
 /// <summary>A mod Origin already ships for a target version. Version null = not known (it then satisfies any requirement).</summary>
 public sealed record BuiltInMod(string Id, string? Version, string DisplayName)

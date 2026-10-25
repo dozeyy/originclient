@@ -1,5 +1,7 @@
 using System.IO;
 
+using OriginLauncher.App.Core.Compat;
+
 namespace OriginLauncher.App.Core.Import.Mods;
 
 /// <summary>A jar found in the source's mods folder, with what it says about itself.</summary>
@@ -12,21 +14,21 @@ public sealed record ResolveContext(string TargetVersion, BuiltInModSet BuiltIns
     public bool TargetIsForge189 => TargetVersion == "1.8.9";
 }
 
-// Decides, for every jar of a source's mods folder, what happens to it in the
-// target (D12). The order matters and is the whole design:
-//   1. not a Fabric mod (or 1.8.9's Forge rule)     -> listed, not copied
-//   2. Origin already includes it (by mod id)       -> listed "Origin includes X v", not copied
-//   3. built for another Minecraft version          -> listed, not copied
-//   4. two versions of one id                       -> the higher is imported, the rest listed
-//   5. known not to work with Origin (D13)          -> copied DISABLED with the reason
-//   6. dependency not met / "breaks" conflict       -> copied DISABLED with the reason
-//   7. disabled in the source (.jar.disabled)       -> arrives disabled, as it was
-// Built-ins are checked before the Minecraft version on purpose: a player's old
-// Sodium for the wrong version should still read "Origin includes Sodium", not
-// "wrong version". Dependencies are checked against the mods that stay enabled
-// plus the built-ins plus Minecraft, Fabric Loader and Java, repeated until
-// nothing more changes (a mod disabled for a missing dependency can't satisfy
-// another's). Pure: it works on already-read metadata.
+// Decides, for every jar of a source's mods folder, what happens to it in the target (D12). The checking itself
+// is the shared compatibility engine (Core/Compat/CompatEngine, Phase 5.1): this class only asks it about the
+// source mods as import candidates and turns its findings into the import's own outcomes:
+//   not a Fabric mod (or 1.8.9's Forge rule)   -> WrongLoader, listed, not copied
+//   Origin already includes it (by mod id)     -> BuiltIn, "Origin includes X v", not copied
+//   built for another Minecraft version        -> WrongMinecraft, listed, not copied
+//   two versions of one id                     -> the kept one is imported, the rest are Duplicate
+//   known not to work with Origin (D13)        -> copied DISABLED with the reason
+//   dependency not met / "breaks" conflict     -> copied DISABLED with the reason
+//   server-only mod on the client              -> copied DISABLED (the loader would skip it anyway)
+//   disabled in the source (.jar.disabled)     -> arrives disabled, as it was
+// Built-ins are checked before the Minecraft version on purpose: a player's old Sodium for the wrong version should
+// still read "Origin includes Sodium", not "wrong version". 1.8.9 (Forge) keeps its old rule: after the loader /
+// Minecraft check, every jar is copied as it is, because mcmod.info is advisory there. Pure: it works on
+// already-read metadata.
 public static class ModSetResolver
 {
     /// <summary>Reads the *.jar / *.jar.disabled files at the top of <paramref name="modsDir"/> through the guard.</summary>
@@ -50,174 +52,57 @@ public static class ModSetResolver
 
     public static List<ModDecision> Resolve(IReadOnlyList<SourceMod> mods, ResolveContext ctx)
     {
+        var entries = mods
+            .Select(m => new ModFile(m.Path, m.FileName, Enabled: !m.DisabledInSource, ModRole.ImportCandidate, m.Info))
+            .ToList();
+        var platform = new CompatPlatform(
+            ctx.TargetVersion, ctx.TargetIsForge189 ? LoaderFamily.LegacyForge : LoaderFamily.Fabric,
+            ctx.LoaderVersion, ctx.JavaVersion, ctx.BuiltIns);
+        var report = CompatEngine.Check(entries, platform);
+
         var decisions = new Dictionary<SourceMod, ModDecision>(ReferenceEqualityComparer.Instance);
-        var candidates = new List<SourceMod>();
+        for (var i = 0; i < mods.Count; i++)
+            decisions[mods[i]] = Decide(mods[i], entries[i], report, entries, mods, ctx);
+        return mods.OrderBy(m => m.FileName, StringComparer.OrdinalIgnoreCase).Select(m => decisions[m]).ToList();
+    }
 
-        foreach (var mod in mods.OrderBy(m => m.FileName, StringComparer.OrdinalIgnoreCase))
+    private static ModDecision Decide(
+        SourceMod mod, ModFile entry, CompatReport report, List<ModFile> entries, IReadOnlyList<SourceMod> mods, ResolveContext ctx)
+    {
+        var terminal = report.Terminal(entry);
+        // 1.8.9: only the loader / Minecraft rules apply; duplicates and dependencies are not judged (advisory metadata).
+        if (ctx.TargetIsForge189 && terminal is { Kind: FindingKind.DuplicateId }) terminal = null;
+        // Already turned off in the source: the side rule changes nothing, it simply stays as it was.
+        if (mod.DisabledInSource && terminal is { Kind: FindingKind.WrongSide }) terminal = null;
+
+        if (terminal != null)
         {
-            var early = Classify(mod, ctx);
-            if (early != null) decisions[mod] = early;
-            else candidates.Add(mod);
-        }
-
-        // 1.8.9 (Forge): the legacy-Forge jars that passed are copied as they are; no Fabric rules apply.
-        if (ctx.TargetIsForge189)
-        {
-            foreach (var mod in candidates)
-                decisions[mod] = Copy(mod, mod.DisabledInSource ? ModOutcome.CopiedAsBefore : ModOutcome.Copied,
-                    mod.DisabledInSource ? "Disabled in your old setup." : null);
-            return Ordered(mods, decisions);
-        }
-
-        // Duplicate ids: an enabled copy beats a disabled one, then the higher version, then the file name.
-        var kept = new List<SourceMod>();
-        foreach (var group in candidates.GroupBy(m => m.Info.Id!, StringComparer.Ordinal))
-        {
-            var ordered = group
-                .OrderBy(m => m.DisabledInSource ? 1 : 0)
-                .ThenByDescending(m => m.Info.Version, Comparer<string?>.Create(FabricVersion.Compare))
-                .ThenBy(m => m.FileName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            kept.Add(ordered[0]);
-            foreach (var other in ordered.Skip(1))
-                decisions[other] = Info(other, ModOutcome.Duplicate,
-                    $"Duplicate of {ordered[0].Info.Name ?? ordered[0].Info.Id} {Shown(ordered[0].Info.Version)}: the newer one is imported.");
-        }
-
-        var disabledBy = new Dictionary<SourceMod, string>(ReferenceEqualityComparer.Instance);
-        foreach (var mod in kept)
-            if (KnownIncompatible.Check(mod.Info, ctx.BuiltIns) is { } known) disabledBy[mod] = known;
-
-        // Dependency / breaks checks until stable.
-        bool changed;
-        do
-        {
-            changed = false;
-            var environment = BuildEnvironment(kept.Where(m => !m.DisabledInSource && !disabledBy.ContainsKey(m)));
-            foreach (var mod in kept)
+            switch (terminal.Kind)
             {
-                if (mod.DisabledInSource || disabledBy.ContainsKey(mod)) continue;
-                var problem = FindProblem(mod.Info, environment, ctx);
-                if (problem == null) continue;
-                disabledBy[mod] = problem;
-                changed = true;
+                case FindingKind.Unreadable:
+                    return Info(mod, ModOutcome.Unreadable, terminal.Summary);
+                case FindingKind.ForeignClient:
+                case FindingKind.WrongLoader:
+                    return Info(mod, ModOutcome.WrongLoader, terminal.Summary);
+                case FindingKind.OriginManagedConflict:
+                    return Info(mod, ModOutcome.BuiltIn, terminal.Summary);
+                case FindingKind.WrongMinecraft:
+                    return Info(mod, ModOutcome.WrongMinecraft, terminal.Summary);
+                case FindingKind.DuplicateId:
+                {
+                    var kept = mods[entries.IndexOf(terminal.Related!)];
+                    return Info(mod, ModOutcome.Duplicate,
+                        $"Duplicate of {kept.Info.Name ?? kept.Info.Id} {Shown(kept.Info.Version)}: the newer one is imported.");
+                }
+                default:
+                    // Known problem, unmet dependency, "breaks", wrong side: imported TURNED OFF with the reason.
+                    return Copy(mod, ModOutcome.CopiedDisabled, report.ReasonFor(entry));
             }
-        } while (changed);
-
-        foreach (var mod in kept)
-        {
-            if (mod.DisabledInSource)
-                decisions[mod] = Copy(mod, ModOutcome.CopiedAsBefore, "Disabled in your old setup.");
-            else if (disabledBy.TryGetValue(mod, out var reason))
-                decisions[mod] = Copy(mod, ModOutcome.CopiedDisabled, reason);
-            else
-                decisions[mod] = Copy(mod, ModOutcome.Copied, null);
-        }
-        return Ordered(mods, decisions);
-    }
-
-    private static List<ModDecision> Ordered(IReadOnlyList<SourceMod> mods, Dictionary<SourceMod, ModDecision> decisions) =>
-        mods.OrderBy(m => m.FileName, StringComparer.OrdinalIgnoreCase).Select(m => decisions[m]).ToList();
-
-    // Steps 1-3: the reasons a jar is not copied at all. Null = it goes on to duplicate/dependency checks.
-    private static ModDecision? Classify(SourceMod mod, ResolveContext ctx)
-    {
-        var info = mod.Info;
-        if (info.ReadFailed)
-            return Info(mod, ModOutcome.Unreadable, "Couldn't read this file.");
-
-        // Another client's own core jar (Feather, Lunar, Badlion, LabyMod) can never load here: it needs libraries only
-        // its own launcher ships and hooks every class, so it would stop the game at the first one (2026-10-20).
-        if (ClientCoreMods.Find(info.Id, info.FileName, info.Provides) is { } clientCore)
-            return Info(mod, ModOutcome.WrongLoader, clientCore.Reason);
-
-        if (ctx.TargetIsForge189)
-        {
-            if (info.Loader is ModLoader.Fabric or ModLoader.Quilt)
-                return Info(mod, ModOutcome.WrongLoader, "1.8.9 runs on Forge in Origin, so Fabric mods can't load there.");
-            if (info.Loader == ModLoader.LegacyForge)
-                return info.McVersion != null && info.McVersion != "1.8.9"
-                    ? Info(mod, ModOutcome.WrongMinecraft, $"Built for Minecraft {info.McVersion}, not 1.8.9.")
-                    : null;
-            return Info(mod, ModOutcome.WrongLoader, "Not a Forge 1.8.9 mod.");
         }
 
-        if (info.Loader != ModLoader.Fabric)
-        {
-            if (KnownIncompatible.Check(info, ctx.BuiltIns) is { } known)
-                return Info(mod, ModOutcome.WrongLoader, known);
-            return Info(mod, ModOutcome.WrongLoader, info.Loader switch
-            {
-                ModLoader.Forge or ModLoader.LegacyForge => "This is a Forge mod. Origin runs Fabric, so it can't load it.",
-                ModLoader.NeoForge => "This is a NeoForge mod. Origin runs Fabric, so it can't load it.",
-                ModLoader.Quilt => "This is a Quilt-only mod. Origin runs Fabric, so it can't load it.",
-                _ => "Not a Fabric mod (no mod information found in it).",
-            });
-        }
-
-        if (info.Id == null)
-            return Info(mod, ModOutcome.Unreadable, "Couldn't read this mod's details.");
-
-        var builtIn = ctx.BuiltIns.Find(info.Id) ?? info.Provides.Select(ctx.BuiltIns.Find).FirstOrDefault(b => b != null);
-        if (builtIn != null)
-            return Info(mod, ModOutcome.BuiltIn, builtIn.Describe() + ".");
-
-        if (info.MinecraftRange is { } range && !range.IsSatisfiedBy(ctx.TargetVersion))
-            return Info(mod, ModOutcome.WrongMinecraft, $"Built for Minecraft {range.Display}, not {ctx.TargetVersion}.");
-        return null;
-    }
-
-    private sealed class ProvidedIds
-    {
-        public readonly Dictionary<string, string?> Versions = new(StringComparer.Ordinal);
-    }
-
-    // Every id an enabled imported mod answers to (its own, what it provides, what it nests) with its version.
-    private static ProvidedIds BuildEnvironment(IEnumerable<SourceMod> enabled)
-    {
-        var env = new ProvidedIds();
-        foreach (var mod in enabled)
-        {
-            env.Versions.TryAdd(mod.Info.Id!, mod.Info.Version);
-            foreach (var provided in mod.Info.Provides) env.Versions.TryAdd(provided, mod.Info.Version);
-            foreach (var nested in mod.Info.Nested) env.Versions.TryAdd(nested.Id, nested.Version);
-        }
-        return env;
-    }
-
-    private static bool TryProvide(string id, ProvidedIds env, ResolveContext ctx, out string? version)
-    {
-        version = null;
-        switch (id)
-        {
-            case "minecraft": version = ctx.TargetVersion; return true;
-            case "java": version = ctx.JavaVersion; return true;
-            case "fabricloader": version = ctx.LoaderVersion; return true; // newest at install time: unknown, satisfies any range
-        }
-        if (ctx.BuiltIns.Find(id) is { } built) { version = built.Version; return true; }
-        return env.Versions.TryGetValue(id, out version);
-    }
-
-    private static string? FindProblem(ModInfo info, ProvidedIds env, ResolveContext ctx)
-    {
-        var missing = new List<string>();
-        foreach (var dep in info.Depends.OrderBy(d => d.Id, StringComparer.Ordinal))
-        {
-            if (dep.Id == "minecraft") continue; // already checked against the target
-            var predicate = dep.Predicate;
-            if (TryProvide(dep.Id, env, ctx, out var version) && (version == null || predicate.IsSatisfiedBy(version)))
-                continue;
-            missing.Add(predicate.MatchesAnything ? $"Needs {dep.Id}" : $"Needs {dep.Id} {predicate.Display}");
-        }
-        if (missing.Count > 0) return string.Join(", ", missing) + ".";
-
-        foreach (var brk in info.Breaks.OrderBy(d => d.Id, StringComparer.Ordinal))
-        {
-            if (!TryProvide(brk.Id, env, ctx, out var version)) continue;
-            if (version == null || brk.Predicate.IsSatisfiedBy(version))
-                return $"Conflicts with {brk.Id}{(version == null ? "" : " " + version.Split('+')[0])}.";
-        }
-        return null;
+        return mod.DisabledInSource
+            ? Copy(mod, ModOutcome.CopiedAsBefore, "Disabled in your old setup.")
+            : Copy(mod, ModOutcome.Copied, null);
     }
 
     private static ModDecision Info(SourceMod mod, ModOutcome outcome, string reason) =>

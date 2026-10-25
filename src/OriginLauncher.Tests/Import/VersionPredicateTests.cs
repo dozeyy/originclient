@@ -1,3 +1,4 @@
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 using Xunit;
 
@@ -29,7 +30,11 @@ public class VersionPredicateTests
     [InlineData("~1.2.3", "1.2.2", false)]
     [InlineData("~1.2", "1.2.7", true)]
     [InlineData("~1.2", "1.3.0", false)]
-    [InlineData("~1", "1.9.9", true)]
+    // Fabric Loader (VersionComparisonOperator.SAME_TO_NEXT_MINOR, read 2026-10-25) tests "~1" as same major AND
+    // same minor, with a missing minor counted as 0: "~1" accepts 1.0.x only, not 1.9.9. Earlier versions of this
+    // file expected the npm meaning (any 1.x); the loader's own rule is the one that decides if a mod boots.
+    [InlineData("~1", "1.9.9", false)]
+    [InlineData("~1", "1.0.5", true)]
     [InlineData("~1", "2.0.0", false)]
     [InlineData("~1.21.1", "1.21.1", true)]
     [InlineData("~1.21.1", "1.21.4", true)]

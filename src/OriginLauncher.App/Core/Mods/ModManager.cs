@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.IO;
+using OriginLauncher.App.Core.Compat;
 
 namespace OriginLauncher.App.Core.Mods;
 
@@ -146,67 +147,33 @@ public static class ModManager
         }
     }
 
-    /// <summary>Copy dropped/selected files into the version's mods folder.
-    /// Non-.jar files are skipped (reported back). Importing "foo.jar" also
-    /// clears any existing "foo.jar.disabled" so the import always lands enabled
-    /// rather than silently colliding with a disabled twin.</summary>
-    public static ModActionResult Import(string version, IEnumerable<string> paths, string? profileId = null)
+    /// <summary>Add dropped/selected jars to the version's mods folder (or the profile's), after the shared
+    /// compatibility engine (Core/Compat/ModImporter) has looked at them:
+    ///   * a jar for another Minecraft version or loader, one that can't be read, or one Origin already includes is
+    ///     refused, with the reason in plain words (<see cref="ImportReport.Refused"/>);
+    ///   * a jar that is the same mod as one already installed is NOT copied over it: it comes back as a question
+    ///     (<see cref="ImportReport.NeedsReplace"/>) and the page asks; call again with the file names the player
+    ///     said yes to in <paramref name="confirmedReplace"/> (the old file is kept turned off, never deleted);
+    ///   * non-.jar files are skipped; a missing requirement is a note, not a refusal.
+    /// Never throws; <see cref="ImportReport.Error"/> is a sentence for the player.</summary>
+    public static ImportReport Import(
+        string version, IEnumerable<string> paths, string? profileId = null, IReadOnlySet<string>? confirmedReplace = null)
     {
-        var folder = ModsFolder(version, profileId);
+        var shared = ModsFolder(version);
+        var context = profileId == null
+            ? new ImportContext(shared, LaunchPreflight.PlatformFor(version), IsManaged, ConfirmedReplace: confirmedReplace)
+            : new ImportContext(ModsFolder(version, profileId), LaunchPreflight.PlatformFor(version), IsOriginProvisioned,
+                IsProfile: true, OriginFolder: shared, ConfirmedReplace: confirmedReplace);
         try
         {
-            Directory.CreateDirectory(folder);
+            return ModImporter.Import(paths, context);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            return ModActionResult.Fail($"Couldn't open the mods folder: {ex.Message}");
+            // The checker must never make adding a mod impossible: a bug there is an error line, not a crash.
+            return new ImportReport(0, Array.Empty<ReplaceOffer>(), Array.Empty<string>(), Array.Empty<string>(),
+                "Couldn't check that mod: " + ex.Message);
         }
-
-        int imported = 0, skipped = 0, alreadyOrigins = 0;
-        foreach (var src in paths)
-        {
-            if (!src.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase) || !File.Exists(src))
-            {
-                skipped++;
-                continue;
-            }
-
-            var name = Path.GetFileName(src);
-            // A profile never loads a second copy of a mod Origin installs itself
-            // (two Fabric APIs stop Fabric booting), so it isn't taken in.
-            if (profileId != null && IsOriginProvisioned(name))
-            {
-                alreadyOrigins++;
-                continue;
-            }
-            var dest = Path.Combine(folder, name);
-            var temp = dest + ".download"; // a *.jar.download is never listed or loaded
-            try
-            {
-                // Copy beside it, then swap in with one rename: a game holding
-                // the old jar open (any account's — the folder is shared) must
-                // never have it rewritten under it. The swap either fails
-                // cleanly or leaves that game reading its open copy.
-                File.Copy(src, temp, overwrite: true);
-                File.Move(temp, dest, overwrite: true);
-                var disabledTwin = dest + ".disabled";
-                if (File.Exists(disabledTwin))
-                    File.Delete(disabledTwin);
-                imported++;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                try { File.Delete(temp); } catch { /* our own half-copy; best-effort */ }
-                return ModActionResult.Fail("Couldn't add that mod — " + CloseGameHint);
-            }
-        }
-
-        if (imported == 0)
-            return ModActionResult.Fail(
-                alreadyOrigins > 0 ? "Origin already includes that mod, so there's no need to add it."
-                : skipped > 0 ? "Only .jar mod files can be added." : "No mods to add.");
-
-        return ModActionResult.Success;
     }
 
     /// <summary>Delete a mod (whichever enabled/disabled form is on disk).</summary>

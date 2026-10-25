@@ -94,7 +94,8 @@
                                VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Caption}"
                                Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                               LineHeight="{StaticResource Size.StatusLine}" LineStackingStrategy="BlockLineHeight"
+                               TextTrimming="CharacterEllipsis" MaxWidth="{StaticResource Size.StatusWidth}"/>
                     <StackPanel x:Name="PlayersPill" Orientation="Horizontal" Visibility="Collapsed" Margin="14,0,0,0">
                         <TextBlock Text="/" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,14,0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>

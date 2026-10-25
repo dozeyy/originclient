@@ -3,6 +3,7 @@ using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Import.Caches;
 using OriginLauncher.App.Core.Import.GameFiles;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
 using OriginLauncher.App.Core.Import.Sources;
 using OriginLauncher.App.Core.Loaders;

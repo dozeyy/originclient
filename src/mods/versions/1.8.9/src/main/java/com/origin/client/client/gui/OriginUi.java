@@ -128,6 +128,9 @@ public final class OriginUi {
 		if (hasBorder) {
 			roundShape(buf, x0, y0, wi, hi, rad, true, border);
 		}
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxDraw();
+		}
 		Tessellator.getInstance().draw();
 		Gfx.resetColor();   // vertex colours leave the GL colour undefined (see Gfx)
 		GlStateManager.disableBlend();
@@ -393,6 +396,9 @@ public final class OriginUi {
 					runA = a;
 				}
 			}
+		}
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxDraw();
 		}
 		Tessellator.getInstance().draw();
 		Gfx.resetColor();   // vertex colours leave the GL colour undefined (see Gfx)

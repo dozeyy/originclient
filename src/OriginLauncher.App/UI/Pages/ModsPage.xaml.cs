@@ -8,6 +8,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using OriginLauncher.App.Core;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Profiles;
 
@@ -29,6 +30,7 @@ public partial class ModsPage : UserControl
     private string? _version;
     private ModProfile? _profile;      // the selected mod profile when it belongs to _version; else null (normal mods)
     private string? _pendingRemove;   // filename awaiting the inline "Remove?" confirm
+    private readonly List<ReplaceOffer> _pendingReplace = new(); // same-mod jars awaiting "Replace?" (Core/Compat/ModImporter)
     private bool _suppressToggle;      // guards programmatic IsChecked changes
     private bool _dragOver;
     private bool _adding;              // an import is copying (off the UI thread)
@@ -46,6 +48,7 @@ public partial class ModsPage : UserControl
     {
         _version = version;
         _pendingRemove = null;
+        _pendingReplace.Clear();
         _demo = null;
         ResolveProfile();
         VersionChipText.Text = version ?? "No version";
@@ -118,6 +121,9 @@ public partial class ModsPage : UserControl
         // A profile folder holds only the player's own mods; Origin's built-in
         // ones come from the version's shared folder and aren't part of it.
         var managed = _profile != null ? new List<ModEntry>() : mods.Where(m => m.IsManaged).ToList();
+
+        // A dropped jar that is the same mod as an installed one asks first, above the list.
+        if (_pendingReplace.Count > 0) UserModsPanel.Children.Add(BuildReplaceRow(_pendingReplace[0]));
 
         var delay = 0;
         foreach (var mod in user)
@@ -341,7 +347,9 @@ public partial class ModsPage : UserControl
 
         grid.Children.Add(IconWell(!mod.Enabled, mod));
 
-        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 12, 0) };
+        // The name column starts Space.3 after the icon well; the Replace and Remove prompts use the same gap, so the
+        // question lines up with the mod names above and below it.
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Space("Space.3"), 0, 12, 0) };
         if (added)
         {
             // Just dropped in: the name carries a small ADDED tag.
@@ -447,7 +455,7 @@ public partial class ModsPage : UserControl
 
         var prompt = NameText($"Remove {mod.DisplayName}?", false);
         prompt.VerticalAlignment = VerticalAlignment.Center;
-        prompt.Margin = new Thickness(14, 0, 12, 0);
+        prompt.Margin = new Thickness(Space("Space.3"), 0, Space("Space.2"), 0);
         Grid.SetColumn(prompt, 1);
         grid.Children.Add(prompt);
 
@@ -577,23 +585,99 @@ public partial class ModsPage : UserControl
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         ShowStatus(files.Length == 1 ? "Adding 1 mod..." : $"Adding {files.Length} mods...");
 
-        var result = await Task.Run(() => ModManager.Import(version, files, profileId));
+        var report = await Task.Run(() => ModManager.Import(version, files, profileId));
         _adding = false;
         if (_version != version) return; // the page moved on to another version meanwhile
+        ApplyImport(report, before, version, profileId);
+    }
 
-        if (!result.Ok)
+    // Shows what an add did: the new rows land, a refused jar says why in plain words, and a jar that is the same
+    // mod as an installed one waits for the player's yes (never a silent overwrite).
+    private void ApplyImport(ImportReport report, HashSet<string> before, string version, string? profileId)
+    {
+        _pendingReplace.AddRange(report.NeedsReplace);
+        if (!report.Ok)
         {
-            ShowStatus(result.Error);
+            ShowStatus(report.Error);
             Refresh();
             return;
         }
         var after = ModManager.Enumerate(version, profileId);
         var landed = after.Where(m => !before.Contains(m.FileName)).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        // Re-added jars (already listed) still count as added; only new names land.
-        var jarCount = files.Count(f => f.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase));
-        ShowStatus(jarCount == 1 ? "Added 1 mod." : $"Added {jarCount} mods.");
+        var message = report.Message;
+        if (message.Length > 0) ShowStatus(message); else HideStatus();
         Refresh(landed);
-        Pop(JarScale);
+        if (report.Added > 0) Pop(JarScale);
+    }
+
+    // The player answered a "Replace?" row. Yes copies that one jar in (the old file stays, turned off); no drops it.
+    private async void AnswerReplace(ReplaceOffer offer, bool replace)
+    {
+        _pendingReplace.Remove(offer);
+        if (!replace || _version == null || _adding)
+        {
+            Refresh();
+            return;
+        }
+        _adding = true;
+        var version = _version;
+        var profileId = _profile?.Id;
+        var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var confirmed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { offer.FileName };
+        var report = await Task.Run(() => ModManager.Import(version, new[] { offer.SourcePath }, profileId, confirmed));
+        _adding = false;
+        if (_version != version) return;
+        ApplyImport(report, before, version, profileId);
+    }
+
+    // A spacing token (Theme/Spacing.xaml, the 8 px grid) as a number for code-built layout.
+    private double Space(string key) => (double)FindResource(key);
+
+    // "Sodium 0.5.0 is already installed. Replace it with 0.6.13?" with explicit Replace / Keep old; the same inline
+    // pattern as the Remove confirm, so nothing is overwritten by accident.
+    private FrameworkElement BuildReplaceRow(ReplaceOffer offer)
+    {
+        var border = RowShell();
+        border.BorderBrush = (Brush)FindResource("Brush.Accent");
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        grid.Children.Add(IconWell(true, new ModEntry(offer.ExistingFileName, offer.ModName, true, false)));
+
+        var prompt = NameText(offer.Question, false);
+        prompt.VerticalAlignment = VerticalAlignment.Center;
+        prompt.TextWrapping = TextWrapping.Wrap;
+        prompt.Margin = new Thickness(Space("Space.3"), 0, Space("Space.2"), 0);
+        Grid.SetColumn(prompt, 1);
+        grid.Children.Add(prompt);
+
+        var replace = new Button
+        {
+            Content = "Replace",
+            Style = (Style)FindResource("Button.Primary.Small"),
+            Margin = new Thickness(0, 0, Space("Space.2"), 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        replace.Click += (_, _) => AnswerReplace(offer, true);
+        Grid.SetColumn(replace, 2);
+        grid.Children.Add(replace);
+
+        var keep = new Button
+        {
+            Content = "Keep old",
+            Style = (Style)FindResource("Button.Secondary.Small"),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        keep.Click += (_, _) => AnswerReplace(offer, false);
+        Grid.SetColumn(keep, 3);
+        grid.Children.Add(keep);
+
+        border.Child = grid;
+        return border;
     }
 
     // The jar well's "landed" pop: a quick overshoot back to rest.

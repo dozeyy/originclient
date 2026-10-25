@@ -1077,9 +1077,15 @@ public final class HudElements {
 			return;   // window unfocused (Limit Unfocused FPS): skip Origin's HUD, nobody is looking
 		}
 		int sw = g.guiWidth(), sh = g.guiHeight();
-		for (Element e : ALL) {
+		for (int ei = 0; ei < ALL.size(); ei++) {
+			Element e = ALL.get(ei);
 			if (!Mods.on(e.modId())) {
 				continue;
+			}
+			int prof = -1;
+			if (com.origin.client.client.BenchProf.ON) {
+				prof = com.origin.client.client.BenchProf.hudElement(ei, e.modId());
+				com.origin.client.client.BenchProf.begin(prof);
 			}
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
@@ -1097,6 +1103,9 @@ public final class HudElements {
 				// One bad element must never take the HUD down.
 			}
 			popTo(p, depth);
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(prof);
+			}
 		}
 		// Party markers + pings (Friends & Party): the same screen-projected overlay.
 		try {

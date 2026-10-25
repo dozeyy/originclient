@@ -52,6 +52,9 @@ public abstract class NametagLabelMixin {
 		if (originclient$reentry || entity == null || text == null) {
 			return;
 		}
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_NAMETAG);
+		}
 		try {
 			if (WorldHooks.nametagHidden(entity)) {
 				ci.cancel();
@@ -96,6 +99,10 @@ public abstract class NametagLabelMixin {
 			}
 		} catch (Throwable t) {
 			// never take a frame down over a name tag
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_NAMETAG);
+			}
 		}
 	}
 
