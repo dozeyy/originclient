@@ -168,6 +168,8 @@ public final class OriginBench {
 	// ---- restore bookkeeping ----
 	private final Map<String, Boolean> savedModOn = new LinkedHashMap<>();
 	private final Map<String, Boolean> savedFpsOpts = new LinkedHashMap<>();
+	/** Limit Unfocused FPS as it was before the run (null = not touched). See saveAndApplySettings. */
+	private Boolean savedLimitUnfocused;
 	private int savedRd, savedFps, savedGuiScale;
 	private float savedFov;
 	private boolean savedVsync, savedPauseOnLostFocus;
@@ -791,6 +793,13 @@ public final class OriginBench {
 		g.difficulty = EnumDifficulty.PEACEFUL;   // the integrated server reads it at world start
 		g.fovSetting = 70f;
 		g.guiScale = 2;
+		// CI (Xvfb) never focuses the window. With Limit Unfocused FPS on (the default) Origin then
+		// skips its HUD elements and cosmetic sparkles (FrameWatch.idle), so an unfocused run would
+		// measure an Origin that draws nothing. Off for the run, restored after. Probe: Origin is inert.
+		if (IGNORE_FOCUS && !PROBE) {
+			savedLimitUnfocused = Mods.bool(Mods.PERFORMANCE_ID, "limitUnfocusedFps");
+			Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", false);
+		}
 	}
 
 	private void restoreSettings(Minecraft mc) {
@@ -805,6 +814,10 @@ public final class OriginBench {
 		g.difficulty = savedDifficulty;
 		g.fovSetting = savedFov;
 		g.guiScale = savedGuiScale;
+		if (savedLimitUnfocused != null) {
+			Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", savedLimitUnfocused);
+			savedLimitUnfocused = null;
+		}
 		settingsSaved = false;
 	}
 
