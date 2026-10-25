@@ -20,6 +20,12 @@
     <system:Double x:Key="Space.10">40</system:Double>
     <system:Double x:Key="Space.12">48</system:Double>
 
+    <!-- Capsule padding (a pill, chip or badge, radius = height / 2): the 12 px caption chip is 24 tall (8 x 4 around a
+         16 px line, so the ink sits about 8 from every edge); the 11 px label badge is 20 tall (6 x 3). One token per size,
+         used by every capsule. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
+
     <!-- Layout margins that more than one style needs, as tokens. -->
     <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
     <Thickness x:Key="Margin.DropZone">24,20</Thickness>

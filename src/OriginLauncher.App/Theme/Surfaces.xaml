@@ -48,11 +48,12 @@
         <Setter Property="Effect" Value="{StaticResource Shadow.Overlay}"/>
     </Style>
 
-    <!-- Chip: a small label on CardAlt (the Mods version tag). The text style goes inside it. -->
+    <!-- Chip: a small capsule label on CardAlt (the version tag). Radius.Full = height / 2, one shared capsule padding.
+         The text style goes inside it. -->
     <Style x:Key="Surface.Chip" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
-        <Setter Property="Padding" Value="8,2"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Full}"/>
+        <Setter Property="Padding" Value="{StaticResource Padding.Capsule}"/>
     </Style>
     <Style x:Key="Surface.ChipText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>

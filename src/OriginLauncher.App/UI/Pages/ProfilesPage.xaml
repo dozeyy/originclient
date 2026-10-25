@@ -16,7 +16,7 @@
         <Style x:Key="Card.New" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
-            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card.Neutral}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
