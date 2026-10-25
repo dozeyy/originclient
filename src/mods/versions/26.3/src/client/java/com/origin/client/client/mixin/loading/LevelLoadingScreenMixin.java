@@ -12,8 +12,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Singleplayer "loading terrain" (the chunk-progress map). HEAD-cancel takeover
-// -> the Origin loading scene (rings + title + a bar on the load tracker's real
-// progress) replaces the chunk map, matching the rest of the UI. Render is display-only; the
+// -> the Origin loading picture (the logo, the plain bar on the load tracker's real
+// progress, the stage caption) replaces the chunk map, matching the rest of the UI. Render is display-only; the
 // world-load logic runs off the render thread, so cancelling the draw is safe.
 // In the isolated required:false config -- if the target ever moves, this is
 // skipped instead of crashing the mod.

@@ -10,6 +10,7 @@
 		"CameraMixin",
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
+		"WidgetTooltipHolderMixin",
 		"ScreenInvoker",
 		"GuiGraphicsExtractorAccessor",
 		"GuiRenderStateAccessor",

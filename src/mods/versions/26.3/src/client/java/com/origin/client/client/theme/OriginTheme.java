@@ -112,8 +112,14 @@ public final class OriginTheme {
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
 	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
 	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
-	public static final int CLEAN_BAR_TRACK = 0x29FFFFFF;      // loading bar track, white 16%
-	public static final int CLEAN_BAR_FILL = 0xEBFFFFFF;       // loading bar fill, white 92%
+	// The loading picture (render/LoadingLook, 1.21.1's values, Will 2026-10-25): the capsule
+	// progress bar's hairline track and emerald fill, and the stage caption (textMuted at the
+	// title's small em). No ring/orbit tokens: Origin's UI draws no rings anywhere; the only
+	// ring shapes are inside origin_logo.png (drawn look-alikes read as a fake logo).
+	public static final int CLEAN_BAR_TRACK = 0x14FFFFFF;      // progress bar track, white 8 %
+	public static final int CLEAN_BAR_FILL = 0xFF5FD09B;       // progress bar fill, emerald accent
+	public static final int TITLE_TEXT_MUTED = 0x85F1E9D2;     // textMuted: the loading caption
+	public static final float TITLE_SMALL_EM = 8.0f;           // GUI px: the loading caption's em
 
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;
