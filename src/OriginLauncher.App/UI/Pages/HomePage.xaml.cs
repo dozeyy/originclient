@@ -1517,6 +1517,17 @@ public partial class HomePage : UserControl
         StatusText.TextWrapping = isError ? TextWrapping.Wrap : TextWrapping.NoWrap;
         StatusText.MaxHeight = isError ? (double)FindResource("Size.StatusLinesMax") : double.PositiveInfinity;
         StatusText.ToolTip = isError ? text : null;
+        // The row must stay one line tall: a fixed Height on the row would also cap the text's own measure at one
+        // line, so instead the extra lines are cancelled out with a negative margin (half above, half below) and
+        // the layout still sees a single 16 px line.
+        var line = (double)FindResource("Size.StatusLine");
+        StatusText.Margin = new Thickness(0);
+        if (isError)
+        {
+            StatusText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var extra = Math.Max(0, StatusText.DesiredSize.Height - line);
+            StatusText.Margin = new Thickness(0, -extra / 2, 0, -extra / 2);
+        }
         // Ready is the family accent (an indicator, so the one hue may show); the
         // rest keep their status colours. By reference: FamilyTheme swaps Brush.Acc.
         var brushKey = tone switch
