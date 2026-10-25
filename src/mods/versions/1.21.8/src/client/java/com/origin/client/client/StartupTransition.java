@@ -13,7 +13,7 @@ import com.origin.client.client.theme.OriginTheme;
  * once the world loads") — the world appears the frame it is ready.
  *
  * Render thread only. Everything in the hand-off counts on ONE clock,
- * {@link #clockMs}: the scene clock the loading mark, its flight and the rings
+ * {@link #clockMs}: the scene clock the loading mark, its flight and the bar
  * run on. The dissolve, the flight and the title's entrance used to read two
  * different clocks, so a slow frame at the hand-off (the main menu's first
  * frame) moved one and not the other and the picture jumped (Will 2026-10-18).
@@ -55,11 +55,11 @@ public final class StartupTransition {
 	}
 
 	/**
-	 * The hand-off's clock in ms (never 0): RingField's scene clock, which glides
+	 * The hand-off's clock in ms (never 0): SceneClock's scene clock, which glides
 	 * through uneven frames and drops a freeze instead of jumping past it.
 	 */
 	public static long clockMs() {
-		return 1L + (long) com.origin.client.client.render.RingField.sceneMs();
+		return 1L + (long) com.origin.client.client.render.SceneClock.sceneMs();
 	}
 
 	/**

@@ -59,7 +59,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // PER-VERSION (1.21.6+, deferred GUI): Screen.render no longer draws the
 // screen's backdrop — vanilla submits renderBackground as its own stratum
 // first — so the screen beneath is drawn as renderBackground, nextStratum,
-// render (the title's rings come from TitleScreenMixin's render-HEAD draw, so
+// render (the title's backdrop comes from TitleScreenMixin's render-HEAD draw, so
 // for it the background call is covered and harmless). There is no flush:
 // renderLoadingFade opens a fresh stratum over everything submitted here. Once
 // the screen is submitted this frame always cancels, so vanilla's own render

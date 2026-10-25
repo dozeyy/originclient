@@ -3,6 +3,7 @@
 	"package": "com.origin.client.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"WidgetTooltipHolderMixin",
 		"CosmeticCapeMixin",
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",

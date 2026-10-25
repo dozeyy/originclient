@@ -56,9 +56,10 @@ import java.util.List;
 // splash. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
 // only REPOSITIONED (clicks and actions untouched) and draw as stock
 // Minecraft buttons; the icon row draws vanilla's button sprite with Origin's
-// icon on top (OriginButtonRenderer.vanillaIconButton). Every icon square gets a
-// one-line tooltip saying what it does (vanilla Tooltip); worded buttons get
-// none -- their label already says it (Will, 2026-10-19). Mods / Friends /
+// icon on top (OriginButtonRenderer.vanillaIconButton). Every icon square carries a
+// one-line tooltip saying what it does, but it is only narrated, never drawn
+// (WidgetTooltipHolderMixin, Will 2026-10-25); worded buttons get none -- their
+// label already says it (Will, 2026-10-19). Mods / Friends /
 // Cosmetics are Origin's, added as real widgets through ScreenInvoker. Mod
 // Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
 // screen event after our init hook, which also bumps buttons -- so positions
@@ -258,14 +259,13 @@ public class TitleScreenMixin {
 	@Unique
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
 		OriginButtonRenderer.setTitlePresentation(w, icon, true);
-		originclient$tip(w, tip);
-	}
-
-	/** The launcher's hover line: one short plain sentence saying what the button does. */
-	@Unique
-	private static void originclient$tip(AbstractWidget w, String tip) {
 		if (w != null) {
-			w.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip)));
+			// Narrated, never drawn (WidgetTooltipHolderMixin; a hover card beside a dock glyph
+			// read as a second button, Will 2026-10-25). Registered by the object itself: this
+			// era's AbstractWidget has no getTooltip() (javap 1.21.6-1.21.11).
+			net.minecraft.client.gui.components.Tooltip t = net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip));
+			w.setTooltip(t);
+			OriginButtonRenderer.setDockTip(t);
 		}
 	}
 
