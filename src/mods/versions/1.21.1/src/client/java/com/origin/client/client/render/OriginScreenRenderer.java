@@ -653,7 +653,9 @@ public final class OriginScreenRenderer {
 	static void drawLogo(GuiGraphics g, double cx, double cy, double size, float alpha) {
 		int gs = com.origin.client.client.gui.OriginSurface.scale();
 		int ps = (int) Math.round(size * gs);
+		long tl = com.origin.client.client.OriginFrameLog.partStart();
 		ResourceLocation id = logoAt(ps);
+		com.origin.client.client.OriginFrameLog.part("o:logo-tex", tl);
 		if (id == null) {
 			OriginUi.logo(g, cx, cy, (int) Math.round(size), alpha);
 			return;
@@ -692,6 +694,10 @@ public final class OriginScreenRenderer {
 		try {
 			// The loading size was baked ahead on the loading-prep thread (B-30).
 			NativeImage baked = LoadingPrep.takeLogoBaked(ps);
+			if (com.origin.client.client.OriginFrameLog.ENABLED) {
+				com.origin.client.client.OriginFrameLog.mark("logo prep " + (baked != null ? "hit" : "miss") + " at " + ps
+						+ " px (prepared " + LoadingPrep.preparedLogoPs() + ")");
+			}
 			if (baked != null) {
 				id = registerBaked(baked, "logo_px_" + ps, false);
 				LOGO_SIZES.put(ps, id);
@@ -1191,6 +1197,9 @@ public final class OriginScreenRenderer {
 			// Decoded and measured ahead on the loading-prep thread (B-30); else here.
 			NativeImage image = LoadingPrep.takeSheet();
 			int[] widths = LoadingPrep.takeWidths();
+			if (com.origin.client.client.OriginFrameLog.ENABLED) {
+				com.origin.client.client.OriginFrameLog.mark("boot font prep " + (image != null && widths != null ? "hit" : "miss"));
+			}
 			if (image == null || widths == null) {
 				if (image != null) {
 					image.close();
@@ -1259,7 +1268,10 @@ public final class OriginScreenRenderer {
 	 */
 	static void bootText(GuiGraphics g, String text, double x, double top, float scale, int tracking,
 								 int argb, float anchor) {
-		if (text == null || text.isEmpty() || !ensureBootFont()) {
+		long tf = com.origin.client.client.OriginFrameLog.partStart();
+		boolean font = ensureBootFont();
+		com.origin.client.client.OriginFrameLog.part("o:font-tex", tf);
+		if (text == null || text.isEmpty() || !font) {
 			return;
 		}
 		// Widths in font px: a glyph advances (sheet width + 1) * unit, as drawBootText does.

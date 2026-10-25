@@ -138,6 +138,11 @@ public final class LoadingPrep {
 		return s;
 	}
 
+	/** The size the worker baked the logo at (0 = none yet); dev frame log only. */
+	static synchronized int preparedLogoPs() {
+		return logoBakedPs;
+	}
+
 	static synchronized int[] takeWidths() {
 		int[] w = widths;
 		widths = null;
