@@ -89,8 +89,9 @@ h2 span, h1 span { color: var(--muted); }
 .top.is-solid { background: rgba(10, 10, 11, .72); backdrop-filter: blur(16px); box-shadow: inset 0 -1px 0 var(--soft); }
 .top.is-hidden { transform: translateY(-100%); }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; justify-self: start; min-height: 44px; min-width: 44px; justify-content: center; }
-.brand__mark { width: 28px; height: 28px; stroke-width: 11; }
-.brand__word { font: 700 19px/1 var(--sans); letter-spacing: -.03em; }
+.brand__mark { width: 32px; height: 32px; flex: none; }
+/* The real wordmark file (glow baked in, so it needs no filter). */
+.brand__word { width: 107px; height: 22px; flex: none; }
 .top__nav { display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: rgba(20, 20, 22, .6); backdrop-filter: blur(16px); box-shadow: inset 0 0 0 1px var(--soft); }
 .top__nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; color: var(--dim); font: 600 14px/1 var(--sans); text-decoration: none; transition: color .2s, background-color .2s; }
 .top__nav a:hover { color: var(--text); }
@@ -248,7 +249,7 @@ h2 span, h1 span { color: var(--muted); }
 @keyframes pulse { 50% { opacity: .25; } }
 
 /* C: your own mods, snapped in beside Origin's */
-.tm { color: #ececec; stroke-width: 12; }
+.tm { opacity: .92; }
 .mod--yours { animation: mod-in 5.5s var(--ease) infinite backwards; }
 @keyframes mod-in { 0%, 8% { transform: translateX(110px); opacity: 0; } 30%, 88% { transform: none; opacity: 1; } 100% { transform: none; opacity: 0; } }
 .mod--ring { transform-box: fill-box; transform-origin: center; animation: mod-ring 5.5s ease-out infinite backwards; opacity: 0; }
@@ -308,10 +309,9 @@ h2 span, h1 span { color: var(--muted); }
   .top__nav { margin-left: auto; }
   .top__nav a:not(.nav-store):not(.nav-home) { display: none; }
   .top__action { justify-self: auto; }
-  .brand__word { display: none; }
   .hero { align-items: flex-end; padding-bottom: 48px; }
   /* The copy sits low over the island here: a deeper pool behind it, and a fade
-     under the (still clear) header so the island's rings don't cut through its buttons. */
+     under the (still clear) header so the island's mark doesn't cut through its buttons. */
   .hero::before { background: radial-gradient(ellipse 95% 48% at 24% 78%, rgba(6, 6, 7, .78), rgba(6, 6, 7, 0) 100%); }
   .top:not(.is-solid) { background: linear-gradient(rgba(6, 6, 7, .85), rgba(6, 6, 7, 0)); }
   .hero__copy { --col: min(70cqw, 600px); }
@@ -324,13 +324,13 @@ h2 span, h1 span { color: var(--muted); }
 @media (max-width: 560px) {
   .bento { grid-template-columns: minmax(0, 1fr); }
   .bcard--b, .bcard--c, .bcard--d, .bcard--e, .bcard--f { grid-column: 1 / -1; }
-  .brand__word { display: block; }
   .top__nav a { padding: 0 14px; }
   .btn--sm { padding: 0 16px; }
   .hero__copy { --col: 100cqw; }
   .hero__actions .btn { --bh: 50px; padding: 0 12px; gap: 8px; font-size: 15px; }
 }
-@media (max-width: 380px) { .brand__word { display: none; } }
+/* The wordmark file is wider than the old text was: phones keep just the mark so Store + Download fit. */
+@media (max-width: 479px) { .brand__word { display: none; } }
 
 /* ---------- page transitions ---------- */
 /* Cross-document View Transitions (Chromium, Safari 26): the header, brand

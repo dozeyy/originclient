@@ -10,7 +10,9 @@
   <meta property="og:title" content="Origin Store">
   <meta property="og:description" content="Capes, wings, hats and more for Origin Client.">
   <meta property="og:type" content="website">
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="assets/favicon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/site.css">
@@ -19,24 +21,13 @@
   <script type="module" src="js/store.js"></script>
 </head>
 <body class="page-store">
-  <!-- Brand geometry (same symbols as index.html). -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="mark" viewBox="0 0 200 200">
-      <g fill="none" stroke="currentColor">
-        <ellipse cx="100" cy="100" rx="90" ry="32"/>
-        <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
-        <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
-      </g>
-    </symbol>
-  </svg>
-
   <a class="skip" href="#main">Skip to content</a>
   <div class="backdrop" aria-hidden="true"></div>
 
   <header class="top is-solid" data-top>
     <a class="brand" href="./" aria-label="Origin, home">
-      <svg class="brand__mark"><use href="#mark"/></svg>
-      <span class="brand__word">Origin</span>
+      <img class="brand__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-32.png 1x, assets/origin-logo-64.png 2x, assets/origin-logo-128.png 3x" width="32" height="32" alt="Origin" decoding="async">
+      <img class="brand__word" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="107" height="22" alt="" decoding="async">
     </a>
     <nav class="top__nav" aria-label="Pages">
       <a href="./" class="nav-home">Home</a>
@@ -140,7 +131,7 @@
             <img class="plus__cape" data-plus-cape alt="The Origin+ cape: the three rings and a plus sign on a dark cape." width="160" height="256" hidden>
           </div>
           <div class="plus__body">
-            <h2 class="plus__title" id="plus-title"><svg class="plus__mark" aria-hidden="true"><use href="#mark"/></svg>Origin+</h2>
+            <h2 class="plus__title" id="plus-title"><img class="plus__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-64.png 1x, assets/origin-logo-128.png 2x" width="36" height="36" alt="" aria-hidden="true">Origin+</h2>
             <p class="plus__lede">Cosmetic perks, never a gameplay advantage.</p>
 
             <ul class="plus__perks">
@@ -190,7 +181,7 @@
   </div>
 
   <footer class="foot">
-    <a class="brand" href="./" aria-label="Origin, home"><svg class="brand__mark"><use href="#mark"/></svg><span class="brand__word">Origin</span></a>
+    <a class="brand" href="./" aria-label="Origin, home"><img class="brand__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-32.png 1x, assets/origin-logo-64.png 2x, assets/origin-logo-128.png 3x" width="32" height="32" alt="Origin" decoding="async"><img class="brand__word" loading="lazy" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="107" height="22" alt="" decoding="async"></a>
     <p>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft. Checkout and payments by Stripe.</p>
     <nav><a href="./">Home</a><a href="terms">Terms &amp; Privacy</a><span>© 2026 Origin Client</span></nav>
   </footer>

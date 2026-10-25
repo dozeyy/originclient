@@ -62,7 +62,7 @@
       flex: none; width: 44px; height: 44px; display: grid; place-items: center;
       background: var(--card-alt); border: 1px solid var(--soft); border-radius: 2px;
     }
-    .icon svg { width: 26px; height: 26px; color: var(--text); filter: drop-shadow(0 0 3px rgba(241, 233, 210, .35)); }
+    .icon img { width: 30px; height: 30px; display: block; filter: drop-shadow(0 0 3px rgba(241, 233, 210, .35)); }
     .copy { flex: 1; min-width: 0; }
     .copy > * { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .eyebrow { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
@@ -76,11 +76,7 @@
 
   <a id="house" href="https://originclient.org/" target="_blank" rel="noopener">
     <span class="icon" aria-hidden="true">
-      <svg viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="7">
-        <ellipse cx="100" cy="100" rx="90" ry="32"/>
-        <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
-        <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
-      </svg>
+      <img src="../assets/origin-logo-64.png" srcset="../assets/origin-logo-64.png 1x, ../assets/origin-logo-128.png 2x" width="30" height="30" alt="">
     </span>
     <span class="copy">
       <span class="eyebrow">ORIGIN</span>
