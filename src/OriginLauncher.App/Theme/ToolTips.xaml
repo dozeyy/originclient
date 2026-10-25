@@ -4,7 +4,9 @@
     <!-- Hover labels (the small text that says what an icon-only control does). The Windows default is a light
          system tip; this is the launcher's own raised surface, built only from the Colors / Typography /
          Spacing tokens, so a theme swap restyles every tip with the rest of the app. Flat on purpose: no drop
-         shadow (HasDropShadow=False also keeps the popup a plain window, so it opens instantly). Timing and
+         shadow (HasDropShadow=False also keeps the popup a plain window, so it opens instantly).
+         Spec (phase 3, U3.7b): Card fill, 1 px strong line, Radius.Sm, 6 x 8 padding, caption type, at most 240 wide.
+         Only four controls carry a label at all: Import, Friends, Minimize and Close. Timing and
          placement are in UI/ToolTipDefaults.cs (ToolTipService is read from the control that owns the tip, so
          a ToolTip style cannot set them). -->
     <Style TargetType="ToolTip">
@@ -20,9 +22,9 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ToolTip">
                     <Border Background="{StaticResource Brush.Card}"
-                            BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Sm}" Padding="8,4"
-                            MaxWidth="320" SnapsToDevicePixels="True">
+                            BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Sm}" Padding="8,6"
+                            MaxWidth="240" SnapsToDevicePixels="True">
                         <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"
                                           TextElement.FontFamily="{TemplateBinding FontFamily}"
                                           TextElement.FontSize="{TemplateBinding FontSize}">

@@ -29,6 +29,12 @@
          so a tall dialog never slides under the bar. -->
     <Thickness x:Key="Margin.Dialog">24,72,24,24</Thickness>
 
+    <!-- A popup (menu, dropdown list) is a transparent window, so Shadow.Overlay needs empty room around the panel to
+         draw into. Popup.Bleed is that room (left, top, right, bottom); Popup.OffsetX shifts the window left by the
+         same amount so the PANEL still lines up with its anchor. Top is 4 so the panel opens 4 px below the anchor. -->
+    <Thickness x:Key="Popup.Bleed">16,4,16,28</Thickness>
+    <system:Double x:Key="Popup.OffsetX">-16</system:Double>
+
     <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
     <system:Double x:Key="Size.ControlSm">28</system:Double>
     <system:Double x:Key="Size.ControlMd">32</system:Double>
@@ -90,6 +96,10 @@
     <CornerRadius x:Key="Radius.Full">999</CornerRadius>
     <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
     <system:Double x:Key="Radius.Lg.Value">12</system:Double>
+    <!-- Capsule (Will, 2026-10-25): an Apple-style pill, corners Radius.Full, with equal ink on all four sides. The text sits
+         in a 16 line (LineHeight.Caption): Padding.Capsule.Sm (6,3) makes a 22 tall pill, Padding.Capsule (8,4) a 24 tall one. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->

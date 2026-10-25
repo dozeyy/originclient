@@ -12,6 +12,8 @@ public sealed class InstallOptions
     public bool StartWithWindows { get; set; }
     public int? RamMb { get; set; }
     public string? DefaultVersion { get; set; }
+    /// <summary>Settings Sync turned on/off on the Customize page; null = the player left it as it was.</summary>
+    public bool? SettingsSync { get; set; }
     /// <summary>Install from this launcher zip instead of downloading (CI's smoke test: the zip it just built).</summary>
     public string? SourceZip { get; set; }
 }
@@ -77,7 +79,7 @@ public static class Installer
                            Action<InstallProgress> report, CancellationToken ct, HttpClient? http = null)
     {
         var dir = options.Directory;
-        SetupLog.Write($"install -> {dir} (source={options.SourceZip ?? "download"}, startup={options.StartWithWindows}, ram={options.RamMb?.ToString() ?? "default"}, version={options.DefaultVersion ?? "default"})");
+        SetupLog.Write($"install -> {dir} (source={options.SourceZip ?? "download"}, startup={options.StartWithWindows}, ram={options.RamMb?.ToString() ?? "default"}, version={options.DefaultVersion ?? "default"}, settingsSync={options.SettingsSync?.ToString() ?? "unchanged"})");
         report(new InstallProgress(InstallStage.Preparing, 0, version: release?.Version));
 
         var problem = InstallLocation.Problem(dir, InstallLocation.ProtectedRoots())
@@ -105,7 +107,7 @@ public static class Installer
         Shortcuts.Create(Shortcuts.DesktopPath, exe, "Origin — the Minecraft launcher for every version");
         Registration.Write(dir, version);
         InstallRegistry.SetStartWithWindows(options.StartWithWindows, exe);
-        Handoff.Write(options.RamMb, options.DefaultVersion);
+        Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync);
 
         SetupLog.Write($"install complete ({version})");
         report(new InstallProgress(InstallStage.Done, 1, version: version));

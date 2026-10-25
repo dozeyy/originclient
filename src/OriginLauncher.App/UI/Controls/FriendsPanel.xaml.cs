@@ -825,7 +825,9 @@ public partial class FriendsPanel : UserControl
         CloseMenu();
         menu.PlacementTarget = target;
         menu.Placement = atMouse ? PlacementMode.MousePoint : PlacementMode.Bottom;
-        menu.HorizontalOffset = atMouse ? 0 : Math.Min(0, target.ActualWidth - 196);
+        // Popup.OffsetX: the menu window carries a transparent bleed for its shadow (Theme/Menus.xaml); shifting by it
+        // keeps the visible panel on the anchor. A local offset replaces the style's, so it is added here.
+        menu.HorizontalOffset = (atMouse ? 0 : Math.Min(0, target.ActualWidth - 196)) + (double)FindResource("Popup.OffsetX");
         menu.Opened += (_, _) =>
         {
             if (ReferenceEquals(_menu, menu)) _menuOpen = true;
