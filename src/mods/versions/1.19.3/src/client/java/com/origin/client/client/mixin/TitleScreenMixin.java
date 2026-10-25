@@ -45,29 +45,31 @@ import java.util.function.BiConsumer;
 //
 //                            (logo)
 //                            ORIGIN
-//                 [        Singleplayer        ]   200 x 20, vanilla
+//                 [        Singleplayer        ]   200 x 20, Workbench card (radius 3, Inter 600)
 //                 [        Multiplayer         ]
 //                 [   Options    ][    Mods    ]
 //
-//     [realms][friends][cosmetics][lang][access][quit]   20 x 20 vanilla squares
-//                                  Copyright Mojang AB. Do not distribute!
+//     realms friends cosmetics lang access quit          12 px parchment glyphs on 20 x 20 Workbench cards
+//     Minecraft 1.21.1 . Origin (middle dot)     Copyright Mojang AB. Do not distribute!
 //
 // Background: THIS version's own Mojang panorama (vanilla's draw, routed to
 // Origin's one shared PanoramaRenderer so it keeps turning into the other
-// menus), blurred and dimmed in place of vanilla's overlay blit. No version
-// line, no splash. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own
-// widgets are only REPOSITIONED (clicks and actions untouched) and draw as
-// stock Minecraft buttons; the icon row draws vanilla's button art with
-// Origin's icon on top (OriginButtonRenderer.vanillaIconButton). Every icon
-// square carries a one-line tooltip saying what it does, narrated but never
-// drawn (Will, 2026-10-25: a hover card read as a second button); worded
-// buttons get none -- their label already says it (Will, 2026-10-19). Mods /
-// Friends / Cosmetics are Origin's, added as real widgets through
-// ScreenInvoker. Mod Menu's own "Mods" button is hidden every frame (it is
-// added by Mod Menu's screen event after our init hook, which also bumps
-// buttons -- so positions are re-applied every frame). The copyright line is
-// vanilla's, where vanilla puts it. Everything is fail-soft: a throw leaves
-// vanilla's layout in place.
+// menus), blurred and dimmed in place of vanilla's overlay blit. No splash. Footer: the
+// version line left and the real copyright button right, both textMuted in
+// Inter (Minecraft's font when Inter is not live), 6 GUI px from the bottom. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
+// only REPOSITIONED (clicks and actions untouched) and draw as stock
+// Workbench panels (OriginButtonRenderer skin 2: titleControl, registered below
+// with setTitleButton); the dock is the same card with a glyph (setTitleDock).
+// Both fall back to the stock vanilla button on a draw failure or when the
+// Main Menu Style is vanilla. Every dock glyph carries a one-line tooltip saying what it does, for narration only:
+// it is never drawn (AbstractWidgetTooltipMixin; a hover card beside the dock read as a second button, Will
+// 2026-10-25). Worded buttons get none -- their label already says it (Will, 2026-10-19). Mods / Friends /
+// Cosmetics are Origin's, added as real widgets through ScreenInvoker. Mod
+// Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
+// screen event after our init hook, which also bumps buttons -- so positions
+// are re-applied every frame). The copyright line is vanilla's own clickable
+// widget, re-seated bottom-right and drawn in Inter (PlainTextButtonMixin). No
+// title tooltip skin on this era (see OriginButtonRenderer's header). Everything is fail-soft: a throw leaves vanilla's layout in place.
 //
 // 1.19.3 era: no GuiGraphics (Gfx over the PoseStack), no SpriteIconButton
 // (Language / Accessibility are ImageButtons, told apart by their translation
@@ -202,18 +204,17 @@ public class TitleScreenMixin {
 		instance.render(partialTick, alpha);
 	}
 
-	// One Gfx reused across frames (it only wraps a PoseStack reference): the title
-	// screen hands the same PoseStack every frame, so this allocates once, not per
-	// frame. Rebuilt only if the PoseStack instance ever differs.
+	// One Gfx for the life of the game (it only wraps a PoseStack reference). Pre-1.20 hands each
+	// frame a NEW PoseStack, so the wrapper is re-pointed with rebind, never rebuilt: no per-frame allocation.
 	private static Gfx originclient$gfxCache;
 
 	private static Gfx originclient$gfx(PoseStack poseStack) {
 		Gfx g = originclient$gfxCache;
-		if (g == null || g.pose() != poseStack) {
+		if (g == null) {
 			g = new Gfx(poseStack);
 			originclient$gfxCache = g;
 		}
-		return g;
+		return g.rebind(poseStack);
 	}
 
 	// The logo draws in raw GUI space on a fresh identity pose; one is kept and
@@ -295,12 +296,84 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// No bottom version line (the only drawString in render()).
+	// Footer, left half: vanilla's bottom-left version line (drawn pure white, 2 px in) becomes
+	// "Minecraft <version> (U+00B7 middle dot) Origin" ( A-Workbench-3) in textMuted Inter (DECISIONS 2026-10-25; Minecraft's font when Inter is not live), 6 GUI px
+	// from the bottom (DESIGN-SYSTEM 15.2). `color` carries vanilla's fade-in alpha, which rides along.
+	// The right half is the real copyright button: originclient$footerButton below.
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/screens/TitleScreen;drawString(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"))
-	private void originclient$noVersion(PoseStack poseStack, Font font, String text, int x, int y, int color) {
+	private void originclient$footerLeft(PoseStack poseStack, Font font, String text, int x, int y, int color) {
 		if (!originclient$origin()) {
 			GuiComponent.drawString(poseStack, font, text, x, y, color);
+			return;
+		}
+		String line = originclient$footerLine;
+		if (line == null) {
+			// Built once: the game version never changes while the screen lives.
+			originclient$footerVersion = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().getName();
+			line = originclient$footerVersion + " " + (char) 0xB7 + " Origin";   // middle dot by code point: sources stay ASCII
+			originclient$footerLine = line;
+		}
+		int top = ((Screen) (Object) this).height - TitleLayout.FOOTER_TOP;
+		int argb = OriginButtonRenderer.footerColor(false, color);
+		Gfx g = originclient$gfx(poseStack);
+		if (OriginButtonRenderer.titleTextActive()) {
+			// Inter, like the buttons (judge 2026-10-25: one typeface on the title); the dot is drawn, not a glyph.
+			OriginButtonRenderer.drawTitleFooterLine(g, originclient$footerVersion, "Origin", TitleLayout.CORNER, top, argb);
+			return;
+		}
+		g.drawString(font, line, TitleLayout.CORNER, top, argb, true);
+	}
+
+	// The footer strings, cached on first draw (they were rebuilt every frame): the whole vanilla-font line,
+	// and its "Minecraft <version>" half for the Inter line (which draws its middle dot itself).
+	@Unique
+	private String originclient$footerLine;
+	@Unique
+	private String originclient$footerVersion;
+
+	@Unique
+	private PlainTextButton originclient$copyright;
+	// The copyright button's width in Inter (measured once per init; -1 = not yet) and vanilla's own width.
+	@Unique
+	private int originclient$copyrightW = -1, originclient$copyrightVanillaW = -1;
+
+	// The copyright line stays vanilla's real clickable PlainTextButton (credits screen); Origin only
+	// registers it (PlainTextButtonMixin recolours it to textMuted) and re-seats it bottom-right, 6 px in.
+	@Inject(method = "init", at = @At("TAIL"))
+	private void originclient$footerButton(CallbackInfo ci) {
+		originclient$copyright = null;
+		originclient$copyrightW = -1;
+		originclient$copyrightVanillaW = -1;
+		if (!originclient$origin()) {
+			return;
+		}
+		for (GuiEventListener child : ((Screen) (Object) this).children()) {
+			if (child instanceof PlainTextButton b) {
+				originclient$copyright = b;
+				originclient$copyrightVanillaW = b.getWidth();
+				OriginButtonRenderer.setTitleFooter(b);
+			}
+		}
+	}
+
+	// Every frame, before the widgets draw: Mod Menu's screen event shifts buttons after our init, so
+	// the footer button's seat is re-applied like the nav and dock positions are.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$footerSeat(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		PlainTextButton b = originclient$copyright;
+		if (b != null && originclient$origin()) {
+			Screen self = (Screen) (Object) this;
+			if (OriginButtonRenderer.titleTextActive()) {
+				// The hit box follows the Inter text (PlainTextButtonMixin draws it), so the right edge stays CORNER in.
+				if (originclient$copyrightW < 0) {
+					originclient$copyrightW = OriginButtonRenderer.titleFooterWidth(b.getMessage().getString());
+				}
+				b.setWidth(originclient$copyrightW);
+			} else if (originclient$copyrightVanillaW > 0) {
+				b.setWidth(originclient$copyrightVanillaW);
+			}
+			b.setPosition(self.width - b.getWidth() - TitleLayout.CORNER, self.height - TitleLayout.FOOTER_TOP);
 		}
 	}
 
@@ -316,7 +389,7 @@ public class TitleScreenMixin {
 		}
 		for (GuiEventListener child : self.children()) {
 			// Any Mod Menu "Mods" button already present: hidden. The copyright line
-			// (PlainTextButton) stays where vanilla puts it, bottom-right.
+			// (PlainTextButton) is left out of the layout; originclient$footerSeat seats it.
 			if (originclient$isForeignMods(child) && child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;
@@ -349,10 +422,24 @@ public class TitleScreenMixin {
 				|| net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
 	}
 
-	/** Icon-only square: vanilla's button with the Origin symbol; what it does is narrated, never drawn. */
+	/** Dock action: the worded buttons' card with a parchment glyph; what it does is its (narrated, never drawn) tooltip. */
 	@Unique
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
-		OriginButtonRenderer.setTitlePresentation(w, icon, true);
+		OriginButtonRenderer.setTitleDock(w, icon);
+		originclient$tip(w, tip);   // registers the Tooltip as a dock tip: narrated, never drawn
+	}
+
+	/** Worded button on the Workbench panel, with its optional 8 px leading glyph (null = none). */
+	@Unique
+	private static void originclient$worded(AbstractWidget w, String icon) {
+		if (w != null) {
+			OriginButtonRenderer.setTitleButton(w, icon);
+		}
+	}
+
+	/** The launcher's hover line: one short plain sentence saying what the button does. */
+	@Unique
+	private static void originclient$tip(AbstractWidget w, String tip) {
 		if (w != null) {
 			net.minecraft.client.gui.components.Tooltip tooltip = net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip));
 			OriginButtonRenderer.setDockTip(tooltip);   // narrated, never drawn (AbstractWidgetTooltipMixin)
@@ -362,7 +449,7 @@ public class TitleScreenMixin {
 
 	/**
 	 * The layout: Singleplayer and Multiplayer as full rows, Options | Mods as a
-	 * pair, and a centred row of 20px vanilla squares at the bottom (Realms,
+	 * pair, and a centred row of 20px dock cards at the bottom (Realms,
 	 * Friends, Cosmetics, Language, Accessibility, Quit last). Every vanilla
 	 * button is found by its label's translation key; Singleplayer and
 	 * Multiplayer always take the first two (full-width) rows, so a mod's button
@@ -447,6 +534,12 @@ public class TitleScreenMixin {
 			if (options != null) {
 				options.setMessage(Component.translatable("options.title"));   // "Options", sentence case
 			}
+			for (int i = 0; i < full.size(); i++) {
+				AbstractWidget w = full.get(i);
+				originclient$worded(w, w == single ? "@title-singleplayer" : w == multi ? "@title-multiplayer" : null);
+			}
+			originclient$worded(options, "@title-options");
+			originclient$worded(originclient$modsNav, "@title-mods");
 			// Worded buttons say what they do already: no tooltip (Will, 2026-10-19:
 			// "dont have the hover tells what it dos for the worded ones only the icons").
 			if (options != null && originclient$modsNav != null) {
@@ -456,11 +549,11 @@ public class TitleScreenMixin {
 				originclient$place(options != null ? options : originclient$modsNav, L.mainX, y, L.mainW, L.buttonH, true);
 			}
 
-			// Bottom row of vanilla squares, Quit at its end.
+			// Bottom row of bare glyphs (20 x 20 hit boxes), Quit at its end.
 			List<AbstractWidget> dock = new ArrayList<>();
 			if (realms != null) {
 				if (originclient$REALMS_WORKS) {
-					originclient$iconOnly(realms, "@px-realms", "Play on Minecraft Realms");
+					originclient$iconOnly(realms, "@title-realms", "Play on Minecraft Realms");
 					dock.add(realms);
 				} else {
 					// Realms only joins on the latest release (see REALMS_WORKS): hide the dead button, keep the slot out of the dock
@@ -469,25 +562,25 @@ public class TitleScreenMixin {
 				}
 			}
 			if (originclient$friendsNav != null) {
-				originclient$iconOnly(originclient$friendsNav, "@px-friends", "Friends: see who is online and join them");
+				originclient$iconOnly(originclient$friendsNav, "@title-multiplayer", "Friends: see who is online and join them");
 				dock.add(originclient$friendsNav);
 			}
 			if (originclient$cosmeticsNav != null) {
-				originclient$iconOnly(originclient$cosmeticsNav, "@px-shirt", "Cosmetics: capes and more for your player");
+				originclient$iconOnly(originclient$cosmeticsNav, "@shirt", "Cosmetics: capes and more for your player");
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : images) {
 				// narrator.button.language / narrator.button.accessibility
 				String key = originclient$translationKey(icon.getMessage());
 				if (key.endsWith(".language")) {
-					originclient$iconOnly(icon, "@px-language", "Change the game's language");
+					originclient$iconOnly(icon, "@title-language", "Change the game's language");
 				} else if (key.endsWith(".accessibility")) {
-					originclient$iconOnly(icon, "@px-access", "Accessibility settings");
+					originclient$iconOnly(icon, "@title-accessibility", "Accessibility settings");
 				}
 				dock.add(icon);
 			}
 			if (quit != null) {
-				originclient$iconOnly(quit, "@px-quit", "Quit the game");
+				originclient$iconOnly(quit, "@title-quit", "Quit the game");
 				dock.add(quit);
 			}
 			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
