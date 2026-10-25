@@ -33,6 +33,14 @@
 #    1.16.5 (Java 8) is NOT pinned: with runClient on a JDK 8 launcher the game dies with
 #    "Could not find or load main class net.fabricmc.devlaunchinjector.Main"
 #    (run 39254422987); it needs a dev-classpath fix first.
+#  - COVERED VERSIONS (input `covers`): one module jar serves several Minecraft versions
+#    (live-modules.json "versions"). A normal row boots the module's PRIMARY version from source.
+#    A covers row boots what a player on a covered version actually runs: the module's BUILT jar
+#    + that Minecraft version + Fabric API (newest release, as FabricApiInstaller picks it) + every
+#    mod PerformanceModCatalog lists for that version, all production jars loaded through
+#    fabric.addMods by a source-less Loom project (tools/boot-smoke/covers.py). Same smoke.py gates:
+#    title reached, zero mixin-apply failures, Sodium + Iris loaded, Mod Menu + ImmediatelyFast at
+#    the catalog versions, the game JVM players use.
 #
 # Starts as manual (workflow_dispatch) so a flaky software-GL result can't block
 # merges. Promote to `on: pull_request` once it's proven stable per version.
@@ -53,9 +61,12 @@ on:
       companions:
         description: "true = also load the launcher's ImmediatelyFast + Mod Menu pins for the module (adds -PextraMods=run/extra-mods itself) and FAIL unless the loaded mod list names them at the catalog versions"
         default: "false"
+      covers:
+        description: "Covered versions to boot production-style (built module jar + that version's catalog mods + Fabric API): 'false', 'all' (every non-primary version of the picked modules), or a comma list of exact versions, e.g. 1.21.2,1.20.1. modules='none' runs covers rows only"
+        default: "false"
 
 concurrency:
-  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}
+  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}-${{ github.event.inputs.covers }}
   cancel-in-progress: true
 
 jobs:
@@ -68,12 +79,14 @@ jobs:
       - id: pick
         env:
           INPUT: ${{ github.event.inputs.modules }}
+          COVERS: ${{ github.event.inputs.covers }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import json, os
+          import json, os, re
           entries = json.load(open("src/mods/live-modules.json"))["modules"]
           raw = (os.environ.get("INPUT") or "all").strip()
-          want = None if raw == "all" else {x.strip() for x in raw.split(",")}
+          # 'none' = no primary rows (a covers-only run).
+          want = None if raw == "all" else {x.strip() for x in raw.split(",")} - {"none"}
           # Gradle itself needs JVM 21 (Loom 1.17) for every 1.x module; each still
           # emits its own bytecode level via options.release (1.8.9's runClient
           # launches on its pinned JDK 8). 26.x needs 25 ("java" in live-modules.json).
@@ -88,16 +101,41 @@ jobs:
           for m in entries:
               if want is not None and m["module"] not in want:
                   continue
-              row = {"version": m["module"], "java": m.get("java", "21")}
+              row = {"version": m["module"], "label": m["module"], "cover": "", "java": m.get("java", "21")}
               if m["module"] in RUN_JAVA:
                   row["run_java"] = RUN_JAVA[m["module"]]
               picked.append(row)
+          # covers rows: version = the covering module (built), cover = the Minecraft version booted.
+          # The game JVM is the covering module's (players on 1.20.1 run Java 17 like 1.20).
+          craw = (os.environ.get("COVERS") or "false").strip()
+          if craw not in ("", "false"):
+              def primary(mod):
+                  t = open("src/mods/versions/%s/gradle.properties" % mod).read()
+                  return re.search(r"^\s*minecraft_version\s*=\s*(\S+)", t, re.M).group(1)
+              owner = {v: m for m in entries for v in m.get("versions", [])}
+              if craw == "all":
+                  wanted = [v for m in entries if m["module"] != "1.8.9" and (not want or m["module"] in want)
+                            for v in m["versions"] if v != primary(m["module"])]
+              else:
+                  wanted = [x.strip() for x in craw.split(",") if x.strip()]
+              unknown = [v for v in wanted if v not in owner or owner[v]["module"] == "1.8.9"]
+              if unknown:
+                  raise SystemExit("boot-smoke: covers: not a covered Fabric version: %s" % ", ".join(unknown))
+              for v in wanted:
+                  m = owner[v]
+                  row = {"version": m["module"], "label": "%s (covered by %s)" % (v, m["module"]), "cover": v,
+                         "java": m.get("java", "21")}
+                  if m["module"] in RUN_JAVA:
+                      row["run_java"] = RUN_JAVA[m["module"]]
+                  picked.append(row)
+          if not picked:
+              raise SystemExit("boot-smoke: nothing to boot (modules=none and no covers)")
           print("modules=" + json.dumps(picked))
           EOF
 
   smoke:
     needs: plan
-    name: Boot ${{ matrix.version }}
+    name: Boot ${{ matrix.label }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -135,14 +173,40 @@ jobs:
       # The real pinned Sodium + Iris (see dev-shots.yml): without them the boot never touches the
       # @Pseudo Sodium/Iris mixins. Skipped for modules with no libs/ pins (1.21.1 gets them from Gradle).
       - name: Fetch pinned Sodium + Iris into libs/
+        if: ${{ matrix.cover == '' }}
         run: python3 tools/ci/perf_libs.py "src/mods/versions/${{ matrix.version }}"
 
       - name: Fetch the launcher's ImmediatelyFast + Mod Menu pins into run/extra-mods
-        if: github.event.inputs.companions == 'true'
+        if: ${{ github.event.inputs.companions == 'true' && matrix.cover == '' }}
         run: python3 tools/ci/companion_mods.py "src/mods/versions/${{ matrix.version }}"
 
       - name: Download dependencies + assets (retried on Maven 429 / timeouts)
+        if: ${{ matrix.cover == '' }}
         run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.version }}"
+
+      # covers rows: build the module's release jar (what the launcher ships for every version it covers),
+      # then a source-less Loom project for the covered version with that jar + the catalog's mods + Fabric API.
+      - name: Build the covering module's jar (${{ matrix.version }})
+        if: ${{ matrix.cover != '' }}
+        working-directory: src/mods/versions/${{ matrix.version }}
+        run: |
+          for attempt in 1 2 3; do
+            if sh ./gradlew build --no-daemon -x test \
+                 -Dorg.gradle.internal.repository.max.retries=6 \
+                 -Dorg.gradle.internal.repository.initial.backoff=1500 > gradle.log 2>&1; then
+              ls -l build/libs; exit 0
+            fi
+            tail -n 40 gradle.log
+            grep -qE "Could not (resolve|download|GET|HEAD|get resource)|Connection reset|Read timed out|Connect timed out|Remote host terminated|DownloadException|Failed to download" gradle.log || exit 1
+            sleep $((attempt * 20))
+          done
+          exit 1
+
+      - name: Prepare the covered-version boot (${{ matrix.cover }})
+        if: ${{ matrix.cover != '' }}
+        run: |
+          python3 tools/boot-smoke/covers.py "src/mods/versions/${{ matrix.version }}" "${{ matrix.cover }}" --out "build/covers/${{ matrix.cover }}"
+          bash tools/ci/gradle_prefetch.sh "build/covers/${{ matrix.cover }}"
 
       - name: Boot-smoke ${{ matrix.version }}
         env:
@@ -156,16 +220,21 @@ jobs:
           RUN_JAVA: ${{ matrix.run_java }}
           SMOKE_GRADLE_ARGS: ${{ github.event.inputs.gradle_args }}
           COMPANIONS: ${{ github.event.inputs.companions }}
+          COVER: ${{ matrix.cover }}
         run: |
           echo "Gradle JAVA_HOME=$JAVA_HOME"
           args=()
           if [ -n "$RUN_JAVA" ]; then args+=(--run-java "$RUN_JAVA"); fi
           m="src/mods/versions/${{ matrix.version }}"
-          if ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; then args+=(--perf); fi
+          if [ -n "$COVER" ]; then
+            # Named after the Minecraft version, so --companions checks that version's catalog row.
+            m="build/covers/$COVER"
+            args+=(--perf --companions)
+          elif ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; then args+=(--perf); fi
           for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
           # companions=true: load the jars companion_mods.py fetched AND require them in the mod list
           # (a module whose runClient lacks the -PextraMods hook used to download them, load nothing, and pass).
-          if [ "$COMPANIONS" = "true" ]; then args+=(--companions "--gradle-arg=-PextraMods=run/extra-mods"); fi
+          if [ "$COMPANIONS" = "true" ] && [ -z "$COVER" ]; then args+=(--companions "--gradle-arg=-PextraMods=run/extra-mods"); fi
           xvfb-run -a -s "-screen 0 1280x720x24" \
-            python3 tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
+            python3 tools/boot-smoke/smoke.py "$m" \
               --timeout "${{ github.event.inputs.timeout || 600 }}" "${args[@]}"
