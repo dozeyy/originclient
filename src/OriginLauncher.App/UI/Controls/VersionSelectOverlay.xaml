@@ -35,7 +35,7 @@
                                     <Image Source="{Binding Grey}" Stretch="UniformToFill"/>
                                     <Image x:Name="Colour" Source="{Binding Colour}" Stretch="UniformToFill" Opacity="0"/>
                                     <!-- The number set into the art (11.6): bottom-left, in a corner shade chosen for this art. -->
-                                    <controls:VersionCardNumeral Text="{Binding Number}" Range="{Binding ArtRange}" Strength="{Binding ScrimStrength}"/>
+                                    <controls:VersionCardNumeral Text="{Binding Number}" Range="{Binding ArtRange}" Strength="{Binding ScrimStrength}" Reach="{Binding ScrimReach}"/>
                                     <Rectangle x:Name="Bar" Height="3" VerticalAlignment="Bottom" Fill="{Binding Accent}" Opacity="0"/>
                                     <Border x:Name="CurrentTag" Visibility="{Binding CurrentVisibility}" Background="{StaticResource Brush.ScrimMid}"
                                             CornerRadius="{StaticResource Radius.Xs}" Padding="6,3"

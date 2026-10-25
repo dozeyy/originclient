@@ -30,6 +30,11 @@ public sealed class VersionCardNumeral : FrameworkElement
         nameof(Strength), typeof(double), typeof(VersionCardNumeral),
         new FrameworkPropertyMetadata(1.0, FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((VersionCardNumeral)d)._shade = null));
 
+    /// <summary>How far the shade reaches (1 = the design's radii); only light art that full strength cannot hold needs more.</summary>
+    public static readonly DependencyProperty ReachProperty = DependencyProperty.Register(
+        nameof(Reach), typeof(double), typeof(VersionCardNumeral),
+        new FrameworkPropertyMetadata(1.0, FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((VersionCardNumeral)d)._shade = null));
+
     private Layout? _layout;
     private Brush? _shade;
     private double _layoutWidth, _layoutHeight, _layoutDpi;
@@ -44,6 +49,7 @@ public sealed class VersionCardNumeral : FrameworkElement
     public string Text { get => (string)GetValue(TextProperty); set => SetValue(TextProperty, value); }
     public string Range { get => (string)GetValue(RangeProperty); set => SetValue(RangeProperty, value); }
     public double Strength { get => (double)GetValue(StrengthProperty); set => SetValue(StrengthProperty, value); }
+    public double Reach { get => (double)GetValue(ReachProperty); set => SetValue(ReachProperty, value); }
 
     /// <summary>Where the figures' ink sits, in this element's coordinates (the shot harness measures contrast there).</summary>
     internal Rect InkBounds
@@ -67,14 +73,19 @@ public sealed class VersionCardNumeral : FrameworkElement
 
     private static void OnLayoutInput(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((VersionCardNumeral)d)._layout = null;
 
-    protected override void OnRender(DrawingContext dc)
+    protected override void OnRender(DrawingContext dc) => Draw(dc, true);
+
+    /// <summary>Draws the shade and, when <paramref name="figures"/> is true, the number itself. The shot harness draws
+    /// the shade alone over the art to measure the ground the ink stands on.</summary>
+    internal void Draw(DrawingContext dc, bool figures)
     {
         var w = ActualWidth;
         var h = ActualHeight;
         if (w <= 0 || h <= 0) return;
 
-        _shade ??= BuildShade(Strength);
+        _shade ??= BuildShade(Strength, Reach);
         dc.DrawRectangle(_shade, null, new Rect(0, 0, w, h));
+        if (!figures) return;
 
         EnsureLayout();
         if (_layout is not { } layout) return;
@@ -119,10 +130,11 @@ public sealed class VersionCardNumeral : FrameworkElement
                 Num("Numeral.Shade.RadiusX"), Num("Numeral.Shade.RadiusY")),
             ink.R / 255.0, ink.G / 255.0, ink.B / 255.0,
             bg.R / 255.0, bg.G / 255.0, bg.B / 255.0,
-            Num("Numeral.Contrast"), Num("Numeral.Shade.Floor"), Num("Numeral.Zone.Width"), Num("Numeral.Zone.Height"));
+            Num("Numeral.Contrast"), Num("Numeral.Shade.Floor"), Num("Numeral.Zone.Width"), Num("Numeral.Zone.Height"),
+            Num("Numeral.Shade.ReachMax"));
     }
 
-    private static Brush BuildShade(double strength)
+    private static Brush BuildShade(double strength, double reach)
     {
         var bg = BgColor;
         var peak = Num("Numeral.Shade.Peak");
@@ -132,8 +144,8 @@ public sealed class VersionCardNumeral : FrameworkElement
         {
             Center = new Point(0, 1),
             GradientOrigin = new Point(0, 1),
-            RadiusX = Num("Numeral.Shade.RadiusX"),
-            RadiusY = Num("Numeral.Shade.RadiusY"),
+            RadiusX = Num("Numeral.Shade.RadiusX") * reach,
+            RadiusY = Num("Numeral.Shade.RadiusY") * reach,
         };
         brush.GradientStops.Add(new GradientStop(Stop(peak), 0));
         brush.GradientStops.Add(new GradientStop(Stop(mid), Num("Numeral.Shade.MidAt")));

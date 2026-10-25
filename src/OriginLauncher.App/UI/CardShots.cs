@@ -4,13 +4,16 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using OriginLauncher.App.UI.Controls;
+using Card = (string Key, System.Windows.FrameworkElement? Item, double ZoneLuminance, double Strength, double Reach);
 
 namespace OriginLauncher.App.UI;
 
 // Render mode only (UI/RenderShots.cs, launcher-shots.yml): the version picker's numbers on the cards (U3.4).
 //
-// Pictures: step 1 (the cards) and step 2 (a family's versions) at 960x600 and 1920x1080, step 2 opened on the card
-// with the LIGHTEST art under its number and on the one with the DARKEST (the scrim has to work on both).
+// Pictures: step 1 (the cards) and step 2 (a family's versions) at 960x600, 1180x740 and 1920x1080, step 2 opened on
+// the card with the LIGHTEST art under its number and on the one with the DARKEST (the scrim has to work on both).
+// Every shipped card art is dark, so two cards carry stand-in LIGHT art for the run (VersionSelectOverlay.TourSwapArt:
+// the scrim is worked out for it exactly as for real art) and the real art is put back afterwards.
 //
 // Measurement: for every card, with the number itself left out of the picture, the contrast of the number's ink
 // colour against the rendered pixels in the box the figures stand in, with no scrim and with the real one, on the
@@ -18,7 +21,11 @@ namespace OriginLauncher.App.UI;
 // "p05" the worst 5 %, "median" the middle. WCAG contrast, ink = Color.NumeralInk.
 internal static class CardShots
 {
-    private static readonly Size[] Sizes = { new(960, 600), new(1920, 1080) };
+    private static readonly Size[] Sizes = { new(960, 600), new(1180, 740), new(1920, 1080) };
+
+    // Stand-in light art: a flat light picture with a gentle fall-off toward the bottom (sky-like). Levels are 0..255
+    // channel values of a neutral grey, the stand-ins for "very light" and "light" art.
+    private const int VeryLight = 240, Light = 200, Fall = 24;
 
     public static void Run(MainWindow window, string outDir)
     {
@@ -31,7 +38,17 @@ internal static class CardShots
 
         var (w0, h0) = (window.Width, window.Height);
         var report = Path.Combine(outDir, "numeral-contrast.txt");
-        File.WriteAllText(report, "size card zoneLum strength state | no scrim min/p05/median | scrim min/p05/median (WCAG contrast of the number's ink)" + Environment.NewLine);
+        File.WriteAllText(report, "size card zoneLum strength reach state | no scrim min/p05/median | scrim min/p05/median (WCAG contrast of the number's ink)" + Environment.NewLine);
+
+        // Open once so the cards exist, put the stand-in art on the first two, and let the layout settle.
+        window.TourGoTo(0);
+        RenderShots.Pump(500);
+        window.TourShowVersions(-1);
+        RenderShots.Pump(600);
+        overlay.TourSwapArt(0, StandIn(VeryLight));
+        overlay.TourSwapArt(1, StandIn(Light));
+        window.TourHideVersions();
+        RenderShots.Pump(300);
 
         foreach (var size in Sizes)
         {
@@ -50,7 +67,7 @@ internal static class CardShots
             var light = IndexOf(cards, max: true);
             var dark = IndexOf(cards, max: false);
             File.AppendAllText(report, $"# {label}: lightest art under the number = {cards[light].Key} ({cards[light].ZoneLuminance:0.000}), darkest = {cards[dark].Key} ({cards[dark].ZoneLuminance:0.000}){Environment.NewLine}");
-            Measure(overlay, cards, label, report);
+            Measure(cards, label, report);
 
             foreach (var (tag, index) in new[] { ("light", light), ("dark", dark) })
             {
@@ -61,10 +78,32 @@ internal static class CardShots
             RenderShots.Pump(300);
         }
 
+        overlay.TourRestoreArt();
         window.Width = w0;
         window.Height = h0;
         window.TourGoTo(0);
         RenderShots.Pump(400);
+    }
+
+    // A neutral grey picture, 16:9, at the given level, a little darker toward the bottom.
+    private static BitmapSource StandIn(int level)
+    {
+        const int width = 320, height = 180;
+        var stride = width * 4;
+        var pixels = new byte[stride * height];
+        for (var y = 0; y < height; y++)
+        {
+            var v = (byte)(level - y * Fall / height);
+            for (var x = 0; x < width; x++)
+            {
+                var i = y * stride + x * 4;
+                pixels[i] = pixels[i + 1] = pixels[i + 2] = v;
+                pixels[i + 3] = 255;
+            }
+        }
+        var bmp = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+        bmp.Freeze();
+        return bmp;
     }
 
     // Open the picker (on a family, or on the grid for -1) and settle it at the picture size.
@@ -83,7 +122,7 @@ internal static class CardShots
         window.TourLayoutAt(size);
     }
 
-    private static int IndexOf(IReadOnlyList<(string Key, FrameworkElement? Item, double ZoneLuminance, double Strength)> cards, bool max)
+    private static int IndexOf(IReadOnlyList<Card> cards, bool max)
     {
         var best = 0;
         for (var i = 1; i < cards.Count; i++)
@@ -91,45 +130,50 @@ internal static class CardShots
         return best;
     }
 
-    private static void Measure(VersionSelectOverlay overlay, IReadOnlyList<(string Key, FrameworkElement? Item, double ZoneLuminance, double Strength)> cards,
-        string label, string report)
+    private static void Measure(IReadOnlyList<Card> cards, string label, string report)
     {
         var inkColour = (Color)Application.Current.FindResource("Color.NumeralInk");
         var inkLum = CardArtScrim.Luminance(inkColour.R / 255.0, inkColour.G / 255.0, inkColour.B / 255.0);
-        foreach (var (key, item, zone, strength) in cards)
+        foreach (var (key, item, zone, strength, reach) in cards)
         {
             if (item == null) continue;
             var number = Find<VersionCardNumeral>(item);
             var colour = (item as Control)?.Template?.FindName("Colour", item) as Image;
             if (number == null || colour == null || VisualTreeHelper.GetParent(number) is not FrameworkElement art) continue;
-            var text = number.Text;
             var ink = number.InkBounds;
-            number.Text = ""; // the picture without the number: just the art and the shade
+            // The number is left out of the picture (Opacity 0 keeps it out of the art's brush) and its shade is
+            // drawn on top by hand, so what is measured is the ground the figures stand on.
+            number.Opacity = 0;
             foreach (var state in new[] { "grey", "colour" })
             {
                 colour.Opacity = state == "colour" ? 1 : 0;
-                var bare = Stats(art, ink, inkLum, number, 0);
-                var real = Stats(art, ink, inkLum, number, strength);
+                var bare = Stats(art, ink, inkLum, number, 0, 1);
+                var real = Stats(art, ink, inkLum, number, strength, reach);
                 File.AppendAllText(report,
-                    $"{label} {key,-5} {zone:0.000} {strength:0.00} {state,-6} | {bare.Min:0.00}/{bare.P05:0.00}/{bare.Median:0.00} | {real.Min:0.00}/{real.P05:0.00}/{real.Median:0.00}{Environment.NewLine}");
+                    $"{label} {key,-5} {zone:0.000} {strength:0.00} {reach:0.00} {state,-6} | {bare.Min:0.00}/{bare.P05:0.00}/{bare.Median:0.00} | {real.Min:0.00}/{real.P05:0.00}/{real.Median:0.00}{Environment.NewLine}");
             }
             colour.ClearValue(UIElement.OpacityProperty);
             number.Strength = strength;
-            number.Text = text;
+            number.Reach = reach;
+            number.ClearValue(UIElement.OpacityProperty);
         }
     }
 
-    private static (double Min, double P05, double Median) Stats(FrameworkElement art, Rect ink, double inkLum, VersionCardNumeral number, double strength)
+    private static (double Min, double P05, double Median) Stats(FrameworkElement art, Rect ink, double inkLum, VersionCardNumeral number, double strength, double reach)
     {
         number.Strength = strength;
+        number.Reach = reach;
         // No layout pass here (it would undo a hand layout at a size the desktop cannot hold). Drawn through a
         // VisualBrush so the card's place in the window does not offset the picture.
         var width = (int)Math.Ceiling(art.ActualWidth);
         var height = (int)Math.Ceiling(art.ActualHeight);
         var visual = new DrawingVisual();
         using (var dc = visual.RenderOpen())
+        {
             dc.DrawRectangle(new VisualBrush(art) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top },
                 null, new Rect(0, 0, width, height));
+            number.Draw(dc, false);
+        }
         var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(visual);
         var stride = width * 4;

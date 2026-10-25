@@ -264,9 +264,25 @@ public partial class VersionSelectOverlay : UserControl
 
     // Render mode only: each card's key, its container and the numbers the scrim was worked out from, in catalogue
     // order (UI/CardShots.cs measures the rendered number's contrast on them).
-    internal IReadOnlyList<(string Key, FrameworkElement? Item, double ZoneLuminance, double Strength)> TourCards() =>
+    internal IReadOnlyList<(string Key, FrameworkElement? Item, double ZoneLuminance, double Strength, double Reach)> TourCards() =>
         _tiles.Select(t => (t.Group.Key, FamilyList.ItemContainerGenerator.ContainerFromItem(t) as FrameworkElement,
-            t.ZoneLuminance, t.ScrimStrength)).ToList();
+            t.ZoneLuminance, t.ScrimStrength, t.ScrimReach)).ToList();
+
+    // Render mode only: put other art on one card (the shipped art is all dark; the shots also need light art) and
+    // work its scrim out exactly as for real art.
+    internal void TourSwapArt(int index, BitmapSource art)
+    {
+        if (!OriginPaths.IsScratchRoot || index < 0 || index >= _tiles.Count) return;
+        _tiles[index].Swap(art, VersionCardNumeral.Spec());
+    }
+
+    // Render mode only: the real art back on every card.
+    internal void TourRestoreArt()
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        var spec = VersionCardNumeral.Spec();
+        foreach (var t in _tiles) t.LoadAsync(spec);
+    }
 
     // One family tile's data. The thumbnails arrive after decode; ThumbHeight
     // follows the row width so the art keeps 16:9 at every window size.
@@ -275,7 +291,7 @@ public partial class VersionSelectOverlay : UserControl
         private ImageSource? _grey, _colour;
         private double _thumbHeight = 82;
         private bool _current, _rangeInArt;
-        private double _scrimStrength = 1;
+        private double _scrimStrength = 1, _scrimReach = 1;
 
         public FamilyTile(VersionGroup group)
         {
@@ -317,28 +333,36 @@ public partial class VersionSelectOverlay : UserControl
         // How strong the corner shade under the number is for this art (CardArtScrim), and the art's mean
         // luminance where the number stands (only the shot report reads that).
         public double ScrimStrength { get => _scrimStrength; private set { _scrimStrength = value; Raise(nameof(ScrimStrength)); } }
+        public double ScrimReach { get => _scrimReach; private set { _scrimReach = value; Raise(nameof(ScrimReach)); } }
         public double ZoneLuminance { get; private set; }
         public Visibility CurrentVisibility => _current ? Visibility.Visible : Visibility.Collapsed;
 
         public void LoadAsync(ScrimSpec spec)
         {
             var key = Group.Key;
-            _ = Task.Run(() =>
-                {
-                    var grey = ArtStage.Decode($"{key}-tg.jpg", 320);
-                    var colour = ArtStage.Decode($"{key}-tc.jpg", 320);
-                    // Both states of the thumb sit under the same number, so the shade must hold for the brighter one.
-                    var result = new[] { grey, colour }.Select(b => Scrim(b, spec)).Where(r => r != null).Select(r => r!.Value)
-                        .DefaultIfEmpty(new ScrimResult(1, 0)).MaxBy(r => r.Strength);
-                    return (grey, colour, result);
-                })
-                .ContinueWith(t =>
-                {
-                    Grey = t.Result.grey;
-                    Colour = t.Result.colour;
-                    ZoneLuminance = t.Result.result.ZoneLuminance;
-                    ScrimStrength = t.Result.result.Strength;
-                }, TaskScheduler.FromCurrentSynchronizationContext());
+            _ = Task.Run(() => Work(ArtStage.Decode($"{key}-tg.jpg", 320), ArtStage.Decode($"{key}-tc.jpg", 320), spec))
+                .ContinueWith(t => Apply(t.Result), TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        // Render mode only (VersionSelectOverlay.TourSwapArt): put other art on the card and work its scrim out the
+        // same way the real art's is.
+        public void Swap(BitmapSource art, ScrimSpec spec) => Apply(Work(art, art, spec));
+
+        private static (ImageSource? Grey, ImageSource? Colour, ScrimResult Result) Work(BitmapSource? grey, BitmapSource? colour, ScrimSpec spec)
+        {
+            // Both states of the thumb sit under the same number, so the shade must hold for the brighter one.
+            var result = new[] { grey, colour }.Select(b => Scrim(b, spec)).Where(r => r != null).Select(r => r!.Value)
+                .DefaultIfEmpty(new ScrimResult(1, 1, 0)).MaxBy(r => (r.Reach, r.Strength));
+            return (grey, colour, result);
+        }
+
+        private void Apply((ImageSource? Grey, ImageSource? Colour, ScrimResult Result) w)
+        {
+            Grey = w.Grey;
+            Colour = w.Colour;
+            ZoneLuminance = w.Result.ZoneLuminance;
+            ScrimReach = w.Result.Reach;
+            ScrimStrength = w.Result.Strength;
         }
 
         // The art-aware shade for one decoded thumb: read its pixels (frozen, so any thread may), average them to a

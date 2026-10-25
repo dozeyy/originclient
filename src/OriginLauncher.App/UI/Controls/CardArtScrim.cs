@@ -16,10 +16,10 @@ namespace OriginLauncher.App.UI.Controls;
 public readonly record struct NumeralShade(double Peak, double Mid, double MidAt, double RadiusX, double RadiusY)
 {
     /// <summary>The shade alpha (0..1) at a point given as fractions of the card, measured from the bottom-left corner
-    /// (fx to the right, fy up). At full strength.</summary>
-    public double AlphaAt(double fx, double fy)
+    /// (fx to the right, fy up). At full strength; <paramref name="reach"/> scales both radii (1 = the design's size).</summary>
+    public double AlphaAt(double fx, double fy, double reach = 1)
     {
-        var t = Math.Sqrt(Square(fx / RadiusX) + Square(fy / RadiusY));
+        var t = Math.Sqrt(Square(fx / (RadiusX * reach)) + Square(fy / (RadiusY * reach)));
         if (t >= 1) return 0;
         if (t <= MidAt) return Peak + (Mid - Peak) * (t / MidAt);
         return Mid * (1 - (t - MidAt) / (1 - MidAt));
@@ -88,11 +88,13 @@ public readonly record struct ScrimSpec(
     double TargetContrast,
     double Floor,
     double ZoneWidth,
-    double ZoneHeight);
+    double ZoneHeight,
+    double ReachMax);
 
-/// <summary>One art's scrim: the strength to draw the shade at (Floor..1) and the art's mean luminance in the zone
-/// (0 dark .. 1 light), kept for the shot report.</summary>
-public readonly record struct ScrimResult(double Strength, double ZoneLuminance);
+/// <summary>One art's scrim: the strength to draw the shade at (Floor..1), how far it reaches (1 = the design's radii,
+/// up to ReachMax: only light art that full strength cannot hold needs more) and the art's mean luminance in the
+/// zone (0 dark .. 1 light), kept for the shot report.</summary>
+public readonly record struct ScrimResult(double Strength, double Reach, double ZoneLuminance);
 
 public static class CardArtScrim
 {
@@ -115,17 +117,18 @@ public static class CardArtScrim
     public static double Shaded(double r, double g, double b, ScrimSpec spec, double alpha) =>
         Luminance(r + (spec.ShadeR - r) * alpha, g + (spec.ShadeG - g) * alpha, b + (spec.ShadeB - b) * alpha);
 
-    /// <summary>The weakest shade strength (Floor..1) that keeps the ink at the target contrast over every cell the
-    /// number can sit on. Where even full strength cannot get there (the shade fades out away from the corner) the
-    /// answer is 1: as strong as the design allows.</summary>
+    /// <summary>The weakest shade (strength Floor..1 at the design's reach) that keeps the ink at the target contrast
+    /// over every cell the number can sit on. Art too light for full strength at the design's reach widens the shade
+    /// step by step, up to ReachMax; where even that cannot get there the answer is full strength at full reach: as
+    /// much as the design allows.</summary>
     public static ScrimResult Analyse(CardArtGrid art, ScrimSpec spec)
     {
         var inkLum = Luminance(spec.InkR, spec.InkG, spec.InkB);
         // The brightest background the ink may stand on, from contrast = (ink + .05) / (bg + .05).
         var maxBg = (inkLum + 0.05) / spec.TargetContrast - 0.05;
-        var strength = spec.Floor;
+        // The cells under the number, each with the shade alpha it needs (0 = readable already, 1 = unreachable).
+        var zone = new List<(double Fx, double Fy, double Need)>();
         double lumSum = 0;
-        var cells = 0;
         for (var row = 0; row < art.Rows; row++)
         {
             var fy = 1 - (row + 0.5) / art.Rows;
@@ -137,19 +140,40 @@ public static class CardArtScrim
                 var o = (row * art.Cols + col) * 3;
                 double r = art.Rgb[o], g = art.Rgb[o + 1], b = art.Rgb[o + 2];
                 lumSum += Luminance(r, g, b);
-                cells++;
-                var profile = spec.Shade.AlphaAt(fx, fy);
                 var need = AlphaNeeded(r, g, b, spec, maxBg);
-                if (need <= 0) continue;
-                strength = profile <= 1e-6 ? 1 : Math.Max(strength, Math.Min(1, need / profile));
+                if (need > 0) zone.Add((fx, fy, need));
             }
         }
-        return new ScrimResult(Math.Clamp(strength, spec.Floor, 1), cells == 0 ? 0 : lumSum / cells);
+        var meanLum = art.Rows == 0 ? 0 : lumSum / Math.Max(1, CountZoneCells(art, spec));
+
+        const int steps = 4;
+        for (var step = 0; step <= steps; step++)
+        {
+            var reach = 1 + (spec.ReachMax - 1) * step / steps;
+            var strength = spec.Floor;
+            foreach (var (fx, fy, need) in zone)
+            {
+                var profile = spec.Shade.AlphaAt(fx, fy, reach);
+                strength = Math.Max(strength, profile <= 1e-6 ? double.PositiveInfinity : need / profile);
+            }
+            if (strength <= 1) return new ScrimResult(strength, reach, meanLum);
+        }
+        return new ScrimResult(1, spec.ReachMax, meanLum);
     }
 
-    /// <summary>The worst (lowest) ink contrast over the zone's cells with the shade drawn at <paramref name="strength"/>;
-    /// the model's own check of <see cref="Analyse"/> (the shot harness measures the real rendered pixels as well).</summary>
-    public static double WorstContrast(CardArtGrid art, ScrimSpec spec, double strength)
+    private static int CountZoneCells(CardArtGrid art, ScrimSpec spec)
+    {
+        var n = 0;
+        for (var row = 0; row < art.Rows; row++)
+            for (var col = 0; col < art.Cols; col++)
+                if (1 - (row + 0.5) / art.Rows <= spec.ZoneHeight && (col + 0.5) / art.Cols <= spec.ZoneWidth) n++;
+        return n;
+    }
+
+    /// <summary>The worst (lowest) ink contrast over the zone's cells with the shade drawn at <paramref name="strength"/>
+    /// and <paramref name="reach"/>; the model's own check of <see cref="Analyse"/> (the shot harness measures the real
+    /// rendered pixels as well).</summary>
+    public static double WorstContrast(CardArtGrid art, ScrimSpec spec, double strength, double reach = 1)
     {
         var inkLum = Luminance(spec.InkR, spec.InkG, spec.InkB);
         var worst = double.MaxValue;
@@ -162,7 +186,7 @@ public static class CardArtScrim
                 var fx = (col + 0.5) / art.Cols;
                 if (fx > spec.ZoneWidth) continue;
                 var o = (row * art.Cols + col) * 3;
-                var lum = Shaded(art.Rgb[o], art.Rgb[o + 1], art.Rgb[o + 2], spec, strength * spec.Shade.AlphaAt(fx, fy));
+                var lum = Shaded(art.Rgb[o], art.Rgb[o + 1], art.Rgb[o + 2], spec, strength * spec.Shade.AlphaAt(fx, fy, reach));
                 worst = Math.Min(worst, Contrast(inkLum, lum));
             }
         }

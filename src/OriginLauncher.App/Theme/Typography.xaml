@@ -58,6 +58,7 @@
     <system:Double x:Key="Numeral.Contrast">4.5</system:Double>
     <system:Double x:Key="Numeral.Zone.Width">0.5</system:Double>
     <system:Double x:Key="Numeral.Zone.Height">0.4</system:Double>
+    <system:Double x:Key="Numeral.Shade.ReachMax">1.5</system:Double>
 
     <!-- type.label: nav tabs, eyebrows, badges and section labels. Author the text in caps. -->
     <Style x:Key="Text.Label" TargetType="TextBlock">

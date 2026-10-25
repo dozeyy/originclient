@@ -11,7 +11,7 @@ public class CardArtScrimTests
     private static readonly NumeralShade Shade = new(0.88, 0.5, 0.45, 1, 0.8);
 
     private static ScrimSpec Spec(double floor = 0.35) =>
-        new(Shade, 0.96, 0.96, 0.96, 0.055, 0.067, 0.063, 4.5, floor, 0.5, 0.4);
+        new(Shade, 0.96, 0.96, 0.96, 0.055, 0.067, 0.063, 4.5, floor, 0.5, 0.4, 1.5);
 
     private static CardArtGrid Flat(double r, double g, double b)
     {
@@ -54,12 +54,15 @@ public class CardArtScrimTests
     [Fact]
     public void BrighterArtNeverGetsAWeakerShade()
     {
+        // Strength alone can step down where the shade starts to reach further, so compare what is actually laid on
+        // the art at the zone's far corner (the cell the number needs most help at on flat art).
         var last = 0.0;
         foreach (var v in new[] { 0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0 })
         {
-            var s = CardArtScrim.Analyse(Flat(v, v, v), Spec()).Strength;
-            Assert.True(s >= last - 1e-9, $"{v}: {s} < {last}");
-            last = s;
+            var r = CardArtScrim.Analyse(Flat(v, v, v), Spec());
+            var corner = r.Strength * Shade.AlphaAt(15.5 / 32, 1 - 11.5 / 18, r.Reach);
+            Assert.True(corner >= last - 1e-9, $"{v}: {corner} < {last}");
+            last = corner;
         }
     }
 
@@ -71,6 +74,37 @@ public class CardArtScrimTests
         var result = CardArtScrim.Analyse(art, spec);
         Assert.True(result.Strength < 1);                       // reachable, so not pinned at the maximum
         Assert.True(CardArtScrim.WorstContrast(art, spec, result.Strength) >= 4.5 - 1e-6);
+    }
+
+    [Fact]
+    public void LightArtWidensTheShadeInsteadOfStoppingAtFullStrength()
+    {
+        // Light enough that full strength at the design's reach cannot hold the far corner of the zone.
+        var art = Flat(0.78, 0.78, 0.78);
+        var spec = Spec();
+        var result = CardArtScrim.Analyse(art, spec);
+        Assert.True(result.Reach > 1, $"reach {result.Reach}");
+        Assert.True(result.Reach <= spec.ReachMax + 1e-9);
+        Assert.True(CardArtScrim.WorstContrast(art, spec, result.Strength, result.Reach) >= 4.5 - 1e-6);
+        Assert.True(CardArtScrim.WorstContrast(art, spec, result.Strength, 1) < 4.5);
+    }
+
+    [Fact]
+    public void ArtTheDesignHoldsAtItsOwnReachKeepsReachOne()
+    {
+        foreach (var v in new[] { 0.0, 0.2, 0.4 })
+            Assert.Equal(1, CardArtScrim.Analyse(Flat(v, v, v), Spec()).Reach, 6);
+    }
+
+    [Fact]
+    public void ReachNeverLeavesOneToMax()
+    {
+        foreach (var v in new[] { 0.0, 0.5, 0.8, 0.95, 1.0 })
+        {
+            var r = CardArtScrim.Analyse(Flat(v, v, v), Spec());
+            Assert.InRange(r.Reach, 1.0, 1.5);
+            Assert.InRange(r.Strength, 0.35, 1.0);
+        }
     }
 
     [Fact]
