@@ -23,6 +23,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 ## Look
 - Vanilla screens (title, pause, options, inventory, world select) use STOCK Minecraft buttons. Origin's widget skin only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-08-23).
 - In-game text is Minecraft's own font everywhere; no Inter/Space Grotesk/MSDF in game; no hand-rolled glyph rendering (2026-07-08, re-confirmed 2026-09-09).
+- Exception (2026-10-25, Will approved the Workbench mockup and asked to "fix the font on the middle"): Origin's own title-screen text (buttons, player name, footer) uses Inter via the MSDF font; every other in-game text stays Minecraft's font.
 - Workbench design system (`docs/overhaul/DESIGN-SYSTEM.md`): neutral base, small soft-hued accents, never big colour fills; Home version numeral stays neutral (2026-10-25).
 - Logos: only `textures/ui/origin_logo.png` (= `Assets/origin.ico`) and `Assets/Brand/wordmark.png`. Never redraw a logo in XAML, SVG, CSS or code (2026-10-25).
 - Icons: Origin's own icon set per the Icon Packs rules, not borrowed sets (2026-09-03).
