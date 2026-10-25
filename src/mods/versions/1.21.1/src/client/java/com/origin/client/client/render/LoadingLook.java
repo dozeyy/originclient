@@ -14,9 +14,9 @@ import com.origin.client.client.theme.OriginTheme;
  *
  * <pre>
  *   flat color.bg
- *   the official logo     72 design px box, centred at 44 % of the height, one faint orbit
- *                         hairline behind it (OrbitHairlines, A-Workbench-3)
- *   24 below              the rail: 200 design px wide, 2 GUI px tall fill (accent) over a
+ *   the official logo     72 design px box, centred at 44 % of the height, the title's three
+ *                         faint orbit pills around it, clear of the rail (OrbitHairlines)
+ *   44 below              the rail: 200 design px wide, 2 GUI px tall fill (accent) over a
  *                         1 GUI px hairline track (white 8 %)
  *   12 below              the caption: textDim, the real stage name (+ a percentage only
  *                         where Minecraft reports one)
@@ -50,10 +50,14 @@ final class LoadingLook {
 	/** The bar is 2 GUI px tall (A-Workbench-3) over a 1 GUI px hairline track. */
 	private static final int RAIL_GUI = 2, TRACK_GUI = 1;
 	/** The faint orbit pill behind the logo: half-extents (long, short) as shares of the logo box, tilted 120 deg. */
-	private static final double ORBIT_A = 1.1, ORBIT_B = 0.4;
-	private static final OrbitHairlines ORBIT = new OrbitHairlines(1, 120.0);
+	// The title's three-pill orbit (0 / 60 / 120 deg), scaled around the logo. Long half-extent:
+	// ORBIT_A x the logo box, shrunk when needed so the whole orbit ends ORBIT_CLEAR_GUI above the
+	// rail. Short half-extent (= the pill ends' radius) keeps the title's 0.171 / 0.476 proportion.
+	private static final double ORBIT_A = 1.0, ORBIT_SHORT = 0.171 / 0.476, ORBIT_CLEAR_GUI = 8.0;
+	private static final OrbitHairlines ORBIT = new OrbitHairlines(3, 0.0);
 	/** Logo box to rail, rail to caption, design px. */
-	private static final double GAP_RAIL = 24.0, GAP_CAPTION = 12.0;
+	// GAP_RAIL was 24; 44 leaves the orbit pills room to wrap the logo and still clear the rail.
+	private static final double GAP_RAIL = 44.0, GAP_CAPTION = 12.0;
 	/** The caption's line box, design px (type.caption is 12 / 16). */
 	private static final double CAPTION_BOX = 16.0, CAPTION_EM = 12.0;
 	/** The sweep: a 28 % segment, one pass per 1.2 s. */
@@ -124,8 +128,15 @@ final class LoadingLook {
 
 		// One faint orbit hairline behind the logo (A-Workbench-3), the title's rings' sibling. It
 		// stays through the loading -> title hand-off (logo false) and fades with the layer.
-		ORBIT.draw(g, (float) logoCxGui(), (float) logoCyGui(), (float) (logoSizeGui() * ORBIT_A),
-				(float) (logoSizeGui() * ORBIT_B), OriginTheme.TITLE_ORBIT, layer);
+		// A pill (half-length a, end radius b) tilted t reaches (a - b)|sin t| + b above and below its
+		// centre; the 60 / 120 deg pills reach furthest: (a - b) sin 60 + b = a (1 - s) sin 60 + a s.
+		double reach = (1.0 - ORBIT_SHORT) * Math.sin(Math.toRadians(60.0)) + ORBIT_SHORT;
+		double room = (railTop - logoCy) / gs - ORBIT_CLEAR_GUI;   // GUI px from the logo centre to 8 above the rail
+		double a = Math.min(logoSizeGui() * ORBIT_A, room / reach);
+		if (a > 1.0) {
+			ORBIT.draw(g, (float) logoCxGui(), (float) logoCyGui(), (float) a, (float) (a * ORBIT_SHORT),
+					OriginTheme.LOADING_ORBIT, layer);
+		}
 
 		// The official logo, through the one drawing path (origin_logo.png at LOGO_PATH).
 		if (logo) {

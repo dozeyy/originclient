@@ -147,8 +147,10 @@ public final class OriginTheme {
 	public static final int TITLE_DOCK_TILE_A_PRESS = 0x5C;    // 36 %
 	public static final int TITLE_DOCK_EDGE_A = 0x4D;          // 30 %
 	public static final int TITLE_DOCK_EDGE_A_HOVER = 0x80;    // 50 %
-	// Orbit hairlines behind the title logo and the loading logo: parchment at ~6 %, 1 physical px.
-	public static final int TITLE_ORBIT = 0x0FF1E9D2;
+	// Orbit pills (1 physical px, parchment): ~10 % over the title's busy panorama (6 % vanished at
+	// 1920 x 1080, CI shots 2026-10-25), ~6 % on the loading screens' flat backdrop.
+	public static final int TITLE_ORBIT = 0x1AF1E9D2;
+	public static final int LOADING_ORBIT = 0x0FF1E9D2;
 	// Destination hues (spec 2.3, dark theme values): dock glyphs.
 	public static final int HUE_EMERALD = 0xFF5FD09B;
 	public static final int HUE_SKY = 0xFF6FAEE8;

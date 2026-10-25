@@ -115,3 +115,12 @@ client/java/com/origin/client/client/OriginStyle.java
 client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
 client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
 client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
+
+# DELIBERATE FORK (2026-10-25, Will: "pill shaped like apple and never oval shaped ever
+# again") - the menu background rings are pills (stadiums), not ellipses, on 1.21.1.
+# Made by: python tools/loading-screen/generate_textures.py --stadium 1.21.1
+# shared/ keeps the oval set for the other modules until each is ported.
+client/resources/assets/originclient/textures/ui/ring-0.png
+client/resources/assets/originclient/textures/ui/ring-1.png
+client/resources/assets/originclient/textures/ui/ring-2.png
+client/resources/assets/originclient/textures/ui/ring-3.png

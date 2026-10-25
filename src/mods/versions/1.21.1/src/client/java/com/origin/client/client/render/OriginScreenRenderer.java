@@ -937,7 +937,7 @@ public final class OriginScreenRenderer {
 	private static Supplier<net.minecraft.client.resources.PlayerSkin> titleSkinSupplier;
 
 	// The title's three orbit hairlines (A-Workbench-3): 0 / 60 / 120 deg, centred at 44.5 % of the
-	// height, pills 0.952 x 0.342 of the height (half-extents 0.476 / 0.171), parchment ~6 %. Baked once per screen size.
+	// height, pills 0.952 x 0.342 of the height (half-extents 0.476 / 0.171), parchment ~10 %. Baked once per screen size.
 	private static final OrbitHairlines TITLE_ORBITS = new OrbitHairlines(3, 0.0);
 
 	/** Main menu: the faint orbit hairlines over the dimmed panorama, under the logo and buttons. */
@@ -1237,13 +1237,13 @@ public final class OriginScreenRenderer {
 		shade(1f, 1f, 1f, 1f);
 	}
 
-	/** One ring texture as an ellipse of on-screen width {@code major} (GUI units). */
+	/** One ring texture (a pill on 1.21.1: ring-N.png is a module fork) of on-screen width {@code major} (GUI units). */
 	private static void drawRingAt(GuiGraphics guiGraphics, Ring ring, double cx, double cy, double angle,
 								   double major, double aspect, float alpha) {
 		if (alpha <= 0.002f) {
 			return;
 		}
-		// The ellipse fills 0.9 of its square texture.
+		// The ring fills 0.9 of its square texture (uniform scale: the pill ends stay round).
 		float scale = (float) (major / (0.9 * TEX));
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
