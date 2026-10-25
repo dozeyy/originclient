@@ -11,7 +11,9 @@
 
         Display sizes (the Heading and Display styles) are laid out in Ideal mode so big Inter stays smooth.
         Sentence case everywhere; the one UPPERCASE style is Text.Label, authored in caps (a TextBlock has no
-        letter-spacing or case switch). The giant version numeral on Home is not a style: ArtStage draws it.
+        letter-spacing or case switch). The giant version numeral on Home is not a style: VersionNumeral draws it
+        in Inter ExtraBold at its natural width (never squashed), sized and centred in the band between the top
+        bar and the Home strip (NumeralBand).
     -->
     <FontFamily x:Key="Font.Primary">/OriginLauncher.App;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
     <FontFamily x:Key="Font.Mono">Consolas, Courier New</FontFamily>

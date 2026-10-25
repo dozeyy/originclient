@@ -41,7 +41,7 @@
              the click lands on genuinely empty background. -->
         <Grid Background="Transparent" MouseLeftButtonDown="RootGrid_MouseLeftButtonDown">
 
-            <!-- Pages fill the window; each page clears the 56 px bar itself (Home's
+            <!-- Pages fill the window; each page clears the bar itself (Home's
                  launch screen covers the bar, and the bar hides while it shows). -->
             <ContentControl x:Name="PageHost">
                 <ContentControl.RenderTransform>
@@ -54,11 +54,16 @@
             <ContentControl x:Name="ImportPageHost" Visibility="Collapsed" IsTabStop="False" Focusable="False"
                             KeyboardNavigation.TabNavigation="Cycle"/>
 
-            <!-- The bar's surface (spec 11.4: a 1 px hairline underneath, no blur, fixed; opaque, so nothing ever reads through it). Pages scroll
-                 UNDER it and never read through it; on Home it fades out so the art runs to the top edge. -->
+            <!-- The bar's surfaces (spec 11.4: color.nav, a 1 px hairline underneath, no blur, fixed). Pages scroll UNDER the bar.
+                 Inner pages: BarSurface, opaque, so scrolled content never reads through the nav. Home: BarGlass, color.nav at 88 %
+                 over the art (a live blur or DWM backdrop would re-rasterise every frame; a pre-blurred strip under an 88 % surface
+                 differs from the plain art by at most 12 % of its contrast, so it was not built: ORIGIN_PROGRESS.md U3.1). -->
             <Border x:Name="BarSurface" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" IsHitTestVisible="False"
                     Background="{StaticResource Brush.Panel}" BorderBrush="{StaticResource Brush.SoftStroke}"
                     BorderThickness="0,0,0,1" Opacity="0"/>
+            <Border x:Name="BarGlass" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" IsHitTestVisible="False"
+                    Background="{StaticResource Brush.PanelGlass}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                    BorderThickness="0,0,0,1"/>
 
             <!-- The top bar: brand left, page tabs centred, actions right. -->
             <Grid x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" Margin="24,0,12,0"

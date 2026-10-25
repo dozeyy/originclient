@@ -267,6 +267,19 @@ public static class RenderShots
             }
         window.TourShowUpdateBadge(false);
 
+        // The Home numeral in its band (bar bottom to strip top) at the three reference sizes: the shot plus the measured
+        // ink against the band (numeral-fit.txt), so centring and air are numbers, not an eyeball.
+        foreach (var (w, h) in new[] { (960, 600), (1180, 740), (1920, 1080) })
+        {
+            window.TourGoTo(0);
+            Pump(400);
+            var sized = new Size(w, h);
+            window.TourLayoutAt(sized);
+            File.AppendAllText(Path.Combine(outDir, "numeral-fit.txt"), $"{w}x{h}: {window.TourNumeralFit()}{Environment.NewLine}");
+            Snap(window, outDir, $"15f-home-numeral-{w}x{h}", size: sized, laidOut: true);
+        }
+        MeasureBarCost(window, outDir);
+
         // The top bar (Website and Store sit in it) at 1180 px, then at the narrowest, with and without an update waiting.
         window.Width = 1180;
         window.Height = 740;
@@ -334,6 +347,39 @@ public static class RenderShots
 
         SnapCrashWindows(outDir);
         window.Close();
+    }
+
+    /// <summary>
+    /// What the Home bar's translucent surface costs to draw: the Home window rendered repeatedly with the surface on and
+    /// off (alternating, so drift hits both alike), median and best in bar-cost.txt. A render here is the CPU rasteriser,
+    /// so it is an upper bound on a GPU frame; what matters is the difference between the two rows.
+    /// </summary>
+    private static void MeasureBarCost(MainWindow window, string dir)
+    {
+        window.TourGoTo(0);
+        Pump(600);
+        window.UpdateLayout();
+        var root = (FrameworkElement)window.Content;
+        int w = (int)root.ActualWidth, h = (int)root.ActualHeight;
+        var on = new List<double>();
+        var off = new List<double>();
+        for (var i = 0; i < 43; i++)
+        {
+            var glass = i % 2 == 0;
+            window.TourSetBarGlass(glass);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var bitmap = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(root);
+            watch.Stop();
+            if (i >= 3) (glass ? on : off).Add(watch.Elapsed.TotalMilliseconds); // the first rounds warm the caches
+        }
+        window.TourSetBarGlass(true);
+        static double Median(List<double> v) { var s = v.OrderBy(x => x).ToList(); return s[s.Count / 2]; }
+        File.WriteAllText(Path.Combine(dir, "bar-cost.txt"),
+            $"Home {w}x{h}, {on.Count} renders with the bar surface, {off.Count} without (CPU rasteriser, ms per render)" + Environment.NewLine
+            + $"with surface:    median {Median(on):0.00}  best {on.Min():0.00}" + Environment.NewLine
+            + $"without surface: median {Median(off):0.00}  best {off.Min():0.00}" + Environment.NewLine
+            + $"difference of medians: {Median(on) - Median(off):0.00} ms" + Environment.NewLine);
     }
 
     /// <summary>

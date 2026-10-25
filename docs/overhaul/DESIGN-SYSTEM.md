@@ -421,7 +421,10 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
 
 - 48 tall, full window width, `color.nav` with a 1 px `color.line` bottom hairline. No blur. It
   stays fixed while pages scroll under it (it is already a sibling of `PageHost`). It is the
-  window's drag area (the controls in it are not).
+  window's drag area (the controls in it are not). On Home it is `color.nav` at 88 % over the art
+  (shipped U3.1: a pre-blurred strip under it was measured against and not built; the 12 % that shows
+  through is too little for a blur to show). On every other page the same bar is opaque, so a
+  scrolled page never reads through the nav.
 - **Layout is a row, not a 3-column grid:** left group (pad 12), tabs, right group (pad 8). Both
   groups keep their natural width. The tabs take the space left between them and centre in it,
   with **at least 24 px** from each group. They never overlap and never touch either group.
@@ -572,7 +575,8 @@ number stands on the picture's ground, in its darkest corner, at a size taken fr
   window width x DPI). The slow drift stays only if Phase 3 measures it inside the frame budget
   (it re-composites the full window at 15 fps); otherwise the art is static. Bottom scrim:
   `color.bg` from 82 % at the window's bottom edge to 0 at 200 px above the strip. There is no top
-  scrim, since the bar is a solid surface. The art crossfades in `motion.scene` when the family
+  scrim: the top bar's own `color.nav` 88 % surface (11.4) covers the art behind it, so the art runs at full
+  strength right under the bar's hairline. The art crossfades in `motion.scene` when the family
   changes.
 - **Other launcher pages:** `color.bg` with the same art under 92 % `color.bg` (the existing
   `PageDim`, re-valued), so the version still tints the room faintly.

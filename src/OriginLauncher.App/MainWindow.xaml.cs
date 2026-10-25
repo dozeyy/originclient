@@ -553,6 +553,23 @@ public partial class MainWindow : Window
         $"topbar={TopBar.ActualWidth:0} brand={BarBrand.ActualWidth:0} tabs={NavTabs.ActualWidth:0} actions={BarActions.ActualWidth:0} "
         + $"labelExtra={_linkLabelExtra:0} labelsHidden={_linkLabelsHidden} tabShift={NavTabsShift.X:0}";
 
+    // The Home numeral's measured geometry (UI/RenderShots.cs): the ink rectangle against the free band under the bar.
+    internal string TourNumeralFit()
+    {
+        var (ink, top, bottom) = Stage.NumeralGeometry;
+        if (ink is not { } r) return "numeral not laid out";
+        return $"window={Stage.ActualWidth:0}x{Stage.ActualHeight:0} band={top:0.#}..{bottom:0.#} (middle {(top + bottom) / 2:0.#}) "
+            + $"ink x={r.Left:0.#} y={r.Top:0.#} w={r.Width:0.#} h={r.Height:0.#} (middle x {r.Left + r.Width / 2:0.#} y {r.Top + r.Height / 2:0.#}) "
+            + $"airAbove={r.Top - top:0.#} airBelow={bottom - r.Bottom:0.#} inkShareOfWidth={r.Width / Stage.ActualWidth:0.000}";
+    }
+
+    // The bar's translucent Home surface on or off, for the render tour's cost measurement only.
+    internal void TourSetBarGlass(bool on)
+    {
+        BarGlass.BeginAnimation(OpacityProperty, null);
+        BarGlass.Opacity = on ? 1 : 0;
+    }
+
     private void TopBar_LayoutChanged(object sender, SizeChangedEventArgs e)
     {
         double width = TopBar.ActualWidth, tabs = NavTabs.ActualWidth;
@@ -690,9 +707,22 @@ public partial class MainWindow : Window
         AccountFace.Uuid = selected?.Id ?? "";
     }
 
-    // The bar's solid surface: shown on every page but Home, so a scrolled page can never read through the nav.
-    private void SetBarSurface(bool solid) =>
-        BarSurface.BeginAnimation(OpacityProperty, UI.Motion.To(solid ? 1 : 0, 260));
+    // The bar's surface: opaque on every page but Home, color.nav at 88 % (BarGlass) over the art on Home. Both fade
+    // away with the bar while the launch screen covers Home.
+    private bool _barSolid;
+    private bool _barHidden;
+
+    private void SetBarSurface(bool solid)
+    {
+        _barSolid = solid;
+        ApplyBarSurface(260);
+    }
+
+    private void ApplyBarSurface(int ms)
+    {
+        BarSurface.BeginAnimation(OpacityProperty, UI.Motion.To(_barSolid && !_barHidden ? 1 : 0, ms));
+        BarGlass.BeginAnimation(OpacityProperty, UI.Motion.To(!_barSolid && !_barHidden ? 1 : 0, ms));
+    }
 
     // Under the launch screen the bar fades away and stops taking clicks; it
     // returns with the scene's exit.
@@ -700,6 +730,8 @@ public partial class MainWindow : Window
     {
         TopBar.IsHitTestVisible = !hidden;
         TopBar.BeginAnimation(OpacityProperty, UI.Motion.To(hidden ? 0 : 1, hidden ? 200 : 320, UI.Motion.Out));
+        _barHidden = hidden;
+        ApplyBarSurface(hidden ? 200 : 320);
     }
 
     private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
