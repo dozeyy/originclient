@@ -46,6 +46,9 @@ on:
       shots:
         description: "1 = one screenshot per scene (taken in the warm-up, never in the numbers)"
         default: "0"
+      size:
+        description: "Window WxH (default 1280x720; a small one lifts llvmpipe above 30 FPS to check frame caps)"
+        default: "1280x720"
 
 permissions:
   contents: read
@@ -93,16 +96,17 @@ jobs:
           I_LABEL: ${{ github.event.inputs.label }}
           I_PROF: ${{ github.event.inputs.prof }}
           I_SHOTS: ${{ github.event.inputs.shots }}
+          I_SIZE: ${{ github.event.inputs.size }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import os, re
           cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": "",
-                 "prof": "0", "shots": "0"}
+                 "prof": "0", "shots": "0", "size": "1280x720"}
           if os.environ.get("I_RUNS"):
               cfg.update(runs=os.environ["I_RUNS"], scenes=os.environ.get("I_SCENES") or cfg["scenes"],
                          warmup=os.environ.get("I_WARMUP") or "15", duration=os.environ.get("I_DURATION") or "45",
                          label=os.environ.get("I_LABEL", ""), prof=os.environ.get("I_PROF") or "0",
-                         shots=os.environ.get("I_SHOTS") or "0")
+                         shots=os.environ.get("I_SHOTS") or "0", size=os.environ.get("I_SIZE") or "1280x720")
           else:
               m = re.findall(r"\[bench-189([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
@@ -112,7 +116,7 @@ jobs:
                           cfg[k] = v
           scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause)"
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
-                         ("prof", r"[01]"), ("shots", r"[01]"), ("scenes", scene + "(," + scene + ")*")):
+                         ("prof", r"[01]"), ("shots", r"[01]"), ("size", r"\d{3,4}x\d{3,4}"), ("scenes", scene + "(," + scene + ")*")):
               if not re.fullmatch(pat, cfg[k]):
                   raise SystemExit("bench-189: bad %s=%r" % (k, cfg[k]))
           for k, v in cfg.items():
@@ -178,6 +182,7 @@ jobs:
           # BenchProf (OriginBench) reads it through prod189.py's inherited environment; probe runs ignore it
           ORIGIN_BENCH_PROF: ${{ steps.cfg.outputs.prof }}
           SHOTS: ${{ steps.cfg.outputs.shots }}
+          SIZE: ${{ steps.cfg.outputs.size }}
         run: |
           set -u
           JAVA8="$JAVA_HOME_8_X64/bin/java"
@@ -187,16 +192,17 @@ jobs:
           fail=0
           extra=""
           if [ "$SHOTS" = "1" ]; then extra="--shots"; fi
+          W="${SIZE%x*}"; H="${SIZE#*x}"
           for r in $(seq 1 "$RUNS"); do
             if [ $((r % 2)) -eq 1 ]; then order="optifine-only origin-default"; else order="origin-default optifine-only"; fi
             for v in $order; do
               for attempt in 1 2; do
                 echo "::group::round $r  $v  (attempt $attempt)"
                 rm -rf "$OUT/$v/run-$r"
-                if xvfb-run -a -s "-screen 0 1280x720x24" python3 tools/bench/prod189.py run \
+                if xvfb-run -a -s "-screen 0 ${W}x${H}x24" python3 tools/bench/prod189.py run \
                      --variant "$v" --origin-jar src/mods/versions/1.8.9/build/libs --java "$JAVA8" \
                      --out "$OUT/$v/run-$r" --scenes "$SCENES" --warmup "$WARMUP" --duration "$DURATION" \
-                     --width 1280 --height 720 --label "CI, relative only" --save-options --ignore-focus $extra; then
+                     --width "$W" --height "$H" --label "CI, relative only" --save-options --ignore-focus $extra; then
                   echo "::endgroup::"
                   break
                 fi
