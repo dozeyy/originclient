@@ -135,6 +135,11 @@ public partial class App : Application
 
         OriginPaths.EnsureScaffold();
         StartupTrace.Mark("EnsureScaffold");
+
+        // The offline test switch is a dev-build tool (Core/DeveloperAccess): a release build clears a
+        // leftover one once, before anything below reads it (the account folder key does).
+        if (DeveloperAccess.NeedsReset(Core.Updates.UpdateService.IsDevBuild, SettingsStore.Load()))
+            SettingsStore.Update(DeveloperAccess.ClearOfflineTest);
         System.Threading.Tasks.Task.Run(DeleteLegacySignInProfile);
         // An import that was interrupted last time (crash, power cut) is rolled back, on the thread pool;
         // MainWindow tells the player once the first window is up (Core/Import/Launcher/ImportStartup).

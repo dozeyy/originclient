@@ -87,6 +87,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateGate.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
+    <!-- Settings: which rail item is lit, and who may see the Developer switch (both pure). -->
+    <Compile Include="..\OriginLauncher.App\UI\Pages\SettingsRailSpy.cs" LinkBase="Settings" />
+    <Compile Include="..\OriginLauncher.App\Core\DeveloperAccess.cs" LinkBase="Settings" />
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameHandoff.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />

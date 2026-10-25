@@ -228,6 +228,10 @@ public static class RenderShots
         // The lower sections (JVM arguments, Origin Client, Startup, Developer) are below the fold.
         SnapSettingsScrolled(window, outDir, "14b-settings-middle", "14c-settings-bottom");
         SnapSettingsSync(window, outDir, "14d-settings-sync");
+        // The rail bug (2026-10-25): the first click on "Origin Client" lit "Developer". Press the short
+        // last sections the way a player does; each shot must show its own item lit and its section in view.
+        SnapSettingsRailClick(window, outDir, "SecClient", "14f-settings-click-client");
+        SnapSettingsRailClick(window, outDir, "SecStartup", "14g-settings-click-startup");
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
@@ -305,6 +309,18 @@ public static class RenderShots
         Pump(400);
         Snap(window, dir, name);
         page.TourScrollToTop();
+        Pump(200);
+    }
+
+    /// <summary>Press one Settings rail item and snap the result, then go back to the top.</summary>
+    private static void SnapSettingsRailClick(Window window, string dir, string sectionName, string name)
+    {
+        var page = FindVisual<Pages.SettingsPage>(window);
+        if (page == null) return;
+        page.TourClickRail(sectionName);
+        Pump(500);
+        Snap(window, dir, name);
+        page.ShowFromTop();
         Pump(200);
     }
 

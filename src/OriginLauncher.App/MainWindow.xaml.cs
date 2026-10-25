@@ -579,6 +579,8 @@ public partial class MainWindow : Window
             ModsView.ShowVersion(_homePage.CurrentVersion);
         else if (page == LauncherPage.Profiles)
             ProfilesView.Show(_homePage.CurrentVersion);
+        else
+            SettingsView.ShowFromTop(); // always opens on the first section
 
         PageHost.Content = content;
         // Home shows the art; every other page sits on it dimmed, numeral away.
@@ -609,7 +611,7 @@ public partial class MainWindow : Window
     private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
 
     private void WebsiteButton_Click(object sender, RoutedEventArgs e) =>
-        Core.Promos.ExternalLink.Open(new Uri("https://originclient.org/"));
+        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Website);
 
     // null = no tab lit (the Import page is not one of the four).
     private void SetNavigationSelection(LauncherPage? page)

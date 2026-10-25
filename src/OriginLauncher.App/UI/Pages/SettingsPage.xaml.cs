@@ -43,6 +43,8 @@ public partial class SettingsPage : UserControl
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
+        // Developer is an internal switch: release builds never get the section, its rail entry or its toggle.
+        if (!DeveloperVisible) RemoveDeveloperSection();
         LauncherVersionText.Text = UpdateService.IsDevBuild
             ? "Origin Launcher - dev build"
             : $"Origin Launcher {UpdateService.CurrentVersion.ToString(3)}";
@@ -68,7 +70,7 @@ public partial class SettingsPage : UserControl
 
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
         ShaderCacheToggle.IsChecked = _settings.ShaderCacheNvidia || _settings.ShaderCacheAmd;
-        OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
+        if (DeveloperVisible) OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
         SettingsSyncToggle.IsChecked = _settings.SyncSettingsAcrossVersions;
         StartWithWindowsToggle.IsChecked = InstallRegistry.IsStartWithWindows();
 
@@ -440,9 +442,24 @@ public partial class SettingsPage : UserControl
 
     // ---- Section rail (Poster) ----------------------------------------------
     // The rail lives inside the scrolled column (so it lines up with it at every
-    // width) and is shifted by the scroll offset so it stays put on screen. A
-    // click jumps to its section; scrolling marks the section under the top edge.
+    // width) and is shifted by the scroll offset so it stays put on screen. A click
+    // jumps to its section and that item stays lit (the last sections are shorter than
+    // the window, so they can never reach the top edge); scrolling by hand lights the
+    // section under the top edge. The rules are in SettingsRailSpy.
     private bool _railSyncing;
+    private readonly SettingsRailSpy _spy = new();
+
+    /// <summary>Developer is for dev builds (local, not stamped by CI). Render mode shows the public layout.</summary>
+    private static bool DeveloperVisible => UpdateService.IsDevBuild && !App.IsRenderMode;
+
+    private void RemoveDeveloperSection()
+    {
+        Rail.Children.Remove(RailDeveloper);
+        Sections.Children.Remove(SecDeveloper);
+        Sections.Children.Remove(DeveloperCard);
+    }
+
+    private List<RadioButton> RailItems() => Rail.Children.OfType<RadioButton>().ToList();
 
     private FrameworkElement? SectionOf(RadioButton item) =>
         item.Tag is string name ? FindName(name) as FrameworkElement : null;
@@ -450,27 +467,55 @@ public partial class SettingsPage : UserControl
     private double SectionTop(FrameworkElement section) =>
         section.TranslatePoint(new Point(0, 0), Column).Y;
 
-    private void Rail_Checked(object sender, RoutedEventArgs e)
+    /// <summary>Settings was opened (again): the first section, from the top, nothing remembered.</summary>
+    public void ShowFromTop()
+    {
+        _spy.Reset();
+        Scroller.ScrollToVerticalOffset(0);
+        LightRailItem(0);
+    }
+
+    private void LightRailItem(int index)
+    {
+        var items = RailItems();
+        if (index < 0 || index >= items.Count || items[index].IsChecked == true) return;
+        _railSyncing = true;
+        items[index].IsChecked = true;
+        _railSyncing = false;
+    }
+
+    /// <summary>CI screen render only: press the rail item for <paramref name="sectionName"/> the way a click does.</summary>
+    internal void TourClickRail(string sectionName)
+    {
+        var item = RailItems().FirstOrDefault(r => r.Tag as string == sectionName);
+        if (item == null) return;
+        item.IsChecked = true; // raises Checked
+        item.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+    }
+
+    private void Rail_Checked(object sender, RoutedEventArgs e) => GoToSection(sender);
+
+    // Click as well as Checked: clicking the lit item again scrolls back to its section too.
+    private void Rail_Click(object sender, RoutedEventArgs e) => GoToSection(sender);
+
+    private void GoToSection(object sender)
     {
         if (_railSyncing || sender is not RadioButton item || !IsLoaded) return;
-        if (SectionOf(item) is { } section)
-            Scroller.ScrollToVerticalOffset(Math.Max(0, SectionTop(section) - 24));
+        var index = RailItems().IndexOf(item);
+        if (index < 0 || SectionOf(item) is not { } section) return;
+        _spy.Click(index);
+        Scroller.ScrollToVerticalOffset(SettingsRailSpy.TargetOffset(SectionTop(section), Scroller.ScrollableHeight));
     }
+
+    // Wheel or touch: the player is steering now, so the section in view decides again.
+    private void Scroller_UserScroll(object sender, RoutedEventArgs e) => _spy.UserScrolled();
 
     private void Scroller_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         RailShift.Y = Scroller.VerticalOffset;
+        if (!IsLoaded) return;
 
-        RadioButton? current = null;
-        var atBottom = Scroller.ScrollableHeight > 0 && Scroller.VerticalOffset >= Scroller.ScrollableHeight - 1;
-        foreach (var child in Rail.Children)
-        {
-            if (child is not RadioButton item || SectionOf(item) is not { } section) continue;
-            if (atBottom || SectionTop(section) <= Scroller.VerticalOffset + 60) current = item;
-        }
-        if (current is null || current.IsChecked == true) return;
-        _railSyncing = true;
-        current.IsChecked = true;
-        _railSyncing = false;
+        var tops = RailItems().Select(item => SectionOf(item) is { } section ? SectionTop(section) : double.MaxValue).ToList();
+        LightRailItem(_spy.Resolve(tops, Scroller.VerticalOffset));
     }
 }
