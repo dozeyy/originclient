@@ -101,6 +101,8 @@ public final class BenchProf {
 	public static final int S_HUD_RENDER = section("hud phase: renderer (all elements)");
 	public static final int S_MM_UPDATE = section("minimap: MinimapData.update (terrain scan)");
 	public static final int S_MM_SCAN = section("minimap: one chunk scan");
+	// Inside a chunk scan: the colour + upload stage, which only runs when the chunk's columns changed.
+	public static final int S_MM_COLOUR = section("minimap: colour + upload (chunk changed)");
 	public static final int S_MM_DRAWMAP = section("minimap: drawMap (geometry)");
 	public static final int S_MM_INFO = section("minimap: info lines + box");
 
