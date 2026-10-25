@@ -1,11 +1,8 @@
 package com.origin.client.client.render;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,8 +10,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -46,8 +41,6 @@ import org.lwjgl.opengl.GL11;
 // safe during the earliest loading overlay while resources are still loading,
 // and degrades gracefully if any asset fails rather than crashing.
 public final class OriginScreenRenderer {
-	private static final Gson GSON = new Gson();
-	private static final int TEX = 768;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
@@ -60,11 +53,6 @@ public final class OriginScreenRenderer {
 	private static volatile boolean broken = false;
 
 	private static volatile boolean loaded = false;
-	private static boolean ringsFailed = false;
-	private static final List<Ring> rings = new ArrayList<>();
-	// The rings' rotation inputs as arrays, for RingField (built with `rings`).
-	private static double[] ringAngle0 = new double[0], ringPeriod = new double[0];
-	private static boolean[] ringReverse = new boolean[0];
 	private static ResourceLocation grainId;
 
 	// Edge vignette (transparent core -> soft black corners). Blitted full-screen
@@ -86,20 +74,12 @@ public final class OriginScreenRenderer {
 	private static final double FILL_TAU = 140.0;
 
 	// ---- Main-menu ambient layer ----
-	// Ellipse height:width of the ring textures (generate_textures HEIGHT_RATIO),
-	// needed to place a body on a ring's path.
-	private static final double RING_HEIGHT_RATIO = 0.37;
-
 	// Cursor-follow glow (the website's two-layer spotlight): one radial
 	// gradient texture drawn twice -- a tight core that snaps to the cursor
 	// and a soft halo that trails it with lerped physics, both blooming when
 	// hovering a clickable. State is static: one cursor, one glow.
 	private static ResourceLocation radialGlowId;
 	private static final int RADIAL_TEX = 512;
-
-	private record Ring(ResourceLocation texture, double widthFrac, float opacity,
-						double angle0, double periodSeconds, boolean reverse) {
-	}
 
 	private OriginScreenRenderer() {
 	}
@@ -218,7 +198,6 @@ public final class OriginScreenRenderer {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
-			// The title underneath already drives the ring field.
 			renderLoading0(guiGraphics, 1f, false, !fly);
 			if (fly) {
 				// The flight shares the dissolve's curve: alpha = 1 - ease(t / REVEAL_MS).
@@ -351,17 +330,14 @@ public final class OriginScreenRenderer {
 
 	private static void renderLoading0(GuiGraphics guiGraphics, float progress, boolean drive, boolean logo) {
 		long t0 = com.origin.client.client.OriginFrameLog.partStart();
-		// No ensureLoaded() here: the ring/grain/vignette art is for the menus and is
+		// No ensureLoaded() here: the grain/vignette art is for the menus and is
 		// decoded and uploaded later, off this first frame (OriginAssets.uploadSlice ->
 		// preloadMenuArt). The loading picture needs the logo and, for its caption, the
 		// boot font, both a few KB (B-30: the first frame used to decode ~12 MB of
-		// ring art here on the render thread).
-		if (drive) {
-			field(RingField.Mood.LOADING);
-		}
+		// menu art here on the render thread).
 		float clamped = Math.max(0f, Math.min(1f, progress));
 
-		double scene = RingField.sceneMs();
+		double scene = SceneClock.sceneMs();
 		// The fill only ever moves forward within a load and is full exactly when
 		// the reload is done (LoadBar: the reload's own fraction dips mid-load as
 		// work is queued); a load after a finished one starts it over. The
@@ -428,7 +404,6 @@ public final class OriginScreenRenderer {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
-			// The screen underneath drives the ring field: don't pull it back.
 			renderLoading0(guiGraphics, 1f, false);
 			guiGraphics.flush();
 			// The hand-off's logo copy is baked here, where a slow frame shows nothing.
@@ -529,9 +504,8 @@ public final class OriginScreenRenderer {
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress, boolean spawnLine) {
 		Minecraft mc = Minecraft.getInstance();
-		// The ring field is not drawn by the loading picture any more, but its scene
-		// clock still times the rail, so the clock is read once per frame here.
-		double now = RingField.sceneMs();
+		// The scene clock times the bar, so it is read once per frame here.
+		double now = SceneClock.sceneMs();
 		// The rail shows the caption's own number (sceneRail): sweeping until the first.
 		sceneFill = sceneRail(com.origin.client.client.hud.FrameStats.frames(), progress, now);
 		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
@@ -586,7 +560,7 @@ public final class OriginScreenRenderer {
 			return false;
 		}
 		try {
-			RingField.sceneMs();   // advances the scene clock that times the sweep
+			SceneClock.sceneMs();   // advances the scene clock that times the sweep
 			if (status != connectStatus) {
 				connectStatus = status;
 				connectCaption = status == null ? "" : status.getString().trim();
@@ -874,14 +848,11 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Menu background, "living rings" (Will 2026-10-18): the loading scene's own
-	 * rings, never a panorama, so the menus read as the same place the game
-	 * loaded into. RingField slows them to a third, lets them drift and leans
-	 * them towards the mouse. Returns true only if the Origin backdrop actually
-	 * drew; callers that cancel vanilla's own backdrop must key off this.
-	 *
-	 * Cheap on purpose: one fill, four ring blits, the grain tiles, one glow and
-	 * the vignette — no cubemap, no blur pass.
+	 * Origin's own screens' background (Mod Menu, HUD editor, Origin windows): flat
+	 * color.bg, one soft glow, the grain tiles and the vignette. No rings: the only
+	 * ring shapes in Origin's UI are inside origin_logo.png (Will, 2026-10-25). Returns
+	 * true only if the Origin backdrop actually drew; callers that cancel vanilla's own
+	 * backdrop must key off this. Cheap on purpose: no cubemap, no blur pass.
 	 */
 	public static boolean renderTitleBackground(GuiGraphics guiGraphics) {
 		if (broken) {
@@ -889,16 +860,12 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			ensureLoaded();
-			field(RingField.Mood.MENU);
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 			guiGraphics.fill(0, 0, w, h, OriginTheme.BG);
 			drawMenuGlow(guiGraphics, w, h);
-			if (!ringsFailed) {
-				drawRings(guiGraphics, w, h);
-				drawGrain(guiGraphics, w, h);
-			}
+			drawGrain(guiGraphics, w, h);
 			drawVignette(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
@@ -906,7 +873,7 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** One restrained jade highlight, top right, under the rings (kept from the Ion Jade grade). */
+	/** One restrained jade highlight, top right (kept from the Ion Jade grade). */
 	private static void drawMenuGlow(GuiGraphics guiGraphics, int w, int h) {
 		if (radialGlowId == null) {
 			return;
@@ -1016,7 +983,7 @@ public final class OriginScreenRenderer {
 	 * Main menu: the player (head + username) in the top-left, with no plate behind
 	 * it (A-Workbench-3, Will 2026-10-25). Head via the skin manager (default skin shows first,
 	 * the real one pops in async); if the head can't be resolved the chip falls
-	 * back to the Origin ring mark, and if the whole chip throws it flips the
+	 * back to the Origin logo, and if the whole chip throws it flips the
 	 * renderer to vanilla like any Origin draw.
 	 */
 	public static void renderTitleAccountChip(GuiGraphics guiGraphics) {
@@ -1210,57 +1177,6 @@ public final class OriginScreenRenderer {
 	}
 
 	// ---- Primitives ----
-
-	/** Advance the shared rings (RingField) for this frame's scene. */
-	private static void field(RingField.Mood mood) {
-		double mx = 0.5, my = 0.5;
-		if (mood == RingField.Mood.MENU) {
-			Minecraft mc = Minecraft.getInstance();
-			mx = mc.mouseHandler.xpos() / Math.max(1, mc.getWindow().getScreenWidth());
-			my = mc.mouseHandler.ypos() / Math.max(1, mc.getWindow().getScreenHeight());
-		}
-		RingField.update(mood, ringAngle0, ringPeriod, ringReverse, mx, my);
-	}
-
-	private static double ringAngle(int i) {
-		Ring ring = rings.get(i);
-		return RingField.angle(i, ring.angle0(), ring.periodSeconds(), ring.reverse());
-	}
-
-	/** Every ring where RingField has it. */
-	private static void drawRings(GuiGraphics guiGraphics, int w, int h) {
-		for (int i = 0; i < rings.size(); i++) {
-			Ring ring = rings.get(i);
-			// The shared ring alpha (OriginTheme.ORBIT_RING_ALPHA), not rings.json's opacity: the backdrop's rings
-			// read at the title pills' level. The textures' own alpha still fades the outer rings.
-			drawRingAt(guiGraphics, ring, w / 2.0 + RingField.offsetX(i, w), h / 2.0 + RingField.offsetY(i, w),
-					ringAngle(i), ring.widthFrac() * w * 0.99, RING_HEIGHT_RATIO, OriginTheme.ORBIT_RING_ALPHA / 255f);
-		}
-		shade(1f, 1f, 1f, 1f);
-	}
-
-	/** One ring texture (a pill on 1.21.1: ring-N.png is a module fork) of on-screen width {@code major} (GUI units). */
-	private static void drawRingAt(GuiGraphics guiGraphics, Ring ring, double cx, double cy, double angle,
-								   double major, double aspect, float alpha) {
-		if (alpha <= 0.002f) {
-			return;
-		}
-		// The ring fills 0.9 of its square texture (uniform scale: the pill ends stay round).
-		float scale = (float) (major / (0.9 * TEX));
-		PoseStack pose = guiGraphics.pose();
-		pose.pushPose();
-		pose.translate(cx, cy, 0);
-		// Wrapped to [0,360) in double before the float cast (RingField does):
-		// a float holding a large absolute angle would step visibly.
-		pose.mulPose(Axis.ZP.rotationDegrees((float) (angle % 360.0)));
-		pose.scale(scale, (float) (scale * aspect / RING_HEIGHT_RATIO), 1f);
-		pose.translate(-TEX / 2f, -TEX / 2f, 0);
-		RenderSystem.enableBlend();
-		shade(0xF1 / 255f, 0xE9 / 255f, 0xD2 / 255f, alpha);   // parchment, like the title's pills
-		guiGraphics.blit(ring.texture(), 0, 0, 0, 0, TEX, TEX, TEX, TEX);
-		pose.popPose();
-		shade(1f, 1f, 1f, 1f);
-	}
 
 	private static void drawGrain(GuiGraphics guiGraphics, int w, int h) {
 		if (grainId == null) {
@@ -1502,40 +1418,14 @@ public final class OriginScreenRenderer {
 		loaded = true;
 		try {
 			Minecraft mc = Minecraft.getInstance();
-			JsonObject meta;
 			// Decoded on the startup reload's workers (OriginAssets), so this only uploads.
-			meta = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/ui/rings.json");
-			var arr = meta.getAsJsonArray("rings");
-			for (int i = 0; i < arr.size(); i++) {
-				JsonObject r = arr.get(i).getAsJsonObject();
-				int index = r.get("index").getAsInt();
-				ResourceLocation id = registerPrefetched(mc, "origin_ring_" + index,
-						"/assets/originclient/textures/ui/ring-" + index + ".png");
-				rings.add(new Ring(id,
-						r.get("widthFrac").getAsDouble(),
-						r.get("opacity").getAsFloat(),
-						r.get("angle0").getAsDouble(),
-						r.get("periodSeconds").getAsDouble(),
-						r.get("reverse").getAsBoolean()));
-			}
-			int n = rings.size();
-			double[] a0 = new double[n], period = new double[n];
-			boolean[] reverse = new boolean[n];
-			for (int i = 0; i < n; i++) {
-				a0[i] = rings.get(i).angle0();
-				period[i] = rings.get(i).periodSeconds();
-				reverse[i] = rings.get(i).reverse();
-			}
-			ringAngle0 = a0;
-			ringPeriod = period;
-			ringReverse = reverse;
 			grainId = registerPrefetched(mc, "origin_grain", "/assets/originclient/textures/ui/grain.png");
 		} catch (Exception e) {
-			ringsFailed = true;
-			com.origin.client.OriginClient.LOGGER.warn("Origin screen ring/grain textures failed to load; using plain background", e);
+			grainId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin grain texture failed to load; skipping grain", e);
 		}
 
-		// Vignette loads independently of the rings: a failure just skips the
+		// Vignette loads independently of the grain: a failure just skips the
 		// edge darkening, it doesn't disable the backdrop.
 		try {
 			Minecraft mc = Minecraft.getInstance();
@@ -1571,7 +1461,7 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Loads the rings, grain and vignette now (one OriginAssets upload step), so the
+	 * Loads the grain and vignette now (one OriginAssets upload step), so the
 	 * title's first frame doesn't. Idempotent: ensureLoaded() is a no-op afterwards.
 	 */
 	public static void preloadMenuArt() {

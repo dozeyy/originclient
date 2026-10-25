@@ -146,10 +146,8 @@ public final class OriginTheme {
 	// (A-Workbench-3; DECISIONS 2026-10-25 allows Inter on Origin's own title text). The player name is Inter 600
 	// at the label em in parchment. Every one falls back to Minecraft's font when the SDF face is not live.
 	public static final float TITLE_SMALL_EM = 8.0f;
-	// The menu backdrop's ring art behind the Mod Menu / HUD editor: its one alpha, ~12 %. The title and the
-	// loading screens draw no rings at all -- the only ring shapes there are inside origin_logo.png (Will,
-	// 2026-10-25: drawn look-alikes read as a fake logo).
-	public static final int ORBIT_RING_ALPHA = 0x1F;
+	// No ring/orbit tokens: Origin's UI draws no rings anywhere; the only ring shapes are inside
+	// origin_logo.png (Will, 2026-10-25: drawn look-alikes read as a fake logo).
 
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;

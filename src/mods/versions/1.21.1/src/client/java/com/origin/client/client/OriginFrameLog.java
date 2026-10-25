@@ -125,7 +125,7 @@ public final class OriginFrameLog {
 			current = Phase.TITLE;
 			mark("overlay-gone");
 		}
-		double scene = com.origin.client.client.render.RingField.peekMs();
+		double scene = com.origin.client.client.render.SceneClock.peekMs();
 		boolean entranceOver = !Double.isNaN(entranceEndScene) && overlayGoneAt != 0 && scene >= entranceEndScene;
 		boolean timeout = doneAt != 0 && (now - doneAt) / 1e6 > MAX_AFTER_DONE_MS;
 		if (entranceOver || timeout || n >= CAP) {
@@ -449,7 +449,7 @@ public final class OriginFrameLog {
 				+ " final=" + fmt4(sceneShown));
 	}
 
-	/** The title's entrance ends at this scene-clock time (RingField.sceneMs). */
+	/** The title's entrance ends at this scene-clock time (SceneClock.sceneMs). */
 	public static void entranceEndsAt(double sceneMs) {
 		if (ENABLED) {
 			entranceEndScene = sceneMs;
@@ -488,7 +488,7 @@ public final class OriginFrameLog {
 					i, fmt(frameMs[i]), fmt(renderMs[i]), fmt(curPre), fmt(curOverlay), fmt(curOrigin), fmt(tasksMs[i]), fmt(swapMs[i]), fmt(gcMs[i]), uptimeS(),
 					tasks[i] == null ? "" : tasks[i]);
 		}
-		double scene = com.origin.client.client.render.RingField.peekMs();
+		double scene = com.origin.client.client.render.SceneClock.peekMs();
 		sceneStep[i] = Double.isNaN(lastScene) ? 0f : (float) (scene - lastScene);
 		lastScene = scene;
 		if (doneAt != 0) {

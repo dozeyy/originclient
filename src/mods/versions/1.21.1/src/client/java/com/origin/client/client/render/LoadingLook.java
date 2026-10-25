@@ -179,7 +179,7 @@ final class LoadingLook {
 		int fillArgb = fade(OriginTheme.CLEAN_BAR_FILL, layer);
 		if (fill < 0) {
 			// Indeterminate: a segment slides across (never a made-up percentage).
-			double t = (RingField.sceneMs() % SWEEP_MS) / SWEEP_MS;
+			double t = (SceneClock.sceneMs() % SWEEP_MS) / SWEEP_MS;
 			double eased = t * t * (3.0 - 2.0 * t);
 			double seg = w * SWEEP_SEG;
 			double from = -seg + eased * (w + seg);

@@ -116,11 +116,12 @@ client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
 client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
 client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
 
-# DELIBERATE FORK (2026-10-25, Will: "pill shaped like apple and never oval shaped ever
-# again") - the menu background rings are pills (stadiums), not ellipses, on 1.21.1.
-# Made by: python tools/loading-screen/generate_textures.py --stadium 1.21.1
-# shared/ keeps the oval set for the other modules until each is ported.
+# DELIBERATELY ABSENT (2026-10-25, Will: "the only place you can use the oval shapes thing
+# is our logo") - 1.21.1 draws no menu-background rings, so it ships none of the ring art.
+# Listed here so sync.py never copies shared/'s set back in. shared/ keeps the ovals for
+# the other modules until each is ported; delete these lines only if 1.21.1 takes them back.
 client/resources/assets/originclient/textures/ui/ring-0.png
 client/resources/assets/originclient/textures/ui/ring-1.png
 client/resources/assets/originclient/textures/ui/ring-2.png
 client/resources/assets/originclient/textures/ui/ring-3.png
+client/resources/assets/originclient/textures/ui/rings.json
