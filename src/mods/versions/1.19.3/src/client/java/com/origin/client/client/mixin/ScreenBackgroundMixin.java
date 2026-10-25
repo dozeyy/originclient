@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //  - Minecraft's OWN screens: THIS version's vanilla panorama, blurred, dimmed
 //    and vignetted (OriginScreenRenderer.renderMenuBackdrop).
 //  - Origin's own screens (Right Shift mod menu, HUD editor, ...): unchanged,
-//    the charcoal + rings backdrop.
+//    the charcoal + grain backdrop.
 // Gated on Minecraft.level == null: in-game screens (pause, in-game options)
 // keep vanilla's darkened-world backdrop.
 //

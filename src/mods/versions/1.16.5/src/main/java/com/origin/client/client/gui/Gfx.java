@@ -44,10 +44,17 @@ import org.lwjgl.opengl.GL11;
 // wrapper is stateless beyond the pose reference, so it is free to create per
 // frame.
 public final class Gfx {
-	private final PoseStack pose;
+	private PoseStack pose;
 
 	public Gfx(PoseStack pose) {
 		this.pose = pose;
+	}
+
+	/** Re-points this wrapper at another PoseStack: a hook that runs every frame keeps one Gfx
+	 *  (pre-1.20 GameRenderer hands each frame a new PoseStack) instead of allocating one. */
+	public Gfx rebind(PoseStack pose) {
+		this.pose = pose;
+		return this;
 	}
 
 	public PoseStack pose() {

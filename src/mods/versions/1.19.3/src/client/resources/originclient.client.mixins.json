@@ -12,6 +12,7 @@
 		"CheckboxMixin",
 		"ImageButtonMixin",
 		"AbstractWidgetAccessor",
+		"AbstractWidgetTooltipMixin",
 		"GameRendererMixin",
 		"GuiHudMixin",
 		"MouseHandlerMixin",

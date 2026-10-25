@@ -54,8 +54,9 @@ import java.util.List;
 // GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are only
 // REPOSITIONED (clicks and actions untouched) and draw as stock Minecraft
 // buttons; the icon row draws widgets.png with Origin's icon on top
-// (OriginButtonRenderer.vanillaIconButton). Every icon square says what it does
-// on hover; worded buttons get no hover text (their label says it). Mods /
+// (OriginButtonRenderer.vanillaIconButton). The icon squares show no hover
+// card (Will, 2026-10-25: it read as a second button); worded buttons say
+// it in their label. Mods /
 // Friends / Cosmetics are Origin's, added as real widgets through ScreenInvoker.
 // Mod Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
 // screen event after our init hook, which also bumps buttons -- so positions
@@ -277,31 +278,6 @@ public class TitleScreenMixin {
 	private void originclient$noVersion(PoseStack poseStack, Font font, String text, int x, int y, int color) {
 		if (!originclient$origin()) {
 			GuiComponent.drawString(poseStack, font, text, x, y, color);
-		}
-	}
-
-	// The icon squares' hover line (1.21.1 uses vanilla's Tooltip, 1.19.3+). Drawn
-	// after the widgets with this version's own Screen.renderTooltip, so it looks
-	// exactly like vanilla's. Hover state is the widget's own (set in its render
-	// this frame, or keyboard focus), as vanilla's Tooltip uses it.
-	@Inject(method = "render", at = @At("TAIL"))
-	private void originclient$iconTooltip(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		if (!originclient$origin()) {
-			return;
-		}
-		try {
-			for (int i = 0; i < originclient$icons.size(); i++) {
-				AbstractWidget w = originclient$icons.get(i);
-				if (w.visible && w.isHovered()) {
-					Component tip = OriginButtonRenderer.titleTooltip(w);
-					if (tip != null) {
-						((Screen) (Object) this).renderTooltip(poseStack, tip, mouseX, mouseY);
-					}
-					return;
-				}
-			}
-		} catch (Throwable ignored) {
-			// fail-soft: no hover line
 		}
 	}
 

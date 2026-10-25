@@ -91,6 +91,22 @@ public final class OriginButtonRenderer {
 	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
 	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
 
+	// The title dock's tooltips (OriginButtonRenderer.setDockTip from TitleScreenMixin): kept on the widgets so
+	// narration still says what each glyph does, never drawn (AbstractWidgetTooltipMixin; Will 2026-10-25: a
+	// hover card beside a dock glyph read as a second button). Weak keys: a closed title screen's tooltips go.
+	private static final Map<Object, Boolean> DOCK_TIPS = new WeakHashMap<>();
+
+	public static void setDockTip(Object tooltip) {
+		if (tooltip != null) {
+			DOCK_TIPS.put(tooltip, Boolean.TRUE);
+		}
+	}
+
+	/** True = this is a title dock tooltip: narrated, never drawn. */
+	public static boolean isDockTip(Object tooltip) {
+		return tooltip != null && DOCK_TIPS.containsKey(tooltip);
+	}
+
 	private record TitlePresentation(String icon, boolean iconOnly) {
 	}
 

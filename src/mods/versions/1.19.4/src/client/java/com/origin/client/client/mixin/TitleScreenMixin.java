@@ -59,7 +59,8 @@ import java.util.List;
 // widgets are only REPOSITIONED (clicks and actions untouched) and draw as
 // stock Minecraft buttons; the icon row draws vanilla's button art with
 // Origin's icon on top (OriginButtonRenderer.vanillaIconButton). Every icon
-// square gets a one-line tooltip saying what it does (vanilla Tooltip); worded
+// square carries a one-line tooltip saying what it does, narrated but never
+// drawn (Will, 2026-10-25: a hover card read as a second button); worded
 // buttons get none -- their label already says it (Will, 2026-10-19). Mods /
 // Friends / Cosmetics are Origin's, added as real widgets through
 // ScreenInvoker. Mod Menu's own "Mods" button is hidden every frame (it is
@@ -305,12 +306,14 @@ public class TitleScreenMixin {
 				|| net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
 	}
 
-	/** Icon-only square: vanilla's button with the Origin symbol, and what it does as its tooltip. */
+	/** Icon-only square: vanilla's button with the Origin symbol; what it does is narrated, never drawn. */
 	@Unique
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
 		OriginButtonRenderer.setTitlePresentation(w, icon, true);
 		if (w != null) {
-			w.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip)));
+			net.minecraft.client.gui.components.Tooltip tooltip = net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip));
+			OriginButtonRenderer.setDockTip(tooltip);   // narrated, never drawn (AbstractWidgetTooltipMixin)
+			w.setTooltip(tooltip);
 		}
 	}
 
