@@ -683,7 +683,7 @@ public partial class HomePage : UserControl
         await LaunchAsync(null, LaunchRoute.Picker);
     }
 
-    private async Task LaunchAsync(LaunchTarget? target = null, LaunchRoute route = LaunchRoute.Play)
+    private async Task LaunchAsync(LaunchTarget? target, LaunchRoute route)
     {
         // Enter, a friend's Join and the version picker all land here: none of them may start a game mid-import.
         if (ImportRunState.IsApplying)
