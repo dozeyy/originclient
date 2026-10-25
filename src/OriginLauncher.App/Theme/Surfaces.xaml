@@ -55,15 +55,25 @@
         <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
     </Style>
 
-    <!-- Chip: a small label on CardAlt (the Mods version tag). The text style goes inside it. -->
-    <Style x:Key="Surface.Chip" TargetType="Border">
+    <!-- Capsule: every pill, chip and badge (Will, 2026-10-25). corners Radius.Full, one shared padding token
+         (Theme/Spacing.xaml), the text in a 16 line so the ink is equal on all four sides and the box is a fixed
+         22 (Sm) or 24 tall. The text style (Surface.ChipText, or Text.Label with LineHeight.Caption) goes inside it. -->
+    <Style x:Key="Surface.Capsule" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
-        <Setter Property="Padding" Value="8,2"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Full}"/>
+        <Setter Property="Padding" Value="{StaticResource Padding.Capsule}"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
     </Style>
+    <Style x:Key="Surface.Capsule.Sm" TargetType="Border" BasedOn="{StaticResource Surface.Capsule}">
+        <Setter Property="Padding" Value="{StaticResource Padding.Capsule.Sm}"/>
+    </Style>
+    <!-- Chip: a small label on CardAlt (the Mods version tag), a Sm capsule. The text style goes inside it. -->
+    <Style x:Key="Surface.Chip" TargetType="Border" BasedOn="{StaticResource Surface.Capsule.Sm}"/>
     <Style x:Key="Surface.ChipText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
     </Style>

@@ -65,6 +65,10 @@
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
     <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- Capsule (Will, 2026-10-25): an Apple-style pill, corners Radius.Full, with equal ink on all four sides. The text sits
+         in a 16 line (LineHeight.Caption): Padding.Capsule.Sm (6,3) makes a 22 tall pill, Padding.Capsule (8,4) a 24 tall one. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->

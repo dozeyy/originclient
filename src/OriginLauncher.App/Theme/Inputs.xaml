@@ -353,7 +353,9 @@
                                         BorderThickness="1"
                                         CornerRadius="{StaticResource Radius.Md}"
                                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
-                                    <ScrollViewer MaxHeight="240" Margin="4">
+                                    <!-- Margin top and bottom only, the side gutter as Padding, so the scrollbar track runs to the
+                                         list's right edge (inside the rounded corner) instead of floating 4 px in. -->
+                                    <ScrollViewer MaxHeight="240" Margin="0,4" Padding="4,0">
                                         <ScrollViewer.Resources>
                                             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
                                         </ScrollViewer.Resources>
