@@ -134,6 +134,20 @@ try {
 	$r7 = Run-Bench (Join-Path $work "allbusy") $fx7
 	Check ($r7.code -ne 0) "exit code is not 0 (got $($r7.code))"
 	Check ($r7.text.Contains("NO COUNTED RUN") -and $r7.text.Contains("competitive")) "message names the variant with no counted run"
+
+	# 8. -OutDir can never make the script delete somebody else's folder: only an "out" it marked itself is replaced
+	Write-Host "8. a foreign 'out' folder is not deleted"
+	$out8 = Join-Path $work "foreign"
+	New-Item -ItemType Directory -Force -Path (Join-Path $out8 "out") | Out-Null
+	$sentinel = Join-Path $out8 "out/precious.txt"
+	[System.IO.File]::WriteAllText($sentinel, "do not delete", (New-Object System.Text.UTF8Encoding($false)))
+	$r8 = Run-Bench $out8 $fixtures
+	Check ($r8.code -ne 0) "exit code is not 0 (got $($r8.code))"
+	Check ($r8.text.Contains("Refusing to delete") -and $r8.text.Contains("marker")) "message says it refuses and why"
+	Check (Test-Path $sentinel) "the foreign file is still there"
+	$r8b = Run-Bench $out1 $fixtures        # $out1 holds a previous run of this script: marked, so replaced
+	Check ($r8b.code -eq 0) "a folder the script made itself is replaced on re-run (got $($r8b.code))"
+	Check (Test-Path (Join-Path $out1 "out/.origin-bench-189-out")) "and carries the marker again"
 }
 finally {
 	Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue

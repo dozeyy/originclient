@@ -92,8 +92,18 @@ if ($env:LOCALAPPDATA -and $OutDir.StartsWith((Join-Path $env:LOCALAPPDATA "Orig
 	throw "Refusing to write inside the launcher's data folder: $OutDir"
 }
 $outRoot = Join-Path $OutDir "out"
-if (Test-Path $outRoot) { Remove-Item -Recurse -Force $outRoot }   # a fresh set every time: no mixing of old and new runs
+# A fresh set every time (no mixing of old and new runs), but -OutDir is caller-chosen, so the recursive delete
+# only ever touches a folder this script itself made: it carries a marker file written below. An existing "out"
+# without the marker is somebody's folder; stop instead of deleting it.
+$outMarker = Join-Path $outRoot ".origin-bench-189-out"
+if (Test-Path $outRoot) {
+	if (-not (Test-Path $outMarker)) {
+		throw "Refusing to delete '$outRoot': it was not created by bench-189.ps1 (no .origin-bench-189-out marker). Pick another -OutDir or remove that folder yourself."
+	}
+	Remove-Item -Recurse -Force $outRoot
+}
 New-Item -ItemType Directory -Force -Path $outRoot | Out-Null
+[System.IO.File]::WriteAllText($outMarker, "written by tools/bench/bench-189.ps1; this folder is deleted and recreated on every run`n", $utf8)
 
 function Find-Python {
 	# python3 first (Linux), python (Windows); skip the Microsoft Store stub in WindowsApps, which only prints an install hint.

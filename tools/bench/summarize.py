@@ -295,13 +295,22 @@ def check_regression(agg, max_pct):
     more than max_pct percent, in any scene. Not a default: a CI runner is noisy, so the caller picks the N."""
     if max_pct < 0:
         raise SummaryError("--max-regression-pct must be >= 0, got %s" % max_pct)
-    bad = []
-    for vname, scenes in agg["deltaPctVsBaseline"].items():
-        for sc, row in scenes.items():
+    bad, uncompared = [], []
+    for vname, v in agg["variants"].items():
+        if vname == agg["baseline"]:
+            continue
+        row_by_scene = agg["deltaPctVsBaseline"].get(vname, {})
+        for sc in v["scenes"]:
+            # A scene the baseline never measured has no delta; skipping it would let a regression pass unseen.
             for name in REGRESSION_METRICS:
-                v = row.get(name)
-                if v is not None and v < -max_pct:
-                    bad.append("%s %s %s %+.1f%% vs %s" % (vname, sc, name, v, agg["baseline"]))
+                d = (row_by_scene.get(sc) or {}).get(name)
+                if d is None:
+                    uncompared.append("%s %s %s" % (vname, sc, name))
+                elif d < -max_pct:
+                    bad.append("%s %s %s %+.1f%% vs %s" % (vname, sc, name, d, agg["baseline"]))
+    if uncompared:
+        raise SummaryError("cannot check regression, no baseline figure for: %s (baseline %s)"
+                           % ("; ".join(uncompared), agg["baseline"]))
     if bad:
         raise SummaryError("regression beyond %g%%: %s" % (max_pct, "; ".join(bad)))
 

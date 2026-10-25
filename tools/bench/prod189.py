@@ -60,11 +60,21 @@ OPTIFINE_SHA1 = "d362d58a28f5373b141b9e426e8e160638bfafcd"
 OPTIFINE_MIRRORS = ["https://bmclapi2.bangbang93.com/optifine/1.8.9/HD_U/M5"]
 OPTIFINE_OFFICIAL_PAGE = "https://optifine.net/adloadx?f=" + OPTIFINE_FILE
 
-# LegacyStackInstaller.cs Stacks["1.8.9"]: exact CurseForge CDN files (no published hash; recorded in stack.json).
+# LegacyStackInstaller.cs Stacks["1.8.9"]: exact CurseForge CDN files. The launcher pins no hash for them, so the
+# SHA-256 below were taken from the copies CI downloaded (stack.json of bench-189 runs 40182245060 and 40184750903,
+# identical in both) and a mismatch is refused: these jars are executed by the game.
 STACK_MODS = [
     ("TexFix-1.8.9-4.0.jar", "https://edge.forgecdn.net/files/2540/156/TexFix%20V-1.8.9-4.0.jar"),
     ("BetterFps-1.2.0.jar", "https://edge.forgecdn.net/files/2271/480/BetterFps-1.2.0.jar"),
 ]
+STACK_SHA256 = {
+    "TexFix-1.8.9-4.0.jar": "c7a9602cb95109c6cd371d805b7bf35cc79488a16bc5b5d37f266a29093a38c4",
+    "BetterFps-1.2.0.jar": "d87561a739436eacb540f61277524fcc2992a40ceb6cbcbb7a8235abdb25ed5a",
+}
+# The Forge universal jar (LegacyForgeBuilds.cs names the URL, pins no hash). SHA-256 computed from a fresh download
+# on 2026-10-25 (3805686 bytes); its SHA-1 beda619c465af293e63952dd573c137c17c0a4cd equals maven.minecraftforge.net's
+# own .sha1 file for that URL.
+FORGE_UNIVERSAL_SHA256 = "596512ad5f12f95d8a3170321543d4455d23b8fe649c68580c5f828fe74f6668"
 
 # TemurinJava8.cs Pin (Windows x64 JRE, SHA-256 verified): what the launcher gives a 1.8.9 player on Windows.
 TEMURIN8_WIN = {
@@ -245,8 +255,8 @@ def http_get(url, timeout=60, tries=3):
     raise ProvisionError("GET %s failed: %s" % (url, last))
 
 
-def fetch_verified(urls, dest, sha1=None, get=http_get):
-    """First url whose bytes match sha1 (when given) is written to dest. Returns the url used."""
+def fetch_verified(urls, dest, sha1=None, get=http_get, sha256=None):
+    """First url whose bytes match sha1 / sha256 (each when given) is written to dest. Returns the url used."""
     errors = []
     for url in urls:
         try:
@@ -257,6 +267,9 @@ def fetch_verified(urls, dest, sha1=None, get=http_get):
         if sha1 and hashlib.sha1(data).hexdigest() != sha1.lower():
             errors.append("%s: SHA-1 mismatch" % url)
             continue
+        if sha256 and hashlib.sha256(data).hexdigest() != sha256.lower():
+            errors.append("%s: SHA-256 mismatch" % url)
+            continue
         os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
         tmp = dest + ".part"
         with open(tmp, "wb") as f:
@@ -266,10 +279,11 @@ def fetch_verified(urls, dest, sha1=None, get=http_get):
     raise ProvisionError("no source worked for %s:\n  %s" % (os.path.basename(dest), "\n  ".join(errors)))
 
 
-def ensure_file(dest, urls, sha1=None, get=http_get):
-    if os.path.isfile(dest) and (not sha1 or sha1_file(dest) == sha1.lower()):
+def ensure_file(dest, urls, sha1=None, get=http_get, sha256=None):
+    if os.path.isfile(dest) and (not sha1 or sha1_file(dest) == sha1.lower()) \
+            and (not sha256 or sha256_file(dest) == sha256.lower()):
         return dest
-    fetch_verified(urls, dest, sha1, get)
+    fetch_verified(urls, dest, sha1, get, sha256)
     return dest
 
 
@@ -376,7 +390,7 @@ def extract_natives(jar, dest, excludes):
                 shutil.copyfileobj(src, out)
 
 
-def provision_cache(cache, osn, get=http_get):
+def provision_cache(cache, osn, get=http_get, forge_sha256=FORGE_UNIVERSAL_SHA256):
     """Everything that is the same for every run. Idempotent; second call downloads nothing."""
     vanilla = load_vanilla_json(cache, get)
     forge = load_forge_json()
@@ -386,7 +400,8 @@ def provision_cache(cache, osn, get=http_get):
     cp = []
     for rel, urls, sha1, key in jobs:
         dest = os.path.join(lib_dir, *rel.split("/"))
-        ensure_file(dest, urls, sha1, get)
+        # the Forge universal jar is the one library with no hash in the version json: its SHA-256 is pinned here
+        ensure_file(dest, urls, sha1, get, forge_sha256 if urls == [FORGE_UNIVERSAL_URL] else None)
         cp.append(dest)
     nat_dir = os.path.join(cache, "natives-" + osn)
     marker = os.path.join(nat_dir, ".done")
@@ -584,7 +599,7 @@ def cmd_run(args):
     optifine = os.path.join(mods_dir, OPTIFINE_FILE)
     if not (os.path.isfile(optifine) and sha1_file(optifine) == OPTIFINE_SHA1):
         ensure_file(optifine, optifine_urls(), OPTIFINE_SHA1)
-    stack = [ensure_file(os.path.join(mods_dir, n), [u]) for n, u in STACK_MODS]
+    stack = [ensure_file(os.path.join(mods_dir, n), [u], sha256=STACK_SHA256[n]) for n, u in STACK_MODS]
 
     out = os.path.abspath(args.out)
     game_dir = os.path.join(os.path.abspath(args.work), "game-%s-%d" % (args.variant, os.getpid()))

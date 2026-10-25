@@ -210,6 +210,26 @@ class Fetch(Tmp):
         for name, url in P.STACK_MODS:
             self.assertIn(url, text)
 
+    def test_every_downloaded_jar_has_a_sha256_pin(self):
+        self.assertEqual(sorted(P.STACK_SHA256), sorted(n for n, _ in P.STACK_MODS))
+        for h in list(P.STACK_SHA256.values()) + [P.FORGE_UNIVERSAL_SHA256]:
+            self.assertRegex(h, r"^[0-9a-f]{64}$")
+
+    def test_a_stack_mod_with_the_wrong_sha256_is_refused_and_a_cached_one_is_replaced(self):
+        good = b"the real jar"
+        sha = hashlib.sha256(good).hexdigest()
+        dest = self.p("mods", "TexFix.jar")
+        os.makedirs(os.path.dirname(dest))
+        with self.assertRaises(P.ProvisionError) as c:
+            P.ensure_file(dest, ["https://cdn/x"], get=lambda url, **kw: b"swapped", sha256=sha)
+        self.assertIn("SHA-256 mismatch", str(c.exception))
+        self.assertFalse(os.path.exists(dest))
+        with open(dest, "wb") as f:
+            f.write(b"tampered earlier download")
+        P.ensure_file(dest, ["https://cdn/x"], get=lambda url, **kw: good, sha256=sha)
+        with open(dest, "rb") as f:
+            self.assertEqual(f.read(), good)
+
     def test_temurin_pin_matches_the_launcher(self):
         cs = os.path.join(HERE, "..", "..", "src", "OriginLauncher.App", "Core", "Runtime", "TemurinJava8.cs")
         with open(cs, encoding="utf-8") as f:
@@ -253,6 +273,9 @@ class LibraryJobs(unittest.TestCase):
         self.assertEqual(len(natives), 1)
         self.assertEqual(natives[0][0], "n/linux.jar")
         self.assertEqual(natives[0][3], ["META-INF/"])
+
+
+FORGE_FAKE = hashlib.sha256(b"forge-universal").hexdigest()   # the fake internet's Forge bytes
 
 
 class FakeNet(Tmp):
@@ -300,7 +323,7 @@ class FakeNet(Tmp):
     def test_provision_then_second_call_downloads_nothing(self):
         get, forge = self.build_world()
         cache = self.p("cache")
-        prov = P.provision_cache(cache, "linux", get)
+        prov = P.provision_cache(cache, "linux", get, FORGE_FAKE)
         self.assertTrue(prov["classpath"][-1].endswith("1.8.9.jar"))
         self.assertTrue(any(c.endswith("forge-1.8.9-11.15.1.2318-1.8.9.jar") for c in prov["classpath"]))
         self.assertTrue(os.path.isfile(os.path.join(prov["natives"], "liblwjgl64.so")))
@@ -311,7 +334,7 @@ class FakeNet(Tmp):
 
         def no_net(url, **kw):
             raise AssertionError("second provision must not touch the network: " + url)
-        prov2 = P.provision_cache(cache, "linux", no_net)
+        prov2 = P.provision_cache(cache, "linux", no_net, FORGE_FAKE)
         self.assertEqual(prov2["classpath"], prov["classpath"])
 
     def test_a_corrupt_asset_stops_the_provision(self):
@@ -322,7 +345,19 @@ class FakeNet(Tmp):
                 return b"corrupt"
             return get(url, **kw)
         with self.assertRaises(P.ProvisionError):
-            P.provision_cache(self.p("cache"), "linux", bad)
+            P.provision_cache(self.p("cache"), "linux", bad, FORGE_FAKE)
+
+    def test_a_tampered_forge_universal_jar_is_refused(self):
+        get, _ = self.build_world()
+
+        def evil(url, **kw):
+            return b"not-forge" if url == P.FORGE_UNIVERSAL_URL else get(url, **kw)
+        with self.assertRaises(P.ProvisionError) as c:
+            P.provision_cache(self.p("cache"), "linux", evil, FORGE_FAKE)
+        self.assertIn("SHA-256 mismatch", str(c.exception))
+        # and the real pin is what runs by default: the fake bytes do not match it
+        with self.assertRaises(P.ProvisionError):
+            P.provision_cache(self.p("cache2"), "linux", get)
 
 
 class GameDir(Tmp):

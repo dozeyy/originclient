@@ -366,6 +366,20 @@ class Aggregate(Tmp):
         self.build()      # origin-default is +25 % over the baseline
         S.check_regression(S.aggregate(self.p("root"), baseline="optifine-only"), 0)
 
+    def test_max_regression_pct_fails_when_the_baseline_lacks_a_scene(self):
+        self.build()
+        for i in (1, 2, 3):   # a variant measured a scene ("menu") the baseline never did, and it is 3x slower
+            write_run(self.p("root", "origin-default", "run-%d" % i),
+                      {"idle": ([8 * MS] * 400, {}), "menu": ([30 * MS] * 400, {})})
+        agg = S.aggregate(self.p("root"), baseline="optifine-only")
+        self.assertNotIn("menu", agg["deltaPctVsBaseline"]["origin-default"])   # the silent skip this guards
+        with self.assertRaises(S.SummaryError) as c:
+            S.check_regression(agg, 20)
+        self.assertIn("origin-default menu avgFps", str(c.exception))
+        with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only",
+                                     "--max-regression-pct", "20"]), 2)
+
     def test_max_regression_pct_rejects_a_negative_limit(self):
         self.build()
         with self.assertRaises(S.SummaryError):
