@@ -449,7 +449,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   const fitCam = new THREE.PerspectiveCamera(), fa = new THREE.Vector3(), fb = new THREE.Vector3(), frel = new THREE.Vector3(), ftarget = new THREE.Vector3();
   // `project` returns the island's on-screen radius (px) from its centre (bounding sphere plus
   // clearance) for the pose camera pulled back by factor k; it leaves the centre's NDC in fa.
-  const RING_R = inner + 1.2, TILT_C = 1, TILT_S = 0;
+  const RING_R = bounds.radius + 0.6, TILT_C = 1, TILT_S = 0;
   function project(q, k, W, H) {
     ftarget.set(q.target[0], q.target[1], q.target[2]);
     frel.set(q.pos[0], q.pos[1], q.pos[2]).sub(ftarget).multiplyScalar(k);
@@ -473,7 +473,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     const bandH = zone.bottom - zone.top;
     let half, cx, cy, kMin = 0.7;
     if (mobile && bandH >= MIN_BAND_H && zone.bandW >= MIN_ZONE_W) {   // stacked: centred in the band above the copy
-      half = Math.min(zone.bandW / 2, bandH / 2); cx = W / 2; cy = (zone.top + zone.bottom) / 2; kMin = 0.8;
+      half = Math.min(zone.bandW / 2, bandH / 2); cx = W / 2; cy = (zone.top + zone.bottom) / 2; kMin = 0.55;
     } else if (zone.w >= MIN_ZONE_W) {                                 // beside the copy (desktop, or a phone with no band)
       half = Math.min(zone.w / 2, H * 0.47); cx = zone.cx; cy = mobile ? H / 2 : zone.cy; kMin = 0.7;
     } else {   // nowhere to fit: a small island parked in the top-right corner, under the header
