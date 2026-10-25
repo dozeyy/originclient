@@ -121,11 +121,20 @@ def build_gradle(module_gradle_text):
     )
 
 
-def gradle_properties(module_props_text, mc_version):
-    """The module's gradle.properties with minecraft_version swapped for the covered version."""
+def gradle_properties(module_props_text, mc_version, run_java=0):
+    """The module's gradle.properties with minecraft_version swapped for the covered version.
+
+    run_java = the Java major players' game runs on, when it is older than Gradle's JVM (1.20.x: 17). Loom
+    otherwise sees Gradle's Java 21 and swaps the game's LWJGL 3.3.1 for 3.3.2 (LWJGL3UpgradeLibraryProcessor:
+    "Java 19+ and the version's LWJGL does not support it"), which players never get and which Sodium 0.5's
+    early LWJGL check refuses ("currently active LWJGL version is not compatible", boot-smoke 40245168662).
+    fabric.loom.runtimeJavaCompatibilityVersion tells Loom the real runtime, so the vanilla LWJGL stays."""
     if gradle_property(module_props_text, "minecraft_version") is None:
         raise CoverError("covering module's gradle.properties has no minecraft_version")
-    return re.sub(r"^(\s*minecraft_version\s*=\s*)\S+", lambda m: m.group(1) + mc_version, module_props_text, flags=re.M)
+    out = re.sub(r"^(\s*minecraft_version\s*=\s*)\S+", lambda m: m.group(1) + mc_version, module_props_text, flags=re.M)
+    if run_java:
+        out = out.rstrip("\n") + f"\nfabric.loom.runtimeJavaCompatibilityVersion={int(run_java)}\n"
+    return out
 
 
 def built_jar(module_dir):
@@ -188,7 +197,7 @@ def fabric_api(mc_version, fetch_json=None):
     return f["url"], f["filename"], f.get("hashes", {}).get("sha512", ""), v.get("version_number", "?")
 
 
-def prepare(module_dir, mc_version, out):
+def prepare(module_dir, mc_version, out, run_java=0):
     module_dir = os.path.abspath(module_dir)
     name = os.path.basename(module_dir)
     with open(LIVE, encoding="utf-8") as f:
@@ -209,7 +218,7 @@ def prepare(module_dir, mc_version, out):
             shutil.copy2(os.path.join(module_dir, fn), os.path.join(out, fn))
     os.chmod(os.path.join(out, "gradlew"), 0o755)
     with open(os.path.join(module_dir, "gradle.properties"), encoding="utf-8") as f:
-        props = gradle_properties(f.read(), mc_version)
+        props = gradle_properties(f.read(), mc_version, run_java)
     with open(os.path.join(out, "gradle.properties"), "w", encoding="utf-8", newline="\n") as f:
         f.write(props)
     with open(os.path.join(module_dir, "build.gradle"), encoding="utf-8") as f:
@@ -234,12 +243,13 @@ def main():
     ap.add_argument("module")
     ap.add_argument("mc_version")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--run-java", type=int, default=0, help="the game JVM players use, when older than Gradle's (keeps vanilla LWJGL)")
     a = ap.parse_args()
     if not os.path.isfile(os.path.join(a.module, "build.gradle")):
         print(f"covers: no build.gradle in {a.module}", file=sys.stderr)
         return 2
     try:
-        loaded = prepare(a.module, a.mc_version, os.path.abspath(a.out))
+        loaded = prepare(a.module, a.mc_version, os.path.abspath(a.out), a.run_java)
     except (CoverError, OSError) as e:
         print(f"::error title=covers {a.mc_version}::{e}")
         return 1

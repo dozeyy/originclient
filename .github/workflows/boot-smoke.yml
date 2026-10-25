@@ -204,8 +204,12 @@ jobs:
 
       - name: Prepare the covered-version boot (${{ matrix.cover }})
         if: ${{ matrix.cover != '' }}
+        env:
+          RUN_JAVA: ${{ matrix.run_java }}
         run: |
-          python3 tools/boot-smoke/covers.py "src/mods/versions/${{ matrix.version }}" "${{ matrix.cover }}" --out "build/covers/${{ matrix.cover }}"
+          # --run-java: keeps the version's own LWJGL (Loom upgrades it when Gradle's JVM is 19+; covers.py).
+          python3 tools/boot-smoke/covers.py "src/mods/versions/${{ matrix.version }}" "${{ matrix.cover }}" \
+            --out "build/covers/${{ matrix.cover }}" ${RUN_JAVA:+--run-java "$RUN_JAVA"}
           bash tools/ci/gradle_prefetch.sh "build/covers/${{ matrix.cover }}"
 
       - name: Boot-smoke ${{ matrix.version }}

@@ -892,6 +892,10 @@ class CoversBoot(unittest.TestCase):
         props = covers.gradle_properties("a=1\nminecraft_version=1.21.4\nloader_version=0.19.3\n", "1.21.2")
         self.assertIn("minecraft_version=1.21.2\n", props)
         self.assertIn("loader_version=0.19.3", props)
+        self.assertNotIn("runtimeJavaCompatibilityVersion", props)
+        # 1.20.x players run Java 17: Loom must keep the version's own LWJGL (Sodium 0.5 refuses Loom's 3.3.2)
+        props17 = covers.gradle_properties("minecraft_version=1.20\n", "1.20.1", 17)
+        self.assertIn("fabric.loom.runtimeJavaCompatibilityVersion=17\n", props17)
 
     def test_fabric_api_pick_is_newest_release_only(self):
         vs = [{"version_type": "beta", "date_published": "2026-10-03"},
