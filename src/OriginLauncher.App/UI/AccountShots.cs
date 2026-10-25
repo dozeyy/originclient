@@ -77,12 +77,18 @@ internal static class AccountShots
         window.TourShowLinkHints(false);
         window.TourHover(window.TourStoreButton, false);
 
+        // Focus is shot in the window's own layout (the CI desktop caps a window at 1044 wide): the focus frame is a visual
+        // laid over the control, and a hand-made wide layout would leave it where the control used to be.
         foreach (var (button, name) in new[] { (window.TourStoreButton, "16h-store-focus"), (window.TourAccountButton, "16i-pill-focus") })
         {
-            window.TourLayoutAt(at);
+            window.Width = 1180;
+            window.Height = 740;
+            window.TourShowAccount("Steve", SocialDemo.Steve, false);
+            RenderShots.Pump(600);
             button.Focus();
             var undo = ImportShots.FocusFrame(window, button, name, log);
-            Frame(window, dir, name, at, true, log);
+            log.AppendLine($"{name}: {window.TourAccountFit()}");
+            RenderShots.Snap(window, dir, name, adorners: true);
             undo?.Invoke();
         }
 
@@ -127,8 +133,9 @@ internal static class AccountShots
 
     private static void Frame(MainWindow window, string dir, string name, Size size, bool adorners, StringBuilder log, double dpi = 96)
     {
-        window.TourLayoutAt(size);
+        // Pump first: it lets WPF run its own pass at the real (capped) window size, which would undo a manual layout.
         RenderShots.Pump(150);
+        window.TourLayoutAt(size);
         log.AppendLine($"{name}: {window.TourAccountFit()}");
         RenderShots.Snap(window, dir, name, dpi: dpi, size: size, adorners: adorners, laidOut: true);
     }
