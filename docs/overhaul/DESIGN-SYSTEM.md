@@ -135,7 +135,6 @@ outside the deleted list.
 | `color.lineStrong` | `rgba(255,255,255,.10)` | control edges, hover edges, menu edges |
 | `color.text` | `#F1E9D2` (parchment) | primary text |
 | `color.numeral` | `#F1E9D2` (parchment = `color.text`) at 94 % = `#F0F1E9D2` | every version number set on art: Home and cards (11.6). Warm parchment, the Workbench Home mockup; no hue shift per family |
-| `color.orbitThread` | `rgba(241,233,210,.20)` | the orbit thread's 1 px hairlines behind the Home numeral (12.1) |
 | `color.onArt` | `rgba(245,245,245,.82)` | eyebrow and range beside a numeral on art |
 | `color.cornerShade` | `color.bg` from 88 % to 0 | the radial shade a card's numeral stands in (11.6); Home has none |
 | `color.textDim` | `rgba(241,233,210,.68)` | secondary text, inactive nav, icons at rest |
@@ -283,7 +282,7 @@ dock icon (Will: "remove the unnecessary boxes").
 | `radius.md` | 8 | controls 36-40 tall, inputs, dropdown menus, the window (Win 11) |
 | `radius.lg` | 12 | version cards, sheets, the installer content card |
 | `radius.dialog` | 16 | every dialog over a scrim (confirm, profile form, sign-in, the welcome card); launcher only (`Radius.Dialog`) |
-| `radius.full` | 999 | dots, switches, progress rails, single-line status badges. In WPF a 999 radius on a box wider than tall draws an **oval**: every pill, chip and badge also sets `ui:Capsule.On` (radius = height / 2, `UI/Capsule.cs`; Surface.Capsule does it) |
+| capsule | height / 2 | every pill, chip, badge, switch track and dot: `ui:Capsule.On` (`UI/Capsule.cs`, radius = half the short side, kept in step with the size; `Surface.Capsule` sets it). There is **no** 999 token: WPF shrinks an oversized radius per axis, so a 999 radius on a box wider than tall draws an **oval** (Will, 2026-10-25: "never oval shaped ever again"). Progress rails use `Radius.Track` |
 
 - **Concentric rule:** anything inset inside a rounded container gets radius = outer radius -
   inset (minimum 2). For example, the account control (6) with a 4 px inset head gets head radius 2.
@@ -407,15 +406,27 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
 
 - **Step 1, families:** header `type.heading` "Choose a version" + `caption` "8 families, 26
   releases. Origin installs what each one needs." Close icon button (32) at the right. Then a
-  4 x 2 grid of version cards (11.6), gap 12. Selecting a family goes to step 2 (crossfade
-  `motion.scene`). Single-release families (1.18, 1.17, 1.16, 1.8) select directly and close.
-- **Step 2, releases:** ghost `sm` "All versions" with back chevron. Left column (320): the family
-  card at large size + description in `body` `textDim`. Right: list of releases, rows `lg` 36,
-  `radius.sm`, version in `bodyStrong` `tnum`, status in `caption` ("Installed" with a 6 px
-  `success` dot, or "Downloads when you press Play" in `textMuted`), selected row `accentSoft`
-  + check. Every release of the family is listed, newest first, never truncated (1.21 has 10
-  rows; the list scrolls inside the sheet past 10). Footer, right-aligned: ghost `lg` "Install
-  only", primary `lg` "Play 1.21.11".
+  4 x 2 grid of version cards (11.6), gap 12. Enter or a click on a family card opens step 2.
+  Single-release families (1.18, 1.17, 1.16, 1.8) select directly and close.
+- **Step 2, the card grows (Will, 2026-10-25):** the clicked card scales and moves out of its own grid
+  slot into one centred panel over the cards (220 ms, `Motion.Emphasized` = cubic-bezier(.2,.8,.2,1);
+  the panel's face fades in over the first half so stretched words never read) while the other cards
+  fade back to 12 %. Input is live at once; the motion only follows. Reduced motion (and render runs):
+  no motion, the end state at once. The panel (`card`, 1 px `softStroke`, `radius.lg`, padding 16,
+  width `Size.FamilyPanel.Share` 0.44 of the sheet between 320 and 520, never taller than the card
+  block so the sheet keeps its size): ghost "All versions" with a back chevron at its top-left, the
+  family art (16:9, `radius.md`, shorter in a short window), the range in `caption`, the name in
+  `type.heading`, then **one compact dropdown** (11.2, `radius.md`, not a capsule) of every release,
+  newest first, the current one preselected. A release already on disk wears a quiet 6 px
+  `hue.emerald` dot after its number; nothing else is said about installing (no "Download", no
+  "Not installed": Play installs whatever it needs). Its list opens downward when it fits in the
+  window under the box, else upward over the art.
+- **Picking is the whole job:** choosing a release in the dropdown selects it at once (no Play or
+  Install buttons in the picker). Esc or a click anywhere off the panel closes the whole picker to
+  Home, which already shows the new version. "All versions" (or Backspace / Left) shrinks the
+  panel back into its card (the reverse move) and returns to step 1. Keys: Enter on a card expands
+  it; on the dropdown, Up / Down change the pick, Enter or Space open the list, and the open list
+  keeps its own keys (arrows, Enter, Esc closes only the list).
 - The selection writes `LauncherSettings.SelectedVersion` through `SettingsStore.Update`
   only. Installed state comes from a disk check off the UI thread. Until it returns, the
   status shows nothing (no placeholder text).
@@ -442,13 +453,16 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
   `textDim`, hover `text` + `rgba(255,255,255,.04)`, selected `text` and a **4 px round accent dot
   centred under the label** (Workbench mockup; it grows from its centre in `motion.base`, it replaces
   the 2 px underline), `radius.sm`.
-- **Right (pad 8):** [update chip, only while an update waits] Import (icon), Friends
+- **Right (pad 8):** [update chip, only while an update waits] **Store** (ghost `md` 32: the bag glyph in
+  `hue.gold`, "Store" in `type.label`, and a 12 px external arrow on hover; opens the Store page, Will
+  2026-10-25), Import (icon), Friends
   (icon + count badge), divider 1 x 20 at `rgba(255,255,255,.14)` (8 margins), account control, 8 gap,
   minimise, close. Gaps 4 inside the group.
 - **Narrow windows give up width in this order** (window width):
   1. 1100 and wider: everything at full size.
-  2. Below 1100: the update chip becomes an icon button 32 (below). The Store is no longer in the
-     bar (it is the Home strip's Store card, 11.7), so there is no label fit rule left.
+  2. Below 1100: the update chip becomes an icon button 32 (below). When even the fully slid tabs
+     would still come within 24 of the actions, the Store drops to its bag icon (label and arrow
+     collapse) and comes back as soon as the full width fits again.
   3. Below 1000: the wordmark hides; the logo stays as the Website link.
   4. The account name ellipsizes at 160 at every width.
 - **Update chip** (first in the right group, only while a downloaded update waits): ghost `md`
@@ -523,7 +537,7 @@ picture:
 - **Figures:** `type.numeral`: Inter 800, natural width (no horizontal squash), proportional
   lining figures, -0.04 em, `color.numeral` parchment at 94 %, never tinted per family, no glow and
   NO frosted glass behind it (the glass experiment is dropped). Home draws it plain on the colour art,
-  with the orbit thread behind it (12.1). A card on bright art may add a 1 px
+  alone: nothing is drawn around it (12.1). A card on bright art may add a 1 px
   legibility shadow, drawn, never an effect: the same `FormattedText` once at +1 px y in black at
   40 %, then the white text on top. No `DropShadowEffect` (section 7: no effects on animating
   elements, and the numeral crossfades, section 13).
@@ -531,7 +545,7 @@ picture:
   cap line by max(8, figures x 0.08), same left edge. Home has none.
 - **Range** (cards only): "1.21 - 1.21.11" in `caption` `color.onArt`, 12 after the figures, on
   their baseline. Hidden on cards narrower than 220.
-- **Status badge** (cards) top-left at 10 / 10: `badge` (20 tall, `radius.full`, `surface` at 80 %,
+- **Status badge** (cards) top-left at 10 / 10: `badge` (20 tall, `capsule`, `surface` at 80 %,
   `caption`, 6 px dot): "2 of 10 installed" (`success` dot) or "Not installed" (muted dot).
 - **Card states:** hover edge `lineStrong` + art brightness 1.06 (no scale). Selected: 2 px
   `accent` ring at 2 px gap and nothing else changes, so the badge keeps its count. Focus: the
@@ -539,23 +553,16 @@ picture:
 - Never bake the number into the art files. Short keys ("26") and long ones ("1.21.11") use the
   same rule; only the width cap can shrink a long one.
 
-### 11.7 Store card (Home strip)
+### 11.7 Store (top bar)
 
-- Lives in the Home strip's right group, first item (13): a card 64 tall x 236 wide (`size.strip`,
-  `radius.lg`, the strip card fill `color.nav` 88 % with a 1 px `color.line` edge): a 48 soft-hue
-  tile (`radius.md`, `hue.lilac` at 16 %) holding the bag glyph in `hue.lilac`, "Origin Store" in
-  `bodyStrong`, "Capes and cosmetics" in `caption` `textDim` under it, and a small up-right arrow
-  glyph in `textDim` at the right (it opens the browser). Hover: fill `color.card`, edge `lineStrong`;
-  press: `surfacePress` + the shared press-scale .97. No hover label.
-- Opens `https://originclient.org/store` through `Core.Promos.ExternalLink.Open` (the Store
-  page's live URL, `services/cosmetics/src/stripe.js:31` `STORE_PAGE`), from `HomePage.StoreCard_Click`.
-  It replaced the top bar's Store button (the Workbench mockup: "the Store card replaces the Website
-  button"); the Website link stays in the brand lockup (11.4) and Settings > About.
-- It is never in the top bar any more and has no promo art.
+- The Store lives in the top bar's right group (11.4), not on Home (Will, 2026-10-25). It opens
+  `https://originclient.org/store` through `Core.Promos.ExternalLink.Open` (the Store page's live URL,
+  `services/cosmetics/src/stripe.js:31` `STORE_PAGE`) from `MainWindow.StoreButton_Click`. The Website
+  link stays in the brand lockup (11.4) and Settings > About. No promo art.
 
 ### 11.8 Switch, checkbox, input, tooltip
 
-- **Switch:** 32 x 18 track `radius.full`. Off: `rgba(255,255,255,.10)` track, knob `text` at 70 %. On:
+- **Switch:** 32 x 18 track `capsule`. Off: `rgba(255,255,255,.10)` track, knob `text` at 70 %. On:
   `accent` track, knob `onAccent`. Knob 14, travel `motion.base`. Label left in `caption` `textDim`.
 - **Checkbox:** 16, `radius.xs`, 1 px `lineStrong` edge. Checked: `accent` fill + check 12
   `onAccent`. Label `body` 8 to the right. The whole row is the hit target.
@@ -567,9 +574,9 @@ picture:
 
 ### 11.9 Badges and status dots
 
-- Dot 6 `radius.full`: `success` ready / installed, `warning` attention, `danger` failed, `accent`
+- Dot 6 `capsule`: `success` ready / installed, `warning` attention, `danger` failed, `accent`
   active (running, online), muted not installed.
-- Badge 20 tall, `radius.full`, pad X 8, `caption` 500: neutral (`rgba(255,255,255,.06)`, `textDim`),
+- Badge 20 tall, `capsule`, pad X 8, `caption` 500: neutral (`rgba(255,255,255,.06)`, `textDim`),
   or tinted (hue 16 % fill, hue text). Count badge on icons: 16 tall, min 16, `accent` fill,
   `onAccent` 10.5 / 700, top-right offset -4 / -4.
 
@@ -583,7 +590,7 @@ picture:
 
 ### 11.11 Loading indicators
 
-- **Progress rail (the one progress element):** 3 tall, `radius.full`, track
+- **Progress rail (the one progress element):** 3 tall, `capsule`, track
   `rgba(255,255,255,.08)`, fill `accent`, width animated with `motion.base`. Used by Play,
   the installer, the uninstaller and the loading screen (the in-game rail is the same
   token, see section 15.3).
@@ -611,15 +618,11 @@ picture:
   scrim: the top bar's own `color.nav` 88 % surface (11.4) covers the art behind it, so the art runs at full
   strength right under the bar's hairline. The art crossfades in `motion.scene` when the family
   changes.
-### 12.1 Signature effects: orbit thread
+### 12.1 No decoration around the numeral
 
-The logo's idea used once as a faint thread, behind the Home numeral only: **three ellipses sharing one
-centre, tilted 0, 60 and 120 degrees, as 1 px `color.orbitThread` hairlines** (parchment at 20 %), semi-major
-axis 0.75 x the figures' height, minor axis 0.4 of that, centred on the figures. It is drawn once in
-`OnRender` (`UI/Controls/OrbitThread.cs`, a child of `VersionNumeral`), redrawn only when the numeral's size
-changes, no shader, no blur, nothing per frame, and it fades and rolls with the numeral. It is a decoration,
-not the logo: the logo is only ever the official image file (1.5), and `tools/design/check_logo.py` allows
-this one file by exact path.
+The Home numeral stands alone on the art. The orbit thread (three tilted rings behind it) is removed
+(Will, 2026-10-25: it read as a fake Origin logo). No logo-like shape is drawn anywhere; the logo is only
+ever the official image file (1.5), and `tools/design/check_logo.py` allows no exception for it.
 
 - **Other launcher pages:** `color.bg` with the same art under 92 % `color.bg` (the existing
   `PageDim`, re-valued), so the version still tints the room faintly.
@@ -637,27 +640,27 @@ this one file by exact path.
 
 ```
 +-- top bar 48 --------------------------------------------------------------------+
-| [logo] ORIGIN       |24|  HOME  MODS  PROFILES  SETTINGS  |24|   i f | (h) Name v  - x |
+| [logo] ORIGIN  |24|  HOME  MODS  PROFILES  SETTINGS  |24|  Store i f | (h) Name v  - x |
 |                            .                                                    |
 +----------------------------------------------------------------------------------+
 |                                                                                  |
 |                       2 6 . 3          <- figures 32 % of the height, centred    |
-|                       (orbit thread)      in the band (bar bottom to strip top)  |
+|                                           in the band (bar bottom to strip top)  |
 |                                                                                  |
-| [thumb 26.3     v] [No profile v]   [bag Origin Store ^]  MY MODS [=]  [> Play]  |
+| [thumb 26.3     v]                                         MY MODS [=]  [> Play]  |
 | * Ready to play                                                                  |
 +---------------------------------------------- 32 inset ---------------------------+
 ```
 
 - **Strip (Workbench mockup `.strip`):** 32 from the left, right and bottom edges (24 below 640 high).
-  Left column: a row of two 64 tall cards 12 apart, then the status line 10 under them.
+  Left column: the version card (64 tall), then the status line 10 under it. No profile card and no
+  Store on Home (Will, 2026-10-25): the profile is picked on the Profiles page, the Store is in the bar.
   The **version card** (`radius.lg`, 16 right / 8 left padding): a 48 thumbnail of the family's colour
   art (`radius.md`), 12, the version in `type.heading` 22 / 700 over the family name in `caption`
-  `textDim`, then a chevron. The **profile card**: its emblem (only when a profile is picked) and the
-  profile name in `bodyStrong` (`textDim` for "No profile"), a chevron; 14 padding. The **status line**:
+  `textDim`, then a chevron. The **status line**:
   an 8 px round dot (`accent` while ready, `warning`, `danger`) and one `caption` line (`textDim`).
   Right group, bottom-aligned with the status line, 12 gaps, every item centred on one 64 line:
-  the **Store card** (11.7), **MY MODS** (`type.label`, 0.14 em tracking, `textMuted`) with the iOS
+  **MY MODS** (`type.label`, 0.14 em tracking, `textMuted`) with the iOS
   switch 36 x 20 (14 knob inset 3; off: progress-track fill + 1 px edge + muted knob, on: `accent`
   track with a dark `onAccent` knob), Join (a strip card, only when the profile has a server), then
   **Play**: a solid `accent` card 208 x 64 (`radius.lg`), the play triangle and "Play" in `onAccent`
@@ -669,9 +672,9 @@ this one file by exact path.
   and the strip's top edge (11.6 Home placement), at its natural width and 32 % of the height. At
   1180 x 740: figures 237, ink centred on x 590 and on the band's middle. Ink width capped at 2/3 of
   the window (11.6). Shaped text is cached per font size, not rebuilt per glyph per resize. It
-  crossfades with the art (`motion.scene`) and carries the orbit thread (12.1).
-- At 960 x 600 the strip keeps its sizes; the profile card takes the width that is left and its name
-  trims.
+  crossfades with the art (`motion.scene`). Nothing is drawn around it (12.1).
+- At 960 x 600 the strip keeps its sizes; when a profile's server makes the row too wide, Join folds to
+  its server icon (a 64 square, "Join <server>" in its tooltip). Nothing else folds and nothing is cut.
 
 ---
 
@@ -828,12 +831,11 @@ Status: **reuse** = the key exists, so only its value changes; **new** = the key
 | color.scrim | `Brush.Scrim` | `#A30A0D0C` | reuse |
 | page dim | `Brush.PageDim` | `#EB0E1110` | reuse |
 | numeral ink | `Brush.NumeralInk` | `#F0F1E9D2` (parchment at 94 %) | re-value (Workbench Home mockup; was neutral white) |
-| orbit thread | `Brush.OrbitThread` | `#33F1E9D2` | new (12.1) |
 | art shade | `Fill.ArtShade` | clear at 40 %, `Color.ScrimArt` at 66 %, `ScrimStrong` at 100 % | new (12; replaces the 330 px bottom scrim on Home) |
-| strip sizes | `Size.StripControl` 64, `StripTile` 48, `StoreCardWidth` 236, `PlayWidth` 208, `StatusDot` 8, `NavDot` 4 | | new (13) |
+| strip sizes | `Size.StripControl` 64, `StripTile` 48, `PlayWidth` 208, `StatusDot` 8, `NavDot` 4 | | new (13) |
 | Home switch | `Size.HomeSwitchWidth/Height/Knob/Travel` 36 / 20 / 14 / 16, style `Toggle.HomeSwitch` | | new (13) |
 | strip card | `Button.StripCard`; Play = `Button.PlayHero` (solid accent) | | new / re-built (13) |
-| capsule padding | `Padding.Capsule` 8,4, `Padding.Capsule.Sm` 6,3 (corners `Radius.Full`) | | shared with the capsule rule |
+| capsule padding | `Padding.Capsule` 8,4, `Padding.Capsule.Sm` 6,3 (corners `ui:Capsule.On`) | | shared with the capsule rule |
 | progress track | `Brush.ProgressTrack` | `#14FFFFFF` | reuse |
 | hue.* | `Color.Hue.Emerald/Sky/Gold/Lilac/Coral` (+ `Brush.HueTile.*` at 16 %) | section 2.3 | new (replace `Tint.*`, `TintInk.*`) |
 | family hue | `Brush.Acc`, `FamilyTheme.cs` table | none | retire (colour lives in hues, not per family) |

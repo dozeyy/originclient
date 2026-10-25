@@ -70,9 +70,6 @@
     <Color x:Key="Color.LaunchScrim">#990E1110</Color>
     <!-- The giant version numeral on art: parchment (Color.Text) at 94 %, from the approved Workbench Home mockup. -->
     <Color x:Key="Color.NumeralInk">#F0F1E9D2</Color>
-    <!-- The orbit thread behind the numeral (DESIGN-SYSTEM, Signature effects): the logo's three rings as 1 px
-         parchment hairlines, parchment at 20 %. Decoration only; it is not the logo mark. -->
-    <Color x:Key="Color.OrbitThread">#33F1E9D2</Color>
     <!-- Beside a numeral on art (the range on a version card): the numeral's parchment at 82 % (spec color.onArt). -->
     <Color x:Key="Color.OnArt">#D1F1E9D2</Color>
     <!-- The 1 px legibility shadow under a numeral on art: drawn, never an effect (spec 11.6): black at 40 %. -->
@@ -120,7 +117,6 @@
     <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}"/>
     <SolidColorBrush x:Key="Brush.OnPhoto" Color="{StaticResource Color.OnPhoto}"/>
     <SolidColorBrush x:Key="Brush.NumeralInk" Color="{StaticResource Color.NumeralInk}"/>
-    <SolidColorBrush x:Key="Brush.OrbitThread" Color="{StaticResource Color.OrbitThread}"/>
     <SolidColorBrush x:Key="Brush.OnArt" Color="{StaticResource Color.OnArt}"/>
     <SolidColorBrush x:Key="Brush.NumeralShadow" Color="{StaticResource Color.NumeralShadow}"/>
     <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>

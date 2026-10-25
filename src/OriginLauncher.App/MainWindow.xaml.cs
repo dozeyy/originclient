@@ -641,8 +641,7 @@ public partial class MainWindow : Window
         if (ink is not { } r) return "numeral not laid out";
         return $"window={Stage.ActualWidth:0}x{Stage.ActualHeight:0} band={top:0.#}..{bottom:0.#} (middle {(top + bottom) / 2:0.#}) "
             + $"ink x={r.Left:0.#} y={r.Top:0.#} w={r.Width:0.#} h={r.Height:0.#} (middle x {r.Left + r.Width / 2:0.#} y {r.Top + r.Height / 2:0.#}) "
-            + $"airAbove={r.Top - top:0.#} airBelow={bottom - r.Bottom:0.#} inkShareOfWidth={r.Width / Stage.ActualWidth:0.000} "
-            + $"orbitCapsule={Stage.OrbitRing.Length:0}x{Stage.OrbitRing.Thickness:0} endRadius={Stage.OrbitRing.Radius:0.#}";
+            + $"airAbove={r.Top - top:0.#} airBelow={bottom - r.Bottom:0.#} inkShareOfWidth={r.Width / Stage.ActualWidth:0.000}";
     }
 
     // The bar's translucent Home surface on or off, for the render tour's cost measurement only.

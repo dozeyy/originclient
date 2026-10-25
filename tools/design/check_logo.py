@@ -51,11 +51,6 @@ VENDOR_MIN = re.compile(r"(?:^|/)vendor/[^/]+\.min\.js$")
 # are allowed; retiring the field is a separate in-game unit.
 INGAME_RING_FIELD = re.compile(r"^src/mods/(?:shared|versions/[^/]+|staged/[^/]+)/.*/textures/ui/(?:ring-[0-3]\.png|rings\.json)$")
 
-# The Home "orbit thread" (Will's approved Workbench Home, DESIGN-SYSTEM Signature effects): three faint 1 px hairline
-# ellipses behind the version numeral. It is a decorative effect that borrows the logo's construction, NOT the mark
-# (never the logo image, no glow, not at logo scale, not a logo anywhere), so this one file may hold the 0 / 60 / 120
-# rotations. Exact path only: any other file drawing them still fails.
-DECORATIVE_ORBIT = {"src/OriginLauncher.App/UI/Controls/OrbitThread.cs"}
 
 CODE_EXT = {".xaml", ".cs", ".java", ".kt", ".js", ".mjs", ".ts", ".html", ".htm", ".css", ".svg", ".py", ".json", ".glsl"}
 IMAGE_EXT = {".png", ".ico", ".svg", ".jpg", ".jpeg", ".webp"}
@@ -170,8 +165,6 @@ def scan(root: Path) -> list[tuple[str, str]]:
             continue
         if TORUS.search(text):
             hits.append((rel, "TorusGeometry (a drawn ring)"))
-            continue
-        if rel in DECORATIVE_ORBIT:
             continue
         if ANGLES_LIST.search(text):
             hits.append((rel, "rotations 0 / 60 / 120 degrees (three tilted rings)"))

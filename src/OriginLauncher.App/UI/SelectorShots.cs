@@ -89,6 +89,7 @@ internal static class SelectorShots
                 overlay.TourFocus(4);
                 RenderShots.Pump(300);
                 var cardFrame = ImportShots.FocusFrame(window, overlay.TourFamilyItem(4), $"{label} card 1.18", focusLog);
+                Relayout(window, overlay, size, inProcess); // activating (and the focus frame) lay the real window out again
                 RenderShots.Snap(window, outDir, $"p3sel-{label}-step1-focus", size: size, laidOut: inProcess, adorners: true);
                 cardFrame?.Invoke();
 
@@ -106,12 +107,15 @@ internal static class SelectorShots
                 window.Activate();
                 overlay.TourFocus(0);
                 RenderShots.Pump(300);
+                Relayout(window, overlay, size, inProcess); // activating lays the window out at its real size again
                 RenderShots.Snap(window, outDir, $"p3sel-{label}-step2-1.21-focus", size: size, laidOut: inProcess, adorners: true);
 
                 // The dropdown open. Its list is a popup (its own window), so the picture draws it where it opens.
                 if (overlay.TourDropdown(true) is { } combo)
                 {
                     RenderShots.Pump(500);
+                    Relayout(window, overlay, size, inProcess);
+                    overlay.TourDropdown(true); // place the list for the laid-out box
                     RenderShots.Snap(window, outDir, $"p3sel-{label}-step2-1.21-open", size: size, laidOut: inProcess,
                         also: root => PopupInPlace(combo, root));
                     overlay.TourDropdown(false);
@@ -156,24 +160,32 @@ internal static class SelectorShots
         }
     }
 
-    // The open popup's content, drawn at the spot the popup window sits over the window (under the combo, shifted by
-    // Popup.OffsetX into the shadow's bleed), with room around it for the shadow.
+    // The open popup's content, drawn where the popup window sits over the window: under the box (or over it when the
+    // list opened upward), shifted by its own offsets, with its shadow's bleed around it. No layout pass here: the
+    // shot's content may be laid out by hand at a size bigger than the real window.
     private static Visual? PopupInPlace(ComboBox combo, FrameworkElement root)
     {
-        if (combo.Template.FindName("Popup", combo) is not Popup { IsOpen: true, Child: FrameworkElement child }) return null;
-        root.UpdateLayout();
-        var under = combo.TransformToAncestor(root).Transform(new Point(0, combo.ActualHeight));
-        var origin = under + new Vector(combo.FindResource("Popup.OffsetX") is double dx ? dx : 0, 0);
+        if (combo.Template.FindName("Popup", combo) is not Popup { IsOpen: true, Child: FrameworkElement child } popup) return null;
+        // The list is at least as wide as the box. Its MinWidth binding only hears about the hand-laid box's width on the
+        // next real layout pass, which would put the window back at its real size, so this subtree is laid out by hand
+        // at the box's width instead.
+        child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var bleedX = child.Margin.Left + child.Margin.Right;
+        child.Arrange(new Rect(new Size(Math.Max(child.DesiredSize.Width, combo.ActualWidth + bleedX), child.DesiredSize.Height)));
         // The child's own margin (Popup.Bleed) is part of the popup window.
         var w = child.ActualWidth + child.Margin.Left + child.Margin.Right;
         var h = child.ActualHeight + child.Margin.Top + child.Margin.Bottom;
+        var box = combo.TransformToAncestor(root).TransformBounds(new Rect(0, 0, combo.ActualWidth, combo.ActualHeight));
+        var top = popup.Placement == PlacementMode.Top ? box.Top - h : box.Bottom;
+        var origin = new Point(box.Left + popup.HorizontalOffset, top + popup.VerticalOffset);
         var look = new VisualBrush(child)
         {
             Stretch = Stretch.None,
             AlignmentX = AlignmentX.Left,
             AlignmentY = AlignmentY.Top,
             ViewboxUnits = BrushMappingMode.Absolute,
-            Viewbox = new Rect(-child.Margin.Left, -child.Margin.Top, w, h),
+            // The brush draws the child at its own offset in the popup (its Popup.Bleed margin), so the box starts at 0.
+            Viewbox = new Rect(0, 0, w, h),
             ViewportUnits = BrushMappingMode.Absolute,
             Viewport = new Rect(origin.X, origin.Y, w, h),
         };
@@ -181,6 +193,19 @@ internal static class SelectorShots
         using (var dc = visual.RenderOpen())
             dc.DrawRectangle(look, null, new Rect(origin.X, origin.Y, w, h));
         return visual;
+    }
+
+    // A shot bigger than the desktop is laid out by hand; anything that lays the real window out again (activating it,
+    // opening a popup) needs that hand layout redone before the picture.
+    private static void Relayout(MainWindow window, VersionSelectOverlay overlay, Size size, bool inProcess)
+    {
+        if (!inProcess) return;
+        for (var i = 0; i < 3; i++)
+        {
+            window.TourLayoutAt(size);
+            overlay.TourRelayout();
+        }
+        window.TourLayoutAt(size);
     }
 
     private static int IndexOf(string key)

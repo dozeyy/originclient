@@ -8,7 +8,8 @@ namespace OriginLauncher.App.UI.Controls;
 
 /// <summary>
 /// The giant version numeral on Home: Inter ExtraBold at its natural width (never squashed), -0.04 em tracking,
-/// parchment ink at 94 % (Brush.NumeralInk), with the orbit thread (<see cref="OrbitThread"/>) behind it. It stands in the free band between the top bar's bottom edge and the Home strip's top edge
+/// parchment ink at 94 % (Brush.NumeralInk), alone on the art: nothing is drawn around it (Will, 2026-10-25: rings
+/// around it read as a fake logo; the only logo is the real image). It stands in the free band between the top bar's bottom edge and the Home strip's top edge
 /// (<see cref="SetBand"/>, reported by HomePage), its figures centred in that band and its ink centred across the
 /// window; size and placement are <see cref="NumeralBand"/>. A change rolls the old characters up and out and the
 /// new ones in from below, 28 ms apart (mockup: 320 ms in / 420 ms out, 140 ms overlap).
@@ -18,7 +19,6 @@ namespace OriginLauncher.App.UI.Controls;
 public sealed class VersionNumeral : Canvas
 {
     private readonly List<Glyph> _shown = new();
-    private readonly OrbitThread _orbit = new();
     private string _text = "";
 
     // The band the numeral stands in (window coordinates); NaN until Home reports where its strip starts.
@@ -36,7 +36,6 @@ public sealed class VersionNumeral : Canvas
         IsHitTestVisible = false;
         ClipToBounds = false;
         _barBottom = (double)Application.Current.FindResource("Size.Bar");
-        Children.Add(_orbit); // first child: behind every figure
         SizeChanged += (_, _) => Layout(_shown);
     }
 
@@ -52,9 +51,6 @@ public sealed class VersionNumeral : Canvas
 
     /// <summary>The ink rectangle of the text on screen, for the render tour's measurements (null before layout).</summary>
     internal Rect? InkRect { get; private set; }
-
-    /// <summary>The orbit thread's ring size (length, thickness, end radius), for the render tour's measurements.</summary>
-    internal (double Length, double Thickness, double Radius) OrbitRing => _orbit.Ring;
 
     /// <summary>The band in use (top, bottom), for the render tour's measurements.</summary>
     internal (double Top, double Bottom) CurrentBand => NumeralBand.Band(ActualHeight, _barBottom, _stripTop);
@@ -138,9 +134,6 @@ public sealed class VersionNumeral : Canvas
         foreach (var g in glyphs) SetTop(g, top);
         var capTop = top + baseline - Face.CapsEm * fs;
         InkRect = new Rect(inkLeft, capTop, inkEm * fs, Face.CapsEm * fs);
-        // The thread is centred on the figures' middle; its capsules frame them (OrbitLengthOfInk, OrbitThicknessOfFigures).
-        _orbit.Place(inkLeft + inkEm * fs / 2, capTop + Face.CapsEm * fs / 2,
-            inkEm * fs * NumeralBand.OrbitLengthOfInk, Face.CapsEm * fs * NumeralBand.OrbitThicknessOfFigures);
     }
 
     private sealed class Glyph : FrameworkElement

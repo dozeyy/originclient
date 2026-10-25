@@ -12,18 +12,6 @@ internal static class NumeralBand
     /// <summary>type.numeral: the figures' height (cap height) is this share of the window's height.</summary>
     public const double FigureShareOfHeight = 0.32;
 
-    /// <summary>
-    /// The orbit thread's rings are capsules (OrbitThread): each is this share of the numeral's ink width long, so the
-    /// level ring frames the whole version with a little room at both ends.
-    /// </summary>
-    public const double OrbitLengthOfInk = 1.12;
-
-    /// <summary>
-    /// ...and this share of the figures' height thick (the short side, before tilting): about the figures' height, with
-    /// a little air above and below so the level ring never runs along the ink's top or bottom edge.
-    /// </summary>
-    public const double OrbitThicknessOfFigures = 1.24;
-
     /// <summary>The ink (first figure's left edge to the last one's right edge) is at most this share of the width.</summary>
     public const double InkShareOfWidth = 2.0 / 3.0;
 

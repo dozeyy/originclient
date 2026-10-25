@@ -50,6 +50,7 @@ public partial class VersionSelectOverlay : UserControl
         FamilyList.ItemsSource = _tiles;
         FamilyList.SelectionChanged += (_, _) => { if (!_syncing) ShowPickRing(); };
         ReleaseBox.ItemsSource = _releases;
+        ReleaseBox.DropDownOpened += (_, _) => PlaceList();
         FamiliesCaption.Text = $"{_tiles.Count} families, {VersionCatalog.SupportedVersions.Count} releases. Origin installs what each one needs.";
         // The sheet's size follows the free band under the top bar (the window), not its own content.
         Stage.SizeChanged += (_, _) => SizeCards();
@@ -336,6 +337,27 @@ public partial class VersionSelectOverlay : UserControl
         FamiliesPane.IsHitTestVisible = true;
     }
 
+    // The dropdown's list opens downward when it fits inside the window under the box, else upward over the art, so
+    // it never hangs off the launcher's bottom edge (the panel sits low in a short window). The popup window includes
+    // its shadow's bleed (Popup.Bleed), so the list itself lands 4 px from the box either way.
+    private void PlaceList()
+    {
+        if (ReleaseBox.Template?.FindName("Popup", ReleaseBox) is not System.Windows.Controls.Primitives.Popup { Child: FrameworkElement list } popup)
+            return;
+        if (ReleaseBox.ActualHeight <= 0 || !ReleaseBox.IsDescendantOf(this)) return;
+        list.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var bleed = list.Margin;
+        var listHeight = list.DesiredSize.Height - bleed.Top - bleed.Bottom;
+        var box = ReleaseBox.TransformToAncestor(this).TransformBounds(new Rect(0, 0, ReleaseBox.ActualWidth, ReleaseBox.ActualHeight));
+        const double edge = 8;
+        var fitsBelow = box.Bottom + bleed.Top + listHeight + edge <= ActualHeight;
+        var fitsAbove = box.Top - bleed.Top - listHeight - edge >= 0;
+        var up = !fitsBelow && fitsAbove;
+        popup.Placement = up ? System.Windows.Controls.Primitives.PlacementMode.Top : System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        // Upward, the popup's bottom edge meets the box: its bottom bleed less the 4 px gap moves it back down.
+        popup.VerticalOffset = up ? bleed.Bottom - bleed.Top : 0;
+    }
+
     // ---- install states ----
 
     private void OnInstallChanged(string version)
@@ -531,6 +553,7 @@ public partial class VersionSelectOverlay : UserControl
     {
         if (!OriginPaths.IsScratchRoot) return null;
         ReleaseBox.IsDropDownOpen = open;
+        if (open) PlaceList(); // a hand layout (shots bigger than the desktop) moved the box after the list opened
         return ReleaseBox;
     }
 
