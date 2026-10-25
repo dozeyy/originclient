@@ -619,7 +619,7 @@ public partial class ProfilesPage : UserControl
     private void NameBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         UpdateFormEmblem();
-        if (FormError.Visibility == Visibility.Visible) ClearFormError(); // typing answers the error
+        if (NameError.Visibility == Visibility.Visible) ClearFormError(); // typing answers the error
     }
 
     // An error is a caption in dangerText plus a danger edge on the box it belongs to (spec 6). The edge is a
@@ -627,8 +627,9 @@ public partial class ProfilesPage : UserControl
     private void ShowFormError(string message, bool onServer)
     {
         ClearFormError();
-        FormError.Text = message;
-        FormError.Visibility = Visibility.Visible;
+        var caption = onServer ? FormError : NameError;
+        caption.Text = message;
+        caption.Visibility = Visibility.Visible;
         var box = onServer ? ServerAddressBox : NameBox;
         var edge = new SolidColorBrush(((SolidColorBrush)FindResource("Brush.Danger")).Color);
         box.BorderBrush = edge;
@@ -637,6 +638,7 @@ public partial class ProfilesPage : UserControl
     private void ClearFormError()
     {
         FormError.Visibility = Visibility.Collapsed;
+        NameError.Visibility = Visibility.Collapsed;
         NameBox.ClearValue(Control.BorderBrushProperty);
         ServerAddressBox.ClearValue(Control.BorderBrushProperty);
     }

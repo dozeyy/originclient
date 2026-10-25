@@ -105,6 +105,8 @@ public partial class ModsPage : UserControl
             UserEmptyText.Text = "Choose a version first";
             UserEmptyState.Visibility = Visibility.Visible;
             UserCount.Text = "0";
+            UserHint.Visibility = Visibility.Collapsed;
+            OpenFolderButton.IsEnabled = false;
             BuiltInSection.Visibility = Visibility.Collapsed;
             return;
         }
@@ -131,6 +133,7 @@ public partial class ModsPage : UserControl
             }
         }
 
+        OpenFolderButton.IsEnabled = true;
         UserCount.Text = user.Count.ToString();
         UserEmptyText.Text = "No mods yet. Drop a jar above to add one.";
         UserEmptyState.Visibility = user.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -799,6 +802,7 @@ public partial class ModsPage : UserControl
     {
         if (!OriginPaths.IsScratchRoot) return;
         _demo = mods;
+        HideStatus();
         // carrying == -1: the "just dropped" shot, the first of the player's mods lands.
         var first = carrying < 0 ? mods.FirstOrDefault(m => !m.IsManaged) : null;
         Refresh(first == null ? null : new HashSet<string> { first.FileName });

@@ -157,8 +157,14 @@
                 </Grid>
 
                 <TextBlock Text="Name" Style="{StaticResource Text.FieldLabel}"/>
-                <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
-                         AutomationProperties.Name="Profile name" Margin="0,0,0,16" TextChanged="NameBox_TextChanged"/>
+                <StackPanel Margin="0,0,0,16">
+                    <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
+                             AutomationProperties.Name="Profile name" TextChanged="NameBox_TextChanged"/>
+                    <!-- The name rule's error, right under the box it belongs to (the server rule's sits at the foot). -->
+                    <TextBlock x:Name="NameError" Foreground="{StaticResource Brush.DangerText}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               Visibility="Collapsed" Margin="0,8,0,0"/>
+                </StackPanel>
 
                 <TextBlock Text="Emblem" Style="{StaticResource Text.FieldLabel}"/>
                 <!-- 21 tiles (the letter, then ProfileLook.EmblemIcons), 28 square at a 4 px gap: 12 across in the
