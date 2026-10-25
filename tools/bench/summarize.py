@@ -270,6 +270,23 @@ def aggregate(root, label=LABEL_CI, baseline=None):
             "deltaPctVsBaseline": deltas}
 
 
+def require_valid(agg):
+    """A bench that produced files but no usable measurement must not pass as green: every variant needs at
+    least one counted run of every scene any variant ran (invalid runs are named in the error)."""
+    expected = set()
+    for v in agg["variants"].values():
+        expected.update(v["scenes"])
+        expected.update(x.split("/", 1)[1] for x in v["leftOutInvalid"])
+    problems = []
+    for name, v in agg["variants"].items():
+        missing = sorted(expected - set(v["scenes"]))
+        if missing:
+            problems.append("%s has no valid run of: %s (left out as invalid: %s)"
+                            % (name, ", ".join(missing), ", ".join(v["leftOutInvalid"]) or "none"))
+    if problems:
+        raise SummaryError("no usable measurement: " + "; ".join(problems))
+
+
 def _cell(spread, places=1):
     if not spread:
         return "-"
@@ -338,6 +355,8 @@ def main(argv=None):
     p_agg.add_argument("--out", help="summary JSON path (default: <root>/summary.json)")
     p_agg.add_argument("--md", help="markdown path (default: <root>/summary.md)")
     p_agg.add_argument("--label", default=LABEL_CI)
+    p_agg.add_argument("--require-valid", action="store_true",
+                       help="exit 2 if any variant has no counted run of a scene (all runs invalid)")
     p_agg.add_argument("--baseline", help="variant to compare the others with (default: first alphabetically)")
     args = ap.parse_args(argv)
     try:
@@ -351,6 +370,8 @@ def main(argv=None):
                 sys.stdout.write(text)
         else:
             agg = aggregate(args.root, label=args.label, baseline=args.baseline)
+            if args.require_valid:
+                require_valid(agg)
             _write(args.out or os.path.join(args.root, "summary.json"), json.dumps(agg, indent=2) + "\n")
             md = to_markdown(agg)
             _write(args.md or os.path.join(args.root, "summary.md"), md)

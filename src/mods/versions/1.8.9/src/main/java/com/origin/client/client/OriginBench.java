@@ -110,7 +110,13 @@ public final class OriginBench {
 	private static final boolean PROBE = "1".equals(str("origin.bench.probe", "0"));
 
 	/** ORIGIN_BENCH_SAVE_OPTIONS=1: write options.txt / optionsof.txt before quitting (U6.0 key dump, isolated instance only). */
-	private static final boolean SAVE_OPTIONS = "1".equals(str("origin.bench.saveoptions", "0"));
+	private static final boolean SAVE_OPTIONS = "1".equals(str("origin.bench.save_options", "0"));
+
+	/**
+	 * ORIGIN_BENCH_IGNORE_FOCUS=1: do not mark a scene invalid because the window is not focused. Only for CI,
+	 * where Xvfb has no window manager and the game never gets focus; the report says it was ignored.
+	 */
+	private static final boolean IGNORE_FOCUS = "1".equals(str("origin.bench.ignore_focus", "0"));
 
 	private static final String[] ALL_SCENARIOS = {"idle", "hud", "particles", "menu", "flythrough"};
 
@@ -562,7 +568,7 @@ public final class OriginBench {
 		r.addProperty("unfocusedTicks", unfocusedTicks);
 		r.addProperty("cameraOffTicks", cameraResets);
 		r.addProperty("truncated", truncated);
-		r.addProperty("valid", unfocusedTicks == 0 && cameraResets == 0 && !truncated && n > 0);
+		r.addProperty("valid", (IGNORE_FOCUS || unfocusedTicks == 0) && cameraResets == 0 && !truncated && n > 0);
 		writeFrames(sc, n);
 		log(String.format(Locale.ROOT, "scenario %s: %d frames, avg %.1f fps", sc, n,
 				n == 0 ? 0.0 : n / (sum / 1e9)));
@@ -781,6 +787,7 @@ public final class OriginBench {
 			env.addProperty("mipmaps", g.mipmapLevels);
 			env.addProperty("variant", str("origin.bench.variant", "?"));
 			env.addProperty("originActive", !PROBE);
+			env.addProperty("focusIgnored", IGNORE_FOCUS);
 			env.addProperty("menuBlur", PROBE ? "n/a (Origin inert)"
 					: Mods.on("menublur") + " (inventories " + Mods.bool("menublur", "inventory") + ")");
 			env.addProperty("seed", SEED);

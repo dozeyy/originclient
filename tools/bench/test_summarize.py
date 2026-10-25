@@ -295,6 +295,28 @@ class Aggregate(Tmp):
         with self.assertRaises(S.SummaryError):
             S.aggregate(self.p("root"), baseline="optifine-only")
 
+    def test_require_valid_fails_when_every_run_of_a_variant_is_invalid(self):
+        self.build()
+        for i in (1, 2, 3):
+            path = self.p("root", "origin-default", "run-%d" % i, "bench.json")
+            with open(path, encoding="utf-8") as f:
+                doc = json.load(f)
+            doc["scenarios"][0]["valid"] = False
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(doc, f)
+        agg = S.aggregate(self.p("root"), baseline="optifine-only")
+        with self.assertRaises(S.SummaryError) as c:
+            S.require_valid(agg)
+        self.assertIn("origin-default", str(c.exception))
+        self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only", "--require-valid"]), 2)
+        # without the flag the same data still summarizes (empty tables), so it is the flag that makes CI red
+        self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only"]), 0)
+
+    def test_require_valid_passes_on_good_data(self):
+        self.build()
+        S.require_valid(S.aggregate(self.p("root"), baseline="optifine-only"))
+        self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only", "--require-valid"]), 0)
+
     def test_unknown_baseline_fails(self):
         self.build()
         with self.assertRaises(S.SummaryError):

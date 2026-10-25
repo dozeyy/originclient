@@ -174,7 +174,7 @@ jobs:
                 if xvfb-run -a -s "-screen 0 1280x720x24" python3 tools/bench/prod189.py run \
                      --variant "$v" --origin-jar src/mods/versions/1.8.9/build/libs --java "$JAVA8" \
                      --out "$OUT/$v/run-$r" --scenes "$SCENES" --warmup "$WARMUP" --duration "$DURATION" \
-                     --width 1280 --height 720 --label "CI, relative only" --save-options; then
+                     --width 1280 --height 720 --label "CI, relative only" --save-options --ignore-focus; then
                   echo "::endgroup::"
                   break
                 fi
@@ -190,7 +190,7 @@ jobs:
         if: always()
         run: |
           OUT="artifacts/bench-189/out"
-          python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --label "CI, relative only" \
+          python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --require-valid --label "CI, relative only" \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: OptiFine option keys (U6.0)

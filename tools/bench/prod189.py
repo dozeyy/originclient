@@ -553,6 +553,7 @@ def bench_env(args, variant, out_dir, build_label):
         "ORIGIN_BENCH_PROBE": "1" if variant == "optifine-only" else "0",
         "ORIGIN_BENCH_SHOTS": "1" if args.shots else "0",
         "ORIGIN_BENCH_SAVE_OPTIONS": "1" if getattr(args, "save_options", False) else "0",
+        "ORIGIN_BENCH_IGNORE_FOCUS": "1" if getattr(args, "ignore_focus", False) else "0",
     })
     return env
 
@@ -627,6 +628,7 @@ def build_parser():
     r.add_argument("--label", default="")
     r.add_argument("--timeout", type=int, default=900)
     r.add_argument("--shots", action="store_true")
+    r.add_argument("--ignore-focus", action="store_true", help="CI only: Xvfb never focuses the window, so do not mark scenes invalid for it")
     r.add_argument("--save-options", action="store_true", help="write options.txt/optionsof.txt before quitting (U6.0)")
     r.add_argument("--preset", help="preset JSON (options / optionsof); OptiFine keys must be in optifine-keys-189.txt")
     r.add_argument("--keep-game", action="store_true")
