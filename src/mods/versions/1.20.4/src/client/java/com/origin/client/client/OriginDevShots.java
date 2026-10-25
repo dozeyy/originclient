@@ -53,7 +53,7 @@ public final class OriginDevShots {
 		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING,
 		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19): the title with one button held in
 		// its hover state, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
-		TITLE_HOVER, CONTROLS, LEVEL_LOADING, CONNECTING,
+		TITLE_HOVER, TITLE_HOVER_BTN, TITLE_PRESS, TITLE_FOCUS, CONTROLS, LEVEL_LOADING, CONNECTING,
 		// ...and, LAST in the clean set because they create a world: the Create World screen (a fresh game dir
 		// has no saves, so Singleplayer goes straight there), the pause menu inside that new world, then the
 		// world list with that save in it after Save and Quit.
@@ -68,7 +68,8 @@ public final class OriginDevShots {
 			// The friends demo only on its own shots, so every other shot looks the same in both passes.
 			com.origin.client.client.social.SocialDemo.clear();
 			Minecraft.getInstance().getToasts().clear();
-			devCursor(this == TITLE_HOVER);   // hovers the Quit square
+			devCursor(null);   // every screen starts with the cursor and the mouse button where they were
+			devPress(false);
 			return switch (this) {
 				case TITLE -> new TitleScreen();
 				case MENU -> new OriginModMenuScreen().preview(false, false);
@@ -217,7 +218,7 @@ public final class OriginDevShots {
 				case STY_SERVERS -> new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(new TitleScreen());
 				case STY_LOADING -> new net.minecraft.client.gui.screens.GenericDirtMessageScreen(
 						net.minecraft.network.chat.Component.literal("Preparing for world creation..."));
-				case TITLE_HOVER -> new TitleScreen();
+				case TITLE_HOVER, TITLE_HOVER_BTN, TITLE_PRESS, TITLE_FOCUS -> new TitleScreen();   // the state is set by ACTS once the screen is up
 				case CONTROLS -> new net.minecraft.client.gui.screens.controls.ControlsScreen(
 						new TitleScreen(), Minecraft.getInstance().options);
 				// A chunk listener nothing feeds: the screen at 0%, exactly as a world starts loading.
@@ -285,6 +286,14 @@ public final class OriginDevShots {
 
 	static {
 		// design-px coordinates of the 1080p layout (panel origin 500,250 on screen): see FriendsScreen's layout constants
+		// Title states (the cursor/press/focus placed on the live widgets once the title is laid out).
+		ACTS.put(Kind.TITLE_HOVER, List.of(s -> devCursor(titleDockLast(s))));
+		ACTS.put(Kind.TITLE_HOVER_BTN, List.of(s -> devCursor(titleButton(s, "menu.multiplayer", null))));
+		ACTS.put(Kind.TITLE_PRESS, List.of(s -> {
+			devCursor(titleButton(s, "options.title", null));
+			devPress(true);
+		}));
+		ACTS.put(Kind.TITLE_FOCUS, List.of(s -> devFocus(s, titleButton(s, "menu.singleplayer", null))));
 		ACTS.put(Kind.ACT_HOVER, List.of(s -> fs(s).devHover(180, 385)));
 		ACTS.put(Kind.ACT_INVITE, List.of(s -> fs(s).devHover(180, 385), s -> fs(s).devClick(248, 385)));
 		ACTS.put(Kind.ACT_ACCEPT, List.of(s -> fs(s).devHover(228, 233), s -> fs(s).devClick(228, 233)));
@@ -461,14 +470,44 @@ public final class OriginDevShots {
 		}
 	}
 
-	// TITLE_HOVER: the cursor parked on the icon row's last square (Quit) so the
-	// shot shows the real hover look AND its tooltip (only the icon squares have
-	// one). Xvfb has no pointer moving, so the position written into MouseHandler
-	// stays put; every other shot gets the original back.
+	// Title state shots (TITLE_HOVER / _HOVER_BTN / _PRESS / _FOCUS). Xvfb has no pointer moving,
+	// so the position written into MouseHandler stays put. The cursor has to be placed AFTER the
+	// title screen exists and has laid out (an ACTS step, ~1.9 s after open): placing it while
+	// opening read the PREVIOUS screen's widgets, so the first version of TITLE_HOVER hovered
+	// nothing (found 2026-10-25). Every open() restores the original cursor and button state.
 	// Dev only (runClient is named-namespace, so the field names resolve).
 	private static double[] savedCursor;
 
-	private static void devCursor(boolean onIcon) {
+	/** The title widget labelled with the given translation key (the game's own text), or the Mods button by its literal label. */
+	private static net.minecraft.client.gui.components.AbstractWidget titleButton(Screen s, String key, String literal) {
+		String want = key != null ? net.minecraft.client.resources.language.I18n.get(key) : literal;
+		for (var child : s.children()) {
+			if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.visible
+					&& want.equals(w.getMessage().getString())) {
+				return w;
+			}
+		}
+		return null;
+	}
+
+	/** The dock's last glyph with a tooltip (Quit): the right-most visible widget on the dock row. */
+	private static net.minecraft.client.gui.components.AbstractWidget titleDockLast(Screen s) {
+		var win = Minecraft.getInstance().getWindow();
+		com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
+				win.getGuiScaledWidth(), win.getGuiScaledHeight());
+		net.minecraft.client.gui.components.AbstractWidget last = null;
+		for (var child : s.children()) {
+			if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.visible
+					&& w.getY() >= L.dockY && w.getTooltip() != null
+					&& (last == null || w.getX() > last.getX())) {
+				last = w;
+			}
+		}
+		return last;
+	}
+
+	/** Parks the cursor on the centre of {@code target}; null puts it back where it was. */
+	private static void devCursor(net.minecraft.client.gui.components.AbstractWidget target) {
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			java.lang.reflect.Field fx = net.minecraft.client.MouseHandler.class.getDeclaredField("xpos");
@@ -479,28 +518,42 @@ public final class OriginDevShots {
 				savedCursor = new double[]{fx.getDouble(mc.mouseHandler), fy.getDouble(mc.mouseHandler)};
 			}
 			double x = savedCursor[0], y = savedCursor[1];
-			if (onIcon && mc.screen != null) {
-				var win = mc.getWindow();
-				com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
-						win.getGuiScaledWidth(), win.getGuiScaledHeight());
-				net.minecraft.client.gui.components.AbstractWidget last = null;
-				for (var child : mc.screen.children()) {
-					if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.visible
-							&& w.getY() >= L.dockY && w.getTooltip() != null
-							&& (last == null || w.getX() > last.getX())) {
-						last = w;
-					}
-				}
-				if (last != null) {
-					double gs = win.getGuiScale();
-					x = (last.getX() + last.getWidth() / 2.0) * gs;
-					y = (last.getY() + last.getHeight() / 2.0) * gs;
-				}
+			if (target != null) {
+				double gs = mc.getWindow().getGuiScale();
+				x = (target.getX() + target.getWidth() / 2.0) * gs;
+				y = (target.getY() + target.getHeight() / 2.0) * gs;
+			} else {
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] cursor restored");
 			}
 			fx.setDouble(mc.mouseHandler, x);
 			fy.setDouble(mc.mouseHandler, y);
+			if (target != null) {
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] cursor on '{}' at {},{} (hovered next frame)",
+						target.getMessage().getString(), (int) x, (int) y);
+			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] cursor placement failed", t);
+		}
+	}
+
+	/** Holds (or releases) the left mouse button as far as Origin's own press look can tell (MouseHandler.isLeftPressed). */
+	private static void devPress(boolean down) {
+		try {
+			java.lang.reflect.Field f = net.minecraft.client.MouseHandler.class.getDeclaredField("isLeftPressed");
+			f.setAccessible(true);
+			f.setBoolean(Minecraft.getInstance().mouseHandler, down);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] press placement failed", t);
+		}
+	}
+
+	/** Keyboard focus on {@code w} (the focus ring state). */
+	private static void devFocus(Screen s, net.minecraft.client.gui.components.AbstractWidget w) {
+		if (w != null) {
+			s.setFocused(w);
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] focus on '{}'", w.getMessage().getString());
+		} else {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] focus target not found on {}", s.getClass().getSimpleName());
 		}
 	}
 

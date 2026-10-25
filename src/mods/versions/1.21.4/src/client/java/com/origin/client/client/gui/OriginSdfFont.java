@@ -229,27 +229,22 @@ public final class OriginSdfFont {
 		}
 		text = normalize(text);
 		Face f = face(bold);
+		g.flush();   // 1.21.4 batched GUI: everything drawn before this immediate text goes under it
 		if (shadow) {
 			int sa = (argb >>> 24) & 0xFF;
 			int sc = (sa << 24) | ((argb >>> 2) & 0x3F3F3F); // ~25% brightness, same alpha
-			emit(g, f, text, x + 0.6f, y + 0.6f, sc, EM_PX / f.size, 0f, MATCH_DY);
+			emit(g.pose().last().pose(), f, text, x + 0.6f, y + 0.6f, sc, EM_PX / f.size, 0f, MATCH_DY);
 		}
-		emit(g, f, text, x, y, argb, EM_PX / f.size, 0f, MATCH_DY);
+		emit(g.pose().last().pose(), f, text, x, y, argb, EM_PX / f.size, 0f, MATCH_DY);
 	}
 
-	private static void emit(GuiGraphics g, Face f, String text, float x, float y, int argb,
+	private static void emit(Matrix4f m, Face f, String text, float x, float y, int argb,
 							 float s, float tracking, float dy) {
 		int r = (argb >> 16) & 0xFF, gg = (argb >> 8) & 0xFF, b = argb & 0xFF;
 		int a = (argb >>> 24) & 0xFF;
 		if (a == 0) {
 			a = 255;
 		}
-		// 1.21.4: GuiGraphics BATCHES its fills/blits/text and flushes them later,
-		// while this quad draws immediately -- flush first (before the Tesselator
-		// buffer is opened, as ModIcons does) so everything drawn before this text
-		// (panels, cards) lands underneath it, not on top.
-		g.flush();
-		Matrix4f m = g.pose().last().pose();
 		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 		float pen = x;
 		boolean any = false;
@@ -323,13 +318,29 @@ public final class OriginSdfFont {
 	public static void drawEm(GuiGraphics g, String text, float x, float baseline, float em, float tracking,
 							  int argb, boolean bold) {
 		// alpha 0 means invisible here (a fade's first frame); emit() treats 0 as
-		// "opaque" for legacy RGB-only callers, so stop before it gets the chance.
+		// "opaque" for legacy RGB-only callers: the matrix overload stops before that.
+		if (!ready() || text.isEmpty() || (argb >>> 24) == 0) {
+			return;
+		}
+		// 1.21.4: GuiGraphics BATCHES its fills/blits/text and flushes them later, while
+		// this quad draws immediately -- flush first so the cards drawn before this text
+		// land underneath it, not on top.
+		g.flush();
+		drawEm(g.pose().last().pose(), text, x, baseline, em, tracking, argb, bold);
+	}
+
+	/**
+	 * As above, in the space of {@code m} (a tooltip's text pass hands over a bare matrix, not a
+	 * GuiGraphics). Drawn immediately, so it lands over anything already flushed beneath it.
+	 */
+	public static void drawEm(Matrix4f m, String text, float x, float baseline, float em, float tracking,
+							  int argb, boolean bold) {
 		if (!ready() || text.isEmpty() || (argb >>> 24) == 0) {
 			return;
 		}
 		text = normalize(text);
 		Face f = face(bold);
 		float k = em / f.size;
-		emit(g, f, text, x, baseline - f.base * k, argb, k, tracking, 0f);
+		emit(m, f, text, x, baseline - f.base * k, argb, k, tracking, 0f);
 	}
 }

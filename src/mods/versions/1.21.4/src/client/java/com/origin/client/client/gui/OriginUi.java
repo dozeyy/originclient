@@ -37,6 +37,9 @@ public final class OriginUi {
 
 	/** The one reference to the official logo (a classpath path). Everything that reads the logo uses this. */
 	public static final String LOGO_PATH = "/assets/originclient/textures/ui/origin_logo.png";
+	/** The one reference to the official wordmark: a byte-identical copy of the launcher's
+	 *  Assets/Brand/wordmark.png (430x88, white art). Never text, never redrawn; the title is its only reader. */
+	public static final String WORDMARK_PATH = "/assets/originclient/textures/ui/origin_wordmark.png";
 	private static ResourceLocation trackTex, knobTex, glowTex, logoTex, starTex;
 
 	// Theme-matched toggles: familiar state language without borrowing the
