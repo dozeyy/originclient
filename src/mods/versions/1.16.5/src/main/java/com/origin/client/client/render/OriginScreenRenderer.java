@@ -977,6 +977,10 @@ public final class OriginScreenRenderer {
 	}
 
 	private static void bakeHead(Minecraft mc, ResourceLocation skinTex, int size, int r) {
+		// 1.16.5's TextureManager.getTexture only looks up: a skin nothing has bound yet (the default skin on
+		// the very first title frame, CI boot-smoke 2026-10-25) is null there. bind() loads and registers it
+		// first, as 1.17.1+'s getTexture does by itself.
+		mc.getTextureManager().bind(skinTex);
 		int id = mc.getTextureManager().getTexture(skinTex).getId();
 		RenderSystem.bindTexture(id);
 		int tw = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
