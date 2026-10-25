@@ -402,7 +402,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 		} else if (icon != null) {
 			blit(d, icon, ix + (PREV_W - PREV_H) / 2 + 2, iy + 2, PREV_H - 4, PREV_H - 4, true);
 		} else {
-			d.icon("@origin-mark", ix + PREV_W / 2 - 12, iy + PREV_H / 2 - 12, 24, 0x40F1E9D2);
+			d.logoFaint(ix + PREV_W / 2, iy + PREV_H / 2, 24, 0.25f);
 		}
 
 		float bx = x + w - 16 - CTRL_W, by = y + (B_ROW_H - CTRL_H) / 2;
@@ -680,7 +680,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 		if (p != null) {
 			blit(d, p, ix + 1, iy + 1, ICON - 2, ICON - 2, false);
 		} else {
-			d.icon("@origin-mark", ix + ICON / 2 - 9, iy + ICON / 2 - 9, 18, 0x40F1E9D2);
+			d.logoFaint(ix + ICON / 2, iy + ICON / 2, 18, 0.25f);
 		}
 
 		// controls, right to left

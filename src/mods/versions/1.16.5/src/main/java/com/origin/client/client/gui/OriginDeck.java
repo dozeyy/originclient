@@ -469,6 +469,12 @@ public final class OriginDeck {
 		OriginUi.logo(g, px(cx), py(cy), Math.round(size * s), alpha);
 	}
 
+	/** The Origin logo at a fixed alpha {@code a}, centred on (cx, cy): the placeholder tile in lists
+	 *  (shader / pack previews with no image). Same real logo as {@link #logo}, no glow. */
+	public void logoFaint(float cx, float cy, float size, float a) {
+		OriginUi.logo(g, px(cx), py(cy), Math.round(size * s), a * alpha);
+	}
+
 	// ---- see-through legibility (see the class comment) ----
 
 	/** The mod menu's "Solid Menu Background" is off (the menu and every OriginWindow honour it). */
