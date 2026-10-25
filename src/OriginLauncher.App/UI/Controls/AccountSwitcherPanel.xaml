@@ -11,7 +11,12 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <!-- An account: the shared row (Theme/Surfaces.xaml); the active one is framed in the family accent
              (an indicator, never text). -->
+        <!-- Same proportions as the top bar's pill: the head is the row's height minus 8 (Size.RowHead 40 in a 48 row), a
+             4 px inset all round (1 edge + 3 padding), and the row's corner is Radius.Md, so the head's is that minus 4
+             (Radius.Xs). -->
         <Style x:Key="AccountRow" TargetType="Border" BasedOn="{StaticResource Surface.Row}">
+            <Setter Property="Padding" Value="{StaticResource Padding.AccountRow}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
@@ -68,7 +73,8 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <controls:PlayerHead Grid.Column="0" Width="40" Height="40" Margin="0,0,12,0"
+                                <controls:PlayerHead Grid.Column="0" Width="{StaticResource Size.RowHead}" Height="{StaticResource Size.RowHead}" Margin="0,0,12,0"
+                                                     Crisp="True" CornerRadius="{StaticResource Radius.Xs}"
                                                      Uuid="{Binding Id}"/>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <DockPanel>

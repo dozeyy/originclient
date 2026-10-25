@@ -60,6 +60,8 @@
     <Color x:Key="Color.GhostPress">#0AFFFFFF</Color>
     <!-- Alpha-0 twin of GhostHover: same RGB, so a fade from rest only animates alpha and never drifts. -->
     <Color x:Key="Color.GhostRest">#00FFFFFF</Color>
+    <!-- The account pill's fill at rest: white at 4 % (hover is CardAlt with the hovered edge). -->
+    <Color x:Key="Color.PillRest">#0AFFFFFF</Color>
     <Color x:Key="Color.ProgressTrack">#14FFFFFF</Color>
     <Color x:Key="Color.Scrim">#A30A0D0C</Color>
     <Color x:Key="Color.PageDim">#EB0E1110</Color>
@@ -122,6 +124,7 @@
     <SolidColorBrush x:Key="Brush.DangerSoftHover" Color="{StaticResource Color.DangerSoftHover}"/>
     <SolidColorBrush x:Key="Brush.GhostHover" Color="{StaticResource Color.GhostHover}"/>
     <SolidColorBrush x:Key="Brush.GhostPress" Color="{StaticResource Color.GhostPress}"/>
+    <SolidColorBrush x:Key="Brush.PillRest" Color="{StaticResource Color.PillRest}"/>
     <SolidColorBrush x:Key="Brush.ProgressTrack" Color="{StaticResource Color.ProgressTrack}"/>
     <SolidColorBrush x:Key="Brush.Scrim" Color="{StaticResource Color.Scrim}"/>
     <SolidColorBrush x:Key="Brush.ScrimMid" Color="{StaticResource Color.ScrimMid}"/>

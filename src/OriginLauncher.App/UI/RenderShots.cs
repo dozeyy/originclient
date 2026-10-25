@@ -268,6 +268,9 @@ public static class RenderShots
             }
         window.TourShowUpdateBadge(false);
 
+        // The account pill, the Store entry and the account drawer in every state (UI/AccountShots.cs).
+        AccountShots.Run(window, outDir);
+
         // The Home numeral in its band (bar bottom to strip top) at the three reference sizes: the shot plus the measured
         // ink against the band (numeral-fit.txt), so centring and air are numbers, not an eyeball.
         foreach (var (w, h) in new[] { (960, 600), (1180, 740), (1920, 1080) })

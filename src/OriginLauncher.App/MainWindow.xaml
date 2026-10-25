@@ -66,14 +66,24 @@
                     BorderThickness="0,0,0,1"/>
 
             <!-- The top bar: brand left, page tabs centred, actions right. -->
-            <Grid x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" Margin="24,0,12,0"
+            <Grid x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" Margin="18,0,12,0"
                   SizeChanged="TopBar_LayoutChanged">
-                <StackPanel x:Name="BarBrand" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"
-                            AutomationProperties.Name="Origin">
-                    <controls:BrandLogo Width="{StaticResource Size.Logo.Bar}" Height="{StaticResource Size.Logo.Bar}" VerticalAlignment="Center"/>
-                    <Image Source="{StaticResource Brand.Wordmark}" Height="{StaticResource Size.Wordmark.Bar}" Margin="8,0,0,0" VerticalAlignment="Center"
-                           RenderOptions.BitmapScalingMode="HighQuality"/>
-                </StackPanel>
+                <!-- The brand lockup is the Website link (originclient.org): a ghost control, the hover arrow after the
+                     wordmark. Its left padding sits the logo at the bar's 24. Below 1000 px the wordmark hides and
+                     the logo stays the link (TopBar_LayoutChanged); the name is for screen readers (no hover label). -->
+                <Button x:Name="WebsiteButton" Click="WebsiteButton_Click"
+                        Style="{StaticResource Button.Brand}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                        SizeChanged="TopBar_LayoutChanged"
+                        AutomationProperties.Name="Open originclient.org">
+                    <StackPanel Orientation="Horizontal">
+                        <controls:BrandLogo Width="{StaticResource Size.Logo.Bar}" Height="{StaticResource Size.Logo.Bar}" VerticalAlignment="Center"/>
+                        <Image x:Name="BarWordmark" Source="{StaticResource Brand.Wordmark}" Height="{StaticResource Size.Wordmark.Bar}" Margin="8,0,0,0" VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <Canvas x:Name="WebsiteArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
+                            <Path Style="{StaticResource Icon.LinkHint}"/>
+                        </Canvas>
+                    </StackPanel>
+                </Button>
 
                 <!-- Centred on the window; TopBar_LayoutChanged slides it left only when the
                      actions on the right would come within Space.5 of SETTINGS (narrow windows). -->
@@ -122,32 +132,17 @@
                                        Foreground="{StaticResource Brush.Warning}"/>
                         </StackPanel>
                     </Button>
-                    <!-- Website: opens originclient.org in the default browser (ExternalLink). -->
-                    <Button x:Name="WebsiteButton" Click="WebsiteButton_Click"
-                            Style="{StaticResource Button.Chrome}"
-                            Padding="8" Margin="0,0,4,0" MinHeight="{StaticResource Size.ControlMd}"
-                            AutomationProperties.Name="Open the Origin website, originclient.org">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource Icon.Emblem.Globe}" Style="{StaticResource Icon.Base}"
-                                 
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <TextBlock x:Name="WebsiteLabel" Text="Website" Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="8,0,0,0"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <Canvas x:Name="WebsiteArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
-                                <Path Style="{StaticResource Icon.LinkHint}"/>
-                            </Canvas>
-                        </StackPanel>
-                    </Button>
-                    <!-- Store: opens originclient.org/store in the default browser. Same ghost look as Website. -->
+                    <!-- Store: first in the group, a normal ghost control (DESIGN-SYSTEM 11.7): gold bag, "Store", and the
+                         hover arrow after it (it opens the browser). Opens OriginLinks.Store. Under the fit rule the label
+                         and arrow go and it is the bag alone (accessible name below). -->
                     <Button x:Name="StoreButton" Click="StoreButton_Click"
                             Style="{StaticResource Button.Chrome}"
                             Padding="8" Margin="0,0,4,0" MinHeight="{StaticResource Size.ControlMd}"
                             AutomationProperties.Name="Open the Origin store, originclient.org/store">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
-                                 
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <TextBlock x:Name="StoreLabel" Text="Store" Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                  Stroke="{StaticResource Brush.Hue.Gold}"/>
+                            <TextBlock x:Name="StoreLabel" Text="Store" Style="{StaticResource Text.BodyStrong}" VerticalAlignment="Center" Margin="8,0,0,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <Canvas x:Name="StoreArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
                                 <Path Style="{StaticResource Icon.LinkHint}"/>
@@ -179,22 +174,33 @@
                                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,7,7,0"
                                  IsHitTestVisible="False" Visibility="Collapsed"/>
                     </Grid>
-                    <!-- The account chip: face, name, chevron. Opens the account drawer. -->
+                    <!-- The account pill (DESIGN-SYSTEM 11.5, U3.5): head, name, chevron; opens the account drawer. The head
+                         is its height minus 8, crisp. The name ends in "..." past Size.AccountName and then the whole
+                         name is the tooltip (a content tooltip: AccountButton_ToolTipOpening skips it when the name fits).
+                         Signed out: "Sign in" with the account icon, a ghost control (RefreshAccountChip swaps the style). -->
                     <Button x:Name="AccountButton" Click="AccountButton_Click"
-                            Style="{StaticResource Button.Chrome}"
-                            Padding="6,0,8,0" MinHeight="{StaticResource Size.ControlMd}" MinWidth="{StaticResource Size.ControlMd}"
+                            Style="{StaticResource Button.AccountPill}"
+                            ToolTipOpening="AccountButton_ToolTipOpening"
                             AutomationProperties.Name="Accounts">
                         <StackPanel Orientation="Horizontal">
-                            <Border Width="24" Height="24" CornerRadius="2" ClipToBounds="True"
-                                    Background="{StaticResource Brush.CardAlt}">
-                                <controls:PlayerHead x:Name="AccountFace"/>
-                            </Border>
+                            <Grid x:Name="AccountHeadHost">
+                                <controls:PlayerHead x:Name="AccountFace" Width="{StaticResource Size.PillHead}" Height="{StaticResource Size.PillHead}"
+                                                     Crisp="True" CornerRadius="{StaticResource Radius.Head.Sm}"/>
+                                <!-- Offline test mode (dev builds): a warning dot on the head's corner, ringed in the bar colour. -->
+                                <Ellipse x:Name="OfflineDot" Width="{StaticResource Size.DotRinged}" Height="{StaticResource Size.DotRinged}"
+                                         Fill="{StaticResource Brush.Warning}" Stroke="{StaticResource Brush.Panel}" StrokeThickness="{StaticResource Size.DotRing}"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="{StaticResource Margin.OfflineDot}"
+                                         IsHitTestVisible="False" Visibility="Collapsed"/>
+                            </Grid>
+                            <Path x:Name="SignInIcon" Data="{StaticResource Icon.Account}" Style="{StaticResource Icon.Base}"
+                                  Margin="0,0,0,0" Visibility="Collapsed"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <TextBlock x:Name="AccountName" Text="Sign in" Margin="8,0,6,0" VerticalAlignment="Center"
-                                       FontSize="{StaticResource FontSize.Body}" FontWeight="SemiBold" MaxWidth="160" TextTrimming="CharacterEllipsis"
+                                       Style="{StaticResource Text.BodyStrong}" MaxWidth="{StaticResource Size.AccountName}" TextTrimming="CharacterEllipsis"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
                                   Width="12" Height="12" VerticalAlignment="Center"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                  Stroke="{StaticResource Brush.TextDim}"/>
                         </StackPanel>
                     </Button>
                     <Border Width="1" Height="20" Margin="10,0" Background="{StaticResource Brush.Stroke}" VerticalAlignment="Center"/>
