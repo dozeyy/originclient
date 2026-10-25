@@ -515,21 +515,40 @@ public partial class MainWindow : Window
     private bool _linkLabelsHidden;
     private double _linkLabelExtra;
 
+    private void SetLinkLabels(bool shown)
+    {
+        _linkLabelsHidden = !shown;
+        var v = shown ? Visibility.Visible : Visibility.Collapsed;
+        WebsiteLabel.Visibility = StoreLabel.Visibility = WebsiteArrow.Visibility = StoreArrow.Visibility = v;
+    }
+
+    /// <summary>Render mode: the numbers the top bar's fit rule just used, for the shot log.</summary>
+    internal string TourTopBarFit() =>
+        $"topbar={TopBar.ActualWidth:0} brand={BarBrand.ActualWidth:0} tabs={NavTabs.ActualWidth:0} actions={BarActions.ActualWidth:0} "
+        + $"labelExtra={_linkLabelExtra:0} labelsHidden={_linkLabelsHidden} tabShift={NavTabsShift.X:0}";
+
     private void TopBar_LayoutChanged(object sender, SizeChangedEventArgs e)
     {
         double width = TopBar.ActualWidth, tabs = NavTabs.ActualWidth;
         if (width <= 0 || tabs <= 0) return;
         var gap = (double)FindResource("Space.5");
-        if (!_linkLabelsHidden && WebsiteLabel.ActualWidth > 0 && StoreLabel.ActualWidth > 0)
+        if (_linkLabelsHidden && _linkLabelExtra <= 0)
+        {
+            // Hidden before their size was ever known: show them again so they can be measured, then decide.
+            SetLinkLabels(true);
+            return;
+        }
+        if (!_linkLabelsHidden)
+        {
+            if (WebsiteLabel.ActualWidth <= 0 || StoreLabel.ActualWidth <= 0) return; // not laid out yet
             _linkLabelExtra = WebsiteLabel.ActualWidth + StoreLabel.ActualWidth
                 + 2 * (WebsiteLabel.Margin.Left + WebsiteArrow.ActualWidth + WebsiteArrow.Margin.Left);
+        }
         var actionsWithLabels = BarActions.ActualWidth + (_linkLabelsHidden ? _linkLabelExtra : 0);
         var hide = BarBrand.ActualWidth + gap + tabs + gap + actionsWithLabels > width;
         if (hide != _linkLabelsHidden && (hide || _linkLabelExtra > 0))
         {
-            _linkLabelsHidden = hide;
-            var v = hide ? Visibility.Collapsed : Visibility.Visible;
-            WebsiteLabel.Visibility = StoreLabel.Visibility = WebsiteArrow.Visibility = StoreArrow.Visibility = v;
+            SetLinkLabels(!hide);
             return; // the size change this causes runs this again and slides the tabs
         }
         double tabsRight = (width + tabs) / 2, tabsLeft = (width - tabs) / 2;

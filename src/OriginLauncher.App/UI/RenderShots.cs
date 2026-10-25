@@ -249,7 +249,9 @@ public static class RenderShots
                 Pump(400);
                 var wide = new Size(w, h);
                 window.TourLayoutAt(wide);
-                Snap(window, outDir, $"15e-topbar-{w}x{h}{(update ? "-update" : "")}", size: wide, laidOut: true);
+                var shot = $"15e-topbar-{w}x{h}{(update ? "-update" : "")}";
+                File.AppendAllText(Path.Combine(outDir, "topbar-fit.txt"), $"{shot}: {window.TourTopBarFit()}{Environment.NewLine}");
+                Snap(window, outDir, shot, size: wide, laidOut: true);
                 Pump(300);
             }
         window.TourShowUpdateBadge(false);
