@@ -253,6 +253,9 @@ public final class Gfx {
 		wr.pos(x2, y2, 0).color(r, g, b, a).endVertex();
 		wr.pos(x2, y1, 0).color(r, g, b, a).endVertex();
 		wr.pos(x1, y1, 0).color(r, g, b, a).endVertex();
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxDraw();
+		}
 		tess.draw();
 		GlStateManager.disableBlend();
 		GlStateManager.enableTexture2D();
@@ -282,6 +285,9 @@ public final class Gfx {
 		wr.pos(x1, y2, 0).color(r2, g2, b2, a2).endVertex();
 		wr.pos(x2, y2, 0).color(r2, g2, b2, a2).endVertex();
 		wr.pos(x2, y1, 0).color(r1, g1, b1, a1).endVertex();
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxDraw();
+		}
 		tess.draw();
 		GlStateManager.shadeModel(GL11.GL_FLAT);
 		GlStateManager.disableBlend();
@@ -326,6 +332,9 @@ public final class Gfx {
 		wr.pos(x + w, y + h, 0).tex(u1, v1).endVertex();
 		wr.pos(x + w, y, 0).tex(u1, v0).endVertex();
 		wr.pos(x, y, 0).tex(u0, v0).endVertex();
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxDraw();
+		}
 		tess.draw();
 		defaultAlpha();
 	}
@@ -344,6 +353,9 @@ public final class Gfx {
 		wr.pos(x + w, y + h, blitOffset).tex(sprite.getMaxU(), sprite.getMaxV()).endVertex();
 		wr.pos(x + w, y, blitOffset).tex(sprite.getMaxU(), sprite.getMinV()).endVertex();
 		wr.pos(x, y, blitOffset).tex(sprite.getMinU(), sprite.getMinV()).endVertex();
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxDraw();
+		}
 		tess.draw();
 		defaultAlpha();
 	}
@@ -364,6 +376,9 @@ public final class Gfx {
 			return (int) x;
 		}
 		defaultBlend();
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxText();
+		}
 		int end = font.drawString(text, x, y, color, shadow);
 		GlStateManager.disableBlend();
 		resetColor();

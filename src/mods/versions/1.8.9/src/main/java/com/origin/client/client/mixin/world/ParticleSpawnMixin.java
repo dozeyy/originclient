@@ -33,6 +33,9 @@ public abstract class ParticleSpawnMixin {
 											  double xSpeed, double ySpeed, double zSpeed, int[] params,
 											  CallbackInfoReturnable<EntityFX> cir) {
 		try {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.countParticleSpawn();
+			}
 			if (ParticleFilter.hidden(particleId, x, y, z)) {
 				cir.setReturnValue(null);
 			}

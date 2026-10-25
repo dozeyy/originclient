@@ -34,6 +34,9 @@ public abstract class CapePhysicsMixin {
 	private void originclient$capePhysics(AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
 			float partialTicks, float ageInTicks, float netHeadYaw, float headPitch, float scale, CallbackInfo ci) {
 		CapePhysics.offsetPushed = false;
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_CAPE);
+		}
 		try {
 			CosmeticsService.Look look = CosmeticsService.lookOf(player.getUniqueID());
 			if (look.hidesCape()) {
@@ -56,6 +59,10 @@ public abstract class CapePhysicsMixin {
 			}
 		} catch (Throwable t) {
 			// vanilla draws the cape instead
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_CAPE);
+			}
 		}
 	}
 

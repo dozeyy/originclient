@@ -60,6 +60,9 @@ public final class CosmeticLayer implements LayerRenderer<AbstractClientPlayer> 
 	@Override
 	public void doRenderLayer(AbstractClientPlayer player, float limbSwing, float limbSwingAmount, float partialTicks,
 			float ageInTicks, float netHeadYaw, float headPitch, float scale) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_COSMETIC_LAYER);
+		}
 		try {
 			if (player.isInvisible() || player.isSpectator()) {
 				return;
@@ -81,6 +84,10 @@ public final class CosmeticLayer implements LayerRenderer<AbstractClientPlayer> 
 			if (!warned) {
 				warned = true;
 				OriginClient.LOGGER.warn("Origin cosmetics: cosmetics failed to draw", t);
+			}
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_COSMETIC_LAYER);
 			}
 		}
 	}
