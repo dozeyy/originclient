@@ -53,6 +53,11 @@ public static class InstanceLayout
 
     public static bool IsSharedEntry(string name) => Shared.Contains(name);
 
+    /// <summary>The 1.8.9 performance presets' undo record, directly in an account's game folder (Core/Presets).</summary>
+    public const string PresetUndoFileName = "origin-preset-undo.json";
+
+    public static string PresetUndoFile(string gameDir) => Path.Combine(gameDir, PresetUndoFileName);
+
     public static string VersionRoot(string instancesRoot, string version) =>
         Path.Combine(instancesRoot, version);
 

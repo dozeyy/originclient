@@ -488,5 +488,50 @@ class Presets(Tmp):
             P.apply_preset(self._game(), preset, self.p("nope.txt"))
 
 
+class RoundTrip(Tmp):
+    def _w(self, name, text):
+        path = self.p(name)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+        return path
+
+    def _saved(self, options="", optionsof=""):
+        d = self.p("saved")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "options.txt"), "w", encoding="latin-1", newline="") as f:
+            f.write(options)
+        with open(os.path.join(d, "optionsof.txt"), "w", encoding="latin-1", newline="") as f:
+            f.write(optionsof)
+        return d
+
+    def _preset(self):
+        return self._w("p.json", json.dumps({"options": {"renderDistance": "8", "ao": "2", "fancyGraphics": "false"},
+                                              "optionsof": {"ofVignette": "1", "ofFastMath": "true", "ofClouds": "3"}}))
+
+    def test_values_that_survive_are_clean_even_when_reformatted(self):
+        saved = self._saved("renderDistance:8.0\r\nao:true\r\nfancyGraphics:False\r\nother:1\r\n",
+                            "ofVignette:1\nofFastMath:true\nofClouds:3\n")
+        self.assertEqual(P.compare_roundtrip(self._preset(), saved), [])
+
+    def test_a_clamped_value_is_reported_written_to_saved(self):
+        saved = self._saved("renderDistance:8\nao:2\nfancyGraphics:false\n", "ofVignette:2\nofFastMath:true\nofClouds:3\n")
+        self.assertEqual(P.compare_roundtrip(self._preset(), saved), [("optionsof.txt", "ofVignette", "1", "2")])
+
+    def test_a_missing_key_or_file_is_a_difference(self):
+        saved = self._saved("renderDistance:8\nao:2\n", "ofVignette:1\nofClouds:3\n")
+        got = P.compare_roundtrip(self._preset(), saved)
+        self.assertIn(("options.txt", "fancyGraphics", "false", None), got)
+        self.assertIn(("optionsof.txt", "ofFastMath", "true", None), got)
+        empty = self.p("nothing")
+        os.makedirs(empty)
+        self.assertEqual(len(P.compare_roundtrip(self._preset(), empty)), 6)
+
+    def test_the_command_exits_nonzero_on_a_difference(self):
+        ok = self._saved("renderDistance:8\nao:2\nfancyGraphics:false\n", "ofVignette:1\nofFastMath:true\nofClouds:3\n")
+        self.assertEqual(P.main(["check-roundtrip", "--preset", self._preset(), "--saved", ok]), 0)
+        bad = self._saved("renderDistance:8\nao:2\nfancyGraphics:false\n", "ofVignette:0\nofFastMath:true\nofClouds:3\n")
+        self.assertEqual(P.main(["check-roundtrip", "--preset", self._preset(), "--saved", bad]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
