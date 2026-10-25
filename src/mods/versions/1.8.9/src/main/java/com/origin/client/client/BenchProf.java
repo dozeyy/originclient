@@ -114,6 +114,23 @@ public final class BenchProf {
 		return slot(name, true);
 	}
 
+	private static int[] hudSlots = new int[0];
+
+	/** Section slot for HUD element {@code index} (HudElements.renderAll), made on first use. */
+	public static int hudElement(int index, String modId) {
+		if (index >= hudSlots.length) {
+			int[] n = Arrays.copyOf(hudSlots, index + 16);
+			Arrays.fill(n, hudSlots.length, n.length, -1);
+			hudSlots = n;
+		}
+		int s = hudSlots[index];
+		if (s < 0) {
+			s = section("hud element " + modId);
+			hudSlots[index] = s;
+		}
+		return s;
+	}
+
 	// ---- call-site API (guarded by ON at the call site) ----
 
 	public static void begin(int s) {
