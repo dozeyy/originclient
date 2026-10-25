@@ -31,6 +31,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Numeral shadows are drawn in `ArtStage.OnRender`, never a WPF `DropShadowEffect` on animating elements (2026-10-25).
 - No ovals anywhere: every pill, badge, chip and orbit ring is an Apple capsule (radius = height/2, even padding); round dots stay circles (2026-10-25).
 - Launcher Home: Store lives in the top bar; no profile button on Home, the profile is put on in the Profiles page only (2026-10-25).
+- Launcher Home has no orbit rings around the numeral: they read as a fake Origin logo (2026-10-25).
 - Version picker: click a family card, it expands (animated) into a panel with one compact release dropdown; picking is the selection, Esc/click-out returns Home, Back returns to the grid; no "Download" wording (2026-10-25).
 
 ## Website (originclient.org — served by Vercel, not GitHub Pages, 2026-10-18)
