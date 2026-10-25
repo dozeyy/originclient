@@ -178,6 +178,11 @@ p{margin:0}
 .store .bag{color:var(--hue-gold)}
 .store .ext{color:var(--muted)}
 .store{color:var(--dim)}
+/* Update chip (11.4): gold-tinted ghost with label; below 1100 an icon button with a gold dot. */
+.upd{position:relative;flex:none;gap:6px;padding:0 10px;color:var(--hue-gold);background:color-mix(in srgb,var(--hue-gold) 12%,transparent)}
+.upd:hover,.upd.is-hover{background:color-mix(in srgb,var(--hue-gold) 20%,transparent);color:var(--hue-gold)}
+.upd .gdot{display:none;position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:99px;background:var(--hue-gold);box-shadow:0 0 0 2px var(--bg)}
+.upd.is-compact{width:32px;padding:0;background:transparent;color:var(--dim)}.upd.is-compact .lbl{display:none}.upd.is-compact .gdot{display:block}
 .store.is-compact{width:32px;padding:0;gap:0}.store.is-compact .lbl,.store.is-compact .ext{display:none}
 .brand{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 4px;border-radius:var(--r-sm);flex:none;color:var(--muted);text-decoration:none;transition:background-color var(--dur-hover) var(--ease)}
 .brand .brand-logo{width:24px;height:24px}.brand .wm{height:16px;width:auto;display:block}
@@ -185,7 +190,7 @@ p{margin:0}
 .brand:hover,.brand.is-hover{background:var(--soft)}.brand:hover .ext,.brand.is-hover .ext{opacity:1}
 .brand:focus-visible,.brand.is-focus{outline:2px solid var(--acc-border);outline-offset:2px}
 /* Top bar width rules: Store gives up its label below 1100, then the wordmark below 1000. */
-@container bar (max-width:1099px){.store{width:32px;padding:0;gap:0}.store .lbl,.store .ext{display:none}}
+@container bar (max-width:1099px){.store{width:32px;padding:0;gap:0}.store .lbl,.store .ext{display:none}.upd{width:32px;padding:0;background:transparent;color:var(--dim)}.upd .lbl{display:none}.upd .gdot{display:block}}
 @container bar (max-width:999px){.brand .wm{display:none}.brand{padding:0 4px}}
 .friends{color:var(--hue-sky)}
 
@@ -212,7 +217,7 @@ p{margin:0}
 .vcard .plate{position:absolute;left:12px;right:12px;bottom:12px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;min-width:0}
 /* Numerals on art (DESIGN-SYSTEM 11.6): one rule for Home and cards. */
 .eb{font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--on-art);text-shadow:0 1px 2px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-box:trim-both cap alphabetic;margin-bottom:8px}
-.num{display:block;font-weight:800;line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral);text-box:trim-both cap alphabetic;white-space:nowrap}
+.num{display:block;font-weight:800;line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral);text-box:trim-both cap alphabetic;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)}
 .numrow{display:flex;align-items:flex-end;gap:12px;max-width:100%}
 .vcard .num{font-size:21.5cqw}
 .range{font:500 12px/16px var(--sans);color:var(--on-art);white-space:nowrap;text-box:trim-both cap alphabetic;text-shadow:0 1px 2px rgba(0,0,0,.5)}
@@ -250,7 +255,7 @@ p{margin:0}
 .home .topbar{position:absolute;left:0;right:0;top:0}
 .home .corner{position:absolute;inset:0;background:radial-gradient(64% 70% at 0% 100%,rgba(14,17,16,.86) 0%,rgba(14,17,16,.5) 45%,rgba(14,17,16,0) 100%)}
 .home .hero{position:absolute;left:24px;bottom:88px;display:flex;flex-direction:column;align-items:flex-start;z-index:1}
-.home .hero .eb{font-size:15px;line-height:18px;margin-bottom:15px}
+.home .hero .eb{font-size:16px;line-height:20px;letter-spacing:.08em;margin-bottom:15px}
 .home .num{font-size:254px}
 .navwin{background:var(--bg)}
 .home .strip{position:absolute;left:24px;right:24px;bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
@@ -318,10 +323,10 @@ p{margin:0}
 .ts .k{font:500 12px/16px var(--mono);color:var(--muted)}
 .cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:600px){.cmp{grid-template-columns:1fr}}
-.cmp .box2{background:var(--bg-sunken);border-radius:var(--r-lg);border:1px solid var(--soft);height:200px;display:grid;place-items:center;overflow:hidden;position:relative}
-.cmp .n2{font-weight:800;font-size:112px;line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral)}
+.cmp .box2{container-type:inline-size;background:var(--bg-sunken);border-radius:var(--r-lg);border:1px solid var(--soft);height:200px;display:grid;place-items:center;overflow:hidden;position:relative}
+.cmp .n2{font-weight:800;font-size:min(112px,36cqw);line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral)}
 .cmp .squash{transform:scaleX(.7);color:rgba(241,233,210,.94);letter-spacing:-.045em;font-variant-numeric:tabular-nums}
-.cmp .tag{position:absolute;left:12px;top:10px}
+.cmp .tag{position:absolute;left:12px;top:10px;max-width:calc(100% - 24px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 
 /* State matrix */
 .mx{border-collapse:separate;border-spacing:0;min-width:820px;width:100%}
@@ -465,7 +470,7 @@ p{margin:0}
 
 <!-- 3 Type -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">3 &middot; Typography</span><h2>Inter, one family everywhere</h2><p class="lede">Bundled Inter 400 to 800 (the in-game MSDF atlas is the same face). Numerals at natural width with tabular figures.</p></div>
+  <div class="sec-h"><span class="eyebrow">3 &middot; Typography</span><h2>Inter, one family everywhere</h2><p class="lede">Bundled Inter 400 to 800 (the in-game MSDF atlas is the same face). Numerals on art at natural width with proportional lining figures; tabular figures only where numbers stack in columns (lists, progress).</p></div>
   <div class="grid g2">
     <div class="panel ts">
       <span class="k">type.label 11/600</span><span class="eyebrow" style="color:var(--dim)">Home &nbsp; Mods &nbsp; Profiles</span>
@@ -478,8 +483,8 @@ p{margin:0}
       <span class="k">type.display 32/800</span><span style="font:800 32px/36px var(--sans);letter-spacing:-.03em">Install Origin</span>
     </div>
     <div class="cmp">
-      <div class="box2"><span class="badge tag">Before: ArtStage.Narrow 0.7</span><span class="n2 squash">26.3</span></div>
-      <div class="box2"><span class="badge tag" style="color:var(--text)"><span class="dot dot--ok"></span>After: natural width, neutral white</span><span class="n2">26.3</span></div>
+      <div class="box2"><span class="badge tag">Before: squashed to 0.7</span><span class="n2 squash">26.3</span></div>
+      <div class="box2"><span class="badge tag" style="color:var(--text)"><span class="dot dot--ok"></span>After: natural, neutral</span><span class="n2">26.3</span></div>
     </div>
   </div>
 </section>
@@ -593,18 +598,18 @@ p{margin:0}
 
 <!-- 7 Top bar, account pill, Store -->
 <section class="sec">
-  <div class="sec-h"><span class="eyebrow">7 &middot; Navigation</span><h2>Top bar, Website, Store and account</h2><p class="lede">48 px, translucent, no blur. The tabs centre in the space left between the two groups and keep at least 24 px from each. A narrower window gives up width in one order: below 1100 Store shows only its icon, below 1000 the wordmark goes and the logo stays. The brand lockup is the Website link.</p></div>
+  <div class="sec-h"><span class="eyebrow">7 &middot; Navigation</span><h2>Top bar, Website, Store and account</h2><p class="lede">48 px, translucent, no blur. The tabs centre in the space left between the two groups and keep at least 24 px from each. A narrower window gives up width in one order: below 1100 the update chip and Store show only their icons, below 1000 the wordmark goes and the logo stays. The brand lockup is the Website link; its accessible name is always &ldquo;Open originclient.org&rdquo;.</p></div>
   <div class="stack" style="gap:16px">
-    <div><div class="frame navproof" data-w="1440" data-h="48"><div class="win navwin" style="width:1440px;height:48px"><div class="bar-slot" data-name="Player842"></div></div></div><p class="cap"><b>1440.</b> Full bar. <span class="m"></span></p></div>
-    <div><div class="frame navproof" data-w="1180" data-h="48"><div class="win navwin" style="width:1180px;height:48px"><div class="bar-slot" data-name="Player842"></div></div></div><p class="cap"><b>1180, the default window.</b> Full bar. <span class="m"></span></p></div>
-    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="Player842"></div></div></div><p class="cap"><b>960, the minimum window.</b> Store is its icon, the logo stands alone. <span class="m"></span></p></div>
-    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="AVeryLongMinecraftName_"></div></div></div><p class="cap"><b>960 with the longest name.</b> The name ellipsizes at 160. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="1440" data-h="48"><div class="win navwin" style="width:1440px;height:48px"><div class="bar-slot" data-name="Player842" data-update="1"></div></div></div><p class="cap"><b>1440.</b> Full bar with an update waiting, the widest right group. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="1180" data-h="48"><div class="win navwin" style="width:1180px;height:48px"><div class="bar-slot" data-name="Player842" data-update="1"></div></div></div><p class="cap"><b>1180, the default window.</b> Full bar, update waiting. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="Player842" data-update="1"></div></div></div><p class="cap"><b>960, the minimum window.</b> Update and Store are icons, the logo stands alone as the Website link. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="AVeryLongMinecraftName_" data-update="1"></div></div></div><p class="cap"><b>960 with the longest name.</b> The name ellipsizes at 160. <span class="m"></span></p></div>
   </div>
   <div class="grid g3" style="margin-top:16px">
     <div class="panel">
-      <h3>Website and Store</h3>
+      <h3>Website, Store and Update</h3>
       <div class="row">
-        <a class="brand" href="#" onclick="return false" title="originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="brand" href="#" onclick="return false" title="originclient.org" aria-label="Open originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
         <span style="position:relative;display:inline-block"><a class="brand is-hover" href="#" onclick="return false"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a></span>
         <span class="tip">originclient.org</span>
       </div>
@@ -612,9 +617,9 @@ p{margin:0}
         <a class="btn btn--ghost store" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
         <a class="btn btn--ghost store is-hover" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
         <a class="btn btn--ghost store is-focus" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
-        <a class="btn btn--ghost store is-compact" href="#" onclick="return false" aria-label="Store" title="Store"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="btn btn--ghost upd" href="#" onclick="return false" title="Restart Origin to install the update" aria-label="Update ready: restart to install"><svg class="ic"><use href="#i-down"/></svg><span class="lbl">Update</span><span class="gdot"></span></a><a class="btn btn--ghost upd is-compact" href="#" onclick="return false" title="Restart Origin to install the update" aria-label="Update ready: restart to install"><svg class="ic"><use href="#i-down"/></svg><span class="lbl">Update</span><span class="gdot"></span></a><a class="btn btn--ghost store is-compact" href="#" onclick="return false" aria-label="Store" title="Store"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
       </div>
-      <div class="spec"><span><b>Brand lockup</b> opens originclient.org; arrow and tooltip on hover</span><span><b>Store</b> opens originclient.org/store</span><span><b>Settings, About</b> lists both links again</span></div>
+      <div class="spec"><span><b>Brand lockup</b> opens originclient.org; arrow and tooltip on hover</span><span><b>Store</b> opens originclient.org/store</span><span><b>Update</b> restarts Origin to install; below 1100 an icon with a gold dot</span><span><b>Settings, About</b> lists both links again</span></div>
     </div>
     <div class="panel">
       <h3>Account pill, enlarged</h3>
@@ -852,11 +857,11 @@ function card(f,s){
 }
 function cards(el,states){el.innerHTML=F.map((f,i)=>card(f,states[i]||"")).join("");}
 // The launcher top bar. The brand lockup is the Website link.
-function bar(name){
+function bar(name,upd){
   return '<div class="topbar">'+
-    '<a class="brand" href="#" onclick="return false" title="originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>'+
+    '<a class="brand" href="#" onclick="return false" title="originclient.org" aria-label="Open originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>'+
     '<nav class="tabs"><span class="tab sel">Home</span><span class="tab">Mods</span><span class="tab">Profiles</span><span class="tab">Settings</span></nav>'+
-    '<div class="bar-r">'+
+    '<div class="bar-r">'+(upd?'<a class="btn btn--ghost upd" href="#" onclick="return false" title="Restart Origin to install the update" aria-label="Update ready: restart to install"><svg class="ic"><use href="#i-down"/></svg><span class="lbl">Update</span><span class="gdot"></span></a>':'')+
       '<a class="btn btn--ghost store" href="#" onclick="return false" title="Store"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>'+
       '<button class="btn btn--icon" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button>'+
       '<button class="btn btn--icon" type="button" aria-label="Friends"><svg class="ic friends"><use href="#i-users"/></svg><span class="count">2</span></button>'+
@@ -867,7 +872,7 @@ function bar(name){
       '<button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button>'+
     '</div></div>';
 }
-document.querySelectorAll(".bar-slot").forEach(el=>{el.outerHTML=bar(el.dataset.name);});
+document.querySelectorAll(".bar-slot").forEach(el=>{el.outerHTML=bar(el.dataset.name,el.dataset.update);});
 cards(document.getElementById("families"),["","hov","sel"]);
 cards(document.getElementById("families2"),["sel"]);
 document.getElementById("stepCard").innerHTML=card(F[1],"");

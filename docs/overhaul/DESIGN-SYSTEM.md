@@ -204,6 +204,7 @@ dock icon (Will: "remove the unnecessary boxes").
 | Token | Size / line | Weight | Tracking | Case | Use |
 |---|---|---|---|---|---|
 | `type.label` | 11 / 14 | 600 | +0.10 em | UPPER | nav tabs, eyebrows, badges, section labels |
+| `type.labelLg` | 16 / 20 | 600 | +0.08 em | UPPER | the eyebrow above the Home numeral only |
 | `type.caption` | 12 / 16 | 500 | 0 | Sentence | status lines, meta, helper text, tooltips |
 | `type.body` | 13.5 / 20 | 400 | 0 | Sentence | default text, descriptions |
 | `type.bodyStrong` | 13.5 / 20 | 600 | 0 | Sentence | button labels, names, row titles |
@@ -242,7 +243,8 @@ dock icon (Will: "remove the unnecessary boxes").
   launcher, `space.8` (32) in the installer and `clamp(16px, 4vw, 56px)` on the website.
 - Inside a control: icon-to-label gap 8 (6 at 28 tall). Padding per size is in section 5.
 - **Content-fit rule:** a control's width = padding + content. Use `MinWidth` only to stop a
-  short label from making a tiny primary button (Play: 136; dialog primary: 96). Use
+  short label from making a tiny primary button (dialog primary: 96). Play is the exception: a
+  fixed width of 144 in every state (11.11). Use
   `MaxWidth` and truncate with an ellipsis for user text (account names: 160; profile
   names: 180). Never stretch a control to fill a row.
 - Launcher window 1180 x 740 default, 960 x 600 minimum. Every layout here works at the minimum.
@@ -430,17 +432,29 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
 - **Centre:** tabs Home, Mods, Profiles, Settings. `md` 32, pad X 12, `type.label`, gap 4. Rest
   `textDim`, hover `text` + `rgba(255,255,255,.04)`, selected `text` + `rgba(255,255,255,.07)`
   fill (the Mod Menu's own selected tab), `radius.sm`.
-- **Right (pad 8):** [update chip when available] Store, Import (icon), Friends (icon + count
-  badge), divider 1 x 20 at `rgba(255,255,255,.14)` (8 margins), account control, 8 gap,
+- **Right (pad 8):** [update chip, only while an update waits] Store, Import (icon), Friends
+  (icon + count badge), divider 1 x 20 at `rgba(255,255,255,.14)` (8 margins), account control, 8 gap,
   minimise, close. Gaps 4 inside the group.
 - **Narrow windows give up width in this order** (window width):
   1. 1100 and wider: everything at full size.
   2. Below 1100: Store becomes an icon button 32 (gold bag only, tooltip "Store"). The label and
-     the arrow go.
+     the arrow go. The update chip becomes an icon button 32 at the same moment (below).
   3. Below 1000: the wordmark hides; the logo stays as the Website link.
   4. The account name ellipsizes at 160 at every width.
-  Measured in the preview: 279 / 279 px either side of the tabs at 1440, 149 / 149 at 1180,
-  119 / 119 at 960, and 72 / 72 at 960 with a 23-character name. The window minimum is 960.
+- **Update chip** (first in the right group, only while a downloaded update waits): ghost `md`
+  32, `radius.sm`, pad X 10, fill `hue.gold` at 12 % (hover 20 %), download glyph 16 + "Update"
+  in `bodyStrong`, both `hue.gold`, gap 6. Tooltip "Restart Origin to install the update";
+  accessible name "Update ready: restart to install". Click restarts into the installed update
+  (updates are mandatory, so it never offers "later"). **Below 1100** it is an icon button 32:
+  the download glyph in `textDim`, a 6 px `hue.gold` dot at its top-right (5 in, 2 px `bg` ring),
+  same tooltip and name. It never hides at any width.
+- **Website link below 1000:** only the logo shows, so the link's accessible name is always
+  "Open originclient.org" (WPF `AutomationProperties.Name`; the logo image itself is
+  decorative), with the same tooltip. Settings > About is the visible, labelled route to the
+  Website at every width.
+  Measured in the preview with the update chip showing (the widest right group): 232 / 232 px
+  either side of the tabs at 1440, 102 / 102 at 1180, 101 / 101 at 960, and 54 / 54 at 960 with
+  a 23-character name. Without the chip: 279, 149, 119 and 72. The window minimum is 960.
 
 ### 11.5 Account pill
 
@@ -475,10 +489,11 @@ number stands on the picture's ground, in its darkest corner, at a size taken fr
   Measured at font 254: 26.3 is 522 px (44 % of 1180), the longest key 1.21.10 is 748 (63 %), so
   nothing shrinks at the default window.
 - **Figures:** `type.numeral`: Inter 800, natural width (no horizontal squash), proportional
-  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow, a 1 px 40 %
-  shadow only for legibility on bright art.
+  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow. Shadow
+  `0 1 2` black at 40 % (WPF `DropShadowEffect` depth 1, blur 2, opacity .4) for legibility
+  on bright art; the preview renders the same.
 - **Eyebrow:** the update name in `type.label` caps, `color.onArt`, above the figures' cap line
-  by max(8, figures x 0.08), same left edge (Home: 15 px label, 15 gap).
+  by max(8, figures x 0.08), same left edge (Home: `type.labelLg`, 15 gap).
 - **Range** (cards only): "1.21 - 1.21.11" in `caption` `color.onArt`, 12 after the figures, on
   their baseline. Hidden on cards narrower than 220.
 - **Status badge** (cards) top-left at 10 / 10: `badge` (20 tall, `radius.full`, `surface` at 80 %,
