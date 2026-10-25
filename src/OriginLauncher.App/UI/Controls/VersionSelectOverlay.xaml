@@ -22,7 +22,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Grid x:Name="Tile" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+                        <Grid x:Name="Tile" Background="Transparent" RenderTransformOrigin="0.5,0.5" Width="{Binding CardWidth}">
                             <Grid.RenderTransform>
                                 <TranslateTransform x:Name="Lift"/>
                             </Grid.RenderTransform>
@@ -96,7 +96,7 @@
              Hover is a soft wash; the pick is the accent wash plus the check; keyboard focus adds a 1 px accent line
              inside the row (a ring outside would collide with the neighbouring rows). Double-click plays. -->
         <Style x:Key="ReleaseRow" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="0,0,0,2"/>
+            <Setter Property="Margin" Value="0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>

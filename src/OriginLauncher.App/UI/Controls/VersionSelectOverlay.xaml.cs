@@ -272,9 +272,9 @@ public partial class VersionSelectOverlay : UserControl
     // a card's text under the art (8 + 22 range line + 2 + 32 for a name on two lines) and the 12 px between rows;
     // step 2's header (32 + 12), the family words under its card (8 + 22 + 4 + about 170 of description) and the
     // Play row (12 + 36).
-    private const double SheetChrome = 8 + 16 + 24 + 24;
+    private const double SheetChrome = 8 + 16 + 24 + 24 + 2; // + the sheet's 1 px border
     private const double FamiliesHeader = 28 + 16 + 16, CardText = 8 + 22 + 2 + 32, RowGap = 12;
-    private const double ReleasesHeader = 32 + 12, FamilyWords = 8 + 22 + 4 + 170, PlayRow = 12 + 36;
+    private const double ReleasesHeader = 36 + 12, FamilyWords = 8 + 22 + 4 + 170, PlayRow = 12 + 36;
     private const int Columns = 4;
 
     private void SizeCards()
@@ -282,7 +282,7 @@ public partial class VersionSelectOverlay : UserControl
         if (_tiles.Count == 0 || FamilyList.ActualWidth <= 0) return;
         // The list reaches 12 px past the sheet's edge (cancelling the last card's gap): a card is a quarter of it
         // minus its own gap, and its art is 16:10.
-        var column = FamilyList.ActualWidth / Columns - RowGap;
+        var column = Math.Floor(FamilyList.ActualWidth / Columns) - RowGap;
         var height = column * 10 / 16;
         var rows = (_tiles.Count + Columns - 1) / Columns;
         var viewport = Body.ViewportHeight;
@@ -293,6 +293,7 @@ public partial class VersionSelectOverlay : UserControl
         var rangeInArt = column >= (double)FindResource("Numeral.RangeMinCard");
         foreach (var tile in _tiles)
         {
+            tile.CardWidth = column;
             tile.ThumbHeight = height;
             tile.RangeInArt = rangeInArt;
         }
@@ -500,7 +501,7 @@ public partial class VersionSelectOverlay : UserControl
     private sealed class FamilyTile : INotifyPropertyChanged
     {
         private ImageSource? _grey, _colour;
-        private double _thumbHeight = 82, _detailArtHeight = 200;
+        private double _thumbHeight = 82, _detailArtHeight = 200, _cardWidth = double.NaN;
         private bool _rangeInArt;
         private double _scrimStrength = 1, _scrimReach = 1;
         private StatusLine? _badge;
@@ -516,6 +517,13 @@ public partial class VersionSelectOverlay : UserControl
         public string Description => Group.Description;
         public ImageSource? Grey { get => _grey; private set { _grey = value; Raise(nameof(Grey)); } }
         public ImageSource? Colour { get => _colour; private set { _colour = value; Raise(nameof(Colour)); } }
+        // The card's width, a whole number of pixels (NaN until the first sizing pass). Left to the layout it is a quarter of
+        // a width that is not always a multiple of four, and layout rounding then rounds every card up past its cell.
+        public double CardWidth
+        {
+            get => _cardWidth;
+            set { if (_cardWidth.Equals(value)) return; _cardWidth = value; Raise(nameof(CardWidth)); }
+        }
         public double ThumbHeight
         {
             get => _thumbHeight;

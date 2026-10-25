@@ -57,6 +57,7 @@ internal static class SelectorShots
 
         var (w0, h0) = (window.Width, window.Height);
         var report = new StringBuilder("what the selector says, off the production disk check over fake installs" + Environment.NewLine);
+        var focusLog = new StringBuilder();
         try
         {
             foreach (var size in Sizes)
@@ -74,9 +75,14 @@ internal static class SelectorShots
                     foreach (var group in VersionCatalog.Groups)
                         report.AppendLine($"card {group.Key}: {overlay.BadgeTextOf(group.Key)}");
 
+                // Keyboard focus on a card. WPF draws its focus frame only for a real key press, so (as in the Import shots)
+                // the card's own focus style is drawn on it when WPF did not; focus-checks-selector.txt says which.
+                window.Activate();
                 overlay.TourFocus(4);
                 RenderShots.Pump(300);
+                var cardFrame = ImportShots.FocusFrame(window, overlay.TourCards()[4].Item, $"{label} card 1.18", focusLog);
                 RenderShots.Snap(window, outDir, $"p3sel-{label}-step1-focus", size: size, laidOut: inProcess, adorners: true);
+                cardFrame?.Invoke();
 
                 foreach (var key in Families)
                 {
@@ -105,6 +111,7 @@ internal static class SelectorShots
             window.TourGoTo(0);
             RenderShots.Pump(400);
             File.WriteAllText(Path.Combine(outDir, "selector-states.txt"), report.ToString());
+            File.WriteAllText(Path.Combine(outDir, "focus-checks-selector.txt"), focusLog.ToString());
             try { Directory.Delete(scratch, true); } catch { /* best effort */ }
         }
     }
