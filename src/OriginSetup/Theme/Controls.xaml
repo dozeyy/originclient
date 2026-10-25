@@ -35,7 +35,9 @@
 
     <!-- size.control.lg: dialog and installer buttons. The size is a MINIMUM (not a fixed Height/Width) so a larger
          label or glyph grows the button instead of being cut at its edge: OriginLauncher.Tests/IconButtonTests
-         scans this file too. The labels used here are all shorter than the minimum, so every button is exactly 36. -->
+         scans this file too. The labels used here are all shorter than the minimum, so every button is exactly 36.
+         A filled button's BorderBrush is its own fill in every state (never Transparent): WPF paints a Border's
+         Background inside the border line, so a transparent 1 px edge leaves the fill 34 tall, not 36. -->
     <Style x:Key="Button.Base" TargetType="Button">
         <Setter Property="Template" Value="{StaticResource Template.Button}"/>
         <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
@@ -56,18 +58,21 @@
     <!-- Primary: the one emerald fill per screen. -->
     <Style x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
-        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentHover}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="Background" Value="{StaticResource Brush.AccentPress}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentPress}"/>
                 <Setter Property="lui:Press.Down" Value="True"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Card}"/>
                 <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
                 <Setter Property="Cursor" Value="Arrow"/>
             </Trigger>
@@ -105,10 +110,12 @@
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource Brush.GhostHover}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.GhostHover}"/>
                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="Background" Value="{StaticResource Brush.GhostPress}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.GhostPress}"/>
                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                 <Setter Property="lui:Press.Down" Value="True"/>
             </Trigger>
@@ -123,14 +130,16 @@
     <!-- Danger: soft red fill, never a filled red primary. -->
     <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background" Value="{StaticResource Brush.DangerSoft}"/>
-        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.DangerSoft}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.DangerText}"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource Brush.DangerSoftHover}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.DangerSoftHover}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="Background" Value="{StaticResource Brush.DangerSoftHover}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.DangerSoftHover}"/>
                 <Setter Property="lui:Press.Down" Value="True"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">

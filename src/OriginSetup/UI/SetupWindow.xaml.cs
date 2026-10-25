@@ -30,7 +30,20 @@ public partial class SetupWindow : Window
     private Registration.ExistingInstall? _existing;
     private readonly FrameworkElement[] _pages;
 
-    private string _location;
+    // The install folder is whatever is in the (editable) box; _settingLocation marks changes made by code, which
+    // re-check at once instead of waiting for the typing pause.
+    private string _location
+    {
+        get => LocationBox.Text;
+        set
+        {
+            _settingLocation = true;
+            try { LocationBox.Text = value; }
+            finally { _settingLocation = false; }
+        }
+    }
+    private bool _settingLocation;
+    private readonly DispatcherTimer _locationCheck;
     private readonly int _recommendedRamMb;
     private bool _ramChanged;
     private bool _customizeOpen;
@@ -56,6 +69,9 @@ public partial class SetupWindow : Window
 
         _progressTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _progressTimer.Tick += (_, _) => RenderProgress();
+        // Typing in the folder box: re-check 250 ms after the last keystroke, not on every one.
+        _locationCheck = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _locationCheck.Tick += (_, _) => { _locationCheck.Stop(); CheckLocation(); };
 
         StartupCheck.IsChecked = SafeIsStartWithWindows();
 
@@ -78,6 +94,7 @@ public partial class SetupWindow : Window
         // An existing install keeps its folder (moving it is an uninstall + install); otherwise the default.
         _location = _existing?.Directory ?? InstallLocation.Default;
         BrowseButton.IsEnabled = _existing == null;
+        LocationBox.IsReadOnly = _existing != null;
         FillReady();
         UpdateLocation();
         ShowPage(ReadyPage);
@@ -146,6 +163,7 @@ public partial class SetupWindow : Window
         if (problem != null)
         {
             ShowLocationStatus(problem, isProblem: true);
+            if (_existing == null) LocationBox.Focus();
             return;
         }
 
@@ -227,6 +245,28 @@ public partial class SetupWindow : Window
         if (e.WidthChanged) WindowFrame.FitPath(LocationText, _location);
     }
 
+    private void LocationBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        WindowFrame.FitPath(LocationText, _location);
+        if (_loading || _settingLocation) return;
+        _locationCheck.Stop();
+        _locationCheck.Start();
+    }
+
+    // Editing swaps the shortened display for the real box (caret at the end, accent edge); leaving swaps it back.
+    private void LocationBox_FocusChanged(object sender, KeyboardFocusChangedEventArgs e) =>
+        SetEditing(LocationBox.IsKeyboardFocused);
+
+    private void SetEditing(bool editing)
+    {
+        LocationBox.Opacity = editing ? 1 : 0;
+        LocationText.Visibility = editing ? Visibility.Hidden : Visibility.Visible;
+        if (editing) LocationField.BorderBrush = (Brush)FindResource("Brush.AccentBorder");
+        else LocationField.ClearValue(Border.BorderBrushProperty);
+        if (editing) LocationBox.CaretIndex = LocationBox.Text.Length;
+        else WindowFrame.FitPath(LocationText, _location);
+    }
+
     private void CheckLocation()
     {
         if (_existing != null)
@@ -238,7 +278,11 @@ public partial class SetupWindow : Window
         var problem = dir == null
             ? "That folder name isn't valid."
             : InstallLocation.Problem(dir, InstallLocation.ProtectedRoots()) ?? InstallLocation.SpaceProblem(dir, Installer.SpaceEstimate);
-        ShowLocationStatus(problem ?? _noteOverride ?? $"Needs about {Installer.SpaceEstimate / 1048576} MB of free space.",
+        // Spell the folder out only when it differs from what is typed (Origin got its own subfolder).
+        bool same = dir != null && string.Equals(dir.TrimEnd('\\'), _location.Trim().TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+        ShowLocationStatus(problem ?? _noteOverride
+            ?? (same || dir == null ? $"Needs about {Installer.SpaceEstimate / 1048576} MB of free space."
+                                    : $"Origin gets its own folder: {dir}"),
             isProblem: problem != null);
     }
 
@@ -252,7 +296,7 @@ public partial class SetupWindow : Window
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
-        var picked = FolderPicker.Pick(this, "Choose where to install Origin", _location);
+        var picked = FolderPicker.Pick(this, "Choose where to install Origin", LocationBox.Text);
         if (picked == null) return;
         try { _location = InstallLocation.Resolve(picked); }
         catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
@@ -505,6 +549,7 @@ public partial class SetupWindow : Window
         _noteOverride = null;
         HideRunningDialog(); // the "Close Origin Launcher?" shot leaves its overlay up
         BrowseButton.IsEnabled = _existing == null;
+        LocationBox.IsReadOnly = _existing != null;
         FillReady();
         // Every tour state starts from the defaults: Customize closed, memory recommended, version Newest.
         SetCustomize(false);
@@ -512,6 +557,7 @@ public partial class SetupWindow : Window
         VersionCombo.SelectedIndex = 0;
         Chrome.SetKeyFocus(RamSlider, false);
         ShowPage(ReadyPage);
+        UpdateLayout(); // the path is shortened to the width laid out, so lay out first
         UpdateLocation();
     }
 
@@ -528,6 +574,14 @@ public partial class SetupWindow : Window
         Chrome.SetKeyFocus(RamSlider, keyboardFocusOnSlider);
         UpdateLayout();
         WindowFrame.FitPath(LocationText, _location);
+    }
+
+    /// <summary>The folder box as it looks while the player types in it (the tour window is never the active one).</summary>
+    internal void TourEditingPath(string path)
+    {
+        TourReady(null, path);
+        SetEditing(true);
+        UpdateLayout();
     }
 
     internal void TourLocationProblem(string problem)

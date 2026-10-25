@@ -9,13 +9,24 @@ namespace OriginSetup.UI;
 // CI-only: `OriginLauncher-Setup.exe --render-tour <folder>` renders every
 // screen of the installer and uninstaller to PNGs (build-check uploads them
 // as the "installer-screens" artifact), so the UI is reviewed as pictures on
-// every change — nothing is installed or removed. Rendered at 1.5x for detail.
+// every change — nothing is installed or removed.
 public static class RenderTour
 {
+    // Rendered twice: the detail pass at 1.5x in <dir>, and a 100% pass in <dir>/100pct (how a 100% display draws it).
+    private static double _scale = 1.5;
+
     public static void Run(string outDir, string self)
     {
-        Directory.CreateDirectory(outDir);
         PageMotion.Instant = true;
+        _scale = 1.5;
+        Tour(outDir, self);
+        _scale = 1.0;
+        Tour(Path.Combine(outDir, "100pct"), self);
+    }
+
+    private static void Tour(string outDir, string self)
+    {
+        Directory.CreateDirectory(outDir);
 
         // A stand-in release: the tour never touches the network.
         const long mb = 1048576;
@@ -29,6 +40,8 @@ public static class RenderTour
         setup.TourReady("1.0.40");             Snap(setup, outDir, "04-ready-reinstall");
         setup.TourReady(null, @"D:\Games\Minecraft\Launchers\Origin Launcher\A Very Long Folder Name For A Player Who Likes Order\OriginLauncher");
                                                Snap(setup, outDir, "05-ready-long-path");
+        setup.TourEditingPath(@"D:\Games\Minecraft\Launchers\Origin Launcher\A Very Long Folder Name For A Player Who Likes Order\OriginLauncher");
+                                               Snap(setup, outDir, "21-ready-editing-path");
         setup.TourLocationProblem("Origin can't go in Program Files or Windows. It updates itself, which needs a folder you own.");
                                                Snap(setup, outDir, "06-ready-folder-problem");
         setup.TourInstalling(new InstallProgress(InstallStage.Downloading, 0.42, 53 * mb, 126 * mb, "1.0.40"), "Installing Origin");
@@ -67,7 +80,7 @@ public static class RenderTour
         window.UpdateLayout();
         window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-        const double scale = 1.5;
+        double scale = _scale;
         var root = (FrameworkElement)window.Content;
         var bitmap = new RenderTargetBitmap((int)(root.ActualWidth * scale), (int)(root.ActualHeight * scale),
                                             96 * scale, 96 * scale, PixelFormats.Pbgra32);

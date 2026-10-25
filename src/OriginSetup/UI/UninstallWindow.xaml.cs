@@ -23,6 +23,10 @@ public partial class UninstallWindow : Window
         Loaded += (_, _) => KeepButton.Focus(); // the safe action (spec 14)
     }
 
+    // Ticking "also delete my worlds..." says so on the button itself, so the final click is never a surprise.
+    private void RemoveDataCheck_Changed(object sender, RoutedEventArgs e) =>
+        UninstallButton.Content = RemoveDataCheck.IsChecked == true ? "Uninstall and delete data" : "Uninstall";
+
     private void Keep_Click(object sender, RoutedEventArgs e) => Close();
 
     private async void Uninstall_Click(object sender, RoutedEventArgs e)

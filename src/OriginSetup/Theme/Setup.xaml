@@ -53,4 +53,33 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
     </Style>
+
+    <!-- The editable text inside Setup.Field (the install folder): no chrome of its own, the field draws the edge.
+         Same face and size as Text.Body, caret and selection in the accent. -->
+    <Style x:Key="Setup.FieldInput" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource Brush.AccentBorder}"/>
+        <Setter Property="SelectionOpacity" Value="1"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Hidden"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsReadOnly" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>

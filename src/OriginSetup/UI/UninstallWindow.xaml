@@ -49,7 +49,8 @@
                                Text="Origin and its shortcuts are removed."/>
                     <!-- Off by default: uninstalling never deletes worlds unless the player ticks this. -->
                     <CheckBox x:Name="RemoveDataCheck" Style="{StaticResource CheckBox.Danger}" Margin="{StaticResource Top.5}"
-                              Content="Also delete my worlds, settings and accounts"/>
+                              Content="Also delete my worlds, settings and accounts"
+                              Checked="RemoveDataCheck_Changed" Unchecked="RemoveDataCheck_Changed"/>
                     <TextBlock Style="{StaticResource Text.Caption}" Margin="{StaticResource Left.6}"
                                Text="Leave this off to keep them for a later reinstall."/>
                 </StackPanel>

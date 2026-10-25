@@ -105,6 +105,10 @@
     <Thickness x:Key="Pad.List">4</Thickness>
     <Thickness x:Key="Margin.Chevron">0,0,12,0</Thickness>
     <Thickness x:Key="Margin.Glyph">8,0,0,0</Thickness>
+    <!-- A ghost button's label lines up with the content edge, not its own padding: pull the button out by exactly
+         that padding (Button.Ghost 14, Button.GhostSm 10) on the side that touches the edge. -->
+    <Thickness x:Key="Margin.GhostLeadEdge">-14,0,0,0</Thickness>
+    <Thickness x:Key="Margin.GhostSmTrailEdge">0,0,-10,0</Thickness>
     <Thickness x:Key="Margin.List">0,4,0,0</Thickness>
     <Thickness x:Key="Margin.Ring">-4</Thickness>
     <Thickness x:Key="Margin.SliderRing">-6,-2</Thickness>

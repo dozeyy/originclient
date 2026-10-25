@@ -50,15 +50,21 @@
                     <TextBlock x:Name="ReadyTitle" Style="{StaticResource Text.Display}" Text="Install Origin"/>
                     <TextBlock x:Name="ReadyBody" Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.1}"/>
 
-                    <!-- Location: the path, shortened in the middle, with a ghost Change inside on the right. -->
-                    <Border Style="{StaticResource Setup.Field}" Margin="{StaticResource Top.5}">
+                    <!-- Location: an editable path with a ghost Change inside on the right. Unfocused it shows the path
+                         shortened in the middle (LocationText, over the box); focused, the box itself is edited. -->
+                    <Border x:Name="LocationField" Style="{StaticResource Setup.Field}" Margin="{StaticResource Top.5}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
+                            <TextBox x:Name="LocationBox" Style="{StaticResource Setup.FieldInput}"
+                                     Margin="{StaticResource Pad.FieldText}" Opacity="0" SpellCheck.IsEnabled="False"
+                                     TextChanged="LocationBox_TextChanged" GotKeyboardFocus="LocationBox_FocusChanged"
+                                     LostKeyboardFocus="LocationBox_FocusChanged" AutomationProperties.Name="Install folder"/>
                             <TextBlock x:Name="LocationText" Style="{StaticResource Text.Body}" TextWrapping="NoWrap"
-                                       VerticalAlignment="Center" Margin="{StaticResource Pad.FieldText}"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                       Margin="{StaticResource Pad.FieldText}" IsHitTestVisible="False"
                                        SizeChanged="LocationText_SizeChanged"/>
                             <Button x:Name="BrowseButton" Grid.Column="1" Style="{StaticResource Button.GhostSm}"
                                     Content="Change" Margin="{StaticResource Pad.FieldAction}" Click="BrowseButton_Click"
@@ -102,6 +108,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Name="RamHint" Style="{StaticResource Text.Caption}" VerticalAlignment="Center"/>
                             <Button x:Name="RamResetButton" Grid.Column="1" Style="{StaticResource Button.GhostSm}"
+                                    Margin="{StaticResource Margin.GhostSmTrailEdge}"
                                     Content="Use recommended" Click="RamResetButton_Click"/>
                         </Grid>
                         <Grid Margin="{StaticResource Top.3}">
@@ -119,6 +126,7 @@
                 <!-- Footer: Customize on the left (it never moves, open or closed), Cancel and Install on the right. -->
                 <Grid Grid.Row="1">
                     <Button x:Name="CustomizeButton" Style="{StaticResource Button.Ghost}" HorizontalAlignment="Left"
+                            Margin="{StaticResource Margin.GhostLeadEdge}"
                             Click="CustomizeButton_Click" AutomationProperties.Name="Customize install options">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Customize" VerticalAlignment="Center"/>
