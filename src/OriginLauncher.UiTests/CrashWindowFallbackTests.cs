@@ -1,5 +1,7 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.UI.Windows;
 using Xunit;
@@ -47,6 +49,12 @@ public class CrashWindowFallbackTests
     {
         OnSta(() =>
         {
+            // The selector test (below) saves a pick through SettingsStore: keep every launcher path in a scratch folder
+            // and every animation instant, before anything resolves OriginPaths.Root.
+            var scratch = Directory.CreateTempSubdirectory("origin-uitests").FullName;
+            OriginPaths.UseScratchRoot(Path.Combine(scratch, "data"));
+            OriginLauncher.App.UI.Motion.Off = true;
+
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             Assert.Empty(app.Resources.MergedDictionaries); // the broken-theme case
 
@@ -100,6 +108,9 @@ public class CrashWindowFallbackTests
 
             // Same Application, so the Home blank-after-picker regression runs here (HomeSceneRegression.cs).
             HomeSceneRegression.Run();
+
+            // ...and so does the two-step version selector (VersionSelectorUiTests.cs).
+            VersionSelectorUiTests.Run(scratch);
         });
     }
 }

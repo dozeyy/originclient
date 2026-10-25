@@ -36,6 +36,10 @@
     <system:Double x:Key="Size.Checkbox">16</system:Double>
     <system:Double x:Key="Size.Progress">3</system:Double>
     <system:Double x:Key="Size.Dot">6</system:Double>
+    <!-- Version selector (11.3, 11.6): the sheet's widest, the family column of step 2, the status badge on a card. -->
+    <system:Double x:Key="Size.Sheet">960</system:Double>
+    <GridLength x:Key="Size.SheetSide">320</GridLength>
+    <system:Double x:Key="Size.Badge">20</system:Double>
     <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
     <system:Double x:Key="Size.SliderBox">20</system:Double>
     <system:Double x:Key="Size.SliderTrack">4</system:Double>

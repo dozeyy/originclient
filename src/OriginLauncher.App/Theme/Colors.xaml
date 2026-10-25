@@ -62,6 +62,8 @@
     <Color x:Key="Color.GhostRest">#00FFFFFF</Color>
     <Color x:Key="Color.ProgressTrack">#14FFFFFF</Color>
     <Color x:Key="Color.Scrim">#A30A0D0C</Color>
+    <!-- The version selector sheet: the panel colour at 98 % (DESIGN-SYSTEM.md 11.3). -->
+    <Color x:Key="Color.Sheet">#FA171C19</Color>
     <Color x:Key="Color.PageDim">#EB0E1110</Color>
     <Color x:Key="Color.LaunchScrim">#990E1110</Color>
     <!-- The giant version numeral on art: neutral white, never a hue. -->
@@ -131,6 +133,7 @@
     <SolidColorBrush x:Key="Brush.ProgressTrack" Color="{StaticResource Color.ProgressTrack}"/>
     <SolidColorBrush x:Key="Brush.Scrim" Color="{StaticResource Color.Scrim}"/>
     <SolidColorBrush x:Key="Brush.ScrimMid" Color="{StaticResource Color.ScrimMid}"/>
+    <SolidColorBrush x:Key="Brush.Sheet" Color="{StaticResource Color.Sheet}"/>
     <SolidColorBrush x:Key="Brush.PageDim" Color="{StaticResource Color.PageDim}"/>
     <SolidColorBrush x:Key="Brush.LaunchScrim" Color="{StaticResource Color.LaunchScrim}"/>
     <SolidColorBrush x:Key="Brush.SwitchKnobOff" Color="{StaticResource Color.SwitchKnobOff}"/>

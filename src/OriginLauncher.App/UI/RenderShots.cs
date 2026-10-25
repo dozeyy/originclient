@@ -208,6 +208,8 @@ public static class RenderShots
         // The numbers set into the version cards: pictures at 960x600 and 1920x1080 over the lightest and darkest art,
         // and the measured contrast of the number (UI/CardShots.cs).
         CardShots.Run(window, outDir);
+        // The two-step selector over fake installs showing every state (UI/SelectorShots.cs).
+        SelectorShots.Run(window, outDir);
         window.TourSetAccountOpen(true);
         Pump(500);
         Snap(window, outDir, "12-accounts");

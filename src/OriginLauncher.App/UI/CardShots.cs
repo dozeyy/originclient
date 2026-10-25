@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using OriginLauncher.App.Core.Versions;
+using OriginLauncher.App.Core.Versions;
 using OriginLauncher.App.UI.Controls;
 using Card = (string Key, System.Windows.FrameworkElement? Item, double ZoneLuminance, double Strength, double Reach);
 
@@ -107,7 +109,7 @@ internal static class CardShots
     }
 
     // Open the picker (on a family, or on the grid for -1) and settle it at the picture size.
-    private static void Open(MainWindow window, VersionSelectOverlay overlay, int index, Size size, bool inProcess)
+    internal static void Open(MainWindow window, VersionSelectOverlay overlay, int index, Size size, bool inProcess)
     {
         window.TourShowVersions(index);
         RenderShots.Pump(600);
@@ -124,10 +126,15 @@ internal static class CardShots
 
     private static int IndexOf(IReadOnlyList<Card> cards, bool max)
     {
-        var best = 0;
-        for (var i = 1; i < cards.Count; i++)
-            if (max ? cards[i].ZoneLuminance > cards[best].ZoneLuminance : cards[i].ZoneLuminance < cards[best].ZoneLuminance) best = i;
-        return best;
+        // Only a family with several releases has a step 2 to open (a one-release card picks and closes), so only those
+        // can stand for "the lightest / darkest card" in the step-2 pictures.
+        var best = -1;
+        for (var i = 0; i < cards.Count; i++)
+        {
+            if (VersionCatalog.Groups[i].Versions.Count < 2) continue;
+            if (best < 0 || (max ? cards[i].ZoneLuminance > cards[best].ZoneLuminance : cards[i].ZoneLuminance < cards[best].ZoneLuminance)) best = i;
+        }
+        return Math.Max(0, best);
     }
 
     private static void Measure(IReadOnlyList<Card> cards, string label, string report)
@@ -196,7 +203,7 @@ internal static class CardShots
         return (contrasts[0], contrasts[(int)(contrasts.Count * 0.05)], contrasts[contrasts.Count / 2]);
     }
 
-    private static T? Find<T>(DependencyObject root) where T : DependencyObject
+    internal static T? Find<T>(DependencyObject root) where T : DependencyObject
     {
         if (root is T hit) return hit;
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
