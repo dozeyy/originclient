@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 // Smooth world-loading frames for singleplayer. 1.8.9: while the integrated
 // server prepares the spawn area, launchIntegratedServer's wait loop repaints
 // the loading screen and then sleeps 200 ms -- five frames a second, so the
-// rings and the bar stepped visibly (1.21.1 fixed the same "jumpy" complaint
-// with RingField's scene clock). With the Origin scene up the loop sleeps 33 ms
+// bar stepped visibly (1.21.1 fixed the same "jumpy" complaint with its
+// SceneClock). With the Origin scene up the loop sleeps 33 ms
 // instead: ~30 frames a second, the rate OriginLoadingRenderer throttles to.
 // The loop only polls the server's status, so polling more often changes
 // nothing else.
