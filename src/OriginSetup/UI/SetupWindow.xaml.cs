@@ -503,6 +503,7 @@ public partial class SetupWindow : Window
             : new Registration.ExistingInstall(InstallLocation.Default, installedVersion, isLegacyInno: false);
         _location = location ?? _existing?.Directory ?? InstallLocation.Default;
         _noteOverride = null;
+        HideRunningDialog(); // the "Close Origin Launcher?" shot leaves its overlay up
         BrowseButton.IsEnabled = _existing == null;
         FillReady();
         // Every tour state starts from the defaults: Customize closed, memory recommended, version Newest.
