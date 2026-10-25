@@ -415,17 +415,19 @@ public partial class MainWindow : Window
     internal void TourLayoutAt(Size size)
     {
         var root = (FrameworkElement)Content;
-        root.Measure(size);
-        root.Arrange(new Rect(size));
-        // UpdateLayout, not another Measure: a Measure at the size already used is skipped, so the labels the rule
-        // just showed or hid would keep their old sizes. UpdateLayout re-measures every dirty element with its own
-        // previous (wide) constraint and raises the SizeChanged events that run the rule.
-        for (var i = 0; i < 3; i++)
+        // Not UpdateLayout (it also re-measures the window at the capped size) and not a plain Measure (skipped at a
+        // size already used, so a label the rule just showed or hid would keep its old size): invalidate the whole
+        // tree, lay it out at the wide size by hand, and run the rule, until it stops changing anything.
+        for (var i = 0; i < 4; i++)
         {
-            root.UpdateLayout();
+            UI.RenderShots.Invalidate(root);
+            root.Measure(size);
+            root.Arrange(new Rect(size));
             TopBar_LayoutChanged(this, null!);
         }
-        root.UpdateLayout();
+        UI.RenderShots.Invalidate(root);
+        root.Measure(size);
+        root.Arrange(new Rect(size));
     }
 
     internal void TourGoTo(int page)

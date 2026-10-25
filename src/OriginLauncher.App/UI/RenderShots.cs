@@ -560,7 +560,7 @@ public static class RenderShots
         window.UpdateLayout();
     }
 
-    private static void Invalidate(DependencyObject d)
+    internal static void Invalidate(DependencyObject d)
     {
         if (d is UIElement e)
         {
