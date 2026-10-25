@@ -9,6 +9,10 @@
          at the slot's edge, which is how the Friends drawer's "..." lost a dot (2026-10-18). -->
     <system:Double x:Key="Icon.Size">18</system:Double>
     <system:Double x:Key="Icon.SizeSmall">14</system:Double>
+    <!-- The small "opens in your browser" arrow after a link's label in the top bar. It sits inside the button's own
+         9 px right padding (offset + size < 9), so it is never wider than the gap the button already has. -->
+    <system:Double x:Key="Icon.SizeLinkHint">8</system:Double>
+    <system:Double x:Key="Icon.LinkHintOffset">1</system:Double>
 
     <Style x:Key="Icon.Base" TargetType="Path">
         <Setter Property="Stretch" Value="Uniform"/>
@@ -40,6 +44,38 @@
     <Geometry x:Key="Icon.Trash">M3,6 L5,6 21,6 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10,11 L10,17 M14,11 L14,17</Geometry>
     <Geometry x:Key="Icon.Back">M19,12 L5,12 M12,19 L5,12 12,5</Geometry>
     <Geometry x:Key="Icon.External">M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15,3 L21,3 21,9 M10,14 L21,3</Geometry>
+
+    <!-- External-link arrow after the label of a button that leaves the launcher (Website, Store). It lives in a
+         zero-width Canvas, so it takes no layout space at all: fading it in on hover moves nothing and the gaps stay
+         the same as between icon buttons. It overlays the button's right padding and takes the button's text colour. -->
+    <Style x:Key="Icon.LinkHint" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
+        <Setter Property="Width" Value="{StaticResource Icon.SizeLinkHint}"/>
+        <Setter Property="Height" Value="{StaticResource Icon.SizeLinkHint}"/>
+        <Setter Property="Data" Value="{StaticResource Icon.External}"/>
+        <Setter Property="StrokeThickness" Value="1.5"/>
+        <Setter Property="Canvas.Left" Value="{StaticResource Icon.LinkHintOffset}"/>
+        <Setter Property="Canvas.Top" Value="0"/>
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.8" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
     <Geometry x:Key="Icon.Minimize">M5,12 L19,12</Geometry>
     <Geometry x:Key="Icon.Close">M18,6 L6,18 M6,6 L18,18</Geometry>
     <Geometry x:Key="Icon.Loading">M12,2 L12,6 M12,18 L12,22 M4.93,4.93 L7.76,7.76 M16.24,16.24 L19.07,19.07 M2,12 L6,12 M18,12 L22,12 M4.93,19.07 L7.76,16.24 M16.24,7.76 L19.07,4.93</Geometry>
@@ -77,6 +113,8 @@
 
     <!-- Mod profiles (Feather layers / edit-2 / copy, MIT; plus and check are above). -->
     <Geometry x:Key="Icon.Profiles">M12,2 L2,7 12,12 22,7 Z M2,17 L12,22 22,17 M2,12 L12,17 22,12</Geometry>
+    <!-- Origin Store (Feather shopping-bag, MIT). -->
+    <Geometry x:Key="Icon.Store">M6,2 L3,6 V20 A2,2 0 0 0 5,22 H19 A2,2 0 0 0 21,20 V6 L18,2 Z M3,6 H21 M16,10 A4,4 0 0 1 8,10</Geometry>
     <Geometry x:Key="Icon.Edit">M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z</Geometry>
     <Geometry x:Key="Icon.Server">M5.5,4 H18.5 A1.5,1.5 0 0 1 20,5.5 V9.5 A1.5,1.5 0 0 1 18.5,11 H5.5 A1.5,1.5 0 0 1 4,9.5 V5.5 A1.5,1.5 0 0 1 5.5,4 Z M5.5,13 H18.5 A1.5,1.5 0 0 1 20,14.5 V18.5 A1.5,1.5 0 0 1 18.5,20 H5.5 A1.5,1.5 0 0 1 4,18.5 V14.5 A1.5,1.5 0 0 1 5.5,13 Z M8,7.5 L8.01,7.5 M8,16.5 L8.01,16.5</Geometry>
     <Geometry x:Key="Icon.Jar">M14,3 H7 A2,2 0 0 0 5,5 V19 A2,2 0 0 0 7,21 H17 A2,2 0 0 0 19,19 V8 Z M14,3 V8 H19 M9,13 H15 M9,17 H13</Geometry>

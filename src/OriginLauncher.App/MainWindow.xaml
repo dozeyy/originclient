@@ -114,14 +114,33 @@
                     <!-- Website: opens originclient.org in the default browser (ExternalLink). -->
                     <Button x:Name="WebsiteButton" Click="WebsiteButton_Click"
                             Style="{StaticResource Button.Chrome}"
-                            Padding="9,9,12,9" Margin="0,0,4,0" MinHeight="36"
+                            Padding="9" Margin="0,0,4,0" MinHeight="36"
                             AutomationProperties.Name="Open the Origin website, originclient.org">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Emblem.Globe}" Style="{StaticResource Icon.Base}"
                                   Width="18" Height="18"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <TextBlock Text="Website" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
+                            <TextBlock x:Name="WebsiteLabel" Text="Website" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <Canvas x:Name="WebsiteArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
+                                <Path Style="{StaticResource Icon.LinkHint}"/>
+                            </Canvas>
+                        </StackPanel>
+                    </Button>
+                    <!-- Store: opens originclient.org/store in the default browser. Same ghost look as Website. -->
+                    <Button x:Name="StoreButton" Click="StoreButton_Click"
+                            Style="{StaticResource Button.Chrome}"
+                            Padding="9" Margin="0,0,4,0" MinHeight="36"
+                            AutomationProperties.Name="Open the Origin store, originclient.org/store">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
+                                  Width="18" Height="18"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock x:Name="StoreLabel" Text="Store" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <Canvas x:Name="StoreArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
+                                <Path Style="{StaticResource Icon.LinkHint}"/>
+                            </Canvas>
                         </StackPanel>
                     </Button>
                     <!-- Import from another launcher: opens the Import page. -->

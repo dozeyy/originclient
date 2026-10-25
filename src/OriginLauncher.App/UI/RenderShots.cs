@@ -228,9 +228,61 @@ public static class RenderShots
         // The lower sections (JVM arguments, Origin Client, Startup, Developer) are below the fold.
         SnapSettingsScrolled(window, outDir, "14b-settings-middle", "14c-settings-bottom");
         SnapSettingsSync(window, outDir, "14d-settings-sync");
+        // The rail bug (2026-10-25): the first click on "Origin Client" lit "Developer". Press the short
+        // last sections the way a player does; each shot must show its own item lit and its section in view.
+        SnapSettingsRailClick(window, outDir, "SecClient", "14f-settings-click-client");
+        SnapSettingsRailClick(window, outDir, "SecStartup", "14g-settings-click-startup");
+        // Click an item, then press End by hand: the click stops deciding and the first section in view is lit.
+        SnapSettingsKeyEnd(window, outDir, "SecStartup", "14h-settings-key-end");
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
+
+        // Website and Store with their words and the hover arrow's room: only a wide window has the width for them
+        // (the narrower ones drop them to icons). Laid out in-process at 1440 and 1280 wide, with and without the
+        // update badge; the top bar's own fit rule runs at that width (MainWindow.TourLayoutAt).
+        foreach (var (w, h) in new[] { (1440, 900), (1280, 800), (1180, 740) })
+            foreach (var update in new[] { false, true })
+            {
+                window.TourShowUpdateBadge(update);
+                window.TourGoTo(0);
+                Pump(400);
+                var wide = new Size(w, h);
+                window.TourLayoutAt(wide);
+                var shot = $"15e-topbar-{w}x{h}{(update ? "-update" : "")}";
+                File.AppendAllText(Path.Combine(outDir, "topbar-fit.txt"),
+                    $"{shot}: {window.TourTopBarFit()}; gaps {window.TourLinkGaps()}{Environment.NewLine}");
+                Snap(window, outDir, shot, size: wide, laidOut: true);
+                if (!update)
+                {
+                    // The hover arrows shown (a render has no mouse): they must sit inside the button's own padding.
+                    window.TourShowLinkHints(true);
+                    Snap(window, outDir, shot + "-hint", size: wide, laidOut: true);
+                    window.TourShowLinkHints(false);
+                }
+                Pump(300);
+            }
+        window.TourShowUpdateBadge(false);
+
+        // The top bar (Website and Store sit in it) at 1180 px, then at the narrowest, with and without an update waiting.
+        window.Width = 1180;
+        window.Height = 740;
+        window.TourGoTo(0);
+        Pump(600);
+        Snap(window, outDir, "15-topbar-1044"); // the CI desktop caps a real window at 1044 wide; the true 1180 shot is 15e-topbar-1180x740
+        window.TourShowUpdateBadge(true);
+        Pump(300);
+        Snap(window, outDir, "15b-topbar-1044-update");
+        window.TourShowUpdateBadge(false);
+        window.Width = 960;
+        window.Height = 600;
+        Pump(600);
+        Snap(window, outDir, "15c-topbar-960");
+        window.TourShowUpdateBadge(true);
+        Pump(300);
+        Snap(window, outDir, "15d-topbar-960-update");
+        window.TourShowUpdateBadge(false);
+        Pump(200);
 
         // The smallest window the launcher allows (what 125-150 % scaling leaves on
         // a 1080p screen): the same screens again, to prove nothing clips.
@@ -305,6 +357,32 @@ public static class RenderShots
         Pump(400);
         Snap(window, dir, name);
         page.TourScrollToTop();
+        Pump(200);
+    }
+
+    /// <summary>Press a rail item, then End on the keyboard, and snap: the item lit must follow the page, not the old click.</summary>
+    private static void SnapSettingsKeyEnd(Window window, string dir, string sectionName, string name)
+    {
+        var page = FindVisual<Pages.SettingsPage>(window);
+        if (page == null) return;
+        page.TourClickRail(sectionName);
+        Pump(400);
+        page.TourPressEnd();
+        Pump(500);
+        Snap(window, dir, name);
+        page.ShowFromTop();
+        Pump(200);
+    }
+
+    /// <summary>Press one Settings rail item and snap the result, then go back to the top.</summary>
+    private static void SnapSettingsRailClick(Window window, string dir, string sectionName, string name)
+    {
+        var page = FindVisual<Pages.SettingsPage>(window);
+        if (page == null) return;
+        page.TourClickRail(sectionName);
+        Pump(500);
+        Snap(window, dir, name);
+        page.ShowFromTop();
         Pump(200);
     }
 
@@ -444,9 +522,10 @@ public static class RenderShots
     /// </summary>
     /// <param name="adorners">Also draw the window's adorner layer (it sits outside window.Content): WPF's own keyboard
     /// focus frame lives there, so the focus shots (ImportShots 42/42b) pass true.</param>
-    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false)
+    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false, bool laidOut = false)
     {
-        window.UpdateLayout();
+        // laidOut: the caller already laid the content out at `size` (MainWindow.TourLayoutAt); a window layout pass would undo it.
+        if (!laidOut) window.UpdateLayout();
         var root = (FrameworkElement)window.Content;
         // WPF caps a window at the desktop's size (SM_CXMAXTRACK: 1044x788 on the 1024x768 CI desktop), so a
         // bigger window is laid out here instead: the window's content measured and arranged at that size, which
@@ -489,7 +568,7 @@ public static class RenderShots
         window.UpdateLayout();
     }
 
-    private static void Invalidate(DependencyObject d)
+    internal static void Invalidate(DependencyObject d)
     {
         if (d is UIElement e)
         {
