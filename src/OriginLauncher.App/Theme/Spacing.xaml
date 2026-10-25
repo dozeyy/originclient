@@ -60,11 +60,6 @@
     <system:Double x:Key="Size.HomeSwitchHeight">20</system:Double>
     <system:Double x:Key="Size.HomeSwitchKnob">14</system:Double>
     <system:Double x:Key="Size.HomeSwitchTravel">16</system:Double>
-    <!-- Capsule padding (coordinator, 2026-10-25; the same names and values as the other branch so the merges line up):
-         a pill, chip or badge is a capsule, Radius.Full corners, with ONE padding on all sides: Padding.Capsule for the
-         regular size, Padding.Capsule.Sm for the small one. -->
-    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
-    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
     <!-- The top bar holds 32 tall controls with 8 above and below. List rows are 64 tall. Drawers (Accounts,
          Friends, Import) are 380 wide. -->
     <system:Double x:Key="Size.Bar">48</system:Double>
@@ -74,6 +69,14 @@
     <system:Double x:Key="Size.Progress">3</system:Double>
     <system:Double x:Key="Size.Dot">6</system:Double>
     <system:Double x:Key="Size.Badge">20</system:Double>
+    <!-- Version selector (11.3, 11.6): the sheet takes Share of the window width, never narrower than Min (the old fixed
+         sheet) and never wider than Max; the family column of step 2 takes SideShare of the sheet, between Side and SideMax. -->
+    <system:Double x:Key="Size.Sheet.Min">912</system:Double>
+    <system:Double x:Key="Size.Sheet.Max">1600</system:Double>
+    <system:Double x:Key="Size.Sheet.Share">0.8</system:Double>
+    <system:Double x:Key="Size.SheetSide">320</system:Double>
+    <system:Double x:Key="Size.SheetSide.Max">560</system:Double>
+    <system:Double x:Key="Size.SheetSide.Share">0.38</system:Double>
     <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
     <system:Double x:Key="Size.SliderBox">20</system:Double>
     <system:Double x:Key="Size.SliderTrack">4</system:Double>
@@ -121,6 +124,8 @@
     <CornerRadius x:Key="Radius.Full">999</CornerRadius>
     <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
     <system:Double x:Key="Radius.Lg.Value">12</system:Double>
+    <!-- A card's picture: the card's corner on its top two corners only. -->
+    <CornerRadius x:Key="Radius.Lg.Top">12,12,0,0</CornerRadius>
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->

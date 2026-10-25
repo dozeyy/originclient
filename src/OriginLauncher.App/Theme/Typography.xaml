@@ -48,6 +48,11 @@
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
     </Style>
 
+    <!-- type.capsule: the caps inside a capsule (Padding.Capsule.Sm / Padding.Capsule). Never trims. -->
+    <Style x:Key="Text.Capsule" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+        <Setter Property="TextTrimming" Value="None"/>
+    </Style>
+
     <!-- type.caption: status lines, meta, helper text. -->
     <Style x:Key="Text.Caption" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>

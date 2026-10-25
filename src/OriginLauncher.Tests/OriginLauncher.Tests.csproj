@@ -156,6 +156,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Versions\InstallSession.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\PlayFailure.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameLogMarks.cs" LinkBase="Launch" />
+    <!-- The version selector's keys and wording (U3.2): no WPF in either file. -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\VersionCatalog.cs" LinkBase="Versions" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\VersionSelectModel.cs" LinkBase="Cards" />
     <!-- The pinned legacy Forge table (pure data, no CmlLib), so a test can assert the real 1.8.9 layout. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyForgeBuilds.cs" LinkBase="Loaders" />
   </ItemGroup>

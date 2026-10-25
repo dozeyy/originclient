@@ -64,6 +64,8 @@
     <Color x:Key="Color.PillRest">#0AFFFFFF</Color>
     <Color x:Key="Color.ProgressTrack">#14FFFFFF</Color>
     <Color x:Key="Color.Scrim">#A30A0D0C</Color>
+    <!-- The version selector sheet: the panel colour at 98 % (DESIGN-SYSTEM.md 11.3). -->
+    <Color x:Key="Color.Sheet">#FA171C19</Color>
     <Color x:Key="Color.PageDim">#EB0E1110</Color>
     <Color x:Key="Color.LaunchScrim">#990E1110</Color>
     <!-- The giant version numeral on art: parchment (Color.Text) at 94 %, from the approved Workbench Home mockup. -->
@@ -71,6 +73,10 @@
     <!-- The orbit thread behind the numeral (DESIGN-SYSTEM, Signature effects): the logo's three rings as 1 px
          parchment hairlines, parchment at 20 %. Decoration only; it is not the logo mark. -->
     <Color x:Key="Color.OrbitThread">#33F1E9D2</Color>
+    <!-- Beside a numeral on art (the range on a version card): the numeral's parchment at 82 % (spec color.onArt). -->
+    <Color x:Key="Color.OnArt">#D1F1E9D2</Color>
+    <!-- The 1 px legibility shadow under a numeral on art: drawn, never an effect (spec 11.6): black at 40 %. -->
+    <Color x:Key="Color.NumeralShadow">#66000000</Color>
     <!-- Scrim ends over art (the only gradients): the bg colour at the strong and the clear end. -->
     <Color x:Key="Color.ScrimStrong">#EB0E1110</Color>
     <Color x:Key="Color.ScrimMid">#D60E1110</Color>
@@ -115,6 +121,8 @@
     <SolidColorBrush x:Key="Brush.OnPhoto" Color="{StaticResource Color.OnPhoto}"/>
     <SolidColorBrush x:Key="Brush.NumeralInk" Color="{StaticResource Color.NumeralInk}"/>
     <SolidColorBrush x:Key="Brush.OrbitThread" Color="{StaticResource Color.OrbitThread}"/>
+    <SolidColorBrush x:Key="Brush.OnArt" Color="{StaticResource Color.OnArt}"/>
+    <SolidColorBrush x:Key="Brush.NumeralShadow" Color="{StaticResource Color.NumeralShadow}"/>
     <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>
     <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}"/>
     <SolidColorBrush x:Key="Brush.AccentPress" Color="{StaticResource Color.AccentPress}"/>
@@ -134,6 +142,7 @@
     <SolidColorBrush x:Key="Brush.ProgressTrack" Color="{StaticResource Color.ProgressTrack}"/>
     <SolidColorBrush x:Key="Brush.Scrim" Color="{StaticResource Color.Scrim}"/>
     <SolidColorBrush x:Key="Brush.ScrimMid" Color="{StaticResource Color.ScrimMid}"/>
+    <SolidColorBrush x:Key="Brush.Sheet" Color="{StaticResource Color.Sheet}"/>
     <SolidColorBrush x:Key="Brush.PageDim" Color="{StaticResource Color.PageDim}"/>
     <SolidColorBrush x:Key="Brush.LaunchScrim" Color="{StaticResource Color.LaunchScrim}"/>
     <SolidColorBrush x:Key="Brush.SwitchKnobOff" Color="{StaticResource Color.SwitchKnobOff}"/>

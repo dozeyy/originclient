@@ -226,6 +226,8 @@ public static class RenderShots
         Snap(window, outDir, "11-versions-detail");
         window.TourHideVersions();
         Pump(300);
+        // The two-step selector over fake installs showing every state (UI/SelectorShots.cs).
+        SelectorShots.Run(window, outDir);
         window.TourSetAccountOpen(true);
         Pump(500);
         Snap(window, outDir, "12-accounts");
