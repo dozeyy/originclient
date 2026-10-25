@@ -110,7 +110,7 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
 	public static final int CLEAN_BG = 0xFF0E1110;             // color.bg: the loading picture's backdrop (as 1.21.1)
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
-	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
+	public static final int CLEAN_DIM_TITLE = 0x590E1110;      // title (~35%), the Workbench bg hue (Phase 4)
 	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
 	// The loading picture (render/LoadingLook, as 1.21.1): every loading, connecting
 	// and world-load screen reads its colours here.
@@ -118,6 +118,37 @@ public final class OriginTheme {
 	public static final int CLEAN_BAR_FILL = 0xFF5FD09B;       // progress bar fill, accent
 	public static final int CLEAN_CAPTION = 0xADF1E9D2;        // the stage caption, color.textDim (68 %)
 	public static final float CLEAN_CAPTION_EM = 8.0f;         // caption size, GUI px (1.21.1's TITLE_SMALL_EM)
+
+	// ---- Title screen, Workbench skin (Phase 4, docs/overhaul/DESIGN-SYSTEM.md 15.2) ----
+	// ONLY the title's controls read these (OriginButtonRenderer.titleControl, the chip in
+	// OriginScreenRenderer). They are separate from BOX_* / PANEL on purpose: those feed the
+	// Mod Menu family, which must not change by a pixel. Fixed (not theme-repainted), like the
+	// CLEAN_* set above. Colours are the spec's tokens as ARGB; radii and edges are GUI px.
+	public static final int TITLE_RADIUS = 4;                  // buttons 20 tall: the launcher's 40/8 ratio
+	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
+	// Hover: clearly lighter than rest (judge 2026-10-25: #232A26 at 90 % moved the composite by ~4 levels
+	// and could not be seen). #2E3631 at 92 % lifts it ~12 levels, like the target's hover card.
+	public static final int TITLE_BTN_FILL_HOVER = 0xEB2E3631;
+	// Press: surfacePress's hue pushed to near-black at 95 %. The spec value (#191E1B at 90 %) composited to
+	// about the resting fill and could not be seen (judge, title_press); the label also drops 1 GUI px.
+	public static final int TITLE_BTN_FILL_PRESS = 0xF20B0F0D;
+	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
+	public static final int TITLE_BTN_EDGE_HOVER = 0x40FFFFFF;    // white 25 %: the hairline firms with the fill
+	public static final int TITLE_FOCUS = 0x995FD09B;          // accentLine, 1 GUI px ring
+	public static final int TITLE_TOOLTIP_FILL = 0xF51D2320;   // surfaceRaised at 96 %: tooltip over the panorama (11.8)
+	public static final int TITLE_TEXT_MUTED =0x85F1E9D2;     // textMuted: disabled labels
+	// Workbench cards (A-Workbench-3, approved 2026-10-25): the worded title buttons (and Connecting's
+	// Cancel) are 3 GUI px corners with Inter 600 labels in parchment. TITLE_RADIUS above stays 4 for the
+	// focus ring's old users, tooltips and anything else that reads it.
+	public static final int TITLE_BTN_RADIUS = 3;
+	public static final int TITLE_TEXT = 0xFFF1E9D2;           // parchment, fixed (never theme-repainted)
+	public static final float TITLE_LABEL_EM = 9.0f;           // Inter 600 em, GUI px
+	// The title's quiet text (footer line, copyright, dock tooltips): Inter regular at 8 GUI px em, textMuted
+	// (A-Workbench-3; DECISIONS 2026-10-25 allows Inter on Origin's own title text). The player name is Inter 600
+	// at the label em in parchment. Every one falls back to Minecraft's font when the SDF face is not live.
+	public static final float TITLE_SMALL_EM = 8.0f;
+	// No ring/orbit tokens: Origin's UI draws no rings anywhere; the only ring shapes are inside
+	// origin_logo.png (Will, 2026-10-25: drawn look-alikes read as a fake logo).
 
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;
