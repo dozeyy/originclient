@@ -249,7 +249,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="RepeatButton">
                     <Grid Background="Transparent">
-                        <Border Height="{StaticResource Size.SliderTrack}" CornerRadius="{StaticResource Radius.Full}"
+                        <Border Height="{StaticResource Size.SliderTrack}" CornerRadius="{StaticResource Radius.Track}"
                                 Background="{StaticResource Brush.Accent}" VerticalAlignment="Center"/>
                     </Grid>
                 </ControlTemplate>
@@ -289,7 +289,7 @@
         <Grid Height="{StaticResource Size.SliderBox}" Background="Transparent" SnapsToDevicePixels="True">
             <Border x:Name="Ring" Margin="{StaticResource Margin.SliderRing}" BorderThickness="2" BorderBrush="{StaticResource Brush.AccentBorder}"
                     CornerRadius="{StaticResource Radius.Ring.Sm}" Visibility="Collapsed" IsHitTestVisible="False"/>
-            <Border Height="{StaticResource Size.SliderTrack}" CornerRadius="{StaticResource Radius.Full}"
+            <Border Height="{StaticResource Size.SliderTrack}" CornerRadius="{StaticResource Radius.Track}"
                     Background="{StaticResource Brush.ProgressTrack}" VerticalAlignment="Center"/>
             <Track x:Name="PART_Track">
                 <Track.DecreaseRepeatButton>
@@ -409,13 +409,13 @@
          grows by code (PageMotion.Width) to the real fraction; there is never a fake percentage. -->
     <Style x:Key="Setup.ProgressTrack" TargetType="Border">
         <Setter Property="Height" Value="{StaticResource Size.Progress}"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Full}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Track}"/>
         <Setter Property="Background" Value="{StaticResource Brush.ProgressTrack}"/>
         <Setter Property="ClipToBounds" Value="True"/>
     </Style>
     <Style x:Key="Setup.ProgressFill" TargetType="Border">
         <Setter Property="HorizontalAlignment" Value="Left"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Full}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Track}"/>
         <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
     </Style>
 </ResourceDictionary>

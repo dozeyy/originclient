@@ -145,6 +145,8 @@
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
     <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
+    <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->
     <CornerRadius x:Key="Radius.Ring.Xs">6</CornerRadius>
     <CornerRadius x:Key="Radius.Ring.Sm">8</CornerRadius>
