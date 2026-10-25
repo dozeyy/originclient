@@ -52,6 +52,22 @@
     <system:Double x:Key="Size.Logo.Hero">48</system:Double>
     <system:Double x:Key="Size.Logo.Intro">64</system:Double>
     <system:Double x:Key="Size.Wordmark.Hero">24</system:Double>
+    <!-- Account pill and rows (U3.5): a head is its container's height minus 8 (4 inset all round, concentric with
+         the container corner: the head's radius is the container's minus 4). 24 = 3 x 8 and 40 = 5 x 8, whole
+         multiples of the 8 x 8 face. The name stops at 160. A 10 px dot with a 2 px ring is the 6 px status dot
+         (Size.Dot) plus its ring. -->
+    <system:Double x:Key="Size.PillHead">24</system:Double>
+    <system:Double x:Key="Size.RowHead">40</system:Double>
+    <system:Double x:Key="Size.AccountName">160</system:Double>
+    <system:Double x:Key="Size.DotRinged">10</system:Double>
+    <system:Double x:Key="Size.DotRing">2</system:Double>
+    <CornerRadius x:Key="Radius.Head.Sm">2</CornerRadius>
+    <!-- Pill: 1 px edge + 3 = the 4 inset on the left; 9 + 1 = the 10 on the right. Row: 1 px edge + 3 = 4 all round.
+         Brand lockup: 6 to its left (the logo stays at the bar's 24), 14 to its right (the hover arrow's room). -->
+    <Thickness x:Key="Padding.AccountPill">3,0,9,0</Thickness>
+    <Thickness x:Key="Padding.AccountRow">3</Thickness>
+    <Thickness x:Key="Padding.Brand">6,4,14,4</Thickness>
+    <Thickness x:Key="Margin.OfflineDot">0,0,-2,-2</Thickness>
 
     <!-- ===== Corner radii (spec 6) ===== -->
     <CornerRadius x:Key="Radius.Xs">4</CornerRadius>
