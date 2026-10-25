@@ -449,7 +449,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   const fitCam = new THREE.PerspectiveCamera(), fa = new THREE.Vector3(), fb = new THREE.Vector3(), frel = new THREE.Vector3(), ftarget = new THREE.Vector3();
   // `project` returns the island's on-screen radius (px) from its centre (bounding sphere plus
   // clearance) for the pose camera pulled back by factor k; it leaves the centre's NDC in fa.
-  const RING_R = bounds.radius + 0.6, TILT_C = 1, TILT_S = 0;
+  const FIT_R = bounds.radius + 0.6;   // world-space radius the island must fit inside
   function project(q, k, W, H) {
     ftarget.set(q.target[0], q.target[1], q.target[2]);
     frel.set(q.pos[0], q.pos[1], q.pos[2]).sub(ftarget).multiplyScalar(k);
@@ -460,12 +460,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     fa.copy(bounds.center).project(fitCam);
     const d = -fb.copy(bounds.center).applyMatrix4(fitCam.matrixWorldInverse).z;   // depth of the centre
     const f = (H / 2) / Math.tan(THREE.MathUtils.degToRad(q.fov) / 2);               // focal length in px
-    let max = 0;
-    for (let i = 0; i < 64; i++) {
-      const a = i / 64 * TAU, c = Math.cos(a), s = Math.sin(a);
-      max = Math.max(max, f * RING_R * Math.hypot(c, TILT_C * s) / (d - RING_R * TILT_S * s));
-    }
-    return max;
+    return f * FIT_R / d;   // a sphere of radius FIT_R at depth d, in px
   }
   function fitHero(q, mobile) {
     if (fit.rev === rev && fit.mobile === mobile) return fit;
