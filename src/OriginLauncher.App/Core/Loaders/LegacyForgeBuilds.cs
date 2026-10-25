@@ -1,3 +1,4 @@
+using System.IO;
 using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.Core.Loaders;
