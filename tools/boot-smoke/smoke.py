@@ -47,6 +47,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "ci"))
 import perf_log   # tools/ci/perf_log.py: Sodium/Iris loaded + applied-mixin tally (shared with dev-shots)
+import companion_mods   # tools/ci/companion_mods.py: the catalog's ImmediatelyFast + Mod Menu versions, and the loaded-list check
 
 # Lines that mean a mixin (ours or a bundled mod's) failed to apply, the mod set
 # was rejected, or the game threw during startup. Any one of these fails the run.
@@ -105,8 +106,9 @@ def retryable(pre_start_lines):
     return any(NETWORK.search(l) for l in block)
 
 
-def run_once(module, cmd, timeout, run_java=0, perf=None):
-    """One runClient. Returns (ok, reason, retryable)."""
+def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None):
+    """One runClient. Returns (ok, reason, retryable). companions = {mod id: catalog version} that
+    must appear in the loaded mod list (--companions), else the run fails."""
     env = dict(os.environ, ORIGIN_SMOKE="1")
     if perf is not None:
         # Mixin logs "Mixing X from Y into Z" at INFO only with this flag (perf_log.tally counts them).
@@ -137,7 +139,7 @@ def run_once(module, cmd, timeout, run_java=0, perf=None):
     try:
         for line in proc.stdout:
             sys.stdout.write(line)
-            if perf is not None:
+            if perf is not None or companions:
                 seen.append(line)
             if not started and GAME_STARTED.search(line):
                 started = True
@@ -153,6 +155,15 @@ def run_once(module, cmd, timeout, run_java=0, perf=None):
                 if run_java:
                     ok, reason = _check_game_jvm(run_java, (True, verdict[1]))
                     verdict = (ok, reason, False)
+                if companions and verdict[0]:
+                    problems = companion_mods.verify_loaded("".join(seen), companions)
+                    shown = ", ".join(f"{k} {v}" for k, v in sorted(companions.items()))
+                    if problems:
+                        print("::error title=companions not loaded::" + "; ".join(problems), flush=True)
+                        verdict = (False, "companion mods not loaded: " + "; ".join(problems), False)
+                    else:
+                        print(f"boot-smoke: companions loaded at the catalog versions: {shown}", flush=True)
+                        verdict = (True, verdict[1] + f"; companions loaded: {shown}", False)
                 if perf is not None and verdict[0]:
                     pok, plines = perf_log.gate("".join(seen), os.path.basename(module), perf)
                     print(chr(10).join(plines), flush=True)
@@ -183,6 +194,9 @@ def main():
     ap.add_argument("--perf", action="store_true",
                     help="CI: Sodium + Iris jars were fetched into libs/ (tools/ci/perf_libs.py); require both in the "
                          "mod list and print how many Origin Sodium/Iris mixins applied")
+    ap.add_argument("--companions", action="store_true",
+                    help="CI: tools/ci/companion_mods.py put the catalog's ImmediatelyFast + Mod Menu jars in run/extra-mods "
+                         "(loaded via -PextraMods): FAIL unless the loaded mod list names each at its catalog version")
     ap.add_argument("--gradle-arg", action="append", default=[],
                     help="extra argument for the gradle runClient call (repeatable), e.g. --stacktrace")
     args = ap.parse_args()
@@ -224,10 +238,18 @@ def main():
                 f"-DoriginRunJava={args.run_java}",
                 f"-Porg.gradle.java.installations.paths={home}"]
 
+    companions = None
+    if args.companions:
+        with open(companion_mods.CATALOG, encoding="utf-8") as f:
+            companions = companion_mods.expected_versions(f.read(), name)
+        if not companions:
+            print(f"boot-smoke: --companions: the launcher catalog bundles no ImmediatelyFast / Mod Menu for {name}", file=sys.stderr)
+            return 1
+
     ok, reason = False, "not run"
     for attempt in range(1, max(1, args.attempts) + 1):
         print(f"boot-smoke: {name} attempt {attempt} -> {' '.join(cmd)}", flush=True)
-        ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java, True if args.perf else None)
+        ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java, True if args.perf else None, companions)
         if ok or not retryable or attempt == args.attempts:
             if retryable and not ok:
                 reason += f" (network/download failure on all {attempt} attempts -- not an Origin bug; re-run)"

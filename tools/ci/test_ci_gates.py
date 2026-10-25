@@ -30,6 +30,7 @@ def _read(path):
 
 shots = _load("check_shots", os.path.join(HERE, "check_shots.py"))
 smoke = _load("smoke", os.path.join(ROOT, "tools", "boot-smoke", "smoke.py"))
+companions = _load("companion_mods", os.path.join(HERE, "companion_mods.py"))
 
 DONE3 = "[12:00:01] [Render thread/INFO] (originclient) [dev-shots] done — 3 shots in /tmp/shots\n"
 
@@ -640,6 +641,73 @@ class PerfLogGate(unittest.TestCase):
             self.assertIn("PERF_SODIUM", t, mod)
             # the design set must not pick the perf kinds up (they throw without the jars)
             self.assertIn('!k.name().startsWith("PERF_")', t, mod)
+
+
+class CompanionGate(unittest.TestCase):
+    """boot-smoke companions=true must FAIL when Mod Menu / ImmediatelyFast are not in the loaded mod list."""
+    CATALOG = _read(companions.CATALOG)
+    LIST = ("[main/INFO] (FabricLoader) Loading 3 mods:\n"
+            "\t- fabric-api 0.141.6+1.21.11\n"
+            "\t- immediatelyfast 1.14.3+1.21.11\n"
+            "\t- modmenu 17.0.1\n")
+
+    def test_expected_versions_come_from_the_catalog(self):
+        self.assertEqual(companions.expected_versions(self.CATALOG, "1.21.11"),
+                         {"immediatelyfast": "1.14.3+1.21.11", "modmenu": "17.0.1"})
+
+    def test_era_without_immediatelyfast_expects_only_modmenu(self):
+        self.assertEqual(set(companions.expected_versions(self.CATALOG, "1.17.1")), {"modmenu"})
+        self.assertEqual(companions.expected_versions(self.CATALOG, "1.8.9"), {})
+
+    def test_loaded_at_the_catalog_versions_passes(self):
+        exp = companions.expected_versions(self.CATALOG, "1.21.11")
+        self.assertEqual(companions.verify_loaded(self.LIST, exp), [])
+
+    def test_missing_companion_fails(self):
+        # The exact judge finding: the jars were downloaded, the module loaded nothing.
+        exp = companions.expected_versions(self.CATALOG, "1.21.11")
+        bad = companions.verify_loaded("\t- fabric-api 0.141.6+1.21.11\n", exp)
+        self.assertEqual(len(bad), 2)
+        self.assertIn("modmenu", " ".join(bad))
+
+    def test_wrong_version_fails(self):
+        exp = companions.expected_versions(self.CATALOG, "1.21.11")
+        bad = companions.verify_loaded(self.LIST.replace("modmenu 17.0.1", "modmenu 16.0.1"), exp)
+        self.assertEqual(len(bad), 1)
+        self.assertIn("16.0.1", bad[0])
+
+    def test_nested_jar_in_jar_copy_does_not_count(self):
+        exp = {"modmenu": "17.0.1"}
+        nested = "\t- originclient 1.0\n\t   \\-- modmenu 17.0.1\n"
+        self.assertEqual(len(companions.verify_loaded(nested, exp)), 1)
+
+    def test_smoke_run_fails_when_companions_missing(self):
+        """smoke.run_once end to end on a fake runClient that reaches the title with no companions in the list."""
+        import sys
+        script = "print('Loading 1 mods:');print('\\t- fabric-api 1.0');print('[origin-smoke] title screen reached')"
+        with tempfile.TemporaryDirectory() as d:
+            ok, reason, _ = smoke.run_once(d, [sys.executable, "-c", script], 60, 0, None, {"modmenu": "17.0.1"})
+            self.assertFalse(ok)
+            self.assertIn("companion mods not loaded", reason)
+            script2 = "print('Loading 1 mods:');print('\\t- modmenu 17.0.1');print('[origin-smoke] title screen reached')"
+            ok, reason, _ = smoke.run_once(d, [sys.executable, "-c", script2], 60, 0, None, {"modmenu": "17.0.1"})
+            self.assertTrue(ok, reason)
+            self.assertIn("companions loaded", reason)
+
+    def test_workflow_turns_the_hook_and_the_gate_on_together(self):
+        wf = _read(os.path.join(ROOT, ".github", "workflows", "boot-smoke.yml"))
+        self.assertIn("--companions", wf)
+        self.assertIn("-PextraMods=run/extra-mods", wf)
+
+    def test_every_fabric_module_has_the_extramods_hook(self):
+        """The hook companions=true depends on. 1.8.9 (Forge, no catalog companions) is the only exception."""
+        import json
+        mods = [m["module"] for m in json.loads(_read(os.path.join(ROOT, "src", "mods", "live-modules.json")))["modules"]]
+        for mod in mods:
+            if mod == "1.8.9":
+                continue
+            gradle = _read(os.path.join(ROOT, "src", "mods", "versions", mod, "build.gradle"))
+            self.assertIn('hasProperty("extraMods")', gradle, mod)
 
 
 if __name__ == "__main__":

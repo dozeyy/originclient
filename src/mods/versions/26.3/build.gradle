@@ -39,6 +39,13 @@ loom {
 	// into a world; `-Pmixinexport` dumps post-transform bytecode to run/.mixin.out/.
 	runs {
 		client {
+			// `-PextraMods=<folder>`: also load every mod jar in that folder (Fabric
+			// Loader's fabric.addMods), without copying anything into run/mods.
+			// boot-smoke `companions=true` uses it to boot the launcher's catalog pins
+			// (tools/ci/companion_mods.py).
+			if (project.hasProperty("extraMods")) {
+				property "fabric.addMods", file(project.property("extraMods").toString()).absolutePath
+			}
 			if (project.hasProperty("quickplay")) {
 				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
 			}

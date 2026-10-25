@@ -51,7 +51,7 @@ on:
         description: "Extra Gradle args for runClient, e.g. --stacktrace (diagnostics)"
         default: ""
       companions:
-        description: "true = also load the launcher's ImmediatelyFast + Mod Menu pins for the module (pair with gradle_args -PextraMods=run/extra-mods)"
+        description: "true = also load the launcher's ImmediatelyFast + Mod Menu pins for the module (adds -PextraMods=run/extra-mods itself) and FAIL unless the loaded mod list names them at the catalog versions"
         default: "false"
 
 concurrency:
@@ -155,6 +155,7 @@ jobs:
           SDL_VIDEO_FORCE_EGL: "1"
           RUN_JAVA: ${{ matrix.run_java }}
           SMOKE_GRADLE_ARGS: ${{ github.event.inputs.gradle_args }}
+          COMPANIONS: ${{ github.event.inputs.companions }}
         run: |
           echo "Gradle JAVA_HOME=$JAVA_HOME"
           args=()
@@ -162,6 +163,9 @@ jobs:
           m="src/mods/versions/${{ matrix.version }}"
           if ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; then args+=(--perf); fi
           for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
+          # companions=true: load the jars companion_mods.py fetched AND require them in the mod list
+          # (a module whose runClient lacks the -PextraMods hook used to download them, load nothing, and pass).
+          if [ "$COMPANIONS" = "true" ]; then args+=(--companions "--gradle-arg=-PextraMods=run/extra-mods"); fi
           xvfb-run -a -s "-screen 0 1280x720x24" \
             python3 tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
               --timeout "${{ github.event.inputs.timeout || 600 }}" "${args[@]}"
