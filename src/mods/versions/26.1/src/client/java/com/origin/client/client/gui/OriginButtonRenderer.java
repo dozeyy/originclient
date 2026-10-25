@@ -118,6 +118,23 @@ public final class OriginButtonRenderer {
 		}
 	}
 
+	// The title dock's tooltips (Will, 2026-10-25: the "Quit the game" hover card read
+	// as a second button). They stay on their buttons for the narrator; the hover card
+	// is never drawn (WidgetTooltipHolderMixin). Weak, like the maps above.
+	private static final Map<Object, Boolean> DOCK_TIPS = new WeakHashMap<>();
+
+	/** Marks a title-dock tooltip as narrated only (its hover card is never drawn). */
+	public static void setDockTip(Object tooltip) {
+		if (tooltip != null) {
+			DOCK_TIPS.put(tooltip, Boolean.TRUE);
+		}
+	}
+
+	/** Is this tooltip a title-dock tooltip (narrated, never drawn)? */
+	public static boolean isDockTip(Object tooltip) {
+		return tooltip != null && DOCK_TIPS.containsKey(tooltip);
+	}
+
 	private static boolean fail(Throwable t) {
 		broken = true;
 		com.origin.client.OriginClient.LOGGER.error(

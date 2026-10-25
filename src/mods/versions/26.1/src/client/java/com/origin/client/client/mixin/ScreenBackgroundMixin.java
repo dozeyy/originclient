@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    game jar ships -- every module automatically shows its own update's),
 //    vanilla's blur, a dim and a soft vignette (OriginScreenRenderer.renderMenuBackdrop).
 //  - Origin's own screens (Right Shift mod menu, HUD editor, ...): unchanged,
-//    the charcoal + rings backdrop.
+//    the charcoal backdrop (glow, grain, vignette).
 //  - ProgressScreen (world-creation stages, "Saving world"): the loading scene's
 //    backdrop (renderLoadingBackdrop), in or out of a world, as on 1.21.1 where
 //    the loading scene takes the whole screen. Its text draws in the render pass

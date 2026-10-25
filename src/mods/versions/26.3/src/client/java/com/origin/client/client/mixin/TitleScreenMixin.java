@@ -54,9 +54,10 @@ import java.util.List;
 // Vanilla's own widgets are only REPOSITIONED (clicks and actions untouched)
 // and draw as stock Minecraft buttons; the icon row draws vanilla's button
 // sprite with Origin's icon on top (OriginButtonRenderer.vanillaIconButton).
-// Every icon square gets a one-line tooltip saying what it does (vanilla
-// Tooltip); worded buttons get none -- their label already says it (Will,
-// 2026-10-19). Mods / Friends / Cosmetics are Origin's, added as real widgets
+// Every icon square carries a one-line tooltip saying what it does, for the
+// narrator only: its hover card is never drawn (WidgetTooltipHolderMixin; Will,
+// 2026-10-25: the card read as a second button). Worded buttons get none --
+// their label already says it (Will, 2026-10-19). Mods / Friends / Cosmetics are Origin's, added as real widgets
 // through ScreenInvoker. Mod Menu's own "Mods" button is hidden every frame (it
 // is added by Mod Menu's screen event after our init hook, which also bumps
 // buttons -- so positions are re-applied every frame). The copyright line is
@@ -265,19 +266,21 @@ public class TitleScreenMixin {
 		return net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
 	}
 
-	/** Icon-only square: vanilla's button with the Origin symbol, and what it does as its tooltip. */
+	/**
+	 * Icon-only square: vanilla's button with the Origin symbol, and what it does as its
+	 * tooltip -- narrated, never drawn (the tooltip is registered as a dock tip, which
+	 * WidgetTooltipHolderMixin skips; 26.x has no AbstractWidget.getTooltip(), so the
+	 * Tooltip is registered as it is created).
+	 */
 	@Unique
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
-		OriginButtonRenderer.setTitlePresentation(w, icon, true);
-		originclient$tip(w, tip);
-	}
-
-	/** The launcher's hover line: one short plain sentence saying what the button does. */
-	@Unique
-	private static void originclient$tip(AbstractWidget w, String tip) {
-		if (w != null) {
-			w.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip)));
+		if (w == null) {
+			return;
 		}
+		OriginButtonRenderer.setTitlePresentation(w, icon, true);
+		net.minecraft.client.gui.components.Tooltip t = net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip));
+		w.setTooltip(t);
+		OriginButtonRenderer.setDockTip(t);
 	}
 
 	/**
