@@ -4,7 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using OriginLauncher.App.Core.Versions;
-using OriginLauncher.App.Core.Versions;
 using OriginLauncher.App.UI.Controls;
 using Card = (string Key, System.Windows.FrameworkElement? Item, double ZoneLuminance, double Strength, double Reach);
 
