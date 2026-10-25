@@ -85,11 +85,12 @@ public sealed class ModFolderScannerTests : IDisposable
             mods.Add(Mod("mod" + i, "1.0." + i, needs: needs.ToArray(), breaks: i % 7 == 0 ? new[] { ("other" + i, "*") } : null,
                 nested: i % 5 == 0 ? new[] { new NestedMod("inner" + i, "1.0.0", null) } : null));
         }
-        CompatEngine.Check(mods, Fabric121); // warm up the JIT: the contract is about the check, not the first call
+        CompatEngine.Check(mods, Fabric121); // warm up the JIT: the contract is about the check, not the first call. The best of many runs is asserted because a
+        // shared CI runner shows 8x spikes while other test classes run beside this one (6 ms alone, 52 ms in one noisy run).
 
         var best = double.MaxValue;
         CompatReport report = null!;
-        for (var run = 0; run < 5; run++)
+        for (var run = 0; run < 25; run++)
         {
             var sw = Stopwatch.StartNew();
             report = CompatEngine.Check(mods, Fabric121);
