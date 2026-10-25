@@ -60,7 +60,9 @@ public final class OriginFrameLog {
 
 	// The frame in progress.
 	private static long frameStart = 0, renderStart = 0, swapStart = 0, titleStart = 0, taskStart = 0;
-	private static double curTasks, curRender, curSwap, curTitle;
+	private static double curTasks, curRender, curSwap, curTitle, curOrigin;
+	/** The first this-many frames each print one "early" line (B-30: the loading screen's first frame). */
+	private static final int EARLY_FRAMES = 6;
 	private static StringBuilder curNamed;
 	private static int titleFrames = 0;
 	private static boolean titleThisFrame = false;
@@ -136,7 +138,7 @@ public final class OriginFrameLog {
 		start[i] = now;
 		phase[i] = current;
 		frameStart = now;
-		curTasks = curRender = curSwap = curTitle = 0;
+		curTasks = curRender = curSwap = curTitle = curOrigin = 0;
 		curNamed = null;
 		titleThisFrame = false;
 	}
@@ -225,6 +227,13 @@ public final class OriginFrameLog {
 		pollTagged = true;
 		if (ms >= TASK_MS) {
 			named(listener, ms);
+		}
+	}
+
+	/** The Origin startup loading picture was drawn this frame in {@code ms} (dev frame log only). */
+	public static void originLoadingDraw(double ms) {
+		if (ENABLED && !finished) {
+			curOrigin += ms;
 		}
 	}
 
@@ -436,6 +445,12 @@ public final class OriginFrameLog {
 		gcCount[i] = (int) (gc[1] - lastGcCount);
 		lastGcMs = gc[0];
 		lastGcCount = gc[1];
+		if (i < EARLY_FRAMES) {
+			// B-30: the loading screen's own first frames. originDraw is the Origin
+			// loading picture's draw alone (OriginScreenRenderer.renderLoading), inside render.
+			com.origin.client.OriginClient.LOGGER.info(P + "early frame #{} frame={} ms render={} originDraw={} tasks={} swap={} gc={} ms uptime {} s",
+					i, fmt(frameMs[i]), fmt(renderMs[i]), fmt(curOrigin), fmt(tasksMs[i]), fmt(swapMs[i]), fmt(gcMs[i]), uptimeS());
+		}
 		double scene = com.origin.client.client.render.RingField.peekMs();
 		sceneStep[i] = Double.isNaN(lastScene) ? 0f : (float) (scene - lastScene);
 		lastScene = scene;

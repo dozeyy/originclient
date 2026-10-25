@@ -137,10 +137,14 @@ public final class OriginScreenRenderer {
 			com.origin.client.client.OriginAssets.uploadSlice();
 			return;
 		}
+		long t0 = com.origin.client.client.OriginFrameLog.ENABLED ? System.nanoTime() : 0L;
 		try {
 			renderLoading0(guiGraphics, reloadProgress(progress), true);
 		} catch (Throwable t) {
 			fail(t);
+		}
+		if (t0 != 0L) {
+			com.origin.client.client.OriginFrameLog.originLoadingDraw((System.nanoTime() - t0) / 1e6);   // dev only (B-30)
 		}
 	}
 
