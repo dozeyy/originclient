@@ -23,10 +23,14 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 ## Look
 - Vanilla screens (title, pause, options, inventory, world select) use STOCK Minecraft buttons. Origin's widget skin only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-08-23).
 - In-game text is Minecraft's own font everywhere; no Inter/Space Grotesk/MSDF in game; no hand-rolled glyph rendering (2026-07-08, re-confirmed 2026-09-09).
+- Exception (2026-10-25, Will approved the Workbench mockup and asked to "fix the font on the middle"): Origin's own title-screen text (buttons, player name, footer) uses Inter via the MSDF font; every other in-game text stays Minecraft's font.
 - Workbench design system (`docs/overhaul/DESIGN-SYSTEM.md`): neutral base, small soft-hued accents, never big colour fills; Home version numeral stays neutral (2026-10-25).
 - Logos: only `textures/ui/origin_logo.png` (= `Assets/origin.ico`) and `Assets/Brand/wordmark.png`. Never redraw a logo in XAML, SVG, CSS or code (2026-10-25).
 - Icons: Origin's own icon set per the Icon Packs rules, not borrowed sets (2026-09-03).
 - Numeral shadows are drawn in `ArtStage.OnRender`, never a WPF `DropShadowEffect` on animating elements (2026-10-25).
+- No ovals anywhere: every pill, badge, chip and orbit ring is an Apple capsule (radius = height/2, even padding); round dots stay circles (2026-10-25).
+- Launcher Home: Store lives in the top bar; no profile button on Home, the profile is put on in the Profiles page only (2026-10-25).
+- Version picker: click a family card, it expands (animated) into a panel with one compact release dropdown; picking is the selection, Esc/click-out returns Home, Back returns to the grid; no "Download" wording (2026-10-25).
 
 ## Website (originclient.org — served by Vercel, not GitHub Pages, 2026-10-18)
 - Never claim "every version" (2026-10-13).

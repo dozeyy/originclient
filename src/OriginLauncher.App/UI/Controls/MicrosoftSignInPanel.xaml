@@ -30,9 +30,11 @@
         <!-- Body: the embedded Microsoft login page. WebView starts transparent-covered
              by LoadingText until the first navigation completes, so the user never
              sees a blank white flash while CoreWebView2 spins up. -->
-        <Grid Grid.Row="1" Margin="1,0,1,1" ClipToBounds="True">
+        <!-- Inset by the 16 gutter so the page (a separate window that WPF can't round) sits as a well inside the
+             dialog's 16 corners instead of poking square corners through them. -->
+        <Grid Grid.Row="1" Margin="16,0,16,16" ClipToBounds="True">
             <wv2:WebView2 x:Name="WebView"/>
-            <Border x:Name="LoadingOverlay" Background="{StaticResource Brush.Panel}">
+            <Border x:Name="LoadingOverlay" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}">
                 <Grid>
                     <TextBlock x:Name="LoadingText" Text="Loading sign-in..." Style="{StaticResource Text.BodyDim}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
