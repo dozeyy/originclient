@@ -90,14 +90,14 @@ public partial class ImportPromptCard : UserControl
             Width = 28,
             Height = 28,
             Margin = new Thickness(0, 0, 10, 0),
-            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Chip"),
+            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Sm"),
             Background = (Brush)Application.Current.FindResource("Brush.Bg"),
             Child = logo != null
                 ? new Image { Source = logo, Width = 18, Height = 18 }
                 : new TextBlock
                 {
                     Text = initial,
-                    FontSize = 12,
+                    FontSize = (double)Application.Current.FindResource("FontSize.Caption"),
                     FontWeight = FontWeights.Bold,
                     Foreground = (Brush)Application.Current.FindResource("Brush.Text"),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -111,7 +111,7 @@ public partial class ImportPromptCard : UserControl
         row.Children.Add(new TextBlock
         {
             Text = name,
-            FontSize = 13,
+            FontSize = (double)Application.Current.FindResource("FontSize.Body"),
             FontWeight = FontWeights.SemiBold,
             Foreground = (Brush)Application.Current.FindResource("Brush.Text"),
             VerticalAlignment = VerticalAlignment.Center,
@@ -120,7 +120,7 @@ public partial class ImportPromptCard : UserControl
             row.Children.Add(new TextBlock
             {
                 Text = detail,
-                FontSize = 12,
+                FontSize = (double)Application.Current.FindResource("FontSize.Caption"),
                 Margin = new Thickness(8, 0, 0, 0),
                 Foreground = (Brush)Application.Current.FindResource("Brush.TextMuted"),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -130,7 +130,7 @@ public partial class ImportPromptCard : UserControl
         {
             Padding = new Thickness(6, 6, 12, 6),
             Margin = new Thickness(0, 0, 8, 8),
-            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Card"),
+            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Lg"),
             Background = (Brush)Application.Current.FindResource("Brush.Card"),
             Child = row,
         };

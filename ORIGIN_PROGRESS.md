@@ -113,11 +113,11 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 | ID | Requirement | Source | Phase | Status | Evidence |
 |---|---|---|---|---|---|
 | P2-01 | Official logo and wordmark identified | 02 s1, 04 | 2 | Done and tested | Will's answer (04): `origin_logo.png` / `origin.ico`, `wordmark.png` |
-| P2-02 | Launcher draws the official logo through one central reference (OriginMark, StartupIntro rings, Mark B in ModIcons replaced) | 02 s1, 04 | 2 | Not started | |
+| P2-02 | Launcher draws the official logo through one central reference (OriginMark, StartupIntro rings, Mark B in ModIcons replaced) | 02 s1, 04 | 2 | Done (claude/p3-tokens) | BrandLogo + Brand.Logo; OriginMark, StartupIntro rings, Mark B removed |
 | P2-03 | Installer and uninstaller use the official logo (OrbitMark replaced) | 02 s1, s8, 04 | 2 | Not started | |
 | P2-04 | In-game title and loading screens use the official logo; `OriginUi.mark()` fallback replaced; "Mod ID" placeholder `icon.png` fixed (1.21.10, 1.12.2, 1.21.5, shared) | 02 s1, s9, 04 | 2 | Not started | |
 | P2-05 | Website uses the official logo (inline symbols, `world.js:396-425`) | 02 s1, 04 | 2 | Not started | |
-| P2-06 | `check_logo.py` detector in build-check, proven able to fail | 02 s1 ("cannot come back") | 2 | Not started | |
+| P2-06 | `check_logo.py` detector in build-check, proven able to fail | 02 s1 ("cannot come back") | 2 | Done (claude/p3-tokens) | tools/design/check_logo.py in build-check; tests plant a drawing |
 | P2-07 | Store placement chosen from previews | 02 s6, s11 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
 | P2-08 | Account pill proportions chosen from previews | 02 s5, s11 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
 | P2-09 | Version-card number treatment chosen from previews (neutral) | 02 s3, s11 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
@@ -127,8 +127,8 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 | P2-13 | Spec: buttons, dropdowns, navigation, icons, hover / selected / disabled / focus states | 03 P2, 01 s5 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
 | P2-14 | Spec: animations, backgrounds, loading indicators | 03 P2, 01 s5 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
 | P2-15 | Spec: launcher-to-game continuity; Mod Menu documented as frozen; no shared runtime UI dependency | 01 s5 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
-| P2-16 | `check_tokens.py` detector (report in Phase 2, gate in Phase 3) | 01 s5, 02 s2 | 2 | Not started | |
-| P2-17 | Hue removed from the logo glow (`Effect.OriginGlow` jade) | 00 soft accents, CLAUDE.md brand | 2 | Not started | |
+| P2-16 | `check_tokens.py` detector (report in Phase 2, gate in Phase 3) | 01 s5, 02 s2 | 2 | Done (claude/p3-tokens) | tools/design/check_tokens.py is a build-check gate at 0 bypasses (CrashFallback.cs allowed) |
+| P2-17 | Hue removed from the logo glow (`Effect.OriginGlow` jade) | 00 soft accents, CLAUDE.md brand | 2 | Done (claude/p3-tokens) | Effect.OriginGlow deleted |
 | P2-18 | Display font for the numeral (new dependency) decided if the spec needs one | 01 s6 | 2 | Not started | |
 
 ### Phase 3 - Launcher redesign (and installer)

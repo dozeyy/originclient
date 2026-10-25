@@ -112,7 +112,7 @@ public partial class SocialToastHost : UserControl
         SocialToastKind.Message => "Brush.Info",
         SocialToastKind.FriendRequest => "Brush.Success",
         SocialToastKind.PartyInvite => "Brush.Warning",
-        SocialToastKind.Warp => "Brush.Acc",
+        SocialToastKind.Warp => "Brush.Accent",
         _ => "Brush.TextDim",
     });
 

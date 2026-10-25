@@ -8,8 +8,8 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Theme/Colors.xaml"/>
-                <ResourceDictionary Source="Theme/Typography.xaml"/>
                 <ResourceDictionary Source="Theme/Spacing.xaml"/>
+                <ResourceDictionary Source="Theme/Typography.xaml"/>
                 <ResourceDictionary Source="Theme/Buttons.xaml"/>
                 <!-- Icons before Inputs: the combo box template uses the chevron, and a template can only see
                      dictionaries merged before its own. -->

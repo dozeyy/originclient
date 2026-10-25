@@ -2,76 +2,92 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
-    <!-- 8px spacing grid -->
+    <!--
+        Origin launcher space, size, radius, motion and elevation tokens: the Workbench design system
+        (docs/overhaul/DESIGN-SYSTEM.md sections 4 to 9, key map in 17.1). Same names and values as the installer's
+        Theme/Tokens.xaml where the two overlap (tools/release/check_consistency.py compares them). No other file
+        writes a spacing, size, radius or duration literal.
+    -->
+
+    <!-- ===== Space (spec 4): 4 px base, 8 px rhythm ===== -->
     <system:Double x:Key="Space.1">4</system:Double>
     <system:Double x:Key="Space.2">8</system:Double>
-    <system:Double x:Key="Space.3">16</system:Double>
-    <system:Double x:Key="Space.4">24</system:Double>
-    <system:Double x:Key="Space.5">32</system:Double>
-    <system:Double x:Key="Space.6">48</system:Double>
+    <system:Double x:Key="Space.3">12</system:Double>
+    <system:Double x:Key="Space.4">16</system:Double>
+    <system:Double x:Key="Space.5">20</system:Double>
+    <system:Double x:Key="Space.6">24</system:Double>
+    <system:Double x:Key="Space.8">32</system:Double>
+    <system:Double x:Key="Space.10">40</system:Double>
+    <system:Double x:Key="Space.12">48</system:Double>
 
-    <!-- Sizes (Poster): title bar, list rows. -->
-    <system:Double x:Key="Size.Bar">56</system:Double>
+    <!-- Layout margins that more than one style needs, as tokens. -->
+    <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
+
+    <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
+    <system:Double x:Key="Size.ControlSm">28</system:Double>
+    <system:Double x:Key="Size.ControlMd">32</system:Double>
+    <system:Double x:Key="Size.ControlLg">36</system:Double>
+    <system:Double x:Key="Size.ControlXl">40</system:Double>
+    <!-- The top bar holds 32 tall controls with 8 above and below. List rows are 64 tall. Drawers (Accounts,
+         Friends, Import) are 380 wide. -->
+    <system:Double x:Key="Size.Bar">48</system:Double>
     <system:Double x:Key="Size.Row">64</system:Double>
-
-    <!-- Control heights (one scale for every button, pill, field and combo box): Sm 32 for
-         header actions and row buttons, 40 for the usual button, Lg 48 for the Home strip
-         (version and profile pills, Join, beside the 58 px Play ring). An icon button is
-         Size.IconButton square (a 14 px glyph, Icon.Small, centred in it). The drawers
-         (Accounts, Friends, Import) are Size.Drawer wide. -->
-    <system:Double x:Key="Size.ControlSm">32</system:Double>
-    <system:Double x:Key="Size.Control">40</system:Double>
-    <system:Double x:Key="Size.ControlLg">48</system:Double>
-    <system:Double x:Key="Size.IconButton">32</system:Double>
     <system:Double x:Key="Size.Drawer">380</system:Double>
-    <!-- A profile / version emblem tile inside a pill. -->
-    <system:Double x:Key="Size.Emblem">28</system:Double>
+    <system:Double x:Key="Size.Checkbox">16</system:Double>
+    <system:Double x:Key="Size.Progress">3</system:Double>
+    <system:Double x:Key="Size.Dot">6</system:Double>
+    <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
+    <system:Double x:Key="Size.SliderBox">20</system:Double>
+    <system:Double x:Key="Size.SliderTrack">4</system:Double>
+    <system:Double x:Key="Size.SliderThumb">16</system:Double>
+    <!-- Switch (spec 5): 32 x 18, knob 14. -->
+    <system:Double x:Key="Size.SwitchWidth">32</system:Double>
+    <system:Double x:Key="Size.SwitchHeight">18</system:Double>
+    <system:Double x:Key="Size.SwitchKnob">14</system:Double>
+    <system:Double x:Key="Size.SwitchTravel">14</system:Double>
+    <!-- Brand sizes (spec 1.3): the top bar mark 24 with a 16 tall wordmark. -->
+    <system:Double x:Key="Size.Emblem">24</system:Double>
+    <system:Double x:Key="Size.Logo.Bar">24</system:Double>
+    <system:Double x:Key="Size.Wordmark.Bar">16</system:Double>
+    <system:Double x:Key="Size.Logo.Hero">48</system:Double>
+    <system:Double x:Key="Size.Logo.Intro">64</system:Double>
+    <system:Double x:Key="Size.Wordmark.Hero">24</system:Double>
 
-    <!-- Corners (Poster): Sharp 4 for cards, tiles and rows; Control 8 for buttons,
-         pills and icon buttons; Play 10 for large buttons; Knob 2 for switch knobs.
-         Focus = Control + the 3 px focus-frame outset. Circles only for the mark,
-         swatches and the Play ring. -->
-    <CornerRadius x:Key="Radius.Sharp">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Chip">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Control">8</CornerRadius>
-    <CornerRadius x:Key="Radius.Play">10</CornerRadius>
-    <CornerRadius x:Key="Radius.NavItem">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Row">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Card">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Dialog">8</CornerRadius>
-    <CornerRadius x:Key="Radius.Swatch">4</CornerRadius>
-    <CornerRadius x:Key="Radius.Focus">11</CornerRadius>
-    <CornerRadius x:Key="Radius.FocusCard">7</CornerRadius>
-    <CornerRadius x:Key="Radius.Bar">2</CornerRadius>
-    <CornerRadius x:Key="Radius.Knob">2</CornerRadius>
-    <!-- Toggle.Slider: the track (squarer, like the buttons) and its glow just outside it. -->
-    <CornerRadius x:Key="Radius.Switch">3</CornerRadius>
-    <CornerRadius x:Key="Radius.SwitchGlow">6</CornerRadius>
+    <!-- ===== Corner radii (spec 6) ===== -->
+    <CornerRadius x:Key="Radius.Xs">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Sm">6</CornerRadius>
+    <CornerRadius x:Key="Radius.Md">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
+    <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
+    <CornerRadius x:Key="Radius.Track">2</CornerRadius>
+    <!-- Focus ring corner = control corner + 2 (spec 8). -->
+    <CornerRadius x:Key="Radius.Ring.Xs">6</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Sm">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Md">10</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Lg">14</CornerRadius>
 
-    <!-- Motion timing (Poster motion table). App.DisableMotion zeroes every one of
-         these for reduced motion and the CI shot render; code paths use UI.Motion. -->
-    <Duration x:Key="Motion.Base">0:0:0.14</Duration>
-    <Duration x:Key="Motion.Hover">0:0:0.14</Duration>
+    <!-- ===== Motion (spec 9). App.DisableMotion zeroes every one of these for reduced motion and the CI shot
+         render; code paths use UI.Motion. ===== -->
     <Duration x:Key="Motion.Press">0:0:0.08</Duration>
     <Duration x:Key="Motion.Release">0:0:0.14</Duration>
+    <Duration x:Key="Motion.Hover">0:0:0.12</Duration>
+    <Duration x:Key="Motion.Base">0:0:0.16</Duration>
+    <Duration x:Key="Motion.Enter">0:0:0.22</Duration>
+    <Duration x:Key="Motion.Exit">0:0:0.14</Duration>
     <Duration x:Key="Motion.Scene">0:0:0.26</Duration>
-    <Duration x:Key="Motion.Exit">0:0:0.12</Duration>
     <Duration x:Key="Motion.Drawer">0:0:0.32</Duration>
     <Duration x:Key="Motion.Drag">0:0:0.18</Duration>
     <Duration x:Key="Motion.Intro">0:0:0.56</Duration>
     <Duration x:Key="Motion.Settle">0:0:0.32</Duration>
 
-    <!-- Easings as KeySplines (Out .22,1,.36,1 / In .55,0,.75,.2 / Expo .16,1,.3,1). -->
-    <KeySpline x:Key="Ease.Out" ControlPoint1="0.22,1" ControlPoint2="0.36,1"/>
+    <!-- Easings as KeySplines: Out is the spec's (.2,.8,.2,1). -->
+    <KeySpline x:Key="Ease.Out" ControlPoint1="0.2,0.8" ControlPoint2="0.2,1"/>
     <KeySpline x:Key="Ease.In" ControlPoint1="0.55,0" ControlPoint2="0.75,0.2"/>
     <KeySpline x:Key="Ease.Expo" ControlPoint1="0.16,1" ControlPoint2="0.3,1"/>
 
-    <!-- Contact shadows: neutral, no hue. Static (animating blur re-rasterizes). -->
-    <DropShadowEffect x:Key="Shadow.Raised" Color="#FF000000" Opacity="0.55"
-                      BlurRadius="10" ShadowDepth="2" Direction="270"/>
-    <DropShadowEffect x:Key="Shadow.Primary" Color="#FF000000" Opacity="0.7"
-                      BlurRadius="18" ShadowDepth="4" Direction="270"/>
-    <DropShadowEffect x:Key="Shadow.Card" Color="#FF000000" Opacity="0.6"
-                      BlurRadius="28" ShadowDepth="8" Direction="270"/>
+    <!-- ===== Elevation (spec 7): the one shadow, for menus, dialogs, sheets and toasts. Put it on a static parent
+         border, never on an animating element (effects re-rasterise in software). ===== -->
+    <DropShadowEffect x:Key="Shadow.Overlay" Color="#FF000000" Opacity="0.40" BlurRadius="32" ShadowDepth="12" Direction="270"/>
 
 </ResourceDictionary>

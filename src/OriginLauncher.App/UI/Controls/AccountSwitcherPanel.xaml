@@ -15,7 +15,7 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Acc}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -41,7 +41,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="ACCOUNTS" Style="{StaticResource Drawer.Title}"/>
+                <TextBlock Text="Accounts" Style="{StaticResource Drawer.Title}"/>
                 <TextBlock Text="One game window per account" Style="{StaticResource Drawer.Subtitle}"/>
             </StackPanel>
             <Button Grid.Column="1" Style="{StaticResource Social.Icon}" VerticalAlignment="Top"
@@ -73,17 +73,17 @@
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <DockPanel>
                                         <!-- Only a half-added account carries a badge; signed-in accounts show just the name. -->
-                                        <controls:TrackedText DockPanel.Dock="Right" Tracking="0.12" FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="Bold"
+                                        <controls:TrackedText DockPanel.Dock="Right" Tracking="0.12" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold"
                                                               VerticalAlignment="Center" Margin="8,0,0,0"
-                                                              Text="PENDING" Foreground="{StaticResource TintInk.Gold}"
+                                                              Text="PENDING" Foreground="{StaticResource Brush.Hue.Gold}"
                                                               Visibility="{Binding IsPending, Converter={StaticResource BoolToVisibility}}"/>
-                                        <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.Label}"
+                                        <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.BodyStrong}"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </DockPanel>
                                     <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}"/>
                                 </StackPanel>
                                 <controls:TrackedText Grid.Column="2" Text="ACTIVE" Tracking="0.16"
-                                                      FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
+                                                      FontSize="{StaticResource FontSize.Label}" FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
                                                       VerticalAlignment="Center" Margin="12,0,2,0"
                                                       Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}"/>
                             </Grid>
@@ -104,11 +104,11 @@
             </Button>
 
             <!-- What an account keeps (CLAUDE.md: settings, worlds and servers per account; mods per version). -->
-            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Card}"
+            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Lg}"
                     Padding="16" Margin="0,16,0,0">
                 <StackPanel>
                     <controls:TrackedText Text="EACH ACCOUNT KEEPS ITS OWN" Tracking="0.16"
-                                          FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"
+                                          FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"
                                           HorizontalAlignment="Left" Margin="0,0,0,10"/>
                     <DockPanel Margin="0,0,0,12">
                         <Path Data="{StaticResource Icon.Globe}" Style="{StaticResource Icon.Small}"

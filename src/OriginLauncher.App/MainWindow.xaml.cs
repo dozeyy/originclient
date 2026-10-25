@@ -674,6 +674,7 @@ public partial class MainWindow : Window
         PageHost.Content = content;
         // Home shows the art; every other page sits on it dimmed, numeral away.
         Stage.SetPage(page == LauncherPage.Home);
+        SetBarSurface(page != LauncherPage.Home);
         AnimatePageIn(direction == 0 ? 1 : direction);
     }
 
@@ -688,6 +689,10 @@ public partial class MainWindow : Window
         // The player's own head; no account (offline / signed out) = the default head.
         AccountFace.Uuid = selected?.Id ?? "";
     }
+
+    // The bar's solid surface: shown on every page but Home, so a scrolled page can never read through the nav.
+    private void SetBarSurface(bool solid) =>
+        BarSurface.BeginAnimation(OpacityProperty, UI.Motion.To(solid ? 1 : 0, 260));
 
     // Under the launch screen the bar fades away and stops taking clicks; it
     // returns with the scene's exit.
@@ -888,12 +893,14 @@ public partial class MainWindow : Window
             ImportPageHost.Visibility = Visibility.Visible;
             SetNavigationSelection(null);
             Stage.SetPage(false);
+            SetBarSurface(true);
         }
         else
         {
             PageHost.Visibility = Visibility.Visible;
             SetNavigationSelection(_currentPage);
             Stage.SetPage(_currentPage == LauncherPage.Home);
+            SetBarSurface(_currentPage != LauncherPage.Home);
         }
 
         var fade = new DoubleAnimation(open ? 1 : 0, duration);

@@ -452,7 +452,7 @@ public sealed class VersionNumeral : Canvas
 
         public static FormattedText Shape(string ch, double fs, Visual host)
         {
-            var family = (FontFamily)Application.Current.FindResource("Font.Display");
+            var family = (FontFamily)Application.Current.FindResource("Font.Primary");
             var face = new Typeface(family, FontStyles.Normal, FontWeights.ExtraBold, FontStretches.Normal);
             return new FormattedText(ch, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, fs,
                 (Brush)Application.Current.FindResource("Brush.NumeralInk"), VisualTreeHelper.GetDpi(host).PixelsPerDip);
@@ -473,7 +473,7 @@ internal static class FormattedTextCaps
     /// <summary>The numeral face's cap height as a fraction of the em (0.73 if the face can't say).</summary>
     public static double CapsHeight(this FormattedText _)
     {
-        var family = (FontFamily)Application.Current.FindResource("Font.Display");
+        var family = (FontFamily)Application.Current.FindResource("Font.Primary");
         var face = new Typeface(family, FontStyles.Normal, FontWeights.ExtraBold, FontStretches.Normal);
         return face.TryGetGlyphTypeface(out var gt) ? gt.CapsHeight : 0.73;
     }

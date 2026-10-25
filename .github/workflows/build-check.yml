@@ -23,6 +23,7 @@ on:
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
+      - "tools/design/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
       - ".github/actions/**"
@@ -35,6 +36,7 @@ on:
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
+      - "tools/design/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
       - ".github/actions/**"
@@ -83,6 +85,22 @@ jobs:
       # ready marker (present in every live module) and its retry rules.
       - name: Test CI gates
         run: python3 tools/ci/test_ci_gates.py
+
+      # Design gates (docs/overhaul/DESIGN-SYSTEM.md): the launcher has no hard-coded colour or font size outside its
+      # token files, and no hand-drawn Origin mark exists anywhere (only the official logo image files). The tests plant
+      # a bypass / a drawn mark and prove each gate fails on it.
+      - name: Check design tokens
+        run: python3 tools/design/check_tokens.py
+
+      # Pillow powers the lookalike check (a re-saved or redrawn copy of the logo under any file name).
+      - name: Install Pillow for the logo gate
+        run: python3 -m pip install --quiet pillow
+
+      - name: Check logo is never redrawn
+        run: python3 tools/design/check_logo.py
+
+      - name: Test design gates
+        run: python3 tools/design/test_design_gates.py
 
       - name: Release-notes filter tests
         run: python3 tools/release/test_notes.py

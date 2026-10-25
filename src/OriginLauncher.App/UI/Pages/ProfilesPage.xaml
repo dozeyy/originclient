@@ -24,7 +24,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid x:Name="Body" Background="Transparent">
-                            <Rectangle x:Name="Dash" Stroke="{StaticResource Brush.Track}" StrokeThickness="2" StrokeDashArray="5 4"
+                            <Rectangle x:Name="Dash" Stroke="{StaticResource Brush.ProgressTrack}" StrokeThickness="2" StrokeDashArray="5 4"
                                        RadiusX="4" RadiusY="4"/>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
@@ -63,7 +63,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="PROFILES" Style="{StaticResource Text.Poster}" HorizontalAlignment="Left"/>
+                    <TextBlock Text="Profiles" Style="{StaticResource Text.Heading}" HorizontalAlignment="Left"/>
                     <TextBlock Text="Your setups. Each one keeps its own mods for one version, and can remember a server to join."
                                Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"
                                Margin="0,10,0,0"/>
@@ -126,17 +126,17 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border x:Name="FormEmblem" Width="40" Height="40" CornerRadius="{StaticResource Radius.Sharp}"
+                    <Border x:Name="FormEmblem" Width="40" Height="40" CornerRadius="{StaticResource Radius.Md}"
                             Background="{StaticResource Tint.Slate}" VerticalAlignment="Center">
                         <Grid>
-                            <TextBlock x:Name="FormInitial" Text="P" Style="{StaticResource Text.CardTitle}"
+                            <TextBlock x:Name="FormInitial" Text="P" Style="{StaticResource Text.Title}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <!-- The picked icon (ProfileLook.EmblemGlyph); empty when the letter shows. -->
                             <Border x:Name="FormIcon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
-                    <TextBlock x:Name="FormTitle" Grid.Column="1" Text="NEW PROFILE" Style="{StaticResource Text.Poster}"
-                               FontSize="{StaticResource FontSize.DialogTitle}" LineHeight="{StaticResource FontSize.DialogTitle}"
+                    <TextBlock x:Name="FormTitle" Grid.Column="1" Text="New profile" Style="{StaticResource Text.Heading}"
+                               FontSize="{StaticResource FontSize.Heading}" LineHeight="{StaticResource FontSize.Heading}"
                                VerticalAlignment="Center" Margin="14,2,0,0"/>
                     <Button Grid.Column="2" Style="{StaticResource Social.Icon}" Margin="0,0,-8,0" Click="CancelButton_Click"
                             ToolTip="Close" AutomationProperties.Name="Close">

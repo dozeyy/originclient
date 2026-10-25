@@ -112,12 +112,11 @@ public partial class ProfilesPage : UserControl
         RowsPanel.Children.Add(BuildNewCard());
     }
 
-    // The selected card's ring is its own version's colour (No profile: Home's family).
+    // The selected card's ring is the accent.
     private Border CardShell(bool selected, string? version = null)
     {
         var card = new Border { Style = (Style)FindResource("Card.Profile") };
-        if (selected && version != null) card.BorderBrush = FamilyTheme.AccentBrush(version);
-        else if (selected) card.SetResourceReference(Border.BorderBrushProperty, "Brush.Acc");
+        if (selected) card.SetResourceReference(Border.BorderBrushProperty, "Brush.Accent");
         return card;
     }
 
@@ -128,15 +127,15 @@ public partial class ProfilesPage : UserControl
         {
             Width = 44,
             Height = 44,
-            CornerRadius = (CornerRadius)FindResource("Radius.Sharp"),
+            CornerRadius = (CornerRadius)FindResource("Radius.Md"),
             Background = tint,
             VerticalAlignment = VerticalAlignment.Top,
         };
         emblem.Child = new Controls.TrackedText
         {
             Text = initial,
-            FontFamily = (FontFamily)FindResource("Font.Display"),
-            FontSize = 20,
+            FontFamily = (FontFamily)FindResource("Font.Primary"),
+            FontSize = (double)FindResource("FontSize.Title"),
             FontWeight = FontWeights.ExtraBold,
             Foreground = (Brush)FindResource("Brush.Text"),
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -160,10 +159,10 @@ public partial class ProfilesPage : UserControl
     private Border MarkEmblem()
     {
         var emblem = Emblem("", (Brush)FindResource("Brush.CardAlt"));
-        emblem.Child = new Controls.OriginMark
+        emblem.Child = new Controls.BrandLogo
         {
-            Width = 28,
-            Height = 28,
+            Width = (double)FindResource("Size.Logo.Bar"),
+            Height = (double)FindResource("Size.Logo.Bar"),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -174,7 +173,7 @@ public partial class ProfilesPage : UserControl
     private TextBlock Title(string text) => new()
     {
         Text = text,
-        Style = (Style)FindResource("Text.CardTitle"),
+        Style = (Style)FindResource("Text.Title"),
         TextWrapping = TextWrapping.Wrap,
         MaxHeight = 44,
         TextTrimming = TextTrimming.CharacterEllipsis,
@@ -183,7 +182,7 @@ public partial class ProfilesPage : UserControl
     private TextBlock Small(string text, string brushKey = "Brush.TextDim", bool bold = false) => new()
     {
         Text = text,
-        Style = (Style)FindResource("Text.Meta"),
+        Style = (Style)FindResource("Text.CaptionDim"),
         FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal,
         Foreground = (Brush)FindResource(bold ? "Brush.Text" : brushKey),
         VerticalAlignment = VerticalAlignment.Center,
@@ -280,14 +279,14 @@ public partial class ProfilesPage : UserControl
         {
             var name = i < names.Count ? names[i] : null;
             UIElement face = name != null
-                ? new TextBlock { Text = ProfileLook.Initial(name), FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.TextDim"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                ? new TextBlock { Text = ProfileLook.Initial(name), FontFamily = (FontFamily)FindResource("Font.Primary"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.TextDim"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
                 : Glyph("Icon.Jar", 14, "Brush.TextMuted");
             var square = ModSquare(face);
             if (name != null) square.ToolTip = name;
             line.Children.Add(square);
         }
         if (count > shown)
-            line.Children.Add(ModSquare(new TextBlock { Text = $"+{count - shown}", FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.Text"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }));
+            line.Children.Add(ModSquare(new TextBlock { Text = $"+{count - shown}", FontFamily = (FontFamily)FindResource("Font.Primary"), FontSize = (double)FindResource("FontSize.Caption"), FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.Text"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }));
         var label = Small(count == 0 ? "No mods yet" : count == 1 ? "1 mod" : $"{count} mods");
         label.Margin = new Thickness(count == 0 ? 0 : 8, 0, 0, 0);
         line.Children.Add(label);
@@ -300,7 +299,7 @@ public partial class ProfilesPage : UserControl
         Height = 26,
         Margin = new Thickness(0, 0, 4, 0),
         Background = (Brush)FindResource("Brush.Bg"),
-        CornerRadius = (CornerRadius)FindResource("Radius.Sharp"),
+        CornerRadius = (CornerRadius)FindResource("Radius.Md"),
         Child = content,
     };
 
@@ -436,7 +435,7 @@ public partial class ProfilesPage : UserControl
         var button = new Button { Style = (Style)FindResource("Card.New") };
         plus.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding(nameof(Foreground)) { Source = button });
         content.Children.Add(plus);
-        content.Children.Add(new TextBlock { Text = "New profile", FontFamily = (FontFamily)FindResource("Font.Display"), FontSize = (double)FindResource("FontSize.H2"), FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
+        content.Children.Add(new TextBlock { Text = "New profile", FontFamily = (FontFamily)FindResource("Font.Primary"), FontSize = (double)FindResource("FontSize.Title"), FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
         var sub = Small("Its own mods, one version", "Brush.TextMuted");
         sub.HorizontalAlignment = HorizontalAlignment.Center;
         sub.Margin = new Thickness(0, 4, 0, 0);
@@ -461,8 +460,7 @@ public partial class ProfilesPage : UserControl
         {
             var mark = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Height = (double)FindResource("Size.ControlSm") };
             var dot = new Rectangle { Width = 8, Height = 8, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
-            if (version != null) dot.Fill = FamilyTheme.AccentBrush(version);
-            else dot.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+            dot.SetResourceReference(Shape.FillProperty, "Brush.Accent");
             mark.Children.Add(dot);
             mark.Children.Add(Small(running ? "Selected / Running" : "Selected", bold: true));
             return mark;
@@ -528,7 +526,7 @@ public partial class ProfilesPage : UserControl
     {
         _editingId = editing?.Id;
         _pendingDelete = null;
-        FormTitle.Text = editing == null ? "NEW PROFILE" : "EDIT PROFILE";
+        FormTitle.Text = editing == null ? "New profile" : "Edit profile";
         SaveButton.Content = editing == null ? "Create profile" : "Save";
         PickTint(editing != null ? ProfileLook.TintName(editing) : FreshTint());
         PickIcon(ProfileLook.HasIcon(editing?.Icon) ? editing!.Icon : null);
@@ -601,7 +599,7 @@ public partial class ProfilesPage : UserControl
                 ? new TextBlock
                 {
                     Text = "P",
-                    Style = (Style)FindResource("Text.CardTitle"),
+                    Style = (Style)FindResource("Text.Title"),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 }
@@ -619,8 +617,8 @@ public partial class ProfilesPage : UserControl
                 {
                     Width = 40,
                     Height = 40,
-                    CornerRadius = (CornerRadius)FindResource("Radius.Swatch"),
-                    Background = (Brush)FindResource("Brush.Inset"),
+                    CornerRadius = (CornerRadius)FindResource("Radius.Xs"),
+                    Background = (Brush)FindResource("Brush.Field"),
                     BorderThickness = new Thickness(2),
                     BorderBrush = Brushes.Transparent,
                     Child = face,
@@ -638,7 +636,7 @@ public partial class ProfilesPage : UserControl
         foreach (Button tile in IconRow.Children)
         {
             var ring = (Border)tile.Content;
-            if ((string?)tile.Tag == icon) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Acc");
+            if ((string?)tile.Tag == icon) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Accent");
             else ring.BorderBrush = Brushes.Transparent;
         }
         UpdateFormEmblem();
@@ -669,7 +667,7 @@ public partial class ProfilesPage : UserControl
                 {
                     Width = 36,
                     Height = 36,
-                    CornerRadius = (CornerRadius)FindResource("Radius.Swatch"),
+                    CornerRadius = (CornerRadius)FindResource("Radius.Xs"),
                     Background = ProfileLook.TintBrush(name),
                     BorderThickness = new Thickness(2),
                     BorderBrush = Brushes.Transparent,
@@ -687,7 +685,7 @@ public partial class ProfilesPage : UserControl
         foreach (Button swatch in TintRow.Children)
         {
             var ring = (Border)swatch.Content;
-            if ((string)swatch.Tag == name) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Acc");
+            if ((string)swatch.Tag == name) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Accent");
             else ring.BorderBrush = Brushes.Transparent;
         }
         UpdateFormEmblem();   // the tile and its ink follow the colour

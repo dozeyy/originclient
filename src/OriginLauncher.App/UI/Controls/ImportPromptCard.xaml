@@ -13,16 +13,16 @@
         <Rectangle Fill="{StaticResource Brush.Scrim}"/>
         <Border x:Name="Card" MaxWidth="680" Margin="32,80,32,32" Padding="32,30,32,26"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Card}">
+                Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Lg}">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="CardLift"/>
             </Border.RenderTransform>
             <StackPanel>
-                <controls:OriginMark Width="34" Height="34" HorizontalAlignment="Left"/>
-                <TextBlock Text="WELCOME TO ORIGIN" Style="{StaticResource Text.Poster}" FontSize="48" LineHeight="50"
-                           HorizontalAlignment="Left" Margin="0,22,0,0" TextWrapping="Wrap"/>
+                <controls:BrandLogo Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}" HorizontalAlignment="Left"/>
+                <TextBlock Text="Welcome to Origin" Style="{StaticResource Text.Display}"
+                           HorizontalAlignment="Left" Margin="0,16,0,0" TextWrapping="Wrap"/>
                 <TextBlock x:Name="QuestionText" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
-                           FontSize="{StaticResource FontSize.H2}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                           FontSize="{StaticResource FontSize.Title}" Margin="0,12,0,0" TextWrapping="Wrap"/>
                 <TextBlock Text="Your worlds, mods, servers and settings come over as Origin profiles. Nothing in the other launchers changes."
                            Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="480" HorizontalAlignment="Left"
                            Margin="0,6,0,0"/>
@@ -49,7 +49,7 @@
                             Margin="8,0,0,0" Click="Choose_Click"
                             AutomationProperties.Name="Choose what to import"/>
                     <Button x:Name="NotNowButton" Grid.Column="2" Content="Skip for now" Style="{StaticResource Button.Chrome}"
-                            Height="{StaticResource Size.Control}" Padding="12,0" HorizontalAlignment="Right" Click="NotNow_Click"/>
+                            MinHeight="{StaticResource Size.ControlMd}" Padding="12,0" HorizontalAlignment="Right" Click="NotNow_Click"/>
                 </Grid>
                 <TextBlock Text="You can import later from Profiles, or the Import button at the top."
                            Style="{StaticResource Text.Caption}" Margin="0,16,0,0" TextWrapping="Wrap"/>

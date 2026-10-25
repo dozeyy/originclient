@@ -83,47 +83,16 @@ def check_handoff() -> list[str]:
 # files cannot be one copy. Instead both sides are READ and every key defined in both is compared. Nothing is
 # hard-coded here except the list of keys that are allowed to differ and why: a key that differs and is NOT listed
 # fails the build, and a listed key that has started to agree fails too ("remove it"), so the list cannot rot.
-# When the launcher palette moves to the Workbench set (Phase 3, unit U3.0) its Color.* entries start to agree and
-# its Color.* entries below must be deleted.
+# Empty since Phase 3 U3.0: the launcher and the installer share the Workbench tokens, same names, same values.
+# A key may only be listed again with a real, lasting reason.
 THEME_FAMILIES = ("Color.", "Size.Control", "Radius.", "Font.", "FontSize.", "LineHeight.", "Space.")
 
-# Exact key -> why the two files differ TODAY. Every reason is temporary ("until U3.0"): Phase 3 unit U3.0 moves the
-# launcher onto the Workbench tokens, and each entry is deleted as its key starts to agree (the check fails on an entry
-# that already agrees, and on a key that no longer exists, so the list cannot outlive the difference).
-_UNTIL_U30_COLOR = "launcher palette is the old monochrome set until U3.0 moves it to Workbench; the installer is already Workbench"
-KNOWN_DIVERGENCE = {
-    "Color.Accent": _UNTIL_U30_COLOR,
-    "Color.AccentBorder": _UNTIL_U30_COLOR,
-    "Color.AccentHover": _UNTIL_U30_COLOR,
-    "Color.AccentPress": _UNTIL_U30_COLOR,
-    "Color.Bg": _UNTIL_U30_COLOR,
-    "Color.BgAlt": _UNTIL_U30_COLOR,
-    "Color.Card": _UNTIL_U30_COLOR,
-    "Color.CardAlt": _UNTIL_U30_COLOR,
-    "Color.Danger": _UNTIL_U30_COLOR,
-    "Color.Panel": _UNTIL_U30_COLOR,
-    "Color.SoftStroke": _UNTIL_U30_COLOR,
-    "Color.Stroke": _UNTIL_U30_COLOR,
-    "Color.Success": _UNTIL_U30_COLOR,
-    "Color.Text": _UNTIL_U30_COLOR,
-    "Color.TextDim": _UNTIL_U30_COLOR,
-    "Color.TextMuted": _UNTIL_U30_COLOR,
-    "Color.TextOnAccent": _UNTIL_U30_COLOR,
-    "Size.ControlSm": "installer 28 vs launcher 32, until U3.0 aligns the control sizes",
-    "Size.ControlLg": "installer 36 vs launcher 48, until U3.0 aligns the control sizes",
-    "FontSize.Display": "installer hero title 32 vs launcher 40, until U3.0 settles the display size",
-    "Space.3": "installer 12 vs launcher 16, until U3.0 aligns the spacing ladder",
-    "Space.4": "installer 16 vs launcher 24, until U3.0 aligns the spacing ladder",
-    "Space.5": "installer 20 vs launcher 32, until U3.0 aligns the spacing ladder",
-    "Space.6": "installer 24 vs launcher 48, until U3.0 aligns the spacing ladder",
-}
+# Exact key -> why the two files differ. The check fails on an entry that already agrees and on a key that no longer
+# exists in both files, so the list cannot outlive the difference.
+KNOWN_DIVERGENCE: dict[str, str] = {}   # Phase 3 U3.0: the launcher moved to the Workbench tokens, nothing diverges
 
 # (launcher key, installer key): the launcher names corner radii by role, the installer by size.
-PAIRED_KEYS = [
-    ("Radius.Control", "Radius.Md"),   # buttons, fields, dropdowns
-    ("Radius.Chip", "Radius.Xs"),      # chips and checkbox corners
-    ("Radius.Bar", "Radius.Track"),    # progress and slider rails
-]
+PAIRED_KEYS: list[tuple[str, str]] = []   # both apps now use the same Radius.* names (U3.0)
 
 
 def _theme_values(paths: list[Path]) -> dict[str, str]:
