@@ -937,7 +937,7 @@ public final class OriginScreenRenderer {
 	private static Supplier<net.minecraft.client.resources.PlayerSkin> titleSkinSupplier;
 
 	// The title's three orbit hairlines (A-Workbench-3): 0 / 60 / 120 deg, centred at 44.5 % of the
-	// height, semi-axes 0.476 x 0.171 of the height, parchment ~6 %. Baked once per screen size.
+	// height, pills 0.952 x 0.342 of the height (half-extents 0.476 / 0.171), parchment ~6 %. Baked once per screen size.
 	private static final OrbitHairlines TITLE_ORBITS = new OrbitHairlines(3, 0.0);
 
 	/** Main menu: the faint orbit hairlines over the dimmed panorama, under the logo and buttons. */

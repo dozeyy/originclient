@@ -13,7 +13,8 @@ import net.minecraft.client.renderer.ShaderInstance;
 import org.joml.Matrix4f;
 
 /**
- * Faint orbit hairlines (A-Workbench-3): tilted ellipses, 1 physical px wide, drawn behind the
+ * Faint orbit hairlines (A-Workbench-3): tilted pill (stadium) outlines -- two straight sides and
+ * perfect semicircle ends, never ellipses (Will, 2026-10-25) -- 1 physical px wide, drawn behind the
  * title's logo (three rings at 0 / 60 / 120 deg) and the loading picture's logo (one ring). They
  * echo the Origin mark's rings; the mark itself is still only origin_logo.png, never redrawn.
  *
@@ -25,7 +26,8 @@ import org.joml.Matrix4f;
  * rings). Render thread only.
  */
 public final class OrbitHairlines {
-	private static final int SEGMENTS = 160;
+	/** Segments per semicircular end (the flat sides are one segment each). */
+	private static final int ARC_SEGMENTS = 48;
 
 	private final int rings;
 	private final double firstDeg;
@@ -41,7 +43,7 @@ public final class OrbitHairlines {
 	}
 
 	/**
-	 * Draws the rings centred on (cx, cy) in the current GUI pose, semi-axes a x b (GUI px),
+	 * Draws the rings centred on (cx, cy) in the current GUI pose, half-extents a (long) x b (short, = the end radius), GUI px,
 	 * ring i tilted firstDeg + i * 60 deg, colour argb, its alpha further scaled by {@code alpha}.
 	 */
 	public void draw(GuiGraphics g, float cx, float cy, float a, float b, int argb, float alpha) {
@@ -75,19 +77,30 @@ public final class OrbitHairlines {
 	private void rebuild(float cx, float cy, float a, float b, int argb) {
 		int r = (argb >> 16) & 0xFF, gg = (argb >> 8) & 0xFF, bl = argb & 0xFF, al = (argb >>> 24) & 0xFF;
 		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+		// Stadium outline in the ring's own frame: a top side from (-L, -b) to (L, -b), the right
+		// semicircle about (L, 0), the bottom side back to (-L, b), the left semicircle about (-L, 0).
+		// L = a - b, so the long extent is 2a and the short one 2b (never an ellipse).
+		double half = Math.max(0.0, a - b), rad = Math.min(a, b);
 		for (int i = 0; i < rings; i++) {
 			double tilt = Math.toRadians(firstDeg + i * 60.0);
 			double ct = Math.cos(tilt), st = Math.sin(tilt);
+			boolean first = true;
 			float px = 0, py = 0;
-			for (int s = 0; s <= SEGMENTS; s++) {
-				double phi = 2.0 * Math.PI * s / SEGMENTS;
-				double ex = a * Math.cos(phi), ey = b * Math.sin(phi);
+			for (int s = 0; s <= 2 * (ARC_SEGMENTS + 1); s++) {
+				// Points 0..ARC: right arc from -90 to +90 deg; ARC+1..2*ARC+1: left arc from +90 to +270 deg.
+				// Consecutive arcs join with one straight segment: the stadium's flat sides.
+				int k = s % (2 * (ARC_SEGMENTS + 1));
+				boolean right = k <= ARC_SEGMENTS;
+				int j = right ? k : k - (ARC_SEGMENTS + 1);
+				double phi = Math.PI * (j / (double) ARC_SEGMENTS) + (right ? -Math.PI / 2.0 : Math.PI / 2.0);
+				double ex = (right ? half : -half) + rad * Math.cos(phi), ey = rad * Math.sin(phi);
 				float x = (float) (cx + ex * ct - ey * st);
 				float y = (float) (cy + ex * st + ey * ct);
-				if (s > 0) {
+				if (!first) {
 					bb.addVertex(px, py, 0f).setColor(r, gg, bl, al);
 					bb.addVertex(x, y, 0f).setColor(r, gg, bl, al);
 				}
+				first = false;
 				px = x;
 				py = y;
 			}

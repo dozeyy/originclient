@@ -49,7 +49,7 @@ final class LoadingLook {
 	private static final double RAIL_W = 200.0;
 	/** The bar is 2 GUI px tall (A-Workbench-3) over a 1 GUI px hairline track. */
 	private static final int RAIL_GUI = 2, TRACK_GUI = 1;
-	/** The faint orbit ring behind the logo: semi-axes as shares of the logo box, tilted 120 deg. */
+	/** The faint orbit pill behind the logo: half-extents (long, short) as shares of the logo box, tilted 120 deg. */
 	private static final double ORBIT_A = 1.1, ORBIT_B = 0.4;
 	private static final OrbitHairlines ORBIT = new OrbitHairlines(1, 120.0);
 	/** Logo box to rail, rail to caption, design px. */
