@@ -42,12 +42,15 @@ The one tracking file for the 2026-10-25 overhaul (03: "a single ORIGIN_PROGRESS
 | origin/main at audit | `de6b3eb6a` | audits |
 | Latest release | `launcher-v1.0.65` (`d2282be60`) | `git tag` |
 | Launcher tests | 1434 passed, 0 failed (`de6b3eb6a`) | audit `launcher-systems.md` section 0 |
-| build-check run / three test-project counts | (U0.8) | |
+| build-check run / three test-project counts | launcher 1523 passed, setup 61 passed | Phase 0 close, 2026-10-25 |
 | launcher-shots `p0-baseline` run | (U0.8) | |
 | dev-shots `p0-baseline` run (Mod Menu reference shots) | (U0.8) | |
 | boot-smoke all modules | (U0.8) | |
 | launch-time 1.8.9, 1.16.5, 26.3 | (U0.8) | |
 | Worktrees / local branches / remote branches before cleanup | 148 / 249 / 102 (2026-10-25) | Phase 0 inventory |
+| Main at Phase 0 close | `3892cf1f6` | git log |
+| Worktrees after cleanup | 28 (was 148) | Phase 0 cleanup |
+| Latest tag | `launcher-v1.0.65` | `git tag` |
 
 ## Requirements
 Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section), 03 = work order, 04 = overnight authorization.
@@ -79,16 +82,16 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 ### Phase 0 - Cleanup
 | ID | Requirement | Source | Phase | Status | Evidence |
 |---|---|---|---|---|---|
-| P0-01 | Merge the fix: imported mods can't stop the game starting (`claude/launch-crash-fix2`) | 03 P0 | 0 | Not started | branch `7fa5d69ca` |
-| P0-02 | Prove that fix works (tests, build-check, launch-time) | 03 P0 | 0 | Not started | |
-| P0-03 | Merge the fix: self-update checked against its SHA-256 (`claude/shots-and-update-hash`) | 03 P0 | 0 | Not started | branch `b3e52020e` |
-| P0-04 | Prove that fix works (update tests, `.sha256` in the release artifact, opus security review) | 03 P0 | 0 | Not started | |
-| P0-05 | Inventory every worktree, branch and stash | 03 P0 | 0 | Not started | |
-| P0-06 | Identify what is safe to remove; preserve unique work (`archive/<name>`) | 03 P0 | 0 | Not started | |
-| P0-07 | Remove obsolete in-project copies only after verification | 03 P0 | 0 | Not started | |
+| P0-01 | Merge the fix: imported mods can't stop the game starting (`claude/launch-crash-fix2`) | 03 P0 | 0 | Done and tested | judge 95/100; 1523 launcher + 61 setup tests; CI build-check and launcher-shots green; merged 3892cf1f6 |
+| P0-02 | Prove that fix works (tests, build-check, launch-time) | 03 P0 | 0 | Done and tested | judge 95/100; 1523 launcher + 61 setup tests; CI build-check and launcher-shots green; merged 3892cf1f6 |
+| P0-03 | Merge the fix: self-update checked against its SHA-256 (`claude/shots-and-update-hash`) | 03 P0 | 0 | Done and tested | judge 95/100; 1523 launcher + 61 setup tests; CI build-check and launcher-shots green; merged 3892cf1f6 |
+| P0-04 | Prove that fix works (update tests, `.sha256` in the release artifact, opus security review) | 03 P0 | 0 | Done and tested | judge 95/100; 1523 launcher + 61 setup tests; CI build-check and launcher-shots green; merged 3892cf1f6 |
+| P0-05 | Inventory every worktree, branch and stash | 03 P0 | 0 | Done and tested | 148 -> 28 worktrees; old branches bundled to artifacts/git-backup-2026-10-25/old-branches.bundle before deletion; 79 merged remote claude/* branches deleted; kept: anything with unique or uncommitted work, saves, PR #34, the 1.8.9 stash |
+| P0-06 | Identify what is safe to remove; preserve unique work (`archive/<name>`) | 03 P0 | 0 | Done and tested | 148 -> 28 worktrees; old branches bundled to artifacts/git-backup-2026-10-25/old-branches.bundle before deletion; 79 merged remote claude/* branches deleted; kept: anything with unique or uncommitted work, saves, PR #34, the 1.8.9 stash |
+| P0-07 | Remove obsolete in-project copies only after verification | 03 P0 | 0 | Done and tested | 148 -> 28 worktrees; old branches bundled to artifacts/git-backup-2026-10-25/old-branches.bundle before deletion; 79 merged remote claude/* branches deleted; kept: anything with unique or uncommitted work, saves, PR #34, the 1.8.9 stash |
 | P0-08 | Leftovers outside the project (TEMP worktrees, sibling folders, Codex folder) | 03 P0, gate list | 0 | Needs my decision | held: deletes outside the project |
 | P0-09 | Carry the three 2026-10-19 MEMORY entries + entries for v1.0.62-v1.0.65 and the Origin AI work | 03 P0 | 0 | Not started | |
-| P0-10 | Refresh stale notes: CLAUDE.md Current state, Roadmap, Brand (soft accents, Workbench); auto-memory marked superseded | 03 P0 | 0 | Not started | |
+| P0-10 | Refresh stale notes: CLAUDE.md Current state, Roadmap, Brand (soft accents, Workbench); auto-memory marked superseded | 03 P0 | 0 | Done and tested | CLAUDE.md current state, roadmap and brand updated |
 | P0-11 | Bring the main checkout (480 behind, dirty) onto current main safely, backup first | brief | 0 | Not started | |
 | P0-12 | Accurate baseline (tests, launcher-shots, dev-shots, boot-smoke, launch-time) | 03 P0 | 0 | Not started | Baseline table |
 
@@ -98,10 +101,10 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 | P1-01 | Settings rail: first click on Origin Client opens Origin Client (root cause) | 03 P1, 01 s9 | 1 | Not started | static trace `audit/launcher-ui.md` s6 |
 | P1-02 | Developer mode gone from public launcher navigation | 03 P1, 01 s9 | 1 | Not started | |
 | P1-03 | Internal dev access kept without hidden-button "security" (dev build / `ORIGIN_DEV=1`) | 03 P1, 01 s9 | 1 | Not started | |
-| P1-04 | Every public AI feature and AI-assistant reference removed (site, launcher, docs, CI) | 03 P1, 01 s17, 04 | 1 | Not started | |
-| P1-05 | Removed AI routes no longer reachable; site still works | 01 s17 | 1 | Not started | |
-| P1-06 | GitHub card restored | 03 P1 | 1 | Not started | |
-| P1-07 | Website navigation fixed on phones | 03 P1 | 1 | Not started | |
+| P1-04 | Every public AI feature and AI-assistant reference removed (site, launcher, docs, CI) | 03 P1, 01 s17, 04 | 1 | Done and tested | judge 96/100; live on originclient.org: /assistant 404; deploy run 40176596535 |
+| P1-05 | Removed AI routes no longer reachable; site still works | 01 s17 | 1 | Done and tested | judge 96/100; live on originclient.org: /assistant 404; deploy run 40176596535 |
+| P1-06 | GitHub card restored | 03 P1 | 1 | Done and tested | judge 96/100; live on originclient.org (deploy run 40176596535) |
+| P1-07 | Website navigation fixed on phones | 03 P1 | 1 | Done and tested | judge 96/100; live on originclient.org (deploy run 40176596535); phone nav fixed |
 | P1-08 | "Website" button becomes a Store card | 03 P1, 01 s10 | 1 | Not started | |
 | P1-09 | Store opens the configured Origin Store URL, proven by a check | 03 P1, 02 s6 | 1 | Not started | |
 | P1-10 | No regressions from the quick fixes | 03 P1 | 1 | Not started | |

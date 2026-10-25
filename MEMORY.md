@@ -5534,3 +5534,12 @@ Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible f
 ## 2026-10-20 - Released launcher-v1.0.61
 - main fast-forwarded to 767878949 (claude/launcher-cohesion); launcher-release workflow green with Setup.exe + win-x64 zip. Notes say "Minecraft versions updated: None" (launcher-only release).
 - Housekeeping: the repo has 90+ leftover worktrees under .claude/worktrees; local root main is behind origin/main.
+## 2026-10-25 - Overhaul Phase 0: two fixes merged, cleanup, baseline
+- Update hash policy: a release with no SHA-256 (no sidecar and no valid GitHub digest) is refused up front (UpdateGate Decision.Refuse) and never gates Play; a quiet-verified zip is re-hashed right before extract; the legacy fixed-name zip is cleaned up. Every pipeline release publishes the .sha256, so "missing" is never legitimate.
+- ImportedModFit: when an import that would replace Origin's copy is turned off, Origin's version goes back into `present`; otherwise its add-ons were wrongly turned off ("needs X, which is turned off").
+- Crash report window: a fixed Window.Height plus a right-aligned StackPanel made both dead space and clipped buttons. SizeToContent=Height plus a left/right footer grid fixed it (width 880, MinWidth 680).
+- Cleanup: 148 → 28 worktrees. Windows `git worktree remove` of big Gradle trees takes 10+ min each, so budget for it. Guard on level.dat ANYWHERE (don't prune run/). Old local branches were bundled to artifacts/git-backup-2026-10-25/old-branches.bundle before -D. About 2,500 files missing from several old worktrees came from Windows temp cleanup, not sparse checkouts.
+- Judge loop (Will, 2026-10-25): every phase is scored 0-100 by an independent judge (docs/overhaul/JUDGE.md); 95 passes. First scores: p0 90 → 95, website 96.
+
+## 2026-10-25 - Website: AI helper removed
+- The assistant page, CSS, JS, nav links and terms section 10 are deleted. The terms date is back to July 6, 2026. The phone nav bug was one selector (site.css:309 must be `:not(.nav-home)`), which had hidden Home on store.html. The `.brand` logo link needs min-width 44px for phone tap targets. Never `taskkill` python by image name (it killed Will's other python processes); kill the server's PID only. Headless Edge/Chrome can't render below about 500 px, so use the browser pane or an iframe harness for phone shots.

@@ -165,8 +165,7 @@ mandatory for players. Full rules: `docs/RELEASING.md`.
 
 ## Brand
 Origin mark = 3 tilted stroke-only rings sharing one center (0°/60°/120°, atom/
-orbital), soft monochrome glow. Deskify-derived monochrome (dark default, one
-tonal accent `#E0E0E0`, no hue even in the glow). Minimal center-focused
+orbital), soft monochrome glow. Workbench design system (docs/overhaul/DESIGN-SYSTEM.md): neutral base with small soft-hued accents, never big colour fills; the Home version numeral stays neutral. The ONLY logo files are textures/ui/origin_logo.png (same art as Assets/origin.ico) and Assets/Brand/wordmark.png, never redrawn in XAML, SVG, CSS or code (Will, 2026-10-25). Minimal center-focused
 launcher: big centered Play button, version dropdown above, chromeless window,
 floating corner controls. In-game menus match this exactly.
 
@@ -185,25 +184,19 @@ floating corner controls. In-game menus match this exactly.
 - Newest launch action cancels any in-flight one FOR THE SAME ACCOUNT (other accounts' games keep running).
 - One control, one job: no UI handler may mutate a setting other than its own.
 
-## Current state (2026-10-20)
-- Latest release `launcher-v1.0.61` (2026-10-20, main @ 767878949: launcher polish + cohesion pass: crash fixes, 4K version art, real player heads, import memory, full-screen version picker, emblem icons, cleaner buttons/layout).
-- Awaiting Will's launcher pass for v1.0.61: arrowing through versions, pressing Play, 4K art look, a signed-in head, a real Lunar import, crash window + installer look.
-- In `launcher-v1.0.55`, awaiting Will's in-game pass: launcher mod profiles (Profiles page, Join
-  <server> under Play; MEMORY.md → 2026-10-18 Launcher mod profiles) and the loading→menu freeze fix
-  (MEMORY.md → 2026-10-18 Loading → main-menu freeze; 1.19.2 still to check on real hardware).
-- Still awaiting Will's in-game pass: 1.8.9 + 26.1–26.3 (#32); launch v2/loading/Pack Hub/FPS graph on
-  every version, Settings Sync + instant saving (v1.0.54).
-- Auth: Minecraft `login_with_xbox` 403 (app approval pending) — `OfflineTestMode` is the test path.
-- Full history (everything this section used to hold): MEMORY.md → "CLAUDE.md current-state +
-  roadmap archive" and the dated entries. Grep it; never read it whole.
+## Current state (2026-10-25)
+- Overnight overhaul running (Will's work order, phases 0-7). The master checklist is `ORIGIN_PROGRESS.md`
+  (read it first); phase prompts, the judge rubric (95/100) and Will's requests are in `docs/overhaul/`.
+- Latest release `launcher-v1.0.65`. The next release (v1.0.66+) is tagged once at the end of the run, after
+  tests, CI boots and the judge all pass (Will's OK, 2026-10-25). Read git tags for the truth.
+- On main since v1.0.65: imported mods can't stop the game starting, launcher self-updates refuse a
+  missing or wrong SHA-256, the website's AI helper is removed (GitHub card back, phone nav fixed), and the
+  overhaul docs.
+- Auth: Minecraft `login_with_xbox` 403 (app approval pending); `OfflineTestMode` is the test path.
+- Full history: MEMORY.md (grep it; never read it whole).
 
 ## Roadmap (open items)
-- [~] 1.8.9 and 26.1–26.3 — live, awaiting Will's in-game pass.
-- [ ] 1.21.9 (pulled), 1.18.1 (no stable Sodium/Iris), crash system v2, light theme.
-- [~] Cosmetics over the outer skin layer + head/face move every way (2026-10-19, branch claude/cosmetics-outer-layer, every live
-  version, CI green): awaiting Will's in-game pass, then merge + tag v1.0.57. MEMORY.md → 2026-10-19 Cosmetics sit over.
-- [~] Screen-open lag (Will, 2026-10-18): smooth loading scenes + snappy menus built on 1.21.1, awaiting Will's in-game pass; then port. MEMORY.md → 2026-10-18 screen-open lag.
-- [~] Button Style setting (Origin / Minecraft) + full vanilla menus when both styles are off (Will, 2026-10-19)
+- The overhaul phases and every open item live in `ORIGIN_PROGRESS.md`. Keep it current; don't duplicate it here.
 
 ## Token discipline (Claude Lean — `.claude/hooks/lean/README.md`)
 Usage is ~all re-reading of the conversation, so what enters it stays forever.
