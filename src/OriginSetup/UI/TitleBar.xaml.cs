@@ -10,13 +10,6 @@ public partial class TitleBar : UserControl
         InitializeComponent();
     }
 
-    /// <summary>The small label after the wordmark: "SETUP" or "UNINSTALL".</summary>
-    public string Mode
-    {
-        get => ModeText.Text;
-        set => ModeText.Text = value;
-    }
-
     /// <summary>Close is disabled while files are being moved into place.</summary>
     public bool CanClose
     {

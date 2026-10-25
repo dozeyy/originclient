@@ -1,31 +1,29 @@
 <UserControl x:Class="OriginSetup.UI.TitleBar"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="clr-namespace:OriginSetup.UI"
-             Height="56" VerticalAlignment="Top">
+             Height="{StaticResource Size.TitleBar}" VerticalAlignment="Top">
 
-    <!-- Chromeless window top: the launcher's lockup (mark + wordmark) on the
-         left, its minimize/close cluster on the right. -->
-    <Grid>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,16,0,0">
-            <ui:OrbitMark Width="24" Height="24" Animated="False" VerticalAlignment="Center"/>
-            <Path Style="{StaticResource Brand.Wordmark}" Width="80" Height="16" Margin="10,0,0,0"
-                  VerticalAlignment="Center" AutomationProperties.Name="Origin"/>
-            <Border Width="1" Height="14" Background="{StaticResource Brush.SoftStroke}" Margin="14,0,12,0"
-                    VerticalAlignment="Center"/>
-            <TextBlock x:Name="ModeText" Text="SETUP" Style="{StaticResource Text.Eyebrow}" VerticalAlignment="Center"/>
+    <!-- Spec 14: 40 tall; the logo (20) and "Origin Setup" (bodyStrong) at left 16, 8 apart; ghost minimise and
+         close (32) at right 4. The bar is the drag area (the window handles the mouse-down). -->
+    <Grid Background="Transparent">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"
+                    Margin="{StaticResource Pad.TitleLeft}">
+            <Image Source="{StaticResource Brand.Logo}" Width="{StaticResource Size.Logo.Bar}"
+                   Height="{StaticResource Size.Logo.Bar}" RenderOptions.BitmapScalingMode="HighQuality"
+                   AutomationProperties.Name="Origin"/>
+            <TextBlock Text="Origin Setup" Style="{StaticResource Text.BodyStrong}" Margin="{StaticResource Left.2}"
+                       VerticalAlignment="Center"/>
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,14,0">
-            <Button Style="{StaticResource Button.Chrome}" Padding="10" MinWidth="36" MinHeight="36"
-                    Click="Minimize_Click" ToolTip="Minimize" AutomationProperties.Name="Minimize" Focusable="False">
-                <Path Data="{StaticResource Icon.Minimize}" Style="{StaticResource Icon.Base}"
-                      Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Margin="{StaticResource Pad.TitleRight}">
+            <Button Style="{StaticResource Button.Window}" Click="Minimize_Click" ToolTip="Minimize"
+                    AutomationProperties.Name="Minimize" Focusable="False">
+                <Path Data="{StaticResource Icon.Minimize}" Style="{StaticResource Setup.Glyph}"/>
             </Button>
-            <Button x:Name="CloseButton" Style="{StaticResource Button.Chrome}" Padding="10" MinWidth="36" MinHeight="36"
+            <Button x:Name="CloseButton" Style="{StaticResource Button.WindowClose}" Margin="{StaticResource Left.1}"
                     Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close" Focusable="False">
-                <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
-                      Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
+                <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Setup.Glyph}"/>
             </Button>
         </StackPanel>
     </Grid>

@@ -9,9 +9,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    code) must equal the launcher's VersionManager.OriginBuilds entries, jar by jar.
 2. The installer -> launcher hand-off file name — src/OriginSetup/Engine/
    Handoff.cs and the launcher's Core/Install/SetupChoices.cs.
-3. Typography — src/OriginSetup/Theme/Typography.xaml is the launcher's
-   Theme/Typography.xaml with only the font resource path changed (a WPF
-   resource path names its assembly).
+3. Typography — the installer owns its Workbench type file
+   (src/OriginSetup/Theme/Typography.xaml, a smaller set than the launcher's),
+   so the two are no longer line-for-line copies. What must stay shared: the
+   text face (Inter) and the Body and Caption sizes the spec fixes for both.
 4. The release feed — the installer downloads the launcher from the same
    GitHub release asset the launcher self-updates from: owner, repo, tag
    prefix and zip name in src/OriginSetup/Engine/ReleaseFeed.cs must match
@@ -77,15 +78,22 @@ def check_handoff() -> list[str]:
 
 
 def check_typography() -> list[str]:
-    def body(path: Path) -> list[str]:
-        lines = path.read_text(encoding="utf-8").splitlines()
-        return [re.sub(r"/[A-Za-z.]+;component/", "/<assembly>;component/", l)
-                for l in lines if not l.strip().startswith("<!--") and "MIRROR" not in l]
-    a, b = body(LAUNCHER / "Theme/Typography.xaml"), body(SETUP / "Theme/Typography.xaml")
-    if a != b:
-        return ["src/OriginSetup/Theme/Typography.xaml differs from the launcher's Theme/Typography.xaml "
-                "(beyond the font path) — copy the launcher's file over and change only the assembly name"]
-    return []
+    # The installer's Typography.xaml is its own Workbench set (docs/overhaul/DESIGN-SYSTEM.md section 3), not a
+    # copy of the launcher's. Shared facts: both use Inter as the primary face, and FontSize.Body / FontSize.Caption
+    # are the same number in both (the spec fixes them for the whole product).
+    def facts(path: Path) -> tuple[list[str], dict[str, str]]:
+        text = path.read_text(encoding="utf-8")
+        face = re.findall(r'x:Key="Font\.Primary"[^>]*>([^<]*)<', text)
+        sizes = dict(re.findall(r'x:Key="(FontSize\.(?:Body|Caption))"[^>]*>([^<]*)<', text))
+        return face, sizes
+    (fa, sa), (fb, sb) = facts(LAUNCHER / "Theme/Typography.xaml"), facts(SETUP / "Theme/Typography.xaml")
+    problems = []
+    if not fa or not fb or "#Inter" not in fa[0] or "#Inter" not in fb[0]:
+        problems.append(f"Font.Primary must be Inter in both Typography.xaml files (launcher {fa}, installer {fb})")
+    for key in ("FontSize.Body", "FontSize.Caption"):
+        if key not in sa or key not in sb or sa[key] != sb[key]:
+            problems.append(f"{key}: launcher {sa.get(key)!r} vs installer {sb.get(key)!r}")
+    return problems
 
 
 def check_release_feed() -> list[str]:

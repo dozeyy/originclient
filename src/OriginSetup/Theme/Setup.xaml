@@ -1,73 +1,56 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Installer-only pieces, built from the launcher's tokens. Everything
-         else (buttons, inputs, colours, type) is the launcher's own theme. -->
+    <!--
+        THE ONE BRAND REFERENCE in Origin Setup (docs/overhaul/DESIGN-SYSTEM.md section 1.5; Will, 2026-10-25: the
+        official logo only, never redrawn). Every window and control that shows the mark or the wordmark reads
+        these two keys and nothing else. Both are the unmodified master files, embedded by OriginSetup.csproj:
+          Brand.Logo      textures/ui/origin_logo.png  (256 x 256, the same art as Assets/origin.ico)
+          Brand.Wordmark  Assets/Brand/wordmark.png    (430 x 88)
+        Sizes come from Size.Logo.* / Size.Wordmark.* in Tokens.xaml. Do not draw rings, ellipses or paths for
+        the mark, and do not resize the files on disk: WPF resamples them when it draws them.
+    -->
+    <BitmapImage x:Key="Brand.Logo" UriSource="pack://application:,,,/OriginSetup;component/Assets/Brand/origin_logo.png" CacheOption="OnLoad"/>
+    <BitmapImage x:Key="Brand.Wordmark" UriSource="pack://application:,,,/OriginSetup;component/Assets/Brand/wordmark.png" CacheOption="OnLoad"/>
 
-    <!-- Card: the launcher's Surface.Card (src/OriginLauncher.App/Theme/Surfaces.xaml, which pulls in
-         launcher-only controls so it cannot be linked): Panel fill, clear 1 px edge, 4 px corners, 16 px
-         inside. Re-copy these values if Surfaces.xaml changes. No hover lift: nothing here is clickable. -->
-    <Style x:Key="Setup.Card" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
-        <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
-        <Setter Property="Padding" Value="16"/>
-        <Setter Property="Margin" Value="0,0,0,8"/>
+    <!-- A status dot (spec 11.9): 6 px, full radius, aligned to the first caption line. Set Fill on use. -->
+    <Style x:Key="Setup.Dot" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot}"/>
+        <Setter Property="Height" Value="{StaticResource Size.Dot}"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Margin" Value="{StaticResource Margin.Dot}"/>
     </Style>
 
-    <!-- Dialog: the launcher's Surface.Dialog (same source file): elevated fill, soft edge, 8 px corners,
-         24 inside, the card shadow. Used by the "Origin is open" prompt. -->
+    <!-- Dialog (spec 11.10): surface fill, radius.lg, 24 inside, the overlay shadow. Sits on a static parent. -->
     <Style x:Key="Setup.Dialog" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Brush.PanelElevated}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Dialog}"/>
-        <Setter Property="Padding" Value="24"/>
-        <Setter Property="Effect" Value="{StaticResource Shadow.Card}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Lg}"/>
+        <Setter Property="Padding" Value="{StaticResource Pad.Dialog}"/>
+        <Setter Property="Effect" Value="{StaticResource Shadow.Overlay}"/>
+        <Setter Property="MaxWidth" Value="{StaticResource Size.DialogMaxWidth}"/>
     </Style>
 
-    <!-- A card's heading icon: the launcher's small stroke icon, tinted per section like Settings'
-         rail (TintInk.* from the linked Colors.xaml). Set Stroke and Data on use. -->
-    <Style x:Key="Setup.CardIcon" TargetType="Path" BasedOn="{StaticResource Icon.Small}">
-        <Setter Property="Margin" Value="0,0,8,0"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
+    <!-- A 12 px line glyph for the title bar buttons: it takes the colour of the button it sits in, so hover
+         and disabled recolour it with no extra trigger. -->
+    <Style x:Key="Setup.Glyph" TargetType="Path">
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="Width" Value="{StaticResource Icon.SizeWindow}"/>
+        <Setter Property="Height" Value="{StaticResource Icon.SizeWindow}"/>
+        <Setter Property="StrokeThickness" Value="{StaticResource Icon.Stroke}"/>
+        <Setter Property="StrokeStartLineCap" Value="Round"/>
+        <Setter Property="StrokeEndLineCap" Value="Round"/>
+        <Setter Property="StrokeLineJoin" Value="Round"/>
+        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
     </Style>
 
-    <Style x:Key="Setup.CardTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-
-    <!-- Short accent rule under page titles, as in the launcher's Settings. -->
-    <Style x:Key="Setup.TitleRule" TargetType="Border">
-        <Setter Property="Height" Value="2"/>
-        <Setter Property="Width" Value="28"/>
-        <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
-        <Setter Property="CornerRadius" Value="1"/>
-        <Setter Property="HorizontalAlignment" Value="Left"/>
-        <Setter Property="Margin" Value="1,10,0,16"/>
-    </Style>
-
-    <!-- Step rail at the bottom of the window: block markers, one lit. -->
-    <Style x:Key="Setup.StepMarker" TargetType="Border">
-        <Setter Property="Width" Value="8"/>
-        <Setter Property="Height" Value="8"/>
-        <Setter Property="CornerRadius" Value="1"/>
-        <Setter Property="Margin" Value="0,0,8,0"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
-        <Setter Property="Background" Value="{StaticResource Brush.SoftStroke}"/>
-    </Style>
-
-    <Style x:Key="Setup.StepLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
-        <Setter Property="VerticalAlignment" Value="Center"/>
-        <Setter Property="Margin" Value="0,0,22,0"/>
-    </Style>
-
-    <!-- Determinate progress: a block track with an accent fill. -->
-    <Style x:Key="Setup.ProgressTrack" TargetType="Border">
-        <Setter Property="Height" Value="6"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Bar}"/>
-        <Setter Property="Background" Value="{StaticResource Brush.SoftStroke}"/>
-        <Setter Property="ClipToBounds" Value="True"/>
+    <!-- The location field (spec 14): input lg (36 tall), field fill, strong edge, radius.md. -->
+    <Style x:Key="Setup.Field" TargetType="Border">
+        <Setter Property="Height" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
     </Style>
 </ResourceDictionary>

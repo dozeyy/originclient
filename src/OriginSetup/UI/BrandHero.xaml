@@ -1,0 +1,17 @@
+<UserControl x:Class="OriginSetup.UI.BrandHero"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">
+
+    <!-- The installer hero (spec 1.3, 14): the logo (48 box) over the wordmark (24 tall), 12 apart, left-aligned.
+         Both are the unmodified master files read through Theme/Setup.xaml's Brand.Logo / Brand.Wordmark; nothing
+         is drawn here. Every state of both windows shows this exact control in this exact place. -->
+    <StackPanel Margin="{StaticResource Ink.Hero}">
+        <Image Source="{StaticResource Brand.Logo}" Width="{StaticResource Size.Logo.Hero}"
+               Height="{StaticResource Size.Logo.Hero}" HorizontalAlignment="Left"
+               RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Origin"/>
+        <Image Source="{StaticResource Brand.Wordmark}" Height="{StaticResource Size.Wordmark.Hero}"
+               Stretch="Uniform" HorizontalAlignment="Left" Margin="{StaticResource Top.3}"
+               RenderOptions.BitmapScalingMode="HighQuality"/>
+    </StackPanel>
+</UserControl>

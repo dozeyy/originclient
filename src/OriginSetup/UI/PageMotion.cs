@@ -4,8 +4,8 @@ using System.Windows.Media.Animation;
 
 namespace OriginSetup.UI;
 
-// Page changes use the launcher's scene motion: a short fade + 10px rise,
-// timed by the shared Motion.Scene token (zero when Windows animations are off).
+// Page changes use the Workbench scene motion (spec 9): a short fade + small rise, timed by the
+// Motion.Scene token; the progress fill glides with Motion.Base. Both are zero when Windows animations are off.
 public static class PageMotion
 {
     /// <summary>Set by the CI screenshot tour: every change lands immediately.</summary>
@@ -41,7 +41,8 @@ public static class PageMotion
             bar.Width = to;
             return;
         }
+        var duration = (Duration)Application.Current.Resources["Motion.Base"];
         bar.BeginAnimation(FrameworkElement.WidthProperty,
-            new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(140))), HandoffBehavior.SnapshotAndReplace);
+            new DoubleAnimation(to, duration), HandoffBehavior.SnapshotAndReplace);
     }
 }
