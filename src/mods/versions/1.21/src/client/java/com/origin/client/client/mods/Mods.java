@@ -787,10 +787,9 @@ public final class Mods {
 
 	// ---- Lunar parity, batch 3b: server integrations (2026-10-11) ----
 	// Team View and Hypixel mirror Lunar's option schemas (Apollo ModTeamView /
-	// ModHypixelMod); Discord Status mirrors Lunar's launcher Rich Presence switch
-	// plus the privacy rows a player would expect. All three default ON like
-	// Lunar's, and each only acts where it applies (Team View on team servers,
-	// Hypixel on *.hypixel.net, Discord when the Discord app is running).
+	// ModHypixelMod); Discord presence is always on and has no entry here. Team View and
+	// Hypixel default ON like Lunar's, and each only acts where it applies (Team
+	// View on team servers, Hypixel on *.hypixel.net).
 	// Kept in its own method so it merges cleanly with other registry additions.
 	private static void registerLunarBatch3b() {
 		// Lunar's "Apollo Teams" row (its own server plugin) becomes Scoreboard
@@ -805,15 +804,8 @@ public final class Mods {
 				ModOption.color("teamColor", "Team Color", 0xFF2BFF41),
 				ModOption.color("partyColor", "Party Color", 0xFFF6C634));
 
-		// Discord Rich Presence over Discord's local IPC (DiscordPresence). Lunar only
-		// documents an on/off switch; the rows below are the privacy choices a player
-		// expects from it.
-		add("discord", "Discord Status", "Show Origin Client and what you're playing on your Discord profile.", true,
-				ModOption.toggle("showServer", "Show Server Address", true)
-						.tip("Off: Discord just says \"Multiplayer\" instead of naming the server."),
-				ModOption.toggle("showVersion", "Show Minecraft Version", true),
-				ModOption.toggle("showTime", "Show Elapsed Time", true)
-						.tip("How long you've been playing, shown under your status."));
+		// Discord Rich Presence is NOT a mod: it is always on (DiscordPresence, ticked
+		// from ServerMods), so nothing is registered for it here.
 
 		// Hypixel: Lunar's Hypixel mod. Everything acts only while connected to
 		// *.hypixel.net. Levels and stats come from the Hypixel API with the player's
