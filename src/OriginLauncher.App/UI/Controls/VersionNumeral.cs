@@ -53,6 +53,9 @@ public sealed class VersionNumeral : Canvas
     /// <summary>The ink rectangle of the text on screen, for the render tour's measurements (null before layout).</summary>
     internal Rect? InkRect { get; private set; }
 
+    /// <summary>The orbit thread's ring size (length, thickness, end radius), for the render tour's measurements.</summary>
+    internal (double Length, double Thickness, double Radius) OrbitRing => _orbit.Ring;
+
     /// <summary>The band in use (top, bottom), for the render tour's measurements.</summary>
     internal (double Top, double Bottom) CurrentBand => NumeralBand.Band(ActualHeight, _barBottom, _stripTop);
 
@@ -135,8 +138,9 @@ public sealed class VersionNumeral : Canvas
         foreach (var g in glyphs) SetTop(g, top);
         var capTop = top + baseline - Face.CapsEm * fs;
         InkRect = new Rect(inkLeft, capTop, inkEm * fs, Face.CapsEm * fs);
-        // The thread is centred on the figures' middle; its rings reach a little past them (OrbitMajorOfFigures).
-        _orbit.Place(inkLeft + inkEm * fs / 2, capTop + Face.CapsEm * fs / 2, Face.CapsEm * fs * NumeralBand.OrbitMajorOfFigures);
+        // The thread is centred on the figures' middle; its capsules frame them (OrbitLengthOfInk, OrbitThicknessOfFigures).
+        _orbit.Place(inkLeft + inkEm * fs / 2, capTop + Face.CapsEm * fs / 2,
+            inkEm * fs * NumeralBand.OrbitLengthOfInk, Face.CapsEm * fs * NumeralBand.OrbitThicknessOfFigures);
     }
 
     private sealed class Glyph : FrameworkElement

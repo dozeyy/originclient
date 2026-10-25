@@ -62,7 +62,6 @@ public partial class MainWindow : Window
         Intro.Play(this);
 
         // Home's profile chip opens Profiles; its launch screen covers the bar too.
-        _homePage.ProfilesRequested += (_, _) => NavigateTo(LauncherPage.Profiles);
         _homePage.LaunchSceneChanged += SetTopBarHidden;
         RefreshAccountChip();
 
@@ -423,10 +422,11 @@ public partial class MainWindow : Window
             ? $"head={AccountFace.ActualWidth:0.#}x{AccountFace.ActualHeight:0.#} at x={h.X:0.#} y={h.Y:0.#} (inset below {button.ActualHeight - h.Y - AccountFace.ActualHeight:0.#})"
             : "head=none (signed out)";
         return $"pill={button.ActualWidth:0.#}x{button.ActualHeight:0.#} {headText} name={AccountName.ActualWidth:0.#} cut={AccountNameIsTrimmed()} "
-            + $"wordmark={BarWordmark.Visibility} {TourTopBarFit()}";
+            + $"storeLabel={StoreLabel.Visibility} wordmark={BarWordmark.Visibility} {TourTopBarFit()}";
     }
 
     internal Button TourAccountButton => AccountButton;
+    internal Button TourStoreButton => StoreButton;
 
     /// <summary>Render mode: the account pill as under the mouse (a render has no mouse): the hover fill, edge and ink.</summary>
     internal void TourHover(Button button, bool on)
@@ -565,25 +565,38 @@ public partial class MainWindow : Window
             DragMove();
     }
 
-    // The tabs stay centred on the window until the right-hand actions (update, import,
+    // The tabs stay centred on the window until the right-hand actions (update, Store, import,
     // friends, account, window buttons) would come within Space.5 of SETTINGS, as at
     // 980 px with an update waiting; then they slide left just enough, never past the brand.
-    // A render transform, so moving them never re-runs layout. (The Store button that used to make the actions
-    // wide enough to need an icon-only fit rule is now the Store card on Home.) Below WordmarkMinWindow the brand
-    // lockup shows the logo alone (it is still the Website link); that depends on the window width only.
+    // A render transform, so moving them never re-runs layout.
+    //
+    // When even the fully slid tabs would still touch the actions (Store carries a word), it drops to icon-only: its
+    // label and arrow collapse, and come back as soon as the full width fits again. The decision uses the width the
+    // actions would have WITH the label (_linkLabelExtra), so it cannot flip back and forth. Below WordmarkMinWindow
+    // the brand lockup shows the logo alone (it is still the Website link); that depends on the window width only.
     private const double WordmarkMinWindow = 1000;
+    private bool _linkLabelsHidden;
+    private double _linkLabelExtra;
 
-    /// <summary>Render mode: show the hover arrow as if the mouse were over the Website button (a render has no mouse).</summary>
+    private void SetLinkLabels(bool shown)
+    {
+        _linkLabelsHidden = !shown;
+        var v = shown ? Visibility.Visible : Visibility.Collapsed;
+        StoreLabel.Visibility = StoreArrow.Visibility = v;
+    }
+
+    /// <summary>Render mode: show the hover arrows as if the mouse were over the Website and Store buttons (a render has no mouse).</summary>
     internal void TourShowLinkHints(bool show)
     {
-        foreach (var path in WebsiteArrow.Children.OfType<System.Windows.Shapes.Path>())
-            if (show) path.Opacity = 0.8; else path.ClearValue(OpacityProperty);
+        foreach (var holder in new[] { WebsiteArrow, StoreArrow })
+            foreach (var path in holder.Children.OfType<System.Windows.Shapes.Path>())
+                if (show) path.Opacity = 0.8; else path.ClearValue(OpacityProperty);
     }
 
     /// <summary>Render mode: the space between the content of neighbouring buttons in the right-hand row.</summary>
     internal string TourLinkGaps()
     {
-        Button[] row = [UpdateBadge, ImportButton];
+        Button[] row = [UpdateBadge, StoreButton, ImportButton];
         var parts = new List<string>();
         for (var i = 0; i + 1 < row.Length; i++)
         {
@@ -599,7 +612,7 @@ public partial class MainWindow : Window
     /// <summary>Render mode: the numbers the top bar's fit rule just used, for the shot log.</summary>
     internal string TourTopBarFit() =>
         $"topbar={TopBar.ActualWidth:0} brand={WebsiteButton.ActualWidth:0} tabs={NavTabs.ActualWidth:0} actions={BarActions.ActualWidth:0} "
-        + $"tabShift={NavTabsShift.X:0}";
+        + $"labelExtra={_linkLabelExtra:0} labelsHidden={_linkLabelsHidden} tabShift={NavTabsShift.X:0}";
 
     // The Home numeral's measured geometry (UI/RenderShots.cs): the ink rectangle against the free band under the bar.
     internal string TourNumeralFit()
@@ -608,7 +621,8 @@ public partial class MainWindow : Window
         if (ink is not { } r) return "numeral not laid out";
         return $"window={Stage.ActualWidth:0}x{Stage.ActualHeight:0} band={top:0.#}..{bottom:0.#} (middle {(top + bottom) / 2:0.#}) "
             + $"ink x={r.Left:0.#} y={r.Top:0.#} w={r.Width:0.#} h={r.Height:0.#} (middle x {r.Left + r.Width / 2:0.#} y {r.Top + r.Height / 2:0.#}) "
-            + $"airAbove={r.Top - top:0.#} airBelow={bottom - r.Bottom:0.#} inkShareOfWidth={r.Width / Stage.ActualWidth:0.000}";
+            + $"airAbove={r.Top - top:0.#} airBelow={bottom - r.Bottom:0.#} inkShareOfWidth={r.Width / Stage.ActualWidth:0.000} "
+            + $"orbitCapsule={Stage.OrbitRing.Length:0}x{Stage.OrbitRing.Thickness:0} endRadius={Stage.OrbitRing.Radius:0.#}";
     }
 
     // The bar's translucent Home surface on or off, for the render tour's cost measurement only.
@@ -628,6 +642,24 @@ public partial class MainWindow : Window
         {
             BarWordmark.Visibility = wordmark;
             return; // the brand's size change runs this again with the new width
+        }
+        if (_linkLabelsHidden && _linkLabelExtra <= 0)
+        {
+            // Hidden before their size was ever known: show them again so they can be measured, then decide.
+            SetLinkLabels(true);
+            return;
+        }
+        if (!_linkLabelsHidden)
+        {
+            if (StoreLabel.ActualWidth <= 0) return; // not laid out yet
+            _linkLabelExtra = StoreLabel.ActualWidth + StoreLabel.Margin.Left;
+        }
+        var actionsWithLabels = BarActions.ActualWidth + (_linkLabelsHidden ? _linkLabelExtra : 0);
+        var hide = WebsiteButton.ActualWidth + gap + tabs + gap + actionsWithLabels > width;
+        if (hide != _linkLabelsHidden && (hide || _linkLabelExtra > 0))
+        {
+            SetLinkLabels(!hide);
+            return; // the size change this causes runs this again and slides the tabs
         }
         double tabsRight = (width + tabs) / 2, tabsLeft = (width - tabs) / 2;
         double overlap = tabsRight + gap - (width - BarActions.ActualWidth);
@@ -796,6 +828,9 @@ public partial class MainWindow : Window
         _barHidden = hidden;
         ApplyBarSurface(hidden ? 200 : 320);
     }
+
+    private void StoreButton_Click(object sender, RoutedEventArgs e) =>
+        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Store);
 
     private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
 

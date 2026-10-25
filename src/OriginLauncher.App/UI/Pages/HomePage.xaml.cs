@@ -131,17 +131,66 @@ public partial class HomePage : UserControl
         ArtStage.SetStripTop(ActualHeight - HomeCard.Margin.Bottom - HomeCard.ActualHeight);
     }
 
-    /// <summary>MainWindow: the profile chip asks for the Profiles page.</summary>
-    public event EventHandler? ProfilesRequested;
-
     /// <summary>MainWindow: the launch screen came up or went down (the top bar hides under it).</summary>
     public event Action<bool>? LaunchSceneChanged;
 
-    // The Origin Store card (it replaced the top bar's Store button): the same link, the same opener.
-    private void StoreCard_Click(object sender, RoutedEventArgs e) =>
-        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Store);
+    // ---- The strip's width rule ----
+    // Every strip item keeps its full size while the row fits. When the window is too narrow for all of it (a long
+    // server name at 960 wide), Join folds to its server icon (a 64 square, "Join <server>" moves to a tooltip). The
+    // version card, MY MODS and Play never fold, so the row is never cut. Measured, not guessed: Join's full width is
+    // its own desired width, read with its words showing. Runs on a resize and after the version or server changes.
+    private bool _joinFolded;
+    private double _joinFullWidth = double.NaN; // Join's unfolded width (with its margin); NaN = measure again
 
-    private void ProfileRow_Click(object sender, RoutedEventArgs e) => ProfilesRequested?.Invoke(this, EventArgs.Empty);
+    private void FitStrip(bool contentChanged = false)
+    {
+        // The page's width less the strip's side margins (HomeCard may not be arranged at the new width yet).
+        var width = ActualWidth - HomeCard.Margin.Left - HomeCard.Margin.Right;
+        if (width <= 0) return;
+        var infinite = new Size(double.PositiveInfinity, double.PositiveInfinity);
+        double Natural(FrameworkElement e)
+        {
+            if (e.Visibility == Visibility.Collapsed) return 0;
+            e.Measure(infinite);
+            return e.DesiredSize.Width; // includes the element's margin
+        }
+
+        // Join's full width is read with its words showing: unfold it only when its server changed.
+        if (contentChanged) _joinFullWidth = double.NaN;
+        if (double.IsNaN(_joinFullWidth))
+        {
+            FoldJoin(false);
+            _joinFullWidth = Natural(JoinButton);
+        }
+        var joinShown = JoinButton.Visibility != Visibility.Collapsed;
+        // The left column's 24 margin to the right group is part of the row.
+        var fixedWidth = Natural(VersionButton) + 24 + Natural(MyModsSwitch) + Natural(PlayButton);
+        FoldJoin(joinShown && fixedWidth + _joinFullWidth > width);
+    }
+
+    // Join as its server icon alone, centred in a 64 square; "Join <server>" becomes the tooltip.
+    private void FoldJoin(bool fold)
+    {
+        if (fold == _joinFolded) return;
+        _joinFolded = fold;
+        JoinWords.Visibility = fold ? Visibility.Collapsed : Visibility.Visible;
+        if (fold)
+        {
+            JoinButton.Width = (double)FindResource("Size.StripControl");
+            JoinButton.Padding = new Thickness(0);
+            JoinIcon.Margin = new Thickness(0);
+            JoinButton.ToolTip = System.Windows.Automation.AutomationProperties.GetName(JoinButton);
+        }
+        else
+        {
+            JoinButton.ClearValue(WidthProperty);
+            JoinButton.Padding = new Thickness(14, 0, 14, 0);
+            JoinIcon.Margin = new Thickness(0, 0, 12, 0);
+            JoinButton.ToolTip = null;
+        }
+    }
+
+    internal bool TourJoinFolded => _joinFolded;
 
     // The strip steps aside (fade + 16 px drop) while the picker or the launch
     // screen is up, and the art blooms into colour under the launch screen.
@@ -187,7 +236,7 @@ public partial class HomePage : UserControl
         InitializeComponent();
         // The Play card (with a profile row and Join) is taller than the smallest window leaves room for:
         // below this page height every gap on it halves, so nothing touches the top bar or the bottom edge.
-        SizeChanged += (_, e) => { ApplyDensity(e.NewSize.Height); ReportStripTop(); };
+        SizeChanged += (_, e) => { ApplyDensity(e.NewSize.Height); FitStrip(); ReportStripTop(); };
         // The numeral stands in the band above the strip, so it follows the strip's height (a profile row, Join).
         HomeCard.SizeChanged += (_, _) => ReportStripTop();
         Loaded += (_, _) => ReportStripTop();
@@ -261,7 +310,7 @@ public partial class HomePage : UserControl
         var intro = (Duration)FindResource("Motion.Intro");
         if (!SystemParameters.ClientAreaAnimation || !intro.HasTimeSpan || intro.TimeSpan <= TimeSpan.Zero) return;
         var settle = ((Duration)FindResource("Motion.Settle")).TimeSpan;
-        Settle(HomeLockup, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
+        Settle(VersionButton, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
         Settle(StatusRow, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
         Settle(PlayButton, rise: 10, delay: TimeSpan.FromMilliseconds(220), settle);
     }
@@ -365,37 +414,12 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
-    // Shows the selected profile on Home. It only APPLIES to its own version
-    // (ProfileRules.Active): on any other the row says so and Play launches
-    // with the version's normal mods.
+    // Home shows no profile switcher (Will, 2026-10-25: the profile is picked on the Profiles page only). The active
+    // profile still decides Play's mods and, when it has a server, the Join card. It only APPLIES to its own version
+    // (ProfileRules.Active): on any other Play launches with the version's normal mods.
     private void ApplyProfile(LauncherSettings settings)
     {
-        var selected = settings.ModProfiles.FirstOrDefault(p => p.Id == settings.SelectedProfileId && ProfileRules.IsUsable(p));
         var active = ProfileRules.Active(settings.ModProfiles, settings.SelectedProfileId, _selectedVersion);
-
-        if (selected == null)
-        {
-            ProfileNameText.Text = "No profile";
-            ProfileInitial.Visibility = Visibility.Collapsed;
-            ProfileIcon.Child = null;
-            ProfileMark.Visibility = Visibility.Visible;
-            ProfileEmblem.Background = Brushes.Transparent; // the bare mark, no box
-            ProfileEmblem.Visibility = Visibility.Collapsed; // the mockup's card is just the words
-            ProfileNameText.SetResourceReference(TextBlock.ForegroundProperty, "Brush.TextDim");
-        }
-        else
-        {
-            ProfileNameText.Text = selected.Name;
-            ProfileInitial.Text = ProfileLook.Initial(selected.Name);
-            ProfileIcon.Child = ProfileLook.EmblemGlyph(selected.Icon, ProfileLook.Ink(selected));
-            ProfileInitial.Foreground = ProfileLook.Ink(selected);
-            ProfileInitial.Visibility = ProfileIcon.Child == null ? Visibility.Visible : Visibility.Collapsed;
-            ProfileMark.Visibility = Visibility.Collapsed;
-            ProfileEmblem.Background = ProfileLook.Tint(selected);
-            ProfileEmblem.Visibility = Visibility.Visible;
-            ProfileNameText.SetResourceReference(TextBlock.ForegroundProperty, "Brush.Text");
-        }
-        System.Windows.Automation.AutomationProperties.SetName(ProfileRow, $"Profile: {ProfileNameText.Text}. Switch profile");
         ShowMyMods(settings.PlayWithExternalMods);
 
         _joinProfile = active is { HasServer: true } ? active : null;
@@ -405,6 +429,7 @@ public partial class HomePage : UserControl
             JoinServerText.Text = ProfileRules.ServerLabel(_joinProfile) ?? "Server";
             System.Windows.Automation.AutomationProperties.SetName(JoinButton, ProfileRules.JoinLabel(_joinProfile));
         }
+        FitStrip(contentChanged: true);
     }
 
     private async void JoinButton_Click(object sender, RoutedEventArgs e)
@@ -675,6 +700,7 @@ public partial class HomePage : UserControl
         VersionButtonText.Text = version ?? "Pick one";
         ShowVersionCard(version);
         ShowFamily(version);
+        FitStrip();
     }
 
     // The version card's second line and thumbnail: the family's name ("Tricky Trials") and its colour picker

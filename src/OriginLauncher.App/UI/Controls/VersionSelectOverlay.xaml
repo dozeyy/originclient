@@ -1,6 +1,7 @@
 <UserControl x:Class="OriginLauncher.App.UI.Controls.VersionSelectOverlay"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:OriginLauncher.App.UI"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
@@ -40,9 +41,9 @@
                                         <Border.Background>
                                             <ImageBrush ImageSource="{Binding Colour}" Stretch="UniformToFill"/>
                                         </Border.Background>
-                                        <!-- SELECTED: an even capsule (Padding.Capsule.Sm, Radius.Full), caps centred in it. -->
+                                        <!-- SELECTED: an even capsule (Padding.Capsule.Sm, ui:Capsule.Round), caps centred in it. -->
                                         <Border x:Name="Tag" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
-                                                Padding="{StaticResource Padding.Capsule.Sm}" CornerRadius="{StaticResource Radius.Full}"
+                                                Padding="{StaticResource Padding.Capsule.Sm}" ui:Capsule.Round="True"
                                                 Background="{StaticResource Brush.ScrimMid}">
                                             <TextBlock Text="SELECTED" Style="{StaticResource Text.Capsule}" Foreground="{StaticResource Brush.Text}"/>
                                         </Border>
@@ -119,11 +120,18 @@
                                     <TextBlock Grid.Column="1" Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
                                                Foreground="{Binding DetailBrush}" Margin="0,0,12,0" VerticalAlignment="Center"
                                                Visibility="{Binding StatusVisibility}"/>
-                                    <!-- The capsule: Padding.Capsule.Sm round the caps, Radius.Full corners, a 1 px edge on every side. -->
-                                    <Border Grid.Column="2" Padding="{StaticResource Padding.Capsule.Sm}" CornerRadius="{StaticResource Radius.Full}"
-                                            Background="{Binding PillBackground}" BorderBrush="{Binding PillBorder}" BorderThickness="1"
+                                    <!-- The status capsule (Workbench mockup): a quiet Surface.Capsule.Sm, a 10 px glyph and the caps,
+                                         no outline. DOWNLOAD sits on the plain capsule fill in textDim; INSTALLED, UPDATE and FINISH
+                                         are the soft-hue variants (16 % tile fill, the hue as ink). -->
+                                    <Border Grid.Column="2" Style="{StaticResource Surface.Capsule.Sm}" Background="{Binding PillBackground}"
                                             VerticalAlignment="Center" Visibility="{Binding StatusVisibility}">
-                                        <TextBlock Text="{Binding PillText}" Style="{StaticResource Text.Capsule}" Foreground="{Binding PillForeground}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{Binding PillIcon}" Style="{StaticResource Icon.Base}" Stroke="{Binding PillForeground}"
+                                                  Width="{StaticResource Icon.SizeCapsule}" Height="{StaticResource Icon.SizeCapsule}"
+                                                  Margin="{StaticResource Margin.CapsuleIcon}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding PillText}" Style="{StaticResource Text.Capsule}" Foreground="{Binding PillForeground}"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </Border>
                                 </Grid>
                             </Border>
@@ -190,14 +198,25 @@
                                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                                 </Button>
                             </Grid>
-                            <!-- Four across, two down. The right and bottom margins cancel the cards' own 12 px gap. -->
-                            <ListBox x:Name="FamilyList" Grid.Row="1" Margin="0,0,-12,-12" Background="Transparent" BorderThickness="0"
+                            <!-- Four across, two down. The panel keeps 4 px of room round the cards (8 above, for the hover
+                                 lift) so the selected ring (4 px outside its card) is never clipped by the list's viewport;
+                                 the list's negative margins give that room back, and the right and bottom ones also cancel
+                                 the cards' own 12 px gap. Its own template: the stock ListBox template wraps the list in a
+                                 border with a hard-coded 1 px padding, which made the grid 2 px wider than its slot. -->
+                            <ListBox x:Name="FamilyList" Grid.Row="1" Margin="-4,-8,-16,-16" Padding="0" Background="Transparent" BorderThickness="0"
                                      ItemContainerStyle="{StaticResource FamilyItem}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                      AutomationProperties.Name="Version families">
+                                <ListBox.Template>
+                                    <ControlTemplate TargetType="ListBox">
+                                        <ScrollViewer Focusable="False" Padding="{TemplateBinding Padding}">
+                                            <ItemsPresenter/>
+                                        </ScrollViewer>
+                                    </ControlTemplate>
+                                </ListBox.Template>
                                 <ListBox.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <UniformGrid Columns="4"/>
+                                        <UniformGrid Columns="4" Margin="4,8,4,4"/>
                                     </ItemsPanelTemplate>
                                 </ListBox.ItemsPanel>
                             </ListBox>

@@ -132,6 +132,23 @@
                                        Foreground="{StaticResource Brush.Warning}"/>
                         </StackPanel>
                     </Button>
+                    <!-- Store: first in the group, a ghost control (DESIGN-SYSTEM 11.4): gold bag, "Store", and the hover
+                         arrow after it (it opens the browser). Opens OriginLinks.Store. Under the fit rule the label and arrow
+                         go and it is the bag alone (accessible name below). -->
+                    <Button x:Name="StoreButton" Click="StoreButton_Click"
+                            Style="{StaticResource Button.Chrome}"
+                            Padding="8" Margin="0,0,4,0" MinHeight="{StaticResource Size.ControlMd}"
+                            AutomationProperties.Name="Open the Origin store, originclient.org/store">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
+                                  Stroke="{StaticResource Brush.Hue.Gold}"/>
+                            <TextBlock x:Name="StoreLabel" Text="Store" Style="{StaticResource Text.BodyStrong}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <Canvas x:Name="StoreArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
+                                <Path Style="{StaticResource Icon.LinkHint}"/>
+                            </Canvas>
+                        </StackPanel>
+                    </Button>
                     <!-- Import from another launcher: opens the Import page. -->
                     <Button x:Name="ImportButton" Click="ImportButton_Click"
                             Style="{StaticResource Button.Chrome}"

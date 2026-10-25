@@ -46,12 +46,10 @@
     <system:Double x:Key="Size.ControlMd">32</system:Double>
     <system:Double x:Key="Size.ControlLg">36</system:Double>
     <system:Double x:Key="Size.ControlXl">40</system:Double>
-    <!-- The Home strip (Workbench mockup): the version card, profile card, Store card and Play are one 64 tall row of
-         cards (Radius.Lg); the thumbnail and the Store tile are 48 (8 in from the card's edge); Store and Play are
-         236 and 208 wide. The status dot is 8; the nav's active dot 4. -->
+    <!-- The Home strip (Workbench mockup): the version card, Join and Play are one 64 tall row of cards (Radius.Lg);
+         the thumbnail is 48 (8 in from the card's edge); Play is 208 wide. The status dot is 8; the nav's active dot 4. -->
     <system:Double x:Key="Size.StripControl">64</system:Double>
     <system:Double x:Key="Size.StripTile">48</system:Double>
-    <system:Double x:Key="Size.StoreCardWidth">236</system:Double>
     <system:Double x:Key="Size.PlayWidth">208</system:Double>
     <system:Double x:Key="Size.StatusDot">8</system:Double>
     <system:Double x:Key="Size.NavDot">4</system:Double>
@@ -121,7 +119,7 @@
     <CornerRadius x:Key="Radius.Sm">6</CornerRadius>
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
-    <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- No "full" radius token: a 999 radius renders an ellipse in WPF. Capsules use ui:Capsule.Round (UI/Capsule.cs). -->
     <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
     <system:Double x:Key="Radius.Lg.Value">12</system:Double>
     <!-- A card's picture: the card's corner on its top two corners only. -->

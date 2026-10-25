@@ -75,22 +75,24 @@ public class AccountPillTests
     }
 
     [Fact]
-    public void StoreIsTheHomeCardAndNotATopBarButton()
+    public void StoreOpensTheConfiguredStoreAndIsAGhostBarControl()
     {
-        // The top bar lost its Store button (Workbench Home): the right-hand group is update badge, Import, Friends, ...
+        // Will, 2026-10-25: the Store is back in the top bar, and Home has no Store card and no profile switcher.
         var xaml = XDocument.Load(Path.Combine(AppDir, "MainWindow.xaml"));
-        Assert.DoesNotContain(xaml.Descendants(Wpf + "Button"), b => (string?)b.Attribute(X + "Name") == "StoreButton");
+        var store = xaml.Descendants(Wpf + "Button").Single(b => (string?)b.Attribute(X + "Name") == "StoreButton");
+        Assert.Equal("{StaticResource Button.Chrome}", (string?)store.Attribute("Style"));
+        // First of the right-hand group after the update badge, before Import and Friends (DESIGN-SYSTEM 11.4).
         var group = xaml.Descendants(Wpf + "StackPanel").Single(p => (string?)p.Attribute(X + "Name") == "BarActions");
         var names = group.Elements().Select(e => (string?)e.Attribute(X + "Name")).Where(n => n != null).ToList();
-        Assert.True(names.IndexOf("UpdateBadge") < names.IndexOf("ImportButton"));
+        Assert.True(names.IndexOf("StoreButton") < names.IndexOf("ImportButton"));
+        Assert.True(names.IndexOf("UpdateBadge") < names.IndexOf("StoreButton"));
         Assert.DoesNotContain("WebsiteButton", names); // the Website link lives in the brand lockup now
-        // The Store card is on Home, a strip card with no hover label, opening the configured store.
-        var home = XDocument.Load(Path.Combine(AppDir, "UI", "Pages", "HomePage.xaml"));
-        var store = home.Descendants(Wpf + "Button").Single(b => (string?)b.Attribute(X + "Name") == "StoreCard");
-        Assert.Equal("{StaticResource Button.StripCard}", (string?)store.Attribute("Style"));
         Assert.Null(store.Attribute("ToolTip")); // only Import, Friends, Minimize and Close carry hover labels
-        var code = File.ReadAllText(Path.Combine(AppDir, "UI", "Pages", "HomePage.xaml.cs"));
-        Assert.Matches(@"StoreCard_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Store\)", code);
+        var main = File.ReadAllText(Path.Combine(AppDir, "MainWindow.xaml.cs"));
+        Assert.Matches(@"StoreButton_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Store\)", main);
+        var home = File.ReadAllText(Path.Combine(AppDir, "UI", "Pages", "HomePage.xaml"));
+        Assert.DoesNotContain("StoreCard", home);
+        Assert.DoesNotContain("ProfileRow", home);
     }
 
     [Fact]

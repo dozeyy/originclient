@@ -53,6 +53,9 @@ public sealed class ArtStage : Grid
     internal (Rect? Ink, double BandTop, double BandBottom) NumeralGeometry =>
         (_numeral.InkRect, _numeral.CurrentBand.Top, _numeral.CurrentBand.Bottom);
 
+    /// <summary>The orbit thread's capsule size, for the render tour's measurements.</summary>
+    internal (double Length, double Thickness, double Radius) OrbitRing => _numeral.OrbitRing;
+
     /// <summary>Show <paramref name="version"/>'s family now, or as soon as the stage exists.</summary>
     public static void Request(string? version, bool animate)
     {

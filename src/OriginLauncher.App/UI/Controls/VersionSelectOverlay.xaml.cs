@@ -475,9 +475,10 @@ public partial class VersionSelectOverlay : UserControl
     });
 
     private static Brush BrushOf(string key) => (Brush)Application.Current.FindResource(key);
+    private static Geometry GeometryOf(string key) => (Geometry)Application.Current.FindResource(key);
 
     // One release row's data: the version, its detail line and the status capsule. The capsule is tinted by state with
-    // the hue tokens (installed emerald, update sky, unfinished gold) and a quiet outline for "not installed".
+    // the hue tokens (installed emerald, update sky, unfinished gold) and the plain quiet capsule for "not installed".
     private sealed class ReleaseRow : INotifyPropertyChanged
     {
         private StatusLine? _detail, _pill;
@@ -499,24 +500,23 @@ public partial class VersionSelectOverlay : UserControl
             StatusDot.Success => BrushOf("Brush.Hue.Emerald"),
             StatusDot.Info => BrushOf("Brush.Hue.Sky"),
             StatusDot.Warning => BrushOf("Brush.Hue.Gold"),
-            _ => BrushOf("Brush.TextMuted"),
+            _ => BrushOf("Brush.TextDim"),
         };
+        // The quiet capsule keeps Surface.Capsule.Sm's own fill; the others take their hue's 16 % tile.
         public Brush PillBackground => _tone switch
         {
             StatusDot.Success => BrushOf("Brush.HueTile.Emerald"),
             StatusDot.Info => BrushOf("Brush.HueTile.Sky"),
             StatusDot.Warning => BrushOf("Brush.HueTile.Gold"),
-            _ => Brushes.Transparent,
+            _ => BrushOf("Brush.CardAlt"),
         };
-        // A tinted capsule has no visible edge (the same tint as its fill); the quiet one is outlined. The 1 px edge is
-        // always there so every capsule is the same size.
-        public Brush PillBorder => _tone switch
+        // What the capsule's glyph says: a check once it is on disk, an arrow onto a line while it still downloads.
+        public Geometry PillIcon => GeometryOf(_tone switch
         {
-            StatusDot.Success => BrushOf("Brush.HueTile.Emerald"),
-            StatusDot.Info => BrushOf("Brush.HueTile.Sky"),
-            StatusDot.Warning => BrushOf("Brush.HueTile.Gold"),
-            _ => BrushOf("Brush.Stroke"),
-        };
+            StatusDot.Success => "Icon.Check",
+            StatusDot.Info => "Icon.Sync",
+            _ => "Icon.DownloadArrow", // DOWNLOAD, and FINISH (the rest downloads on Play)
+        });
 
         public void SetState(InstallState state)
         {
@@ -526,7 +526,7 @@ public partial class VersionSelectOverlay : UserControl
             Raise(nameof(PillText));
             Raise(nameof(PillForeground));
             Raise(nameof(PillBackground));
-            Raise(nameof(PillBorder));
+            Raise(nameof(PillIcon));
         }
 
         private void Apply(InstallState state)

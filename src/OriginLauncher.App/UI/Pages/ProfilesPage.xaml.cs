@@ -512,10 +512,10 @@ public partial class ProfilesPage : UserControl
             {
                 Width = (double)FindResource("Size.Dot"),
                 Height = (double)FindResource("Size.Dot"),
-                CornerRadius = (CornerRadius)FindResource("Radius.Full"),
                 Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             };
+            UI.Capsule.SetRound(dot, true);
             dot.SetResourceReference(Border.BackgroundProperty, "Brush.Accent");
             mark.Children.Add(dot);
             mark.Children.Add(Small(running ? "Selected / Running" : "Selected", bold: true));

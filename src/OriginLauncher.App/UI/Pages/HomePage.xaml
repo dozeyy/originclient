@@ -8,10 +8,10 @@
 
     <!-- Home (Workbench, Will's approved mockup): the family art in full colour and the giant version numeral fill the
          window (ArtStage, behind every page). Everything here sits in one bottom strip: on the left the version card
-         (family art thumbnail, version, family name, chevron) and the profile card with the status line under them; on
-         the right, bottom-aligned, the Origin Store card, the My mods switch, Join (only with a server) and the solid
-         emerald Play button. The cards and Play are 64 tall, the thumbnail and the Store tile 48 (Size.StripControl /
-         StripTile). -->
+         (family art thumbnail, version, family name, chevron) with the status line under it; on the right,
+         bottom-aligned, the My mods switch, Join (only when the active profile has a server) and the solid emerald Play
+         button. The cards and Play are 64 tall, the thumbnail 48 (Size.StripControl / StripTile). No profile switcher
+         and no Store here (Will, 2026-10-25): the profile is picked on the Profiles page, the Store is in the top bar. -->
     <Grid x:Name="HomeRoot">
 
         <!-- Top right, under the bar: the home banner's slot. Empty while
@@ -29,67 +29,30 @@
                 <TranslateTransform x:Name="StripShift"/>
             </Grid.RenderTransform>
 
-            <!-- Left: the two cards, then the status line under them. -->
+            <!-- Left: the version card, then the status line under it. -->
             <StackPanel Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,24,0">
-                <!-- A DockPanel, not a StackPanel: when Play grows (Running, Join) or the window is narrow, the
-                     profile card gets the width that is left and its name trims, instead of the row being cut off. -->
-                <DockPanel x:Name="HomeLockup" LastChildFill="True">
-                    <!-- The version card: opens the whole-window picker. -->
-                    <Button x:Name="VersionButton" DockPanel.Dock="Left" Style="{StaticResource Button.StripCard}"
-                            Click="VersionButton_Click"
-                            AutomationProperties.Name="Choose Minecraft version">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="{StaticResource Size.StripTile}" Height="{StaticResource Size.StripTile}"
-                                    CornerRadius="{StaticResource Radius.Md}" ClipToBounds="True"
-                                    Background="{StaticResource Brush.CardAlt}" Margin="0,0,12,0">
-                                <Image x:Name="VersionThumb" Stretch="UniformToFill"/>
-                            </Border>
-                            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                                <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
-                                                      FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Heading}"
-                                                      FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
-                                                      HorizontalAlignment="Left"/>
-                                <TextBlock x:Name="VersionTagline" Text="" Style="{StaticResource Text.Caption}"
-                                           Foreground="{StaticResource Brush.TextDim}" Margin="0,4,0,0"/>
-                            </StackPanel>
-                            <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
-                                  VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
+                <!-- The version card: opens the whole-window picker. -->
+                <Button x:Name="VersionButton" Style="{StaticResource Button.StripCard}" HorizontalAlignment="Left"
+                        Click="VersionButton_Click"
+                        AutomationProperties.Name="Choose Minecraft version">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="{StaticResource Size.StripTile}" Height="{StaticResource Size.StripTile}"
+                                CornerRadius="{StaticResource Radius.Md}" ClipToBounds="True"
+                                Background="{StaticResource Brush.CardAlt}" Margin="0,0,12,0">
+                            <Image x:Name="VersionThumb" Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
+                                                  FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Heading}"
+                                                  FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
+                                                  HorizontalAlignment="Left"/>
+                            <TextBlock x:Name="VersionTagline" Text="" Style="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.TextDim}" Margin="0,4,0,0"/>
                         </StackPanel>
-                    </Button>
-
-                    <!-- The profile card: the mod profile Play will use; opens Profiles. -->
-                    <Button x:Name="ProfileRow" Style="{StaticResource Button.StripCard}" Margin="12,0,0,0"
-                            Padding="14,0" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch"
-                            Click="ProfileRow_Click"
-                            AutomationProperties.Name="Switch profile">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <!-- Hidden with no profile (the mockup's card is just the words); a profile shows its emblem. -->
-                            <Border x:Name="ProfileEmblem" Width="{StaticResource Size.Emblem}" Height="{StaticResource Size.Emblem}"
-                                    CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,10,0" VerticalAlignment="Center"
-                                    Visibility="Collapsed">
-                                <Grid>
-                                    <controls:BrandLogo x:Name="ProfileMark" Width="{StaticResource Size.Logo.Bar}" Height="{StaticResource Size.Logo.Bar}"
-                                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <!-- The profile's icon (ProfileLook.EmblemGlyph); empty when its letter shows. -->
-                                    <Border x:Name="ProfileIcon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <controls:TrackedText x:Name="ProfileInitial" Text="" Tracking="0" FontSize="{StaticResource FontSize.Title}" FontWeight="Bold"
-                                                          Foreground="{StaticResource Brush.OnPhoto}" Visibility="Collapsed"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                            </Border>
-                            <TextBlock x:Name="ProfileNameText" Grid.Column="1" Text="No profile" Style="{StaticResource Text.BodyStrong}"
-                                       Foreground="{StaticResource Brush.TextDim}"
-                                       VerticalAlignment="Center" Margin="0,0,10,0" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
-                            <Path Grid.Column="2" Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
-                                  VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
-                        </Grid>
-                    </Button>
-                </DockPanel>
+                        <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
+                              VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
+                    </StackPanel>
+                </Button>
 
                 <!-- The status line: an 8 px round dot (the accent while live) and one line. The
                      players-online count joins it once it arrives, and only then. -->
@@ -107,37 +70,9 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- Right, bottom-aligned with the status line: Store, My mods, Join, Play. Every item is centred on the
+            <!-- Right, bottom-aligned with the status line: My mods, Join, Play. Every item is centred on the
                  cluster's one 64 px line. -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                <!-- The Origin Store card (it replaced the top bar's Store button): a soft-hue tile with the bag, the
-                     name over what it sells, and a small up-right arrow because it opens the browser. -->
-                <Button x:Name="StoreCard" Style="{StaticResource Button.StripCard}" Width="{StaticResource Size.StoreCardWidth}"
-                        Margin="0,0,12,0" VerticalAlignment="Center" Click="StoreCard_Click"
-                        AutomationProperties.Name="Open the Origin store, originclient.org/store">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Border Width="{StaticResource Size.StripTile}" Height="{StaticResource Size.StripTile}"
-                                CornerRadius="{StaticResource Radius.Md}" Background="{StaticResource Brush.HueTile.Lilac}"
-                                Margin="0,0,12,0">
-                            <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
-                                  Stroke="{StaticResource Brush.Hue.Lilac}"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Origin Store" Style="{StaticResource Text.BodyStrong}"/>
-                            <TextBlock Text="Capes and cosmetics" Style="{StaticResource Text.Caption}"
-                                       Foreground="{StaticResource Brush.TextDim}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <Path Grid.Column="2" Data="{StaticResource Icon.ArrowUpRight}" Style="{StaticResource Icon.Small}"
-                              Stroke="{StaticResource Brush.TextDim}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                    </Grid>
-                </Button>
-
                 <!-- My mods (Will, 2026-10-19: a slider, on or off): the Mods page's YOUR MODS switch on Home, the same
                      setting (LauncherSettings.PlayWithExternalMods). A tracked caps label and the iOS-style switch
                      (Toggle.HomeSwitch, Theme/Inputs.xaml): emerald with a dark knob when on. -->
@@ -150,15 +85,15 @@
                 </ToggleButton>
 
                 <!-- The selected profile's server: straight in with that profile's mods.
-                     Hidden when the profile has none. -->
-                <Button x:Name="JoinButton" Style="{StaticResource Button.StripCard}" Padding="14,0"
+                     Hidden when the profile has none. Short of width it folds to its icon, a 64 square (FitStrip). -->
+                <Button x:Name="JoinButton" Style="{StaticResource Button.StripCard}" Padding="14,0" HorizontalContentAlignment="Center"
                         Margin="0,0,12,0" VerticalAlignment="Center"
                         Visibility="Collapsed" Click="JoinButton_Click">
                     <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Base}"
+                        <Path x:Name="JoinIcon" Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Base}"
                               VerticalAlignment="Center" Margin="0,0,12,0"
                               Stroke="{StaticResource Brush.Text}"/>
-                        <StackPanel VerticalAlignment="Center">
+                        <StackPanel x:Name="JoinWords" VerticalAlignment="Center">
                             <TextBlock Text="Join server" Style="{StaticResource Text.Caption}"
                                        Foreground="{StaticResource Brush.TextDim}" LineHeight="16"/>
                             <TextBlock x:Name="JoinServerText" Text="Server" Style="{StaticResource Text.BodyStrong}" LineHeight="18"
