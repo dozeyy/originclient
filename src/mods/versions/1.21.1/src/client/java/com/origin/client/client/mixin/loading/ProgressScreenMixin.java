@@ -15,7 +15,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // takeover -> the Origin loading scene, captioned with the stage vanilla reports
 // and its real percentage (rail sweeps while it reports none). The generation
 // logic runs on the integrated-server thread via the ProgressListener interface,
-// independent of render(), so replacing the draw is safe.
+// independent of render(), so replacing the draw is safe. Once stop() has been called
+// the mixin does NOT cancel: vanilla's render() then closes the screen (setScreen(null)
+// when clearScreenAfterStop), and cancelling there would leave a stopped screen open
+// forever. If the accessor stops applying the stopped flag reads false (the draw is
+// still replaced and the screen can hang, as before) rather than crashing.
 @Mixin(ProgressScreen.class)
 public class ProgressScreenMixin {
 
@@ -28,6 +32,9 @@ public class ProgressScreenMixin {
 		float progress = -1f;
 		try {
 			ProgressScreenAccessor acc = (ProgressScreenAccessor) (Object) this;
+			if (acc.originclient$stopped()) {
+				return;   // finished: let vanilla's render() run its close-the-screen branch
+			}
 			Component stage = acc.originclient$stage();
 			Component header = acc.originclient$header();
 			caption = stage != null ? stage : header != null ? header : caption;

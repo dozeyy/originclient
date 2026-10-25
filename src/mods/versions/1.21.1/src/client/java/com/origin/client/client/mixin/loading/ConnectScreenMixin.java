@@ -2,6 +2,8 @@ package com.origin.client.client.mixin.loading;
 
 import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import com.origin.client.client.gui.OriginButtonRenderer;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -27,6 +29,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // as the stock stone button (judge 2026-10-25). The Main Menu Style = Vanilla
 // check is in the skin itself, so vanilla mode keeps the stock button. The picture
 // is lifted above the button when the window is short (OriginScreenRenderer.renderConnecting).
+// Vanilla's render() also says the narrator's "Joining world" line (sayNow, narrator.joining)
+// every 2 s; the HEAD-cancel would drop it, so the mixin repeats that exact throttle
+// (lastNarration, 2000 ms) itself and screen-reader users still hear it. If the
+// lastNarration shadow stops applying, this whole mixin is skipped (required:false): the stock connect screen, narration included.
 // In the isolated required:false config: if a target moves, that injection is
 // skipped (no skin, or the stock connect screen) and nothing else breaks.
 @Mixin(ConnectScreen.class)
@@ -34,6 +40,10 @@ public abstract class ConnectScreenMixin {
 	// The status line vanilla shows ("Connecting to the server...", "Logging in...").
 	@Shadow
 	private Component status;
+
+	// Vanilla's narrator throttle (ms timestamp of the last "Joining world" line).
+	@Shadow
+	private long lastNarration;
 
 	// Target: ConnectScreen.init()V, TAIL, after vanilla adds the Cancel button (it
 	// runs again on every resize, re-registering the rebuilt button). If it stops
@@ -70,6 +80,16 @@ public abstract class ConnectScreenMixin {
 			return;
 		}
 		ci.cancel();
+		try {
+			// Vanilla's narration, kept (javap ConnectScreen.render: 2000 ms throttle, narrator.joining).
+			long now = Util.getMillis();
+			if (now - this.lastNarration > 2000L) {
+				this.lastNarration = now;
+				Minecraft.getInstance().getNarrator().sayNow(Component.translatable("narrator.joining"));
+			}
+		} catch (Throwable ignored) {
+			// Narration is a nicety: never take the connect screen down for it.
+		}
 		try {
 			for (GuiEventListener child : self.children()) {
 				if (child instanceof Renderable renderable) {

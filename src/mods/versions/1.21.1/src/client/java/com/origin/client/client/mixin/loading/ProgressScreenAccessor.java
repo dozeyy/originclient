@@ -9,7 +9,8 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 // "Building terrain" ... and 0-100), so the Origin loading scene shows the real
 // stage and its real progress. Own accessor in the required:false loading config:
 // if a field moves, ProgressScreenMixin's cast throws and it falls back to the
-// screen's title with a sweeping rail.
+// screen's title with a sweeping rail. `stop` lets ProgressScreenMixin step aside once the
+// work is done, so vanilla's own "close the screen" branch still runs.
 @Mixin(ProgressScreen.class)
 public interface ProgressScreenAccessor {
 	@Accessor("header")
@@ -20,4 +21,8 @@ public interface ProgressScreenAccessor {
 
 	@Accessor("progress")
 	int originclient$progress();
+
+	// Set by ProgressScreen.stop(): the world-creation work is finished.
+	@Accessor("stop")
+	boolean originclient$stopped();
 }

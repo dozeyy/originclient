@@ -15,8 +15,9 @@ import java.io.InputStream;
  *
  * <p>Order-proof and fail-soft: every taker returns null when the work isn't ready
  * (or failed), and the caller then does it itself on the render thread, exactly as
- * before this existed. Each result is handed over once (the taker owns it); a result
- * nobody takes is closed when a taker gives up on it, so nothing leaks.
+ * before this existed. Each result is handed over once (the taker owns it). A taker
+ * that asks before the worker is done marks the result consumed, and the worker then
+ * closes its image instead of publishing it, so nothing leaks.
  *
  * <p>Pure CPU work only on the worker (PNG decode, a box filter, a width scan,
  * class loading): no GL, no Minecraft state beyond reading the window's height.
@@ -44,6 +45,8 @@ public final class LoadingPrep {
 	private static int logoBakedPs;
 	private static int[] widths;
 	private static boolean started;
+	/** Set when a taker has asked (even if it got null): the worker then closes, not publishes, its image. */
+	private static boolean sheetTaken, logoSrcTaken, logoBakedTaken;
 
 	private LoadingPrep() {
 	}
@@ -72,31 +75,56 @@ public final class LoadingPrep {
 				// Only a head start: the class loads on first use either way.
 			}
 		}
+		NativeImage s = null;
 		try {
-			NativeImage s = read(ASCII);
+			s = read(ASCII);
 			int[] w = bootWidths(s);
+			NativeImage mine = s;
+			s = null;
 			synchronized (LoadingPrep.class) {
-				sheet = s;
-				widths = w;
+				if (sheetTaken) {
+					mine.close();   // the render thread already decoded its own
+				} else {
+					sheet = mine;
+					widths = w;
+				}
 			}
 		} catch (Throwable ignored) {
 			// The render thread reads the sheet itself.
-		}
-		try {
-			NativeImage src = read(com.origin.client.client.gui.OriginUi.LOGO_PATH);
-			synchronized (LoadingPrep.class) {
-				logoSrc = src;
+			if (s != null) {
+				s.close();
 			}
-			int ps = waitForLogoPhys();
+		}
+		NativeImage src = null, baked = null;
+		int ps = 0;
+		try {
+			src = read(com.origin.client.client.gui.OriginUi.LOGO_PATH);
+			ps = waitForLogoPhys();
 			if (ps > 0) {
-				NativeImage baked = boxFilter(src, ps, ps);
-				synchronized (LoadingPrep.class) {
+				baked = boxFilter(src, ps, ps);
+			}
+		} catch (Throwable ignored) {
+			// The render thread decodes and bakes the logo itself.
+		}
+		// Publish both only after the bake: the worker reads src while baking, so the
+		// render thread must not own (and close) it yet. A result whose taker already
+		// came and went (consumed flag) would never be closed by anyone: close it here.
+		synchronized (LoadingPrep.class) {
+			if (src != null) {
+				if (logoSrcTaken) {
+					src.close();
+				} else {
+					logoSrc = src;
+				}
+			}
+			if (baked != null) {
+				if (logoBakedTaken) {
+					baked.close();
+				} else {
 					logoBaked = baked;
 					logoBakedPs = ps;
 				}
 			}
-		} catch (Throwable ignored) {
-			// The render thread decodes and bakes the logo itself.
 		}
 	}
 
@@ -115,6 +143,7 @@ public final class LoadingPrep {
 
 	/** The decoded logo master, or null (not ready / failed). The caller owns it. */
 	static synchronized NativeImage takeLogoSrc() {
+		logoSrcTaken = true;
 		NativeImage s = logoSrc;
 		logoSrc = null;
 		return s;
@@ -122,6 +151,7 @@ public final class LoadingPrep {
 
 	/** The logo box-filtered to {@code ps} physical px, or null (not ready, failed or another size). The caller owns it. */
 	static synchronized NativeImage takeLogoBaked(int ps) {
+		logoBakedTaken = true;
 		NativeImage b = logoBaked;
 		logoBaked = null;
 		if (b != null && logoBakedPs != ps) {
@@ -133,6 +163,7 @@ public final class LoadingPrep {
 
 	/** Minecraft's ascii.png, decoded, or null. The caller owns it; {@link #takeWidths} pairs with it. */
 	static synchronized NativeImage takeSheet() {
+		sheetTaken = true;
 		NativeImage s = sheet;
 		sheet = null;
 		return s;

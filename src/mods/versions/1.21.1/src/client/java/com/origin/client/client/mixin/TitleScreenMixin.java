@@ -218,7 +218,12 @@ public class TitleScreenMixin {
 		if (!originclient$origin()) {
 			return instance.drawString(font, text, x, y, color);
 		}
-		String line = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().getName() + ", Origin";
+		String line = originclient$footerLine;
+		if (line == null) {
+			// Built once: the game version never changes while the screen lives.
+			line = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().getName() + ", Origin";
+			originclient$footerLine = line;
+		}
 		return instance.drawString(font, line, TitleLayout.CORNER, ORIGIN_FOOTER_TOP_OFFSET + ((Screen) (Object) this).height,
 				OriginButtonRenderer.footerColor(false, color), true);
 	}
@@ -226,6 +231,10 @@ public class TitleScreenMixin {
 	// Footer baseline: the 8 px text line's top, relative to the screen bottom (bottom edge 6 GUI px up).
 	@Unique
 	private static final int ORIGIN_FOOTER_TOP_OFFSET = -14;
+
+	// The footer string, cached on first draw (it was rebuilt every frame).
+	@Unique
+	private String originclient$footerLine;
 
 	@Unique
 	private PlainTextButton originclient$copyright;
