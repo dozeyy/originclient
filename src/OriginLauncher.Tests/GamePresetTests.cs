@@ -23,7 +23,7 @@ internal static class RepoFiles
     public static string Path_(params string[] parts) => Path.Combine(new[] { Root }.Concat(parts).ToArray());
 }
 
-public class PresetOptionsTests
+public class GamePresetOptionsTests
 {
     private static readonly string KeysFile = RepoFiles.Path_("tools", "bench", "optifine-keys-189.txt");
 
@@ -43,28 +43,28 @@ public class PresetOptionsTests
     }
 
     [Theory]
-    [InlineData(PresetKind.Competitive)]
-    [InlineData(PresetKind.Balanced)]
-    [InlineData(PresetKind.Quality)]
-    public void EveryOptiFineKeyIsVerified(PresetKind kind)
+    [InlineData(GamePresetKind.Competitive)]
+    [InlineData(GamePresetKind.Balanced)]
+    [InlineData(GamePresetKind.Quality)]
+    public void EveryOptiFineKeyIsVerified(GamePresetKind kind)
     {
         var verified = VerifiedOptiFineKeys();
-        var optifine = PresetOptions.For(kind, "1.8.9").Where(e => e.File == PresetFile.OptiFine).ToList();
+        var optifine = GamePresetOptions.For(kind, "1.8.9").Where(e => e.File == GamePresetFile.OptiFine).ToList();
         Assert.NotEmpty(optifine);
         var unverified = optifine.Where(e => !verified.Contains(e.Key)).Select(e => e.Key).ToList();
         Assert.True(unverified.Count == 0, "unverified OptiFine keys: " + string.Join(", ", unverified));
         // Nothing that looks like an OptiFine key may hide in the vanilla or Origin groups either.
-        Assert.DoesNotContain(PresetOptions.For(kind, "1.8.9"), e => e.File != PresetFile.OptiFine && e.Key.StartsWith("of", StringComparison.Ordinal)
+        Assert.DoesNotContain(GamePresetOptions.For(kind, "1.8.9"), e => e.File != GamePresetFile.OptiFine && e.Key.StartsWith("of", StringComparison.Ordinal)
             && e.Key.Length > 2 && char.IsUpper(e.Key[2]));
     }
 
     [Theory]
-    [InlineData(PresetKind.Competitive)]
-    [InlineData(PresetKind.Balanced)]
-    [InlineData(PresetKind.Quality)]
-    public void EveryVanillaKeyIsOneThe189LoaderReads(PresetKind kind)
+    [InlineData(GamePresetKind.Competitive)]
+    [InlineData(GamePresetKind.Balanced)]
+    [InlineData(GamePresetKind.Quality)]
+    public void EveryVanillaKeyIsOneThe189LoaderReads(GamePresetKind kind)
     {
-        foreach (var e in PresetOptions.For(kind, "1.8.9").Where(e => e.File == PresetFile.Options))
+        foreach (var e in GamePresetOptions.For(kind, "1.8.9").Where(e => e.File == GamePresetFile.Options))
             Assert.True(App.Core.Sync.OptionsTxtFormat.KnownIn(e.Key, "1.8.9"), e.Key + " is not a 1.8.9 options.txt key");
     }
 
@@ -73,8 +73,8 @@ public class PresetOptionsTests
     {
         // Mods.java is the schema the mod reads its config with: a typo'd key would be written and never read.
         var mods = File.ReadAllText(RepoFiles.Path_("src", "mods", "versions", "1.8.9", "src", "main", "java", "com", "origin", "client", "client", "mods", "Mods.java"));
-        foreach (var kind in Enum.GetValues<PresetKind>())
-            foreach (var e in PresetOptions.For(kind, "1.8.9").Where(e => e.File == PresetFile.Origin))
+        foreach (var kind in Enum.GetValues<GamePresetKind>())
+            foreach (var e in GamePresetOptions.For(kind, "1.8.9").Where(e => e.File == GamePresetFile.Origin))
             {
                 var dot = e.Key.IndexOf('.');
                 var (mod, option) = (e.Key[..dot], e.Key[(dot + 1)..]);
@@ -87,9 +87,9 @@ public class PresetOptionsTests
     [Fact]
     public void NoKeyAppearsTwiceInABundle()
     {
-        foreach (var kind in Enum.GetValues<PresetKind>())
+        foreach (var kind in Enum.GetValues<GamePresetKind>())
         {
-            var keys = PresetOptions.For(kind, "1.8.9").Select(e => e.File + "/" + e.Key).ToList();
+            var keys = GamePresetOptions.For(kind, "1.8.9").Select(e => e.File + "/" + e.Key).ToList();
             Assert.Equal(keys.Count, keys.Distinct().Count());
         }
     }
@@ -97,58 +97,105 @@ public class PresetOptionsTests
     [Fact]
     public void OnlyVersion189HasABundle()
     {
-        Assert.True(PresetOptions.IsSupported("1.8.9"));
-        Assert.False(PresetOptions.IsSupported("1.21.1"));
-        Assert.Throws<ArgumentOutOfRangeException>(() => PresetOptions.For(PresetKind.Balanced, "1.21.1"));
+        Assert.True(GamePresetOptions.IsSupported("1.8.9"));
+        Assert.False(GamePresetOptions.IsSupported("1.21.1"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GamePresetOptions.For(GamePresetKind.Balanced, "1.21.1"));
     }
 
     [Fact]
     public void FastRenderIsOffInEveryPreset()
     {
-        // Not render-checked against MenuBlur / ColorGrade / MotionBlur yet (see the comment in PresetOptions).
-        foreach (var kind in Enum.GetValues<PresetKind>())
-            Assert.Equal("false", PresetOptions.For(kind, "1.8.9").Single(e => e.Key == "ofFastRender").Value);
+        // Not render-checked against MenuBlur / ColorGrade / MotionBlur yet (see the comment in GamePresetOptions).
+        foreach (var kind in Enum.GetValues<GamePresetKind>())
+            Assert.Equal("false", GamePresetOptions.For(kind, "1.8.9").Single(e => e.Key == "ofFastRender").Value);
     }
 
     [Fact]
     public void InventoryBlurIsOffInCompetitiveAndOnInTheOthers()
     {
-        string Blur(PresetKind k) => PresetOptions.For(k, "1.8.9").Single(e => e.Key == "menublur.inventory").Value;
-        Assert.Equal("false", Blur(PresetKind.Competitive));
-        Assert.Equal("true", Blur(PresetKind.Balanced));
-        Assert.Equal("true", Blur(PresetKind.Quality));
+        string Blur(GamePresetKind k) => GamePresetOptions.For(k, "1.8.9").Single(e => e.Key == "menublur.inventory").Value;
+        Assert.Equal("false", Blur(GamePresetKind.Competitive));
+        Assert.Equal("true", Blur(GamePresetKind.Balanced));
+        Assert.Equal("true", Blur(GamePresetKind.Quality));
     }
 
     [Fact]
     public void CompetitiveKeepsCritParticlesAndTheOriginTogglesAreThere()
     {
-        var c = PresetOptions.For(PresetKind.Competitive, "1.8.9");
-        Assert.Equal("1", c.Single(e => e.Key == "particles" && e.File == PresetFile.Options).Value); // decreased, not minimal
-        Assert.DoesNotContain(c, e => e.Key == "particles.mode"); // Particle Changer "Reduced" would drop crits
+        var c = GamePresetOptions.For(GamePresetKind.Competitive, "1.8.9");
+        Assert.Equal("1", c.Single(e => e.Key == "particles" && e.File == GamePresetFile.Options).Value); // decreased, not minimal
+        // Particle Changer "Reduced" would drop crits, so no preset uses it.
+        foreach (var kind in Enum.GetValues<GamePresetKind>())
+            Assert.Equal("All", GamePresetOptions.For(kind, "1.8.9").Single(e => e.Key == "particles.mode").Value);
         foreach (var key in new[] { "@general.cosmeticEffects", "@performance.entityDistance", "@performance.tileEntityDistance", "particles.enabled" })
             Assert.Contains(c, e => e.Key == key);
     }
 
     [Fact]
+    public void EveryPresetWritesTheWholeParticleChangerSoSwitchingIsOrderIndependent()
+    {
+        foreach (var kind in Enum.GetValues<GamePresetKind>())
+        {
+            var b = GamePresetOptions.For(kind, "1.8.9");
+            foreach (var key in new[] { "particles.enabled", "particles.hideBlockBreak", "particles.hideAll", "particles.mode" })
+                Assert.Contains(b, e => e.Key == key);
+            Assert.Equal("true", b.Single(e => e.Key == "particles.enabled").Value);
+            Assert.Equal("false", b.Single(e => e.Key == "particles.hideAll").Value);
+        }
+        Assert.Equal("true", GamePresetOptions.For(GamePresetKind.Competitive, "1.8.9").Single(e => e.Key == "particles.hideBlockBreak").Value);
+        Assert.Equal("false", GamePresetOptions.For(GamePresetKind.Balanced, "1.8.9").Single(e => e.Key == "particles.hideBlockBreak").Value);
+    }
+
+    [Fact]
+    public void ValuesStayInsideTheKnownOptiFineRanges()
+    {
+        // Ranges as the option cycling works in OptiFine 1.8.9. Confirmed from Origin's own source: ofClouds 0-3.
+        // The rest follow the ranges players see in the video settings and each default in
+        // tools/bench/optifine-keys-189.txt must sit inside its range (the cross-check). A value outside a range
+        // may clamp to another setting, which is how ofVignette "3" (Fancy) slipped in once.
+        var ranges = new Dictionary<string, (int Min, int Max)>
+        {
+            ["ofVignette"] = (0, 2),       // default / fast / fancy; Fast draws none
+            ["ofClouds"] = (0, 3),         // default / fast / fancy / off
+            ["ofFogType"] = (1, 3),        // fast / fancy / off
+            ["ofTrees"] = (0, 2),
+            ["ofAnimatedWater"] = (0, 2),  // default / fast / off
+            ["ofAnimatedLava"] = (0, 2),
+            ["ofDynamicLights"] = (1, 3),  // fast / fancy / off
+            ["ofBetterGrass"] = (1, 3),
+            ["ofConnectedTextures"] = (1, 3),
+        };
+        var defaults = File.ReadAllLines(KeysFile).Where(l => l.Contains(':') && !l.StartsWith('#'))
+            .ToDictionary(l => l.Split(':')[0], l => l[(l.IndexOf(':') + 1)..]);
+        foreach (var (key, (min, max)) in ranges)
+        {
+            var def = int.Parse(defaults[key]);
+            Assert.InRange(def, min, max);
+            foreach (var kind in Enum.GetValues<GamePresetKind>())
+                Assert.InRange(int.Parse(GamePresetOptions.For(kind, "1.8.9").Single(e => e.Key == key).Value), min, max);
+        }
+    }
+
+    [Fact]
     public void TheThreePresetsDiffer()
     {
-        string Sig(PresetKind k) => string.Join("|", PresetOptions.For(k, "1.8.9").Select(e => e.Key + "=" + e.Value));
-        Assert.Equal(3, Enum.GetValues<PresetKind>().Select(Sig).Distinct().Count());
+        string Sig(GamePresetKind k) => string.Join("|", GamePresetOptions.For(k, "1.8.9").Select(e => e.Key + "=" + e.Value));
+        Assert.Equal(3, Enum.GetValues<GamePresetKind>().Select(Sig).Distinct().Count());
     }
 }
 
-public class PresetFilesTests
+public class GamePresetFilesTests
 {
     // tools/bench/presets-189/<name>.json is generated from the C# table (the one source). The test fails when a
-    // checked-in file drifts; ORIGIN_REGEN_PRESETS=1 dotnet test --filter PresetFilesTests rewrites them.
+    // checked-in file drifts; ORIGIN_REGEN_PRESETS=1 dotnet test --filter GamePresetFilesTests rewrites them.
     [Theory]
-    [InlineData(PresetKind.Competitive, "competitive")]
-    [InlineData(PresetKind.Balanced, "balanced")]
-    [InlineData(PresetKind.Quality, "quality")]
-    public void BenchJsonMatchesTheTable(PresetKind kind, string name)
+    [InlineData(GamePresetKind.Competitive, "competitive")]
+    [InlineData(GamePresetKind.Balanced, "balanced")]
+    [InlineData(GamePresetKind.Quality, "quality")]
+    public void BenchJsonMatchesTheTable(GamePresetKind kind, string name)
     {
         var path = RepoFiles.Path_("tools", "bench", "presets-189", name + ".json");
-        var expected = PresetOptions.ToBenchJson(kind);
+        var expected = GamePresetOptions.ToBenchJson(kind);
         if (Environment.GetEnvironmentVariable("ORIGIN_REGEN_PRESETS") == "1")
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -159,13 +206,13 @@ public class PresetFilesTests
     }
 
     [Theory]
-    [InlineData(PresetKind.Competitive)]
-    [InlineData(PresetKind.Balanced)]
-    [InlineData(PresetKind.Quality)]
-    public void BenchJsonIsTheShapeProd189Reads(PresetKind kind)
+    [InlineData(GamePresetKind.Competitive)]
+    [InlineData(GamePresetKind.Balanced)]
+    [InlineData(GamePresetKind.Quality)]
+    public void BenchJsonIsTheShapeProd189Reads(GamePresetKind kind)
     {
         // prod189.py apply_preset: {"options": {...}, "optionsof": {...}} with every value written through "%s:%s".
-        using var doc = System.Text.Json.JsonDocument.Parse(PresetOptions.ToBenchJson(kind));
+        using var doc = System.Text.Json.JsonDocument.Parse(GamePresetOptions.ToBenchJson(kind));
         foreach (var section in new[] { "options", "optionsof" })
         {
             Assert.Equal(System.Text.Json.JsonValueKind.Object, doc.RootElement.GetProperty(section).ValueKind);
@@ -175,18 +222,18 @@ public class PresetFilesTests
     }
 }
 
-public sealed class PresetWriterTests : IDisposable
+public sealed class GamePresetWriterTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "origin-preset-tests-" + Guid.NewGuid().ToString("N"));
     private readonly string _gameDir;
     private GamePhase _phase = GamePhase.Idle;
-    private readonly PresetTarget _account;
+    private readonly GamePresetTarget _account;
 
-    public PresetWriterTests()
+    public GamePresetWriterTests()
     {
         _gameDir = Path.Combine(_root, "accounts", "offline");
         Directory.CreateDirectory(_gameDir);
-        _account = new PresetTarget(_gameDir, () => _phase);
+        _account = new GamePresetTarget(_gameDir, () => _phase);
     }
 
     public void Dispose()
@@ -259,10 +306,10 @@ public sealed class PresetWriterTests : IDisposable
     {
         WriteFiles();
         var before = Snapshot();
-        var preview = PresetWriter.Preview(_account, PresetKind.Competitive);
+        var preview = GamePresetWriter.Preview(_account, GamePresetKind.Competitive);
 
         Assert.Null(preview.Blocked);
-        var rd = preview.Changes.Single(c => c.File == PresetFile.Options && c.Key == "renderDistance");
+        var rd = preview.Changes.Single(c => c.File == GamePresetFile.Options && c.Key == "renderDistance");
         Assert.Equal("12", rd.Current);
         Assert.Equal("8", rd.New);
         var mip = preview.Changes.Single(c => c.Key == "mipmapLevels");
@@ -278,7 +325,7 @@ public sealed class PresetWriterTests : IDisposable
     public void PreviewOnlyListsKeysThatDiffer()
     {
         WriteFiles();
-        var preview = PresetWriter.Preview(_account, PresetKind.Quality);
+        var preview = GamePresetWriter.Preview(_account, GamePresetKind.Quality);
         Assert.DoesNotContain(preview.Changes, c => c.Key == "fancyGraphics"); // already true
         Assert.DoesNotContain(preview.Changes, c => c.Key == "ao");            // already 2
     }
@@ -289,8 +336,8 @@ public sealed class PresetWriterTests : IDisposable
     public void ApplyWritesOnlyChangedKeysAndKeepsEveryOtherLineInOrder()
     {
         WriteFiles();
-        var result = PresetWriter.Apply(_account, PresetKind.Competitive);
-        Assert.Equal(PresetStatus.Done, result.Status);
+        var result = GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
+        Assert.Equal(GamePresetStatus.Done, result.Status);
 
         var lines = File.ReadAllText(OptionsPath).Split("\r\n");
         var original = OptionsTxt.Split("\r\n");
@@ -317,7 +364,7 @@ public sealed class PresetWriterTests : IDisposable
     public void ApplyWritesOptiFineAndOriginKeys()
     {
         WriteFiles();
-        PresetWriter.Apply(_account, PresetKind.Competitive);
+        GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
         var of = Map(File.ReadAllText(OfPath));
         Assert.Equal("true", of["ofFastMath"]);
         Assert.Equal("false", of["ofFastRender"]);
@@ -341,11 +388,11 @@ public sealed class PresetWriterTests : IDisposable
     public void ApplyWritesTheUndoRecordFirst()
     {
         WriteFiles();
-        PresetWriter.Apply(_account, PresetKind.Balanced);
+        GamePresetWriter.Apply(_account, GamePresetKind.Balanced);
         Assert.True(File.Exists(UndoPath));
-        var info = PresetWriter.PendingUndo(_account);
+        var info = GamePresetWriter.PendingUndo(_account);
         Assert.NotNull(info);
-        Assert.Equal(PresetKind.Balanced, info!.Kind);
+        Assert.Equal(GamePresetKind.Balanced, info!.Kind);
         // No temp files are left behind.
         Assert.DoesNotContain(Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories), f => f.EndsWith(".tmp"));
     }
@@ -355,39 +402,39 @@ public sealed class PresetWriterTests : IDisposable
     {
         WriteFiles();
         var original = Snapshot();
-        PresetWriter.Apply(_account, PresetKind.Quality);
-        var again = PresetWriter.Apply(_account, PresetKind.Quality);
-        Assert.Equal(PresetStatus.NothingToChange, again.Status);
+        GamePresetWriter.Apply(_account, GamePresetKind.Quality);
+        var again = GamePresetWriter.Apply(_account, GamePresetKind.Quality);
+        Assert.Equal(GamePresetStatus.NothingToChange, again.Status);
         Assert.True(again.Ok);
-        Assert.True(PresetWriter.Undo(_account).Ok);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
         AssertSame(original, Snapshot());
     }
 
     // ---- undo ----
 
     [Theory]
-    [InlineData(PresetKind.Competitive)]
-    [InlineData(PresetKind.Balanced)]
-    [InlineData(PresetKind.Quality)]
-    public void ApplyThenUndoIsByteIdentical(PresetKind kind)
+    [InlineData(GamePresetKind.Competitive)]
+    [InlineData(GamePresetKind.Balanced)]
+    [InlineData(GamePresetKind.Quality)]
+    public void ApplyThenUndoIsByteIdentical(GamePresetKind kind)
     {
         WriteFiles();
         var before = Snapshot();
-        Assert.Equal(PresetStatus.Done, PresetWriter.Apply(_account, kind).Status);
+        Assert.Equal(GamePresetStatus.Done, GamePresetWriter.Apply(_account, kind).Status);
         Assert.NotEqual(Convert.ToHexString(before[0]!), Convert.ToHexString(File.ReadAllBytes(OptionsPath)));
 
-        var undo = PresetWriter.Undo(_account);
-        Assert.Equal(PresetStatus.Done, undo.Status);
+        var undo = GamePresetWriter.Undo(_account);
+        Assert.Equal(GamePresetStatus.Done, undo.Status);
         AssertSame(before, Snapshot());
         Assert.False(File.Exists(UndoPath));
-        Assert.Null(PresetWriter.PendingUndo(_account));
+        Assert.Null(GamePresetWriter.PendingUndo(_account));
     }
 
     [Fact]
     public void UndoRestoresKeysExactlyEvenAfterTheGameRewroteTheFiles()
     {
         WriteFiles();
-        PresetWriter.Apply(_account, PresetKind.Competitive);
+        GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
 
         // The player ran the game: it re-saved options.txt with a changed unrelated key and a new line, the order moved,
         // and Origin reformatted its config. The file no longer matches what we wrote, so Undo works key by key.
@@ -395,7 +442,7 @@ public sealed class PresetWriterTests : IDisposable
         File.WriteAllText(OptionsPath, text);
         File.WriteAllText(OriginPath, File.ReadAllText(OriginPath).Replace("\n", "\r\n"));
 
-        Assert.True(PresetWriter.Undo(_account).Ok);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
 
         var map = Map(File.ReadAllText(OptionsPath));
         var orig = Map(OptionsTxt);
@@ -420,8 +467,8 @@ public sealed class PresetWriterTests : IDisposable
     {
         WriteFiles();
         var before = Snapshot();
-        var r = PresetWriter.Undo(_account);
-        Assert.Equal(PresetStatus.Failed, r.Status);
+        var r = GamePresetWriter.Undo(_account);
+        Assert.Equal(GamePresetStatus.Failed, r.Status);
         Assert.Contains("nothing to undo", r.Message, StringComparison.OrdinalIgnoreCase);
         AssertSame(before, Snapshot());
     }
@@ -438,19 +485,19 @@ public sealed class PresetWriterTests : IDisposable
         var before = Snapshot();
         _phase = phase;
 
-        var preview = PresetWriter.Preview(_account, PresetKind.Competitive);
+        var preview = GamePresetWriter.Preview(_account, GamePresetKind.Competitive);
         Assert.NotNull(preview.Blocked);
-        var r = PresetWriter.Apply(_account, PresetKind.Competitive);
-        Assert.Equal(PresetStatus.Refused, r.Status);
+        var r = GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
+        Assert.Equal(GamePresetStatus.Refused, r.Status);
         Assert.Contains("1.8.9", r.Message);
         AssertSame(before, Snapshot());
         Assert.False(File.Exists(UndoPath));
 
         _phase = GamePhase.Idle;
-        Assert.Equal(PresetStatus.Done, PresetWriter.Apply(_account, PresetKind.Competitive).Status);
+        Assert.Equal(GamePresetStatus.Done, GamePresetWriter.Apply(_account, GamePresetKind.Competitive).Status);
         _phase = phase;
         var after = Snapshot();
-        Assert.Equal(PresetStatus.Refused, PresetWriter.Undo(_account).Status);
+        Assert.Equal(GamePresetStatus.Refused, GamePresetWriter.Undo(_account).Status);
         AssertSame(after, Snapshot());
         Assert.True(File.Exists(UndoPath));
     }
@@ -458,16 +505,16 @@ public sealed class PresetWriterTests : IDisposable
     [Fact]
     public void ARunningGameInAnotherVersionDoesNotBlockThisOne()
     {
-        // PresetTarget.ForAccount only reports a phase while the account's game is 1.8.9.
+        // GamePresetTarget.ForAccount only reports a phase while the account's game is 1.8.9.
         var book = new AccountLaunchBook();
         var ticket = book.BeginPrepare("offline", "1.21.1");
         Assert.NotNull(ticket);
-        var target = PresetTarget.ForAccount(book, "offline");
+        var target = GamePresetTarget.ForAccount(book, "offline");
         Assert.Equal(GamePhase.Idle, target.Phase());
         book.EndPrepare(ticket!);
 
         var t189 = book.BeginPrepare("offline", "1.8.9");
-        Assert.Equal(GamePhase.Preparing, PresetTarget.ForAccount(book, "offline").Phase());
+        Assert.Equal(GamePhase.Preparing, GamePresetTarget.ForAccount(book, "offline").Phase());
         book.EndPrepare(t189!);
     }
 
@@ -477,9 +524,9 @@ public sealed class PresetWriterTests : IDisposable
         WriteFiles();
         var before = Snapshot();
         var calls = 0;
-        var racing = new PresetTarget(_gameDir, () => ++calls <= 1 ? GamePhase.Idle : GamePhase.Running);
-        var r = PresetWriter.Apply(racing, PresetKind.Competitive);
-        Assert.Equal(PresetStatus.Refused, r.Status);
+        var racing = new GamePresetTarget(_gameDir, () => ++calls <= 1 ? GamePhase.Idle : GamePhase.Running);
+        var r = GamePresetWriter.Apply(racing, GamePresetKind.Competitive);
+        Assert.Equal(GamePresetStatus.Refused, r.Status);
         AssertSame(before, Snapshot());
         Assert.False(File.Exists(UndoPath));
     }
@@ -490,10 +537,10 @@ public sealed class PresetWriterTests : IDisposable
     public void AMissingOptionsOfIsCreatedWithJustThePresetKeysAndUndoDeletesIt()
     {
         WriteFiles(of: false);
-        var preview = PresetWriter.Preview(_account, PresetKind.Balanced);
+        var preview = GamePresetWriter.Preview(_account, GamePresetKind.Balanced);
         Assert.Contains(preview.Notes, n => n.Contains("optionsof.txt"));
 
-        Assert.Equal(PresetStatus.Done, PresetWriter.Apply(_account, PresetKind.Balanced).Status);
+        Assert.Equal(GamePresetStatus.Done, GamePresetWriter.Apply(_account, GamePresetKind.Balanced).Status);
         Assert.True(File.Exists(OfPath));
         var of = Map(File.ReadAllText(OfPath));
         Assert.Equal("true", of["ofFastMath"]);
@@ -501,7 +548,7 @@ public sealed class PresetWriterTests : IDisposable
         Assert.DoesNotContain("ofShowFps", of.Keys); // only preset keys: OptiFine fills in the rest itself
         Assert.EndsWith("\n", File.ReadAllText(OfPath));
 
-        Assert.True(PresetWriter.Undo(_account).Ok);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
         Assert.False(File.Exists(OfPath));
     }
 
@@ -509,12 +556,12 @@ public sealed class PresetWriterTests : IDisposable
     public void ABrandNewFolderGetsBothFilesAndUndoRemovesBoth()
     {
         // Nothing in the folder yet: options.txt and optionsof.txt are created, the Origin config is not.
-        var r = PresetWriter.Apply(_account, PresetKind.Quality);
-        Assert.Equal(PresetStatus.Done, r.Status);
+        var r = GamePresetWriter.Apply(_account, GamePresetKind.Quality);
+        Assert.Equal(GamePresetStatus.Done, r.Status);
         Assert.True(File.Exists(OptionsPath));
         Assert.True(File.Exists(OfPath));
         Assert.False(File.Exists(OriginPath));
-        Assert.True(PresetWriter.Undo(_account).Ok);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
         Assert.False(File.Exists(OptionsPath));
         Assert.False(File.Exists(OfPath));
     }
@@ -523,23 +570,23 @@ public sealed class PresetWriterTests : IDisposable
     public void TheOriginConfigIsNeverCreatedBecauseTheModSeedsItsDefaultsOnlyWhenItIsAbsent()
     {
         WriteFiles(origin: false);
-        var preview = PresetWriter.Preview(_account, PresetKind.Competitive);
+        var preview = GamePresetWriter.Preview(_account, GamePresetKind.Competitive);
         Assert.Contains(preview.Notes, n => n.Contains("Origin's own settings"));
-        Assert.DoesNotContain(preview.Changes, c => c.File == PresetFile.Origin);
-        Assert.True(PresetWriter.Apply(_account, PresetKind.Competitive).Ok);
+        Assert.DoesNotContain(preview.Changes, c => c.File == GamePresetFile.Origin);
+        Assert.True(GamePresetWriter.Apply(_account, GamePresetKind.Competitive).Ok);
         Assert.False(File.Exists(OriginPath));
         // The label ignores Origin keys it could not apply, so the applied preset still reads as itself.
-        Assert.Equal("Competitive", PresetWriter.CurrentLabel(_account));
+        Assert.Equal("Competitive", GamePresetWriter.CurrentLabel(_account));
     }
 
     [Fact]
     public void AMissingGameFolderIsNotCreated()
     {
-        var gone = new PresetTarget(Path.Combine(_root, "accounts", "never-played"), () => GamePhase.Idle);
-        var r = PresetWriter.Apply(gone, PresetKind.Balanced);
-        Assert.Equal(PresetStatus.Failed, r.Status);
+        var gone = new GamePresetTarget(Path.Combine(_root, "accounts", "never-played"), () => GamePhase.Idle);
+        var r = GamePresetWriter.Apply(gone, GamePresetKind.Balanced);
+        Assert.Equal(GamePresetStatus.Failed, r.Status);
         Assert.False(Directory.Exists(gone.GameDir)); // AccountSeed seeds a folder only while it does not exist
-        Assert.Equal("Custom", PresetWriter.CurrentLabel(gone));
+        Assert.Equal("Custom", GamePresetWriter.CurrentLabel(gone));
     }
 
     [Fact]
@@ -548,12 +595,12 @@ public sealed class PresetWriterTests : IDisposable
         WriteFiles();
         File.WriteAllBytes(OptionsPath, new byte[64]); // a crash mid-write: all NUL
         var before = Snapshot();
-        var r = PresetWriter.Apply(_account, PresetKind.Competitive);
-        Assert.Equal(PresetStatus.Failed, r.Status);
+        var r = GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
+        Assert.Equal(GamePresetStatus.Failed, r.Status);
         Assert.Contains("options.txt", r.Message);
         AssertSame(before, Snapshot());
         Assert.False(File.Exists(UndoPath));
-        Assert.Equal("Custom", PresetWriter.CurrentLabel(_account));
+        Assert.Equal("Custom", GamePresetWriter.CurrentLabel(_account));
     }
 
     [Fact]
@@ -562,11 +609,11 @@ public sealed class PresetWriterTests : IDisposable
         WriteFiles();
         Directory.CreateDirectory(P("config"));
         File.WriteAllText(OriginPath, "{ not json");
-        var r = PresetWriter.Apply(_account, PresetKind.Competitive);
-        Assert.Equal(PresetStatus.Done, r.Status);
+        var r = GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
+        Assert.Equal(GamePresetStatus.Done, r.Status);
         Assert.Equal("{ not json", File.ReadAllText(OriginPath));
         Assert.Equal("8", Map(File.ReadAllText(OptionsPath))["renderDistance"]);
-        Assert.True(PresetWriter.Undo(_account).Ok);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
         Assert.Equal("{ not json", File.ReadAllText(OriginPath));
     }
 
@@ -585,17 +632,17 @@ public sealed class PresetWriterTests : IDisposable
         File.WriteAllText(UndoPath, content);
         var before = Snapshot();
 
-        Assert.Null(PresetWriter.PendingUndo(_account));
-        var r = PresetWriter.Undo(_account);
-        Assert.Equal(PresetStatus.Failed, r.Status);
+        Assert.Null(GamePresetWriter.PendingUndo(_account));
+        var r = GamePresetWriter.Undo(_account);
+        Assert.Equal(GamePresetStatus.Failed, r.Status);
         Assert.Contains("damaged", r.Message);
         AssertSame(before, Snapshot());
         Assert.Equal(content, File.ReadAllText(UndoPath)); // left in place
 
         // Applying a preset again starts a fresh, working undo and keeps the damaged one aside.
-        Assert.Equal(PresetStatus.Done, PresetWriter.Apply(_account, PresetKind.Competitive).Status);
+        Assert.Equal(GamePresetStatus.Done, GamePresetWriter.Apply(_account, GamePresetKind.Competitive).Status);
         Assert.True(File.Exists(UndoPath + ".bad"));
-        Assert.True(PresetWriter.Undo(_account).Ok);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
         AssertSame(before, Snapshot());
     }
 
@@ -604,12 +651,12 @@ public sealed class PresetWriterTests : IDisposable
     {
         WriteFiles();
         var before = Snapshot();
-        PresetWriter.Apply(_account, PresetKind.Quality);
+        GamePresetWriter.Apply(_account, GamePresetKind.Quality);
         var good = File.ReadAllText(UndoPath);
         var afterApply = Snapshot();
         File.WriteAllText(UndoPath, good[..(good.Length / 2)]);
 
-        Assert.Equal(PresetStatus.Failed, PresetWriter.Undo(_account).Status);
+        Assert.Equal(GamePresetStatus.Failed, GamePresetWriter.Undo(_account).Status);
         AssertSame(afterApply, Snapshot());
         _ = before;
     }
@@ -622,7 +669,7 @@ public sealed class PresetWriterTests : IDisposable
         File.WriteAllText(UndoPath, "{\"schema\":1,\"version\":\"1.8.9\",\"kind\":\"Balanced\",\"appliedUtc\":\"2026-01-01T00:00:00Z\","
             + "\"files\":[{\"file\":\"..\\\\..\\\\evil.txt\",\"existed\":false,\"writtenSha256\":\"x\",\"keys\":[]}]}");
         var before = Snapshot();
-        Assert.Equal(PresetStatus.Failed, PresetWriter.Undo(_account).Status);
+        Assert.Equal(GamePresetStatus.Failed, GamePresetWriter.Undo(_account).Status);
         AssertSame(before, Snapshot());
     }
 
@@ -633,8 +680,8 @@ public sealed class PresetWriterTests : IDisposable
         WriteFiles();
         File.SetAttributes(OfPath, FileAttributes.ReadOnly); // options.txt is written first, then this one fails
         var before = Snapshot();
-        var r = PresetWriter.Apply(_account, PresetKind.Competitive);
-        Assert.Equal(PresetStatus.Failed, r.Status);
+        var r = GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
+        Assert.Equal(GamePresetStatus.Failed, r.Status);
         File.SetAttributes(OfPath, FileAttributes.Normal);
         AssertSame(before, Snapshot());
         Assert.False(File.Exists(UndoPath)); // nothing changed, so nothing to undo
@@ -646,11 +693,11 @@ public sealed class PresetWriterTests : IDisposable
     public void LabelIsCustomUntilAPresetIsAppliedThenNamesIt()
     {
         WriteFiles();
-        Assert.Equal("Custom", PresetWriter.CurrentLabel(_account));
-        foreach (var kind in new[] { PresetKind.Competitive, PresetKind.Balanced, PresetKind.Quality, PresetKind.Competitive })
+        Assert.Equal("Custom", GamePresetWriter.CurrentLabel(_account));
+        foreach (var kind in new[] { GamePresetKind.Competitive, GamePresetKind.Balanced, GamePresetKind.Quality, GamePresetKind.Competitive })
         {
-            Assert.True(PresetWriter.Apply(_account, kind).Ok);
-            Assert.Equal(kind.ToString(), PresetWriter.CurrentLabel(_account));
+            Assert.True(GamePresetWriter.Apply(_account, kind).Ok);
+            Assert.Equal(kind.ToString(), GamePresetWriter.CurrentLabel(_account));
         }
     }
 
@@ -658,30 +705,30 @@ public sealed class PresetWriterTests : IDisposable
     public void LabelGoesCustomWhenAnyPresetKeyIsChanged()
     {
         WriteFiles();
-        PresetWriter.Apply(_account, PresetKind.Balanced);
-        Assert.Equal("Balanced", PresetWriter.CurrentLabel(_account));
+        GamePresetWriter.Apply(_account, GamePresetKind.Balanced);
+        Assert.Equal("Balanced", GamePresetWriter.CurrentLabel(_account));
 
         File.WriteAllText(OptionsPath, File.ReadAllText(OptionsPath).Replace("renderDistance:10", "renderDistance:11"));
-        Assert.Equal("Custom", PresetWriter.CurrentLabel(_account));
+        Assert.Equal("Custom", GamePresetWriter.CurrentLabel(_account));
     }
 
     [Fact]
     public void LabelSeesThroughHowMinecraftRewritesNumbers()
     {
         WriteFiles();
-        PresetWriter.Apply(_account, PresetKind.Quality);
+        GamePresetWriter.Apply(_account, GamePresetKind.Quality);
         // 1.8.9 reads "ao:true" as 2; a float-looking int is the same number.
         File.WriteAllText(OptionsPath, File.ReadAllText(OptionsPath).Replace("ao:2", "ao:true").Replace("renderDistance:14", "renderDistance:14.0"));
-        Assert.Equal("Quality", PresetWriter.CurrentLabel(_account));
+        Assert.Equal("Quality", GamePresetWriter.CurrentLabel(_account));
     }
 
     [Fact]
     public void LabelChangesWhenAnOriginKeyDiffers()
     {
         WriteFiles();
-        PresetWriter.Apply(_account, PresetKind.Competitive);
+        GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
         File.WriteAllText(OriginPath, File.ReadAllText(OriginPath).Replace("\"entityDistance\": 75", "\"entityDistance\": 90"));
-        Assert.Equal("Custom", PresetWriter.CurrentLabel(_account));
+        Assert.Equal("Custom", GamePresetWriter.CurrentLabel(_account));
     }
 
     [Fact]
@@ -689,15 +736,159 @@ public sealed class PresetWriterTests : IDisposable
     {
         WriteFiles();
         var originBefore = File.ReadAllBytes(OriginPath);
-        // Every Origin key Balanced wants is the mod's default (the particle changer stays untouched).
-        Assert.DoesNotContain(PresetWriter.Preview(_account, PresetKind.Balanced).Changes, c => c.File == PresetFile.Origin);
-        Assert.True(PresetWriter.Apply(_account, PresetKind.Balanced).Ok);
-        Assert.Equal(originBefore, File.ReadAllBytes(OriginPath));
+        // Every Origin key Balanced wants is the mod's default except one: it switches the particle changer on
+        // (pass-through) so a later switch from Competitive is order-independent. The fixture has it off.
+        var originChanges = GamePresetWriter.Preview(_account, GamePresetKind.Balanced).Changes.Where(c => c.File == GamePresetFile.Origin).ToList();
+        Assert.Equal(new[] { "particles.enabled" }, originChanges.Select(c => c.Key).ToArray());
+        Assert.True(GamePresetWriter.Apply(_account, GamePresetKind.Balanced).Ok);
+        Assert.NotEqual(originBefore, File.ReadAllBytes(OriginPath));
         // Going back from Competitive to Balanced writes the defaults explicitly, so the numbers really come back.
-        PresetWriter.Apply(_account, PresetKind.Competitive);
-        PresetWriter.Apply(_account, PresetKind.Balanced);
+        GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
+        GamePresetWriter.Apply(_account, GamePresetKind.Balanced);
         using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(OriginPath));
         Assert.Equal(100, json.RootElement.GetProperty("mods").GetProperty("@performance").GetProperty("entityDistance").GetInt32());
-        Assert.Equal("Balanced", PresetWriter.CurrentLabel(_account));
+        Assert.Equal("Balanced", GamePresetWriter.CurrentLabel(_account));
+    }
+
+    // ---- charset: 1.8.9 writes options.txt in the JVM default charset (Cp1252 on Windows), not UTF-8 ----
+
+    private static readonly Encoding Cp = Encoding.Latin1;
+
+    // Cafe with an acute e (0xE9), u-umlaut (0xFC), sharp s (0xDF) and the Cp1252 euro sign (0x80): none is valid UTF-8 here.
+    private const string NonAscii = "Caf\u00E9 \u00FC\u00DF \u0080 pack";
+
+    private void WriteNonAsciiFiles()
+    {
+        File.WriteAllBytes(OptionsPath, Cp.GetBytes(OptionsTxt.Replace("resourcePacks:[]", "resourcePacks:[\"" + NonAscii + ".zip\"]")
+            .Replace("lastServer:mc.example.net:25565", "lastServer:" + NonAscii)));
+        File.WriteAllBytes(OfPath, Cp.GetBytes(OptionsOf()));
+        Directory.CreateDirectory(P("config"));
+        File.WriteAllText(OriginPath, OriginJson, new UTF8Encoding(false));
+    }
+
+    private static bool Contains(byte[] haystack, byte[] needle) => haystack.AsSpan().IndexOf(needle) >= 0;
+
+    [Theory]
+    [InlineData(GamePresetKind.Competitive)]
+    [InlineData(GamePresetKind.Quality)]
+    public void NonAsciiPackAndServerNamesSurviveApplyAndUndoByteForByte(GamePresetKind kind)
+    {
+        WriteNonAsciiFiles();
+        var before = Snapshot();
+        Assert.True(GamePresetWriter.Apply(_account, kind).Ok);
+
+        var applied = File.ReadAllBytes(OptionsPath);
+        Assert.True(Contains(applied, Cp.GetBytes(NonAscii + ".zip")), "the pack name's raw bytes were rewritten");
+        Assert.True(Contains(applied, Cp.GetBytes("lastServer:" + NonAscii)));
+        Assert.False(Contains(applied, new byte[] { 0xEF, 0xBF, 0xBD }), "no UTF-8 replacement characters");
+
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
+        AssertSame(before, Snapshot());
+    }
+
+    [Fact]
+    public void NonAsciiBytesSurviveAKeyByKeyUndoToo()
+    {
+        WriteNonAsciiFiles();
+        GamePresetWriter.Apply(_account, GamePresetKind.Competitive);
+        // The game re-saved the file, so Undo can't use the byte-exact path.
+        File.AppendAllText(OptionsPath, "newVanillaOption:true\r\n", Cp);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
+        var after = File.ReadAllBytes(OptionsPath);
+        Assert.True(Contains(after, Cp.GetBytes("lastServer:" + NonAscii)));
+        Assert.True(Contains(after, Cp.GetBytes(NonAscii + ".zip")));
+        Assert.True(Contains(after, Cp.GetBytes("newVanillaOption:true")));
+    }
+
+    // ---- an earlier undo is never lost to a later Apply that does not finish ----
+
+    private string UndoText => File.ReadAllText(UndoPath);
+
+    [Fact]
+    public void ALateRefusalKeepsTheEarlierUndoRecord()
+    {
+        WriteFiles();
+        Assert.True(GamePresetWriter.Apply(_account, GamePresetKind.Balanced).Ok);
+        var undoBefore = UndoText;
+        var filesBefore = Snapshot();
+
+        var calls = 0;
+        var racing = new GamePresetTarget(_gameDir, () => ++calls <= 1 ? GamePhase.Idle : GamePhase.Running);
+        Assert.Equal(GamePresetStatus.Refused, GamePresetWriter.Apply(racing, GamePresetKind.Competitive).Status);
+
+        Assert.Equal(undoBefore, UndoText);
+        Assert.False(File.Exists(UndoPath + ".new"));
+        AssertSame(filesBefore, Snapshot());
+        Assert.Equal(GamePresetKind.Balanced, GamePresetWriter.PendingUndo(_account)!.Kind);
+    }
+
+    [Fact]
+    public void ARolledBackWriteKeepsTheEarlierUndoRecord()
+    {
+        if (!OperatingSystem.IsWindows()) return; // a read-only target blocks the rename only on Windows
+        WriteFiles();
+        Assert.True(GamePresetWriter.Apply(_account, GamePresetKind.Balanced).Ok);
+        var undoBefore = UndoText;
+        var filesBefore = Snapshot();
+
+        File.SetAttributes(OfPath, FileAttributes.ReadOnly);
+        Assert.Equal(GamePresetStatus.Failed, GamePresetWriter.Apply(_account, GamePresetKind.Competitive).Status);
+        File.SetAttributes(OfPath, FileAttributes.Normal);
+
+        Assert.Equal(undoBefore, UndoText);
+        Assert.False(File.Exists(UndoPath + ".new"));
+        AssertSame(filesBefore, Snapshot());
+        Assert.True(GamePresetWriter.Undo(_account).Ok); // and that earlier undo still works
+    }
+
+    [Fact]
+    public void AnApplyCutOffBeforeItsRecordSwapIsStillUndoable()
+    {
+        WriteFiles();
+        var before = Snapshot();
+        Assert.True(GamePresetWriter.Apply(_account, GamePresetKind.Quality).Ok);
+        // Simulate dying after the files were written but before the pending record was swapped in.
+        File.Move(UndoPath, UndoPath + ".new");
+        Assert.Equal(GamePresetKind.Quality, GamePresetWriter.PendingUndo(_account)!.Kind);
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
+        AssertSame(before, Snapshot());
+        Assert.False(File.Exists(UndoPath + ".new"));
+        Assert.False(File.Exists(UndoPath));
+    }
+
+    [Fact]
+    public void AStalePendingRecordFromAnApplyThatNeverWroteIsDropped()
+    {
+        WriteFiles();
+        Assert.True(GamePresetWriter.Apply(_account, GamePresetKind.Balanced).Ok);
+        var undoBefore = UndoText;
+        // A pending file that matches nothing on disk (a crash right after step 1, or junk).
+        File.WriteAllText(UndoPath + ".new", "not a record");
+        Assert.Equal(GamePresetKind.Balanced, GamePresetWriter.PendingUndo(_account)!.Kind);
+        Assert.True(GamePresetWriter.Apply(_account, GamePresetKind.Quality).Ok);
+        Assert.False(File.Exists(UndoPath + ".new"));
+        Assert.NotEqual(undoBefore, UndoText);
+    }
+
+    // ---- double click ----
+
+    [Fact]
+    public async Task TwoAppliesAtOnceRunOneAfterTheOtherAndTheSecondChangesNothing()
+    {
+        WriteFiles();
+        var before = Snapshot();
+        var start = new ManualResetEventSlim(false);
+        var tasks = Enumerable.Range(0, 2).Select(_ => Task.Run(() =>
+        {
+            start.Wait();
+            return GamePresetWriter.Apply(_account, GamePresetKind.Competitive).Status;
+        })).ToArray();
+        start.Set();
+        await Task.WhenAll(tasks);
+        var statuses = tasks.Select(t => t.Result).OrderBy(x => x).ToArray();
+        Assert.Equal(new[] { GamePresetStatus.Done, GamePresetStatus.NothingToChange }.OrderBy(x => x).ToArray(), statuses);
+        // The first run's undo record is the one that stayed, so Undo returns the files to the very start.
+        Assert.True(GamePresetWriter.Undo(_account).Ok);
+        AssertSame(before, Snapshot());
     }
 }

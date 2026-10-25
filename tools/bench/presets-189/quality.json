@@ -48,6 +48,9 @@
     "@performance.tileEntityDistance": "100",
     "menublur.inventory": "true",
     "menublur.pause": "true",
-    "particles.hideBlockBreak": "false"
+    "particles.enabled": "true",
+    "particles.hideBlockBreak": "false",
+    "particles.hideAll": "false",
+    "particles.mode": "All"
   }
 }

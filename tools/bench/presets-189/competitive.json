@@ -22,7 +22,7 @@
     "ofSunMoon": "true",
     "ofTrees": "1",
     "ofFogType": "3",
-    "ofVignette": "3",
+    "ofVignette": "1",
     "ofAnimatedWater": "2",
     "ofAnimatedLava": "2",
     "ofAnimatedPortal": "false",
@@ -49,6 +49,8 @@
     "menublur.inventory": "false",
     "menublur.pause": "false",
     "particles.enabled": "true",
-    "particles.hideBlockBreak": "true"
+    "particles.hideBlockBreak": "true",
+    "particles.hideAll": "false",
+    "particles.mode": "All"
   }
 }
