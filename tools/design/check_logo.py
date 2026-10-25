@@ -46,10 +46,10 @@ SKIP_DIRS = {".git", "node_modules", "obj", "bin", "build", ".gradle", ".claude"
 # Third-party minified libraries under a vendor/ folder (three.js defines TorusGeometry for everybody).
 VENDOR_MIN = re.compile(r"(?:^|/)vendor/[^/]+\.min\.js$")
 
-# The in-game "living rings" background field (launch experience v2, Will 2026-10-18) is a texture set, not the logo:
-# OriginScreenRenderer paints ring-0..3.png as a drifting backdrop. These exact paths are the only place those names
-# are allowed; retiring the field is a separate in-game unit.
-INGAME_RING_FIELD = re.compile(r"^src/mods/(?:shared|versions/[^/]+|staged/[^/]+)/.*/textures/ui/(?:ring-[0-3]\.png|rings\.json)$")
+# The old in-game "living rings" backdrop is retired everywhere (Will, 2026-10-25: "the only place you can use the
+# oval shapes thing is our logo"). Its ring-0..3.png / rings.json survive only in the two PULLED modules that never
+# ship (1.21.5, 1.12.2); anywhere else the ring-mark name rule below fails the build.
+INGAME_RING_FIELD = re.compile(r"^src/mods/versions/(?:1\.21\.5|1\.12\.2)/.*/textures/ui/(?:ring-[0-3]\.png|rings\.json)$")
 
 
 CODE_EXT = {".xaml", ".cs", ".java", ".kt", ".js", ".mjs", ".ts", ".html", ".htm", ".css", ".svg", ".py", ".json", ".glsl"}

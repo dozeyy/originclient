@@ -1,78 +1,24 @@
 #!/usr/bin/env python3
-"""Pre-render the Origin loading-screen background textures: four anti-aliased
-elliptical ring strokes + one subtle grain tile.
+"""Pre-render the Origin loading-screen backdrop textures: grain tile, radial
+glow and vignette.
 
-Why pre-rendered PNGs and not procedural drawing in-game: thin curved strokes
-drawn directly through Minecraft's blocky GUI coordinate space come out as
-jagged scattered pixels (a prior attempt hit exactly that — MEMORY.md
-2026-07-07 "read as messy scattered dots"). Baking each ring as a
-high-resolution, supersampled, anti-aliased texture puts the smoothness in the
-image itself; in-game we only blit + rotate that texture (magnifying a smooth
-texture stays smooth — unlike the font, there's no fine detail being crushed
-down). The whole point of doing it here is that the PNGs can be viewed and
-verified smooth in this sandbox before they ever reach the game.
-
-Ring geometry/opacity/speed mirror the launcher's own animated background
-(`UI/Controls/OriginBackground.xaml(.cs)`) so launcher + website + in-game all
-read as one system: 4 tilted ellipses (~0.37 height:width), each spinning at
-its own period/direction, back rings fainter + softly blurred for depth.
+The old ring textures (ring-0..3.png + rings.json) are gone on purpose: Will,
+2026-10-25, "the only place you can use the oval shapes thing is our logo".
+Ring shapes exist only inside textures/ui/origin_logo.png; tools/design/check_logo.py
+fails the build if ring art comes back.
 
 Usage: python3 generate_textures.py
 Requires: Pillow
-Output: ../../src/mods/shared/src/client/resources/assets (then run tools/shared-sync/sync.py)/originclient/textures/ui/
-        ring-{0..3}.png, grain.png, rings.json
+Output: ../../src/mods/shared/src/client/resources/assets/originclient/textures/ui/
+        grain.png, radial_glow.png, vignette.png (then run tools/shared-sync/sync.py)
 """
-import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 OUT = (HERE / ".." / ".." / "src" / "mods" / "shared" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
-
-TEX = 768          # final square texture size per ring, px
-SS = 3             # supersample factor for anti-aliasing
-HEIGHT_RATIO = 0.37   # ellipse height / width (from the launcher's ~0.37 rings)
-FILL_FRAC = 0.90   # ellipse major axis as a fraction of the square canvas
-                    # (leaves padding so rotation never clips the stroke/blur)
-
-# Per-ring look, derived from OriginBackground.xaml(.cs). widthFrac is the
-# ellipse major axis as a fraction of the game screen width (launcher ring px
-# / ~1180px reference window). period/reverse drive the in-game rotation.
-RINGS = [
-    # name, widthFrac, strokePx(final tex), opacity, blur, angle0, periodSec, reverse
-    # Crisp thin hairlines, matching the original mockup
-    # (wordmark_preview.png): the two front rings are razor-sharp (blur 0),
-    # the two back rings get only a touch of blur for depth. The "blur all of
-    # them, dreamy" pass (commit 9614d07) muddied this; restore the clean look.
-    ("A", 0.59, 3.2, 0.42,  0.0,   0, 40, False),
-    ("B", 0.81, 2.8, 0.34,  0.0,  45, 65, True),
-    ("C", 1.02, 2.5, 0.26,  1.4, 100, 90, False),
-    ("D", 1.27, 2.2, 0.20,  2.4,  15, 120, True),
-]
-
-
-def make_ring(stroke_px: float, blur: float) -> Image.Image:
-    """One white AA elliptical ring stroke on transparent, centered in a square."""
-    big = TEX * SS
-    canvas = Image.new("L", (big, big), 0)  # coverage mask, drawn opaque
-    draw = ImageDraw.Draw(canvas)
-
-    major = FILL_FRAC * big
-    minor = major * HEIGHT_RATIO
-    cx = cy = big / 2
-    bbox = [cx - major / 2, cy - minor / 2, cx + major / 2, cy + minor / 2]
-    width = max(1, round(stroke_px * SS))
-    draw.ellipse(bbox, outline=255, width=width)
-
-    small = canvas.resize((TEX, TEX), Image.LANCZOS)  # supersample -> AA edges
-    if blur > 0:
-        small = small.filter(ImageFilter.GaussianBlur(blur))
-
-    white = Image.new("L", (TEX, TEX), 255)
-    return Image.merge("RGBA", (white, white, white, small))  # white glyph, coverage as alpha
-
 
 def make_grain() -> Image.Image:
     """Tileable, very low-contrast grayscale grain (website-style, lighter).
@@ -147,18 +93,6 @@ def make_vignette() -> Image.Image:
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    meta = {"texSize": TEX, "heightRatio": HEIGHT_RATIO, "fillFrac": FILL_FRAC, "rings": []}
-
-    for i, (name, width_frac, stroke, opacity, blur, angle0, period, reverse) in enumerate(RINGS):
-        img = make_ring(stroke, blur)
-        img.save(OUT / f"ring-{i}.png")
-        meta["rings"].append({
-            "index": i, "name": name,
-            "widthFrac": width_frac, "opacity": opacity,
-            "angle0": angle0, "periodSeconds": period, "reverse": reverse,
-        })
-        print(f"ring {name}: widthFrac={width_frac} stroke={stroke}px blur={blur} opacity={opacity} -> ring-{i}.png")
-
     make_grain().save(OUT / "grain.png")
     print("grain -> grain.png")
 
@@ -167,9 +101,6 @@ def main():
 
     make_vignette().save(OUT / "vignette.png")
     print("vignette -> vignette.png")
-
-    (OUT / "rings.json").write_text(json.dumps(meta, indent=2))
-    print(f"metadata -> rings.json")
 
 
 if __name__ == "__main__":

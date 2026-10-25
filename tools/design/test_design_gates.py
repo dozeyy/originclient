@@ -146,10 +146,13 @@ class LogoGate(unittest.TestCase):
         self.assertEqual(self._hits({"src/App/UI/Controls/OriginMark.xaml": "<UserControl/>"}), ["src/App/UI/Controls/OriginMark.xaml"])
         self.assertEqual(self._hits({"website/ring-1.png": b"x"}), ["website/ring-1.png"])
 
-    def test_ingame_ring_backdrop_is_the_only_allowed_ring_asset(self):
-        ok = "src/mods/versions/1.21.1/src/client/resources/assets/originclient/textures/ui/ring-0.png"
-        self.assertEqual(self._hits({ok: b"x", ok.replace("ring-0.png", "rings.json"): "{}"}), [])
-        self.assertEqual(self._hits({"src/mods/versions/1.21.1/other/ring-0.png": b"x"}), ["src/mods/versions/1.21.1/other/ring-0.png"])
+    def test_ring_backdrop_art_only_survives_in_pulled_modules(self):
+        pulled = "src/mods/versions/1.21.5/src/client/resources/assets/originclient/textures/ui/ring-0.png"
+        self.assertEqual(self._hits({pulled: b"x", pulled.replace("ring-0.png", "rings.json"): "{}"}), [])
+        live = "src/mods/versions/1.21.1/src/client/resources/assets/originclient/textures/ui/ring-0.png"
+        self.assertEqual(self._hits({live: b"x"}), [live])
+        shared = "src/mods/shared/src/client/resources/assets/originclient/textures/ui/rings.json"
+        self.assertEqual(self._hits({shared: "{}"}), [shared])
 
     def test_unofficial_logo_image_is_caught(self):
         self.assertEqual(self._hits({"src/App/Assets/origin-logo.png": b"a redrawn logo"}), ["src/App/Assets/origin-logo.png"])
