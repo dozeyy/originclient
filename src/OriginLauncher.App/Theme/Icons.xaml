@@ -9,6 +9,8 @@
          at the slot's edge, which is how the Friends drawer's "..." lost a dot (2026-10-18). -->
     <system:Double x:Key="Icon.Size">18</system:Double>
     <system:Double x:Key="Icon.SizeSmall">14</system:Double>
+    <!-- The small "opens in your browser" arrow beside a link's label in the top bar. -->
+    <system:Double x:Key="Icon.SizeLinkHint">12</system:Double>
 
     <Style x:Key="Icon.Base" TargetType="Path">
         <Setter Property="Stretch" Value="Uniform"/>
@@ -25,6 +27,36 @@
     <Style x:Key="Icon.Small" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
         <Setter Property="Width" Value="{StaticResource Icon.SizeSmall}"/>
         <Setter Property="Height" Value="{StaticResource Icon.SizeSmall}"/>
+    </Style>
+
+    <!-- External-link arrow beside the label of a button that leaves the launcher (Website, Store). It always takes its
+         space (opacity, never visibility), so showing it on hover moves nothing; it takes the button's text colour. -->
+    <Style x:Key="Icon.LinkHint" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
+        <Setter Property="Width" Value="{StaticResource Icon.SizeLinkHint}"/>
+        <Setter Property="Height" Value="{StaticResource Icon.SizeLinkHint}"/>
+        <Setter Property="Data" Value="{StaticResource Icon.External}"/>
+        <Setter Property="Margin" Value="6,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.8" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- Converted from design/icon-proposals/origin-icon-system-v2/svg/launcher.*.svg

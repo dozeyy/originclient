@@ -115,7 +115,6 @@
                     <Button x:Name="WebsiteButton" Click="WebsiteButton_Click"
                             Style="{StaticResource Button.Chrome}"
                             Padding="9,9,12,9" Margin="0,0,4,0" MinHeight="36"
-                            ToolTip="Opens originclient.org in your browser"
                             AutomationProperties.Name="Open the Origin website, originclient.org">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Emblem.Globe}" Style="{StaticResource Icon.Base}"
@@ -123,13 +122,13 @@
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <TextBlock Text="Website" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <Path Style="{StaticResource Icon.LinkHint}"/>
                         </StackPanel>
                     </Button>
                     <!-- Store: opens originclient.org/store in the default browser. Same ghost look as Website. -->
                     <Button x:Name="StoreButton" Click="StoreButton_Click"
                             Style="{StaticResource Button.Chrome}"
                             Padding="9,9,12,9" Margin="0,0,4,0" MinHeight="36"
-                            ToolTip="Opens originclient.org/store in your browser"
                             AutomationProperties.Name="Open the Origin store, originclient.org/store">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
@@ -137,6 +136,7 @@
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                             <TextBlock Text="Store" Style="{StaticResource Text.Status}" VerticalAlignment="Center" Margin="8,0,0,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <Path Style="{StaticResource Icon.LinkHint}"/>
                         </StackPanel>
                     </Button>
                     <!-- Import from another launcher: opens the Import page. -->
