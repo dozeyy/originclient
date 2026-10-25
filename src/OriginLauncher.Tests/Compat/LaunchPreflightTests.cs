@@ -53,6 +53,26 @@ public sealed class LaunchPreflightTests : IDisposable
     }
 
     [Fact]
+    public void AModThatNeedsMixinExtrasWithoutBundlingItStillLaunches()
+    {
+        // Fabric Loader (0.19.3: mixinextras-fabric-0.5.4.jar inside the loader jar) provides mixinextras itself.
+        Jar(_mods, "originclient-1.jar", "originclient");
+        Jar(_mods, "fabric-api-0.116.0.jar", "fabric-api", "0.116.0");
+        Jar(_mods, "uses-extras-1.0.jar", "usesextras", needs: new[] { ("mixinextras", ">=0.4.1") });
+        Jar(_mods, "uses-extras-id-1.0.jar", "usesextrasid", needs: new[] { ("com_github_llamalad7_mixinextras", "*") });
+        Run();
+        Assert.True(System.IO.File.Exists(_log));
+    }
+
+    [Fact]
+    public void MixinExtrasFromTheLoaderIsStillHeldToItsVersion()
+    {
+        // The loader's copy is 0.5.x: a mod that needs a newer one than that is a real mismatch, not a free pass.
+        Jar(_mods, "needs-new-extras-1.0.jar", "needsnew", needs: new[] { ("mixinextras", ">=9.0.0") });
+        Assert.Throws<IncompatibleModsException>(() => Run());
+    }
+
+    [Fact]
     public void AModForAnotherMinecraftVersionStopsTheLaunchWithASentence()
     {
         Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");

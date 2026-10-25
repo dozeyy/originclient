@@ -466,6 +466,9 @@ public static class CompatEngine
                 Put("minecraft", _platform.McVersion, null, true);
                 Put("java", string.IsNullOrEmpty(_platform.JavaVersion) ? null : _platform.JavaVersion, null, true); // unknown (pre-launch): meets any range
                 Put("fabricloader", _platform.LoaderVersion, null, true); // newest at install time: unknown, meets any range
+                // What the loader jar itself carries (mixinextras): a mod may depend on it without bundling it.
+                if (_platform.Loader == LoaderFamily.Fabric)
+                    foreach (var (id, version) in FabricLoaderMods.For(_platform.LoaderVersion)) Put(id, version, null, true);
                 if (_platform.BuiltIns != null)
                     foreach (var mod in _platform.BuiltIns.Mods) Put(mod.Id, mod.Version, null, true);
 
