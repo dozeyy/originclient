@@ -238,6 +238,22 @@ public static class RenderShots
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
 
+        // Website and Store with their words and the hover arrow's room: only a wide window has the width for them
+        // (the narrower ones drop them to icons). Laid out in-process at 1440 and 1280 wide, with and without the
+        // update badge; the top bar's own fit rule runs at that width (MainWindow.TourLayoutAt).
+        foreach (var (w, h) in new[] { (1440, 900), (1280, 800) })
+            foreach (var update in new[] { false, true })
+            {
+                window.TourShowUpdateBadge(update);
+                window.TourGoTo(0);
+                Pump(400);
+                var wide = new Size(w, h);
+                window.TourLayoutAt(wide);
+                Snap(window, outDir, $"15e-topbar-{w}x{h}{(update ? "-update" : "")}", size: wide, laidOut: true);
+                Pump(300);
+            }
+        window.TourShowUpdateBadge(false);
+
         // The top bar (Website and Store sit in it) at 1180 px, then at the narrowest, with and without an update waiting.
         window.Width = 1180;
         window.Height = 740;
@@ -496,9 +512,10 @@ public static class RenderShots
     /// </summary>
     /// <param name="adorners">Also draw the window's adorner layer (it sits outside window.Content): WPF's own keyboard
     /// focus frame lives there, so the focus shots (ImportShots 42/42b) pass true.</param>
-    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false)
+    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false, bool laidOut = false)
     {
-        window.UpdateLayout();
+        // laidOut: the caller already laid the content out at `size` (MainWindow.TourLayoutAt); a window layout pass would undo it.
+        if (!laidOut) window.UpdateLayout();
         var root = (FrameworkElement)window.Content;
         // WPF caps a window at the desktop's size (SM_CXMAXTRACK: 1044x788 on the 1024x768 CI desktop), so a
         // bigger window is laid out here instead: the window's content measured and arranged at that size, which

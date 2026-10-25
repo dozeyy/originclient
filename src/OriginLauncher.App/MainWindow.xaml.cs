@@ -406,6 +406,25 @@ public partial class MainWindow : Window
     internal void TourShowUpdateBadge(bool show) =>
         UpdateBadge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
 
+    /// <summary>
+    /// Render mode: lay the window's content out at <paramref name="size"/> (the OS caps a real window at the desktop's
+    /// size, 1044x788 on the CI desktop) and run the top bar's own fit rule there, so the shot shows what a window
+    /// that wide really does: the labels back, or not. The rule can toggle the labels and then slide the tabs, so
+    /// it runs until it has settled; the caller snaps with laidOut so nothing re-measures at the capped size.
+    /// </summary>
+    internal void TourLayoutAt(Size size)
+    {
+        var root = (FrameworkElement)Content;
+        for (var i = 0; i < 3; i++)
+        {
+            root.Measure(size);
+            root.Arrange(new Rect(size));
+            TopBar_LayoutChanged(this, null!);
+        }
+        root.Measure(size);
+        root.Arrange(new Rect(size));
+    }
+
     internal void TourGoTo(int page)
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
