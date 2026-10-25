@@ -63,6 +63,10 @@ public partial class HomePage : UserControl
     // now). Version may differ from the selected one; it is NOT saved as the pick.
     private sealed record LaunchTarget(string Version, string? Server = null, string? AccountKey = null);
 
+    // The mod set the player was just refused for and may start anyway with Play (Core/Compat/LaunchOverride):
+    // one account, one version, one set, one use.
+    private readonly LaunchOverride _modOverride = new();
+
     // One started game. Several can be alive at once — one per account.
     private sealed class RunningGame
     {
@@ -283,7 +287,7 @@ public partial class HomePage : UserControl
             FocusGame(key);
             return;
         }
-        await LaunchAsync(new LaunchTarget(version, server));
+        await LaunchAsync(new LaunchTarget(version, server), LaunchRoute.JoinServer);
     }
 
     // The version the player currently has selected. Held in memory (and mirrored
@@ -436,7 +440,7 @@ public partial class HomePage : UserControl
             || LoadingOverlay.Visibility == Visibility.Visible)
             return false;
 
-        _ = LaunchAsync();
+        _ = LaunchAsync(null, LaunchRoute.EnterKey);
         return true;
     }
 
@@ -448,6 +452,7 @@ public partial class HomePage : UserControl
         // The first account ever selected inherits the old one-folder-per-
         // version game data (a no-op once that is done — see AccountFolders).
         AccountFolders.EnsureMigrated(SelectedKey());
+        _modOverride.ContextChanged(SelectedKey(), _selectedVersion);
         // Switched to another account while this one's game is still starting:
         // the scene is that game's, not this account's Home — lower it (the
         // game carries on; the boot watch still follows it).
@@ -589,6 +594,7 @@ public partial class HomePage : UserControl
     private void OnVersionSelected(string version)
     {
         _selectedVersion = version;
+        _modOverride.ContextChanged(SelectedKey(), version);
         PrewarmSelectedVersion();
         _settings.SelectedVersion = version;
         SettingsStore.Update(s => s.SelectedVersion = version);
@@ -667,17 +673,17 @@ public partial class HomePage : UserControl
         SettingsStore.Update(s => s.PlayWithExternalMods = value);
     }
 
-    private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync();
+    private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync(null, LaunchRoute.Play);
 
     // The version picker's Launch button: adopt the chosen version, then launch
     // through the exact same path as Play.
     private async void OnLaunchRequested(string version)
     {
         OnVersionSelected(version);
-        await LaunchAsync();
+        await LaunchAsync(null, LaunchRoute.Picker);
     }
 
-    private async Task LaunchAsync(LaunchTarget? target = null)
+    private async Task LaunchAsync(LaunchTarget? target = null, LaunchRoute route = LaunchRoute.Play)
     {
         // Enter, a friend's Join and the version picker all land here: none of them may start a game mid-import.
         if (ImportRunState.IsApplying)
@@ -759,6 +765,9 @@ public partial class HomePage : UserControl
         // The mod profile this launch uses (null = plain launch): the selected
         // profile, only when it belongs to this version and personal mods are on.
         var profile = ProfileRules.ForLaunch(freshSettings.ModProfiles, freshSettings.SelectedProfileId, version, externalMods);
+        // Play, Enter and the picker's Launch may start a refused mod set anyway, but only while that account's
+        // status line still shows the refusal. Join server and the crash window's Retry check normally.
+        var overrideSetKey = _modOverride.Accept(route, key, version, SelectedKey() == key ? StatusText.Text : null);
         if (_launches.BeginPrepare(key, version) is not { } ticket) return;
         // An import must not start while this launch is still being prepared (the game process does not exist
         // yet, so the "is a game running" probe cannot see it). Held until this method ends - a `using`, so every
@@ -857,7 +866,7 @@ public partial class HomePage : UserControl
             // still marshals every stage update back correctly.
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
-                    version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token),
+                    version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey),
                 ticket.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
@@ -942,9 +951,10 @@ public partial class HomePage : UserControl
         {
             // Mods that cannot start the game, caught before it launched (Core/Compat/LaunchPreflight): a plain
             // sentence naming them, not a loader crash. TODO(Phase 5.3): a "Fix Compatibility" button here.
-            // The metadata can be wrong: telling the player is enough, so the next Play on this same set goes through.
-            LaunchPreflight.AcceptSet(ex.SetKey);
+            // The metadata can be wrong, so Play on this same set, for this account and version, while this line is
+            // still showing, starts it anyway (LaunchOverride). Join server and Retry never do.
             Note(key, ex.Message, LaunchTone.Error);
+            _modOverride.Refuse(key, version, ex.SetKey, ex.Message);
             WriteLaunchErrorLog(ex);
         }
         catch (MicrosoftAuthException ex)
@@ -1251,7 +1261,7 @@ public partial class HomePage : UserControl
                 Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
                 break;
         }
-        await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key));
+        await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key), LaunchRoute.Retry);
     }
 
     // Persists the full exception under /logs/ for diagnostics. Must never
@@ -1509,34 +1519,30 @@ public partial class HomePage : UserControl
         Error
     }
 
+    // The status row's margin as the XAML gives it (idle), kept so an error can swap it and the next line restore it.
+    private Thickness? _statusRowIdleMargin;
+
     private void SetStatus(string text, StatusTone tone)
     {
         StatusText.Text = text;
-        // An error is the one line the player must be able to read in full (which mods, what to do): it wraps to
-        // at most three lines at the same 360 px. It grows DOWNWARD only, from a fixed gap under the pills
-        // (Space.2) whatever the line count, and the row stays one line tall so Play never moves. Every other tone
-        // stays one trimmed line. The tooltip carries the full text either way as a fallback.
+        // An error is the one message the player must be able to read in full (which mods, what to do): it wraps to
+        // at most two rows at the status width (Size.StatusWidth) and its tooltip carries the whole text. The row
+        // takes two rows of height for EVERY error, one line or two, so the card rises by the same fixed amount
+        // whatever came before and the text never reaches into the window's bottom gutter (the card is
+        // bottom-anchored, 32 px up). Every other tone stays one trimmed line in the idle slot.
         var isError = tone == StatusTone.Error;
+        var line = (double)FindResource("Size.StatusLine");
+        _statusRowIdleMargin ??= StatusRow.Margin;
         StatusText.TextWrapping = isError ? TextWrapping.Wrap : TextWrapping.NoWrap;
         StatusText.MaxHeight = isError ? (double)FindResource("Size.StatusLinesMax") : double.PositiveInfinity;
+        StatusText.MinHeight = isError ? (double)FindResource("Size.StatusLinesMax") : 0;
         StatusText.ToolTip = isError ? text : null;
-        // A fixed Height on the row would also cap the text's own measure at one line, so the extra lines are
-        // cancelled out with a negative bottom margin and the layout still sees a single 16 px line. The top margin
-        // pulls the first line up from the row's idle gap to the error gap, and the dot follows the first line.
-        var line = (double)FindResource("Size.StatusLine");
-        var lift = isError ? Math.Max(0, StatusRow.Margin.Top - (double)FindResource("Space.2")) : 0;
-        var extra = 0.0;
-        if (isError)
-        {
-            // DesiredSize includes the margins, so measure with none (the previous error's would skew this one).
-            StatusText.Margin = new Thickness(0);
-            StatusText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            extra = Math.Max(0, StatusText.DesiredSize.Height - line);
-        }
-        StatusText.VerticalAlignment = VerticalAlignment.Top;
-        StatusText.Margin = new Thickness(0, -lift, 0, lift - extra);
-        StatusDot.VerticalAlignment = VerticalAlignment.Top;
-        StatusDot.Margin = new Thickness(0, (line - StatusDot.Height) / 2 - lift, 10, 0);
+        StatusRow.Margin = isError
+            ? new Thickness(_statusRowIdleMargin.Value.Left, (double)FindResource("Space.2"), _statusRowIdleMargin.Value.Right, _statusRowIdleMargin.Value.Bottom)
+            : _statusRowIdleMargin.Value;
+        StatusText.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
+        StatusDot.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
+        StatusDot.Margin = new Thickness(0, isError ? (line - StatusDot.Height) / 2 : 0, 10, 0);
         // Ready is the family accent (an indicator, so the one hue may show); the
         // rest keep their status colours. By reference: FamilyTheme swaps Brush.Acc.
         var brushKey = tone switch

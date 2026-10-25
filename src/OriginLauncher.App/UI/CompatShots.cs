@@ -50,6 +50,8 @@ internal static class CompatShots
             new[] { $"Old Mod: needs Minecraft 1.20.4, not {version}.", "Some Lib: it needs Fabric API." });
         Call(home, "SetStatus", new[] { ex.Message, tone });
         RenderShots.Pump(500);
+        var report = new System.Text.StringBuilder();
+        Measure(window, home, "31 (two short names)", report);
         RenderShots.Snap(window, outDir, "31-compat-home-blocked");
 
         // 2b. The same with long names and the "(and N more)" tail: the longest message the page will ever show.
@@ -58,7 +60,51 @@ internal static class CompatShots
             new[] { "a", "b", "c", "d", "e" });
         Call(home, "SetStatus", new[] { many.Message, tone });
         RenderShots.Pump(500);
+        Measure(window, home, "31b (long names, 3 more)", report);
         RenderShots.Snap(window, outDir, "31b-compat-home-blocked-long");
+
+        // The same two messages for 1 and 2 mods with the longest names, so every shape of the line is measured.
+        foreach (var (label, names) in new[]
+        {
+            ("one long name", new[] { "Zoomify Extended Edition Pro" }),
+            ("two long names", new[] { "Zoomify Extended Edition Pro", "Sodium Extra Optimized Renderer" }),
+            ("wide capitals", new[] { new string('W', 30), new string('W', 30), "x" }),
+        })
+        {
+            var e = new IncompatibleModsException(version, names, names);
+            Call(home, "SetStatus", new[] { e.Message, tone });
+            RenderShots.Pump(300);
+            Measure(window, home, label, report);
+        }
+        System.IO.File.WriteAllText(System.IO.Path.Combine(outDir, "31-measure.txt"), report.ToString());
+        Console.WriteLine(report.ToString());
+        if (report.ToString().Contains("FAIL")) throw new InvalidOperationException("Home error line out of bounds:\n" + report);
+    }
+
+    // Measures the status line the page really shows: each row's real width against the text box's own limit, the rows
+    // it wrapped to, and how far the bottom of the text is from the bottom of the window (at least 32 px, Space.5).
+    private static void Measure(MainWindow window, object home, string label, System.Text.StringBuilder report)
+    {
+        var text = (System.Windows.Controls.TextBlock)Field(home, "StatusText");
+        var rows = text.Text.Split('\n');
+        var widest = 0.0;
+        foreach (var row in rows)
+        {
+            var probe = new System.Windows.Controls.TextBlock
+            {
+                Text = row, FontFamily = text.FontFamily, FontSize = text.FontSize, FontWeight = text.FontWeight,
+            };
+            probe.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+            widest = Math.Max(widest, probe.DesiredSize.Width);
+        }
+        var bottom = text.TransformToAncestor(window).Transform(new System.Windows.Point(0, text.ActualHeight)).Y;
+        var gutter = window.ActualHeight - bottom;
+        var line = (double)text.FindResource("Size.StatusLine");
+        var wrapped = Math.Round(text.ActualHeight / line);
+        var ok = widest <= text.MaxWidth && gutter >= 32 && wrapped <= 2;
+        report.Append(ok ? "ok   " : "FAIL ").Append(label).Append(": widest row ").Append(Math.Round(widest))
+            .Append(" px of ").Append(text.MaxWidth).Append(", box ").Append(Math.Round(text.ActualHeight)).Append(" px tall, text bottom gutter ")
+            .Append(Math.Round(gutter, 1)).Append(" px\n");
     }
 
     private static object Get(object o, string name) =>

@@ -336,7 +336,9 @@ public partial class ModsPage : UserControl
 
         grid.Children.Add(IconWell(!mod.Enabled, mod));
 
-        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 12, 0) };
+        // The name column starts Space.3 after the icon well; the Replace and Remove prompts use the same gap, so the
+        // question lines up with the mod names above and below it.
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Space("Space.3"), 0, 12, 0) };
         if (added)
         {
             // Just dropped in: the name carries a small ADDED tag.

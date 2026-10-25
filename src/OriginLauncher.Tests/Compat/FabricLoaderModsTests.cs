@@ -9,16 +9,13 @@ namespace OriginLauncher.Tests.Compat;
 // cache of a machine that built the mod), the table must say what the jar says.
 public sealed class FabricLoaderModsTests
 {
-    [Fact]
+    [RealJarFact(RealJarSet.FabricLoader)]
     public void TheTableMatchesTheRealLoaderJarsWhereTheyAreOnDisk()
     {
-        var cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".gradle", "caches", "modules-2", "files-2.1", "net.fabricmc", "fabric-loader");
         foreach (var row in FabricLoaderMods.Verified)
         {
-            var folder = Path.Combine(cache, row.LoaderVersion);
-            if (!Directory.Exists(folder)) continue; // CI runners have no gradle cache; the rows were read on Will's PC
-            var jar = Directory.GetFiles(folder, $"fabric-loader-{row.LoaderVersion}.jar", SearchOption.AllDirectories).FirstOrDefault();
+            // A row whose loader jar is not in this gradle cache is not read here (the test is skipped when none is).
+            var jar = RealJars.FabricLoader(row.LoaderVersion);
             if (jar == null) continue;
 
             using var zip = ZipFile.OpenRead(jar);

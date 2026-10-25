@@ -39,8 +39,8 @@ public sealed class LaunchPreflightTests : IDisposable
         (string, string)[]? needs = null, (string, string)[]? breaks = null) =>
         ModImporterTests.WriteJar(folder, name, id, version, mc, needs, breaks);
 
-    private void Run(string version = "1.21.1", bool externalMods = true, string? profileFolder = null) =>
-        LaunchPreflight.Run(version, _mods, profileFolder, externalMods, IsManaged, IsProvisioned, _log);
+    private void Run(string version = "1.21.1", bool externalMods = true, string? profileFolder = null, string? overrideSetKey = null) =>
+        LaunchPreflight.Run(version, _mods, profileFolder, externalMods, IsManaged, IsProvisioned, _log, default, overrideSetKey);
 
     [Fact]
     public void ACompatibleSetLaunches()
@@ -73,18 +73,28 @@ public sealed class LaunchPreflightTests : IDisposable
     }
 
     [Fact]
-    public void PressingPlayAgainOnTheSameModSetLaunchesAnywayAndLogsIt()
+    public void PlayOnTheSameModSetLaunchesAnywayAndLogsIt()
     {
         Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
         var first = Assert.Throws<IncompatibleModsException>(() => Run());
         Assert.False(string.IsNullOrEmpty(first.SetKey));
 
-        // The player was told; Home remembers it and the next press goes through.
-        LaunchPreflight.AcceptSet(first.SetKey);
-        Run();
+        // The player was told and pressed Play: Home passes the refused set's key and the game goes.
+        Run(overrideSetKey: first.SetKey);
         var log = System.IO.File.ReadAllText(_log);
         Assert.Contains("THE PLAYER OVERRODE THIS", log);
         Assert.Contains("STOPS THE GAME: old", log);
+    }
+
+    [Fact]
+    public void WithoutTheKeyTheSameSetIsRefusedEveryTime()
+    {
+        Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
+        var first = Assert.Throws<IncompatibleModsException>(() => Run());
+        Run(overrideSetKey: first.SetKey);
+        // Nothing is remembered in the check itself: the next launch without the key is refused again.
+        Assert.Throws<IncompatibleModsException>(() => Run());
+        Assert.Throws<IncompatibleModsException>(() => Run());
     }
 
     [Fact]
@@ -92,11 +102,10 @@ public sealed class LaunchPreflightTests : IDisposable
     {
         Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
         var first = Assert.Throws<IncompatibleModsException>(() => Run());
-        LaunchPreflight.AcceptSet(first.SetKey);
 
-        // A different broken jar joins the set: new fingerprint, the check applies again.
+        // A different broken jar joins the set: new fingerprint, the key no longer matches, the check applies again.
         Jar(_mods, "older-1.0.jar", "older", mc: "~1.19.2");
-        var second = Assert.Throws<IncompatibleModsException>(() => Run());
+        var second = Assert.Throws<IncompatibleModsException>(() => Run(overrideSetKey: first.SetKey));
         Assert.NotEqual(first.SetKey, second.SetKey);
         Assert.Equal(2, second.Names.Count);
     }
@@ -105,9 +114,19 @@ public sealed class LaunchPreflightTests : IDisposable
     public void AnOverrideKeyNobodyGaveIsIgnored()
     {
         Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
-        LaunchPreflight.AcceptSet("not-a-real-key");
-        LaunchPreflight.AcceptSet("");
-        Assert.Throws<IncompatibleModsException>(() => Run());
+        Assert.Throws<IncompatibleModsException>(() => Run(overrideSetKey: "not-a-real-key"));
+        Assert.Throws<IncompatibleModsException>(() => Run(overrideSetKey: ""));
+    }
+
+    [Fact]
+    public void TheOverrideKeyOfOneVersionDoesNotOpenAnother()
+    {
+        // The same mods folder on another Minecraft version is a different set (the version is in the fingerprint).
+        Jar(_mods, "old-1.0.jar", "old", mc: "~1.20.4");
+        var on121 = Assert.Throws<IncompatibleModsException>(() => Run());
+        var on1204 = Assert.Throws<IncompatibleModsException>(() => Run(version: "1.20.1"));
+        Assert.NotEqual(on121.SetKey, on1204.SetKey);
+        Assert.Throws<IncompatibleModsException>(() => Run(version: "1.20.1", overrideSetKey: on121.SetKey));
     }
 
     [Fact]
@@ -117,7 +136,7 @@ public sealed class LaunchPreflightTests : IDisposable
         var ex = Assert.Throws<IncompatibleModsException>(() => Run());
         Assert.Contains("old", ex.Message);
         Assert.Contains("1.21.1", ex.Message);
-        Assert.Contains("Turn it off on the Mods page. Press Play again to start anyway.", ex.Message);
+        Assert.Contains("Turn it off on the Mods page, or press Play to start anyway.", ex.Message);
         Assert.Single(ex.Reasons);
         Assert.Single(ex.Names);
     }
@@ -148,7 +167,7 @@ public sealed class LaunchPreflightTests : IDisposable
         Assert.Equal(5, ex.Reasons.Count);
         Assert.Equal(5, ex.Names.Count);
         Assert.Contains("(and 3 more)", ex.Message);
-        Assert.Contains("Turn them off on the Mods page. Press Play again to start anyway.", ex.Message);
+        Assert.Contains("Turn them off on the Mods page, or press Play to start anyway.", ex.Message);
         // Only the first two are named; the rest are counted.
         Assert.Contains(ex.Names[0], ex.Message);
         Assert.Contains(ex.Names[1], ex.Message);
@@ -156,28 +175,53 @@ public sealed class LaunchPreflightTests : IDisposable
     }
 
     [Fact]
-    public void TheHomeLineNamesTwoModsAndGivesOneInstruction()
+    public void TheHomeLineIsTwoLinesNamesAndInstruction()
     {
         var ex = new IncompatibleModsException("1.21.1",
             new[] { "Old Mod", "Some Lib", "Third", "Fourth" },
             new[] { "Old Mod: x.", "Some Lib: y.", "Third: z.", "Fourth: w." });
-        Assert.Equal("Old Mod and Some Lib (and 2 more) won't start on Minecraft 1.21.1. Turn them off on the Mods page. Press Play again to start anyway.", ex.Message);
+        Assert.Equal("Old Mod and Some Lib (and 2 more) won't start on 1.21.1.\nTurn them off on the Mods page, or press Play to start anyway.", ex.Message);
 
         var one = new IncompatibleModsException("1.21.1", new[] { "Old Mod" }, new[] { "Old Mod: x." });
-        Assert.Equal("Old Mod won't start on Minecraft 1.21.1. Turn it off on the Mods page. Press Play again to start anyway.", one.Message);
+        Assert.Equal("Old Mod won't start on 1.21.1.\nTurn it off on the Mods page, or press Play to start anyway.", one.Message);
     }
 
+    [Theory]
+    [InlineData("1.21.1", 1)]
+    [InlineData("1.21.11", 2)]
+    [InlineData("1.21.11", 7)]
+    [InlineData("26.1.2", 120)]
+    public void EveryMessageIsTwoRowsWhateverTheNames(string version, int count)
+    {
+        // Mixed-case names at the 20 character limit, and the worst case: wide capitals.
+        foreach (var sample in new[] { "Zoomify Extended Edition Pro Plus", new string('W', 60), "iiiiiiiiiiiiiiiiiiiiiiiiii", "Sodium Extra Optimized Renderer" })
+        {
+            var names = Enumerable.Range(0, count).Select(i => count == 1 ? sample : sample + i).ToList();
+            var ex = new IncompatibleModsException(version, names, names);
+            var lines = ex.Message.Split('\n');
+            Assert.Equal(2, lines.Length);
+            Assert.True(LaunchPreflightEstimate(lines[0]) <= IncompatibleModsException.LineBudget, lines[0]);
+            // Row two is fixed text: it has to fit the status width on its own, with room to spare.
+            Assert.True(LaunchPreflightEstimate(lines[1]) <= StatusWidth, lines[1]);
+            Assert.True(ex.Message.All(c => c < 128), "ASCII only");
+            var shown = lines[0].Contains(" and ") ? 2 : 1;
+            if (count > shown) Assert.Contains($"(and {count - shown} more)", lines[0]);
+            else Assert.DoesNotContain("more)", lines[0]);
+        }
+    }
+
+    // Home's status text box (Size.StatusWidth) and the estimate the first row is held to.
+    private const double StatusWidth = 400;
+    private static double LaunchPreflightEstimate(string text) => IncompatibleModsException.EstimateWidth(text);
+
     [Fact]
-    public void LongModNamesAreCutSoTheLineFitsThreeRows()
+    public void LongModNamesAreCutWithDots()
     {
         var longName = new string('W', 60);
         var ex = new IncompatibleModsException("1.21.11",
             new[] { longName, longName, longName }, new[] { "a", "b", "c" });
         Assert.DoesNotContain(longName, ex.Message);
         Assert.Contains("...", ex.Message);
-        // Worst case: two cut names + count + instruction. ~55 characters per 360 px row, 3 rows.
-        Assert.True(ex.Message.Length <= 165, ex.Message.Length + ": " + ex.Message);
-        Assert.True(ex.Message.All(c => c < 128), "ASCII only");
     }
 
     [Fact]
@@ -314,50 +358,13 @@ public sealed class LaunchPreflightTests : IDisposable
 
     // ---- real jars --------------------------------------------------------------------------------------------
 
-    // The repo checkout (or the main checkout when this is a git worktree) holds the built mod; the gradle cache of a
-    // machine that built it holds Fabric API. CI runners have neither, so this test then does nothing (and says so).
-    private static string? FindRealJar(string folder, string prefix, string suffix = ".jar")
-    {
-        if (!Directory.Exists(folder)) return null;
-        return Directory.GetFiles(folder, prefix + "*" + suffix, SearchOption.AllDirectories)
-            .Where(f => !f.EndsWith("-sources.jar", StringComparison.OrdinalIgnoreCase) && !f.EndsWith("-dev.jar", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(f => f, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
-    }
-
-    private static string? RepoRoot()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
-        {
-            var git = Path.Combine(dir.FullName, ".git");
-            if (Directory.Exists(git)) return dir.FullName;
-            if (File.Exists(git)) // a worktree: ".git" is a file naming <main>/.git/worktrees/<name>
-            {
-                var line = File.ReadAllText(git).Trim();
-                if (line.StartsWith("gitdir:", StringComparison.Ordinal))
-                {
-                    var gitdir = line["gitdir:".Length..].Trim();
-                    var marker = Path.DirectorySeparatorChar + ".git" + Path.DirectorySeparatorChar;
-                    var at = gitdir.Replace('/', Path.DirectorySeparatorChar).IndexOf(marker, StringComparison.Ordinal);
-                    if (at > 0) return gitdir.Replace('/', Path.DirectorySeparatorChar)[..at];
-                }
-                return dir.FullName;
-            }
-        }
-        return null;
-    }
-
-    [Fact]
+    // The built mod and Fabric API live on a machine that built it (RealJars); a CI runner has neither, and this test
+    // is then reported as SKIPPED rather than passing without checking anything.
+    [RealJarFact(RealJarSet.FabricApiAndOrigin)]
     public void ColdCheckOfTheRealFabricApiAndOriginJarsIsFast()
     {
-        var gradle = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gradle", "caches", "modules-2", "files-2.1", "net.fabricmc.fabric-api", "fabric-api");
-        var fabricApi = FindRealJar(gradle, "fabric-api-0.116");
-        var root = RepoRoot();
-        var origin = root == null ? null : FindRealJar(Path.Combine(root, "src", "mods", "versions", "1.21.1", "build", "libs"), "originclient-");
-        if (fabricApi == null || origin == null)
-        {
-            _out.WriteLine("real jars not reachable here (Fabric API 0.116 in the gradle cache, the built 1.21.1 originclient jar): skipped");
-            return;
-        }
+        var fabricApi = RealJars.FabricApi()!;
+        var origin = RealJars.OriginMod()!;
 
         System.IO.File.Copy(fabricApi, Path.Combine(_mods, Path.GetFileName(fabricApi)));
         System.IO.File.Copy(origin, Path.Combine(_mods, Path.GetFileName(origin)));

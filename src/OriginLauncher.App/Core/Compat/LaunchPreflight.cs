@@ -24,7 +24,7 @@ public sealed class IncompatibleModsException : Exception
         SetKey = setKey;
     }
 
-    /// <summary>Identifies the exact mod set that was refused; <see cref="LaunchPreflight.AcceptSet"/> takes it.</summary>
+    /// <summary>Identifies the exact mod set that was refused; <see cref="LaunchOverride"/> keeps it for the next Play.</summary>
     public string SetKey { get; }
 
     public string Version { get; }
@@ -35,22 +35,68 @@ public sealed class IncompatibleModsException : Exception
     /// <summary>One plain line per mod ("Name: why"), for the log.</summary>
     public IReadOnlyList<string> Reasons { get; }
 
-    // Home shows this in a 360 px, 3 line status: at most two names, a count for the rest, one instruction. The
+    /// <summary>
+    /// Widest the first line may be on Home, in the estimate of <see cref="EstimateWidth"/> (the status line is 400 px
+    /// wide, <c>Size.StatusWidth</c>; the rest is margin for the estimate being a little off).
+    /// </summary>
+    public const double LineBudget = 392;
+
+    // Home shows this as two rows in a 400 px status line, nothing more:
+    //   "<names> (and N more) won't start on <ver>."
+    //   "Turn them off on the Mods page, or press Play to start anyway."
+    // Row one names two mods when both fit, else one (its name cut to fit), always with the count of the rest. The
     // per-mod reasons stay in Reasons and the preflight log, not on the Home line.
     private static string BuildMessage(string version, IReadOnlyList<string> names)
     {
-        var shown = names.Take(2).Select(Short).ToList();
-        var list = shown.Count == 1 ? shown[0] : $"{shown[0]} and {shown[1]}";
-        var more = names.Count > 2 ? $" (and {names.Count - 2} more)" : "";
-        var plural = names.Count > 1;
+        var tail = $" won't start on {version}.";
+        var line1 = "Some of your mods" + tail;
+        for (var take = Math.Min(2, names.Count); take >= 1; take--)
+        {
+            var shown = names.Take(take).Select(Short).ToList();
+            line1 = FirstLine(shown, names.Count - take, tail);
+            if (EstimateWidth(line1) <= LineBudget) break;
+        }
+        // One name still too wide (wide capitals): cut it until it fits.
+        if (EstimateWidth(line1) > LineBudget && names.Count > 0)
+        {
+            var name = Short(names[0]);
+            while (name.Length > 4 && EstimateWidth(line1) > LineBudget)
+            {
+                name = name.Substring(0, name.Length - 4).TrimEnd() + "...";
+                line1 = FirstLine(new[] { name }, names.Count - 1, tail);
+            }
+        }
         // TODO(Phase 5.3): "Fix Compatibility" button: RepairPlanner.Plan on this report, one click to turn the mods off.
-        return $"{list}{more} won't start on Minecraft {version}. Turn {(plural ? "them" : "it")} off on the Mods page. Press Play again to start anyway.";
+        return line1 + "\n" + $"Turn {(names.Count > 1 ? "them" : "it")} off on the Mods page, or press Play to start anyway.";
+    }
+
+    private static string FirstLine(IReadOnlyList<string> shown, int more, string tail)
+    {
+        var list = shown.Count == 1 ? shown[0] : $"{shown[0]} and {shown[1]}";
+        return list + (more > 0 ? $" (and {more} more)" : "") + tail;
     }
 
     private static string Short(string name)
     {
         name = name.Trim();
         return name.Length <= NameLimit ? name : name.Substring(0, NameLimit - 3).TrimEnd() + "...";
+    }
+
+    /// <summary>
+    /// How wide text is on Home (Inter Medium, 12 px), 7 to 10 percent on the high side of the real advance widths:
+    /// narrow letters (i, l, j, t, f, r, I, punctuation, space) 4.2 px, wide ones (m, w, M, W, @, %) 11.5, other
+    /// capitals 8.6, everything else (lowercase, digits) 7.3. The screen render check (CompatShots) measures the
+    /// real line in the real text box.
+    /// </summary>
+    public static double EstimateWidth(string text)
+    {
+        var w = 0.0;
+        foreach (var c in text)
+            w += "iljI.,:;'!|()[] tfr".IndexOf(c) >= 0 ? 4.2
+               : "mwMW@%".IndexOf(c) >= 0 ? 11.5
+               : c is >= 'A' and <= 'Z' ? 8.6
+               : 7.3;
+        return w;
     }
 }
 
@@ -94,22 +140,8 @@ public static class LaunchPreflight
     private const int VerdictCacheLimit = 64;
     private static readonly ConcurrentDictionary<string, LaunchVerdict> Verdicts = new();
 
-    // Mod sets the player chose to launch anyway after being told (see AcceptSet). Per run of the launcher; a changed
-    // set has a different key, so it is checked again.
-    private static readonly ConcurrentDictionary<string, byte> Accepted = new();
-
-    /// <summary>
-    /// "Press Play again to start anyway": remembers that the player was told about this exact mod set (the key from
-    /// <see cref="IncompatibleModsException.SetKey"/>) and wants it launched regardless. Any change to the set (a jar
-    /// added, removed, turned off, rewritten) makes a new key and the check applies again.
-    /// </summary>
-    public static void AcceptSet(string setKey)
-    {
-        if (!string.IsNullOrEmpty(setKey)) Accepted[setKey] = 0;
-    }
-
     /// <summary>Forgets remembered verdicts (tests that measure a cold check).</summary>
-    public static void ClearCache() { Verdicts.Clear(); Accepted.Clear(); }
+    public static void ClearCache() => Verdicts.Clear();
 
     /// <summary>1.8.9 runs on Forge in Origin; every other version is Fabric. Java is unknown here (any "java" range is met).</summary>
     public static CompatPlatform PlatformFor(string mcVersion) =>
@@ -126,10 +158,12 @@ public static class LaunchPreflight
     /// <param name="isOriginProvisioned">Origin's jars plus voice chat: what a profile launch takes from the shared folder.</param>
     /// <param name="logPath">Where the verdict is written (overwritten each time it is computed), or null.</param>
     /// <param name="ct">Polled between jars; a cancelled launch stops the check (the caller's cancel, not a checker failure).</param>
+    /// <param name="overrideSetKey">The set key the player accepted with Play (see <see cref="LaunchOverride"/>), or null.
+    /// A blocking verdict for exactly that set is logged and let through; any other set is refused as usual.</param>
     public static void Run(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
         Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath,
-        CancellationToken ct = default)
+        CancellationToken ct = default, string? overrideSetKey = null)
     {
         try
         {
@@ -137,11 +171,11 @@ public static class LaunchPreflight
             if (verdict.Blocking.Count > 0)
             {
                 // The metadata can be wrong (a false positive must never lock a player out): once the player has seen
-                // the sentence and pressed Play again on this exact set, the game starts anyway.
-                if (Accepted.ContainsKey(verdict.SetKey))
+                // the sentence and pressed Play on this exact set, the game starts anyway.
+                if (!string.IsNullOrEmpty(overrideSetKey) && overrideSetKey == verdict.SetKey)
                 {
                     WriteLog(logPath, version, Describe(verdict).Prepend(
-                        "THE PLAYER OVERRODE THIS: pressed Play again on this exact mod set, so the game was launched anyway."));
+                        "THE PLAYER OVERRODE THIS: pressed Play on this exact mod set, so the game was launched anyway."));
                     return;
                 }
                 throw new IncompatibleModsException(version, verdict.BlockingNames, verdict.Blocking, verdict.SetKey);
