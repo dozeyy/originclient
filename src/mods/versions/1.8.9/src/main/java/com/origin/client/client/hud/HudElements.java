@@ -232,14 +232,32 @@ public final class HudElements {
 		}
 	}
 
+	// Both strings are asked for twice a frame (measure + render). They are rebuilt only when one of their inputs
+	// changed (a click-rate tick, an option flip, a player joining), so a steady frame allocates nothing here.
+	private static String cpsCached;
+	private static int cpsKeyL = -1, cpsKeyR = -1, cpsKeyOpts = -1;
+
 	private static String cpsText() {
-		String value = String.valueOf(ClickStats.leftCps());
-		if (Mods.bool("cps", "rightClick")) {
-			value += " | " + ClickStats.rightCps();
+		int left = ClickStats.leftCps();
+		boolean right = Mods.bool("cps", "rightClick");
+		int rightCps = right ? ClickStats.rightCps() : -1;
+		int opts = (right ? 1 : 0) | (Mods.bool("cps", "showText") ? 2 : 0) | (Mods.bool("cps", "reverseText") ? 4 : 0);
+		if (cpsCached != null && left == cpsKeyL && rightCps == cpsKeyR && opts == cpsKeyOpts) {
+			return cpsCached;
 		}
-		return !Mods.bool("cps", "showText") ? value
-				: Mods.bool("cps", "reverseText") ? value + " CPS" : "CPS: " + value;
+		String value = String.valueOf(left);
+		if (right) {
+			value += " | " + rightCps;
+		}
+		cpsCached = (opts & 2) == 0 ? value : (opts & 4) != 0 ? value + " CPS" : "CPS: " + value;
+		cpsKeyL = left;
+		cpsKeyR = rightCps;
+		cpsKeyOpts = opts;
+		return cpsCached;
 	}
+
+	private static String serverCached, serverKeyIp;
+	private static int serverKeyPlayers = -1;
 
 	private static String serverText(Minecraft mc) {
 		ServerData server = mc.getCurrentServerData();
@@ -247,7 +265,13 @@ public final class HudElements {
 			return "Singleplayer";
 		}
 		int players = mc.getNetHandler() != null ? mc.getNetHandler().getPlayerInfoMap().size() : 0;
-		return server.serverIP + " (" + players + ")";
+		if (serverCached != null && players == serverKeyPlayers && java.util.Objects.equals(server.serverIP, serverKeyIp)) {
+			return serverCached;
+		}
+		serverKeyIp = server.serverIP;
+		serverKeyPlayers = players;
+		serverCached = server.serverIP + " (" + players + ")";
+		return serverCached;
 	}
 
 	// The Coordinates box asks for its lines twice a frame (measure, then render), and
@@ -935,10 +959,24 @@ public final class HudElements {
 		p.popPose();
 	}
 
+	// The animation id of each key ("ks:" + label + x) was concatenated per key per frame; the nine keys sit at fixed
+	// spots, so the id string is built once per (spot, label). Same id text as before, so OriginUi.anim state is shared.
+	private static final java.util.HashMap<Integer, String[]> KS_KEYS = new java.util.HashMap<>();
+
+	private static String ksAnimKey(String label, int x, int y) {
+		int spot = (x << 12) ^ y;
+		String[] e = KS_KEYS.get(spot);
+		if (e == null || !e[0].equals(label)) {
+			e = new String[]{label, "ks:" + label + x};
+			KS_KEYS.put(spot, e);
+		}
+		return e[1];
+	}
+
 	private static void key(Gfx g, Minecraft mc, int x, int y, int w, int h, String label, boolean down) {
 		// Key Fade Delay drives the press/release fade between the two color sets
 		double fade = Math.max(50, Mods.num("keystrokes", "keyFadeDelay"));
-		float k = OriginUi.anim("ks:" + label + x, down, fade);
+		float k = OriginUi.anim(ksAnimKey(label, x, y), down, fade);
 		int bgUp = OriginColorPicker.liveColor("keystrokes", "bgColor");
 		int bgDown = OriginColorPicker.liveColor("keystrokes", "bgColorPressed");
 		int fill = com.origin.client.client.theme.OriginTheme.lerpColor(bgUp, bgDown, k);
