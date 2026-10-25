@@ -67,6 +67,9 @@ public abstract class RenderManagerMixin {
 	@Inject(method = "shouldRender", at = @At("RETURN"), cancellable = true)
 	private void originclient$entityCull(Entity entity, ICamera camera, double camX, double camY, double camZ,
 										 CallbackInfoReturnable<Boolean> cir) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_ENTITY_CULL);
+		}
 		try {
 			if (!cir.getReturnValueZ()) {
 				return;
@@ -84,6 +87,10 @@ public abstract class RenderManagerMixin {
 			}
 		} catch (Throwable ignored) {
 			// vanilla's answer
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_ENTITY_CULL);
+			}
 		}
 	}
 

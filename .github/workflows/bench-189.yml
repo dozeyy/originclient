@@ -29,7 +29,7 @@ on:
         description: "Rounds (each: both variants once, order alternating)"
         default: "3"
       scenes:
-        description: "Scenes: idle,particles,menu,flythrough (hud needs Origin, so it is not in the A/B)"
+        description: "Scenes: idle,particles,menu,flythrough (hud needs Origin, so it is not in the A/B); also players,cosmetics,pause"
         default: "idle,particles,menu,flythrough"
       warmup:
         description: "Warm-up seconds per scene"
@@ -40,6 +40,12 @@ on:
       label:
         description: "Optional run name (keeps parallel runs from cancelling each other)"
         default: ""
+      prof:
+        description: "1 = per-hook profile of Origin (BenchProf: hook ns + allocated bytes per frame, origin-default only)"
+        default: "0"
+      shots:
+        description: "1 = one screenshot per scene (taken in the warm-up, never in the numbers)"
+        default: "0"
 
 permissions:
   contents: read
@@ -85,14 +91,18 @@ jobs:
           I_WARMUP: ${{ github.event.inputs.warmup }}
           I_DURATION: ${{ github.event.inputs.duration }}
           I_LABEL: ${{ github.event.inputs.label }}
+          I_PROF: ${{ github.event.inputs.prof }}
+          I_SHOTS: ${{ github.event.inputs.shots }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import os, re
-          cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": ""}
+          cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": "",
+                 "prof": "0", "shots": "0"}
           if os.environ.get("I_RUNS"):
               cfg.update(runs=os.environ["I_RUNS"], scenes=os.environ.get("I_SCENES") or cfg["scenes"],
                          warmup=os.environ.get("I_WARMUP") or "15", duration=os.environ.get("I_DURATION") or "45",
-                         label=os.environ.get("I_LABEL", ""))
+                         label=os.environ.get("I_LABEL", ""), prof=os.environ.get("I_PROF") or "0",
+                         shots=os.environ.get("I_SHOTS") or "0")
           else:
               m = re.findall(r"\[bench-189([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
@@ -100,8 +110,9 @@ jobs:
                       k, v = tok.split("=", 1)
                       if k in cfg and re.fullmatch(r"[A-Za-z0-9._,-]+", v):
                           cfg[k] = v
+          scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause)"
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
-                         ("scenes", r"(idle|hud|particles|menu|flythrough)(,(idle|hud|particles|menu|flythrough))*")):
+                         ("prof", r"[01]"), ("shots", r"[01]"), ("scenes", scene + "(," + scene + ")*")):
               if not re.fullmatch(pat, cfg[k]):
                   raise SystemExit("bench-189: bad %s=%r" % (k, cfg[k]))
           for k, v in cfg.items():
@@ -164,6 +175,9 @@ jobs:
           SCENES: ${{ steps.cfg.outputs.scenes }}
           WARMUP: ${{ steps.cfg.outputs.warmup }}
           DURATION: ${{ steps.cfg.outputs.duration }}
+          # BenchProf (OriginBench) reads it through prod189.py's inherited environment; probe runs ignore it
+          ORIGIN_BENCH_PROF: ${{ steps.cfg.outputs.prof }}
+          SHOTS: ${{ steps.cfg.outputs.shots }}
         run: |
           set -u
           JAVA8="$JAVA_HOME_8_X64/bin/java"
@@ -171,6 +185,8 @@ jobs:
           OUT="$GITHUB_WORKSPACE/artifacts/bench-189/out"
           mkdir -p "$OUT"
           fail=0
+          extra=""
+          if [ "$SHOTS" = "1" ]; then extra="--shots"; fi
           for r in $(seq 1 "$RUNS"); do
             if [ $((r % 2)) -eq 1 ]; then order="optifine-only origin-default"; else order="origin-default optifine-only"; fi
             for v in $order; do
@@ -180,7 +196,7 @@ jobs:
                 if xvfb-run -a -s "-screen 0 1280x720x24" python3 tools/bench/prod189.py run \
                      --variant "$v" --origin-jar src/mods/versions/1.8.9/build/libs --java "$JAVA8" \
                      --out "$OUT/$v/run-$r" --scenes "$SCENES" --warmup "$WARMUP" --duration "$DURATION" \
-                     --width 1280 --height 720 --label "CI, relative only" --save-options --ignore-focus; then
+                     --width 1280 --height 720 --label "CI, relative only" --save-options --ignore-focus $extra; then
                   echo "::endgroup::"
                   break
                 fi

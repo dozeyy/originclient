@@ -561,8 +561,26 @@ public final class CosmeticsService {
 		}
 	}
 
+	/** BENCH-ONLY (OriginBench "cosmetics" scene): what the bench's fake players wear. BENCH is false for players. */
+	private static final boolean BENCH = com.origin.client.client.OriginBench.enabled();
+	private static java.util.Map<UUID, Look> benchLooks = null;
+
+	/** BENCH-ONLY: dresses the bench's fake players (null = nobody); ignored outside bench mode. Render thread. */
+	public static void benchWear(java.util.Map<UUID, Look> looks) {
+		if (BENCH) {
+			benchLooks = looks;
+		}
+	}
+
 	/** What a player is wearing, for rendering. Render thread; never blocks. */
 	public static Look lookOf(UUID uuid) {
+		if (BENCH) {
+			java.util.Map<UUID, Look> b = benchLooks;
+			Look l = b == null || uuid == null ? null : b.get(uuid);
+			if (l != null) {
+				return l;
+			}
+		}
 		Look dev = devLook;
 		if (dev != null && uuid != null && uuid.equals(selfId())) {
 			return dev;

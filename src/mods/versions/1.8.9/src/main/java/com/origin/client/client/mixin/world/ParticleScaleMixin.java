@@ -28,6 +28,9 @@ public abstract class ParticleScaleMixin {
 	@Inject(method = "renderParticle", at = @At("HEAD"))
 	private void originclient$scaleIn(WorldRenderer wr, Entity viewer, float partialTicks, float rotX, float rotZ,
 									  float rotYZ, float rotXY, float rotXZ, CallbackInfo ci) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countParticleRender();
+		}
 		float s = ParticleFilter.globalScale();
 		if (s != 1f) {
 			originclient$savedScale = particleScale;

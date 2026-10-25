@@ -33,6 +33,9 @@ public abstract class GuiScreenBackgroundMixin {
 
 	@Inject(method = "drawWorldBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$background(int tint, CallbackInfo ci) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MENU_BLUR);
+		}
 		try {
 			GuiScreen self = (GuiScreen) (Object) this;
 			if (Minecraft.getMinecraft().theWorld == null) {
@@ -47,6 +50,10 @@ public abstract class GuiScreenBackgroundMixin {
 			}
 		} catch (Throwable t) {
 			// vanilla's backdrop
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MENU_BLUR);
+			}
 		}
 	}
 

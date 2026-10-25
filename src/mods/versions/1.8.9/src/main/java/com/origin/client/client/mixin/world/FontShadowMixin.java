@@ -16,6 +16,9 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 public abstract class FontShadowMixin {
 	@ModifyVariable(method = "drawString(Ljava/lang/String;FFIZ)I", at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private boolean originclient$noShadow(boolean dropShadow) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countFontDrawString();
+		}
 		return dropShadow && !PerfSettings.noTextShadow;
 	}
 }

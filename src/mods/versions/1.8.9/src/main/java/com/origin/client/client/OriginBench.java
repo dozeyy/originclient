@@ -80,6 +80,14 @@ public final class OriginBench {
 		return enabled() && PROBE;
 	}
 
+	/**
+	 * ORIGIN_BENCH_PROF=1 on a non-probe run: BenchProf times every Origin hook inside the measured window
+	 * (U6.3 measurement). Off for players and for the OptiFine-only baseline.
+	 */
+	public static boolean profiling() {
+		return enabled() && !PROBE && "1".equals(str("origin.bench.prof", "0"));
+	}
+
 	/** Registers the bench listener when bench mode is on; no-op for players. */
 	public static void install() {
 		if (!enabled()) {
@@ -119,6 +127,16 @@ public final class OriginBench {
 	private static final boolean IGNORE_FOCUS = "1".equals(str("origin.bench.ignore_focus", "0"));
 
 	private static final String[] ALL_SCENARIOS = {"idle", "hud", "particles", "menu", "flythrough"};
+	/**
+	 * Named only, never part of "all": 16 client-side fake players in a ring in front of the camera
+	 * ("players": vanilla look, Origin's nametag / entity hooks; "cosmetics": the same players wearing
+	 * Origin cosmetics -- capes with physics, hats, masks, wings -- via CosmeticsService.benchWear;
+	 * "pause": the Esc menu over the world, i.e. Menu Blur's "pause" kind).
+	 */
+	private static final String[] EXTRA_SCENARIOS = {"players", "cosmetics", "pause"};
+	private static final int FAKE_PLAYERS = (int) num("origin.bench.players", 16);
+	private final List<net.minecraft.client.entity.EntityOtherPlayerMP> fakes = new ArrayList<>();
+	private Map<Object, Object> fakeInfoMap;
 
 	// ---- per-frame recording (render thread only) ----
 	private final long[] frames = new long[CAPACITY];
@@ -176,7 +194,7 @@ public final class OriginBench {
 			s = s.trim();
 			if (s.equals("all") || s.equals("1") || s.equals("true")) {
 				scenarios.addAll(Arrays.asList(ALL_SCENARIOS));
-			} else if (Arrays.asList(ALL_SCENARIOS).contains(s)) {
+			} else if (Arrays.asList(ALL_SCENARIOS).contains(s) || Arrays.asList(EXTRA_SCENARIOS).contains(s)) {
 				scenarios.add(s);
 			} else if (!s.isEmpty()) {
 				warnings.add("unknown scenario '" + s + "' ignored");
@@ -210,6 +228,9 @@ public final class OriginBench {
 		lastFrame = now;
 		if (now >= recordEndAt) {
 			recording = false;
+			if (BenchProf.ON) {
+				BenchProf.stop();
+			}
 		}
 	}
 
@@ -254,6 +275,9 @@ public final class OriginBench {
 					}
 				}
 				saveAndApplySettings(mc);
+				if (BenchProf.ON) {
+					BenchProf.wrapEventHandlers(com.origin.client.client.hooks.OriginHooks.registered(), this);
+				}
 				String[] wh = SIZE.toLowerCase(Locale.ROOT).split("x");
 				OriginDevShots.resizeWindow(mc, Integer.parseInt(wh[0].trim()), Integer.parseInt(wh[1].trim()));
 				WorldSettings ws = new WorldSettings(SEED, WorldSettings.GameType.CREATIVE, true, false, WorldType.DEFAULT);
@@ -364,7 +388,7 @@ public final class OriginBench {
 	// Scenarios
 	// ======================================================================
 
-	private void setupScenario(Minecraft mc, String sc) {
+	private void setupScenario(Minecraft mc, String sc) throws Exception {
 		mc.ingameGUI.getChatGUI().clearChatMessages();
 		if (sc.equals("hud")) {
 			// Every Origin HUD element's mod on, plus the FPS readout's frame-time extras.
@@ -381,6 +405,10 @@ public final class OriginBench {
 			}
 		} else if (sc.equals("menu")) {
 			mc.displayGuiScreen(new GuiContainerCreative(mc.thePlayer));
+		} else if (sc.equals("pause")) {
+			mc.displayGuiScreen(new GuiIngameMenu());
+		} else if (sc.equals("players") || sc.equals("cosmetics")) {
+			spawnFakePlayers(mc, sc.equals("cosmetics"));
 		} else if (sc.equals("flythrough")) {
 			mc.thePlayer.sendChatMessage(String.format(Locale.ROOT, "/tp @p %.1f %.1f %.1f -90 20", baseX, FLY_Y, baseZ));
 			flyStartTick = -1;
@@ -390,9 +418,80 @@ public final class OriginBench {
 	private void teardownScenario(Minecraft mc, String sc) {
 		if (sc.equals("hud")) {
 			restoreMods();
-		} else if (sc.equals("menu")) {
+		} else if (sc.equals("menu") || sc.equals("pause")) {
 			mc.displayGuiScreen(null);
+		} else if (sc.equals("players") || sc.equals("cosmetics")) {
+			removeFakePlayers(mc);
 		}
+	}
+
+	/**
+	 * Client-side players (never on the server) in a ring 6-9 blocks in front of the camera. Each gets a
+	 * NetworkPlayerInfo so vanilla treats it as a real player (cape layer gate, skins, nametag) and every
+	 * skin part on. "cosmetics": half wear cape + halo + mask (cape physics path), half wings + crown + mask.
+	 */
+	@SuppressWarnings("unchecked")
+	private void spawnFakePlayers(Minecraft mc, boolean cosmetics) throws Exception {
+		removeFakePlayers(mc);
+		fakeInfoMap = null;
+		java.util.UUID self = mc.thePlayer.getUniqueID();
+		for (java.lang.reflect.Field f : mc.getNetHandler().getClass().getDeclaredFields()) {
+			if (Map.class.isAssignableFrom(f.getType())) {
+				f.setAccessible(true);
+				Map<Object, Object> m = (Map<Object, Object>) f.get(mc.getNetHandler());
+				if (m != null && m.containsKey(self)) {
+					fakeInfoMap = m;   // the player-info map: the only one keyed by your UUID
+				}
+			}
+		}
+		if (fakeInfoMap == null) {
+			warnings.add("players scene: no player-info map found; fake players have no cape layer");
+		}
+		Map<java.util.UUID, com.origin.client.client.cosmetics.CosmeticsService.Look> looks = new LinkedHashMap<>();
+		com.origin.client.client.cosmetics.CosmeticsService.Look capeLook = new com.origin.client.client.cosmetics.CosmeticsService.Look(
+				"cape-inferno", "halo-orbit", "mask-shades", null, null);
+		com.origin.client.client.cosmetics.CosmeticsService.Look wingLook = new com.origin.client.client.cosmetics.CosmeticsService.Look(
+				null, "crown-pixel", "mask-shades", "wings-ember", null);
+		for (int i = 0; i < FAKE_PLAYERS; i++) {
+			java.util.UUID id = new java.util.UUID(0x0B3E7C0000000000L, i + 1);
+			com.mojang.authlib.GameProfile gp = new com.mojang.authlib.GameProfile(id, "Bench" + i);
+			if (fakeInfoMap != null) {
+				fakeInfoMap.put(id, new net.minecraft.client.network.NetworkPlayerInfo(gp));
+			}
+			net.minecraft.client.entity.EntityOtherPlayerMP p = new net.minecraft.client.entity.EntityOtherPlayerMP(mc.theWorld, gp);
+			p.getDataWatcher().updateObject(10, (byte) 0x7F);   // every skin part on, the cape included
+			double[] at = ringPos(i, 0);
+			p.setPositionAndRotation(at[0], at[1], at[2], (float) at[3], 0f);
+			p.rotationYawHead = (float) at[3];
+			mc.theWorld.addEntityToWorld(-4242000 - i, p);
+			fakes.add(p);
+			if (cosmetics) {
+				looks.put(id, i % 2 == 0 ? capeLook : wingLook);
+			}
+		}
+		com.origin.client.client.cosmetics.CosmeticsService.benchWear(cosmetics ? looks : null);
+	}
+
+	/** Ring slot i at scene tick k: centre 6 blocks out along the camera's yaw, radius 3, turning slowly. */
+	private double[] ringPos(int i, long k) {
+		double a = 2 * Math.PI * i / Math.max(1, FAKE_PLAYERS) + k * 0.02;
+		double cx = baseX + 4.5, cz = baseZ + 4.5;
+		double x = cx + 3 * Math.cos(a), z = cz + 3 * Math.sin(a);
+		double yaw = Math.toDegrees(a) + 180.0;   // walking along the ring (tangent), so capes trail
+		return new double[]{x, baseY - 2.5, z, yaw};
+	}
+
+	private void removeFakePlayers(Minecraft mc) {
+		com.origin.client.client.cosmetics.CosmeticsService.benchWear(null);
+		for (int i = 0; i < fakes.size(); i++) {
+			if (mc.theWorld != null) {
+				mc.theWorld.removeEntityFromWorld(-4242000 - i);
+			}
+			if (fakeInfoMap != null) {
+				fakeInfoMap.remove(fakes.get(i).getUniqueID());
+			}
+		}
+		fakes.clear();
 	}
 
 	private void driveScenario(Minecraft mc, String sc) {
@@ -426,6 +525,14 @@ public final class OriginBench {
 			cameraResets++;   // the static camera is not where it should be
 		}
 		holdCamera(mc, sc);
+		if (!fakes.isEmpty()) {
+			// walk the ring: interpolated moves (3 steps), so limbs swing and capes / cape physics move
+			for (int i = 0; i < fakes.size(); i++) {
+				double[] at = ringPos(i, scenarioTick);
+				fakes.get(i).setPositionAndRotation2(at[0], at[1], at[2], (float) at[3], 0f, 3, false);
+				fakes.get(i).setRotationYawHead((float) at[3]);
+			}
+		}
 		if (sc.equals("particles")) {
 			// Crit + magic-crit bursts in a box 4-8 blocks in front of the camera (PvP proxy).
 			double cx = baseX + 4.0, cz = baseZ + 4.0;   // yaw -45 looks toward +x +z
@@ -440,6 +547,8 @@ public final class OriginBench {
 			}
 		} else if (sc.equals("menu") && !(mc.currentScreen instanceof GuiContainerCreative)) {
 			mc.displayGuiScreen(new GuiContainerCreative(mc.thePlayer));
+		} else if (sc.equals("pause") && !(mc.currentScreen instanceof GuiIngameMenu)) {
+			mc.displayGuiScreen(new GuiIngameMenu());
 		}
 	}
 
@@ -500,6 +609,9 @@ public final class OriginBench {
 			gcPauseMaxMs = 0;
 			gcPauseCount = 0;
 			gcMeasuring = true;
+		}
+		if (BenchProf.ON) {
+			BenchProf.start();   // calibrates its own timer first (a few ms), then opens its window
 		}
 		lastFrame = 0;
 		recordStart = System.nanoTime();
@@ -569,6 +681,11 @@ public final class OriginBench {
 		r.addProperty("cameraOffTicks", cameraResets);
 		r.addProperty("truncated", truncated);
 		r.addProperty("valid", (IGNORE_FOCUS || unfocusedTicks == 0) && cameraResets == 0 && !truncated && n > 0);
+		if (BenchProf.ON) {
+			BenchProf.stop();
+			r.add("prof", BenchProf.report(n));
+			r.add("microbench", BenchProf.microbench());
+		}
 		writeFrames(sc, n);
 		log(String.format(Locale.ROOT, "scenario %s: %d frames, avg %.1f fps", sc, n,
 				n == 0 ? 0.0 : n / (sum / 1e9)));
@@ -787,6 +904,8 @@ public final class OriginBench {
 			env.addProperty("mipmaps", g.mipmapLevels);
 			env.addProperty("variant", str("origin.bench.variant", "?"));
 			env.addProperty("originActive", !PROBE);
+			env.addProperty("profiling", BenchProf.ON);
+			env.addProperty("fakePlayers", FAKE_PLAYERS);
 			env.addProperty("focusIgnored", IGNORE_FOCUS);
 			env.addProperty("menuBlur", PROBE ? "n/a (Origin inert)"
 					: Mods.on("menublur") + " (inventories " + Mods.bool("menublur", "inventory") + ")");
