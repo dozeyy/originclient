@@ -180,3 +180,9 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Will: "the only place you can use the oval shapes thing is our logo". Title orbit rings, the ring loading animation and the ring backdrop (Mod Menu, HUD editor, Origin windows) are deleted on all 21 live modules; loading/connecting = origin_logo.png at 44% + a 200 design px capsule bar (LoadingLook), RingField cut to SceneClock. Title dock hover cards hidden (narration kept). Merges da702dc1e (1.21.1) and 8f4014045..4a2b9efcd (others); shared ring art deleted in 01f009a13; check_logo.py now fails on ring art outside the pulled 1.21.5/1.12.2.
 - Proof: boot-smoke zero `Mixin apply ... failed` on every module; dev-shots 95-117 PNGs per module, sheets show no rings; main build-check 40230306341 green. Gated deploy left.
 - Open: other versions' title screens still have the old look (pixel wordmark, coloured dock icons) — 1.21.1's Workbench title isn't ported yet.
+
+## 2026-10-25 — 1.21.1 title look on every version
+- Will: "bring 1.21.1's new title screen look ... to the other versions". Real origin_logo.png + origin_wordmark.png, Workbench panel buttons with Inter labels, plain parchment dock glyphs (tooltips hidden), plateless head chip, Inter footer now on all 20 live modules. Merges a679b5cb6 (1.20) and the six claude/title-port-* branches; footer dot escaped in a45d654e6.
+- Proof: every group's boot-smoke had zero `Mixin apply ... failed`; dev-shots 98-117 PNGs per module; a 20-module title grid matches 1.21.1. 26.2/26.3 keep Mojang's Friends button (person glyph), 26.3 also Realms; 1.8.9 dock has 4 icons. Per-era facts in .claude/skills/origin-port/recipes/title-menus.md. Gated deploy left.
+- Open: Friends notification badge and a real downloaded skin on the head chip not seen in CI.
+

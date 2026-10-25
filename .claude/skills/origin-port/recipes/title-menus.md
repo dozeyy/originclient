@@ -29,6 +29,16 @@ ScreenBackgroundMixin, ScreenInvoker. "Proven" means CI and review passed (clean
 | G5 1.21.11 | as 1.21.6 | renderWidget→renderContents; **AbstractButton.renderWidget is final**: a button mixin pre-empts every subclass, so whitelist via `originclient$ownsLook` + CycleButtonSpriteAccessor. Blank inventory squares are the tell | ResourceLocation→Identifier |
 | G6 26.x | TitleScreen.extractBackground HEAD draws the Origin backdrop and cancels vanilla's. Logo `LogoRenderer.extractRenderState(GGE;IF)V`, splash `SplashRenderer.extractRenderState(GGE;ILFont;F)V`, panorama `gameRenderer.panorama().extractRenderState(g,w,h)` (26.1: `getPanorama()`, 4-arg with spin) | render→extractRenderState, renderWidget→extractWidgetRenderState, renderContents→extractContents (instance overrides only) | 26.2+ title has Mojang's FriendsButton (kept in the dock); 26.1 has none. Header tabs: 26.2 MenuTabBar$MenuTabButton, 26.1 concrete TabButton. Open screens with `mc.gui.setScreen` (26.2+) / `mc.setScreen` (26.1); never `setScreenAndShow` (the disconnect helper) |
 
+## Workbench title look (wordmark, panel buttons, plain dock, Inter footer) — 2026-10-25, all 20 modules
+- Dock tooltips hidden per era: `WidgetTooltipHolder.refreshTooltipForNextRenderPass` HEAD cancel (1.21+, 26.x); `AbstractWidget.updateTooltip` (1.19.3/1.19.4/1.20/1.20.2); `Tooltip.refreshTooltipForNextRenderPass` (1.20.4); none before 1.19.3 (no Tooltip API).
+- Workbench tooltip skin: 1.21.2+ `renderTooltipBackground` takes an extra ResourceLocation. Not ported before 1.20.
+- Pre-1.19.3 footer: redirect `drawString` ordinals 0 and 1, copyrightWidth=0 (no PlainTextButton). 1.21.11 copyright = PlainTextButton `renderContents`.
+- Inter labels: OriginSdfFont everywhere except 1.8.9 and 1.16.5 (OriginTtfFont).
+- Baked head: 1.16.5 `TextureManager.getTexture` returns null until `bind()`; 26.x bakes on the CPU via `DynamicTexture.getPixels()` (skin id `PlayerSkin.body().texturePath()`; `TextureManager.register` closes the old texture).
+- Press state: `MouseHandler.isLeftPressed()` on 1.21.6+ and 26.x.
+- 26.3 dev-shots: opening a screen resyncs the cursor to the real Xvfb pointer; put it back after each setScreen or a stray hover lands in the shot.
+- Write the footer middle dot as `·` (sources stay ASCII). Normalize CRLF before diff3-merging a donor file.
+
 ## Proof
 - Use `dev-shots set=design`. For the clean look also set `ORIGIN_SHOTS_SET=clean` with a `title_hover` shot on Quit.
 - Run `style=menu|buttons|vanilla` to prove that Main Menu Style and Button Style fall back to vanilla.
