@@ -14,8 +14,10 @@ import com.origin.client.client.theme.OriginTheme;
  *
  * <pre>
  *   flat color.bg
- *   the official logo     72 design px box, centred at 44 % of the height
- *   24 below              the rail: 200 x 3 design px pill, track white 8 %, fill accent
+ *   the official logo     72 design px box, centred at 44 % of the height, one faint orbit
+ *                         hairline behind it (OrbitHairlines, A-Workbench-3)
+ *   24 below              the rail: 200 design px wide, 2 GUI px tall fill (accent) over a
+ *                         1 GUI px hairline track (white 8 %)
  *   12 below              the caption: textDim, the real stage name (+ a percentage only
  *                         where Minecraft reports one)
  * </pre>
@@ -25,7 +27,7 @@ import com.origin.client.client.theme.OriginTheme;
  * in whole physical pixels (the pose is scaled back to 1 GUI unit = 1 pixel), so the rail
  * is crisp at every GUI scale.
  *
- * <p>Cost: one fill, one logo blit, 3 + 3 rail fills, one caption line. No shader, no blur,
+ * <p>Cost: one fill, one cached orbit-buffer draw, one logo blit, a few rail fills, one caption line. No shader, no blur,
  * no texture beyond the logo (baked once per size by OriginScreenRenderer.drawLogo) and, for
  * the startup caption only, the boot font. Nothing is allocated per frame: the geometry lives
  * in static fields (render thread only) and the caption strings are cached by their callers.
@@ -44,7 +46,12 @@ final class LoadingLook {
 	private static final double LOGO = 72.0;
 	/** Logo centre, share of the window height. */
 	static final double LOGO_AT = 0.44;
-	private static final double RAIL_W = 200.0, RAIL_H = 3.0;
+	private static final double RAIL_W = 200.0;
+	/** The bar is 2 GUI px tall (A-Workbench-3) over a 1 GUI px hairline track. */
+	private static final int RAIL_GUI = 2, TRACK_GUI = 1;
+	/** The faint orbit ring behind the logo: semi-axes as shares of the logo box, tilted 120 deg. */
+	private static final double ORBIT_A = 1.1, ORBIT_B = 0.4;
+	private static final OrbitHairlines ORBIT = new OrbitHairlines(1, 120.0);
 	/** Logo box to rail, rail to caption, design px. */
 	private static final double GAP_RAIL = 24.0, GAP_CAPTION = 12.0;
 	/** The caption's line box, design px (type.caption is 12 / 16). */
@@ -70,7 +77,7 @@ final class LoadingLook {
 	static double belowCentreGui() {
 		Minecraft mc = Minecraft.getInstance();
 		double kk = scale();
-		double rail = Math.max(2, Math.round(RAIL_H * kk));
+		double rail = RAIL_GUI * Math.max(1, Math.round(mc.getWindow().getGuiScale()));
 		double phys = Math.round(LOGO * kk) / 2.0 + GAP_RAIL * kk + rail + (GAP_CAPTION + CAPTION_BOX) * kk;
 		return phys / Math.max(1.0, mc.getWindow().getGuiScale());
 	}
@@ -84,7 +91,7 @@ final class LoadingLook {
 		logoBox = Math.round(LOGO * k);
 		logoCy = cyPhys;
 		railW = Math.round(RAIL_W * k);
-		railH = Math.max(2, Math.round(RAIL_H * k));
+		railH = RAIL_GUI * gs;
 		railTop = Math.round(logoCy + logoBox / 2.0 + GAP_RAIL * k);
 		captionMid = railTop + railH + GAP_CAPTION * k + CAPTION_BOX * k / 2.0;
 	}
@@ -114,6 +121,11 @@ final class LoadingLook {
 
 		// The backdrop is flat color.bg, the same colour as the launcher's launch cover.
 		g.fill(0, 0, gw, gh, fade(OriginTheme.CLEAN_BG, layer));
+
+		// One faint orbit hairline behind the logo (A-Workbench-3), the title's rings' sibling. It
+		// stays through the loading -> title hand-off (logo false) and fades with the layer.
+		ORBIT.draw(g, (float) logoCxGui(), (float) logoCyGui(), (float) (logoSizeGui() * ORBIT_A),
+				(float) (logoSizeGui() * ORBIT_B), OriginTheme.TITLE_ORBIT, layer);
 
 		// The official logo, through the one drawing path (origin_logo.png at LOGO_PATH).
 		if (logo) {
@@ -159,7 +171,9 @@ final class LoadingLook {
 		PoseStack pose = g.pose();
 		pose.pushPose();
 		pose.scale(1f / gs, 1f / gs, 1f);
-		pill(g, x, y, w, h, fade(OriginTheme.CLEAN_BAR_TRACK, layer));
+		// The track: a 1 GUI px hairline through the middle of the 2 GUI px band.
+		int th = TRACK_GUI * gs;
+		pill(g, x, y + (h - th) / 2, w, th, fade(OriginTheme.CLEAN_BAR_TRACK, layer));
 		int fillArgb = fade(OriginTheme.CLEAN_BAR_FILL, layer);
 		if (fill < 0) {
 			// Indeterminate: a segment slides across (never a made-up percentage).

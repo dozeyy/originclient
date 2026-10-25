@@ -43,12 +43,13 @@ import java.util.List;
 //
 //                            (logo)
 //                            ORIGIN
-//                 [        Singleplayer        ]   200 x 20, Workbench panel (radius 4)
+//                 [        Singleplayer        ]   200 x 20, Workbench card (radius 3, Inter 600)
 //                 [        Multiplayer         ]
 //                 [   Options    ][    Mods    ]
 //
-//     realms friends cosmetics lang access quit          bare 12 px glyphs in 20 x 20 hit boxes
-//     Minecraft 1.21.1, Origin                   Copyright Mojang AB. Do not distribute!
+//     realms friends cosmetics lang access quit          12 px glyphs on 20 x 20 soft-hue tiles
+//     (faint orbit hairlines behind it all: OriginScreenRenderer.renderTitleOrbits)
+//     Minecraft 1.21.1 . Origin (middle dot)     Copyright Mojang AB. Do not distribute!
 //
 // Background: THIS version's own Mojang panorama (vanilla draws it), blurred
 // by vanilla's blur and dimmed (renderPanorama TAIL). No splash. Footer: the
@@ -181,6 +182,7 @@ public class TitleScreenMixin {
 			return;
 		}
 		OriginScreenRenderer.renderTitleBackdropOver((Screen) (Object) this, guiGraphics, partialTick);
+		OriginScreenRenderer.renderTitleOrbits(guiGraphics);
 		OriginScreenRenderer.renderTitleAccountChip(guiGraphics);
 	}
 
@@ -209,7 +211,7 @@ public class TitleScreenMixin {
 	}
 
 	// Footer, left half: vanilla's bottom-left version line (drawn pure white, 2 px in) becomes
-	// "Minecraft 1.21.1, Origin" in textMuted, in Minecraft's own font (Will, 2026-10-19), 6 GUI px
+	// "Minecraft 1.21.1 (U+00B7 middle dot) Origin" ( A-Workbench-3) in textMuted, in Minecraft's own font (Will, 2026-10-19), 6 GUI px
 	// from the bottom (DESIGN-SYSTEM 15.2). `color` carries vanilla's fade-in alpha, which rides along.
 	// The right half is the real copyright button: originclient$footerButton below.
 	@Redirect(method = "render", at = @At(value = "INVOKE",
@@ -221,7 +223,7 @@ public class TitleScreenMixin {
 		String line = originclient$footerLine;
 		if (line == null) {
 			// Built once: the game version never changes while the screen lives.
-			line = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().getName() + ", Origin";
+			line = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().getName() + " · Origin";   // middle dot, escaped: sources stay ASCII
 			originclient$footerLine = line;
 		}
 		return instance.drawString(font, line, TitleLayout.CORNER, ORIGIN_FOOTER_TOP_OFFSET + ((Screen) (Object) this).height,

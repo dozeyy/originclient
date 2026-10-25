@@ -132,10 +132,23 @@ public final class OriginTheme {
 	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
 	public static final int TITLE_BTN_EDGE_HOVER = 0x24FFFFFF;
 	public static final int TITLE_FOCUS = 0x995FD09B;          // accentLine, 1 GUI px ring
-	public static final int TITLE_PLATE_HOVER = 0x14FFFFFF;    // plate behind a hovered dock glyph (white 8 %)
-	public static final int TITLE_CHIP_FILL = 0x0FFFFFFF;      // player chip (white 6 %)
 	public static final int TITLE_TOOLTIP_FILL = 0xF51D2320;   // surfaceRaised at 96 %: tooltip over the panorama (11.8)
 	public static final int TITLE_TEXT_MUTED =0x85F1E9D2;     // textMuted: disabled labels
+	// Workbench cards (A-Workbench-3, approved 2026-10-25): the worded title buttons (and Connecting's
+	// Cancel) are 3 GUI px corners with Inter 600 labels in parchment. TITLE_RADIUS above stays 4 for the
+	// focus ring's old users, tooltips and anything else that reads it.
+	public static final int TITLE_BTN_RADIUS = 3;
+	public static final int TITLE_TEXT = 0xFFF1E9D2;           // parchment, fixed (never theme-repainted)
+	public static final float TITLE_LABEL_EM = 9.0f;           // Inter 600 em, GUI px
+	// Dock tiles: the glyph's own hue at ~18 % behind it, a 1 GUI px edge in the hue, rounded square.
+	public static final int TITLE_DOCK_RADIUS = 5;
+	public static final int TITLE_DOCK_TILE_A = 0x2E;          // 18 %
+	public static final int TITLE_DOCK_TILE_A_HOVER = 0x47;    // 28 %
+	public static final int TITLE_DOCK_TILE_A_PRESS = 0x5C;    // 36 %
+	public static final int TITLE_DOCK_EDGE_A = 0x4D;          // 30 %
+	public static final int TITLE_DOCK_EDGE_A_HOVER = 0x80;    // 50 %
+	// Orbit hairlines behind the title logo and the loading logo: parchment at ~6 %, 1 physical px.
+	public static final int TITLE_ORBIT = 0x0FF1E9D2;
 	// Destination hues (spec 2.3, dark theme values): dock glyphs.
 	public static final int HUE_EMERALD = 0xFF5FD09B;
 	public static final int HUE_SKY = 0xFF6FAEE8;

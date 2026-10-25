@@ -30,11 +30,11 @@ import com.origin.client.client.theme.OriginTheme;
 //  2. THE TITLE SCREEN (Phase 4, Workbench). Minecraft's other menus keep stock
 //     widgets (Will, 2026-10-19), but the title's controls are registered by
 //     TitleScreenMixin (setTitleButton / setTitleDock) and draw through
-//     titleControl(): a soft rounded panel (radius 4 GUI px, OriginTheme.TITLE_*
-//     tokens) for the worded buttons, and a bare glyph in its hue with a hover
-//     plate for the dock -- never a box inside a box. A widget that was not
-//     registered is untouched vanilla. Text stays in Minecraft's font (Will,
-//     2026-10-19). The same skin also owns the title's footer line colour
+//     titleControl(): a Workbench card (radius 3 GUI px, OriginTheme.TITLE_*
+//     tokens, Inter 600 label in parchment -- A-Workbench-3, approved 2026-10-25)
+//     for the worded buttons, and for the dock a glyph in its hue on a soft tile of
+//     that hue. A widget that was not registered is untouched vanilla. Labels fall
+//     back to Minecraft's font when the SDF face is not live. The same skin also owns the title's footer line colour
 //     (setTitleFooter / footerColor) and its tooltip panel (renderTitleTooltip,
 //     reached from TooltipRenderUtilMixin only while the title screen is up).
 //
@@ -136,10 +136,10 @@ public final class OriginButtonRenderer {
 	}
 
 	// ---- skin 2: the title screen's controls (Phase 4, Workbench) ----
-	// Spec: docs/overhaul/DESIGN-SYSTEM.md 15.2. Worded buttons are a soft panel
-	// (radius 4 GUI px, 1 GUI px edge) with the label centred and an optional 8 GUI px
-	// leading glyph; the dock is bare glyphs (12 GUI px, in their hue, 85 % at rest)
-	// with a faint plate that eases in on hover. Hover/press use the shared 48 / 64 ms
+	// Spec: docs/overhaul/DESIGN-SYSTEM.md 15.2 + docs/overhaul/design/A-Workbench-3.jpg. Worded
+	// buttons are a card (radius 3 GUI px, 1 GUI px edge) with an Inter 600 label centred and an
+	// optional 8 GUI px leading glyph; the dock is glyphs (12 GUI px, in their hue, 85 % at rest)
+	// on soft-hue tiles that firm on hover. Hover/press use the shared 48 / 64 ms
 	// ease; geometry never moves under the pointer. One SDF quad per panel (the
 	// edge is folded into the fill colour, see flatten), so this adds no draw calls
 	// over the vanilla sprite it replaces.
@@ -163,7 +163,8 @@ public final class OriginButtonRenderer {
 			}
 			if (enabled && button.isFocused()) {
 				// Keyboard focus: a 1 GUI px accentLine ring on the control's own box, never colour alone.
-				OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_RADIUS, 0, OriginTheme.TITLE_FOCUS, 1f);
+				int ring = tp.iconOnly() ? OriginTheme.TITLE_DOCK_RADIUS : OriginTheme.TITLE_BTN_RADIUS;
+				OriginUi.roundRect(g, x, y, w, h, ring, 0, OriginTheme.TITLE_FOCUS, 1f);
 			}
 			return true;
 		} catch (Throwable t) {
@@ -187,32 +188,83 @@ public final class OriginButtonRenderer {
 			fill = OriginTheme.lerpColor(OriginTheme.TITLE_BTN_FILL, OriginTheme.TITLE_BTN_FILL_HOVER, hv);
 			edge = OriginTheme.lerpColor(OriginTheme.TITLE_BTN_EDGE, OriginTheme.TITLE_BTN_EDGE_HOVER, hv);
 		}
-		OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_RADIUS, fill, flatten(fill, edge), 1f);
+		OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_BTN_RADIUS, fill, flatten(fill, edge), 1f);
 
-		Font font = Minecraft.getInstance().font;
-		String label = button.getMessage().getString();
-		int textW = font.width(label);
-		int textColor = enabled ? OriginTheme.TEXT : OriginTheme.TITLE_TEXT_MUTED;
+		// The label: Inter 600 in parchment (A-Workbench-3, approved 2026-10-25; title buttons and
+		// Connecting's Cancel only), centred on its cap height. Falls back to Minecraft's font when
+		// the SDF face is not live. The width is measured once per widget and again only when the
+		// widget's message Component is replaced, so an ordinary frame measures nothing.
+		Label lab = label(button, OriginSdfFont.active());
+		int textColor = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
 		boolean lead = tp.icon() != null;
-		int groupW = lead ? LEAD_ICON + LEAD_GAP + textW : textW;
-		int gx = x + (w - groupW) / 2;
+		float groupW = lead ? LEAD_ICON + LEAD_GAP + lab.width : lab.width;
+		float gx = x + (w - groupW) / 2f;
 		// Press: the label (and glyph) sit 1 GUI px lower; the panel itself never moves under the pointer.
 		int dy = pressed ? 1 : 0;
 		if (lead) {
-			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
-			ModIcons.drawFlat(g, tp.icon(), gx, y + (h - LEAD_ICON) / 2 + dy, LEAD_ICON, iconColor);
+			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TITLE_TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
+			ModIcons.drawFlat(g, tp.icon(), Math.round(gx), y + (h - LEAD_ICON) / 2 + dy, LEAD_ICON, iconColor);
 			gx += LEAD_ICON + LEAD_GAP;
 		}
-		g.drawString(font, label, gx, y + (h - 8) / 2 + dy, textColor, true);
+		if (lab.sdf) {
+			OriginSdfFont.drawEm(g, lab.text, gx, y + h / 2f + lab.cap / 2f + dy, OriginTheme.TITLE_LABEL_EM, 0f, textColor, true);
+		} else {
+			g.drawString(Minecraft.getInstance().font, lab.text, Math.round(gx), y + (h - 8) / 2 + dy, textColor, true);
+		}
 	}
 
+	/** A title button's label, measured once: its text, advance width and cap height (GUI px), and which font measured it. */
+	private static final class Label {
+		Component message;
+		String text;
+		float width, cap;
+		boolean sdf;
+	}
+
+	private static final Map<Object, Label> LABELS = new WeakHashMap<>();
+
+	private static Label label(AbstractButton button, boolean sdf) {
+		Component message = button.getMessage();
+		Label lab = LABELS.get(button);
+		if (lab == null) {
+			lab = new Label();
+			LABELS.put(button, lab);
+		} else if (lab.message == message && lab.sdf == sdf) {
+			return lab;
+		}
+		lab.message = message;
+		lab.text = message.getString();
+		lab.sdf = sdf;
+		if (sdf) {
+			lab.width = OriginSdfFont.widthEm(lab.text, OriginTheme.TITLE_LABEL_EM, 0f, true);
+			lab.cap = OriginSdfFont.capHeight(OriginTheme.TITLE_LABEL_EM, true);
+		} else {
+			lab.width = Minecraft.getInstance().font.width(lab.text);
+			lab.cap = 7f;
+		}
+		return lab;
+	}
+
+	// Dock tile (A-Workbench-3; Will 2026-10-25: "add a background on the bottom icons"): every
+	// glyph sits on its own rounded tile in the glyph's hue at ~18 % with a 1 GUI px edge in the
+	// same hue; hover firms both, press firms the fill further. One SDF quad per tile (the edge is
+	// folded into the fill, see flatten). Every tile is the dock's own box (TitleLayout: 20 x 20,
+	// gap 4), so all five are the same size and evenly spaced, the glyph centred on each.
 	private static void drawDock(GuiGraphics g, TitlePresentation tp, int x, int y, int w, int h,
 								 boolean enabled, double hv, boolean pressed) {
-		if (enabled && (hv > 0.01 || pressed)) {
-			int plate = pressed ? 0x24FFFFFF : OriginTheme.withAlpha(OriginTheme.TITLE_PLATE_HOVER,
-					(int) Math.round(((OriginTheme.TITLE_PLATE_HOVER >>> 24) & 0xFF) * hv));
-			OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_RADIUS, plate, 0, 1f);
+		int fill, edge;
+		if (!enabled) {
+			fill = 0x0AFFFFFF;
+			edge = OriginTheme.TITLE_BTN_EDGE;
+		} else {
+			int fa = pressed ? OriginTheme.TITLE_DOCK_TILE_A_PRESS : (int) Math.round(OriginTheme.TITLE_DOCK_TILE_A
+					+ (OriginTheme.TITLE_DOCK_TILE_A_HOVER - OriginTheme.TITLE_DOCK_TILE_A) * hv);
+			int ea = (int) Math.round(OriginTheme.TITLE_DOCK_EDGE_A
+					+ (OriginTheme.TITLE_DOCK_EDGE_A_HOVER - OriginTheme.TITLE_DOCK_EDGE_A) * (pressed ? 1.0 : hv));
+			fill = OriginTheme.withAlpha(tp.hue(), fa);
+			edge = OriginTheme.withAlpha(tp.hue(), ea);
 		}
+		OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_DOCK_RADIUS, fill, flatten(fill, edge), 1f);
 		int color = enabled
 				? OriginTheme.withAlpha(tp.hue(), (int) Math.round(0xD9 + (0xFF - 0xD9) * hv))   // 85 % -> 100 %
 				: OriginTheme.TITLE_TEXT_MUTED;

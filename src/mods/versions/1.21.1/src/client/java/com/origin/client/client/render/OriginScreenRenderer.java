@@ -936,6 +936,21 @@ public final class OriginScreenRenderer {
 	private static UUID titleSkinProfileId;
 	private static Supplier<net.minecraft.client.resources.PlayerSkin> titleSkinSupplier;
 
+	// The title's three orbit hairlines (A-Workbench-3): 0 / 60 / 120 deg, centred at 44.5 % of the
+	// height, semi-axes 0.476 x 0.171 of the height, parchment ~6 %. Baked once per screen size.
+	private static final OrbitHairlines TITLE_ORBITS = new OrbitHairlines(3, 0.0);
+
+	/** Main menu: the faint orbit hairlines over the dimmed panorama, under the logo and buttons. */
+	public static void renderTitleOrbits(GuiGraphics guiGraphics) {
+		if (broken) {
+			return;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		float h = mc.getWindow().getGuiScaledHeight();
+		float w = mc.getWindow().getGuiScaledWidth();
+		TITLE_ORBITS.draw(guiGraphics, w / 2f, h * 0.445f, h * 0.476f, h * 0.171f, OriginTheme.TITLE_ORBIT, 1f);
+	}
+
 	/**
 	 * Main menu: the Origin logo and wordmark above the button stack, still
 	 * (the loading screen dissolves over it after the first load).
@@ -1004,8 +1019,8 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Main menu: a small account chip (player head + username) in the top-left,
-	 * on a soft Workbench chip (16 tall, radius 4, white 6 %). Head via the skin manager (default skin shows first,
+	 * Main menu: the player (head + username) in the top-left, with no plate behind
+	 * it (A-Workbench-3, Will 2026-10-25). Head via the skin manager (default skin shows first,
 	 * the real one pops in async); if the head can't be resolved the chip falls
 	 * back to the Origin ring mark, and if the whole chip throws it flips the
 	 * renderer to vanilla like any Origin draw.
@@ -1025,26 +1040,16 @@ public final class OriginScreenRenderer {
 				return;
 			}
 			Font font = mc.font;
-			// The player chip in the top-left corner (DESIGN-SYSTEM 15.2): the player's
-			// head and name on a soft rounded plate. Not clickable (there is no account
-			// menu here), so it never highlights. One SDF quad; a plain fill if that fails.
+			// The player in the top-left corner (A-Workbench-3): the head and name straight
+			// on the panorama, no plate behind them (Will, 2026-10-25: "remove the background
+			// on the top left player icon"). Not clickable (there is no account menu here).
+			// The head's left edge lines up with the footer text (both CORNER in).
 			int x = TitleLayout.CORNER, y = TitleLayout.CORNER, chipH = TitleLayout.CORNER_SIZE;
-			int head = 12, pad = 4, gap = 5;
-			int textW = font.width(name);
-			int chipW = pad + head + gap + textW + pad + 2;
+			int head = 12, gap = 5;
 			RenderSystem.enableBlend();
 			RenderSystem.enableDepthTest();
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			if (!com.origin.client.client.OriginStyle.vanillaTitle()) {
-				try {
-					OriginUi.roundRect(guiGraphics, x, y, chipW, chipH, OriginTheme.TITLE_RADIUS, OriginTheme.TITLE_CHIP_FILL, 0, 1f);
-				} catch (Throwable t) {
-					guiGraphics.fill(x, y, x + chipW, y + chipH, OriginTheme.TITLE_CHIP_FILL);
-				}
-			} else {
-				guiGraphics.blitSprite(net.minecraft.resources.ResourceLocation.withDefaultNamespace("widget/button"), x, y, chipW, chipH);
-			}
-			int hx = x + pad, hy = y + (chipH - head) / 2;
+			int hx = x, hy = y + (chipH - head) / 2;
 			boolean drewHead = false;
 			try {
 				// Minecraft's resolved profile carries the signed `textures` property.

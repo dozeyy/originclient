@@ -24,8 +24,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // draws the screen's own widgets (the Cancel button) on top so Cancel keeps
 // working. Cancel is registered at init (TAIL) as a Workbench title button
 // (OriginButtonRenderer.setTitleButton, DESIGN-SYSTEM 15.2): the same soft panel
-// as the title's buttons, at vanilla's 200 x 20 GUI px, which is the title's main
-// button size (TitleLayout MAIN_W x BUTTON_H). Without that registration it drew
+// as the title's buttons, at 200 x 20 GUI px (the title's main button size, TitleLayout
+// MAIN_W x BUTTON_H), re-seated centred at 62 % of the height (A-Workbench-3). Without that registration it drew
 // as the stock stone button (judge 2026-10-25). The Main Menu Style = Vanilla
 // check is in the skin itself, so vanilla mode keeps the stock button. The picture
 // is lifted above the button when the window is short (OriginScreenRenderer.renderConnecting).
@@ -51,9 +51,24 @@ public abstract class ConnectScreenMixin {
 	@Inject(method = "init()V", at = @At("TAIL"))
 	private void originclient$workbenchCancel(CallbackInfo ci) {
 		try {
-			for (GuiEventListener child : ((Screen) (Object) this).children()) {
+			Screen self = (Screen) (Object) this;
+			boolean seat = !OriginStyle.vanillaMenusOn(this);
+			for (GuiEventListener child : self.children()) {
 				if (child instanceof Button button) {
 					OriginButtonRenderer.setTitleButton(button, null);
+					if (seat) {
+						// A-Workbench-3: Cancel is a Workbench card at most 200 x 20 GUI px (the title's
+						// button size, inside the brief's 200 x 28 cap), centred at 62 % of the height
+						// and kept 8 GUI px clear of the bottom. renderConnecting lifts the picture
+						// above it on short windows (it reads this top edge every frame).
+						int bw = Math.min(200, Math.max(80, self.width - 24));
+						int bh = 20;
+						int by = Math.min((int) Math.round(self.height * 0.62) - bh / 2, self.height - bh - 8);
+						button.setWidth(bw);
+						button.setHeight(bh);
+						button.setX((self.width - bw) / 2);
+						button.setY(Math.max(0, by));
+					}
 				}
 			}
 		} catch (Throwable ignored) {
