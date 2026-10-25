@@ -25,6 +25,20 @@ public partial class SettingsPage : UserControl
     private bool _jvmLoading = true;
     private string? _jvmVersion;
 
+    /// <summary>
+    /// Render mode (UI/RenderShots.cs): scrolls so the Settings Sync row sits a little below the top of the page, whole,
+    /// with the card above it for context. The row is below the fold at the default window size, and the half-way and
+    /// bottom shots are not guaranteed to land on it.
+    /// </summary>
+    internal void TourScrollToSync()
+    {
+        var top = SettingsSyncToggle.TranslatePoint(new Point(0, 0), Column).Y;
+        Scroller.ScrollToVerticalOffset(Math.Max(0, top - 160));
+    }
+
+    /// <summary>Render mode: back to the top, so a later visit to this page starts where a player would.</summary>
+    internal void TourScrollToTop() => Scroller.ScrollToVerticalOffset(0);
+
     public SettingsPage()
     {
         InitializeComponent();

@@ -227,6 +227,7 @@ public static class RenderShots
         Snap(window, outDir, "14-settings");
         // The lower sections (JVM arguments, Origin Client, Startup, Developer) are below the fold.
         SnapSettingsScrolled(window, outDir, "14b-settings-middle", "14c-settings-bottom");
+        SnapSettingsSync(window, outDir, "14d-settings-sync");
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
@@ -257,6 +258,7 @@ public static class RenderShots
         Pump(800);
         Snap(window, outDir, "24-min-settings");
         SnapSettingsScrolled(window, outDir, "24b-min-settings-middle", "24c-min-settings-bottom");
+        SnapSettingsSync(window, outDir, "24d-min-settings-sync");
 
         // The Profiles page and Home with a profile (profile row + Join under Play), at the smallest
         // window too, the second time with the toasts up: the Play card, Play and Join must all fit
@@ -294,6 +296,18 @@ public static class RenderShots
         Pump(200);
     }
 
+    /// <summary>Settings scrolled to the Settings Sync row, so that row is in the cut-off check at both window sizes (then back to the top).</summary>
+    private static void SnapSettingsSync(Window window, string dir, string name)
+    {
+        var page = FindVisual<Pages.SettingsPage>(window);
+        if (page == null) return;
+        page.TourScrollToSync();
+        Pump(400);
+        Snap(window, dir, name);
+        page.TourScrollToTop();
+        Pump(200);
+    }
+
     /// <summary>The two crash dialogs with made-up details (the themed layout; the in-code fallback is covered by src/OriginLauncher.UiTests).</summary>
     private static void SnapCrashWindows(string dir)
     {
@@ -313,7 +327,7 @@ public static class RenderShots
             var report = new Windows.CrashReportWindow(analysis, null, "OriginPlayer - Minecraft 1.21.1");
             report.Show();
             Pump(400);
-            Snap(report, dir, "41-crash-report-window", size: new Size(report.Width, report.Height));
+            Snap(report, dir, "41-crash-report-window");
             report.Close();
 
             // The most common cause: out of memory, with its one-click fix.
@@ -323,7 +337,7 @@ public static class RenderShots
                 "OriginPlayer - Minecraft 1.21.1", oom, () => "report");
             oomWindow.Show();
             Pump(400);
-            Snap(oomWindow, dir, "42-crash-report-memory", size: new Size(oomWindow.Width, oomWindow.Height));
+            Snap(oomWindow, dir, "42-crash-report-memory");
             oomWindow.Close();
         }
         catch (Exception e)

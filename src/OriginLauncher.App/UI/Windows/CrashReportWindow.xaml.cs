@@ -17,8 +17,6 @@ namespace OriginLauncher.App.UI.Windows;
 // The player's files are never touched by this window.
 public partial class CrashReportWindow : Window
 {
-    private const double DetailsExtraHeight = 220;
-
     private readonly string? _logPath;
     private readonly CrashAction _action;
     private readonly Func<string>? _buildReport;
@@ -45,6 +43,11 @@ public partial class CrashReportWindow : Window
             // The theme did not load: same content and buttons, built in code with literal colours.
             UsingFallbackLayout = true;
             BuildFallbackLayout();
+            // What the XAML says about size, in code: as tall as its content, wide enough for the one-row buttons.
+            Width = 880;
+            MinWidth = 860;
+            SizeToContent = SizeToContent.Height;
+            DetailsPanel.Height = 200;
         }
         _logPath = logPath;
         _buildReport = buildReport;
@@ -98,7 +101,6 @@ public partial class CrashReportWindow : Window
             ActionButton.Content = diagnosis.ActionLabel;
             if (_action == CrashAction.OpenLogs) OpenLogButton.Visibility = Visibility.Collapsed;
         }
-        Height = 380;
     }
 
     // The same controls as CrashReportWindow.xaml (same field names), with no resource lookups.
@@ -154,7 +156,6 @@ public partial class CrashReportWindow : Window
         _detailsOpen = !_detailsOpen;
         DetailsPanel.Visibility = _detailsOpen ? Visibility.Visible : Visibility.Collapsed;
         DetailsButton.Content = _detailsOpen ? "Hide details" : "Show details";
-        Height += _detailsOpen ? DetailsExtraHeight : -DetailsExtraHeight;
     }
 
     private void CopyReport_Click(object sender, RoutedEventArgs e)

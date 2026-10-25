@@ -169,7 +169,13 @@ public static class SharedMods
                 Directory.CreateDirectory(shared);
                 var done = MergeFolder(mods, shared, log);
                 if (done && !Directory.EnumerateFileSystemEntries(mods).Any())
-                    Directory.Delete(mods); // emptied by the moves above
+                {
+                    // Emptied by the moves above. A read-only folder (a copy brought from elsewhere) makes Delete throw
+                    // "Access denied" on EVERY launch (2026-10-20 game-folders.log), which also skipped the twin cleanup below.
+                    var info = new DirectoryInfo(mods);
+                    if ((info.Attributes & FileAttributes.ReadOnly) != 0) info.Attributes &= ~FileAttributes.ReadOnly;
+                    info.Delete();
+                }
                 log($"{version}: {key}'s mods merged into the shared folder" + (done ? "" : " (some files were busy — retried next time)"));
                 complete &= done;
             }

@@ -35,6 +35,8 @@ public sealed class SharedModsLedger
     private readonly Dictionary<string, OriginJar> _originById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, OriginJar> _originByFile = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<OriginJar> _originJars = new();
+    // Mods this run lands turned on (id -> version), so a later check sees the folder as it will be, not as it was read.
+    private readonly Dictionary<string, string?> _landed = new(StringComparer.Ordinal);
 
     /// <summary>The ledger of <paramref name="modsDir"/> as it is now: every jar's file name and mod id. A jar that can't be read still counts by name.</summary>
     public static SharedModsLedger Read(string modsDir)
@@ -144,12 +146,40 @@ public sealed class SharedModsLedger
         {
             _ids[id] = setupLabel;
             _originById.Remove(id);
+            if (mod.DestFileName is { } landedName && !IsDisabledName(landedName)) _landed[id] = mod.Version;
+            else _landed.Remove(id);
         }
         if (mod.DestFileName is { } file)
         {
             _files[FileKey(file)] = setupLabel;
             _originByFile.Remove(FileKey(file));
         }
+    }
+
+    /// <summary>
+    /// Every mod id the folder will have TURNED ON once this run is applied, with its version: Origin's turned-on jars
+    /// (minus the ones an import replaced) plus what the run landed turned on. A turned-off jar loads nothing, so it
+    /// isn't in here. Used to check that an imported mod's own dependencies are really there at the version it needs.
+    /// </summary>
+    public Dictionary<string, string?> PresentVersions()
+    {
+        var present = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var (id, jar) in _originById)
+            if (!jar.Disabled) present[id] = jar.Version;
+        foreach (var (id, version) in _landed) present[id] = version;
+        return present;
+    }
+
+    /// <summary>
+    /// The version of Origin's own TURNED-ON copy of <paramref name="id"/> (it may be null when the jar states none), as
+    /// read: false when Origin has no copy or has it turned off. Used to put Origin's copy back in the picture when an
+    /// imported mod that would have replaced it is turned off after all.
+    /// </summary>
+    public bool TryGetOriginVersion(string id, out string? version)
+    {
+        if (_originById.TryGetValue(id, out var jar) && !jar.Disabled) { version = jar.Version; return true; }
+        version = null;
+        return false;
     }
 
     private static bool IsModFile(string name) =>

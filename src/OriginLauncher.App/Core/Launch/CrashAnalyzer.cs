@@ -106,6 +106,16 @@ public static class CrashAnalyzer
             return Blame(mixinIds, "A mod failed to hook into this Minecraft version (mixin apply failure).",
                          combined, modIndex, excerptAround: "Mixin apply");
 
+        // 3b. The deepest "Caused by" that runs through a mod's own code names the culprit. Fabric's headline names
+        //     only the mod whose entrypoint happened to be loading ("provided by 'modernfix'"): 2026-10-20 an
+        //     imported Feather jar died in its mixin plugin during ModernFix's first class and ModernFix got the
+        //     blame. A known other-client core (ClientCoreMods) is recognised by its package alone, even when its
+        //     jar can't be read.
+        var deepest = BlameByDeepestCause(combined, modIndex);
+        if (deepest != null)
+            return Blame([deepest.Value.ModId], deepest.Value.Reason, combined, modIndex,
+                         excerptAround: deepest.Value.Excerpt);
+
         // 4. Fabric crash reports carry an explicit blame line when the loader
         //    can attribute the crash: "Suspected Mod(s): Some Mod (somemod)".
         if (crashReportText != null)
@@ -212,12 +222,111 @@ public static class CrashAnalyzer
             .ToList();
     }
 
+    // Frames that are never a mod's own code: the JDK, the loader, mixin, Minecraft and its libraries.
+    private static readonly string[] NotModCode =
+    [
+        "java.", "javax.", "jdk.", "sun.", "net.fabricmc.", "org.spongepowered.", "com.llamalad7.", "net.minecraft.",
+        "com.mojang.", "org.lwjgl.", "io.netty.", "com.google.", "org.apache.", "org.slf4j.",
+    ];
+
+    // "at knot//net.example.Foo.bar(Foo.java:1)" (Fabric prints mod classes with the knot// prefix) or a plain
+    // "at net.example.Foo.bar(...)"; the capture is "net.example.Foo.bar". Obfuscated lowercase classes match too.
+    private static readonly Regex FrameLine = new(
+        @"^\s*at (?:knot//)?([A-Za-z_$][\w$]*(?:\.[\w$<>]+)+)\(", RegexOptions.Multiline | RegexOptions.Compiled);
+
+    // The last exception chain in the text (a throwable and its "Caused by" blocks), deepest block first. Only the
+    // final chain counts: an earlier, harmless logged exception must not decide the blame.
+    private static List<(string Header, List<string> Classes)> LastChainBlocks(string text)
+    {
+        var lines = text.Split('\n');
+        var last = -1;
+        for (var i = lines.Length - 1; i >= 0; i--)
+            if (lines[i].StartsWith("Caused by:", StringComparison.Ordinal)) { last = i; break; }
+        if (last < 0) return [];
+
+        static bool IsChainLine(string l)
+        {
+            var t = l.TrimStart();
+            return t.StartsWith("at ", StringComparison.Ordinal) || t.StartsWith("...", StringComparison.Ordinal)
+                || t.StartsWith("Caused by:", StringComparison.Ordinal) || t.StartsWith("Suppressed:", StringComparison.Ordinal);
+        }
+
+        var start = last;
+        while (start > 0 && IsChainLine(lines[start - 1])) start--;
+        if (start > 0) start--; // the top exception's own header line
+
+        var blocks = new List<(string Header, List<string> Classes)>();
+        for (var i = start; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimEnd('\r');
+            if (i > start && !IsChainLine(line)) break;
+            var isHeader = i == start || line.TrimStart().StartsWith("Caused by:", StringComparison.Ordinal);
+            if (isHeader) blocks.Add((line.Trim(), []));
+            else if (FrameLine.Match(line) is { Success: true } m)
+            {
+                var qualified = m.Groups[1].Value;
+                var dot = qualified.LastIndexOf('.');
+                if (dot > 0) blocks[^1].Classes.Add(qualified[..dot]);
+            }
+        }
+        blocks.Reverse();
+        return blocks;
+    }
+
+    // The mod whose own code is where the deepest cause was thrown, or null when the chain doesn't say one mod
+    // clearly. A known other-client core wins on its package alone; any other mod must be the ONLY mod in the
+    // block (a wrong accusation sends the player deleting the wrong jar).
+    private static (string ModId, string Reason, string Excerpt)? BlameByDeepestCause(
+        string text, IReadOnlyDictionary<string, string> modIndex)
+    {
+        Dictionary<string, HashSet<string>>? packagesByMod = null;
+        foreach (var (header, classes) in LastChainBlocks(text))
+        {
+            var candidates = classes.Where(c => !NotModCode.Any(p => c.StartsWith(p, StringComparison.Ordinal))).ToList();
+            if (candidates.Count == 0) continue;
+
+            if (candidates.Select(ClientCoreMods.FindByClassName).FirstOrDefault(c => c != null) is { } core)
+                return (core.ModId, $"{core.Name}'s own client files can't run inside Origin and stopped the game.", header);
+
+            packagesByMod ??= PackagesByMod(modIndex);
+            var owners = candidates
+                .Select(c => packagesByMod.FirstOrDefault(kv => kv.Value.Any(p => c.StartsWith(p + ".", StringComparison.Ordinal) || c == p)).Key)
+                .Where(id => id != null).Distinct().ToList();
+            if (owners.Count == 1)
+                return (owners[0], "A mod's own code is where the game failed.", header);
+            if (owners.Count > 1) return null; // several mods in one block: not clear enough, fall back to the other steps
+        }
+        return null;
+    }
+
+    // mod id -> every code package in its jar. Origin's own jar and the managed perf stack are left out: they run
+    // on every launch, so blaming them is noise.
+    private static Dictionary<string, HashSet<string>> PackagesByMod(IReadOnlyDictionary<string, string> modIndex)
+    {
+        var result = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (modId, jarPath) in modIndex)
+        {
+            if (modId == "originclient" || Mods.ModManager.IsManaged(Path.GetFileName(jarPath))) continue;
+            try
+            {
+                using var zip = ZipFile.OpenRead(jarPath);
+                result[modId] = zip.Entries
+                    .Where(e => e.FullName.EndsWith(".class") && e.FullName.Contains('/'))
+                    .Select(e => string.Join('.', e.FullName.Split('/').SkipLast(1)))
+                    .Where(p => p.Length > 0 && !p.StartsWith("META-INF"))
+                    .ToHashSet();
+            }
+            catch { /* unreadable jar — skip */ }
+        }
+        return result;
+    }
+
     // Match "at com.example.foo.Bar.baz(...)" stack frames against the code
     // packages inside each installed jar. Origin's own jar and the managed perf
     // stack are excluded — they run on every launch; blaming them is noise.
     private static List<string> BlameByStackPackages(string text, IReadOnlyDictionary<string, string> modIndex)
     {
-        var frames = Regex.Matches(text, @"^\s*at ([a-z][a-z0-9_]*(?:\.[a-z0-9_]+){2,})\.[A-Z]", RegexOptions.Multiline)
+        var frames = Regex.Matches(text, @"^\s*at (?:knot//)?([a-z][a-z0-9_]*(?:\.[a-z0-9_]+){2,})\.[A-Z]", RegexOptions.Multiline)
             .Select(m => m.Groups[1].Value).Distinct().ToList();
         if (frames.Count == 0) return [];
 

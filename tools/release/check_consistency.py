@@ -22,6 +22,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    must never be shown (no greyed "Coming Soon" entries — Will, 2026-10-12),
    and a shipped version must never be missing from the picker.
 
+6. The self-update hash — the launcher's UpdateService looks for the zip's
+   AssetName + ".sha256" release asset and the release workflow must publish
+   exactly that (both in the `gh release create` list and the rehearsal artifact).
+
 Run from anywhere: python3 tools/release/check_consistency.py
 """
 from __future__ import annotations
@@ -96,6 +100,17 @@ def check_release_feed() -> list[str]:
     return [f"release feed {n}: installer {a[n]!r} vs launcher {b[n]!r}" for n in names if a[n] != b[n]]
 
 
+def check_update_hash() -> list[str]:
+    svc = (LAUNCHER / "Core/Updates/UpdateService.cs").read_text(encoding="utf-8")
+    wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
+    name = re.search(r'const string AssetName\s*=\s*"([^"]*)"', svc)
+    if not name or not re.search(r'const string HashAssetName\s*=\s*AssetName\s*\+\s*"\.sha256"', svc):
+        return ["UpdateService no longer derives HashAssetName as AssetName + \".sha256\" (update check_update_hash)"]
+    hash_name = name.group(1) + ".sha256"
+    n = len(re.findall(r"^\s+" + re.escape(hash_name) + r"\s*$", wf, re.M))
+    return [] if n >= 2 else [f"launcher-release.yml must list {hash_name} in the release and the rehearsal artifact (found {n}x)"]
+
+
 def check_picker() -> list[str]:
     # Each card is Group("key", "title", "tagline", "description", "ver", "ver", ...):
     # the versions are every string literal after the first four.
@@ -118,11 +133,11 @@ def check_picker() -> list[str]:
 
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_typography() + check_release_feed()
-                + check_picker())
+                + check_update_hash() + check_picker())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
-        print("OK: version list, version picker, hand-off file name, typography and release feed agree "
+        print("OK: version list, version picker, hand-off file name, typography, release feed and update hash agree "
               "across launcher and installer.")
     return 1 if problems else 0
 

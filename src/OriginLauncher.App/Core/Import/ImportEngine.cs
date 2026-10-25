@@ -330,7 +330,6 @@ public sealed partial class ImportEngine
 
         var sourceMods = ModSetResolver.ReadSourceMods(plan.Source.ModsFolder, fs, ct);
         var decisions = ModSetResolver.Resolve(sourceMods, new ResolveContext(target, builtIns, JavaFor(target)));
-        plan.Mods.AddRange(decisions);
 
         var modsDir = InstanceLayout.ModsDir(_env.InstancesRoot, target);
         var shared = ledger.Mods ??= SharedModsLedger.Read(modsDir);
@@ -340,6 +339,17 @@ public sealed partial class ImportEngine
         var infoByPath = sourceMods.GroupBy(m => m.Path, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Info, StringComparer.OrdinalIgnoreCase);
         ModInfo? InfoOf(ModDecision d) => d.SourcePath != null && infoByPath.TryGetValue(d.SourcePath, out var info) ? info : null;
         var importedDepends = decisions.Where(d => d.IsCopied).SelectMany(d => InfoOf(d)?.Depends ?? Array.Empty<ModDependency>()).ToList();
+        IReadOnlyList<ModDependency> NeedsOf(ModDecision d)
+        {
+            var needNames = new HashSet<string>(StringComparer.Ordinal);
+            if (d.ModId is { Length: > 0 } modId) needNames.Add(modId);
+            foreach (var provided in InfoOf(d)?.Provides ?? Array.Empty<string>()) needNames.Add(provided);
+            return importedDepends.Where(dep => needNames.Contains(dep.Id)).ToList();
+        }
+        // An imported mod that needs another version of a mod Origin already has would stop the whole game at boot
+        // (2026-10-20: Counter/Spawn Chaining/Unchained wanted Cobblemon 1.7.3, Origin has 1.8.0): it lands turned off.
+        decisions = ImportedModFit.Apply(decisions, InfoOf, shared, d => shared.Decide(d, NeedsOf(d)));
+        plan.Mods.AddRange(decisions);
         foreach (var d in decisions)
         {
             var name = d.DisplayName ?? d.ModId ?? d.FileName;
@@ -348,13 +358,16 @@ public sealed partial class ImportEngine
                 case ModOutcome.Copied:
                 case ModOutcome.CopiedAsBefore:
                 case ModOutcome.CopiedDisabled:
-                    var names = new HashSet<string>(StringComparer.Ordinal);
-                    if (d.ModId is { Length: > 0 } modId) names.Add(modId);
-                    foreach (var provided in InfoOf(d)?.Provides ?? Array.Empty<string>()) names.Add(provided);
-                    var landing = shared.Decide(d, importedDepends.Where(dep => names.Contains(dep.Id)).ToList());
+                    var landing = shared.Decide(d, NeedsOf(d));
                     if (landing.Holder is { } holder)
                     {
                         if (landing.Existing is { } existing) plan.SharedModsReliedOn.Add(existing);
+                        // Turned off by ImportedModFit while Origin's own copy stays: say that, not "already in Origin's mods".
+                        if (holder == SharedModsLedger.InOrigin && d.Outcome == ModOutcome.CopiedDisabled && ImportedModFit.IsFitReason(d.Reason))
+                        {
+                            plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, "Not imported, turned off: " + d.Reason));
+                            break;
+                        }
                         plan.Lines.Add(landing.Note != null
                             ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, landing.Note)
                             : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,

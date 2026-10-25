@@ -81,6 +81,10 @@
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportCloseGuard.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportBulkReport.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\Deferred.cs" LinkBase="Import" />
+    <!-- The self-update zip's integrity check (pure: streams + files; UpdateService, the WPF/HTTP glue, stays out). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateVerifier.cs" LinkBase="Updates" />
+    <!-- The mandatory-update gate's state machine: a failed check never blocks play, retries quietly (pure; the clock is a parameter). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateGate.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
@@ -90,6 +94,10 @@
          the one-retry guard and the secret-free Copy report (CrashAnalyzer/CrashDiagnoser read files, so they stay out). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashModels.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashClassifier.cs" LinkBase="Launch" />
+    <!-- Other clients' core jars (Feather, Lunar, ...): never imported, blamed first in a crash stack. -->
+    <Compile Include="..\OriginLauncher.App\Core\ClientCoreMods.cs" LinkBase="Launch" />
+    <!-- Mod blame from crash logs (uses the real ModManager linked further down). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashAnalyzer.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashReportBundle.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" LinkBase="Launch" />
     <!-- Heap cap + G1 flags for 1.8.9-era versions, and the pinned Temurin 8 provisioner (pure; network faked). -->
