@@ -5543,3 +5543,10 @@ Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible f
 
 ## 2026-10-25 - Website: AI helper removed
 - The assistant page, CSS, JS, nav links and terms section 10 are deleted. The terms date is back to July 6, 2026. The phone nav bug was one selector (site.css:309 must be `:not(.nav-home)`), which had hidden Home on store.html. The `.brand` logo link needs min-width 44px for phone tap targets. Never `taskkill` python by image name (it killed Will's other python processes); kill the server's PID only. Headless Edge/Chrome can't render below about 500 px, so use the browser pane or an iframe harness for phone shots.
+
+## 2026-10-25 - Releases launcher-v1.0.62 to v1.0.65 (catch-up)
+- v1.0.62 (2026-10-20): Waypoints per world/server and a Transparent Menus option; 1.8.9 Esc blur, cheaper menus and a Discord site button; old-version dock icons in Minecraft pixel style; 26.3 menu clicks fixed; installer matches the launcher's look.
+- v1.0.63 (2026-10-20): Home no longer goes blank after switching pages; uninstall pages match the installer; Auto/Manual memory with a capped 1.8.9 heap; Lunar's 1.8 line imports as 1.8.9; 1.8.9 shader allowlist with a warning for incompatible packs; crash window v2 gives a plain-language cause and a secret-free Copy report.
+- v1.0.64 (2026-10-20): Recommended-for-this-PC video preset (Low/Balanced/High); faster launcher startup; background warm-up of the picked version's files before Play; in-game smoothness (unfocused background mode, cheaper menus); EntityCulling and FerriteCore speed mods added.
+- v1.0.65 (2026-10-20): Redrawn colour pixel dock icons on the main menu; mod-menu icons back to monochrome vector; globe icon cleaned up.
+- The website AI assistant (Cloudflare Worker origin-assistant-api + assistant page) existed from about v1.0.62-65; removed from the site 2026-10-25 (see Website entry). Will still has to delete the Worker and revoke its Anthropic key himself.

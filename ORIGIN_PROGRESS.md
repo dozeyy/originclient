@@ -7,9 +7,9 @@ The one tracking file for the 2026-10-25 overhaul (03: "a single ORIGIN_PROGRESS
 - **Docs:** `docs/overhaul/README.md` (how a phase runs, standing rules S1-S12, parallel tracks), `docs/overhaul/JUDGE.md` (the
   95/100 judge), `docs/overhaul/phase-0-cleanup.md` ... `phase-7-mod-updates.md` (one execution prompt per phase),
   `docs/overhaul/requests/` (Will's words), `docs/overhaul/audit/` (read-only audits of `de6b3eb6a`), `docs/overhaul/design/` (Workbench).
-- **Where the docs live:** branch `claude/overhaul-docs` until Phase 0 merges it into `main` (Phase 0's first commit merges it).
-- **Current phase:** Phase 0 - Cleanup. Not started (2026-10-25). Will authorized autonomous completion of phases 0-7 (04).
-- **Next step:** Phase 0 U0.1 (inventory, researcher) and U0.2 (crash-fix merge, desktop-app-dev) in parallel.
+- **Where the docs live:** on main (merged 2026-10-25).
+- **Current phase:** Phase 0 closed 2026-10-25 (judge 95). Running in parallel: P1 launcher (judging), P2 design system (fix loop), 5.1 compat engine, 6.1 benchmark, 7 mod updates, Sodium/Iris spike.
+- **Next step:** P2 pass -> Phase 3 launcher redesign; P1 launcher merge on judge pass.
 - **Statuses:** Done and tested · Done but untested · In progress · Not started · Blocked · Needs my decision.
   "Done and tested" needs evidence (commit, CI run id, test name, shot path). A judge pass is an estimate, not Will's approval.
 
@@ -90,9 +90,9 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 | P0-06 | Identify what is safe to remove; preserve unique work (`archive/<name>`) | 03 P0 | 0 | Done and tested | 148 -> 28 worktrees; old branches bundled to artifacts/git-backup-2026-10-25/old-branches.bundle before deletion; 79 merged remote claude/* branches deleted; kept: anything with unique or uncommitted work, saves, PR #34, the 1.8.9 stash |
 | P0-07 | Remove obsolete in-project copies only after verification | 03 P0 | 0 | Done and tested | 148 -> 28 worktrees; old branches bundled to artifacts/git-backup-2026-10-25/old-branches.bundle before deletion; 79 merged remote claude/* branches deleted; kept: anything with unique or uncommitted work, saves, PR #34, the 1.8.9 stash |
 | P0-08 | Leftovers outside the project (TEMP worktrees, sibling folders, Codex folder) | 03 P0, gate list | 0 | Needs my decision | held: deletes outside the project |
-| P0-09 | Carry the three 2026-10-19 MEMORY entries + entries for v1.0.62-v1.0.65 and the Origin AI work | 03 P0 | 0 | Not started | |
+| P0-09 | Carry the three 2026-10-19 MEMORY entries + entries for v1.0.62-v1.0.65 and the Origin AI work | 03 P0 | 0 | Done and tested | MEMORY.md 2026-10-19 entries (257a79721) + v1.0.62-65 catch-up |
 | P0-10 | Refresh stale notes: CLAUDE.md Current state, Roadmap, Brand (soft accents, Workbench); auto-memory marked superseded | 03 P0 | 0 | Done and tested | CLAUDE.md current state, roadmap and brand updated |
-| P0-11 | Bring the main checkout (480 behind, dirty) onto current main safely, backup first | brief | 0 | Not started | |
+| P0-11 | Bring the main checkout (480 behind, dirty) onto current main safely, backup first | brief | 0 | Done and tested | main checkout == origin/main (924a5809d); backup in scratchpad backup-main/ |
 | P0-12 | Accurate baseline (tests, launcher-shots, dev-shots, boot-smoke, launch-time) | 03 P0 | 0 | Not started | Baseline table |
 
 ### Phase 1 - Quick fixes
