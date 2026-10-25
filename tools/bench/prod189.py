@@ -96,6 +96,21 @@ LAUNCHER_JVM = ("-Xms4096M -Xmx4096M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -X
                 "-XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 "
                 "-XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1")
 
+# U6.4 candidate H (GC) and RamAdvice heap sizes: named JVM flag sets for the bench A/B (--jvm-variant). Each is
+# the shipped LAUNCHER_JVM with ONE thing changed, so a delta vs origin-default belongs to that one change.
+_G1_ONLY = [f for f in LAUNCHER_JVM.split() if f.startswith("-XX:G1") or f in (
+    "-XX:+UseG1GC", "-XX:+ParallelRefProcEnabled", "-XX:MaxGCPauseMillis=200", "-XX:+UnlockExperimentalVMOptions",
+    "-XX:SurvivorRatio=32", "-XX:MaxTenuringThreshold=1", "-XX:InitiatingHeapOccupancyPercent=15")]
+JVM_AB = {
+    "g1-pause40": LAUNCHER_JVM.replace("-XX:MaxGCPauseMillis=200", "-XX:MaxGCPauseMillis=40"),
+    "g1-young15": LAUNCHER_JVM.replace("-XX:G1NewSizePercent=25", "-XX:G1NewSizePercent=15")
+                              .replace("-XX:G1MaxNewSizePercent=35", "-XX:G1MaxNewSizePercent=25"),
+    "parallel": " ".join([f for f in LAUNCHER_JVM.split() if f not in _G1_ONLY] + ["-XX:+UseParallelGC"]),
+    "cms": " ".join([f for f in LAUNCHER_JVM.split() if f not in _G1_ONLY] + ["-XX:+UseConcMarkSweepGC", "-XX:+UseParNewGC"]),
+    "heap2g": LAUNCHER_JVM.replace("-Xms4096M -Xmx4096M", "-Xms2048M -Xmx2048M"),
+    "heap6g": LAUNCHER_JVM.replace("-Xms4096M -Xmx4096M", "-Xms6144M -Xmx6144M"),
+}
+
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OriginBench"
 VARIANTS = ("origin-default", "optifine-only")
 
@@ -646,6 +661,8 @@ def bench_env(args, variant, out_dir, build_label):
 
 def cmd_run(args):
     """Provision (cached) -> fresh game folder -> start -> collect bench.json etc. into --out."""
+    if getattr(args, "jvm_variant", None):
+        args.jvm = JVM_AB[args.jvm_variant]
     osn = os_name()
     cache = os.path.abspath(args.cache)
     os.makedirs(cache, exist_ok=True)
@@ -663,7 +680,9 @@ def cmd_run(args):
     optifine = os.path.join(mods_dir, OPTIFINE_FILE)
     if not (os.path.isfile(optifine) and sha1_file(optifine) == OPTIFINE_SHA1):
         ensure_file(optifine, optifine_urls(), OPTIFINE_SHA1)
-    stack = [ensure_file(os.path.join(mods_dir, n), [u], sha256=STACK_SHA256[n]) for n, u in STACK_MODS]
+    # --no-betterfps (U6.4 candidate J): the shipped stack minus BetterFps, nothing else changed
+    stack_mods = [(n, u) for n, u in STACK_MODS if not (args.no_betterfps and n.startswith("BetterFps"))]
+    stack = [ensure_file(os.path.join(mods_dir, n), [u], sha256=STACK_SHA256[n]) for n, u in stack_mods]
 
     out = os.path.abspath(args.out)
     game_dir = os.path.join(os.path.abspath(args.work), "game-%s-%d" % (args.variant, os.getpid()))
@@ -675,7 +694,8 @@ def cmd_run(args):
         record["preset"] = os.path.basename(args.preset)
     record.update({"java": jver, "javaPath": java, "os": osn, "optifineSha1": sha1_file(optifine),
                    "forge": "11.15.1.2318", "jvmFlags": args.jvm, "label": args.label,
-                   "originJar": os.path.basename(origin_jar)})
+                   "originJar": os.path.basename(origin_jar),
+                   "stackMods": [n for n, _ in stack_mods]})
     build_label = "%s (%s)" % (os.path.basename(origin_jar), args.label)
     cmd = game_command(java, prov, game_dir, args.jvm, args.width, args.height)
     log("start %s -> %s" % (args.variant, out))
@@ -711,6 +731,7 @@ def build_parser():
     r.add_argument("--width", type=int, default=1920)
     r.add_argument("--height", type=int, default=1080)
     r.add_argument("--jvm", default=LAUNCHER_JVM)
+    r.add_argument("--jvm-variant", choices=sorted(JVM_AB), help="U6.4 A/B: a named flag set from JVM_AB (overrides --jvm)")
     r.add_argument("--label", default="")
     r.add_argument("--timeout", type=int, default=900)
     r.add_argument("--shots", action="store_true")
@@ -718,6 +739,7 @@ def build_parser():
     r.add_argument("--save-options", action="store_true", help="write options.txt/optionsof.txt before quitting (U6.0)")
     r.add_argument("--preset", help="preset JSON (options / optionsof); OptiFine keys must be in optifine-keys-189.txt")
     r.add_argument("--keep-game", action="store_true")
+    r.add_argument("--no-betterfps", action="store_true", help="leave BetterFps out of the stack (U6.4 J A/B)")
     c = sub.add_parser("check-roundtrip", help="fail when the game saved back a different value than the preset wrote")
     c.add_argument("--preset", required=True)
     c.add_argument("--saved", nargs="+", required=True, help="run folder(s) holding the saved options.txt + optionsof.txt")

@@ -533,5 +533,33 @@ class RoundTrip(Tmp):
         self.assertEqual(P.main(["check-roundtrip", "--preset", self._preset(), "--saved", bad]), 1)
 
 
+class JvmAb(unittest.TestCase):
+    """U6.4: each named JVM set is the shipped one with ONE change, so its delta belongs to that change."""
+
+    def test_one_change_each(self):
+        base = P.LAUNCHER_JVM.split()
+        for name, want_gone, want_new in (
+                ("g1-pause40", {"-XX:MaxGCPauseMillis=200"}, {"-XX:MaxGCPauseMillis=40"}),
+                ("g1-young15", {"-XX:G1NewSizePercent=25", "-XX:G1MaxNewSizePercent=35"},
+                 {"-XX:G1NewSizePercent=15", "-XX:G1MaxNewSizePercent=25"}),
+                ("heap2g", {"-Xms4096M", "-Xmx4096M"}, {"-Xms2048M", "-Xmx2048M"}),
+                ("heap6g", {"-Xms4096M", "-Xmx4096M"}, {"-Xms6144M", "-Xmx6144M"})):
+            flags = P.JVM_AB[name].split()
+            self.assertEqual(set(base) - set(flags), want_gone, name)
+            self.assertEqual(set(flags) - set(base), want_new, name)
+
+    def test_other_collectors_carry_no_g1_flag(self):
+        for name, gc in (("parallel", "-XX:+UseParallelGC"), ("cms", "-XX:+UseConcMarkSweepGC")):
+            flags = P.JVM_AB[name].split()
+            self.assertIn(gc, flags)
+            self.assertNotIn("-XX:+UseG1GC", flags)
+            self.assertFalse([f for f in flags if f.startswith("-XX:G1")], name)
+            self.assertIn("-Xmx4096M", flags)
+
+    def test_cli_variant_overrides_jvm(self):
+        a = P.build_parser().parse_args(["run", "--origin-jar", "x", "--out", "o", "--jvm-variant", "cms", "--no-betterfps"])
+        self.assertEqual((a.jvm_variant, a.no_betterfps), ("cms", True))
+
+
 if __name__ == "__main__":
     unittest.main()
