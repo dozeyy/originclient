@@ -25,6 +25,7 @@
 		"PlainTextButtonMixin",
 		"TooltipRenderUtilMixin",
 		"ClientTextTooltipMixin",
+		"WidgetTooltipHolderMixin",
 		"ScreenInvoker",
 		"PackSelectionScreenAccessor",
 		"ScreenBackgroundMixin",

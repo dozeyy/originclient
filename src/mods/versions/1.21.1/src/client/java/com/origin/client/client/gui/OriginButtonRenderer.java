@@ -329,18 +329,21 @@ public final class OriginButtonRenderer {
 		float em = OriginTheme.TITLE_SMALL_EM;
 		float cap = OriginSdfFont.capHeight(em, false);
 		float baseline = top + 3.5f + cap / 2f;
-		float lw = titleTextWidth(left, em, false), space = titleTextWidth(" ", em, false);
+		// The same gap both sides of the dot. Measured, not " ": the atlas' space advance is near zero, which
+		// glued "1.21.1" to the dot (judge 2026-10-25).
+		float lw = titleTextWidth(left, em, false), space = em * 0.4f;
 		drawTitleText(g, left, x, top, em, argb, false);
 		int gs = Math.max(1, com.origin.client.client.gui.OriginSurface.scale());
 		int dot = Math.max(1, Math.round(1.1f * gs));                     // physical px
-		float dotCx = x + lw + space, dotCy = baseline - cap * 0.36f;     // GUI px: x-height middle
+		float half = dot / (2f * gs);                                     // GUI px
+		float dotCx = x + lw + space + half, dotCy = baseline - cap * 0.36f;   // GUI px: x-height middle
 		var pose = g.pose();
 		pose.pushPose();
 		pose.scale(1f / gs, 1f / gs, 1f);
 		int dx = Math.round(dotCx * gs - dot / 2f), dy = Math.round(dotCy * gs - dot / 2f);
 		g.fill(dx, dy, dx + dot, dy + dot, argb);
 		pose.popPose();
-		float rx = dotCx + space;
+		float rx = dotCx + half + space;
 		drawTitleText(g, right, rx, top, em, argb, false);
 		return Math.round(rx + titleTextWidth(right, em, false));
 	}
@@ -379,6 +382,62 @@ public final class OriginButtonRenderer {
 	}
 
 	private static final Map<Object, String> FOOTER_TEXT = new WeakHashMap<>();
+
+	// Dock tooltips (WidgetTooltipHolderMixin): beside the dock row, centred on the hovered tile, 8 GUI px clear
+	// of the row (right of it for tiles right of centre, left for the rest). Vanilla's mouse-anchored tooltip flipped
+	// up against the Mods button, 3 px under it (judge 2026-10-25). Keyed by the Tooltip object, which is what the
+	// holder knows; weak, so a closed title screen's tooltips go with it.
+	private static final Map<Object, Boolean> DOCK_TIPS = new WeakHashMap<>();
+	private static final int DOCK_TIP_GAP = 8, DOCK_TIP_PAD = 4;   // GUI px; PAD = the panel's frame round the text
+
+	public static void setDockTip(Object tooltip) {
+		if (tooltip != null) {
+			DOCK_TIPS.put(tooltip, Boolean.TRUE);
+		}
+	}
+
+	/** The dock tooltip's placement, or null = vanilla's. {@code tile} is the hovered widget's rectangle. */
+	public static net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner dockTipPositioner(
+			Object tooltip, net.minecraft.client.gui.navigation.ScreenRectangle tile) {
+		if (tooltip == null || tile == null || titleBroken || !DOCK_TIPS.containsKey(tooltip)
+				|| com.origin.client.client.OriginStyle.vanillaTitle()) {
+			return null;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.screen == null) {
+				return null;
+			}
+			int left = Integer.MAX_VALUE, right = Integer.MIN_VALUE;
+			for (var c : mc.screen.children()) {
+				if (c instanceof net.minecraft.client.gui.components.AbstractWidget w && w.visible) {
+					TitlePresentation tp = TITLE.get(w);
+					if (tp != null && tp.iconOnly() && w.getY() == tile.top()) {
+						left = Math.min(left, w.getX());
+						right = Math.max(right, w.getX() + w.getWidth());
+					}
+				}
+			}
+			if (left > right) {
+				return null;
+			}
+			int rowLeft = left, rowRight = right, cy = tile.top() + tile.height() / 2;
+			boolean rightSide = tile.left() + tile.width() / 2 >= (rowLeft + rowRight) / 2;
+			return (sw, sh, mx, my, tw, th) -> {
+				int x = rightSide ? rowRight + DOCK_TIP_GAP + DOCK_TIP_PAD : rowLeft - DOCK_TIP_GAP - DOCK_TIP_PAD - tw;
+				if (x + tw + DOCK_TIP_PAD > sw) {
+					x = rowLeft - DOCK_TIP_GAP - DOCK_TIP_PAD - tw;
+				}
+				if (x < DOCK_TIP_PAD) {
+					x = rowRight + DOCK_TIP_GAP + DOCK_TIP_PAD;
+				}
+				int y = Math.max(DOCK_TIP_PAD, Math.min(sh - th - DOCK_TIP_PAD, cy - th / 2));
+				return new org.joml.Vector2i(x, y);
+			};
+		} catch (Throwable t) {
+			return null;
+		}
+	}
 
 	// Title tooltips in Inter (ClientTextTooltipMixin): the line's text, read once per line object (vanilla's
 	// Tooltip keeps its split lines, so the same FormattedCharSequence comes back every frame), and its width.

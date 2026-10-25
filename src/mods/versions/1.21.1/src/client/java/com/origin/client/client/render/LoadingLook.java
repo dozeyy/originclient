@@ -72,8 +72,9 @@ final class LoadingLook {
 	private static final double CAPTION_LINE_GUI = 10.0;
 	/** Inter's cap height per em (what the boot-font caption matches before Inter exists). */
 	private static final double INTER_CAP_PER_EM = 0.727;
-	/** No measure: a 26 % segment travels the ring, one lap per 1.6 s. */
-	private static final double SWEEP_SHARE = 0.26, SWEEP_MS = 1600.0;
+	/** No measure: the stroke breathes from the fill's own start (0 = the pill's top) between these shares of the
+	 *  loop, one breath per 1.6 s, so Connecting and world loading show one progress element on one path. */
+	private static final double SWEEP_MIN = 0.06, SWEEP_MAX = 0.30, SWEEP_MS = 1600.0;
 
 	// The frame's geometry, in physical pixels (computed by layout()).
 	private static int gs, physW, physH;
@@ -199,8 +200,8 @@ final class LoadingLook {
 		double from, to;
 		if (fill < 0) {
 			double t = (RingField.sceneMs() % SWEEP_MS) / SWEEP_MS;
-			from = t;
-			to = t + SWEEP_SHARE;
+			from = 0.0;
+			to = SWEEP_MIN + (SWEEP_MAX - SWEEP_MIN) * (0.5 - 0.5 * Math.cos(2.0 * Math.PI * t));
 		} else {
 			from = 0.0;
 			to = Math.max(0.0, Math.min(1.0, fill));
@@ -227,7 +228,7 @@ final class LoadingLook {
 			// Indeterminate: a segment slides across (never a made-up percentage).
 			double t = (RingField.sceneMs() % SWEEP_MS) / SWEEP_MS;
 			double eased = t * t * (3.0 - 2.0 * t);
-			double seg = w * SWEEP_SHARE;
+			double seg = w * 0.26;   // fallback rail only: a quarter-width segment
 			double from = -seg + eased * (w + seg);
 			int a = (int) Math.round(Math.max(0, from)), b = (int) Math.round(Math.min(w, from + seg));
 			pill(g, x + a, y, b - a, h, fillArgb);

@@ -337,6 +337,9 @@ public class TitleScreenMixin {
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
 		OriginButtonRenderer.setTitleDock(w, icon);
 		originclient$tip(w, tip);
+		if (w != null) {
+			OriginButtonRenderer.setDockTip(w.getTooltip());   // placed beside the dock (WidgetTooltipHolderMixin)
+		}
 	}
 
 	/** Worded button on the Workbench panel, with its optional 8 px leading glyph (null = none). */

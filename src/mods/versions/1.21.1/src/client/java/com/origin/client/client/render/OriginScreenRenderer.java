@@ -1246,8 +1246,10 @@ public final class OriginScreenRenderer {
 	private static void drawRings(GuiGraphics guiGraphics, int w, int h) {
 		for (int i = 0; i < rings.size(); i++) {
 			Ring ring = rings.get(i);
+			// The shared ring alpha (OriginTheme.ORBIT_RING_ALPHA), not rings.json's opacity: the backdrop's rings
+			// read at the title pills' level. The textures' own alpha still fades the outer rings.
 			drawRingAt(guiGraphics, ring, w / 2.0 + RingField.offsetX(i, w), h / 2.0 + RingField.offsetY(i, w),
-					ringAngle(i), ring.widthFrac() * w * 0.99, RING_HEIGHT_RATIO, ring.opacity());
+					ringAngle(i), ring.widthFrac() * w * 0.99, RING_HEIGHT_RATIO, OriginTheme.ORBIT_RING_ALPHA / 255f);
 		}
 		shade(1f, 1f, 1f, 1f);
 	}
@@ -1269,7 +1271,7 @@ public final class OriginScreenRenderer {
 		pose.scale(scale, (float) (scale * aspect / RING_HEIGHT_RATIO), 1f);
 		pose.translate(-TEX / 2f, -TEX / 2f, 0);
 		RenderSystem.enableBlend();
-		shade(1f, 1f, 1f, alpha);
+		shade(0xF1 / 255f, 0xE9 / 255f, 0xD2 / 255f, alpha);   // parchment, like the title's pills
 		guiGraphics.blit(ring.texture(), 0, 0, 0, 0, TEX, TEX, TEX, TEX);
 		pose.popPose();
 		shade(1f, 1f, 1f, 1f);
