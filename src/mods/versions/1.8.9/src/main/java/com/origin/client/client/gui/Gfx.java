@@ -117,31 +117,42 @@ public final class Gfx {
 		return Math.max(1, Minecraft.getMinecraft().displayHeight);
 	}
 
+	// The five GL-state helpers below flush queued fills FIRST (see "fill batching"). A flush ends with
+	// blend off / white colour / default alpha, exactly like an immediate fill did; if it ran AFTER a caller
+	// had set its own blend/tint (and before its blit) it would wipe that state. Flushing at the moment the
+	// caller starts setting state makes the flush come first, so "set state, then draw" keeps its state.
+	// (Raw GlStateManager calls are not seen: start such a sequence with one of these, or Gfx.flushBatch().)
+
 	/** RenderSystem.enableBlend() + defaultBlendFunc() in one call. */
 	public static void defaultBlend() {
+		flushBatch();
 		GlStateManager.enableBlend();
 		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
 	}
 
 	/** RenderSystem.color4f from one ARGB int. */
 	public static void color(int argb) {
+		flushBatch();
 		GlStateManager.color(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
 				(argb & 0xFF) / 255f, ((argb >>> 24) & 0xFF) / 255f);
 	}
 
 	/** Back to opaque white with GlStateManager's colour cache re-synced (see the class comment). */
 	public static void resetColor() {
+		flushBatch();
 		GlStateManager.resetColor();
 		GlStateManager.color(1f, 1f, 1f, 1f);
 	}
 
 	/** Alpha test cut-off at 0: only fully transparent fragments dropped. */
 	public static void softAlpha() {
+		flushBatch();
 		GlStateManager.alphaFunc(GL11.GL_GREATER, 0.0F);
 	}
 
 	/** Vanilla's GUI alpha test (GREATER 0.1) -- what every Gfx draw restores. */
 	public static void defaultAlpha() {
+		flushBatch();
 		GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
 	}
 

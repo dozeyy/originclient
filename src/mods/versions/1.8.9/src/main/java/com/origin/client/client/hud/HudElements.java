@@ -961,14 +961,19 @@ public final class HudElements {
 
 	// The animation id of each key ("ks:" + label + x) was concatenated per key per frame; the nine keys sit at fixed
 	// spots, so the id string is built once per (spot, label). Same id text as before, so OriginUi.anim state is shared.
-	private static final java.util.HashMap<Integer, String[]> KS_KEYS = new java.util.HashMap<>();
+	// Direct-mapped by spot (no boxing: a HashMap<Integer,..> allocated an Integer per key per frame above 127). A slot
+	// shared by two spots just evicts and rebuilds the same text, so a collision costs a string, never a wrong id.
+	private static final int[] KS_SPOT = new int[32];
+	private static final String[][] KS_KEYS = new String[32][];
 
 	private static String ksAnimKey(String label, int x, int y) {
 		int spot = (x << 12) ^ y;
-		String[] e = KS_KEYS.get(spot);
-		if (e == null || !e[0].equals(label)) {
+		int slot = (spot ^ (spot >>> 5) ^ (spot >>> 11)) & 31;
+		String[] e = KS_KEYS[slot];
+		if (e == null || KS_SPOT[slot] != spot || !e[0].equals(label)) {
 			e = new String[]{label, "ks:" + label + x};
-			KS_KEYS.put(spot, e);
+			KS_SPOT[slot] = spot;
+			KS_KEYS[slot] = e;
 		}
 		return e[1];
 	}
