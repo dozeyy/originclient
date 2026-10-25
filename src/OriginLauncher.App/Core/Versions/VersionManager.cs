@@ -370,12 +370,12 @@ public sealed class VersionManager
     }
 
     // Off the UI thread: the first check of a big mod set opens every jar once (later launches hit the verdict cache).
-    private static Task CheckModsAsync(string version, string modsFolder, bool externalMods, string? profileId) =>
+    private static Task CheckModsAsync(string version, string modsFolder, bool externalMods, string? profileId, CancellationToken ct) =>
         Task.Run(() => LaunchPreflight.Run(
             version, modsFolder,
             profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null,
             externalMods, ModManager.IsManaged, ModManager.IsOriginProvisioned,
-            Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log")));
+            Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"), ct), ct);
 
     private async Task<Process> InstallAndBuildCoreAsync(
         string version, string accountKey, MLaunchOption option,
@@ -618,7 +618,7 @@ public sealed class VersionManager
         // The mods the game is about to load, checked by the shared compatibility engine BEFORE anything is synced
         // or started: a hard incompatibility becomes a sentence on Home, not a loader crash. Origin-only launches are
         // never checked; a checker failure is logged and the launch goes ahead (LaunchPreflight is fail-soft).
-        await CheckModsAsync(version, modsFolder, externalMods, profileId);
+        await CheckModsAsync(version, modsFolder, externalMods, profileId, ct);
 
         var gameModsFolder = modsFolder; // the shared folder, unless Origin-only or a profile
         if (!externalMods || profileId != null)
@@ -725,7 +725,7 @@ public sealed class VersionManager
         SanitizeCorruptConfigs(configFolder);
 
         // Same pre-launch check as the Fabric path (log-only on 1.8.9: Forge's mod metadata is advisory).
-        await CheckModsAsync(version, modsFolder, externalMods, profileId);
+        await CheckModsAsync(version, modsFolder, externalMods, profileId, ct);
 
         // A mod profile mirrors Origin's own jars plus the profile's folder —
         // none of the player's loose jars in the shared folder (SharedMods.Mirror).

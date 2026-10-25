@@ -10,6 +10,11 @@ namespace OriginLauncher.App.Core.Compat;
 /// </summary>
 public static class ModFolderScanner
 {
+    // A jar is "unchanged" when its size and last-write time (100 ns ticks) are unchanged. That is the same test
+    // Windows tools use to decide a file changed, and it costs no file open. Known limit (documented, not guarded):
+    // a tool that rewrites a jar with the SAME size AND restores the old time stamp is read stale until either
+    // changes. A content check would need an open + read per jar on every scan, which is the cost this cache exists
+    // to avoid; the launch verdict (LaunchPreflight) uses the same stamp.
     private sealed record Stamp(long Length, long WriteTicks, bool Nested);
 
     // Bounded: a launcher session touches a few folders, not thousands of distinct jars.
@@ -72,6 +77,9 @@ public static class ModFolderScanner
             // Share everything: another account's game may hold the jar open right now.
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var info = ModMetadataReader.Read(stream, name, readNested);
+            // A failed read is never remembered: the file may be half-copied or briefly locked right now, and a
+            // remembered failure would hold until its size or time changed.
+            if (info.ReadFailed) return info;
             if (Cache.Count >= CacheLimit) Cache.Clear();
             Cache[path] = (stamp, info);
             return info;

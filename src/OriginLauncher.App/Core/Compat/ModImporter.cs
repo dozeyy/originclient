@@ -59,6 +59,9 @@ public sealed record ImportReport(
 {
     public bool Ok => Error == null;
 
+    /// <summary>Jars that were already installed exactly as dropped: nothing was copied, and they are not "added".</summary>
+    public int AlreadyInstalled { get; init; }
+
     /// <summary>The line the Mods page shows: what was added, then why anything was not.</summary>
     public string Message
     {
@@ -66,6 +69,7 @@ public sealed record ImportReport(
         {
             var parts = new List<string>();
             if (Added > 0) parts.Add(Added == 1 ? "Added 1 mod." : $"Added {Added} mods.");
+            if (AlreadyInstalled > 0) parts.Add(AlreadyInstalled == 1 ? "1 mod was already installed." : $"{AlreadyInstalled} mods were already installed.");
             parts.AddRange(Brief(Refused));
             parts.AddRange(Brief(Notes));
             return string.Join(" ", parts);
@@ -171,6 +175,9 @@ public static class ModImporter
         firstOfId[id] = name;
 
         var twin = existing.FirstOrDefault(e => e.Role != ModRole.Managed && string.Equals(e.Info.Id, id, StringComparison.Ordinal));
+        if (twin == null && existing.Any(e => string.Equals(JarName(e.FileName), name, StringComparison.OrdinalIgnoreCase)))
+            return new ImportItem(src, name, ImportAction.Refuse,
+                $"{name} wasn't added: a different mod with that file name is already installed. Rename the file and try again.", file.Info, null);
         if (twin != null)
         {
             if (SameFile(src, twin) && twin.Enabled)
@@ -188,7 +195,7 @@ public static class ModImporter
         try { Directory.CreateDirectory(context.Folder); }
         catch (Exception ex) { return Failed($"Couldn't open the mods folder: {ex.Message}"); }
 
-        int added = 0, skipped = 0;
+        int added = 0, already = 0, skipped = 0;
         var offers = new List<ReplaceOffer>();
         var refused = new List<string>();
         var notes = new List<string>();
@@ -201,7 +208,7 @@ public static class ModImporter
                 case ImportAction.Skip: skipped++; break;
                 case ImportAction.AlreadyOrigin: originInstalled = true; break;
                 case ImportAction.Refuse: refused.Add(item.Reason!); break;
-                case ImportAction.AlreadyThere: added++; break;
+                case ImportAction.AlreadyThere: already++; break;
                 case ImportAction.AskReplace:
                     offers.Add(new ReplaceOffer(item.SourcePath, item.FileName, item.Info?.Name ?? item.Info?.Id ?? item.FileName,
                         item.Info?.Version, item.Existing!.FileName, item.Existing.Info.Version));
@@ -216,56 +223,77 @@ public static class ModImporter
             }
         }
 
-        if (added == 0 && offers.Count == 0)
+        if (added == 0 && already == 0 && offers.Count == 0)
         {
             var error = originInstalled ? "Origin already includes that mod, so there's no need to add it."
                 : refused.Count > 0 ? string.Join(" ", refused.Take(2)) + (refused.Count > 2 ? $" (and {refused.Count - 2} more)" : "")
                 : skipped > 0 ? "Only .jar mod files can be added." : "No mods to add.";
             return new ImportReport(0, offers, refused, notes, error);
         }
-        return new ImportReport(added, offers, refused, notes, null);
+        return new ImportReport(added, offers, refused, notes, null) { AlreadyInstalled = already };
     }
 
     private static ImportReport Failed(
         string error, int added = 0, List<ReplaceOffer>? offers = null, List<string>? refused = null, List<string>? notes = null) =>
         new(added, offers ?? new List<ReplaceOffer>(), refused ?? new List<string>(), notes ?? new List<string>(), error);
 
-    // Copy beside, then swap in with one rename: a game holding the old jar open (any account's) must never have it
-    // rewritten under it. The swap either fails cleanly or leaves that game reading its open copy.
+    // Add and rename only, in this order, so a failure at any step leaves the player exactly what they had:
+    //   1. copy the new jar beside as *.jar.download (a failure here changes nothing);
+    //   2. a replace renames the old jar to a free *.disabled name (never overwritten, never deleted);
+    //   3. the new jar is moved into place WITHOUT overwrite; if that fails, step 2 is rolled back.
+    // A game holding the old jar open (any account's) never has it rewritten under it: it is only renamed.
     private static string? CopyIn(ImportItem item, ImportContext context)
     {
         var dest = Path.Combine(context.Folder, item.FileName);
         var temp = dest + ".download"; // a *.jar.download is never listed or loaded
+        string? archived = null;
+        string? archivedFrom = null;
         try
         {
+            System.IO.File.Copy(item.SourcePath, temp, overwrite: true);
+
             if (item.Action == ImportAction.Replace && item.Existing is { } old)
             {
-                // The old file stays, turned off: replacing a mod must not lose the one it replaced.
-                var oldJar = old.Enabled ? old.Path : null;
-                var sameName = string.Equals(Path.GetFileName(old.Path), item.FileName, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(Path.GetFileName(old.Path), item.FileName + ".disabled", StringComparison.OrdinalIgnoreCase);
-                if (oldJar != null && !sameName)
+                var oldName = Path.GetFileName(old.Path);
+                var landsOnTheOldName = string.Equals(oldName, item.FileName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(oldName, item.FileName + ".disabled", StringComparison.OrdinalIgnoreCase);
+                // A turned-off old jar with its own name already is out of the way; every other old one gets renamed.
+                if (old.Enabled || landsOnTheOldName)
                 {
-                    if (System.IO.File.Exists(oldJar + ".disabled"))
-                        return "Couldn't replace that mod: the old one already has a turned-off copy. Remove that copy on the Mods page first.";
-                    System.IO.File.Move(oldJar, oldJar + ".disabled");
+                    archived = FreeDisabledName(old.Path);
+                    archivedFrom = old.Path;
+                    System.IO.File.Move(old.Path, archived);
                 }
             }
 
-            System.IO.File.Copy(item.SourcePath, temp, overwrite: true);
-            System.IO.File.Move(temp, dest, overwrite: true);
-            if (item.Action == ImportAction.Replace)
-            {
-                // Same-name replace: a turned-off twin of the same name would shadow the new file's state.
-                var twin = dest + ".disabled";
-                if (System.IO.File.Exists(twin)) System.IO.File.Delete(twin);
-            }
+            System.IO.File.Move(temp, dest, overwrite: false);
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            try { System.IO.File.Delete(temp); } catch { /* our own half-copy; best-effort */ }
+            if (archived != null && archivedFrom != null)
+            {
+                try { System.IO.File.Move(archived, archivedFrom, overwrite: false); } catch (Exception) { /* best effort: the renamed copy is still there under its .disabled name */ }
+            }
+            try { System.IO.File.Delete(temp); } catch (Exception) { /* our own half-copy; best-effort */ }
             return "Couldn't add that mod - " + CloseGameHint;
+        }
+    }
+
+    // The old jar's turned-off name: foo.jar -> foo.jar.disabled, else foo-replaced-<ticks>.jar.disabled. Never one that
+    // exists (an earlier turned-off copy is somebody's file), and it stays a listed, turn-on-able mod.
+    private static string FreeDisabledName(string path)
+    {
+        var dir = Path.GetDirectoryName(path)!;
+        var name = Path.GetFileName(path);
+        var jar = name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase) ? name[..^".disabled".Length] : name;
+        var plain = Path.Combine(dir, jar + ".disabled");
+        if (!string.Equals(plain, path, StringComparison.OrdinalIgnoreCase) && !System.IO.File.Exists(plain)) return plain;
+        var stem = jar.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? jar[..^".jar".Length] : jar;
+        for (var ticks = DateTime.UtcNow.Ticks; ; ticks++)
+        {
+            var candidate = Path.Combine(dir, $"{stem}-replaced-{ticks}.jar.disabled");
+            if (!System.IO.File.Exists(candidate)) return candidate;
         }
     }
 

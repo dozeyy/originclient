@@ -145,8 +145,77 @@ public sealed class ModImporterTests : IDisposable
         Assert.True(report.Ok);
         Assert.Equal(1, report.Added);
         ModFolderScanner.ClearCache();
-        var mod = Assert.Single(ModFolderScanner.Scan(_mods, ModRole.SharedLoose));
-        Assert.Equal("2.0.0", mod.Info.Version);
+        var mods = ModFolderScanner.Scan(_mods, ModRole.SharedLoose);
+        Assert.Equal("2.0.0", Assert.Single(mods, m => m.Enabled).Info.Version);
+        // the old jar was renamed, not overwritten or deleted
+        Assert.Equal("1.0.0", Assert.Single(mods, m => !m.Enabled).Info.Version);
+    }
+
+    [Fact]
+    public void SameNameReplaceNeverOverwritesOrDeletesATurnedOffTwinOfThatName()
+    {
+        // review 4: foo.jar replaced while a foo.jar.disabled already exists. The old code moved over / deleted files.
+        var old = WriteJar(_mods, "same.jar", "same", "1.0.0");
+        var twin = WriteJar(_mods, "same.jar.disabled", "same", "0.5.0");
+        var oldBytes = System.IO.File.ReadAllBytes(old);
+        var twinBytes = System.IO.File.ReadAllBytes(twin);
+        var src = WriteJar(_incoming, "same.jar", "same", "2.0.0");
+
+        var report = ModImporter.Import(new[] { src }, Context(null, "same.jar"));
+
+        Assert.True(report.Ok);
+        Assert.Equal(1, report.Added);
+        Assert.Equal(twinBytes, System.IO.File.ReadAllBytes(twin)); // untouched
+        var kept = Directory.GetFiles(_mods, "same-replaced-*.jar.disabled");
+        Assert.Single(kept);
+        Assert.Equal(oldBytes, System.IO.File.ReadAllBytes(kept[0])); // the replaced jar is still there, byte for byte
+        Assert.NotEqual(oldBytes, System.IO.File.ReadAllBytes(old)); // and the new one is in place
+        Assert.Empty(Directory.GetFiles(_mods, "*.download"));
+    }
+
+    [Fact]
+    public void AFailedCopyLeavesTheOldJarExactlyAsItWas()
+    {
+        // review 3: the old jar used to be renamed BEFORE the copy, so a failed copy left the player with no mod.
+        var old = WriteJar(_mods, "sodium-0.5.0.jar", "sodium", "0.5.0");
+        var oldBytes = System.IO.File.ReadAllBytes(old);
+        var src = WriteJar(_incoming, "sodium-0.6.13.jar", "sodium", "0.6.13");
+        Directory.CreateDirectory(Path.Combine(_mods, "sodium-0.6.13.jar.download")); // the copy target cannot be written
+
+        var report = ModImporter.Import(new[] { src }, Context(null, "sodium-0.6.13.jar"));
+
+        Assert.False(report.Ok);
+        Assert.Contains("Couldn't add that mod", report.Error);
+        Assert.Equal(oldBytes, System.IO.File.ReadAllBytes(old));
+        Assert.False(System.IO.File.Exists(old + ".disabled"));
+    }
+
+    [Fact]
+    public void AFailedMoveIntoPlaceRollsTheRenameBack()
+    {
+        var old = WriteJar(_mods, "sodium-0.5.0.jar", "sodium", "0.5.0");
+        var oldBytes = System.IO.File.ReadAllBytes(old);
+        var src = WriteJar(_incoming, "sodium-0.6.13.jar", "sodium", "0.6.13");
+        Directory.CreateDirectory(Path.Combine(_mods, "sodium-0.6.13.jar")); // the final move cannot land
+
+        var report = ModImporter.Import(new[] { src }, Context(null, "sodium-0.6.13.jar"));
+
+        Assert.False(report.Ok);
+        Assert.Equal(oldBytes, System.IO.File.ReadAllBytes(old)); // renamed back to its enabled name
+        Assert.False(System.IO.File.Exists(old + ".disabled"));
+        Assert.False(System.IO.File.Exists(Path.Combine(_mods, "sodium-0.6.13.jar.download")), "the half-copy is cleaned up");
+    }
+
+    [Fact]
+    public void ADifferentModWithTheSameFileNameIsRefusedNotOverwritten()
+    {
+        var existing = WriteJar(_mods, "x.jar", "mod-a", "1.0.0");
+        var before = System.IO.File.ReadAllBytes(existing);
+        var src = WriteJar(_incoming, "x.jar", "mod-b", "1.0.0");
+        var report = ModImporter.Import(new[] { src }, Context());
+        Assert.False(report.Ok);
+        Assert.Contains("different mod with that file name", report.Error);
+        Assert.Equal(before, System.IO.File.ReadAllBytes(existing));
     }
 
     [Fact]
@@ -158,7 +227,23 @@ public sealed class ModImporterTests : IDisposable
         var report = ModImporter.Import(new[] { src }, Context());
         Assert.True(report.Ok);
         Assert.Empty(report.NeedsReplace);
+        // review 8: it was not added, so it is not counted or announced as added
+        Assert.Equal(0, report.Added);
+        Assert.Equal(1, report.AlreadyInstalled);
+        Assert.Equal("1 mod was already installed.", report.Message);
+    }
+
+    [Fact]
+    public void AMixedDropReportsAddedAndAlreadyInstalledSeparately()
+    {
+        var existing = WriteJar(_mods, "same.jar", "same", "1.0.0");
+        var dupe = Path.Combine(_incoming, "same.jar");
+        System.IO.File.Copy(existing, dupe);
+        var fresh = WriteJar(_incoming, "new-1.0.jar", "new");
+        var report = ModImporter.Import(new[] { dupe, fresh }, Context());
         Assert.Equal(1, report.Added);
+        Assert.Equal(1, report.AlreadyInstalled);
+        Assert.Equal("Added 1 mod. 1 mod was already installed.", report.Message);
     }
 
     [Fact]

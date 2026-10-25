@@ -49,8 +49,10 @@ public static class ModMetadataReader
             using var zip = new ZipArchive(jar, ZipArchiveMode.Read, leaveOpen: true);
             return ReadZip(zip, fileName, readNested, new Budget(nestedByteBudget));
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException)
+        catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException
+                                       or InvalidOperationException or KeyNotFoundException)
         {
+            // (InvalidOperation / KeyNotFound: a metadata file shaped in a way the readers did not expect.)
             return new ModInfo { FileName = fileName, ReadFailed = true };
         }
     }
@@ -88,13 +90,16 @@ public static class ModMetadataReader
             ReadProvides(root, provides, providedVersions);
 
             var nested = new List<NestedMod>();
+            var incomplete = false;
             if (readNested && root.TryGetProperty("jars", out var jars) && jars.ValueKind == JsonValueKind.Array)
             {
                 foreach (var jarEntry in jars.EnumerateArray())
                 {
                     if (jarEntry.ValueKind != JsonValueKind.Object || !jarEntry.TryGetProperty("file", out var file)
                         || file.ValueKind != JsonValueKind.String) continue;
-                    var nestedInfo = depth >= MaxNestingDepth ? null : ReadNestedJar(zip, file.GetString()!, depth + 1, budget);
+                    var nestedIncomplete = depth >= MaxNestingDepth;
+                    var nestedInfo = nestedIncomplete ? null : ReadNestedJar(zip, file.GetString() ?? "", depth + 1, budget, out nestedIncomplete);
+                    incomplete |= nestedIncomplete || nestedInfo is { NestedIncomplete: true };
                     if (nestedInfo?.Id != null)
                         nested.Add(new NestedMod(nestedInfo.Id, nestedInfo.Version, nestedInfo.Name) { Provides = nestedInfo.Provides });
                     // Jar-in-jar of jar-in-jar (Fabric API's modules inside a bundle): count their ids too.
@@ -117,9 +122,10 @@ public static class ModMetadataReader
                 ProvidedVersions = providedVersions,
                 Environment = ReadEnvironment(root),
                 Nested = nested,
+                NestedIncomplete = incomplete,
             };
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
         {
             return new ModInfo { FileName = fileName, Loader = ModLoader.Fabric }; // Id null = unreadable
         }
@@ -127,10 +133,19 @@ public static class ModMetadataReader
 
     // A nested jar is opened from memory (ZipArchive needs a seekable stream); a
     // huge one is skipped — only its id is wanted, and nothing nests that deep.
-    private static ModInfo? ReadNestedJar(ZipArchive zip, string path, int depth, Budget budget)
+    // incomplete = the jar could not be read although it is there (too big for the budget, damaged, lying about its
+    // size), so ids inside it are unknown. A listed file that is absent, or a nested jar with no fabric.mod.json
+    // (a plain library), is a definite "no mod here" and does not count.
+    private static ModInfo? ReadNestedJar(ZipArchive zip, string path, int depth, Budget budget, out bool incomplete)
     {
+        incomplete = false;
         var entry = zip.GetEntry(path);
-        if (entry == null || entry.Length > MaxNestedJarBytes || !budget.TryTake(entry.Length)) return null;
+        if (entry == null) return null;
+        if (entry.Length > MaxNestedJarBytes || !budget.TryTake(entry.Length))
+        {
+            incomplete = true;
+            return null;
+        }
         try
         {
             using var buffer = new MemoryStream((int)entry.Length);
@@ -141,7 +156,11 @@ public static class ModMetadataReader
                 int n;
                 while ((n = source.Read(block, 0, block.Length)) > 0)
                 {
-                    if (buffer.Length + n > entry.Length) return null;
+                    if (buffer.Length + n > entry.Length)
+                    {
+                        incomplete = true;
+                        return null;
+                    }
                     buffer.Write(block, 0, n);
                 }
             }
@@ -154,6 +173,7 @@ public static class ModMetadataReader
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException)
         {
+            incomplete = true;
             return null;
         }
     }

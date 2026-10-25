@@ -262,6 +262,7 @@ public static class CompatEngine
             {
                 changed = false;
                 var env = new World(this);
+                var nestedHidden = _ordered.Any(m => m.Enabled && !_excluded.Contains(m) && !m.Info.ReadFailed && m.Info.NestedIncomplete);
                 var round = new List<(ModFile Mod, List<CompatFinding> Findings)>();
 
                 foreach (var e in _ordered)
@@ -270,6 +271,12 @@ public static class CompatEngine
                     var findings = new List<CompatFinding>();
                     foreach (var p in DependencyRules.Evaluate(e.Info, env, new DependencyOptions(IgnoreIds: MinecraftOnly)))
                     {
+                        if (p.Kind is DependencyProblemKind.Missing or DependencyProblemKind.WrongVersion && nestedHidden)
+                        {
+                            // Some jar's nested jars could not be read, so the id may well be in there: a guess, not a fact.
+                            AdviseUnconfirmed(e, p);
+                            continue;
+                        }
                         if (p.Kind is DependencyProblemKind.Missing or DependencyProblemKind.WrongVersion or DependencyProblemKind.Breaks)
                             findings.Add(ToFinding(e, p));
                     }
@@ -285,6 +292,26 @@ public static class CompatEngine
                     changed = true;
                 }
             } while (changed);
+        }
+
+        // A requirement that looks unmet, but a jar in the set has nested jars that were not readable (ModInfo.NestedIncomplete).
+        // Reported once, as a Likely warning that takes nothing out of the picture, so it can never stop a launch.
+        private readonly HashSet<string> _unconfirmed = new(StringComparer.Ordinal);
+
+        private void AdviseUnconfirmed(ModFile e, DependencyProblem p)
+        {
+            var dep = p.Dependency;
+            if (!_unconfirmed.Add(e.Path + "|" + dep.Id)) return;
+            _findings.Add(new CompatFinding(
+                p.Kind == DependencyProblemKind.Missing ? FindingKind.MissingDependency : FindingKind.WrongVersion,
+                Sev(e, Severity.Warning), Certainty.Likely, e, DependencyRules.NeedsText(dep) + ".")
+            {
+                TargetId = dep.Id,
+                Range = dep.Predicate.MatchesAnything ? null : dep.Predicate.Display,
+                Found = p.Found,
+                Related = p.Providers.FirstOrDefault(),
+                Evidence = $"depends: {dep.Id} (not confirmed: some bundled jars could not be read)",
+            });
         }
 
         private CompatFinding ToFinding(ModFile e, DependencyProblem p)

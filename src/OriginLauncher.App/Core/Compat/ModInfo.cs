@@ -71,6 +71,13 @@ public sealed record ModInfo
     public IReadOnlyList<NestedMod> Nested { get; init; } = Array.Empty<NestedMod>();
     public ModEnvironment Environment { get; init; }
 
+    /// <summary>
+    /// Some nested jars could not be read (over the size budget, damaged, nested too deep), so <see cref="Nested"/> may
+    /// be missing ids this jar really carries. A requirement that looks unmet may be answered by one of those, so it is
+    /// never a confirmed fact (CompatEngine downgrades it to a Likely note).
+    /// </summary>
+    public bool NestedIncomplete { get; init; }
+
     /// <summary>The file is not a readable zip/jar at all.</summary>
     public bool ReadFailed { get; init; }
 

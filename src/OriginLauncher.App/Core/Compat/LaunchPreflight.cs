@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Security.Cryptography;
@@ -82,17 +83,19 @@ public static class LaunchPreflight
     /// <param name="isManaged">Origin's own jars (the set a normal launch treats as Origin's).</param>
     /// <param name="isOriginProvisioned">Origin's jars plus voice chat: what a profile launch takes from the shared folder.</param>
     /// <param name="logPath">Where the verdict is written (overwritten each time it is computed), or null.</param>
+    /// <param name="ct">Polled between jars; a cancelled launch stops the check (the caller's cancel, not a checker failure).</param>
     public static void Run(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
-        Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath)
+        Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath,
+        CancellationToken ct = default)
     {
         try
         {
-            var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath);
+            var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct);
             if (verdict.Blocking.Count > 0)
                 throw new IncompatibleModsException(version, verdict.Blocking, verdict.Blocking.Count);
         }
-        catch (IncompatibleModsException)
+        catch (Exception ex) when (ex is IncompatibleModsException || (ex is OperationCanceledException && ct.IsCancellationRequested))
         {
             throw;
         }
@@ -102,27 +105,45 @@ public static class LaunchPreflight
         }
     }
 
-    /// <summary>The check without the throw. Cached by the launch set's fingerprint.</summary>
+    /// <summary>
+    /// The check without the throw. A clean verdict is cached by the launch set's fingerprint. Never cached: a
+    /// blocking verdict (the player fixes it and presses Play again, so the next check must look afresh), and any
+    /// verdict built while a jar could not be read (a half-copied or locked file is a moment, not a fact).
+    /// If one of ORIGIN's own jars cannot be read, the check stands down (<see cref="LaunchVerdict.Clear"/>): with it
+    /// missing from the picture every mod that needs Sodium or Fabric API would look broken.
+    /// </summary>
     public static LaunchVerdict Evaluate(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
-        Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath = null)
+        Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath = null,
+        CancellationToken ct = default)
     {
         if (!externalMods && profileFolder == null) return LaunchVerdict.Clear;
 
         var isProfile = profileFolder != null;
         var originTest = isProfile ? isOriginProvisioned : isManaged;
         var launchSet = new List<(string Path, string Name, long Length, long Ticks, ModRole Role)>();
-        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest);
-        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest);
+        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, ct);
+        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, ct);
 
         var key = Fingerprint(version, isProfile, launchSet);
         if (Verdicts.TryGetValue(key, out var cached)) return cached;
 
         var platform = PlatformFor(version);
         var entries = new List<ModFile>(launchSet.Count);
+        var anyUnreadable = false;
         foreach (var (path, name, _, _, role) in launchSet)
         {
+            ct.ThrowIfCancellationRequested();
             var info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
+            if (info.ReadFailed)
+            {
+                anyUnreadable = true;
+                if (role == ModRole.Managed)
+                {
+                    WriteLog(logPath, version, new[] { $"Origin's own {name} could not be read just now; the compatibility check stood down." });
+                    return LaunchVerdict.Clear;
+                }
+            }
             entries.Add(new ModFile(path, name, Enabled: true, role, info));
         }
 
@@ -140,8 +161,11 @@ public static class LaunchPreflight
         }
 
         var verdict = new LaunchVerdict(blocking, soft, launchSet.Count);
-        if (Verdicts.Count >= VerdictCacheLimit) Verdicts.Clear();
-        Verdicts[key] = verdict;
+        if (blocking.Count == 0 && !anyUnreadable)
+        {
+            if (Verdicts.Count >= VerdictCacheLimit) Verdicts.Clear();
+            Verdicts[key] = verdict;
+        }
         WriteLog(logPath, version, Describe(verdict));
         return verdict;
     }
@@ -168,7 +192,7 @@ public static class LaunchPreflight
 
     private static void AddJars(
         List<(string Path, string Name, long Length, long Ticks, ModRole Role)> into, string folder,
-        bool shared, bool isProfile, Func<string, bool> isOriginJar)
+        bool shared, bool isProfile, Func<string, bool> isOriginJar, CancellationToken ct)
     {
         DirectoryInfo dir;
         try
@@ -187,6 +211,7 @@ public static class LaunchPreflight
 
         foreach (var file in files.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
         {
+            ct.ThrowIfCancellationRequested();
             if (!file.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) continue; // disabled/partial files never load
             var origin = isOriginJar(file.Name);
             // The same selection LaunchModFolder.LaunchSet makes: a profile launch takes only Origin's jars from the
