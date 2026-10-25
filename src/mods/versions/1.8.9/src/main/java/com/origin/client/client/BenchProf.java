@@ -47,6 +47,15 @@ public final class BenchProf {
 
 	/** Counters (per measured window; only counted while it is open). */
 	private static long particleRender, particleSpawn, fontDrawString, gfxDraw, gfxText, blurFull, blurReuse;
+	/** Model cosmetics: vertices built on the CPU this frame vs vertices replayed from a compiled list. */
+	private static long cosmeticCpuVerts, cosmeticListVerts;
+
+	public static void countCosmeticVertices(int cpu, int list) {
+		if (active) {
+			cosmeticCpuVerts += cpu;
+			cosmeticListVerts += list;
+		}
+	}
 
 	public static void countParticleRender() {
 		if (active) {
@@ -312,6 +321,7 @@ public final class BenchProf {
 		Arrays.fill(MAXNS, 0);
 		Arrays.fill(DEPTH, 0);
 		particleRender = particleSpawn = fontDrawString = gfxDraw = gfxText = blurFull = blurReuse = 0;
+		cosmeticCpuVerts = cosmeticListVerts = 0;
 		calibrate();
 		active = true;
 	}
@@ -388,6 +398,8 @@ public final class BenchProf {
 		c.addProperty("originGfxTextPerFrame", round(gfxText / f));
 		c.addProperty("menuBlurFullPerFrame", round(blurFull / f));
 		c.addProperty("menuBlurReusedPerFrame", round(blurReuse / f));
+		c.addProperty("cosmeticCpuVerticesPerFrame", round(cosmeticCpuVerts / f));
+		c.addProperty("cosmeticListVerticesPerFrame", round(cosmeticListVerts / f));
 		o.add("counters", c);
 		if (!notes.isEmpty()) {
 			JsonArray n = new JsonArray();

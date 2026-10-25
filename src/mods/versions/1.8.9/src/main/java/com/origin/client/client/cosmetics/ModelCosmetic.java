@@ -61,6 +61,23 @@ public final class ModelCosmetic {
 	private final Mat poseScratch = new Mat();
 	private final Mat pointScratch = new Mat();
 
+	// ---- still bones -> compiled display lists (Phase 6.3: the cosmetics bench measured +13 ms p50 for 16
+	// wearers, +24 ms with a shader pack's shadow pass, almost all of it re-posing the same vertices on the
+	// CPU every frame). A bone with no motion entry on itself or any ancestor ("still") always lands in the
+	// same place, the outer-layer fit included, so its quads for one (pass, fit, texture frame) are emitted
+	// ONCE into a GL display list -- vanilla ModelRenderer's own method -- and replayed with glCallList.
+	// Moving bones keep the per-frame CPU path. Inside a pass the still quads now draw before the moving
+	// ones; order does not matter there (the cutout passes are depth-tested, the glow pass is additive).
+	// Lists are rebuilt when an OptiFine shader pack turns on or off (a list keeps the vertex attributes it
+	// was compiled with). Render thread only, like everything here.
+	private static final int ALL = 0, STILL = 1, MOVING = 2;
+	private final boolean[] still;          // per bone
+	private final boolean[] stillBelow;     // the bone and its whole subtree are still
+	private final int[] stillVerts = new int[3], movingVerts = new int[3];   // per pass kind
+	private int[] lists;                    // [(kind * 3 + fitSlot) * frames + frame] -> list id, 0 = not built
+	private boolean listsForShaders;
+	private boolean listsBroken;            // glGenLists failed once: per-frame path only from then on
+
 	private ModelCosmetic(CosmeticDef def) {
 		this.id = def.meta.id();
 		this.texture = CosmeticCatalog.texture(id);
@@ -73,6 +90,44 @@ public final class ModelCosmetic {
 		this.off = new float[geo.names.length * 6];
 		this.frames = Math.max(1, anim.frames());
 		this.fps = anim.fps();
+		int n = geo.names.length;
+		boolean[] moves = new boolean[n];
+		for (int b : motionBone) {
+			if (b >= 0) {
+				moves[b] = true;
+			}
+		}
+		this.still = new boolean[n];
+		for (int b = 0; b < n; b++) {
+			boolean s = true;
+			for (int i = b, guard = 0; i >= 0 && guard <= n; i = geo.parent[i], guard++) {
+				s &= !moves[i];
+			}
+			still[b] = s;
+			for (int kind = 0; kind < 3; kind++) {
+				int verts = geo.quads[b][kind].length / ModelGeometry.QUAD * 4;
+				if (s) {
+					stillVerts[kind] += verts;
+				} else {
+					movingVerts[kind] += verts;
+				}
+			}
+		}
+		this.stillBelow = new boolean[n];
+		for (int r : geo.roots) {
+			markStillBelow(r, 0);
+		}
+	}
+
+	private boolean markStillBelow(int b, int depth) {
+		boolean s = still[b];
+		if (depth <= still.length) {
+			for (int c : geo.children[b]) {
+				s &= markStillBelow(c, depth + 1);
+			}
+		}
+		stillBelow[b] = s;
+		return s;
 	}
 
 	/** The renderer for item `id` (compiled once), or null if it has no model or is broken. Render thread. */
@@ -102,6 +157,9 @@ public final class ModelCosmetic {
 
 	/** Forgets every compiled model (resource reload). */
 	public static void clear() {
+		for (ModelCosmetic m : CACHE.values()) {
+			m.freeLists();   // render thread, like every caller here
+		}
 		CACHE.clear();
 		DEAD.clear();
 	}
@@ -177,11 +235,11 @@ public final class ModelCosmetic {
 			GlStateManager.disableBlend();         // cutout, not translucent
 			GlStateManager.enableAlpha();
 			GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1f);
-			pass(ModelGeometry.LIT, fit, vOff, invU, invV);
+			pass(ModelGeometry.LIT, fit, frame, vOff, invU, invV);
 
 			GlStateManager.disableLighting();      // full-bright: no shading, sky+block light 15
 			OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240f, 240f);
-			pass(ModelGeometry.EMISSIVE, fit, vOff, invU, invV);
+			pass(ModelGeometry.EMISSIVE, fit, frame, vOff, invU, invV);
 
 			if (geo.hasGlow) {
 				// 1.8.9: LayerSpiderEyes' state is RenderType.eyes here: additive, no alpha test, no depth write.
@@ -189,7 +247,7 @@ public final class ModelCosmetic {
 				GlStateManager.disableAlpha();
 				GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);   // alpha-weighted additive: a radial-gradient glow (halo-orbit centre) stays see-through; opaque texels add exactly as ONE,ONE did
 				GlStateManager.depthMask(false);
-				pass(ModelGeometry.GLOW, fit, vOff, invU, invV);
+				pass(ModelGeometry.GLOW, fit, frame, vOff, invU, invV);
 			}
 		} catch (Throwable t2) {
 			failed = true;
@@ -218,24 +276,98 @@ public final class ModelCosmetic {
 		}
 	}
 
-	/** One Tessellator batch: every bone's quads of `kind`, through the bone chain. */
-	private void pass(int kind, Fit fit, float vOff, float invU, float invV) {
-		boolean any = false;
-		for (int b = 0; b < geo.quads.length && !any; b++) {
-			any = geo.quads[b][kind].length > 0;
-		}
-		if (!any) {
+	/**
+	 * Every bone's quads of `kind`: the still bones from their compiled list (built on first use), the
+	 * moving ones as one Tessellator batch through the bone chain. Without a list (an unknown Fit, or GL
+	 * refused one) everything goes through the batch, as before.
+	 */
+	private void pass(int kind, Fit fit, int frame, float vOff, float invU, float invV) {
+		int stillN = stillVerts[kind], movingN = movingVerts[kind];
+		if (stillN == 0 && movingN == 0) {
 			return;
 		}
+		int list = stillN > 0 ? stillList(kind, fit, frame, vOff, invU, invV) : 0;
+		if (list != 0) {
+			GL11.glCallList(list);
+		}
+		int cpu = list != 0 ? movingN : stillN + movingN;
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countCosmeticVertices(cpu, list != 0 ? stillN : 0);
+		}
+		if (cpu > 0) {
+			batch(kind, fit, vOff, invU, invV, list != 0 ? MOVING : ALL);
+		}
+	}
+
+	/** One Tessellator batch of `kind` quads of the bones `mode` selects (ALL, STILL or MOVING). */
+	private void batch(int kind, Fit fit, float vOff, float invU, float invV, int mode) {
 		Tessellator tess = Tessellator.getInstance();
 		WorldRenderer wr = tess.getWorldRenderer();
 		wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR_NORMAL);
 		Mat pose = poseScratch;   // reused, not new: Phase 6 pick 1 (no per-pass garbage)
 		pose.reset();
 		for (int root : geo.roots) {
-			drawBone(pose, wr, root, kind, fit, vOff, invU, invV);
+			drawBone(pose, wr, root, kind, fit, vOff, invU, invV, mode);
 		}
 		tess.draw();
+	}
+
+	/** Which compiled-list slot a fit uses; -1 = a fit nobody passes today (drawn per frame instead). */
+	private static int fitSlot(Fit fit) {
+		return fit == null ? 0 : fit == Fit.HEAD ? 1 : fit == Fit.BODY ? 2 : -1;
+	}
+
+	/**
+	 * The display list holding the still bones' `kind` quads for this fit and texture frame, compiled
+	 * the first time it is asked for with exactly the per-frame emit (same pose maths, same fit, same
+	 * UVs), so the replay draws the same vertices. 0 = draw them per frame instead.
+	 */
+	private int stillList(int kind, Fit fit, int frame, float vOff, float invU, float invV) {
+		int fs = fitSlot(fit);
+		if (fs < 0 || listsBroken) {
+			return 0;
+		}
+		boolean shaders = com.origin.client.client.shaders.IrisBridge.shadersActive();
+		if (lists == null || shaders != listsForShaders) {
+			freeLists();
+			lists = new int[3 * 3 * frames];
+			listsForShaders = shaders;
+		}
+		int k = (kind * 3 + fs) * frames + frame;
+		if (lists[k] != 0) {
+			return lists[k];
+		}
+		int id = GL11.glGenLists(1);
+		if (id == 0) {
+			listsBroken = true;
+			return 0;
+		}
+		boolean ok = false;
+		GL11.glNewList(id, GL11.GL_COMPILE);
+		try {
+			// off[] is zero for every still bone (motion() only writes moving ones), so this is the
+			// pose every frame of this texture frame would have.
+			batch(kind, fit, vOff, invU, invV, STILL);
+			ok = true;
+		} finally {
+			GL11.glEndList();
+			if (!ok) {
+				GL11.glDeleteLists(id, 1);
+			}
+		}
+		lists[k] = id;
+		return id;
+	}
+
+	private void freeLists() {
+		if (lists != null) {
+			for (int id : lists) {
+				if (id != 0) {
+					GL11.glDeleteLists(id, 1);
+				}
+			}
+			lists = null;
+		}
 	}
 
 	/** FORMAT.md anim.motion: each entry adds sin(2 pi (t / period + phase)) * A to one bone channel. */
@@ -308,7 +440,13 @@ public final class ModelCosmetic {
 		}
 	}
 
-	private void drawBone(Mat pose, WorldRenderer wr, int b, int kind, Fit fit, float vOff, float invU, float invV) {
+	/** mode: ALL = every bone; STILL = only still bones (a moving bone's subtree is all moving);
+	 *  MOVING = only moving bones (an all-still subtree is skipped whole, its quads are in the list). */
+	private void drawBone(Mat pose, WorldRenderer wr, int b, int kind, Fit fit, float vOff, float invU, float invV,
+			int mode) {
+		if ((mode == STILL && !still[b]) || (mode == MOVING && stillBelow[b])) {
+			return;
+		}
 		pose.push();
 		try {
 			float[] pv = geo.pivot[b], r = geo.rot[b];
@@ -323,9 +461,11 @@ public final class ModelCosmetic {
 				pose.rotateZ((float) Math.toRadians(rz));
 			}
 			pose.translate(-pv[0], -pv[1], -pv[2]);
-			emit(pose, wr, geo.quads[b][kind], fit, vOff, invU, invV);
+			if (mode != MOVING || !still[b]) {
+				emit(pose, wr, geo.quads[b][kind], fit, vOff, invU, invV);
+			}
 			for (int child : geo.children[b]) {
-				drawBone(pose, wr, child, kind, fit, vOff, invU, invV);
+				drawBone(pose, wr, child, kind, fit, vOff, invU, invV, mode);
 			}
 		} finally {
 			pose.pop();
