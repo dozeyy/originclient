@@ -392,7 +392,7 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			if (logoSrc == null) {
-				logoSrc = Gfx.readImage("/assets/originclient/textures/ui/origin_logo.png");
+				logoSrc = Gfx.readImage(com.origin.client.client.gui.OriginUi.LOGO_PATH);
 			}
 			int sw = logoSrc.getWidth(), sh = logoSrc.getHeight();
 			java.awt.image.BufferedImage dst = new java.awt.image.BufferedImage(ps, ps, java.awt.image.BufferedImage.TYPE_INT_ARGB);

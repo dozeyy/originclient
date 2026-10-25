@@ -30,7 +30,9 @@ public final class OriginUi {
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
-	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex, starTex;
+	/** The one reference to the official logo (a classpath path). Everything that reads the logo uses this. */
+	public static final String LOGO_PATH = "/assets/originclient/textures/ui/origin_logo.png";
+	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, logoTex, starTex;
 	private static int panelTexSize = 96, panelCorner = 24;
 
 	// Theme-matched toggles: familiar state language without borrowing the
@@ -502,35 +504,11 @@ public final class OriginUi {
 	public static void glow(Gfx g, double cx, double cy, int diameter, float alpha) {
 	}
 
-	/** The 3-ring Origin mark (brand geometry: one ellipse at 0/60/120 deg). */
-	public static void mark(Gfx g, double cx, double cy, int size, float alpha) {
-		ensureLoaded();
-		if (!ok) {
-			return;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		var pose = g.pose();
-		for (int i = 0; i < 3; i++) {
-			pose.pushPose();
-			pose.translate(cx, cy, 0);
-			pose.mulPose(com.mojang.math.Vector3f.ZP.rotationDegrees(i * 60f));
-			float s = size / 768f * 1.1f;
-			pose.scale(s, s, 1f);
-			pose.translate(-384f, -384f, 0);
-			RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-			g.blit(ringTex, 0, 0, 0, 0, 768, 768, 768, 768);
-			pose.popPose();
-		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-	}
-
-	/** The exact brand mark (baked from the website nav-mark geometry — three
-	 *  nested ellipses at 0/60/120°), drawn smooth at any size. */
+	/** THE Origin logo: textures/ui/origin_logo.png (LOGO_PATH), the only way mod UI draws the mark.
+	 *  Never redraw it; if the texture is missing nothing is drawn (fail soft). */
 	public static void logo(Gfx g, double cx, double cy, int size, float alpha) {
 		ensureLoaded();
 		if (!ok || logoTex == null) {
-			mark(g, cx, cy, size, alpha); // fallback to the procedural rings
 			return;
 		}
 		RenderSystem.enableBlend();
@@ -601,8 +579,8 @@ public final class OriginUi {
 	private static final String[] TEXTURES = {
 			"/assets/originclient/textures/ui/button_fill.png", "/assets/originclient/textures/ui/button_border.png",
 			"/assets/originclient/textures/ui/switch_track.png", "/assets/originclient/textures/ui/switch_knob.png",
-			"/assets/originclient/textures/ui/radial_glow.png", "/assets/originclient/textures/ui/ring-0.png",
-			"/assets/originclient/textures/ui/origin_logo.png", "/assets/originclient/textures/ui/star.png",
+			"/assets/originclient/textures/ui/radial_glow.png",
+			LOGO_PATH, "/assets/originclient/textures/ui/star.png",
 	};
 
 	private static synchronized void ensureLoaded0() {
@@ -620,8 +598,7 @@ public final class OriginUi {
 			trackTex = reg(mc, "ui_switch_track", "/assets/originclient/textures/ui/switch_track.png");
 			knobTex = reg(mc, "ui_switch_knob", "/assets/originclient/textures/ui/switch_knob.png");
 			glowTex = reg(mc, "ui_glow", "/assets/originclient/textures/ui/radial_glow.png");
-			ringTex = reg(mc, "ui_ring", "/assets/originclient/textures/ui/ring-0.png");
-			logoTex = reg(mc, "ui_logo", "/assets/originclient/textures/ui/origin_logo.png");
+			logoTex = reg(mc, "ui_logo", LOGO_PATH);
 			starTex = reg(mc, "ui_star", "/assets/originclient/textures/ui/star.png");
 			ok = true;
 		} catch (Throwable e) {

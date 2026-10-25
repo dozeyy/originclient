@@ -9,7 +9,7 @@
   "updateUrl": "",
   "authorList": ["Origin"],
   "credits": "",
-  "logoFile": "",
+  "logoFile": "/assets/originclient/icon.png",
   "screenshots": [],
   "dependencies": []
 }

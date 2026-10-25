@@ -213,7 +213,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 		if (prev != null) {
 			blitPreview(d, prev, ix, iy);
 		} else {
-			d.icon("@origin-mark", ix + PREV_W / 2 - 12, iy + PREV_H / 2 - 12, 24, 0x40F1E9D2);
+			d.logoFaint(ix + PREV_W / 2, iy + PREV_H / 2, 24, 0.25f);
 		}
 
 		// download control (right) -- placed first so the text knows its edge

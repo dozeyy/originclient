@@ -47,7 +47,7 @@ public final class OriginAssets {
 	private static final String[] IMAGES = {
 			UI + "mod_icons_sdf.png", UI + "mod_icons.png",
 			UI + "switch_track.png", UI + "switch_knob.png",   // no button_fill/border: this era's OriginUi bakes masks
-			UI + "radial_glow.png", UI + "ring-0.png", UI + "origin_logo.png", UI + "star.png",
+			UI + "radial_glow.png", com.origin.client.client.gui.OriginUi.LOGO_PATH, UI + "star.png",
 			FONT + "inter_msdf.png", FONT + "inter_msdf_bold.png",
 	};
 	private static final String[] JSONS = {

@@ -249,7 +249,7 @@ public class ShaderBrowserScreen extends Screen {
 		if (prev != null) {
 			g.blit(RenderType::guiTextured, prev.id(), ix, iy, 0f, 0f, PREV_W, PREV_H, prev.w(), prev.h(), prev.w(), prev.h());
 		} else {
-			OriginUi.mark(g, ix + PREV_W / 2.0, iy + PREV_H / 2.0, 20, 0.25f);
+			OriginUi.logo(g, ix + PREV_W / 2.0, iy + PREV_H / 2.0, 20, 0.25f);
 		}
 
 		// download control (right) — position first so the description knows its edge

@@ -59,8 +59,7 @@ public final class OriginAssets {
 			UI + "switch_track.png",
 			UI + "switch_knob.png",
 			UI + "radial_glow.png",
-			UI + "ring-0.png",
-			UI + "origin_logo.png",
+			com.origin.client.client.gui.OriginUi.LOGO_PATH,
 			UI + "star.png",
 	};
 	private static final String[] JSONS = {
