@@ -553,7 +553,10 @@ public final class OriginDevShots {
 			fx.setAccessible(true);
 			fy.setAccessible(true);
 			if (savedCursor == null) {
-				savedCursor = new double[]{fx.getDouble(mc.mouseHandler), fy.getDouble(mc.mouseHandler)};
+				// 26.3 (SDL3): the "real" pointer Gui.setScreen resyncs to is Xvfb's, which sat on the
+				// title's Mods button at 1366x768 (a stray hover in the plain title shot, 2026-10-25).
+				// The resting spot is the top-left corner instead, where no screen has a control.
+				savedCursor = new double[]{0, 0};
 			}
 			double x = savedCursor[0], y = savedCursor[1];
 			if (target != null) {
@@ -675,8 +678,9 @@ public final class OriginDevShots {
 					mc.gui.setScreen(s.kind().open());
 					mc.framebufferSizeChanged();
 					// 26.3: Gui.setScreen resyncs the cursor from SDL's real mouse state
-					// (MouseHandler.resyncMousePosition). The title-state cursor/press/focus are
-					// placed by the ACTS steps below, after this resync, so they stick.
+					// (MouseHandler.resyncMousePosition), so put the resting cursor back now. The
+					// title-state cursor/press/focus are placed by the ACTS steps below, after it.
+					devCursor(null);
 					actIdx = 0;
 					phase = 2;
 					// The shader browser's first open starts its preview downloads; under
