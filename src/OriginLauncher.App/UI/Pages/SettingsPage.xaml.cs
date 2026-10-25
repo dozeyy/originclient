@@ -517,7 +517,16 @@ public partial class SettingsPage : UserControl
     }
 
     // Wheel or touch: the player is steering now, so the section in view decides again.
-    private void Scroller_UserScroll(object sender, RoutedEventArgs e) => _spy.UserScrolled();
+    private void Scroller_UserScroll(object sender, RoutedEventArgs e) => TakeOverFromClick();
+
+    // Ends the click's hold and lights what is in view right now. The page may not move at all (End while already at
+    // the end), and then no scroll event comes to do it.
+    private void TakeOverFromClick()
+    {
+        if (_spy.Pinned == null) return;
+        _spy.UserScrolled();
+        RelightRail();
+    }
 
     // Keys that scroll the page (and Space, which pages down). Typing in a field is not scrolling.
     private static bool IsScrollKey(Key key) =>
@@ -526,17 +535,21 @@ public partial class SettingsPage : UserControl
     private void Scroller_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.OriginalSource is System.Windows.Controls.Primitives.TextBoxBase) return;
-        if (IsScrollKey(e.Key)) _spy.UserScrolled();
+        if (IsScrollKey(e.Key)) TakeOverFromClick();
     }
 
     // Dragging the scrollbar thumb (the bar is hidden, but a touch pen or automation can still use it).
-    private void Scroller_ScrollBarScroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e) => _spy.UserScrolled();
+    private void Scroller_ScrollBarScroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e) => TakeOverFromClick();
 
     private void Scroller_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         RailShift.Y = Scroller.VerticalOffset;
-        if (!IsLoaded) return;
+        RelightRail();
+    }
 
+    private void RelightRail()
+    {
+        if (!IsLoaded) return;
         var tops = RailItems().Select(item => SectionOf(item) is { } section ? SectionTop(section) : double.MaxValue).ToList();
         LightRailItem(_spy.Resolve(tops, Scroller.VerticalOffset, Scroller.ScrollableHeight));
     }
