@@ -48,6 +48,13 @@
         <Setter Property="Effect" Value="{StaticResource Shadow.Overlay}"/>
     </Style>
 
+    <!-- Dialog on the Surface step (spec 11.10): the confirm box. Same shape and shadow as Surface.Dialog, but the
+         Panel fill with the strong line, so it reads as a sheet over the scrim rather than a raised card. -->
+    <Style x:Key="Surface.DialogSheet" TargetType="Border" BasedOn="{StaticResource Surface.Dialog}">
+        <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+    </Style>
+
     <!-- Chip: a small label on CardAlt (the Mods version tag). The text style goes inside it. -->
     <Style x:Key="Surface.Chip" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>

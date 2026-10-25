@@ -23,6 +23,12 @@
     <!-- Layout margins that more than one style needs, as tokens. -->
     <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
 
+    <!-- A popup (menu, dropdown list) is a transparent window, so Shadow.Overlay needs empty room around the panel to
+         draw into. Popup.Bleed is that room (left, top, right, bottom); Popup.OffsetX shifts the window left by the
+         same amount so the PANEL still lines up with its anchor. Top is 4 so the panel opens 4 px below the anchor. -->
+    <Thickness x:Key="Popup.Bleed">16,4,16,28</Thickness>
+    <system:Double x:Key="Popup.OffsetX">-16</system:Double>
+
     <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
     <system:Double x:Key="Size.ControlSm">28</system:Double>
     <system:Double x:Key="Size.ControlMd">32</system:Double>

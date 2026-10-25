@@ -163,12 +163,21 @@ public partial class SettingsPage : UserControl
 
     private static string FormatRam(int ramMb) => $"{ramMb / 1024d:0.##} GB";
 
+    // A rejected path is NOT saved and is not silently put back: the box keeps what was typed, shows a Danger edge and
+    // says what is wrong right under it (FieldRules); fixing the text clears it as you type.
     private void InstallPathTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
-        var path = InstallPathTextBox.Text;
+        var path = InstallPathTextBox.Text.Trim();
+        if (ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(path), InstallPathTextBox)) return;
         _settings.InstallPath = path;
         SettingsStore.Update(s => s.InstallPath = path);
+    }
+
+    private void InstallPathTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isLoading || !Chrome.GetInvalid(InstallPathTextBox)) return;
+        ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(InstallPathTextBox.Text), InstallPathTextBox);
     }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -180,9 +189,37 @@ public partial class SettingsPage : UserControl
         if (dialog.ShowDialog() == true)
         {
             InstallPathTextBox.Text = dialog.FolderName;
+            ShowFieldProblem(InstallPathErrorText, null, InstallPathTextBox);
             _settings.InstallPath = dialog.FolderName;
             SettingsStore.Update(s => s.InstallPath = dialog.FolderName);
         }
+    }
+
+    /// <summary>Shows or clears a field's problem: the Danger edge on the boxes and the sentence under them. True when there is one.</summary>
+    private static bool ShowFieldProblem(TextBlock message, string? problem, params TextBox[] boxes)
+    {
+        message.Text = problem ?? "";
+        message.Visibility = problem == null ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var box in boxes) Chrome.SetInvalid(box, problem != null);
+        return problem != null;
+    }
+
+    /// <summary>Render mode: the two error states the shots show (a path that is not a folder, a width that is too small).</summary>
+    internal void TourShowFieldErrors()
+    {
+        InstallPathTextBox.Text = "games";
+        ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(InstallPathTextBox.Text), InstallPathTextBox);
+        ResolutionWidthTextBox.Text = "100";
+        ShowFieldProblem(ResolutionErrorText, FieldRules.ResolutionProblem("100", FieldRules.MinWidth, "Width"), ResolutionWidthTextBox);
+    }
+
+    /// <summary>Render mode: put the fields back the way the settings have them.</summary>
+    internal void TourClearFieldErrors()
+    {
+        InstallPathTextBox.Text = _settings.InstallPath;
+        ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
+        ShowFieldProblem(InstallPathErrorText, null, InstallPathTextBox);
+        ShowFieldProblem(ResolutionErrorText, null, ResolutionWidthTextBox, ResolutionHeightTextBox);
     }
 
     private void OriginUiToggle_Checked(object sender, RoutedEventArgs e)
@@ -433,16 +470,20 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
 
-        if (!int.TryParse(ResolutionWidthTextBox.Text, out var width) || width < 320)
+        // Same rule as the folder: say what is wrong under the row instead of quietly putting the old number back.
+        var widthProblem = FieldRules.ResolutionProblem(ResolutionWidthTextBox.Text, FieldRules.MinWidth, "Width");
+        var heightProblem = FieldRules.ResolutionProblem(ResolutionHeightTextBox.Text, FieldRules.MinHeight, "Height");
+        Chrome.SetInvalid(ResolutionWidthTextBox, widthProblem != null);
+        Chrome.SetInvalid(ResolutionHeightTextBox, heightProblem != null);
+        if (widthProblem != null || heightProblem != null)
         {
-            ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
+            ResolutionErrorText.Text = widthProblem ?? heightProblem!;
+            ResolutionErrorText.Visibility = Visibility.Visible;
             return;
         }
-        if (!int.TryParse(ResolutionHeightTextBox.Text, out var height) || height < 240)
-        {
-            ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
-            return;
-        }
+        ResolutionErrorText.Visibility = Visibility.Collapsed;
+        var width = int.Parse(ResolutionWidthTextBox.Text.Trim());
+        var height = int.Parse(ResolutionHeightTextBox.Text.Trim());
 
         _settings.ResolutionWidth = width;
         _settings.ResolutionHeight = height;

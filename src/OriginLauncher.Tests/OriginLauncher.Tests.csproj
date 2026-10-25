@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <Compile Include="..\OriginLauncher.App\Core\Promos\*.cs" LinkBase="Promos" />
+    <!-- Settings field rules (install folder, window size): the sentence shown under a rejected box. -->
+    <Compile Include="..\OriginLauncher.App\Core\FieldRules.cs" LinkBase="Settings" />
     <!-- Mods page icons: jar icon parsing and the in-memory result cache. -->
     <Compile Include="..\OriginLauncher.App\Core\Mods\Icons\*.cs" LinkBase="ModIcons" />
     <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />
@@ -54,6 +56,12 @@
     <Compile Include="..\OriginLauncher.App\Core\Accounts\AccountStore.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\Accounts\StoredAccount.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\OriginPaths.cs" LinkBase="Accounts" />
+    <!-- The installer -> launcher hand-off: the launcher's reader/apply rules and the installer's
+         own writer, round-tripped in SetupHandoffTests (never the real settings.json). The settings
+         model, RamAdvice and RamPolicy are linked further down. -->
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesData.cs" LinkBase="Install" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesFile.cs" LinkBase="Install" />
+    <Compile Include="..\OriginSetup\Engine\Handoff.cs" LinkBase="Install" />
     <!-- Mod profiles: the naming/server/selection rules, the profile list edits,
          the launch mods folder and the profile folder copy/delete (all pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Profiles\*.cs" LinkBase="Profiles" />

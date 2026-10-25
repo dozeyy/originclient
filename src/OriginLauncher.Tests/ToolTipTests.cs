@@ -76,10 +76,11 @@ public class ToolTipTests
         Assert.True(IconButtons().Count() >= 15); // guards the test itself: if the XAML moved, the rules below would pass on nothing
     }
 
-    /// <summary>Surfaces that carry no hover label: Home, the version picker, and the top bar's update badge.</summary>
+    /// <summary>Surfaces that carry no hover label: Home, the version picker, the toasts (their dismiss button is named for screen readers) and the top bar's update badge.</summary>
     private static bool IsLabelFree((string File, XElement Button) x) =>
         x.File.EndsWith("HomePage.xaml", StringComparison.Ordinal)
         || x.File.EndsWith("VersionSelectOverlay.xaml", StringComparison.Ordinal)
+        || x.File.EndsWith("SocialToastHost.xaml", StringComparison.Ordinal)
         || (string?)x.Button.Attribute(XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml") + "Name") == "UpdateBadge";
 
     [Fact]
