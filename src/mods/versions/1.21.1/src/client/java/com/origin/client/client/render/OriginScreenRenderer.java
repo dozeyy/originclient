@@ -166,13 +166,15 @@ public final class OriginScreenRenderer {
 	/**
 	 * The startup loading screen at {@code alpha} over whatever is already drawn
 	 * this frame — the loading -> title dissolve (LoadingOverlayRevealMixin).
-	 * Loading is done by then, so the bar shows full. With {@code toTitle} (the
-	 * game's first load, landing on the title screen) the mark doesn't dissolve:
-	 * it flies, solid, onto the title's logo spot and stays there as the logo
-	 * (renderTitleWordmark leaves it alone meanwhile). False (nothing to cancel)
-	 * when Origin rendering is off or this draw fails.
+	 * Loading is done by then, so the bar shows full. With {@code fly} (the game's
+	 * first load landing on an Origin title, {@link #logoFlightReady}) the logo
+	 * doesn't dissolve: it moves, solid, from its loading spot onto the title's
+	 * mark (DESIGN-SYSTEM 15.3; the title hides its own mark meanwhile,
+	 * StartupTransition.titleMarkInFlight) and lands exactly where the title draws
+	 * it. Without it the whole picture, logo included, simply fades (the fallback).
+	 * False (nothing to cancel) when Origin rendering is off or this draw fails.
 	 */
-	public static boolean renderLoadingFade(GuiGraphics guiGraphics, float alpha, boolean toTitle) {
+	public static boolean renderLoadingFade(GuiGraphics guiGraphics, float alpha, boolean fly) {
 		if (broken) {
 			return false;
 		}
@@ -186,9 +188,12 @@ public final class OriginScreenRenderer {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
-			// The title shows the real Origin logo, still, so the loading layer simply
-			// dissolves over it. The title underneath already drives the ring field.
-			renderLoading0(guiGraphics, 1f, false);
+			// The title underneath already drives the ring field.
+			renderLoading0(guiGraphics, 1f, false, !fly);
+			if (fly) {
+				// The flight shares the dissolve's curve: alpha = 1 - ease(t / REVEAL_MS).
+				drawLogoFlight(guiGraphics, 1.0 - layerAlpha);
+			}
 			guiGraphics.flush();
 			return true;
 		} catch (Throwable t) {
@@ -197,6 +202,107 @@ public final class OriginScreenRenderer {
 			layerAlpha = 1f;
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
+	}
+
+	// ---- the loading -> title hand-off: the logo moves onto the title's mark ----
+
+	// Where the flight ends (the title's mark, TitleLayout) for the GUI size it was
+	// worked out for, so TitleLayout isn't rebuilt every flight frame.
+	private static int flightGw = -1, flightGh = -1;
+	private static int flightToX, flightToY, flightToSize;
+	// One linear-filtered copy of the logo, baked once at the larger of the two ends'
+	// sizes and drawn scaled in between (baking every in-between size would bake a
+	// texture per frame). Baked during the settle hold, before anything moves.
+	private static ResourceLocation flightLogoId;
+	private static int flightLogoPs;
+
+	/**
+	 * True when the hand-off can fly the logo: Origin rendering on, the Origin title
+	 * (Main Menu Style), its backdrop working, the logo art loaded and the title
+	 * showing a mark at this window size. Anything else keeps the plain fade.
+	 */
+	public static boolean logoFlightReady() {
+		if (broken || backdropBroken || logoFailed || com.origin.client.client.OriginStyle.vanillaTitle()) {
+			return false;
+		}
+		try {
+			flightTarget();
+			return flightToSize > 0;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	private static void flightTarget() {
+		Minecraft mc = Minecraft.getInstance();
+		int gw = mc.getWindow().getGuiScaledWidth(), gh = mc.getWindow().getGuiScaledHeight();
+		if (gw != flightGw || gh != flightGh) {
+			TitleLayout L = TitleLayout.of(gw, gh);
+			flightGw = gw;
+			flightGh = gh;
+			flightToX = L.markCenterX;
+			flightToY = L.markCenterY;
+			flightToSize = L.markSize;
+		}
+	}
+
+	/** Bakes the flight's logo copy ahead (settle hold): nothing is baked once it moves. */
+	private static void prepareLogoFlight() {
+		if (!logoFlightReady()) {
+			return;
+		}
+		int gs = com.origin.client.client.gui.OriginSurface.scale();
+		int ps = Math.max(LoadingLook.logoPhys(), flightToSize * gs);
+		if (ps == flightLogoPs && flightLogoId != null) {
+			return;
+		}
+		if (ps <= 0 || ps > 512) {
+			return;
+		}
+		try {
+			flightLogoId = registerBaked(LoadingPrep.boxFilter(logoSource(), ps, ps), "logo_flight_" + ps, true);
+			flightLogoPs = ps;
+		} catch (Throwable t) {
+			flightLogoId = null;
+			logoFailed = true;   // no art: the hand-off keeps the plain fade
+			com.origin.client.OriginClient.LOGGER.warn("Origin logo flight bake failed; the loading screen fades instead", t);
+		}
+	}
+
+	/**
+	 * The logo at {@code p} (0 = its loading spot, 1 = the title's mark) of the way,
+	 * solid. Its start is the box LoadingLook just laid out this frame. At p = 1 it is
+	 * drawn through drawLogo, the title's own path, so the hand-over is pixel-exact.
+	 */
+	private static void drawLogoFlight(GuiGraphics g, double p) {
+		flightTarget();
+		p = clampD(p, 0.0, 1.0);
+		double cx = LoadingLook.logoCxGui() + (flightToX - LoadingLook.logoCxGui()) * p;
+		double cy = LoadingLook.logoCyGui() + (flightToY - LoadingLook.logoCyGui()) * p;
+		double size = LoadingLook.logoSizeGui() + (flightToSize - LoadingLook.logoSizeGui()) * p;
+		prepareLogoFlight();   // a no-op once baked (the hold normally did it)
+		if (p >= 0.999) {
+			drawLogo(g, flightToX, flightToY, flightToSize, 1f);
+			return;
+		}
+		if (flightLogoId == null) {
+			// No flight copy (a window too big for one bake): the plain scaled art,
+			// never a bake per in-between size.
+			OriginUi.logo(g, cx, cy, (int) Math.round(size), 1f);
+			return;
+		}
+		int gs = com.origin.client.client.gui.OriginSurface.scale();
+		double sizePs = size * gs;
+		PoseStack pose = g.pose();
+		pose.pushPose();
+		pose.scale(1f / gs, 1f / gs, 1f);
+		pose.translate(cx * gs - sizePs / 2.0, cy * gs - sizePs / 2.0, 0.0);
+		pose.scale((float) (sizePs / flightLogoPs), (float) (sizePs / flightLogoPs), 1f);
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		g.blit(flightLogoId, 0, 0, 0f, 0f, flightLogoPs, flightLogoPs, flightLogoPs, flightLogoPs);
+		pose.popPose();
 	}
 
 	// Every shader colour in this file goes through shade(): it multiplies in
@@ -210,6 +316,11 @@ public final class OriginScreenRenderer {
 	}
 
 	private static void renderLoading0(GuiGraphics guiGraphics, float progress, boolean drive) {
+		renderLoading0(guiGraphics, progress, drive, true);
+	}
+
+	private static void renderLoading0(GuiGraphics guiGraphics, float progress, boolean drive, boolean logo) {
+		long t0 = com.origin.client.client.OriginFrameLog.partStart();
 		// No ensureLoaded() here: the ring/grain/vignette art is for the menus and is
 		// decoded and uploaded later, off this first frame (OriginAssets.uploadSlice ->
 		// preloadMenuArt). The loading picture needs the logo and, for its caption, the
@@ -234,10 +345,11 @@ public final class OriginScreenRenderer {
 			// loader's worth per frame now, so the title's first frames don't.
 			com.origin.client.client.OriginAssets.uploadSlice();
 		}
+		com.origin.client.client.OriginFrameLog.part("o:state", t0);
 		// The loading picture (DESIGN-SYSTEM 15.3): flat color.bg, the official logo,
 		// the accent rail and the stage line with the reload's real percentage.
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-		LoadingLook.draw(guiGraphics, layerAlpha, LoadingLook.LOGO_AT, loadFill, startupCaption(loadFill), true);
+		LoadingLook.draw(guiGraphics, layerAlpha, LoadingLook.LOGO_AT, loadFill, startupCaption(loadFill), true, logo);
 	}
 
 	// The title's first-use costs (textures, driver shader builds, glyphs) used to
@@ -289,6 +401,8 @@ public final class OriginScreenRenderer {
 			// The screen underneath drives the ring field: don't pull it back.
 			renderLoading0(guiGraphics, 1f, false);
 			guiGraphics.flush();
+			// The hand-off's logo copy is baked here, where a slow frame shows nothing.
+			prepareLogoFlight();
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -342,17 +456,54 @@ public final class OriginScreenRenderer {
 	// The world-loading scene's shown rail fill, gliding to each new count.
 	// sceneFill < 0 = the rail is sweeping.
 	private static double sceneFill = -1;
-	// Never backward within a world load, never full before the world is up (LoadBar.scene).
-	private static final LoadBar SCENE_BAR = new LoadBar();
+	// The rail's state for one world load (sceneRail): the frame count at the last
+	// scene frame, the highest number reported so far (-1 = none yet), and when the
+	// fill last moved.
+	private static long sceneFrame = -1;
+	private static double sceneTarget = -1, sceneAt;
+
+	/**
+	 * The world-loading scene's rail: exactly the number its caption shows, never a
+	 * made-up one (judge 2026-10-25: "Preparing spawn area: 0%" over a rail at about
+	 * 15%, from LoadBar's creep and its 75 % prep share, which suit the startup reload's
+	 * lying fraction, not a chunk count the caption prints). The rail sweeps until the
+	 * load's first reported number, then starts from empty and glides (FILL_TAU) to the
+	 * highest number so far: never backward within one load, held through a stage that
+	 * reports none ("Loading terrain"). A new world load is told apart by frames, as
+	 * LoadBar.scene does: more than LoadBar.NEW_LOAD_FRAMES frames drawn without the scene.
+	 * No allocation; render thread only.
+	 */
+	private static double sceneRail(long frame, float progress, double now) {
+		if (sceneFrame < 0 || frame < sceneFrame || frame - sceneFrame - 1 > LoadBar.NEW_LOAD_FRAMES) {
+			sceneTarget = -1;   // a new world load: sweep until it reports a number
+			sceneFill = -1;
+		}
+		sceneFrame = frame;
+		if (progress >= 0f) {   // false for NaN too: no number this frame
+			double p = Math.min(1.0, progress);
+			if (sceneTarget < 0) {
+				sceneTarget = p;
+				sceneFill = 0;      // the first number: glide up from an empty track
+				sceneAt = now;
+			} else {
+				sceneTarget = Math.max(sceneTarget, p);
+			}
+		}
+		if (sceneTarget < 0) {
+			return -1;
+		}
+		double k = Math.exp(-Math.max(0.0, now - sceneAt) / FILL_TAU);
+		sceneAt = now;
+		return Math.max(sceneFill, sceneTarget + (sceneFill - sceneTarget) * k);
+	}
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress, boolean spawnLine) {
 		Minecraft mc = Minecraft.getInstance();
 		// The ring field is not drawn by the loading picture any more, but its scene
 		// clock still times the rail, so the clock is read once per frame here.
 		double now = RingField.sceneMs();
-		// The fill glides to each new count and only moves forward within one world
-		// load; it sweeps until the load's first measured stage (LoadBar.scene).
-		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
+		// The rail shows the caption's own number (sceneRail): sweeping until the first.
+		sceneFill = sceneRail(com.origin.client.client.hud.FrameStats.frames(), progress, now);
 		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
 			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		}
@@ -519,6 +670,17 @@ public final class OriginScreenRenderer {
 		pose.popPose();
 	}
 
+	/** The decoded logo master (kept for further sizes): the prep thread's, or read here. */
+	private static NativeImage logoSource() throws Exception {
+		if (logoSrc == null) {
+			logoSrc = LoadingPrep.takeLogoSrc();
+			if (logoSrc == null) {
+				logoSrc = LoadingPrep.read(com.origin.client.client.gui.OriginUi.LOGO_PATH);
+			}
+		}
+		return logoSrc;
+	}
+
 	private static ResourceLocation logoAt(int ps) {
 		if (logoFailed || ps <= 0 || ps > 512) {
 			return null;
@@ -528,12 +690,14 @@ public final class OriginScreenRenderer {
 			return id;
 		}
 		try {
-			if (logoSrc == null) {
-				try (InputStream in = open(com.origin.client.client.gui.OriginUi.LOGO_PATH)) {
-					logoSrc = NativeImage.read(in);
-				}
+			// The loading size was baked ahead on the loading-prep thread (B-30).
+			NativeImage baked = LoadingPrep.takeLogoBaked(ps);
+			if (baked != null) {
+				id = registerBaked(baked, "logo_px_" + ps, false);
+				LOGO_SIZES.put(ps, id);
+				return id;
 			}
-			id = bakeBox(logoSrc, ps, ps, "logo_px_" + ps);
+			id = bakeBox(logoSource(), ps, ps, "logo_px_" + ps);
 			LOGO_SIZES.put(ps, id);
 			return id;
 		} catch (Throwable t) {
@@ -592,33 +756,13 @@ public final class OriginScreenRenderer {
 
 	/** Premultiplied 4x4 box-filter downsample of {@code src} to dw x dh, registered as a texture. */
 	private static ResourceLocation bakeBox(NativeImage src, int dw, int dh, String name) {
-		int sw = src.getWidth(), sh = src.getHeight();
-		NativeImage dst = new NativeImage(dw, dh, true);
-		for (int y = 0; y < dh; y++) {
-			for (int x = 0; x < dw; x++) {
-				double aSum = 0, rSum = 0, gSum = 0, bSum = 0;
-				for (int sy = 0; sy < 4; sy++) {
-					for (int sx = 0; sx < 4; sx++) {
-						int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / dw));
-						int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / dh));
-						int c = src.getPixelRGBA(tx, ty);
-						double a = ((c >>> 24) & 0xFF) / 255.0;
-						aSum += a;
-						rSum += a * ((c & 0xFF) / 255.0);
-						gSum += a * (((c >> 8) & 0xFF) / 255.0);
-						bSum += a * (((c >> 16) & 0xFF) / 255.0);
-					}
-				}
-				double a = aSum / 16.0;
-				int r = a > 0 ? (int) Math.round(Math.min(1.0, rSum / aSum) * 255) : 255;
-				int gg = a > 0 ? (int) Math.round(Math.min(1.0, gSum / aSum) * 255) : 255;
-				int b = a > 0 ? (int) Math.round(Math.min(1.0, bSum / aSum) * 255) : 255;
-				// NativeImage ABGR: alpha, blue, green, red.
-				dst.setPixelRGBA(x, y, ((int) Math.round(a * 255) << 24) | (b << 16) | (gg << 8) | r);
-			}
-		}
+		return registerBaked(LoadingPrep.boxFilter(src, dw, dh), name, false);
+	}
+
+	/** Registers an already baked image as a texture (nearest, or linear for a scaled draw). */
+	private static ResourceLocation registerBaked(NativeImage dst, String name, boolean linear) {
 		DynamicTexture tex = new DynamicTexture(dst);
-		tex.setFilter(false, false);
+		tex.setFilter(linear, false);
 		ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient", name);
 		Minecraft.getInstance().getTextureManager().register(id, tex);
 		return id;
@@ -772,7 +916,7 @@ public final class OriginScreenRenderer {
 			// (origin_wordmark.png) under it, both still; never redrawn or typed
 			// (Will 2026-10-25). TitleLayout drops the logo, then the wordmark, when extra
 			// rows need the room. The boot-font text is only the fail-soft if the image can't draw.
-			if (L.markSize > 0) {
+			if (L.markSize > 0 && !com.origin.client.client.StartupTransition.titleMarkInFlight()) {
 				drawLogo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1f);
 			}
 			if (L.showWordmark && !drawWordmarkImage(guiGraphics, L.markCenterX, L.wordCenterY, TitleLayout.WORD_H, 1f)) {
@@ -1035,7 +1179,7 @@ public final class OriginScreenRenderer {
 	// an empty frame is better than boxes.
 	private static ResourceLocation bootFontId;
 	private static int bootFontTexW, bootFontTexH, bootFontCell;
-	private static int[] bootFontWidth; // per char code 0-255: glyph width in px, 0 = no glyph
+	private static int[] bootFontWidth; // per char code 0-255: glyph width in sheet px, -1 = no glyph (LoadingPrep.bootWidths)
 	private static boolean bootFontTried;
 
 	private static synchronized boolean ensureBootFont() {
@@ -1044,28 +1188,17 @@ public final class OriginScreenRenderer {
 		}
 		bootFontTried = true;
 		try {
-			NativeImage image;
-			try (InputStream in = open("/assets/minecraft/textures/font/ascii.png")) {
-				image = NativeImage.read(in);
+			// Decoded and measured ahead on the loading-prep thread (B-30); else here.
+			NativeImage image = LoadingPrep.takeSheet();
+			int[] widths = LoadingPrep.takeWidths();
+			if (image == null || widths == null) {
+				if (image != null) {
+					image.close();
+				}
+				image = LoadingPrep.read("/assets/minecraft/textures/font/ascii.png");
+				widths = LoadingPrep.bootWidths(image);   // -1 = no glyph; the space advances 4 px like vanilla's
 			}
 			int cell = image.getWidth() / 16;
-			int[] widths = new int[256];
-			// A glyph's width is its rightmost column with any opaque pixel --
-			// the same rule vanilla's bitmap font provider uses.
-			for (int c = 0; c < 256; c++) {
-				int cx = (c % 16) * cell;
-				int cy = (c / 16) * cell;
-				int w = 0;
-				for (int x = cell - 1; x >= 0 && w == 0; x--) {
-					for (int y = 0; y < cell; y++) {
-						if ((image.getPixelRGBA(cx + x, cy + y) >>> 24) != 0) {
-							w = x + 1;
-							break;
-						}
-					}
-				}
-				widths[c] = w;
-			}
 			bootFontTexW = image.getWidth();
 			bootFontTexH = image.getHeight();
 			bootFontCell = cell;
@@ -1089,7 +1222,7 @@ public final class OriginScreenRenderer {
 		int total = 0;
 		for (int i = 0; i < text.length(); i++) {
 			char ch = text.charAt(i);
-			total += ch < 256 ? bootFontWidth[ch] + 1 : 0;
+			total += ch < 256 && bootFontWidth[ch] >= 0 ? bootFontWidth[ch] + 1 : 0;
 		}
 		total -= 1;
 		RenderSystem.enableBlend();
@@ -1110,7 +1243,9 @@ public final class OriginScreenRenderer {
 				guiGraphics.blit(bootFontId, x, top, (float) ((ch % 16) * bootFontCell), (float) ((ch / 16) * bootFontCell),
 						w, bootFontCell, bootFontTexW, bootFontTexH);
 			}
-			x += w + 1;
+			if (w >= 0) {
+				x += w + 1;
+			}
 		}
 		pose.popPose();
 		shade(1f, 1f, 1f, 1f);
@@ -1132,7 +1267,7 @@ public final class OriginScreenRenderer {
 		float total = 0;
 		for (int i = 0; i < text.length(); i++) {
 			char ch = text.charAt(i);
-			total += ch < 256 ? (bootFontWidth[ch] + 1) * unit + tracking : 0;
+			total += ch < 256 && bootFontWidth[ch] >= 0 ? (bootFontWidth[ch] + 1) * unit + tracking : 0;
 		}
 		total -= unit + tracking;
 		PoseStack pose = g.pose();
@@ -1165,7 +1300,9 @@ public final class OriginScreenRenderer {
 				g.blit(bootFontId, Math.round(x), 0, (float) ((ch % 16) * bootFontCell), (float) ((ch / 16) * bootFontCell),
 						w, bootFontCell, bootFontTexW, bootFontTexH);
 			}
-			x += w + 1 + tracking / unit;
+			if (w >= 0) {   // -1: no glyph in the sheet, takes no room (the space has its own width)
+				x += w + 1 + tracking / unit;
+			}
 		}
 		pose.popPose();
 		shade(1f, 1f, 1f, 1f);

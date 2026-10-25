@@ -82,4 +82,21 @@ public final class StartupTransition {
 	public static long titleIntroStart(long openedAt) {
 		return Math.max(openedAt, titleRevealAt);
 	}
+
+	// True only while the title draws underneath a hand-off frame whose loading layer
+	// is flying the logo onto the title's mark (LoadingOverlayRevealMixin sets it
+	// around that one screen.render and clears it in a finally).
+	private static boolean markInFlight = false;
+
+	public static void setTitleMarkInFlight(boolean flying) {
+		markInFlight = flying;
+	}
+
+	/**
+	 * True while the hand-off's flying logo stands in for the title's mark
+	 * (DESIGN-SYSTEM 15.3): the title skips drawing its own so there is one logo.
+	 */
+	public static boolean titleMarkInFlight() {
+		return markInFlight;
+	}
 }

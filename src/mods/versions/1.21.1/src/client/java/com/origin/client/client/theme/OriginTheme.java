@@ -108,12 +108,15 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT = 0xFFF3F4F6;
 	public static final int CLEAN_TEXT_DIM = 0xA8F3F4F6;       // 66%
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
-	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
+	public static final int CLEAN_BG = 0xFF0E1110;             // color.bg: the loading picture's backdrop (DESIGN-SYSTEM 17.3)
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
 	public static final int CLEAN_DIM_TITLE = 0x590E1110;      // title (~35%), the Workbench bg hue (Phase 4)
-	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
-	public static final int CLEAN_BAR_TRACK = 0x29FFFFFF;      // loading bar track, white 16%
-	public static final int CLEAN_BAR_FILL = 0xEBFFFFFF;       // loading bar fill, white 92%
+	public static final int CLEAN_DIM_LOADING = 0x990E1110;    // loading scenes (~60%), the bg hue (17.3)
+	// The loading picture (render/LoadingLook, DESIGN-SYSTEM 15.3 + 17.3): every loading,
+	// connecting and world-load screen reads its colours here.
+	public static final int CLEAN_BAR_TRACK = 0x14FFFFFF;      // progress rail track, white 8 %
+	public static final int CLEAN_BAR_FILL = 0xFF5FD09B;       // progress rail fill, accent
+	public static final int CLEAN_CAPTION = 0xADF1E9D2;        // the stage caption, color.textDim (68 %)
 
 	// ---- Title screen, Workbench skin (Phase 4, docs/overhaul/DESIGN-SYSTEM.md 15.2) ----
 	// ONLY the title's controls read these (OriginButtonRenderer.titleControl, the chip in
