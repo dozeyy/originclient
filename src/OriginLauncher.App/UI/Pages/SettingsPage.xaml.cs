@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using OriginLauncher.App.Core;
@@ -38,6 +39,14 @@ public partial class SettingsPage : UserControl
 
     /// <summary>Render mode: back to the top, so a later visit to this page starts where a player would.</summary>
     internal void TourScrollToTop() => Scroller.ScrollToVerticalOffset(0);
+
+    /// <summary>Render mode: press End the way a player does (the key event clears a rail click), then go to the end of the page.</summary>
+    internal void TourPressEnd()
+    {
+        if (PresentationSource.FromVisual(Scroller) is not { } source) return;
+        Scroller.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.End) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+        Scroller.ScrollToEnd();
+    }
 
     public SettingsPage()
     {
@@ -510,12 +519,25 @@ public partial class SettingsPage : UserControl
     // Wheel or touch: the player is steering now, so the section in view decides again.
     private void Scroller_UserScroll(object sender, RoutedEventArgs e) => _spy.UserScrolled();
 
+    // Keys that scroll the page (and Space, which pages down). Typing in a field is not scrolling.
+    private static bool IsScrollKey(Key key) =>
+        key is Key.PageUp or Key.PageDown or Key.Home or Key.End or Key.Up or Key.Down or Key.Space;
+
+    private void Scroller_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.OriginalSource is System.Windows.Controls.Primitives.TextBoxBase) return;
+        if (IsScrollKey(e.Key)) _spy.UserScrolled();
+    }
+
+    // Dragging the scrollbar thumb (the bar is hidden, but a touch pen or automation can still use it).
+    private void Scroller_ScrollBarScroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e) => _spy.UserScrolled();
+
     private void Scroller_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         RailShift.Y = Scroller.VerticalOffset;
         if (!IsLoaded) return;
 
         var tops = RailItems().Select(item => SectionOf(item) is { } section ? SectionTop(section) : double.MaxValue).ToList();
-        LightRailItem(_spy.Resolve(tops, Scroller.VerticalOffset));
+        LightRailItem(_spy.Resolve(tops, Scroller.VerticalOffset, Scroller.ScrollableHeight));
     }
 }

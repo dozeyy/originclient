@@ -402,6 +402,10 @@ public partial class MainWindow : Window
         ModsView.TourShowDemo(mods, carrying);
     }
 
+    /// <summary>Render mode: show or hide the "update waiting" badge, the widest state of the top bar.</summary>
+    internal void TourShowUpdateBadge(bool show) =>
+        UpdateBadge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
     internal void TourGoTo(int page)
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
@@ -612,6 +616,9 @@ public partial class MainWindow : Window
 
     private void WebsiteButton_Click(object sender, RoutedEventArgs e) =>
         Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Website);
+
+    private void StoreButton_Click(object sender, RoutedEventArgs e) =>
+        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Store);
 
     // null = no tab lit (the Import page is not one of the four).
     private void SetNavigationSelection(LauncherPage? page)

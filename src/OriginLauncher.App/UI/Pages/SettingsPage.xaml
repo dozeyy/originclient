@@ -64,7 +64,8 @@
     <!-- The page sits on the dimmed art; the top inset clears the 56 px bar.
          The scrollbar is hidden, wheel scrolling still works. -->
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Hidden" Focusable="False" ScrollChanged="Scroller_ScrollChanged"
-                  PreviewMouseWheel="Scroller_UserScroll" PreviewTouchDown="Scroller_UserScroll">
+                  PreviewMouseWheel="Scroller_UserScroll" PreviewTouchDown="Scroller_UserScroll"
+                  PreviewKeyDown="Scroller_PreviewKeyDown" ScrollBar.Scroll="Scroller_ScrollBarScroll">
         <controls:PageColumn x:Name="Column" Style="{StaticResource Page.Column}">
         <Grid>
             <Grid.RowDefinitions>

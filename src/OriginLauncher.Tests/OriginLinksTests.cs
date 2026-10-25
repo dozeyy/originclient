@@ -43,10 +43,15 @@ public class OriginLinksTests
         var app = Path.Combine(root, "src", "OriginLauncher.App");
         var main = File.ReadAllText(Path.Combine(app, "MainWindow.xaml.cs"));
         var home = File.ReadAllText(Path.Combine(app, "UI", "Pages", "HomePage.xaml.cs"));
-        Assert.Contains("OriginLinks.Website", main);
-        Assert.Contains("OriginLinks.Store", home);
+        // Each top-bar button has its own handler, and each handler opens its own address.
+        Assert.Matches(@"WebsiteButton_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Website\)", main);
+        Assert.Matches(@"StoreButton_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Store\)", main);
+        var xaml = File.ReadAllText(Path.Combine(app, "MainWindow.xaml"));
+        Assert.Matches("x:Name=\"WebsiteButton\" Click=\"WebsiteButton_Click\"", xaml);
+        Assert.Matches("x:Name=\"StoreButton\" Click=\"StoreButton_Click\"", xaml);
+        // The Store lives in the top bar now, not under Play.
+        Assert.DoesNotContain("StoreButton", home);
         Assert.DoesNotContain("new Uri(\"https://originclient.org", main);
-        Assert.DoesNotContain("new Uri(\"https://originclient.org", home);
     }
 
     private static string? RepoRoot()

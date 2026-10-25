@@ -232,9 +232,31 @@ public static class RenderShots
         // last sections the way a player does; each shot must show its own item lit and its section in view.
         SnapSettingsRailClick(window, outDir, "SecClient", "14f-settings-click-client");
         SnapSettingsRailClick(window, outDir, "SecStartup", "14g-settings-click-startup");
+        // Click an item, then press End by hand: the click stops deciding and the first section in view is lit.
+        SnapSettingsKeyEnd(window, outDir, "SecClient", "14h-settings-key-end");
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
+
+        // The top bar (Website and Store sit in it) at 1180 px, then at the narrowest, with and without an update waiting.
+        window.Width = 1180;
+        window.Height = 740;
+        window.TourGoTo(0);
+        Pump(600);
+        Snap(window, outDir, "15-topbar-1180");
+        window.TourShowUpdateBadge(true);
+        Pump(300);
+        Snap(window, outDir, "15b-topbar-1180-update");
+        window.TourShowUpdateBadge(false);
+        window.Width = 960;
+        window.Height = 600;
+        Pump(600);
+        Snap(window, outDir, "15c-topbar-960");
+        window.TourShowUpdateBadge(true);
+        Pump(300);
+        Snap(window, outDir, "15d-topbar-960-update");
+        window.TourShowUpdateBadge(false);
+        Pump(200);
 
         // The smallest window the launcher allows (what 125-150 % scaling leaves on
         // a 1080p screen): the same screens again, to prove nothing clips.
@@ -309,6 +331,20 @@ public static class RenderShots
         Pump(400);
         Snap(window, dir, name);
         page.TourScrollToTop();
+        Pump(200);
+    }
+
+    /// <summary>Press a rail item, then End on the keyboard, and snap: the item lit must follow the page, not the old click.</summary>
+    private static void SnapSettingsKeyEnd(Window window, string dir, string sectionName, string name)
+    {
+        var page = FindVisual<Pages.SettingsPage>(window);
+        if (page == null) return;
+        page.TourClickRail(sectionName);
+        Pump(400);
+        page.TourPressEnd();
+        Pump(500);
+        Snap(window, dir, name);
+        page.ShowFromTop();
         Pump(200);
     }
 

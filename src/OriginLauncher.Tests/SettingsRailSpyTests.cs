@@ -18,22 +18,47 @@ public class SettingsRailSpyTests
     [Fact]
     public void OpensOnTheFirstSection()
     {
-        Assert.Equal(0, SettingsRailSpy.Active(Tops, 0));
+        Assert.Equal(0, SettingsRailSpy.Active(Tops, 0, Scrollable));
     }
 
     [Fact]
     public void ScrollingLightsTheSectionUnderTheTopEdge()
     {
-        Assert.Equal(1, SettingsRailSpy.Active(Tops, 480));
-        Assert.Equal(2, SettingsRailSpy.Active(Tops, 830));
+        Assert.Equal(1, SettingsRailSpy.Active(Tops, 480, Scrollable));
+        Assert.Equal(2, SettingsRailSpy.Active(Tops, 830, 1000)); // a taller page: 830 is not its end
     }
 
     [Fact]
-    public void TheBottomOfThePageDoesNotLightTheLastSection()
+    public void TheBottomOfThePageLightsTheFirstSectionInView()
     {
-        // The old rule marked every item "current" at the bottom and the loop ended on Developer.
-        Assert.Equal(1, SettingsRailSpy.Active(Tops, Scrollable));
-        Assert.NotEqual(Tops.Length - 1, SettingsRailSpy.Active(Tops, Scrollable));
+        // Scrolled by hand to the end (offset 700, window 700..1400, the bar covers 700..756): the first section whose
+        // top is inside the window is Game-JVM at 880. The old rule lit the neighbour above it and never the last one.
+        Assert.Equal(2, SettingsRailSpy.Active(Tops, Scrollable, Scrollable));
+        Assert.NotEqual(Tops.Length - 1, SettingsRailSpy.Active(Tops, Scrollable, Scrollable));
+    }
+
+    [Fact]
+    public void JustShortOfTheEndStillUsesTheTopEdgeRule()
+    {
+        Assert.Equal(1, SettingsRailSpy.Active(Tops, Scrollable - 40, Scrollable));
+    }
+
+    [Fact]
+    public void AtTheEndWithNoSectionBelowTheBarFallsBackToTheTopEdgeRule()
+    {
+        // A page whose last section starts above the bar line: nothing is "inside the window", so the normal rule decides.
+        double[] tops = { 90, 500 };
+        Assert.Equal(1, SettingsRailSpy.Active(tops, 700, 700));
+    }
+
+    [Fact]
+    public void AClickedItemWinsAtTheEndToo()
+    {
+        var spy = new SettingsRailSpy();
+        spy.Click(Client);
+        Assert.Equal(Client, spy.Resolve(Tops, Scrollable, Scrollable));
+        spy.UserScrolled();
+        Assert.Equal(2, spy.Resolve(Tops, Scrollable, Scrollable));
     }
 
     [Fact]
@@ -44,9 +69,9 @@ public class SettingsRailSpyTests
         // The click scrolls as far as the page goes; that scroll event must not pick another item.
         var offset = SettingsRailSpy.TargetOffset(Tops[Client], Scrollable);
         Assert.Equal(Scrollable, offset);
-        Assert.Equal(Client, spy.Resolve(Tops, offset));
+        Assert.Equal(Client, spy.Resolve(Tops, offset, Scrollable));
         // A second event at the same place (layout settling) changes nothing.
-        Assert.Equal(Client, spy.Resolve(Tops, offset));
+        Assert.Equal(Client, spy.Resolve(Tops, offset, Scrollable));
     }
 
     [Theory]
@@ -61,7 +86,7 @@ public class SettingsRailSpyTests
         var spy = new SettingsRailSpy();
         spy.Click(index);
         var offset = SettingsRailSpy.TargetOffset(Tops[index], Scrollable);
-        Assert.Equal(index, spy.Resolve(Tops, offset));
+        Assert.Equal(index, spy.Resolve(Tops, offset, Scrollable));
     }
 
     [Fact]
@@ -71,7 +96,7 @@ public class SettingsRailSpyTests
         spy.Click(Client);
         spy.UserScrolled();
         Assert.Null(spy.Pinned);
-        Assert.Equal(1, spy.Resolve(Tops, 480));
+        Assert.Equal(1, spy.Resolve(Tops, 480, Scrollable));
     }
 
     [Fact]
@@ -80,7 +105,7 @@ public class SettingsRailSpyTests
         var spy = new SettingsRailSpy();
         spy.Click(Client);
         spy.Reset();
-        Assert.Equal(0, spy.Resolve(Tops, 0));
+        Assert.Equal(0, spy.Resolve(Tops, 0, Scrollable));
     }
 
     [Fact]
@@ -99,9 +124,9 @@ public class SettingsRailSpyTests
         double[] five = { 90, 500, 880, 1180, 1290 };
         var spy = new SettingsRailSpy();
         spy.Click(4);
-        Assert.Equal(4, spy.Resolve(five, SettingsRailSpy.TargetOffset(five[4], 700)));
+        Assert.Equal(4, spy.Resolve(five, SettingsRailSpy.TargetOffset(five[4], 700), 700));
         spy.Reset();
-        Assert.Equal(0, spy.Resolve(five, 0));
+        Assert.Equal(0, spy.Resolve(five, 0, 700));
     }
 
     [Fact]
@@ -110,6 +135,6 @@ public class SettingsRailSpyTests
         var spy = new SettingsRailSpy();
         spy.Click(5); // the Developer item, then the rail loses it
         double[] five = { 90, 500, 880, 1180, 1290 };
-        Assert.Equal(0, spy.Resolve(five, 0));
+        Assert.Equal(0, spy.Resolve(five, 0, 700));
     }
 }

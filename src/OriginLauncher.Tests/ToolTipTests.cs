@@ -99,7 +99,8 @@ public class ToolTipTests
         var main = XDocument.Load(Path.Combine(AppDir, "MainWindow.xaml"));
         var tips = main.Descendants().Where(e => e.Name.Namespace == Wpf && e.Attribute("ToolTip") != null)
             .Select(e => (string)e.Attribute("ToolTip")!).OrderBy(t => t, StringComparer.Ordinal).ToArray();
-        Assert.Equal(new[] { "Close", "Friends", "Import", "Minimize" }, tips);
+        // Website and Store (Phase 1, coordinator 2026-10-25) say where they lead; they are text buttons, not bare icons.
+        Assert.Equal(new[] { "Close", "Friends", "Import", "Minimize", "Opens originclient.org in your browser", "Opens originclient.org/store in your browser" }, tips);
         foreach (var f in new[] { Path.Combine("UI", "Pages", "HomePage.xaml"), Path.Combine("UI", "Controls", "VersionSelectOverlay.xaml") })
             Assert.DoesNotContain("ToolTip=", File.ReadAllText(Path.Combine(AppDir, f)));
     }
