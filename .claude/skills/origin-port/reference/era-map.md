@@ -40,7 +40,7 @@ Snapshot taken 2026-10-20 from origin/main @ a77356180. Re-read live-modules.jso
 | G5 | 1.21.11 | 1.21.11 | 21 | 1.21.10 + rename wave (Identifier, rendertype.RenderTypes, renderContents, getSamplerCache), gizmos, LineWidth vertex element, FINAL AbstractButton.renderWidget | 0.8.12 · 1.10.7 | 27.17.0.50 | 1.21.10 |
 | G6 | 26.1 | 26.1/26.1.1/26.1.2 (one jar, built vs 26.1.2) | 25 | GuiGraphicsExtractor, extract*; `Gui` is still the HUD; `mc.screen`, `mc.setScreen` | 26.1.2: 0.9.2 · 1.11.4; 26.1/26.1.1: 0.8.9 · 1.10.9 | 29.37.0.100 (pinned: 29.40+ nests mezz_config = 26.1.2 only) | 26.2 |
 | G6 | 26.2 | 26.2 | 25 | extract GUI; `Hud` class (`mc.gui.hud`), `mc.gui.screen()` / `mc.gui.setScreen`; COLLECT_SUBMITS world overlays | 0.9.2 · 1.11.4 | 30.42 (split drawForScreenBackground/Foreground) | 1.21.11 + PORTING-ERA-NOTES "26.x era" |
-| G6 | 26.3 | 26.3 | 25 | 26.2 + SDL3 input (no GLFW), `com.mojang.renderpearl.api.*`, separate-shader-objects GLSL | 0.9.2 · 1.11.7 | 31.12.0.65 | 26.2 |
+| G6 | 26.3 | 26.3 | 25 | 26.2 + SDL3 input (no GLFW), `com.mojang.renderpearl.api.*`, separate-shader-objects GLSL | 0.9.2 · 1.11.7 | 31.14.0.72 | 26.2 |
 
 Pulled (modules kept, out of the picker and CI): 1.21.5, 1.12.2
 1.21.9: pulled entirely, no module. VERSIONS.md's line that

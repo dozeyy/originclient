@@ -710,5 +710,61 @@ class CompanionGate(unittest.TestCase):
             self.assertIn('hasProperty("extraMods")', gradle, mod)
 
 
+class DevPinsMatchCatalog(unittest.TestCase):
+    """A module's dev-run Mod Menu / ImmediatelyFast pins (gradle.properties, Modrinth version ids) must be the
+    exact files the launcher catalog gives players for that module -- otherwise the dev client (and boot-smoke)
+    tests one build while players run another (P7 judge, 2026-10-25)."""
+    CATALOG = _read(companions.CATALOG)
+    PROPS = {"modmenu": "modmenu_version", "immediatelyfast": "immediatelyfast_version"}
+
+    @staticmethod
+    def _props(module):
+        out = {}
+        with open(os.path.join(ROOT, "src", "mods", "versions", module, "gradle.properties"), encoding="utf-8") as f:
+            for ln in f:
+                if "=" in ln and not ln.lstrip().startswith("#"):
+                    k, v = ln.strip().split("=", 1)
+                    out[k.strip()] = v.strip()
+        return out
+
+    @staticmethod
+    def _catalog_version_id(url):
+        m = re.search(r"/versions/([^/]+)/", url)
+        return m.group(1) if m else None
+
+    @classmethod
+    def _pin_matches(cls, pin, url, fn):
+        """A pin is the catalog's file when it is that file's Modrinth version id or its version number."""
+        return pin in (cls._catalog_version_id(url), companions.file_version(fn))
+
+    def test_every_module_pin_is_the_catalog_file(self):
+        base = os.path.join(ROOT, "src", "mods", "versions")
+        checked = []
+        for module in sorted(os.listdir(base)):
+            if not os.path.isfile(os.path.join(base, module, "gradle.properties")):
+                continue
+            props = self._props(module)
+            cat = companions.companions(self.CATALOG, module)
+            for slug, key in self.PROPS.items():
+                if key not in props:
+                    continue
+                self.assertIn(slug, cat, "%s pins %s but the catalog bundles no %s for it" % (module, key, slug))
+                url, fn, _sha = cat[slug]
+                self.assertTrue(self._pin_matches(props[key], url, fn),
+                              "%s: gradle.properties %s=%s but the catalog ships %s (%s)"
+                              % (module, key, props[key], fn, self._catalog_version_id(url)))
+                checked.append((module, slug))
+        # 1.21.1 is the module this gate exists for: it must have been compared, both mods.
+        self.assertIn(("1.21.1", "modmenu"), checked)
+        self.assertIn(("1.21.1", "immediatelyfast"), checked)
+
+    def test_a_stale_pin_is_caught(self):
+        # The old 1.21.1 pins (before the P7 bump) must now FAIL against the catalog; the current ones pass.
+        url, fn, _sha = companions.companions(self.CATALOG, "1.21.1")["modmenu"]
+        self.assertTrue(self._pin_matches(self._props("1.21.1")["modmenu_version"], url, fn))
+        self.assertFalse(self._pin_matches("zzzzzzzz", url, fn))
+        self.assertFalse(self._pin_matches("11.0.4", url, fn))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
