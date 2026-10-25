@@ -32,10 +32,10 @@ import java.util.List;
 // (MenuPanorama), under the title dim and vignette. No version line, no splash.
 // GEOMETRY LIVES IN ONE PLACE: TitleLayout. Every button is a stock GuiButton
 // drawn by vanilla (OriginButtonRenderer leaves this screen alone); the icon
-// squares are blank vanilla buttons with Origin's icon drawn on top. Every icon
-// square gets a one-line tooltip saying what it does; worded buttons get none --
-// their label already says it ("dont have the hover tells what it dos for the
-// worded ones only the icons").
+// squares are blank vanilla buttons with Origin's icon drawn on top. No hover
+// tooltips anywhere on the title: a hover card beside a dock icon read as a
+// second button (Will, 2026-10-25: "the quit the game button is the same as the
+// other button next to it"); 1.8.9 has no narrator, so the dock carries no text.
 //
 // 1.8.9 best fit: later versions REPOSITION vanilla's own TitleScreen widgets
 // from a mixin. 1.8.9's GuiMainMenu builds its buttons with bare ids and draws
@@ -98,16 +98,12 @@ public class OriginTitleScreen extends OriginScreen {
 	private boolean fallBack = false;
 	private final List<GuiButton> nav = new ArrayList<>();
 	private final List<int[]> navPos = new ArrayList<>();
-	// The icon squares, their Origin icon and their tooltip (index-aligned).
+	// The icon squares and their Origin icon (index-aligned).
 	private final List<GuiButton> dock = new ArrayList<>();
 	private final List<String> dockIcon = new ArrayList<>();
-	private final List<String> dockTip = new ArrayList<>();
-	// The one tooltip line, reused every frame (no per-frame allocation).
-	private final List<String> tipLine = new ArrayList<>(1);
 
 	public OriginTitleScreen() {
 		super("Origin");
-		tipLine.add("");
 	}
 
 	/** Dev shots: the startup splash is still over the title (hold or dissolve). */
@@ -127,7 +123,6 @@ public class OriginTitleScreen extends OriginScreen {
 		navPos.clear();
 		dock.clear();
 		dockIcon.clear();
-		dockTip.clear();
 
 		singleplayer = add(0, I18n.format("menu.singleplayer"));
 		multiplayer = add(1, I18n.format("menu.multiplayer"));
@@ -147,11 +142,11 @@ public class OriginTitleScreen extends OriginScreen {
 		place(options, L.mainX, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
 		place(mods, L.mainX + L.mainW - half, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
 
-		// Bottom row of vanilla squares, Quit at its end (tooltips: 1.21.1's words).
-		icon(friends, "@px-friends", "Friends: see who is online and join them");
-		icon(cosmetics, "@px-shirt", "Cosmetics: capes and more for your player");
-		icon(language, "@px-language", "Change the game's language");
-		icon(quit, "@px-quit", "Quit the game");
+		// Bottom row of vanilla squares, Quit at its end.
+		icon(friends, "@px-friends");
+		icon(cosmetics, "@px-shirt");
+		icon(language, "@px-language");
+		icon(quit, "@px-quit");
 		int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
 		int dx = (width - totalW) / 2;
 		for (GuiButton b : dock) {
@@ -167,10 +162,9 @@ public class OriginTitleScreen extends OriginScreen {
 		return b;
 	}
 
-	private void icon(GuiButton b, String id, String tip) {
+	private void icon(GuiButton b, String id) {
 		dock.add(b);
 		dockIcon.add(id);
-		dockTip.add(tip);
 	}
 
 	private void place(GuiButton b, int x, int y, int w, int h, boolean animated) {
@@ -248,9 +242,7 @@ public class OriginTitleScreen extends OriginScreen {
 				dissolveAt = StartupTransition.clockMs();
 				StartupTransition.titleRevealed();
 			}
-			return;
 		}
-		drawDockTooltip(g, mouseX, mouseY);
 	}
 
 	private static final String COPYRIGHT = "Copyright Mojang AB. Do not distribute!";
@@ -265,19 +257,6 @@ public class OriginTitleScreen extends OriginScreen {
 			int s = Math.max(8, Math.min(12, b.height - 8));
 			ModIcons.drawCrisp(g, dockIcon.get(i), b.xPosition + (b.width - s) / 2, b.yPosition + (b.height - s) / 2, s,
 					b.enabled ? 0xFFFFFFFF : 0xFFA0A0A0);
-		}
-	}
-
-	/** The hovered icon square's one-line tooltip (vanilla's hovering text). */
-	private void drawDockTooltip(Gfx g, int mouseX, int mouseY) {
-		for (int i = 0; i < dock.size(); i++) {
-			GuiButton b = dock.get(i);
-			if (b.visible && mouseX >= b.xPosition && mouseY >= b.yPosition
-					&& mouseX < b.xPosition + b.width && mouseY < b.yPosition + b.height) {
-				tipLine.set(0, dockTip.get(i));
-				g.drawTooltip(fontRendererObj, tipLine, mouseX, mouseY);
-				return;
-			}
 		}
 	}
 

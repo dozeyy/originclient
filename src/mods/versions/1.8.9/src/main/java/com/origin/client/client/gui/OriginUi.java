@@ -17,7 +17,7 @@ import org.lwjgl.opengl.GL11;
 
 // The premium drawing kit shared by the mod menu and HUD editor: baked
 // high-res assets (rounded panels, Apple-style switch, 96px icon atlas,
-// radial glow, brand rings) drawn with GL_LINEAR so nothing but the font is
+// radial glow, the logo) drawn with GL_LINEAR so nothing but the font is
 // ever pixelated. GL discipline as documented in CODE_REVIEW.md: blend +
 // default func before textured draws, shader color reset after tints.
 public final class OriginUi {
