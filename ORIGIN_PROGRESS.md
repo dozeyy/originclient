@@ -210,11 +210,11 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 ### Phase 7 - Mod updates and close
 | ID | Requirement | Source | Phase | Status | Evidence |
 |---|---|---|---|---|---|
-| P7-01 | Dependency audit: current, latest compatible stable, breaking changes | 03 P7, 01 s14 | 7 | Not started | |
-| P7-02 | Covered versions boot-tested in CI, or the limitation reported and verified another way | 03 P7 | 7 | Not started | |
-| P7-03 | Updates applied through the 8-step gate | 03 P7 | 7 | Not started | |
-| P7-04 | Failing updates held or rejected, never shipped | 03 P7 | 7 | Not started | |
-| P7-05 | Launcher-installed mod pins (catalog) audited the same way | 01 s14 | 7 | Not started | |
+| P7-01 | Dependency audit: current, latest compatible stable, breaking changes | 03 P7, 01 s14 | 7 | Done but untested | `docs/overhaul/p7-dependency-audit.md`: every live module (+ covered versions) vs the newest Modrinth release for its exact MC version; held list with reasons. Rows not yet spot-checked by a verifier. 1.8.9 (Forge + OptiFine) is a fixed chain, not in the table |
+| P7-02 | Covered versions boot-tested in CI, or the limitation reported and verified another way | 03 P7 | 7 | In progress | Primary versions of every bumped module boot with the new `companions` gate (boot-smoke 40182818181: 1.21.11, 1.21.1, 1.21; 40183076637: 26.3). The `covers` mode (U7.2) is NOT built: covered versions (1.21.2, 1.21.3, 1.21.7, 1.20.1, 26.1.1, 26.1.2) have no boot, because booting one needs that version's own Minecraft, Fabric API, Sodium and Iris pins inside the module's Gradle build, not a workflow flag. Needs a real-install boot on Will's PC (S1) or a per-version Gradle override first |
+| P7-03 | Updates applied through the 8-step gate | 03 P7 | 7 | Done but untested | `claude/p7-deps`: 1.21.11 Sodium 0.8.14 + Iris 1.10.8 + Mod Menu 17.0.1 + Fabric API 0.141.6; 1.21.1 / 1.21 ImmediatelyFast 1.6.15 + Mod Menu 11.0.5 (1.21.1 Fabric API 0.116.17); 26.3 Fabric API 0.165.0. Boot proof with the companions loaded at the catalog versions in the audit's boot evidence. Judge 87 on the first pass, fixes since; re-judge pending |
+| P7-04 | Failing updates held or rejected, never shipped | 03 P7 | 7 | Done but untested | No update failed its gate. Held (reasons in the audit): JEI 27.48 (1.21.11) and 19.64 (1.21.1, 1.21) dropped the GUI render hooks; 1.21.1 Sodium 0.8.x (no stable Iris); 26.3 Sodium (newer build beta-only); other newer releases listed as held, not run through the gate |
+| P7-05 | Launcher-installed mod pins (catalog) audited the same way | 01 s14 | 7 | Done but untested | The audit reads the catalog (`PerformanceModCatalog.Data.cs`) for every module and every covered version. Also: `FabricApiInstaller` now verifies Modrinth's SHA-512, host and file name and fails soft (`ModrinthFileGuard`, 38 tests) |
 | P7-06 | Final pass: every row here has a final status and evidence | 01 s20-21, 03 | 7 | Not started | |
 | P7-07 | One launcher release `launcher-v1.0.66`+ once tests, CI boots and the judge pass | 04 | 7 | Not started | |
 | P7-08 | Real-install checks after the release (launcher, import, menus on real GPU) | 04 | 7 | Not started | |
@@ -256,7 +256,7 @@ Partial = In progress; Not implemented = Not started.
 | B-28 | After-shaders pass for world overlays on modules other than 1.21.1 | ledger s2 | after 7 | In progress | `46ad446bc` (1.21.1 only); not requested in 01-04 |
 | B-29 | 1.21.10+ emoji truncated by `(char) event.codepoint()` | ledger s2 | 4 | Not started | 1.21.10, 26.1, 26.3 |
 | B-30 | Loading screen's own first frame 637 ms; prepare-stage pauses with many mods | ledger s2 | 4 | Not started | |
-| B-31 | Never booted in CI: 1.21.2, 1.21.3, 1.21.7, 1.20.1, 26.1.1 | ledger s2 | 7 | Done but untested | = P7-02 |
+| B-31 | Never booted in CI: 1.21.2, 1.21.3, 1.21.7, 1.20.1, 26.1.1 | ledger s2 | 7 | Not started | = P7-02: `covers` mode not built, still never booted (26.1.2 joins the list) |
 | B-32 | Origin AI website helper (shipped 10-21) to remove | ledger s2 | 1 | Not started | `311f4fc72`..`de6b3eb6a`; = P1-04 |
 | B-33 | Light theme | ledger s2 | after 7 | Not started | not requested in 01-04 |
 | B-34 | Panorama grade is an approximation, not a true desaturate | ledger s2 | after 7 | Not started | notes only |
