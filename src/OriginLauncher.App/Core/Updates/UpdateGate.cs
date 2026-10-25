@@ -26,7 +26,9 @@ public sealed class UpdateGate
         /// <summary>A recent check failed: leave it alone for now.</summary>
         Wait,
         /// <summary>Back-off over: fetch and verify it silently; publish only if that succeeds.</summary>
-        Quiet
+        Quiet,
+        /// <summary>The release carries no checksum at all (<see cref="UpdateVerifier"/> would refuse it): never offered, never gated, backed off.</summary>
+        Refuse
     }
 
     private Version? _published;
@@ -55,6 +57,20 @@ public sealed class UpdateGate
         if (_quietInFlight || nowUtc < _retryAtUtc) return Decision.Wait;
         _quietInFlight = true;
         return Decision.Quiet;
+    }
+
+    /// <summary>
+    /// <see cref="Evaluate"/> for a release whose verifiability is already known from the feed alone: with
+    /// <paramref name="hasHash"/> false (no .sha256 asset and no usable digest) the download could only ever be refused,
+    /// so the update is never offered and never gates Play. It is treated like a failed check (back-off, then the same
+    /// quiet path), which is <see cref="Decision.Refuse"/>. Anything Evaluate would skip or wait on stays that way.
+    /// </summary>
+    public Decision EvaluateRelease(Version remote, Version current, bool hasHash, DateTime nowUtc)
+    {
+        var decision = Evaluate(remote, current, nowUtc);
+        if (hasHash || decision is not (Decision.Publish or Decision.Quiet)) return decision;
+        VerifyFailed(remote, nowUtc);
+        return Decision.Refuse;
     }
 
     public void Publish(Version version) => _published = version;

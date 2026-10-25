@@ -213,4 +213,45 @@ public sealed class UpdateGateTests
         var gate = new UpdateGate();
         Assert.Equal(Decision.Skip, gate.Evaluate(new Version(1, 0, 57), new Version(1, 0, 57, 0), T0));
     }
+
+    // Review finding (2026-10-25): a release with no checksum at all used to be offered and gate Play, and was only
+    // refused after the player clicked the badge. The feed alone says it can never verify, so it is never offered.
+    [Fact]
+    public void A_release_with_no_checksum_is_refused_up_front_and_never_gates_play()
+    {
+        var gate = new UpdateGate();
+
+        Assert.Equal(Decision.Refuse, gate.EvaluateRelease(Next, Current, hasHash: false, T0));
+
+        Assert.False(gate.Required(isDevBuild: false));
+        Assert.Null(gate.Published);
+        // Backed off like a failed check: ignored for 30 min, then the same quiet path (which refuses it again).
+        Assert.Equal(Decision.Wait, gate.EvaluateRelease(Next, Current, hasHash: false, T0.AddMinutes(29)));
+        Assert.Equal(Decision.Refuse, gate.EvaluateRelease(Next, Current, hasHash: false, T0.AddMinutes(30)));
+        Assert.False(gate.Required(isDevBuild: false));
+        Assert.Equal(Decision.Wait, gate.EvaluateRelease(Next, Current, hasHash: false, T0.AddMinutes(89)));   // doubled to 1 h
+    }
+
+    [Fact]
+    public void A_release_with_a_checksum_is_offered_as_before_and_old_or_published_ones_still_skip()
+    {
+        var gate = new UpdateGate();
+        Assert.Equal(Decision.Publish, gate.EvaluateRelease(Next, Current, hasHash: true, T0));
+        gate.Publish(Next);
+        Assert.True(gate.Required(isDevBuild: false));
+        Assert.Equal(Decision.Skip, gate.EvaluateRelease(Next, Current, hasHash: true, T0));
+        // Not newer than this build: skipped whether or not it has a hash (no failure is recorded for it).
+        Assert.Equal(Decision.Skip, new UpdateGate().EvaluateRelease(Current, Current, hasHash: false, T0));
+    }
+
+    [Fact]
+    public void A_newer_release_without_a_checksum_ungates_the_older_offer_instead_of_blocking_play()
+    {
+        Published(out var gate);
+        var newer = new Version(1, 0, 59);
+
+        Assert.Equal(Decision.Refuse, gate.EvaluateRelease(newer, Current, hasHash: false, T0.AddHours(1)));
+
+        Assert.False(gate.Required(isDevBuild: false));
+    }
 }

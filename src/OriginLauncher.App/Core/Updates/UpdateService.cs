@@ -22,7 +22,10 @@ namespace OriginLauncher.App.Core.Updates;
 // latest published release must update before it can launch the game.
 // HomePage enforces that via UpdateRequired. Three deliberate softenings:
 //  - A download that fails its integrity check (UpdateVerifier) never blocks play: the update is ungated,
-//    the file discarded, and it is retried quietly with back-off (UpdateGate); only a verified one can be forced.
+//    the file discarded, and it is retried quietly with back-off (UpdateGate). A release whose feed entry carries no
+//    checksum at all (no .sha256 asset, no usable digest) is refused up front the same way, before it is offered.
+//    A first sighting that does carry one is offered (and gates Play) before it is downloaded, because the
+//    download is what verifies it; a failure there ungates it at once, so a bad release never blocks play twice.
 //  - If the feed is unreachable (offline, rate-limited), the check fails
 //    OPEN: we can't tell "no update" from "no internet", and blocking all
 //    offline play on a feed hiccup would be worse than a stale client.
@@ -73,7 +76,7 @@ public static class UpdateService
     // The zip that sits verified on disk from a quiet retry (the badge click then skips the download), with the
     // hash it was verified against: it is hashed again right before it is extracted (it may sit there for hours).
     private sealed record VerifiedZip(Version Version, string Sha256);
-    private static VerifiedZip? _verifiedZip;
+    private static VerifiedZip? _verifiedZip; // always under lock (Gate)
 
     /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen.</summary>
     public static event EventHandler? AvailableChanged;
@@ -104,13 +107,21 @@ public static class UpdateService
             if (asset?.DownloadUrl == null)
                 return;
 
+            var hashAsset = release.Assets?.FirstOrDefault(a =>
+                string.Equals(a.Name, HashAssetName, StringComparison.OrdinalIgnoreCase));
+            // No sidecar and no usable digest: the download could only be refused, so never offer or gate on it.
+            var hasHash = hashAsset?.DownloadUrl != null || UpdateVerifier.ParseDigest(asset.Digest) != null;
+
             UpdateGate.Decision decision;
-            lock (Gate) decision = Gate.Evaluate(remote, CurrentVersion, DateTime.UtcNow);
+            lock (Gate) decision = Gate.EvaluateRelease(remote, CurrentVersion, hasHash, DateTime.UtcNow);
+            if (decision == UpdateGate.Decision.Refuse)
+            {
+                Log($"update {remote}: release published no SHA-256, not offered; retrying quietly later");
+                return;
+            }
             if (decision is UpdateGate.Decision.Skip or UpdateGate.Decision.Wait)
                 return;
 
-            var hashAsset = release.Assets?.FirstOrDefault(a =>
-                string.Equals(a.Name, HashAssetName, StringComparison.OrdinalIgnoreCase));
             var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
             if (decision == UpdateGate.Decision.Quiet)
             {
@@ -178,7 +189,7 @@ public static class UpdateService
             lock (Gate) Gate.Verified(update.Version);
             if (TryPublish(update))
             {
-                _verifiedZip = new VerifiedZip(update.Version, sha256);
+                lock (Gate) _verifiedZip = new VerifiedZip(update.Version, sha256);
                 Log($"update {update.Version}: quiet retry verified, offering it now");
             }
             else
@@ -252,8 +263,8 @@ public static class UpdateService
         var zipPath = ZipPathFor(update.Version);
         // A quiet retry may already have fetched and verified this very zip, possibly hours ago: hash it again
         // before it is extracted. A swapped or damaged file is deleted and fails like any bad download.
-        var verifiedEarlier = _verifiedZip;
-        _verifiedZip = null;
+        VerifiedZip? verifiedEarlier;
+        lock (Gate) { verifiedEarlier = _verifiedZip; _verifiedZip = null; }
         if (verifiedEarlier?.Version == update.Version && File.Exists(zipPath))
             await UpdateVerifier.EnsureFileMatchesAsync(zipPath, verifiedEarlier.Sha256, CancellationToken.None).ConfigureAwait(false);
         else
