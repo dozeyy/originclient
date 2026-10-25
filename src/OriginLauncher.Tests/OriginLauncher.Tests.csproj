@@ -42,6 +42,8 @@
     <Compile Include="..\OriginLauncher.App\UI\Controls\KeyedDiff.cs" LinkBase="Social" />
     <!-- The toasts waiting behind the two on screen (pure). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\ToastQueue.cs" LinkBase="Social" />
+    <!-- The Home numeral's placement maths (band, size, centring; pure). -->
+    <Compile Include="..\OriginLauncher.App\UI\Controls\NumeralBand.cs" LinkBase="UI" />
     <!-- Only the top folder: Core/GameFolders/Launcher is the account/settings glue. -->
     <Compile Include="..\OriginLauncher.App\Core\GameFolders\*.cs" LinkBase="GameFolders" />
     <!-- When the launcher signs in to Minecraft: per-account session reuse, expiry,

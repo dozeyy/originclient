@@ -113,6 +113,18 @@ public partial class HomePage : UserControl
         var edge = compact ? 24 : 32;
         HomeCard.Margin = new Thickness(edge, 0, edge, edge);
         BannerSlot.Margin = new Thickness(0, compact ? 68 : 72, edge, 0);
+        ReportStripTop();
+    }
+
+    internal void TourSettleDensity() => ApplyDensity(ActualHeight);
+    internal void TourReportStripTop() => ReportStripTop();
+
+    // Tells the art stage where the strip's top edge is (the page fills the window under the bar, so page y is
+    // window y); the Home numeral is sized and centred in the band between the bar and this line.
+    private void ReportStripTop()
+    {
+        if (ActualHeight <= 0 || HomeCard.ActualHeight <= 0) return;
+        ArtStage.SetStripTop(ActualHeight - HomeCard.Margin.Bottom - HomeCard.ActualHeight);
     }
 
     /// <summary>MainWindow: the profile chip asks for the Profiles page.</summary>
@@ -167,7 +179,10 @@ public partial class HomePage : UserControl
         InitializeComponent();
         // The Play card (with a profile row and Join) is taller than the smallest window leaves room for:
         // below this page height every gap on it halves, so nothing touches the top bar or the bottom edge.
-        SizeChanged += (_, e) => ApplyDensity(e.NewSize.Height);
+        SizeChanged += (_, e) => { ApplyDensity(e.NewSize.Height); ReportStripTop(); };
+        // The numeral stands in the band above the strip, so it follows the strip's height (a profile row, Join).
+        HomeCard.SizeChanged += (_, _) => ReportStripTop();
+        Loaded += (_, _) => ReportStripTop();
         // A Visibility flip, not IsVisible: navigation never leaves Home while either is up.
         System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
             .AddValueChanged(LoadingOverlay, (_, _) => OnSceneVisibilityChanged());
