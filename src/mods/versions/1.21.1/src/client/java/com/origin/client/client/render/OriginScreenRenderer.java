@@ -34,8 +34,10 @@ import org.lwjgl.opengl.GL11;
 //  - MAIN MENU: this version's own Mojang panorama, blurred and dimmed
 //    (CLEAN_DIM_TITLE), the real logo (origin_logo.png) and the OFFICIAL wordmark
 //    IMAGE (origin_wordmark.png, 11 GUI px tall) under it -- both still, baked
-//    once per physical size (bakeBox) -- and the player chip. The buttons are
-//    drawn by OriginButtonRenderer's title skin, not here.
+//    once per physical size (bakeBox) -- and the player chip (a soft plate, the
+//    head baked at physical resolution with anti-aliased radius-2 corners, the
+//    name in Minecraft's font). The buttons, the footer line colour and the
+//    tooltip panel are OriginButtonRenderer's title skin, not drawn here.
 //  - OTHER MENUS: the same panorama backdrop, no logo.
 // The panorama is NOT available during the startup load (the cubemap's
 // textures aren't loaded yet), which is why the loading splash is solid.
@@ -900,6 +902,99 @@ public final class OriginScreenRenderer {
 	 * has no deferred GUI), so the scissor wraps them exactly.
 	 */
 	private static void drawRoundedHead(GuiGraphics g, net.minecraft.client.resources.PlayerSkin skin, int hx, int hy, int head, int radius) {
+		if (drawBakedHead(g, skin, hx, hy, head, radius)) {
+			return;
+		}
+		drawBandedHead(g, skin, hx, hy, head, radius);
+	}
+
+	// ---- the head, baked at physical resolution (anti-aliased corners) ----
+	// The scissor bands below can only cut whole physical pixels, so a radius-2 corner stair-steps (judge,
+	// chip_zoom). Instead the face (8x8 base + hat layer, exactly what PlayerFaceRenderer draws) is read back
+	// from the skin's GL texture once, resampled NEAREST to head*guiScale physical pixels, and its alpha is
+	// multiplied by an exact rounded-box coverage evaluated at physical-pixel centres (the smooth-ui-baked-masks
+	// recipe). It is then blitted back 1:1, so one texel is one screen pixel. Re-baked only when the skin's
+	// texture or the GUI scale changes (the real skin pops in async over the default one).
+	private static final ResourceLocation HEAD_BAKED = ResourceLocation.fromNamespaceAndPath("originclient", "title_head_baked");
+	private static ResourceLocation headSrc;
+	private static int headGs = -1, headSize = -1;
+	private static boolean headReady = false, headBakeFailed = false;
+
+	private static boolean drawBakedHead(GuiGraphics g, net.minecraft.client.resources.PlayerSkin skin, int hx, int hy, int head, int radius) {
+		if (headBakeFailed) {
+			return false;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			int gs = Math.max(1, (int) Math.round(mc.getWindow().getGuiScale()));
+			ResourceLocation src = skin.texture();
+			int size = head * gs;
+			if (!headReady || !src.equals(headSrc) || gs != headGs || size != headSize) {
+				bakeHead(mc, src, size, radius * gs);
+				headSrc = src;
+				headGs = gs;
+				headSize = size;
+				headReady = true;
+			}
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			g.blit(HEAD_BAKED, hx, hy, head, head, 0f, 0f, size, size, size, size);
+			return true;
+		} catch (Throwable t) {
+			headBakeFailed = true;   // the banded head below takes over for the session
+			com.origin.client.OriginClient.LOGGER.warn("Origin baked player head failed; using the banded head", t);
+			return false;
+		}
+	}
+
+	private static void bakeHead(Minecraft mc, ResourceLocation skinTex, int size, int r) {
+		int id = mc.getTextureManager().getTexture(skinTex).getId();
+		RenderSystem.bindTexture(id);
+		int tw = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+		int th = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+		if (tw < 64 || th < 16) {
+			throw new IllegalStateException("skin texture " + skinTex + " is " + tw + "x" + th);
+		}
+		int k = tw / 64;   // 1 for 64 px skins, 2 for HD
+		NativeImage skinPx = new NativeImage(NativeImage.Format.RGBA, tw, th, false);
+		NativeImage out = null;
+		try {
+			skinPx.downloadTexture(0, false);
+			out = new NativeImage(NativeImage.Format.RGBA, size, size, false);
+			double half = size / 2.0, inner = half - r;
+			for (int py = 0; py < size; py++) {
+				int fy = Math.min(7, py * 8 / size);
+				for (int px = 0; px < size; px++) {
+					int fx = Math.min(7, px * 8 / size);
+					int base = skinPx.getPixelRGBA(8 * k + fx * k + k / 2, 8 * k + fy * k + k / 2);
+					int hat = skinPx.getPixelRGBA(40 * k + fx * k + k / 2, 8 * k + fy * k + k / 2);
+					// ABGR ints: alpha in the top byte. Hat over base, then the corner coverage into alpha.
+					double ha = ((hat >>> 24) & 0xFF) / 255.0, ba = ((base >>> 24) & 0xFF) / 255.0;
+					double oa = ha + ba * (1.0 - ha);
+					int rgb = 0;
+					for (int shift = 0; shift <= 16; shift += 8) {
+						double hc = ((hat >> shift) & 0xFF) / 255.0, bc = ((base >> shift) & 0xFF) / 255.0;
+						double c = oa <= 0.0 ? 0.0 : (hc * ha + bc * ba * (1.0 - ha)) / oa;
+						rgb |= (int) Math.round(Math.min(1.0, c) * 255.0) << shift;
+					}
+					double dx = Math.max(Math.abs(px + 0.5 - half) - inner, 0.0), dy = Math.max(Math.abs(py + 0.5 - half) - inner, 0.0);
+					double cov = Math.max(0.0, Math.min(1.0, 0.5 - (Math.sqrt(dx * dx + dy * dy) - r)));
+					int a = (int) Math.round(oa * cov * 255.0);
+					out.setPixelRGBA(px, py, (a << 24) | rgb);
+				}
+			}
+			mc.getTextureManager().register(HEAD_BAKED, new DynamicTexture(out));   // takes ownership of `out`; replaces the old bake
+			out = null;
+		} finally {
+			skinPx.close();
+			if (out != null) {
+				out.close();
+			}
+		}
+	}
+
+	private static void drawBandedHead(GuiGraphics g, net.minecraft.client.resources.PlayerSkin skin, int hx, int hy, int head, int radius) {
 		com.mojang.blaze3d.platform.Window win = Minecraft.getInstance().getWindow();
 		int gs = Math.max(1, (int) Math.round(win.getGuiScale()));
 		int px = hx * gs, py = hy * gs, size = head * gs, r = Math.min(size / 2, radius * gs);

@@ -48,11 +48,12 @@ import java.util.List;
 //                 [   Options    ][    Mods    ]
 //
 //     realms friends cosmetics lang access quit          bare 12 px glyphs in 20 x 20 hit boxes
-//                                  Copyright Mojang AB. Do not distribute!
+//     Minecraft 1.21.1, Origin                   Copyright Mojang AB. Do not distribute!
 //
 // Background: THIS version's own Mojang panorama (vanilla draws it), blurred
-// by vanilla's blur and dimmed (renderPanorama TAIL). No version line, no
-// splash. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
+// by vanilla's blur and dimmed (renderPanorama TAIL). No splash. Footer: the
+// version line left and the real copyright button right, both textMuted in
+// Minecraft's font, 6 GUI px from the bottom. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
 // only REPOSITIONED (clicks and actions untouched) and draw as stock
 // Workbench panels (OriginButtonRenderer skin 2: titleControl, registered below
 // with setTitleButton); the dock is bare hued glyphs (setTitleDock, no boxes).
@@ -62,8 +63,9 @@ import java.util.List;
 // Cosmetics are Origin's, added as real widgets through ScreenInvoker. Mod
 // Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
 // screen event after our init hook, which also bumps buttons -- so positions
-// are re-applied every frame). The copyright line is vanilla's, where vanilla
-// puts it. Everything is fail-soft: a throw leaves vanilla's layout in place.
+// are re-applied every frame). The copyright line is vanilla's own clickable
+// widget, re-seated bottom-right and recoloured (PlainTextButtonMixin). Title
+// tooltips draw as the Workbench panel (TooltipRenderUtilMixin). Everything is fail-soft: a throw leaves vanilla's layout in place.
 //
 // All injection targets confirmed via javap against the mapped 1.21.1 jar.
 // priority 2000: Origin's re-skin wins over other title-screen mods.
@@ -206,11 +208,53 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// No bottom version line.
+	// Footer, left half: vanilla's bottom-left version line (drawn pure white, 2 px in) becomes
+	// "Minecraft 1.21.1, Origin" in textMuted, in Minecraft's own font (Will, 2026-10-19), 6 GUI px
+	// from the bottom (DESIGN-SYSTEM 15.2). `color` carries vanilla's fade-in alpha, which rides along.
+	// The right half is the real copyright button: originclient$footerButton below.
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/GuiGraphics;drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)I"))
-	private int originclient$noVersion(GuiGraphics instance, Font font, String text, int x, int y, int color) {
-		return originclient$origin() ? 0 : instance.drawString(font, text, x, y, color);
+	private int originclient$footerLeft(GuiGraphics instance, Font font, String text, int x, int y, int color) {
+		if (!originclient$origin()) {
+			return instance.drawString(font, text, x, y, color);
+		}
+		String line = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().getName() + ", Origin";
+		return instance.drawString(font, line, TitleLayout.CORNER, ORIGIN_FOOTER_TOP_OFFSET + ((Screen) (Object) this).height,
+				OriginButtonRenderer.footerColor(false, color), true);
+	}
+
+	// Footer baseline: the 8 px text line's top, relative to the screen bottom (bottom edge 6 GUI px up).
+	@Unique
+	private static final int ORIGIN_FOOTER_TOP_OFFSET = -14;
+
+	@Unique
+	private PlainTextButton originclient$copyright;
+
+	// The copyright line stays vanilla's real clickable PlainTextButton (credits screen); Origin only
+	// registers it (PlainTextButtonMixin recolours it to textMuted) and re-seats it bottom-right, 6 px in.
+	@Inject(method = "init", at = @At("TAIL"))
+	private void originclient$footerButton(CallbackInfo ci) {
+		originclient$copyright = null;
+		if (!originclient$origin()) {
+			return;
+		}
+		for (GuiEventListener child : ((Screen) (Object) this).children()) {
+			if (child instanceof PlainTextButton b) {
+				originclient$copyright = b;
+				OriginButtonRenderer.setTitleFooter(b);
+			}
+		}
+	}
+
+	// Every frame, before the widgets draw: Mod Menu's screen event shifts buttons after our init, so
+	// the footer button's seat is re-applied like the nav and dock positions are.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$footerSeat(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		PlainTextButton b = originclient$copyright;
+		if (b != null && originclient$origin()) {
+			Screen self = (Screen) (Object) this;
+			b.setPosition(self.width - b.getWidth() - TitleLayout.CORNER, self.height + ORIGIN_FOOTER_TOP_OFFSET);
+		}
 	}
 
 	@Inject(method = "init", at = @At("TAIL"))
@@ -225,7 +269,7 @@ public class TitleScreenMixin {
 		}
 		for (GuiEventListener child : self.children()) {
 			// Any Mod Menu "Mods" button already present: hidden. The copyright line
-			// (PlainTextButton) stays where vanilla puts it, bottom-right.
+			// (PlainTextButton) is left out of the layout; originclient$footerSeat seats it.
 			if (originclient$isForeignMods(child) && child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;

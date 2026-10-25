@@ -123,13 +123,16 @@ public final class OriginTheme {
 	public static final int TITLE_RADIUS = 4;                  // buttons 20 tall: the launcher's 40/8 ratio
 	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
 	public static final int TITLE_BTN_FILL_HOVER = 0xE6232A26; // surfaceHover at 90 %
-	public static final int TITLE_BTN_FILL_PRESS = 0xE6191E1B; // surfacePress
+	// Press: surfacePress's hue pushed to near-black at 95 %. The spec value (#191E1B at 90 %) composited to
+	// about the resting fill and could not be seen (judge, title_press); the label also drops 1 GUI px.
+	public static final int TITLE_BTN_FILL_PRESS = 0xF20B0F0D;
 	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
 	public static final int TITLE_BTN_EDGE_HOVER = 0x24FFFFFF;
 	public static final int TITLE_FOCUS = 0x995FD09B;          // accentLine, 1 GUI px ring
 	public static final int TITLE_PLATE_HOVER = 0x14FFFFFF;    // plate behind a hovered dock glyph (white 8 %)
 	public static final int TITLE_CHIP_FILL = 0x0FFFFFFF;      // player chip (white 6 %)
-	public static final int TITLE_TEXT_MUTED = 0x85F1E9D2;     // textMuted: disabled labels
+	public static final int TITLE_TOOLTIP_FILL = 0xF51D2320;   // surfaceRaised at 96 %: tooltip over the panorama (11.8)
+	public static final int TITLE_TEXT_MUTED =0x85F1E9D2;     // textMuted: disabled labels
 	// Destination hues (spec 2.3, dark theme values): dock glyphs.
 	public static final int HUE_EMERALD = 0xFF5FD09B;
 	public static final int HUE_SKY = 0xFF6FAEE8;

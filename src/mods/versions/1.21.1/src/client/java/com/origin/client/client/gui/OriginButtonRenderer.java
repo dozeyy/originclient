@@ -22,7 +22,7 @@ import com.origin.client.client.theme.OriginTheme;
 //
 //  1. ORIGIN'S OWN WINDOWS (the Mod Menu family: OriginModMenuScreen, OriginDeck,
 //     the HUD editor, cosmetics, ...; any com.origin.* screen -- originOwnsScreen()).
-//     Every vanilla-class widget there is redrawn as the Ion Jade glass control:
+//     Every vanilla-class widget there is redrawn as the glass control:
 //     OriginUi.panel + the OriginTheme.BOX_* tokens, eased hover, accent wash.
 //     This path is PROTECTED (overhaul rule S4: the Mod Menu must not change by a
 //     pixel) -- do not touch box(), the BOX_* tokens or RADIUS for a title change.
@@ -33,7 +33,10 @@ import com.origin.client.client.theme.OriginTheme;
 //     titleControl(): a soft rounded panel (radius 4 GUI px, OriginTheme.TITLE_*
 //     tokens) for the worded buttons, and a bare glyph in its hue with a hover
 //     plate for the dock -- never a box inside a box. A widget that was not
-//     registered is untouched vanilla.
+//     registered is untouched vanilla. Text stays in Minecraft's font (Will,
+//     2026-10-19). The same skin also owns the title's footer line colour
+//     (setTitleFooter / footerColor) and its tooltip panel (renderTitleTooltip,
+//     reached from TooltipRenderUtilMixin only while the title screen is up).
 //
 // Restyling happens in place from the widget mixins: widgets keep their
 // positions, actions and clicks; only the drawing changes.
@@ -193,12 +196,14 @@ public final class OriginButtonRenderer {
 		boolean lead = tp.icon() != null;
 		int groupW = lead ? LEAD_ICON + LEAD_GAP + textW : textW;
 		int gx = x + (w - groupW) / 2;
+		// Press: the label (and glyph) sit 1 GUI px lower; the panel itself never moves under the pointer.
+		int dy = pressed ? 1 : 0;
 		if (lead) {
 			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
-			ModIcons.drawFlat(g, tp.icon(), gx, y + (h - LEAD_ICON) / 2, LEAD_ICON, iconColor);
+			ModIcons.drawFlat(g, tp.icon(), gx, y + (h - LEAD_ICON) / 2 + dy, LEAD_ICON, iconColor);
 			gx += LEAD_ICON + LEAD_GAP;
 		}
-		g.drawString(font, label, gx, y + (h - 8) / 2, textColor, true);
+		g.drawString(font, label, gx, y + (h - 8) / 2 + dy, textColor, true);
 	}
 
 	private static void drawDock(GuiGraphics g, TitlePresentation tp, int x, int y, int w, int h,
@@ -211,7 +216,62 @@ public final class OriginButtonRenderer {
 		int color = enabled
 				? OriginTheme.withAlpha(tp.hue(), (int) Math.round(0xD9 + (0xFF - 0xD9) * hv))   // 85 % -> 100 %
 				: OriginTheme.TITLE_TEXT_MUTED;
-		ModIcons.drawFlat(g, tp.icon(), x + (w - GLYPH) / 2, y + (h - GLYPH) / 2, GLYPH, color);
+		ModIcons.drawFlat(g, tp.icon(), x + (w - GLYPH) / 2, y + (h - GLYPH) / 2 + (pressed ? 1 : 0), GLYPH, color);
+	}
+
+	// ---- the title's footer line and tooltip (Workbench 15.2 / 11.8) ----
+
+	// The title's copyright button (vanilla's PlainTextButton, still the real clickable widget):
+	// registered by TitleScreenMixin so PlainTextButtonMixin recolours ONLY that one.
+	private static final Map<Object, Boolean> TITLE_FOOTER = new WeakHashMap<>();
+
+	public static void setTitleFooter(Object widget) {
+		if (widget != null) {
+			TITLE_FOOTER.put(widget, Boolean.TRUE);
+		}
+	}
+
+	public static boolean isTitleFooter(Object widget) {
+		return widget != null && !titleBroken && TITLE_FOOTER.containsKey(widget)
+				&& !com.origin.client.client.OriginStyle.vanillaTitle();
+	}
+
+	/** Footer text colour: textMuted at rest, text on hover; the widget's own fade-in alpha rides along. */
+	public static int footerColor(boolean hovered, int vanillaArgb) {
+		int base = hovered ? OriginTheme.TEXT : OriginTheme.TITLE_TEXT_MUTED;
+		int a = (int) Math.round(((base >>> 24) & 0xFF) * (((vanillaArgb >>> 24) & 0xFF) / 255.0));
+		return (Math.max(a, 4) << 24) | (base & 0xFFFFFF);   // alpha < 4 would be read as opaque by drawString
+	}
+
+	/**
+	 * The title screen's tooltip panel: surfaceRaised, a 1 GUI px lineStrong edge, radius 4, text padded
+	 * 8 x 6 (DESIGN-SYSTEM 11.8). Called from TooltipRenderUtilMixin in place of vanilla's purple box
+	 * (x, y, w, h = the text block). True = drawn; false = let vanilla draw (any other screen, vanilla
+	 * Main Menu Style, or a latched failure).
+	 */
+	public static boolean renderTitleTooltip(GuiGraphics g, int x, int y, int w, int h, int z) {
+		Minecraft mc = Minecraft.getInstance();
+		if (titleBroken || mc == null || !(mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen)
+				|| com.origin.client.client.OriginStyle.vanillaTitle()) {
+			return false;
+		}
+		try {
+			var pose = g.pose();
+			pose.pushPose();
+			pose.translate(0, 0, z);
+			try {
+				OriginUi.roundRect(g, x - 8, y - 6, w + 16, h + 12, OriginTheme.TITLE_RADIUS,
+						OriginTheme.TITLE_TOOLTIP_FILL, flatten(OriginTheme.TITLE_TOOLTIP_FILL, OriginTheme.TITLE_BTN_EDGE_HOVER), 1f);
+			} finally {
+				pose.popPose();
+			}
+			return true;
+		} catch (Throwable t) {
+			titleBroken = true;
+			com.origin.client.OriginClient.LOGGER.error(
+					"Origin title tooltip failed; falling back to vanilla widgets on the title for this session", t);
+			return false;
+		}
 	}
 
 	/** The edge colour a 1 px ring needs so it can replace (not overlay) the fill in the SDF
