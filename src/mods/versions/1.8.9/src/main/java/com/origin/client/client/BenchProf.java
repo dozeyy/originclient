@@ -83,6 +83,15 @@ public final class BenchProf {
 	public static final int S_CAPE = section("mixin LayerCape.doRenderLayer HEAD (cape physics)");
 	public static final int S_COSMETIC_LAYER = section("layer CosmeticLayer.doRenderLayer (hats/masks/backs)");
 	public static final int S_ENTITY_CULL = section("mixin RenderManager.shouldRender (Entity Distance)");
+	// HUD phases inside HudElements.renderAll (summed over every element) and the minimap's scan/draw split
+	// (Phase 6 picks 3/4): they say where an element's time goes, which the per-element section cannot.
+	public static final int S_HUD_MEASURE = section("hud phase: measure (all elements)");
+	public static final int S_HUD_BACKING = section("hud phase: drawBacking (all elements)");
+	public static final int S_HUD_RENDER = section("hud phase: renderer (all elements)");
+	public static final int S_MM_UPDATE = section("minimap: MinimapData.update (terrain scan)");
+	public static final int S_MM_SCAN = section("minimap: one chunk scan");
+	public static final int S_MM_DRAWMAP = section("minimap: drawMap (geometry)");
+	public static final int S_MM_INFO = section("minimap: info lines + box");
 
 	private static volatile boolean active = false;
 	private static com.sun.management.ThreadMXBean threads;

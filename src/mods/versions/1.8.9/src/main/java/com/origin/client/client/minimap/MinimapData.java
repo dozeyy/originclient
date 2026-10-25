@@ -358,6 +358,19 @@ public final class MinimapData {
 
 	private static void scan(Minecraft mc, WorldClient level, Chunk chunk, int cx, int cz,
 							 Look look, int sig, long now) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MM_SCAN);
+		}
+		try {
+			scanChunk(level, chunk, cx, cz, look, sig, now);
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MM_SCAN);
+			}
+		}
+	}
+
+	private static void scanChunk(WorldClient level, Chunk chunk, int cx, int cz, Look look, int sig, long now) {
 		int minY = 0;     // 1.8.9 world floor
 		int maxY = 255;
 		int bx = cx << 4, bz = cz << 4;

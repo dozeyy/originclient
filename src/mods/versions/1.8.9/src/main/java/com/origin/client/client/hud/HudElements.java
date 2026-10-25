@@ -1088,10 +1088,23 @@ public final class HudElements {
 				com.origin.client.client.BenchProf.begin(prof);
 			}
 			HudPos pos = e.pos();
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_MEASURE);
+			}
 			int[] size = e.measure().apply(mc);
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_MEASURE);
+			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(sw, w), y = pos.y(sh, h);
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_BACKING);
+			}
 			drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_BACKING);
+				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_RENDER);
+			}
 			Pose p = g.pose();
 			int depth = p.depth();
 			p.pushPose();
@@ -1104,6 +1117,7 @@ public final class HudElements {
 			}
 			popTo(p, depth);
 			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_RENDER);
 				com.origin.client.client.BenchProf.end(prof);
 			}
 		}
