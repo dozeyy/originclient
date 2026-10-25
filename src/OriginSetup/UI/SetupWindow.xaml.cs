@@ -550,6 +550,7 @@ public partial class SetupWindow : Window
         HideRunningDialog(); // the "Close Origin Launcher?" shot leaves its overlay up
         BrowseButton.IsEnabled = _existing == null;
         LocationBox.IsReadOnly = _existing != null;
+        SetEditing(false);
         FillReady();
         // Every tour state starts from the defaults: Customize closed, memory recommended, version Newest.
         SetCustomize(false);

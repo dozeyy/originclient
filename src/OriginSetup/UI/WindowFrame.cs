@@ -47,26 +47,25 @@ public static class WindowFrame
             block.Text = path;
             return;
         }
-        // Keep one third of the characters from the front and two thirds from the back, as many as fit.
-        for (int kept = path.Length - 1; kept > 6; kept--)
+        // Keep one third of the characters from the front and two thirds from the back, as many as fit
+        // (the width only ever grows with the count, so a binary search finds the most that fit).
+        string Candidate(int kept) { int head = kept / 3; return path.Substring(0, head) + "..." + path.Substring(path.Length - (kept - head)); }
+        int lo = 6, hi = path.Length - 1;
+        while (lo < hi)
         {
-            int head = kept / 3;
-            var candidate = path.Substring(0, head) + "..." + path.Substring(path.Length - (kept - head));
-            if (Measure(block, candidate) <= room)
-            {
-                block.Text = candidate;
-                return;
-            }
+            int mid = (lo + hi + 1) / 2;
+            if (Measure(block, Candidate(mid)) <= room) lo = mid; else hi = mid - 1;
         }
-        block.Text = path;
+        block.Text = Candidate(lo);
     }
 
+    // The width the block itself would draw this text at. Measured on the block (not with FormattedText) so the
+    // embedded Inter face, its size and its spacing are exactly what is drawn: FormattedText resolved the pack font
+    // path differently and came out narrower, which let the ellipsis safety net clip the end of the path.
     private static double Measure(TextBlock block, string text)
     {
-        var typeface = new Typeface(block.FontFamily, block.FontStyle, block.FontWeight, block.FontStretch);
-        var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentUICulture,
-            FlowDirection.LeftToRight, typeface, block.FontSize, Brushes.Black,
-            VisualTreeHelper.GetDpi(block).PixelsPerDip);
-        return formatted.WidthIncludingTrailingWhitespace;
+        block.Text = text;
+        block.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return block.DesiredSize.Width;
     }
 }
