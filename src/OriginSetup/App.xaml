@@ -4,24 +4,18 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Same dictionaries, same order as the launcher's App.xaml. -->
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Theme/Colors.xaml"/>
+                <!-- Order matters: tokens first (everything reads them), then type, the shared glyph set,
+                     the controls, and last the installer's own pieces + the brand reference. -->
+                <ResourceDictionary Source="Theme/Tokens.xaml"/>
                 <ResourceDictionary Source="Theme/Typography.xaml"/>
-                <ResourceDictionary Source="Theme/Spacing.xaml"/>
-                <ResourceDictionary Source="Theme/Buttons.xaml"/>
-                <!-- Icons before Inputs: the shared combo box template uses the chevron. -->
                 <ResourceDictionary Source="Theme/Icons.xaml"/>
-                <ResourceDictionary Source="Theme/Inputs.xaml"/>
-                <ResourceDictionary Source="Theme/Brand.xaml"/>
+                <ResourceDictionary Source="Theme/Controls.xaml"/>
                 <ResourceDictionary Source="Theme/Setup.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}"/>
-            <Style TargetType="TextBox" BasedOn="{StaticResource Input.TextBox}"/>
-            <Style TargetType="Slider" BasedOn="{StaticResource Input.Slider}"/>
-            <Style TargetType="ComboBox" BasedOn="{StaticResource Input.ComboBox}"/>
-            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource Input.ComboBoxItem}"/>
+            <Style TargetType="CheckBox" BasedOn="{StaticResource CheckBox.Workbench}"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

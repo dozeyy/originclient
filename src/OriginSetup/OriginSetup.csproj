@@ -46,18 +46,15 @@
     <Reference Include="System.IO.Compression" />
   </ItemGroup>
 
-  <!-- The launcher's own theme, linked (not copied) so the installer looks
-       exactly like the launcher. Typography is the one exception — see
-       Theme/Typography.xaml. -->
+  <!-- Theme: the installer owns its Workbench tokens, type and controls (Theme/Tokens.xaml, Typography.xaml,
+       Controls.xaml, Setup.xaml). Only the icon glyph set is linked from the launcher, so a glyph is drawn once.
+       The brand is the two MASTER files, embedded unmodified and read through ONE reference (Theme/Setup.xaml,
+       Brand.Logo / Brand.Wordmark): never redraw them in XAML. -->
   <ItemGroup>
-    <Page Include="..\OriginLauncher.App\Theme\Colors.xaml" Link="Theme\Colors.xaml" />
-    <Page Include="..\OriginLauncher.App\Theme\Spacing.xaml" Link="Theme\Spacing.xaml" />
-    <Page Include="..\OriginLauncher.App\Theme\Buttons.xaml" Link="Theme\Buttons.xaml" />
-    <Page Include="..\OriginLauncher.App\Theme\Inputs.xaml" Link="Theme\Inputs.xaml" />
-    <Page Include="..\OriginLauncher.App\Theme\Brand.xaml" Link="Theme\Brand.xaml" />
     <Page Include="..\OriginLauncher.App\Theme\Icons.xaml" Link="Theme\Icons.xaml" />
-    <Resource Include="..\..\tools\font-atlas\fonts\Monocraft.ttf" Link="Assets\Fonts\Monocraft.ttf" />
-    <!-- Inter (OFL): Typography.xaml mirrors the launcher's, whose text face is Inter since the Poster restyle. -->
+    <Resource Include="..\mods\versions\1.21.1\src\client\resources\assets\originclient\textures\ui\origin_logo.png" Link="Assets\Brand\origin_logo.png" />
+    <Resource Include="..\OriginLauncher.App\Assets\Brand\wordmark.png" Link="Assets\Brand\wordmark.png" />
+    <!-- Inter (OFL) is the only UI face. -->
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-400.ttf" Link="Assets\Fonts\Inter-400.ttf" />
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-500.ttf" Link="Assets\Fonts\Inter-500.ttf" />
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-600.ttf" Link="Assets\Fonts\Inter-600.ttf" />
@@ -65,7 +62,6 @@
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-800.ttf" Link="Assets\Fonts\Inter-800.ttf" />
     <EmbeddedResource Include="..\..\website\assets\fonts\Inter-LICENSE.txt" LogicalName="Inter-LICENSE.txt" />
     <Resource Include="..\OriginLauncher.App\Assets\origin.ico" Link="Assets\origin.ico" />
-    <EmbeddedResource Include="..\..\tools\font-atlas\fonts\Monocraft-LICENSE.txt" LogicalName="Monocraft-LICENSE.txt" />
     <EmbeddedResource Include="..\mods\live-modules.json" LogicalName="live-modules.json" />
   </ItemGroup>
 
@@ -74,7 +70,7 @@
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" Link="Shared\RamAdvice.cs" />
     <Compile Include="..\OriginLauncher.App\Core\SystemInfo.cs" Link="Shared\SystemInfo.cs" />
     <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.cs" Link="Shared\InstallRegistry.cs" />
-    <!-- Button press-scale (ui:Press), used by the linked Theme/Buttons.xaml. -->
+    <!-- Button press-scale (lui:Press), used by Theme/Controls.xaml. -->
     <Compile Include="..\OriginLauncher.App\UI\Press.cs" Link="Shared\Press.cs" />
   </ItemGroup>
 </Project>
