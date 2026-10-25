@@ -1,0 +1,8 @@
+{
+  "cpuBeforePct": 3,
+  "cpuDuringPct": 12,
+  "gameCpuPct": 9,
+  "otherCpuPct": 3,
+  "samples": 12,
+  "status": "ok"
+}

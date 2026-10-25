@@ -26,7 +26,7 @@
 | 1.21.11 | 27.17.0.50 | GuiGraphics | same as 1.21.10 (one mixin pair serves both) | same |
 | 26.1 | 29.37.0.100 | GuiGraphicsExtractor | likely unsplit drawForScreen (the split arrived in JEI 30); UserInput is `mezz.jei.gui.input` | pinned below 29.40 (mezz_config) |
 | 26.2 | 30.42 | GuiGraphicsExtractor | drawForScreenBackground(Screen, GGE) + drawForScreenForeground(Screen, GGE, I, I) | UserInput moved to `mezz.jei.common.input`; needs Fabric API ≥ 0.155.0 |
-| 26.3 | 31.12.0.65 | GuiGraphicsExtractor | likely as 26.2 (check the module) | needs Fabric API ≥ 0.156.3 |
+| 26.3 | 31.14.0.72 | GuiGraphicsExtractor | likely as 26.2 (check the module) | needs Fabric API ≥ 0.156.3 |
 | 1.16.5, 1.17.1, 1.21.2–1.21.8 | **no Fabric JEI exists** | — | — | strip JEI rows (`gfx_old.strip_jei_*` approach) |
 
 The JEI 10–19 hook names come from the memory map "jei-coverage-complete". Before you rely on one, read

@@ -1,0 +1,34 @@
+{
+  "environment": {
+    "gpu": "Fixture GPU 9000 (synthetic)",
+    "optifine": true,
+    "resolution": "1920x1080",
+    "variant": "optifine-only"
+  },
+  "scenarios": [
+    {
+      "scenario": "idle",
+      "frames": 300,
+      "valid": true,
+      "gcCount": 4,
+      "gcTimeMs": 32,
+      "gcPauseCount": 4,
+      "gcPauseTotalMs": 32,
+      "gcPauseMaxMs": 22,
+      "renderThreadAllocMbPerSec": 49.0,
+      "heapAvgMb": 820
+    },
+    {
+      "scenario": "flythrough",
+      "frames": 300,
+      "valid": true,
+      "gcCount": 4,
+      "gcTimeMs": 32,
+      "gcPauseCount": 4,
+      "gcPauseTotalMs": 32,
+      "gcPauseMaxMs": 22,
+      "renderThreadAllocMbPerSec": 55.0,
+      "heapAvgMb": 820
+    }
+  ]
+}

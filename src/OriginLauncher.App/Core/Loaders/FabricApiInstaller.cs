@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace OriginLauncher.App.Core.Loaders;
@@ -71,32 +72,34 @@ public static class FabricApiInstaller
         {
             versions = await Http.GetFromJsonAsync<List<ModrinthVersion>>(url, ct);
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException
+                                   || (ex is OperationCanceledException && !ct.IsCancellationRequested))
         {
-            return; // offline or Modrinth unreachable — leave the instance without it rather than fail the whole install
+            return; // offline, Modrinth unreachable or slow, or an unreadable reply — leave the instance without it rather than fail the whole install
         }
 
-        var latest = versions?.OrderByDescending(v => v.DatePublished).FirstOrDefault();
+        // Release builds only (Will, 2026-10-25): Modrinth also lists Fabric API alphas and
+        // betas for the same Minecraft version, and the newest-by-date one is often not stable.
+        var latest = ModrinthReleasePicker.PickNewestRelease(versions, v => v.VersionType, v => v.DatePublished);
         var file = latest?.Files.FirstOrDefault(f => f.Primary) ?? latest?.Files.FirstOrDefault();
         if (file == null)
-            return; // no Fabric API build published for this exact MC version
+            return; // no Fabric API release published for this exact MC version
 
-        var destPath = Path.Combine(modsFolder, file.Filename);
-        using var response = await Http.GetAsync(file.Url, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-
-        var tempPath = destPath + ".download";
-        await using (var fileStream = File.Create(tempPath))
-            await response.Content.CopyToAsync(fileStream, ct);
-        File.Move(tempPath, destPath, overwrite: true);
+        // Fail soft (ModrinthFileGuard): a URL off cdn.modrinth.com, an unsafe file name, a missing or
+        // wrong SHA-512 or a failed download leaves the instance without Fabric API instead of throwing,
+        // and never leaves a ".download" file behind. Same policy as the self-update zip.
+        await ModrinthFileGuard.TryDownloadAsync(
+            Http, file.Url, file.Filename, ModrinthFileGuard.ParseSha512(file.Hashes), modsFolder, ct);
     }
 
     private sealed record ModrinthVersion(
         [property: JsonPropertyName("date_published")] DateTimeOffset DatePublished,
+        [property: JsonPropertyName("version_type")] string? VersionType,
         [property: JsonPropertyName("files")] List<ModrinthFile> Files);
 
     private sealed record ModrinthFile(
         [property: JsonPropertyName("url")] string Url,
         [property: JsonPropertyName("filename")] string Filename,
-        [property: JsonPropertyName("primary")] bool Primary);
+        [property: JsonPropertyName("primary")] bool Primary,
+        [property: JsonPropertyName("hashes")] Dictionary<string, string>? Hashes = null);
 }

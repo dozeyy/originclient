@@ -111,6 +111,10 @@
     <Compile Include="..\OriginLauncher.App\Core\Runtime\TemurinJava8.cs" LinkBase="Runtime" />
     <!-- The performance-mod catalog (per-version pins + SHA-512), the pin's hash check and the Mods page's
          managed-jar classification, so PerformanceModCatalogTests can hold the data consistent (pure). -->
+    <!-- Which Modrinth versions the launcher may install on its own: releases only (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\ModrinthReleasePicker.cs" LinkBase="Loaders" />
+    <!-- The integrity gate for Modrinth live-API downloads (Fabric API): host, file name, SHA-512, fail soft (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\ModrinthFileGuard.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfMod.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfStackTier.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyStackInstaller.cs" LinkBase="Loaders" />
@@ -126,6 +130,10 @@
     <!-- Home's background warm-up of the picked version (pure file reads; the startup trace is its log). -->
     <Compile Include="..\OriginLauncher.App\Core\Versions\LaunchPrewarm.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\StartupTrace.cs" LinkBase="Versions" />
+    <!-- Which versions are installed / partial / missing / update-ready (pure disk reads; InstalledVersions.Shared.cs, the real wiring, stays out). -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\InstalledVersions.cs" LinkBase="Versions" />
+    <!-- The pinned legacy Forge table (pure data, no CmlLib), so a test can assert the real 1.8.9 layout. -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyForgeBuilds.cs" LinkBase="Loaders" />
   </ItemGroup>
 
   <ItemGroup>
