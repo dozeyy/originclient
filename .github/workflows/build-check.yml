@@ -21,6 +21,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/boot-smoke/**"
+      - "tools/bench/**"
       - "tools/ci/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
@@ -32,6 +33,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/boot-smoke/**"
+      - "tools/bench/**"
       - "tools/ci/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
@@ -65,6 +67,13 @@ jobs:
       # every module's copy byte-identical (pre-1.20 copies are outside sync).
       - name: Test loading bar
         run: python3 tools/loading-bar-tests/run.py
+
+      # The 1.8.9 benchmark's own tests: summarizer maths (known CSV -> known numbers, corrupt CSV -> loud
+      # failure), the production-like launcher's pure logic, and bench-189.ps1 -DryRun against fixtures.
+      - name: Test benchmark tools
+        run: |
+          python3 -m unittest discover -s tools/bench
+          pwsh -NoProfile -File tools/bench/test-dryrun.ps1
 
       # Facts kept in two places (launcher vs installer) must agree.
       - name: Check launcher/installer consistency

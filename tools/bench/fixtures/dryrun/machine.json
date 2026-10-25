@@ -1,0 +1,12 @@
+{
+  "gpu": "Fixture GPU 9000 (synthetic)",
+  "gpuDriver": "1.2.3.4",
+  "monitor": "1920x1080",
+  "cpu": "Fixture CPU 8-Core",
+  "cpuCores": "8 cores / 16 threads",
+  "ramGb": 32,
+  "os": "Windows 11 (fixture)",
+  "powerPlan": "Balanced (fixture)",
+  "java": "Temurin 8u504 (fixture)",
+  "build": "originclient-1.8.9-fixture"
+}

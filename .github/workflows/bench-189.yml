@@ -1,0 +1,229 @@
+# Benchmark 1.8.9, production-like (Phase 6.1): the stack a player runs -- Forge 11.15.1.2318, OptiFine HD_U_M5,
+# TexFix, BetterFps, the BUILT Origin jar, a Temurin 8 -- started by tools/bench/prod189.py (the dev client has
+# no OptiFine and OptiFine cannot load in a dev workspace, so a dev number measures a renderer nobody uses).
+#
+# Two variants per round, alternated on ONE runner so drift hits both alike:
+#   optifine-only   same mods, Origin inert (jar copy without the Mixin tweaker + ORIGIN_BENCH_PROBE=1:
+#                   only the benchmark itself runs)
+#   origin-default  everything exactly as shipped
+# Each launch runs OriginBench (warm-up + measured window per scene, scripted camera), then
+# tools/bench/summarize.py turns the per-frame CSVs into medians (min-max) and the change between variants.
+#
+# HONEST LIMITS: a CI runner is 4 shared vCPUs with Mesa llvmpipe (software GL), not a GPU. These numbers
+# are labelled "CI, relative only": compare the variants with each other, never quote an FPS as a player's.
+# Java is Temurin 8 from setup-java (Linux, latest 8u), not the launcher's 8u504 Windows JRE.
+#
+# Start it by hand (Run workflow, once this file is on main) or from a push to a claude/** branch whose head
+# commit message carries a tag:
+#   [bench-189 runs=3 scenes=idle,particles,menu,flythrough warmup=15 duration=45 label=x]
+# (every key optional; a bare [bench-189] runs the defaults). Every launch also leaves a fresh
+# options.txt + optionsof.txt + of-fields.txt in the artifact (U6.0: tools/bench/optifine-keys-189.txt).
+name: bench-189
+
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Rounds (each: both variants once, order alternating)"
+        default: "3"
+      scenes:
+        description: "Scenes: idle,particles,menu,flythrough (hud needs Origin, so it is not in the A/B)"
+        default: "idle,particles,menu,flythrough"
+      warmup:
+        description: "Warm-up seconds per scene"
+        default: "15"
+      duration:
+        description: "Measured seconds per scene"
+        default: "45"
+      label:
+        description: "Optional run name (keeps parallel runs from cancelling each other)"
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-189-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.label || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[bench-189')
+    name: Bench tests (summarizer, prod189, dry run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: pytest
+        run: |
+          python3 -m pip install --quiet pytest
+          python3 -m pytest tools/bench -q
+      - name: bench-189.ps1 -DryRun against the fixture CSVs
+        shell: pwsh
+        run: ./tools/bench/test-dryrun.ps1
+
+  bench:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[bench-189')
+    name: Production-like 1.8.9 bench
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Settings (inputs, or the commit message tag)
+        id: cfg
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+          I_RUNS: ${{ github.event.inputs.runs }}
+          I_SCENES: ${{ github.event.inputs.scenes }}
+          I_WARMUP: ${{ github.event.inputs.warmup }}
+          I_DURATION: ${{ github.event.inputs.duration }}
+          I_LABEL: ${{ github.event.inputs.label }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re
+          cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": ""}
+          if os.environ.get("I_RUNS"):
+              cfg.update(runs=os.environ["I_RUNS"], scenes=os.environ.get("I_SCENES") or cfg["scenes"],
+                         warmup=os.environ.get("I_WARMUP") or "15", duration=os.environ.get("I_DURATION") or "45",
+                         label=os.environ.get("I_LABEL", ""))
+          else:
+              m = re.findall(r"\[bench-189([^\]]*)\]", os.environ.get("MSG", ""))
+              for tok in (m[-1].split() if m else []):
+                  if "=" in tok:
+                      k, v = tok.split("=", 1)
+                      if k in cfg and re.fullmatch(r"[A-Za-z0-9._,-]+", v):
+                          cfg[k] = v
+          for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
+                         ("scenes", r"(idle|hud|particles|menu|flythrough)(,(idle|hud|particles|menu|flythrough))*")):
+              if not re.fullmatch(pat, cfg[k]):
+                  raise SystemExit("bench-189: bad %s=%r" % (k, cfg[k]))
+          for k, v in cfg.items():
+              print(f"{k}={v}")
+          PY
+
+      - uses: actions/checkout@v7
+
+      # Game JDK first, Gradle's second (the LAST setup-java wins JAVA_HOME; JAVA_HOME_8_X64 stays exported).
+      - name: Set up Temurin 8 (the game's Java)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "8"
+      - name: Set up Java 21 (Gradle)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Headless GL deps (Xvfb + Mesa software rasterizer)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
+
+      - name: Build the Origin 1.8.9 jar (what players get)
+        working-directory: src/mods/versions/1.8.9
+        run: |
+          for attempt in 1 2 3; do
+            if sh ./gradlew remapJar --no-daemon \
+                 -Dorg.gradle.internal.repository.max.retries=6 \
+                 -Dorg.gradle.internal.repository.initial.backoff=1500 2>&1 | tee gradle.log; then
+              break
+            fi
+            if ! grep -qE "Could not (resolve|download|GET|HEAD|get resource)|Connection reset|Read timed out|Connect timed out|DownloadException|Failed to download" gradle.log || [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 20))
+          done
+          ls -l build/libs
+
+      # Minecraft 1.8.9, the Forge libraries, assets and natives: the same for every run, so cached.
+      # (OptiFine is deliberately NOT in this cache: it is fetched per job through the SHA-1 gate.)
+      - name: Cache Minecraft libraries + assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            artifacts/bench-189/cache/libraries
+            artifacts/bench-189/cache/assets
+            artifacts/bench-189/cache/versions
+            artifacts/bench-189/cache/natives-linux
+          key: bench189-mc-1.8.9-forge-2318-v1
+
+      - name: Run the variants (alternating order)
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+          RUNS: ${{ steps.cfg.outputs.runs }}
+          SCENES: ${{ steps.cfg.outputs.scenes }}
+          WARMUP: ${{ steps.cfg.outputs.warmup }}
+          DURATION: ${{ steps.cfg.outputs.duration }}
+        run: |
+          set -u
+          JAVA8="$JAVA_HOME_8_X64/bin/java"
+          "$JAVA8" -version
+          OUT="$GITHUB_WORKSPACE/artifacts/bench-189/out"
+          mkdir -p "$OUT"
+          fail=0
+          for r in $(seq 1 "$RUNS"); do
+            if [ $((r % 2)) -eq 1 ]; then order="optifine-only origin-default"; else order="origin-default optifine-only"; fi
+            for v in $order; do
+              for attempt in 1 2; do
+                echo "::group::round $r  $v  (attempt $attempt)"
+                rm -rf "$OUT/$v/run-$r"
+                if xvfb-run -a -s "-screen 0 1280x720x24" python3 tools/bench/prod189.py run \
+                     --variant "$v" --origin-jar src/mods/versions/1.8.9/build/libs --java "$JAVA8" \
+                     --out "$OUT/$v/run-$r" --scenes "$SCENES" --warmup "$WARMUP" --duration "$DURATION" \
+                     --width 1280 --height 720 --label "CI, relative only" --save-options; then
+                  echo "::endgroup::"
+                  break
+                fi
+                echo "--- game.log tail ---"; tail -n 60 "$OUT/$v/run-$r/game.log" 2>/dev/null || true
+                echo "::endgroup::"
+                if [ "$attempt" -eq 2 ]; then fail=1; fi
+              done
+            done
+          done
+          echo "FAILED_LAUNCHES=$fail" >> "$GITHUB_ENV"
+
+      - name: Summary (medians, min-max, change vs the OptiFine-only baseline)
+        if: always()
+        run: |
+          OUT="artifacts/bench-189/out"
+          python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --label "CI, relative only" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: OptiFine option keys (U6.0)
+        if: always()
+        run: |
+          OUT="artifacts/bench-189/out"
+          f=$(ls "$OUT"/optifine-only/run-1/optionsof.txt 2>/dev/null | head -n 1 || true)
+          {
+            echo "## OptiFine M5 option keys"
+            if [ -n "$f" ]; then
+              echo "optionsof.txt written by a fresh boot: $(wc -l < "$f") keys"; echo '```'; cat "$f"; echo '```'
+              echo "GameSettings of* fields: $(grep -vc '^#' "$OUT/optifine-only/run-1/of-fields.txt" 2>/dev/null || echo 0)"
+            else
+              echo "No optionsof.txt was produced (see the game log)."
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          J=artifacts/bench-189/work/downloads/OptiFine_1.8.9_HD_U_M5.jar
+          if [ -f "$J" ]; then
+            echo "--- javap on the OptiFine jar's GameSettings (if the jar carries the class, not an xdelta patch) ---"
+            unzip -l "$J" | grep -i "GameSettings" | head -n 20 || true
+            "$JAVA_HOME_8_X64/bin/javap" -p -cp "$J" net.minecraft.client.settings.GameSettings 2>&1 | grep -E ' of[A-Z]|Error|not found' | head -n 400 || true
+          fi
+
+      - name: Keep the results as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-189${{ steps.cfg.outputs.label != '' && format('-{0}', steps.cfg.outputs.label) || '' }}
+          path: |
+            artifacts/bench-189/out/
+          if-no-files-found: warn
+
+      - name: Fail if a launch never finished
+        if: always()
+        run: |
+          if [ "${FAILED_LAUNCHES:-0}" != "0" ]; then echo "::error::at least one launch produced no bench.json (see the group logs)"; exit 1; fi

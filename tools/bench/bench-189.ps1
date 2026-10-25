@@ -1,282 +1,406 @@
 <#
 .SYNOPSIS
-  Origin 1.8.9 benchmark: one command, real GPU, plain-English report.
+  Origin 1.8.9 benchmark on a real GPU: one command, plain-words report.
 
 .DESCRIPTION
   From a fresh PowerShell:
       cd "C:\Users\Will\Documents\Minecraft Mods\Origin Client"
-      powershell -ExecutionPolicy Bypass -File tools\bench\bench-189.ps1
+      powershell -NoProfile -ExecutionPolicy Bypass -File tools\bench\bench-189.ps1
 
-  What it does, per run:
-    1. Checks how busy the CPU is (other builds running skew the numbers) and waits a
-       little for it to calm down. A run that starts or ends on a busy PC is kept on disk
-       but left out of the summary, and the summary says so.
-    2. Backs up the dev game's options.txt and Origin config, starts the 1.8.9 game with
-       benchmark mode on (OriginBench.java), and lets it run every scene by itself:
-       idle, hud, particles, menu, flythrough. A Minecraft window opens; don't touch it.
-       The game quits by itself when done.
-    3. Puts the backed-up files back.
-  After all runs it writes summary.md / summary.json (median of the good runs, with the
-  min-max spread) next to each run's own bench.md / bench.json and prints the summary.
+  It runs the stack a player runs (Forge 11.15.1.2318, OptiFine HD U M5, TexFix, BetterFps, the
+  Origin jar built from this repo, the launcher's Temurin 8 and JVM flags) through tools\bench\prod189.py,
+  in an ISOLATED game folder under artifacts\bench-189\. It never touches the launcher's data
+  (%LocalAppData%\OriginLauncher), your worlds, accounts or options.
 
-  Which game it runs: the DEV client (gradlew runClient in src/mods/versions/1.8.9),
-  without OptiFine. The real Origin install cannot be benchmarked by this script yet: the
-  launcher has no way to add -Dorigin.bench to a launch, and Forge 1.8.9 + OptiFine only
-  run from a launcher-built instance. The report says which one ran.
+  Variants (each runs -Runs times, rounds alternate the order so PC drift hits all of them alike):
+      origin-default   Origin exactly as shipped
+      competitive / balanced / quality
+                       Origin + that preset (tools\bench\presets-189\<name>.json). A preset whose file does
+                       not exist yet is SKIPPED and the report says so.
+      optifine-only    only with -Baseline: same mods, Origin switched off (shows what Origin itself costs)
 
-  It never touches worlds or accounts. The benchmark creates its own fresh world
-  (OriginBench-<time>) in the dev game's run\saves each run.
+  Per run it records how busy the PC was just before and during the run (other programs skew the
+  numbers). A run with another program using more than -MaxCpuLoad percent is kept on disk under
+  left-out-<n> and not counted; the report names it.
 
-.PARAMETER Runs        Runs of the whole scene set (default 3).
-.PARAMETER Scenarios   "all" or a comma list: idle,hud,particles,menu,flythrough.
-.PARAMETER Warmup      Seconds of warm-up per scene before measuring (default 10).
-.PARAMETER Duration    Measured seconds per scene (default 30).
-.PARAMETER OutDir      Where reports go (default tools\bench\results\1.8.9-<time>).
-.PARAMETER MaxCpuLoad  A run is left out of the summary if the PC was busier than this (% of
-                       all cores) just before or just after it (default 20).
-.PARAMETER IdleWaitMinutes  How long to wait for a busy PC to calm down before each run (default 5).
-.PARAMETER Shots       Also save one screenshot per scene (taken during warm-up).
+  Output: artifacts\bench-189\report.md (plain words), summary.json, summary.md, and out\<variant>\run-<n>\
+  with every run's bench.json and per-frame CSVs.
+
+  -DryRun makes no game and needs no PC load: it runs the same summary + report code on the fixture runs in
+  tools\bench\fixtures\dryrun (synthetic, hand-computable) and says so loudly in the report.
+
+  Do not run it while a Minecraft of yours is open: it refuses to start then (unless -Force), because two
+  games on one PC measure each other, not Origin.
+
+.PARAMETER Runs            Rounds per variant (default 3).
+.PARAMETER Scenes          Comma list of idle,particles,menu,flythrough (hud only exists with Origin on).
+.PARAMETER Warmup          Seconds of warm-up per scene (default 15).
+.PARAMETER Duration        Measured seconds per scene (default 45).
+.PARAMETER Variants        Comma list (default origin-default,competitive,balanced,quality).
+.PARAMETER Baseline        Also run optifine-only (Origin inert).
+.PARAMETER OutDir          Default artifacts\bench-189 (artifacts\bench-189\dry-run with -DryRun).
+.PARAMETER MaxCpuLoad      A run is not counted if other programs used more than this % of the CPU (default 20).
+.PARAMETER IdleWaitMinutes How long to wait for a busy PC to calm down before a run (default 5).
+.PARAMETER NoBuild         Use the jar already in src\mods\versions\1.8.9\build\libs.
+.PARAMETER Width/Height    Game window size (default 1920x1080).
+.PARAMETER DryRun          Report from fixtures, no game.
+.PARAMETER FixtureDir      Fixture runs for -DryRun (default tools\bench\fixtures\dryrun).
+.PARAMETER Force           Run even if a java/javaw process is already running.
 #>
 param(
 	[int]$Runs = 3,
-	[string]$Scenarios = "all",
-	[double]$Warmup = 10,
-	[double]$Duration = 30,
+	[string]$Scenes = "idle,particles,menu,flythrough",
+	[double]$Warmup = 15,
+	[double]$Duration = 45,
+	[string]$Variants = "origin-default,competitive,balanced,quality",
+	[switch]$Baseline,
 	[string]$OutDir = "",
 	[double]$MaxCpuLoad = 20,
 	[double]$IdleWaitMinutes = 5,
-	[switch]$Shots
+	[switch]$NoBuild,
+	[int]$Width = 1920,
+	[int]$Height = 1080,
+	[switch]$DryRun,
+	[string]$FixtureDir = "",
+	[switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
-$repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$inv = [System.Globalization.CultureInfo]::InvariantCulture
+$utf8 = New-Object System.Text.UTF8Encoding($false)   # no BOM
+$repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $module = Join-Path $repo "src\mods\versions\1.8.9"
-if (-not (Test-Path (Join-Path $module "gradlew.bat"))) {
-	throw "Run this from the Origin Client repo (couldn't find $module\gradlew.bat)."
-}
-$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$prod = Join-Path $PSScriptRoot "prod189.py"
+$summarizer = Join-Path $PSScriptRoot "summarize.py"
+$presetDir = Join-Path $PSScriptRoot "presets-189"
+
+function Say([string]$msg) { Write-Host "[bench] $msg" }
+function Fmt($v, [string]$f) { if ($null -eq $v) { return "-" } return ([double]$v).ToString($f, $inv) }
+
+# ---- where things go (isolated: never the launcher's folder) ----
 if ($OutDir -eq "") {
-	$OutDir = Join-Path $repo "tools\bench\results\1.8.9-$stamp"
+	$OutDir = Join-Path $repo "artifacts\bench-189"
+	if ($DryRun) { $OutDir = Join-Path $OutDir "dry-run" }
 }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $OutDir = (Resolve-Path $OutDir).Path
-
-function Say([string]$msg) { Write-Host "[bench] $msg" }
-
-# ---- which game: the real install, or the dev client ----
-$realInstance = Join-Path $env:LOCALAPPDATA "OriginLauncher\instances\1.8.9"
-if (Test-Path $realInstance) {
-	$modeReason = "an Origin 1.8.9 install exists, but the launcher can't pass the benchmark switch to it yet"
-} else {
-	$modeReason = "no Origin 1.8.9 install on this PC ($realInstance)"
+if ($env:LOCALAPPDATA -and $OutDir.StartsWith((Join-Path $env:LOCALAPPDATA "OriginLauncher"), [System.StringComparison]::OrdinalIgnoreCase)) {
+	throw "Refusing to write inside the launcher's data folder: $OutDir"
 }
-Say "Game: DEV client, no OptiFine ($modeReason)."
+$outRoot = Join-Path $OutDir "out"
+if (Test-Path $outRoot) { Remove-Item -Recurse -Force $outRoot }   # a fresh set every time: no mixing of old and new runs
+New-Item -ItemType Directory -Force -Path $outRoot | Out-Null
+
+function Find-Python {
+	# python3 first (Linux), python (Windows); skip the Microsoft Store stub in WindowsApps, which only prints an install hint.
+	foreach ($n in @("python3", "python")) {
+		foreach ($c in @(Get-Command $n -All -CommandType Application -ErrorAction SilentlyContinue)) {
+			if ($c.Source -notmatch "WindowsApps") { return @{ exe = $c.Source; pre = "" } }
+		}
+	}
+	$c = Get-Command "py" -ErrorAction SilentlyContinue
+	if ($c) { return @{ exe = $c.Source; pre = "-3 " } }
+	throw "Python 3 was not found (needed for tools/bench/summarize.py)."
+}
+$py = Find-Python
+
+# ---- which variants run ----
+$wanted = @($Variants -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+if ($Baseline -and ($wanted -notcontains "optifine-only")) { $wanted += "optifine-only" }
+$known = @("origin-default", "optifine-only", "competitive", "balanced", "quality")
+foreach ($v in $wanted) { if ($known -notcontains $v) { throw "Unknown variant '$v' (known: $($known -join ', '))." } }
+
+$active = @()
+$skipped = @()
+if ($DryRun) {
+	if ($FixtureDir -eq "") { $FixtureDir = Join-Path $PSScriptRoot "fixtures/dryrun" }
+	if (-not (Test-Path $FixtureDir)) { throw "Fixture folder not found: $FixtureDir" }
+	foreach ($v in $wanted) {
+		if (Test-Path (Join-Path $FixtureDir $v)) { $active += $v } else { $skipped += [pscustomobject]@{ name = $v; why = "no fixture runs for it" } }
+	}
+} else {
+	foreach ($v in $wanted) {
+		if (@("origin-default", "optifine-only") -contains $v) { $active += $v; continue }
+		if (Test-Path (Join-Path $presetDir "$v.json")) { $active += $v }
+		else { $skipped += [pscustomobject]@{ name = $v; why = "preset file tools\bench\presets-189\$v.json does not exist yet (Phase 6.2)" } }
+	}
+}
+if ($active.Count -eq 0) { throw "No variant can run." }
+foreach ($s in $skipped) { Say "Skipping $($s.name): $($s.why)" }
 
 # ---- this PC ----
-$gpu = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch "Basic Display" } | Select-Object -First 1
-$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-$ramGb = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
-$power = ""
-try { $power = ((powercfg /getactivescheme) -join " ").Trim() } catch { $power = "unknown" }
-$jarVersion = ((Get-Content (Join-Path $module "gradle.properties")) | Where-Object { $_ -match "^mod_version=" }) -replace "mod_version=", ""
-$commit = ""
-try { Push-Location $repo; $commit = (git rev-parse --short HEAD).Trim() } catch { $commit = "?" } finally { Pop-Location }
-$pc = [ordered]@{
-	gpu = $gpu.Name
-	gpuDriver = $gpu.DriverVersion
-	monitor = "$($gpu.CurrentHorizontalResolution)x$($gpu.CurrentVerticalResolution)"
-	cpu = $cpu.Name.Trim()
-	cpuCores = "$($cpu.NumberOfCores) cores / $($cpu.NumberOfLogicalProcessors) threads"
-	ramGb = $ramGb
-	powerPlan = $power
-	game = "dev client (gradlew runClient), OptiFine off"
-	gameReason = $modeReason
-	build = "originclient-1.8.9 $jarVersion @ $commit"
+function Get-Machine {
+	if ($DryRun) {
+		$m = Get-Content (Join-Path $FixtureDir "machine.json") -Raw | ConvertFrom-Json
+		return [ordered]@{ gpu = $m.gpu; gpuDriver = $m.gpuDriver; monitor = $m.monitor; cpu = $m.cpu; cpuCores = $m.cpuCores
+			ramGb = $m.ramGb; os = $m.os; powerPlan = $m.powerPlan; java = $m.java; build = $m.build; cores = 8 }
+	}
+	$gpu = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch "Basic Display" } | Select-Object -First 1
+	$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+	$os = Get-CimInstance Win32_OperatingSystem
+	$ram = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
+	$power = "unknown"
+	try { $power = ((powercfg /getactivescheme) -join " ").Trim() } catch { }
+	$commit = "?"
+	try { Push-Location $repo; $commit = (git rev-parse --short HEAD).Trim() } catch { } finally { Pop-Location }
+	return [ordered]@{ gpu = $gpu.Name; gpuDriver = $gpu.DriverVersion
+		monitor = "$($gpu.CurrentHorizontalResolution)x$($gpu.CurrentVerticalResolution)"
+		cpu = $cpu.Name.Trim(); cpuCores = "$($cpu.NumberOfCores) cores / $($cpu.NumberOfLogicalProcessors) threads"
+		ramGb = $ram; os = "$($os.Caption) $($os.Version)"; powerPlan = $power; java = "(see stack.json of each run)"
+		build = "this repo @ $commit"; cores = [int]$cpu.NumberOfLogicalProcessors }
 }
-Say "PC: $($pc.gpu) (driver $($pc.gpuDriver)), $($pc.cpu), $ramGb GB RAM"
-
-# The launcher's JVM setup for a 1.8.9 player on this PC (RamAdvice.LegacyAutoMb = 4096 MB,
-# JvmArgPresets.LegacySmallHeapFlags), so the dev game runs with the same heap and GC.
-$jvm = "-Xms4096M -Xmx4096M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 " +
-	"-XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=25 -XX:G1MaxNewSizePercent=35 " +
-	"-XX:G1HeapRegionSize=4M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 " +
-	"-XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 " +
-	"-XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1"
-
-# Files the benchmark changes while it runs (it puts them back itself too; this is the safety net).
-$runDir = Join-Path $module "run"
-$guarded = @("options.txt", "optionsof.txt", "config\originclient-mods.json", "config\originclient.json")
+$machine = Get-Machine
+Say "PC: $($machine.gpu) (driver $($machine.gpuDriver)), $($machine.cpu), $($machine.ramGb) GB RAM"
 
 function Get-CpuLoad {
-	$s = (Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 1 -MaxSamples 3).CounterSamples |
-		ForEach-Object { $_.CookedValue }
+	$s = (Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 1 -MaxSamples 3).CounterSamples | ForEach-Object { $_.CookedValue }
 	return [math]::Round((($s | Measure-Object -Average).Average), 1)
 }
 
-function Median([double[]]$xs) {
-	if ($xs.Count -eq 0) { return $null }
-	$s = $xs | Sort-Object
-	$m = [int][math]::Floor($s.Count / 2)
-	if ($s.Count % 2 -eq 1) { return $s[$m] }
-	return ($s[$m - 1] + $s[$m]) / 2
+# ---- rounds: both variants of a round are run before the next round; the order alternates ----
+function Round-Order([string[]]$list, [int]$round) {
+	$n = $list.Count
+	$rot = @(); for ($i = 0; $i -lt $n; $i++) { $rot += $list[(($i + $round - 1) % $n)] }
+	if ($round % 2 -eq 0) { [array]::Reverse($rot) }
+	return $rot
 }
 
-$runsInfo = @()
-for ($i = 1; $i -le $Runs; $i++) {
-	$runOut = Join-Path $OutDir "run-$i"
-	New-Item -ItemType Directory -Force -Path $runOut | Out-Null
+function Write-Json($obj, [string]$path) { [System.IO.File]::WriteAllText($path, ($obj | ConvertTo-Json -Depth 6), $utf8) }
 
-	# CPU check (other builds on this PC skew the numbers)
-	$load = Get-CpuLoad
-	$deadline = (Get-Date).AddMinutes($IdleWaitMinutes)
-	while ($load -gt $MaxCpuLoad -and (Get-Date) -lt $deadline) {
-		Say "Run $i/$Runs`: CPU busy ($load%), waiting for it to drop under $MaxCpuLoad%..."
-		Start-Sleep -Seconds 30
-		$load = Get-CpuLoad
-	}
-	Say "Run $i/$Runs`: CPU load before = $load%. Starting the game (a window opens; don't touch it)."
+$runMeta = @()   # one entry per run: variant, run, status, cpu numbers, folder
 
-	# Back up what the run may change
-	$backup = Join-Path $runOut "backup"
-	New-Item -ItemType Directory -Force -Path $backup | Out-Null
-	$saved = @{}
-	foreach ($rel in $guarded) {
-		$src = Join-Path $runDir $rel
-		if (Test-Path $src) {
-			$dst = Join-Path $backup ($rel -replace "[\\/]", "__")
-			Copy-Item -LiteralPath $src -Destination $dst -Force
-			$saved[$rel] = $dst
-		}
+function Place-Run([string]$variant, [int]$n, $meta) {
+	# Counted runs stay run-<n>; a run another program disturbed becomes left-out-<n> (summarize.py ignores it).
+	$dir = Join-Path (Join-Path $outRoot $variant) "run-$n"
+	if ($meta.status -eq "ok" -and (($meta.cpuBeforePct -gt $MaxCpuLoad) -or ($meta.otherCpuPct -gt $MaxCpuLoad))) {
+		$meta.status = "left-out-busy"
 	}
-
-	$env:ORIGIN_BENCH = $Scenarios
-	$env:ORIGIN_BENCH_WARMUP = "$Warmup"
-	$env:ORIGIN_BENCH_DURATION = "$Duration"
-	$env:ORIGIN_BENCH_OUT = $runOut
-	$env:ORIGIN_BENCH_BUILD = $pc.build
-	$env:ORIGIN_BENCH_JVM = $jvm
-	$env:ORIGIN_BENCH_SHOTS = $(if ($Shots) { "1" } else { "0" })
-	$log = Join-Path $runOut "game.log"
-	$ok = $false
-	try {
-		# One scene set takes about (settle 15 s + scenes x (warm-up + duration)) plus boot.
-		$sceneCount = $(if ($Scenarios -eq "all") { 5 } else { ($Scenarios -split ",").Count })
-		$limit = [int](300 + $sceneCount * ($Warmup + $Duration) * 2)
-		# Full quoted paths (the repo path has spaces); cmd /c strips the outer pair of quotes.
-		$tmp = Join-Path $module "game.log.tmp"
-		$gradlew = Join-Path $module "gradlew.bat"
-		$cmdLine = "/c `"`"$gradlew`" runClient --console=plain > `"$tmp`" 2>&1`""
-		$p = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdLine -WorkingDirectory $module -NoNewWindow -PassThru
-		if (-not $p.WaitForExit($limit * 1000)) {
-			Say "Run $i timed out after $limit s; stopping it."
-			& taskkill /PID $p.Id /T /F | Out-Null
-			# The game itself is started by the Gradle daemon, outside cmd's process tree:
-			# stop only the java process running THIS module's dev client.
-			Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
-				Where-Object { $_.CommandLine -and $_.CommandLine.Contains($module) -and $_.CommandLine.Contains("dli.env=client") } |
-				ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-		}
-		if (Test-Path $tmp) { Move-Item -LiteralPath $tmp -Destination $log -Force }
-		$ok = Test-Path (Join-Path $runOut "bench.json")
-	} finally {
-		foreach ($k in @("ORIGIN_BENCH", "ORIGIN_BENCH_WARMUP", "ORIGIN_BENCH_DURATION", "ORIGIN_BENCH_OUT",
-				"ORIGIN_BENCH_BUILD", "ORIGIN_BENCH_JVM", "ORIGIN_BENCH_SHOTS")) {
-			Remove-Item "Env:$k" -ErrorAction SilentlyContinue
-		}
-		foreach ($rel in $saved.Keys) {
-			Copy-Item -LiteralPath $saved[$rel] -Destination (Join-Path $runDir $rel) -Force
-		}
+	if ($meta.status -ne "ok" -and (Test-Path $dir)) {
+		$new = Join-Path (Join-Path $outRoot $variant) "left-out-$n"
+		if (Test-Path $new) { Remove-Item -Recurse -Force $new }
+		Move-Item -LiteralPath $dir -Destination $new
+		$dir = $new
 	}
-	$loadAfter = Get-CpuLoad
-	$busy = ($load -gt $MaxCpuLoad) -or ($loadAfter -gt $MaxCpuLoad)
-	if (-not $ok) {
-		Say "Run $i FAILED: no bench.json. Game log: $log"
-		$runsInfo += [pscustomobject]@{ run = $i; ok = $false; cpuBefore = $load; cpuAfter = $loadAfter; busy = $busy; dir = $runOut; data = $null }
-		continue
-	}
-	$data = Get-Content (Join-Path $runOut "bench.json") -Raw | ConvertFrom-Json
-	$note = $(if ($busy) { " (PC was busy: left out of the summary)" } else { "" })
-	Say "Run $i done, CPU load after = $loadAfter%$note"
-	foreach ($r in $data.scenarios) {
-		Say ("  {0,-11} avg {1,7} fps   1% low {2,7}   0.1% low {3,7}   p99 {4,6} ms   valid {5}" -f $r.scenario, $r.avgFps, $r.low1Fps, $r.low01Fps, $r.p99Ms, $r.valid)
-	}
-	$runsInfo += [pscustomobject]@{ run = $i; ok = $true; cpuBefore = $load; cpuAfter = $loadAfter; busy = $busy; dir = $runOut; data = $data }
+	$meta.dir = $dir
+	return $meta
 }
 
-# ---- summary across runs ----
-$good = @($runsInfo | Where-Object { $_.ok -and -not $_.busy })
-$metrics = @("avgFps", "low1Fps", "low01Fps", "p50Ms", "p95Ms", "p99Ms", "stutters", "hitches20ms", "heapAvgMb", "heapMaxMb", "gcCount", "gcTimeMs", "renderThreadAllocMbPerSec")
-$sceneNames = @()
-foreach ($r in $runsInfo) { if ($r.ok) { foreach ($s in $r.data.scenarios) { if ($sceneNames -notcontains $s.scenario) { $sceneNames += $s.scenario } } } }
-$summary = [ordered]@{}
-foreach ($sc in $sceneNames) {
-	$rows = @()
-	foreach ($r in $good) { $rows += @($r.data.scenarios | Where-Object { $_.scenario -eq $sc -and $_.valid }) }
-	$entry = [ordered]@{ runs = $rows.Count }
-	foreach ($m in $metrics) {
-		$vals = [double[]]@($rows | ForEach-Object { [double]$_.$m })
-		if ($vals.Count -gt 0) {
-			$entry[$m] = [ordered]@{ median = (Median $vals); min = ($vals | Measure-Object -Minimum).Minimum; max = ($vals | Measure-Object -Maximum).Maximum }
+if ($DryRun) {
+	Say "DRY RUN: using the synthetic fixture runs in $FixtureDir. No game starts and nothing is measured."
+	foreach ($v in $active) {
+		$vSrc = Join-Path $FixtureDir $v
+		foreach ($rd in (Get-ChildItem $vSrc -Directory | Where-Object { $_.Name -like "run-*" } | Sort-Object Name)) {
+			$n = [int]($rd.Name -replace "run-", "")
+			if ($n -gt $Runs) { continue }
+			$dst = Join-Path (Join-Path $outRoot $v) $rd.Name
+			New-Item -ItemType Directory -Force -Path (Split-Path $dst) | Out-Null
+			Copy-Item -Recurse -Force $rd.FullName $dst
+			$m = [ordered]@{ variant = $v; run = $n; status = "ok"; cpuBeforePct = $null; cpuDuringPct = $null; gameCpuPct = $null; otherCpuPct = $null; dir = "" }
+			$mp = Join-Path $dst "meta.json"
+			if (Test-Path $mp) {
+				$j = Get-Content $mp -Raw | ConvertFrom-Json
+				$m.cpuBeforePct = $j.cpuBeforePct; $m.cpuDuringPct = $j.cpuDuringPct; $m.gameCpuPct = $j.gameCpuPct; $m.otherCpuPct = $j.otherCpuPct
+			}
+			$runMeta += (Place-Run $v $n $m)
 		}
 	}
-	$summary[$sc] = $entry
-}
-$env0 = $null
-foreach ($r in $runsInfo) { if ($r.ok) { $env0 = $r.data.environment; break } }
+} else {
+	if ($env:OS -ne "Windows_NT") { throw "The live run is for Windows (your PC). Use -DryRun elsewhere; CI runs the Linux bench through tools/bench/prod189.py." }
+	$others = @(Get-Process -Name java, javaw -ErrorAction SilentlyContinue)
+	if ($others.Count -gt 0 -and -not $Force) {
+		throw "A java process is already running ($($others.Count)). Close Minecraft and other Java programs first (or pass -Force): two games on one PC measure each other."
+	}
+	# The Origin jar a player would get.
+	$libs = Join-Path $module "build\libs"
+	if (-not $NoBuild) {
+		Say "Building the Origin 1.8.9 jar (remapJar)..."
+		Push-Location $module
+		try { & (Join-Path $module "gradlew.bat") remapJar --console=plain | Out-Null; if ($LASTEXITCODE -ne 0) { throw "gradle remapJar failed (exit $LASTEXITCODE)" } } finally { Pop-Location }
+	}
+	if (-not (Test-Path $libs)) { throw "No jar folder: $libs (run without -NoBuild)." }
+	$jar = Get-ChildItem $libs -Filter "originclient-1.8.9-*.jar" | Where-Object { $_.Name -notmatch "sources|dev" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+	if (-not $jar) { throw "No originclient-1.8.9-*.jar in $libs." }
+	Say "Origin jar: $($jar.Name)"
+	$machine.build = "$($jar.Name) ($($machine.build))"
 
-$runList = @($runsInfo | ForEach-Object {
-	[ordered]@{ run = $_.run; ok = $_.ok; cpuBeforePct = $_.cpuBefore; cpuAfterPct = $_.cpuAfter; leftOutBusy = $_.busy; dir = $_.dir }
-})
-$json = [ordered]@{ pc = $pc; game = $env0; runs = $runList; summary = $summary }
-$utf8 = New-Object System.Text.UTF8Encoding($false)   # no BOM, so any JSON reader takes it
-[System.IO.File]::WriteAllText((Join-Path $OutDir "summary.json"), ($json | ConvertTo-Json -Depth 8), $utf8)
+	$work = Join-Path $OutDir "work"
+	$cache = Join-Path $OutDir "cache"
+	$sceneCount = ($Scenes -split ",").Count
+	$limit = [int](300 + $sceneCount * ($Warmup + $Duration) * 2)
 
-function Cell($e, $m, $fmt) {
-	if ($null -eq $e -or -not $e.Contains($m)) { return "-" }
-	$v = $e[$m]
-	return ("{0:$fmt} ({1:$fmt}-{2:$fmt})" -f $v.median, $v.min, $v.max)
+	for ($r = 1; $r -le $Runs; $r++) {
+		foreach ($v in (Round-Order $active $r)) {
+			$runOut = Join-Path (Join-Path $outRoot $v) "run-$r"
+			New-Item -ItemType Directory -Force -Path $runOut | Out-Null
+			$load = Get-CpuLoad
+			$deadline = (Get-Date).AddMinutes($IdleWaitMinutes)
+			while ($load -gt $MaxCpuLoad -and (Get-Date) -lt $deadline) {
+				Say "Round $r $v`: PC busy ($load%), waiting for it to drop under $MaxCpuLoad%..."
+				Start-Sleep -Seconds 30
+				$load = Get-CpuLoad
+			}
+			Say "Round $r/$Runs $v`: PC load before = $load%. Starting the game (a window opens; don't touch it)."
+
+			$variantArg = $(if ($v -eq "optifine-only") { "optifine-only" } else { "origin-default" })
+			$argStr = $py.pre + "`"$prod`" run --variant $variantArg --origin-jar `"$($jar.FullName)`" --out `"$runOut`"" +
+				" --scenes $Scenes --warmup $Warmup --duration $Duration --width $Width --height $Height" +
+				" --work `"$work`" --cache `"$cache`" --timeout $limit --label `"this PC, real GPU`" --save-options"
+			if (@("competitive", "balanced", "quality") -contains $v) { $argStr += " --preset `"$(Join-Path $presetDir "$v.json")`"" }
+
+			$t0 = Get-Date
+			$p = Start-Process -FilePath $py.exe -ArgumentList $argStr -WorkingDirectory $repo -NoNewWindow -PassThru
+			$cpuSamples = @(); $javaCpu = @{}
+			while (-not $p.WaitForExit(4000)) {
+				$cpuSamples += (Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 1 -MaxSamples 1).CounterSamples[0].CookedValue
+				foreach ($j in (Get-Process -Name java, javaw -ErrorAction SilentlyContinue)) {
+					try { $javaCpu[$j.Id] = $j.TotalProcessorTime.TotalSeconds } catch { }
+				}
+				if (((Get-Date) - $t0).TotalSeconds -gt ($limit + 600)) { Say "Timed out; stopping."; & taskkill /PID $p.Id /T /F | Out-Null; break }
+			}
+			$secs = [math]::Max(1, ((Get-Date) - $t0).TotalSeconds)
+			$during = $(if ($cpuSamples.Count -gt 0) { [math]::Round((($cpuSamples | Measure-Object -Average).Average), 1) } else { $null })
+			$gameCpuSec = ($javaCpu.Values | Measure-Object -Sum).Sum
+			$game = $(if ($null -ne $gameCpuSec) { [math]::Round($gameCpuSec / ($secs * $machine.cores) * 100, 1) } else { $null })
+			$other = $(if ($null -ne $during -and $null -ne $game) { [math]::Max(0, [math]::Round($during - $game, 1)) } else { $null })
+			$ok = Test-Path (Join-Path $runOut "bench.json")
+			$m = [ordered]@{ variant = $v; run = $r; status = $(if ($ok) { "ok" } else { "failed" }); cpuBeforePct = $load; cpuDuringPct = $during
+				gameCpuPct = $game; otherCpuPct = $other; samples = $cpuSamples.Count; dir = "" }
+			Write-Json $m (Join-Path $runOut "meta.json")
+			$m = Place-Run $v $r $m
+			Say "Round $r $v`: $($m.status). PC load during = $during% (game $game%, other programs $other%)."
+		}
+	}
 }
+
+# ---- numbers: summarize.py does the maths from the raw frames ----
+$label = $(if ($DryRun) { "DRY RUN, synthetic fixtures" } else { "this PC, real GPU" })
+$baselineName = $(if ($active -contains "origin-default") { "origin-default" } else { $active[0] })
+$sumJson = Join-Path $OutDir "summary.json"
+$sumMd = Join-Path $OutDir "summary.md"
+$sumArgs = $py.pre + "`"$summarizer`" aggregate `"$outRoot`" --out `"$sumJson`" --md `"$sumMd`" --label `"$label`" --baseline $baselineName"
+$sp = Start-Process -FilePath $py.exe -ArgumentList $sumArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput (Join-Path $OutDir "summarize.out.txt") -RedirectStandardError (Join-Path $OutDir "summarize.err.txt")
+if ($sp.ExitCode -ne 0) {
+	Say "SUMMARY FAILED (exit $($sp.ExitCode)): $((Get-Content (Join-Path $OutDir 'summarize.err.txt') -Raw))"
+	exit 2
+}
+$agg = Get-Content $sumJson -Raw | ConvertFrom-Json
+
+# ---- report.md, in plain words ----
 $md = New-Object System.Text.StringBuilder
-[void]$md.AppendLine("# Origin 1.8.9 benchmark summary")
-[void]$md.AppendLine("")
-[void]$md.AppendLine("$(Get-Date -Format 'yyyy-MM-dd HH:mm'). $($good.Count) of $Runs runs counted. Each cell: median of the counted runs (min-max).")
-[void]$md.AppendLine("")
-[void]$md.AppendLine("**Game:** $($pc.game). Why not the real install: $($pc.gameReason).")
-[void]$md.AppendLine("")
-[void]$md.AppendLine("| Scene | Runs | Avg FPS | 1% low | 0.1% low | Frame p50 ms | Frame p99 ms | Stutters | Hitches 20ms+ | Heap avg MB | GC count |")
-[void]$md.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|")
-foreach ($sc in $sceneNames) {
-	$e = $summary[$sc]
-	[void]$md.AppendLine("| $sc | $($e.runs) | $(Cell $e 'avgFps' 'N0') | $(Cell $e 'low1Fps' 'N0') | $(Cell $e 'low01Fps' 'N0') | $(Cell $e 'p50Ms' 'N2') | $(Cell $e 'p99Ms' 'N2') | $(Cell $e 'stutters' 'N0') | $(Cell $e 'hitches20ms' 'N0') | $(Cell $e 'heapAvgMb' 'N0') | $(Cell $e 'gcCount' 'N0') |")
+function L([string]$s) { [void]$md.AppendLine($s) }
+L "# Origin 1.8.9 benchmark report"
+L ""
+if ($DryRun) {
+	L "> **DRY RUN. Nothing here was measured.** These numbers come from made-up fixture files (tools\bench\fixtures\dryrun) that only test the report. Do not quote them."
+	L ""
 }
-[void]$md.AppendLine("")
-[void]$md.AppendLine("## Runs")
-[void]$md.AppendLine("")
-foreach ($r in $runsInfo) {
-	$state = $(if (-not $r.ok) { "FAILED (see game.log)" } elseif ($r.busy) { "left out: PC was busy" } else { "counted" })
-	[void]$md.AppendLine("- Run $($r.run): $state. CPU load before $($r.cpuBefore)%, after $($r.cpuAfter)% (limit $MaxCpuLoad%). $($r.dir)")
+L "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm'). Each number is the middle one (median) of the counted runs, with the lowest and highest run in brackets."
+L ""
+L "## This PC"
+L ""
+L "- Graphics card: $($machine.gpu), driver $($machine.gpuDriver), screen $($machine.monitor)"
+L "- Processor: $($machine.cpu) ($($machine.cpuCores))"
+L "- Memory: $($machine.ramGb) GB"
+L "- Windows: $($machine.os); power plan: $($machine.powerPlan)"
+L "- Build: $($machine.build)"
+L ""
+$names = @{ "origin-default" = "Origin default"; "optifine-only" = "OptiFine only"; "competitive" = "Competitive"; "balanced" = "Balanced"; "quality" = "Quality" }
+$vnames = @($agg.variants.PSObject.Properties.Name)
+$sceneNames = @()
+foreach ($vn in $vnames) { foreach ($sn in $agg.variants.$vn.scenes.PSObject.Properties.Name) { if ($sceneNames -notcontains $sn) { $sceneNames += $sn } } }
+
+L "## What was tested"
+L ""
+L "The game a player gets: Forge 11.15.1.2318 + OptiFine HD U M5 + TexFix + BetterFps + the Origin jar, started with the launcher's Java and memory settings, in a throw-away folder under artifacts\bench-189 (your launcher, worlds and options are not touched). Scenes: $($sceneNames -join ', ')."
+L ""
+if (-not $DryRun) { L "Each scene: $Warmup s warm-up, then $Duration s measured; game window $Width x $Height." ; L "" }
+function VName([string]$v) {
+	if ($v -eq "origin-default") { return "Origin as shipped" }
+	if ($v -eq "optifine-only") { return "OptiFine only, Origin switched off" }
+	return "Origin + the $v preset"
 }
-[void]$md.AppendLine("")
-[void]$md.AppendLine("## This PC")
-[void]$md.AppendLine("")
-foreach ($k in $pc.Keys) { [void]$md.AppendLine("- $k`: $($pc[$k])") }
-if ($env0) {
-	[void]$md.AppendLine("")
-	[void]$md.AppendLine("## Game settings during the benchmark")
-	[void]$md.AppendLine("")
-	foreach ($k in @("resolution", "fullscreen", "optifine", "java", "heapLimitMb", "renderDistance", "maxFps", "vsync", "graphics", "smoothLighting", "particles", "guiScale", "useVbo", "mipmaps", "menuBlur", "hudOnOutsideHudScene", "warmupS", "durationS", "seed")) {
-		[void]$md.AppendLine("- $k`: $($env0.$k)")
+L ("Variants: " + (($active | ForEach-Object { VName $_ }) -join "; ") + ".")
+if ($skipped.Count -gt 0) {
+	L ""
+	foreach ($s in $skipped) { L "- Not run: $($s.name) ($($s.why))." }
+}
+L ""
+
+function Cell($spread, [string]$f) {
+	if ($null -eq $spread) { return "-" }
+	return "$(Fmt $spread.median $f) ($(Fmt $spread.min $f)-$(Fmt $spread.max $f))"
+}
+function Pct($row, [string]$name) {
+	if ($null -eq $row) { return "-" }
+	$v = $row.$name
+	if ($null -eq $v) { return "-" }
+	return ([double]$v).ToString("+0.0;-0.0;0.0", $inv) + "%"
+}
+
+L "## Results"
+L ""
+L "Columns: **Avg FPS** = frames per second (higher is better). **Worst 1%** and **worst 0.1%** = the speed of the slowest 1% / 0.1% of frames: the hitching you feel (higher is better). **Typical frame** and **slow frame (99th)** = how long a frame takes, in milliseconds (lower is better). **Wobble** = how much frame times vary (lower is smoother). **Memory** = average Java heap in use. **GC pause** = time the game froze for cleanup, total and longest. **Alloc** = memory the render thread creates per second (lower means less cleanup)."
+L ""
+foreach ($sn in $sceneNames) {
+	L "### Scene: $sn"
+	L ""
+	L "| Variant | Counted runs | Avg FPS | Worst 1% FPS | Worst 0.1% FPS | Typical frame ms | Slow frame (99th) ms | Wobble ms | Memory MB | GC pause total ms | GC pause longest ms | Alloc MB/s |"
+	L "|---|---|---|---|---|---|---|---|---|---|---|---|"
+	foreach ($vn in $vnames) {
+		$m = $agg.variants.$vn.scenes.$sn
+		if ($null -eq $m) { continue }
+		L "| $($names[$vn]) | $($m.runs) | $(Cell $m.avgFps '0.0') | $(Cell $m.low1Fps '0.0') | $(Cell $m.low01Fps '0.0') | $(Cell $m.p50Ms '0.00') | $(Cell $m.p99Ms '0.00') | $(Cell $m.stdevMs '0.00') | $(Cell $m.heapAvgMb '0') | $(Cell $m.gcPauseTotalMs '0') | $(Cell $m.gcPauseMaxMs '0') | $(Cell $m.allocMbPerSec '0.0') |"
+	}
+	L ""
+	$others = @($vnames | Where-Object { $_ -ne $agg.baseline })
+	if ($others.Count -gt 0) {
+		L "Change against **$($names[$agg.baseline])** (median to median; for FPS a plus is faster, for the frame-time and GC columns a minus is better):"
+		L ""
+		L "| Variant | Avg FPS | Worst 1% FPS | Slow frame (99th) | Wobble | GC pause total | Alloc |"
+		L "|---|---|---|---|---|---|---|"
+		foreach ($vn in $others) {
+			$row = $agg.deltaPctVsBaseline.$vn.$sn
+			if ($null -eq $row) { continue }
+			L "| $($names[$vn]) | $(Pct $row 'avgFps') | $(Pct $row 'low1Fps') | $(Pct $row 'p99Ms') | $(Pct $row 'stdevMs') | $(Pct $row 'gcPauseTotalMs') | $(Pct $row 'allocMbPerSec') |"
+		}
+		L ""
 	}
 }
-[void]$md.AppendLine("")
-[void]$md.AppendLine("Avg FPS = frames per second. 1% / 0.1% low = the average FPS of the slowest 1% / 0.1% of frames (the hitching you feel). Stutters = frames over twice the typical frame time. Hitches = frames over 20 ms.")
-$summaryMd = Join-Path $OutDir "summary.md"
-[System.IO.File]::WriteAllText($summaryMd, $md.ToString(), $utf8)
+
+L "## Was the PC quiet? (idle CPU before and during each run)"
+L ""
+L "Other programs using the CPU make a run slower for reasons that have nothing to do with Origin. Before each run the PC load is read; during it the load is sampled and the game's own share is taken off, leaving what other programs used. A run is not counted if other programs used more than $MaxCpuLoad%."
+L ""
+foreach ($m in ($runMeta | Sort-Object { $_.variant }, { $_.run })) {
+	$state = switch ($m.status) { "ok" { "Counted" } "left-out-busy" { "NOT COUNTED: the PC was too busy" } default { "FAILED: no results (see the run's game.log)" } }
+	if ($null -eq $m.cpuBeforePct) {
+		L "- $($names[$m.variant]), run $($m.run): no CPU reading ($state)."
+	} else {
+		L "- $($names[$m.variant]), run $($m.run): PC was $(Fmt $m.cpuBeforePct '0')% busy before and $(Fmt $m.cpuDuringPct '0')% during (the game used $(Fmt $m.gameCpuPct '0')%, other programs $(Fmt $m.otherCpuPct '0')%). $state."
+	}
+}
+L ""
+$notCounted = @($runMeta | Where-Object { $_.status -ne "ok" })
+if ($notCounted.Count -gt 0) {
+	L "**$($notCounted.Count) run(s) did not count.** Their files are kept in the left-out-<n> folders under out\<variant>. Close other programs and run again if a variant has too few runs."
+	L ""
+}
+
+L "## What these numbers mean"
+L ""
+L "- They describe this PC and this graphics card only. A slower PC or card will show different numbers; nothing here is an estimate for other machines."
+L "- Differences of a few percent between variants are inside the run-to-run noise: look at the (lowest-highest) brackets before believing a small change."
+L "- The scenes are scripted (fixed world, fixed camera path, same window size) so every variant sees the same thing. The 'menu' scene is the title/inventory style screen; 'flythrough' is the moving camera."
+L "- Raw per-frame data for every run: out\<variant>\run-<n>\frames-<scene>.csv. Everything is re-derived from it by tools\bench\summarize.py."
+$report = Join-Path $OutDir "report.md"
+[System.IO.File]::WriteAllText($report, $md.ToString(), $utf8)
 
 Write-Host ""
 Write-Host $md.ToString()
-Say "Report: $summaryMd"
-if ($good.Count -eq 0) {
-	Say "No run counted (all failed or the PC was busy). Close other heavy programs and run it again."
+Say "Report: $report"
+$counted = @($runMeta | Where-Object { $_.status -eq "ok" })
+if ($counted.Count -eq 0) {
+	Say "No run counted. Close other heavy programs and run again."
 	exit 1
 }
+exit 0

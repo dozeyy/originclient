@@ -26,6 +26,10 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
+import javax.management.Notification;
+import javax.management.NotificationEmitter;
+import javax.management.NotificationListener;
+import javax.management.openmbean.CompositeData;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -50,6 +54,12 @@ import java.util.Random;
  * writes bench.json + bench.md (+ frames-<scenario>.csv), restores every setting
  * it touched, and quits the game.
  *
+ * Variants (tools/bench/prod189.py, CI "bench-189" workflow): {@code ORIGIN_BENCH_PROBE=1} makes
+ * this the ONLY thing Origin does in the game (no hooks, no HUD, no title screen; the CI jar for
+ * that variant also has no Mixin tweaker), which is the "OptiFine-only baseline": the same bench
+ * scenes measured on OptiFine + TexFix + BetterFps with Origin inert. The hud scene needs Origin's
+ * HUD, so a probe run skips it.
+ *
  * Measurement cost is kept near zero: the per-frame path is one nanoTime() and
  * one store into a preallocated long[]; heap is sampled 20x/s from Runtime (no
  * allocation); GC counts and render-thread allocated bytes are read only at the
@@ -63,6 +73,11 @@ public final class OriginBench {
 
 	public static boolean enabled() {
 		return SPEC != null && !SPEC.trim().isEmpty();
+	}
+
+	/** True for the OptiFine-only baseline: OriginClientMod then installs ONLY the bench and returns. */
+	public static boolean probeOnly() {
+		return enabled() && PROBE;
 	}
 
 	/** Registers the bench listener when bench mode is on; no-op for players. */
@@ -90,6 +105,12 @@ public final class OriginBench {
 
 	/** ORIGIN_BENCH_SHOTS=1: one screenshot per scene at the end of its warm-up (outDir/screenshots). */
 	private static final boolean SHOTS = "1".equals(str("origin.bench.shots", "0"));
+
+	/** ORIGIN_BENCH_PROBE=1: Origin is inert, only this class runs (OptiFine-only baseline). */
+	private static final boolean PROBE = "1".equals(str("origin.bench.probe", "0"));
+
+	/** ORIGIN_BENCH_SAVE_OPTIONS=1: write options.txt / optionsof.txt before quitting (U6.0 key dump, isolated instance only). */
+	private static final boolean SAVE_OPTIONS = "1".equals(str("origin.bench.saveoptions", "0"));
 
 	private static final String[] ALL_SCENARIOS = {"idle", "hud", "particles", "menu", "flythrough"};
 
@@ -137,6 +158,11 @@ public final class OriginBench {
 	private List<GarbageCollectorMXBean> gcs;
 	private com.sun.management.ThreadMXBean threads;
 	private long gcCount0, gcTime0, alloc0;
+	// GC pauses inside the measured window, from the JVM's GC notifications (they arrive on the JVM's
+	// own thread, never the render thread). gcNotify stays false if the JVM offers none.
+	private final Object gcLock = new Object();
+	private boolean gcNotify = false, gcMeasuring = false;
+	private long gcPauseTotalMs = 0, gcPauseMaxMs = 0, gcPauseCount = 0;
 	private String startedAt;
 
 	private OriginBench() {
@@ -152,6 +178,9 @@ public final class OriginBench {
 		}
 		if (scenarios.isEmpty()) {
 			scenarios.addAll(Arrays.asList(ALL_SCENARIOS));
+		}
+		if (PROBE && scenarios.remove("hud")) {
+			warnings.add("probe run (Origin inert): the hud scene needs Origin's HUD and was skipped");
 		}
 	}
 
@@ -210,6 +239,7 @@ public final class OriginBench {
 				glVendor = GL11.glGetString(GL11.GL_VENDOR);
 				glVersion = GL11.glGetString(GL11.GL_VERSION);
 				gcs = ManagementFactory.getGarbageCollectorMXBeans();
+				installGcListener();
 				java.lang.management.ThreadMXBean tm = ManagementFactory.getThreadMXBean();
 				if (tm instanceof com.sun.management.ThreadMXBean) {
 					threads = (com.sun.management.ThreadMXBean) tm;
@@ -459,6 +489,12 @@ public final class OriginBench {
 		gcCount0 = gcCount();
 		gcTime0 = gcTime();
 		alloc0 = allocated();
+		synchronized (gcLock) {
+			gcPauseTotalMs = 0;
+			gcPauseMaxMs = 0;
+			gcPauseCount = 0;
+			gcMeasuring = true;
+		}
 		lastFrame = 0;
 		recordStart = System.nanoTime();
 		recordEndAt = recordStart + (long) (DURATION_S * 1e9);
@@ -470,6 +506,13 @@ public final class OriginBench {
 		long gcCount = gcCount() - gcCount0;
 		long gcTime = gcTime() - gcTime0;
 		long alloc = allocated() - alloc0;
+		long pauseTotal, pauseMax, pauseCount;
+		synchronized (gcLock) {
+			gcMeasuring = false;
+			pauseTotal = gcPauseTotalMs;
+			pauseMax = gcPauseMaxMs;
+			pauseCount = gcPauseCount;
+		}
 		int n = count;
 		long[] sorted = Arrays.copyOf(frames, n);
 		Arrays.sort(sorted);
@@ -509,6 +552,12 @@ public final class OriginBench {
 		r.addProperty("heapLimitMb", round(Runtime.getRuntime().maxMemory() / 1048576.0, 0));
 		r.addProperty("gcCount", gcCount);
 		r.addProperty("gcTimeMs", gcTime);
+		if (gcNotify) {
+			// Pause = the collection's own duration (whole milliseconds), from the JVM's notifications.
+			r.addProperty("gcPauseCount", pauseCount);
+			r.addProperty("gcPauseTotalMs", pauseTotal);
+			r.addProperty("gcPauseMaxMs", pauseMax);
+		}
 		r.addProperty("renderThreadAllocMbPerSec", alloc < 0 ? -1 : round(alloc / 1048576.0 / (wall / 1e9), 2));
 		r.addProperty("unfocusedTicks", unfocusedTicks);
 		r.addProperty("cameraOffTicks", cameraResets);
@@ -536,6 +585,41 @@ public final class OriginBench {
 		int n = sorted.length;
 		int idx = (int) Math.ceil(p / 100.0 * n) - 1;
 		return sorted[Math.max(0, Math.min(n - 1, idx))];
+	}
+
+	private void installGcListener() {
+		NotificationListener listener = new NotificationListener() {
+			@Override
+			public void handleNotification(Notification n, Object handback) {
+				try {
+					if (!com.sun.management.GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION.equals(n.getType())) {
+						return;
+					}
+					com.sun.management.GarbageCollectionNotificationInfo info =
+							com.sun.management.GarbageCollectionNotificationInfo.from((CompositeData) n.getUserData());
+					long ms = info.getGcInfo().getDuration();
+					synchronized (gcLock) {
+						if (gcMeasuring) {
+							gcPauseTotalMs += ms;
+							gcPauseMaxMs = Math.max(gcPauseMaxMs, ms);
+							gcPauseCount++;
+						}
+					}
+				} catch (Throwable ignored) {
+					// a malformed notification only costs one data point
+				}
+			}
+		};
+		for (GarbageCollectorMXBean g : gcs) {
+			if (g instanceof NotificationEmitter) {
+				try {
+					((NotificationEmitter) g).addNotificationListener(listener, null, null);
+					gcNotify = true;
+				} catch (Throwable t) {
+					warnings.add("no GC notifications from " + g.getName() + ": " + t);
+				}
+			}
+		}
 	}
 
 	private long gcCount() {
@@ -601,6 +685,51 @@ public final class OriginBench {
 		settingsSaved = false;
 	}
 
+	/**
+	 * U6.0 (tools/bench/optifine-keys-189.txt): leave a freshly generated options.txt + optionsof.txt in the
+	 * game folder and list GameSettings' own of* fields (name, type, value) in of-fields.txt. OptiFine's
+	 * saveOptions also writes optionsof.txt; if this build does not, its private saveOfOptions is called.
+	 */
+	private void dumpOptions(Minecraft mc) {
+		net.minecraft.client.settings.GameSettings g = mc.gameSettings;
+		g.saveOptions();
+		try {
+			File of = new File(mc.mcDataDir, "optionsof.txt");
+			if (!of.isFile()) {
+				java.lang.reflect.Method m = g.getClass().getDeclaredMethod("saveOfOptions");
+				m.setAccessible(true);
+				m.invoke(g);
+				warnings.add("optionsof.txt was not written by saveOptions; called saveOfOptions by reflection");
+			}
+		} catch (Throwable t) {
+			warnings.add("no optionsof.txt (OptiFine not loaded?): " + t);
+		}
+		try {
+			StringBuilder sb = new StringBuilder("# GameSettings fields named of<Upper>*: name<TAB>type<TAB>value\n");
+			for (java.lang.reflect.Field f : g.getClass().getDeclaredFields()) {
+				String n = f.getName();
+				if (n.length() > 2 && n.startsWith("of") && Character.isUpperCase(n.charAt(2))) {
+					f.setAccessible(true);
+					Object v = f.get(java.lang.reflect.Modifier.isStatic(f.getModifiers()) ? null : g);
+					String val = v == null ? "null" : v.getClass().isArray() ? arrayString(v) : String.valueOf(v);
+					sb.append(n).append('\t').append(f.getType().getSimpleName()).append('\t').append(val).append('\n');
+				}
+			}
+			write(new File(outDir, "of-fields.txt"), sb.toString());
+		} catch (Throwable t) {
+			warnings.add("of-fields.txt: " + t);
+		}
+	}
+
+	private static String arrayString(Object array) {
+		StringBuilder sb = new StringBuilder("[");
+		int len = java.lang.reflect.Array.getLength(array);
+		for (int i = 0; i < len; i++) {
+			sb.append(i == 0 ? "" : ",").append(java.lang.reflect.Array.get(array, i));
+		}
+		return sb.append(']').toString();
+	}
+
 	private void restoreMods() {
 		for (Map.Entry<String, Boolean> en : savedModOn.entrySet()) {
 			Mods.setOn(en.getKey(), en.getValue());
@@ -650,13 +779,16 @@ public final class OriginBench {
 			env.addProperty("guiScale", g.guiScale);
 			env.addProperty("useVbo", g.useVbo);
 			env.addProperty("mipmaps", g.mipmapLevels);
-			env.addProperty("menuBlur", Mods.on("menublur") + " (inventories " + Mods.bool("menublur", "inventory") + ")");
+			env.addProperty("variant", str("origin.bench.variant", "?"));
+			env.addProperty("originActive", !PROBE);
+			env.addProperty("menuBlur", PROBE ? "n/a (Origin inert)"
+					: Mods.on("menublur") + " (inventories " + Mods.bool("menublur", "inventory") + ")");
 			env.addProperty("seed", SEED);
 			env.addProperty("warmupS", WARMUP_S);
 			env.addProperty("durationS", DURATION_S);
 			env.addProperty("particlesPerTick", PARTICLES_PER_TICK * 2);
 			StringBuilder hudOn = new StringBuilder();
-			for (HudElements.Element el : HudElements.ALL) {
+			for (HudElements.Element el : PROBE ? java.util.Collections.<HudElements.Element>emptyList() : HudElements.ALL) {
 				if (Mods.on(el.modId()) && hudOn.indexOf(el.modId()) < 0) {
 					hudOn.append(hudOn.length() == 0 ? "" : ", ").append(el.modId());
 				}
@@ -668,6 +800,9 @@ public final class OriginBench {
 		try {
 			restoreMods();
 			restoreSettings(mc);
+			if (SAVE_OPTIONS) {
+				dumpOptions(mc);
+			}
 		} catch (Throwable t) {
 			warnings.add("restore failed: " + t);
 		}

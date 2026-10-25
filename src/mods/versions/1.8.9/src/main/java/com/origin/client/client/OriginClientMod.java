@@ -85,6 +85,13 @@ public class OriginClientMod {
 
 	/** Called once by OriginClient (FMLInitializationEvent). */
 	public static void init() {
+		if (OriginBench.probeOnly()) {
+			// CI "OptiFine-only" baseline (ORIGIN_BENCH_PROBE=1, benchmark mode only, never a player's
+			// game): Origin stays inert -- no hooks, keys, HUD or flush thread -- and only the
+			// benchmark runs, so its frame times are the stack without Origin's own work.
+			OriginBench.install();
+			return;
+		}
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		instance = new OriginClientMod();
