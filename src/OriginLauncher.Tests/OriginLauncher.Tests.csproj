@@ -138,6 +138,11 @@
     <Compile Include="..\OriginLauncher.App\Core\StartupTrace.cs" LinkBase="Versions" />
     <!-- Which versions are installed / partial / missing / update-ready (pure disk reads; InstalledVersions.Shared.cs, the real wiring, stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Versions\InstalledVersions.cs" LinkBase="Versions" />
+    <!-- Play installs a missing/partial version (U3.3): the install journal + session, the failure text, the harness' game-log marks. -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\InstallJournal.cs" LinkBase="Versions" />
+    <Compile Include="..\OriginLauncher.App\Core\Versions\InstallSession.cs" LinkBase="Versions" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\PlayFailure.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\GameLogMarks.cs" LinkBase="Launch" />
     <!-- The pinned legacy Forge table (pure data, no CmlLib), so a test can assert the real 1.8.9 layout. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyForgeBuilds.cs" LinkBase="Loaders" />
   </ItemGroup>

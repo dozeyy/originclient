@@ -347,7 +347,11 @@ public sealed class VersionManager
         await gate.WaitAsync(ct);
         try
         {
-            return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey);
+            // A missing or partly installed version is installed right here, as part of Play (U3.3). The journal
+            // keeps a failed or cancelled install from ever reading as installed (InstallSession).
+            return await InstallSession.RunAsync(
+                InstalledVersions.Shared, InstallJournal.Shared, version, progress,
+                () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey));
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {

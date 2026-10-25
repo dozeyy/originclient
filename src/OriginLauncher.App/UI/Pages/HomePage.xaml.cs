@@ -63,6 +63,9 @@ public partial class HomePage : UserControl
     // now). Version may differ from the selected one; it is NOT saved as the pick.
     private sealed record LaunchTarget(string Version, string? Server = null, string? AccountKey = null);
 
+    // The launch whose install just failed and is showing Retry on the launch screen; null otherwise.
+    private LaunchTarget? _failedLaunch;
+
     // The mod set the player was just refused for and may start anyway with Play (Core/Compat/LaunchOverride):
     // one account, one version, one set, one use.
     private readonly LaunchOverride _modOverride = new();
@@ -180,6 +183,23 @@ public partial class HomePage : UserControl
         {
             if (_overlayTicket != null) _overlayTicket.Source.Cancel();
             else if (_sceneGame != null) StopStartingGame(_sceneGame);
+        };
+        // A failed install (U3.3): Retry runs the same launch again, Close just lowers the screen. The files are left as
+        // they were; InstallJournal keeps the half-done version from reading as installed.
+        LoadingOverlay.RetryRequested += async (_, _) =>
+        {
+            if (_failedLaunch is not { } again) { LoadingOverlay.Hide(); return; }
+            _failedLaunch = null;
+            await LaunchAsync(again, LaunchRoute.Play);
+            // Refused before it began (update required, an import running, ...): the status line says why;
+            // the failure screen has nothing left to offer.
+            if (LoadingOverlay.ShowsFailure && _failedLaunch == null) LoadingOverlay.Hide();
+        };
+        LoadingOverlay.CloseRequested += (_, _) =>
+        {
+            _failedLaunch = null;
+            LoadingOverlay.Hide();
+            RefreshPlayButton();
         };
         VersionOverlay.VersionSelected += OnVersionSelected;
         // While an import writes to the game folders, Play and Join stay off (Core/Import/Launcher/ImportRunState).
@@ -792,6 +812,10 @@ public partial class HomePage : UserControl
         // account's phase belongs to the game (WatchBootAsync, the Exited
         // handler) and the finally below must not reset it.
         var gameStarted = false;
+        // True only while the version is being installed/verified; a failure then is shown on the launch screen
+        // with a Retry (PlayFailure). `failure` is what the finally block puts on the screen instead of hiding it.
+        var provisioning = false;
+        PlayFailure? failure = null;
 
         try
         {
@@ -864,10 +888,12 @@ public partial class HomePage : UserControl
             // overlay stutter and the window look hung while it worked.
             // installProgress was constructed on the UI thread, so Progress<T>
             // still marshals every stage update back correctly.
+            provisioning = true;
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
                     version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey),
                 ticket.Token);
+            provisioning = false;
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the
@@ -946,6 +972,7 @@ public partial class HomePage : UserControl
             // "you're offline" line, no update check (it can't reach GitHub either).
             Note(key, ex.Message, LaunchTone.Warning);
             WriteLaunchErrorLog(ex);
+            if (provisioning) failure = PlayFailure.From(ex, version);
         }
         catch (IncompatibleModsException ex)
         {
@@ -972,6 +999,7 @@ public partial class HomePage : UserControl
             Note(key, await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), LaunchTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
             WriteLaunchErrorLog(ex);
+            if (provisioning) failure = PlayFailure.From(ex, version);
         }
         finally
         {
@@ -992,6 +1020,12 @@ public partial class HomePage : UserControl
                     // The player switched account while it was preparing: that
                     // switch ran before the scene had a game, so lower it now.
                     if (started.Key != SelectedKey()) ReleaseScene(started, gameLoading: false);
+                }
+                else if (failure != null)
+                {
+                    // The install did not finish: say why, keep the screen up with Retry (U3.3).
+                    _failedLaunch = target is { } t ? t with { Version = version, AccountKey = key } : new LaunchTarget(version, AccountKey: key);
+                    LoadingOverlay.ShowFailure(failure);
                 }
                 else
                 {
@@ -1497,6 +1531,12 @@ public partial class HomePage : UserControl
     internal void TourReportLaunch(string stage) => LoadingOverlay.ReportStage(stage);
 
     internal void TourHideLaunch() => LoadingOverlay.Hide();
+
+    // Render mode: the Cancel press (the overlay shows "Cancelling" while the launch unwinds) and a failed install.
+    internal void TourCancelLaunch() => LoadingOverlay.TourPressCancel();
+
+    internal void TourFailLaunch(Exception error, string version) =>
+        LoadingOverlay.ShowFailure(PlayFailure.From(error, version));
 
     internal void TourShowVersions(int detailIndex) => VersionOverlay.TourOpen(detailIndex);
 
