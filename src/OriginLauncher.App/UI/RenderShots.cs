@@ -222,6 +222,7 @@ public static class RenderShots
         window.TourShowModsDemo(DemoModsDropped, -1);
         Pump(250);
         Snap(window, outDir, "13d-mods-dropped");
+        CompatShots.Run(window, outDir, DemoMods); // Phase 5.1: Replace / Keep old row + Home blocked-launch line
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
