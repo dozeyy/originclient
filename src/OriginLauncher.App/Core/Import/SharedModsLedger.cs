@@ -170,6 +170,18 @@ public sealed class SharedModsLedger
         return present;
     }
 
+    /// <summary>
+    /// The version of Origin's own TURNED-ON copy of <paramref name="id"/> (it may be null when the jar states none), as
+    /// read: false when Origin has no copy or has it turned off. Used to put Origin's copy back in the picture when an
+    /// imported mod that would have replaced it is turned off after all.
+    /// </summary>
+    public bool TryGetOriginVersion(string id, out string? version)
+    {
+        if (_originById.TryGetValue(id, out var jar) && !jar.Disabled) { version = jar.Version; return true; }
+        version = null;
+        return false;
+    }
+
     private static bool IsModFile(string name) =>
         name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase);
 

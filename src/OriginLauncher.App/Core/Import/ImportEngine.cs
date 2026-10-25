@@ -362,6 +362,12 @@ public sealed partial class ImportEngine
                     if (landing.Holder is { } holder)
                     {
                         if (landing.Existing is { } existing) plan.SharedModsReliedOn.Add(existing);
+                        // Turned off by ImportedModFit while Origin's own copy stays: say that, not "already in Origin's mods".
+                        if (holder == SharedModsLedger.InOrigin && d.Outcome == ModOutcome.CopiedDisabled && ImportedModFit.IsFitReason(d.Reason))
+                        {
+                            plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, "Not imported, turned off: " + d.Reason));
+                            break;
+                        }
                         plan.Lines.Add(landing.Note != null
                             ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, landing.Note)
                             : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,

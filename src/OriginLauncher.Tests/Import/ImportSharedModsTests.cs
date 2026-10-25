@@ -186,6 +186,38 @@ public sealed class ImportSharedModsTests : IDisposable
             && l.Reason.Contains("needs cobblemon") && l.Reason.Contains("1.8.0+1.21.1"));
     }
 
+    // Review finding (2026-10-25): the imported lib 2.0 would replace Origin's lib 1.0, but its own dependency (helper 2+,
+    // which Origin's other mods keep at 1.0) fails, so it is turned off. Origin's lib 1.0 stays ON, so the mod that accepts any lib must stay on too, and the
+    // lib's line must say it was turned off, not "already in Origin's mods".
+    [Fact]
+    public async Task AnImportedModTurnedOffInsteadOfReplacingOriginsCopyLeavesItsDependantsOnAndSaysWhy()
+    {
+        var originLib = Kit.FabricJar("lib", "1.0.0");
+        Kit.WriteBytes(SharedMods, "lib-1.0.0.jar", originLib);
+        Kit.WriteBytes(SharedMods, "helper-1.0.0.jar", Kit.FabricJar("helper", "1.0.0"));
+        // Another of Origin's mods keeps Origin's helper 1.0, so the imported helper 2.0 cannot replace it...
+        Kit.WriteBytes(SharedMods, "originuser.jar", Kit.FabricJar("originuser", "1.0", depends: new() { ["helper"] = "<2.0.0" }));
+        Kit.WriteBytes(_rig.Source, "mods/helper-2.0.0.jar", Kit.FabricJar("helper", "2.0.0"));
+        // ...and the imported lib 2.0 (which would replace Origin's lib) needs helper 2+, so it is turned off.
+        Kit.WriteBytes(_rig.Source, "mods/lib-2.0.0.jar", Kit.FabricJar("lib", "2.0.0", depends: new() { ["helper"] = ">=2.0.0" }));
+        Kit.WriteBytes(_rig.Source, "mods/needs-lib2.jar", Kit.FabricJar("needs_lib2", "1.0", depends: new() { ["lib"] = ">=2.0.0" }));
+        Kit.WriteBytes(_rig.Source, "mods/app.jar", Kit.FabricJar("app", "1.0", depends: new() { ["lib"] = "*" }));
+
+        var (plan, result) = await Run();
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(originLib, File.ReadAllBytes(Shared("lib-1.0.0.jar")));            // Origin's copy stays on
+        Assert.False(File.Exists(Shared("lib-2.0.0.jar")));
+        Assert.True(File.Exists(Shared("app.jar")), string.Join(" // ", plan.Lines.Select(l => $"{l.Section} {l.Name}: {l.Reason}")));
+        Assert.False(File.Exists(Shared("app.jar.disabled")));                           // lib IS there: app stays on
+        Assert.True(File.Exists(Shared("needs-lib2.jar.disabled")));                     // it really needs lib 2+: off
+        var libLine = plan.Lines.Single(l => l.Name == "lib");
+        Assert.Equal(SummarySection.NeedsAttention, libLine.Section);
+        Assert.Contains("turned off", libLine.Reason);
+        Assert.Contains("helper", libLine.Reason);
+        Assert.DoesNotContain(ImportEngine.AlreadyInOriginMods, libLine.Reason);
+    }
+
     [Fact]
     public async Task AnImportedModWhoseNeedIsMetByOriginsModLandsTurnedOnAsBefore()
     {

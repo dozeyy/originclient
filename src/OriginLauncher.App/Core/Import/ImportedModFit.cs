@@ -49,8 +49,11 @@ internal static class ImportedModFit
                 var problem = FindProblem(infoOf(d), present, known);
                 if (problem == null) continue;
                 turnedOff[d] = problem;
-                present.Remove(d.ModId!);
-                foreach (var provided in infoOf(d)?.Provides ?? Array.Empty<string>()) present.Remove(provided);
+                // Turned off, it loads nothing. If it was going to replace Origin's older copy, that copy stays on
+                // (SharedModsLedger.Swap keeps it), so put Origin's version back instead of dropping the id: its
+                // dependants that accept any version must not be turned off for a mod that is still there.
+                RestoreOriginsCopy(d.ModId!, ledger, present);
+                foreach (var provided in infoOf(d)?.Provides ?? Array.Empty<string>()) RestoreOriginsCopy(provided, ledger, present);
                 changed = true;
             }
         } while (changed);
@@ -60,6 +63,18 @@ internal static class ImportedModFit
             ? d with { Outcome = ModOutcome.CopiedDisabled, Reason = reason, DestFileName = d.DestFileName + ".disabled" }
             : d).ToList();
     }
+
+    private static void RestoreOriginsCopy(string id, SharedModsLedger ledger, Dictionary<string, string?> present)
+    {
+        if (ledger.TryGetOriginVersion(id, out var version)) present[id] = version;
+        else present.Remove(id);
+    }
+
+    /// <summary>True for a reason this class wrote (the import was turned off because it would stop the game from starting).</summary>
+    internal static bool IsFitReason(string? reason) =>
+        reason != null && reason.StartsWith(ReasonPrefix, StringComparison.Ordinal);
+
+    private const string ReasonPrefix = "Would stop the game from starting: ";
 
     private static string? FindProblem(ModInfo? info, Dictionary<string, string?> present, HashSet<string> known)
     {
@@ -75,6 +90,6 @@ internal static class ImportedModFit
                 problems.Add($"needs {dep.Id} {range.Display}, but Origin has {version}");
         }
         return problems.Count == 0 ? null
-            : "Would stop the game from starting: " + string.Join("; ", problems) + ". Update that mod on the Mods page, then turn this one on.";
+            : ReasonPrefix + string.Join("; ", problems) + ". Update that mod on the Mods page, then turn this one on.";
     }
 }
