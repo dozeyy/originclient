@@ -311,4 +311,69 @@ public class PlayInstallTests : IDisposable
         Assert.Empty(GameLogMarks.Of(null));
         Assert.Empty(GameLogMarks.Of(""));
     }
+
+    // ---- Security review fixes (U3.3) ----
+
+    [Fact]
+    public void TheMarkerLivesOutsideEveryVersionFolder_SoMigrationCanNeverTreatItAsGameData()
+    {
+        var marker = OriginPaths.InstallState(Fabric);
+        Assert.False(marker.StartsWith(OriginPaths.Instances + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+        Assert.False(marker.StartsWith(OriginPaths.VersionRoot(Fabric), StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void AnOpenMarker_SurvivesTheOldLayoutMigrationThatRunsOnEveryLauncherStart()
+    {
+        // The same shape as production: the marker folder sits beside instances/, not inside a version folder.
+        var journal = new InstallJournal(v => Path.Combine(_tmp, "state", "installing", v));
+        var root = Root(Fabric);
+        Put(Path.Combine(root, "versions", Fabric, Fabric + ".json"));
+        Put(Path.Combine(root, "options.txt")); // old-layout account data: this one IS moved
+        journal.Open(Fabric);
+
+        InstanceMigration.MigrateVersion(root, "acct");
+
+        Assert.True(journal.IsOpen(Fabric));
+        Assert.False(File.Exists(Path.Combine(root, "options.txt")));
+    }
+
+    [Theory]
+    [InlineData(false, 1)] // missing: opens, drops the stale stamp
+    [InlineData(true, 0)]  // installed: nothing opens, the stamp stays
+    public async Task AnInstallThatOpens_DropsTheVerifyStamp_SoTheNextVerifyIsFull(bool complete, int drops)
+    {
+        if (complete) WriteEverything(Fabric);
+        var dropped = new List<string>();
+        await InstallSession.RunAsync(_installed, _journal, Fabric, null, () => Task.FromResult(0), dropped.Add);
+        Assert.Equal(drops, dropped.Count);
+    }
+
+    [Fact]
+    public async Task APartlyInstalledVersion_AlsoDropsTheVerifyStamp()
+    {
+        WriteClient(Fabric); // loader missing: Partial
+        var dropped = new List<string>();
+        await InstallSession.RunAsync(_installed, _journal, Fabric, null, () => Task.FromResult(0), dropped.Add);
+        Assert.Equal([Fabric], dropped);
+    }
+
+    [Fact]
+    public void AFailedJournalWriteOrRemoval_IsLoggedOnce_AndNeverThrows()
+    {
+        var lines = new List<string>();
+        var blocker = Path.Combine(_tmp, "blocker");
+        File.WriteAllText(blocker, "a file where a folder is needed");
+        var journal = new InstallJournal(v => Path.Combine(blocker, v), lines.Add);
+        journal.Open(Fabric); // cannot create a folder under a file
+        Assert.Single(lines);
+        Assert.Contains("could not write", lines[0]);
+        Assert.Contains(Fabric, lines[0]);
+
+        var stuck = new InstallJournal(v => Path.Combine(_tmp, "stuck", v), lines.Add);
+        Directory.CreateDirectory(Path.Combine(_tmp, "stuck", Fabric, InstallJournal.MarkerFileName)); // a folder, so Delete throws
+        stuck.Close(Fabric);
+        Assert.Equal(2, lines.Count);
+        Assert.Contains("could not remove", lines[1]);
+    }
 }

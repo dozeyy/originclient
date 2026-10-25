@@ -12,10 +12,12 @@ public static class InstallSession
     /// <summary>
     /// Runs <paramref name="provision"/> (the whole install-and-build step). Blocking disk reads happen
     /// before the first await, so call it from a worker thread. Exceptions pass through untouched.
+    /// <paramref name="dropVerifyStamp"/> runs when an install opens: a version that is missing or part
+    /// installed must be verified in full this time, never fast-pathed on an old stamp.
     /// </summary>
     public static async Task<T> RunAsync<T>(
         InstalledVersions installed, InstallJournal journal, string version,
-        IProgress<string>? progress, Func<Task<T>> provision)
+        IProgress<string>? progress, Func<Task<T>> provision, Action<string>? dropVerifyStamp = null)
     {
         var state = installed.Check(version).State; // includes an open journal: Partial
         var opened = state is InstallState.NotInstalled or InstallState.Partial;
@@ -26,6 +28,7 @@ public static class InstallSession
                 ? $"Installing Minecraft {version}"
                 : $"Finishing Minecraft {version}");
             journal.Open(version);
+            dropVerifyStamp?.Invoke(version);
         }
 
         var result = await provision().ConfigureAwait(false);

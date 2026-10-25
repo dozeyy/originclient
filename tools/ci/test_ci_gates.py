@@ -828,6 +828,31 @@ class LaunchTimeForgeMarkers(unittest.TestCase):
         self.assertIn("'NotInstalled', 'Partial'", self.WORKFLOW)
         self.assertIn("$r.installAfter -ne 'Installed'", self.WORKFLOW)
 
+    def test_workflow_requires_the_install_stage_so_an_unwired_journal_cannot_pass(self):
+        self.assertIn('"Installing Minecraft $ver"', self.WORKFLOW)
+        self.assertIn('"Finishing Minecraft $ver"', self.WORKFLOW)
+        self.assertIn("$r.installStages -notcontains $want", self.WORKFLOW)
+
+    def test_play_is_wired_through_the_install_journal(self):
+        vm = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Versions", "VersionManager.cs"))
+        body = vm.split("InstallAndBuildProcessAsync(", 1)[1].split("finally", 1)[0]
+        self.assertIn("InstallSession.RunAsync(", body)
+        self.assertIn("InstalledVersions.Shared", body)
+        self.assertIn("InstallJournal.Shared", body)
+        # an install that opens drops the verify stamp, so the next verify is a full one
+        self.assertIn("InstallVerification.Invalidate(", body)
+        session = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Versions", "InstallSession.cs"))
+        self.assertIn("dropVerifyStamp?.Invoke(version)", session)
+
+    def test_marker_is_kept_out_of_the_version_folder(self):
+        # InstanceMigration moves every unknown top-level name in a version folder into accounts/<key>/
+        paths = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "OriginPaths.cs"))
+        self.assertIn("string InstallState(string version)", paths)
+        self.assertNotIn("VersionRoot", paths.split("string InstallState(string version)", 1)[1].split("\n", 1)[0])
+        journal = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Versions", "InstallJournal.cs"))
+        self.assertIn("new(OriginPaths.InstallState", journal)
+        self.assertNotIn("new(OriginPaths.VersionRoot", journal)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

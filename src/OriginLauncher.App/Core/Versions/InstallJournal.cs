@@ -11,23 +11,33 @@ namespace OriginLauncher.App.Core.Versions;
 /// install can never be shown (or trusted) as a finished one. Nothing is deleted: the files stay, the next
 /// Play picks them up and finishes.
 ///
-/// One small marker file in the version's shared root (next to InstallVerification's stamp), whose folder
-/// comes from the caller (OriginPaths.VersionRoot in the launcher, a temp folder in tests).
-/// Never throws: a marker that can't be written or removed only means this protection is off for that launch.
+/// One small marker file per version in the launcher's own state folder (OriginPaths.InstallState), NOT in
+/// the version's game folder: InstanceMigration treats every unknown top-level name in a version folder as
+/// old-layout account data and moves it into accounts/&lt;key&gt;/, which would carry the marker away and make
+/// a half-installed version read Installed. The folder comes from the caller (a temp folder in tests).
+/// Never throws: a marker that can't be written or removed only means this protection is off for that
+/// launch, and that is logged in one line.
 /// </summary>
 public sealed class InstallJournal
 {
     /// <summary>The marker's file name inside the version's root.</summary>
     public const string MarkerFileName = "origin-installing.json";
 
-    private readonly Func<string, string> _versionRoot;
+    private readonly Func<string, string> _folder;
+    private readonly Action<string>? _log;
 
-    public InstallJournal(Func<string, string> versionRoot) => _versionRoot = versionRoot;
+    /// <param name="markerFolder">The folder that holds a version's marker.</param>
+    /// <param name="log">One line per swallowed write or delete failure (the launcher log).</param>
+    public InstallJournal(Func<string, string> markerFolder, Action<string>? log = null)
+    {
+        _folder = markerFolder;
+        _log = log;
+    }
 
     /// <summary>The launcher's journal over the real data folder.</summary>
-    public static InstallJournal Shared { get; } = new(OriginPaths.VersionRoot);
+    public static InstallJournal Shared { get; } = new(OriginPaths.InstallState, Import.Launcher.ImportLog.Write);
 
-    private string MarkerOf(string version) => Path.Combine(_versionRoot(version), MarkerFileName);
+    private string MarkerOf(string version) => Path.Combine(_folder(version), MarkerFileName);
 
     /// <summary>True while an install of the version started and did not finish.</summary>
     public bool IsOpen(string version)
@@ -45,13 +55,27 @@ public sealed class InstallJournal
             Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
             AtomicFile.WriteAllText(marker, JsonSerializer.Serialize(new { version, startedUtc = DateTime.UtcNow }));
         }
-        catch { /* protection off for this launch; Play still works */ }
+        catch (Exception ex)
+        {
+            // Protection off for this launch; Play still works.
+            Say($"install journal: could not write the marker for {version} ({ex.GetType().Name})");
+        }
     }
 
     /// <summary>Marks the install as finished (provisioning came back clean).</summary>
     public void Close(string version)
     {
         try { File.Delete(MarkerOf(version)); }
-        catch { /* the version reads Partial until the next clean Play removes it */ }
+        catch (Exception ex)
+        {
+            // The version reads Partial until the next clean Play removes it.
+            Say($"install journal: could not remove the marker for {version} ({ex.GetType().Name})");
+        }
+    }
+
+    private void Say(string line)
+    {
+        try { _log?.Invoke(line); }
+        catch { /* a courtesy */ }
     }
 }

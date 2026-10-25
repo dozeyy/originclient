@@ -228,6 +228,13 @@ jobs:
                   Write-Host "::error::$label : install state before=$($r.installBefore) after=$($r.installAfter) journalOpen=$($r.installJournalOpen) (wanted NotInstalled -> Installed, journal closed)"
                   $script:failed++
                 }
+                # The journal must be WIRED, not just closed: Play said what it was doing before the first
+                # download ("Installing ..." on an empty folder, "Finishing ..." on a part-installed one).
+                $want = if ($r.installBefore -eq 'Partial') { "Finishing Minecraft $ver" } else { "Installing Minecraft $ver" }
+                if ($r.installStages -notcontains $want) {
+                  Write-Host "::error::$label : Play never reported '$want' (stages: $($r.installStages -join ' | ')) - the install journal is not wired into Play"
+                  $script:failed++
+                }
               }
             } else { Write-Host "::warning::$label wrote no result (exit $($p.ExitCode))"; $script:failed++ }
             Write-Host "$label : Play -> java start $start ms (exit $($p.ExitCode))"

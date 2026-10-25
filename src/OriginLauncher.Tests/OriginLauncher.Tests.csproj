@@ -69,6 +69,7 @@
          import makes, the one-time first-run card rules and the Done page's summary reader. The rest of
          Core/Import/Launcher (backend, HTTP, startup, dry run) needs Windows and stays out. -->
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportRoots.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportLog.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSettingsRules.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportPrompt.cs" LinkBase="Import" />
     <!-- The Import drawer's words and decisions that need no WPF (plurals, the Import all label, the Done page's summary). -->

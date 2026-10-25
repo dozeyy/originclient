@@ -351,7 +351,8 @@ public sealed class VersionManager
             // keeps a failed or cancelled install from ever reading as installed (InstallSession).
             return await InstallSession.RunAsync(
                 InstalledVersions.Shared, InstallJournal.Shared, version, progress,
-                () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey));
+                () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey),
+                v => InstallVerification.Invalidate(OriginPaths.VersionRoot(v)));
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
