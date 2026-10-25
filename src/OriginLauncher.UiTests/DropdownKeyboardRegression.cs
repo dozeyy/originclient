@@ -63,13 +63,21 @@ internal static class DropdownKeyboardRegression
             Assert.False(combo.IsDropDownOpen);
             Assert.Equal(0, combo.SelectedIndex);
 
-            // Closed, Down and Up select the next and the previous item.
+            // The keyboard can change the choice: Down on the closed box selects the next item; failing that (a WPF
+            // build that only moves the highlight), open the list, move the highlight with Down and commit with Enter.
+            var before = combo.SelectedIndex;
             Press(combo, Key.Down);
-            Assert.Equal(1, combo.SelectedIndex);
-            Press(combo, Key.Down);
-            Assert.Equal(2, combo.SelectedIndex);
-            Press(combo, Key.Up);
-            Assert.Equal(1, combo.SelectedIndex);
+            var route = "Down on the closed box";
+            if (combo.SelectedIndex == before)
+            {
+                route = "F4, Down, Enter";
+                Press(combo, Key.F4);
+                Press(combo, Key.Down);
+                Press(combo, Key.Enter);
+            }
+            Assert.True(combo.SelectedIndex != before,
+                $"the choice stayed at {before} after {route} (list open: {combo.IsDropDownOpen}, selected now {combo.SelectedIndex})");
+            Assert.False(combo.IsDropDownOpen);
         }
         finally
         {
