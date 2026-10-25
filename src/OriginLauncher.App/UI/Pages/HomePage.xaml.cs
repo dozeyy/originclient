@@ -1528,6 +1528,8 @@ public partial class HomePage : UserControl
         var extra = 0.0;
         if (isError)
         {
+            // DesiredSize includes the margins, so measure with none (the previous error's would skew this one).
+            StatusText.Margin = new Thickness(0);
             StatusText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             extra = Math.Max(0, StatusText.DesiredSize.Height - line);
         }
