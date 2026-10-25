@@ -22,6 +22,7 @@
 
     <!-- Layout margins that more than one style needs, as tokens. -->
     <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
+    <Thickness x:Key="Margin.DropZone">24,20</Thickness>
 
     <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
     <system:Double x:Key="Size.ControlSm">28</system:Double>
@@ -36,6 +37,7 @@
     <system:Double x:Key="Size.Checkbox">16</system:Double>
     <system:Double x:Key="Size.Progress">3</system:Double>
     <system:Double x:Key="Size.Dot">6</system:Double>
+    <system:Double x:Key="Size.Badge">20</system:Double>
     <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
     <system:Double x:Key="Size.SliderBox">20</system:Double>
     <system:Double x:Key="Size.SliderTrack">4</system:Double>
@@ -45,6 +47,12 @@
     <system:Double x:Key="Size.SwitchHeight">18</system:Double>
     <system:Double x:Key="Size.SwitchKnob">14</system:Double>
     <system:Double x:Key="Size.SwitchTravel">14</system:Double>
+    <!-- Tiles (spec 2.3 / 10): the icon square that labels a list row or a card. 28 in a dense row, 40 on a card or in
+         a dialog header. Hue only inside a tile, never as a box around a bare icon. -->
+    <system:Double x:Key="Size.TileSm">28</system:Double>
+    <system:Double x:Key="Size.TileLg">40</system:Double>
+    <!-- A dialog's width (spec 11.10: max 440) and the swatch / emblem pickers inside the profile form. -->
+    <system:Double x:Key="Size.Dialog">440</system:Double>
     <!-- Brand sizes (spec 1.3): the top bar mark 24 with a 16 tall wordmark. -->
     <system:Double x:Key="Size.Emblem">24</system:Double>
     <system:Double x:Key="Size.Logo.Bar">24</system:Double>
@@ -59,6 +67,8 @@
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
     <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
+    <system:Double x:Key="Radius.Lg.Value">12</system:Double>
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->

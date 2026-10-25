@@ -225,6 +225,7 @@ public static class RenderShots
         Pump(250);
         Snap(window, outDir, "13d-mods-dropped");
         CompatShots.Run(window, outDir, DemoMods); // Phase 5.1: Replace / Keep old row + Home blocked-launch line
+        ModsProfilesShots.Run(window, outDir, "28", DemoMods, demoProfiles, demoCount); // every other Mods + Profiles state
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
@@ -323,6 +324,7 @@ public static class RenderShots
         Pump(700);
         Snap(window, outDir, "25-min-profiles");
         SnapScrolledPage(window, outDir, "25b-min-profiles-scrolled");
+        ModsProfilesShots.Run(window, outDir, "29-min", DemoMods, demoProfiles, demoCount); // the same states at the smallest window
         window.TourShowHomeWithProfile(demoProfiles.ModProfiles[0]);
         Pump(700);
         Snap(window, outDir, "26-min-home-profile");

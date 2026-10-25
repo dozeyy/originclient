@@ -7,18 +7,22 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- One mod row: the shared row (Theme/Surfaces.xaml: Panel, lifts to Card on hover). -->
-        <Style x:Key="Row.Mod" TargetType="Border" BasedOn="{StaticResource Surface.Row}"/>
-        <Style x:Key="Mods.IconWell" TargetType="Border">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="40"/>
-            <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
+        <!-- One mod row: the shared row (Theme/Surfaces.xaml: Panel, lifts to Card on hover) at radius.md, so the tile
+             inside it (radius.sm) stays concentric. -->
+        <Style x:Key="Row.Mod" TargetType="Border" BasedOn="{StaticResource Surface.Row}">
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+        </Style>
+        <!-- The tile that labels a mod row or a built-in card: the mod's own icon (or its tinted glyph), 40 square. -->
+        <Style x:Key="Mods.IconWell" TargetType="Border">
+            <Setter Property="Width" Value="{StaticResource Size.TileLg}"/>
+            <Setter Property="Height" Value="{StaticResource Size.TileLg}"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
         </Style>
     </UserControl.Resources>
 
-    <!-- The page sits on the dimmed art (ArtStage.SetPage). The top inset clears
-         the 56 px bar; the scrollbar stays hidden, wheel scrolling still works. -->
+    <!-- The page sits on the dimmed art (ArtStage.SetPage). The top inset clears the bar (PageColumn owns it); the
+         scrollbar stays hidden, wheel scrolling still works. -->
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Hidden" Focusable="False">
         <ScrollViewer.Resources>
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
@@ -27,8 +31,8 @@
         <controls:PageColumn x:Name="Column" Style="{StaticResource Page.Column}">
         <StackPanel>
 
-            <!-- Header: the poster title + version tag, the intro, and the
-                 YOUR MODS switch (load your own jars or not, every launch). -->
+            <!-- Header: the title + version tag, the intro, and the MY MODS switch (load your own jars or not, every
+                 launch). -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -37,108 +41,107 @@
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Mods" Style="{StaticResource Text.Heading}"/>
-                        <Border x:Name="VersionChip" Style="{StaticResource Surface.Chip}" Margin="12,0,0,8" VerticalAlignment="Bottom">
+                        <Border x:Name="VersionChip" Style="{StaticResource Surface.Chip}" Margin="12,0,0,4" VerticalAlignment="Bottom">
                             <TextBlock x:Name="VersionChipText" Text="1.21.1" Style="{StaticResource Surface.ChipText}"/>
                         </Border>
                     </StackPanel>
                     <TextBlock x:Name="IntroText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="500"
-                               HorizontalAlignment="Left" Margin="0,10,0,0"
+                               HorizontalAlignment="Left" Margin="0,8,0,0"
                                Text="Your own .jar mods for this version, shared by all your accounts. Origin's built-in mods stay up to date on their own."/>
                 </StackPanel>
 
                 <!-- The switch (load your own jars or not, every launch): the same label and slider as Home's
-                     MY MODS, no box and no On/Off word; the slider says it. -->
+                     MY MODS, no box and no On/Off word; the slider says it. No hover label: the label is the word. -->
                 <ToggleButton Grid.Column="1" x:Name="YourModsSwitch" Style="{StaticResource Toggle.Slider}"
-                              Margin="24,8,0,0" VerticalAlignment="Top" ToolTip="Load the .jar mods you added"
+                              Margin="24,6,0,0" VerticalAlignment="Top"
                               AutomationProperties.Name="Load your mods"
                               Checked="YourModsSwitch_Changed" Unchecked="YourModsSwitch_Changed">
-                    <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Primary}"
+                    <controls:TrackedText Text="MY MODS" Tracking="0.10" FontFamily="{StaticResource Font.Primary}"
                                           FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                 </ToggleButton>
             </Grid>
 
-            <!-- The drop zone. Real drag and drop: a jar over it grows the zone,
-                 lights it in the family accent and swaps the line to "Release to
-                 add"; a drop lands the new rows below. Click / Enter browses. -->
-            <Grid x:Name="DropZone" Height="168" Margin="0,28,0,32" AllowDrop="True" Cursor="Hand"
-                  Focusable="True" FocusVisualStyle="{StaticResource Focus.Card}"
-                  Background="{StaticResource Brush.Panel}" RenderTransformOrigin="0.5,0.5"
-                  AutomationProperties.Name="Add mods: drag and drop mod jars here, or browse"
-                  MouseEnter="DropZone_MouseEnter" MouseLeave="DropZone_MouseLeave"
-                  MouseLeftButtonUp="DropZone_Click" KeyDown="DropZone_KeyDown"
-                  DragEnter="DropZone_DragEnter" DragOver="DropZone_DragEnter"
-                  DragLeave="DropZone_DragLeave" Drop="DropZone_Drop">
-                <Grid.RenderTransform>
-                    <ScaleTransform x:Name="DropScale"/>
-                </Grid.RenderTransform>
-                <Rectangle x:Name="DropDash" Stroke="{StaticResource Brush.ProgressTrack}" StrokeThickness="2" StrokeDashArray="5 4"
-                           RadiusX="4" RadiusY="4" IsHitTestVisible="False"/>
+            <!-- The drop zone. Real drag and drop: a jar over it lights the dashes in the accent, lifts the arrow and
+                 swaps the line to "Release to add 2 mod jars"; a drop lands the new rows below. Click / Enter browses.
+                 Its height is its content (one icon, two lines, 20 above and below): no fixed block of empty space. -->
+            <Border x:Name="DropZone" Margin="0,24,0,16" CornerRadius="{StaticResource Radius.Lg}" Cursor="Hand"
+                    AllowDrop="True" Focusable="True" FocusVisualStyle="{StaticResource Focus.Card}"
+                    Background="{StaticResource Brush.Panel}"
+                    AutomationProperties.Name="Add mods: drag and drop mod jars here, or browse"
+                    MouseEnter="DropZone_MouseEnter" MouseLeave="DropZone_MouseLeave"
+                    MouseLeftButtonUp="DropZone_Click" KeyDown="DropZone_KeyDown"
+                    DragEnter="DropZone_DragEnter" DragOver="DropZone_DragEnter"
+                    DragLeave="DropZone_DragLeave" Drop="DropZone_Drop">
+                <Grid>
+                    <Rectangle x:Name="DropDash" Stroke="{StaticResource Brush.Stroke}" StrokeThickness="1" StrokeDashArray="4 4"
+                               RadiusX="{StaticResource Radius.Lg.Value}" RadiusY="{StaticResource Radius.Lg.Value}"
+                               IsHitTestVisible="False"/>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Border x:Name="JarWell" Width="64" Height="64" Background="{StaticResource Brush.Bg}"
-                            CornerRadius="{StaticResource Radius.Md}" RenderTransformOrigin="0.5,0.5" Margin="0,0,20,0">
-                        <Border.RenderTransform>
-                            <TransformGroup>
-                                <ScaleTransform x:Name="JarScale"/>
-                                <TranslateTransform x:Name="JarLift"/>
-                            </TransformGroup>
-                        </Border.RenderTransform>
-                        <Path x:Name="JarIcon" Data="{StaticResource Icon.Drop}" Style="{StaticResource Icon.Base}" Width="30" Height="30"
-                              Stroke="{StaticResource Brush.TextDim}"/>
-                    </Border>
-                    <Grid VerticalAlignment="Center">
-                        <StackPanel x:Name="IdleText">
-                            <TextBlock x:Name="DropTitle" Text="Drag and drop mod jars here" Style="{StaticResource Text.Title}"/>
-                            <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
-                                <Run Text="or"/>
-                                <Run Text="browse" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
-                            </TextBlock>
-                        </StackPanel>
-                        <TextBlock x:Name="OverText" Text="Release to add" Style="{StaticResource Text.Title}" Opacity="0"
-                                   VerticalAlignment="Center"/>
-                    </Grid>
-                </StackPanel>
-
-                <!-- The "ghost" of what is being carried: how many jars. -->
-                <Border x:Name="Ghost" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,22,140,0"
-                        Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Md}"
-                        Padding="12,10,20,10" Opacity="0" IsHitTestVisible="False" RenderTransformOrigin="0.5,0.5">
-                    <Border.RenderTransform>
-                        <RotateTransform x:Name="GhostTilt"/>
-                    </Border.RenderTransform>
-                    <StackPanel Orientation="Horizontal">
-                        <Border Width="36" Height="36" Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}"
-                                Margin="0,0,12,0">
-                            <Path Data="{StaticResource Icon.Jar}" Style="{StaticResource Icon.Base}"
-                                  Stroke="{StaticResource Brush.Text}"/>
-                        </Border>
-                        <TextBlock x:Name="GhostText" Text="1 mod jar" Style="{StaticResource Text.BodyStrong}" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="{StaticResource Margin.DropZone}">
+                        <!-- No box around the arrow (spec 10): it sits straight in the zone. -->
+                        <Path x:Name="JarIcon" Data="{StaticResource Icon.Drop}" Style="{StaticResource Icon.Base}"
+                              Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,12,0" VerticalAlignment="Center"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="JarScale"/>
+                                    <TranslateTransform x:Name="JarLift"/>
+                                </TransformGroup>
+                            </Path.RenderTransform>
+                        </Path>
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel x:Name="IdleText">
+                                <TextBlock x:Name="DropTitle" Text="Drag and drop mod jars here" Style="{StaticResource Text.BodyStrong}"/>
+                                <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
+                                    <Run Text="or"/>
+                                    <Run Text="browse" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
+                                </TextBlock>
+                            </StackPanel>
+                            <TextBlock x:Name="OverText" Text="Release to add" Style="{StaticResource Text.BodyStrong}" Opacity="0"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
                     </StackPanel>
-                </Border>
-            </Grid>
+                </Grid>
+            </Border>
 
-            <!-- Status line (import errors, "close Minecraft first", how many were added). -->
-            <TextBlock x:Name="StatusText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
-                       Visibility="Collapsed" Margin="0,-20,0,20"/>
+            <!-- Status line: what an add did, or why it could not ("close Minecraft first"). A dot says the tone:
+                 danger for a failure, accent for a note (set in code). Hidden when there is nothing to say. -->
+            <Border x:Name="StatusBox" Visibility="Collapsed" Margin="0,0,0,16" Padding="12,8"
+                    CornerRadius="{StaticResource Radius.Md}" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="StatusDot" Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
+                            CornerRadius="{StaticResource Radius.Full}" VerticalAlignment="Top" Margin="0,7,10,0"
+                            Background="{StaticResource Brush.Accent}"/>
+                    <TextBlock Grid.Column="1" x:Name="StatusText" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
+                               TextTrimming="None"/>
+                </Grid>
+            </Border>
 
             <!-- Your mods -->
-            <Grid Margin="0,0,0,10">
+            <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <controls:TrackedText x:Name="UserHeader" Text="MY MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Label}"
+                    <controls:TrackedText x:Name="UserHeader" Text="YOUR MODS" Tracking="0.10" FontSize="{StaticResource FontSize.Label}"
                                           FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
                     <TextBlock x:Name="UserCount" Text="0" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold" Margin="8,0,0,0"
                                Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" x:Name="UserHint" Text="Switch one off to keep it without loading it"
                            Style="{StaticResource Text.Caption}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0"/>
+                <!-- A toolbar action: md 32. Its text says what it does, so no hover label. -->
                 <Button Grid.Column="2" x:Name="OpenFolderButton" Style="{StaticResource Button.Secondary.Small}"
-                        Click="OpenFolder_Click" ToolTip="Open this mods folder">
+                        Click="OpenFolder_Click" AutomationProperties.Name="Open this mods folder">
                     <StackPanel Orientation="Horizontal">
                         <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}" Margin="0,0,8,0"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -147,16 +150,18 @@
                 </Button>
             </Grid>
             <StackPanel x:Name="UserModsPanel"/>
-            <Border x:Name="UserEmptyState" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Lg}" Padding="16">
+            <!-- Empty (or "choose a version first"): one quiet line in the row's own surface. -->
+            <Border x:Name="UserEmptyState" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}"
+                    Padding="16,14">
                 <TextBlock x:Name="UserEmptyText" Text="No mods yet. Drop a jar above to add one."
-                           Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"/>
+                           Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"/>
             </Border>
 
             <!-- Built in (Origin-managed, read-only) -->
             <StackPanel x:Name="BuiltInSection" Visibility="Collapsed" Margin="0,32,0,0">
-                <Grid Margin="0,0,0,10">
+                <Grid Margin="0,0,0,8">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <controls:TrackedText Text="BUILT IN" Tracking="0.16" FontSize="{StaticResource FontSize.Label}"
+                        <controls:TrackedText Text="BUILT IN" Tracking="0.10" FontSize="{StaticResource FontSize.Label}"
                                               FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
                         <TextBlock x:Name="BuiltInCount" Text="0" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold" Margin="8,0,0,0"
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
