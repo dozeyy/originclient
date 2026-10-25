@@ -45,12 +45,14 @@ public class OriginLinksTests
         var home = File.ReadAllText(Path.Combine(app, "UI", "Pages", "HomePage.xaml.cs"));
         // Each top-bar button has its own handler, and each handler opens its own address.
         Assert.Matches(@"WebsiteButton_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Website\)", main);
-        Assert.Matches(@"StoreButton_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Store\)", main);
+        Assert.Matches(@"StoreCard_Click\([^)]*\)\s*=>\s*Core\.Promos\.ExternalLink\.Open\(Core\.Promos\.OriginLinks\.Store\)", home);
         var xaml = File.ReadAllText(Path.Combine(app, "MainWindow.xaml"));
         Assert.Matches("x:Name=\"WebsiteButton\" Click=\"WebsiteButton_Click\"", xaml);
-        Assert.Matches("x:Name=\"StoreButton\" Click=\"StoreButton_Click\"", xaml);
-        // The Store lives in the top bar now, not under Play.
-        Assert.DoesNotContain("StoreButton", home);
+        var homeXaml = File.ReadAllText(Path.Combine(app, "UI", "Pages", "HomePage.xaml"));
+        Assert.Matches("x:Name=\"StoreCard\"[^>]*Click=\"StoreCard_Click\"", homeXaml);
+        // The Store is the Home strip's card, not a top-bar button.
+        Assert.DoesNotContain("StoreButton", xaml);
+        Assert.DoesNotContain("StoreButton", main);
         Assert.DoesNotContain("new Uri(\"https://originclient.org", main);
     }
 

@@ -284,8 +284,8 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Top-bar page tab: the label dim at rest (type.label 11, TextDim), full text when current, with a 2 px underline in the accent that
-         grows from the centre (scaleX) under the current page. md 32. -->
+    <!-- Top-bar page tab: the label dim at rest (type.label 11, TextDim), full text when current, with a 4 px accent dot under the label
+         that grows from its centre (scale) on the current page. md 32. -->
     <Style x:Key="Button.NavItem" TargetType="ToggleButton">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
@@ -306,12 +306,13 @@
                         <ContentPresenter Margin="{TemplateBinding Padding}"
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        <Border x:Name="Indicator" Height="2" Margin="12,0,12,0"
-                                VerticalAlignment="Bottom"
+                        <Border x:Name="Indicator" Width="{StaticResource Size.NavDot}" Height="{StaticResource Size.NavDot}"
+                                Margin="0,0,0,2" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                CornerRadius="{StaticResource Radius.Full}"
                                 Background="{StaticResource Brush.Accent}"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
-                                <ScaleTransform ScaleX="0"/>
+                                <ScaleTransform ScaleX="0" ScaleY="0"/>
                             </Border.RenderTransform>
                         </Border>
                     </Grid>
@@ -331,6 +332,13 @@
                                                 <QuinticEase EasingMode="EaseOut"/>
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetName="Indicator"
+                                                         Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                         To="1" Duration="{StaticResource Motion.Scene}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <QuinticEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
@@ -339,6 +347,9 @@
                                     <Storyboard>
                                         <DoubleAnimation Storyboard.TargetName="Indicator"
                                                          Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                         To="0" Duration="{StaticResource Motion.Exit}"/>
+                                        <DoubleAnimation Storyboard.TargetName="Indicator"
+                                                         Storyboard.TargetProperty="RenderTransform.ScaleY"
                                                          To="0" Duration="{StaticResource Motion.Exit}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
@@ -351,112 +362,165 @@
     </Style>
 
     <!--
-        Play: the content (the PLAY word) sits left of a ring in the accent. Hover fills the ring with the accent
-        from the centre (scale 0 to 1, expo ease) and the arrow turns onAccent; the arrow itself never moves. Press
-        scales the whole control to .97 (ui:Press) and the ring to .94. Only scale, opacity and colour animate.
-        The arrow brush is local because the storyboard animates its Color.
+        Home strip card (Workbench mockup .vbtn / .pbtn / .store): a 64 tall glass card (Color.PanelGlass, the bar's own
+        fill) with a 1 px hairline and Radius.Lg corners. It holds a thumbnail or tile, a two-line label and a glyph, so
+        the content is the caller's. Hover brightens the edge and lifts the fill to the card colour; press is the shared
+        press-scale and the surface-press fill. Background and BorderBrush are local brushes (the storyboards animate
+        them).
+    -->
+    <Style x:Key="Button.StripCard" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.PanelGlass}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.Stroke}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.StripControl}"/>
+        <Setter Property="Padding" Value="8,0,16,0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Lg}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
+        <Style.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsPressed" Value="True"/>
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.SurfacePress}" Duration="{StaticResource Motion.Press}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.Card}" Duration="{StaticResource Motion.Release}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.Card}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.PanelGlass}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.Stroke}" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
+        Play (Workbench mockup .play): a solid emerald card, the same 64 tall and Radius.Lg corners as the cards beside
+        it, dark text on emerald (Color.TextOnAccent), a play triangle and the label in the content. Hover lifts the
+        fill to AccentHover and press to AccentPress; a press also scales the whole control to .97 (ui:Press). Can't
+        play yet (signed out, no version, an import running): a quiet neutral card with dim text, because the accent is
+        for what you can act on. Running or launching (Tag "busy"): the same card a step softer.
     -->
     <Style x:Key="Button.PlayHero" TargetType="Button">
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.OnPhoto}"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+        <Setter Property="Background">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.Accent}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="MinHeight" Value="{StaticResource Size.StripControl}"/>
+        <Setter Property="MinWidth" Value="{StaticResource Size.PlayWidth}"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
         <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="ui:Press.Scale" Value="0.97"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Grid Background="Transparent">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <!-- No pool of its own: the bottom scrim (ArtStage) already holds PLAY at 7:1. -->
-                        <ContentPresenter x:Name="Word" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <Grid Grid.Column="1" x:Name="Ring" Width="56" Height="56" VerticalAlignment="Center"
-                              RenderTransformOrigin="0.5,0.5">
-                            <Grid.RenderTransform>
-                                <ScaleTransform x:Name="RingScale" ScaleX="1" ScaleY="1"/>
-                            </Grid.RenderTransform>
-                            <Ellipse x:Name="RingFill" Fill="{StaticResource Brush.Accent}" RenderTransformOrigin="0.5,0.5">
-                                <Ellipse.RenderTransform>
-                                    <ScaleTransform x:Name="FillScale" ScaleX="0" ScaleY="0"/>
-                                </Ellipse.RenderTransform>
-                            </Ellipse>
-                            <Ellipse x:Name="RingStroke" Stroke="{StaticResource Brush.Accent}" StrokeThickness="2"/>
-                            <Path x:Name="Arrow" Data="M5,12 H19 M13,6 L19,12 L13,18" Width="24" Height="24" Stretch="None"
-                                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Path.Stroke>
-                                    <SolidColorBrush Color="{StaticResource Color.Text}"/>
-                                </Path.Stroke>
-                            </Path>
-                        </Grid>
-                    </Grid>
+                    <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Lg}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter x:Name="Word" Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Trigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="{StaticResource Motion.Settle}">
-                                            <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="7"/></DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                        <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="{StaticResource Motion.Settle}">
-                                            <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="7"/></DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="{StaticResource Color.TextOnAccent}" Duration="{StaticResource Motion.Scene}"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
-                            <Trigger.ExitActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleX" To="0" Duration="{StaticResource Motion.Scene}"/>
-                                        <DoubleAnimation Storyboard.TargetName="FillScale" Storyboard.TargetProperty="ScaleY" To="0" Duration="{StaticResource Motion.Scene}"/>
-                                        <ColorAnimation Storyboard.TargetName="Arrow" Storyboard.TargetProperty="(Path.Stroke).(SolidColorBrush.Color)" To="{StaticResource Color.Text}" Duration="{StaticResource Motion.Hover}"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.ExitActions>
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Trigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="RingScale" Storyboard.TargetProperty="ScaleX" To="0.94" Duration="{StaticResource Motion.Press}"/>
-                                        <DoubleAnimation Storyboard.TargetName="RingScale" Storyboard.TargetProperty="ScaleY" To="0.94" Duration="{StaticResource Motion.Press}"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
-                            <Trigger.ExitActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="RingScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="{StaticResource Motion.Release}"/>
-                                        <DoubleAnimation Storyboard.TargetName="RingScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="{StaticResource Motion.Release}"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.ExitActions>
-                        </Trigger>
-                        <!-- Running / launching: the ring steps back so the label carries the state. -->
                         <Trigger Property="Tag" Value="busy">
-                            <Setter TargetName="Ring" Property="Opacity" Value="0.35"/>
+                            <Setter TargetName="Bg" Property="Opacity" Value="0.72"/>
                         </Trigger>
-                        <!-- Can't play yet (signed out, no version, an import running): a quiet, neutral PLAY. The
-                             accent is for things you can act on, so the ring goes grey. -->
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="Word" Property="Opacity" Value="0.5"/>
-                            <Setter TargetName="RingStroke" Property="Stroke" Value="{StaticResource Brush.Stroke}"/>
-                            <Setter TargetName="Arrow" Property="Opacity" Value="0.5"/>
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.Card}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
         <Style.Triggers>
+        <MultiTrigger>
+            <MultiTrigger.Conditions>
+                <Condition Property="IsMouseOver" Value="True"/>
+                <Condition Property="IsPressed" Value="True"/>
+            </MultiTrigger.Conditions>
+            <MultiTrigger.EnterActions>
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                        To="{StaticResource Color.AccentPress}" Duration="{StaticResource Motion.Press}"/>
+                    </Storyboard>
+                </BeginStoryboard>
+            </MultiTrigger.EnterActions>
+            <MultiTrigger.ExitActions>
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                        To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Release}"/>
+                    </Storyboard>
+                </BeginStoryboard>
+            </MultiTrigger.ExitActions>
+        </MultiTrigger>
+        <Trigger Property="IsMouseOver" Value="True">
+            <Trigger.EnterActions>
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                        To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Hover}"/>
+                    </Storyboard>
+                </BeginStoryboard>
+            </Trigger.EnterActions>
+            <Trigger.ExitActions>
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                        To="{StaticResource Color.Accent}" Duration="{StaticResource Motion.Hover}"/>
+                    </Storyboard>
+                </BeginStoryboard>
+            </Trigger.ExitActions>
+        </Trigger>
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="ui:Press.Down" Value="True"/>
             </Trigger>
-            <!-- The disabled look is in the template (word dimmed, ring neutral): dimming the whole control left a
-                 muddy half-accent ring. -->
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Cursor" Value="Arrow"/>
             </Trigger>

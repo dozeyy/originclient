@@ -134,7 +134,8 @@ outside the deleted list.
 | `color.line` | `rgba(255,255,255,.06)` | hairlines at rest: card edges, dividers |
 | `color.lineStrong` | `rgba(255,255,255,.10)` | control edges, hover edges, menu edges |
 | `color.text` | `#F1E9D2` (parchment) | primary text |
-| `color.numeral` | `#F5F5F5` (neutral white, no hue) | every version number set on art: Home and cards (11.6) |
+| `color.numeral` | `#F1E9D2` (parchment = `color.text`) at 94 % = `#F0F1E9D2` | every version number set on art: Home and cards (11.6). Warm parchment, the Workbench Home mockup; no hue shift per family |
+| `color.orbitThread` | `rgba(241,233,210,.20)` | the orbit thread's 1 px hairlines behind the Home numeral (12.1) |
 | `color.onArt` | `rgba(245,245,245,.82)` | eyebrow and range beside a numeral on art |
 | `color.cornerShade` | `color.bg` from 88 % to 0 | the radial shade a card's numeral stands in (11.6); Home has none |
 | `color.textDim` | `rgba(241,233,210,.68)` | secondary text, inactive nav, icons at rest |
@@ -210,10 +211,10 @@ dock icon (Will: "remove the unnecessary boxes").
 | `type.body` | 13.5 / 20 | 400 | 0 | Sentence | default text, descriptions |
 | `type.bodyStrong` | 13.5 / 20 | 600 | 0 | Sentence | button labels, names, row titles |
 | `type.title` | 16 / 22 | 600 | -0.005 em | Sentence | card titles, dialog titles, installer state titles |
-| `type.action` | 16 / 20 | 700 | -0.01 em | Sentence | the Play label only |
+| `type.action` | 20 / 24 | 700 | +0.02 em | Sentence | the Play label only (Workbench mockup `.play`: 20 px, 700) |
 | `type.heading` | 22 / 28 | 700 | -0.015 em | Sentence | page and sheet titles |
 | `type.display` | 32 / 36 | 800 | -0.03 em | Sentence | installer hero line, empty-state headline |
-| `type.numeral` | figures = 25 % of the art's height | 800 | -0.04 em | Figures | every numeral on art: Home and version cards (11.6) |
+| `type.numeral` | figures = 32 % of the art's height | 800 | -0.04 em | Figures | every numeral on art: Home and version cards (11.6) |
 
 - **Numerals on art:** Inter 800 at its **natural width**, proportional lining figures (`pnum lnum`,
   so a narrow 1 does not leave a hole), -0.04 em tracking, `color.numeral`. Tabular figures (`tnum`)
@@ -258,9 +259,9 @@ dock icon (Will: "remove the unnecessary boxes").
 | Token | Height | Pad X | Icon | Radius | Label | Used for |
 |---|---|---|---|---|---|---|
 | `size.control.sm` | 28 | 10 | 14 | `radius.sm` 6 | 12 / 600 | chips, filter pills, inline actions, "All versions" back |
-| `size.control.md` | 32 | 12 | 16 | `radius.sm` 6 | 13.5 / 600 | top bar (tabs, Store, account, icon buttons), menu items, toolbar dropdowns |
+| `size.control.md` | 32 | 12 | 16 | `radius.sm` 6 | 13.5 / 600 | top bar (tabs, account, icon buttons), menu items, toolbar dropdowns |
 | `size.control.lg` | 36 | 14 | 16 | `radius.md` 8 | 13.5 / 600 | dialog and installer buttons, form inputs and dropdowns, settings controls, release rows |
-| `size.control.xl` | 40 | 16 | 18 | `radius.md` 8 | 13.5 / 600 (Play: `type.action`) | the Home strip: version selector, profile, Play |
+| `size.control.xl` | 40 | 16 | 18 | `radius.md` 8 | 13.5 / 600 | big dialog actions. The Home strip no longer uses it: its cards and Play are `size.strip` 64 (13) |
 
 - Icon-only buttons are square: 28 / 32 / 36 / 40.
 - `size.topbar` = 48 (holds `md` controls with 8 above and below).
@@ -437,15 +438,16 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
   `https://originclient.org` through `Core.Promos.ExternalLink.Open`. Settings > About lists the
   Website and the Store again, so neither link depends on the bar alone.
 - **Centre:** tabs Home, Mods, Profiles, Settings. `md` 32, pad X 12, `type.label`, gap 4. Rest
-  `textDim`, hover `text` + `rgba(255,255,255,.04)`, selected `text` + `rgba(255,255,255,.07)`
-  fill (the Mod Menu's own selected tab), `radius.sm`.
-- **Right (pad 8):** [update chip, only while an update waits] Store, Import (icon), Friends
+  `textDim`, hover `text` + `rgba(255,255,255,.04)`, selected `text` and a **4 px round accent dot
+  centred under the label** (Workbench mockup; it grows from its centre in `motion.base`, it replaces
+  the 2 px underline), `radius.sm`.
+- **Right (pad 8):** [update chip, only while an update waits] Import (icon), Friends
   (icon + count badge), divider 1 x 20 at `rgba(255,255,255,.14)` (8 margins), account control, 8 gap,
   minimise, close. Gaps 4 inside the group.
 - **Narrow windows give up width in this order** (window width):
   1. 1100 and wider: everything at full size.
-  2. Below 1100: Store becomes an icon button 32 (gold bag only, tooltip "Store"). The label and
-     the arrow go. The update chip becomes an icon button 32 at the same moment (below).
+  2. Below 1100: the update chip becomes an icon button 32 (below). The Store is no longer in the
+     bar (it is the Home strip's Store card, 11.7), so there is no label fit rule left.
   3. Below 1000: the wordmark hides; the logo stays as the Website link.
   4. The account name ellipsizes at 160 at every width.
 - **Update chip** (first in the right group, only while a downloaded update waits): ghost `md`
@@ -488,16 +490,20 @@ picture:
   bar's bottom edge (48) to the top of the Home strip, reported by `HomePage` as its height
   changes. The figures' vertical middle is the band's middle and the ink's horizontal middle is
   the window's (the first figure's left and the last one's right side bearings are taken off,
-  so a "1" at either end does not tip it). The figures never fill more than 60 % of the band.
+  so a "1" at either end does not tip it). The figures are 32 % of the window's height (was 25 %; the
+  approved mockup's numeral is bigger) and never fill more than 60 % of the band.
   No corner shade, no eyebrow (Will, 2026-10-19: the pill names the version, the art names the
-  family). Measured at 960 x 600, 1180 x 740 and 1920 x 1080: figures 150, 185 and 270, air above
-  equals air below, ink 59 %, 60 % and 54 % of the width for "1.21.11".
+  family). Figures at 960 x 600, 1180 x 740 and 1920 x 1080: 192, 237 and 345 (32 % of the height),
+  air above equals air below. The measured
+  ink shares are re-taken from the launcher-shots render log (`TourNumeralFit`) after each change to this rule.
 - **Contrast rule (replaces "text never sits on art without a scrim" for the numeral):** the
   numeral is display-size text (at least 150 tall), so it keeps at least 3:1 (WCAG large text)
   against the art behind its ink. Measured on the 1.21.11 art at the three sizes above: worst
-  pixel 4.7:1, 99th percentile 5.8:1 (`color.numeral` against the art within the numeral's box,
-  edges excluded). Every other family's art is checked the same way when it is added or
-  re-graded; a family that falls under 3:1 gets a scrim under the numeral, not a tint on it.
+  pixel 4.7:1, 99th percentile 5.8:1 (measured with the old neutral white; `color.numeral` is now
+  parchment at 94 %, about the same luminance, and the Home art is now full colour, so every family is
+  re-measured from the shots before this is called met). Every other family's art is checked the same
+  way when it is added or re-graded; a family that falls under 3:1 gets a scrim under the numeral, not a
+  tint on it. Home's art shade (12) is clear until 40 % of the way down, so it does not touch the numeral.
 
 - **Card corner:** bottom-left, always. A radial `color.cornerShade` grows from that corner
   (ellipse 100 % x 80 %), `color.bg` from 88 % at the corner, 50 % at 45 %, 0 at the edge. Cards
@@ -506,15 +512,17 @@ picture:
   edge. Compensate the first glyph's left side bearing (WPF: `GlyphTypeface` left side
   bearing x size; web: canvas `actualBoundingBoxLeft`).
 - **Card ground line:** the figures' baseline, 12 above the card's bottom edge.
-- **Size:** figure height (cap height) = **25 % of the art's height**. Inter's figures are
-  0.7275 em, so font size = art height x 0.344. Card 16:10: font = 21.5 % of the card's width.
-  Home 1180 x 740: figures 185, font 254. Home 960 x 600: figures 150, font 206.
+- **Size:** figure height (cap height) = **32 % of the window's height on Home** (Workbench mockup)
+  and **25 % of the art's height on a card**. Inter's figures are 0.7275 em, so Home's font size =
+  window height x 0.44; a card 16:10: font = 21.5 % of the card's width.
+  Home 1180 x 740: figures 237, font 326. Home 960 x 600: figures 192, font 264.
 - **Width cap (Home and cards):** the ink is never wider than 2/3 of the art; past that the font shrinks to fit.
-  Measured at font 254: 26.3 is 522 px (44 % of 1180), the longest key 1.21.10 is 748 (63 %), so
-  nothing shrinks at the default window.
+  At Home 1180 x 740 (font 326): 26.3 is 670 px (57 % of 1180); the longest key 1.21.10 would be 960
+  (81 %), so it shrinks to the 2/3 cap (787 px).
 - **Figures:** `type.numeral`: Inter 800, natural width (no horizontal squash), proportional
-  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow. Home draws
-  it plain (the contrast rule above holds without help). A card on bright art may add a 1 px
+  lining figures, -0.04 em, `color.numeral` parchment at 94 %, never tinted per family, no glow and
+  NO frosted glass behind it (the glass experiment is dropped). Home draws it plain on the colour art,
+  with the orbit thread behind it (12.1). A card on bright art may add a 1 px
   legibility shadow, drawn, never an effect: the same `FormattedText` once at +1 px y in black at
   40 %, then the white text on top. No `DropShadowEffect` (section 7: no effects on animating
   elements, and the numeral crossfades, section 13).
@@ -530,18 +538,19 @@ picture:
 - Never bake the number into the art files. Short keys ("26") and long ones ("1.21.11") use the
   same rule; only the width cap can shrink a long one.
 
-### 11.7 Store entry
+### 11.7 Store card (Home strip)
 
-- Lives in the top bar's right group, first item: ghost `md` 32, bag icon 16 in `hue.gold`,
-  label "Store" in `bodyStrong` `textDim`, a trailing external-arrow glyph 12 in `textMuted`
-  (it opens the browser). Hover: label `text`, fill `rgba(255,255,255,.06)`.
+- Lives in the Home strip's right group, first item (13): a card 64 tall x 236 wide (`size.strip`,
+  `radius.lg`, the strip card fill `color.nav` 88 % with a 1 px `color.line` edge): a 48 soft-hue
+  tile (`radius.md`, `hue.lilac` at 16 %) holding the bag glyph in `hue.lilac`, "Origin Store" in
+  `bodyStrong`, "Capes and cosmetics" in `caption` `textDim` under it, and a small up-right arrow
+  glyph in `textDim` at the right (it opens the browser). Hover: fill `color.card`, edge `lineStrong`;
+  press: `surfacePress` + the shared press-scale .97. No hover label.
 - Opens `https://originclient.org/store` through `Core.Promos.ExternalLink.Open` (the Store
-  page's live URL, `services/cosmetics/src/stripe.js:31` `STORE_PAGE`). It takes the Website
-  button's slot (`MainWindow.xaml:115-126`); the Website link moves to the brand lockup (11.4)
-  and Settings > About. The Website link is never dropped.
-- Below 1100 px of window width it is an icon button 32 (bag only, tooltip "Store").
-- It is never a card, never in the Play strip, and has no promo art. Discovery comes from the
-  gold glyph and a constant position.
+  page's live URL, `services/cosmetics/src/stripe.js:31` `STORE_PAGE`), from `HomePage.StoreCard_Click`.
+  It replaced the top bar's Store button (the Workbench mockup: "the Store card replaces the Website
+  button"); the Website link stays in the brand lockup (11.4) and Settings > About.
+- It is never in the top bar any more and has no promo art.
 
 ### 11.8 Switch, checkbox, input, tooltip
 
@@ -581,7 +590,7 @@ picture:
   `ease.inOut`. There is never a fake percentage.
 - **Spinner:** 14 (12 in `sm`), 1.7 stroke 270-degree arc in `textDim`, 0.8 s linear. Only inside
   controls waiting on the network (sign-in, Fix compatibility).
-- **Play while preparing:** the button keeps its fixed 144 width. Fill becomes `surfaceRaised` + `lineStrong`,
+- **Play while preparing:** the button keeps its fixed 208 width (13). Fill becomes `surfaceRaised` + `lineStrong`,
   the label reads "Preparing 42 %" (`bodyStrong`, `tnum`), and a progress rail runs inside the
   bottom edge (8 inset, 6 from the bottom). On hover the label becomes "Cancel". The status line
   above Play names the step ("Downloading libraries, 128 of 412 MB"). While the game runs, the label
@@ -593,11 +602,24 @@ picture:
 
 - **Launcher Home:** the selected family's colour art (`-c{1280|2560|3840}.jpg`, chosen by
   window width x DPI). The slow drift stays only if Phase 3 measures it inside the frame budget
-  (it re-composites the full window at 15 fps); otherwise the art is static. Bottom scrim:
-  `color.bg` from 82 % at the window's bottom edge to 0 at 200 px above the strip. There is no top
+  (it re-composites the full window at 15 fps); otherwise the art is static. **Full colour, never
+  greyscale** (Will, 2026-10-25: "i want the colored background now"; the `-g*` files are no longer
+  shipped). The one darkening is `Fill.ArtShade` over the full window height: clear down to 40 %, then
+  `color.bg` at 38 % at 66 % and 92 % at the bottom edge (so the strip's text keeps 7:1 over bright art)
+  and nothing above it, so the numeral stands on untouched colour. There is no top
   scrim: the top bar's own `color.nav` 88 % surface (11.4) covers the art behind it, so the art runs at full
   strength right under the bar's hairline. The art crossfades in `motion.scene` when the family
   changes.
+### 12.1 Signature effects: orbit thread
+
+The logo's idea used once as a faint thread, behind the Home numeral only: **three ellipses sharing one
+centre, tilted 0, 60 and 120 degrees, as 1 px `color.orbitThread` hairlines** (parchment at 20 %), semi-major
+axis 0.75 x the figures' height, minor axis 0.4 of that, centred on the figures. It is drawn once in
+`OnRender` (`UI/Controls/OrbitThread.cs`, a child of `VersionNumeral`), redrawn only when the numeral's size
+changes, no shader, no blur, nothing per frame, and it fades and rolls with the numeral. It is a decoration,
+not the logo: the logo is only ever the official image file (1.5), and `tools/design/check_logo.py` allows
+this one file by exact path.
+
 - **Other launcher pages:** `color.bg` with the same art under 92 % `color.bg` (the existing
   `PageDim`, re-valued), so the version still tints the room faintly.
 - **Sheets and dialogs:** `color.scrim` over whatever is behind.
@@ -614,31 +636,41 @@ picture:
 
 ```
 +-- top bar 48 --------------------------------------------------------------------+
-| [logo][wordmark]>   |24|  HOME  MODS  PROFILES  SETTINGS  |24|  Store i f | (h) Name v  - x |
+| [logo] ORIGIN       |24|  HOME  MODS  PROFILES  SETTINGS  |24|   i f | (h) Name v  - x |
+|                            .                                                    |
 +----------------------------------------------------------------------------------+
 |                                                                                  |
+|                       2 6 . 3          <- figures 32 % of the height, centred    |
+|                       (orbit thread)      in the band (bar bottom to strip top)  |
 |                                                                                  |
-|                       2 6 . 3          <- figures 185 = 25 % of 740, centred     |
-|                                           in the band (bar bottom to strip top)  |
-|                                                                                  |
-|                                                                   * Ready to play |
-| [thumb 26.3  The Latest Releases v] [o No profile v]          My mods [=] [> Play] |
-+---------------------------------------------- 24 inset ---------------------------+
+| [thumb 26.3     v] [No profile v]   [bag Origin Store ^]  MY MODS [=]  [> Play]  |
+| * Ready to play                                                                  |
++---------------------------------------------- 32 inset ---------------------------+
 ```
 
-- **Strip:** one row of `xl` 40 controls, 24 from the left, right and bottom edges. Left group:
-  the version selector (thumb 32 x 24 `radius.xs`, numeral `bodyStrong` 700 `tnum`, update name in
-  `caption` `textDim`, chevron), 8, then the profile dropdown. Right group: "My mods" switch (label
-  + 32 x 18 switch), 16, then Play (**fixed width 144** in every state, play glyph 14 +
-  `type.action`). The status line (`caption`, 6 px dot) sits 8 above Play, right-aligned.
+- **Strip (Workbench mockup `.strip`):** 32 from the left, right and bottom edges (24 below 640 high).
+  Left column: a row of two 64 tall cards 12 apart, then the status line 10 under them.
+  The **version card** (`radius.lg`, 16 right / 8 left padding): a 48 thumbnail of the family's colour
+  art (`radius.md`), 12, the version in `type.heading` 22 / 700 over the family name in `caption`
+  `textDim`, then a chevron. The **profile card**: its emblem (only when a profile is picked) and the
+  profile name in `bodyStrong` (`textDim` for "No profile"), a chevron; 14 padding. The **status line**:
+  an 8 px round dot (`accent` while ready, `warning`, `danger`) and one `caption` line (`textDim`).
+  Right group, bottom-aligned with the status line, 12 gaps, every item centred on one 64 line:
+  the **Store card** (11.7), **MY MODS** (`type.label`, 0.14 em tracking, `textMuted`) with the iOS
+  switch 36 x 20 (14 knob inset 3; off: progress-track fill + 1 px edge + muted knob, on: `accent`
+  track with a dark `onAccent` knob), Join (a strip card, only when the profile has a server), then
+  **Play**: a solid `accent` card 208 x 64 (`radius.lg`), the play triangle and "Play" in `onAccent`
+  `type.action` (hover `accentHover`, press `accentPress` + scale .97; "Running" while the game is
+  open; a spinner while it starts; disabled = `card` fill with `textMuted`).
+- **Cards are not capsules.** The standing capsule rule is for pills, chips and badges; these strip
+  cards follow the approved mockup's `radius.lg` 12.
 - **Numeral:** the selected release ("26.3") centred in the band between the bar's bottom edge
-  and the strip's top edge (11.6 Home placement), at its natural width. At 1180 x 740: font 254,
-  figures 185 tall (25 % of 740), ink centred on x 590 and on the band's middle (y 336 with the
-  band at 48 to 624). At 960 x 600: font 206, figures 150. Ink width capped at 2/3 of the window
-  (11.6). Replaces the fixed 0.42 x height and the 70 % squash. Shaped text is cached per font
-  size, not rebuilt per glyph per resize. Crossfades with the art (`motion.scene`).
-- At 960 x 600 the update name in the version selector drops first, then the "My mods" label
-  (the switch stays, with a tooltip).
+  and the strip's top edge (11.6 Home placement), at its natural width and 32 % of the height. At
+  1180 x 740: figures 237, ink centred on x 590 and on the band's middle. Ink width capped at 2/3 of
+  the window (11.6). Shaped text is cached per font size, not rebuilt per glyph per resize. It
+  crossfades with the art (`motion.scene`) and carries the orbit thread (12.1).
+- At 960 x 600 the strip keeps its sizes; the profile card takes the width that is left and its name
+  trims.
 
 ---
 
@@ -794,7 +826,13 @@ Status: **reuse** = the key exists, so only its value changes; **new** = the key
 | color.danger / dangerText / dangerSoft | `Color.Danger` / `Color.DangerText` / `Color.DangerSoft` | `#FFD9675A` / `#FFF98E80` / `#24D9675A` | reuse / new / new |
 | color.scrim | `Brush.Scrim` | `#A30A0D0C` | reuse |
 | page dim | `Brush.PageDim` | `#EB0E1110` | reuse |
-| numeral ink | `Brush.NumeralInk` | `#FFF5F5F5` | re-value (neutral white, was parchment) |
+| numeral ink | `Brush.NumeralInk` | `#F0F1E9D2` (parchment at 94 %) | re-value (Workbench Home mockup; was neutral white) |
+| orbit thread | `Brush.OrbitThread` | `#33F1E9D2` | new (12.1) |
+| art shade | `Fill.ArtShade` | clear at 40 %, `Color.ScrimArt` at 66 %, `ScrimStrong` at 100 % | new (12; replaces the 330 px bottom scrim on Home) |
+| strip sizes | `Size.StripControl` 64, `StripTile` 48, `StoreCardWidth` 236, `PlayWidth` 208, `StatusDot` 8, `NavDot` 4 | | new (13) |
+| Home switch | `Size.HomeSwitchWidth/Height/Knob/Travel` 36 / 20 / 14 / 16, style `Toggle.HomeSwitch` | | new (13) |
+| strip card | `Button.StripCard`; Play = `Button.PlayHero` (solid accent) | | new / re-built (13) |
+| capsule padding | `Padding.Capsule` 8,4, `Padding.Capsule.Sm` 6,3 (corners `Radius.Full`) | | shared with the capsule rule |
 | progress track | `Brush.ProgressTrack` | `#14FFFFFF` | reuse |
 | hue.* | `Color.Hue.Emerald/Sky/Gold/Lilac/Coral` (+ `Brush.HueTile.*` at 16 %) | section 2.3 | new (replace `Tint.*`, `TintInk.*`) |
 | family hue | `Brush.Acc`, `FamilyTheme.cs` table | none | retire (colour lives in hues, not per family) |

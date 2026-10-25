@@ -6,12 +6,12 @@
              xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d">
 
-    <!-- Home (Poster): the family art and the giant version numeral fill the
-         window (ArtStage, behind every page). Everything here sits in one bottom
-         strip so the art and the number stay clear: the version pill and the profile
-         pill (48 px) with the status line under them on the left; the My mods switch,
-         Join (48 px) and Play on the right. Row 0 holds every control and centres them
-         on one line; the status line is row 1. -->
+    <!-- Home (Workbench, Will's approved mockup): the family art in full colour and the giant version numeral fill the
+         window (ArtStage, behind every page). Everything here sits in one bottom strip: on the left the version card
+         (family art thumbnail, version, family name, chevron) and the profile card with the status line under them; on
+         the right, bottom-aligned, the Origin Store card, the My mods switch, Join (only with a server) and the solid
+         emerald Play button. The cards and Play are 64 tall, the thumbnail and the Store tile 48 (Size.StripControl /
+         StripTile). -->
     <Grid x:Name="HomeRoot">
 
         <!-- Top right, under the bar: the home banner's slot. Empty while
@@ -25,39 +25,41 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
             <Grid.RenderTransform>
                 <TranslateTransform x:Name="StripShift"/>
             </Grid.RenderTransform>
 
-            
-                <!-- No family eyebrow above the pills (Will, 2026-10-19): the pill already
-                     names the version, and the art and numeral name the family.
-                     A DockPanel, not a StackPanel: when Play grows (RUNNING, Join) or the
-                     window is narrow, the profile pill gets the width that is left and its
-                     name trims, instead of the whole row being cut off. -->
-                <DockPanel x:Name="HomeLockup" Grid.Row="0" Grid.Column="0" LastChildFill="True"
-                           VerticalAlignment="Center" Margin="0,0,24,0">
-                    <!-- The version pill: opens the whole-window picker. -->
-                    <Button x:Name="VersionButton" DockPanel.Dock="Left" Style="{StaticResource Button.Pill}"
+            <!-- Left: the two cards, then the status line under them. -->
+            <StackPanel Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,24,0">
+                <!-- A DockPanel, not a StackPanel: when Play grows (Running, Join) or the window is narrow, the
+                     profile card gets the width that is left and its name trims, instead of the row being cut off. -->
+                <DockPanel x:Name="HomeLockup" LastChildFill="True">
+                    <!-- The version card: opens the whole-window picker. -->
+                    <Button x:Name="VersionButton" DockPanel.Dock="Left" Style="{StaticResource Button.StripCard}"
                             Click="VersionButton_Click"
                             AutomationProperties.Name="Choose Minecraft version">
                         <StackPanel Orientation="Horizontal">
-                            <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
-                                                  FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Title}"
-                                                  FontWeight="ExtraBold" Foreground="{StaticResource Brush.Text}"
-                                                  VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <Border Width="{StaticResource Size.StripTile}" Height="{StaticResource Size.StripTile}"
+                                    CornerRadius="{StaticResource Radius.Md}" ClipToBounds="True"
+                                    Background="{StaticResource Brush.CardAlt}" Margin="0,0,12,0">
+                                <Image x:Name="VersionThumb" Stretch="UniformToFill"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
+                                                      FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Heading}"
+                                                      FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
+                                                      HorizontalAlignment="Left"/>
+                                <TextBlock x:Name="VersionTagline" Text="" Style="{StaticResource Text.Caption}"
+                                           Foreground="{StaticResource Brush.TextDim}" Margin="0,4,0,0"/>
+                            </StackPanel>
                             <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
                                   VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
                         </StackPanel>
                     </Button>
 
-                    <!-- The profile chip: the mod profile Play will use; opens Profiles. -->
-                    <Button x:Name="ProfileRow" Style="{StaticResource Button.Pill}" Margin="8,0,0,0"
-                            HorizontalAlignment="Left" HorizontalContentAlignment="Stretch"
+                    <!-- The profile card: the mod profile Play will use; opens Profiles. -->
+                    <Button x:Name="ProfileRow" Style="{StaticResource Button.StripCard}" Margin="12,0,0,0"
+                            Padding="14,0" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch"
                             Click="ProfileRow_Click"
                             AutomationProperties.Name="Switch profile">
                         <Grid>
@@ -66,10 +68,11 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
+                            <!-- Hidden with no profile (the mockup's card is just the words); a profile shows its emblem. -->
                             <Border x:Name="ProfileEmblem" Width="{StaticResource Size.Emblem}" Height="{StaticResource Size.Emblem}"
-                                    CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,8,0">
+                                    CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,10,0" VerticalAlignment="Center"
+                                    Visibility="Collapsed">
                                 <Grid>
-                                    <!-- No profile: the Origin mark itself (plain Origin), never a bare letter. -->
                                     <controls:BrandLogo x:Name="ProfileMark" Width="{StaticResource Size.Logo.Bar}" Height="{StaticResource Size.Logo.Bar}"
                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     <!-- The profile's icon (ProfileLook.EmblemGlyph); empty when its letter shows. -->
@@ -79,19 +82,20 @@
                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
-                            <TextBlock x:Name="ProfileNameText" Grid.Column="1" Text="No profile" Style="{StaticResource Text.Title}"
-                                       VerticalAlignment="Center" Margin="0,0,8,0" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="ProfileNameText" Grid.Column="1" Text="No profile" Style="{StaticResource Text.BodyStrong}"
+                                       Foreground="{StaticResource Brush.TextDim}"
+                                       VerticalAlignment="Center" Margin="0,0,10,0" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
                             <Path Grid.Column="2" Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
                                   VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
                         </Grid>
                     </Button>
                 </DockPanel>
 
-                <!-- The status line: a 6 px square (the accent while live) and one line. The
+                <!-- The status line: an 8 px round dot (the accent while live) and one line. The
                      players-online count joins it once it arrives, and only then. -->
-                <StackPanel x:Name="StatusRow" Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,12,0,0">
-                    <Rectangle x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.TextDim}"
-                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="4,10,0,0">
+                    <Ellipse x:Name="StatusDot" Width="{StaticResource Size.StatusDot}" Height="{StaticResource Size.StatusDot}"
+                             Fill="{StaticResource Brush.TextDim}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Caption}"
                                Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
                                LineHeight="{StaticResource Size.StatusLine}" LineStackingStrategy="BlockLineHeight"
@@ -101,15 +105,43 @@
                         <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
+            </StackPanel>
 
-            <!-- Play, Join and the My mods switch: centred in row 0 with the pills, so the pills'
-                 centre line, Join's and the Play ring's are one line (PLAY's caps centre on the ring). -->
-            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- My mods (Will, 2026-10-19: "maybe a slider would be better like a slider on
-                     or off"): the Mods page's YOUR MODS switch on Home, the same setting
-                     (LauncherSettings.PlayWithExternalMods). No box: a caps label and the
-                     Toggle.Slider switch (Theme/Inputs.xaml), filled with the family accent when on. -->
-                <ToggleButton x:Name="MyModsSwitch" Style="{StaticResource Toggle.Slider}" Margin="0,0,28,0"
+            <!-- Right, bottom-aligned with the status line: Store, My mods, Join, Play. Every item is centred on the
+                 cluster's one 64 px line. -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <!-- The Origin Store card (it replaced the top bar's Store button): a soft-hue tile with the bag, the
+                     name over what it sells, and a small up-right arrow because it opens the browser. -->
+                <Button x:Name="StoreCard" Style="{StaticResource Button.StripCard}" Width="{StaticResource Size.StoreCardWidth}"
+                        Margin="0,0,12,0" VerticalAlignment="Center" Click="StoreCard_Click"
+                        AutomationProperties.Name="Open the Origin store, originclient.org/store">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="{StaticResource Size.StripTile}" Height="{StaticResource Size.StripTile}"
+                                CornerRadius="{StaticResource Radius.Md}" Background="{StaticResource Brush.HueTile.Lilac}"
+                                Margin="0,0,12,0">
+                            <Path Data="{StaticResource Icon.Store}" Style="{StaticResource Icon.Base}"
+                                  Stroke="{StaticResource Brush.Hue.Lilac}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Origin Store" Style="{StaticResource Text.BodyStrong}"/>
+                            <TextBlock Text="Capes and cosmetics" Style="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.TextDim}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Path Grid.Column="2" Data="{StaticResource Icon.ArrowUpRight}" Style="{StaticResource Icon.Small}"
+                              Stroke="{StaticResource Brush.TextDim}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    </Grid>
+                </Button>
+
+                <!-- My mods (Will, 2026-10-19: a slider, on or off): the Mods page's YOUR MODS switch on Home, the same
+                     setting (LauncherSettings.PlayWithExternalMods). A tracked caps label and the iOS-style switch
+                     (Toggle.HomeSwitch, Theme/Inputs.xaml): emerald with a dark knob when on. -->
+                <ToggleButton x:Name="MyModsSwitch" Style="{StaticResource Toggle.HomeSwitch}" Margin="0,0,12,0"
                               VerticalAlignment="Center" Click="MyModsSwitch_Click"
                               AutomationProperties.Name="My mods">
                     <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Primary}"
@@ -119,8 +151,8 @@
 
                 <!-- The selected profile's server: straight in with that profile's mods.
                      Hidden when the profile has none. -->
-                <Button x:Name="JoinButton" Style="{StaticResource Button.Pill}"
-                        Margin="0,0,32,0" VerticalAlignment="Center"
+                <Button x:Name="JoinButton" Style="{StaticResource Button.StripCard}" Padding="14,0"
+                        Margin="0,0,12,0" VerticalAlignment="Center"
                         Visibility="Collapsed" Click="JoinButton_Click">
                     <StackPanel Orientation="Horizontal">
                         <Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Base}"
@@ -135,25 +167,33 @@
                     </StackPanel>
                 </Button>
 
-                <!-- Play (option 6): the word and an accent ring whose arrow fills on hover. -->
+                <!-- Play (Workbench): the solid emerald card with a play triangle and the word. -->
                 <Button x:Name="PlayButton" Style="{StaticResource Button.PlayHero}" VerticalAlignment="Center"
                         IsEnabled="False"
                         AutomationProperties.Name="Play Minecraft"
                         Click="PlayButton_Click">
                     <Grid>
-                        <controls:TrackedText x:Name="PlayLabel" Text="PLAY" Tracking="0.02"
-                                              FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Display}" FontWeight="ExtraBold"
-                                              Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Center"/>
+                        <!-- Hidden, not Collapsed, while the spinner shows: the spinner takes the face's place without
+                             the button changing width. -->
+                        <StackPanel x:Name="PlayFace" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="{StaticResource Icon.Play}" Style="{StaticResource Icon.Base}" Width="{StaticResource Icon.SizeLarge}"
+                                  Height="{StaticResource Icon.SizeLarge}" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,12,0"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <controls:TrackedText x:Name="PlayLabel" Text="Play" Tracking="0.02"
+                                                  FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Action}" FontWeight="Bold"
+                                                  VerticalAlignment="Center"/>
+                        </StackPanel>
                         <!-- The selected account's game is already open: Play becomes
-                             RUNNING and clicking it brings that window forward. -->
-                        <controls:TrackedText x:Name="RunningLabel" Text="RUNNING" Tracking="0.02" Visibility="Collapsed"
-                                              FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Display}" FontWeight="ExtraBold"
-                                              Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Center"/>
+                             Running and clicking it brings that window forward. -->
+                        <controls:TrackedText x:Name="RunningLabel" Text="Running" Tracking="0.02" Visibility="Collapsed"
+                                              FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Action}" FontWeight="Bold"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Path x:Name="PlaySpinner" Visibility="Collapsed"
-                              Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center"
                               Data="{StaticResource Icon.Loading}"
                               Style="{StaticResource Icon.Base}"
-                              Stroke="{StaticResource Brush.OnPhoto}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                               RenderTransformOrigin="0.5,0.5"/>
                     </Grid>
                 </Button>

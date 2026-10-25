@@ -133,6 +133,10 @@ public partial class HomePage : UserControl
     /// <summary>MainWindow: the launch screen came up or went down (the top bar hides under it).</summary>
     public event Action<bool>? LaunchSceneChanged;
 
+    // The Origin Store card (it replaced the top bar's Store button): the same link, the same opener.
+    private void StoreCard_Click(object sender, RoutedEventArgs e) =>
+        Core.Promos.ExternalLink.Open(Core.Promos.OriginLinks.Store);
+
     private void ProfileRow_Click(object sender, RoutedEventArgs e) => ProfilesRequested?.Invoke(this, EventArgs.Empty);
 
     // The strip steps aside (fade + 16 px drop) while the picker or the launch
@@ -354,6 +358,8 @@ public partial class HomePage : UserControl
             ProfileIcon.Child = null;
             ProfileMark.Visibility = Visibility.Visible;
             ProfileEmblem.Background = Brushes.Transparent; // the bare mark, no box
+            ProfileEmblem.Visibility = Visibility.Collapsed; // the mockup's card is just the words
+            ProfileNameText.SetResourceReference(TextBlock.ForegroundProperty, "Brush.TextDim");
         }
         else
         {
@@ -364,6 +370,8 @@ public partial class HomePage : UserControl
             ProfileInitial.Visibility = ProfileIcon.Child == null ? Visibility.Visible : Visibility.Collapsed;
             ProfileMark.Visibility = Visibility.Collapsed;
             ProfileEmblem.Background = ProfileLook.Tint(selected);
+            ProfileEmblem.Visibility = Visibility.Visible;
+            ProfileNameText.SetResourceReference(TextBlock.ForegroundProperty, "Brush.Text");
         }
         System.Windows.Automation.AutomationProperties.SetName(ProfileRow, $"Profile: {ProfileNameText.Text}. Switch profile");
         ShowMyMods(settings.PlayWithExternalMods);
@@ -550,8 +558,8 @@ public partial class HomePage : UserControl
         System.Windows.Automation.AutomationProperties.SetName(PlayButton,
             view.ShowsRunning ? "Switch to Minecraft" : "Play Minecraft");
         SetPlayLaunching(view.Spinner);
-        // Hidden, not Collapsed: the spinner takes PLAY's place without the button changing width.
-        PlayLabel.Visibility = !view.Spinner && !view.ShowsRunning ? Visibility.Visible
+        // Hidden, not Collapsed: the spinner takes the Play face's place without the button changing width.
+        PlayFace.Visibility = !view.Spinner && !view.ShowsRunning ? Visibility.Visible
             : view.ShowsRunning ? Visibility.Collapsed : Visibility.Hidden;
         RunningLabel.Visibility = !view.Spinner && view.ShowsRunning ? Visibility.Visible : Visibility.Collapsed;
         PlayButton.Tag = view.Spinner || view.ShowsRunning ? "busy" : null;
@@ -643,7 +651,22 @@ public partial class HomePage : UserControl
     private void SetVersionButtonText(string? version)
     {
         VersionButtonText.Text = version ?? "Pick one";
+        ShowVersionCard(version);
         ShowFamily(version);
+    }
+
+    // The version card's second line and thumbnail: the family's name ("Tricky Trials") and its colour picker
+    // thumb, the same art the picker cards use. Tiny (96 px decode), so it is read inline; a missing file leaves
+    // the tile's plain fill.
+    private string? _thumbKey;
+
+    private void ShowVersionCard(string? version)
+    {
+        var group = FamilyTheme.GroupOf(version);
+        VersionTagline.Text = version == null ? "" : group.Tagline;
+        if (_thumbKey == group.Key) return;
+        _thumbKey = group.Key;
+        VersionThumb.Source = ArtStage.Decode($"{group.Key}-tc.jpg", 96);
     }
 
     // The family on screen follows the version: its accent here, its art and the giant
@@ -1489,11 +1512,8 @@ public partial class HomePage : UserControl
     {
         ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Idle, canPlay: true, hasVersion: true));
         SetStatus("Ready to play", StatusTone.Success);
-        PlayButton.ApplyTemplate();
-        if (PlayButton.Template.FindName("FillScale", PlayButton) is ScaleTransform fill)
-            fill.ScaleX = fill.ScaleY = hover ? 1 : 0;
-        if (PlayButton.Template.FindName("Arrow", PlayButton) is System.Windows.Shapes.Path arrow)
-            arrow.Stroke = new SolidColorBrush(((SolidColorBrush)FindResource(hover ? "Brush.TextOnAccent" : "Brush.Text")).Color);
+        // The hover pose: the fill the style's hover trigger animates to, set straight (no mouse in render mode).
+        PlayButton.Background = new SolidColorBrush(((SolidColorBrush)FindResource(hover ? "Brush.AccentHover" : "Brush.Accent")).Color);
     }
 
     /// <summary>Render mode only: back to the real Play state after <see cref="TourShowReady"/>.</summary>
@@ -1557,7 +1577,7 @@ public partial class HomePage : UserControl
             : _statusRowIdleMargin.Value;
         StatusText.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
         StatusDot.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
-        StatusDot.Margin = new Thickness(0, isError ? (line - StatusDot.Height) / 2 : 0, 10, 0);
+        StatusDot.Margin = new Thickness(0, isError ? (line - StatusDot.Height) / 2 : 0, 8, 0);
         // Ready is the family accent (an indicator, so the one hue may show); the
         // rest keep their status colours. By reference: FamilyTheme swaps Brush.Accent.
         var brushKey = tone switch

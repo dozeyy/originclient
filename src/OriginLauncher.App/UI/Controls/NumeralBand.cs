@@ -3,14 +3,17 @@ namespace OriginLauncher.App.UI.Controls;
 /// <summary>
 /// The Home numeral's placement maths, pure (no WPF) so the tests link it. The numeral stands in the free band
 /// between the bottom of the top bar and the top of the Home strip: its figures are centred in that band both
-/// ways, and sized by DESIGN-SYSTEM 11.6 (figures 25 % of the window's height, ink at most 2/3 of its width),
+/// ways, and sized by DESIGN-SYSTEM 11.6 (figures 32 % of the window's height, ink at most 2/3 of its width),
 /// held to a share of the band so a short window keeps air above and below it. Nothing here scales a glyph
 /// sideways: the only inputs are the face's metrics, so the type keeps its natural width.
 /// </summary>
 internal static class NumeralBand
 {
     /// <summary>type.numeral: the figures' height (cap height) is this share of the window's height.</summary>
-    public const double FigureShareOfHeight = 0.25;
+    public const double FigureShareOfHeight = 0.32;
+
+    /// <summary>The orbit thread's rings: semi-major axis as a share of the figures' height (the rings reach past them).</summary>
+    public const double OrbitMajorOfFigures = 0.75;
 
     /// <summary>The ink (first figure's left edge to the last one's right edge) is at most this share of the width.</summary>
     public const double InkShareOfWidth = 2.0 / 3.0;

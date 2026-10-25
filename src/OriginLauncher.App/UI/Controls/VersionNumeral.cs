@@ -8,7 +8,7 @@ namespace OriginLauncher.App.UI.Controls;
 
 /// <summary>
 /// The giant version numeral on Home: Inter ExtraBold at its natural width (never squashed), -0.04 em tracking,
-/// neutral ink. It stands in the free band between the top bar's bottom edge and the Home strip's top edge
+/// parchment ink at 94 % (Brush.NumeralInk), with the orbit thread (<see cref="OrbitThread"/>) behind it. It stands in the free band between the top bar's bottom edge and the Home strip's top edge
 /// (<see cref="SetBand"/>, reported by HomePage), its figures centred in that band and its ink centred across the
 /// window; size and placement are <see cref="NumeralBand"/>. A change rolls the old characters up and out and the
 /// new ones in from below, 28 ms apart (mockup: 320 ms in / 420 ms out, 140 ms overlap).
@@ -18,6 +18,7 @@ namespace OriginLauncher.App.UI.Controls;
 public sealed class VersionNumeral : Canvas
 {
     private readonly List<Glyph> _shown = new();
+    private readonly OrbitThread _orbit = new();
     private string _text = "";
 
     // The band the numeral stands in (window coordinates); NaN until Home reports where its strip starts.
@@ -35,6 +36,7 @@ public sealed class VersionNumeral : Canvas
         IsHitTestVisible = false;
         ClipToBounds = false;
         _barBottom = (double)Application.Current.FindResource("Size.Bar");
+        Children.Add(_orbit); // first child: behind every figure
         SizeChanged += (_, _) => Layout(_shown);
     }
 
@@ -133,6 +135,8 @@ public sealed class VersionNumeral : Canvas
         foreach (var g in glyphs) SetTop(g, top);
         var capTop = top + baseline - Face.CapsEm * fs;
         InkRect = new Rect(inkLeft, capTop, inkEm * fs, Face.CapsEm * fs);
+        // The thread is centred on the figures' middle; its rings reach a little past them (OrbitMajorOfFigures).
+        _orbit.Place(inkLeft + inkEm * fs / 2, capTop + Face.CapsEm * fs / 2, Face.CapsEm * fs * NumeralBand.OrbitMajorOfFigures);
     }
 
     private sealed class Glyph : FrameworkElement

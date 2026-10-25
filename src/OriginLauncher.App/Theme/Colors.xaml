@@ -66,13 +66,18 @@
     <Color x:Key="Color.Scrim">#A30A0D0C</Color>
     <Color x:Key="Color.PageDim">#EB0E1110</Color>
     <Color x:Key="Color.LaunchScrim">#990E1110</Color>
-    <!-- The giant version numeral on art: neutral white, never a hue. -->
-    <Color x:Key="Color.NumeralInk">#FFF5F5F5</Color>
+    <!-- The giant version numeral on art: parchment (Color.Text) at 94 %, from the approved Workbench Home mockup. -->
+    <Color x:Key="Color.NumeralInk">#F0F1E9D2</Color>
+    <!-- The orbit thread behind the numeral (DESIGN-SYSTEM, Signature effects): the logo's three rings as 1 px
+         parchment hairlines, parchment at 20 %. Decoration only; it is not the logo mark. -->
+    <Color x:Key="Color.OrbitThread">#33F1E9D2</Color>
     <!-- Scrim ends over art (the only gradients): the bg colour at the strong and the clear end. -->
     <Color x:Key="Color.ScrimStrong">#EB0E1110</Color>
     <Color x:Key="Color.ScrimMid">#D60E1110</Color>
     <Color x:Key="Color.ScrimClear">#000E1110</Color>
     <Color x:Key="Color.ScrimSoft">#7A0E1110</Color>
+    <!-- The Home art's one darkening (mockup .shade): clear to 38 %, then up to the strong end at the bottom edge. -->
+    <Color x:Key="Color.ScrimArt">#610E1110</Color>
     <Color x:Key="Color.SheetShade">#730E1110</Color>
     <!-- A switch: off = dark track with a muted knob, on = emerald track with a parchment knob. -->
     <Color x:Key="Color.SwitchKnobOff">#85F1E9D2</Color>
@@ -109,6 +114,7 @@
     <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}"/>
     <SolidColorBrush x:Key="Brush.OnPhoto" Color="{StaticResource Color.OnPhoto}"/>
     <SolidColorBrush x:Key="Brush.NumeralInk" Color="{StaticResource Color.NumeralInk}"/>
+    <SolidColorBrush x:Key="Brush.OrbitThread" Color="{StaticResource Color.OrbitThread}"/>
     <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>
     <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}"/>
     <SolidColorBrush x:Key="Brush.AccentPress" Color="{StaticResource Color.AccentPress}"/>
@@ -172,6 +178,12 @@
         <GradientStop Color="{StaticResource Color.ScrimStrong}" Offset="0"/>
         <GradientStop Color="{StaticResource Color.ScrimMid}" Offset="0.515"/>
         <GradientStop Color="{StaticResource Color.ScrimClear}" Offset="1"/>
+    </LinearGradientBrush>
+    <!-- Home's art shade: colour art all the way, darkening only from 40 % down so the bottom row reads. -->
+    <LinearGradientBrush x:Key="Fill.ArtShade" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource Color.ScrimClear}" Offset="0.4"/>
+        <GradientStop Color="{StaticResource Color.ScrimArt}" Offset="0.66"/>
+        <GradientStop Color="{StaticResource Color.ScrimStrong}" Offset="1"/>
     </LinearGradientBrush>
     <!-- The shade a bottom sheet casts up onto the art. -->
     <LinearGradientBrush x:Key="Fill.SheetShade" StartPoint="0,0" EndPoint="0,1">

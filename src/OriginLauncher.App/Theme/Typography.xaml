@@ -22,14 +22,14 @@
     <system:Double x:Key="FontSize.Caption">12</system:Double>
     <system:Double x:Key="FontSize.Body">13.5</system:Double>
     <system:Double x:Key="FontSize.Title">16</system:Double>
-    <system:Double x:Key="FontSize.Action">16</system:Double>
+    <system:Double x:Key="FontSize.Action">20</system:Double>
     <system:Double x:Key="FontSize.Heading">22</system:Double>
     <system:Double x:Key="FontSize.Display">32</system:Double>
     <system:Double x:Key="LineHeight.Label">14</system:Double>
     <system:Double x:Key="LineHeight.Caption">16</system:Double>
     <system:Double x:Key="LineHeight.Body">20</system:Double>
     <system:Double x:Key="LineHeight.Title">22</system:Double>
-    <system:Double x:Key="LineHeight.Action">20</system:Double>
+    <system:Double x:Key="LineHeight.Action">24</system:Double>
     <system:Double x:Key="LineHeight.Heading">28</system:Double>
     <system:Double x:Key="LineHeight.Display">36</system:Double>
     <!-- Home's status line: one fixed line slot while idle; an error wraps to two rows at the status width (its

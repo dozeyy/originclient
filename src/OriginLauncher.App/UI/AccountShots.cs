@@ -71,15 +71,9 @@ internal static class AccountShots
         Frame(window, dir, "16f-pill-hover", at, false, log);
         window.TourHover(window.TourAccountButton, false);
 
-        window.TourHover(window.TourStoreButton, true);
-        window.TourShowLinkHints(true);
-        Frame(window, dir, "16g-store-hover", at, false, log);
-        window.TourShowLinkHints(false);
-        window.TourHover(window.TourStoreButton, false);
-
         // Focus is shot in the window's own layout (the CI desktop caps a window at 1044 wide): the focus frame is a visual
         // laid over the control, and a hand-made wide layout would leave it where the control used to be.
-        foreach (var (button, name) in new[] { (window.TourStoreButton, "16h-store-focus"), (window.TourAccountButton, "16i-pill-focus") })
+        foreach (var (button, name) in new[] { (window.TourAccountButton, "16i-pill-focus") })
         {
             window.Width = 1180;
             window.Height = 740;

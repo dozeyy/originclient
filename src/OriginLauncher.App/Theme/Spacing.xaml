@@ -28,6 +28,25 @@
     <system:Double x:Key="Size.ControlMd">32</system:Double>
     <system:Double x:Key="Size.ControlLg">36</system:Double>
     <system:Double x:Key="Size.ControlXl">40</system:Double>
+    <!-- The Home strip (Workbench mockup): the version card, profile card, Store card and Play are one 64 tall row of
+         cards (Radius.Lg); the thumbnail and the Store tile are 48 (8 in from the card's edge); Store and Play are
+         236 and 208 wide. The status dot is 8; the nav's active dot 4. -->
+    <system:Double x:Key="Size.StripControl">64</system:Double>
+    <system:Double x:Key="Size.StripTile">48</system:Double>
+    <system:Double x:Key="Size.StoreCardWidth">236</system:Double>
+    <system:Double x:Key="Size.PlayWidth">208</system:Double>
+    <system:Double x:Key="Size.StatusDot">8</system:Double>
+    <system:Double x:Key="Size.NavDot">4</system:Double>
+    <!-- The My mods switch on Home (mockup .sw2): 36 x 20 track, 14 knob inset 3, so the travel is 36 - 14 - 6 = 16. -->
+    <system:Double x:Key="Size.HomeSwitchWidth">36</system:Double>
+    <system:Double x:Key="Size.HomeSwitchHeight">20</system:Double>
+    <system:Double x:Key="Size.HomeSwitchKnob">14</system:Double>
+    <system:Double x:Key="Size.HomeSwitchTravel">16</system:Double>
+    <!-- Capsule padding (coordinator, 2026-10-25; the same names and values as the other branch so the merges line up):
+         a pill, chip or badge is a capsule, Radius.Full corners, with ONE padding on all sides: Padding.Capsule for the
+         regular size, Padding.Capsule.Sm for the small one. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
     <!-- The top bar holds 32 tall controls with 8 above and below. List rows are 64 tall. Drawers (Accounts,
          Friends, Import) are 380 wide. -->
     <system:Double x:Key="Size.Bar">48</system:Double>

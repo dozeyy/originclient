@@ -498,4 +498,146 @@
         </Setter>
     </Style>
 
+    <!-- The Home My mods switch (Will's approved Workbench Home mockup, .sw2): the Switch above at 36 x 20 with a 14 knob
+         inset 3, the caps label 8 to its left in the muted text colour. Off: the progress-track fill, a 1 px stroke and
+         the muted knob on the left. On: the emerald track with a DARK knob (Color.TextOnAccent) on the right. Same
+         behaviour as Toggle.Slider: Motion.Release slide, hover brightens the stroke, press squashes the knob, Space and
+         Enter toggle, the pill focus ring. -->
+    <Style x:Key="Toggle.HomeSwitch" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Pill}"/>
+        <Setter Property="KeyboardNavigation.AcceptsReturn" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ContentPresenter x:Name="Label" VerticalAlignment="Center" Margin="0,0,8,0"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        <Grid Grid.Column="1" Width="{StaticResource Size.HomeSwitchWidth}" Height="{StaticResource Size.HomeSwitchHeight}"
+                              VerticalAlignment="Center">
+                            <Border x:Name="Track" CornerRadius="{StaticResource Radius.Full}" BorderThickness="1">
+                                <Border.Background>
+                                    <SolidColorBrush Color="{StaticResource Color.ProgressTrack}"/>
+                                </Border.Background>
+                                <Border.BorderBrush>
+                                    <SolidColorBrush Color="{StaticResource Color.Stroke}"/>
+                                </Border.BorderBrush>
+                            </Border>
+                            <Border x:Name="TrackOn" CornerRadius="{StaticResource Radius.Full}"
+                                    Background="{StaticResource Brush.Accent}" Opacity="0"/>
+                            <Border x:Name="Knob" Width="{StaticResource Size.HomeSwitchKnob}" Height="{StaticResource Size.HomeSwitchKnob}"
+                                    CornerRadius="{StaticResource Radius.Full}"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.Background>
+                                    <SolidColorBrush Color="{StaticResource Color.SwitchKnobOff}"/>
+                                </Border.Background>
+                                <Border.RenderTransform>
+                                    <TransformGroup>
+                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                        <TranslateTransform X="0"/>
+                                    </TransformGroup>
+                                </Border.RenderTransform>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Content" Value="{x:Null}">
+                            <Setter TargetName="Label" Property="Margin" Value="0"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="BorderBrush.Color"
+                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="BorderBrush.Color"
+                                                        To="{StaticResource Color.Stroke}" Duration="{StaticResource Motion.Hover}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Knob"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                         To="1.18" Duration="{StaticResource Motion.Press}"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                         To="0.86" Duration="{StaticResource Motion.Press}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Knob"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                         To="1" Duration="{StaticResource Motion.Release}"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                         To="1" Duration="{StaticResource Motion.Release}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="TrackOn" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="{StaticResource Motion.Release}"/>
+                                        <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Background.Color"
+                                                        To="{StaticResource Color.TextOnAccent}" Duration="{StaticResource Motion.Release}"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
+                                                         To="{StaticResource Size.HomeSwitchTravel}" Duration="{StaticResource Motion.Release}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="TrackOn" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="{StaticResource Motion.Release}"/>
+                                        <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Background.Color"
+                                                        To="{StaticResource Color.SwitchKnobOff}" Duration="{StaticResource Motion.Release}"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
+                                                         To="0" Duration="{StaticResource Motion.Release}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
