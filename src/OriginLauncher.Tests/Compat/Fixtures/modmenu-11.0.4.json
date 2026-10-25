@@ -1,0 +1,339 @@
+{
+ "meta": {
+  "schemaVersion": 1,
+  "id": "modmenu",
+  "name": "Mod Menu",
+  "version": "11.0.4",
+  "environment": "client",
+  "license": "MIT",
+  "icon": "assets/modmenu/icon.png",
+  "entrypoints": {
+   "client": [
+    "com.terraformersmc.modmenu.ModMenu"
+   ],
+   "modmenu": [
+    "com.terraformersmc.modmenu.ModMenuModMenuCompat"
+   ]
+  },
+  "contact": {
+   "homepage": "https://modrinth.com/mod/modmenu",
+   "sources": "https://github.com/TerraformersMC/ModMenu",
+   "issues": "https://github.com/TerraformersMC/ModMenu/issues"
+  },
+  "depends": {
+   "fabric-resource-loader-v0": "*",
+   "fabric-screen-api-v1": ">=1.0.4",
+   "fabric-key-binding-api-v1": "*",
+   "fabric-lifecycle-events-v1": "*",
+   "fabricloader": ">=0.15.10",
+   "minecraft": ">=1.21-beta.2"
+  },
+  "authors": [
+   "Prospector",
+   "haykam821",
+   "TerraformersMC"
+  ],
+  "contributors": [
+   "shedaniel",
+   "Draylar",
+   "Mordna",
+   "Madis0",
+   "Yanis48",
+   "LemmaEOF",
+   "fewizz",
+   "XuyuEre",
+   "geniiii",
+   "thiagokenis",
+   "Juuxel",
+   "Chloe Dawn",
+   "modmuss50",
+   "Patbox",
+   "Lykrast",
+   "Pyrofab",
+   "UpcraftLP",
+   "swordglowsblue",
+   "hinataaki",
+   "LeonXu98",
+   "magneticflux",
+   "vanja-san",
+   "AlexIIL",
+   "masoncook16",
+   "el97",
+   "Hephaestus-Dev",
+   "zabi94",
+   "dexman545",
+   "dhouck",
+   "Hambaka",
+   "po-stulate",
+   "FlashyReese",
+   "egeesin",
+   "TheGlitch76",
+   "ludg1e",
+   "williambl",
+   "PepperCode1",
+   "ThatTrollzer",
+   "ToffeeMax",
+   "kalucky0",
+   "Maaster",
+   "MartrixX",
+   "NotSteven",
+   "Dolphin 2.1",
+   "ENDERZOMBI102",
+   "anatom3000",
+   "OroArmor",
+   "jackassmc",
+   "Vaerian",
+   "RDKRACZ",
+   "Hulenkius",
+   "XfedeX",
+   "spnda",
+   "Jab125",
+   "SolidBlock",
+   "Tkain",
+   "nfitzen",
+   "DenaryDev",
+   "legenden",
+   "NaiNonTH",
+   "MagnusHJensen",
+   "Benjamin-Norton",
+   "triphora",
+   "Pyrrha"
+  ],
+  "description": "Adds a mod menu to view the list of mods you have installed.",
+  "mixins": [
+   "mixins.modmenu.json"
+  ],
+  "custom": {
+   "modmenu": {
+    "links": {
+     "modmenu.discord": "https://discord.gg/jEGF5fb"
+    }
+   }
+  },
+  "jars": [
+   {
+    "file": "META-INF/jars/fabric-api-base-0.4.42+6573ed8c90.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-resource-loader-v0-1.1.3+b559734490.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-screen-api-v1-2.0.24+b559734490.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-key-binding-api-v1-1.0.47+0af3f5a790.jar"
+   },
+   {
+    "file": "META-INF/jars/fabric-lifecycle-events-v1-2.3.9+98a7dbbb90.jar"
+   },
+   {
+    "file": "META-INF/jars/placeholder-api-2.4.0-pre.2+1.21.jar"
+   }
+  ]
+ },
+ "nested": [
+  {
+   "file": "META-INF/jars/fabric-api-base-0.4.42+6573ed8c90.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-api-base",
+    "name": "Fabric API Base",
+    "version": "0.4.42+6573ed8c90",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-api-base/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.15.11"
+    },
+    "description": "Contains the essentials for Fabric API modules.",
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-resource-loader-v0-1.1.3+b559734490.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-resource-loader-v0",
+    "name": "Fabric Resource Loader (v0)",
+    "version": "1.1.3+b559734490",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-resource-loader-v0/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.15.11"
+    },
+    "description": "Asset and data resource loading.",
+    "mixins": [
+     "fabric-resource-loader-v0.mixins.json",
+     {
+      "config": "fabric-resource-loader-v0.client.mixins.json",
+      "environment": "client"
+     }
+    ],
+    "accessWidener": "fabric-resource-loader-v0.accesswidener",
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-screen-api-v1-2.0.24+b559734490.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-screen-api-v1",
+    "name": "Fabric Screen API (v1)",
+    "version": "2.0.24+b559734490",
+    "environment": "client",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-screen-api-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.15.11",
+     "fabric-api-base": "*"
+    },
+    "description": "Adds screen related hooks.",
+    "mixins": [
+     "fabric-screen-api-v1.mixins.json"
+    ],
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-key-binding-api-v1-1.0.47+0af3f5a790.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-key-binding-api-v1",
+    "name": "Fabric Key Binding API (v1)",
+    "version": "1.0.47+0af3f5a790",
+    "environment": "client",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-key-binding-api-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "depends": {
+     "fabricloader": ">=0.15.11"
+    },
+    "description": "Key Binding registry API.",
+    "mixins": [
+     "fabric-key-binding-api-v1.mixins.json"
+    ],
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    }
+   }
+  },
+  {
+   "file": "META-INF/jars/fabric-lifecycle-events-v1-2.3.9+98a7dbbb90.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "fabric-lifecycle-events-v1",
+    "name": "Fabric Lifecycle Events (v1)",
+    "version": "2.3.9+98a7dbbb90",
+    "environment": "*",
+    "license": "Apache-2.0",
+    "icon": "assets/fabric-lifecycle-events-v1/icon.png",
+    "contact": {
+     "homepage": "https://fabricmc.net",
+     "irc": "irc://irc.esper.net:6667/fabric",
+     "issues": "https://github.com/FabricMC/fabric/issues",
+     "sources": "https://github.com/FabricMC/fabric"
+    },
+    "authors": [
+     "FabricMC"
+    ],
+    "entrypoints": {
+     "main": [
+      "net.fabricmc.fabric.impl.event.lifecycle.LifecycleEventsImpl"
+     ],
+     "client": [
+      "net.fabricmc.fabric.impl.client.event.lifecycle.ClientLifecycleEventsImpl"
+     ]
+    },
+    "mixins": [
+     "fabric-lifecycle-events-v1.mixins.json",
+     {
+      "config": "fabric-lifecycle-events-v1.client.mixins.json",
+      "environment": "client"
+     }
+    ],
+    "depends": {
+     "fabricloader": ">=0.15.11",
+     "fabric-api-base": "*"
+    },
+    "description": "Events for the game's lifecycle.",
+    "custom": {
+     "fabric-api:module-lifecycle": "stable"
+    },
+    "accessWidener": "fabric-lifecycle-events-v1.accesswidener"
+   }
+  },
+  {
+   "file": "META-INF/jars/placeholder-api-2.4.0-pre.2+1.21.jar",
+   "meta": {
+    "schemaVersion": 1,
+    "id": "placeholder-api",
+    "version": "2.4.0-pre.2+1.21",
+    "name": "Placeholder API",
+    "description": "Simple api for mods allowing for user friendly formatting and universal placeholders!",
+    "authors": [
+     "Patbox"
+    ],
+    "contact": {
+     "homepage": "https://pb4.eu",
+     "sources": "https://github.com/Patbox/TextPlaceholderAPI"
+    },
+    "license": "LGPLv3",
+    "icon": "assets/icon.png",
+    "environment": "*",
+    "depends": {
+     "fabricloader": ">=0.13.4",
+     "minecraft": ">=1.19-beta.1"
+    },
+    "custom": {
+     "modmenu": {
+      "badges": [
+       "library"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}
