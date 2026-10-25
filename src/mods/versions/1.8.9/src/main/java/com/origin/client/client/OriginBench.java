@@ -424,6 +424,9 @@ public final class OriginBench {
 			mc.displayGuiScreen(null);
 		} else if (sc.equals("players") || sc.equals("cosmetics")) {
 			removeFakePlayers(mc);
+		} else if (sc.equals("flythrough") && mc.thePlayer != null) {
+			// back to the static camera, or every scene after this one renders the flight's end point
+			mc.thePlayer.sendChatMessage(String.format(Locale.ROOT, "/tp @p %.1f %.1f %.1f -45 15", baseX, baseY, baseZ));
 		}
 	}
 
