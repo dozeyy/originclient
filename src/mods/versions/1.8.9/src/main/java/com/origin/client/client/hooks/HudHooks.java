@@ -86,6 +86,7 @@ public final class HudHooks {
 	public void onRenderTick(TickEvent.RenderTickEvent e) {
 		if (e.phase == TickEvent.Phase.START) {
 			MinimapHud.partial = e.renderTickTime;
+			com.origin.client.client.mods.MenuBlur.onFrame();
 			com.origin.client.client.mods.PerfSettings.refresh();
 			com.origin.client.client.hud.FrameWatch.onFrame(mc());
 			try {
@@ -266,6 +267,22 @@ public final class HudHooks {
 			}
 		} catch (Throwable ignored) {
 		}
+		// Menu Blur reuses its blurred backdrop while a single-player pause freezes the world; any click,
+		// wheel turn or drag can change what the world looks like (a slider, a toggle), so it re-blurs.
+		try {
+			if (Mouse.getEventButton() >= 0 || Mouse.getEventDWheel() != 0 || Mouse.isButtonDown(0)
+					|| Mouse.isButtonDown(1) || Mouse.isButtonDown(2)) {
+				com.origin.client.client.mods.MenuBlur.invalidate();
+			}
+		} catch (Throwable ignored) {
+		}
+	}
+
+	// Same reason for keys: a key press in a menu (F3+T, a text field, a keybind) may change the world
+	// image, so Menu Blur's frozen-world cache is dropped.
+	@SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
+	public void onScreenKey(GuiScreenEvent.KeyboardInputEvent.Pre e) {
+		com.origin.client.client.mods.MenuBlur.invalidate();
 	}
 
 	// ---- combat (Tab Editor highlight, Combo, Reach) ----

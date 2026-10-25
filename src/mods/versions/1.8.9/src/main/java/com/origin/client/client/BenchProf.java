@@ -46,7 +46,7 @@ public final class BenchProf {
 	private static final int[] DEPTH = new int[MAX];
 
 	/** Counters (per measured window; only counted while it is open). */
-	private static long particleRender, particleSpawn, fontDrawString, gfxDraw, gfxText;
+	private static long particleRender, particleSpawn, fontDrawString, gfxDraw, gfxText, blurFull, blurReuse;
 
 	public static void countParticleRender() {
 		if (active) {
@@ -69,6 +69,17 @@ public final class BenchProf {
 	public static void countGfxDraw() {
 		if (active) {
 			gfxDraw++;
+		}
+	}
+
+	/** Menu Blur: a full pyramid rebuild vs a reuse of the cached result (frozen world). */
+	public static void countBlur(boolean reused) {
+		if (active) {
+			if (reused) {
+				blurReuse++;
+			} else {
+				blurFull++;
+			}
 		}
 	}
 
@@ -291,7 +302,7 @@ public final class BenchProf {
 		Arrays.fill(CALLS, 0);
 		Arrays.fill(MAXNS, 0);
 		Arrays.fill(DEPTH, 0);
-		particleRender = particleSpawn = fontDrawString = gfxDraw = gfxText = 0;
+		particleRender = particleSpawn = fontDrawString = gfxDraw = gfxText = blurFull = blurReuse = 0;
 		calibrate();
 		active = true;
 	}
@@ -366,6 +377,8 @@ public final class BenchProf {
 		c.addProperty("fontDrawStringPerFrame", round(fontDrawString / f));
 		c.addProperty("originTessDrawsPerFrame", round(gfxDraw / f));
 		c.addProperty("originGfxTextPerFrame", round(gfxText / f));
+		c.addProperty("menuBlurFullPerFrame", round(blurFull / f));
+		c.addProperty("menuBlurReusedPerFrame", round(blurReuse / f));
 		o.add("counters", c);
 		if (!notes.isEmpty()) {
 			JsonArray n = new JsonArray();

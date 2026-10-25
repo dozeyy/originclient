@@ -107,9 +107,39 @@ public final class IrisBridge {
 	/** 1.8.9: true while an OptiFine shader pack is loaded and rendering. Menu
 	 *  Blur steps aside then (OptiFine's composite pipeline owns the frame). */
 	public static boolean shadersActive() {
-		Object loaded = staticField(shadersClass(), "shaderPackLoaded");
-		return loaded instanceof Boolean && (Boolean) loaded;
+		// Called every frame by Menu Blur's handles(): the Field is resolved ONCE (a
+		// getDeclaredField + setAccessible per call was measured as pure overhead, P6 pick 2)
+		// and read without boxing. Missing class/field = shaders off, forever, as before.
+		Field f = packLoadedField;
+		if (f == null) {
+			if (packLoadedLooked) {
+				return false;
+			}
+			packLoadedLooked = true;
+			Class<?> c = shadersClass();
+			if (c == null) {
+				return false;
+			}
+			try {
+				f = c.getDeclaredField("shaderPackLoaded");
+				f.setAccessible(true);
+				if (f.getType() != boolean.class) {
+					return false;
+				}
+				packLoadedField = f;
+			} catch (Throwable ignored) {
+				return false;
+			}
+		}
+		try {
+			return f.getBoolean(null);
+		} catch (Throwable ignored) {
+			return false;
+		}
 	}
+
+	private static volatile Field packLoadedField;
+	private static volatile boolean packLoadedLooked;
 
 	/** The active pack name, or null when shaders are off. OptiFine stores "OFF"
 	 *  (and "(internal)" for its built-in pack) as the selection when no pack is in use. */
