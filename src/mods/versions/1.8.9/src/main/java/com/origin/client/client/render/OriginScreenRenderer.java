@@ -340,6 +340,89 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	// The official wordmark (textures/ui/origin_wordmark.png, byte-identical to the launcher's
+	// Assets/Brand/wordmark.png) gets the same one-time box-filter bake per physical height as the
+	// logo, so it stays crisp at any GUI scale and is blitted 1:1. Never redrawn or re-typed. As 1.21.1.
+	private static final int WORDMARK_MAX_PX = 512;
+	private static final ResourceLocation[] WORDMARK_SIZES = new ResourceLocation[WORDMARK_MAX_PX + 1];
+	private static final int[] WORDMARK_W = new int[WORDMARK_MAX_PX + 1];
+	private static java.awt.image.BufferedImage wordmarkSrc;
+	private static boolean wordmarkFailed;
+
+	/** Draws the official wordmark centred on (cx, cy), {@code heightGui} GUI px tall. False = not drawn (caller keeps the text fallback). */
+	private static boolean drawWordmarkImage(Gfx g, double cx, double cy, double heightGui, float alpha) {
+		if (wordmarkFailed) {
+			return false;
+		}
+		try {
+			int gs = scale();
+			int ph = (int) Math.round(heightGui * gs);
+			if (ph <= 0 || ph > WORDMARK_MAX_PX) {
+				return false;
+			}
+			ResourceLocation id = WORDMARK_SIZES[ph];
+			if (id == null) {
+				if (wordmarkSrc == null) {
+					wordmarkSrc = Gfx.readImage(com.origin.client.client.gui.OriginUi.WORDMARK_PATH);
+				}
+				int pw = Math.max(1, (int) Math.round(ph * (double) wordmarkSrc.getWidth() / wordmarkSrc.getHeight()));
+				id = new ResourceLocation("originclient", "wordmark_px_" + ph);
+				if (Gfx.registerTexture(id, boxBake(wordmarkSrc, pw, ph), false) == null) {
+					throw new IllegalStateException("wordmark upload failed");
+				}
+				WORDMARK_W[ph] = pw;
+				WORDMARK_SIZES[ph] = id;
+			}
+			int pw = WORDMARK_W[ph];
+			Pose pose = g.pose();
+			pose.pushPose();
+			pose.scale(1f / gs, 1f / gs, 1f);
+			Gfx.defaultBlend();
+			GlStateManager.color(1f, 1f, 1f, Math.max(0f, Math.min(1f, alpha)));
+			int px = (int) Math.round(cx * gs - pw / 2.0), py = (int) Math.round(cy * gs - ph / 2.0);
+			g.blit(id, px, py, 0f, 0f, pw, ph, pw, ph);
+			Gfx.resetColor();
+			pose.popPose();
+			return true;
+		} catch (Throwable t) {
+			wordmarkFailed = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark bake failed; the title falls back to the game-font text", t);
+			return false;
+		}
+	}
+
+	/** Premultiplied 4x4 box-filter downsample of {@code src} (any colour) to dw x dh, straight-alpha ARGB out. */
+	private static java.awt.image.BufferedImage boxBake(java.awt.image.BufferedImage src, int dw, int dh) {
+		int sw = src.getWidth(), sh = src.getHeight();
+		java.awt.image.BufferedImage dst = new java.awt.image.BufferedImage(dw, dh, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+		for (int y = 0; y < dh; y++) {
+			for (int x = 0; x < dw; x++) {
+				double aSum = 0, rSum = 0, gSum = 0, bSum = 0;
+				for (int sy = 0; sy < 4; sy++) {
+					for (int sx = 0; sx < 4; sx++) {
+						int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / dw));
+						int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / dh));
+						int c = src.getRGB(tx, ty);
+						double a = ((c >>> 24) & 0xFF) / 255.0;
+						aSum += a;
+						rSum += a * ((c >> 16) & 0xFF);
+						gSum += a * ((c >> 8) & 0xFF);
+						bSum += a * (c & 0xFF);
+					}
+				}
+				double a = aSum / 16.0;
+				int r = 255, gg = 255, b = 255;
+				if (aSum > 0) {
+					r = (int) Math.round(Math.min(255.0, rSum / aSum));
+					gg = (int) Math.round(Math.min(255.0, gSum / aSum));
+					b = (int) Math.round(Math.min(255.0, bSum / aSum));
+				}
+				dst.setRGB(x, y, ((int) Math.round(a * 255) << 24) | (r << 16) | (gg << 8) | b);
+			}
+		}
+		return dst;
+	}
+
 	// "ORIGIN" one letter per string (built once: the wordmark allocates nothing per frame).
 	private static final String WORD = "ORIGIN";
 	private static final String[] WORD_LETTERS = {"O", "R", "I", "G", "I", "N"};
@@ -540,8 +623,9 @@ public final class OriginScreenRenderer {
 			if (L.markSize > 0) {
 				drawLogo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1f);
 			}
-			if (L.showWordmark) {
-				drawWordmarkText(guiGraphics, L.markCenterX, L.wordBaseline, OriginTheme.CLEAN_TEXT);
+			// The official wordmark image (never text); the boot-font "ORIGIN" only if the image can't load.
+			if (L.showWordmark && !drawWordmarkImage(guiGraphics, L.markCenterX, L.wordCenterY, TitleLayout.WORD_H, 1f)) {
+				drawWordmarkText(guiGraphics, L.markCenterX, L.wordCenterY + 7, OriginTheme.CLEAN_TEXT);
 			}
 			return true;
 		} catch (Throwable t) {
@@ -608,16 +692,13 @@ public final class OriginScreenRenderer {
 	// 1.21.1's startup caption at a finished load (its words, ASCII).
 	private static final String STARTUP_DONE = "Loading resources 100%";
 
-	/** The title's player chip draws on vanilla's normal button sprite (widgets.png, v = 66). */
-	private static final ResourceLocation WIDGETS = new ResourceLocation("textures/gui/widgets.png");
-
 	/**
-	 * Main menu: the account chip (player head + username) in the top-left, on
-	 * a vanilla button, as 1.21.1 (Will, 2026-10-19: "use the same style for the
-	 * player in the top left"). Not clickable, so it never highlights. Head from
-	 * the skin (default first, the real one swaps in async); the logo if the head
-	 * can't be resolved. 1.8.9: the account is mc.getSession() (no User object);
-	 * no PlayerFaceRenderer, so the face and hat layers are blitted from the skin.
+	 * Main menu: the player (head + username) in the top-left with no plate behind it, as 1.21.1
+	 * (A-Workbench-3, Will 2026-10-25: "remove the background on the top left player icon"). Not clickable.
+	 * The head's left edge lines up with the footer text (both CORNER in). Head from the skin (default first,
+	 * the real one swaps in async), rounded with anti-aliased corners; the logo if the head can't be resolved.
+	 * Name in Inter 600 parchment at the button label's em, Minecraft's font if Inter is not live.
+	 * 1.8.9: the account is mc.getSession() (no User object).
 	 */
 	public static void renderTitleAccountChip(Gfx guiGraphics) {
 		if (broken) {
@@ -633,28 +714,22 @@ public final class OriginScreenRenderer {
 			if (name == null || name.isEmpty()) {
 				return;
 			}
-			FontRenderer font = mc.fontRendererObj;
 			int x = TitleLayout.CORNER, y = TitleLayout.CORNER, chipH = TitleLayout.CORNER_SIZE;
-			int head = 12, pad = 4, gap = 5;
-			int textW = font.getStringWidth(name);
-			int chipW = pad + head + gap + textW + pad + 2;
-			// GuiButton.drawButton's two halves of the 200 px sprite (javap 1.8.9).
-			Gfx.defaultBlend();
-			GlStateManager.color(1f, 1f, 1f, 1f);
-			int left = chipW / 2, right = chipW - left;
-			guiGraphics.blit(WIDGETS, x, y, 0, 66, left, chipH);
-			guiGraphics.blit(WIDGETS, x + left, y, 200 - right, 66, right, chipH);
-
-			int hx = x + pad, hy = y + (chipH - head) / 2;
+			int head = 12, gap = 5;
+			int hx = x, hy = y + (chipH - head) / 2;
 			boolean drewHead = false;
 			try {
-				// The head is blitted straight from the 64x64 skin: face (8,8) + hat
-				// layer (40,8). 1.8.9's skin download already converts legacy 64x32
-				// skins to 64x64 (ImageBufferDownload), so the UVs hold for both.
 				ResourceLocation skin = resolveChipSkin(mc, session);
-				guiGraphics.blit(skin, hx, hy, head, head, 8f, 8f, 8, 8, 64, 64);
-				Gfx.defaultBlend();
-				guiGraphics.blit(skin, hx, hy, head, head, 40f, 8f, 8, 8, 64, 64);
+				if (!drawBakedHead(guiGraphics, mc, skin, hx, hy, head, 2)) {
+					// Square head straight from the skin until the rounded bake is possible (skin still uploading)
+					// or if it failed: face (8,8) + hat layer (40,8). 1.8.9's skin download already converts legacy
+					// 64x32 skins to 64x64 (ImageBufferDownload), so the UVs hold for both.
+					Gfx.defaultBlend();
+					GlStateManager.color(1f, 1f, 1f, 1f);
+					guiGraphics.blit(skin, hx, hy, head, head, 8f, 8f, 8, 8, 64, 64);
+					Gfx.defaultBlend();
+					guiGraphics.blit(skin, hx, hy, head, head, 40f, 8f, 8, 8, 64, 64);
+				}
 				drewHead = true;
 			} catch (Throwable ignored) {
 				// fall back to the logo below
@@ -662,11 +737,107 @@ public final class OriginScreenRenderer {
 			if (!drewHead) {
 				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
-			// Vanilla button text: white with the font's shadow.
-			guiGraphics.drawString(font, name, hx + head + gap, y + (chipH - 8) / 2, 0xFFFFFFFF, true);
+			int tx = hx + head + gap;
+			if (com.origin.client.client.gui.OriginButtonRenderer.titleTextActive()) {
+				com.origin.client.client.gui.OriginButtonRenderer.drawTitleText(guiGraphics, name, tx, y + (chipH - 8) / 2f,
+						OriginTheme.TITLE_LABEL_EM, OriginTheme.TITLE_TEXT, true);
+			} else {
+				guiGraphics.drawString(mc.fontRendererObj, name, tx, y + (chipH - 8) / 2, OriginTheme.TEXT, true);
+			}
 		} catch (Throwable t) {
 			fail(t);
 		}
+	}
+
+	// ---- the head, baked at physical resolution (anti-aliased corners; 1.21.1's bakeHead) ----
+	// The face (8x8 base + hat layer) is read back from the skin's GL texture once, resampled NEAREST to
+	// head x guiScale physical pixels, and its alpha multiplied by an exact rounded-box coverage at physical
+	// pixel centres. Blitted back 1:1. Re-baked only when the skin texture or the GUI scale changes. A skin
+	// whose GL texture isn't uploaded yet is not a failure: the square head draws that frame and the bake
+	// retries; only a thrown error latches (then the square head stays for the session).
+	private static final ResourceLocation HEAD_BAKED = new ResourceLocation("originclient", "title_head_baked");
+	private static ResourceLocation headSrc;
+	private static int headGs = -1, headSize = -1;
+	private static boolean headReady = false, headBakeFailed = false;
+
+	private static boolean drawBakedHead(Gfx g, Minecraft mc, ResourceLocation skin, int hx, int hy, int head, int radius) {
+		if (headBakeFailed) {
+			return false;
+		}
+		try {
+			int gs = scale();
+			int size = head * gs;
+			if (!headReady || !skin.equals(headSrc) || gs != headGs || size != headSize) {
+				if (!bakeHead(mc, skin, size, radius * gs)) {
+					return false;
+				}
+				headSrc = skin;
+				headGs = gs;
+				headSize = size;
+				headReady = true;
+			}
+			Gfx.defaultBlend();
+			GlStateManager.color(1f, 1f, 1f, 1f);
+			g.blit(HEAD_BAKED, hx, hy, head, head, 0f, 0f, size, size, size, size);
+			return true;
+		} catch (Throwable t) {
+			headBakeFailed = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin baked player head failed; using the square head", t);
+			return false;
+		}
+	}
+
+	/** Bakes the rounded head into HEAD_BAKED. False = the skin texture isn't uploaded yet (try again later). */
+	private static boolean bakeHead(Minecraft mc, ResourceLocation skinTex, int size, int r) {
+		net.minecraft.client.renderer.texture.TextureManager tm = mc.getTextureManager();
+		net.minecraft.client.renderer.texture.ITextureObject tex = tm.getTexture(skinTex);
+		if (tex == null) {
+			tm.bindTexture(skinTex);   // loads (or registers) it
+			tex = tm.getTexture(skinTex);
+			if (tex == null) {
+				return false;
+			}
+		}
+		// ThreadDownloadImageData uploads its downloaded image inside getGlTextureId().
+		GlStateManager.bindTexture(tex.getGlTextureId());
+		int tw = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+		int th = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+		if (tw < 64 || th < 32) {
+			return false;
+		}
+		int k = tw / 64;   // 1 for 64 px skins, 2 for HD
+		java.nio.IntBuffer px = org.lwjgl.BufferUtils.createIntBuffer(tw * th);
+		// BGRA + 8_8_8_8_REV reads each texel as one ARGB int.
+		GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL12.GL_BGRA,
+				org.lwjgl.opengl.GL12.GL_UNSIGNED_INT_8_8_8_8_REV, px);
+		java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+		double half = size / 2.0, inner = half - r;
+		for (int py = 0; py < size; py++) {
+			int fy = Math.min(7, py * 8 / size);
+			for (int pxi = 0; pxi < size; pxi++) {
+				int fx = Math.min(7, pxi * 8 / size);
+				int base = px.get((8 * k + fy * k + k / 2) * tw + 8 * k + fx * k + k / 2);
+				int hat = px.get((8 * k + fy * k + k / 2) * tw + 40 * k + fx * k + k / 2);
+				// Hat over base, then the corner coverage into alpha.
+				double ha = ((hat >>> 24) & 0xFF) / 255.0, ba = ((base >>> 24) & 0xFF) / 255.0;
+				double oa = ha + ba * (1.0 - ha);
+				int rgb = 0;
+				for (int shift = 0; shift <= 16; shift += 8) {
+					double hc = ((hat >> shift) & 0xFF) / 255.0, bc = ((base >> shift) & 0xFF) / 255.0;
+					double c = oa <= 0.0 ? 0.0 : (hc * ha + bc * ba * (1.0 - ha)) / oa;
+					rgb |= (int) Math.round(Math.min(1.0, c) * 255.0) << shift;
+				}
+				double dx = Math.max(Math.abs(pxi + 0.5 - half) - inner, 0.0), dy = Math.max(Math.abs(py + 0.5 - half) - inner, 0.0);
+				double cov = Math.max(0.0, Math.min(1.0, 0.5 - (Math.sqrt(dx * dx + dy * dy) - r)));
+				int a = (int) Math.round(oa * cov * 255.0);
+				out.setRGB(pxi, py, (a << 24) | rgb);
+			}
+		}
+		tm.deleteTexture(HEAD_BAKED);   // frees the previous bake's GL texture (loadTexture only replaces the map entry)
+		if (Gfx.registerTexture(HEAD_BAKED, out, false) == null) {
+			throw new IllegalStateException("head upload failed");
+		}
+		return true;
 	}
 
 	// The chip head's skin texture. Defaults immediately (so the chip never

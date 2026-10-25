@@ -67,6 +67,8 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19, as 1.21.1): the title with the Quit
 		// square hovered, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
 		TITLE_HOVER, CONTROLS, LEVEL_LOADING, CONNECTING,
+		// the title's Workbench button states (design set, 1366x768): Multiplayer hovered, Options pressed
+		TITLE_HOVER_BTN, TITLE_PRESS,
 		// the resource-pack lists: their scrolling "Available" / "Selected" headers must clip to the list body
 		STY_PACKS,
 		// ...and, LAST in the clean set because they create a world: Create New World, the pause menu inside
@@ -83,7 +85,8 @@ public final class OriginDevShots {
 			callStatic(P + "social.SocialDemo", "clear");
 			// 1.21.1 clears vanilla's ToastComponent here; on 1.8.9 SocialToast is the toast stack
 			com.origin.client.client.social.SocialToast.clearAll();
-			devCursor(this == TITLE_HOVER);   // hovers the Quit square
+			devCursor(this);   // TITLE_HOVER: the Quit square; TITLE_HOVER_BTN / TITLE_PRESS: a worded button
+			com.origin.client.client.gui.OriginButtonRenderer.devPress = this == TITLE_PRESS;
 			GuiScreen social = openSocial();
 			if (social != null) {
 				return social;
@@ -255,6 +258,8 @@ public final class OriginDevShots {
 					return w;
 				}
 				case TITLE_HOVER:
+				case TITLE_HOVER_BTN:
+				case TITLE_PRESS:
 					return new GuiMainMenu();
 				case CONTROLS:
 					return new net.minecraft.client.gui.GuiControls(new GuiMainMenu(), mc.gameSettings);
@@ -322,7 +327,11 @@ public final class OriginDevShots {
 	// look AND its tooltip (only the icon squares have one). 1.8.9 reads the pointer from LWJGL 2's Mouse
 	// each frame; Xvfb has no pointer moving, so the warped position stays put. Every other shot gets the
 	// pointer parked off every widget. Dev only.
-	private static void devCursor(boolean onIcon) {
+	// TITLE_HOVER_BTN parks it on Multiplayer, TITLE_PRESS on Options (drawn pressed via OriginButtonRenderer.devPress:
+	// Xvfb has no button to hold down).
+	private static void devCursor(Kind kind) {
+		boolean onIcon = kind == Kind.TITLE_HOVER;
+		boolean onButton = kind == Kind.TITLE_HOVER_BTN || kind == Kind.TITLE_PRESS;
 		try {
 			Minecraft mc = Minecraft.getMinecraft();
 			// Off every widget: the right edge, halfway down (Xvfb starts the pointer mid-screen, which
@@ -340,6 +349,22 @@ public final class OriginDevShots {
 				int gs = sr.getScaleFactor();
 				x = gx * gs;
 				y = mc.displayHeight - 1 - gy * gs;   // LWJGL 2: y counts from the bottom
+			} else if (onButton) {
+				net.minecraft.client.gui.ScaledResolution sr = new net.minecraft.client.gui.ScaledResolution(mc);
+				com.origin.client.client.render.TitleLayout L = com.origin.client.client.render.TitleLayout.of(
+						sr.getScaledWidth(), sr.getScaledHeight());
+				int gx, gy;
+				if (kind == Kind.TITLE_HOVER_BTN) {          // Multiplayer: the second full row
+					gx = L.mainX + L.mainW / 2;
+					gy = L.mainTop + L.rowStep + L.buttonH / 2;
+				} else {                                      // Options: the pair's left half
+					int half = (L.mainW - L.pairGap) / 2;
+					gx = L.mainX + half / 2;
+					gy = L.mainTop + 2 * L.rowStep + L.buttonH / 2;
+				}
+				int gs = sr.getScaleFactor();
+				x = gx * gs;
+				y = mc.displayHeight - 1 - gy * gs;
 			}
 			org.lwjgl.input.Mouse.setCursorPosition(x, y);
 		} catch (Throwable t) {
@@ -524,6 +549,10 @@ public final class OriginDevShots {
 			}
 			// Same menu at a forced GUI scale: the redesign must not change size with it.
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.MENU));
+			// The title's button states (hover, press, dock hover) at the reference size.
+			SHOTS.add(new Shot(1366, 768, 0, Kind.TITLE_HOVER_BTN));
+			SHOTS.add(new Shot(1366, 768, 0, Kind.TITLE_PRESS));
+			SHOTS.add(new Shot(1366, 768, 0, Kind.TITLE_HOVER));
 		} else {
 			// Common desktop ratios at auto GUI scale (0 = Minecraft's own choice),
 			// then the two extremes of GUI scale at 1080p.
@@ -663,7 +692,8 @@ public final class OriginDevShots {
 					mc.displayGuiScreen(screen);
 					actIdx = 0;
 					phase = 2;
-					nextAt = now + (s.kind == Kind.TITLE || s.kind == Kind.TITLE_HOVER ? 1900 : 900);
+					nextAt = now + (s.kind == Kind.TITLE || s.kind == Kind.TITLE_HOVER
+							|| s.kind == Kind.TITLE_HOVER_BTN || s.kind == Kind.TITLE_PRESS ? 1900 : 900);
 					break;
 				}
 				case 2: {
@@ -704,6 +734,7 @@ public final class OriginDevShots {
 
 	private static void finish(Minecraft mc) {
 		done = true;
+		com.origin.client.client.gui.OriginButtonRenderer.devPress = false;
 		if (savedStyle != null) {
 			try {
 				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle", savedStyle[1]);

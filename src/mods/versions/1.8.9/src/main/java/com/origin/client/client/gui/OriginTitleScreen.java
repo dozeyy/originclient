@@ -14,28 +14,26 @@ import net.minecraft.client.resources.I18n;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Origin main menu on Minecraft's own buttons -- the clean look, ported from
-// 1.21.1's TitleScreenMixin (Will, 2026-10-19):
+// The Origin main menu -- 1.21.1's Workbench title (TitleScreenMixin, A-Workbench-3,
+// Will 2026-10-25):
 //
-//   [head Player]
+//   (head) Player                                   no plate, Inter name
 //
-//                            (logo)
-//                            ORIGIN
-//                 [        Singleplayer        ]   200 x 20, vanilla
-//                 [        Multiplayer         ]
-//                 [   Options    ][    Mods    ]
+//                            (logo)                 the real origin_logo.png
+//                          [wordmark]               the real origin_wordmark.png
+//                 [ >  Singleplayer            ]    200 x 20 Workbench cards,
+//                 [ >  Multiplayer             ]    lead glyph + Inter label
+//                 [ > Options  ][ >   Mods     ]
 //
-//              [friends][cosmetics][lang][quit]    20 x 20 vanilla squares
-//                                  Copyright Mojang AB. Do not distribute!
+//              [friends][cosmetics][lang][quit]     20 x 20 cards, parchment glyph
+//   Minecraft 1.8.9 . Origin          Copyright Mojang AB. Do not distribute!
 //
 // Background: 1.8.9's own panorama, drawn and blurred by vanilla's renderer
-// (MenuPanorama), under the title dim and vignette. No version line, no splash.
-// GEOMETRY LIVES IN ONE PLACE: TitleLayout. Every button is a stock GuiButton
-// drawn by vanilla (OriginButtonRenderer leaves this screen alone); the icon
-// squares are blank vanilla buttons with Origin's icon drawn on top. No hover
-// tooltips anywhere on the title: a hover card beside a dock icon read as a
-// second button (Will, 2026-10-25: "the quit the game button is the same as the
-// other button next to it"); 1.8.9 has no narrator, so the dock carries no text.
+// (MenuPanorama), under the title dim and vignette. No splash.
+// GEOMETRY LIVES IN ONE PLACE: TitleLayout. Every control is a TitleButton: the
+// Workbench card from OriginButtonRenderer.titleControl, or vanilla's own button
+// when the title skin is latched off. No hover tooltips anywhere on the title
+// (1.21.1 narrates its dock tips but never draws them; 1.8.9 has no narrator).
 //
 // 1.8.9 best fit: later versions REPOSITION vanilla's own TitleScreen widgets
 // from a mixin. 1.8.9's GuiMainMenu builds its buttons with bare ids and draws
@@ -100,7 +98,8 @@ public class OriginTitleScreen extends OriginScreen {
 	private final List<int[]> navPos = new ArrayList<>();
 	// The icon squares and their Origin icon (index-aligned).
 	private final List<GuiButton> dock = new ArrayList<>();
-	private final List<String> dockIcon = new ArrayList<>();
+	// The frame's Gfx, for the TitleButtons super.render draws (one Gfx per frame, none per button).
+	private Gfx frameGfx;
 
 	public OriginTitleScreen() {
 		super("Origin");
@@ -122,7 +121,6 @@ public class OriginTitleScreen extends OriginScreen {
 		nav.clear();
 		navPos.clear();
 		dock.clear();
-		dockIcon.clear();
 
 		singleplayer = add(0, I18n.format("menu.singleplayer"));
 		multiplayer = add(1, I18n.format("menu.multiplayer"));
@@ -132,6 +130,12 @@ public class OriginTitleScreen extends OriginScreen {
 		cosmetics = add(5, "");
 		language = add(6, "");
 		quit = add(7, "");
+		// 1.21.1's glyphs (TitleScreenMixin): worded leads, then the dock in 1.21.1's order (no Realms or
+		// Accessibility on 1.8.9; class comment).
+		OriginButtonRenderer.setTitleButton(singleplayer, "@title-singleplayer");
+		OriginButtonRenderer.setTitleButton(multiplayer, "@title-multiplayer");
+		OriginButtonRenderer.setTitleButton(options, "@title-options");
+		OriginButtonRenderer.setTitleButton(mods, "@title-mods");
 
 		// Two full rows, then the Options | Mods pair.
 		TitleLayout.rows(3);
@@ -142,11 +146,11 @@ public class OriginTitleScreen extends OriginScreen {
 		place(options, L.mainX, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
 		place(mods, L.mainX + L.mainW - half, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
 
-		// Bottom row of vanilla squares, Quit at its end.
-		icon(friends, "@px-friends");
-		icon(cosmetics, "@px-shirt");
-		icon(language, "@px-language");
-		icon(quit, "@px-quit");
+		// Bottom row of dock cards, Quit at its end.
+		icon(friends, "@title-multiplayer");
+		icon(cosmetics, "@shirt");
+		icon(language, "@title-language");
+		icon(quit, "@title-quit");
 		int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
 		int dx = (width - totalW) / 2;
 		for (GuiButton b : dock) {
@@ -157,14 +161,45 @@ public class OriginTitleScreen extends OriginScreen {
 	}
 
 	private GuiButton add(int slot, String label) {
-		GuiButton b = new GuiButton(ID_BASE + slot, 0, 0, 150, 20, label);
+		GuiButton b = new TitleButton(ID_BASE + slot, label);
 		buttonList.add(b);
 		return b;
 	}
 
 	private void icon(GuiButton b, String id) {
 		dock.add(b);
-		dockIcon.add(id);
+		OriginButtonRenderer.setTitleDock(b, id);
+		((TitleButton) b).dockIcon = id;
+	}
+
+	/**
+	 * A title control: the Workbench card (OriginButtonRenderer.titleControl), or vanilla's own button when the
+	 * title skin is off or latched. Hover is vanilla's own hit test, set here as GuiButton.drawButton would.
+	 * A subclass, not a mixin: these are this screen's own buttons (1.21.1 skins vanilla's via AbstractButtonMixin).
+	 */
+	private final class TitleButton extends GuiButton {
+		/** The dock glyph (null for worded buttons): drawn over vanilla's blank square on the fallback path. */
+		String dockIcon;
+
+		TitleButton(int id, String label) {
+			super(id, 0, 0, 150, 20, label);
+		}
+
+		@Override
+		public void drawButton(net.minecraft.client.Minecraft mc, int mouseX, int mouseY) {
+			if (!visible) {
+				return;
+			}
+			hovered = mouseX >= xPosition && mouseY >= yPosition && mouseX < xPosition + width && mouseY < yPosition + height;
+			Gfx g = frameGfx;
+			if (g == null || !OriginButtonRenderer.titleControl(g, this, hovered)) {
+				super.drawButton(mc, mouseX, mouseY);
+				if (dockIcon != null && g != null) {
+					ModIcons.drawCrisp(g, dockIcon, xPosition + (width - 12) / 2, yPosition + (height - 12) / 2, 12,
+							enabled ? 0xFFFFFFFF : 0xFFA0A0A0);
+				}
+			}
+		}
 	}
 
 	private void place(GuiButton b, int x, int y, int w, int h, boolean animated) {
@@ -217,12 +252,13 @@ public class OriginTitleScreen extends OriginScreen {
 		OriginScreenRenderer.renderTitleWordmark(g);
 		OriginScreenRenderer.renderTitleAccountChip(g);
 		applyPositions();
-		super.render(g, mouseX, mouseY, partialTick);   // the stock buttons
-		drawDockIcons(g);
-		// Vanilla's copyright line, where vanilla puts it (GuiMainMenu.drawScreen):
-		// bottom-right, 2 px in, at height - 10 -- below the icon row, which ends
-		// TitleLayout's DOCK_BOTTOM (14 px) above the bottom edge.
-		g.drawString(fontRendererObj, COPYRIGHT, width - fontRendererObj.getStringWidth(COPYRIGHT) - 2, height - 10, 0xFFFFFFFF, true);
+		frameGfx = g;
+		try {
+			super.render(g, mouseX, mouseY, partialTick);   // the TitleButtons (and any other mod's buttons)
+		} finally {
+			frameGfx = null;
+		}
+		drawFooter(g);
 
 		if (intro == HOLD) {
 			// The title is drawn for real underneath; the splash covers it until
@@ -247,16 +283,33 @@ public class OriginTitleScreen extends OriginScreen {
 
 	private static final String COPYRIGHT = "Copyright Mojang AB. Do not distribute!";
 
-	/** Origin's icon over each blank vanilla square (1.21.1's vanillaIconButton sizes). */
-	private void drawDockIcons(Gfx g) {
-		for (int i = 0; i < dock.size(); i++) {
-			GuiButton b = dock.get(i);
-			if (!b.visible) {
-				continue;
+	// The footer strings (fixed for the game's life). 1.21.1 builds "Minecraft <version>" from SharedConstants;
+	// 1.8.9's version is the module's own.
+	private static final String FOOTER_VERSION = "Minecraft 1.8.9";
+	private static final String FOOTER_LINE = FOOTER_VERSION + " \u00B7 Origin";   // middle dot, escaped: sources stay ASCII
+	private static int copyrightW = -1, copyrightGs = -1;
+
+	/**
+	 * 1.21.1's footer line: "Minecraft 1.8.9 . Origin" CORNER in from the left, the copyright with its right edge
+	 * CORNER in from the right, both on the line box FOOTER_TOP above the bottom, textMuted, Inter (the dot is
+	 * drawn). Minecraft's font if Inter is not live. The copyright is plain text on 1.8.9 (vanilla's GuiMainMenu
+	 * has no credits link there).
+	 */
+	private void drawFooter(Gfx g) {
+		int top = height - TitleLayout.FOOTER_TOP;
+		int argb = OriginTheme.TITLE_TEXT_MUTED;
+		if (OriginButtonRenderer.titleTextActive()) {
+			OriginButtonRenderer.drawTitleFooterLine(g, FOOTER_VERSION, "Origin", TitleLayout.CORNER, top, argb);
+			int gs = Gfx.guiScale();
+			if (copyrightW < 0 || copyrightGs != gs) {
+				copyrightW = (int) Math.ceil(OriginButtonRenderer.titleTextWidth(COPYRIGHT, OriginTheme.TITLE_SMALL_EM, false));
+				copyrightGs = gs;
 			}
-			int s = Math.max(8, Math.min(12, b.height - 8));
-			ModIcons.drawCrisp(g, dockIcon.get(i), b.xPosition + (b.width - s) / 2, b.yPosition + (b.height - s) / 2, s,
-					b.enabled ? 0xFFFFFFFF : 0xFFA0A0A0);
+			OriginButtonRenderer.drawTitleText(g, COPYRIGHT, width - copyrightW - TitleLayout.CORNER, top,
+					OriginTheme.TITLE_SMALL_EM, argb, false);
+		} else {
+			g.drawString(fontRendererObj, FOOTER_LINE, TitleLayout.CORNER, top, argb, true);
+			g.drawString(fontRendererObj, COPYRIGHT, width - fontRendererObj.getStringWidth(COPYRIGHT) - TitleLayout.CORNER, top, argb, true);
 		}
 	}
 

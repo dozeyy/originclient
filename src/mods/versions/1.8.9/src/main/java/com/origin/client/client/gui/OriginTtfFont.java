@@ -157,6 +157,9 @@ public final class OriginTtfFont {
 		return w + tracking * (text.length() - 1);
 	}
 
+	private static Glyph[] scratchGl = new Glyph[64];
+	private static int[] scratchQx = new int[64];
+
 	/** Draws `text` with its baseline at `baseline` (caller units = physical px). */
 	public static void drawEm(Gfx g, String text, float x, float baseline, float em, float tracking,
 							  int argb, boolean bold) {
@@ -173,8 +176,14 @@ public final class OriginTtfFont {
 
 		// Pass 1: rasterise anything new and lay the quads out.
 		int n = text.length();
-		Glyph[] gl = new Glyph[n];
-		int[] qx = new int[n];
+		// Render-thread scratch, grown on demand: a draw allocates nothing per call.
+		if (scratchGl.length < n) {
+			scratchGl = new Glyph[Math.max(n, scratchGl.length * 2)];
+			scratchQx = new int[scratchGl.length];
+		}
+		Glyph[] gl = scratchGl;
+		int[] qx = scratchQx;
+		java.util.Arrays.fill(gl, 0, n, null);
 		float pen = x;
 		for (int i = 0; i < n; i++) {
 			char c = text.charAt(i);
