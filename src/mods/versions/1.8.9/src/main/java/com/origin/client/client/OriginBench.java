@@ -287,6 +287,8 @@ public final class OriginBench {
 				}
 				if (SHOTS && outDir != null) {
 					// Proof of what the scene looks like, taken in the warm-up so it never lands in the numbers.
+					// 1.8.9's ScreenShotHelper fails the first shot if screenshots/ doesn't exist yet.
+					new File(outDir, "screenshots").mkdirs();
 					OriginDevShots.grab(mc, outDir.getAbsolutePath(), "scene-" + sc + ".png");
 				}
 				beginMeasure();
