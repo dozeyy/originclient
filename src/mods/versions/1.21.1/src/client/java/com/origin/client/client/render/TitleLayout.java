@@ -34,9 +34,14 @@ public final class TitleLayout {
 	private static final int BUTTON_H = 20, ROW_STEP = 24, MIN_ROW_STEP = 21, MAIN_W = 200;
 	private static final int DOCK = 20, DOCK_GAP = 4, DOCK_BOTTOM = 14;
 	private static final int MARK = 34, MARK_ABOVE = 60;
-	/** The wordmark image: 11 GUI px tall, centred 22 above the first row (the mock's 21.5, 6 px under the logo's ink). */
+	/**
+	 * The wordmark image: 11 GUI px tall (its ink 8.2 of that), 6 GUI px of visible gap under the logo's ink
+	 * (spec 15.2). origin_logo.png's ink ends 11.4 below its box centre and origin_wordmark.png's ink starts
+	 * 1.4 inside its box, so its centre sits 21.5 under the logo centre = 38.5 above the first row. Wordmark-only
+	 * headers (no room for the logo) keep it 22 above the first row.
+	 */
 	public static final int WORD_H = 11;
-	private static final int WORD_CENTER_ABOVE = 22;
+	private static final double WORD_CENTER_ABOVE_FULL = MARK_ABOVE - 21.5, WORD_CENTER_ABOVE_ONLY = 22;
 	/** Space above the first row with the full header (logo + wordmark) and wordmark only. */
 	private static final int HEADER_FULL = MARK_ABOVE + MARK / 2, HEADER_WORD = 34;
 	/** Gap kept between the chip and the header, and between the stack and the icon row. */
@@ -49,7 +54,8 @@ public final class TitleLayout {
 	public final int mainX, mainW, mainTop, buttonH, rowStep, pairGap;
 	public final int dockY, dockSize, dockGap;
 	/** markSize 0: no logo this frame. showWordmark false: no wordmark either. */
-	public final int markCenterX, markCenterY, markSize, wordCenterY;
+	public final int markCenterX, markCenterY, markSize;
+	public final double wordCenterY;
 	public final boolean showWordmark;
 	/** False when even with no header and the tightest rows the stack would meet the icon row. */
 	public final boolean fits;
@@ -68,7 +74,7 @@ public final class TitleLayout {
 		this.markCenterX = sw / 2;
 		this.markCenterY = mainTop - MARK_ABOVE;
 		this.markSize = header == HEADER_FULL ? MARK : 0;
-		this.wordCenterY = mainTop - WORD_CENTER_ABOVE;
+		this.wordCenterY = mainTop - (header == HEADER_FULL ? WORD_CENTER_ABOVE_FULL : WORD_CENTER_ABOVE_ONLY);
 		this.showWordmark = header > 0;
 	}
 

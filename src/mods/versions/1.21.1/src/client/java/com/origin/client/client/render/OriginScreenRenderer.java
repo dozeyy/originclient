@@ -934,7 +934,7 @@ public final class OriginScreenRenderer {
 					titleSkinSupplier = mc.getSkinManager().lookupInsecure(profile);
 				}
 				net.minecraft.client.resources.PlayerSkin skin = titleSkinSupplier.get();
-				net.minecraft.client.gui.components.PlayerFaceRenderer.draw(guiGraphics, skin, hx, hy, head);
+				drawRoundedHead(guiGraphics, skin, hx, hy, head, 2);
 				drewHead = true;
 			} catch (Throwable ignored) {
 				// fall back to the logo below
@@ -947,6 +947,46 @@ public final class OriginScreenRenderer {
 		} catch (Throwable t) {
 			fail(t);
 		}
+	}
+
+	/**
+	 * The chip's player head with rounded corners (DESIGN-SYSTEM 15.2: head 12 GUI px, radius 2).
+	 * The face is vanilla's own PlayerFaceRenderer draw, repeated inside GL scissor bands of whole
+	 * PHYSICAL pixels (GuiGraphics' scissor rounds to GUI px, too coarse for a 2 px corner): rows in
+	 * the corner zone are inset by the circle's edge, rows between are one full-width band. Bands
+	 * with the same inset merge, so it is a handful of immediate blits. Immediate draws only (1.21.1
+	 * has no deferred GUI), so the scissor wraps them exactly.
+	 */
+	private static void drawRoundedHead(GuiGraphics g, net.minecraft.client.resources.PlayerSkin skin, int hx, int hy, int head, int radius) {
+		com.mojang.blaze3d.platform.Window win = Minecraft.getInstance().getWindow();
+		int gs = Math.max(1, (int) Math.round(win.getGuiScale()));
+		int px = hx * gs, py = hy * gs, size = head * gs, r = Math.min(size / 2, radius * gs);
+		int fbH = win.getHeight();
+		g.flush();
+		try {
+			int bandStart = 0, bandInset = insetAt(0, size, r);
+			for (int row = 1; row <= size; row++) {
+				int inset = row < size ? insetAt(row, size, r) : -1;
+				if (inset != bandInset) {
+					RenderSystem.enableScissor(px + bandInset, fbH - (py + row), size - 2 * bandInset, row - bandStart);
+					net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, skin, hx, hy, head);
+					bandStart = row;
+					bandInset = inset;
+				}
+			}
+		} finally {
+			RenderSystem.disableScissor();
+		}
+	}
+
+	/** Pixels cut from each side of physical row {@code row} (0 = top) of a size x size square with corner radius r. */
+	private static int insetAt(int row, int size, int r) {
+		int edge = Math.min(row, size - 1 - row);   // rows from the nearest top/bottom edge
+		if (edge >= r) {
+			return 0;
+		}
+		double dy = r - (edge + 0.5);
+		return (int) Math.round(r - Math.sqrt(Math.max(0.0, r * (double) r - dy * dy)));
 	}
 
 	// ---- Primitives ----
