@@ -5,7 +5,7 @@ using System.Windows.Controls;
 namespace OriginLauncher.App.UI;
 
 /// <summary>
-/// The one way to make a capsule (pill, chip, badge, switch track): <c>ui:Capsule.Round="True"</c> on a Border keeps
+/// The one way to make a capsule (pill, chip, badge, switch track): <c>ui:Capsule.On="True"</c> on a Border keeps
 /// its corner radius at exactly half its short side, so the ends are true semicircles and the long sides stay straight
 /// (Will, 2026-10-25: "pill shaped like apple and never oval shaped ever again").
 ///
@@ -16,13 +16,13 @@ namespace OriginLauncher.App.UI;
 /// </summary>
 public static class Capsule
 {
-    public static readonly DependencyProperty RoundProperty = DependencyProperty.RegisterAttached(
-        "Round", typeof(bool), typeof(Capsule), new PropertyMetadata(false, OnRoundChanged));
+    public static readonly DependencyProperty OnProperty = DependencyProperty.RegisterAttached(
+        "On", typeof(bool), typeof(Capsule), new PropertyMetadata(false, OnOnChanged));
 
-    public static bool GetRound(DependencyObject d) => (bool)d.GetValue(RoundProperty);
-    public static void SetRound(DependencyObject d, bool value) => d.SetValue(RoundProperty, value);
+    public static bool GetOn(DependencyObject d) => (bool)d.GetValue(OnProperty);
+    public static void SetOn(DependencyObject d, bool value) => d.SetValue(OnProperty, value);
 
-    private static void OnRoundChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnOnChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not Border b) return;
         b.SizeChanged -= OnSizeChanged;

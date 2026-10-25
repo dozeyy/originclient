@@ -24,33 +24,16 @@ public class VersionSelectModelTests
 
     // ---- wording ----
 
+    // Step 2's dropdown says nothing about downloading (Will, 2026-10-25): a release on disk wears a quiet emerald dot
+    // (an update waiting still counts), everything else shows just its number.
     [Theory]
-    [InlineData(InstallState.Installed, "Installed, opens straight away", StatusDot.Success)]
-    [InlineData(InstallState.UpdateReady, "Update ready", StatusDot.Info)]
-    [InlineData(InstallState.NotInstalled, "Downloads when you press Play", StatusDot.Muted)]
-    [InlineData(InstallState.Partial, "Finishes installing when you press Play", StatusDot.Warning)]
-    public void EveryStateReadsAsWords(InstallState state, string text, StatusDot dot) =>
-        Assert.Equal(new StatusLine(text, dot), VersionStatus.ForRelease(state));
-
-    // The capsule at the end of a row: one ASCII caps word, and a tone that matches the row's dot.
-    [Theory]
-    [InlineData(InstallState.Installed, "INSTALLED", StatusDot.Success)]
-    [InlineData(InstallState.UpdateReady, "UPDATE", StatusDot.Info)]
-    [InlineData(InstallState.NotInstalled, "DOWNLOAD", StatusDot.Muted)]
-    [InlineData(InstallState.Partial, "FINISH", StatusDot.Warning)]
-    public void EveryStateHasACapsule(InstallState state, string text, StatusDot dot)
-    {
-        Assert.Equal(new StatusLine(text, dot), VersionStatus.PillFor(state));
-        Assert.Equal(VersionStatus.ForRelease(state)!.Dot, VersionStatus.PillFor(state)!.Dot);
-        Assert.Equal(text.ToUpperInvariant(), text);
-        Assert.All(text, c => Assert.True(c < 128));
-    }
-
-    [Fact]
-    public void UnknownHasNoCapsule() => Assert.Null(VersionStatus.PillFor(InstallState.Unknown));
-
-    [Fact]
-    public void UnknownShowsNothing_NoPlaceholderNoError() => Assert.Null(VersionStatus.ForRelease(InstallState.Unknown));
+    [InlineData(InstallState.Installed, true)]
+    [InlineData(InstallState.UpdateReady, true)]
+    [InlineData(InstallState.NotInstalled, false)]
+    [InlineData(InstallState.Partial, false)]
+    [InlineData(InstallState.Unknown, false)]
+    public void OnlyReleasesOnDiskWearTheDot(InstallState state, bool dot) =>
+        Assert.Equal(dot, VersionStatus.ShowsInstalledDot(state));
 
     [Fact]
     public void FamilyBadge_CountsInstalledReleases_AndAnUpdateWaitingStillCounts()
@@ -192,12 +175,12 @@ public class VersionSelectModelTests
     }
 
     [Fact]
-    public void Step2_Enter_PlaysThePick()
+    public void Step2_Enter_OpensTheDropdown_AndLaunchesNothing()
     {
         var nav = Open("1.21.1");
         nav.Press(NavKey.Enter);
         nav.Press(NavKey.Up); // 1.21.2
-        Assert.Equal(new NavResult(NavKind.Play, 1, "1.21.2"), nav.Press(NavKey.Enter));
+        Assert.Equal(new NavResult(NavKind.OpenList, 1), nav.Press(NavKey.Enter));
     }
 
     [Fact]

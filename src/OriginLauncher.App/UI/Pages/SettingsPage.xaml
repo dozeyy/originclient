@@ -128,7 +128,7 @@
                             <TextBlock Text="Your keybinds, video settings, mod settings, HUD positions and server list follow you to every version."
                                        Style="{StaticResource SettingWhy}"/>
                         </StackPanel>
-                        <!-- The ON / OFF readout: a Sm capsule (22 tall, Capsule.Round, Padding.Capsule.Sm); ON washes it in the accent. -->
+                        <!-- The ON / OFF readout: a Sm capsule (22 tall, Capsule.On, Padding.Capsule.Sm); ON washes it in the accent. -->
                         <Border Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center"
                                 AutomationProperties.Name="Settings Sync state">
                             <Border.Style>

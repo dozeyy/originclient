@@ -515,7 +515,7 @@ public partial class ProfilesPage : UserControl
                 Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            UI.Capsule.SetRound(dot, true);
+            UI.Capsule.SetOn(dot, true);
             dot.SetResourceReference(Border.BackgroundProperty, "Brush.Accent");
             mark.Children.Add(dot);
             mark.Children.Add(Small(running ? "Selected / Running" : "Selected", bold: true));

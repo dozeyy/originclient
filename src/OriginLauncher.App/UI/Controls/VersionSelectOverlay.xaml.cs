@@ -14,25 +14,33 @@ namespace OriginLauncher.App.UI.Controls;
 
 // The version selector (Phase 3, U3.2; DESIGN-SYSTEM.md 11.3): a sheet over Home's art in two steps.
 //   Step 1  the eight families as cards (art, the number set into it, a "2 of 10 installed" badge).
-//   Step 2  one family: its card large with what it added, then its releases newest first, each with its install
-//           state (Installed / Update ready / Downloads when you press Play / Finishes installing...), and Play.
+//   Step 2  one family, expanded (Will, 2026-10-25): the clicked card grows out of its grid slot into a centred panel
+//           (scale + move, 220 ms, Motion.Emphasized) while the other cards fade back. The panel holds Back ("All
+//           versions"), the family's art, range and name, and ONE compact dropdown of its releases, newest first, with
+//           the current one preselected and a quiet emerald dot on the ones already on disk. Picking a release in it
+//           picks the version and that is all: no Play, no Install, no "download" words (Play installs what it needs).
+//           A click off the panel or Esc closes the picker to Home; Back shrinks the panel into its card again.
 // A family with a single release has no step 2: choosing it picks it and closes.
 //
 // The keys, what each step shows and what counts as "a pick" live in VersionSelectModel.cs (unit-tested); this file
 // draws and carries out what the model answers. Install states come from InstalledVersions: StateOf is cache-only,
 // so reading them on the UI thread never touches the disk; the disk is read by RefreshAllAsync on a worker thread
 // every time the sheet opens, and the service raises Changed when an answer moves (after an install or a launch).
-// The control owns no launch logic beyond raising LaunchRequested, and no setting: it raises VersionSelected and
-// Home persists it (SettingsStore.Update in HomePage.OnVersionSelected).
+// The control owns no setting: it raises VersionSelected and Home persists it (SettingsStore.Update in
+// HomePage.OnVersionSelected). Input is never held for an animation: every state change takes effect at once and the
+// motion only follows it.
 public partial class VersionSelectOverlay : UserControl
 {
     private readonly List<FamilyTile> _tiles;
     private readonly VersionSelectNav _nav;
-    private readonly ObservableCollection<ReleaseRow> _rows = new();
+    private readonly ObservableCollection<ReleaseItem> _releases = new();
     private InstalledVersions _installs;
     private bool _syncing;
-    private long _sceneRevision, _paneRevision;
+    private long _sceneRevision, _panelRevision;
     private int _statesQueued;
+
+    // The card-to-panel move: 220 ms each way, the backdrop cards fade to this much.
+    private const double PanelMs = 220, CardsDimmed = 0.12;
 
     public VersionSelectOverlay()
     {
@@ -41,11 +49,18 @@ public partial class VersionSelectOverlay : UserControl
         _nav = new VersionSelectNav(VersionCatalog.Groups);
         FamilyList.ItemsSource = _tiles;
         FamilyList.SelectionChanged += (_, _) => { if (!_syncing) ShowPickRing(); };
-        ReleaseList.ItemsSource = _rows;
+        ReleaseBox.ItemsSource = _releases;
         FamiliesCaption.Text = $"{_tiles.Count} families, {VersionCatalog.SupportedVersions.Count} releases. Origin installs what each one needs.";
         // The sheet's size follows the free band under the top bar (the window), not its own content.
         Stage.SizeChanged += (_, _) => SizeCards();
         PreviewKeyDown += OnSheetKey;
+        // The sheet's own padding, around the panel, counts as "off the panel" in step 2 too.
+        Sheet.MouseLeftButtonDown += (_, e) =>
+        {
+            if (_nav.Step != SelectorStep.Releases || FamilyPanel.IsMouseOver) return;
+            CloseOverlay();
+            e.Handled = true;
+        };
         _installs = InstalledVersions.Shared;
         _installs.Changed += OnInstallChanged;
         // Thumbnails decode off the UI thread (frozen bitmaps).
@@ -55,12 +70,6 @@ public partial class VersionSelectOverlay : UserControl
     /// <summary>Raised when the player picks a specific version (a release in step 2, or a single-release family).
     /// Home persists it and its art follows live behind the sheet.</summary>
     public event Action<string>? VersionSelected;
-
-    /// <summary>Raised when the player clicks Play on a version.</summary>
-    public event Action<string>? LaunchRequested;
-
-    /// <summary>Raised when the player clicks "Install x only": provision that version without starting the game.</summary>
-    public event Action<string>? InstallRequested;
 
     public bool IsOpen => Visibility == Visibility.Visible;
 
@@ -86,7 +95,7 @@ public partial class VersionSelectOverlay : UserControl
         var current = VersionCatalog.IsSupported(currentVersion) ? currentVersion! : VersionCatalog.DefaultVersion;
         _nav.Open(current);
         ShowPickRing();
-        ShowPane(SelectorStep.Families, animate: false);
+        ResetPanel();
         // Whatever the cache holds shows at once; the disk read refreshes it a moment later (and Changed re-applies).
         ApplyStates();
         _ = _installs.RefreshAllAsync();
@@ -116,6 +125,7 @@ public partial class VersionSelectOverlay : UserControl
     {
         if (!IsOpen) return;
         ++_sceneRevision;
+        ReleaseBox.IsDropDownOpen = false;
         Scene.BeginAnimation(OpacityProperty, null);
         OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, null);
         Visibility = Visibility.Collapsed;
@@ -124,6 +134,7 @@ public partial class VersionSelectOverlay : UserControl
     private void CloseOverlay()
     {
         var sceneRevision = ++_sceneRevision;
+        ReleaseBox.IsDropDownOpen = false;
         if (Motion.Off)
         {
             Visibility = Visibility.Collapsed;
@@ -149,11 +160,11 @@ public partial class VersionSelectOverlay : UserControl
                 break;
             case NavKind.OpenedFamily:
                 BuildReleases(result.FamilyIndex);
-                ShowPane(SelectorStep.Releases, animate: true);
-                Dispatcher.BeginInvoke(() => FocusRow(_nav.ReleaseIndex));
+                Expand(result.FamilyIndex, animate: true);
+                Dispatcher.BeginInvoke(() => ReleaseBox.Focus());
                 break;
             case NavKind.Select:
-                ShowPick(result.Version!);
+                ShowPick();
                 VersionSelected?.Invoke(result.Version!);
                 break;
             case NavKind.SelectAndClose:
@@ -161,12 +172,13 @@ public partial class VersionSelectOverlay : UserControl
                 VersionSelected?.Invoke(result.Version!);
                 CloseOverlay();
                 break;
-            case NavKind.Play:
-                Launch();
+            case NavKind.OpenList:
+                ReleaseBox.IsDropDownOpen = true;
                 break;
             case NavKind.Back:
-                ShowPane(SelectorStep.Families, animate: true);
-                Dispatcher.BeginInvoke(() => FocusFamily(_nav.FamilyIndex));
+                ReleaseBox.IsDropDownOpen = false;
+                Collapse(result.FamilyIndex, animate: true);
+                FocusFamily(_nav.FamilyIndex);
                 break;
             case NavKind.Close:
                 CloseOverlay();
@@ -185,70 +197,143 @@ public partial class VersionSelectOverlay : UserControl
         _syncing = false;
     }
 
-    // Step 2 shows a family: its card and words on the left, its releases (with their states) on the right.
+    // Step 2 shows a family: its art and words, and its releases in the dropdown with the current one chosen.
     private void BuildReleases(int familyIndex)
     {
         var tile = _tiles[familyIndex];
         FamilySide.DataContext = tile;
         _syncing = true;
-        _rows.Clear();
-        foreach (var v in tile.Group.Versions) _rows.Add(new ReleaseRow(v, _installs.StateOf(v)));
-        ReleaseList.SelectedIndex = _nav.ReleaseIndex;
+        _releases.Clear();
+        foreach (var v in tile.Group.Versions) _releases.Add(new ReleaseItem(v, _installs.StateOf(v)));
+        ReleaseBox.SelectedIndex = _nav.ReleaseIndex;
         _syncing = false;
-        ReleasesLabel.Text = $"{tile.Group.Versions.Count} RELEASES";
-        ShowActions(_nav.Release);
         SizeCards();
     }
 
-    // The two buttons name the release they act on.
-    private void ShowActions(string version)
-    {
-        LaunchText.Text = $"Play {version}";
-        InstallText.Text = $"Install {version} only";
-    }
-
-    // The highlight moved to a release (a key or a click): show it, keep the Play label on it, and keep Home's art in step.
-    private void ShowPick(string version)
+    // The pick moved to a release (a key or a click): show it in the dropdown, and the ring on its card.
+    private void ShowPick()
     {
         _syncing = true;
-        ReleaseList.SelectedIndex = _nav.ReleaseIndex;
+        ReleaseBox.SelectedIndex = _nav.ReleaseIndex;
         _syncing = false;
-        ShowActions(version);
         ShowPickRing();
     }
 
     private void FocusFamily(int index) =>
         (FamilyList.ItemContainerGenerator.ContainerFromIndex(index) as UIElement ?? FamilyList).Focus();
 
-    private void FocusRow(int index) =>
-        (ReleaseList.ItemContainerGenerator.ContainerFromIndex(index) as UIElement ?? ReleaseList).Focus();
+    // ---- the card <-> panel move ----
 
-    // Crossfade between the two panes (motion.scene). The leaving pane stops taking input at once and is hidden
-    // when its fade ends (unless another switch happened meanwhile); hidden panes still count for the sheet's size.
-    private void ShowPane(SelectorStep step, bool animate)
+    // Family card <paramref name="index"/>'s face, in SheetContent's coordinates (Rect.Empty before it is laid out).
+    private Rect CardRect(int index)
     {
-        var incoming = step == SelectorStep.Releases ? ReleasesPane : FamiliesPane;
-        var outgoing = step == SelectorStep.Releases ? FamiliesPane : ReleasesPane;
-        var revision = ++_paneRevision;
-        incoming.BeginAnimation(OpacityProperty, null);
-        outgoing.BeginAnimation(OpacityProperty, null);
-        incoming.Visibility = Visibility.Visible;
-        incoming.IsHitTestVisible = true;
-        outgoing.IsHitTestVisible = false;
-        if (!animate || Motion.Off || !IsOpen)
+        if (FamilyList.ItemContainerGenerator.ContainerFromIndex(index) is not ListBoxItem item) return Rect.Empty;
+        var face = item.Template?.FindName("Face", item) as FrameworkElement ?? item;
+        if (face.ActualWidth <= 0 || !face.IsDescendantOf(SheetContent)) return Rect.Empty;
+        return face.TransformToAncestor(SheetContent).TransformBounds(new Rect(0, 0, face.ActualWidth, face.ActualHeight));
+    }
+
+    // The panel's resting place in SheetContent's coordinates (it is SheetContent's child): its arranged offset,
+    // which leaves out the scale and shift it is drawn with.
+    private Rect PanelRect() =>
+        FamilyPanel.ActualWidth <= 0 ? Rect.Empty
+            : new Rect((Point)VisualTreeHelper.GetOffset(FamilyPanel), new Size(FamilyPanel.ActualWidth, FamilyPanel.ActualHeight));
+
+    // Card -> panel. The panel is placed and takes input at once; the scale and move only follow. Starting from the
+    // card's rect, the panel's transform (scale about its top-left, then a shift) maps it onto that card exactly.
+    private void Expand(int index, bool animate)
+    {
+        ++_panelRevision;
+        StopPanelMotion();
+        FamilyPanel.Visibility = Visibility.Visible;
+        FamilyPanel.IsHitTestVisible = true;
+        PanelCatcher.Visibility = Visibility.Visible;
+        FamiliesPane.IsHitTestVisible = false;
+        UpdateLayout();
+
+        var from = CardRect(index);
+        var to = PanelRect();
+        if (!animate || Motion.Off || !IsOpen || from.IsEmpty || to.IsEmpty)
         {
-            incoming.Opacity = 1;
-            outgoing.Opacity = 0;
-            outgoing.Visibility = Visibility.Hidden;
+            SetPanel(1, 1, 0, 0, 1);
+            FamiliesPane.Opacity = CardsDimmed;
             return;
         }
-        incoming.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 260, Motion.Out));
-        var fade = Motion.To(0, 140, Motion.In);
+        Animate(PanelScale, ScaleTransform.ScaleXProperty, from.Width / to.Width, 1);
+        Animate(PanelScale, ScaleTransform.ScaleYProperty, from.Height / to.Height, 1);
+        Animate(PanelShift, TranslateTransform.XProperty, from.X - to.X, 0);
+        Animate(PanelShift, TranslateTransform.YProperty, from.Y - to.Y, 0);
+        // The panel's own face fades in over the first half, so the stretched words never read.
+        FamilyPanel.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, PanelMs / 2, Motion.Out));
+        FamiliesPane.BeginAnimation(OpacityProperty, Motion.FromTo(FamiliesPane.Opacity, CardsDimmed, PanelMs, Motion.Emphasized));
+    }
+
+    // Panel -> card: the reverse. The cards take input again at once; the panel hides when its move ends (unless the
+    // player opened a family again meanwhile).
+    private void Collapse(int index, bool animate)
+    {
+        var revision = ++_panelRevision;
+        FamilyPanel.IsHitTestVisible = false;
+        PanelCatcher.Visibility = Visibility.Collapsed;
+        FamiliesPane.IsHitTestVisible = true;
+        var from = PanelRect();
+        var to = CardRect(index);
+        StopPanelMotion();
+        if (!animate || Motion.Off || !IsOpen || from.IsEmpty || to.IsEmpty)
+        {
+            ResetPanel();
+            return;
+        }
+        SetPanel(1, 1, 0, 0, 1);
+        Animate(PanelScale, ScaleTransform.ScaleXProperty, 1, to.Width / from.Width);
+        Animate(PanelScale, ScaleTransform.ScaleYProperty, 1, to.Height / from.Height);
+        Animate(PanelShift, TranslateTransform.XProperty, 0, to.X - from.X);
+        Animate(PanelShift, TranslateTransform.YProperty, 0, to.Y - from.Y);
+        var fade = Motion.FromTo(1, 0, PanelMs / 2, Motion.In, PanelMs / 2);
         fade.Completed += (_, _) =>
         {
-            if (_paneRevision == revision) outgoing.Visibility = Visibility.Hidden;
+            if (_panelRevision == revision) ResetPanel();
         };
-        outgoing.BeginAnimation(OpacityProperty, fade);
+        FamilyPanel.BeginAnimation(OpacityProperty, fade);
+        FamiliesPane.BeginAnimation(OpacityProperty, Motion.FromTo(FamiliesPane.Opacity, 1, PanelMs, Motion.Emphasized));
+    }
+
+    private static void Animate(Animatable target, DependencyProperty property, double from, double to) =>
+        target.BeginAnimation(property, Motion.FromTo(from, to, PanelMs, Motion.Emphasized));
+
+    // Clears every running panel animation, keeping nothing of it (the next step sets its own start values).
+    private void StopPanelMotion()
+    {
+        PanelScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        PanelScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        PanelShift.BeginAnimation(TranslateTransform.XProperty, null);
+        PanelShift.BeginAnimation(TranslateTransform.YProperty, null);
+        FamilyPanel.BeginAnimation(OpacityProperty, null);
+        var cards = FamiliesPane.Opacity;
+        FamiliesPane.BeginAnimation(OpacityProperty, null);
+        FamiliesPane.Opacity = cards;
+    }
+
+    private void SetPanel(double scaleX, double scaleY, double x, double y, double opacity)
+    {
+        PanelScale.ScaleX = scaleX;
+        PanelScale.ScaleY = scaleY;
+        PanelShift.X = x;
+        PanelShift.Y = y;
+        FamilyPanel.Opacity = opacity;
+    }
+
+    // Step 1 at rest: no panel, the cards fully shown and taking input.
+    private void ResetPanel()
+    {
+        ++_panelRevision;
+        StopPanelMotion();
+        SetPanel(1, 1, 0, 0, 1);
+        FamilyPanel.Visibility = Visibility.Hidden;
+        FamilyPanel.IsHitTestVisible = false;
+        PanelCatcher.Visibility = Visibility.Collapsed;
+        FamiliesPane.Opacity = 1;
+        FamiliesPane.IsHitTestVisible = true;
     }
 
     // ---- install states ----
@@ -264,27 +349,26 @@ public partial class VersionSelectOverlay : UserControl
         });
     }
 
-    /// <summary>Paint the cached install states (cache only, no disk): the badge on every card and the row of every
+    /// <summary>Paint the cached install states (cache only, no disk): the badge on every card and the dot of every
     /// release of the open family. A version not read yet shows nothing.</summary>
     internal void ApplyStates()
     {
         foreach (var tile in _tiles)
             tile.SetBadge(VersionStatus.ForFamily(tile.Group.Versions.Select(_installs.StateOf).ToList()));
-        foreach (var row in _rows)
-            row.SetState(_installs.StateOf(row.Version));
+        foreach (var item in _releases)
+            item.SetState(_installs.StateOf(item.Version));
     }
 
     // ---- sizing ----
 
-    // The sheet's fixed sizes (px), so the cards and the release list fit a short window without scrolling:
-    // the sheet's own top + bottom margin (8 + 16), padding (24 + 24) and 1 px edges; step 1's heading block
-    // (28 + 16 + 16 gap); a card's text under the art (10 + 22 range line + 2 + 16 name + 4 + 16 status + 12, and
-    // the card's own 1 px edges) and the 12 px between rows; step 2's header (36 + 12), the family words under its
-    // art (12 + 16 + 2 + 28 + 8 + about 140 of description) and the actions row (12 + 36).
+    // The sheet's fixed sizes (px), so the cards fit a short window without scrolling: the sheet's own top + bottom
+    // margin (8 + 16), padding (24 + 24) and 1 px edges; step 1's heading block (28 + 16 + 16 gap); a card's text under
+    // the art (10 + 22 range line + 2 + 16 name + 4 + 16 status + 12, and the card's own 1 px edges) and the 12 px
+    // between rows; the panel's padding (16 + 16) and 1 px edges.
     private const double SheetChrome = 8 + 16 + 24 + 24 + 2;
     private const double SheetGutterX = 24 + 24, SheetInnerX = 24 + 24 + 2;
     private const double FamiliesHeader = 28 + 16 + 16, CardText = 10 + 22 + 2 + 16 + 4 + 16 + 12 + 2, RowGap = 12;
-    private const double ReleasesHeader = 36 + 12, FamilyWords = 12 + 16 + 2 + 28 + 8 + 140, PlayRow = 12 + 36;
+    private const double PanelEdges = 16 + 16 + 2;
     private const double CardEdges = 2;
     private const int Columns = 4;
 
@@ -312,23 +396,25 @@ public partial class VersionSelectOverlay : UserControl
         }
         Sheet.Width = Columns * column + (Columns - 1) * RowGap + SheetInnerX;
 
-        // Step 2: the family column is a share of the sheet; its art is 16:9 at that width, shorter when the window is.
-        var side = Math.Round(Math.Clamp((Sheet.Width - SheetInnerX) * Token("Size.SheetSide.Share"), Token("Size.SheetSide"), Token("Size.SheetSide.Max")));
-        SideColumn.Width = new GridLength(side);
-        var detail = Math.Clamp(stageH - SheetChrome - ReleasesHeader - FamilyWords - PlayRow, 96, side * 9 / 16);
+        // Step 2's panel: a share of the sheet (Size.FamilyPanel tokens), and never taller than the cards' block, so
+        // the sheet keeps its size between the steps. Its art is 16:9 at that width, shorter when the window is.
+        var panel = Math.Round(Math.Clamp((Sheet.Width - SheetInnerX) * Token("Size.FamilyPanel.Share"), Token("Size.FamilyPanel.Min"), Token("Size.FamilyPanel.Max")));
+        FamilyPanel.Width = panel;
+        var inner = panel - PanelEdges;
+        var block = FamiliesHeader + rows * (art + CardText) + (rows - 1) * RowGap;
+        // Everything in the panel but the art, measured at its width (the words, Back and the dropdown).
+        double words = 0;
+        foreach (UIElement child in FamilySide.Children)
+        {
+            if (ReferenceEquals(child, PanelArt)) continue;
+            child.Measure(new Size(inner, double.PositiveInfinity));
+            words += child.DesiredSize.Height;
+        }
+        var detail = Math.Max(96, Math.Min(inner * 9 / 16, block - PanelEdges - words));
         foreach (var tile in _tiles) tile.DetailArtHeight = Math.Round(detail);
-        // Ten releases fit; more (none today) scroll inside the panel, never push the buttons off the sheet.
-        ReleasePanel.MaxHeight = Math.Max(120, stageH - SheetChrome - ReleasesHeader - PlayRow);
     }
 
     // ---- events ----
-
-    private void Launch()
-    {
-        if (_nav.Step != SelectorStep.Releases) return;
-        LaunchRequested?.Invoke(_nav.Release);
-        CloseOverlay();
-    }
 
     private void FamilyItem_Click(object sender, MouseButtonEventArgs e)
     {
@@ -336,27 +422,10 @@ public partial class VersionSelectOverlay : UserControl
         ChooseFamily(_tiles.IndexOf(tile));
     }
 
-    private void ReleaseList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ReleaseBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncing || ReleaseList.SelectedIndex < 0) return;
-        ChooseRelease(ReleaseList.SelectedIndex);
-    }
-
-    private void ReleaseRow_DoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not ListBoxItem { DataContext: ReleaseRow row } || row.Version != _nav.Release) return;
-        Launch();
-        e.Handled = true;
-    }
-
-    private void Launch_Click(object sender, RoutedEventArgs e) => Launch();
-
-    // "Install x only": the release gets provisioned, the game does not start. Home shows the progress and the result.
-    private void Install_Click(object sender, RoutedEventArgs e)
-    {
-        if (_nav.Step != SelectorStep.Releases) return;
-        InstallRequested?.Invoke(_nav.Release);
-        CloseOverlay();
+        if (_syncing || ReleaseBox.SelectedIndex < 0) return;
+        ChooseRelease(ReleaseBox.SelectedIndex);
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseOverlay();
@@ -378,6 +447,8 @@ public partial class VersionSelectOverlay : UserControl
     /// call this directly, so the keys run through the same code as a real press without an input stack.</summary>
     internal bool HandleKey(Key wpfKey, object? source)
     {
+        // The open dropdown owns its keys: arrows move in it, Enter takes the release, Esc closes just the list.
+        if (ReleaseBox.IsDropDownOpen) return false;
         var key = wpfKey switch
         {
             Key.Left => NavKey.Left,
@@ -391,10 +462,12 @@ public partial class VersionSelectOverlay : UserControl
             Key.Enter => NavKey.Enter,
             // Space opens the focused family card, like Enter (a button presses itself on Space).
             Key.Space when source is ListBoxItem { DataContext: FamilyTile } => NavKey.Enter,
+            // Space on the closed dropdown opens it, like Enter.
+            Key.Space when _nav.Step == SelectorStep.Releases && source is ComboBox => NavKey.Enter,
             _ => (NavKey?)null,
         };
         if (key is not { } nav) return false;
-        // A focused button (Close, All versions, Play) presses itself on Enter: Close must not launch.
+        // A focused button (Close, All versions) presses itself on Enter: Close must not open a card.
         if (nav == NavKey.Enter && source is System.Windows.Controls.Primitives.ButtonBase) return false;
         Act(_nav.Press(nav));
         return true;
@@ -403,42 +476,47 @@ public partial class VersionSelectOverlay : UserControl
     /// <summary>A click on family card <paramref name="index"/> (the UI tests and the click handler share it).</summary>
     internal void ChooseFamily(int index) => Act(_nav.ChooseFamily(index));
 
-    /// <summary>A click on release row <paramref name="index"/> of the open family.</summary>
+    /// <summary>A pick of release <paramref name="index"/> of the open family in the dropdown.</summary>
     internal void ChooseRelease(int index) => Act(_nav.ChooseRelease(index));
 
     /// <summary>The badge text on a family card ("" while nothing is shown). For the tests and the shot report.</summary>
     internal string BadgeTextOf(string familyKey) => _tiles.First(t => t.Group.Key == familyKey).BadgeText;
 
-    /// <summary>The status text on a release row of the open family ("" while nothing is shown).</summary>
-    internal string RowStatusOf(string version) => _rows.FirstOrDefault(r => r.Version == version)?.StatusText ?? "";
+    /// <summary>The open family's releases as the dropdown lists them, each with whether it wears the installed dot.</summary>
+    internal IReadOnlyList<(string Version, bool Dot)> DropdownItems =>
+        _releases.Select(r => (r.Version, r.DotVisibility == Visibility.Visible)).ToList();
 
-    /// <summary>The capsule text on a release row of the open family ("INSTALLED", "DOWNLOAD"; "" while nothing is shown).</summary>
-    internal string RowPillOf(string version) => _rows.FirstOrDefault(r => r.Version == version)?.PillText ?? "";
+    /// <summary>The release the dropdown shows chosen (null when no family is open).</summary>
+    internal string? DropdownChoice => (ReleaseBox.SelectedItem as ReleaseItem)?.Version;
+
+    /// <summary>Whether the panel is up and taking input (step 2).</summary>
+    internal bool PanelShown => FamilyPanel.Visibility == Visibility.Visible && FamilyPanel.IsHitTestVisible;
+
+    /// <summary>Whether the dropdown's list is open.</summary>
+    internal bool DropdownOpen => ReleaseBox.IsDropDownOpen;
 
     // Render mode only (UI/RenderShots.cs): open the picker, optionally on one
-    // family (index into VersionCatalog.Groups) at step 2. They do nothing outside a
+    // family (index into VersionCatalog.Groups) at step 2, expanded with no motion. They do nothing outside a
     // render-shots run (OriginPaths.IsScratchRoot). Nothing here picks a version.
-    internal void TourOpen(int detailIndex)
+    internal void TourOpen(int detailIndex, string? currentVersion = null)
     {
         if (!OriginPaths.IsScratchRoot) return;
-        Show(null);
+        Show(currentVersion);
         if (detailIndex >= 0 && detailIndex < _tiles.Count && _tiles[detailIndex].Group.Versions.Count > 1)
         {
             _nav.ChooseFamily(detailIndex);
             BuildReleases(detailIndex);
-            ShowPane(SelectorStep.Releases, animate: false);
+            Expand(detailIndex, animate: false);
         }
     }
 
-    // Render mode only: the keyboard on a family card (step 1) or a release row (step 2), so the shots show focus.
+    // Render mode only: the keyboard on a family card (step 1) or on the dropdown (step 2), so the shots show focus.
     internal void TourFocus(int index)
     {
         if (!OriginPaths.IsScratchRoot) return;
         if (_nav.Step == SelectorStep.Releases)
         {
-            _nav.ChooseRelease(index);
-            ShowPick(_nav.Release);
-            FocusRow(index);
+            ReleaseBox.Focus();
         }
         else
         {
@@ -448,10 +526,19 @@ public partial class VersionSelectOverlay : UserControl
         }
     }
 
+    // Render mode only: open or close step 2's dropdown list (a popup window; the shot draws it in place).
+    internal ComboBox? TourDropdown(bool open)
+    {
+        if (!OriginPaths.IsScratchRoot) return null;
+        ReleaseBox.IsDropDownOpen = open;
+        return ReleaseBox;
+    }
+
     internal void TourClose()
     {
         if (!OriginPaths.IsScratchRoot) return;
         ++_sceneRevision;
+        ReleaseBox.IsDropDownOpen = false;
         Visibility = Visibility.Collapsed;
     }
 
@@ -475,69 +562,33 @@ public partial class VersionSelectOverlay : UserControl
     });
 
     private static Brush BrushOf(string key) => (Brush)Application.Current.FindResource(key);
-    private static Geometry GeometryOf(string key) => (Geometry)Application.Current.FindResource(key);
 
-    // One release row's data: the version, its detail line and the status capsule. The capsule is tinted by state with
-    // the hue tokens (installed emerald, update sky, unfinished gold) and the plain quiet capsule for "not installed".
-    private sealed class ReleaseRow : INotifyPropertyChanged
+    // One release in step 2's dropdown: the version, and whether it wears the quiet installed dot.
+    private sealed class ReleaseItem : INotifyPropertyChanged
     {
-        private StatusLine? _detail, _pill;
-        private StatusDot _tone = StatusDot.Muted;
+        private bool _dot;
 
-        public ReleaseRow(string version, InstallState state)
+        public ReleaseItem(string version, InstallState state)
         {
             Version = version;
-            Apply(state);
+            _dot = VersionStatus.ShowsInstalledDot(state);
         }
 
         public string Version { get; }
-        public string StatusText => _detail?.Text ?? "";
-        public Brush DetailBrush => BrushOf("Brush.TextMuted");
-        public Visibility StatusVisibility => _pill == null ? Visibility.Collapsed : Visibility.Visible;
-        public string PillText => _pill?.Text ?? "";
-        public Brush PillForeground => _tone switch
-        {
-            StatusDot.Success => BrushOf("Brush.Hue.Emerald"),
-            StatusDot.Info => BrushOf("Brush.Hue.Sky"),
-            StatusDot.Warning => BrushOf("Brush.Hue.Gold"),
-            _ => BrushOf("Brush.TextDim"),
-        };
-        // The quiet capsule keeps Surface.Capsule.Sm's own fill; the others take their hue's 16 % tile.
-        public Brush PillBackground => _tone switch
-        {
-            StatusDot.Success => BrushOf("Brush.HueTile.Emerald"),
-            StatusDot.Info => BrushOf("Brush.HueTile.Sky"),
-            StatusDot.Warning => BrushOf("Brush.HueTile.Gold"),
-            _ => BrushOf("Brush.CardAlt"),
-        };
-        // What the capsule's glyph says: a check once it is on disk, an arrow onto a line while it still downloads.
-        public Geometry PillIcon => GeometryOf(_tone switch
-        {
-            StatusDot.Success => "Icon.Check",
-            StatusDot.Info => "Icon.Sync",
-            _ => "Icon.DownloadArrow", // DOWNLOAD, and FINISH (the rest downloads on Play)
-        });
+        public Visibility DotVisibility => _dot ? Visibility.Visible : Visibility.Collapsed;
 
         public void SetState(InstallState state)
         {
-            Apply(state);
-            Raise(nameof(StatusText));
-            Raise(nameof(StatusVisibility));
-            Raise(nameof(PillText));
-            Raise(nameof(PillForeground));
-            Raise(nameof(PillBackground));
-            Raise(nameof(PillIcon));
+            var dot = VersionStatus.ShowsInstalledDot(state);
+            if (dot == _dot) return;
+            _dot = dot;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DotVisibility)));
         }
 
-        private void Apply(InstallState state)
-        {
-            _detail = VersionStatus.ForRelease(state);
-            _pill = VersionStatus.PillFor(state);
-            _tone = _pill?.Dot ?? StatusDot.Muted;
-        }
+        // The automation name and the text a typed letter searches by.
+        public override string ToString() => Version;
 
         public event PropertyChangedEventHandler? PropertyChanged;
-        private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
     // One family tile's data. The thumbnail arrives after decode; ThumbHeight follows the card width so the art keeps

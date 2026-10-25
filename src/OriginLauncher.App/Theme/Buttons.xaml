@@ -51,7 +51,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-4" ui:Capsule.Round="True" BorderThickness="2"
+                    <Border Margin="-4" ui:Capsule.On="True" BorderThickness="2"
                             BorderBrush="{DynamicResource Brush.AccentBorder}"/>
                 </ControlTemplate>
             </Setter.Value>
@@ -327,7 +327,7 @@
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         <Border x:Name="Indicator" Width="{StaticResource Size.NavDot}" Height="{StaticResource Size.NavDot}"
                                 Margin="0,0,0,2" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                                ui:Capsule.Round="True"
+                                ui:Capsule.On="True"
                                 Background="{StaticResource Brush.Accent}"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>

@@ -30,33 +30,11 @@ public sealed record StatusLine(string Text, StatusDot Dot);
 public static class VersionStatus
 {
     /// <summary>
-    /// A release row's status. Null for <see cref="InstallState.Unknown"/>: until the disk check returns, or when a folder
-    /// could not be read, the row shows nothing (never a placeholder, never an error).
-    /// Partial reads "Finishes installing when you press Play": more than "Not installed" (something is on disk) and it says
-    /// what to do, since Play repairs it.
+    /// Whether a release in step 2's dropdown wears the quiet emerald dot: it is on disk (an Origin update waiting still
+    /// counts). Unknown, missing and half-installed releases show nothing; the dropdown never says "download" (Will,
+    /// 2026-10-25: Play installs whatever is needed, so the picker only picks).
     /// </summary>
-    public static StatusLine? ForRelease(InstallState state) => state switch
-    {
-        InstallState.Installed => new("Installed, opens straight away", StatusDot.Success),
-        InstallState.UpdateReady => new("Update ready", StatusDot.Info),
-        InstallState.NotInstalled => new("Downloads when you press Play", StatusDot.Muted),
-        InstallState.Partial => new("Finishes installing when you press Play", StatusDot.Warning),
-        _ => null,
-    };
-
-    /// <summary>
-    /// The capsule at the end of a release row: one caps word and the tone that tints it. Null while unknown (no
-    /// capsule, never a placeholder). The words are the action a player can expect: INSTALLED opens straight away,
-    /// DOWNLOAD fetches on Play, UPDATE and FINISH are the two in-between states.
-    /// </summary>
-    public static StatusLine? PillFor(InstallState state) => state switch
-    {
-        InstallState.Installed => new("INSTALLED", StatusDot.Success),
-        InstallState.UpdateReady => new("UPDATE", StatusDot.Info),
-        InstallState.NotInstalled => new("DOWNLOAD", StatusDot.Muted),
-        InstallState.Partial => new("FINISH", StatusDot.Warning),
-        _ => null,
-    };
+    public static bool ShowsInstalledDot(InstallState state) => state is InstallState.Installed or InstallState.UpdateReady;
 
     /// <summary>
     /// The status line under a family card (11.6): "2 of 10 installed" (no bubble around it), or for a family of one release the release's own state.
@@ -113,8 +91,8 @@ public enum NavKind
     /// <summary>A family with a single release was chosen: pick it (<see cref="NavResult.Version"/>) and close the sheet.</summary>
     SelectAndClose,
 
-    /// <summary>Enter on a release: pick it and launch it.</summary>
-    Play,
+    /// <summary>Step 2: Enter on the panel opens its release dropdown (picking stays one click or arrow away).</summary>
+    OpenList,
 
     /// <summary>Step 2 back to step 1.</summary>
     Back,
@@ -127,10 +105,11 @@ public readonly record struct NavResult(NavKind Kind, int FamilyIndex = -1, stri
 
 /// <summary>
 /// The two-step selector as a small state machine. Step 1 is a grid of families (<see cref="Columns"/> wide, reading
-/// order); step 2 is one family's releases, newest first. Keys:
+/// order); step 2 is one family's panel with a dropdown of its releases, newest first. Keys:
 ///   step 1  arrows move over the cards, Home / End jump, Enter opens the family, Esc closes
-///   step 2  Up / Down move over the releases and pick as they go (the pick follows the highlight, like a radio list),
-///           Home / End jump, Enter plays the pick, Left or Backspace goes back to step 1, Esc closes
+///   step 2  Up / Down move over the releases and pick as they go (a closed dropdown's arrows), Home / End jump,
+///           Enter opens the dropdown, Left or Backspace goes back to step 1, Esc closes the picker
+/// Nothing in the picker launches or installs: a pick is the whole job (Will, 2026-10-25).
 /// Browsing step 1 picks nothing, and merely opening a family picks nothing: only a release does (so Esc after looking
 /// leaves the player's version exactly as it was).
 /// </summary>
@@ -250,7 +229,7 @@ public sealed class VersionSelectNav
             case NavKey.Down: return ChooseRelease(ReleaseIndex + 1);
             case NavKey.Home: return ChooseRelease(0);
             case NavKey.End: return ChooseRelease(last);
-            case NavKey.Enter: return new(NavKind.Play, FamilyIndex, Release);
+            case NavKey.Enter: return new(NavKind.OpenList, FamilyIndex);
             case NavKey.Left:
             case NavKey.Backspace: return GoBack();
             case NavKey.Escape: return new(NavKind.Close);

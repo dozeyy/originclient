@@ -391,6 +391,9 @@ public partial class MainWindow : Window
 
     internal void TourHideVersions() => _homePage.TourHideVersions();
 
+    // Render mode only: the version Home shows now (the selector shots check a pick reached it).
+    internal string? TourHomeVersion => _homePage.CurrentVersion;
+
     internal void TourSetAccountOpen(bool open)
     {
         if (!Core.OriginPaths.IsScratchRoot) return;

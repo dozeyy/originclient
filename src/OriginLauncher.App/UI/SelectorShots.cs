@@ -1,6 +1,10 @@
 using System.IO;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
 using OriginLauncher.App.Core.Versions;
 using OriginLauncher.App.UI.Controls;
 
@@ -13,10 +17,13 @@ namespace OriginLauncher.App.UI;
 // so the states come out of the production classifier. Pictures, at 960x600, 1180x740 and 1920x1080:
 //   p3sel-<size>-step1               the eight family cards in full colour, the quiet status line under each
 //   p3sel-<size>-step1-focus         the keyboard on a card (focus ring)
-//   p3sel-<size>-step2-<family>      three families (1.21, 1.20, 1.19), a capsule per row: INSTALLED / DOWNLOAD / UPDATE / FINISH
-//   p3sel-<size>-step2-1.21-focus    the keyboard on a release row
-// selector-states.txt lists the words each card and row (and its capsule) shows, so the states can be read without
-// opening a picture. The shots are compared with docs/overhaul/design/A-Workbench-2.jpg ("Choosing a version").
+//   p3sel-<size>-step2-<family>      three families (1.21, 1.20, 1.19) expanded into the panel, the current release chosen
+//   p3sel-<size>-step2-1.21-focus    the keyboard on the dropdown
+//   p3sel-<size>-step2-1.21-open     the dropdown open: the releases newest first, the emerald dot on installed ones
+//   p3sel-<size>-home-after          Home after picking 1.20.4 in the dropdown and pressing Esc
+// Motion is off in a render run, so no picture is caught mid-move. selector-states.txt lists what each card says and
+// which releases wear the dot, so the states can be read without opening a picture. The shots are compared with
+// docs/overhaul/design/A-Workbench-2.jpg ("Choosing a version").
 internal static class SelectorShots
 {
     private static readonly Size[] Sizes = { new(960, 600), new(1180, 740), new(1920, 1080) };
@@ -91,14 +98,46 @@ internal static class SelectorShots
                     CardShots.Open(window, overlay, index, size, inProcess);
                     RenderShots.Snap(window, outDir, $"p3sel-{label}-step2-{key}", size: size, laidOut: inProcess);
                     if (label == "960x600")
-                        foreach (var v in VersionCatalog.Groups[index].Versions)
-                            report.AppendLine($"row {v}: {overlay.RowPillOf(v)} / {overlay.RowStatusOf(v)}");
+                        foreach (var (v, dot) in overlay.DropdownItems)
+                            report.AppendLine($"release {v}: {(dot ? "dot" : "-")}{(v == overlay.DropdownChoice ? " (chosen)" : "")}");
                 }
 
                 CardShots.Open(window, overlay, IndexOf("1.21"), size, inProcess);
-                overlay.TourFocus(3);
+                window.Activate();
+                overlay.TourFocus(0);
                 RenderShots.Pump(300);
                 RenderShots.Snap(window, outDir, $"p3sel-{label}-step2-1.21-focus", size: size, laidOut: inProcess, adorners: true);
+
+                // The dropdown open. Its list is a popup (its own window), so the picture draws it where it opens.
+                if (overlay.TourDropdown(true) is { } combo)
+                {
+                    RenderShots.Pump(500);
+                    RenderShots.Snap(window, outDir, $"p3sel-{label}-step2-1.21-open", size: size, laidOut: inProcess,
+                        also: root => PopupInPlace(combo, root));
+                    overlay.TourDropdown(false);
+                    RenderShots.Pump(200);
+                }
+
+                // Pick a release the way a player does (the dropdown's own selection), then Esc: Home shows it.
+                var before = window.TourHomeVersion;
+                CardShots.Open(window, overlay, IndexOf("1.20"), size, inProcess);
+                var pick = VersionCatalog.Groups[IndexOf("1.20")].Versions.ToList().IndexOf("1.20.4");
+                overlay.ChooseRelease(pick);
+                overlay.HandleKey(Key.Escape, null);
+                RenderShots.Pump(600);
+                if (inProcess) window.TourLayoutAt(size);
+                RenderShots.Snap(window, outDir, $"p3sel-{label}-home-after", size: size, laidOut: inProcess);
+                if (label == "960x600") report.AppendLine($"home after picking 1.20.4: {window.TourHomeVersion} (was {before})");
+                // Put the scratch run's version back for the shots after this one.
+                if (before != null && VersionCatalog.IsSupported(before))
+                {
+                    var family = VersionCatalog.Groups.ToList().FindIndex(g => g.Versions.Contains(before));
+                    CardShots.Open(window, overlay, family, size, inProcess);
+                    if (overlay.Nav.Step == SelectorStep.Releases)
+                        overlay.ChooseRelease(VersionCatalog.Groups[family].Versions.ToList().IndexOf(before));
+                    else
+                        overlay.ChooseFamily(family);
+                }
 
                 window.TourHideVersions();
                 RenderShots.Pump(300);
@@ -115,6 +154,33 @@ internal static class SelectorShots
             File.WriteAllText(Path.Combine(outDir, "focus-checks-selector.txt"), focusLog.ToString());
             try { Directory.Delete(scratch, true); } catch { /* best effort */ }
         }
+    }
+
+    // The open popup's content, drawn at the spot the popup window sits over the window (under the combo, shifted by
+    // Popup.OffsetX into the shadow's bleed), with room around it for the shadow.
+    private static Visual? PopupInPlace(ComboBox combo, FrameworkElement root)
+    {
+        if (combo.Template.FindName("Popup", combo) is not Popup { IsOpen: true, Child: FrameworkElement child }) return null;
+        root.UpdateLayout();
+        var under = combo.TransformToAncestor(root).Transform(new Point(0, combo.ActualHeight));
+        var origin = under + new Vector(combo.FindResource("Popup.OffsetX") is double dx ? dx : 0, 0);
+        // The child's own margin (Popup.Bleed) is part of the popup window.
+        var w = child.ActualWidth + child.Margin.Left + child.Margin.Right;
+        var h = child.ActualHeight + child.Margin.Top + child.Margin.Bottom;
+        var look = new VisualBrush(child)
+        {
+            Stretch = Stretch.None,
+            AlignmentX = AlignmentX.Left,
+            AlignmentY = AlignmentY.Top,
+            ViewboxUnits = BrushMappingMode.Absolute,
+            Viewbox = new Rect(-child.Margin.Left, -child.Margin.Top, w, h),
+            ViewportUnits = BrushMappingMode.Absolute,
+            Viewport = new Rect(origin.X, origin.Y, w, h),
+        };
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+            dc.DrawRectangle(look, null, new Rect(origin.X, origin.Y, w, h));
+        return visual;
     }
 
     private static int IndexOf(string key)

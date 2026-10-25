@@ -629,7 +629,9 @@ public static class RenderShots
     /// </summary>
     /// <param name="adorners">Also draw the window's adorner layer (it sits outside window.Content): WPF's own keyboard
     /// focus frame lives there, so the focus shots (ImportShots 42/42b) pass true.</param>
-    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false, bool laidOut = false)
+    // also: drawn over the window's content in the same picture (an open popup, which is its own window).
+    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false, bool laidOut = false,
+        Func<FrameworkElement, Visual?>? also = null)
     {
         // laidOut: the caller already laid the content out at `size` (MainWindow.TourLayoutAt); a window layout pass would undo it.
         if (!laidOut) window.UpdateLayout();
@@ -654,6 +656,7 @@ public static class RenderShots
         bitmap.Render(backed);
         bitmap.Render(root);
         if (adorners && System.Windows.Documents.AdornerLayer.GetAdornerLayer(root) is { } layer) bitmap.Render(layer);
+        if (also?.Invoke(root) is { } extra) bitmap.Render(extra);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using (var file = File.Create(Path.Combine(dir, name + ".png")))

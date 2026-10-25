@@ -61,8 +61,7 @@ public partial class HomePage : UserControl
     // (Friends → Join, party warp) and/or for a given account (the crash
     // window's retry relaunches the account that crashed, whoever is selected
     // now). Version may differ from the selected one; it is NOT saved as the pick.
-    // InstallOnly: provision the version (the picker's "Install x only") and stop before the game starts.
-    private sealed record LaunchTarget(string Version, string? Server = null, string? AccountKey = null, bool InstallOnly = false);
+    private sealed record LaunchTarget(string Version, string? Server = null, string? AccountKey = null);
 
     // The launch whose install just failed and is showing Retry on the launch screen; null otherwise.
     private LaunchTarget? _failedLaunch;
@@ -273,8 +272,6 @@ public partial class HomePage : UserControl
         VersionOverlay.VersionSelected += OnVersionSelected;
         // While an import writes to the game folders, Play and Join stay off (Core/Import/Launcher/ImportRunState).
         ImportRunState.Changed += () => Dispatcher.BeginInvoke(() => UpdatePlayState());
-        VersionOverlay.LaunchRequested += OnLaunchRequested;
-        VersionOverlay.InstallRequested += OnInstallRequested;
         // The home banner pauses under either scene (and, in ad mode, its
         // native WebView2 would otherwise draw on top of them).
         System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
@@ -761,22 +758,6 @@ public partial class HomePage : UserControl
 
     private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync(null, LaunchRoute.Play);
 
-    // The version picker's Launch button: adopt the chosen version, then launch
-    // through the exact same path as Play.
-    private async void OnLaunchRequested(string version)
-    {
-        OnVersionSelected(version);
-        await LaunchAsync(null, LaunchRoute.Picker);
-    }
-
-    // The picker's "Install x only": adopt the version, then run the same preparation as Play up to the point the game
-    // would start (LaunchAsync, InstallOnly) - the loading scene shows the progress and the version reads "Installed" after.
-    private async void OnInstallRequested(string version)
-    {
-        OnVersionSelected(version);
-        await LaunchAsync(new LaunchTarget(version, InstallOnly: true), LaunchRoute.Picker);
-    }
-
     private async Task LaunchAsync(LaunchTarget? target, LaunchRoute route)
     {
         // Enter, a friend's Join and the version picker all land here: none of them may start a game mid-import.
@@ -810,20 +791,11 @@ public partial class HomePage : UserControl
         else
         {
             account = _selectedAccount;
-            // Installing needs no sign-in, so it also works with no account added yet.
-            if (account == null && !offlineTest && target?.InstallOnly != true) return;
+            if (account == null && !offlineTest) return;
             key = InstanceLayout.KeyFor(account?.Id);
         }
         if ((target?.Version ?? _selectedVersion) is not { } version) return;
         var accountName = account?.Gamertag ?? "Offline";
-        var installOnly = target?.InstallOnly == true;
-
-        // An install-only press never takes over a running game: it waits for the account to be idle.
-        if (installOnly && _launches.PhaseOf(key) != GamePhase.Idle)
-        {
-            Note(key, $"{accountName} is busy - finish or close the game first to install {version}", LaunchTone.Warning);
-            return;
-        }
 
         // One game per account: an open game is brought forward instead of a
         // second copy (the same Microsoft session can't play twice anyway).
@@ -903,7 +875,7 @@ public partial class HomePage : UserControl
         try
         {
             MSession session;
-            if (account != null && !installOnly)
+            if (account != null)
             {
                 Stage("Signing in");
                 // Through the broker: it reuses this account's saved Minecraft
@@ -977,14 +949,6 @@ public partial class HomePage : UserControl
                     version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey),
                 ticket.Token);
             provisioning = false;
-
-            if (installOnly)
-            {
-                // Provisioned and not started: the process object was only a by-product of the install.
-                process.Dispose();
-                Note(key, $"{version} is installed", LaunchTone.Success);
-                return;
-            }
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the
@@ -1628,7 +1592,7 @@ public partial class HomePage : UserControl
     internal void TourFailLaunch(Exception error, string version) =>
         LoadingOverlay.ShowFailure(PlayFailure.From(error, version));
 
-    internal void TourShowVersions(int detailIndex) => VersionOverlay.TourOpen(detailIndex);
+    internal void TourShowVersions(int detailIndex) => VersionOverlay.TourOpen(detailIndex, _selectedVersion);
 
     internal void TourHideVersions() => VersionOverlay.TourClose();
 

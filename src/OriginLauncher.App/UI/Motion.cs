@@ -28,6 +28,53 @@ public static class Motion
 
     private static IEasingFunction Freeze(EasingFunctionBase e) { e.Freeze(); return e; }
 
+    /// <summary>Emphasized, cubic-bezier(.2,.8,.2,1): a fast start that settles softly. The version picker's card
+    /// growing into its panel (and shrinking back) uses it.</summary>
+    public static readonly IEasingFunction Emphasized = Freeze(new CubicBezierEase(0.2, 0.8, 0.2, 1));
+
+    // A CSS-style cubic-bezier: x(t) is solved for t by Newton steps (bisection as the fallback), then y(t) is the
+    // eased value. Pure arithmetic per frame, no allocation.
+    private sealed class CubicBezierEase : EasingFunctionBase
+    {
+        private readonly double _x1, _y1, _x2, _y2;
+
+        public CubicBezierEase(double x1, double y1, double x2, double y2)
+        {
+            _x1 = x1; _y1 = y1; _x2 = x2; _y2 = y2;
+            EasingMode = EasingMode.EaseIn; // EaseIn = the curve exactly as written
+        }
+
+        private static double At(double a, double b, double t) => ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t;
+        private static double Slope(double a, double b, double t) => 3 * (1 - 3 * b + 3 * a) * t * t + 2 * (3 * b - 6 * a) * t + 3 * a;
+
+        protected override double EaseInCore(double x)
+        {
+            if (x <= 0) return 0;
+            if (x >= 1) return 1;
+            var t = x;
+            for (var i = 0; i < 8; i++)
+            {
+                var err = At(_x1, _x2, t) - x;
+                if (Math.Abs(err) < 1e-6) return At(_y1, _y2, t);
+                var d = Slope(_x1, _x2, t);
+                if (Math.Abs(d) < 1e-6) break;
+                t -= err / d;
+            }
+            double lo = 0, hi = 1;
+            t = x;
+            for (var i = 0; i < 30; i++)
+            {
+                var v = At(_x1, _x2, t);
+                if (Math.Abs(v - x) < 1e-6) break;
+                if (v < x) lo = t; else hi = t;
+                t = (lo + hi) / 2;
+            }
+            return At(_y1, _y2, t);
+        }
+
+        protected override Freezable CreateInstanceCore() => new CubicBezierEase(_x1, _y1, _x2, _y2);
+    }
+
     /// <summary><paramref name="from"/> held through the delay, then eased to <paramref name="to"/>. Fill stops
     /// back to the property's own value, so a zero duration or an interrupted clock leaves the plain end state.</summary>
     public static DoubleAnimationUsingKeyFrames Hold(double from, double to, TimeSpan delay, TimeSpan length)

@@ -118,7 +118,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Border x:Name="StatusDot" Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
-                            ui:Capsule.Round="True" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
+                            ui:Capsule.On="True" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
                             Background="{StaticResource Brush.Accent}"/>
                     <TextBlock Grid.Column="1" x:Name="StatusText" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
                                TextTrimming="None"/>

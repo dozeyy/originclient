@@ -41,9 +41,9 @@
                                         <Border.Background>
                                             <ImageBrush ImageSource="{Binding Colour}" Stretch="UniformToFill"/>
                                         </Border.Background>
-                                        <!-- SELECTED: an even capsule (Padding.Capsule.Sm, ui:Capsule.Round), caps centred in it. -->
+                                        <!-- SELECTED: an even capsule (Padding.Capsule.Sm, ui:Capsule.On), caps centred in it. -->
                                         <Border x:Name="Tag" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
-                                                Padding="{StaticResource Padding.Capsule.Sm}" ui:Capsule.Round="True"
+                                                Padding="{StaticResource Padding.Capsule.Sm}" ui:Capsule.On="True"
                                                 Background="{StaticResource Brush.ScrimMid}">
                                             <TextBlock Text="SELECTED" Style="{StaticResource Text.Capsule}" Foreground="{StaticResource Brush.Text}"/>
                                         </Border>
@@ -92,79 +92,21 @@
             </Setter>
         </Style>
 
-        <!-- Step 2: one release, a 36 px row (Size.ControlLg): the version in bold, what pressing Play will do, and a
-             status capsule at the end. Rows sit in one panel with a hairline between them. Hover is a soft wash; the pick
-             is the accent wash with an accent bar on its left edge; keyboard focus adds a 1 px accent line inside the row
-             (a ring outside would collide with the neighbouring rows). Double-click plays. -->
-        <Style x:Key="ReleaseRow" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-            <EventSetter Event="MouseDoubleClick" Handler="ReleaseRow_DoubleClick"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Grid>
-                            <Rectangle x:Name="Sep" Height="1" VerticalAlignment="Top" Margin="12,0" Fill="{StaticResource Brush.SoftStroke}"/>
-                            <Border x:Name="Row" Height="{StaticResource Size.ControlLg}" CornerRadius="{StaticResource Radius.Sm}"
-                                    Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="12,0,10,0">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="88"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Version}" Style="{StaticResource Text.BodyStrong}" FontWeight="Bold"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
-                                               Foreground="{Binding DetailBrush}" Margin="0,0,12,0" VerticalAlignment="Center"
-                                               Visibility="{Binding StatusVisibility}"/>
-                                    <!-- The status capsule (Workbench mockup): a quiet Surface.Capsule.Sm, a 10 px glyph and the caps,
-                                         no outline. DOWNLOAD sits on the plain capsule fill in textDim; INSTALLED, UPDATE and FINISH
-                                         are the soft-hue variants (16 % tile fill, the hue as ink). -->
-                                    <Border Grid.Column="2" Style="{StaticResource Surface.Capsule.Sm}" Background="{Binding PillBackground}"
-                                            VerticalAlignment="Center" Visibility="{Binding StatusVisibility}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{Binding PillIcon}" Style="{StaticResource Icon.Base}" Stroke="{Binding PillForeground}"
-                                                  Width="{StaticResource Icon.SizeCapsule}" Height="{StaticResource Icon.SizeCapsule}"
-                                                  Margin="{StaticResource Margin.CapsuleIcon}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding PillText}" Style="{StaticResource Text.Capsule}" Foreground="{Binding PillForeground}"
-                                                       VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-                            </Border>
-                            <Border x:Name="Bar" Width="2" HorizontalAlignment="Left" Margin="0,8" CornerRadius="{StaticResource Radius.Track}"
-                                    Background="{StaticResource Brush.Accent}" Visibility="Collapsed"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="ItemsControl.AlternationIndex" Value="0">
-                                <Setter TargetName="Sep" Property="Visibility" Value="Collapsed"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Row" Property="Background" Value="{StaticResource Brush.GhostHover}"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Row" Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
-                                <Setter TargetName="Bar" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="Sep" Property="Visibility" Value="Collapsed"/>
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- Step 2's dropdown item: the version, and a quiet emerald dot when it is already on disk. No words about
+             downloading (Will, 2026-10-25): the launcher installs whatever Play needs on its own. -->
+        <DataTemplate x:Key="ReleaseItem">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Version}" VerticalAlignment="Center"/>
+                <Ellipse Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}" Fill="{StaticResource Brush.Hue.Emerald}"
+                         Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding DotVisibility}"/>
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
     <!-- A whole-window view over Home's art: the page dims to the scrim and a sheet sits under the 56 px top bar
          (which stays on top, so Minimize / Close keep working). The sheet's width follows the window (SizeCards):
-         about 80 % of it, between the token min and max, and its cards keep their 16:9 art. Two panes share the
-         sheet's cell and crossfade; the hidden one still counts for the sheet's size, so the sheet does not jump
-         between the steps. -->
+         about 80 % of it, between the token min and max, and its cards keep their 16:9 art. Step 2 is one panel over
+         the cards: the clicked card grows into it, so the sheet itself never changes size between the steps. -->
     <Grid x:Name="Scene">
         <Grid.RenderTransform>
             <TranslateTransform x:Name="OverlayTranslate"/>
@@ -180,7 +122,7 @@
                           Focusable="False" IsTabStop="False">
                 <Border x:Name="Sheet" Style="{StaticResource Surface.Dialog}" Background="{StaticResource Brush.Sheet}"
                         HorizontalAlignment="Center" MaxWidth="{StaticResource Size.Sheet.Max}" Margin="24,8,24,16">
-                    <Grid>
+                    <Grid x:Name="SheetContent">
                         <!-- ===== Step 1: the families ===== -->
                         <Grid x:Name="FamiliesPane">
                             <Grid.RowDefinitions>
@@ -222,81 +164,48 @@
                             </ListBox>
                         </Grid>
 
-                        <!-- ===== Step 2: that family's releases ===== -->
-                        <Grid x:Name="ReleasesPane" Visibility="Hidden" Opacity="0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition x:Name="SideColumn" Width="320"/>
-                                <ColumnDefinition Width="24"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <!-- Header: back to the families on the left; over the list, how many releases and what the dots mean. -->
-                            <Button x:Name="BackButton" Style="{StaticResource Button.Chrome}" HorizontalAlignment="Left" Margin="0,0,0,12"
-                                    Padding="8,0,12,0" Click="Back_Click" AutomationProperties.Name="All versions">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Small}"
-                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="All versions" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Grid Grid.Column="2" Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="ReleasesLabel" Style="{StaticResource Text.Label}" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                                    <Ellipse Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}" Fill="{StaticResource Brush.Success}" Margin="0,0,6,0"/>
-                                    <TextBlock Text="Installed" Style="{StaticResource Text.CaptionDim}" Margin="0,0,12,0"/>
-                                    <Ellipse Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}" Fill="{StaticResource Brush.TextMuted}" Margin="0,0,6,0"/>
-                                    <TextBlock Text="Not installed" Style="{StaticResource Text.CaptionDim}"/>
-                                </StackPanel>
-                                <Button x:Name="CloseButton2" Grid.Column="2" Style="{StaticResource Social.Icon}"
-                                        Click="Close_Click" AutomationProperties.Name="Close">
-                                    <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
-                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        <!-- ===== Step 2: one family, expanded ===== -->
+                        <!-- Under the panel, over the faded cards: a click anywhere off the panel closes the picker, like the
+                             backdrop outside the sheet. -->
+                        <Border x:Name="PanelCatcher" Background="Transparent" Visibility="Collapsed"
+                                MouseLeftButtonDown="Backdrop_MouseLeftButtonDown"/>
+                        <!-- The clicked card, grown (Will, 2026-10-25): it scales and moves out of its own grid slot into
+                             this centred panel (ExpandFrom), the other cards fade back. Back, the family's art, range and
+                             name, and ONE compact dropdown of its releases, newest first. Picking a release in it picks the
+                             version, and that is all; a click off the panel or Esc goes back to Home. -->
+                        <Border x:Name="FamilyPanel" Visibility="Hidden" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius.Lg}" Padding="16" RenderTransformOrigin="0,0">
+                            <Border.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="PanelScale"/>
+                                    <TranslateTransform x:Name="PanelShift"/>
+                                </TransformGroup>
+                            </Border.RenderTransform>
+                            <StackPanel x:Name="FamilySide">
+                                <Button x:Name="BackButton" Style="{StaticResource Button.Chrome}" HorizontalAlignment="Left" Margin="-8,-4,0,8"
+                                        Padding="8,0,12,0" Click="Back_Click" AutomationProperties.Name="All versions">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Small}"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,8,0"/>
+                                        <TextBlock Text="All versions" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </Button>
-                            </Grid>
-                            <!-- The family: its art, its range, its name, what its releases added. DataContext = the family. -->
-                            <StackPanel x:Name="FamilySide" Grid.Row="1" VerticalAlignment="Top">
-                                <Border Height="{Binding DetailArtHeight}" CornerRadius="{StaticResource Radius.Lg}">
+                                <!-- The art is a brush on a rounded border: the corners are the panel's, with no clip to pay for. -->
+                                <Border x:Name="PanelArt" Height="{Binding DetailArtHeight}" CornerRadius="{StaticResource Radius.Md}">
                                     <Border.Background>
                                         <ImageBrush ImageSource="{Binding Colour}" Stretch="UniformToFill"/>
                                     </Border.Background>
                                 </Border>
                                 <TextBlock Text="{Binding Range}" Style="{StaticResource Text.Caption}" Margin="0,12,0,0"/>
-                                <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Heading}" Margin="0,2,0,0"/>
-                                <TextBlock Text="{Binding Description}" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Heading}" Margin="0,2,0,0"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <ComboBox x:Name="ReleaseBox" Style="{StaticResource Input.ComboBox}" Margin="0,16,0,0"
+                                          ItemContainerStyle="{StaticResource Input.ComboBoxItem}" ItemTemplate="{StaticResource ReleaseItem}"
+                                          SelectionChanged="ReleaseBox_SelectionChanged"
+                                          AutomationProperties.Name="Version"/>
                             </StackPanel>
-                            <!-- The releases, newest first, in one panel. -->
-                            <Border x:Name="ReleasePanel" Grid.Row="1" Grid.Column="2" VerticalAlignment="Top" Padding="4"
-                                    Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                                    CornerRadius="{StaticResource Radius.Lg}">
-                                <ListBox x:Name="ReleaseList" Background="Transparent" BorderThickness="0" Padding="0"
-                                         ItemContainerStyle="{StaticResource ReleaseRow}" AlternationCount="1000"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         SelectionChanged="ReleaseList_SelectionChanged"
-                                         AutomationProperties.Name="Releases"/>
-                            </Border>
-                            <!-- Bottom right: install this release without playing it, or play it. -->
-                            <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                                <Button x:Name="InstallButton" Style="{StaticResource Button.Secondary.Medium}" Margin="0,0,8,0" Click="Install_Click">
-                                    <TextBlock x:Name="InstallText" Text="Install" VerticalAlignment="Center"/>
-                                </Button>
-                                <Button x:Name="LaunchButton" Style="{StaticResource Button.Primary.Medium}" Click="Launch_Click">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Data="M7,5 L19,12 L7,19 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              Width="12" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                        <TextBlock x:Name="LaunchText" Text="Play" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </Grid>
+                        </Border>
                     </Grid>
                 </Border>
             </ScrollViewer>

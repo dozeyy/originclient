@@ -385,7 +385,7 @@ public partial class ModsPage : UserControl
         return border;
     }
 
-    // "ADDED": a capsule badge (Capsule.Round, Padding.Capsule.Sm): a 6 px accent dot and the word, on the soft accent.
+    // "ADDED": a capsule badge (Capsule.On, Padding.Capsule.Sm): a 6 px accent dot and the word, on the soft accent.
     private Border AddedTag()
     {
         var label = new TextBlock
@@ -403,7 +403,7 @@ public partial class ModsPage : UserControl
             Margin = new Thickness(0, 0, 6, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        UI.Capsule.SetRound(dot, true);
+        UI.Capsule.SetOn(dot, true);
         dot.SetResourceReference(Border.BackgroundProperty, "Brush.Accent");
         var line = new StackPanel { Orientation = Orientation.Horizontal };
         line.Children.Add(dot);
@@ -415,7 +415,7 @@ public partial class ModsPage : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             Child = line,
         };
-        UI.Capsule.SetRound(tag, true);
+        UI.Capsule.SetOn(tag, true);
         tag.SetResourceReference(Border.BackgroundProperty, "Brush.AccentSoft");
         return tag;
     }
