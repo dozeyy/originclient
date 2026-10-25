@@ -23,23 +23,22 @@ import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
 import org.lwjgl.opengl.GL11;
 
-// Shared Origin screen rendering, used by the loading screen
-// (LoadingOverlayMixin), the main menu (TitleScreenMixin) and every out-of-world
-// menu (ScreenBackgroundMixin). The two surfaces deliberately differ:
+// Shared Origin screen rendering, used by the loading screens
+// (LoadingOverlayMixin and the world-load mixins), the main menu
+// (TitleScreenMixin) and every out-of-world menu (ScreenBackgroundMixin).
 //
-//  - LOADING: charcoal + the pre-rendered orbital rings + grain + vignette +
-//    "ORIGIN" and the bar, matching the original mock
-//    (tools/loading-screen/wordmark_preview.png) and, frame for frame, Origin
-//    Launcher's own loading scene (LoadingScene.cs), so the launcher can hand
-//    over without a visible change.
-//  - MENUS ("living rings", launch experience v2, Will 2026-10-18): the SAME
-//    rings, no panorama. They slow, drift and lean towards the mouse
-//    (RingField), and on the title the logo forms out of them.
-//  - WORLD LOADING: the menu's rings swing back into the loading orbit; once the
-//    world is ready it simply appears, like vanilla (Will 2026-10-18: no zoom).
-// The panorama is NOT available during the startup load anyway (the cubemap's
-// textures aren't loaded yet); the rings are, which keeps the brand mark on the
-//    one screen that has nothing else on it.
+//  - LOADING (clean splash, Will's mockup 2026-10-19): solid near-black with a
+//    soft centre lift, the real logo, the ORIGIN wordmark (boot font: it paints
+//    before fonts are baked), a thin bar and the real percent. World loading
+//    shows this version's own panorama, blurred and dimmed, with the world's name.
+//  - MAIN MENU: this version's own Mojang panorama, blurred and dimmed
+//    (CLEAN_DIM_TITLE), the real logo (origin_logo.png) and the OFFICIAL wordmark
+//    IMAGE (origin_wordmark.png, 11 GUI px tall) under it -- both still, baked
+//    once per physical size (bakeBox) -- and the player chip. The buttons are
+//    drawn by OriginButtonRenderer's title skin, not here.
+//  - OTHER MENUS: the same panorama backdrop, no logo.
+// The panorama is NOT available during the startup load (the cubemap's
+// textures aren't loaded yet), which is why the loading splash is solid.
 //
 // Textures load via the classloader (not the resource manager), so this is
 // safe during the earliest loading overlay while resources are still loading,
@@ -592,30 +591,7 @@ public final class OriginScreenRenderer {
 					logoSrc = NativeImage.read(in);
 				}
 			}
-			int sw = logoSrc.getWidth(), sh = logoSrc.getHeight();
-			NativeImage dst = new NativeImage(ps, ps, true);
-			for (int y = 0; y < ps; y++) {
-				for (int x = 0; x < ps; x++) {
-					double aSum = 0, cSum = 0;
-					for (int sy = 0; sy < 4; sy++) {
-						for (int sx = 0; sx < 4; sx++) {
-							int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / ps));
-							int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / ps));
-							int c = logoSrc.getPixelRGBA(tx, ty);
-							double a = ((c >>> 24) & 0xFF) / 255.0;
-							aSum += a;
-							cSum += a * ((c & 0xFF) / 255.0);
-						}
-					}
-					double a = aSum / 16.0;
-					int v = a > 0 ? (int) Math.round(Math.min(1.0, cSum / aSum) * 255) : 255;
-					dst.setPixelRGBA(x, y, ((int) Math.round(a * 255) << 24) | (v << 16) | (v << 8) | v);
-				}
-			}
-			DynamicTexture tex = new DynamicTexture(dst);
-			tex.setFilter(false, false);
-			id = ResourceLocation.fromNamespaceAndPath("originclient", "logo_px_" + ps);
-			Minecraft.getInstance().getTextureManager().register(id, tex);
+			id = bakeBox(logoSrc, ps, ps, "logo_px_" + ps);
 			LOGO_SIZES.put(ps, id);
 			return id;
 		} catch (Throwable t) {
@@ -623,6 +599,87 @@ public final class OriginScreenRenderer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin logo bake failed; using the plain logo blit", t);
 			return null;
 		}
+	}
+
+	// The official wordmark (textures/ui/origin_wordmark.png, byte-identical to the
+	// launcher's Assets/Brand/wordmark.png) gets the same one-time box-filter bake per
+	// physical height, so it stays crisp at any GUI scale. Never redrawn or re-typed.
+	private static final java.util.Map<Integer, ResourceLocation> WORDMARK_SIZES = new java.util.HashMap<>();
+	private static NativeImage wordmarkSrc;
+	private static boolean wordmarkFailed;
+
+	/** Draws the official wordmark image centred on (cx, cy), {@code heightGui} GUI px tall. False = not drawn (caller keeps the text fallback). */
+	private static boolean drawWordmarkImage(GuiGraphics g, double cx, double cy, double heightGui, float alpha) {
+		if (wordmarkFailed) {
+			return false;
+		}
+		try {
+			int gs = com.origin.client.client.gui.OriginSurface.scale();
+			int ph = (int) Math.round(heightGui * gs);
+			if (ph <= 0 || ph > 512) {
+				return false;
+			}
+			if (wordmarkSrc == null) {
+				try (InputStream in = open(com.origin.client.client.gui.OriginUi.WORDMARK_PATH)) {
+					wordmarkSrc = NativeImage.read(in);
+				}
+			}
+			int pw = Math.max(1, (int) Math.round(ph * (double) wordmarkSrc.getWidth() / wordmarkSrc.getHeight()));
+			ResourceLocation id = WORDMARK_SIZES.get(ph);
+			if (id == null) {
+				id = bakeBox(wordmarkSrc, pw, ph, "wordmark_px_" + ph);
+				WORDMARK_SIZES.put(ph, id);
+			}
+			PoseStack pose = g.pose();
+			pose.pushPose();
+			pose.scale(1f / gs, 1f / gs, 1f);
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.setShaderColor(1f, 1f, 1f, Math.max(0f, Math.min(1f, alpha)));
+			int px = (int) Math.round(cx * gs - pw / 2.0), py = (int) Math.round(cy * gs - ph / 2.0);
+			g.blit(id, px, py, 0f, 0f, pw, ph, pw, ph);
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			pose.popPose();
+			return true;
+		} catch (Throwable t) {
+			wordmarkFailed = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark bake failed; the title falls back to the boot-font text", t);
+			return false;
+		}
+	}
+
+	/** Premultiplied 4x4 box-filter downsample of {@code src} to dw x dh, registered as a texture. */
+	private static ResourceLocation bakeBox(NativeImage src, int dw, int dh, String name) {
+		int sw = src.getWidth(), sh = src.getHeight();
+		NativeImage dst = new NativeImage(dw, dh, true);
+		for (int y = 0; y < dh; y++) {
+			for (int x = 0; x < dw; x++) {
+				double aSum = 0, rSum = 0, gSum = 0, bSum = 0;
+				for (int sy = 0; sy < 4; sy++) {
+					for (int sx = 0; sx < 4; sx++) {
+						int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / dw));
+						int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / dh));
+						int c = src.getPixelRGBA(tx, ty);
+						double a = ((c >>> 24) & 0xFF) / 255.0;
+						aSum += a;
+						rSum += a * ((c & 0xFF) / 255.0);
+						gSum += a * (((c >> 8) & 0xFF) / 255.0);
+						bSum += a * (((c >> 16) & 0xFF) / 255.0);
+					}
+				}
+				double a = aSum / 16.0;
+				int r = a > 0 ? (int) Math.round(Math.min(1.0, rSum / aSum) * 255) : 255;
+				int gg = a > 0 ? (int) Math.round(Math.min(1.0, gSum / aSum) * 255) : 255;
+				int b = a > 0 ? (int) Math.round(Math.min(1.0, bSum / aSum) * 255) : 255;
+				// NativeImage ABGR: alpha, blue, green, red.
+				dst.setPixelRGBA(x, y, ((int) Math.round(a * 255) << 24) | (b << 16) | (gg << 8) | r);
+			}
+		}
+		DynamicTexture tex = new DynamicTexture(dst);
+		tex.setFilter(false, false);
+		ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient", name);
+		Minecraft.getInstance().getTextureManager().register(id, tex);
+		return id;
 	}
 
 	/**
@@ -769,14 +826,15 @@ public final class OriginScreenRenderer {
 			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
 			TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
-			// The REAL Origin logo (origin_logo.png), still, and the spaced ORIGIN
-			// wordmark under it (Will 2026-10-19: use the real logo, not a redraw).
-			// TitleLayout drops the logo, then the wordmark, when extra rows need the room.
+			// The REAL Origin logo (origin_logo.png) and the OFFICIAL wordmark image
+			// (origin_wordmark.png) under it, both still; never redrawn or typed
+			// (Will 2026-10-25). TitleLayout drops the logo, then the wordmark, when extra
+			// rows need the room. The boot-font text is only the fail-soft if the image can't draw.
 			if (L.markSize > 0) {
 				drawLogo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1f);
 			}
-			if (L.showWordmark) {
-				drawWordmarkText(guiGraphics, L.markCenterX, L.wordBaseline, OriginTheme.CLEAN_TEXT);
+			if (L.showWordmark && !drawWordmarkImage(guiGraphics, L.markCenterX, L.wordCenterY, TitleLayout.WORD_H, 1f)) {
+				drawWordmarkText(guiGraphics, L.markCenterX, L.wordCenterY + 7, OriginTheme.CLEAN_TEXT);
 			}
 			return true;
 		} catch (Throwable t) {
@@ -823,13 +881,9 @@ public final class OriginScreenRenderer {
 		pose.popPose();
 	}
 
-	/** The title's player chip draws on vanilla's normal button sprite. */
-	private static final net.minecraft.resources.ResourceLocation CHIP_SPRITE =
-			net.minecraft.resources.ResourceLocation.withDefaultNamespace("widget/button");
-
 	/**
 	 * Main menu: a small account chip (player head + username) in the top-left,
-	 * on a vanilla button. Head via the skin manager (default skin shows first,
+	 * on a soft Workbench chip (16 tall, radius 4, white 6 %). Head via the skin manager (default skin shows first,
 	 * the real one pops in async); if the head can't be resolved the chip falls
 	 * back to the Origin ring mark, and if the whole chip throws it flips the
 	 * renderer to vanilla like any Origin draw.
@@ -849,10 +903,9 @@ public final class OriginScreenRenderer {
 				return;
 			}
 			Font font = mc.font;
-			// The player chip in the top-left corner: the player's head and name on
-			// Minecraft's own button sprite, so it matches every button on the title
-			// (Will, 2026-10-19: "use the same style for the player in the top left").
-			// Not clickable (there is no account menu here), so it never highlights.
+			// The player chip in the top-left corner (DESIGN-SYSTEM 15.2): the player's
+			// head and name on a soft rounded plate. Not clickable (there is no account
+			// menu here), so it never highlights. One SDF quad; a plain fill if that fails.
 			int x = TitleLayout.CORNER, y = TitleLayout.CORNER, chipH = TitleLayout.CORNER_SIZE;
 			int head = 12, pad = 4, gap = 5;
 			int textW = font.width(name);
@@ -860,7 +913,15 @@ public final class OriginScreenRenderer {
 			RenderSystem.enableBlend();
 			RenderSystem.enableDepthTest();
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			guiGraphics.blitSprite(CHIP_SPRITE, x, y, chipW, chipH);
+			if (!com.origin.client.client.OriginStyle.vanillaTitle()) {
+				try {
+					OriginUi.roundRect(guiGraphics, x, y, chipW, chipH, OriginTheme.TITLE_RADIUS, OriginTheme.TITLE_CHIP_FILL, 0, 1f);
+				} catch (Throwable t) {
+					guiGraphics.fill(x, y, x + chipW, y + chipH, OriginTheme.TITLE_CHIP_FILL);
+				}
+			} else {
+				guiGraphics.blitSprite(net.minecraft.resources.ResourceLocation.withDefaultNamespace("widget/button"), x, y, chipW, chipH);
+			}
 			int hx = x + pad, hy = y + (chipH - head) / 2;
 			boolean drewHead = false;
 			try {
@@ -882,7 +943,7 @@ public final class OriginScreenRenderer {
 				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 			int tx = hx + head + gap;
-			guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, 0xFFFFFFFF, true);   // vanilla button text
+			guiGraphics.drawString(font, name, tx, y + (chipH - 8) / 2, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}

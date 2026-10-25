@@ -43,20 +43,21 @@ import java.util.List;
 //
 //                            (logo)
 //                            ORIGIN
-//                 [        Singleplayer        ]   200 x 20, vanilla
+//                 [        Singleplayer        ]   200 x 20, Workbench panel (radius 4)
 //                 [        Multiplayer         ]
 //                 [   Options    ][    Mods    ]
 //
-//     [realms][friends][cosmetics][lang][access][quit]   20 x 20 vanilla squares
+//     realms friends cosmetics lang access quit          bare 12 px glyphs in 20 x 20 hit boxes
 //                                  Copyright Mojang AB. Do not distribute!
 //
 // Background: THIS version's own Mojang panorama (vanilla draws it), blurred
 // by vanilla's blur and dimmed (renderPanorama TAIL). No version line, no
 // splash. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
 // only REPOSITIONED (clicks and actions untouched) and draw as stock
-// Minecraft buttons; the icon row draws vanilla's button sprite with Origin's
-// icon on top (OriginButtonRenderer.vanillaIconButton). Every icon square gets a
-// one-line tooltip saying what it does (vanilla Tooltip); worded buttons get
+// Workbench panels (OriginButtonRenderer skin 2: titleControl, registered below
+// with setTitleButton); the dock is bare hued glyphs (setTitleDock, no boxes).
+// Both fall back to the stock vanilla button on a draw failure or when the
+// Main Menu Style is vanilla. Every dock glyph gets a one-line tooltip saying what it does (vanilla Tooltip); worded buttons get
 // none -- their label already says it (Will, 2026-10-19). Mods / Friends /
 // Cosmetics are Origin's, added as real widgets through ScreenInvoker. Mod
 // Menu's own "Mods" button is hidden every frame (it is added by Mod Menu's
@@ -256,11 +257,19 @@ public class TitleScreenMixin {
 		return net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
 	}
 
-	/** Icon-only square: vanilla's button with the Origin symbol, and what it does as its tooltip. */
+	/** Dock action: a bare glyph in its hue, and what it does as its tooltip. */
 	@Unique
-	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
-		OriginButtonRenderer.setTitlePresentation(w, icon, true);
+	private static void originclient$iconOnly(AbstractWidget w, String icon, int hue, String tip) {
+		OriginButtonRenderer.setTitleDock(w, icon, hue);
 		originclient$tip(w, tip);
+	}
+
+	/** Worded button on the Workbench panel, with its optional 8 px leading glyph (null = none). */
+	@Unique
+	private static void originclient$worded(AbstractWidget w, String icon) {
+		if (w != null) {
+			OriginButtonRenderer.setTitleButton(w, icon);
+		}
 	}
 
 	/** The launcher's hover line: one short plain sentence saying what the button does. */
@@ -273,7 +282,7 @@ public class TitleScreenMixin {
 
 	/**
 	 * The layout: Singleplayer and Multiplayer as full rows, Options | Mods as a
-	 * pair, and a centred row of 20px vanilla squares at the bottom (Realms,
+	 * pair, and a centred row of 20px dock glyphs at the bottom (Realms,
 	 * Friends, Cosmetics, Language, Accessibility, Quit last). Buttons are found by their vanilla label (translation
 	 * key) with the old y-order as the fallback, so demo mode or an extra vanilla
 	 * button still lands in the stack instead of vanishing.
@@ -361,6 +370,12 @@ public class TitleScreenMixin {
 			if (options != null) {
 				options.setMessage(Component.translatable("options.title"));   // "Options", sentence case
 			}
+			for (int i = 0; i < full.size(); i++) {
+				AbstractWidget w = full.get(i);
+				originclient$worded(w, w == play ? "@title-singleplayer" : w == online ? "@title-multiplayer" : null);
+			}
+			originclient$worded(options, "@title-options");
+			originclient$worded(originclient$modsNav, "@title-mods");
 			// Worded buttons say what they do already: no tooltip (Will, 2026-10-19:
 			// "dont have the hover tells what it dos for the worded ones only the icons").
 			if (options != null && originclient$modsNav != null) {
@@ -370,11 +385,11 @@ public class TitleScreenMixin {
 				originclient$place(options != null ? options : originclient$modsNav, L.mainX, y, L.mainW, L.buttonH, true);
 			}
 
-			// Bottom row of vanilla squares, Quit at its end.
+			// Bottom row of bare glyphs (20 x 20 hit boxes), Quit at its end.
 			List<AbstractWidget> dock = new ArrayList<>();
 			if (realms != null) {
 				if (originclient$REALMS_WORKS) {
-					originclient$iconOnly(realms, "@px-realms", "Play on Minecraft Realms");
+					originclient$iconOnly(realms, "@title-realms", com.origin.client.client.theme.OriginTheme.HUE_SKY, "Play on Minecraft Realms");
 					dock.add(realms);
 				} else {
 					// Realms only joins on the latest release (see REALMS_WORKS): hide the dead button, keep the slot out of the dock
@@ -383,25 +398,25 @@ public class TitleScreenMixin {
 				}
 			}
 			if (originclient$friendsNav != null) {
-				originclient$iconOnly(originclient$friendsNav, "@px-friends", "Friends: see who is online and join them");
+				originclient$iconOnly(originclient$friendsNav, "@title-multiplayer", com.origin.client.client.theme.OriginTheme.HUE_SKY, "Friends: see who is online and join them");
 				dock.add(originclient$friendsNav);
 			}
 			if (originclient$cosmeticsNav != null) {
-				originclient$iconOnly(originclient$cosmeticsNav, "@px-shirt", "Cosmetics: capes and more for your player");
+				originclient$iconOnly(originclient$cosmeticsNav, "@shirt", com.origin.client.client.theme.OriginTheme.HUE_GOLD, "Cosmetics: capes and more for your player");
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : sprites) {
 				ResourceLocation sprite = ((SpriteIconButtonAccessor) icon).originclient$sprite();
 				String path = sprite.getPath();
 				if (path.endsWith("language")) {
-					originclient$iconOnly(icon, "@px-language", "Change the game's language");
+					originclient$iconOnly(icon, "@title-language", com.origin.client.client.theme.OriginTheme.HUE_GOLD, "Change the game's language");
 				} else if (path.endsWith("accessibility")) {
-					originclient$iconOnly(icon, "@px-access", "Accessibility settings");
+					originclient$iconOnly(icon, "@title-accessibility", com.origin.client.client.theme.OriginTheme.HUE_EMERALD, "Accessibility settings");
 				}
 				dock.add(icon);
 			}
 			if (quit != null) {
-				originclient$iconOnly(quit, "@px-quit", "Quit the game");
+				originclient$iconOnly(quit, "@title-quit", com.origin.client.client.theme.OriginTheme.HUE_CORAL, "Quit the game");
 				dock.add(quit);
 			}
 			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;

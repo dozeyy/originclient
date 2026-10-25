@@ -16,21 +16,32 @@ import java.util.WeakHashMap;
 
 import com.origin.client.client.theme.OriginTheme;
 
-// Ion Jade widget skin (2026-09 redesign): every vanilla button, slider, checkbox
-// and header tab is redrawn as Origin's premium GLASS control — a rounded,
-// cool-tinted translucent surface with a hairline frame and an Inter (SDF)
-// centred label. It reads as the exact same material as the mod-menu cards and
-// HUD panels by construction (all of them draw through OriginUi.panel + the
-// shared OriginTheme.BOX_* glass tokens). On hover the surface firms up, takes a
-// faint accent wash + accent-tinted border, and lifts 1px — restrained, one
-// element at a time, so the identity is felt without every button glowing.
+// Two skins, one entry point per widget kind (the widget mixins call render /
+// renderTab / renderIconButton / renderSlider / renderCheckbox and cancel vanilla
+// only when they return true):
 //
-// Restyling happens in place from the widget mixins (renderWidget cancelled):
-// widgets keep their positions, actions and clicks; only the drawing changes.
-// Fail-soft: if any Origin draw throws (e.g. a GUI API that changed shape),
-// `broken` latches and every widget reverts to vanilla for the rest of the
-// session instead of crashing -- the mixins only cancel vanilla when these
-// entry points return true.
+//  1. ORIGIN'S OWN WINDOWS (the Mod Menu family: OriginModMenuScreen, OriginDeck,
+//     the HUD editor, cosmetics, ...; any com.origin.* screen -- originOwnsScreen()).
+//     Every vanilla-class widget there is redrawn as the Ion Jade glass control:
+//     OriginUi.panel + the OriginTheme.BOX_* tokens, eased hover, accent wash.
+//     This path is PROTECTED (overhaul rule S4: the Mod Menu must not change by a
+//     pixel) -- do not touch box(), the BOX_* tokens or RADIUS for a title change.
+//
+//  2. THE TITLE SCREEN (Phase 4, Workbench). Minecraft's other menus keep stock
+//     widgets (Will, 2026-10-19), but the title's controls are registered by
+//     TitleScreenMixin (setTitleButton / setTitleDock) and draw through
+//     titleControl(): a soft rounded panel (radius 4 GUI px, OriginTheme.TITLE_*
+//     tokens) for the worded buttons, and a bare glyph in its hue with a hover
+//     plate for the dock -- never a box inside a box. A widget that was not
+//     registered is untouched vanilla.
+//
+// Restyling happens in place from the widget mixins: widgets keep their
+// positions, actions and clicks; only the drawing changes.
+//
+// Fail-soft, two latches: `broken` (skin 1) and `titleBroken` (skin 2) flip the
+// affected widgets back to vanilla for the rest of the session when an Origin
+// draw throws (e.g. a GUI API that changed shape). They are separate so a title
+// draw failure can never alter the Mod Menu, and the reverse.
 public final class OriginButtonRenderer {
 
 	// Glass palette — one material with the rest of the Origin UI. Fill, border, label
@@ -49,6 +60,9 @@ public final class OriginButtonRenderer {
 	// Fail-soft master switch: latches on the first draw failure and never
 	// resets for the session, so a broken GUI API can't spam-crash.
 	private static volatile boolean broken = false;
+	// The title skin's own latch (see the header): a failed title draw hands only
+	// the title's widgets back to vanilla.
+	private static volatile boolean titleBroken = false;
 
 	// Per-widget hover easing state (buttons, sliders, checkboxes, tabs).
 	private static final Map<Object, State> STATE = new WeakHashMap<>();
@@ -61,27 +75,18 @@ public final class OriginButtonRenderer {
 	private OriginButtonRenderer() {
 	}
 
-	// Will, 2026-08-23: VANILLA MENUS KEEP VANILLA BUTTONS. The Frost widget skin
-	// used to apply on every screen in the game; it now applies only inside
-	// Origin's OWN screens -- the mod menu and its family (HUD editor, shader
-	// browser, waypoints, item size). Title, pause, options, inventory and every
-	// other vanilla screen render stock Minecraft widgets again.
-	//
-	// The test is the screen's class package, the same rule
-	// OriginWidgetOwnership uses for widgets: com.origin.* is ours, anything else
-	// is not. That also means another mod's screen keeps its own look for free.
-	// Origin's title-screen BACKGROUND and wordmark are unaffected -- they are
-	// drawn by OriginScreenRenderer, not by this widget skin.
-	// Will, 2026-09-03: the Origin widget skin applies on EVERY screen again —
-	// title, pause, options, world/server lists — so the whole client reads as
-	// one design (the Lunar model). This lifts the 2026-08-23 "vanilla menus
-	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
-	// classes still keep their own art (OriginWidgetOwnership.isForeign).
-	//
-	// Will, 2026-10-19 (final): Minecraft's own menus are stock widgets again, always
-	// -- the glass skin applies only inside Origin's own windows (OriginStyle.vanillaButtonsOn).
-	// This is the ONE gate AbstractButtonMixin, AbstractSliderButtonMixin,
-	// CheckboxMixin, TabButtonMixin and SpriteIconButtonMixin all pass through.
+	// Will, 2026-10-19 (final): Minecraft's own menus (pause, options, world and
+	// server lists, inventory...) draw stock widgets, always. The glass skin (skin 1)
+	// applies only inside Origin's OWN windows: the test is the screen's class package,
+	// the same rule OriginWidgetOwnership uses for widgets (com.origin.* is ours,
+	// anything else is not), so another mod's screen keeps its own look for free.
+	// The title screen is NOT an Origin-owned screen: it answers false here, and its
+	// controls take skin 2 only through the TITLE registry. This is the ONE gate
+	// AbstractButtonMixin, AbstractSliderButtonMixin, CheckboxMixin, TabButtonMixin and
+	// SpriteIconButtonMixin all pass through (OriginStyle.vanillaButtonsOn). It must keep
+	// returning true for every Origin window (the Mod Menu, OriginDeck and every screen
+	// they draw) and false for the title -- the menu_* dev-shot compare against
+	// p0-baseline proves the first half pixel for pixel.
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
 		return mc != null && mc.screen != null && !com.origin.client.client.OriginStyle.vanillaButtonsOn(mc.screen);
@@ -94,7 +99,8 @@ public final class OriginButtonRenderer {
 	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
 	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
 
-	private record TitlePresentation(String icon, boolean iconOnly) {
+	/** icon: an atlas id (null = none); iconOnly: a dock glyph (no panel) vs a worded panel button; hue: the dock glyph's colour. */
+	private record TitlePresentation(String icon, boolean iconOnly, int hue) {
 	}
 
 	public static void markPrimary(Object widget) {
@@ -103,11 +109,19 @@ public final class OriginButtonRenderer {
 		}
 	}
 
-	/** Gives a title-screen action its approved Origin symbol. Icon-only is used
-	 * for the bottom utility dock; labelled actions keep a compact centred pair. */
-	public static void setTitlePresentation(Object widget, String icon, boolean iconOnly) {
+	/** A worded title button (Singleplayer, Options, Mods...): a soft panel with the label
+	 *  centred and an optional 8 GUI px leading glyph (icon null = label only). */
+	public static void setTitleButton(Object widget, String icon) {
+		if (widget != null) {
+			TITLE.put(widget, new TitlePresentation(icon, false, 0));
+		}
+	}
+
+	/** A title dock action: no panel, just the glyph in its hue (OriginTheme.HUE_*),
+	 *  with a plate behind it only while hovered. */
+	public static void setTitleDock(Object widget, String icon, int hue) {
 		if (widget != null && icon != null) {
-			TITLE.put(widget, new TitlePresentation(icon, iconOnly));
+			TITLE.put(widget, new TitlePresentation(icon, true, hue));
 		}
 	}
 
@@ -118,38 +132,103 @@ public final class OriginButtonRenderer {
 		return false;
 	}
 
-	// ---- the title's icon row on Minecraft's own buttons (Will, 2026-10-19) ----
-	// Minecraft's menus draw stock widgets; only the title screen's icon-only
-	// buttons (Realms, Friends, Cosmetics, Language, Accessibility, Quit -- marked
-	// by setTitlePresentation(..., iconOnly = true)) need help: as stock buttons
-	// they would print their full label into a 20 px square. They draw vanilla's
-	// own button sprite (normal / highlighted / disabled, exactly as
-	// AbstractButton picks it) with Origin's monochrome icon centred on top.
-	private static final ResourceLocation BUTTON = ResourceLocation.withDefaultNamespace("widget/button");
-	private static final ResourceLocation BUTTON_HI = ResourceLocation.withDefaultNamespace("widget/button_highlighted");
-	private static final ResourceLocation BUTTON_OFF = ResourceLocation.withDefaultNamespace("widget/button_disabled");
+	// ---- skin 2: the title screen's controls (Phase 4, Workbench) ----
+	// Spec: docs/overhaul/DESIGN-SYSTEM.md 15.2. Worded buttons are a soft panel
+	// (radius 4 GUI px, 1 GUI px edge) with the label centred and an optional 8 GUI px
+	// leading glyph; the dock is bare glyphs (12 GUI px, in their hue, 85 % at rest)
+	// with a faint plate that eases in on hover. Hover/press use the shared 48 / 64 ms
+	// ease; geometry never moves under the pointer. One SDF quad per panel (the
+	// edge is folded into the fill colour, see flatten), so this adds no draw calls
+	// over the vanilla sprite it replaces.
+	private static final int GLYPH = 12, LEAD_ICON = 8, LEAD_GAP = 6;
 
-	private static boolean vanillaIconButton(GuiGraphics g, AbstractButton button) {
-		TitlePresentation title = TITLE.get(button);
-		if (title == null || !title.iconOnly() || broken) {
+	/** Draws a registered title control; false = not ours (or latched): vanilla draws it. */
+	private static boolean titleControl(GuiGraphics g, AbstractButton button) {
+		TitlePresentation tp = TITLE.get(button);
+		if (tp == null || titleBroken || com.origin.client.client.OriginStyle.vanillaTitle()) {
 			return false;
 		}
 		try {
+			boolean enabled = button.active;
+			double hv = hoverEase(button, enabled && button.isHovered());
+			boolean pressed = enabled && button.isHovered() && Minecraft.getInstance().mouseHandler.isLeftPressed();
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
-			ResourceLocation sprite = !button.active ? BUTTON_OFF
-					: button.isHoveredOrFocused() ? BUTTON_HI : BUTTON;
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			RenderSystem.enableDepthTest();
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			g.blitSprite(sprite, x, y, w, h);
-			int s = Math.max(8, Math.min(12, h - 8));
-			ModIcons.draw(g, title.icon(), x + (w - s) / 2, y + (h - s) / 2, s,
-					button.active ? 0xFFFFFFFF : 0xFFA0A0A0);
+			if (tp.iconOnly()) {
+				drawDock(g, tp, x, y, w, h, enabled, hv, pressed);
+			} else {
+				drawPanelButton(g, button, tp, x, y, w, h, enabled, hv, pressed);
+			}
+			if (enabled && button.isFocused()) {
+				// Keyboard focus: a 1 GUI px accentLine ring on the control's own box, never colour alone.
+				OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_RADIUS, 0, OriginTheme.TITLE_FOCUS, 1f);
+			}
 			return true;
 		} catch (Throwable t) {
-			return fail(t);
+			titleBroken = true;
+			com.origin.client.OriginClient.LOGGER.error(
+					"Origin title controls failed; falling back to vanilla widgets on the title for this session", t);
+			return false;
 		}
+	}
+
+	private static void drawPanelButton(GuiGraphics g, AbstractButton button, TitlePresentation tp,
+										int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
+		int fill, edge;
+		if (!enabled) {
+			fill = OriginTheme.withAlpha(OriginTheme.TITLE_BTN_FILL, 0x7D);   // 60 % of the rest fill
+			edge = OriginTheme.TITLE_BTN_EDGE;
+		} else if (pressed) {
+			fill = OriginTheme.TITLE_BTN_FILL_PRESS;
+			edge = OriginTheme.TITLE_BTN_EDGE_HOVER;
+		} else {
+			fill = OriginTheme.lerpColor(OriginTheme.TITLE_BTN_FILL, OriginTheme.TITLE_BTN_FILL_HOVER, hv);
+			edge = OriginTheme.lerpColor(OriginTheme.TITLE_BTN_EDGE, OriginTheme.TITLE_BTN_EDGE_HOVER, hv);
+		}
+		OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_RADIUS, fill, flatten(fill, edge), 1f);
+
+		Font font = Minecraft.getInstance().font;
+		String label = button.getMessage().getString();
+		int textW = font.width(label);
+		int textColor = enabled ? OriginTheme.TEXT : OriginTheme.TITLE_TEXT_MUTED;
+		boolean lead = tp.icon() != null;
+		int groupW = lead ? LEAD_ICON + LEAD_GAP + textW : textW;
+		int gx = x + (w - groupW) / 2;
+		if (lead) {
+			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
+			ModIcons.drawFlat(g, tp.icon(), gx, y + (h - LEAD_ICON) / 2, LEAD_ICON, iconColor);
+			gx += LEAD_ICON + LEAD_GAP;
+		}
+		g.drawString(font, label, gx, y + (h - 8) / 2, textColor, true);
+	}
+
+	private static void drawDock(GuiGraphics g, TitlePresentation tp, int x, int y, int w, int h,
+								 boolean enabled, double hv, boolean pressed) {
+		if (enabled && (hv > 0.01 || pressed)) {
+			int plate = pressed ? 0x24FFFFFF : OriginTheme.withAlpha(OriginTheme.TITLE_PLATE_HOVER,
+					(int) Math.round(((OriginTheme.TITLE_PLATE_HOVER >>> 24) & 0xFF) * hv));
+			OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_RADIUS, plate, 0, 1f);
+		}
+		int color = enabled
+				? OriginTheme.withAlpha(tp.hue(), (int) Math.round(0xD9 + (0xFF - 0xD9) * hv))   // 85 % -> 100 %
+				: OriginTheme.TITLE_TEXT_MUTED;
+		ModIcons.drawFlat(g, tp.icon(), x + (w - GLYPH) / 2, y + (h - GLYPH) / 2, GLYPH, color);
+	}
+
+	/** The edge colour a 1 px ring needs so it can replace (not overlay) the fill in the SDF
+	 *  quad: `edge` composited over `fill`, so one draw reads as a translucent panel with a
+	 *  hairline instead of a hole ringed by a near-invisible line. */
+	private static int flatten(int fill, int edge) {
+		double ea = ((edge >>> 24) & 0xFF) / 255.0, fa = ((fill >>> 24) & 0xFF) / 255.0;
+		double oa = ea + fa * (1.0 - ea);
+		if (oa <= 0.0) {
+			return 0;
+		}
+		int out = (int) Math.round(oa * 255.0) << 24;
+		for (int shift = 16; shift >= 0; shift -= 8) {
+			double ec = ((edge >> shift) & 0xFF) / 255.0, fc = ((fill >> shift) & 0xFF) / 255.0;
+			out |= (int) Math.round(Math.min(1.0, (ec * ea + fc * fa * (1.0 - ea)) / oa) * 255.0) << shift;
+		}
+		return out;
 	}
 
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
@@ -159,7 +238,7 @@ public final class OriginButtonRenderer {
 		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's
 		// icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return vanillaIconButton(g, button);
+			return titleControl(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -181,15 +260,9 @@ public final class OriginButtonRenderer {
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
-			TitlePresentation title = TITLE.get(button);
-			if (title != null) {
-				titleBox(g, button, enabled, hv);
-				drawTitlePresentation(g, button, title, enabled, hv);
-			} else {
-				box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
-				drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
-						enabled ? OriginTheme.TEXT : OriginTheme.MUTED);
-			}
+			box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
+			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
+					enabled ? OriginTheme.TEXT : OriginTheme.MUTED);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -252,7 +325,7 @@ public final class OriginButtonRenderer {
 										   ResourceLocation sprite, int spriteWidth, int spriteHeight) {
 		// Vanilla screens get vanilla widgets (see originOwnsScreen) -- the title's icon row gets vanilla buttons with its icon on top.
 		if (!originOwnsScreen()) {
-			return vanillaIconButton(g, button);
+			return titleControl(g, button);
 		}
 		// Another mod's own widget class: its art is drawn inside the method
 		// our mixins cancel, so restyling it leaves an empty Origin box. Return
@@ -268,12 +341,6 @@ public final class OriginButtonRenderer {
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
-			TitlePresentation title = TITLE.get(button);
-			if (title != null) {
-				titleBox(g, button, enabled, hv);
-				drawTitlePresentation(g, button, title, enabled, hv);
-				return true;
-			}
 			box(g, x, y, w, h, enabled, hv);
 
 			// Per-subclass text: CenteredIcon.renderString is empty (icon only);
@@ -410,17 +477,6 @@ public final class OriginButtonRenderer {
 		}
 	}
 
-	/** Title controls are one opaque material at rest. Color appears only as
-	 * direct hover/press feedback; there are no stacked washes or idle outlines. */
-	private static void titleBox(GuiGraphics g, AbstractButton button, boolean enabled, double hover) {
-		boolean pressed = enabled && button.isHovered()
-				&& Minecraft.getInstance().mouseHandler.isLeftPressed();
-		int fill = enabled ? OriginTheme.lerpColor(OriginTheme.PANEL, OriginTheme.PANEL_ALT, hover) : FILL_DISABLED;
-		if (pressed) fill = OriginTheme.lerpColor(OriginTheme.PANEL_ALT, OriginTheme.ACCENT, 0.15);
-		OriginUi.panel(g, button.getX(), button.getY(), button.getWidth(), button.getHeight(),
-				RADIUS, fill, 0);
-	}
-
 	/** Centered label in Origin's Inter (SDF) font — semibold, with a soft drop
 	 *  shadow — routed through OriginText so it matches every other menu label and
 	 *  the whole client reads in one typeface (no vanilla pixel glyphs on widgets).
@@ -430,35 +486,6 @@ public final class OriginButtonRenderer {
 		String s = message.getString();
 		int tw = OriginText.widthBold(font, s);
 		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
-	}
-
-	private static void drawTitlePresentation(GuiGraphics g, AbstractButton button, TitlePresentation title,
-										 boolean enabled, double hover) {
-		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
-		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : OriginTheme.MUTED;
-		// Twelve logical pixels gives the SDF enough screen area to retain its
-		// hairline character while keeping every dock glyph centred on the same box.
-		int iconSize = Math.max(10, Math.min(12, h - 5));
-		if (title.iconOnly()) {
-			ModIcons.draw(g, title.icon(), x + (w - iconSize) / 2, y + (h - iconSize) / 2, iconSize, color);
-			return;
-		}
-		Font font = Minecraft.getInstance().font;
-		String label = button.getMessage().getString();
-		float textScale = 0.82f;
-		int textW = Math.round(OriginText.widthBold(font, label) * textScale);
-		int gap = 4;
-		int groupW = iconSize + gap + textW;
-		int iconX = x + (w - groupW) / 2;
-		int iconY = y + (h - iconSize) / 2;
-		ModIcons.draw(g, title.icon(), iconX, iconY, iconSize, color);
-		int textX = iconX + iconSize + gap;
-		int textY = y + (h - Math.round(8 * textScale)) / 2;
-		g.pose().pushPose();
-		g.pose().translate(textX, textY, 0);
-		g.pose().scale(textScale, textScale, 1f);
-		OriginText.drawBold(g, font, label, 0, 0, color, true);
-		g.pose().popPose();
 	}
 
 	/** Shared eased hover progress (0..1) for any widget, on wall-clock time. */

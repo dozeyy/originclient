@@ -110,10 +110,31 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
 	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
-	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
+	public static final int CLEAN_DIM_TITLE = 0x590E1110;      // title (~35%), the Workbench bg hue (Phase 4)
 	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
 	public static final int CLEAN_BAR_TRACK = 0x29FFFFFF;      // loading bar track, white 16%
 	public static final int CLEAN_BAR_FILL = 0xEBFFFFFF;       // loading bar fill, white 92%
+
+	// ---- Title screen, Workbench skin (Phase 4, docs/overhaul/DESIGN-SYSTEM.md 15.2) ----
+	// ONLY the title's controls read these (OriginButtonRenderer.titleControl, the chip in
+	// OriginScreenRenderer). They are separate from BOX_* / PANEL on purpose: those feed the
+	// Mod Menu family, which must not change by a pixel. Fixed (not theme-repainted), like the
+	// CLEAN_* set above. Colours are the spec's tokens as ARGB; radii and edges are GUI px.
+	public static final int TITLE_RADIUS = 4;                  // buttons 20 tall: the launcher's 40/8 ratio
+	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
+	public static final int TITLE_BTN_FILL_HOVER = 0xE6232A26; // surfaceHover at 90 %
+	public static final int TITLE_BTN_FILL_PRESS = 0xE6191E1B; // surfacePress
+	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
+	public static final int TITLE_BTN_EDGE_HOVER = 0x24FFFFFF;
+	public static final int TITLE_FOCUS = 0x995FD09B;          // accentLine, 1 GUI px ring
+	public static final int TITLE_PLATE_HOVER = 0x14FFFFFF;    // plate behind a hovered dock glyph (white 8 %)
+	public static final int TITLE_CHIP_FILL = 0x0FFFFFFF;      // player chip (white 6 %)
+	public static final int TITLE_TEXT_MUTED = 0x85F1E9D2;     // textMuted: disabled labels
+	// Destination hues (spec 2.3, dark theme values): dock glyphs.
+	public static final int HUE_EMERALD = 0xFF5FD09B;
+	public static final int HUE_SKY = 0xFF6FAEE8;
+	public static final int HUE_GOLD = 0xFFE9C46A;
+	public static final int HUE_CORAL = 0xFFE08A6B;
 
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;
