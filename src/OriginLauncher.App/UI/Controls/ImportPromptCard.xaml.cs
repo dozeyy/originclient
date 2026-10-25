@@ -52,12 +52,13 @@ public partial class ImportPromptCard : UserControl
         Visibility = Visibility.Collapsed;
     }
 
-    // Rise in (opacity + translate only, Motion.Scene).
+    // Rise in (opacity + translate only): the Workbench dialog enter, 220 ms (Motion.Enter) and an 8 px lift. It never
+    // blocks input: the buttons work from the first frame.
     private void Enter()
     {
         if (Motion.Off) return;
-        Card.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 260));
-        CardLift.BeginAnimation(TranslateTransform.YProperty, Motion.FromTo(16, 0, 360, Motion.Expo));
+        Card.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 220));
+        CardLift.BeginAnimation(TranslateTransform.YProperty, Motion.FromTo(8, 0, 220, Motion.Out));
     }
 
     // One chip per launcher, most setups first: its real logo (or initial), its name, and how many setups it holds.
@@ -90,7 +91,8 @@ public partial class ImportPromptCard : UserControl
             Width = 28,
             Height = 28,
             Margin = new Thickness(0, 0, 10, 0),
-            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Sm"),
+            // A round well inside the capsule chip, concentric with its ends.
+            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Full"),
             Background = (Brush)Application.Current.FindResource("Brush.Bg"),
             Child = logo != null
                 ? new Image { Source = logo, Width = 18, Height = 18 }
@@ -126,14 +128,20 @@ public partial class ImportPromptCard : UserControl
                 VerticalAlignment = VerticalAlignment.Center,
             });
 
-        return new Border
+        // A capsule chip (every chip is one: radius = height / 2): 6 round the 28 well, 14 after the text so the
+        // text clears the round end.
+        var chip = new Border
         {
-            Padding = new Thickness(6, 6, 12, 6),
+            Padding = new Thickness(6, 6, 14, 6),
             Margin = new Thickness(0, 0, 8, 8),
-            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Lg"),
+            CornerRadius = (CornerRadius)Application.Current.FindResource("Radius.Full"),
             Background = (Brush)Application.Current.FindResource("Brush.Card"),
+            BorderBrush = (Brush)Application.Current.FindResource("Brush.SoftStroke"),
+            BorderThickness = new Thickness(1),
             Child = row,
         };
+        Capsule.SetOn(chip, true); // radius = height / 2: a capsule, never an oval
+        return chip;
     }
 
     private void NotNow_Click(object sender, RoutedEventArgs e) => Hide();

@@ -47,12 +47,12 @@
                  The fill is a full-width bar scaled from its left edge (a GPU
                  transform, no layout per frame), pixel snapping off so its end
                  moves smoothly. The colour is the family accent (an indicator). -->
-            <Border x:Name="ProgressTrack" Width="420" Height="4" CornerRadius="{StaticResource Radius.Track}"
+            <Border x:Name="ProgressTrack" Width="420" Height="{StaticResource Size.Progress}" CornerRadius="{StaticResource Radius.Track}"
                     Background="{StaticResource Brush.ProgressTrack}" HorizontalAlignment="Center"
                     ClipToBounds="True" Margin="0,0,0,16"
                     SnapsToDevicePixels="False" UseLayoutRounding="False">
                 <Grid>
-                    <Border x:Name="ProgressFill" Height="4" CornerRadius="{StaticResource Radius.Track}"
+                    <Border x:Name="ProgressFill" Height="{StaticResource Size.Progress}" CornerRadius="{StaticResource Radius.Track}"
                             Background="{DynamicResource Brush.Accent}" Visibility="Collapsed"
                             SnapsToDevicePixels="False" UseLayoutRounding="False"
                             RenderTransformOrigin="0,0.5">
@@ -60,7 +60,7 @@
                             <ScaleTransform x:Name="ProgressScale" ScaleX="0"/>
                         </Border.RenderTransform>
                     </Border>
-                    <Border x:Name="ProgressSweep" Width="96" Height="4" CornerRadius="{StaticResource Radius.Track}"
+                    <Border x:Name="ProgressSweep" Width="96" Height="{StaticResource Size.Progress}" CornerRadius="{StaticResource Radius.Track}"
                             Background="{DynamicResource Brush.Accent}" HorizontalAlignment="Left">
                         <Border.RenderTransform>
                             <TranslateTransform x:Name="ProgressTranslate" X="-70"/>

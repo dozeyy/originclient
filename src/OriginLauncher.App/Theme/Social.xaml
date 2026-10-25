@@ -1,7 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:system="clr-namespace:System;assembly=mscorlib"
-                    xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls">
+                    xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
+                    xmlns:ui="clr-namespace:OriginLauncher.App.UI">
 
     <!-- Friends / party / chat (the drawer and its toasts). Built only from the
          tokens in Colors / Typography / Spacing / Buttons: change those and the
@@ -221,14 +222,15 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
         <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
-        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="Padding" Value="12,0"/>
         <Setter Property="Margin" Value="0,0,6,6"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
+                    <!-- A capsule chip (radius = height / 2, ui:Capsule), like every chip. -->
                     <Border x:Name="Bd" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.SoftStroke}"
-                            BorderThickness="1" CornerRadius="{StaticResource Radius.Sm}" Padding="{TemplateBinding Padding}"
-                            SnapsToDevicePixels="True">
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Full}" ui:Capsule.On="True"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}"
                                   Width="10" Height="10" StrokeThickness="2.6" Margin="0,0,6,0"
