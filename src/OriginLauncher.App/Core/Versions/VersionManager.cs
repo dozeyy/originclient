@@ -361,7 +361,8 @@ public sealed class VersionManager
             gate.Release();
             // Provisioning ended, finished or failed: the version's files changed, so the selector's
             // cached state is stale. Background and best-effort; it reads only and never throws.
-            _ = InstalledVersions.Shared.RefreshAsync(version);
+            // try/catch: even a failing static initializer must never replace the launch result.
+            try { _ = InstalledVersions.Shared.RefreshAsync(version); } catch { /* the badge stays as it was */ }
         }
     }
 

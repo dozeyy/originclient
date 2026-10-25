@@ -13,5 +13,7 @@ public sealed partial class InstalledVersions
         OriginPaths.VersionRoot,
         OriginPaths.ModsDir,
         VersionManager.BundledJarFor,
-        LegacyForgeInstaller.LayoutFor);
+        LegacyForgeInstaller.LayoutFor,
+        // The signal Play already uses: no valid stamp = it runs a full verify before launching.
+        hasVerifiedStamp: static (root, version) => !InstallVerification.Evaluate(root, version).FullVerify);
 }

@@ -37,6 +37,13 @@ public enum InstallPieces
 
     /// <summary>mods/originclient.jar in the version's shared mods folder.</summary>
     OriginMod = 4,
+
+    /// <summary>
+    /// InstallVerification holds a valid stamp for the version: a full verify passed under this launcher build
+    /// within the last week. Without it Play runs a full verify (and repairs what it finds), so the version is
+    /// not shown as Installed. It ages out after a launcher update or 7 days, so Partial can mean "verify due".
+    /// </summary>
+    Verified = 8,
 }
 
 /// <summary>One version's last-checked install state. Immutable; safe to hand to the UI thread.</summary>
@@ -77,6 +84,8 @@ public sealed partial class InstalledVersions
     private readonly Func<string, string> _modsDir;
     private readonly Func<string, string?> _bundledOriginJar;
     private readonly Func<string, LegacyLoaderLayout?> _legacyLoader;
+    private readonly Func<string, string, bool>? _hasVerifiedStamp;
+    private readonly Action<string> _ensureListable;
 
     private readonly ConcurrentDictionary<string, InstalledVersionInfo> _cache = new(StringComparer.Ordinal);
     // Each probe takes a ticket before it reads the disk and only stores its result if no newer probe
@@ -90,18 +99,34 @@ public sealed partial class InstalledVersions
     /// <param name="bundledOriginJar">The Origin jar this launcher ships for a version, or null if the version has no Origin build.
     /// The path need not exist (a dev build without the module output): then the jar is neither required nor compared.</param>
     /// <param name="legacyLoader">The Forge layout for a legacy version (1.8.9), or null for a Fabric version.</param>
+    /// <param name="hasVerifiedStamp">(version root, version) -> true when InstallVerification would take the fast path, i.e. Play
+    /// has nothing to re-verify. Null = not checked (tests of the other pieces).</param>
+    /// <param name="ensureListable">Throws if a folder exists but cannot be listed. Null = list its first entry. A seam so
+    /// the unreadable-folder case is testable on any OS.</param>
     public InstalledVersions(
         IReadOnlyList<string> versions,
         Func<string, string> versionRoot,
         Func<string, string> modsDir,
         Func<string, string?> bundledOriginJar,
-        Func<string, LegacyLoaderLayout?> legacyLoader)
+        Func<string, LegacyLoaderLayout?> legacyLoader,
+        Func<string, string, bool>? hasVerifiedStamp = null,
+        Action<string>? ensureListable = null)
     {
         _versions = versions;
         _versionRoot = versionRoot;
         _modsDir = modsDir;
         _bundledOriginJar = bundledOriginJar;
         _legacyLoader = legacyLoader;
+        _hasVerifiedStamp = hasVerifiedStamp;
+        _ensureListable = ensureListable ?? DefaultEnsureListable;
+    }
+
+    // File.Exists / Directory.Exists swallow access errors and say "missing"; listing a folder does not.
+    private static void DefaultEnsureListable(string dir)
+    {
+        if (!Directory.Exists(dir)) return;
+        using var entries = Directory.EnumerateFileSystemEntries(dir).GetEnumerator();
+        entries.MoveNext(); // throws UnauthorizedAccessException / IOException when unreadable
     }
 
     /// <summary>
@@ -117,11 +142,17 @@ public sealed partial class InstalledVersions
     /// <summary>The cached result with the missing pieces, or null if the version was never refreshed.</summary>
     public InstalledVersionInfo? Get(string version) => _cache.TryGetValue(version, out var info) ? info : null;
 
-    /// <summary>Forget one cached answer (it reads Unknown again until the next refresh).</summary>
+    /// <summary>
+    /// Forget one cached answer (it reads Unknown again until the next refresh). A probe already reading the
+    /// disk when this runs holds an older ticket than the one recorded here, so its answer is dropped.
+    /// </summary>
     public void Invalidate(string version)
     {
-        _cache.TryRemove(version, out _);
-        _stored.TryRemove(version, out _);
+        lock (_stored)
+        {
+            _stored[version] = Interlocked.Increment(ref _ticket);
+            _cache.TryRemove(version, out _);
+        }
     }
 
     /// <summary>Re-checks one version on a worker thread and updates the cache. Never throws.</summary>
@@ -168,14 +199,18 @@ public sealed partial class InstalledVersions
         {
             var root = _versionRoot(version);
 
-            // A file where the version folder should be, or a folder we may not list, is "can't tell",
-            // not "not installed": File.Exists/Directory.Exists swallow access errors and would say
-            // missing, and Play must not be promised a clean download over something we couldn't read.
+            // A file where the version folder should be, or any folder on the way that we may not list, is
+            // "cannot tell", not "not installed": File.Exists/Directory.Exists swallow access errors and would
+            // say missing, and Play must not be promised a clean download over something we could not read.
             if (File.Exists(root)) return Result(version, InstallState.Unknown, InstallPieces.None, InstallPieces.None);
+            var instances = Path.GetDirectoryName(root);
+            if (!string.IsNullOrEmpty(instances)) _ensureListable(instances);
             if (!Directory.Exists(root))
                 return Result(version, InstallState.NotInstalled, InstallPieces.None, Required(version));
-            using (var probe = Directory.EnumerateFileSystemEntries(root).GetEnumerator())
-                probe.MoveNext(); // throws UnauthorizedAccessException / IOException when unreadable
+            _ensureListable(root);
+            _ensureListable(Path.Combine(root, "versions"));
+            if (_legacyLoader(version) != null) _ensureListable(Path.Combine(root, "libraries"));
+            _ensureListable(_modsDir(version));
 
             var present = InstallPieces.None;
             if (ClientPresent(root, version)) present |= InstallPieces.Client;
@@ -190,6 +225,13 @@ public sealed partial class InstalledVersions
 
             if (present == InstallPieces.None)
                 return Result(version, InstallState.NotInstalled, present, required);
+
+            // The pieces exist, but Play still has a full verify ahead of it (no valid stamp): not Installed yet.
+            if (missing == InstallPieces.None && _hasVerifiedStamp != null)
+            {
+                if (_hasVerifiedStamp(root, version)) present |= InstallPieces.Verified;
+                else missing |= InstallPieces.Verified;
+            }
             if (missing != InstallPieces.None)
                 return Result(version, InstallState.Partial, present, missing);
 
@@ -217,9 +259,14 @@ public sealed partial class InstalledVersions
     private static bool ClientPresent(string root, string version)
     {
         var dir = Path.Combine(root, "versions", version);
-        if (!File.Exists(Path.Combine(dir, version + ".json"))) return false;
-        var jar = new FileInfo(Path.Combine(dir, version + ".jar"));
-        return jar.Exists && jar.Length > 0;
+        return NonEmpty(Path.Combine(dir, version + ".json")) && NonEmpty(Path.Combine(dir, version + ".jar"));
+    }
+
+    // A file that exists but is 0 bytes is a write that never finished (or a wiped file): as good as missing.
+    private static bool NonEmpty(string path)
+    {
+        var info = new FileInfo(path);
+        return info.Exists && info.Length > 0;
     }
 
     private bool LoaderPresent(string root, string version)
@@ -227,15 +274,14 @@ public sealed partial class InstalledVersions
         var versions = Path.Combine(root, "versions");
         if (_legacyLoader(version) is { } forge)
         {
-            if (!File.Exists(Path.Combine(versions, forge.VersionId, forge.VersionId + ".json"))) return false;
-            var universal = new FileInfo(Path.Combine(root, "libraries", forge.LibraryRelativePath));
-            return universal.Exists && universal.Length > 0;
+            return NonEmpty(Path.Combine(versions, forge.VersionId, forge.VersionId + ".json"))
+                   && NonEmpty(Path.Combine(root, "libraries", forge.LibraryRelativePath));
         }
 
         if (!Directory.Exists(versions)) return false;
         var names = Directory.EnumerateDirectories(versions)
             .Select(Path.GetFileName)
-            .Where(n => n != null && File.Exists(Path.Combine(versions, n, n + ".json")))
+            .Where(n => n != null && NonEmpty(Path.Combine(versions, n, n + ".json")))
             .Select(n => n!);
         return SharedMods.NewestInstalledLoader(names, version) != null;
     }

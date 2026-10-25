@@ -1,3 +1,4 @@
+using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Versions;
 using Xunit;
 
@@ -33,12 +34,17 @@ public class InstalledVersionsTests : IDisposable
     private string BundledJar(string version) => Path.Combine(Bundled, "originclient-" + version + ".jar");
     private static string ForgeLibPath => ForgeLib.Replace('/', Path.DirectorySeparatorChar);
 
-    private InstalledVersions Make(Func<string, string?>? bundled = null) => new(
+    private InstalledVersions Make(
+        Func<string, string?>? bundled = null,
+        Func<string, string, bool>? stamp = null,
+        Action<string>? listable = null) => new(
         [Fabric, Forge, "26.3"],
         Root,
         v => Path.Combine(Root(v), "mods"),
         bundled ?? (v => BundledJar(v)),
-        v => v == Forge ? new LegacyLoaderLayout(ForgeId, ForgeLibPath) : null);
+        v => v == Forge ? new LegacyLoaderLayout(ForgeId, ForgeLibPath) : null,
+        stamp,
+        listable);
 
     private static string Put(string path, int bytes = 8)
     {
@@ -254,22 +260,175 @@ public class InstalledVersionsTests : IDisposable
         Assert.Equal(InstallState.Unknown, info.State);
     }
 
-    [Fact]
-    public void UnreadableFolder_IsUnknown()
+    // The seam throws what a real unreadable folder throws, so this runs the same on Windows and Linux.
+    [Theory]
+    [InlineData("instances")]
+    [InlineData("root")]
+    [InlineData("versions")]
+    [InlineData("mods")]
+    public void UnreadableFolder_IsUnknown(string which)
     {
-        if (OperatingSystem.IsWindows()) return; // permissions are exercised on the Linux CI run
         FullFabric();
-        File.SetUnixFileMode(Root(Fabric), UnixFileMode.None);
-        try
+        var unreadable = which switch
         {
-            try { _ = Directory.EnumerateFileSystemEntries(Root(Fabric)).Any(); return; } // running as root: cannot make it unreadable
-            catch (UnauthorizedAccessException) { }
-            Assert.Equal(InstallState.Unknown, Make().Check(Fabric).State);
-        }
-        finally
+            "instances" => Instances,
+            "root" => Root(Fabric),
+            "versions" => Path.Combine(Root(Fabric), "versions"),
+            _ => Path.Combine(Root(Fabric), "mods"),
+        };
+        var sut = Make(listable: dir =>
         {
-            File.SetUnixFileMode(Root(Fabric), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        }
+            if (string.Equals(dir, unreadable, StringComparison.OrdinalIgnoreCase)) throw new UnauthorizedAccessException(dir);
+        });
+        Assert.Equal(InstallState.Unknown, sut.Check(Fabric).State);
+    }
+
+    [Fact]
+    public void UnreadableLibraries_IsUnknown_On189()
+    {
+        Client(Forge);
+        ForgeLoader();
+        OriginJar(Forge);
+        var libraries = Path.Combine(Root(Forge), "libraries");
+        var sut = Make(listable: dir =>
+        {
+            if (string.Equals(dir, libraries, StringComparison.OrdinalIgnoreCase)) throw new IOException(dir);
+        });
+        Assert.Equal(InstallState.Unknown, sut.Check(Forge).State);
+    }
+
+    [Fact]
+    public void UnreadableInstancesFolder_IsUnknown_EvenWhenTheVersionFolderIsInvisible()
+    {
+        // Nothing under instances/ is visible when it cannot be listed: that must not read as NotInstalled.
+        var sut = Make(listable: dir => throw new UnauthorizedAccessException(dir));
+        Directory.CreateDirectory(Instances);
+        Assert.Equal(InstallState.Unknown, sut.Check("26.3").State);
+    }
+
+    [Fact]
+    public void DefaultListProbe_ReadsARealFolder()
+    {
+        FullFabric();
+        Assert.Equal(InstallState.Installed, Make().Check(Fabric).State);
+    }
+
+    [Fact]
+    public void ZeroByteClientJson_IsMissing()
+    {
+        FullFabric();
+        Put(Path.Combine(Root(Fabric), "versions", Fabric, Fabric + ".json"), 0);
+        var info = Make().Check(Fabric);
+        Assert.Equal(InstallState.Partial, info.State);
+        Assert.Equal(InstallPieces.Client, info.Missing);
+    }
+
+    [Fact]
+    public void ZeroByteFabricProfileJson_IsMissing()
+    {
+        FullFabric();
+        var name = "fabric-loader-0.16.14-" + Fabric;
+        Put(Path.Combine(Root(Fabric), "versions", name, name + ".json"), 0);
+        var info = Make().Check(Fabric);
+        Assert.Equal(InstallState.Partial, info.State);
+        Assert.Equal(InstallPieces.Loader, info.Missing);
+    }
+
+    [Fact]
+    public void ZeroByteForgeProfileJson_IsMissing()
+    {
+        Client(Forge);
+        ForgeLoader();
+        OriginJar(Forge);
+        Put(Path.Combine(Root(Forge), "versions", ForgeId, ForgeId + ".json"), 0);
+        var info = Make().Check(Forge);
+        Assert.Equal(InstallState.Partial, info.State);
+        Assert.Equal(InstallPieces.Loader, info.Missing);
+    }
+
+    [Fact]
+    public void NoValidVerificationStamp_IsPartial_NotInstalled()
+    {
+        FullFabric();
+        var info = Make(stamp: (_, _) => false).Check(Fabric);
+        Assert.Equal(InstallState.Partial, info.State);
+        Assert.Equal(InstallPieces.Verified, info.Missing);
+    }
+
+    [Fact]
+    public void ValidVerificationStamp_IsInstalled_AndAskedWithTheRootAndVersion()
+    {
+        FullFabric();
+        string? seenRoot = null, seenVersion = null;
+        var info = Make(stamp: (root, version) => { seenRoot = root; seenVersion = version; return true; }).Check(Fabric);
+        Assert.Equal(InstallState.Installed, info.State);
+        Assert.True(info.Present.HasFlag(InstallPieces.Verified));
+        Assert.Equal(Root(Fabric), seenRoot);
+        Assert.Equal(Fabric, seenVersion);
+    }
+
+    [Fact]
+    public void StaleOriginJarWithValidStamp_IsUpdateReady()
+    {
+        FullFabric();
+        OriginJar(Fabric, bundledBytes: 400);
+        Assert.Equal(InstallState.UpdateReady, Make(stamp: (_, _) => true).Check(Fabric).State);
+    }
+
+    [Fact]
+    public void NothingOnDisk_IsNotInstalled_RegardlessOfTheStamp()
+    {
+        Directory.CreateDirectory(Path.Combine(Root(Fabric), "mods"));
+        Assert.Equal(InstallState.NotInstalled, Make(stamp: (_, _) => false).Check(Fabric).State);
+    }
+
+    [Fact]
+    public void Invalidate_DropsAProbeThatWasAlreadyReadingTheDisk()
+    {
+        FullFabric();
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var first = true;
+        var sut = Make(bundled: v =>
+        {
+            if (first) { first = false; entered.Set(); release.Wait(TimeSpan.FromSeconds(10)); }
+            return BundledJar(v);
+        });
+
+        var refresh = sut.RefreshAsync(Fabric);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10)));   // the probe holds its ticket and is mid-read
+        sut.Invalidate(Fabric);                                // newer ticket recorded
+        release.Set();
+        refresh.GetAwaiter().GetResult();
+
+        Assert.Equal(InstallState.Unknown, sut.StateOf(Fabric)); // the stale answer was dropped
+        Assert.Null(sut.Get(Fabric));
+
+        sut.RefreshAsync(Fabric).GetAwaiter().GetResult();       // a probe after the Invalidate does store
+        Assert.Equal(InstallState.Installed, sut.StateOf(Fabric));
+    }
+
+    [Fact]
+    public void LegacyForgeLayout_MatchesTheRealTable()
+    {
+        var layout = LegacyForgeBuilds.LayoutFor("1.8.9");
+        Assert.NotNull(layout);
+        Assert.Equal(ForgeId, layout!.VersionId);
+        Assert.Equal(ForgeLibPath, layout.LibraryRelativePath);
+        Assert.Null(LegacyForgeBuilds.LayoutFor("1.21.1"));
+    }
+
+    [Fact]
+    public void LegacyForgeProfileId_MatchesTheBundledForgeJson()
+    {
+        // The profile id InstalledVersions looks for must be the id inside the JSON the installer copies there.
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "src", "OriginLauncher.App", "Assets", "Forge", "forge-1.8.9.json")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+        var json = File.ReadAllText(Path.Combine(dir!.FullName, "src", "OriginLauncher.App", "Assets", "Forge", "forge-1.8.9.json"));
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        Assert.Equal(LegacyForgeBuilds.LayoutFor("1.8.9")!.VersionId, doc.RootElement.GetProperty("id").GetString());
     }
 
     [Fact]
