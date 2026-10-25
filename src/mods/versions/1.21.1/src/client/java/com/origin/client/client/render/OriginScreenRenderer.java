@@ -107,6 +107,24 @@ public final class OriginScreenRenderer {
 		return !broken;
 	}
 
+	/**
+	 * True when renderLoading will paint the opaque Origin loading picture over the
+	 * vanilla loading overlay this frame (the same two checks it makes), so vanilla's
+	 * own logo and bar under it need not be drawn (LoadingOverlayCoverMixin, B-30).
+	 */
+	public static boolean coversLoadingOverlay() {
+		return loadingHook && !broken && !com.origin.client.client.OriginStyle.vanillaMenus();
+	}
+
+	// Set by LoadingOverlayMixin's HEAD hook: its TAIL draw (renderLoading) is in place.
+	// The cover lives in another mixin config, so without this a config that failed
+	// to apply could leave the loading screen with neither picture.
+	private static boolean loadingHook = false;
+
+	public static void loadingHookLive() {
+		loadingHook = true;
+	}
+
 	private static boolean fail(Throwable t) {
 		broken = true;
 		com.origin.client.OriginClient.LOGGER.error(
@@ -1301,6 +1319,12 @@ public final class OriginScreenRenderer {
 		pose.pushPose();
 		pose.translate(ox, oy, 0);
 		pose.scale(unit, unit, 1f);
+		// Every glyph of the line in ONE draw (GuiGraphics.blit would be a draw per
+		// glyph: ~40 a caption with its shadow). Same quads and UVs as blit's.
+		org.joml.Matrix4f m = pose.last().pose();
+		com.mojang.blaze3d.vertex.BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(
+				com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX);
+		float tw = bootFontTexW, th = bootFontTexH, cell = bootFontCell;
 		float x = 0;   // sheet px
 		for (int i = 0; i < text.length(); i++) {
 			char ch = text.charAt(i);
@@ -1309,12 +1333,23 @@ public final class OriginScreenRenderer {
 			}
 			int w = bootFontWidth[ch];
 			if (w > 0) {
-				g.blit(bootFontId, Math.round(x), 0, (float) ((ch % 16) * bootFontCell), (float) ((ch / 16) * bootFontCell),
-						w, bootFontCell, bootFontTexW, bootFontTexH);
+				float x0 = Math.round(x), x1 = x0 + w;
+				float u0 = (ch % 16) * cell / tw, u1 = ((ch % 16) * cell + w) / tw;
+				float v0 = (ch / 16) * cell / th, v1 = ((ch / 16) * cell + cell) / th;
+				bb.addVertex(m, x0, 0, 0).setUv(u0, v0);
+				bb.addVertex(m, x0, cell, 0).setUv(u0, v1);
+				bb.addVertex(m, x1, cell, 0).setUv(u1, v1);
+				bb.addVertex(m, x1, 0, 0).setUv(u1, v0);
 			}
 			if (w >= 0) {   // -1: no glyph in the sheet, takes no room (the space has its own width)
 				x += w + 1 + tracking / unit;
 			}
+		}
+		com.mojang.blaze3d.vertex.MeshData mesh = bb.build();
+		if (mesh != null) {
+			RenderSystem.setShaderTexture(0, bootFontId);
+			RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
+			com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
 		}
 		pose.popPose();
 		shade(1f, 1f, 1f, 1f);
