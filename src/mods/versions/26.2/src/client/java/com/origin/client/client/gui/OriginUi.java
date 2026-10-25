@@ -48,6 +48,8 @@ public final class OriginUi {
 
 	/** The one reference to the official logo (a classpath path). Everything that reads the logo uses this. */
 	public static final String LOGO_PATH = "/assets/originclient/textures/ui/origin_logo.png";
+	/** The official wordmark (= launcher Assets/Brand/wordmark.png): the only "ORIGIN" lettering on the title. */
+	public static final String WORDMARK_PATH = "/assets/originclient/textures/ui/origin_wordmark.png";
 	private static Identifier fillTex, borderTex, trackTex, knobTex, glowTex, logoTex, starTex;
 	private static int panelTexSize = 96, panelCorner = 24;
 

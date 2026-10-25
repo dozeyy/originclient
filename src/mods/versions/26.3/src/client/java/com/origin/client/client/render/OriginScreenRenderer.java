@@ -591,6 +591,84 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	// The official wordmark (textures/ui/origin_wordmark.png, byte-identical to the
+	// launcher's Assets/Brand/wordmark.png) gets the same one-time box-filter bake per
+	// physical height, so it stays crisp at any GUI scale. Never redrawn or re-typed.
+	private static final java.util.Map<Integer, Identifier> WORDMARK_SIZES = new java.util.HashMap<>();
+	private static NativeImage wordmarkSrc;
+	private static boolean wordmarkFailed;
+
+	/** Draws the official wordmark image centred on (cx, cy), {@code heightGui} GUI px tall. False = not drawn (caller keeps the text fallback). */
+	private static boolean drawWordmarkImage(GuiGraphicsExtractor g, double cx, double cy, double heightGui, float alpha) {
+		if (wordmarkFailed) {
+			return false;
+		}
+		try {
+			int gs = com.origin.client.client.gui.OriginSurface.scale();
+			int ph = (int) Math.round(heightGui * gs);
+			if (ph <= 0 || ph > 512) {
+				return false;
+			}
+			if (wordmarkSrc == null) {
+				try (InputStream in = open(com.origin.client.client.gui.OriginUi.WORDMARK_PATH)) {
+					wordmarkSrc = NativeImage.read(in);
+				}
+			}
+			int pw = Math.max(1, (int) Math.round(ph * (double) wordmarkSrc.getWidth() / wordmarkSrc.getHeight()));
+			Identifier id = WORDMARK_SIZES.get(ph);
+			if (id == null) {
+				String name = "wordmark_px_" + ph;
+				id = Identifier.fromNamespaceAndPath("originclient", name);
+				Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "originclient:" + name, boxFilter(wordmarkSrc, pw, ph)));
+				WORDMARK_SIZES.put(ph, id);
+			}
+			Matrix3x2fStack pose = g.pose();
+			pose.pushMatrix();
+			pose.scale(1f / gs, 1f / gs);
+			int px = (int) Math.round(cx * gs - pw / 2.0), py = (int) Math.round(cy * gs - ph / 2.0);
+			g.blit(RenderPipelines.GUI_TEXTURED, id, px, py, 0f, 0f, pw, ph, pw, ph, ARGB.white(Math.max(0f, Math.min(1f, alpha))));
+			pose.popMatrix();
+			return true;
+		} catch (Throwable t) {
+			wordmarkFailed = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark bake failed; the title falls back to the boot-font text", t);
+			return false;
+		}
+	}
+
+	/**
+	 * Premultiplied 4x4 box-filter downsample of {@code src} to dw x dh (a new image; CPU only).
+	 * getPixel/setPixel are ARGB in this era; the colour channels are averaged the same way
+	 * whatever their order, so only the alpha byte position matters.
+	 */
+	private static NativeImage boxFilter(NativeImage src, int dw, int dh) {
+		int sw = src.getWidth(), sh = src.getHeight();
+		NativeImage dst = new NativeImage(dw, dh, true);
+		for (int y = 0; y < dh; y++) {
+			for (int x = 0; x < dw; x++) {
+				double aSum = 0, c0 = 0, c1 = 0, c2 = 0;
+				for (int sy = 0; sy < 4; sy++) {
+					for (int sx = 0; sx < 4; sx++) {
+						int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / dw));
+						int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / dh));
+						int c = src.getPixel(tx, ty);
+						double a = ((c >>> 24) & 0xFF) / 255.0;
+						aSum += a;
+						c0 += a * ((c & 0xFF) / 255.0);
+						c1 += a * (((c >> 8) & 0xFF) / 255.0);
+						c2 += a * (((c >> 16) & 0xFF) / 255.0);
+					}
+				}
+				double a = aSum / 16.0;
+				int v0 = a > 0 ? (int) Math.round(Math.min(1.0, c0 / aSum) * 255) : 255;
+				int v1 = a > 0 ? (int) Math.round(Math.min(1.0, c1 / aSum) * 255) : 255;
+				int v2 = a > 0 ? (int) Math.round(Math.min(1.0, c2 / aSum) * 255) : 255;
+				dst.setPixel(x, y, ((int) Math.round(a * 255) << 24) | (v2 << 16) | (v1 << 8) | v0);
+			}
+		}
+		return dst;
+	}
+
 	/**
 	 * "ORIGIN" in Minecraft's own letters at 2x, spaced out (the mockup's tracked
 	 * wordmark), bottom of the caps on {@code baseline}. Drawn from the boot font
@@ -668,14 +746,15 @@ public final class OriginScreenRenderer {
 			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
 			TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
-			// The REAL Origin logo (origin_logo.png), still, and the spaced ORIGIN
-			// wordmark under it (Will 2026-10-19: use the real logo, not a redraw).
-			// TitleLayout drops the logo, then the wordmark, when extra rows need the room.
+			// The REAL Origin logo (origin_logo.png) and the OFFICIAL wordmark image
+			// (origin_wordmark.png) under it, both still; never redrawn or typed
+			// (Will 2026-10-25). TitleLayout drops the logo, then the wordmark, when extra
+			// rows need the room. The boot-font text is only the fail-soft if the image can't draw.
 			if (L.markSize > 0) {
 				drawLogo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1f);
 			}
-			if (L.showWordmark) {
-				drawWordmarkText(guiGraphics, L.markCenterX, L.wordBaseline, OriginTheme.CLEAN_TEXT);
+			if (L.showWordmark && !drawWordmarkImage(guiGraphics, L.markCenterX, L.wordCenterY, TitleLayout.WORD_H, 1f)) {
+				drawWordmarkText(guiGraphics, L.markCenterX, L.wordCenterY + 7, OriginTheme.CLEAN_TEXT);
 			}
 			return true;
 		} catch (Throwable t) {
@@ -713,17 +792,14 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** The title's player chip draws on vanilla's normal button sprite. */
-	private static final Identifier CHIP_SPRITE = Identifier.withDefaultNamespace("widget/button");
-
 	// The chip's skin lookup, made once per profile (createLookup builds a new
 	// supplier each call; the skin manager caches the texture behind it).
 	private static UUID titleSkinProfileId;
 	private static Supplier<net.minecraft.world.entity.player.PlayerSkin> titleSkinSupplier;
 
 	/**
-	 * Main menu: a small account chip (player head + username) in the top-left,
-	 * on a vanilla button. Head via the skin manager (default skin shows first,
+	 * Main menu: the player (head + username) in the top-left, with no plate behind
+	 * it (A-Workbench-3, Will 2026-10-25). Head via the skin manager (default skin shows first,
 	 * the real one pops in async); if the head can't be resolved the chip falls
 	 * back to the Origin logo, and if the whole chip throws it flips the
 	 * renderer to vanilla like any Origin draw.
@@ -743,16 +819,13 @@ public final class OriginScreenRenderer {
 				return;
 			}
 			Font font = mc.font;
-			// The player chip in the top-left corner: the player's head and name on
-			// Minecraft's own button sprite, so it matches every button on the title
-			// (Will, 2026-10-19: "use the same style for the player in the top left").
-			// Not clickable (there is no account menu here), so it never highlights.
+			// The player in the top-left corner (A-Workbench-3): the head and name straight
+			// on the panorama, no plate behind them (Will, 2026-10-25: "remove the background
+			// on the top left player icon"). Not clickable (there is no account menu here).
+			// The head's left edge lines up with the footer text (both CORNER in).
 			int x = TitleLayout.CORNER, y = TitleLayout.CORNER, chipH = TitleLayout.CORNER_SIZE;
-			int head = 12, pad = 4, gap = 5;
-			int textW = font.width(name);
-			int chipW = pad + head + gap + textW + pad + 2;
-			guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, CHIP_SPRITE, x, y, chipW, chipH);
-			int hx = x + pad, hy = y + (chipH - head) / 2;
+			int head = 12, gap = 5;
+			int hx = x, hy = y + (chipH - head) / 2;
 			boolean drewHead = false;
 			try {
 				// Minecraft's resolved profile carries the signed `textures` property.
@@ -764,7 +837,9 @@ public final class OriginScreenRenderer {
 					titleSkinSupplier = mc.getSkinManager().createLookup(profile, false);
 				}
 				net.minecraft.world.entity.player.PlayerSkin skin = titleSkinSupplier.get();
-				net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(guiGraphics, skin, hx, hy, head);
+				if (!drawBakedHead(guiGraphics, skin, hx, hy, head, 2)) {
+					net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(guiGraphics, skin, hx, hy, head);
+				}
 				drewHead = true;
 			} catch (Throwable ignored) {
 				// fall back to the logo below
@@ -773,9 +848,114 @@ public final class OriginScreenRenderer {
 				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 			int tx = hx + head + gap;
-			guiGraphics.text(font, name, tx, y + (chipH - 8) / 2, 0xFFFFFFFF, true);   // vanilla button text
+			if (com.origin.client.client.gui.OriginButtonRenderer.titleTextActive()) {
+				// Inter 600 in parchment at the button label's em (A-Workbench-3: the name reads like a label).
+				com.origin.client.client.gui.OriginButtonRenderer.drawTitleText(guiGraphics, name, tx, y + (chipH - 8) / 2f,
+						OriginTheme.TITLE_LABEL_EM, OriginTheme.TITLE_TEXT, true);
+			} else {
+				guiGraphics.text(font, name, tx, y + (chipH - 8) / 2, OriginTheme.TEXT, true);
+			}
 		} catch (Throwable t) {
 			fail(t);
+		}
+	}
+
+	// ---- the head, baked at physical resolution (anti-aliased corners) ----
+	// The face (8x8 base + hat layer, exactly what PlayerFaceExtractor draws) is read from the skin's
+	// CPU pixels once, resampled NEAREST to head*guiScale physical pixels, and its alpha is multiplied by
+	// an exact rounded-box coverage at physical-pixel centres (the smooth-ui-baked-masks recipe), then
+	// blitted 1:1 so one texel is one screen pixel (DESIGN-SYSTEM 15.2: head 12 GUI px, radius 2).
+	// 26.x has no synchronous GPU readback, so the pixels come from the CPU side: a downloaded skin is a
+	// DynamicTexture that keeps its NativeImage (getPixels), a default skin is a resource-pack PNG read
+	// once from the ResourceManager. Re-baked only when the skin's texture, the GUI scale or the size
+	// changes (the real skin pops in async over the default one); never per frame.
+	private static final Identifier HEAD_BAKED = Identifier.fromNamespaceAndPath("originclient", "title_head_baked");
+	private static Identifier headSrc;
+	private static int headGs = -1, headSize = -1;
+	private static boolean headReady = false, headBakeFailed = false;
+
+	private static boolean drawBakedHead(GuiGraphicsExtractor g, net.minecraft.world.entity.player.PlayerSkin skin, int hx, int hy, int head, int radius) {
+		if (headBakeFailed) {
+			return false;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			int gs = com.origin.client.client.gui.OriginSurface.scale();
+			Identifier src = skin.body().texturePath();
+			int size = head * gs;
+			if (!headReady || !src.equals(headSrc) || gs != headGs || size != headSize) {
+				bakeHead(mc, src, size, radius * gs);
+				headSrc = src;
+				headGs = gs;
+				headSize = size;
+				headReady = true;
+			}
+			Matrix3x2fStack pose = g.pose();
+			pose.pushMatrix();
+			pose.scale(1f / gs, 1f / gs);
+			g.blit(RenderPipelines.GUI_TEXTURED, HEAD_BAKED, hx * gs, hy * gs, 0f, 0f, size, size, size, size, 0xFFFFFFFF);
+			pose.popMatrix();
+			return true;
+		} catch (Throwable t) {
+			headBakeFailed = true;   // vanilla's square PlayerFaceExtractor head takes over for the session
+			com.origin.client.OriginClient.LOGGER.warn("Origin baked player head failed; using the square head", t);
+			return false;
+		}
+	}
+
+	private static void bakeHead(Minecraft mc, Identifier skinTex, int size, int r) throws java.io.IOException {
+		NativeImage skinPx;
+		boolean owned = false;
+		net.minecraft.client.renderer.texture.AbstractTexture t = mc.getTextureManager().getTexture(skinTex);
+		if (t instanceof DynamicTexture dt && dt.getPixels() != null) {
+			skinPx = dt.getPixels();
+		} else {
+			try (InputStream in = mc.getResourceManager().open(skinTex)) {
+				skinPx = NativeImage.read(in);
+			}
+			owned = true;
+		}
+		NativeImage out = null;
+		try {
+			int tw = skinPx.getWidth(), th = skinPx.getHeight();
+			if (tw < 64 || th < 16) {
+				throw new IllegalStateException("skin texture " + skinTex + " is " + tw + "x" + th);
+			}
+			int k = tw / 64;   // 1 for 64 px skins, 2 for HD
+			out = new NativeImage(size, size, true);
+			double half = size / 2.0, inner = half - r;
+			for (int py = 0; py < size; py++) {
+				int fy = Math.min(7, py * 8 / size);
+				for (int px = 0; px < size; px++) {
+					int fx = Math.min(7, px * 8 / size);
+					int base = skinPx.getPixel(8 * k + fx * k + k / 2, 8 * k + fy * k + k / 2);
+					int hat = skinPx.getPixel(40 * k + fx * k + k / 2, 8 * k + fy * k + k / 2);
+					// ARGB ints: alpha in the top byte. Hat over base, then the corner coverage into alpha.
+					double ha = ((hat >>> 24) & 0xFF) / 255.0, ba = ((base >>> 24) & 0xFF) / 255.0;
+					double oa = ha + ba * (1.0 - ha);
+					int rgb = 0;
+					for (int shift = 0; shift <= 16; shift += 8) {
+						double hc = ((hat >> shift) & 0xFF) / 255.0, bc = ((base >> shift) & 0xFF) / 255.0;
+						double c = oa <= 0.0 ? 0.0 : (hc * ha + bc * ba * (1.0 - ha)) / oa;
+						rgb |= (int) Math.round(Math.min(1.0, c) * 255.0) << shift;
+					}
+					double dx = Math.max(Math.abs(px + 0.5 - half) - inner, 0.0), dy = Math.max(Math.abs(py + 0.5 - half) - inner, 0.0);
+					double cov = Math.max(0.0, Math.min(1.0, 0.5 - (Math.sqrt(dx * dx + dy * dy) - r)));
+					int a = (int) Math.round(oa * cov * 255.0);
+					out.setPixel(px, py, (a << 24) | rgb);
+				}
+			}
+			NativeImage baked = out;
+			// Takes ownership of `out`; registering under the same id replaces (and closes) the old bake.
+			mc.getTextureManager().register(HEAD_BAKED, new DynamicTexture(() -> "originclient:title_head_baked", baked));
+			out = null;
+		} finally {
+			if (owned) {
+				skinPx.close();
+			}
+			if (out != null) {
+				out.close();
+			}
 		}
 	}
 

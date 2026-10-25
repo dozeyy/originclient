@@ -110,7 +110,7 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
 	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
-	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
+	public static final int CLEAN_DIM_TITLE = 0x590E1110;      // title (~35%), the Workbench bg hue (1.21.1 Phase 4)
 	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
 	// The loading picture (render/LoadingLook, 1.21.1's values, Will 2026-10-25): the capsule
 	// progress bar's hairline track and emerald fill, and the stage caption (textMuted at the
@@ -118,8 +118,27 @@ public final class OriginTheme {
 	// ring shapes are inside origin_logo.png (drawn look-alikes read as a fake logo).
 	public static final int CLEAN_BAR_TRACK = 0x14FFFFFF;      // progress bar track, white 8 %
 	public static final int CLEAN_BAR_FILL = 0xFF5FD09B;       // progress bar fill, emerald accent
-	public static final int TITLE_TEXT_MUTED = 0x85F1E9D2;     // textMuted: the loading caption
-	public static final float TITLE_SMALL_EM = 8.0f;           // GUI px: the loading caption's em
+
+	// ---- Title screen, Workbench skin (1.21.1's Phase 4 tokens, docs/overhaul/DESIGN-SYSTEM.md 15.2) ----
+	// ONLY the title's controls read these (OriginButtonRenderer.titleControl, the chip in
+	// OriginScreenRenderer). They are separate from BOX_* / PANEL on purpose: those feed the
+	// Mod Menu family, which must not change by a pixel. Fixed (not theme-repainted), like the
+	// CLEAN_* set above. Colours are the spec's tokens as ARGB; radii and edges are GUI px.
+	public static final int TITLE_RADIUS = 4;                  // tooltips: the launcher's 40/8 ratio
+	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
+	public static final int TITLE_BTN_FILL_HOVER = 0xEB2E3631; // clearly lighter than rest (judge 2026-10-25)
+	public static final int TITLE_BTN_FILL_PRESS = 0xF20B0F0D; // near-black; the label also drops 1 GUI px
+	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
+	public static final int TITLE_BTN_EDGE_HOVER = 0x40FFFFFF; // white 25 %: the hairline firms with the fill
+	public static final int TITLE_FOCUS = 0x995FD09B;          // accentLine, 1 GUI px ring
+	public static final int TITLE_TOOLTIP_FILL = 0xF51D2320;   // surfaceRaised at 96 %: tooltip over the panorama
+	public static final int TITLE_TEXT_MUTED = 0x85F1E9D2;     // textMuted: disabled labels, footer, loading caption
+	public static final int TITLE_BTN_RADIUS = 3;              // Workbench cards: 3 GUI px corners
+	public static final int TITLE_TEXT = 0xFFF1E9D2;           // parchment, fixed (never theme-repainted)
+	public static final float TITLE_LABEL_EM = 9.0f;           // Inter 600 em, GUI px
+	// The title's quiet text (footer line, copyright, dock tooltips) and the loading caption: Inter regular at
+	// 8 GUI px em. Every one falls back to Minecraft's font when the SDF face is not live.
+	public static final float TITLE_SMALL_EM = 8.0f;
 
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;
