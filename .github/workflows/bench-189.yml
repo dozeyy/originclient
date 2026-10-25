@@ -18,6 +18,13 @@
 #   [bench-189 runs=3 scenes=idle,particles,menu,flythrough warmup=15 duration=45 label=x]
 # (every key optional; a bare [bench-189] runs the defaults). Every launch also leaves a fresh
 # options.txt + optionsof.txt + of-fields.txt in the artifact (U6.0: tools/bench/optifine-keys-189.txt).
+#
+# PRESET MODE (presets=competitive,balanced,quality; Phase 6 U6.2): the variants become origin-default (the
+# baseline) plus one origin-default launch per preset, each with tools/bench/presets-189/<name>.json written
+# into the fresh folder first. The game loads it and saves its options on the way out; "Preset round-trip"
+# then compares what was written with what OptiFine saved back (prod189.py check-roundtrip) and FAILS the job
+# when a value was clamped or rejected. The preset files hold the vanilla + OptiFine part of a preset only
+# (the Origin config part is not applied in the bench).
 name: bench-189
 
 on:
@@ -37,6 +44,9 @@ on:
       duration:
         description: "Measured seconds per scene"
         default: "45"
+      presets:
+        description: "Preset mode: comma list of competitive,balanced,quality (empty = the optifine-only vs origin-default A/B)"
+        default: ""
       label:
         description: "Optional run name (keeps parallel runs from cancelling each other)"
         default: ""
@@ -85,14 +95,16 @@ jobs:
           I_WARMUP: ${{ github.event.inputs.warmup }}
           I_DURATION: ${{ github.event.inputs.duration }}
           I_LABEL: ${{ github.event.inputs.label }}
+          I_PRESETS: ${{ github.event.inputs.presets }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import os, re
-          cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": ""}
+          cfg = {"runs": "3", "scenes": "idle,particles,menu,flythrough", "warmup": "15", "duration": "45", "label": "",
+                 "presets": ""}
           if os.environ.get("I_RUNS"):
               cfg.update(runs=os.environ["I_RUNS"], scenes=os.environ.get("I_SCENES") or cfg["scenes"],
                          warmup=os.environ.get("I_WARMUP") or "15", duration=os.environ.get("I_DURATION") or "45",
-                         label=os.environ.get("I_LABEL", ""))
+                         label=os.environ.get("I_LABEL", ""), presets=os.environ.get("I_PRESETS", ""))
           else:
               m = re.findall(r"\[bench-189([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
@@ -101,6 +113,7 @@ jobs:
                       if k in cfg and re.fullmatch(r"[A-Za-z0-9._,-]+", v):
                           cfg[k] = v
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
+                         ("presets", r"|(competitive|balanced|quality)(,(competitive|balanced|quality))*"),
                          ("scenes", r"(idle|hud|particles|menu|flythrough)(,(idle|hud|particles|menu|flythrough))*")):
               if not re.fullmatch(pat, cfg[k]):
                   raise SystemExit("bench-189: bad %s=%r" % (k, cfg[k]))
@@ -164,6 +177,7 @@ jobs:
           SCENES: ${{ steps.cfg.outputs.scenes }}
           WARMUP: ${{ steps.cfg.outputs.warmup }}
           DURATION: ${{ steps.cfg.outputs.duration }}
+          PRESETS: ${{ steps.cfg.outputs.presets }}
         run: |
           set -u
           JAVA8="$JAVA_HOME_8_X64/bin/java"
@@ -172,13 +186,19 @@ jobs:
           mkdir -p "$OUT"
           fail=0
           for r in $(seq 1 "$RUNS"); do
-            if [ $((r % 2)) -eq 1 ]; then order="optifine-only origin-default"; else order="origin-default optifine-only"; fi
+            if [ -n "$PRESETS" ]; then
+              # preset mode: the shipped defaults, then each preset (the folder name is the variant name)
+              order="origin-default"; for pr in ${PRESETS//,/ }; do order="$order preset-$pr"; done
+              if [ $((r % 2)) -eq 0 ]; then order=$(echo $order | tr ' ' '\n' | tac | tr '\n' ' '); fi
+            elif [ $((r % 2)) -eq 1 ]; then order="optifine-only origin-default"; else order="origin-default optifine-only"; fi
             for v in $order; do
+              extra=""; pv="$v"
+              case "$v" in preset-*) pv="origin-default"; extra="--preset tools/bench/presets-189/${v#preset-}.json" ;; esac
               for attempt in 1 2; do
                 echo "::group::round $r  $v  (attempt $attempt)"
                 rm -rf "$OUT/$v/run-$r"
                 if xvfb-run -a -s "-screen 0 1280x720x24" python3 tools/bench/prod189.py run \
-                     --variant "$v" --origin-jar src/mods/versions/1.8.9/build/libs --java "$JAVA8" \
+                     --variant "$pv" $extra --origin-jar src/mods/versions/1.8.9/build/libs --java "$JAVA8" \
                      --out "$OUT/$v/run-$r" --scenes "$SCENES" --warmup "$WARMUP" --duration "$DURATION" \
                      --width 1280 --height 720 --label "CI, relative only" --save-options --ignore-focus; then
                   echo "::endgroup::"
@@ -194,14 +214,40 @@ jobs:
 
       - name: Summary (medians, min-max, change vs the OptiFine-only baseline)
         if: always()
+        env:
+          PRESETS: ${{ steps.cfg.outputs.presets }}
         run: |
           OUT="artifacts/bench-189/out"
           # --max-regression-pct 20: fail only on a big drop of Origin vs the OptiFine-only baseline. A CI runner is
           # 4 shared vCPUs on a software renderer; the one clean sample so far (run 40182245060, 2 runs each) showed
           # up to -12.4% on 1% low from noise alone, so 15 would flake. More than 20% is a real per-frame cost.
-          python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --require-valid \
-            --max-regression-pct 20 --label "CI, relative only" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "${PRESETS:-}" ]; then
+            # preset mode: the baseline is the shipped defaults; a preset may be slower (Quality) on purpose, so no gate
+            python3 tools/bench/summarize.py aggregate "$OUT" --baseline origin-default --require-valid \
+              --label "CI, relative only" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --require-valid \
+              --max-regression-pct 20 --label "CI, relative only" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Preset mode: did OptiFine keep every value a preset wrote? Written vs what the game saved back.
+      - name: Preset round-trip (written vs saved by OptiFine M5)
+        if: always() && steps.cfg.outputs.presets != ''
+        env:
+          PRESETS: ${{ steps.cfg.outputs.presets }}
+        run: |
+          OUT="artifacts/bench-189/out"
+          rc=0
+          {
+            echo "## Preset round-trip"
+            for pr in ${PRESETS//,/ }; do
+              dirs=$(ls -d "$OUT"/preset-$pr/run-* 2>/dev/null || true)
+              if [ -z "$dirs" ]; then echo "preset-$pr: no run folder (the launch failed)"; rc=1; continue; fi
+              python3 tools/bench/prod189.py check-roundtrip --preset "tools/bench/presets-189/$pr.json" --saved $dirs || rc=1
+            done
+          } 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $rc
 
       - name: OptiFine option keys (U6.0)
         if: always()

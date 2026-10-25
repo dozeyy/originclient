@@ -24,6 +24,10 @@ builds, starts and collects. Numbers come from OriginBench -> summarize.py.
     prod189.py run --variant origin-default --origin-jar X.jar --java /path/java --out DIR --scenes idle,flythrough
     prod189.py run --variant optifine-only --origin-jar X.jar --java ... --out DIR --save-options
         (--save-options also leaves a fresh options.txt + optionsof.txt in DIR: the U6.0 key dump)
+    prod189.py run --variant origin-default ... --preset tools/bench/presets-189/competitive.json --save-options
+    prod189.py check-roundtrip --preset tools/bench/presets-189/competitive.json --saved DIR [DIR ...]
+        (the preset is written before the game starts, the game loads it and saves its options on the way out;
+         check-roundtrip fails when a value came back different: OptiFine clamped or rejected it)
 
 Tests: tools/bench/test_prod189.py (no network).
 """
@@ -498,6 +502,66 @@ def apply_preset(game_dir, preset_path, keys_path=KEYS_FILE):
                 f.write("".join("%s:%s\n" % (k, v) for k, v in body.items()))
 
 
+def _read_options(path):
+    """options.txt / optionsof.txt -> {key: value} (the last line of a key wins, like the game's own reader)."""
+    out = {}
+    with open(path, encoding="latin-1") as f:
+        for ln in f:
+            ln = ln.rstrip("\r\n")
+            if ":" in ln:
+                k, v = ln.split(":", 1)
+                out[k] = v
+    return out
+
+
+def same_value(key, a, b):
+    """Is a game-saved value the one that was written? Case-insensitive booleans, 8 == 8.0, ao true == 2."""
+    a, b = a.strip(), b.strip()
+    if key == "ao":
+        a = {"true": "2", "false": "0"}.get(a.lower(), a)
+        b = {"true": "2", "false": "0"}.get(b.lower(), b)
+    if a.lower() in ("true", "false") or b.lower() in ("true", "false"):
+        return a.lower() == b.lower()
+    try:
+        return abs(float(a) - float(b)) <= 1e-6
+    except ValueError:
+        return a == b
+
+
+def compare_roundtrip(preset_path, saved_dir):
+    """What the game saved back vs what the preset wrote. Returns [(file, key, written, saved)] for every key
+    whose value changed (saved is None when the key is missing); an unreadable/missing saved file is one row
+    per key of that file. Empty list = every written value survived."""
+    with open(preset_path, encoding="utf-8") as f:
+        preset = json.load(f)
+    diffs = []
+    for name, body in (("options.txt", preset.get("options", {})), ("optionsof.txt", preset.get("optionsof", {}))):
+        if not body:
+            continue
+        path = os.path.join(saved_dir, name)
+        saved = _read_options(path) if os.path.isfile(path) else {}
+        for k, written in body.items():
+            got = saved.get(k)
+            if got is None or not same_value(k, str(written), got):
+                diffs.append((name, k, str(written), got))
+    return diffs
+
+
+def cmd_check_roundtrip(args):
+    bad = 0
+    for d in args.saved:
+        diffs = compare_roundtrip(args.preset, d)
+        label = "%s vs %s" % (os.path.basename(args.preset), d)
+        if not diffs:
+            print("round-trip OK: %s" % label)
+            continue
+        bad += 1
+        print("round-trip FAILED: %s" % label)
+        for name, k, written, got in diffs:
+            print("  %s %s: written %s -> saved %s" % (name, k, written, "(missing)" if got is None else got))
+    return 1 if bad else 0
+
+
 def game_command(java, prov, game_dir, jvm_flags, width, height):
     values = {"auth_player_name": "OriginBench", "version_name": FORGE_VERSION_ID, "game_directory": game_dir,
               "assets_root": prov["assets"], "assets_index_name": prov["assetIndex"],
@@ -654,12 +718,17 @@ def build_parser():
     r.add_argument("--save-options", action="store_true", help="write options.txt/optionsof.txt before quitting (U6.0)")
     r.add_argument("--preset", help="preset JSON (options / optionsof); OptiFine keys must be in optifine-keys-189.txt")
     r.add_argument("--keep-game", action="store_true")
+    c = sub.add_parser("check-roundtrip", help="fail when the game saved back a different value than the preset wrote")
+    c.add_argument("--preset", required=True)
+    c.add_argument("--saved", nargs="+", required=True, help="run folder(s) holding the saved options.txt + optionsof.txt")
     return ap
 
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
+        if args.cmd == "check-roundtrip":
+            return cmd_check_roundtrip(args)
         return cmd_run(args)
     except ProvisionError as e:
         sys.stderr.write("prod189: FAILED: %s\n" % e)
