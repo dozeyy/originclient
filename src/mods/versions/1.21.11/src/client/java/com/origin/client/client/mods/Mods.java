@@ -75,7 +75,7 @@ public final class Mods {
 
 	/**
 	 * Drops options the installed Sodium/Iris builds can't run, so no toggle does nothing. Smart Terrain
-	 * Updates is written against Sodium 0.8.12 + Iris 1.10.7 internals (render/SodiumIrisBuilds); any other
+	 * Updates is written against Sodium 0.8.12/0.8.14 + Iris 1.10.7/1.10.8 internals (render/SodiumIrisBuilds); any other
 	 * build hides it. A stored value for a hidden key is kept; the feature stays inert there.
 	 */
 	private static List<ModOption> runnableOnly(List<ModOption> options) {

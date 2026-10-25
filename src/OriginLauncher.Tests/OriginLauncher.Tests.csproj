@@ -108,6 +108,10 @@
     <Compile Include="..\OriginLauncher.App\Core\Runtime\TemurinJava8.cs" LinkBase="Runtime" />
     <!-- The performance-mod catalog (per-version pins + SHA-512), the pin's hash check and the Mods page's
          managed-jar classification, so PerformanceModCatalogTests can hold the data consistent (pure). -->
+    <!-- Which Modrinth versions the launcher may install on its own: releases only (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\ModrinthReleasePicker.cs" LinkBase="Loaders" />
+    <!-- The integrity gate for Modrinth live-API downloads (Fabric API): host, file name, SHA-512, fail soft (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\ModrinthFileGuard.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfMod.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfStackTier.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyStackInstaller.cs" LinkBase="Loaders" />
