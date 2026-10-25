@@ -1,5 +1,6 @@
 package com.origin.client.client.packs;
 
+import com.origin.client.client.gui.OriginTextInput;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginWindow;
 import com.origin.client.client.mixin.PackSelectionScreenAccessor;
@@ -956,12 +957,12 @@ public class ResourcePackHubScreen extends OriginWindow {
 			return super.charTyped(c, modifiers);
 		}
 		if (presetName != null) {
-			if (presetName.length() < 24) {
+			if (OriginTextInput.room(presetName, c, 24)) {
 				presetName += c;
 			}
 			return true;
 		}
-		if (tab == Tab.BROWSE && typed.length() < 64) {
+		if (tab == Tab.BROWSE && OriginTextInput.room(typed, c, 64)) {
 			typed += c;
 			typedAt = System.currentTimeMillis();
 			resetScroll();
@@ -974,7 +975,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (presetName != null) {
 			if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !presetName.isEmpty()) {
-				presetName = presetName.substring(0, presetName.length() - 1);
+				presetName = OriginTextInput.dropLast(presetName);
 				return true;
 			}
 			if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
@@ -982,7 +983,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 				return true;
 			}
 		} else if (tab == Tab.BROWSE && keyCode == GLFW.GLFW_KEY_BACKSPACE && !typed.isEmpty()) {
-			typed = typed.substring(0, typed.length() - 1);
+			typed = OriginTextInput.dropLast(typed);
 			typedAt = System.currentTimeMillis();
 			resetScroll();
 			return true;

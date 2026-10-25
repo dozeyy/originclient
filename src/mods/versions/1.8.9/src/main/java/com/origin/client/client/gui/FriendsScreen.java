@@ -2112,7 +2112,7 @@ public class FriendsScreen extends OriginWindow {
 		}
 		if (focus == Focus.CHAT) {
 			String ct = chatText();
-			if (ct.length() < MAX_CHAT) {
+			if (OriginTextInput.room(ct, chr, MAX_CHAT)) {
 				setChatText(ct + chr);
 			}
 			return true;
@@ -2181,7 +2181,7 @@ public class FriendsScreen extends OriginWindow {
 			return s;
 		}
 		if (!word) {
-			return s.substring(0, s.length() - 1);
+			return OriginTextInput.dropLast(s);
 		}
 		String t = s.replaceAll("\\s+$", "");   // Java 8: no String.stripTrailing
 		int i = t.lastIndexOf(' ');

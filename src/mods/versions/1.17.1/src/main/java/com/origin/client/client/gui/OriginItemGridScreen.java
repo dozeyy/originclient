@@ -495,7 +495,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 
 	@Override
 	public boolean charTyped(char chr, int mods) {
-		if (searchFocused && chr >= 32 && search.length() < 30) {
+		if (searchFocused && chr >= 32 && OriginTextInput.room(search, chr, 30)) {
 			search += chr;
 			scrollTarget = scroll = 0;
 			return true;
@@ -506,7 +506,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 	@Override
 	public boolean keyPressed(int key, int scan, int mods) {
 		if (key == GLFW.GLFW_KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
-			search = search.substring(0, search.length() - 1);
+			search = OriginTextInput.dropLast(search);
 			scrollTarget = scroll = 0;
 			return true;
 		}

@@ -1,8 +1,8 @@
 // Standalone proof for code-point-safe text input (U4.6). Pure logic, no Gradle, no Minecraft:
 //   javac -d <out> src/mods/versions/1.21.10/src/client/java/com/origin/client/client/gui/OriginTextInput.java tools/text-input-tests/TextInputCheck.java
 //   java -cp <out> TextInputCheck
-// Run from the repo root. Also asserts the five CharacterEvent modules carry byte-identical
-// copies of OriginTextInput.java (1.21.10, 1.21.11, 26.1, 26.2, 26.3).
+// Run from the repo root. Also asserts all 20 live modules (1.8.9 ... 26.3) carry byte-identical
+// copies of OriginTextInput.java.
 import com.origin.client.client.gui.OriginTextInput;
 
 import java.nio.file.Files;
@@ -88,11 +88,34 @@ public class TextInputCheck {
 		// and it all stays valid UTF-16 (what the saved JSON and the font see)
 		eq("always valid utf-16", true, java.nio.charset.StandardCharsets.UTF_8.newEncoder().canEncode(field));
 
-		// the five module copies are byte-identical
-		String rel = "src/client/java/com/origin/client/client/gui/OriginTextInput.java";
-		byte[] base = Files.readAllBytes(Path.of("src/mods/versions/1.21.10", rel));
-		for (String m : new String[] {"1.21.11", "26.1", "26.2", "26.3"}) {
-			eq("copy identical in " + m, true, Arrays.equals(base, Files.readAllBytes(Path.of("src/mods/versions", m, rel))));
+		// room(): the cap test for pre-1.21.9 char-at-a-time input (an emoji arrives as high half, then low half)
+		char hi = Character.highSurrogate(GRIN), lo = Character.lowSurrogate(GRIN);
+		eq("room under cap", true, OriginTextInput.room("abc", 'd', 5));
+		eq("room at cap, plain char", false, OriginTextInput.room("abcde", 'f', 5));
+		eq("room at cap, low half completes a pair", true, OriginTextInput.room("abcd" + hi, lo, 5));
+		eq("room at cap, low half with no high half", false, OriginTextInput.room("abcde", lo, 5));
+		eq("room at cap, high half refused", false, OriginTextInput.room("abcde", hi, 5));
+		// a 5-unit field fed char-by-char the way pre-1.21.9 delivers "abcd" + emoji + "z"
+		String f = "";
+		for (char c : ("abcd" + e + "z").toCharArray()) {
+			if (OriginTextInput.room(f, c, 5)) {
+				f += c;
+			}
+		}
+		eq("char-fed field at cap keeps the pair whole", "abcd" + e, f);
+		eq("char-fed backspace removes the whole pair", "abcd", OriginTextInput.dropLast(f));
+
+		// every live module carries a byte-identical copy (src/client/java or src/main/java layout)
+		String[] mods = {"1.8.9", "1.16.5", "1.17.1", "1.18.2", "1.19.2", "1.19.3", "1.19.4", "1.20", "1.20.2", "1.20.4",
+				"1.21", "1.21.1", "1.21.4", "1.21.6", "1.21.8", "1.21.10", "1.21.11", "26.1", "26.2", "26.3"};
+		String tail = "/com/origin/client/client/gui/OriginTextInput.java";
+		byte[] base = Files.readAllBytes(Path.of("src/mods/versions/1.21.10/src/client/java" + tail));
+		for (String m : mods) {
+			Path p = Path.of("src/mods/versions", m, "src/client/java" + tail);
+			if (!Files.exists(p)) {
+				p = Path.of("src/mods/versions", m, "src/main/java" + tail);
+			}
+			eq("copy present and identical in " + m, true, Files.exists(p) && Arrays.equals(base, Files.readAllBytes(p)));
 		}
 
 		System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
