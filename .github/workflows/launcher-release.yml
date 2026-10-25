@@ -158,6 +158,16 @@ jobs:
         with:
           version: ${{ steps.ver.outputs.version }}
 
+      # Installed launchers verify the self-update zip against this before they unpack it
+      # (UpdateVerifier; docs/RELEASING.md -> Self-update integrity). sha256sum format, written
+      # AFTER the zip is final: nothing below touches the zip again.
+      - name: Hash the self-update zip
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash OriginLauncher-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText("OriginLauncher-win-x64.zip.sha256", "$h  OriginLauncher-win-x64.zip`n")
+          Write-Host "OriginLauncher-win-x64.zip.sha256: $h"
+
       - name: Keep rehearsal output as a run artifact
         if: env.REHEARSAL == 'true'
         uses: actions/upload-artifact@v7
@@ -165,6 +175,7 @@ jobs:
           name: rehearsal-release
           path: |
             OriginLauncher-win-x64.zip
+            OriginLauncher-win-x64.zip.sha256
             OriginLauncher-Setup.exe
             notes/release-notes.md
           if-no-files-found: error
@@ -178,6 +189,7 @@ jobs:
         run: >
           gh release create "${{ env.RELEASE_TAG }}"
           OriginLauncher-win-x64.zip
+          OriginLauncher-win-x64.zip.sha256
           OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md
