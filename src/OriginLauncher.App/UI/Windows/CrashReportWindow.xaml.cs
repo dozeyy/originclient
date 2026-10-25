@@ -75,14 +75,12 @@ public partial class CrashReportWindow : Window
                     : culprit.ModId;
                 if (!culprit.IsExternal)
                     line += "   - built-in mod; updating the launcher usually fixes this";
-                CulpritList.Children.Add(new TextBlock
-                {
-                    Text = line,
-                    Foreground = (Brush)Application.Current.FindResource("Brush.Text"),
-                    FontSize = (double)Application.Current.FindResource("FontSize.Body"),
-                    Margin = new Thickness(0, 2, 0, 2),
-                    TextWrapping = TextWrapping.Wrap
-                });
+                // Themed when the theme loaded; the crash window must also build without it (CrashFallback's values).
+                var row = CrashFallback.Body(new Thickness(0, 2, 0, 2));
+                row.Text = line;
+                if (Application.Current?.TryFindResource("Brush.Text") is Brush ink) row.Foreground = ink;
+                if (Application.Current?.TryFindResource("FontSize.Body") is double size) row.FontSize = size;
+                CulpritList.Children.Add(row);
             }
         }
 
