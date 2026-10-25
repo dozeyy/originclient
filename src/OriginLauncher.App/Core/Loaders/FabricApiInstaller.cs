@@ -76,10 +76,12 @@ public static class FabricApiInstaller
             return; // offline or Modrinth unreachable — leave the instance without it rather than fail the whole install
         }
 
-        var latest = versions?.OrderByDescending(v => v.DatePublished).FirstOrDefault();
+        // Release builds only (Will, 2026-10-25): Modrinth also lists Fabric API alphas and
+        // betas for the same Minecraft version, and the newest-by-date one is often not stable.
+        var latest = ModrinthReleasePicker.PickNewestRelease(versions, v => v.VersionType, v => v.DatePublished);
         var file = latest?.Files.FirstOrDefault(f => f.Primary) ?? latest?.Files.FirstOrDefault();
         if (file == null)
-            return; // no Fabric API build published for this exact MC version
+            return; // no Fabric API release published for this exact MC version
 
         var destPath = Path.Combine(modsFolder, file.Filename);
         using var response = await Http.GetAsync(file.Url, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -93,6 +95,7 @@ public static class FabricApiInstaller
 
     private sealed record ModrinthVersion(
         [property: JsonPropertyName("date_published")] DateTimeOffset DatePublished,
+        [property: JsonPropertyName("version_type")] string? VersionType,
         [property: JsonPropertyName("files")] List<ModrinthFile> Files);
 
     private sealed record ModrinthFile(
