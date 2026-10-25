@@ -113,4 +113,5 @@ client/java/com/origin/client/client/OriginStyle.java
 # (LoadingLook), with the screen's real status/stage as the caption. The other versions
 # keep the shared mixins until their own loading screens are redone.
 client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
-client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.javaclient/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
+client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
+client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
