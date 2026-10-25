@@ -5417,6 +5417,67 @@ Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible f
 - CI: launcher-shots publish to claude/dev-shots raced between parallel branches (fixed: clone once, fetch + reapply only its own folder); workflows cancel in-progress runs per ref; maven download flakes (1.21.4, 1.20.2, 1.16.5 modules) are fixed by rerunning the failed job; test zips need fixed entry timestamps (Kit.Zip flake).
 - UI: the import drawer is a sibling of the Friends drawer (Social.* styles, the default ScrollViewer list frame - a custom gutter put cards under the scrollbar); confirm dialogs fit inside the 380 px drawer with short labels (KEEP GOING / STOP); RenderShots must render the Home card before Play is set running; WPF draws no focus adorner for a simulated Tab in CI. Social.Section used to override Text.Eyebrow back to TextMuted (now TextDim). Radii in Spacing.xaml are 4/6/8 (docs updated).
 - Not verified: no real import has run in a real launcher window (Will's no-windows rule); first-run import scan now runs at most weekly (ImportPromptCheckedUtc).
+
+
+## 2026-10-19 - Loading → main-menu hand-off v2 (smooth with and without mods)
+- Root causes (proven by the dev-only frame log): the 560 ms dissolve started the instant the reload reported done, on top of render-thread apply steps and the title's first-frame costs. With mods, long single steps (Will's set: cobblemon:atlases 5.1 s, tacz:bedrockmodelloader 1.5 s, Shader Loader 1.1 s) froze the loading mark mid-morph. On 1.16.5–1.19.2 every reload apply step ran inline inside Window.updateDisplay: TextureManager completes via RenderSystem.recordRenderCall, replayed in flipFrame, where Minecraft.execute runs work inline. All 15 listeners landed in one 1.7–2.5 s frame.
+- The fix, on every live version:
+  - (1) Settle hold, startup load only (!fadeIn). The real TitleScreen renders under the opaque finished loading picture until 5 frames ≤ max(20 ms, 1.5× fastest), capped at 1.5 s. The hand-picked warmTitle list is deleted.
+  - (2) ReloadTaskTagMixin signals when a client render-thread reload task is QUEUED. ReloadTaskBudgetMixin holds the whole render-thread queue (once per reload, 600 ms wall-clock cap) until MarkMotion's 280 ms glide rests on the nearest clean loop shape (never mid-morph). Long mod steps then land on a still mark.
+  - (3) OriginAssets decodes Origin's textures in the reload prepare stage on workers and uploads one per frame.
+  - (4) 1.16.5–1.19.2: render-thread apply steps are queued instead of run inline.
+  - (5) 26.x reveal always cancels once it has drawn the screen (a second blur in a frame would crash). On failure it drops the overlay.
+- Will's real PC (RX 9070 XT, 1.21.1): visible hand-off max 17.4 ms with no mods and 18.7 ms with his ~74-jar set, 0 frames over 20 ms. Hold 110–139 ms. Will confirmed it looked smooth.
+- CI (llvmpipe): 1.20+ visible max went from 157–276 ms to ~17–35 ms. 1.19.4 went from 154 to 26–30 ms. 1.16.5–1.19.3 went from 239–478 ms to 47–78 ms; those leftover frames are blit-bound on CI's software GL, and the before-branch medians are equally high.
+- Title frame 1 still costs 150–800 ms on CI (26–52 ms on Will's PC), but it now sits inside the hold under a still picture.
+- Traps:
+  - 1.21.2–1.21.4 and 26.3: gate OriginAssets.uploadSlice and anything shader-related on reload.isDone() (3eb35971 black screen; 26.3 builds its icon pipeline eagerly).
+  - ReloadTaskTagMixin targets: the constructor up to 1.21.4, prepareTasks from 1.21.6, and StateFactory.create takes SharedState first from 1.21.10.
+  - 1.21.11 Screen.init is (II)V; 1.21.10 is (Minecraft,II)V.
+  - The loading mixin configs are defaultRequire 0, so confirm the "render-thread reload tasks held" and "mark at rest (clean pose)" frame-log lines.
+  - On 1.16.5–1.19.2 a mod apply step that does submit().join() on the render thread would now hang the loading screen (same as vanilla 1.19.3+).
+- Tooling:
+  - -PframeLog (dev-only, off by default, lazy buffers).
+  - dev-shots inputs framelog / extra_mods.
+  - tools/frame-log/mods-1.21.1.json pins the public part of Will's mod set by SHA-1.
+  - Cobblemon crashes runClient (ClassNotFoundException class_2960), so use `gradlew prodClient -PextraMods=<dir>`.
+  - Filmed dev-shots runs slow frames to 50–70 ms: use them for pose checks only, never frame times.
+  - The dev-shots publish step races on parallel runs ("rejected, fetch first"); read artifacts instead.
+- Open follow-ups:
+  - The loading bar jumps backwards (~200→118 px) mid-load on pre-1.20. It predates this work (reloadProgress ">0.25 drop → reset").
+  - The loading screen's own first frame costs 637 ms on Will's PC before reload work starts.
+  - Short pre-settle pauses (0.2–0.8 s) with many mods during the prepare stage line up with GC and worker load. Not measured on a real PC.
+  - The 1.21.4 hands-off note (2026-07-23) was stale. No active 1.21.4 work was found, so it was ported.
+- Shipped to main 2026-10-19 as fc10e6d2, a fast-forward from 205e406e. build-check run 39226445823 is green. Not tagged yet: 76 other commits since launcher-v1.0.56 (launcher restyle and Friends drawer, Friends and cosmetics ports, held sync, website) would ship with the next tag, and no CI job does a real launcher launch with loader resolution.
+- Integration fix on 26.3 OriginShaders.sourcesPending: main's 0ccf5094 set it to "overlay != null", which pushed every pipeline build into the dissolve's last frame (65–83 ms). It now means "the loading overlay's reload is still running", and that frame is 30–34 ms. The '+' icon and the SDF icons are unchanged (verified against main). Open Low: a FAILED reload also counts as done; add `!reload.done().isCompletedExceptionally()` here and in OriginAssets.reloadDone().
+- boot-smoke.yml: seven jobs were pinned to Java 17 and could never boot, because Loom 1.17 needs JVM ≥21. They now run on 21. The catch: 1.18.2–1.20.4 are no longer booted on a real Java 17 in CI. Follow-up: install both JDKs and set runClient.javaLauncher to 17. boot-smoke "ready" only means GL init (LWJGL backend line), not title or world.
+- Dev-shots: when several runs go at once, the publish step races on `claude/dev-shots` ("rejected, fetch first"). The shots jobs still pass; read their artifacts instead.
+
+## 2026-10-19 - Loading bars never go backward (startup + world)
+- Startup bar root cause: vanilla getActualProgress() only adds apply steps to its denominator once they are queued, so raw progress dropped (0.57 on 1.16.5, 0.68 on 1.21.1) or sat at 0.9999.
+- World bar root cause: up to 1.21.8, "Loading terrain" (no progress value) sent a full bar back to the sweep. From 1.21.10, the count sat at 100% before the world was ready.
+- Fix: shared render/LoadBar.java, byte-identical in 21 places (shared + pre-1.20 + 1.8.9 copies).
+  - The bar is monotonic and never full before the work is done.
+  - It creeps on flat stretches with a creep that slows near full (CREEP_K_MS 4000). The first exponential creep restarted on every small rise and stacked to full early: 1.18.2 showed full for 153 frames.
+  - LoadBar.scene() handles the world bar. A new load is detected after 10 frames without the scene, using FrameStats.frames().
+- Tests: tools/loading-bar-tests/run.py, 1.4M checks, in build-check. Mutants caught: scene hold, gap test, creep, done-at-100%.
+- Proof:
+  - Frame logs on 19 Fabric modules: monotonic=yes, backward=0, to-sweep=0, full=0.
+  - Films of 1.16.5, 1.21.1, 1.21.10 and 26.3 show no drop.
+  - 3 paired hand-off samples showed no regression. One sample pair was misleading: main's own over-20ms count ranged 2-33 on 26.2.
+- The frame-log call is guarded by OriginFrameLog.ENABLED, so no per-frame String is built when the log is off.
+- Landed on main as merge bf9cc864. 1.8.9 has compile + screenshots only. In-game feel is Will's pass.
+
+## 2026-10-19 - Failed-reload guard + boot-smoke on real Java 17
+- isDone() on a resource reload is also true for a FAILED reload. Readiness gates now use !done().isCompletedExceptionally() (26.3 OriginShaders/OriginAssets, 1.21.4 OriginAssets, 1.17.1 OriginShaders).
+  - The guard is reasoned correct but not shown to change an outcome: forced-failure runs recovered the same way with and without it.
+- Dev-only fail hook: ORIGIN_SHOTS_SET=social-failreload plus a non-empty ORIGIN_SHOTS. Only dev-shots.yml sets them, and the launcher never does.
+- boot-smoke pins the GAME JVM with tools/boot-smoke/run-java.init.gradle while Gradle itself runs on 21. smoke.py runs `java -version` on the game process (devlaunchinjector or KnotClient) and prints "GAME JVM".
+  - Run 39268523584 is green on all 18 rows: 1.17.1 on Java 16, 1.18.2-1.20.4 on Java 17.
+- The boot-smoke `only` input strips spaces. A `plan` job fails the run on an unknown name (only=bogus goes red). A job-level `if` cannot read the matrix.
+- 1.16.5 cannot be smoked on a JDK 8 launcher: "Could not find or load main class net.fabricmc.devlaunchinjector.Main".
+- Pushing a new head cancels any in-flight boot-smoke run on the same ref.
+- Landed on main as merge 25173c5a.
 ## 2026-10-20 - Shader speed-ups shipped on every version (launcher-v1.0.58 to v1.0.60)
 - Limit Far, Smart Terrain, Off-Map Shadows and Half-Rate Shadows are live on every Fabric module:
   - 1.21.1 and 1.21.4 shipped in v1.0.58;

@@ -4,6 +4,28 @@
   "env": {
     "CLAUDE_LEAN": "1"
   },
+  "permissions": {
+    "allow": [
+      "Bash(unzip -l *)",
+      "Bash(unzip -p *)",
+      "Bash(javap *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-CimInstance *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Write-Output *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(Measure-Object *)",
+      "Bash(\"/c/Users/Will/.jdks/jdk-25.0.3+9/bin/javap.exe\" *)",
+      "mcp__ccd_session_mgmt__list_events",
+      "mcp__ccd_session_mgmt__list_sessions",
+      "mcp__Roblox_Studio__screen_capture",
+      "mcp__Roblox_Studio__get_console_output",
+      "mcp__computer-use__screenshot",
+      "mcp__computer-use__zoom"
+    ]
+  },
   "enabledPlugins": {
     "nimble@knowledge-work-plugins": false,
     "product-management@knowledge-work-plugins": false,
