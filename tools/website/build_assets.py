@@ -15,8 +15,7 @@ otherwise from a verbatim mirror of that jar's assets:
   website/js/vendor/three.module.min.js <- three.js (MIT), pinned
 
 Origin's logo (Will, 2026-10-25: the ONLY logo files, never redrawn in SVG, CSS or code):
-  website/assets/origin-logo.png            <- textures/ui/origin_logo.png, byte-for-byte (256 px master)
-  website/assets/origin-logo-{32,64,128}.png   pure resizes of that master (1x/2x/3x for the 32 px header mark)
+  website/assets/origin-logo-{32,64,128}.png  pure resizes of textures/ui/origin_logo.png (256 px, never scaled up) (1x/2x/3x for the 32 px header mark)
   website/assets/origin-wordmark.png        <- src/OriginLauncher.App/Assets/Brand/wordmark.png, byte-for-byte (430 px)
   website/assets/origin-wordmark-{128,256}.png pure resizes of the wordmark (1x/2x of the header lockup)
   website/assets/favicon-*.png, apple-touch-icon.png  the master resized onto a dark rounded tile
@@ -178,7 +177,6 @@ def build_logo() -> None:
     """The real logo files, copied as-is or resized (Lanczos) and nothing else."""
     out = SITE / "assets"
     out.mkdir(parents=True, exist_ok=True)
-    shutil.copy(LOGO, out / "origin-logo.png")
     shutil.copy(WORDMARK, out / "origin-wordmark.png")
     logo, word = Image.open(LOGO).convert("RGBA"), Image.open(WORDMARK).convert("RGBA")
     for size in (32, 64, 128):

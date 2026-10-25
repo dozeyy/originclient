@@ -1,8 +1,7 @@
 // The 3D layer behind the page: a floating island in the sky, built block by
 // block from Minecraft's own default textures and lit with the shaders look
 // (warm low sun, cool sky fill, the game's smooth-lighting corner shadows),
-// floating in front of the real Origin logo (a textured plane) so the island is
-// the nucleus of the mark.
+// floating alone in the sky.
 //
 // site.js owns WHAT is shown (which pose); this file owns HOW: meshing,
 // materials and motion. Motion is all damped: the island floats on slow sines
@@ -15,7 +14,6 @@ import * as THREE from './vendor/three.module.min.js';
 THREE.ColorManagement.enabled = false;
 
 const BLOCKS = 'assets/blocks/';
-const LOGO_URL = 'assets/origin-logo.png';   // the real logo, copied verbatim by tools/website/build_assets.py
 
 // Minecraft's fixed face brightness: up 1.0, north/south 0.8, east/west 0.6, down 0.5.
 const FACES = [
@@ -46,11 +44,11 @@ const EMISSIVE = new Set(['glowstone', 'torch']);
 // the whole picture by a fraction of the screen; orbit scales the slow sway.
 const POSES = {
   hero:     { pos: [42, 19, 53], target: [0.5, -4, 0.5], fov: 42, shiftX: 0.2, shiftY: 0.02, orbit: 1 },
-  heroMobile: { pos: [96, 41, 120], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.28, orbit: 1 },   // above the headline, small enough that the mark clears the header and the title
+  heroMobile: { pos: [96, 41, 120], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.28, orbit: 1 },   // above the headline, small enough that it clears the header and the title
   heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
   versions: { pos: [-36, 18, 46], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.24, shiftY: 0, orbit: 1 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
-  // centred under "Ready when you are", whole island + mark in frame below the text
+  // centred under "Ready when you are", whole island in frame below the text
   get:      { pos: [0, 17, 100], target: [0.5, -4, 0.5], fov: 42, shiftX: 0, shiftY: -0.21, orbit: 1 },
 };
 
@@ -165,8 +163,8 @@ const FRAG = /* glsl */`
     vec3 sun = vec3(1.1, 0.92, 0.74);
     vec3 sky = vec3(0.36, 0.38, 0.5);
     vec3 lit = t.rgb * vAo * (sky + sun * ndl);
-    // Three soft white lights drifting round the Origin mark rim-light the island,
-    // plus a faint white rim from the mark's glow.
+    // Three soft white lights drifting round the island rim-light it,
+    // plus a faint white rim.
     vec3 v = normalize(cameraPosition - vW);
     float orb = 0.0;
     for (int i = 0; i < 3; i++) {
@@ -394,29 +392,11 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   pivot.add(blocks, glows);
   scene.add(pivot);
 
-  // The Origin mark behind the island: the REAL logo file (assets/origin-logo.png, byte-for-byte
-  // textures/ui/origin_logo.png), never redrawn here. It is one camera-facing plane parked just
-  // behind the island's bounding sphere, so the island floats in front of it as its nucleus and
-  // no block can ever poke through it. Perspective would shrink a plane that is farther than the
-  // island, so it is scaled up by the extra distance each frame and reads at a constant size.
-  // The plane's ink (the rings) spans 236 of the PNG's 256 px; its radius is `inner * LOGO_K`.
+  // No logo is drawn in the scene. The real mark is only 256 px, and behind the island it would
+  // have to be shown 2.7x or more that size (about 700 css px on a 1440 desktop) to read as a
+  // backdrop, which is soft; the island stands alone and the brand mark lives in the header.
   const inner = bounds.radius + 0.87 + 0.8;   // + half a block diagonal + clearance
-  const LOGO_K = 1.25, INK = 236 / 256;
-  const logoTex = await load(LOGO_URL);
-  logoTex.colorSpace = THREE.NoColorSpace;   // the renderer outputs linear values straight through (see outputColorSpace)
-  logoTex.generateMipmaps = true;
-  logoTex.minFilter = THREE.LinearMipmapLinearFilter;
-  logoTex.magFilter = THREE.LinearFilter;
-  logoTex.anisotropy = 8;
-  const LOGO_SIDE = 2 * inner * LOGO_K / INK;
-  const LOGO_BEHIND = bounds.radius + 1;     // distance behind the island's centre, along the view axis
-  const logo = new THREE.Mesh(
-    new THREE.PlaneGeometry(LOGO_SIDE, LOGO_SIDE),
-    new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, opacity: 0.95, depthWrite: false }));
-  logo.renderOrder = -1;
-  scene.add(logo);
-  // Three soft lights, invisible, drift round the mark's plane and rim-light the island (the
-  // shader's uOrb); they replace the glowing orbs that used to ride code-drawn rings.
+  // Three soft invisible lights drift round the island and rim-light it (the shader's uOrb).
   const lights = [{ period: 26, dir: 1, phase: 0 }, { period: 34, dir: -1, phase: 2.1 }, { period: 42, dir: 1, phase: 4.2 }];
 
   // Dust motes drifting up through the void. Their motion lives in the vertex
@@ -453,11 +433,11 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   let W = 0, H = 0;
 
   // Hero framing, taken from the page: site.js reports the free area around the copy
-  // (px, viewport space) and the island is sized and placed so the Origin mark fits it,
+  // (px, viewport space) and the island is sized and placed so it fits it,
   // whatever the window shape. Desktop: the area right of the copy (centre cx/cy, width
   // w). Phone and tablet: the band above the copy (top/bottom, bandW wide), centred, and
   // allowed to grow only a little past its pose; a phone held sideways has no such band, so
-  // it uses the free area beside the copy like the desktop. The mark's size is fixed, so the safe size
+  // it uses the free area beside the copy like the desktop. The island's size is fixed, so the safe size
   // is its radius. Too little room anywhere: a small island
   // parked top-right under the header (never the raw pose, which would sit behind the copy).
   const MIN_ZONE_W = 200, MIN_BAND_H = 160;
@@ -467,11 +447,9 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   let rev = 1;
   const fit = { rev: 0, mobile: null, pos: [0, 0, 0], sx: 0, sy: 0 };
   const fitCam = new THREE.PerspectiveCamera(), fa = new THREE.Vector3(), fb = new THREE.Vector3(), frel = new THREE.Vector3(), ftarget = new THREE.Vector3();
-  // The mark is a flat plane facing the camera (constant on-screen size, see LOGO_BEHIND), so
-  // `project` returns its on-screen radius (px) from the island's centre for the pose camera
-  // pulled back by factor k; it leaves the centre's NDC in fa. (The loop over angles is kept
-  // from the days of tilted, spinning rings: with TILT_C = 1, TILT_S = 0 every angle agrees.)
-  const RING_R = inner * LOGO_K + 1.2, TILT_C = 1, TILT_S = 0;
+  // `project` returns the island's on-screen radius (px) from its centre (bounding sphere plus
+  // clearance) for the pose camera pulled back by factor k; it leaves the centre's NDC in fa.
+  const RING_R = inner + 1.2, TILT_C = 1, TILT_S = 0;
   function project(q, k, W, H) {
     ftarget.set(q.target[0], q.target[1], q.target[2]);
     frel.set(q.pos[0], q.pos[1], q.pos[2]).sub(ftarget).multiplyScalar(k);
@@ -558,7 +536,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   const clock = new THREE.Clock();
   let raf = 0, running = true, slow = 0;
   const A = new Array(10), B = new Array(10);
-  const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3(), rel = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3(), rel = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
 
   function step() {
     raf = requestAnimationFrame(step);
@@ -596,13 +574,6 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
       pivot.position.y = bounds.center.y + bob;
       pivot.rotation.set(Math.sin(now * TAU / 17) * 0.012, Math.sin(now * TAU / 31) * 0.045, Math.sin(now * TAU / 13 + 0.6) * 0.012);
     }
-    // the mark faces the camera, just behind the island (see LOGO_BEHIND); scaled by the extra
-    // distance so perspective doesn't shrink it
-    const dist = camera.position.distanceTo(pivot.position);
-    fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    logo.position.copy(pivot.position).addScaledVector(fwd, LOGO_BEHIND);
-    logo.quaternion.copy(camera.quaternion);
-    logo.scale.setScalar((dist + LOGO_BEHIND) / dist);
     lights.forEach((l, i) => {
       const ang = (reducedMotion ? 0 : l.dir * now * TAU / (l.period * 0.4)) + l.phase;
       uniforms.uOrb.value[i].set(Math.cos(ang) * inner * 1.1, Math.sin(ang) * inner * 1.1, 0).applyQuaternion(camera.quaternion).add(pivot.position);
