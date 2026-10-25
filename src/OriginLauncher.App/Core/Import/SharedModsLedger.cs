@@ -29,7 +29,7 @@ public sealed class SharedModsLedger
     public const string InOrigin = "";
 
     // One jar of Origin's folder as it was read.
-    private sealed record OriginJar(string Path, string? Version, bool Disabled, IReadOnlyList<ModDependency> Depends);
+    private sealed record OriginJar(string Path, string? Version, bool Disabled, ModInfo? Info);
 
     private readonly Dictionary<string, string> _ids = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
@@ -54,7 +54,7 @@ public sealed class SharedModsLedger
             if (!IsModFile(name)) continue;
             // In use or unreadable gives null: its file name still keeps an import from landing on it.
             var info = ModFolderScanner.ReadInfo(path, readNested: false);
-            var jar = new OriginJar(path, info?.Version, IsDisabledName(name), info?.Depends ?? Array.Empty<ModDependency>());
+            var jar = new OriginJar(path, info?.Version, IsDisabledName(name), info);
             ledger._originJars.Add(jar);
             if (ledger._files.TryAdd(FileKey(name), InOrigin)) ledger._originByFile[FileKey(name)] = jar;
             if (info is { Id: { Length: > 0 } id } && ledger._ids.TryAdd(id, InOrigin)) ledger._originById[id] = jar;
@@ -120,15 +120,77 @@ public sealed class SharedModsLedger
             || !needs.All(n => n.Predicate.IsSatisfiedBy(mod.Version)))
             return new ModLanding(InOrigin, Note: $"Origin has version {origin.Version ?? "unknown"}, older than your mods need ({unmet[0].Predicate.Display}); update it on the Mods page.");
         // Everything else in Origin's folder that needs this mod must still be happy with the imported version.
-        var ids = new HashSet<string>(StringComparer.Ordinal) { mod.ModId! };
+        if (SwapCreatesProblems(mod, origin))
+            return new ModLanding(InOrigin, Note: $"Origin has version {origin.Version ?? "unknown"}, older than your mods need ({unmet[0].Predicate.Display}), and another of Origin's mods needs that one; update it on the Mods page.");
+        return new ModLanding(null, origin.Path, $"imported version {mod.Version}, replacing Origin's older {origin.Version ?? "copy"} (your mods need {unmet[0].Predicate.Display})");
+    }
+
+    private static readonly HashSet<string> Platform = new(StringComparer.Ordinal) { "minecraft", "java", "fabricloader", "fabric" };
+
+    /// <summary>
+    /// Whether putting the imported <paramref name="mod"/> in place of Origin's copy would leave another of Origin's turned-on
+    /// mods with a requirement it does not meet now. Through the shared dependency rules (<see cref="DependencyRules"/>)
+    /// against the folder as it is and the folder with the swap made: only a problem the swap itself creates counts, so a
+    /// mod that was already unhappy for another reason never blocks an unrelated swap.
+    /// </summary>
+    private bool SwapCreatesProblems(ModDecision mod, OriginJar origin)
+    {
+        var before = FolderProblems(origin, null);
+        return FolderProblems(origin, mod).Any(problem => !before.Contains(problem));
+    }
+
+    private HashSet<string> FolderProblems(OriginJar replaced, ModDecision? swapIn)
+    {
+        var view = new FolderView();
         foreach (var jar in _originJars)
         {
-            if (jar.Disabled || ReferenceEquals(jar, origin)) continue;
-            foreach (var dep in jar.Depends)
-                if (ids.Contains(dep.Id) && !dep.Predicate.IsSatisfiedBy(mod.Version))
-                    return new ModLanding(InOrigin, Note: $"Origin has version {origin.Version ?? "unknown"}, older than your mods need ({unmet[0].Predicate.Display}), and another of Origin's mods needs that one; update it on the Mods page.");
+            if (jar.Disabled || jar.Info is not { Id: { Length: > 0 } id } info) continue;
+            if (swapIn != null && ReferenceEquals(jar, replaced))
+            {
+                // Gone after the swap, but the folder had these ids: a mod that needs one has lost it (not "maybe nested").
+                view.Know(id);
+                foreach (var provided in info.Provides) view.Know(provided);
+                continue;
+            }
+            view.Add(id, jar.Version);
+            foreach (var provided in info.Provides) view.Add(provided, info.VersionProvided(provided));
         }
-        return new ModLanding(null, origin.Path, $"imported version {mod.Version}, replacing Origin's older {origin.Version ?? "copy"} (your mods need {unmet[0].Predicate.Display})");
+        foreach (var (id, version) in _landed) view.Add(id, version);
+        if (swapIn?.ModId is { Length: > 0 } swapId) view.Add(swapId, swapIn.Version);
+
+        var options = new DependencyOptions(IgnoreIds: Platform, IgnoreUnknown: true, ConflictChecks: false);
+        var problems = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var jar in _originJars)
+        {
+            if (jar.Disabled || jar.Info == null || ReferenceEquals(jar, replaced)) continue;
+            foreach (var p in DependencyRules.Evaluate(jar.Info, view, options))
+                problems.Add($"{jar.Path}|{p.Dependency.Id}|{p.Kind}");
+        }
+        return problems;
+    }
+
+    // Origin's folder as the dependency rules see it: an id and the versions on offer. An id nobody offers is unknown,
+    // except one the folder had before the swap (known and now absent).
+    private sealed class FolderView : IProvidedMods
+    {
+        private readonly Dictionary<string, List<ProvidedVersion>> _byId = new(StringComparer.Ordinal);
+
+        public void Add(string id, string? version)
+        {
+            if (!_byId.TryGetValue(id, out var list)) _byId[id] = list = new List<ProvidedVersion>(1);
+            list.Add(new ProvidedVersion(version, null, true));
+        }
+
+        public void Know(string id) => _known.Add(id);
+
+        public bool TryGetVersions(string id, out IReadOnlyList<ProvidedVersion> versions)
+        {
+            if (_byId.TryGetValue(id, out var list)) { versions = list; return true; }
+            versions = Array.Empty<ProvidedVersion>();
+            return _known.Contains(id);
+        }
+
+        private readonly HashSet<string> _known = new(StringComparer.Ordinal);
     }
 
     /// <summary>Records that <paramref name="mod"/> lands in this run, brought by <paramref name="setupLabel"/> (taking over from Origin's copy when it replaces one).</summary>
