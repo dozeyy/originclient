@@ -4,15 +4,17 @@
         Title="Origin Launcher — Error"
         Width="660" Height="560" MinWidth="480" MinHeight="380"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Brush.Bg}"
+        Background="{StaticResource Brush.Panel}"
         FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
-    <!-- Built entirely from the theme (brushes, type scale, Button.Secondary / Button.Primary.Medium),
-         so it matches the launcher. Only fonts, brushes and styles are read from App.xaml's
-         dictionaries; no literals here. -->
-    <!-- The 24 px edge is padding on a border, not a margin on the grid, so the window's content fills its
-         whole area (a margin shifts what a screenshot of the content captures). -->
+    <!-- The launcher's own error window, the same Workbench dialog as the crash report (CrashReportWindow): a danger
+         tile beside the headline, the plain-words summary, the technical details in a mono well under a
+         "TECHNICAL DETAILS" eyebrow, then Copy details and Close at the foot. Built entirely from the theme (brushes,
+         type scale, Surface.Tile, the shared buttons); no literals here. The fallback in code (CrashFallback) builds
+         the same named fields if the theme itself failed to load.
+         The 24 px edge is padding on a border, not a margin on the grid, so the window's content fills its whole area
+         (a margin shifts what a screenshot of the content captures). -->
     <Border Padding="24">
     <Grid>
         <Grid.RowDefinitions>
@@ -23,19 +25,34 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" x:Name="Heading" Text="Origin Launcher ran into a problem"
-                   Style="{StaticResource Text.Heading}"/>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource Surface.Tile}" Background="{StaticResource Brush.DangerSoft}"
+                    VerticalAlignment="Top" Margin="0,0,16,0">
+                <Path Data="{StaticResource Icon.Alert}" Style="{StaticResource Icon.Base}"
+                      Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                      Stroke="{StaticResource Brush.DangerText}"/>
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock x:Name="Heading" Text="Origin Launcher ran into a problem"
+                           Style="{StaticResource Text.Heading}" TextWrapping="Wrap"/>
+                <TextBlock x:Name="Summary" Style="{StaticResource Text.BodyDim}" LineHeight="20"
+                           TextWrapping="Wrap" Margin="0,4,0,0"
+                           Text="Origin closed unexpectedly. Copy the details if you need support."/>
+            </StackPanel>
+        </Grid>
 
-        <TextBlock Grid.Row="1" x:Name="Summary" Style="{StaticResource Text.BodyDim}" LineHeight="20"
-                   TextWrapping="Wrap" Margin="0,8,0,0"
-                   Text="Origin closed unexpectedly. Copy the details if you need support."/>
+        <TextBlock Grid.Row="1" Text="TECHNICAL DETAILS" Style="{StaticResource Dialog.Eyebrow}" Margin="0,24,0,0"/>
 
-        <Border Grid.Row="2" Margin="0,16,0,0" Background="{StaticResource Brush.Panel}"
+        <Border Grid.Row="2" Margin="0,8,0,0" Background="{StaticResource Brush.BgAlt}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                 CornerRadius="{StaticResource Radius.Lg}">
-            <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
-                     Background="Transparent" Foreground="{StaticResource Brush.Text}" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Caption}" Padding="16"
+            <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True" VerticalContentAlignment="Top"
+                     Background="Transparent" Foreground="{StaticResource Brush.TextDim}" BorderThickness="0"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Label}" Padding="16,12"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
@@ -43,11 +60,11 @@
         <TextBlock Grid.Row="3" x:Name="SavedTo" Style="{StaticResource Text.Caption}"
                    Foreground="{StaticResource Brush.TextMuted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
             <Button x:Name="CopyButton" Content="Copy details" Style="{StaticResource Button.Secondary}"
-                    MinWidth="110" Margin="0,0,8,0" Click="Copy_Click"/>
+                    MinWidth="96" Margin="0,0,8,0" Click="Copy_Click"/>
             <Button x:Name="CloseButton" Content="Close" Style="{StaticResource Button.Primary.Medium}"
-                    MinWidth="110" Click="Close_Click"/>
+                    MinWidth="96" Click="Close_Click"/>
         </StackPanel>
     </Grid>
     </Border>

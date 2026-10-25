@@ -548,6 +548,23 @@ public partial class MainWindow : Window
         SetSignInPanelOpen(true);
     }
 
+    // Render-shots only: the sign-in card as a player sees it while Microsoft's page loads, or with an outcome. The
+    // panel skips its browser in a scratch-root run (MicrosoftSignInPanel), so nothing loads and nothing goes online.
+    internal void TourShowSignIn(string? title, string? message)
+    {
+        var signIn = new MicrosoftSignInPanel();
+        SignInPanelHost.Content = signIn;
+        if (title != null && message != null) signIn.ShowMessage(title, message);
+        SetSignInPanelOpen(true);
+    }
+
+    internal void TourCloseSignIn()
+    {
+        SetSignInPanelOpen(false);
+        (SignInPanelHost.Content as MicrosoftSignInPanel)?.Dispose();
+        SignInPanelHost.Content = null;
+    }
+
     private void CloseSignInPanel()
     {
         SetSignInPanelOpen(false);
