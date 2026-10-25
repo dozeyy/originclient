@@ -327,7 +327,7 @@ public static class RenderShots
             var report = new Windows.CrashReportWindow(analysis, null, "OriginPlayer - Minecraft 1.21.1");
             report.Show();
             Pump(400);
-            Snap(report, dir, "41-crash-report-window", size: new Size(report.Width, report.Height));
+            Snap(report, dir, "41-crash-report-window");
             report.Close();
 
             // The most common cause: out of memory, with its one-click fix.
@@ -337,7 +337,7 @@ public static class RenderShots
                 "OriginPlayer - Minecraft 1.21.1", oom, () => "report");
             oomWindow.Show();
             Pump(400);
-            Snap(oomWindow, dir, "42-crash-report-memory", size: new Size(oomWindow.Width, oomWindow.Height));
+            Snap(oomWindow, dir, "42-crash-report-memory");
             oomWindow.Close();
         }
         catch (Exception e)
