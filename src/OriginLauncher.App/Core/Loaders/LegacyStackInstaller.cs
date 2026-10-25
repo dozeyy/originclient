@@ -76,7 +76,7 @@ public static class LegacyStackInstaller
                     await response.Content.CopyToAsync(fileStream, ct);
                 File.Move(tempPath, destPath, overwrite: true);
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch
             {
                 // A perf mod is an enhancement, not a requirement — the game

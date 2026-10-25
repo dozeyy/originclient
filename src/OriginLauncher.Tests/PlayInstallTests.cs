@@ -109,7 +109,7 @@ public class PlayInstallTests : IDisposable
         Assert.All(statesDuringInstall, s => Assert.Equal(InstallState.Partial, s));
         Assert.False(_journal.IsOpen(version));
         Assert.Equal(InstallState.Installed, _installed.Check(version).State);
-        Assert.Equal($"Installing Minecraft {version}", lines.Seen[0]);
+        Assert.Equal("Installing", lines.Seen[0]);
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public class PlayInstallTests : IDisposable
 
         await Play(Fabric, () => { WriteLoader(Fabric); return Task.FromResult(1); }, lines);
 
-        Assert.Equal($"Finishing Minecraft {Fabric}", lines.Seen[0]);
+        Assert.Equal("Finishing", lines.Seen[0]);
         Assert.True(File.Exists(clientJar));
         Assert.Equal(InstallState.Installed, _installed.Check(Fabric).State);
     }
@@ -199,7 +199,7 @@ public class PlayInstallTests : IDisposable
         }, lines);
 
         Assert.All(statesOnRetry, s => Assert.Equal(InstallState.Partial, s));
-        Assert.Equal($"Finishing Minecraft {Fabric}", lines.Seen[0]);
+        Assert.Equal("Finishing", lines.Seen[0]);
         Assert.False(_journal.IsOpen(Fabric));
         Assert.Equal(InstallState.Installed, _installed.Check(Fabric).State);
     }
@@ -276,6 +276,28 @@ public class PlayInstallTests : IDisposable
         Assert.DoesNotContain("0xDEADBEEF", f.Message);
         Assert.DoesNotContain("Foo.Bar", f.Message);
         Assert.EndsWith(PlayFailure.RetryLine, f.Message);
+    }
+
+    [Fact]
+    public void ADownloadTimeout_IsAFailureWithRetry_NotACancel()
+    {
+        // HttpClient timeouts throw TaskCanceledException while nobody cancelled the launch token.
+        using var cts = new CancellationTokenSource();
+        var timeout = new TaskCanceledException("timed out", new TimeoutException());
+        Assert.False(PlayFailure.IsUserCancel(timeout, cts.Token));
+        var f = PlayFailure.From(timeout, "1.21.1");
+        Assert.Contains("took too long", f.Message);
+        Assert.EndsWith(PlayFailure.RetryLine, f.Message);
+    }
+
+    [Fact]
+    public void ARealUserCancel_StillReadsCancelled()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.True(PlayFailure.IsUserCancel(new OperationCanceledException(cts.Token), cts.Token));
+        Assert.True(PlayFailure.IsUserCancel(new TaskCanceledException("x", null, cts.Token), cts.Token));
+        Assert.False(PlayFailure.IsUserCancel(new InvalidOperationException("x"), cts.Token));
     }
 
     [Fact]

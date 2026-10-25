@@ -829,8 +829,7 @@ class LaunchTimeForgeMarkers(unittest.TestCase):
         self.assertIn("$r.installAfter -ne 'Installed'", self.WORKFLOW)
 
     def test_workflow_requires_the_install_stage_so_an_unwired_journal_cannot_pass(self):
-        self.assertIn('"Installing Minecraft $ver"', self.WORKFLOW)
-        self.assertIn('"Finishing Minecraft $ver"', self.WORKFLOW)
+        self.assertIn('{ "Finishing" } else { "Installing" }', self.WORKFLOW)
         self.assertIn("$r.installStages -notcontains $want", self.WORKFLOW)
 
     def test_play_is_wired_through_the_install_journal(self):

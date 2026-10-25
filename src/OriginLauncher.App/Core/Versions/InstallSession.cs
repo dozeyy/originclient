@@ -23,10 +23,11 @@ public static class InstallSession
         var opened = state is InstallState.NotInstalled or InstallState.Partial;
         if (opened)
         {
-            // Said first so the launch screen names the work before the first download starts.
+            // Said first so the launch screen names the work before the first download starts. The version is
+            // already on screen (eyebrow and numeral), so the line is only the verb.
             progress?.Report(state == InstallState.NotInstalled
-                ? $"Installing Minecraft {version}"
-                : $"Finishing Minecraft {version}");
+                ? "Installing"
+                : "Finishing");
             journal.Open(version);
             dropVerifyStamp?.Invoke(version);
         }

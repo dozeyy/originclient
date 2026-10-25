@@ -953,10 +953,12 @@ public partial class HomePage : UserControl
                 : $"Running - {session.Username}";
             _ = WatchBootAsync(game, runningMessage);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex) when (PlayFailure.IsUserCancel(ex, ticket.Token))
         {
             // Player hit Cancel on the scene (or a newer launch for this
             // account superseded this one) — not an error, just back to Home.
+            // Only when the ticket's token was cancelled: an HttpClient timeout is also an
+            // OperationCanceledException (TaskCanceledException) and must reach the failure path.
             Note(key, "Cancelled", LaunchTone.Neutral);
         }
         catch (MicrosoftAuthException ex) when (ex.RateLimited)

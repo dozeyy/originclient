@@ -19,6 +19,14 @@ public sealed record PlayFailure(string Title, string Message)
     /// <summary>The nudge every message ends on.</summary>
     public const string RetryLine = "Your files are safe. Retry picks up where it stopped.";
 
+    /// <summary>
+    /// True only for a cancel the player (or a newer launch) asked for: the ticket's token is cancelled.
+    /// A timed-out download also throws TaskCanceledException, but nobody cancelled the token, so it is a
+    /// failure with a Retry, not a silent "Cancelled".
+    /// </summary>
+    public static bool IsUserCancel(Exception error, CancellationToken token) =>
+        error is OperationCanceledException && token.IsCancellationRequested;
+
     public static PlayFailure From(Exception error, string version)
     {
         var title = $"Couldn't get Minecraft {version} ready";
