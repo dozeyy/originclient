@@ -330,7 +330,7 @@ public partial class ModsPage : UserControl
     {
         Text = text,
         FontSize = (double)Application.Current.FindResource("FontSize.Caption"),
-        Margin = new Thickness(0, 2, 0, 0),
+        Margin = new Thickness(0, 4, 0, 0),
         Foreground = (Brush)Application.Current.FindResource("Brush.TextMuted"),
         TextTrimming = TextTrimming.CharacterEllipsis,
     };
@@ -658,10 +658,16 @@ public partial class ModsPage : UserControl
 
         grid.Children.Add(IconWell(true, new ModEntry(offer.ExistingFileName, offer.ModName, true, false)));
 
-        var prompt = NameText(offer.Question, false);
-        prompt.VerticalAlignment = VerticalAlignment.Center;
-        prompt.TextWrapping = TextWrapping.Wrap;
+        // Line 1 is the mod, line 2 the versions as one trimmed caption ("1.38.0 -> 1.39.2"), never wrapped mid-token;
+        // the whole question is in the tooltip for the cases that get cut.
+        var prompt = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         prompt.Margin = new Thickness(Space("Space.3"), 0, Space("Space.2"), 0);
+        prompt.Children.Add(NameText($"{offer.ModName} is already installed", false));
+        var from = offer.ExistingVersion ?? "this version";
+        var versions = FileText(offer.NewVersion == null ? $"Replace {from} with this file?" : $"Replace {from} -> {offer.NewVersion}");
+        versions.Margin = new Thickness(0, Space("Space.1"), 0, 0);
+        prompt.Children.Add(versions);
+        prompt.ToolTip = offer.Question;
         Grid.SetColumn(prompt, 1);
         grid.Children.Add(prompt);
 

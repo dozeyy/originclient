@@ -135,14 +135,16 @@ public partial class ProfilesPage : UserControl
             var selected = profile.Id == selectedId;
             RowsPanel.Children.Add(Ringed(profile.Id == _pendingDelete
                 ? BuildConfirmCard(profile)
-                : BuildProfileCard(profile, selected, player, playerUuid), selected));
+                : BuildProfileCard(profile, selected, player, playerUuid), selected, profile.Id == _pendingDelete));
         }
         RowsPanel.Children.Add(Ringed(BuildNewCard(), false));
     }
 
     // The selected card's ring (spec 6): 2 px accent at a 2 px gap from the card. Every cell has the ring space,
-    // transparent when not selected, so selecting never shifts a card.
-    private Border Ringed(FrameworkElement card, bool selected)
+    // transparent when not selected, so selecting never shifts a card. A card asking to be deleted wears the same
+    // ring in danger instead (one ring, never two; the card inside keeps its normal edge) and is only as tall as
+    // its question, so it does not stand as an empty box beside its neighbours.
+    private Border Ringed(FrameworkElement card, bool selected, bool danger = false)
     {
         var ring = new Border
         {
@@ -152,7 +154,12 @@ public partial class ProfilesPage : UserControl
             BorderBrush = Brushes.Transparent,
             Child = card,
         };
-        if (selected) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Accent");
+        if (danger)
+        {
+            ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Danger");
+            ring.VerticalAlignment = VerticalAlignment.Top;
+        }
+        else if (selected) ring.SetResourceReference(Border.BorderBrushProperty, "Brush.Accent");
         return ring;
     }
 
@@ -247,7 +254,7 @@ public partial class ProfilesPage : UserControl
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.Children.Add(emblem);
 
-        var text = new StackPanel { Margin = new Thickness(14, 1, 8, 0), VerticalAlignment = VerticalAlignment.Top };
+        var text = new StackPanel { Margin = new Thickness(12, 0, 8, 0), VerticalAlignment = VerticalAlignment.Top };
         text.Children.Add(Title(name));
         text.Children.Add(second);
         AddAt(grid, 1, text);
@@ -431,9 +438,15 @@ public partial class ProfilesPage : UserControl
     private FrameworkElement BuildConfirmCard(ModProfile profile)
     {
         var card = CardShell();
-        card.BorderBrush = (Brush)FindResource("Brush.Danger");
 
-        var sub = Small("Its mods are deleted with it");
+        // The real count: "Its 6 mods are deleted with it." / "Its 1 mod is ..." / nothing to lose when empty.
+        var mods = _countMods(profile);
+        var sub = Small(mods switch
+        {
+            0 => "It has no mods.",
+            1 => "Its 1 mod is deleted with it.",
+            _ => $"Its {mods} mods are deleted with it.",
+        });
         sub.Margin = new Thickness(0, 6, 0, 0);
         var head = CardHead(ProfileEmblem(profile), $"Delete {profile.Name}?", sub);
 
@@ -738,6 +751,8 @@ public partial class ProfilesPage : UserControl
                     Background = ProfileLook.TintBrush(name),
                     BorderThickness = new Thickness(2),
                     BorderBrush = Brushes.Transparent,
+                    // The hue lives in the glyph as well as the tile, so the six read as six colours and not as greys.
+                    Child = ProfileLook.EmblemGlyph("Star", ProfileLook.InkBrush(name)),
                 },
             };
             System.Windows.Automation.AutomationProperties.SetName(swatch, $"Colour {name}");

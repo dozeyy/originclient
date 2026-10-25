@@ -23,6 +23,11 @@
     <!-- Layout margins that more than one style needs, as tokens. -->
     <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
     <Thickness x:Key="Margin.DropZone">24,20</Thickness>
+    <!-- The status strip's 6 px dot: 8 down puts it on the first text line's centre, 12 to the text. -->
+    <Thickness x:Key="Margin.StatusDot">0,8,12,0</Thickness>
+    <!-- A dialog over a page: 24 at the sides and foot, and the top clears the 48 top bar plus 24 (Size.Bar + Space.6),
+         so a tall dialog never slides under the bar. -->
+    <Thickness x:Key="Margin.Dialog">24,72,24,24</Thickness>
 
     <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
     <system:Double x:Key="Size.ControlSm">28</system:Double>
@@ -47,8 +52,8 @@
     <system:Double x:Key="Size.SwitchHeight">18</system:Double>
     <system:Double x:Key="Size.SwitchKnob">14</system:Double>
     <system:Double x:Key="Size.SwitchTravel">14</system:Double>
-    <!-- Tiles (spec 2.3 / 10): the icon square that labels a list row or a card. 28 in a dense row, 40 on a card or in
-         a dialog header. Hue only inside a tile, never as a box around a bare icon. -->
+    <!-- Tiles (spec 2.3 / 10): the icon square that labels a list row or a card. 40 (Lg) on a list row, a card or a
+         dialog header; 28 (Sm) for the small squares inside them (mod squares, emblem and colour pickers). Hue only inside a tile, never as a box around a bare icon. -->
     <system:Double x:Key="Size.TileSm">28</system:Double>
     <system:Double x:Key="Size.TileLg">40</system:Double>
     <!-- A dialog's width (spec 11.10: max 440) and the swatch / emblem pickers inside the profile form. -->

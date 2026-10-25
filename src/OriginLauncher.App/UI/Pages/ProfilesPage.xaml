@@ -63,7 +63,7 @@
                     <TextBlock Text="Profiles" Style="{StaticResource Text.Heading}" HorizontalAlignment="Left"/>
                     <TextBlock Text="Your setups. Each one keeps its own mods for one version, and can remember a server to join."
                                Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"
-                               Margin="0,10,0,0"/>
+                               Margin="0,8,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="24,8,0,0">
                     <Button x:Name="ImportButton" Style="{StaticResource Button.Secondary.Small}"
@@ -100,7 +100,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Border x:Name="StatusDot" Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
-                            CornerRadius="{StaticResource Radius.Full}" VerticalAlignment="Top" Margin="0,7,10,0"
+                            CornerRadius="{StaticResource Radius.Full}" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
                             Background="{StaticResource Brush.Accent}"/>
                     <TextBlock Grid.Column="1" x:Name="StatusText" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
                                TextTrimming="None"/>
@@ -124,13 +124,15 @@
     <Grid x:Name="FormPanel" Visibility="Collapsed" Background="{StaticResource Brush.Scrim}"
           KeyDown="FormPanel_KeyDown">
         <Border Style="{StaticResource Surface.Dialog}" Width="{StaticResource Size.Dialog}" HorizontalAlignment="Center"
-                VerticalAlignment="Center" Margin="32,72,32,32">
-            <!-- Scrolls only when the window is too short for the whole form. -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                <ScrollViewer.Resources>
-                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
-                </ScrollViewer.Resources>
-            <StackPanel>
+                VerticalAlignment="Center" Margin="{StaticResource Margin.Dialog}">
+            <!-- Header and footer stay put; only the fields scroll, when the window is too short for the whole form,
+                 so Create / Save is always on screen. -->
+            <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
                 <Grid Margin="0,0,0,20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -148,7 +150,7 @@
                     </Border>
                     <TextBlock x:Name="FormTitle" Grid.Column="1" Text="New profile" Style="{StaticResource Text.Heading}"
                                FontSize="{StaticResource FontSize.Heading}" LineHeight="{StaticResource FontSize.Heading}"
-                               VerticalAlignment="Center" Margin="14,2,0,0"/>
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
                     <Button Grid.Column="2" Style="{StaticResource Social.Icon}" Margin="0,0,-8,0" Click="CancelButton_Click"
                             ToolTip="Close" AutomationProperties.Name="Close">
                         <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Small}"
@@ -156,6 +158,11 @@
                     </Button>
                 </Grid>
 
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False">
+                <ScrollViewer.Resources>
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
+                </ScrollViewer.Resources>
+            <StackPanel>
                 <TextBlock Text="Name" Style="{StaticResource Text.FieldLabel}"/>
                 <StackPanel Margin="0,0,0,16">
                     <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
@@ -201,16 +208,17 @@
                 <TextBlock x:Name="FormError" Foreground="{StaticResource Brush.DangerText}"
                            Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
                            Visibility="Collapsed" Margin="0,8,0,0"/>
+            </StackPanel>
+            </ScrollViewer>
 
-                <!-- Footer: a ghost Cancel, then the primary; both lg (36). -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                <!-- Footer (outside the scroll area): a ghost Cancel, then the primary; both lg (36). -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
                     <Button Content="Cancel" Style="{StaticResource Button.Ghost}"
                             Margin="0,0,8,0" Click="CancelButton_Click"/>
                     <Button x:Name="SaveButton" Content="Create profile" Style="{StaticResource Button.Primary.Medium}"
                             Click="SaveButton_Click"/>
                 </StackPanel>
-            </StackPanel>
-            </ScrollViewer>
+            </Grid>
         </Border>
     </Grid>
     </Grid>
