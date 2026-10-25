@@ -1,6 +1,7 @@
 package com.origin.client.client.packs;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.origin.client.client.gui.OriginTextInput;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginWindow;
 import com.origin.client.client.mixin.PackSelectionScreenAccessor;
@@ -978,7 +979,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 		int keyCode = event.key();
 		if (presetName != null) {
 			if (keyCode == InputConstants.KEY_BACKSPACE && !presetName.isEmpty()) {
-				presetName = presetName.substring(0, presetName.length() - 1);
+				presetName = OriginTextInput.dropLast(presetName);
 				return true;
 			}
 			if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
@@ -986,7 +987,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 				return true;
 			}
 		} else if (tab == Tab.BROWSE && keyCode == InputConstants.KEY_BACKSPACE && !typed.isEmpty()) {
-			typed = typed.substring(0, typed.length() - 1);
+			typed = OriginTextInput.dropLast(typed);
 			typedAt = System.currentTimeMillis();
 			resetScroll();
 			return true;

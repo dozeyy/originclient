@@ -1,5 +1,6 @@
 package com.origin.client.client.waypoints;
 
+import com.origin.client.client.gui.OriginTextInput;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginUi;
@@ -880,7 +881,7 @@ public class WaypointScreen extends OriginWindow {
 			return super.charTyped(chr, modifiers);
 		}
 		String cur = focused();
-		if (cur == null || cur.length() >= 32) {
+		if (cur == null || !OriginTextInput.room(cur, chr, 32)) {
 			return true;
 		}
 		boolean coord = focus >= 2;
@@ -905,7 +906,7 @@ public class WaypointScreen extends OriginWindow {
 		if (focus >= 0 && keyCode == Keyboard.KEY_BACK) {
 			String cur = focused();
 			if (cur != null && !cur.isEmpty()) {
-				setFocused(cur.substring(0, cur.length() - 1));
+				setFocused(OriginTextInput.dropLast(cur));
 				applyBuffers();
 			}
 			return true;

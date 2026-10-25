@@ -1545,7 +1545,7 @@ public class OriginModMenuScreen extends Screen {
 			} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
 				saveProfile();
 			} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !profileInput.isEmpty()) {
-				profileInput = hasControlDown() ? "" : profileInput.substring(0, profileInput.length() - 1);
+				profileInput = hasControlDown() ? "" : OriginTextInput.dropLast(profileInput);
 			}
 			return true;
 		}
@@ -1567,12 +1567,12 @@ public class OriginModMenuScreen extends Screen {
 		}
 		if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
 			if (page == null && tab == Tab.MODS && !search.isEmpty()) {
-				search = hasControlDown() ? "" : search.substring(0, search.length() - 1);
+				search = hasControlDown() ? "" : OriginTextInput.dropLast(search);
 				scrollTarget = 0;
 				return true;
 			}
 			if ((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty()) {
-				optSearch = hasControlDown() ? "" : optSearch.substring(0, optSearch.length() - 1);
+				optSearch = hasControlDown() ? "" : OriginTextInput.dropLast(optSearch);
 				pageScrollTarget = 0;
 				return true;
 			}
@@ -1589,20 +1589,20 @@ public class OriginModMenuScreen extends Screen {
 			return super.charTyped(chr, modifiers);
 		}
 		if (textMod != null) {
-			if (textBuf.length() < TEXT_MAX) {
+			if (OriginTextInput.room(textBuf, chr, TEXT_MAX)) {
 				textBuf += chr;
 			}
 			return true;
 		}
 		if (profOpen) {
-			if (profileInput.length() < 28) {
+			if (OriginTextInput.room(profileInput, chr, 28)) {
 				profileInput += chr;
 				profileFocused = true;
 			}
 			return true;
 		}
 		if (page != null || tab == Tab.SETTINGS) {
-			if (optSearch.length() < 24) {
+			if (OriginTextInput.room(optSearch, chr, 24)) {
 				optSearch += chr;
 				pageScrollTarget = 0;
 			}
@@ -1613,7 +1613,7 @@ public class OriginModMenuScreen extends Screen {
 			searchFocused = true;
 			return true;
 		}
-		if (search.length() < 24) {
+		if (OriginTextInput.room(search, chr, 24)) {
 			search += chr;
 			searchFocused = true;
 			scrollTarget = 0;
@@ -1641,14 +1641,14 @@ public class OriginModMenuScreen extends Screen {
 			commitText();
 		} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
 			if (!textBuf.isEmpty()) {
-				textBuf = hasControlDown() ? "" : textBuf.substring(0, textBuf.length() - 1);
+				textBuf = hasControlDown() ? "" : OriginTextInput.dropLast(textBuf);
 			}
 		} else if (isPaste(keyCode)) {
 			String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
 			if (clip != null) {
 				// one line only; control characters (newlines from a copied block) dropped
 				String clean = clip.replaceAll("[\\p{Cntrl}]", "").trim();
-				textBuf = (textBuf + clean).substring(0, Math.min(TEXT_MAX, textBuf.length() + clean.length()));
+				textBuf = OriginTextInput.clip(textBuf + clean, TEXT_MAX);
 			}
 		}
 		return true;   // every other key is swallowed while a field has focus

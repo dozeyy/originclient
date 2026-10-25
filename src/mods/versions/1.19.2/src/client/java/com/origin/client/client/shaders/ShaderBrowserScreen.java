@@ -1,6 +1,7 @@
 package com.origin.client.client.shaders;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.origin.client.client.gui.OriginTextInput;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginWindow;
 import net.minecraft.SharedConstants;
@@ -309,7 +310,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !query.isEmpty()) {
-			query = query.substring(0, query.length() - 1);
+			query = OriginTextInput.dropLast(query);
 			rebuildView();
 			return true;
 		}

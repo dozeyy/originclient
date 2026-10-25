@@ -1,5 +1,6 @@
 package com.origin.client.client.shaders;
 
+import com.origin.client.client.gui.OriginTextInput;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginWindow;
 import net.minecraft.client.gui.GuiScreen;
@@ -281,7 +282,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (keyCode == Keyboard.KEY_BACK && !query.isEmpty()) {
-			query = query.substring(0, query.length() - 1);
+			query = OriginTextInput.dropLast(query);
 			rebuildView();
 			return true;
 		}
