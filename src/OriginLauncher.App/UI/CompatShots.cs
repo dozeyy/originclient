@@ -42,7 +42,7 @@ internal static class CompatShots
         var home = Field(window, "_homePage");
         // Render mode is signed out (no selected account), so Note() would only store the text; SetStatus is what
         // Note() calls for the selected account, with the tone Note() maps LaunchTone.Error to.
-        var tone = home.GetType().GetMethod("ToneOf", Any)!.Invoke(null, new object[] { LaunchTone.Error })!;
+        var tone = home.GetType().GetMethod("ToneOf", Any | BindingFlags.Static)!.Invoke(null, new object[] { LaunchTone.Error })!;
         var ex = new IncompatibleModsException("1.21.1", new[]
         {
             "Old Mod needs Minecraft 1.20.4, not 1.21.1.",
