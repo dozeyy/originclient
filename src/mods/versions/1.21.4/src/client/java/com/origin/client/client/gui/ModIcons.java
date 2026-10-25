@@ -86,6 +86,16 @@ public final class ModIcons {
 		drawRaw(g, id, x, y, size, argb);
 	}
 
+	/**
+	 * The same glyph as {@link #draw(GuiGraphics, String, int, int, int, int)} without the 1 px
+	 * shadow copy: a bare line glyph sitting on a soft panel or the backdrop (Phase 4 title dock
+	 * and button icons) must not carry a second, offset ghost of itself. Existing callers
+	 * (the Mod Menu family) keep using draw(), so their pixels do not change.
+	 */
+	public static void drawFlat(GuiGraphics g, String id, int x, int y, int size, int argb) {
+		drawRaw(g, id, x, y, size, argb);
+	}
+
 	// --- Colour pixel icons (Will, 2026-10-20) -------------------------------------------
 	// tools/mod-menu/pixel_title_icons.py bakes hard-pixel RGBA art (3-4 vanilla tones + dark
 	// outline) into mod_icons_px.png: 12 px cells, drawn NEAREST at whole GUI pixels. An id found
