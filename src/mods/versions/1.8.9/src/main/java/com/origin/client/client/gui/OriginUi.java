@@ -107,6 +107,7 @@ public final class OriginUi {
 	 * -- a translucent border composites onto the fill, as the mock's do.
 	 */
 	public static void roundRect(Gfx g, float x, float y, float w, float h, float r, int fill, int border) {
+		Gfx.flushBatch();   // own Tessellator draw: queued fills go out first (Gfx batching)
 		int x0 = Math.round(x), y0 = Math.round(y);
 		int wi = Math.round(x + w) - x0, hi = Math.round(y + h) - y0;
 		if (wi <= 0 || hi <= 0) {
@@ -346,6 +347,7 @@ public final class OriginUi {
 	 * device resolution means scale-times more runs.
 	 */
 	public static void aaLine(Gfx g, double ax, double ay, double bx, double by, double half, int color) {
+		Gfx.flushBatch();   // own Tessellator draw: queued fills go out first (Gfx batching)
 		int base = (color >>> 24) & 0xFF;
 		if (base == 0) {
 			return;

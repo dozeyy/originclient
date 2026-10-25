@@ -147,6 +147,7 @@ public final class Gfx {
 
 	/** Binds a texture (TextureManager.bindTexture; 1.16.5's TextureManager.bind). */
 	public static void bind(ResourceLocation tex) {
+		flushBatch();   // queued fills belong before whatever textured draw this bind is for
 		Minecraft.getMinecraft().getTextureManager().bindTexture(tex);
 	}
 
@@ -242,6 +243,10 @@ public final class Gfx {
 		if (a == 0 || x1 == x2 || y1 == y2) {
 			return;
 		}
+		if (batchDepth > 0) {
+			queueFill(x1, y1, x2, y2, argb);
+			return;
+		}
 		int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
 		GlStateManager.disableTexture2D();
 		defaultBlend();
@@ -263,9 +268,84 @@ public final class Gfx {
 		resetColor();
 	}
 
+	// ---- fill batching (Phase 6 pick 3) ----
+	//
+	// Every fill is its own Tessellator draw plus a dozen GL state calls; a panel is ~15 fills (centre,
+	// bands, the AA corner runs) and the FPS graph is 90+. Between batchBegin() and batchEnd() fills are
+	// QUEUED (a few array writes) and go out as ONE POSITION_COLOR draw, in call order, at the first thing
+	// that could tell the difference. That is guaranteed by construction, not by the caller: every other
+	// Gfx draw (text, blit, item, gradient, scissor), every Pose change (the GL matrix the quads were
+	// queued under) and the two direct-Tessellator helpers in OriginUi flush first, so draw order and the
+	// matrix each quad is drawn under are exactly what immediate fills gave. Pixels are identical: the same
+	// quads, same order, same blend. Render thread only; batches nest (only the outermost end flushes).
+	// Raw GL / Tessellator code between the two calls is NOT seen: wrap only Gfx-and-Pose code.
+	private static int batchDepth;
+	private static int batchN;
+	private static float[] batchPos = new float[4 * 256];
+	private static int[] batchCol = new int[256];
+
+	/** Starts queueing fills. Pair with {@link #batchEnd()} (use try/finally). */
+	public static void batchBegin() {
+		batchDepth++;
+	}
+
+	/** Ends one batchBegin; the outermost one draws what is queued. */
+	public static void batchEnd() {
+		if (batchDepth > 0 && --batchDepth == 0) {
+			flushBatch();
+		}
+	}
+
+	private static void queueFill(float x1, float y1, float x2, float y2, int argb) {
+		if (batchN == batchCol.length) {
+			batchPos = java.util.Arrays.copyOf(batchPos, batchPos.length * 2);
+			batchCol = java.util.Arrays.copyOf(batchCol, batchCol.length * 2);
+		}
+		int i = batchN++ << 2;
+		batchPos[i] = x1;
+		batchPos[i + 1] = y1;
+		batchPos[i + 2] = x2;
+		batchPos[i + 3] = y2;
+		batchCol[batchN - 1] = argb;
+	}
+
+	/** Draws every queued fill now, in the order they were made. Cheap no-op when nothing is queued. */
+	public static void flushBatch() {
+		int n = batchN;
+		if (n == 0) {
+			return;
+		}
+		batchN = 0;
+		GlStateManager.disableTexture2D();
+		defaultBlend();
+		softAlpha();
+		Tessellator tess = Tessellator.getInstance();
+		WorldRenderer wr = tess.getWorldRenderer();
+		wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+		for (int q = 0; q < n; q++) {
+			int i = q << 2;
+			float x1 = batchPos[i], y1 = batchPos[i + 1], x2 = batchPos[i + 2], y2 = batchPos[i + 3];
+			int argb = batchCol[q];
+			int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF, a = (argb >>> 24) & 0xFF;
+			wr.pos(x1, y2, 0).color(r, g, b, a).endVertex();
+			wr.pos(x2, y2, 0).color(r, g, b, a).endVertex();
+			wr.pos(x2, y1, 0).color(r, g, b, a).endVertex();
+			wr.pos(x1, y1, 0).color(r, g, b, a).endVertex();
+		}
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.countGfxDraw();
+		}
+		tess.draw();
+		GlStateManager.disableBlend();
+		GlStateManager.enableTexture2D();
+		defaultAlpha();
+		resetColor();
+	}
+
 	/** Vertical gradient (colorFrom at the top, colorTo at the bottom) -- GuiGraphics.fillGradient's
 	 *  quad; smooth shading on so the vertex colours interpolate. */
 	public void fillGradient(int x1, int y1, int x2, int y2, int colorFrom, int colorTo) {
+		flushBatch();
 		float a1 = (colorFrom >>> 24 & 0xFF) / 255f;
 		float r1 = (colorFrom >> 16 & 0xFF) / 255f;
 		float g1 = (colorFrom >> 8 & 0xFF) / 255f;
@@ -324,6 +404,7 @@ public final class Gfx {
 	 *  1.8.9 helper (no 1.16.5 equivalent): Origin's own atlases place glyphs at sub-pixel
 	 *  positions under scaled poses. */
 	public void blitBound(float x, float y, float w, float h, float u0, float v0, float u1, float v1) {
+		flushBatch();
 		softAlpha();
 		Tessellator tess = Tessellator.getInstance();
 		WorldRenderer wr = tess.getWorldRenderer();
@@ -341,6 +422,7 @@ public final class Gfx {
 
 	/** Atlas-sprite blit; binds the block/item atlas (1.8.9 has one: TextureMap.locationBlocksTexture). */
 	public void blit(int x, int y, int blitOffset, int w, int h, TextureAtlasSprite sprite) {
+		flushBatch();
 		if (sprite == null) {
 			return;
 		}
@@ -372,6 +454,7 @@ public final class Gfx {
 
 	/** Float-position text (1.16.5's Font.draw took floats). */
 	public int drawStringF(FontRenderer font, String text, float x, float y, int color, boolean shadow) {
+		flushBatch();
 		if (font == null || text == null) {
 			return (int) x;
 		}
@@ -409,17 +492,20 @@ public final class Gfx {
 	// GL scissor is window-pixel, bottom-left origin; GUI space is scaled,
 	// top-left origin.
 	public void enableScissor(int x1, int y1, int x2, int y2) {
+		flushBatch();
 		int scale = guiScale();
 		scissorWindow(x1 * scale, windowHeight() - y2 * scale,
 				Math.max(0, (x2 - x1) * scale), Math.max(0, (y2 - y1) * scale));
 	}
 
 	public void disableScissor() {
+		flushBatch();
 		GL11.glDisable(GL11.GL_SCISSOR_TEST);
 	}
 
 	/** Scissor straight in window px, bottom-left origin (RenderSystem.enableScissor). */
 	public static void scissorWindow(int x, int y, int w, int h) {
+		flushBatch();
 		GL11.glEnable(GL11.GL_SCISSOR_TEST);
 		GL11.glScissor(x, y, Math.max(0, w), Math.max(0, h));
 	}
@@ -431,6 +517,7 @@ public final class Gfx {
 	private static volatile boolean itemDrawBroken = false;
 
 	public void renderItem(ItemStack stack, int x, int y) {
+		flushBatch();
 		if (itemDrawBroken || stack == null) {
 			return;
 		}
@@ -449,6 +536,7 @@ public final class Gfx {
 	}
 
 	public void renderItemDecorations(FontRenderer font, ItemStack stack, int x, int y) {
+		flushBatch();
 		if (itemDrawBroken || stack == null) {
 			return;
 		}

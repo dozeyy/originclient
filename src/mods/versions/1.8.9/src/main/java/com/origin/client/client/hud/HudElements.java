@@ -1100,22 +1100,35 @@ public final class HudElements {
 			if (com.origin.client.client.BenchProf.ON) {
 				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_BACKING);
 			}
-			drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
-			if (com.origin.client.client.BenchProf.ON) {
-				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_BACKING);
-				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_RENDER);
+			// Fills inside one element go out as one draw (Gfx batching; draw order is kept by flush-on-
+			// anything-else). The minimap is left out: it flips raw GL state (depth) and draws its own
+			// geometry between its Gfx calls, which the batch cannot see.
+			boolean batch = !"minimap".equals(e.modId());
+			if (batch) {
+				Gfx.batchBegin();
 			}
 			Pose p = g.pose();
 			int depth = p.depth();
-			p.pushPose();
-			p.translate(x, y, 0);
-			p.scale((float) pos.scale, (float) pos.scale, 1f);
 			try {
-				e.renderer().render(g, mc, size[0], size[1]);
-			} catch (Throwable t) {
-				// One bad element must never take the HUD down.
+				drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
+				if (com.origin.client.client.BenchProf.ON) {
+					com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_BACKING);
+					com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_RENDER);
+				}
+				p.pushPose();
+				p.translate(x, y, 0);
+				p.scale((float) pos.scale, (float) pos.scale, 1f);
+				try {
+					e.renderer().render(g, mc, size[0], size[1]);
+				} catch (Throwable t) {
+					// One bad element must never take the HUD down.
+				}
+				popTo(p, depth);
+			} finally {
+				if (batch) {
+					Gfx.batchEnd();
+				}
 			}
-			popTo(p, depth);
 			if (com.origin.client.client.BenchProf.ON) {
 				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_HUD_RENDER);
 				com.origin.client.client.BenchProf.end(prof);

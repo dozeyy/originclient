@@ -27,6 +27,7 @@ public final class Pose {
 
 	/** glPushMatrix on the current (model-view) stack. */
 	public void pushPose() {
+		Gfx.flushBatch();   // queued fills were made under the matrix we are about to change
 		GlStateManager.pushMatrix();
 		depth++;
 	}
@@ -35,6 +36,7 @@ public final class Pose {
 	public void popPose() {
 		if (depth > 0) {
 			depth--;
+			Gfx.flushBatch();
 			GlStateManager.popMatrix();
 		}
 	}
@@ -52,16 +54,19 @@ public final class Pose {
 	}
 
 	public void translate(double x, double y, double z) {
+		Gfx.flushBatch();
 		GlStateManager.translate(x, y, z);
 	}
 
 	public void scale(float x, float y, float z) {
+		Gfx.flushBatch();
 		GlStateManager.scale(x, y, z);
 	}
 
 	/** PoseStack.mulPose(quaternion) -- here an axis-angle rotation (see {@link Axis}). */
 	public void mulPose(Rotation r) {
 		if (r != null && r.degrees != 0f) {
+			Gfx.flushBatch();
 			GlStateManager.rotate(r.degrees, r.x, r.y, r.z);
 		}
 	}
