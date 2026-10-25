@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Origin Workbench components</title>
+<meta name="description" content="Rendered component sheet for docs/overhaul/DESIGN-SYSTEM.md: every Origin component and state in the Workbench tokens.">
+<style>
+@font-face{font-family:Inter;font-weight:400;src:url(assets/fonts/Inter-400.ttf) format("truetype")}
+@font-face{font-family:Inter;font-weight:500;src:url(assets/fonts/Inter-500.ttf) format("truetype")}
+@font-face{font-family:Inter;font-weight:600;src:url(assets/fonts/Inter-600.ttf) format("truetype")}
+@font-face{font-family:Inter;font-weight:700;src:url(assets/fonts/Inter-700.ttf) format("truetype")}
+@font-face{font-family:Inter;font-weight:800;src:url(assets/fonts/Inter-800.ttf) format("truetype")}
+
+/* ===== Tokens (DESIGN-SYSTEM.md section 17.2 names) ===== */
+:root{
+  --bg:#0e1110; --bg-sunken:#0b0d0c; --panel:#171c19; --card:#1d2320; --card-alt:#232a26; --card-press:#191e1b;
+  --glass:rgba(20,24,22,.88); --field:rgba(0,0,0,.28);
+  --soft:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.10); --stroke-h:rgba(255,255,255,.14);
+  --text:#f1e9d2; --dim:rgba(241,233,210,.68); --muted:rgba(241,233,210,.52);
+  --acc:#5fd09b; --acc-h:#83e2b5; --acc-p:#4cb985; --acc-soft:rgba(95,208,155,.14); --acc-border:rgba(95,208,155,.6); --on-acc:#0a1710;
+  --success:#68c490; --warning:#e9c46a; --danger:#d9675a; --danger-text:#f98e80; --danger-soft:rgba(217,103,90,.14); --info:#6faee8;
+  --scrim:rgba(10,13,12,.64); --numeral:#f5f5f5; --on-art:rgba(245,245,245,.82);
+  --hue-emerald:#5fd09b; --hue-sky:#6faee8; --hue-gold:#e9c46a; --hue-lilac:#b49ce8; --hue-coral:#e08a6b;
+  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:12px;
+  --h-sm:28px; --h-md:32px; --h-lg:36px; --h-xl:40px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s10:40px; --s12:48px;
+  --dur-press:80ms; --dur-hover:120ms; --dur-base:160ms; --dur-enter:220ms; --dur-exit:140ms;
+  --ease:cubic-bezier(.2,.8,.2,1); --ease-in:cubic-bezier(.4,0,1,1); --ease-io:cubic-bezier(.65,0,.35,1);
+  --shadow:0 12px 32px rgba(0,0,0,.40);
+  --sans:Inter,"Segoe UI",system-ui,sans-serif; --mono:Consolas,ui-monospace,monospace;
+  color-scheme:dark;
+}
+/* Light set (launcher + installer roadmap theme). Shown on the light swatch strip only. */
+.light{
+  --bg:#e8ebe6; --panel:#f5f6f2; --card:#ffffff; --card-alt:#eef1ec; --card-press:#e3e7e1; --glass:rgba(245,246,242,.9); --field:rgba(22,32,26,.05);
+  --soft:rgba(22,32,26,.08); --stroke:rgba(22,32,26,.14); --stroke-h:rgba(22,32,26,.2);
+  --text:#16201a; --dim:#46524a; --muted:#5e685f;
+  --acc:#1f7049; --acc-h:#1a6140; --acc-p:#175838; --acc-soft:rgba(31,112,73,.12); --acc-border:rgba(31,112,73,.6); --on-acc:#ffffff;
+  --success:#2f8f5b; --warning:#8a5f0f; --danger:#a83f33; --danger-text:#a83f33; --danger-soft:rgba(168,63,51,.1); --info:#2b67a3;
+  --hue-emerald:#1f7049; --hue-sky:#2b67a3; --hue-gold:#8a5f0f; --hue-lilac:#6a4db5; --hue-coral:#a94f2c;
+  color-scheme:light;
+}
+
+/* ===== Page ===== */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:400 13.5px/20px var(--sans);font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased}
+.page{max-width:1200px;margin:0 auto;padding:48px 24px 96px}
+@media (max-width:600px){.page{padding:32px 16px 64px}}
+code,.code{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.sec{margin-top:72px}
+.sec-h{display:flex;flex-direction:column;gap:6px;margin-bottom:24px;max-width:760px}
+.eyebrow{font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+h1{font:800 40px/44px var(--sans);letter-spacing:-.03em;margin:0}
+h2{font:700 22px/28px var(--sans);letter-spacing:-.015em;margin:0}
+h3{font:600 16px/22px var(--sans);letter-spacing:-.005em;margin:0 0 12px}
+p{margin:0}
+.lede{color:var(--dim);max-width:640px}
+.note{font:500 12px/16px var(--sans);color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--soft);border-radius:var(--r-lg);padding:24px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.stack{display:flex;flex-direction:column;gap:8px}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.spec{margin-top:12px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.spec span{font:500 12px/16px var(--sans);color:var(--muted)}
+.spec b{font-weight:600;color:var(--dim)}
+
+/* ===== Icons ===== */
+.ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ic *{vector-effect:non-scaling-stroke}
+.ic-12{width:12px;height:12px}.ic-14{width:14px;height:14px}.ic-18{width:18px;height:18px}.ic-20{width:20px;height:20px}
+.ic-fill{fill:currentColor;stroke:none}
+
+/* ===== Brand ===== */
+.brand-logo{display:block;image-rendering:auto}
+.lockup{display:inline-flex;align-items:center;gap:6px}
+.lockup .brand-logo{width:24px;height:24px}
+.lockup .wm{height:16px;width:auto;display:block}
+
+/* ===== Buttons ===== */
+.btn{--h:var(--h-md);display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--h);padding:0 12px;border-radius:var(--r-sm);
+  border:1px solid transparent;background:transparent;color:var(--text);font:600 13.5px/20px var(--sans);white-space:nowrap;cursor:pointer;
+  transition:background-color var(--dur-hover) var(--ease),border-color var(--dur-hover) var(--ease),color var(--dur-hover) var(--ease),transform var(--dur-press) var(--ease);
+  -webkit-user-select:none;user-select:none;text-decoration:none;position:relative}
+.btn--sm{--h:var(--h-sm);padding:0 10px;gap:6px;font-size:12px;line-height:16px}
+.btn--lg{--h:var(--h-lg);padding:0 14px;border-radius:var(--r-md)}
+.btn--xl{--h:var(--h-xl);padding:0 16px;border-radius:var(--r-md)}
+.btn--primary{background:var(--acc);color:var(--on-acc)}
+.btn--primary:hover,.btn--primary.is-hover{background:var(--acc-h)}
+.btn--primary:active,.btn--primary.is-press{background:var(--acc-p);transform:scale(.97)}
+.btn--secondary{background:var(--card);border-color:var(--stroke)}
+.btn--secondary:hover,.btn--secondary.is-hover{background:var(--card-alt);border-color:var(--stroke-h)}
+.btn--secondary:active,.btn--secondary.is-press{background:var(--card-press);transform:scale(.97)}
+.btn--ghost{color:var(--dim)}
+.btn--ghost:hover,.btn--ghost.is-hover{background:var(--soft);color:var(--text)}
+.btn--ghost:active,.btn--ghost.is-press{background:rgba(255,255,255,.04);transform:scale(.97)}
+.btn--icon{width:var(--h);padding:0;color:var(--dim)}
+.btn--icon:hover,.btn--icon.is-hover{background:var(--soft);color:var(--text)}
+.btn--icon:active,.btn--icon.is-press{background:rgba(255,255,255,.04);transform:scale(.97)}
+.btn--danger{background:var(--danger-soft);color:var(--danger-text)}
+.btn--danger:hover,.btn--danger.is-hover{background:rgba(217,103,90,.22)}
+.btn--danger:active,.btn--danger.is-press{background:rgba(217,103,90,.18);transform:scale(.97)}
+.btn--close:hover,.btn--close.is-hover{background:var(--danger-soft);color:var(--danger-text)}
+.btn:focus-visible,.btn.is-focus{outline:2px solid var(--acc-border);outline-offset:2px}
+.btn[disabled],.btn.is-disabled{cursor:default;transform:none;pointer-events:none}
+.btn--primary[disabled],.btn--primary.is-disabled{background:var(--card);color:var(--muted)}
+.btn--secondary[disabled],.btn--secondary.is-disabled{background:var(--card);border-color:var(--soft);color:var(--muted)}
+.btn--ghost.is-disabled,.btn--icon.is-disabled{color:var(--muted);opacity:.6}
+.btn--danger.is-disabled{background:var(--soft);color:var(--muted)}
+.btn.is-loading{pointer-events:none}
+.btn--play.is-loading{background:var(--card);border-color:var(--stroke);color:var(--text)}
+.btn .lbl{display:inline-flex;align-items:center;gap:inherit}
+.btn.is-loading:not(.btn--play) .lbl{visibility:hidden}
+.btn.is-loading:not(.btn--play)>.spin{position:absolute;left:50%;top:50%;margin:-7px 0 0 -7px}
+.btn--primary .spin{border-color:var(--on-acc);border-right-color:transparent}
+.btn--danger .spin{border-color:var(--danger-text);border-right-color:transparent}
+.btn--play{width:144px;font:700 16px/20px var(--sans);letter-spacing:-.01em;gap:10px}
+.btn--play .ic{width:14px;height:14px}
+.btn .rail-in{position:absolute;left:8px;right:8px;bottom:6px;height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.btn .rail-in i{display:block;height:100%;background:var(--acc);border-radius:inherit}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ===== Spinner, rails, dots, badges ===== */
+.spin{width:14px;height:14px;border-radius:50%;border:1.7px solid var(--dim);border-right-color:transparent;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rail{height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;position:relative}
+.rail>i{position:absolute;left:0;top:0;bottom:0;background:var(--acc);border-radius:inherit;transition:width var(--dur-base) var(--ease)}
+.rail--ind>i{width:28%;animation:ind 1.2s var(--ease-io) infinite}
+@keyframes ind{0%{left:-28%}100%{left:100%}}
+.dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--muted)}
+.dot--ok{background:var(--success)}.dot--warn{background:var(--warning)}.dot--bad{background:var(--danger)}.dot--on{background:var(--acc)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px;border-radius:99px;background:var(--soft);color:var(--dim);font:500 12px/16px var(--sans);white-space:nowrap}
+.badge--tint{background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c)}
+.count{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:var(--acc);color:var(--on-acc);font:700 10.5px/16px var(--sans);text-align:center}
+.status{display:inline-flex;align-items:center;gap:8px;font:500 12px/16px var(--sans);color:var(--dim)}
+
+/* ===== Switch, checkbox, input, tooltip ===== */
+.switch{width:32px;height:18px;border-radius:99px;background:rgba(255,255,255,.10);position:relative;flex:none;cursor:pointer;transition:background var(--dur-base) var(--ease)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:rgba(241,233,210,.7);transition:transform var(--dur-base) var(--ease),background var(--dur-base) var(--ease)}
+.switch.on{background:var(--acc)}.switch.on::after{transform:translateX(14px);background:var(--on-acc)}
+.switch-l{display:inline-flex;align-items:center;gap:8px;font:500 12px/16px var(--sans);color:var(--dim)}
+.check{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.box{width:16px;height:16px;border-radius:var(--r-xs);border:1px solid var(--stroke-h);display:grid;place-items:center;flex:none}
+.box.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+.input{display:flex;align-items:center;gap:8px;height:var(--h-lg);padding:0 12px;border-radius:var(--r-md);background:var(--field);border:1px solid var(--stroke);color:var(--text);min-width:0}
+.input .ph{color:var(--muted)}
+.input.is-focus{border-color:var(--acc-border)}
+.input.is-error{border-color:var(--danger)}
+.err{font:500 12px/16px var(--sans);color:var(--danger-text);margin-top:6px}
+.tip{display:inline-block;background:var(--card);border:1px solid var(--stroke);border-radius:var(--r-sm);padding:6px 8px;font:500 12px/16px var(--sans);color:var(--text);box-shadow:var(--shadow)}
+
+/* ===== Dropdown ===== */
+.dd{position:relative;display:inline-block}
+.dd .chev{color:var(--dim);transition:transform var(--dur-base) var(--ease)}
+.dd.is-open>.btn{background:var(--card-alt);border-color:var(--acc-border)}
+.dd.is-open .chev{transform:rotate(180deg)}
+.menu{position:absolute;left:0;top:calc(100% + 4px);min-width:100%;max-width:320px;padding:4px;background:var(--card);border:1px solid var(--stroke);border-radius:var(--r-md);box-shadow:var(--shadow);z-index:3}
+.menu-i{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:var(--r-sm);color:var(--text);white-space:nowrap;cursor:pointer}
+.menu-i .ic{color:var(--dim)}
+.menu-i:hover,.menu-i.is-hover{background:var(--soft)}
+.menu-i.sel{font-weight:600}
+.menu-i .meta{margin-left:auto;padding-left:16px;font:500 12px/16px var(--sans);color:var(--muted)}
+.menu-i .ok{margin-left:auto;padding-left:16px;color:var(--acc)}
+.menu-sep{height:1px;background:var(--soft);margin:4px 2px}
+
+/* ===== Top bar ===== */
+.topbar{height:48px;display:flex;align-items:center;padding:0 8px 0 12px;background:var(--glass);border-bottom:1px solid var(--soft);position:relative;z-index:2;container:bar/inline-size}
+.tabs{display:flex;gap:4px;flex:1 1 auto;justify-content:center;margin:0 24px;min-width:0}
+.tab{height:32px;padding:0 12px;border-radius:var(--r-sm);display:inline-flex;align-items:center;font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);cursor:pointer;transition:background var(--dur-hover) var(--ease),color var(--dur-hover) var(--ease)}
+.tab:hover,.tab.is-hover{background:rgba(255,255,255,.04);color:var(--text)}
+.tab.sel{background:rgba(255,255,255,.07);color:var(--text)}
+.bar-r{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex:none}
+.vdiv{width:1px;height:20px;background:rgba(255,255,255,.14);margin:0 8px;flex:none}
+.store .bag{color:var(--hue-gold)}
+.store .ext{color:var(--muted)}
+.store{color:var(--dim)}
+/* Update chip (11.4): gold-tinted ghost with label; below 1100 an icon button with a gold dot. */
+.upd{position:relative;flex:none;gap:6px;padding:0 10px;color:var(--hue-gold);background:color-mix(in srgb,var(--hue-gold) 12%,transparent)}
+.upd:hover,.upd.is-hover{background:color-mix(in srgb,var(--hue-gold) 20%,transparent);color:var(--hue-gold)}
+.upd .gdot{display:none;position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:99px;background:var(--hue-gold);box-shadow:0 0 0 2px var(--bg)}
+.upd.is-compact{width:32px;padding:0;background:transparent;color:var(--dim)}.upd.is-compact .lbl{display:none}.upd.is-compact .gdot{display:block}
+.store.is-compact{width:32px;padding:0;gap:0}.store.is-compact .lbl,.store.is-compact .ext{display:none}
+.brand{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 4px;border-radius:var(--r-sm);flex:none;color:var(--muted);text-decoration:none;transition:background-color var(--dur-hover) var(--ease)}
+.brand .brand-logo{width:24px;height:24px}.brand .wm{height:16px;width:auto;display:block}
+.brand .ext{opacity:0;margin-left:-2px;transition:opacity var(--dur-hover) var(--ease)}
+.brand:hover,.brand.is-hover{background:var(--soft)}.brand:hover .ext,.brand.is-hover .ext{opacity:1}
+.brand:focus-visible,.brand.is-focus{outline:2px solid var(--acc-border);outline-offset:2px}
+/* Top bar width rules: Store gives up its label below 1100, then the wordmark below 1000. */
+@container bar (max-width:1099px){.store{width:32px;padding:0;gap:0}.store .lbl,.store .ext{display:none}.upd{width:32px;padding:0;background:transparent;color:var(--dim)}.upd .lbl{display:none}.upd .gdot{display:block}}
+@container bar (max-width:999px){.brand .wm{display:none}.brand{padding:0 4px}}
+.friends{color:var(--hue-sky)}
+
+/* ===== Account pill ===== */
+.acct{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 4px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--soft);cursor:pointer;color:var(--text);font:600 13.5px/20px var(--sans);transition:background var(--dur-hover) var(--ease),border-color var(--dur-hover) var(--ease)}
+.acct:hover,.acct.is-hover{background:var(--card-alt);border-color:var(--stroke)}
+.acct .name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct .chev{color:var(--dim);margin-left:-2px}
+.head{width:24px;height:24px;border-radius:2px;display:block;image-rendering:pixelated;flex:none;overflow:hidden}
+.head svg{display:block;width:100%;height:100%}
+
+/* ===== Version card ===== */
+.vgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vcard{display:block;position:relative;aspect-ratio:16/10;border-radius:var(--r-lg);overflow:hidden;container-type:inline-size;cursor:pointer;background:var(--bg-sunken);isolation:isolate}
+.vcard img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:filter var(--dur-hover) var(--ease)}
+.vcard::before{content:"";position:absolute;inset:0;z-index:1;background:radial-gradient(100% 80% at 0% 100%,rgba(14,17,16,.88) 0%,rgba(14,17,16,.5) 45%,rgba(14,17,16,0) 100%),rgba(14,17,16,.06)}
+.vcard::after{content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--soft);transition:box-shadow var(--dur-hover) var(--ease)}
+.vcard:hover::after,.vcard.is-hover::after{box-shadow:inset 0 0 0 1px var(--stroke)}
+.vcard:hover img,.vcard.is-hover img{filter:brightness(1.06)}
+.vcard.sel{overflow:visible}
+.vcard.sel::after{box-shadow:inset 0 0 0 1px var(--stroke),0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
+.vcard.sel img,.vcard.sel::before{border-radius:var(--r-lg)}
+.vcard .plate{position:absolute;left:12px;right:12px;bottom:12px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+/* Numerals on art (DESIGN-SYSTEM 11.6): one rule for Home and cards. The text-shadow stands in for the
+   launcher's OnRender shadow (the same text drawn 1 px lower in 40 % black first), not a WPF effect. */
+.eb{font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--on-art);text-shadow:0 1px 2px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-box:trim-both cap alphabetic;margin-bottom:8px}
+.num{display:block;font-weight:800;line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral);text-box:trim-both cap alphabetic;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.numrow{display:flex;align-items:flex-end;gap:12px;max-width:100%}
+.vcard .num{font-size:21.5cqw}
+.range{font:500 12px/16px var(--sans);color:var(--on-art);white-space:nowrap;text-box:trim-both cap alphabetic;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+@container (max-width:220px){.vcard .eb{font-size:9.5px;letter-spacing:.08em;margin-bottom:6px}.vcard .range{display:none}.vcard .plate{left:10px;right:10px;bottom:10px}.vcard .badge{top:8px;left:8px;height:18px;padding:0 6px;font-size:11px}}
+.gl{position:absolute;z-index:4;pointer-events:none}.gl.h{left:0;right:0;border-top:1px dashed rgba(111,174,232,.9)}.gl.v{top:0;bottom:0;border-left:1px dashed rgba(111,174,232,.9)}
+.gl-t{position:absolute;z-index:4;pointer-events:none;font:600 10.5px/14px var(--sans);color:#8ec2f0;background:rgba(14,17,16,.82);padding:1px 6px;border-radius:4px;white-space:nowrap}
+.vcard .badge{position:absolute;top:10px;left:10px;z-index:2;background:rgba(23,28,25,.8);color:var(--text)}
+
+/* ===== Sheet (version selector) ===== */
+.sheet{background:var(--panel);border:1px solid var(--soft);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow);max-width:960px}
+.sheet-h{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.sheet-h h2{margin-bottom:4px}
+.step2{display:grid;grid-template-columns:320px 1fr;gap:24px}
+@media (max-width:760px){.step2{grid-template-columns:1fr}}
+.rel{display:flex;flex-direction:column;gap:2px}
+.rel-i{display:flex;align-items:center;gap:12px;height:36px;padding:0 12px;border-radius:var(--r-sm);cursor:pointer;transition:background var(--dur-hover) var(--ease)}
+.rel-i:hover,.rel-i.is-hover{background:var(--soft)}
+.rel-i.sel{background:var(--acc-soft)}
+.rel-i .v{font-weight:600;width:64px;font-variant-numeric:tabular-nums}
+.rel-i .st{display:inline-flex;align-items:center;gap:8px;font:500 12px/16px var(--sans);color:var(--muted)}
+.rel-i .st.ok{color:var(--dim)}
+.rel-i .ok-ic{margin-left:auto;color:var(--acc)}
+.sheet-f{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+
+/* ===== Scaled window frames (launcher, installer, in-game) ===== */
+.frame{position:relative;width:100%;overflow:hidden;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--soft)}
+.frame>.win{position:absolute;left:0;top:0;transform-origin:0 0}
+.cap{margin-top:10px;font:500 12px/16px var(--sans);color:var(--muted)}
+.cap b{color:var(--dim);font-weight:600}
+
+/* Launcher Home */
+.home{width:1180px;height:740px;background:var(--bg);overflow:hidden}
+.home .art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.home .shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(14,17,16,.82) 0px,rgba(14,17,16,.5) 120px,rgba(14,17,16,0) 264px)}
+.home .topbar{position:absolute;left:0;right:0;top:0}
+.home .corner{position:absolute;inset:0;background:radial-gradient(64% 70% at 0% 100%,rgba(14,17,16,.86) 0%,rgba(14,17,16,.5) 45%,rgba(14,17,16,0) 100%)}
+.home .hero{position:absolute;left:24px;bottom:88px;display:flex;flex-direction:column;align-items:flex-start;z-index:1}
+.home .hero .eb{font-size:16px;line-height:20px;letter-spacing:.08em;margin-bottom:15px}
+.home .num{font-size:254px}
+.navwin{background:var(--bg)}
+.home .strip{position:absolute;left:24px;right:24px;bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.home .grp{display:flex;align-items:center;gap:8px}
+.home .rgt{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.vsel .thumb{width:32px;height:24px;border-radius:var(--r-xs);object-fit:cover;display:block;margin-left:-8px}
+.vsel .vn{font-weight:700;font-variant-numeric:tabular-nums}
+.vsel .vt{font:500 12px/16px var(--sans);color:var(--dim)}
+
+/* Installer */
+.inst{width:640px;height:440px;background:var(--bg);display:flex;flex-direction:column;border-radius:8px;overflow:hidden}
+.inst .tb{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 4px 0 16px;flex:none}
+.inst .tb .t{display:flex;align-items:center;gap:8px;font:600 13.5px/20px var(--sans)}
+.inst .tb .t img{width:20px;height:20px}
+.inst .body{flex:1;padding:16px 32px 0;display:flex;flex-direction:column}
+.inst .foot{padding:0 32px 32px;display:flex;justify-content:flex-end;gap:8px;align-items:center}
+.inst .hero{display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin:8px 0 24px}
+.inst .hero img.lg{width:48px;height:48px;margin-left:-5px}
+.inst .hero img.wm{height:24px;width:auto}
+.inst .disp{font:800 32px/36px var(--sans);letter-spacing:-.03em}
+.inst .loc{margin-top:20px}
+.inst .loc .input{width:100%}
+.inst .loc .path{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--text)}
+.inst .opts{display:flex;gap:24px;margin-top:16px}
+
+/* In-game frames: built at 1920x1080 (title: GUI scale 3, so 1 GUI px = 3 px) */
+.mc{width:1920px;height:1080px;position:relative;overflow:hidden;background:var(--bg);font-family:var(--sans)}
+.mc .pano{position:absolute;inset:-60px;width:calc(100% + 120px);height:calc(100% + 120px);object-fit:cover;filter:blur(16px) saturate(.9)}
+.mc .dim{position:absolute;inset:0;background:rgba(14,17,16,.35)}
+.mc .vig{position:absolute;inset:0;background:radial-gradient(120% 100% at 50% 45%,rgba(0,0,0,0) 55%,rgba(0,0,0,.45) 100%)}
+.mc .logo{position:absolute;left:909px;top:297px;width:102px;height:102px}
+.mc .word{position:absolute;left:50%;top:447px;height:33px;transform:translateX(-50%)}
+.mc .tbtn{position:absolute;height:60px;border-radius:12px;background:rgba(29,35,32,.82);box-shadow:inset 0 0 0 3px rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;gap:18px;color:var(--text);font:600 24.75px/1 var(--sans)}
+.mc .tbtn .ic{width:24px;height:24px;color:var(--dim);stroke-width:2.2}
+.mc .tbtn.hov{background:rgba(35,42,38,.9);box-shadow:inset 0 0 0 3px rgba(255,255,255,.14)}
+.mc .dock{position:absolute;top:978px;left:50%;transform:translateX(-50%);display:flex;gap:12px}
+.mc .dk{width:60px;height:60px;border-radius:12px;display:grid;place-items:center;opacity:.85}
+.mc .dk .ic{width:36px;height:36px;stroke-width:2.6}
+.mc .dk.hov{background:rgba(255,255,255,.08);opacity:1}
+.mc .chip{position:absolute;left:18px;top:18px;height:48px;padding:0 18px 0 6px;border-radius:12px;background:rgba(255,255,255,.06);display:flex;align-items:center;gap:15px;color:var(--text);font:600 24px/1 var(--sans)}
+.mc .chip .head{width:36px;height:36px;border-radius:6px}
+.mc .foot{position:absolute;bottom:18px;left:18px;right:18px;display:flex;justify-content:space-between;font:400 21px/1 var(--sans);color:rgba(241,233,210,.52)}
+.mc .tipx{position:absolute;font:500 21px/1 var(--sans);padding:12px 15px;border-radius:9px;background:var(--card);box-shadow:inset 0 0 0 2px var(--stroke);color:var(--text)}
+.mc .ld{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center}
+.mc .ld img{position:absolute;left:924px;top:439px;width:72px;height:72px}
+.mc .ld .lrail{position:absolute;left:860px;top:535px;width:200px;height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.mc .ld .lrail i{position:absolute;left:0;top:0;bottom:0;width:62%;background:var(--acc);border-radius:inherit}
+.mc .ld .lcap{position:absolute;top:550px;left:0;right:0;text-align:center;font:400 13.5px/20px var(--sans);color:var(--dim)}
+
+/* ===== Swatches ===== */
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+.chip-sw{border-radius:var(--r-md);border:1px solid var(--soft);overflow:hidden;background:var(--panel)}
+.chip-sw .c{height:52px}
+.chip-sw .l{padding:8px 10px}
+.chip-sw .n{font:600 12px/16px var(--sans);color:var(--text)}
+.chip-sw .v{font:500 11px/14px var(--mono);color:var(--muted);margin-top:2px}
+.hue-row{display:flex;flex-wrap:wrap;gap:16px}
+.hue{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:var(--r-md);background:var(--panel);border:1px solid var(--soft)}
+.tile{width:28px;height:28px;border-radius:var(--r-sm);display:grid;place-items:center;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c)}
+.hue .n{font:600 12px/16px var(--sans)}.hue .v{font:500 11px/14px var(--mono);color:var(--muted)}
+
+/* ===== Type specimen ===== */
+.ts{display:grid;grid-template-columns:180px 1fr;gap:6px 24px;align-items:baseline}
+@media (max-width:600px){.ts{grid-template-columns:1fr}.ts .k{margin-top:10px}}
+.ts .k{font:500 12px/16px var(--mono);color:var(--muted);white-space:nowrap}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:600px){.cmp{grid-template-columns:1fr}}
+.cmp .box2{container-type:inline-size;background:var(--bg-sunken);border-radius:var(--r-lg);border:1px solid var(--soft);height:200px;display:grid;place-items:center;overflow:hidden;position:relative}
+.cmp .n2{font-weight:800;font-size:min(112px,36cqw);line-height:1;letter-spacing:-.04em;font-variant-numeric:lining-nums proportional-nums;color:var(--numeral)}
+.cmp .squash{transform:scaleX(.7);color:rgba(241,233,210,.94);letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.cmp .tag{position:absolute;left:12px;top:10px;max-width:calc(100% - 24px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+/* State matrix */
+.mx{border-collapse:separate;border-spacing:0;min-width:820px;width:100%}
+.mx th{font:600 11px/14px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 12px 12px 0}
+.mx td{padding:8px 12px 8px 0;vertical-align:middle}
+.mx td.k{font:600 12px/16px var(--sans);color:var(--dim);white-space:nowrap}
+.sizes{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px}
+.sizes .s{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.motion{width:100%;border-collapse:collapse}
+.motion td{padding:10px 12px 10px 0;border-top:1px solid var(--soft);vertical-align:middle}
+.motion td:first-child{font:500 12px/16px var(--mono);color:var(--dim);white-space:nowrap}
+.mtrack{height:8px;border-radius:99px;background:rgba(255,255,255,.06);position:relative;width:100%;min-width:120px}
+.mtrack i{position:absolute;left:0;top:0;width:8px;height:8px;border-radius:50%;background:var(--acc)}
+.motion tr:hover .mtrack i{left:calc(100% - 8px)}
+.anat{transform:scale(2.5);transform-origin:0 0;width:max-content}
+.anat-wrap{height:100px;position:relative}
+@media (max-width:600px){.anat{transform:scale(2)}.anat-wrap{height:84px}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font:500 12px/16px var(--sans)}
+.kv dt{color:var(--muted)}.kv dd{margin:0;color:var(--dim)}
+.prot td,.prot th{font:500 12px/16px var(--sans);padding:6px 12px 6px 0;border-top:1px solid var(--soft);text-align:left;vertical-align:top;color:var(--dim)}
+.prot th{color:var(--muted);font-weight:600;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important;animation-iteration-count:1!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M7 7h10v10M7 17 17 7"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M20.4 3.5 16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.3 2.2l.6 3.5a1 1 0 0 0 1 .8H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.1a1 1 0 0 0 1-.8l.6-3.5a2 2 0 0 0-1.3-2.2Z"/></symbol>
+  <symbol id="i-lang" viewBox="0 0 24 24"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></symbol>
+  <symbol id="i-access" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="7.5" r="1.2"/><path d="M7.5 10.5 12 11.5l4.5-1M12 11.5V15m0 0-2.5 3.5M12 15l2.5 3.5"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.8 2.2a2 2 0 0 0-1.6 0L2.6 6.1a1 1 0 0 0 0 1.8l8.6 3.9a2 2 0 0 0 1.6 0l8.6-3.9a1 1 0 0 0 0-1.8Z"/><path d="m22 17.6-9.2 4.2a2 2 0 0 1-1.6 0L2 17.6"/><path d="m22 12.6-9.2 4.2a2 2 0 0 1-1.6 0L2 12.6"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/></symbol>
+  <symbol id="i-pad" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2Z"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
+  <!-- Placeholder 8x8 player face (not a real skin) for head proportions. -->
+  <symbol id="face" viewBox="0 0 8 8" shape-rendering="crispEdges">
+    <rect width="8" height="8" fill="#b5835e"/><rect width="8" height="2" fill="#3b2a1f"/><rect y="2" width="1" height="1" fill="#3b2a1f"/><rect x="7" y="2" width="1" height="1" fill="#3b2a1f"/>
+    <rect x="1" y="4" width="1" height="1" fill="#f4f1ea"/><rect x="2" y="4" width="1" height="1" fill="#3e5f8a"/><rect x="5" y="4" width="1" height="1" fill="#3e5f8a"/><rect x="6" y="4" width="1" height="1" fill="#f4f1ea"/>
+    <rect x="3" y="5" width="2" height="1" fill="#8e6244"/><rect x="2" y="6" width="4" height="1" fill="#6b4632"/><rect y="2" width="8" height="1" fill="#5a3f2d" opacity=".55"/>
+  </symbol>
+</svg>
+
+<main class="page">
+
+<!-- Header -->
+<header class="stack" style="gap:20px">
+  <span class="lockup"><img class="brand-logo" src="assets/origin_logo.png" alt="Origin logo"><img class="wm" src="assets/wordmark.png" alt="Origin"></span>
+  <h1>Workbench components</h1>
+  <p class="lede">Every Origin component and state in one system: launcher, installer, website, in-game title and loading screens. Values and token names match <code>docs/overhaul/DESIGN-SYSTEM.md</code>. The logo and wordmark here are the real files, copied unmodified.</p>
+</header>
+
+<!-- 1 Brand -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">1 &middot; Brand</span><h2>The real logo and wordmark</h2><p class="lede">One master file each, exported only by plain resampling. Clear space is 25 % of the logo box on every side.</p></div>
+  <div class="grid g2">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <h3>Logo sizes</h3>
+      <div class="row" style="align-items:flex-end;align-content:center;gap:24px;flex:1;padding:8px 0">
+        <div class="stack" style="align-items:center"><img class="brand-logo" src="assets/origin_logo.png" width="16" height="16" alt=""><span class="note">16</span></div>
+        <div class="stack" style="align-items:center"><img class="brand-logo" src="assets/origin_logo.png" width="20" height="20" alt=""><span class="note">20 setup bar</span></div>
+        <div class="stack" style="align-items:center"><img class="brand-logo" src="assets/origin_logo.png" width="24" height="24" alt=""><span class="note">24 top bar</span></div>
+        <div class="stack" style="align-items:center"><img class="brand-logo" src="assets/origin_logo.png" width="48" height="48" alt=""><span class="note">48 installer</span></div>
+        <div class="stack" style="align-items:center"><span style="padding:16px;outline:1px dashed var(--stroke-h);outline-offset:0;display:block"><img class="brand-logo" src="assets/origin_logo.png" width="64" height="64" alt="" style="outline:1px solid var(--acc-border)"></span><span class="note">64 + clear space 16</span></div>
+      </div>
+      <div class="spec"><span><b>Master</b> textures/ui/origin_logo.png, 256 px</span><span><b>Ink</b> 230 x 170 inside the box</span></div>
+    </div>
+    <div class="panel">
+      <h3>Wordmark and lockups</h3>
+      <div class="stack" style="gap:16px">
+        <div class="row" style="gap:24px;align-items:flex-end">
+          <div class="stack"><img src="assets/wordmark.png" alt="" style="height:16px;width:auto"><span class="note">16 top bar</span></div>
+          <div class="stack"><img src="assets/wordmark.png" alt="" style="height:24px;width:auto"><span class="note">24 installer</span></div>
+        </div>
+        <div class="row" style="gap:32px;align-items:flex-start">
+          <div class="stack"><span class="lockup"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt=""></span><span class="note">Top bar: logo 24, gap 6, wordmark 16</span></div>
+          <div class="stack" style="gap:12px"><img class="brand-logo" src="assets/origin_logo.png" width="48" height="48" alt="" style="margin-left:-5px"><img src="assets/wordmark.png" alt="" style="height:24px;width:auto"><span class="note">Installer hero, stacked</span></div>
+          <div class="stack" style="align-items:flex-start"><span class="light" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);padding:10px 12px;border-radius:8px"><span style="width:24px;height:24px;background:var(--text);-webkit-mask:url(assets/origin_logo.png) center/contain no-repeat;mask:url(assets/origin_logo.png) center/contain no-repeat"></span><span style="width:78px;height:16px;background:var(--text);-webkit-mask:url(assets/wordmark.png) center/contain no-repeat;mask:url(assets/wordmark.png) center/contain no-repeat"></span></span><span class="note">Light surface: the master's own alpha, text colour (open question 2)</span></div>
+        </div>
+      </div>
+      <div class="spec"><span><b>Master</b> Assets/Brand/wordmark.png, 430 x 88, never upscaled</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 Colour -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">2 &middot; Colour</span><h2>Deepslate, parchment, one emerald</h2><p class="lede">The neutral base is the Mod Menu's own palette. Emerald fills one thing per screen. Soft hues live in glyphs, tiles in labelled rows, dots and badges.</p></div>
+  <div class="stack" style="gap:20px">
+    <div class="sw">
+      <div class="chip-sw"><div class="c" style="background:#0e1110"></div><div class="l"><div class="n">bg</div><div class="v">#0E1110</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#171c19"></div><div class="l"><div class="n">surface</div><div class="v">#171C19</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#1d2320"></div><div class="l"><div class="n">surfaceRaised</div><div class="v">#1D2320</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#232a26"></div><div class="l"><div class="n">surfaceHover</div><div class="v">#232A26</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#f1e9d2"></div><div class="l"><div class="n">text</div><div class="v">#F1E9D2</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:rgba(241,233,210,.68)"></div><div class="l"><div class="n">textDim</div><div class="v">text 68 %</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:rgba(241,233,210,.52)"></div><div class="l"><div class="n">textMuted</div><div class="v">text 52 %</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#5fd09b"></div><div class="l"><div class="n">accent</div><div class="v">#5FD09B</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#83e2b5"></div><div class="l"><div class="n">accentHover</div><div class="v">#83E2B5</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#68c490"></div><div class="l"><div class="n">success</div><div class="v">#68C490</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#e9c46a"></div><div class="l"><div class="n">warning</div><div class="v">#E9C46A</div></div></div>
+      <div class="chip-sw"><div class="c" style="background:#d9675a"></div><div class="l"><div class="n">danger</div><div class="v">#D9675A</div></div></div>
+    </div>
+    <div class="hue-row">
+      <div class="hue" style="--c:var(--hue-emerald)"><span class="tile"><svg class="ic"><use href="#i-gauge"/></svg></span><div><div class="n">hue.emerald</div><div class="v">#5FD09B</div></div></div>
+      <div class="hue" style="--c:var(--hue-sky)"><span class="tile"><svg class="ic"><use href="#i-pad"/></svg></span><div><div class="n">hue.sky</div><div class="v">#6FAEE8</div></div></div>
+      <div class="hue" style="--c:var(--hue-gold)"><span class="tile"><svg class="ic"><use href="#i-bag"/></svg></span><div><div class="n">hue.gold</div><div class="v">#E9C46A</div></div></div>
+      <div class="hue" style="--c:var(--hue-lilac)"><span class="tile"><svg class="ic"><use href="#i-spark"/></svg></span><div><div class="n">hue.lilac</div><div class="v">#B49CE8</div></div></div>
+      <div class="hue" style="--c:var(--hue-coral)"><span class="tile"><svg class="ic"><use href="#i-rocket"/></svg></span><div><div class="n">hue.coral</div><div class="v">#E08A6B</div></div></div>
+    </div>
+    <div class="light panel" style="background:var(--bg);border-color:var(--soft)">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px"><h3 style="margin:0;color:var(--text)">Light set (launcher and installer, roadmap)</h3><span class="note" style="color:var(--muted)">Same roles, darker hues</span></div>
+      <div class="row">
+        <button class="btn btn--primary btn--lg" type="button"><svg class="ic ic-14 ic-fill"><use href="#i-play"/></svg>Play</button>
+        <button class="btn btn--secondary btn--lg" type="button">Secondary</button>
+        <button class="btn btn--ghost btn--lg" type="button">Ghost</button>
+        <span class="badge badge--tint" style="--c:var(--hue-sky)"><span class="dot" style="background:var(--hue-sky)"></span>Friends</span>
+        <span class="status" style="color:var(--dim)"><span class="dot dot--ok"></span>Ready to play</span>
+        <span class="switch on"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 Type -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">3 &middot; Typography</span><h2>Inter, one family everywhere</h2><p class="lede">Bundled Inter 400 to 800 (the in-game MSDF atlas is the same face). Numerals on art at natural width with proportional lining figures; tabular figures only where numbers stack in columns (lists, progress).</p></div>
+  <div class="grid g2">
+    <div class="panel ts">
+      <span class="k">type.label 11/600</span><span class="eyebrow" style="color:var(--dim)">Home &nbsp; Mods &nbsp; Profiles</span>
+      <span class="k">type.labelLg 16/600</span><span class="eyebrow" style="font-size:16px;line-height:20px;letter-spacing:.08em;color:var(--dim)">The Latest Releases</span>
+      <span class="k">type.caption 12/500</span><span style="font:500 12px/16px var(--sans);color:var(--dim)">Downloads when you press Play</span>
+      <span class="k">type.body 13.5/400</span><span>Origin installs what each version needs.</span>
+      <span class="k">type.bodyStrong 13.5/600</span><span style="font-weight:600">Choose a version</span>
+      <span class="k">type.title 16/600</span><span style="font:600 16px/22px var(--sans);letter-spacing:-.005em">Origin is installed</span>
+      <span class="k">type.action 16/700</span><span style="font:700 16px/20px var(--sans);letter-spacing:-.01em">Play</span>
+      <span class="k">type.heading 22/700</span><span style="font:700 22px/28px var(--sans);letter-spacing:-.015em">Choose a version</span>
+      <span class="k">type.display 32/800</span><span style="font:800 32px/36px var(--sans);letter-spacing:-.03em">Install Origin</span>
+      <span class="k">type.numeral 800, pnum</span><span><span class="num" style="font-size:56px;display:inline-block;margin-top:12px">26.3</span><span class="note" style="display:block;margin-top:6px">Figures 25 % of the art&rsquo;s height; shown at 56</span></span>
+    </div>
+    <div class="cmp">
+      <div class="box2"><span class="badge tag">Before: squashed to 0.7</span><span class="n2 squash">26.3</span></div>
+      <div class="box2"><span class="badge tag" style="color:var(--text)"><span class="dot dot--ok"></span>After: natural, neutral</span><span class="n2">26.3</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 Sizes, radii -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">4 &middot; Sizing</span><h2>Four control heights, four radii</h2><p class="lede">28 and 32 use radius 6, 36 and 40 use radius 8, cards and sheets 12. Anything inset follows the concentric rule: inner radius = outer radius minus inset.</p></div>
+  <div class="panel">
+    <div class="sizes">
+      <div class="s"><button class="btn btn--secondary btn--sm" type="button"><svg class="ic ic-14"><use href="#i-back"/></svg>All versions</button><span class="note">sm 28 &middot; r6 &middot; pad 10</span></div>
+      <div class="s"><button class="btn btn--secondary" type="button"><svg class="ic"><use href="#i-layers"/></svg>Default<svg class="ic ic-12 chev" style="color:var(--dim)"><use href="#i-chev"/></svg></button><span class="note">md 32 &middot; r6 &middot; pad 12</span></div>
+      <div class="s"><button class="btn btn--secondary btn--lg" type="button">Copy details</button><span class="note">lg 36 &middot; r8 &middot; pad 14</span></div>
+      <div class="s"><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button><span class="note">xl 40 &middot; r8 &middot; Play fixed 144</span></div>
+      <div class="s"><span class="vcard" style="width:160px;display:block"><img src="assets/art/1.20-tc.jpg" alt=""><span class="plate"><span class="eb">Trails &amp; Tales</span><span class="numrow"><span class="num">1.20</span></span></span></span><span class="note">card &middot; r12</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 Buttons -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">5 &middot; Buttons</span><h2>Every variant, every state</h2><p class="lede">States are forced here so they can be compared. Loading never changes a button&rsquo;s width: the label keeps its space and a spinner takes its place. Play is fixed at 144 in every state. The last row is live.</p></div>
+  <div class="panel scroll-x">
+    <table class="mx">
+      <thead><tr><th></th><th>Rest</th><th>Hover</th><th>Press</th><th>Focus</th><th>Disabled</th><th>Loading</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Primary</td>
+          <td><button class="btn btn--primary btn--lg" type="button">Install</button></td>
+          <td><button class="btn btn--primary btn--lg is-hover" type="button">Install</button></td>
+          <td><button class="btn btn--primary btn--lg is-press" type="button">Install</button></td>
+          <td><button class="btn btn--primary btn--lg is-focus" type="button">Install</button></td>
+          <td><button class="btn btn--primary btn--lg is-disabled" type="button">Install</button></td>
+          <td><button class="btn btn--primary btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Install</span></button></td></tr>
+        <tr><td class="k">Secondary</td>
+          <td><button class="btn btn--secondary btn--lg" type="button">Copy details</button></td>
+          <td><button class="btn btn--secondary btn--lg is-hover" type="button">Copy details</button></td>
+          <td><button class="btn btn--secondary btn--lg is-press" type="button">Copy details</button></td>
+          <td><button class="btn btn--secondary btn--lg is-focus" type="button">Copy details</button></td>
+          <td><button class="btn btn--secondary btn--lg is-disabled" type="button">Copy details</button></td>
+          <td><button class="btn btn--secondary btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Copy details</span></button></td></tr>
+        <tr><td class="k">Ghost</td>
+          <td><button class="btn btn--ghost btn--lg" type="button">Install only</button></td>
+          <td><button class="btn btn--ghost btn--lg is-hover" type="button">Install only</button></td>
+          <td><button class="btn btn--ghost btn--lg is-press" type="button">Install only</button></td>
+          <td><button class="btn btn--ghost btn--lg is-focus" type="button">Install only</button></td>
+          <td><button class="btn btn--ghost btn--lg is-disabled" type="button">Install only</button></td>
+          <td><button class="btn btn--ghost btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Install only</span></button></td></tr>
+        <tr><td class="k">Icon</td>
+          <td><button class="btn btn--icon" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button></td>
+          <td><button class="btn btn--icon is-hover" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button></td>
+          <td><button class="btn btn--icon is-press" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button></td>
+          <td><button class="btn btn--icon is-focus" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button></td>
+          <td><button class="btn btn--icon is-disabled" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button></td>
+          <td><button class="btn btn--icon is-loading" type="button" aria-label="Importing"><span class="spin"></span></button></td></tr>
+        <tr><td class="k">Danger</td>
+          <td><button class="btn btn--danger btn--lg" type="button">Uninstall</button></td>
+          <td><button class="btn btn--danger btn--lg is-hover" type="button">Uninstall</button></td>
+          <td><button class="btn btn--danger btn--lg is-press" type="button">Uninstall</button></td>
+          <td><button class="btn btn--danger btn--lg is-focus" type="button">Uninstall</button></td>
+          <td><button class="btn btn--danger btn--lg is-disabled" type="button">Uninstall</button></td>
+          <td><button class="btn btn--danger btn--lg is-loading" type="button" aria-busy="true"><span class="spin"></span><span class="lbl">Uninstall</span></button></td></tr>
+        <tr><td class="k">Play (xl)</td>
+          <td><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></td>
+          <td><button class="btn btn--primary btn--xl btn--play is-hover" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></td>
+          <td><button class="btn btn--primary btn--xl btn--play is-press" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></td>
+          <td><button class="btn btn--primary btn--xl btn--play is-focus" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></td>
+          <td><button class="btn btn--primary btn--xl btn--play is-disabled" type="button"><span class="dot dot--on"></span>Playing</button></td>
+          <td><button class="btn btn--primary btn--xl btn--play is-loading tnum" type="button" style="font-size:13.5px;font-weight:600">Preparing 42 %<span class="rail-in"><i style="width:42%"></i></span></button></td></tr>
+        <tr><td class="k">Live</td>
+          <td colspan="6"><div class="row"><button class="btn btn--primary btn--lg" type="button">Primary</button><button class="btn btn--secondary btn--lg" type="button">Secondary</button><button class="btn btn--ghost btn--lg" type="button">Ghost</button><button class="btn btn--icon" type="button" aria-label="Friends" title="Friends"><svg class="ic friends"><use href="#i-users"/></svg></button><button class="btn btn--danger btn--lg" type="button">Remove profile</button></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 6 Controls -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">6 &middot; Controls</span><h2>Dropdowns, switches, fields, feedback</h2><p class="lede">A dropdown is a secondary button with a chevron. Its menu uses the same surface, edge and 32 px rows as everything else.</p></div>
+  <div class="grid g3">
+    <div class="panel" style="min-height:260px">
+      <h3>Dropdown, closed and open</h3>
+      <div class="row" style="align-items:flex-start;gap:16px">
+        <div class="dd"><button class="btn btn--secondary" type="button"><svg class="ic"><use href="#i-layers"/></svg>No profile<svg class="ic ic-12 chev"><use href="#i-chev"/></svg></button></div>
+        <div class="dd is-open"><button class="btn btn--secondary" type="button" aria-expanded="true"><svg class="ic"><use href="#i-layers"/></svg>PvP<svg class="ic ic-12 chev"><use href="#i-chev"/></svg></button>
+          <div class="menu" role="listbox">
+            <div class="menu-i"><svg class="ic"><use href="#i-layers"/></svg>No profile</div>
+            <div class="menu-i sel">PvP<span class="ok"><svg class="ic ic-14"><use href="#i-check"/></svg></span></div>
+            <div class="menu-i is-hover">Building<span class="meta">1.21.1</span></div>
+            <div class="menu-sep"></div>
+            <div class="menu-i" style="color:var(--dim)">New profile</div>
+          </div></div>
+      </div>
+    </div>
+    <div class="panel stack" style="gap:16px">
+      <h3 style="margin:0">Switch, checkbox, field</h3>
+      <div class="row" style="gap:24px"><span class="switch-l">My mods <span class="switch on"></span></span><span class="switch-l">Off <span class="switch"></span></span></div>
+      <div class="row" style="gap:24px"><span class="check"><span class="box on"><svg class="ic ic-12" style="stroke-width:2.2"><use href="#i-check"/></svg></span>Desktop shortcut</span><span class="check"><span class="box"></span>Start menu</span></div>
+      <div class="input is-focus"><svg class="ic" style="color:var(--dim)"><use href="#i-search"/></svg><span class="ph">Search mods</span></div>
+      <div><div class="input is-error"><span>C:\Program Files</span></div><div class="err">Pick a folder you can write to.</div></div>
+    </div>
+    <div class="panel stack" style="gap:16px">
+      <h3 style="margin:0">Feedback</h3>
+      <div class="stack"><div class="rail"><i style="width:42%"></i></div><span class="note tnum">Determinate rail: real progress only</span></div>
+      <div class="stack"><div class="rail rail--ind"><i></i></div><span class="note">Indeterminate: only while no number exists</span></div>
+      <div class="row"><span class="spin"></span><span class="note">Spinner 14, inside controls</span></div>
+      <div class="row"><span class="badge"><span class="dot dot--ok"></span>2 of 10 installed</span><span class="badge">Not installed</span><span class="badge badge--tint" style="--c:var(--hue-gold)">Update ready</span></div>
+      <div class="row"><span class="status"><span class="dot dot--ok"></span>Ready</span><span class="status"><span class="dot dot--warn"></span>Attention</span><span class="status"><span class="dot dot--bad"></span>Failed</span><span class="status"><span class="dot dot--on"></span>Online</span></div>
+      <div><span class="tip">Friends</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 Top bar, account pill, Store -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">7 &middot; Navigation</span><h2>Top bar, Website, Store and account</h2><p class="lede">48 px, translucent, no blur. The tabs centre in the space left between the two groups and keep at least 24 px from each. A narrower window gives up width in one order: below 1100 the update chip and Store show only their icons, below 1000 the wordmark goes and the logo stays. The brand lockup is the Website link; its accessible name is always &ldquo;Open originclient.org&rdquo;.</p></div>
+  <div class="stack" style="gap:16px">
+    <div><div class="frame navproof" data-w="1440" data-h="48"><div class="win navwin" style="width:1440px;height:48px"><div class="bar-slot" data-name="Player842" data-update="1"></div></div></div><p class="cap"><b>1440.</b> Full bar with an update waiting, the widest right group. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="1180" data-h="48"><div class="win navwin" style="width:1180px;height:48px"><div class="bar-slot" data-name="Player842" data-update="1"></div></div></div><p class="cap"><b>1180, the default window.</b> Full bar, update waiting. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="Player842" data-update="1"></div></div></div><p class="cap"><b>960, the minimum window.</b> Update and Store are icons, the logo stands alone as the Website link. <span class="m"></span></p></div>
+    <div><div class="frame navproof" data-w="960" data-h="48"><div class="win navwin" style="width:960px;height:48px"><div class="bar-slot" data-name="AVeryLongMinecraftName_" data-update="1"></div></div></div><p class="cap"><b>960 with the longest name.</b> The name ellipsizes at 160. <span class="m"></span></p></div>
+  </div>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="panel">
+      <h3>Website, Store and Update</h3>
+      <div class="row">
+        <a class="brand" href="#" onclick="return false" title="originclient.org" aria-label="Open originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <span style="position:relative;display:inline-block"><a class="brand is-hover" href="#" onclick="return false"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a></span>
+        <span class="tip">originclient.org</span>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <a class="btn btn--ghost store" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="btn btn--ghost store is-hover" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="btn btn--ghost store is-focus" href="#" onclick="return false"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+        <a class="btn btn--ghost upd" href="#" onclick="return false" title="Restart Origin to install the update" aria-label="Update ready: restart to install"><svg class="ic"><use href="#i-down"/></svg><span class="lbl">Update</span><span class="gdot"></span></a><a class="btn btn--ghost upd is-compact" href="#" onclick="return false" title="Restart Origin to install the update" aria-label="Update ready: restart to install"><svg class="ic"><use href="#i-down"/></svg><span class="lbl">Update</span><span class="gdot"></span></a><a class="btn btn--ghost store is-compact" href="#" onclick="return false" aria-label="Store" title="Store"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>
+      </div>
+      <div class="spec"><span><b>Brand lockup</b> opens originclient.org; arrow and tooltip on hover</span><span><b>Store</b> opens originclient.org/store</span><span><b>Update</b> restarts Origin to install; below 1100 an icon with a gold dot</span><span><b>Settings, About</b> lists both links again</span></div>
+    </div>
+    <div class="panel">
+      <h3>Account pill, enlarged</h3>
+      <div class="anat-wrap"><div class="anat"><span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span></div></div>
+      <dl class="kv"><dt>Container</dt><dd>32 tall, radius 6 (the 28-32 control rule)</dd><dt>Head</dt><dd>24 (3x the face), inset 4, radius 2 (6 minus the inset)</dd><dt>Gaps</dt><dd>head 8 name, name 6 chevron, 10 right</dd></dl>
+    </div>
+    <div class="panel">
+      <h3>Account states</h3>
+      <div class="stack" style="align-items:flex-start">
+        <span class="acct is-hover"><span class="head"><svg><use href="#face"/></svg></span><span class="name">Player842</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
+        <span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">AVeryLongMinecraftName_</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>
+        <button class="btn btn--ghost" type="button"><svg class="ic"><use href="#i-user"/></svg>Sign in</button>
+      </div>
+      <div class="spec"><span>Hover, long name (ellipsis at 160), signed out</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 Version cards -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">8 &middot; Numerals on art</span><h2>One rule: the number stands on the ground line</h2><p class="lede">Every version number set on art, on Home and on every card, follows the same rule. It stands in the picture&rsquo;s bottom-left corner, inside a shade that grows from that corner, with its first figure&rsquo;s ink on the gutter and its baseline on the ground line. Its figures are a quarter of the picture&rsquo;s height, so it scales with the art, not with the type around it. Neutral white, proportional lining figures, never tinted.</p></div>
+  <div class="grid g2" style="margin-bottom:24px;align-items:start">
+    <div><div id="ruleCard"></div><p class="cap"><b>Card.</b> Gutter 12, ground line 12 above the bottom edge, figures 25 % of the card&rsquo;s height, eyebrow 8 above the figures, range 12 after them on the baseline.</p></div>
+    <div><div class="frame guides" data-w="1180" data-h="740" id="ruleHome"></div><p class="cap"><b>Home.</b> Gutter 24, ground line 24 above the control strip, figures 25 % of the window&rsquo;s height, eyebrow 15 above them. The same corner shade.</p></div>
+  </div>
+  <div class="vgrid" id="families"></div>
+  <div class="spec"><span><b>Rest</b> 26</span><span><b>Hover</b> 1.21</span><span><b>Selected</b> 1.20: the ring alone, so the badge keeps its count</span></div>
+</section>
+
+<!-- 9 Version selector -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">9 &middot; Version selector</span><h2>Two steps: family, then release</h2><p class="lede">Opens as a sheet under the top bar. Single-release families select straight away. The release list shows every release of the family, newest first, each saying whether it is on disk.</p></div>
+  <div class="stack" style="gap:24px">
+    <div class="sheet">
+      <div class="sheet-h"><div><h2>Choose a version</h2><p class="note">8 families, 26 releases. Origin installs what each one needs.</p></div><button class="btn btn--icon" type="button" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+      <div class="vgrid" id="families2"></div>
+    </div>
+    <div class="sheet">
+      <div class="sheet-h"><button class="btn btn--ghost btn--sm" type="button" style="margin-left:-10px"><svg class="ic ic-14"><use href="#i-back"/></svg>All versions</button><button class="btn btn--icon" type="button" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+      <div class="step2">
+        <div class="stack" style="gap:16px">
+          <div id="stepCard"></div>
+          <p style="color:var(--dim)">Explore the new trial chambers and outsmart their spawners for loot from ominous vaults. Battle the wind-charging Breeze and the crossbow-wielding Bogged.</p>
+        </div>
+        <div>
+          <div class="rel">
+            <div class="rel-i sel"><span class="v">1.21.11</span><span class="st ok"><span class="dot dot--ok"></span>Installed</span><span class="ok-ic"><svg class="ic"><use href="#i-check"/></svg></span></div>
+            <div class="rel-i is-hover"><span class="v">1.21.10</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.8</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.7</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.6</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.4</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.3</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.2</span><span class="st">Downloads when you press Play</span></div>
+            <div class="rel-i"><span class="v">1.21.1</span><span class="st ok"><span class="dot dot--ok"></span>Installed</span></div>
+            <div class="rel-i"><span class="v">1.21</span><span class="st">Downloads when you press Play</span></div>
+          </div>
+          <div class="sheet-f"><button class="btn btn--ghost btn--lg" type="button">Install only</button><button class="btn btn--primary btn--lg" type="button"><svg class="ic ic-14 ic-fill"><use href="#i-play"/></svg>Play 1.21.11</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 Launcher Home -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">10 &middot; Launcher</span><h2>Home at 1180 x 740</h2><p class="lede">One row of 40 px controls, 24 from the edges. The release number stands in the art&rsquo;s shaded corner on the ground line 24 above the strip, at a quarter of the window&rsquo;s height, under the update&rsquo;s name. The rest of the picture stays clear.</p></div>
+  <div class="frame" data-w="1180" data-h="740" id="homeFrame"><div class="win home">
+    <img class="art" src="assets/art/26-c1280.jpg" alt="">
+    <div class="shade"></div><div class="corner"></div>
+    <div class="bar-slot" data-name="Player842"></div>
+    <div class="hero"><span class="eb">The Latest Releases</span><span class="num">26.3</span></div>
+    <div class="strip">
+      <div class="grp">
+        <button class="btn btn--secondary btn--xl vsel" type="button"><img class="thumb" src="assets/art/26-tc.jpg" alt=""><span class="vn">26.3</span><span class="vt">The Latest Releases</span><svg class="ic ic-12 chev" style="color:var(--dim)"><use href="#i-chev"/></svg></button>
+        <button class="btn btn--secondary btn--xl" type="button"><svg class="ic" style="color:var(--dim)"><use href="#i-layers"/></svg>No profile<svg class="ic ic-12 chev" style="color:var(--dim)"><use href="#i-chev"/></svg></button>
+      </div>
+      <div class="rgt">
+        <span class="status"><span class="dot dot--ok"></span>Ready to play</span>
+        <div class="grp" style="gap:16px"><span class="switch-l">My mods <span class="switch on"></span></span><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></div>
+      </div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Home.</b> Colour art of the selected family, the corner shade and a bottom scrim for the strip. <span class="m" id="homeM"></span></p>
+  <div class="panel" style="margin-top:16px">
+    <h3>Play through a launch</h3>
+    <div class="row" style="gap:24px;align-items:flex-end">
+      <div class="stack" style="align-items:flex-end"><span class="status"><span class="dot dot--ok"></span>Ready to play</span><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></div>
+      <div class="stack" style="align-items:flex-end"><span class="status">Downloads 412 MB when you press Play</span><button class="btn btn--primary btn--xl btn--play" type="button"><svg class="ic ic-fill"><use href="#i-play"/></svg>Play</button></div>
+      <div class="stack" style="align-items:flex-end"><span class="status tnum">Downloading libraries, 173 of 412 MB</span><button class="btn btn--primary btn--xl btn--play is-loading tnum" type="button" style="font-size:13.5px;font-weight:600">Preparing 42 %<span class="rail-in"><i style="width:42%"></i></span></button></div>
+      <div class="stack" style="align-items:flex-end"><span class="status">Hover while preparing</span><button class="btn btn--primary btn--xl btn--play is-loading" type="button" style="font-size:13.5px;font-weight:600;background:var(--card-alt)">Cancel<span class="rail-in"><i style="width:42%"></i></span></button></div>
+      <div class="stack" style="align-items:flex-end"><span class="status"><span class="dot dot--on"></span>Minecraft 26.3 is running</span><button class="btn btn--primary btn--xl btn--play is-disabled" type="button"><span class="dot dot--on"></span>Playing</button></div>
+    </div>
+    <p class="note" style="margin-top:12px">Play is 144 wide in every state, so nothing beside it moves during a launch.</p>
+  </div>
+</section>
+
+<!-- 11 Installer -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">11 &middot; Origin Setup</span><h2>Installer and uninstaller</h2><p class="lede">640 x 440, one screen per flow, no wizard steps. Every state keeps the logo and wordmark at the top, so the content starts in the same place and nothing floats. The uninstaller keeps your worlds unless you tick the box.</p></div>
+  <div class="grid g2">
+    <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
+      <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
+      <div class="body">
+        <div class="hero"><img class="lg" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"></div>
+        <div class="disp">Install Origin</div>
+        <p style="color:var(--dim);margin-top:6px">The launcher and Origin Client, about 140 MB.</p>
+        <div class="loc"><div class="input"><svg class="ic" style="color:var(--dim)"><use href="#i-folder"/></svg><span class="path">C:\Users\Player\AppData\Local\Programs\OriginLauncher</span><button class="btn btn--ghost btn--sm" type="button" style="margin-right:-8px">Change</button></div></div>
+        <div class="opts"><span class="check"><span class="box on"><svg class="ic ic-12" style="stroke-width:2.2"><use href="#i-check"/></svg></span>Desktop shortcut</span><span class="check"><span class="box on"><svg class="ic ic-12" style="stroke-width:2.2"><use href="#i-check"/></svg></span>Start menu shortcut</span></div>
+      </div>
+      <div class="foot"><button class="btn btn--ghost btn--lg" type="button">Cancel</button><button class="btn btn--primary btn--lg" type="button" style="min-width:96px">Install</button></div>
+    </div></div><p class="cap"><b>Ready.</b> One screen: where, shortcuts, Install.</p></div>
+    <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
+      <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
+      <div class="body">
+        <div class="hero"><img class="lg" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"></div>
+        <div class="disp">Installing Origin</div>
+        <p style="color:var(--dim);margin-top:6px">This takes about a minute. You can keep using your PC.</p>
+        <div class="rail" style="margin-top:24px"><i style="width:31%"></i></div>
+        <div class="note tnum" style="margin-top:12px;color:var(--dim)">Copying files, 128 of 412</div>
+      </div>
+      <div class="foot"><button class="btn btn--ghost btn--lg" type="button">Cancel</button></div>
+    </div></div><p class="cap"><b>Installing.</b> Same top as Ready, real counts, one rail, Cancel only.</p></div>
+    <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
+      <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
+      <div class="body">
+        <div class="hero"><img class="lg" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"></div>
+        <div class="disp">Origin is installed</div>
+        <p style="color:var(--dim);margin-top:6px">Sign in with your Microsoft account the first time you open it.</p>
+        <span class="status" style="margin-top:20px"><span class="dot dot--ok"></span>Shortcuts added to the desktop and Start menu</span>
+      </div>
+      <div class="foot"><button class="btn btn--ghost btn--lg" type="button">Close</button><button class="btn btn--primary btn--lg" type="button">Open Origin</button></div>
+    </div></div><p class="cap"><b>Done.</b> The next step is the primary.</p></div>
+    <div><div class="frame" data-w="640" data-h="440"><div class="win inst">
+      <div class="tb"><span class="t"><img src="assets/origin_logo.png" alt="">Origin Setup</span><span class="row" style="gap:0"><button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button><button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button></span></div>
+      <div class="body">
+        <div class="hero"><img class="lg" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"></div>
+        <div class="disp">Uninstall Origin?</div>
+        <p style="color:var(--dim);margin-top:6px">Origin and its shortcuts are removed. Your worlds, settings and accounts stay in AppData\Local\OriginLauncher.</p>
+        <span class="check" style="margin-top:20px"><span class="box"></span>Also delete my worlds, settings and accounts</span>
+      </div>
+      <div class="foot"><button class="btn btn--ghost btn--lg is-focus" type="button">Keep Origin</button><button class="btn btn--danger btn--lg" type="button">Uninstall</button></div>
+    </div></div><p class="cap"><b>Uninstall.</b> Keeping data is the default and the focused choice.</p></div>
+  </div>
+</section>
+
+<!-- 12 In game -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">12 &middot; In game</span><h2>Main menu and loading, 1.21.1</h2><p class="lede">1920 x 1080 at GUI scale 3. Today's TitleLayout geometry and order, with the launcher's softness: Workbench panels instead of stone buttons, bare dock glyphs instead of boxes.</p></div>
+  <div class="frame" data-w="1920" data-h="1080"><div class="win mc">
+    <img class="pano" src="assets/art/1.21-c1280.jpg" alt="">
+    <div class="dim"></div><div class="vig"></div>
+    <span class="chip"><span class="head"><svg><use href="#face"/></svg></span>Player842</span>
+    <img class="logo" src="assets/origin_logo.png" alt="Origin">
+    <img class="word" src="assets/wordmark.png" alt="">
+    <div class="tbtn hov" style="left:660px;top:528px;width:600px"><svg class="ic"><use href="#i-user"/></svg>Singleplayer</div>
+    <div class="tbtn" style="left:660px;top:600px;width:600px"><svg class="ic"><use href="#i-users"/></svg>Multiplayer</div>
+    <div class="tbtn" style="left:660px;top:672px;width:294px"><svg class="ic"><use href="#i-sliders"/></svg>Options</div>
+    <div class="tbtn" style="left:966px;top:672px;width:294px"><svg class="ic"><use href="#i-grid"/></svg>Mods</div>
+    <div class="dock">
+      <span class="dk" style="color:var(--hue-sky)"><svg class="ic"><use href="#i-users"/></svg></span>
+      <span class="dk hov" style="color:var(--hue-gold)"><svg class="ic"><use href="#i-shirt"/></svg></span>
+      <span class="dk" style="color:var(--hue-gold)"><svg class="ic"><use href="#i-lang"/></svg></span>
+      <span class="dk" style="color:var(--hue-emerald)"><svg class="ic"><use href="#i-access"/></svg></span>
+      <span class="dk" style="color:var(--hue-coral)"><svg class="ic"><use href="#i-power"/></svg></span>
+    </div>
+    <span class="tipx" style="left:912px;top:910px">Cosmetics</span>
+    <div class="foot"><span>Minecraft 1.21.1, Origin</span><span>Copyright Mojang AB. Do not distribute!</span></div>
+  </div></div>
+  <p class="cap"><b>Title.</b> Singleplayer and Cosmetics shown hovered. Buttons 200 x 20 GUI px at radius 4, dock glyphs 12 GUI px in their hue, no squares. Background stand-in: the launcher art blurred (in game it is the version's panorama).</p>
+  <div class="grid" style="margin-top:24px">
+    <div><div class="frame" data-w="1920" data-h="1080"><div class="win mc">
+      <div class="ld"><img src="assets/origin_logo.png" alt="Origin"><span class="lrail"><i></i></span><span class="lcap">Loading resources</span></div>
+    </div></div><p class="cap"><b>Loading.</b> The bg colour of the launcher's launch cover, the real logo, one rail with real progress, the stage name.</p></div>
+    <div class="panel">
+      <h3>Protected: Origin Mod Menu</h3>
+      <p class="note" style="margin-bottom:12px">Never changes. Other surfaces borrow these values (design px at 1920 x 1080).</p>
+      <div class="scroll-x"><table class="prot" style="width:100%;border-collapse:collapse">
+        <tr><th>Panel</th><td>920 x 580, radius 8, #141816 at 94 %</td></tr>
+        <tr><th>Grid</th><td>margin 24, gap 16, header 64, toolbar 32 at y 80</td></tr>
+        <tr><th>Cards</th><td>184 tall radius 8; rows 44 radius 7; options 30 radius 5</td></tr>
+        <tr><th>Tabs</th><td>30 tall radius 6; selected white 7 %; tracked caps</td></tr>
+        <tr><th>Colour</th><td>card #1D2320, hover #232A26, lines 6 / 10 %, parchment 100 / 68 / 42 %, emerald #5FD09B, red #D9675A, gold #E9C46A</td></tr>
+        <tr><th>Motion</th><td>hover in 48 ms, out 64 ms, press 42 ms</td></tr>
+      </table></div>
+      <h3 style="margin-top:20px">1.8.9</h3>
+      <dl class="kv"><dt>Title</dt><dd>hand-made OriginTitleScreen; no Accessibility square</dd><dt>Panels</dt><dd>baked corner masks blitted 1:1; no blur, dim 50 %</dd><dt>Logo</dt><dd>64 / 128 exports, GL_LINEAR, no mipmaps</dd><dt>Loading</dt><dd>OriginLoadingRenderer after the Forge splash; splash colours via splash.properties (to verify)</dd></dl>
+    </div>
+  </div>
+</section>
+
+<!-- 13 Motion and icons -->
+<section class="sec">
+  <div class="sec-h"><span class="eyebrow">13 &middot; Motion and icons</span><h2>Fast in, faster out</h2><p class="lede">Hover a row to run its duration. One line icon set, stroke 1.7 at every size, never boxed except in labelled list rows.</p></div>
+  <div class="grid g2">
+    <div class="panel scroll-x">
+      <table class="motion">
+        <tr><td>motion.press 80</td><td style="width:60%"><div class="mtrack"><i style="transition:left 80ms var(--ease)"></i></div></td></tr>
+        <tr><td>motion.hover 120</td><td><div class="mtrack"><i style="transition:left 120ms var(--ease)"></i></div></td></tr>
+        <tr><td>motion.base 160</td><td><div class="mtrack"><i style="transition:left 160ms var(--ease)"></i></div></td></tr>
+        <tr><td>motion.enter 220</td><td><div class="mtrack"><i style="transition:left 220ms var(--ease)"></i></div></td></tr>
+        <tr><td>motion.scene 260</td><td><div class="mtrack"><i style="transition:left 260ms var(--ease)"></i></div></td></tr>
+      </table>
+      <p class="note" style="margin-top:12px">ease.out cubic-bezier(.2,.8,.2,1). In game: 48 / 64 / 42 ms with exp smoothing.</p>
+    </div>
+    <div class="panel">
+      <div class="row" style="gap:16px;color:var(--dim)">
+        <svg class="ic ic-18"><use href="#i-play"/></svg><svg class="ic ic-18"><use href="#i-import"/></svg><svg class="ic ic-18"><use href="#i-users"/></svg><svg class="ic ic-18"><use href="#i-user"/></svg><svg class="ic ic-18"><use href="#i-bag"/></svg><svg class="ic ic-18"><use href="#i-layers"/></svg><svg class="ic ic-18"><use href="#i-sliders"/></svg><svg class="ic ic-18"><use href="#i-grid"/></svg><svg class="ic ic-18"><use href="#i-shirt"/></svg><svg class="ic ic-18"><use href="#i-lang"/></svg><svg class="ic ic-18"><use href="#i-access"/></svg><svg class="ic ic-18"><use href="#i-power"/></svg><svg class="ic ic-18"><use href="#i-folder"/></svg><svg class="ic ic-18"><use href="#i-search"/></svg><svg class="ic ic-18"><use href="#i-down"/></svg>
+      </div>
+      <h3 style="margin-top:20px">Tiles only where an icon labels a row</h3>
+      <div class="stack" style="gap:4px;max-width:260px">
+        <div class="menu-i sel" style="background:var(--soft)"><span class="tile" style="--c:var(--hue-emerald)"><svg class="ic"><use href="#i-gauge"/></svg></span>Performance</div>
+        <div class="menu-i"><span class="tile" style="--c:var(--hue-sky)"><svg class="ic"><use href="#i-pad"/></svg></span>Game</div>
+        <div class="menu-i"><span class="tile" style="--c:var(--hue-lilac)"><svg class="ic"><use href="#i-cpu"/></svg></span>Java</div>
+        <div class="menu-i"><span class="tile" style="--c:var(--hue-coral)"><svg class="ic"><use href="#i-rocket"/></svg></span>Startup</div>
+      </div>
+      <p class="note" style="margin-top:8px">Settings rail rows are 36 tall with a 28 tile.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="note" style="margin-top:72px;border-top:1px solid var(--soft);padding-top:16px">Logo, wordmark, Inter (OFL) and version art are the repo's own files, copied unmodified. Player face, installed counts and names are placeholders.</footer>
+</main>
+
+<script>
+// Families from VersionCatalog.cs: key, update name, range, art, installed count.
+const F=[["26","The Latest Releases","26.1 – 26.3","26","2 of 5 installed"],["1.21","Tricky Trials","1.21 – 1.21.11","1.21","2 of 10 installed"],["1.20","Trails & Tales","1.20 – 1.20.4","1.20","Not installed"],["1.19","The Wild Update","1.19.2 – 1.19.4","1.19","Not installed"],["1.18","Caves & Cliffs II","1.18.2","1.18","Not installed"],["1.17","Caves & Cliffs I","1.17.1","1.17","Not installed"],["1.16","The Nether Update","1.16.5","1.16","Not installed"],["1.8","The Bountiful Update","1.8.9","1.8","1 of 1 installed"]];
+const esc=t=>t.replace(/&/g,"&amp;");
+// One card. Selected is the ring alone, so the badge always keeps the installed count.
+function card(f,s){
+  const inst=!f[4].startsWith("Not");
+  const badge='<span class="badge">'+(inst?'<span class="dot dot--ok"></span>':'<span class="dot"></span>')+f[4]+'</span>';
+  return '<span class="vcard '+(s==="sel"?"sel":s==="hov"?"is-hover":"")+'" tabindex="0"><img src="assets/art/'+f[3]+'-tc.jpg" alt="">'+badge+
+    '<span class="plate"><span class="eb">'+esc(f[1])+'</span><span class="numrow"><span class="num">'+f[0]+'</span><span class="range">'+f[2]+'</span></span></span></span>';
+}
+function cards(el,states){el.innerHTML=F.map((f,i)=>card(f,states[i]||"")).join("");}
+// The launcher top bar. The brand lockup is the Website link.
+function bar(name,upd){
+  return '<div class="topbar">'+
+    '<a class="brand" href="#" onclick="return false" title="originclient.org" aria-label="Open originclient.org"><img class="brand-logo" src="assets/origin_logo.png" alt=""><img class="wm" src="assets/wordmark.png" alt="Origin"><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>'+
+    '<nav class="tabs"><span class="tab sel">Home</span><span class="tab">Mods</span><span class="tab">Profiles</span><span class="tab">Settings</span></nav>'+
+    '<div class="bar-r">'+(upd?'<a class="btn btn--ghost upd" href="#" onclick="return false" title="Restart Origin to install the update" aria-label="Update ready: restart to install"><svg class="ic"><use href="#i-down"/></svg><span class="lbl">Update</span><span class="gdot"></span></a>':'')+
+      '<a class="btn btn--ghost store" href="#" onclick="return false" title="Store"><svg class="ic bag"><use href="#i-bag"/></svg><span class="lbl">Store</span><svg class="ic ic-12 ext"><use href="#i-ext"/></svg></a>'+
+      '<button class="btn btn--icon" type="button" aria-label="Import"><svg class="ic"><use href="#i-import"/></svg></button>'+
+      '<button class="btn btn--icon" type="button" aria-label="Friends"><svg class="ic friends"><use href="#i-users"/></svg><span class="count">2</span></button>'+
+      '<span class="vdiv"></span>'+
+      '<span class="acct"><span class="head"><svg><use href="#face"/></svg></span><span class="name">'+name+'</span><svg class="ic ic-12 chev"><use href="#i-chev"/></svg></span>'+
+      '<span style="width:8px;flex:none"></span>'+
+      '<button class="btn btn--icon" type="button" aria-label="Minimise"><svg class="ic ic-12"><use href="#i-min"/></svg></button>'+
+      '<button class="btn btn--icon btn--close" type="button" aria-label="Close"><svg class="ic ic-12"><use href="#i-x"/></svg></button>'+
+    '</div></div>';
+}
+document.querySelectorAll(".bar-slot").forEach(el=>{el.outerHTML=bar(el.dataset.name,el.dataset.update);});
+cards(document.getElementById("families"),["","hov","sel"]);
+cards(document.getElementById("families2"),["sel"]);
+document.getElementById("stepCard").innerHTML=card(F[1],"");
+document.getElementById("ruleCard").innerHTML=card(F[1],"");
+document.getElementById("ruleCard").firstElementChild.classList.add("guides");
+document.getElementById("ruleHome").appendChild(document.querySelector("#homeFrame .win").cloneNode(true));
+
+// Ink alignment: shift each numeral by its first figure's left side bearing so the ink, not the box, sits on the gutter.
+const cv=document.createElement("canvas").getContext("2d");
+function ink(){document.querySelectorAll(".num").forEach(el=>{
+  const fs=parseFloat(getComputedStyle(el).fontSize);cv.font="800 "+fs+"px Inter";
+  el.style.marginLeft=cv.measureText(el.textContent.trim()[0]).actualBoundingBoxLeft+"px";});}
+// Scale fixed-size window mocks to their column.
+function fit(){document.querySelectorAll(".frame").forEach(fr=>{const w=+fr.dataset.w,h=+fr.dataset.h,k=fr.clientWidth/w;fr.style.height=(h*k)+"px";fr.firstElementChild.style.transform="scale("+k+")";});}
+const scaleOf=el=>{const w=el.closest(".win");return w?w.getBoundingClientRect().width/w.offsetWidth:1;};
+// Print the measured gaps and numeral size into the captions, so the preview proves its own rules.
+function measure(){
+  document.querySelectorAll(".navproof").forEach(fr=>{
+    const k=scaleOf(fr.querySelector(".topbar")),r=s=>fr.querySelector(s).getBoundingClientRect();
+    const tabs=fr.querySelectorAll(".tab"),t0=tabs[0].getBoundingClientRect(),t1=tabs[tabs.length-1].getBoundingClientRect();
+    const gl=Math.round((t0.left-r(".brand").right)/k),gr=Math.round((r(".bar-r").left-t1.right)/k);
+    const m=fr.parentElement.querySelector(".m");m.textContent="Measured: "+gl+" px from the brand to the tabs, "+gr+" px from the tabs to the right group.";
+    m.style.color=(gl>=24&&gr>=24)?"":"var(--danger-text)";
+  });
+  const n=document.querySelector("#homeFrame .num"),k=scaleOf(n),b=n.getBoundingClientRect(),fs=parseFloat(getComputedStyle(n).fontSize);
+  cv.font="800 "+fs+"px Inter";cv.letterSpacing=(-.04*fs)+"px";const mm=cv.measureText(n.textContent);cv.letterSpacing="0px";
+  const h=Math.round(b.height/k),w=Math.round(mm.actualBoundingBoxLeft+mm.actualBoundingBoxRight);
+  document.getElementById("homeM").textContent="Measured: figures "+h+" px tall ("+Math.round(h/740*100)+" % of 740), ink "+w+" px wide ("+Math.round(w/1180*100)+" % of 1180), font "+fs+" px.";
+}
+// Dashed guides on the two rule figures: cap line, ground line, gutter.
+function guides(){
+  document.querySelectorAll(".guides .gl,.guides .gl-t").forEach(e=>e.remove());
+  [document.querySelector("#ruleCard .vcard"),document.querySelector("#ruleHome .win")].forEach(host=>{
+    if(!host)return;const n=host.querySelector(".num"),k=scaleOf(n)||1,hr=host.getBoundingClientRect(),r=n.getBoundingClientRect();
+    const top=(r.top-hr.top)/k,bot=(r.bottom-hr.top)/k,left=(r.left-hr.left)/k-parseFloat(n.style.marginLeft||0),right=(r.right-hr.left)/k;
+    const big=host.classList.contains("win"),fz=big?2.2:1;
+    const add=(cls,css,txt)=>{const e=document.createElement("span");e.className=cls;e.style.cssText=css;if(txt)e.textContent=txt;host.appendChild(e);};
+    add("gl h","top:"+top+"px");add("gl h","top:"+bot+"px");add("gl v","left:"+left+"px");
+    const hh=host.offsetHeight,lab=(y,txt)=>add("gl-t","top:"+y+"px;right:"+(8*fz)+"px;transform:scale("+fz+");transform-origin:100% 0",txt);
+    lab(top-20*fz,"figures 25 % of height");lab(bot-20*fz,"ground line");
+    add("gl-t","top:"+(hh*.4)+"px;left:"+(left+6*fz)+"px;transform:scale("+fz+");transform-origin:0 0","gutter");
+  });
+}
+function all(){ink();fit();measure();guides();}
+addEventListener("resize",all);all();
+document.fonts&&document.fonts.ready.then(all);
+</script>
+
+</body>
+</html>
