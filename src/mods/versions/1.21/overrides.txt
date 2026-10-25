@@ -91,8 +91,8 @@ client/java/com/origin/client/client/shaders/ShaderDownloader.java
 client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
 
 # DELIBERATE FORK (2026-10-18) — launch experience v2 (ported from 1.21.1). The world-loading
-# screen hands the real chunk progress (LevelLoadingScreenAccessor) to the living-
-# rings loading scene. Promote to shared/ when the other versions get the rings.
+# screen hands the real chunk progress (LevelLoadingScreenAccessor) to the Origin
+# loading picture (LoadingLook).
 client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
 
 # DELIBERATE FORK (cosmetics v2) - menu themes. The palette tokens are runtime
@@ -106,3 +106,8 @@ client/java/com/origin/client/client/theme/OriginTheme.java
 # Button Style option is gone (Mods.java, already forked above). Promote to
 # shared/ (delete this line) when the look is ported to every version.
 client/java/com/origin/client/client/OriginStyle.java
+
+# DELIBERATE FORK (2026-10-25) - rings out, as on 1.21.1: "Connecting to the server"
+# draws the one Origin loading picture (LoadingLook: logo, sweeping bar, the status as
+# the caption) and seats vanilla's Cancel below it. shared/ still has the old TAIL bar.
+client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java

@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    module automatically shows its own), vanilla's blur, a dim and a soft
 //    vignette (OriginScreenRenderer.renderMenuBackdrop).
 //  - Origin's own screens (Right Shift mod menu, HUD editor, ...): unchanged,
-//    the charcoal + rings backdrop with the cursor spotlight.
+//    the charcoal backdrop (glow, grain, vignette) with the cursor spotlight.
 //
 // Gated on Minecraft.level == null: in-game screens (pause, in-game options)
 // keep vanilla's blurred-world backdrop -- replacing that would hide the world

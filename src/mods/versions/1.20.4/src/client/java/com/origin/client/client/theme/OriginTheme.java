@@ -108,12 +108,16 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT = 0xFFF3F4F6;
 	public static final int CLEAN_TEXT_DIM = 0xA8F3F4F6;       // 66%
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
-	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
+	public static final int CLEAN_BG = 0xFF0E1110;             // color.bg: the loading picture's backdrop (as 1.21.1)
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
 	public static final int CLEAN_DIM_TITLE = 0x590B0C0F;      // title (~35%)
 	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)
-	public static final int CLEAN_BAR_TRACK = 0x29FFFFFF;      // loading bar track, white 16%
-	public static final int CLEAN_BAR_FILL = 0xEBFFFFFF;       // loading bar fill, white 92%
+	// The loading picture (render/LoadingLook, as 1.21.1): every loading, connecting
+	// and world-load screen reads its colours here.
+	public static final int CLEAN_BAR_TRACK = 0x14FFFFFF;      // progress bar track, white 8 %
+	public static final int CLEAN_BAR_FILL = 0xFF5FD09B;       // progress bar fill, accent
+	public static final int CLEAN_CAPTION = 0xADF1E9D2;        // the stage caption, color.textDim (68 %)
+	public static final float CLEAN_CAPTION_EM = 8.0f;         // caption size, GUI px (1.21.1's TITLE_SMALL_EM)
 
 	// ---- Motion: immediate response with a short, readable settle ----
 	public static final double HOVER_IN_MS = 48.0;
