@@ -91,6 +91,8 @@ public class OriginClientMod {
 		OriginHooks.registerObject(instance);
 		// Every area's hooks class (Menu, ModMenu, Hud, World, Social, Server).
 		OriginHooks.registerAll();
+		// Benchmark mode (-Dorigin.bench=..., tools/bench/bench-189.ps1): off for players.
+		OriginBench.install();
 		// Resource Pack Hub: finish uninstalls that had to wait for Minecraft to
 		// release a pack (now, and after every resource reload). Its "Browse Packs"
 		// button on the Resource Packs screen is added by MenuHooks.
