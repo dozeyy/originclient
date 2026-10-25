@@ -287,6 +287,25 @@ def require_valid(agg):
         raise SummaryError("no usable measurement: " + "; ".join(problems))
 
 
+REGRESSION_METRICS = ("avgFps", "low1Fps")   # the two numbers a player feels; higher is better for both
+
+
+def check_regression(agg, max_pct):
+    """Opt-in gate: raise if any non-baseline variant's median avg FPS or 1% low is worse than the baseline's by
+    more than max_pct percent, in any scene. Not a default: a CI runner is noisy, so the caller picks the N."""
+    if max_pct < 0:
+        raise SummaryError("--max-regression-pct must be >= 0, got %s" % max_pct)
+    bad = []
+    for vname, scenes in agg["deltaPctVsBaseline"].items():
+        for sc, row in scenes.items():
+            for name in REGRESSION_METRICS:
+                v = row.get(name)
+                if v is not None and v < -max_pct:
+                    bad.append("%s %s %s %+.1f%% vs %s" % (vname, sc, name, v, agg["baseline"]))
+    if bad:
+        raise SummaryError("regression beyond %g%%: %s" % (max_pct, "; ".join(bad)))
+
+
 def _cell(spread, places=1):
     if not spread:
         return "-"
@@ -358,6 +377,9 @@ def main(argv=None):
     p_agg.add_argument("--require-valid", action="store_true",
                        help="exit 2 if any variant has no counted run of a scene (all runs invalid)")
     p_agg.add_argument("--baseline", help="variant to compare the others with (default: first alphabetically)")
+    p_agg.add_argument("--max-regression-pct", type=float, default=None, metavar="N",
+                       help="opt-in: exit 2 if any variant's avg FPS or 1%% low is worse than the baseline's by "
+                            "more than N percent (the summary files are still written first)")
     args = ap.parse_args(argv)
     try:
         if args.cmd == "run":
@@ -376,6 +398,8 @@ def main(argv=None):
             md = to_markdown(agg)
             _write(args.md or os.path.join(args.root, "summary.md"), md)
             sys.stdout.write(md)
+            if args.max_regression_pct is not None:
+                check_regression(agg, args.max_regression_pct)   # after the write: the numbers stay in the artifact
     except SummaryError as e:
         sys.stderr.write("summarize: FAILED: %s\n" % e)
         return 2

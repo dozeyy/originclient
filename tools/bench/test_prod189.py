@@ -415,6 +415,38 @@ class Presets(Tmp):
             names = [ln.split(":")[0] for ln in f if ln.strip() and not ln.startswith("#")]
         self.assertEqual(len(names), len(set(names)), "duplicate key in the list")
 
+    def test_an_optifine_key_under_options_is_refused(self):
+        """of* / key_of.* in "options" would skip the verified-list check, so it is refused outright."""
+        keys = self._w("keys.txt", "ofFastRender\n")
+        for stray in ("ofFastRender", "ofMadeUp", "ofRenderRegions", "key_of.key.zoom"):
+            preset = self._w("p.json", json.dumps({"options": {"maxFps": "260", stray: "1"}}))
+            game = self._game()
+            with self.assertRaises(P.ProvisionError, msg=stray) as c:
+                P.apply_preset(game, preset, keys)
+            self.assertIn(stray, str(c.exception))
+            self.assertFalse(os.path.exists(os.path.join(game, "options.txt")), "nothing is written on refusal")
+            shutil.rmtree(game)
+
+    def test_vanilla_keys_that_merely_contain_of_are_not_refused(self):
+        preset = self._w("p.json", json.dumps({"options": {"fov": "70.0", "forceUnicodeFont": "false",
+                                                           "key_key.forward": "17"}}))
+        P.apply_preset(self._game(), preset, self.p("nope.txt"))
+
+    def test_every_committed_preset_validates(self):
+        """Phase 6.2 puts the 1.8.9 presets in tools/bench/presets-189/*.json (the same shape apply_preset reads).
+        Every one must pass the real key list here, so a typo'd OptiFine key fails CI, not a player's launch.
+        Skipped until that folder has presets; if 6.2 keeps them elsewhere, change presets_dir below."""
+        presets_dir = os.path.join(HERE, "presets-189")
+        files = sorted(f for f in (os.listdir(presets_dir) if os.path.isdir(presets_dir) else [])
+                       if f.endswith(".json"))
+        if not files:
+            self.skipTest("no presets-189/*.json yet (arrives with Phase 6.2)")
+        for name in files:
+            with self.subTest(preset=name):
+                game = self.p("game-" + name)
+                os.makedirs(game)
+                P.apply_preset(game, os.path.join(presets_dir, name))
+
     def test_malformed_preset_is_refused(self):
         preset = self._w("p.json", "[1,2]")
         with self.assertRaises(P.ProvisionError):

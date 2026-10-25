@@ -440,6 +440,7 @@ def prepare_game_dir(game_dir, variant, origin_jar, optifine_jar, stack_jars, ex
     return record
 
 
+OPTIFINE_KEY = re.compile(r"^(of|key_of\.)")   # OptiFine's own keys; vanilla options.txt has none starting "of"
 KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "optifine-keys-189.txt")
 
 
@@ -463,6 +464,12 @@ def apply_preset(game_dir, preset_path, keys_path=KEYS_FILE):
             or not isinstance(preset.get("optionsof", {}), dict):
         raise ProvisionError("%s: a preset is {\"options\": {...}, \"optionsof\": {...}}" % preset_path)
     of = preset.get("optionsof", {})
+    # An OptiFine key put under "options" would dodge the verified-list check below (and OptiFine would ignore
+    # it in options.txt anyway), so refuse it there: every of* / key_of.* key belongs in "optionsof".
+    stray = sorted(k for k in preset.get("options", {}) if OPTIFINE_KEY.match(k))
+    if stray:
+        raise ProvisionError("%s: OptiFine keys belong under \"optionsof\", not \"options\": %s"
+                             % (preset_path, ", ".join(stray)))
     if of:
         known = load_key_list(keys_path)
         if not known:

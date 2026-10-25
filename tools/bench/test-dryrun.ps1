@@ -19,10 +19,14 @@ function Check([bool]$ok, [string]$what) {
 	if ($ok) { Write-Host "  PASS  $what" } else { Write-Host "  FAIL  $what"; $script:failed++ }
 }
 
-function Run-Bench([string]$out, [string]$fixtureDir) {
-	$a = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script, "-DryRun", "-Baseline", "-OutDir", $out, "-FixtureDir", $fixtureDir)
-	$o = & $ps @a 2>&1 | Out-String
-	return @{ code = $LASTEXITCODE; text = $o }
+function Run-Bench([string]$out, [string]$fixtureDir, [string[]]$extra = @()) {
+	$a = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script, "-DryRun", "-Baseline", "-OutDir", $out, "-FixtureDir", $fixtureDir) + $extra
+	# A `throw` in the script writes to stderr; Windows PowerShell 5.1 turns that into a terminating error here
+	# unless the preference is relaxed for this call. Console wrapping is folded to single spaces for the Contains checks.
+	$old = $ErrorActionPreference
+	$ErrorActionPreference = "Continue"
+	try { $o = & $ps @a 2>&1 | Out-String; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+	return @{ code = $code; text = ($o -replace "\s+", " ") }
 }
 
 try {
@@ -87,6 +91,49 @@ try {
 	$r4 = Run-Bench (Join-Path $work "trunc") $fx4
 	Check ($r4.code -ne 0) "exit code is not 0 (got $($r4.code))"
 	Check ($r4.text.Contains("truncated")) "message says truncated"
+
+	# 5. no origin-default: stop, never quietly re-baseline; -SkipOriginDefault is the explicit way through
+	Write-Host "5. missing origin-default stops the run unless skipped on purpose"
+	$fx5 = Join-Path $work "fx-noorigin"
+	Copy-Item -Recurse $fixtures $fx5
+	Remove-Item -Recurse -Force (Join-Path $fx5 "origin-default")
+	$r5 = Run-Bench (Join-Path $work "noorigin") $fx5
+	Check ($r5.code -ne 0) "exit code is not 0 (got $($r5.code))"
+	Check ($r5.text.Contains("origin-default") -and $r5.text.Contains("-SkipOriginDefault")) "message names origin-default and the switch"
+	Check (-not (Test-Path (Join-Path $work "noorigin/report.md"))) "no report.md is written with a silently changed baseline"
+	$r5b = Run-Bench (Join-Path $work "noorigin-ok") $fx5 @("-SkipOriginDefault")
+	Check ($r5b.code -eq 0) "with -SkipOriginDefault it runs (got $($r5b.code))"
+	$s5 = Get-Content (Join-Path $work "noorigin-ok/summary.json") -Raw | ConvertFrom-Json
+	Check ($s5.baseline -eq "optifine-only") "and the baseline is the OptiFine-only variant, said in summary.json"
+
+	# 6. every run of a variant invalid (summarizer --require-valid is passed): not a green report of empty tables
+	Write-Host "6. a variant with no valid run fails"
+	$fx6 = Join-Path $work "fx-allinvalid"
+	Copy-Item -Recurse $fixtures $fx6
+	foreach ($n in 1, 2, 3) {
+		$bp = Join-Path $fx6 "origin-default/run-$n/bench.json"
+		$b = Get-Content $bp -Raw | ConvertFrom-Json
+		foreach ($sc in $b.scenarios) { if ($sc.scenario -eq "idle") { $sc.valid = $false } }
+		[System.IO.File]::WriteAllText($bp, ($b | ConvertTo-Json -Depth 10), (New-Object System.Text.UTF8Encoding($false)))
+	}
+	$r6 = Run-Bench (Join-Path $work "allinvalid") $fx6
+	Check ($r6.code -ne 0) "exit code is not 0 (got $($r6.code))"
+	Check ($r6.text.Contains("SUMMARY FAILED") -and $r6.text.Contains("origin-default")) "message names the variant with no valid run"
+	Check (-not (Test-Path (Join-Path $work "allinvalid/report.md"))) "no report.md from a bench with no usable measurement"
+
+	# 7. every run of a variant left out as busy: the variant vanishes from the folders, so it is caught by name
+	Write-Host "7. a variant whose every run was busy fails"
+	$fx7 = Join-Path $work "fx-allbusy"
+	Copy-Item -Recurse $fixtures $fx7
+	foreach ($n in 1, 2, 3) {
+		$mp7 = Join-Path $fx7 "competitive/run-$n/meta.json"
+		$m7 = Get-Content $mp7 -Raw | ConvertFrom-Json
+		$m7.otherCpuPct = 45
+		[System.IO.File]::WriteAllText($mp7, ($m7 | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+	}
+	$r7 = Run-Bench (Join-Path $work "allbusy") $fx7
+	Check ($r7.code -ne 0) "exit code is not 0 (got $($r7.code))"
+	Check ($r7.text.Contains("NO COUNTED RUN") -and $r7.text.Contains("competitive")) "message names the variant with no counted run"
 }
 finally {
 	Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue

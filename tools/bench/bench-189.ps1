@@ -46,6 +46,9 @@
 .PARAMETER DryRun          Report from fixtures, no game.
 .PARAMETER FixtureDir      Fixture runs for -DryRun (default tools\bench\fixtures\dryrun).
 .PARAMETER Force           Run even if a java/javaw process is already running.
+.PARAMETER SkipOriginDefault  Allow a run with no origin-default variant. Without it the script stops: every
+                           comparison is against origin-default, and quietly re-basing on another variant
+                           would make every percentage in the report mean something else.
 #>
 param(
 	[int]$Runs = 3,
@@ -62,7 +65,8 @@ param(
 	[int]$Height = 1080,
 	[switch]$DryRun,
 	[string]$FixtureDir = "",
-	[switch]$Force
+	[switch]$Force,
+	[switch]$SkipOriginDefault
 )
 
 $ErrorActionPreference = "Stop"
@@ -126,6 +130,11 @@ if ($DryRun) {
 	}
 }
 if ($active.Count -eq 0) { throw "No variant can run." }
+# No silent re-baseline: the report compares everything with origin-default. Missing it is an error unless
+# the caller said so with -SkipOriginDefault.
+if (($active -notcontains "origin-default") -and -not $SkipOriginDefault) {
+	throw "origin-default is not among the variants that can run ($($active -join ', ')), so there is no baseline to compare with. Add it, or pass -SkipOriginDefault to compare against '$($active[0])' on purpose."
+}
 foreach ($s in $skipped) { Say "Skipping $($s.name): $($s.why)" }
 
 # ---- this PC ----
@@ -274,10 +283,19 @@ if ($DryRun) {
 
 # ---- numbers: summarize.py does the maths from the raw frames ----
 $label = $(if ($DryRun) { "DRY RUN, synthetic fixtures" } else { "this PC, real GPU" })
-$baselineName = $(if ($active -contains "origin-default") { "origin-default" } else { $active[0] })
+# origin-default is the baseline; only -SkipOriginDefault (checked above) lets it be another variant.
+$baselineName = $(if ($active -contains "origin-default") { "origin-default" } elseif ($active -contains "optifine-only") { "optifine-only" } else { $active[0] })
+# A variant whose every run was left out (busy PC, failed launch) has no run-<n> folder, so the summarizer would
+# not even know it existed. Catch that here: a variant that was asked for and has no counted run is a failure.
+$noRuns = @($active | Where-Object { @(Get-ChildItem -Path (Join-Path $outRoot $_) -Directory -Filter "run-*" -ErrorAction SilentlyContinue).Count -eq 0 })
+if ($noRuns.Count -gt 0) {
+	Say "NO COUNTED RUN for: $($noRuns -join ', ') (every run was busy, failed or missing; see left-out-* in $outRoot)."
+	exit 2
+}
 $sumJson = Join-Path $OutDir "summary.json"
 $sumMd = Join-Path $OutDir "summary.md"
-$sumArgs = $py.pre + "`"$summarizer`" aggregate `"$outRoot`" --out `"$sumJson`" --md `"$sumMd`" --label `"$label`" --baseline $baselineName"
+# --require-valid: a variant whose runs were all invalid (unfocused / camera off / truncated) must fail, not print empty tables.
+$sumArgs = $py.pre + "`"$summarizer`" aggregate `"$outRoot`" --out `"$sumJson`" --md `"$sumMd`" --label `"$label`" --baseline $baselineName --require-valid"
 $sp = Start-Process -FilePath $py.exe -ArgumentList $sumArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput (Join-Path $OutDir "summarize.out.txt") -RedirectStandardError (Join-Path $OutDir "summarize.err.txt")
 if ($sp.ExitCode -ne 0) {
 	Say "SUMMARY FAILED (exit $($sp.ExitCode)): $((Get-Content (Join-Path $OutDir 'summarize.err.txt') -Raw))"

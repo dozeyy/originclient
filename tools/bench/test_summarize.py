@@ -89,6 +89,26 @@ class KnownNumbers(Tmp):
         self.assertEqual(st["stdevMs"], 5.6)
         self.assertEqual(st["hitches20ms"], 20)
 
+    def test_mixed_slow_tail_pins_the_1pct_and_01pct_windows(self):
+        """2000 frames: 1980 x 10 ms, 10 x 50 ms, 10 x 30 ms. By hand:
+        1 % window = ceil(2000*0.01) = 20 frames = the 10 x 50 + 10 x 30 -> mean 40 ms -> 25.0 fps.
+        0.1 % window = ceil(2000*0.001) = 2 frames = both 50 ms -> 20.0 fps.
+        A doubled window (40 frames) would add 20 x 10 ms -> mean 25 ms -> 40 fps; a halved 1 % window
+        (10 frames, all 50 ms) would give 20 fps, so 25.0 fails both mistakes. total 20.6 s -> avg 97.09 fps.
+        p50 = p95 = p99 = 10 ms (the 99th percentile is rank 1980, still a 10 ms frame)."""
+        path = self.p("tail.csv")
+        write_csv(path, [10 * MS] * 900 + [50 * MS] * 10 + [10 * MS] * 540 + [30 * MS] * 10 + [10 * MS] * 540)
+        st = S.frame_stats(S.read_frames(path))
+        self.assertEqual(st["frames"], 2000)
+        self.assertEqual(st["seconds"], 20.6)
+        self.assertEqual(st["avgFps"], 97.1)
+        self.assertEqual(st["low1Fps"], 25.0)
+        self.assertEqual(st["low01Fps"], 20.0)
+        self.assertEqual(st["p50Ms"], 10.0)
+        self.assertEqual(st["p99Ms"], 10.0)
+        self.assertEqual(st["maxMs"], 50.0)
+        self.assertEqual(st["hitches20ms"], 20)
+
     def test_order_of_frames_does_not_change_the_numbers(self):
         a, b = self.p("a.csv"), self.p("b.csv")
         fr = known_frames()
@@ -316,6 +336,40 @@ class Aggregate(Tmp):
         self.build()
         S.require_valid(S.aggregate(self.p("root"), baseline="optifine-only"))
         self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only", "--require-valid"]), 0)
+
+    def _slow_variant(self, factor):
+        """A third variant whose every frame is `factor` x the baseline's 10 ms (so avg FPS and 1 % low drop)."""
+        for i in (1, 2, 3):
+            write_run(self.p("root", "slow", "run-%d" % i), {"idle": ([int(10 * factor * MS)] * 400, {})})
+
+    def test_max_regression_pct_fails_on_a_x13_frame_time(self):
+        self.build()
+        self._slow_variant(1.3)
+        agg = S.aggregate(self.p("root"), baseline="optifine-only")
+        # 13 ms frames = 76.9 fps against 100: -23.1 % on both avg FPS and 1 % low
+        self.assertEqual(agg["deltaPctVsBaseline"]["slow"]["idle"]["avgFps"], -23.1)
+        self.assertEqual(agg["deltaPctVsBaseline"]["slow"]["idle"]["low1Fps"], -23.1)
+        with self.assertRaises(S.SummaryError) as c:
+            S.check_regression(agg, 15)
+        self.assertIn("slow idle avgFps -23.1%", str(c.exception))
+        self.assertIn("slow idle low1Fps", str(c.exception))
+        S.check_regression(agg, 25)      # a looser limit lets it through
+        base = ["aggregate", self.p("root"), "--baseline", "optifine-only"]
+        with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(S.main(base + ["--max-regression-pct", "15"]), 2)
+            self.assertEqual(S.main(base + ["--max-regression-pct", "25"]), 0)
+            self.assertEqual(S.main(base), 0)   # opt-in: without the flag nothing is gated
+        # the summary is written before the gate trips, so a red run still leaves its numbers behind
+        self.assertTrue(os.path.isfile(self.p("root", "summary.json")))
+
+    def test_max_regression_pct_ignores_gains_and_is_not_fooled_by_a_better_variant(self):
+        self.build()      # origin-default is +25 % over the baseline
+        S.check_regression(S.aggregate(self.p("root"), baseline="optifine-only"), 0)
+
+    def test_max_regression_pct_rejects_a_negative_limit(self):
+        self.build()
+        with self.assertRaises(S.SummaryError):
+            S.check_regression(S.aggregate(self.p("root"), baseline="optifine-only"), -1)
 
     def test_unknown_baseline_fails(self):
         self.build()

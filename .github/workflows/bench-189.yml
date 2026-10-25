@@ -44,6 +44,12 @@ on:
 permissions:
   contents: read
 
+# Every `run:` step is bash WITH pipefail (the default `bash -e {0}` has none): a `... | tee` must not
+# hide the failing command's exit code, or an all-invalid bench would end green (verify-auditor, 2026-10-25).
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: bench-189-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.label || github.sha }}
   cancel-in-progress: true
@@ -190,7 +196,11 @@ jobs:
         if: always()
         run: |
           OUT="artifacts/bench-189/out"
-          python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --require-valid --label "CI, relative only" \
+          # --max-regression-pct 20: fail only on a big drop of Origin vs the OptiFine-only baseline. A CI runner is
+          # 4 shared vCPUs on a software renderer; the one clean sample so far (run 40182245060, 2 runs each) showed
+          # up to -12.4% on 1% low from noise alone, so 15 would flake. More than 20% is a real per-frame cost.
+          python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --require-valid \
+            --max-regression-pct 20 --label "CI, relative only" \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: OptiFine option keys (U6.0)
