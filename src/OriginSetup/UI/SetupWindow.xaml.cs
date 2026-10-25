@@ -263,7 +263,13 @@ public partial class SetupWindow : Window
         LocationText.Visibility = editing ? Visibility.Hidden : Visibility.Visible;
         if (editing) LocationField.BorderBrush = (Brush)FindResource("Brush.AccentBorder");
         else LocationField.ClearValue(Border.BorderBrushProperty);
-        if (editing) LocationBox.CaretIndex = LocationBox.Text.Length;
+        if (editing)
+        {
+            // Caret at the end, and scrolled so the end of a long path is what shows (as the box always did).
+            LocationBox.CaretIndex = LocationBox.Text.Length;
+            LocationBox.UpdateLayout();
+            LocationBox.ScrollToHorizontalOffset(LocationBox.ExtentWidth);
+        }
         else WindowFrame.FitPath(LocationText, _location);
     }
 

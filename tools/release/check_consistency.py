@@ -84,17 +84,39 @@ def check_handoff() -> list[str]:
 # hard-coded here except the list of keys that are allowed to differ and why: a key that differs and is NOT listed
 # fails the build, and a listed key that has started to agree fails too ("remove it"), so the list cannot rot.
 # When the launcher palette moves to the Workbench set (Phase 3, unit U3.0) its Color.* entries start to agree and
-# the Color. exception below must be deleted.
+# its Color.* entries below must be deleted.
 THEME_FAMILIES = ("Color.", "Size.Control", "Radius.", "Font.", "FontSize.", "LineHeight.", "Space.")
 
-# prefix -> why the two files may differ today. A prefix is "in use" while at least one common key under it differs.
+# Exact key -> why the two files differ TODAY. Every reason is temporary ("until U3.0"): Phase 3 unit U3.0 moves the
+# launcher onto the Workbench tokens, and each entry is deleted as its key starts to agree (the check fails on an entry
+# that already agrees, and on a key that no longer exists, so the list cannot outlive the difference).
+_UNTIL_U30_COLOR = "launcher palette is the old monochrome set until U3.0 moves it to Workbench; the installer is already Workbench"
 KNOWN_DIVERGENCE = {
-    "Color.": "launcher palette is still the old monochrome set until U3.0 moves it to Workbench; the installer is already Workbench",
-    "Size.Control": "installer controls are 28/32/36 (Sm/Md/Lg) in a 640 x 440 window, the launcher's 32/40/48 (Sm/Control/Lg) fill a 1080p window",
-    "FontSize.Display": "installer hero title is 32, the launcher's Play-screen display is 40",
-    "Space.": "installer spacing is a 4-based ladder with 12/20 steps (Space.3 = 12), the launcher's is 4/8/16/24/32/48",
+    "Color.Accent": _UNTIL_U30_COLOR,
+    "Color.AccentBorder": _UNTIL_U30_COLOR,
+    "Color.AccentHover": _UNTIL_U30_COLOR,
+    "Color.AccentPress": _UNTIL_U30_COLOR,
+    "Color.Bg": _UNTIL_U30_COLOR,
+    "Color.BgAlt": _UNTIL_U30_COLOR,
+    "Color.Card": _UNTIL_U30_COLOR,
+    "Color.CardAlt": _UNTIL_U30_COLOR,
+    "Color.Danger": _UNTIL_U30_COLOR,
+    "Color.Panel": _UNTIL_U30_COLOR,
+    "Color.SoftStroke": _UNTIL_U30_COLOR,
+    "Color.Stroke": _UNTIL_U30_COLOR,
+    "Color.Success": _UNTIL_U30_COLOR,
+    "Color.Text": _UNTIL_U30_COLOR,
+    "Color.TextDim": _UNTIL_U30_COLOR,
+    "Color.TextMuted": _UNTIL_U30_COLOR,
+    "Color.TextOnAccent": _UNTIL_U30_COLOR,
+    "Size.ControlSm": "installer 28 vs launcher 32, until U3.0 aligns the control sizes",
+    "Size.ControlLg": "installer 36 vs launcher 48, until U3.0 aligns the control sizes",
+    "FontSize.Display": "installer hero title 32 vs launcher 40, until U3.0 settles the display size",
+    "Space.3": "installer 12 vs launcher 16, until U3.0 aligns the spacing ladder",
+    "Space.4": "installer 16 vs launcher 24, until U3.0 aligns the spacing ladder",
+    "Space.5": "installer 20 vs launcher 32, until U3.0 aligns the spacing ladder",
+    "Space.6": "installer 24 vs launcher 48, until U3.0 aligns the spacing ladder",
 }
-
 
 # (launcher key, installer key): the launcher names corner radii by role, the installer by size.
 PAIRED_KEYS = [
@@ -136,13 +158,14 @@ def check_theme_parity() -> list[str]:
 
     differing = [k for k in common if launcher[k] != setup[k]]
     for key in differing:
-        if not any(key.startswith(prefix) for prefix in KNOWN_DIVERGENCE):
+        if key not in KNOWN_DIVERGENCE:
             problems.append(f"{key}: launcher {launcher[key]!r} vs installer {setup[key]!r} "
                             f"(the two apps share this token; make them agree, or list it in KNOWN_DIVERGENCE with the reason)")
-    for prefix, why in KNOWN_DIVERGENCE.items():
-        under = [k for k in common if k.startswith(prefix)]
-        if under and not any(k in differing for k in under):
-            problems.append(f"KNOWN_DIVERGENCE {prefix!r} ({why}) now agrees in every shared key; delete the entry")
+    for key, why in KNOWN_DIVERGENCE.items():
+        if key not in common:
+            problems.append(f"KNOWN_DIVERGENCE {key!r} is no longer defined in both files; delete the entry")
+        elif key not in differing:
+            problems.append(f"KNOWN_DIVERGENCE {key!r} ({why}) now agrees; delete the entry")
 
     # Same job under a different name: launcher key -> installer key. The names are listed, the values are read.
     for lk, sk in PAIRED_KEYS:
