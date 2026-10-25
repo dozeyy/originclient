@@ -406,6 +406,15 @@ class Presets(Tmp):
         with self.assertRaises(P.ProvisionError):
             P.apply_preset(self._game(), preset, self.p("nope.txt"))
 
+    def test_the_committed_key_list_is_the_verified_72(self):
+        keys = P.load_key_list()
+        self.assertEqual(len(keys), 72)
+        self.assertTrue(all(k.startswith("of") or k == "key_of.key.zoom" for k in keys))
+        self.assertIn("ofFastRender", keys)
+        with open(P.KEYS_FILE, encoding="utf-8") as f:
+            names = [ln.split(":")[0] for ln in f if ln.strip() and not ln.startswith("#")]
+        self.assertEqual(len(names), len(set(names)), "duplicate key in the list")
+
     def test_malformed_preset_is_refused(self):
         preset = self._w("p.json", "[1,2]")
         with self.assertRaises(P.ProvisionError):
