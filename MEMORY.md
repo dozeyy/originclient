@@ -175,3 +175,8 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 ## 2026-10-25 — Website assistant Anthropic key disabled
 - Will disabled the origin-assistant-api Worker's Anthropic API key in the Claude Console (2026-10-25). Closes the archive note at line 5552. The Cloudflare Worker itself may still exist (not checked).
 - Will deleted the Cloudflare Worker too (2026-10-25). Website assistant fully gone.
+
+## 2026-10-25 — Rings retired on every version (only the real logo)
+- Will: "the only place you can use the oval shapes thing is our logo". Title orbit rings, the ring loading animation and the ring backdrop (Mod Menu, HUD editor, Origin windows) are deleted on all 21 live modules; loading/connecting = origin_logo.png at 44% + a 200 design px capsule bar (LoadingLook), RingField cut to SceneClock. Title dock hover cards hidden (narration kept). Merges da702dc1e (1.21.1) and 8f4014045..4a2b9efcd (others); shared ring art deleted in 01f009a13; check_logo.py now fails on ring art outside the pulled 1.21.5/1.12.2.
+- Proof: boot-smoke zero `Mixin apply ... failed` on every module; dev-shots 95-117 PNGs per module, sheets show no rings; main build-check 40230306341 green. Gated deploy left.
+- Open: other versions' title screens still have the old look (pixel wordmark, coloured dock icons) — 1.21.1's Workbench title isn't ported yet.
