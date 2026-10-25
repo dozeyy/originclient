@@ -70,8 +70,10 @@ public static class UpdateService
     // The gate's state machine (Core/Updates/UpdateGate.cs). Always touched under lock (Gate): the poll loop,
     // the focus check, Play and the badge click all reach it from different continuations.
     private static readonly UpdateGate Gate = new();
-    // The version whose zip sits verified on disk from a quiet retry (the badge click then skips the download).
-    private static Version? _verifiedZipVersion;
+    // The zip that sits verified on disk from a quiet retry (the badge click then skips the download), with the
+    // hash it was verified against: it is hashed again right before it is extracted (it may sit there for hours).
+    private sealed record VerifiedZip(Version Version, string Sha256);
+    private static VerifiedZip? _verifiedZip;
 
     /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen.</summary>
     public static event EventHandler? AvailableChanged;
@@ -142,7 +144,7 @@ public static class UpdateService
     // One zip (and one .part) per version, so two downloads of different releases never share a file.
     private const string ZipPrefix = "OriginLauncher-win-x64";
     private static string ZipPathFor(Version version) =>
-        Path.Combine(OriginPaths.Root, "updates", $"{ZipPrefix}-{version}.zip");
+        Path.Combine(OriginPaths.Updates, $"{ZipPrefix}-{version}.zip");
 
     // Removes zips/.part files of versions nobody is fetching or offering (quit before applying, killed
     // mid-download). Never throws; a locked file is skipped. Keeps the version being fetched, the one offered
@@ -151,10 +153,11 @@ public static class UpdateService
     {
         try
         {
-            Version? offered, verified;
-            lock (Gate) { offered = Available?.Version; verified = _verifiedZipVersion; }
+            Version? offered;
+            VerifiedZip? verified;
+            lock (Gate) { offered = Available?.Version; verified = _verifiedZip; }
             var n = UpdateVerifier.DeleteStaleDownloads(
-                Path.Combine(OriginPaths.Root, "updates"), ZipPrefix, fetching, offered, verified);
+                OriginPaths.Updates, ZipPrefix, fetching, offered, verified?.Version);
             if (n > 0) Log($"removed {n} stale update download file(s)");
         }
         catch (Exception) { /* housekeeping only */ }
@@ -171,11 +174,11 @@ public static class UpdateService
             var zipPath = ZipPathFor(update.Version);
             Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
             CleanStaleDownloads(update.Version);
-            await DownloadVerifiedAsync(update, zipPath, null).ConfigureAwait(false);
+            var sha256 = await DownloadVerifiedAsync(update, zipPath, null).ConfigureAwait(false);
             lock (Gate) Gate.Verified(update.Version);
             if (TryPublish(update))
             {
-                _verifiedZipVersion = update.Version;
+                _verifiedZip = new VerifiedZip(update.Version, sha256);
                 Log($"update {update.Version}: quiet retry verified, offering it now");
             }
             else
@@ -237,7 +240,7 @@ public static class UpdateService
 
     private static async Task DownloadStageAndRestartAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress, Action markRestarting)
     {
-        var updatesRoot = Path.Combine(OriginPaths.Root, "updates");
+        var updatesRoot = OriginPaths.Updates;
         Directory.CreateDirectory(updatesRoot);
         CleanStaleDownloads(update.Version);
         var stageDir = Path.Combine(updatesRoot, update.Version.ToString());
@@ -247,10 +250,14 @@ public static class UpdateService
 
         progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
         var zipPath = ZipPathFor(update.Version);
-        // A quiet retry may already have fetched and verified this very zip.
-        if (_verifiedZipVersion != update.Version || !File.Exists(zipPath))
+        // A quiet retry may already have fetched and verified this very zip, possibly hours ago: hash it again
+        // before it is extracted. A swapped or damaged file is deleted and fails like any bad download.
+        var verifiedEarlier = _verifiedZip;
+        _verifiedZip = null;
+        if (verifiedEarlier?.Version == update.Version && File.Exists(zipPath))
+            await UpdateVerifier.EnsureFileMatchesAsync(zipPath, verifiedEarlier.Sha256, CancellationToken.None).ConfigureAwait(false);
+        else
             await DownloadVerifiedAsync(update, zipPath, progress);
-        _verifiedZipVersion = null;
 
         progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
         // Off the UI thread so the loading scene keeps animating while ~126 MB
@@ -302,13 +309,13 @@ endlocal
     }
 
     // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
-    // mismatch or a short file, accept a release that published no hash). The zip only ever appears at
+    // mismatch, a short file or a release that published no hash). Returns the SHA-256 it verified against. The zip only ever appears at
     // zipPath once verified: it is written as zipPath.part and every failure path deletes that. Any
     // failure throws; MainWindow shows "Update failed ... click to retry", and nothing was extracted
     // or applied.
     // The byte loop runs off the UI thread (ConfigureAwait(false)); progress still lands on the UI
     // thread because Progress<T> captured it. Reports are capped at ~10/s (each is a dispatcher hop).
-    private static async Task DownloadVerifiedAsync(AvailableUpdate update, string zipPath, IProgress<UpdateProgress>? progress)
+    private static async Task<string> DownloadVerifiedAsync(AvailableUpdate update, string zipPath, IProgress<UpdateProgress>? progress)
     {
         var partPath = zipPath + ".part";
         try
@@ -340,18 +347,10 @@ endlocal
                 throw new IOException("the connection stalled");
             }
 
-            switch (verdict)
-            {
-                case UpdateVerdict.Mismatch:
-                    throw new UpdateVerificationException("the download was damaged (it failed its integrity check)");
-                case UpdateVerdict.Truncated:
-                    throw new UpdateVerificationException("the download was cut short");
-                case UpdateVerdict.OkUnverified:
-                    Log($"update {update.Version}: release published no SHA-256, applying unverified (older release)");
-                    break;
-            }
+            UpdateVerifier.ThrowIfRefused(verdict);
             File.Move(partPath, zipPath, overwrite: true);
             progress?.Report(new UpdateProgress(UpdateStage.Downloading, total ?? 0, total ?? 0));
+            return expected;
         }
         catch (Exception ex)
         {
@@ -361,10 +360,10 @@ endlocal
         }
     }
 
-    // The sidecar .sha256 asset first, then the release API's own asset digest, else null (older release).
-    // A SIDECAR that is listed but unreadable or malformed is a verification failure, never "no hash": an
-    // update we cannot verify is not applied (and, like any verification failure, never blocks play).
-    private static async Task<string?> ResolveExpectedHashAsync(AvailableUpdate update)
+    // The sidecar .sha256 asset first, then the release API's own asset digest. No hash at all, or a SIDECAR that is
+    // listed but unreadable or malformed, is a verification failure: an update we cannot verify is not applied
+    // (and, like any verification failure, never blocks play).
+    private static async Task<string> ResolveExpectedHashAsync(AvailableUpdate update)
     {
         if (update.Sha256Url != null)
         {
@@ -372,9 +371,9 @@ endlocal
             return await UpdateVerifier.FetchSidecarAsync(
                 ct => Http.GetStringAsync(update.Sha256Url, ct), AssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
         }
-        // GitHub's own digest is only a fallback and only ever helps: anything but a clean "sha256:<64 hex>"
-        // (another algorithm, empty, missing, a format change) is "no hash", never a mismatch.
-        return UpdateVerifier.ParseDigest(update.DigestSha256);
+        // GitHub's own digest is the fallback: anything but a clean "sha256:<64 hex>" (another algorithm, empty,
+        // missing, a format change) is "no hash", which is refused before the download starts.
+        return UpdateVerifier.RequireHash(UpdateVerifier.ParseDigest(update.DigestSha256));
     }
 
     private static readonly object LogGate = new();

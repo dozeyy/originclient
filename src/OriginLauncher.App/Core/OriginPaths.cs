@@ -71,6 +71,10 @@ public static class OriginPaths
     public static string Accounts => Path.Combine(Root, "accounts");
     public static string Logs => Path.Combine(Root, "logs");
 
+    // The launcher's own self-update downloads and staging (Core/Updates/UpdateService): the zip, its .part, the
+    // extracted release and apply-update.cmd.
+    public static string Updates => Path.Combine(Root, "updates");
+
     // Java runtimes Origin provisions itself (Core/Runtime): one folder per pinned
     // build, e.g. runtimes/temurin-8u504-b01/bin/javaw.exe. Per-user, no admin.
     public static string Runtimes => Path.Combine(Root, "runtimes");

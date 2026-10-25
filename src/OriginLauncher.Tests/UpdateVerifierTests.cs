@@ -51,15 +51,63 @@ public sealed class UpdateVerifierTests : IDisposable
     }
 
     [Fact]
-    public async Task Missing_hash_is_accepted_unverified_and_keeps_the_file()
+    public async Task Missing_hash_is_refused_and_the_file_is_deleted()
     {
         var verdict = await RunAsync(_zip, _zip.Length, expected: null);
-        Assert.Equal(UpdateVerdict.OkUnverified, verdict);
-        Assert.True(File.Exists(Dest));
+        Assert.Equal(UpdateVerdict.MissingHash, verdict);
+        Assert.False(File.Exists(Dest));
+    }
+
+    // UpdateService runs every verdict through ThrowIfRefused: the exception is what ungates Play and starts the
+    // quiet retry (UpdateService.DownloadAndRestartAsync / QuietRetryAsync), so each refusal must be that type.
+    [Fact]
+    public async Task A_mismatching_download_becomes_a_verification_exception()
+    {
+        var tampered = (byte[])_zip.Clone();
+        tampered[99] ^= 0xFF;
+        var verdict = await RunAsync(tampered, tampered.Length, Sha(_zip));
+        Assert.Throws<UpdateVerificationException>(() => UpdateVerifier.ThrowIfRefused(verdict));
+        Assert.False(File.Exists(Dest));
     }
 
     [Fact]
-    public async Task Truncated_download_is_refused_even_without_a_hash_and_deleted()
+    public async Task A_missing_hash_becomes_a_verification_exception()
+    {
+        var verdict = await RunAsync(_zip, _zip.Length, expected: null);
+        Assert.Throws<UpdateVerificationException>(() => UpdateVerifier.ThrowIfRefused(verdict));
+        Assert.Throws<UpdateVerificationException>(() => UpdateVerifier.RequireHash(null));
+        Assert.Equal(Hex, UpdateVerifier.RequireHash(Hex));
+    }
+
+    [Fact]
+    public async Task A_truncated_download_becomes_a_verification_exception_and_a_good_one_passes()
+    {
+        var half = _zip.Take(_zip.Length / 2).ToArray();
+        Assert.Throws<UpdateVerificationException>(() => UpdateVerifier.ThrowIfRefused(UpdateVerdict.Truncated));
+        Assert.Equal(UpdateVerdict.Truncated, await RunAsync(half, _zip.Length, Sha(_zip)));
+        UpdateVerifier.ThrowIfRefused(await RunAsync(_zip, _zip.Length, Sha(_zip)));
+        Assert.True(File.Exists(Dest));
+    }
+
+    // A zip verified by the quiet retry can sit on disk for hours: it is hashed again just before extraction.
+    [Fact]
+    public async Task A_verified_zip_that_is_swapped_before_extracting_is_caught_and_deleted()
+    {
+        var zipPath = Path.Combine(_dir, "OriginLauncher-win-x64-1.0.60.zip");
+        await File.WriteAllBytesAsync(zipPath, _zip);
+        await UpdateVerifier.EnsureFileMatchesAsync(zipPath, Sha(_zip), CancellationToken.None);   // untouched: passes
+        Assert.True(File.Exists(zipPath));
+
+        var swapped = (byte[])_zip.Clone();
+        swapped[4321] ^= 0xFF;
+        await File.WriteAllBytesAsync(zipPath, swapped);
+        await Assert.ThrowsAsync<UpdateVerificationException>(() =>
+            UpdateVerifier.EnsureFileMatchesAsync(zipPath, Sha(_zip), CancellationToken.None));
+        Assert.False(File.Exists(zipPath));
+    }
+
+    [Fact]
+    public async Task Truncated_download_is_refused_with_or_without_a_hash_and_deleted()
     {
         var half = _zip.Take(_zip.Length / 2).ToArray();
         Assert.Equal(UpdateVerdict.Truncated, await RunAsync(half, _zip.Length, expected: null));
@@ -171,13 +219,12 @@ public sealed class UpdateVerifierTests : IDisposable
         Assert.Null(UpdateVerifier.ParseDigest(digest));
 
     [Fact]
-    public async Task An_odd_digest_downloads_unverified_instead_of_failing()
+    public void An_odd_digest_is_refused_not_applied_unverified()
     {
-        // what UpdateService does with a digest it cannot read: expected = null -> accepted, file kept
+        // what UpdateService does with a digest it cannot read: no hash -> refused before the download starts
         var expected = UpdateVerifier.ParseDigest("sha512:" + Hex + Hex);
         Assert.Null(expected);
-        Assert.Equal(UpdateVerdict.OkUnverified, await RunAsync(_zip, _zip.Length, expected));
-        Assert.True(File.Exists(Dest));
+        Assert.Throws<UpdateVerificationException>(() => UpdateVerifier.RequireHash(expected));
     }
 
     [Fact]

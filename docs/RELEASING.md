@@ -71,12 +71,17 @@ checks it **before anything is unpacked**:
   the wait doubles (1 h, 2 h, 4 h, capped at 6 h); a new launcher start retries
   at once. Only a download that has verified is published to the gate (badge
   lights, Play gated), so a broken release can never block play.
-- **No hash published** (a release cut before this step existed, or the asset
-  missing) -> accepted unverified and logged, so old releases still update.
-  With no sidecar the launcher also uses GitHub's own `digest` field for the
-  zip (the installer already relies on it), but only a clean `sha256:<64 hex>`:
-  any other digest (another algorithm, empty, missing, a future format) counts
-  as "no hash", never a mismatch, so a GitHub API change cannot brick updates.
+- **No hash published** (no sidecar and no usable digest) -> refused, like a
+  mismatch: the file is deleted, Play stays ungated and the quiet retry runs.
+  That never happens legitimately: only releases newer than the running
+  launcher are offered, and every pipeline release publishes the sidecar and
+  has a digest. With no sidecar the launcher uses GitHub's own `digest` field
+  for the zip (the installer already relies on it), but only a clean
+  `sha256:<64 hex>`: any other digest (another algorithm, empty, missing, a
+  future format) counts as "no hash".
+- **A zip verified by the quiet retry** can sit on disk for hours; it is hashed
+  again against the same value right before it is extracted, and a mismatch
+  takes the same failure path.
 - **A sidecar that is listed but cannot be fetched (404/403, timeout) or
   parsed** is a verification failure (same quiet back-off as above), never
   treated as "no hash".

@@ -1,3 +1,4 @@
+using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Updates;
 using Xunit;
 
@@ -39,6 +40,32 @@ public sealed class UpdateCleanupTests : IDisposable
         Assert.False(File.Exists(oldPart));
         Assert.True(File.Exists(keepZip));
         Assert.True(File.Exists(keepPart));
+    }
+
+    // A quit during an older launcher's download left updates/OriginLauncher-win-x64.zip (the old fixed name): the
+    // per-version pattern never matched it, so ~126 MB stayed forever.
+    [Fact]
+    public void The_old_fixed_name_zip_and_its_part_are_removed_even_when_versions_are_kept()
+    {
+        var legacyZip = Touch($"{Prefix}.zip");
+        var legacyPart = Touch($"{Prefix}.zip.part");
+        var keep = Touch($"{Prefix}-1.0.58.zip");
+        var other = Touch($"{Prefix}-extra.txt");
+
+        var n = UpdateVerifier.DeleteStaleDownloads(_dir, Prefix, new Version(1, 0, 58));
+
+        Assert.Equal(2, n);
+        Assert.False(File.Exists(legacyZip));
+        Assert.False(File.Exists(legacyPart));
+        Assert.True(File.Exists(keep));
+        Assert.True(File.Exists(other));
+    }
+
+    [Fact]
+    public void The_cleanup_folder_is_the_one_OriginPaths_names()
+    {
+        // UpdateService hands OriginPaths.Updates to the cleanup: it must sit under the data root.
+        Assert.Equal(Path.Combine(OriginPaths.Root, "updates"), OriginPaths.Updates);
     }
 
     [Fact]
