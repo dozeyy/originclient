@@ -159,6 +159,47 @@ public sealed class ImportSharedModsTests : IDisposable
         Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Kind == PlanItemKind.Mod);
     }
 
+    // ------------------------------------------------------------ an imported mod that wants another version of Origin's mod
+
+    // 2026-10-20 launch crash: Counter / Spawn Chaining / Unchained (Cobblemon 1.7.3 add-ons) were imported next to
+    // Origin's Cobblemon 1.8.0, and Fabric refused to start the game ("only the wrong version is present").
+    [Fact]
+    public async Task AnImportedModThatNeedsAnotherVersionOfOriginsModLandsTurnedOffNotToBreakTheBoot()
+    {
+        var cobblemon = Kit.FabricJar("cobblemon", "1.8.0+1.21.1");
+        Kit.WriteBytes(SharedMods, "cobblemon-1.8.0.jar", cobblemon);
+        Kit.WriteBytes(_rig.Source, "mods/cobblemon-1.7.3.jar", Kit.FabricJar("cobblemon", "1.7.3+1.21.1"));
+        Kit.WriteBytes(_rig.Source, "mods/counter.jar", Kit.FabricJar("cobbled_counter", "1.9.0", depends: new() { ["cobblemon"] = "1.7.3+1.21.1" }));
+        Kit.WriteBytes(_rig.Source, "mods/counter-extra.jar", Kit.FabricJar("counter_extra", "1.0", depends: new() { ["cobbled_counter"] = "*" }));
+        Kit.WriteBytes(_rig.Source, "mods/unrelated.jar", Kit.FabricJar("unrelated", "1.0"));
+
+        var (plan, result) = await Run();
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(cobblemon, File.ReadAllBytes(Shared("cobblemon-1.8.0.jar")));     // Origin's copy untouched
+        Assert.False(File.Exists(Shared("counter.jar")));                               // would stop the game: not turned on
+        Assert.True(File.Exists(Shared("counter.jar.disabled")));                       // but still brought over, turned off
+        Assert.False(File.Exists(Shared("counter-extra.jar")));                         // its add-on can't load without it
+        Assert.True(File.Exists(Shared("counter-extra.jar.disabled")));
+        Assert.True(File.Exists(Shared("unrelated.jar")));                              // everything else lands as before
+        Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Reason != null
+            && l.Reason.Contains("needs cobblemon") && l.Reason.Contains("1.8.0+1.21.1"));
+    }
+
+    [Fact]
+    public async Task AnImportedModWhoseNeedIsMetByOriginsModLandsTurnedOnAsBefore()
+    {
+        Kit.WriteBytes(SharedMods, "cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
+        Kit.WriteBytes(_rig.Source, "mods/cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
+        Kit.WriteBytes(_rig.Source, "mods/needsok.jar", Kit.FabricJar("needsok", "1.0", depends: new() { ["cloth-config"] = ">=0.90.0" }));
+
+        var (_, result) = await Run();
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.True(File.Exists(Shared("needsok.jar")));
+        Assert.False(File.Exists(Shared("needsok.jar.disabled")));
+    }
+
     // ------------------------------------------------------------ the .disabled twin
 
     [Fact]

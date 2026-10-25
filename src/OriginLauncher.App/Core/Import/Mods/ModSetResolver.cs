@@ -126,6 +126,11 @@ public static class ModSetResolver
         if (info.ReadFailed)
             return Info(mod, ModOutcome.Unreadable, "Couldn't read this file.");
 
+        // Another client's own core jar (Feather, Lunar, Badlion, LabyMod) can never load here: it needs libraries only
+        // its own launcher ships and hooks every class, so it would stop the game at the first one (2026-10-20).
+        if (ClientCoreMods.Find(info.Id, info.FileName, info.Provides) is { } clientCore)
+            return Info(mod, ModOutcome.WrongLoader, clientCore.Reason);
+
         if (ctx.TargetIsForge189)
         {
             if (info.Loader is ModLoader.Fabric or ModLoader.Quilt)
