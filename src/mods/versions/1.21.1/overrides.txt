@@ -107,3 +107,10 @@ client/java/com/origin/client/client/theme/OriginTheme.java
 # (Mods.java, already forked above); the other modules still read the option.
 # Promote to shared/ (delete this line) when the look is ported to every version.
 client/java/com/origin/client/client/OriginStyle.java
+
+# Phase 4 U4.2 (2026-10-25) - the redone loading screens. 1.21.1 draws "Connecting to
+# the server" and the world-creation progress stages as the one Origin loading picture
+# (LoadingLook), with the screen's real status/stage as the caption. The other versions
+# keep the shared mixins until their own loading screens are redone.
+client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
