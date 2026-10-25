@@ -169,7 +169,7 @@ public static class RenderShots
         window.TourFailLaunch(new Core.Versions.OfflineInstallException("1.8.9", new System.Net.Http.HttpRequestException("no route")), "1.8.9");
         Pump(500);
         Snap(window, outDir, "08-launch-f-failed-offline");
-        window.TourFailLaunch(new System.IO.IOException("disk", unchecked((int)0x80070070)), "1.21.1");
+        window.TourFailLaunch(new System.IO.IOException("disk", unchecked((int)0x80070070)), "1.8.9");
         Pump(400);
         Snap(window, outDir, "08-launch-g-failed-disk");
         window.TourHideLaunch();
