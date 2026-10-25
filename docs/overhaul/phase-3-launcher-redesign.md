@@ -97,6 +97,8 @@ redesigned page (re-derive, do not merge the stale branch), then close PR #34 wi
 
 **U3.8** Installer + uninstaller: Workbench tokens, official logo (Phase 2 central asset), same type, buttons, progress bar and
 title bar as the launcher. Engine code unchanged.
+The engine has no desktop-shortcut or Start-menu-shortcut flags (it always creates both), so the old shortcut checkboxes
+are out of scope for U3.8; the page offers "Open Origin when Windows starts" instead.
 
 **U3.9** Visual sanity check (02 section 10): design-reviewer reads every screen and state at 960x600, 1180x740 and 1920x1080, at
 100 / 150 / 200 % DPI (add a DPI option to the launcher-shots harness `RenderShots` if it has none), and the installer-screens set. It

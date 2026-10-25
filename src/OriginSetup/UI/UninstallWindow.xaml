@@ -5,7 +5,7 @@
         xmlns:ui="clr-namespace:OriginSetup.UI"
         Title="Uninstall Origin"
         Icon="/OriginSetup;component/Assets/origin.ico"
-        Width="860" Height="600"
+        Width="{StaticResource Size.WindowWidth}" Height="{StaticResource Size.WindowHeight}"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanMinimize"
@@ -18,131 +18,129 @@
         Closing="Window_Closing"
         KeyDown="Window_KeyDown">
 
-    <!-- Same window, same pages, same styles as SetupWindow: the uninstall flow is the
-         installer's Welcome / Installing / Done / Problem pages with different words. -->
+    <!-- The uninstaller is the installer's window (spec 14): same size, title bar, hero, content start and
+         footer, with the uninstall words. One screen, four states. -->
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0"
                             CornerRadius="0" UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
 
-    <Grid>
-        <Grid Background="{StaticResource Brush.WindowBackdrop}" IsHitTestVisible="False">
-            <Rectangle Opacity="0.72" Fill="{StaticResource Brush.Deepslate}"/>
-        </Grid>
+    <Grid Background="{StaticResource Brush.Bg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <Grid Background="Transparent" MouseLeftButtonDown="Root_MouseLeftButtonDown">
-            <ui:TitleBar x:Name="Bar" Mode="UNINSTALL"/>
+        <ui:TitleBar x:Name="Bar" Grid.Row="0" MouseLeftButtonDown="Bar_MouseLeftButtonDown"/>
+        <ui:BrandHero Grid.Row="1" Margin="{StaticResource Pad.Hero}"/>
 
-            <Grid Margin="0,56,0,56">
+        <Grid Grid.Row="2">
 
-                <!-- ============ CONFIRM ============ -->
-                <Grid x:Name="ConfirmPage">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="520">
-                        <ui:OrbitMark Width="96" Height="96" Margin="0,0,0,24"/>
-                        <TextBlock Text="UNINSTALL" Style="{StaticResource Text.Eyebrow}"
-                                   Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Uninstall Origin?" Style="{StaticResource Text.Display}"
-                                   TextAlignment="Center" HorizontalAlignment="Center" Margin="0,8,0,10"/>
-                        <TextBlock x:Name="ConfirmBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
-                                   TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center"
-                                   Text="This removes Origin Launcher, its shortcuts and its startup entry from this PC."/>
-
-                        <Border Style="{StaticResource Setup.Card}" Margin="0,24,0,0">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,14,0">
-                                    <TextBlock Text="Also delete my Origin data" Style="{StaticResource Text.Body}"/>
-                                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"
-                                               Foreground="{StaticResource Brush.TextMuted}"
-                                               Text="Accounts, settings and game installs, including the worlds saved inside them. Leave this off to keep everything for later."/>
-                                </StackPanel>
-                                <ToggleButton x:Name="RemoveDataToggle" Grid.Column="1" Style="{StaticResource Toggle.Slider}"
-                                              VerticalAlignment="Center" AutomationProperties.Name="Also delete my Origin data"
-                                              Checked="RemoveDataToggle_Changed" Unchecked="RemoveDataToggle_Changed"/>
-                            </Grid>
-                        </Border>
-
-                        <!-- Keep is the default (Enter). The danger colour is on the final button only. -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,28,0,0">
-                            <Button Style="{StaticResource Button.Primary}" Content="Keep Origin" MinWidth="168"
-                                    Click="Keep_Click" IsDefault="True"/>
-                            <Button x:Name="UninstallButton" Style="{StaticResource Button.Danger}" Content="Uninstall"
-                                    MinWidth="128" Margin="14,0,0,0" Click="Uninstall_Click"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-
-                <!-- ============ REMOVING (the installer's Installing page, same layout) ============ -->
-                <Grid x:Name="RemovingPage" Visibility="Collapsed">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="460">
-                        <ui:OrbitMark x:Name="RemovingMark" Width="96" Height="96" Margin="0,0,0,28"/>
-                        <TextBlock Text="REMOVING" Style="{StaticResource Text.Eyebrow}"
-                                   Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Origin Launcher" Style="{StaticResource Text.H1}" HorizontalAlignment="Center"
-                                   Margin="0,6,0,24"/>
-                        <Border x:Name="ProgressTrack" Style="{StaticResource Setup.ProgressTrack}" Width="380">
-                            <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="{StaticResource Radius.Bar}"
-                                    Background="{StaticResource Brush.PrimaryGradient}"/>
-                        </Border>
-                        <Grid Width="380" Margin="0,12,0,0">
-                            <TextBlock x:Name="StageText" Style="{StaticResource Text.Caption}" HorizontalAlignment="Left"/>
-                            <TextBlock x:Name="PercentText" Style="{StaticResource Text.Caption}" HorizontalAlignment="Right"
-                                       Foreground="{StaticResource Brush.Text}"/>
-                        </Grid>
-                    </StackPanel>
-                </Grid>
-
-                <!-- ============ DONE ============ -->
-                <Grid x:Name="DonePage" Visibility="Collapsed">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="520">
-                        <ui:OrbitMark Width="112" Height="112" Margin="0,0,0,26"/>
-                        <TextBlock Text="REMOVED" Style="{StaticResource Text.Eyebrow}"
-                                   Foreground="{StaticResource Brush.Success}" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="DoneTitle" Text="Origin has been removed" Style="{StaticResource Text.Display}"
-                                   TextAlignment="Center" HorizontalAlignment="Center" Margin="0,8,0,10"/>
-                        <TextBlock x:Name="DoneBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
-                                   TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center"/>
-                        <Button x:Name="DoneCloseButton" Style="{StaticResource Button.Primary}" Content="Close" MinWidth="168"
-                                HorizontalAlignment="Center" Margin="0,30,0,0" Click="Close_Click"/>
-                    </StackPanel>
-                </Grid>
-
-                <!-- ============ PROBLEM (same as the installer's) ============ -->
-                <Grid x:Name="ProblemPage" Visibility="Collapsed">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="540">
-                        <Border Width="48" Height="48" CornerRadius="{StaticResource Radius.Row}" BorderThickness="2" HorizontalAlignment="Center"
-                                BorderBrush="{StaticResource Brush.Warning}" Margin="0,0,0,24">
-                            <TextBlock Text="!" FontFamily="{StaticResource Font.Display}" FontSize="24" FontWeight="Bold"
-                                       Foreground="{StaticResource Brush.Warning}" HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
-                        </Border>
-                        <TextBlock Text="NOT FULLY REMOVED" Style="{StaticResource Text.Eyebrow}"
-                                   Foreground="{StaticResource Brush.Warning}" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Origin is mostly removed" Style="{StaticResource Text.H1}"
-                                   HorizontalAlignment="Center" Margin="0,8,0,10"/>
-                        <TextBlock x:Name="ProblemBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
-                                   TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center"/>
-                        <Button x:Name="ProblemCloseButton" Style="{StaticResource Button.Primary}" Content="Close" MinWidth="168"
-                                HorizontalAlignment="Center" Margin="0,28,0,0" Click="Close_Click"/>
-                    </StackPanel>
-                </Grid>
+            <!-- ============ CONFIRM ============ -->
+            <Grid x:Name="ConfirmPage" Margin="{StaticResource Pad.Page}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.Display}" Text="Uninstall Origin?"/>
+                    <TextBlock Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.1}"
+                               Text="Origin and its shortcuts are removed."/>
+                    <!-- Off by default: uninstalling never deletes worlds unless the player ticks this. -->
+                    <CheckBox x:Name="RemoveDataCheck" Style="{StaticResource CheckBox.Danger}" Margin="{StaticResource Top.5}"
+                              Content="Also delete my worlds, settings and accounts"
+                              Checked="RemoveDataCheck_Changed" Unchecked="RemoveDataCheck_Changed"/>
+                    <TextBlock Style="{StaticResource Text.Caption}" Margin="{StaticResource Left.6}"
+                               Text="Leave this off to keep them for a later reinstall."/>
+                </StackPanel>
+                <!-- Keep Origin is the default (Enter, and the first focus). The danger colour is on the final button only. -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="KeepButton" Style="{StaticResource Button.Ghost}" Content="Keep Origin"
+                            Click="Keep_Click" IsDefault="True"/>
+                    <Button x:Name="UninstallButton" Style="{StaticResource Button.Danger}" Margin="{StaticResource Left.2}"
+                            Content="Uninstall" Click="Uninstall_Click"/>
+                </StackPanel>
             </Grid>
 
-            <!-- Step rail, same as the installer's. -->
-            <StackPanel x:Name="StepRail" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                        Margin="22,0,0,24" IsHitTestVisible="False">
-                <Border x:Name="Step1Marker" Style="{StaticResource Setup.StepMarker}"/>
-                <TextBlock x:Name="Step1Label" Text="CONFIRM" Style="{StaticResource Setup.StepLabel}"/>
-                <Border x:Name="Step2Marker" Style="{StaticResource Setup.StepMarker}"/>
-                <TextBlock x:Name="Step2Label" Text="REMOVE" Style="{StaticResource Setup.StepLabel}"/>
-                <Border x:Name="Step3Marker" Style="{StaticResource Setup.StepMarker}"/>
-                <TextBlock x:Name="Step3Label" Text="DONE" Style="{StaticResource Setup.StepLabel}"/>
-            </StackPanel>
+            <!-- ============ REMOVING ============ -->
+            <Grid x:Name="RemovingPage" Visibility="Collapsed" Margin="{StaticResource Pad.Page}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.Display}" Text="Removing Origin"/>
+                    <TextBlock Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.1}"
+                               Text="This takes a moment."/>
+                    <Border x:Name="ProgressTrack" Style="{StaticResource Setup.ProgressTrack}" Margin="{StaticResource Top.6}">
+                        <Border x:Name="ProgressFill" Style="{StaticResource Setup.ProgressFill}" Width="0"/>
+                    </Border>
+                    <Grid Margin="{StaticResource Top.3}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="StageText" Style="{StaticResource Text.Caption}"/>
+                        <TextBlock x:Name="PercentText" Grid.Column="1" Style="{StaticResource Text.CaptionDim}"
+                                   Margin="{StaticResource Left.2}"/>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+
+            <!-- ============ DONE ============ -->
+            <Grid x:Name="DonePage" Visibility="Collapsed" Margin="{StaticResource Pad.Page}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.Display}" Text="Origin was removed"/>
+                    <TextBlock x:Name="DoneBody" Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.1}"/>
+                    <Grid Margin="{StaticResource Top.4}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Ellipse Style="{StaticResource Setup.Dot}" Fill="{StaticResource Brush.Success}"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource Text.Caption}"
+                                   Foreground="{StaticResource Brush.Success}" Text="Removed"/>
+                    </Grid>
+                    <!-- Where the kept data lives (only when it was kept). -->
+                    <TextBlock x:Name="KeptCaption" Style="{StaticResource Text.Caption}" Margin="{StaticResource Top.4}"
+                               Text="Kept in" TextWrapping="NoWrap"/>
+                    <TextBlock x:Name="KeptPath" Style="{StaticResource Text.CaptionDim}" TextWrapping="NoWrap"
+                               Margin="{StaticResource Top.1}" SizeChanged="KeptPath_SizeChanged"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="DoneCloseButton" Style="{StaticResource Button.Primary}" Content="Close" Click="Close_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- ============ PROBLEM ============ -->
+            <Grid x:Name="ProblemPage" Visibility="Collapsed" Margin="{StaticResource Pad.Page}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.Display}" Text="Origin is mostly removed"/>
+                    <Grid Margin="{StaticResource Top.2}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Ellipse Style="{StaticResource Setup.Dot}" Fill="{StaticResource Brush.Danger}"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource Text.Caption}"
+                                   Foreground="{StaticResource Brush.DangerText}" Text="Some files could not be removed"/>
+                    </Grid>
+                    <TextBlock x:Name="ProblemBody" Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.4}"/>
+                    <!-- The folder on its own line, shortened in the middle so it never wraps mid-path. -->
+                    <TextBlock x:Name="ProblemPath" Style="{StaticResource Text.Caption}" TextWrapping="NoWrap"
+                               Margin="{StaticResource Top.2}" SizeChanged="ProblemPath_SizeChanged"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="ProblemCloseButton" Style="{StaticResource Button.Primary}" Content="Close" Click="Close_Click"/>
+                </StackPanel>
+            </Grid>
         </Grid>
 
-        <Border BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" IsHitTestVisible="False"/>
+        <Border Grid.RowSpan="3" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" IsHitTestVisible="False"/>
     </Grid>
 </Window>

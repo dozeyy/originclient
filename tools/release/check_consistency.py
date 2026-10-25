@@ -9,9 +9,11 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    code) must equal the launcher's VersionManager.OriginBuilds entries, jar by jar.
 2. The installer -> launcher hand-off file name — src/OriginSetup/Engine/
    Handoff.cs and the launcher's Core/Install/SetupChoices.cs.
-3. Typography — src/OriginSetup/Theme/Typography.xaml is the launcher's
-   Theme/Typography.xaml with only the font resource path changed (a WPF
-   resource path names its assembly).
+3. Theme tokens — the installer owns its Workbench token and type files
+   (src/OriginSetup/Theme/Tokens.xaml, Typography.xaml), so they are not copies of the launcher's. Both sets are
+   read at run time and every shared key (Color.*, Size.Control*, Radius.*, Font.*, FontSize.*, LineHeight.*, Space.*,
+   plus the PAIRED_KEYS role names) must agree, except the keys listed in KNOWN_DIVERGENCE (each with a reason; an
+   entry that starts to agree must be deleted). The face (Inter) and Body/Caption sizes are always required.
 4. The release feed — the installer downloads the launcher from the same
    GitHub release asset the launcher self-updates from: owner, repo, tag
    prefix and zip name in src/OriginSetup/Engine/ReleaseFeed.cs must match
@@ -76,16 +78,102 @@ def check_handoff() -> list[str]:
     return []
 
 
-def check_typography() -> list[str]:
-    def body(path: Path) -> list[str]:
-        lines = path.read_text(encoding="utf-8").splitlines()
-        return [re.sub(r"/[A-Za-z.]+;component/", "/<assembly>;component/", l)
-                for l in lines if not l.strip().startswith("<!--") and "MIRROR" not in l]
-    a, b = body(LAUNCHER / "Theme/Typography.xaml"), body(SETUP / "Theme/Typography.xaml")
-    if a != b:
-        return ["src/OriginSetup/Theme/Typography.xaml differs from the launcher's Theme/Typography.xaml "
-                "(beyond the font path) — copy the launcher's file over and change only the assembly name"]
-    return []
+# ---- Theme token parity (typography + the tokens the two apps share) ----
+# The installer keeps its own Theme/Tokens.xaml and Typography.xaml (it is a separate .NET Framework app), so the
+# files cannot be one copy. Instead both sides are READ and every key defined in both is compared. Nothing is
+# hard-coded here except the list of keys that are allowed to differ and why: a key that differs and is NOT listed
+# fails the build, and a listed key that has started to agree fails too ("remove it"), so the list cannot rot.
+# When the launcher palette moves to the Workbench set (Phase 3, unit U3.0) its Color.* entries start to agree and
+# its Color.* entries below must be deleted.
+THEME_FAMILIES = ("Color.", "Size.Control", "Radius.", "Font.", "FontSize.", "LineHeight.", "Space.")
+
+# Exact key -> why the two files differ TODAY. Every reason is temporary ("until U3.0"): Phase 3 unit U3.0 moves the
+# launcher onto the Workbench tokens, and each entry is deleted as its key starts to agree (the check fails on an entry
+# that already agrees, and on a key that no longer exists, so the list cannot outlive the difference).
+_UNTIL_U30_COLOR = "launcher palette is the old monochrome set until U3.0 moves it to Workbench; the installer is already Workbench"
+KNOWN_DIVERGENCE = {
+    "Color.Accent": _UNTIL_U30_COLOR,
+    "Color.AccentBorder": _UNTIL_U30_COLOR,
+    "Color.AccentHover": _UNTIL_U30_COLOR,
+    "Color.AccentPress": _UNTIL_U30_COLOR,
+    "Color.Bg": _UNTIL_U30_COLOR,
+    "Color.BgAlt": _UNTIL_U30_COLOR,
+    "Color.Card": _UNTIL_U30_COLOR,
+    "Color.CardAlt": _UNTIL_U30_COLOR,
+    "Color.Danger": _UNTIL_U30_COLOR,
+    "Color.Panel": _UNTIL_U30_COLOR,
+    "Color.SoftStroke": _UNTIL_U30_COLOR,
+    "Color.Stroke": _UNTIL_U30_COLOR,
+    "Color.Success": _UNTIL_U30_COLOR,
+    "Color.Text": _UNTIL_U30_COLOR,
+    "Color.TextDim": _UNTIL_U30_COLOR,
+    "Color.TextMuted": _UNTIL_U30_COLOR,
+    "Color.TextOnAccent": _UNTIL_U30_COLOR,
+    "Size.ControlSm": "installer 28 vs launcher 32, until U3.0 aligns the control sizes",
+    "Size.ControlLg": "installer 36 vs launcher 48, until U3.0 aligns the control sizes",
+    "FontSize.Display": "installer hero title 32 vs launcher 40, until U3.0 settles the display size",
+    "Space.3": "installer 12 vs launcher 16, until U3.0 aligns the spacing ladder",
+    "Space.4": "installer 16 vs launcher 24, until U3.0 aligns the spacing ladder",
+    "Space.5": "installer 20 vs launcher 32, until U3.0 aligns the spacing ladder",
+    "Space.6": "installer 24 vs launcher 48, until U3.0 aligns the spacing ladder",
+}
+
+# (launcher key, installer key): the launcher names corner radii by role, the installer by size.
+PAIRED_KEYS = [
+    ("Radius.Control", "Radius.Md"),   # buttons, fields, dropdowns
+    ("Radius.Chip", "Radius.Xs"),      # chips and checkbox corners
+    ("Radius.Bar", "Radius.Track"),    # progress and slider rails
+]
+
+
+def _theme_values(paths: list[Path]) -> dict[str, str]:
+    """Every `x:Key` in the given XAML files -> its value (element text, Color= attribute, or a Style's setters),
+    whitespace-collapsed, with the assembly name in font paths normalised so the two apps can match."""
+    out: dict[str, str] = {}
+    for path in paths:
+        text = re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for m in re.finditer(r'<([\w:.]+)\s+([^<>]*?\bx:Key="([^"]+)"[^<>]*?)(?:/>|>(.*?)</\1>)', text, flags=re.S):
+            attrs, key, body = m.group(2), m.group(3), m.group(4)
+            if body is None or not body.strip():
+                color = re.search(r'\bColor="([^"]*)"', attrs)
+                body = color.group(1) if color else re.sub(r'x:Key="[^"]*"', "", attrs)
+            value = re.sub(r"\s+", " ", body).strip()
+            out[key] = re.sub(r"/[A-Za-z.]+;component/", "/<assembly>;component/", value)
+    return out
+
+
+def check_theme_parity() -> list[str]:
+    launcher = _theme_values([LAUNCHER / "Theme" / n for n in ("Colors.xaml", "Spacing.xaml", "Typography.xaml")])
+    setup = _theme_values([SETUP / "Theme" / n for n in ("Tokens.xaml", "Typography.xaml")])
+    problems: list[str] = []
+    common = sorted(k for k in set(launcher) & set(setup) if k.startswith(THEME_FAMILIES))
+    if len(common) < 10:  # the parser lost the files: refuse to pass on an empty comparison
+        return [f"theme parity found only {len(common)} shared keys; the XAML layout changed, update check_theme_parity"]
+
+    for key in ("Font.Primary", "FontSize.Body", "FontSize.Caption"):
+        if key not in common:
+            problems.append(f"{key} must be defined in both launcher and installer theme files")
+    if "#Inter" not in launcher.get("Font.Primary", "") or "#Inter" not in setup.get("Font.Primary", ""):
+        problems.append(f"Font.Primary must be Inter in both (launcher {launcher.get('Font.Primary')!r}, installer {setup.get('Font.Primary')!r})")
+
+    differing = [k for k in common if launcher[k] != setup[k]]
+    for key in differing:
+        if key not in KNOWN_DIVERGENCE:
+            problems.append(f"{key}: launcher {launcher[key]!r} vs installer {setup[key]!r} "
+                            f"(the two apps share this token; make them agree, or list it in KNOWN_DIVERGENCE with the reason)")
+    for key, why in KNOWN_DIVERGENCE.items():
+        if key not in common:
+            problems.append(f"KNOWN_DIVERGENCE {key!r} is no longer defined in both files; delete the entry")
+        elif key not in differing:
+            problems.append(f"KNOWN_DIVERGENCE {key!r} ({why}) now agrees; delete the entry")
+
+    # Same job under a different name: launcher key -> installer key. The names are listed, the values are read.
+    for lk, sk in PAIRED_KEYS:
+        if lk not in launcher or sk not in setup:
+            problems.append(f"PAIRED_KEYS {lk} <-> {sk}: one of them no longer exists, update the pair")
+        elif launcher[lk] != setup[sk]:
+            problems.append(f"{lk} (launcher {launcher[lk]!r}) vs {sk} (installer {setup[sk]!r}) must agree")
+    return problems
 
 
 def check_release_feed() -> list[str]:
@@ -132,12 +220,12 @@ def check_picker() -> list[str]:
 
 
 def main() -> int:
-    problems = (check_versions() + check_handoff() + check_typography() + check_release_feed()
+    problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
                 + check_update_hash() + check_picker())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
-        print("OK: version list, version picker, hand-off file name, typography, release feed and update hash agree "
+        print("OK: version list, version picker, hand-off file name, theme tokens, release feed and update hash agree "
               "across launcher and installer.")
     return 1 if problems else 0
 

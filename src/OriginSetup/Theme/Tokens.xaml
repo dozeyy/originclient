@@ -1,0 +1,170 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=mscorlib">
+
+    <!--
+        Origin Setup tokens: the Workbench design system (docs/overhaul/DESIGN-SYSTEM.md), dark set, with the
+        launcher's XAML key names (section 17.1) so the two token files can be told apart only by what they hold.
+        This is the ONLY place a colour, size, radius or duration is written down; every other installer file
+        refers to a key. Values are spec section 2 (colour), 4 (space), 5 (control sizes), 6 (radii), 7 (shadow),
+        9 (motion). The installer used to link the launcher's Colors/Spacing/Buttons/Inputs files; those carry the
+        retired neutral look, so the installer owns its tokens until the launcher's own files carry the same values.
+    -->
+
+    <!-- ===== Colour (spec 2.1) ===== -->
+    <Color x:Key="Color.Bg">#FF0E1110</Color>
+    <Color x:Key="Color.BgAlt">#FF0B0D0C</Color>
+    <Color x:Key="Color.Panel">#FF171C19</Color>
+    <Color x:Key="Color.Card">#FF1D2320</Color>
+    <Color x:Key="Color.CardAlt">#FF232A26</Color>
+    <Color x:Key="Color.SurfacePress">#FF191E1B</Color>
+    <Color x:Key="Color.Field">#47000000</Color>
+    <Color x:Key="Color.SoftStroke">#0FFFFFFF</Color>
+    <Color x:Key="Color.Stroke">#1AFFFFFF</Color>
+    <Color x:Key="Color.StrokeHover">#24FFFFFF</Color>
+    <Color x:Key="Color.Text">#FFF1E9D2</Color>
+    <Color x:Key="Color.TextDim">#ADF1E9D2</Color>
+    <Color x:Key="Color.TextMuted">#85F1E9D2</Color>
+    <Color x:Key="Color.Accent">#FF5FD09B</Color>
+    <Color x:Key="Color.AccentHover">#FF83E2B5</Color>
+    <Color x:Key="Color.AccentPress">#FF4CB985</Color>
+    <Color x:Key="Color.AccentBorder">#995FD09B</Color>
+    <Color x:Key="Color.TextOnAccent">#FF0A1710</Color>
+    <Color x:Key="Color.Success">#FF68C490</Color>
+    <Color x:Key="Color.Danger">#FFD9675A</Color>
+    <Color x:Key="Color.DangerText">#FFF98E80</Color>
+    <Color x:Key="Color.DangerSoft">#24D9675A</Color>
+    <Color x:Key="Color.DangerSoftHover">#38D9675A</Color>
+    <!-- Ghost / icon washes: white at 6 % (hover) and 4 % (press). -->
+    <Color x:Key="Color.GhostHover">#0FFFFFFF</Color>
+    <Color x:Key="Color.GhostPress">#0AFFFFFF</Color>
+    <Color x:Key="Color.ProgressTrack">#14FFFFFF</Color>
+    <Color x:Key="Color.Scrim">#A30A0D0C</Color>
+
+    <SolidColorBrush x:Key="Brush.Bg" Color="{StaticResource Color.Bg}"/>
+    <SolidColorBrush x:Key="Brush.BgAlt" Color="{StaticResource Color.BgAlt}"/>
+    <SolidColorBrush x:Key="Brush.Panel" Color="{StaticResource Color.Panel}"/>
+    <SolidColorBrush x:Key="Brush.Card" Color="{StaticResource Color.Card}"/>
+    <SolidColorBrush x:Key="Brush.CardAlt" Color="{StaticResource Color.CardAlt}"/>
+    <SolidColorBrush x:Key="Brush.SurfacePress" Color="{StaticResource Color.SurfacePress}"/>
+    <SolidColorBrush x:Key="Brush.Field" Color="{StaticResource Color.Field}"/>
+    <SolidColorBrush x:Key="Brush.SoftStroke" Color="{StaticResource Color.SoftStroke}"/>
+    <SolidColorBrush x:Key="Brush.Stroke" Color="{StaticResource Color.Stroke}"/>
+    <SolidColorBrush x:Key="Brush.StrokeHover" Color="{StaticResource Color.StrokeHover}"/>
+    <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource Color.Text}"/>
+    <SolidColorBrush x:Key="Brush.TextDim" Color="{StaticResource Color.TextDim}"/>
+    <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}"/>
+    <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>
+    <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}"/>
+    <SolidColorBrush x:Key="Brush.AccentPress" Color="{StaticResource Color.AccentPress}"/>
+    <SolidColorBrush x:Key="Brush.AccentBorder" Color="{StaticResource Color.AccentBorder}"/>
+    <SolidColorBrush x:Key="Brush.TextOnAccent" Color="{StaticResource Color.TextOnAccent}"/>
+    <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}"/>
+    <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}"/>
+    <SolidColorBrush x:Key="Brush.DangerText" Color="{StaticResource Color.DangerText}"/>
+    <SolidColorBrush x:Key="Brush.DangerSoft" Color="{StaticResource Color.DangerSoft}"/>
+    <SolidColorBrush x:Key="Brush.DangerSoftHover" Color="{StaticResource Color.DangerSoftHover}"/>
+    <SolidColorBrush x:Key="Brush.GhostHover" Color="{StaticResource Color.GhostHover}"/>
+    <SolidColorBrush x:Key="Brush.GhostPress" Color="{StaticResource Color.GhostPress}"/>
+    <SolidColorBrush x:Key="Brush.ProgressTrack" Color="{StaticResource Color.ProgressTrack}"/>
+    <SolidColorBrush x:Key="Brush.Scrim" Color="{StaticResource Color.Scrim}"/>
+
+    <!-- ===== Space (spec 4): 4 px base, 8 px rhythm ===== -->
+    <system:Double x:Key="Space.1">4</system:Double>
+    <system:Double x:Key="Space.2">8</system:Double>
+    <system:Double x:Key="Space.3">12</system:Double>
+    <system:Double x:Key="Space.4">16</system:Double>
+    <system:Double x:Key="Space.5">20</system:Double>
+    <system:Double x:Key="Space.6">24</system:Double>
+    <system:Double x:Key="Space.8">32</system:Double>
+    <!-- Layout margins as tokens, so no window writes a bare number: Top.n = space above, Left.n = space to the left. -->
+    <Thickness x:Key="Top.1">0,4,0,0</Thickness>
+    <Thickness x:Key="Top.2">0,8,0,0</Thickness>
+    <Thickness x:Key="Top.3">0,12,0,0</Thickness>
+    <Thickness x:Key="Top.4">0,16,0,0</Thickness>
+    <Thickness x:Key="Top.5">0,20,0,0</Thickness>
+    <Thickness x:Key="Top.6">0,24,0,0</Thickness>
+    <Thickness x:Key="Left.1">4,0,0,0</Thickness>
+    <Thickness x:Key="Left.2">8,0,0,0</Thickness>
+    <Thickness x:Key="Left.6">24,0,0,0</Thickness>
+    <Thickness x:Key="Pad.Dialog">24</Thickness>
+    <!-- Spec 14: content gutter 32; the hero sits 8 under the title bar; the page starts 20 under the hero and
+         ends 32 above the window bottom (the footer is pinned there). -->
+    <Thickness x:Key="Pad.Hero">32,8,32,0</Thickness>
+    <Thickness x:Key="Pad.Page">32,20,32,32</Thickness>
+    <Thickness x:Key="Pad.TitleLeft">16,0,0,0</Thickness>
+    <Thickness x:Key="Pad.TitleRight">0,0,4,0</Thickness>
+    <Thickness x:Key="Pad.FieldText">12,0,4,0</Thickness>
+    <Thickness x:Key="Pad.FieldAction">0,0,4,0</Thickness>
+    <!-- The logo's ink starts 2 px inside its 48 box (rings fill about 90 % of the width): pull the hero left so
+         the ink, not the box, sits on the 32 gutter. -->
+    <Thickness x:Key="Ink.Hero">-3,0,0,0</Thickness>
+    <Thickness x:Key="Margin.Dot">0,5,8,0</Thickness>
+    <Thickness x:Key="Pad.ComboText">12,0,36,0</Thickness>
+    <Thickness x:Key="Pad.Item">10,6</Thickness>
+    <Thickness x:Key="Pad.List">4</Thickness>
+    <Thickness x:Key="Margin.Chevron">0,0,12,0</Thickness>
+    <Thickness x:Key="Margin.Glyph">8,0,0,0</Thickness>
+    <!-- A ghost button's label lines up with the content edge, not its own padding: pull the button out by exactly
+         that padding (Button.Ghost 14, Button.GhostSm 10) on the side that touches the edge. -->
+    <Thickness x:Key="Margin.GhostLeadEdge">-14,0,0,0</Thickness>
+    <Thickness x:Key="Margin.GhostSmTrailEdge">0,0,-10,0</Thickness>
+    <Thickness x:Key="Margin.List">0,4,0,0</Thickness>
+    <Thickness x:Key="Margin.Ring">-4</Thickness>
+    <Thickness x:Key="Margin.SliderRing">-6,-2</Thickness>
+
+    <!-- ===== Control sizes (spec 5): one height per step ===== -->
+    <system:Double x:Key="Size.ControlSm">28</system:Double>
+    <system:Double x:Key="Size.ControlMd">32</system:Double>
+    <system:Double x:Key="Size.ControlLg">36</system:Double>
+    <system:Double x:Key="Size.Checkbox">16</system:Double>
+    <system:Double x:Key="Size.Progress">3</system:Double>
+    <system:Double x:Key="Size.Dot">6</system:Double>
+    <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. Dropdown: field width and list height cap. -->
+    <system:Double x:Key="Size.SliderBox">20</system:Double>
+    <system:Double x:Key="Size.SliderTrack">4</system:Double>
+    <system:Double x:Key="Size.SliderThumb">16</system:Double>
+    <system:Double x:Key="Size.ComboWidth">224</system:Double>
+    <system:Double x:Key="Size.ListMaxHeight">224</system:Double>
+    <!-- The window (spec 14) and its title bar. -->
+    <system:Double x:Key="Size.WindowWidth">640</system:Double>
+    <system:Double x:Key="Size.WindowHeight">440</system:Double>
+    <!-- The window while Customize is open on the Ready page: 144 taller, so the footer stays pinned 32 up. -->
+    <system:Double x:Key="Size.WindowHeightOpen">584</system:Double>
+    <system:Double x:Key="Size.TitleBar">40</system:Double>
+    <system:Double x:Key="Size.DialogMaxWidth">440</system:Double>
+    <!-- Brand sizes (spec 1.3): title bar logo 20; hero logo 48 with a 24 tall wordmark. -->
+    <system:Double x:Key="Size.Logo.Bar">20</system:Double>
+    <system:Double x:Key="Size.Logo.Hero">48</system:Double>
+    <system:Double x:Key="Size.Wordmark.Hero">24</system:Double>
+    <!-- Icons (spec 10): 14 in 28 controls, 16 in 32-36, window-control glyphs 12. -->
+    <system:Double x:Key="Icon.SizeWindow">12</system:Double>
+    <system:Double x:Key="Icon.SizeInline">16</system:Double>
+    <system:Double x:Key="Icon.SizeCheck">12</system:Double>
+    <system:Double x:Key="Icon.Stroke">1.7</system:Double>
+
+    <!-- ===== Corner radii (spec 6) ===== -->
+    <CornerRadius x:Key="Radius.Xs">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Sm">6</CornerRadius>
+    <CornerRadius x:Key="Radius.Md">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
+    <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
+    <CornerRadius x:Key="Radius.Track">2</CornerRadius>
+    <!-- Focus ring corner = control corner + 2 (spec 8). -->
+    <CornerRadius x:Key="Radius.Ring.Xs">6</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Sm">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Md">10</CornerRadius>
+
+    <!-- ===== Motion (spec 9). App.xaml.cs zeroes these when Windows animations are off. ===== -->
+    <Duration x:Key="Motion.Press">0:0:0.08</Duration>
+    <Duration x:Key="Motion.Release">0:0:0.14</Duration>
+    <Duration x:Key="Motion.Hover">0:0:0.12</Duration>
+    <Duration x:Key="Motion.Base">0:0:0.16</Duration>
+    <Duration x:Key="Motion.Enter">0:0:0.22</Duration>
+    <Duration x:Key="Motion.Exit">0:0:0.14</Duration>
+    <Duration x:Key="Motion.Scene">0:0:0.26</Duration>
+
+    <!-- ===== Elevation (spec 7): the one shadow, for the "Origin is open" dialog only. ===== -->
+    <DropShadowEffect x:Key="Shadow.Overlay" Color="#FF000000" Opacity="0.40" BlurRadius="32" ShadowDepth="12" Direction="270"/>
+</ResourceDictionary>
