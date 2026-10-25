@@ -52,6 +52,11 @@ import java.lang.ref.WeakReference;
  *     can change the world image; HudHooks calls invalidate());
  *   - same framebuffer size and texture (window resize), GUI scale, blur depth
  *     and resource generation (a resource reload);
+ *   - GRACE_MS have passed since the last input and since the blur started (a
+ *     pause just opened): a setting changed in a menu (render distance, graphics,
+ *     OptiFine toggles) reloads chunks over many frames, and a world still
+ *     loading when the pause opens builds them too, so the blur follows the
+ *     live world through that window instead of freezing a half-built one;
  *   - the image is younger than REFRESH_MS. Chunk building and the HUD's live
  *     readouts (clock, FPS) go on while paused; 1.8.9 exposes no cheap "nothing
  *     pending" test (RenderGlobal's queue is private and OptiFine-replaced), so
@@ -84,6 +89,10 @@ public final class MenuBlur {
 	private static int reloadGen;
 	private static boolean reloadListenerSet;
 	private static long cachedAtMs;
+	private static long quietUntilMs;          // no reuse before this (see GRACE_MS)
+	private static long lastBlurFrame = -10;   // frame of the previous blur() call
+	/** After an input or the start of a blur sequence the world may still be changing. */
+	private static final long GRACE_MS = 1500L;
 	/** How old a reused backdrop may get while the world is frozen. */
 	private static final long REFRESH_MS = 3000L;
 
@@ -99,6 +108,7 @@ public final class MenuBlur {
 	/** Drops the reused backdrop: the next blur rebuilds it. Cheap; call on any input. */
 	public static void invalidate() {
 		cacheValid = false;
+		quietUntilMs = Minecraft.getSystemTime() + GRACE_MS;
 	}
 
 	/** True while the game is paused in a world (single-player pausing screen, not LAN-open). */
@@ -119,7 +129,8 @@ public final class MenuBlur {
 				|| reloadGen != cachedReload) {
 			return false;
 		}
-		if (Minecraft.getSystemTime() - cachedAtMs >= REFRESH_MS) {
+		long now = Minecraft.getSystemTime();
+		if (now < quietUntilMs || now - cachedAtMs >= REFRESH_MS) {
 			return false;
 		}
 		if (!frozen(mc) || cachedWorld == null || cachedWorld.get() != mc.theWorld
@@ -217,6 +228,10 @@ public final class MenuBlur {
 			return false;
 		}
 		ensureReloadListener(mc);
+		if (lastBlurFrame < frame - 1) {
+			quietUntilMs = Minecraft.getSystemTime() + GRACE_MS;   // a new sequence: the pause just opened
+		}
+		lastBlurFrame = frame;
 		if (canReuse(mc, main, levels)) {
 			try {
 				cachedFrame = frame;
