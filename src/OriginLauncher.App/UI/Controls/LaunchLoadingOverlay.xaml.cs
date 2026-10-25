@@ -89,11 +89,75 @@ public partial class LaunchLoadingOverlay : UserControl
     /// showed the overlay cancels its in-flight provisioning.</summary>
     public event EventHandler? CancelRequested;
 
+    /// <summary>Raised when the player clicks Retry on the failure state.</summary>
+    public event EventHandler? RetryRequested;
+
+    /// <summary>Raised when the player clicks Close on the failure state; the page lowers the screen.</summary>
+    public event EventHandler? CloseRequested;
+
+    // True while the screen shows a failure (ShowFailure) instead of progress.
+    private bool _failed;
+
+    /// <summary>True while the failure state is up (ShowFailure), until the next Show.</summary>
+    public bool ShowsFailure => _failed;
+
+    /// <summary>
+    /// Preparing the game failed (U3.3): the bar and the mark stop, the cause is said in one plain sentence and
+    /// the player can Retry or Close. The files are left as they are; the next Play finishes the job.
+    /// </summary>
+    public void ShowFailure(PlayFailure failure)
+    {
+        _failed = true;
+        ++_stageRevision;
+        StopClock(ref _spinClock);
+        StopClock(ref _sweepClock);
+        Mark.ApplyAnimationClock(OpacityProperty, null);
+        Mark.Opacity = 1;
+        ProgressSweep.Visibility = Visibility.Collapsed;
+        ProgressFill.Visibility = Visibility.Collapsed;
+        ProgressTrack.Visibility = Visibility.Collapsed;
+        ShowCount(false);
+        SetShown(0);
+
+        EyebrowText.Text = failure.Title.ToUpperInvariant();
+        EyebrowText.SetResourceReference(ForegroundProperty, "Brush.DangerText");
+        StageText.BeginAnimation(OpacityProperty, null);
+        StageText.Opacity = 1;
+        StageText.Text = failure.Message;
+        StageText.TextWrapping = TextWrapping.Wrap;
+        StageText.TextTrimming = TextTrimming.None;
+        StageText.TextAlignment = TextAlignment.Center;
+
+        RetryButton.Visibility = Visibility.Visible;
+        RetryButton.IsEnabled = true;
+        CancelButton.Content = "Close";
+        CancelButton.ToolTip = null;
+        CancelButton.IsEnabled = true;
+        Visibility = Visibility.Visible;
+        IsHitTestVisible = true;
+        Opacity = 1;
+        RetryButton.Focus();
+    }
+
+    // Back to the progress look: Show/ShowUpdate start here so a failure never leaks into the next launch.
+    private void ResetFailure()
+    {
+        _failed = false;
+        RetryButton.Visibility = Visibility.Collapsed;
+        CancelButton.Content = "Cancel";
+        ProgressTrack.Visibility = Visibility.Visible;
+        EyebrowText.SetResourceReference(ForegroundProperty, "Brush.OnPhoto");
+        StageText.TextWrapping = TextWrapping.NoWrap;
+        StageText.TextTrimming = TextTrimming.CharacterEllipsis;
+        StageText.ClearValue(TextBlock.TextAlignmentProperty);
+    }
+
     /// <summary>The Play press. No loader name anywhere: the player never sees
     /// which loader a version runs on (mandate 1).</summary>
     public void Show(string version, string? caption = null)
     {
         _launchMode = true;
+        ResetFailure();
         EyebrowText.Text = $"PREPARING MINECRAFT {version}";
         CancelButton.Visibility = Visibility.Visible;
         CancelButton.ToolTip = null;
@@ -114,6 +178,7 @@ public partial class LaunchLoadingOverlay : UserControl
     public void ShowUpdate(string newVersion)
     {
         _launchMode = false;
+        ResetFailure();
         ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Accent");
         ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Accent");
         EyebrowText.Text = $"UPDATING ORIGIN LAUNCHER TO {newVersion}";
@@ -332,8 +397,23 @@ public partial class LaunchLoadingOverlay : UserControl
         StageText.Text = stage;
     }
 
+    /// <summary>Render mode only: presses Cancel as the player would.</summary>
+    internal void TourPressCancel() => CancelButton_Click(CancelButton, new RoutedEventArgs());
+
+    private void RetryButton_Click(object sender, RoutedEventArgs e)
+    {
+        // One shot, like Cancel: the page starts a fresh launch, whose Show() puts the progress look back.
+        RetryButton.IsEnabled = false;
+        RetryRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_failed)
+        {
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
         // One shot: further clicks do nothing while the cancellation unwinds
         // (the launch flow hides the overlay once it has: from its finally
         // while preparing, from the boot watch once the game was stopped).

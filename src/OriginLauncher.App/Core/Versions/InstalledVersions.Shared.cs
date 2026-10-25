@@ -15,5 +15,7 @@ public sealed partial class InstalledVersions
         VersionManager.BundledJarFor,
         LegacyForgeInstaller.LayoutFor,
         // The signal Play already uses: no valid stamp = it runs a full verify before launching.
-        hasVerifiedStamp: static (root, version) => !InstallVerification.Evaluate(root, version).FullVerify);
+        hasVerifiedStamp: static (root, version) => !InstallVerification.Evaluate(root, version).FullVerify,
+        // An install Play started and did not finish reads Partial, never Installed (InstallJournal).
+        installOpen: InstallJournal.Shared.IsOpen);
 }

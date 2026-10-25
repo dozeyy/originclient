@@ -384,6 +384,10 @@ public partial class MainWindow : Window
 
     internal void TourHideLaunch() => _homePage.TourHideLaunch();
 
+    internal void TourCancelLaunch() => _homePage.TourCancelLaunch();
+
+    internal void TourFailLaunch(Exception error, string version) => _homePage.TourFailLaunch(error, version);
+
     internal void TourShowVersions(int detailIndex) => _homePage.TourShowVersions(detailIndex);
 
     internal void TourHideVersions() => _homePage.TourHideVersions();

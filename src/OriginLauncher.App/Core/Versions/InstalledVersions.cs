@@ -44,6 +44,12 @@ public enum InstallPieces
     /// <see cref="InstalledVersionInfo.VerifyDue"/>; Play re-verifies by itself, so nothing is shown for it.
     /// </summary>
     Verified = 8,
+
+    /// <summary>
+    /// Set in Missing only: an earlier install of this version started (InstallJournal) and never finished, so what
+    /// is on disk may be half written even if every file exists. Play finishes it, then the marker goes.
+    /// </summary>
+    Unfinished = 16,
 }
 
 /// <summary>One version's last-checked install state. Immutable; safe to hand to the UI thread.</summary>
@@ -92,6 +98,7 @@ public sealed partial class InstalledVersions
     private readonly Func<string, LegacyLoaderLayout?> _legacyLoader;
     private readonly Func<string, string, bool>? _hasVerifiedStamp;
     private readonly Action<string> _ensureListable;
+    private readonly Func<string, bool>? _installOpen;
 
     private readonly ConcurrentDictionary<string, InstalledVersionInfo> _cache = new(StringComparer.Ordinal);
     // Each probe takes a ticket before it reads the disk and only stores its result if no newer probe
@@ -109,6 +116,8 @@ public sealed partial class InstalledVersions
     /// has nothing to re-verify. Null = not checked (tests of the other pieces).</param>
     /// <param name="ensureListable">Throws if a folder exists but cannot be listed. Null = list its first entry. A seam so
     /// the unreadable-folder case is testable on any OS.</param>
+    /// <param name="installOpen">True while an install of the version started and did not finish (InstallJournal.IsOpen).
+    /// Such a version is never Installed: it reads Partial with <see cref="InstallPieces.Unfinished"/>. Null = no journal.</param>
     public InstalledVersions(
         IReadOnlyList<string> versions,
         Func<string, string> versionRoot,
@@ -116,8 +125,10 @@ public sealed partial class InstalledVersions
         Func<string, string?> bundledOriginJar,
         Func<string, LegacyLoaderLayout?> legacyLoader,
         Func<string, string, bool>? hasVerifiedStamp = null,
-        Action<string>? ensureListable = null)
+        Action<string>? ensureListable = null,
+        Func<string, bool>? installOpen = null)
     {
+        _installOpen = installOpen;
         _versions = versions;
         _versionRoot = versionRoot;
         _modsDir = modsDir;
@@ -231,6 +242,10 @@ public sealed partial class InstalledVersions
 
             if (present == InstallPieces.None)
                 return Result(version, InstallState.NotInstalled, present, required);
+
+            // An install that started and never finished (failed, cancelled, killed): whatever is on disk may be
+            // half written, so it is never shown as installed, even when every file exists.
+            if (_installOpen?.Invoke(version) == true) missing |= InstallPieces.Unfinished;
 
             if (missing != InstallPieces.None)
                 return Result(version, InstallState.Partial, present, missing);
