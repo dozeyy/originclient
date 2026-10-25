@@ -4,7 +4,7 @@
     "fancyGraphics": "false",
     "ao": "1",
     "particles": "1",
-    "renderClouds": "true",
+    "renderClouds": "fast",
     "entityShadows": "true",
     "mipmapLevels": "2"
   },

@@ -33,7 +33,10 @@ public static class GamePresetOptions
         Row(GamePresetFile.Options, "ao",              "0",     "1",     "2"),
         // particles: 0 all, 1 decreased, 2 minimal. Competitive keeps "decreased" so crits stay visible.
         Row(GamePresetFile.Options, "particles",       "1",     "1",     "0"),
-        Row(GamePresetFile.Options, "renderClouds",    "false", "true",  "true"),
+        // renderClouds: OptiFine saves true (fancy) / fast / false (off) and derives it from ofClouds, so it has
+        // to agree with the ofClouds row below: Balanced's Fast clouds (ofClouds 1) come back as "fast" (CI
+        // round-trip, run bench-189 presets: "true" was saved back as "fast").
+        Row(GamePresetFile.Options, "renderClouds",    "false", "fast",  "true"),
         Row(GamePresetFile.Options, "entityShadows",   "false", "true",  "true"),
         Row(GamePresetFile.Options, "mipmapLevels",    "0",     "2",     "4"),
 

@@ -238,15 +238,16 @@ jobs:
           PRESETS: ${{ steps.cfg.outputs.presets }}
         run: |
           OUT="artifacts/bench-189/out"
+          REPORT="$RUNNER_TEMP/roundtrip.txt"
+          echo "## Preset round-trip" > "$REPORT"
           rc=0
-          {
-            echo "## Preset round-trip"
-            for pr in ${PRESETS//,/ }; do
-              dirs=$(ls -d "$OUT"/preset-$pr/run-* 2>/dev/null || true)
-              if [ -z "$dirs" ]; then echo "preset-$pr: no run folder (the launch failed)"; rc=1; continue; fi
-              python3 tools/bench/prod189.py check-roundtrip --preset "tools/bench/presets-189/$pr.json" --saved $dirs || rc=1
-            done
-          } 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          # (not `{ ...; } | tee`: a pipe runs the group in a subshell and the exit code would be lost)
+          for pr in ${PRESETS//,/ }; do
+            dirs=$(ls -d "$OUT"/preset-$pr/run-* 2>/dev/null || true)
+            if [ -z "$dirs" ]; then echo "preset-$pr: no run folder (the launch failed)" >> "$REPORT"; rc=1; continue; fi
+            python3 tools/bench/prod189.py check-roundtrip --preset "tools/bench/presets-189/$pr.json" --saved $dirs >> "$REPORT" 2>&1 || rc=1
+          done
+          cat "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
           exit $rc
 
       - name: OptiFine option keys (U6.0)
