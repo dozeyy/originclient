@@ -1,4 +1,5 @@
 using System.Net.Http;
+using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
