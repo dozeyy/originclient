@@ -18,7 +18,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Sign in with Microsoft" Style="{StaticResource Text.H2}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="0" Text="Sign in with Microsoft" Style="{StaticResource Text.Title}" VerticalAlignment="Center"/>
             <Button Grid.Column="1" Style="{StaticResource Social.Icon}"
                     Click="CancelButton_Click" ToolTip="Cancel sign-in"
                     AutomationProperties.Name="Cancel sign-in">
@@ -40,7 +40,7 @@
                          it stays open with a plain sentence instead of vanishing. -->
                     <StackPanel x:Name="MessagePanel" Visibility="Collapsed" MaxWidth="380"
                                 HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.H2}"
+                        <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.Title}"
                                    TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,10"/>
                         <TextBlock x:Name="MessageText" Style="{StaticResource Text.BodyDim}"
                                    TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,20"/>

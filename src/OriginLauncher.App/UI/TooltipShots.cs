@@ -29,10 +29,11 @@ internal static class TooltipShots
         // The window's own Close, in the top-right corner: centred under the button, kept inside the window.
         Shot(window, dir, "31-tooltip-close", FindIconButton(window, "Close"));
 
-        // An icon inside a page: the profile card's trash icon.
+        // A button inside a page: the Profiles header's Import (the only page control that keeps a hover label; the
+        // card icons and the Mods rows carry none, so nothing but these four ever pops a label).
         window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
         RenderShots.Pump(700);
-        Shot(window, dir, "32-tooltip-in-page", FindIconButton(window, "Delete"));
+        Shot(window, dir, "32-tooltip-in-page", FindIconButton(window, "Import from another launcher"));
     }
 
     /// <summary>The label of a control whether its ToolTip is still the plain string or already the ToolTip the first hover wrapped it in.</summary>

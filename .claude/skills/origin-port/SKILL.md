@@ -96,4 +96,4 @@ The methods that worked are written down. This skill makes the next port start f
   - Edit `src/mods/shared/`, then run `python tools/shared-sync/sync.py`. CI runs `--check`.
   - Fork a shared file by listing it in that module's `overrides.txt`.
   - Pre-1.20 Gfx modules carry `.no-shared-sync`.
-- Never open Minecraft or launcher windows on Will's PC. Proof comes from CI (Xvfb).
+- Never open Minecraft on Will's PC; in-game proof comes from CI (Xvfb). Building modules locally is fine.

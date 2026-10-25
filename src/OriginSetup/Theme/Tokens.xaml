@@ -24,7 +24,7 @@
     <Color x:Key="Color.StrokeHover">#24FFFFFF</Color>
     <Color x:Key="Color.Text">#FFF1E9D2</Color>
     <Color x:Key="Color.TextDim">#ADF1E9D2</Color>
-    <Color x:Key="Color.TextMuted">#85F1E9D2</Color>
+    <Color x:Key="Color.TextMuted">#8FF1E9D2</Color>
     <Color x:Key="Color.Accent">#FF5FD09B</Color>
     <Color x:Key="Color.AccentHover">#FF83E2B5</Color>
     <Color x:Key="Color.AccentPress">#FF4CB985</Color>

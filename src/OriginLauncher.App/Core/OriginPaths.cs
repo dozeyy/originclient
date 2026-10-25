@@ -36,6 +36,12 @@ public static class OriginPaths
     // (Core/GameFolders/InstanceLayout.cs has the full layout and why).
     public static string Instances => Path.Combine(Root, "instances");
 
+    /// <summary>
+    /// Where a version's "install started, not finished" marker lives (Core/Versions/InstallJournal). Outside
+    /// instances/, so no migration or scan of a version folder can ever move or read it as game data.
+    /// </summary>
+    public static string InstallState(string version) => Path.Combine(Root, "state", "installing", version);
+
     /// <summary>A version's shared root (game jars, libraries, assets, Java).</summary>
     public static string VersionRoot(string version) => InstanceLayout.VersionRoot(Instances, version);
 

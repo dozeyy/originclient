@@ -19,7 +19,7 @@ from urllib.parse import urlsplit
 
 ORDER = ["options", "game-dir", "stamp-full", "stamp-fast", "loader", "fabric-api", "mods",
          "version", "files-first-progress", "files", "process-built", "prepared", "settings-sync",
-         "process-start", "game-first-line", "game-fabric-start", "game-mods-listed"]
+         "process-start", "game-first-line", "game-fabric-start", "game-forge-start", "game-mods-listed"]
 WHAT = {
     "options": "settings + JVM args",
     "game-dir": "account game folder",
@@ -37,7 +37,8 @@ WHAT = {
     "process-start": "java process start",
     "game-first-line": "JVM to first log line",
     "game-fabric-start": "to Fabric Loader start",
-    "game-mods-listed": "Fabric mod discovery",
+    "game-forge-start": "to Forge (FML) start, 1.8.9",
+    "game-mods-listed": "mod discovery (Fabric's list / Forge's 'identified N mods')",
 }
 
 
@@ -102,6 +103,25 @@ def offline(folder):
         print("\n### Offline launches (no network)\n")
         print("| run | result | Play -> java start | requests tried | error |")
         print("|---|---|---:|---|---|")
+        for r in rows:
+            print("| " + " | ".join(r) + " |")
+
+
+def installs(runs):
+    """What Play found and left on disk, per cold launch (U3.3): a first launch goes not-installed/partial -> Installed."""
+    rows = []
+    for (v, kind), rs in sorted(runs.items()):
+        for name, d in rs:
+            if d.get("installBefore") is None:
+                continue
+            reached = any(m["name"] in ("game-mods-listed", "game-window") for m in d.get("marks", []))
+            rows.append((name, d.get("version", "?"), d["installBefore"], d.get("installAfter") or "-",
+                         "open" if d.get("installJournalOpen") else "closed", "yes" if reached else "no",
+                         (d.get("error") or "").split("\n")[0][:100].replace("|", "/")))
+    if rows:
+        print("\n### Install state around Play\n")
+        print("| run | version | before Play | after install | install journal | game reached mod list | error |")
+        print("|---|---|---|---|---|---|---|")
         for r in rows:
             print("| " + " | ".join(r) + " |")
 
@@ -184,5 +204,6 @@ if __name__ == "__main__":
     try:
         main(sys.argv[1])
         offline(sys.argv[1])
+        installs(load(sys.argv[1]))
     except Exception as e:  # a summary bug must never fail the measurement run
         print(f"summary failed: {e}")

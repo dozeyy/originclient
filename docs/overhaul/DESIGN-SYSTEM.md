@@ -136,9 +136,9 @@ outside the deleted list.
 | `color.text` | `#F1E9D2` (parchment) | primary text |
 | `color.numeral` | `#F5F5F5` (neutral white, no hue) | every version number set on art: Home and cards (11.6) |
 | `color.onArt` | `rgba(245,245,245,.82)` | eyebrow and range beside a numeral on art |
-| `color.cornerShade` | `color.bg` from 88 % to 0 | the radial shade a numeral on art stands in (11.6) |
+| `color.cornerShade` | `color.bg` from 88 % to 0 | the radial shade a card's numeral stands in (11.6); Home has none |
 | `color.textDim` | `rgba(241,233,210,.68)` | secondary text, inactive nav, icons at rest |
-| `color.textMuted` | `rgba(241,233,210,.52)` | meta, placeholders, captions (4.5:1 on `bg` and `surface`) |
+| `color.textMuted` | `rgba(241,233,210,.56)` | meta, placeholders, captions (4.5:1 or better on `bg`, `surface` and `surfaceRaised`: 4.86 on the lightest card) |
 | `color.accent` | `#5FD09B` (emerald) | primary fill, switch on, progress fill, selected ring, focus |
 | `color.accentHover` | `#83E2B5` | primary hover |
 | `color.accentPress` | `#4CB985` | primary press |
@@ -153,7 +153,7 @@ outside the deleted list.
 | `color.info` | `#6FAEE8` | informational notes |
 | `color.scrim` | `rgba(10,13,12,.64)` | behind dialogs and the version sheet |
 
-Measured contrast (WCAG): text on bg 15.7, textDim on raised 6.8, textMuted on bg 4.7,
+Measured contrast (WCAG): text on bg 15.7, textDim on raised 6.8, textMuted on bg 5.5, on the lightest card 4.86,
 accent on bg 9.9, dangerText on raised 7.0.
 
 ### 2.2 Light (launcher and installer only, a roadmap theme, built after dark)
@@ -205,7 +205,7 @@ dock icon (Will: "remove the unnecessary boxes").
 | Token | Size / line | Weight | Tracking | Case | Use |
 |---|---|---|---|---|---|
 | `type.label` | 11 / 14 | 600 | +0.10 em | UPPER | nav tabs, eyebrows, badges, section labels |
-| `type.labelLg` | 16 / 20 | 600 | +0.08 em | UPPER | the eyebrow above the Home numeral only |
+| `type.labelLg` | 16 / 20 | 600 | +0.08 em | UPPER | reserved: Home has no eyebrow (11.6) |
 | `type.caption` | 12 / 16 | 500 | 0 | Sentence | status lines, meta, helper text, tooltips |
 | `type.body` | 13.5 / 20 | 400 | 0 | Sentence | default text, descriptions |
 | `type.bodyStrong` | 13.5 / 20 | 600 | 0 | Sentence | button labels, names, row titles |
@@ -223,7 +223,8 @@ dock icon (Will: "remove the unnecessary boxes").
   `ScaleTransform(Narrow, 1)` in `Glyph.OnRender` (`:461-467`). Section 13 gives the sizing rule.
 - **Sentence case** for every button and title ("Play", "Choose a version", "Install only").
   UPPERCASE only through `type.label`.
-- Controls under 32 tall use 12 / 600 labels. Text never sits on art without a scrim.
+- Controls under 32 tall use 12 / 600 labels. Text never sits on art without a scrim, with one exception:
+  the display-size numeral on Home keeps at least 3:1 against its art instead (11.6 contrast rule).
 - One weight step per hierarchy step. Never use 400 and 500 side by side to mean different things.
 
 ---
@@ -421,7 +422,12 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
 
 - 48 tall, full window width, `color.nav` with a 1 px `color.line` bottom hairline. No blur. It
   stays fixed while pages scroll under it (it is already a sibling of `PageHost`). It is the
-  window's drag area (the controls in it are not).
+  window's drag area (the controls in it are not). On Home it is `color.nav` at 88 % over the art
+  (shipped U3.1: a pre-blurred strip under it was not built: only 12 % of the art shows through, too
+  little for a blur to show. The surface itself costs +1.13 ms median, +3.6 %, on the CPU
+  rasteriser in CI (31.23 to 32.37 ms per Home render; two other runs gave +0.68 and -0.04 ms);
+  a GPU frame trace is still to do). On every other page the same bar is opaque, so a
+  scrolled page never reads through the nav.
 - **Layout is a row, not a 3-column grid:** left group (pad 12), tabs, right group (pad 8). Both
   groups keep their natural width. The tabs take the space left between them and centre in it,
   with **at least 24 px** from each group. They never overlap and never touch either group.
@@ -469,34 +475,51 @@ max width 960 (narrower windows: gutter 24), padding 24, `shadow.overlay`, page 
   name reads "Offline" with a `warning` dot at the head's bottom-right (6 px, 2 px `nav` ring).
 - Opens the account drawer (right, 380, `surface`).
 
-### 11.6 Numerals on art: the ground-line rule (Home and every card)
+### 11.6 Numerals on art: centred on Home, the ground-line rule on cards
 
-Will: the large version number must feel like an intentional part of the image composition. One
-rule places every version number set on art, the Home numeral and every version card alike. The
-number stands on the picture's ground, in its darkest corner, at a size taken from the picture:
+Will: the large version number must feel like an intentional part of the image composition. Two
+placements share one size and one type. **Home** (Will, requests/04 and phase 3: "correct
+numeral typography and centring"): the numeral is centred, across the window and vertically in
+the free band between the bar's bottom edge and the strip's top edge. **Version cards** (U3.4):
+the number stands on the picture's ground, in its darkest corner. Both take their size from the
+picture:
 
-- **Corner:** bottom-left, always. A radial `color.cornerShade` grows from that corner (cards:
-  ellipse 100 % x 80 %; Home: 64 % x 70 %), `color.bg` from 88 % at the corner, 50 % at 45 %, 0 at
-  the edge. Cards add a whole-card dim of 6 %. The rest of the picture stays bright.
-- **Gutter:** the first figure's **ink** (not its text box) sits on the gutter: 12 on a card,
-  24 on Home. Compensate the first glyph's left side bearing (WPF: `GlyphTypeface` left side
+- **Home placement (shipped U3.1, `NumeralBand` + `VersionNumeral`):** the band runs from the
+  bar's bottom edge (48) to the top of the Home strip, reported by `HomePage` as its height
+  changes. The figures' vertical middle is the band's middle and the ink's horizontal middle is
+  the window's (the first figure's left and the last one's right side bearings are taken off,
+  so a "1" at either end does not tip it). The figures never fill more than 60 % of the band.
+  No corner shade, no eyebrow (Will, 2026-10-19: the pill names the version, the art names the
+  family). Measured at 960 x 600, 1180 x 740 and 1920 x 1080: figures 150, 185 and 270, air above
+  equals air below, ink 59 %, 60 % and 54 % of the width for "1.21.11".
+- **Contrast rule (replaces "text never sits on art without a scrim" for the numeral):** the
+  numeral is display-size text (at least 150 tall), so it keeps at least 3:1 (WCAG large text)
+  against the art behind its ink. Measured on the 1.21.11 art at the three sizes above: worst
+  pixel 4.7:1, 99th percentile 5.8:1 (`color.numeral` against the art within the numeral's box,
+  edges excluded). Every other family's art is checked the same way when it is added or
+  re-graded; a family that falls under 3:1 gets a scrim under the numeral, not a tint on it.
+
+- **Card corner:** bottom-left, always. A radial `color.cornerShade` grows from that corner
+  (ellipse 100 % x 80 %), `color.bg` from 88 % at the corner, 50 % at 45 %, 0 at the edge. Cards
+  add a whole-card dim of 6 %. The rest of the picture stays bright. Home has no corner shade.
+- **Card gutter:** the first figure's **ink** (not its text box) sits 12 from the card's left
+  edge. Compensate the first glyph's left side bearing (WPF: `GlyphTypeface` left side
   bearing x size; web: canvas `actualBoundingBoxLeft`).
-- **Ground line:** the figures' baseline. 12 above the card's bottom edge; on Home, 24 above the
-  top of the control strip (88 from the window's bottom at 1180 x 740).
+- **Card ground line:** the figures' baseline, 12 above the card's bottom edge.
 - **Size:** figure height (cap height) = **25 % of the art's height**. Inter's figures are
   0.7275 em, so font size = art height x 0.344. Card 16:10: font = 21.5 % of the card's width.
   Home 1180 x 740: figures 185, font 254. Home 960 x 600: figures 150, font 206.
-- **Width cap:** the ink is never wider than 2/3 of the art; past that the font shrinks to fit.
+- **Width cap (Home and cards):** the ink is never wider than 2/3 of the art; past that the font shrinks to fit.
   Measured at font 254: 26.3 is 522 px (44 % of 1180), the longest key 1.21.10 is 748 (63 %), so
   nothing shrinks at the default window.
 - **Figures:** `type.numeral`: Inter 800, natural width (no horizontal squash), proportional
-  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow. A 1 px
-  legibility shadow on bright art, drawn, never an effect: `ArtStage.OnRender` draws the same
-  `FormattedText` once at +1 px y in black at 40 %, then the white text on top. No
-  `DropShadowEffect` (section 7: no effects on animating elements, and the numeral crossfades,
-  section 13). The preview's CSS `text-shadow` stands in for this OnRender pass.
-- **Eyebrow:** the update name in `type.label` caps, `color.onArt`, above the figures' cap line
-  by max(8, figures x 0.08), same left edge (Home: `type.labelLg`, 15 gap).
+  lining figures, -0.04 em, `color.numeral` neutral white, never tinted, no glow. Home draws
+  it plain (the contrast rule above holds without help). A card on bright art may add a 1 px
+  legibility shadow, drawn, never an effect: the same `FormattedText` once at +1 px y in black at
+  40 %, then the white text on top. No `DropShadowEffect` (section 7: no effects on animating
+  elements, and the numeral crossfades, section 13).
+- **Eyebrow (cards only):** the update name in `type.label` caps, `color.onArt`, above the figures'
+  cap line by max(8, figures x 0.08), same left edge. Home has none.
 - **Range** (cards only): "1.21 - 1.21.11" in `caption` `color.onArt`, 12 after the figures, on
   their baseline. Hidden on cards narrower than 220.
 - **Status badge** (cards) top-left at 10 / 10: `badge` (20 tall, `radius.full`, `surface` at 80 %,
@@ -572,7 +595,8 @@ number stands on the picture's ground, in its darkest corner, at a size taken fr
   window width x DPI). The slow drift stays only if Phase 3 measures it inside the frame budget
   (it re-composites the full window at 15 fps); otherwise the art is static. Bottom scrim:
   `color.bg` from 82 % at the window's bottom edge to 0 at 200 px above the strip. There is no top
-  scrim, since the bar is a solid surface. The art crossfades in `motion.scene` when the family
+  scrim: the top bar's own `color.nav` 88 % surface (11.4) covers the art behind it, so the art runs at full
+  strength right under the bar's hairline. The art crossfades in `motion.scene` when the family
   changes.
 - **Other launcher pages:** `color.bg` with the same art under 92 % `color.bg` (the existing
   `PageDim`, re-valued), so the version still tints the room faintly.
@@ -593,11 +617,10 @@ number stands on the picture's ground, in its darkest corner, at a size taken fr
 | [logo][wordmark]>   |24|  HOME  MODS  PROFILES  SETTINGS  |24|  Store i f | (h) Name v  - x |
 +----------------------------------------------------------------------------------+
 |                                                                                  |
-|  (corner shade grows from the bottom-left)                                        |
 |                                                                                  |
-|  THE LATEST RELEASES                 <- eyebrow, 15 above the cap line            |
-|  2 6 . 3                             <- figures 185 = 25 % of 740, ink on gutter 24 |
-|  ----------------------------------- ground line, 24 above the strip              |
+|                       2 6 . 3          <- figures 185 = 25 % of 740, centred     |
+|                                           in the band (bar bottom to strip top)  |
+|                                                                                  |
 |                                                                   * Ready to play |
 | [thumb 26.3  The Latest Releases v] [o No profile v]          My mods [=] [> Play] |
 +---------------------------------------------- 24 inset ---------------------------+
@@ -608,12 +631,12 @@ number stands on the picture's ground, in its darkest corner, at a size taken fr
   `caption` `textDim`, chevron), 8, then the profile dropdown. Right group: "My mods" switch (label
   + 32 x 18 switch), 16, then Play (**fixed width 144** in every state, play glyph 14 +
   `type.action`). The status line (`caption`, 6 px dot) sits 8 above Play, right-aligned.
-- **Numeral:** the selected release ("26.3") placed by the ground-line rule (11.6), the same rule
-  as the cards. At 1180 x 740: font 254, figures 185 tall (25 % of 740), ink 522 wide (44 % of
-  1180), first figure's ink at x 24, baseline 88 above the window's bottom, eyebrow "THE LATEST
-  RELEASES" 15 above. At 960 x 600: font 206, figures 150. Ink width capped at 2/3 of the window
-  (11.6). Replaces the fixed 0.42 x height and the centred band at `ArtStage.cs:422`. One
-  `FormattedText` per change, not per glyph per resize. Crossfades with the art (`motion.scene`).
+- **Numeral:** the selected release ("26.3") centred in the band between the bar's bottom edge
+  and the strip's top edge (11.6 Home placement), at its natural width. At 1180 x 740: font 254,
+  figures 185 tall (25 % of 740), ink centred on x 590 and on the band's middle (y 336 with the
+  band at 48 to 624). At 960 x 600: font 206, figures 150. Ink width capped at 2/3 of the window
+  (11.6). Replaces the fixed 0.42 x height and the 70 % squash. Shaped text is cached per font
+  size, not rebuilt per glyph per resize. Crossfades with the art (`motion.scene`).
 - At 960 x 600 the update name in the version selector drops first, then the "My mods" label
   (the switch stays, with a tooltip).
 
@@ -763,7 +786,7 @@ Status: **reuse** = the key exists, so only its value changes; **new** = the key
 | color.lineStrong | `Color.Stroke` | `#1AFFFFFF` | reuse |
 | color.text | `Color.Text` (+ `Color.OnPhoto`) | `#FFF1E9D2` | reuse |
 | color.textDim | `Color.TextDim` | `#ADF1E9D2` | reuse |
-| color.textMuted | `Color.TextMuted` | `#85F1E9D2` | reuse |
+| color.textMuted | `Color.TextMuted` | `#8FF1E9D2` | reuse |
 | color.accent / hover / press | `Color.Accent` / `AccentHover` / `AccentPress` | `#FF5FD09B` / `#FF83E2B5` / `#FF4CB985` | reuse (was neutral #E0E0E0) |
 | color.accentSoft / accentLine | `Color.AccentSoft` / `Color.AccentBorder` | `#245FD09B` / `#995FD09B` | reuse |
 | color.onAccent | `Color.TextOnAccent` | `#FF0A1710` | reuse |

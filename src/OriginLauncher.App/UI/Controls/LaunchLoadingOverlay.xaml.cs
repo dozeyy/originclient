@@ -31,16 +31,6 @@ public partial class LaunchLoadingOverlay : UserControl
     public LaunchLoadingOverlay()
     {
         InitializeComponent();
-        // The % sits on the count's baseline: lift it by the difference in how far
-        // each size reaches below its baseline.
-        Loaded += (_, _) =>
-        {
-            VersionText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            PercentText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var below = (VersionText.DesiredSize.Height - VersionText.Baseline)
-                        - (PercentText.DesiredSize.Height - PercentText.Baseline);
-            PercentText.Margin = new Thickness(6, 0, 0, Math.Max(0, below));
-        };
     }
 
     /// <summary>
@@ -68,10 +58,30 @@ public partial class LaunchLoadingOverlay : UserControl
         OnShown(value);
     }
 
+    // The % sits on the count's baseline: lift it by the difference in how far each size reaches below its baseline.
+    // Measured only once the % is visible (a collapsed element measures to nothing, which left it floating).
+    private void AlignPercentToBaseline()
+    {
+        var infinite = new Size(double.PositiveInfinity, double.PositiveInfinity);
+        VersionText.Measure(infinite);
+        PercentText.Measure(infinite);
+        var below = (VersionText.DesiredSize.Height - VersionText.Baseline)
+                    - (PercentText.DesiredSize.Height - PercentText.Baseline);
+        PercentText.Margin = new Thickness(PercentGap, 0, 0, Math.Max(0, below));
+    }
+
+    private const double PercentGap = 6;
+    private bool _percentAligned;
+
     private void ShowCount(bool counting)
     {
         _counting = counting;
         PercentText.Visibility = counting ? Visibility.Visible : Visibility.Collapsed;
+        if (counting && !_percentAligned)
+        {
+            AlignPercentToBaseline();
+            _percentAligned = true;
+        }
         if (!counting) VersionText.Text = _bigFallback;
     }
 
@@ -79,20 +89,82 @@ public partial class LaunchLoadingOverlay : UserControl
     /// showed the overlay cancels its in-flight provisioning.</summary>
     public event EventHandler? CancelRequested;
 
+    /// <summary>Raised when the player clicks Retry on the failure state.</summary>
+    public event EventHandler? RetryRequested;
+
+    /// <summary>Raised when the player clicks Close on the failure state; the page lowers the screen.</summary>
+    public event EventHandler? CloseRequested;
+
+    // True while the screen shows a failure (ShowFailure) instead of progress.
+    private bool _failed;
+
+    /// <summary>True while the failure state is up (ShowFailure), until the next Show.</summary>
+    public bool ShowsFailure => _failed;
+
+    /// <summary>
+    /// Preparing the game failed (U3.3): the bar and the mark stop, the cause is said in one plain sentence and
+    /// the player can Retry or Close. The files are left as they are; the next Play finishes the job.
+    /// </summary>
+    public void ShowFailure(PlayFailure failure)
+    {
+        _failed = true;
+        ++_stageRevision;
+        StopClock(ref _spinClock);
+        StopClock(ref _sweepClock);
+        Mark.ApplyAnimationClock(OpacityProperty, null);
+        Mark.Opacity = 1;
+        ProgressSweep.Visibility = Visibility.Collapsed;
+        ProgressFill.Visibility = Visibility.Collapsed;
+        ProgressTrack.Visibility = Visibility.Collapsed;
+        ShowCount(false);
+        SetShown(0);
+
+        EyebrowText.Text = failure.Title.ToUpperInvariant();
+        EyebrowText.SetResourceReference(ForegroundProperty, "Brush.DangerText");
+        StageText.BeginAnimation(OpacityProperty, null);
+        StageText.Opacity = 1;
+        StageText.Text = failure.Message;
+        StageText.TextWrapping = TextWrapping.Wrap;
+        StageText.TextTrimming = TextTrimming.None;
+        StageText.TextAlignment = TextAlignment.Center;
+
+        RetryButton.Visibility = Visibility.Visible;
+        RetryButton.IsEnabled = true;
+        CancelButton.Content = "Close";
+        CancelButton.ToolTip = null;
+        CancelButton.IsEnabled = true;
+        Visibility = Visibility.Visible;
+        IsHitTestVisible = true;
+        Opacity = 1;
+        RetryButton.Focus();
+    }
+
+    // Back to the progress look: Show/ShowUpdate start here so a failure never leaks into the next launch.
+    private void ResetFailure()
+    {
+        _failed = false;
+        RetryButton.Visibility = Visibility.Collapsed;
+        CancelButton.Content = "Cancel";
+        ProgressTrack.Visibility = Visibility.Visible;
+        EyebrowText.SetResourceReference(ForegroundProperty, "Brush.OnPhoto");
+        StageText.TextWrapping = TextWrapping.NoWrap;
+        StageText.TextTrimming = TextTrimming.CharacterEllipsis;
+        StageText.ClearValue(TextBlock.TextAlignmentProperty);
+    }
+
     /// <summary>The Play press. No loader name anywhere: the player never sees
     /// which loader a version runs on (mandate 1).</summary>
     public void Show(string version, string? caption = null)
     {
         _launchMode = true;
+        ResetFailure();
         EyebrowText.Text = $"PREPARING MINECRAFT {version}";
         CancelButton.Visibility = Visibility.Visible;
         CancelButton.ToolTip = null;
         LoaderCaptionText.Visibility = Visibility.Collapsed;
         CaptionFamily.Text = FamilyTheme.Of(version).Label;
-        // The bar is this version's colour, not whichever family Home last showed.
-        var accent = FamilyTheme.AccentBrush(version);
-        ProgressFill.Background = accent;
-        ProgressSweep.Background = accent;
+        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Accent");
+        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Accent");
         CaptionDetail.Text = caption ?? "";
         CaptionDetail.Visibility = string.IsNullOrEmpty(caption) ? Visibility.Collapsed : Visibility.Visible;
         CaptionPanel.Visibility = Visibility.Visible;
@@ -106,9 +178,9 @@ public partial class LaunchLoadingOverlay : UserControl
     public void ShowUpdate(string newVersion)
     {
         _launchMode = false;
-        // A launcher update belongs to no version: back to the family on screen.
-        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Acc");
-        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Acc");
+        ResetFailure();
+        ProgressFill.SetResourceReference(BackgroundProperty, "Brush.Accent");
+        ProgressSweep.SetResourceReference(BackgroundProperty, "Brush.Accent");
         EyebrowText.Text = $"UPDATING ORIGIN LAUNCHER TO {newVersion}";
         CancelButton.Visibility = Visibility.Collapsed;
         LoaderCaptionText.Text = "Getting the newest version";
@@ -181,17 +253,18 @@ public partial class LaunchLoadingOverlay : UserControl
         ShowCount(false);
         SetShown(0);
 
-        // The mark doubles as the spinner. Reduced motion leaves it still.
-        var transform = new RotateTransform();
-        Mark.RenderTransform = transform;
+        // The mark is the loading indicator: it breathes (a slow opacity pulse). The drawing itself is never rotated
+        // or scaled (design system 1.3). Reduced motion leaves it still.
         StopClock(ref _spinClock);
         if (!SystemParameters.ClientAreaAnimation) return;
-        var spin = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(2.5)))
+        var pulse = new DoubleAnimation(1, 0.45, new Duration(TimeSpan.FromSeconds(1.2)))
         {
-            RepeatBehavior = RepeatBehavior.Forever
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
         };
-        _spinClock = spin.CreateClock();
-        transform.ApplyAnimationClock(RotateTransform.AngleProperty, _spinClock);
+        _spinClock = pulse.CreateClock();
+        Mark.ApplyAnimationClock(OpacityProperty, _spinClock);
     }
 
     /// <summary>
@@ -324,8 +397,23 @@ public partial class LaunchLoadingOverlay : UserControl
         StageText.Text = stage;
     }
 
+    /// <summary>Render mode only: presses Cancel as the player would.</summary>
+    internal void TourPressCancel() => CancelButton_Click(CancelButton, new RoutedEventArgs());
+
+    private void RetryButton_Click(object sender, RoutedEventArgs e)
+    {
+        // One shot, like Cancel: the page starts a fresh launch, whose Show() puts the progress look back.
+        RetryButton.IsEnabled = false;
+        RetryRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_failed)
+        {
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
         // One shot: further clicks do nothing while the cancellation unwinds
         // (the launch flow hides the overlay once it has: from its finally
         // while preparing, from the boot watch once the game was stopped).

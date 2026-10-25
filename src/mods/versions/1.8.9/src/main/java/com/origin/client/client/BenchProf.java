@@ -46,7 +46,16 @@ public final class BenchProf {
 	private static final int[] DEPTH = new int[MAX];
 
 	/** Counters (per measured window; only counted while it is open). */
-	private static long particleRender, particleSpawn, fontDrawString, gfxDraw, gfxText;
+	private static long particleRender, particleSpawn, fontDrawString, gfxDraw, gfxText, blurFull, blurReuse;
+	/** Model cosmetics: vertices built on the CPU this frame vs vertices replayed from a compiled list. */
+	private static long cosmeticCpuVerts, cosmeticListVerts;
+
+	public static void countCosmeticVertices(int cpu, int list) {
+		if (active) {
+			cosmeticCpuVerts += cpu;
+			cosmeticListVerts += list;
+		}
+	}
 
 	public static void countParticleRender() {
 		if (active) {
@@ -72,6 +81,17 @@ public final class BenchProf {
 		}
 	}
 
+	/** Menu Blur: a full pyramid rebuild vs a reuse of the cached result (frozen world). */
+	public static void countBlur(boolean reused) {
+		if (active) {
+			if (reused) {
+				blurReuse++;
+			} else {
+				blurFull++;
+			}
+		}
+	}
+
 	public static void countGfxText() {
 		if (active) {
 			gfxText++;
@@ -83,6 +103,17 @@ public final class BenchProf {
 	public static final int S_CAPE = section("mixin LayerCape.doRenderLayer HEAD (cape physics)");
 	public static final int S_COSMETIC_LAYER = section("layer CosmeticLayer.doRenderLayer (hats/masks/backs)");
 	public static final int S_ENTITY_CULL = section("mixin RenderManager.shouldRender (Entity Distance)");
+	// HUD phases inside HudElements.renderAll (summed over every element) and the minimap's scan/draw split
+	// (Phase 6 picks 3/4): they say where an element's time goes, which the per-element section cannot.
+	public static final int S_HUD_MEASURE = section("hud phase: measure (all elements)");
+	public static final int S_HUD_BACKING = section("hud phase: drawBacking (all elements)");
+	public static final int S_HUD_RENDER = section("hud phase: renderer (all elements)");
+	public static final int S_MM_UPDATE = section("minimap: MinimapData.update (terrain scan)");
+	public static final int S_MM_SCAN = section("minimap: one chunk scan");
+	// Inside a chunk scan: the colour + upload stage, which only runs when the chunk's columns changed.
+	public static final int S_MM_COLOUR = section("minimap: colour + upload (chunk changed)");
+	public static final int S_MM_DRAWMAP = section("minimap: drawMap (geometry)");
+	public static final int S_MM_INFO = section("minimap: info lines + box");
 
 	private static volatile boolean active = false;
 	private static com.sun.management.ThreadMXBean threads;
@@ -291,7 +322,8 @@ public final class BenchProf {
 		Arrays.fill(CALLS, 0);
 		Arrays.fill(MAXNS, 0);
 		Arrays.fill(DEPTH, 0);
-		particleRender = particleSpawn = fontDrawString = gfxDraw = gfxText = 0;
+		particleRender = particleSpawn = fontDrawString = gfxDraw = gfxText = blurFull = blurReuse = 0;
+		cosmeticCpuVerts = cosmeticListVerts = 0;
 		calibrate();
 		active = true;
 	}
@@ -366,6 +398,10 @@ public final class BenchProf {
 		c.addProperty("fontDrawStringPerFrame", round(fontDrawString / f));
 		c.addProperty("originTessDrawsPerFrame", round(gfxDraw / f));
 		c.addProperty("originGfxTextPerFrame", round(gfxText / f));
+		c.addProperty("menuBlurFullPerFrame", round(blurFull / f));
+		c.addProperty("menuBlurReusedPerFrame", round(blurReuse / f));
+		c.addProperty("cosmeticCpuVerticesPerFrame", round(cosmeticCpuVerts / f));
+		c.addProperty("cosmeticListVerticesPerFrame", round(cosmeticListVerts / f));
 		o.add("counters", c);
 		if (!notes.isEmpty()) {
 			JsonArray n = new JsonArray();

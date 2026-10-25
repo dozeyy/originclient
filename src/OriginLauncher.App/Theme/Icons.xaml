@@ -2,30 +2,33 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
-    <!-- Origin Icon System v2 (2026-10-12): 24 px masters drawn at a 2.2 px
-         stroke; at the usual 18 px icon size that's ~1.7 px. -->
+    <!-- Origin Line (DESIGN-SYSTEM section 10): 24 px masters, round caps and joins, one 1.7 px stroke at every size. -->
     <!-- Glyph sizes. An icon button sizes ITSELF from its glyph plus its padding (MinWidth/MinHeight,
          never a fixed Width/Height smaller than that sum): a glyph bigger than its slot is cut off
          at the slot's edge, which is how the Friends drawer's "..." lost a dot (2026-10-18). -->
-    <system:Double x:Key="Icon.Size">18</system:Double>
+    <!-- icon.sm 14 (28 tall controls), icon.md 16 (32 and 36 tall), icon.lg 18 (40 tall). Icon.Size is the default md. -->
     <system:Double x:Key="Icon.SizeSmall">14</system:Double>
-    <!-- The small "opens in your browser" arrow after a link's label in the top bar. It sits inside the button's own
-         9 px right padding (offset + size < 9), so it is never wider than the gap the button already has. -->
-    <system:Double x:Key="Icon.SizeLinkHint">8</system:Double>
-    <system:Double x:Key="Icon.LinkHintOffset">1</system:Double>
+    <system:Double x:Key="Icon.Size">16</system:Double>
+    <system:Double x:Key="Icon.SizeLarge">18</system:Double>
+    <system:Double x:Key="Icon.Stroke">1.7</system:Double>
+    <!-- The small "opens in your browser" arrow after a link's label in the top bar: 10 px, a 1.25 line, 3 px in from
+         the label's end. It lives in a zero-width Canvas, so it takes no layout space whatever its size. -->
+    <system:Double x:Key="Icon.SizeLinkHint">10</system:Double>
+    <system:Double x:Key="Icon.StrokeLinkHint">1.25</system:Double>
+    <system:Double x:Key="Icon.LinkHintOffset">3</system:Double>
 
     <Style x:Key="Icon.Base" TargetType="Path">
         <Setter Property="Stretch" Value="Uniform"/>
         <Setter Property="Width" Value="{StaticResource Icon.Size}"/>
         <Setter Property="Height" Value="{StaticResource Icon.Size}"/>
-        <Setter Property="StrokeThickness" Value="1.7"/>
+        <Setter Property="StrokeThickness" Value="{StaticResource Icon.Stroke}"/>
         <Setter Property="StrokeStartLineCap" Value="Round"/>
         <Setter Property="StrokeEndLineCap" Value="Round"/>
         <Setter Property="StrokeLineJoin" Value="Round"/>
         <Setter Property="Fill" Value="Transparent"/>
     </Style>
 
-    <!-- The glyph inside a small icon button (Social.Icon: 14 px glyph + 9 px padding = the 32 px Size.IconButton). -->
+    <!-- The glyph inside a small icon button (a 14 px glyph, icon.sm). -->
     <Style x:Key="Icon.Small" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
         <Setter Property="Width" Value="{StaticResource Icon.SizeSmall}"/>
         <Setter Property="Height" Value="{StaticResource Icon.SizeSmall}"/>
@@ -52,7 +55,7 @@
         <Setter Property="Width" Value="{StaticResource Icon.SizeLinkHint}"/>
         <Setter Property="Height" Value="{StaticResource Icon.SizeLinkHint}"/>
         <Setter Property="Data" Value="{StaticResource Icon.External}"/>
-        <Setter Property="StrokeThickness" Value="1.5"/>
+        <Setter Property="StrokeThickness" Value="{StaticResource Icon.StrokeLinkHint}"/>
         <Setter Property="Canvas.Left" Value="{StaticResource Icon.LinkHintOffset}"/>
         <Setter Property="Canvas.Top" Value="0"/>
         <Setter Property="Opacity" Value="0"/>
@@ -155,6 +158,8 @@
     <Geometry x:Key="Icon.Emblem.Torch.Solid">M11.29,10.31 L13.69,12.71 4.15,22.26 1.74,19.85 Z M16,6.2 L16.86,9.64 A1.5,1.5 0 1 1 14.13,9.21 Z</Geometry>
     <Geometry x:Key="Icon.Emblem.Chest">M3,5 H21 V20 H3 Z M3,10 H21</Geometry>
     <Geometry x:Key="Icon.Emblem.Chest.Solid">M10,9 H14 V14 H10 Z</Geometry>
+    <!-- Two arrows chasing each other: Settings Sync (U3.7b). -->
+    <Geometry x:Key="Icon.Sync">M23,4 L23,10 L17,10 M1,20 L1,14 L7,14 M3.51,9 A9,9 0 0 1 18.36,5.64 L23,10 M1,14 L5.64,18.36 A9,9 0 0 0 20.49,15</Geometry>
     <Geometry x:Key="Icon.Globe">M12,3 A9,9 0 1 0 12.001,3 Z M3,12 H21 M12,3 A14,14 0 0 1 12,21 A14,14 0 0 1 12,3 Z</Geometry>
 
 </ResourceDictionary>

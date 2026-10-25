@@ -387,10 +387,10 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     /// <param name="compact">The grid page: a smaller poster title (the dialog-title size) and the line close under it, so the grid gets the room.</param>
     private void SetHeader(string title, string? subtitle, string? status = null, bool dot = true, bool compact = false)
     {
-        HeaderTitle.Text = title.ToUpperInvariant();
+        HeaderTitle.Text = title;
         if (compact)
         {
-            HeaderTitle.FontSize = (double)FindResource("FontSize.DialogTitle");
+            HeaderTitle.FontSize = (double)FindResource("FontSize.Heading");
             HeaderTitle.LineHeight = HeaderTitle.FontSize;
             HeaderSubtitle.Margin = new Thickness(0, 4, 0, 0);
         }

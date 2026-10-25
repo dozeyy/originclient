@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -813,7 +812,7 @@ public partial class PromoBanner : UserControl
     private void ClipLayers()
     {
         // One pixel inside the card border, so the clip follows the rounded frame without a gap.
-        var r = Math.Max(0, ((CornerRadius)FindResource("Radius.Card")).TopLeft - 1);
+        var r = Math.Max(0, ((CornerRadius)FindResource("Radius.Lg")).TopLeft - 1);
         Layers.Clip = new RectangleGeometry(new Rect(Layers.RenderSize), r, r);
     }
 
@@ -831,7 +830,7 @@ public partial class PromoBanner : UserControl
             if (!_previews.TryGetValue(url, out image))
             {
                 ShowPreview(null, blurred);
-                image = await LoadImageAsync(url, blurred ? 96 : 800);
+                image = await LoadImageAsync(url, blurred ? 48 : 800, soften: blurred);
                 _previews[url] = image;
                 if (revision != _previewRevision) return;
             }
@@ -843,7 +842,6 @@ public partial class PromoBanner : UserControl
     private void ShowPreview(ImageSource? image, bool blurred)
     {
         PreviewImage.Source = image;
-        PreviewImage.Effect = blurred && image != null ? new BlurEffect { Radius = 28 } : null;
         AmbientMark.Visibility = image == null ? Visibility.Visible : Visibility.Collapsed;
 
         var target = image == null ? 0 : blurred ? 0.45 : 1;
@@ -918,7 +916,9 @@ public partial class PromoBanner : UserControl
         FitText(); // the icon takes width from the text
     }
 
-    private static async Task<ImageSource?> LoadImageAsync(Uri url, int decodeWidth = 96)
+    // soften: the Discord card's art is the server icon blown up. It is blurred ONCE here, on the pool thread, into a
+    // small frozen bitmap that the card then just scales; no live BlurEffect runs on the UI thread every frame.
+    private static async Task<ImageSource?> LoadImageAsync(Uri url, int decodeWidth = 96, bool soften = false)
     {
         var bytes = await PromoHttp.GetBytesAsync(url, MaxImageBytes, ImageTimeout, CancellationToken.None);
         if (bytes == null) return null;
@@ -935,7 +935,7 @@ public partial class PromoBanner : UserControl
                 bitmap.StreamSource = new MemoryStream(bytes);
                 bitmap.EndInit();
                 bitmap.Freeze();
-                return (ImageSource?)bitmap;
+                return soften ? Soften(bitmap) : (ImageSource?)bitmap;
             }
             catch (Exception ex) when (ex is NotSupportedException or FileFormatException
                                            or InvalidOperationException or ArgumentException)
@@ -943,5 +943,52 @@ public partial class PromoBanner : UserControl
                 return null;
             }
         });
+    }
+
+    private const int SoftenRadius = 3;
+    private const int SoftenPasses = 3;
+
+    /// <summary>A small frozen bitmap, box-blurred (three passes approximate a Gaussian). Pool thread only.</summary>
+    private static ImageSource Soften(BitmapSource source)
+    {
+        var bgra = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        int w = bgra.PixelWidth, h = bgra.PixelHeight, stride = w * 4;
+        var a = new byte[stride * h];
+        bgra.CopyPixels(a, stride, 0);
+        var b = new byte[a.Length];
+        for (var pass = 0; pass < SoftenPasses; pass++)
+        {
+            BoxBlur(a, b, w, h, horizontal: true);
+            BoxBlur(b, a, w, h, horizontal: false);
+        }
+        var result = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, a, stride);
+        result.Freeze();
+        return result;
+    }
+
+    // One axis of a box blur with clamped edges; premultiplied-agnostic because the icon is opaque in practice.
+    private static void BoxBlur(byte[] src, byte[] dst, int w, int h, bool horizontal)
+    {
+        var length = horizontal ? w : h;
+        var lines = horizontal ? h : w;
+        var step = horizontal ? 4 : w * 4;
+        var window = SoftenRadius * 2 + 1;
+        for (var line = 0; line < lines; line++)
+        {
+            var origin = horizontal ? line * w * 4 : line * 4;
+            for (var channel = 0; channel < 4; channel++)
+            {
+                var sum = 0;
+                for (var k = -SoftenRadius; k <= SoftenRadius; k++)
+                    sum += src[origin + Math.Clamp(k, 0, length - 1) * step + channel];
+                for (var i = 0; i < length; i++)
+                {
+                    dst[origin + i * step + channel] = (byte)(sum / window);
+                    var leave = Math.Clamp(i - SoftenRadius, 0, length - 1);
+                    var enter = Math.Clamp(i + SoftenRadius + 1, 0, length - 1);
+                    sum += src[origin + enter * step + channel] - src[origin + leave * step + channel];
+                }
+            }
+        }
     }
 }

@@ -43,6 +43,9 @@ public static class LaunchTimingHarness
         string? error = null;
         int? exitCode = null;
         var gameLines = new List<string>();
+        string? installBefore = null, installAfter = null;
+        bool? installJournalOpen = null;
+        List<string> installStages = [];
         try
         {
             // Inside the try so a setup failure still writes the result file.
@@ -69,10 +72,18 @@ public static class LaunchTimingHarness
             {
                 if (text.Contains('(') && Interlocked.Exchange(ref firstFile, 1) == 0) Mark("files-first-progress");
             });
+            // What Play finds on disk, then what it leaves (U3.3): a first launch must go missing/partial -> installed
+            // on its own, with the install journal closed. launch-time.yml fails a cold run that doesn't.
+            installBefore = InstalledVersions.Shared.Check(version).State.ToString();
+            var stages = new List<string>();
+            var stagedProgress = new Progress<string>(text => { lock (gate) if (stages.Count < 40 && !stages.Contains(text)) stages.Add(text); ((IProgress<string>)progress).Report(text); });
             var process = new VersionManager()
-                .InstallAndBuildProcessAsync(version, key, option, settings.PlayWithExternalMods, null, progress)
+                .InstallAndBuildProcessAsync(version, key, option, settings.PlayWithExternalMods, null, stagedProgress)
                 .GetAwaiter().GetResult();
             Mark("prepared");
+            installAfter = InstalledVersions.Shared.Check(version).State.ToString();
+            installJournalOpen = InstallJournal.Shared.IsOpen(version);
+            lock (gate) installStages = stages.Where(s => !s.Contains('(')).ToList();
             if (settings.SyncSettingsAcrossVersions)
             {
                 SettingsSync.BeforeLaunch(key, version);
@@ -93,11 +104,12 @@ public static class LaunchTimingHarness
                     if (gameLines.Count < 400) gameLines.Add(line);
                     if (gameLines.Count == 1) marks.Add(("game-first-line", clock.ElapsedMilliseconds));
                 }
-                if (line.Contains("Loading Minecraft") && line.Contains("Fabric Loader")) Mark("game-fabric-start");
-                if (line.Contains("Loading ") && line.Contains(" mods:")) { Mark("game-mods-listed"); }
-                var boot = line.IndexOf("[OriginBoot] mark ", StringComparison.Ordinal);
-                if (boot >= 0) Mark("game-" + line[(boot + 18)..].Split(' ')[0]);
-                if (line.Contains("Backend library:")) { Mark("game-window"); done.Set(); }
+                // Fabric's and Forge's lines alike (GameLogMarks): 1.8.9 prints no Fabric line.
+                foreach (var mark in GameLogMarks.Of(line))
+                {
+                    Mark(mark);
+                    if (mark == GameLogMarks.WindowMark) done.Set();
+                }
             }
             process.OutputDataReceived += (_, e) => OnLine(e.Data);
             process.ErrorDataReceived += (_, e) => OnLine(e.Data);
@@ -132,6 +144,10 @@ public static class LaunchTimingHarness
                 gameExitCode = exitCode,
                 startupMs,
                 javaPath,
+                installBefore,
+                installAfter,
+                installJournalOpen,
+                installStages,
                 marks = marks.Select(m => new { name = m.Name, ms = m.Ms }),
                 requests = requests.OrderBy(r => r.StartMs)
                     .Select(r => new { url = r.Url, start = r.StartMs, ms = r.Ms, status = r.Status }),

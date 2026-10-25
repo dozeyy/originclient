@@ -285,8 +285,8 @@ public partial class FriendsPanel : UserControl
 
     private void SetHeader(string title, string subtitle, bool dot = false)
     {
-        // The drawer's own titles are poster caps; a friend's name in a chat keeps its case.
-        HeaderTitle.Text = title is "Friends" or "Party chat" ? title.ToUpperInvariant() : title;
+        // Titles are sentence case (spec: only labels are capitals).
+        HeaderTitle.Text = title;
         // The line keeps its height when empty so the title sits in the same place in every view.
         HeaderSubtitle.Text = string.IsNullOrEmpty(subtitle) ? " " : subtitle;
         HeaderDot.Visibility = dot ? Visibility.Visible : Visibility.Collapsed;
@@ -825,7 +825,9 @@ public partial class FriendsPanel : UserControl
         CloseMenu();
         menu.PlacementTarget = target;
         menu.Placement = atMouse ? PlacementMode.MousePoint : PlacementMode.Bottom;
-        menu.HorizontalOffset = atMouse ? 0 : Math.Min(0, target.ActualWidth - 196);
+        // Popup.OffsetX: the menu window carries a transparent bleed for its shadow (Theme/Menus.xaml); shifting by it
+        // keeps the visible panel on the anchor. A local offset replaces the style's, so it is added here.
+        menu.HorizontalOffset = (atMouse ? 0 : Math.Min(0, target.ActualWidth - 196)) + (double)FindResource("Popup.OffsetX");
         menu.Opened += (_, _) =>
         {
             if (ReferenceEquals(_menu, menu)) _menuOpen = true;

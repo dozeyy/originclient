@@ -13,7 +13,7 @@
         <!-- The banner is a card, not a button: its own solid surface and hover step (Button.Secondary is
              a ghost outline now), with the content stretched edge to edge. -->
         <Style x:Key="Banner.Surface" TargetType="Button" BasedOn="{StaticResource Button.Base}">
-            <Setter Property="Background" Value="{StaticResource Brush.RaisedBody}"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="0"/>
@@ -24,7 +24,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{StaticResource Radius.Card}"
+                                CornerRadius="{StaticResource Radius.Lg}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
@@ -38,7 +38,7 @@
                         <BeginStoryboard>
                             <Storyboard>
                                 <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                                To="{StaticResource Color.RaisedHover}"
+                                                To="{StaticResource Color.CardAlt}"
                                                 Duration="{StaticResource Motion.Hover}"/>
                             </Storyboard>
                         </BeginStoryboard>
@@ -47,7 +47,7 @@
                         <BeginStoryboard>
                             <Storyboard>
                                 <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                                To="{StaticResource Color.RaisedBody}"
+                                                To="{StaticResource Color.Card}"
                                                 Duration="{StaticResource Motion.Hover}"/>
                             </Storyboard>
                         </BeginStoryboard>
@@ -70,8 +70,8 @@
             <Grid x:Name="Layers" Margin="1">
 
                 <!-- No preview art: the Origin mark, large and faint, off the right edge. -->
-                <controls:OriginMark x:Name="AmbientMark" Width="140" Height="140" Opacity="0.10"
-                                     HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-30,-26,-30"/>
+                <controls:BrandLogo x:Name="AmbientMark" Width="{StaticResource Size.Logo.Intro}" Height="{StaticResource Size.Logo.Intro}" Opacity="0.10"
+                                     HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,32,0"/>
 
                 <!-- Preview art: fills the card, slow zoom while it's up (Ken Burns). -->
                 <Image x:Name="PreviewImage" Stretch="UniformToFill" HorizontalAlignment="Right"
@@ -87,10 +87,10 @@
                 <Rectangle IsHitTestVisible="False">
                     <Rectangle.Fill>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#F21D2420" Offset="0"/>
-                            <GradientStop Color="#E61D2420" Offset="0.36"/>
-                            <GradientStop Color="#7A1D2420" Offset="0.58"/>
-                            <GradientStop Color="#001D2420" Offset="0.82"/>
+                            <GradientStop Color="{StaticResource Color.ScrimStrong}" Offset="0"/>
+                            <GradientStop Color="{StaticResource Color.ScrimMid}" Offset="0.36"/>
+                            <GradientStop Color="{StaticResource Color.ScrimSoft}" Offset="0.58"/>
+                            <GradientStop Color="{StaticResource Color.ScrimClear}" Offset="0.82"/>
                         </LinearGradientBrush>
                     </Rectangle.Fill>
                 </Rectangle>
@@ -112,7 +112,7 @@
                     <Border Grid.Column="0" x:Name="IconBox" Width="44" Height="44" Margin="0,0,12,0" VerticalAlignment="Center"
                             Background="{StaticResource Brush.CardAlt}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True" Visibility="Collapsed">
+                            CornerRadius="{StaticResource Radius.Lg}" ClipToBounds="True" Visibility="Collapsed">
                         <Image x:Name="IconImage" Stretch="UniformToFill"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
@@ -122,12 +122,12 @@
                         <!-- Width cap (TextMaxWidth) is set in code with the text size. -->
                         <!-- Eyebrow as a chip, so each card says what it is at a glance. -->
                         <Border HorizontalAlignment="Left" Padding="6,2" Background="{StaticResource Brush.AccentSoft}"
-                                CornerRadius="{StaticResource Radius.Chip}">
-                            <TextBlock x:Name="LabelText" Style="{StaticResource Text.Eyebrow}"
+                                CornerRadius="{StaticResource Radius.Sm}">
+                            <TextBlock x:Name="LabelText" Style="{StaticResource Text.Label}"
                                        Foreground="{StaticResource Brush.Accent}"/>
                         </Border>
                         <!-- Sizes + line heights come from BannerCard.TextSteps (FitText). -->
-                        <TextBlock x:Name="TitleText" Style="{StaticResource Text.Body}" FontSize="15" LineHeight="18"
+                        <TextBlock x:Name="TitleText" Style="{StaticResource Text.Title}"
                                    LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Margin="0,6,0,0"
                                    TextWrapping="Wrap" TextTrimming="None"/>
                         <Grid x:Name="SubtitleRow" Margin="0,2,0,0">
@@ -163,6 +163,6 @@
         <Border x:Name="NetworkHost" Visibility="Collapsed"
                 Background="{StaticResource Brush.Card}"
                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Card}"/>
+                CornerRadius="{StaticResource Radius.Lg}"/>
     </Grid>
 </UserControl>

@@ -920,6 +920,9 @@ public final class OriginBench {
 			env.addProperty("mipmaps", g.mipmapLevels);
 			env.addProperty("variant", str("origin.bench.variant", "?"));
 			env.addProperty("originActive", !PROBE);
+			// B-04 shader variant: prod189 --shaderpack fails the launch when this is false (a pack that did not
+			// load would otherwise be measured as "shaders on"). Reads OptiFine's own flag; false without OptiFine.
+			env.addProperty("shaderPackActive", com.origin.client.client.shaders.IrisBridge.shadersActive());
 			env.addProperty("profiling", BenchProf.ON);
 			env.addProperty("fakePlayers", FAKE_PLAYERS);
 			env.addProperty("focusIgnored", IGNORE_FOCUS);

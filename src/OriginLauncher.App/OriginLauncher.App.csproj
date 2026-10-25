@@ -33,6 +33,9 @@
     <!-- Other launchers' logos for the import screens, and the Origin wordmark. -->
     <Resource Include="Assets\Logos\*.png" />
     <Resource Include="Assets\Brand\*.png" />
+    <!-- The official logo, the one file every Origin surface reads (Theme/Brand.xaml Brand.Logo). Linked from the
+         in-game texture so the launcher, installer and mod can never carry different art. -->
+    <Resource Include="..\mods\versions\1.21.1\src\client\resources\assets\originclient\textures\ui\origin_logo.png" Link="Assets\Brand\origin_logo.png" />
     <!-- Home banner preview art (tools/launcher-previews renders these). -->
     <Resource Include="Assets\Promos\*.jpg" />
     <!-- The launcher uses one openly licensed Minecraft-style face. In-game

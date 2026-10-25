@@ -6,5 +6,5 @@
 
 ## How it was verified
 - [ ] build-check is green (every live version compiles, launcher publishes with all jars)
-- [ ] `runClient` boot with zero `Mixin apply ... failed` lines (mod changes)
-- [ ] Tried in the real launcher (launcher changes)
+- [ ] CI boot-smoke + dev-shots with zero `Mixin apply ... failed` lines (mod changes)
+- [ ] `--render-shots` PNGs of the built launcher (launcher changes)

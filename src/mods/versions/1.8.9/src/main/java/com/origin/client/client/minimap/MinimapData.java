@@ -65,6 +65,14 @@ public final class MinimapData {
 	// Per-frame caps: the scan budget is checked before each chunk, so a frame spends at
 	// most BUDGET_NS plus one chunk's scan (~0.1-0.4 ms) on terrain, whatever happens.
 	private static final long BUDGET_NS = 1_000_000L;
+	// One reusable position for the whole scan instead of a `new BlockPos` per column and per y step
+	// (a 16x16 chunk allocated 500+; the HUD bench measured 181 KB/frame for the minimap). Render
+	// thread only, like everything here; nothing the scan calls (Chunk.getBlockState/getLightFor, the
+	// biome colour helpers, Block.colorMultiplier) keeps the position -- vanilla's own chunk renderer
+	// hands blocks mutable positions the same way. DEPTH_POS is the water-depth walk's own, so it
+	// cannot move SCAN_POS while baseRgb still needs the column's surface position.
+	private static final BlockPos.MutableBlockPos SCAN_POS = new BlockPos.MutableBlockPos();
+	private static final BlockPos.MutableBlockPos DEPTH_POS = new BlockPos.MutableBlockPos();
 	private static final int MAX_SCANS = 6;
 	private static final int MAX_CLEARS = 160;
 	// Periodic refresh: the 3x3 chunks around the player every second (block edits you
@@ -173,6 +181,9 @@ public final class MinimapData {
 	private static final int[] colArgb = new int[256];
 	private static final int[] colDepth = new int[256];
 	private static final boolean[] colWater = new boolean[256];
+	private static final IBlockState[] colState = new IBlockState[256];   // the column's block; null = void / cave rock
+	private static final int[] colLight = new int[256];                   // block light just above it (Lighting on)
+	private static final long[] slotHash = new long[SLOTS * SLOTS];       // columnsHash of the slot's last colouring
 
 	static {
 		Arrays.fill(slotKey, NO_CHUNK);
@@ -358,16 +369,36 @@ public final class MinimapData {
 
 	private static void scan(Minecraft mc, WorldClient level, Chunk chunk, int cx, int cz,
 							 Look look, int sig, long now) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MM_SCAN);
+		}
+		try {
+			scanChunk(level, chunk, cx, cz, look, sig, now);
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MM_SCAN);
+			}
+		}
+	}
+
+	private static void scanChunk(WorldClient level, Chunk chunk, int cx, int cz, Look look, int sig, long now) {
 		int minY = 0;     // 1.8.9 world floor
 		int maxY = 255;
 		int bx = cx << 4, bz = cz << 4;
+		// Stage 1 (cheap: heightmap + block reads): which block shows in each column, how deep its
+		// water is, and its block light.
 		for (int lz = 0; lz < 16; lz++) {
 			for (int lx = 0; lx < 16; lx++) {
 				int i = lz * 16 + lx;
 				if (look.cave()) {
-					caveColumn(level, chunk, bx + lx, bz + lz, Math.min(look.caveTopY(), maxY), minY, look, i);
+					caveColumn(chunk, bx + lx, bz + lz, Math.min(look.caveTopY(), maxY), minY, i);
 				} else {
-					surfaceColumn(level, chunk, bx + lx, bz + lz, minY, maxY, look, i);
+					surfaceColumn(chunk, bx + lx, bz + lz, minY, maxY, i);
+				}
+				if (look.lighting()) {
+					// clamped: Chunk.getLightFor indexes its 16 sections by y >> 4 (256 = out of range)
+					int ly = Math.min(255, colHeight[i] + 1);
+					colLight[i] = chunk.getLightFor(EnumSkyBlock.BLOCK, SCAN_POS.set(bx + lx, ly, bz + lz));   // 1.8.9 NAME UNVERIFIED
 				}
 			}
 		}
@@ -383,6 +414,67 @@ public final class MinimapData {
 				// 0.2 (midnight) .. 1.0 (noon) -> 0.35 .. 1.0, so night is dark but readable
 				float sky = level.getSunBrightness(1f);
 				ambient = 0.35f + 0.65f * Math.max(0f, (sky - 0.2f) / 0.8f);
+			}
+		}
+		// Phase 6.3: most scans are the periodic refresh of a chunk nothing happened to, and the colour
+		// stage below is the expensive part (Biome Colors averages 9 biome samples per column, each a
+		// Forge BiomeEvent post + allocation: ~100 KB per chunk) plus a texture upload. Everything the
+		// pixels depend on is hashed here; the same hash as the last scan of this slot under the same
+		// look means the same pixels, so both are skipped. Ambient goes in at 1/512 steps: the sky's
+		// brightness moves every tick, and a step that small changes no 8-bit channel by more than one.
+		int slot = slot(cx, cz);
+		long hash = columnsHash(north, west, look.lighting() ? (int) (ambient * 512f) : -1, look.lighting());
+		if (slotHasData[slot] && slotKey[slot] == chunkKey(cx, cz) && slotSig[slot] == sig && slotHash[slot] == hash) {
+			slotScannedAt[slot] = now;
+			return;
+		}
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_MM_COLOUR);
+		}
+		try {
+			colourChunk(level, cx, cz, look, north, west, ambient);
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_MM_COLOUR);
+			}
+		}
+		slotKey[slot] = chunkKey(cx, cz);
+		slotHasData[slot] = true;
+		slotScannedAt[slot] = now;
+		slotSig[slot] = sig;
+		slotHash[slot] = hash;
+	}
+
+	/** Every input of the colour stage that stage 1 read (the look is compared through its signature). */
+	private static long columnsHash(Chunk north, Chunk west, int ambientStep, boolean lighting) {
+		long h = 0x6A09E667F3BCC909L;
+		for (int i = 0; i < 256; i++) {
+			IBlockState s = colState[i];
+			h = mix(h, colHeight[i]);
+			h = mix(h, s == null ? (colArgb[i] == CAVE_ROCK ? -2 : -1) : Block.getStateId(s));
+			h = mix(h, colDepth[i] | (colWater[i] ? 0x100 : 0) | (lighting ? colLight[i] << 9 : 0));
+		}
+		for (int k = 0; k < 16; k++) {
+			h = mix(h, north == null ? Integer.MIN_VALUE : north.getHeightValue(k, 15));
+			h = mix(h, west == null ? Integer.MIN_VALUE : west.getHeightValue(15, k));
+		}
+		return mix(h, ambientStep);
+	}
+
+	private static long mix(long h, int v) {
+		h ^= (v & 0xFFFFFFFFL) * 0x9E3779B97F4A7C15L;
+		h = Long.rotateLeft(h, 29) * 0xBF58476D1CE4E5B9L;
+		return h ^ (h >>> 31);
+	}
+
+	/** Stage 2: column colours (map colour or biome tint), shading, lighting, grid -> pixels -> upload. */
+	private static void colourChunk(WorldClient level, int cx, int cz, Look look, Chunk north, Chunk west, float ambient) {
+		int bx = cx << 4, bz = cz << 4;
+		for (int i = 0; i < 256; i++) {
+			IBlockState s = colState[i];
+			if (s != null) {
+				BlockPos.MutableBlockPos pos = SCAN_POS.set(bx + (i & 15), colHeight[i], bz + (i >> 4));
+				colArgb[i] = 0xFF000000 | baseRgb(level, s, pos, mapColor(s), look);
 			}
 		}
 		int ox = (cx & (SLOTS - 1)) << 4, oz = (cz & (SLOTS - 1)) << 4;
@@ -408,10 +500,7 @@ public final class MinimapData {
 						f *= Math.max(0.55f, 1f - (look.caveTopY() - colHeight[i]) * 0.012f);
 					}
 					if (look.lighting()) {
-						// clamped: Chunk.getLightFor indexes its 16 sections by y >> 4 (256 = out of range)
-						int ly = Math.min(255, colHeight[i] + 1);
-						int block = chunk.getLightFor(EnumSkyBlock.BLOCK, new BlockPos(bx + lx, ly, bz + lz));   // 1.8.9 NAME UNVERIFIED
-						f *= Math.max(ambient, block / 15f);
+						f *= Math.max(ambient, colLight[i] / 15f);
 					}
 					argb = scaleRgb(argb, f);
 				}
@@ -422,11 +511,6 @@ public final class MinimapData {
 			}
 		}
 		uploadRegion(ox, oz);
-		int slot = slot(cx, cz);
-		slotKey[slot] = chunkKey(cx, cz);
-		slotHasData[slot] = true;
-		slotScannedAt[slot] = now;
-		slotSig[slot] = sig;
 	}
 
 	/** A neighbouring chunk's surface height at LOCAL (lx, lz). */
@@ -443,29 +527,30 @@ public final class MinimapData {
 	}
 
 	/** Vanilla map rules: the topmost block that has a map colour; fluids count depth. */
-	private static void surfaceColumn(WorldClient level, Chunk chunk, int x, int z, int minY, int maxY, Look look, int i) {
+	private static void surfaceColumn(Chunk chunk, int x, int z, int minY, int maxY, int i) {
 		// The heightmap is the first block ABOVE the topmost light-stopping one.
 		int y = Math.min(maxY, chunk.getHeightValue(x & 15, z & 15));   // 1.8.9 NAME UNVERIFIED: Chunk.getHeightValue / getBlockState
 		colWater[i] = false;
 		colDepth[i] = 0;
-		BlockPos pos = new BlockPos(x, y, z);
+		BlockPos.MutableBlockPos pos = SCAN_POS.set(x, y, z);
 		IBlockState state = chunk.getBlockState(pos);
 		MapColor color = mapColor(state);
 		while (color == MapColor.airColor && y > minY) {
 			y--;
-			pos = new BlockPos(x, y, z);
+			pos.set(x, y, z);
 			state = chunk.getBlockState(pos);
 			color = mapColor(state);
 		}
 		colHeight[i] = y;
 		if (color == MapColor.airColor) {
+			colState[i] = null;
 			colArgb[i] = 0;    // void (the End's empty columns): leave see-through
 			return;
 		}
 		if (liquid(state.getBlock())) {
 			int depth = 0;
 			for (int yy = y - 1; yy > minY && depth < 16; yy--) {
-				if (!liquid(chunk.getBlockState(new BlockPos(x, yy, z)).getBlock())) {
+				if (!liquid(chunk.getBlockState(DEPTH_POS.set(x, yy, z)).getBlock())) {
 					break;
 				}
 				depth++;
@@ -473,7 +558,7 @@ public final class MinimapData {
 			colDepth[i] = depth;
 			colWater[i] = color == MapColor.waterColor;
 		}
-		colArgb[i] = 0xFF000000 | baseRgb(level, state, pos, color, look);
+		colState[i] = state;   // coloured in stage 2 (colourChunk), only if the chunk changed
 	}
 
 	/**
@@ -481,13 +566,13 @@ public final class MinimapData {
 	 * with a map colour that has air above it. Starting inside the ceiling is fine: the
 	 * solid run is skipped until the first air. No floor within reach = solid rock.
 	 */
-	private static void caveColumn(WorldClient level, Chunk chunk, int x, int z, int top, int minY, Look look, int i) {
+	private static void caveColumn(Chunk chunk, int x, int z, int top, int minY, int i) {
 		colWater[i] = false;
 		colDepth[i] = 0;
 		boolean sawAir = false;
 		int stop = Math.max(minY, top - CAVE_SCAN_DEPTH);
 		for (int y = top; y > stop; y--) {
-			BlockPos pos = new BlockPos(x, y, z);
+			BlockPos.MutableBlockPos pos = SCAN_POS.set(x, y, z);
 			IBlockState state = chunk.getBlockState(pos);
 			if (state.getBlock().getMaterial() == Material.air) {
 				sawAir = true;
@@ -502,10 +587,11 @@ public final class MinimapData {
 			}
 			colHeight[i] = y;
 			colWater[i] = color == MapColor.waterColor;
-			colArgb[i] = 0xFF000000 | baseRgb(level, state, pos, color, look);
+			colState[i] = state;
 			return;
 		}
 		colHeight[i] = top;
+		colState[i] = null;
 		colArgb[i] = CAVE_ROCK;
 	}
 

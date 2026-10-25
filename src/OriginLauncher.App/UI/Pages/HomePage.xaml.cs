@@ -63,6 +63,9 @@ public partial class HomePage : UserControl
     // now). Version may differ from the selected one; it is NOT saved as the pick.
     private sealed record LaunchTarget(string Version, string? Server = null, string? AccountKey = null);
 
+    // The launch whose install just failed and is showing Retry on the launch screen; null otherwise.
+    private LaunchTarget? _failedLaunch;
+
     // The mod set the player was just refused for and may start anyway with Play (Core/Compat/LaunchOverride):
     // one account, one version, one set, one use.
     private readonly LaunchOverride _modOverride = new();
@@ -113,6 +116,18 @@ public partial class HomePage : UserControl
         var edge = compact ? 24 : 32;
         HomeCard.Margin = new Thickness(edge, 0, edge, edge);
         BannerSlot.Margin = new Thickness(0, compact ? 68 : 72, edge, 0);
+        ReportStripTop();
+    }
+
+    internal void TourSettleDensity() => ApplyDensity(ActualHeight);
+    internal void TourReportStripTop() => ReportStripTop();
+
+    // Tells the art stage where the strip's top edge is (the page fills the window under the bar, so page y is
+    // window y); the Home numeral is sized and centred in the band between the bar and this line.
+    private void ReportStripTop()
+    {
+        if (ActualHeight <= 0 || HomeCard.ActualHeight <= 0) return;
+        ArtStage.SetStripTop(ActualHeight - HomeCard.Margin.Bottom - HomeCard.ActualHeight);
     }
 
     /// <summary>MainWindow: the profile chip asks for the Profiles page.</summary>
@@ -167,7 +182,10 @@ public partial class HomePage : UserControl
         InitializeComponent();
         // The Play card (with a profile row and Join) is taller than the smallest window leaves room for:
         // below this page height every gap on it halves, so nothing touches the top bar or the bottom edge.
-        SizeChanged += (_, e) => ApplyDensity(e.NewSize.Height);
+        SizeChanged += (_, e) => { ApplyDensity(e.NewSize.Height); ReportStripTop(); };
+        // The numeral stands in the band above the strip, so it follows the strip's height (a profile row, Join).
+        HomeCard.SizeChanged += (_, _) => ReportStripTop();
+        Loaded += (_, _) => ReportStripTop();
         // A Visibility flip, not IsVisible: navigation never leaves Home while either is up.
         System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
             .AddValueChanged(LoadingOverlay, (_, _) => OnSceneVisibilityChanged());
@@ -180,6 +198,23 @@ public partial class HomePage : UserControl
         {
             if (_overlayTicket != null) _overlayTicket.Source.Cancel();
             else if (_sceneGame != null) StopStartingGame(_sceneGame);
+        };
+        // A failed install (U3.3): Retry runs the same launch again, Close just lowers the screen. The files are left as
+        // they were; InstallJournal keeps the half-done version from reading as installed.
+        LoadingOverlay.RetryRequested += async (_, _) =>
+        {
+            if (_failedLaunch is not { } again) { LoadingOverlay.Hide(); return; }
+            _failedLaunch = null;
+            await LaunchAsync(again, LaunchRoute.Play);
+            // Refused before it began (update required, an import running, ...): the status line says why;
+            // the failure screen has nothing left to offer.
+            if (LoadingOverlay.ShowsFailure && _failedLaunch == null) LoadingOverlay.Hide();
+        };
+        LoadingOverlay.CloseRequested += (_, _) =>
+        {
+            _failedLaunch = null;
+            LoadingOverlay.Hide();
+            RefreshPlayButton();
         };
         VersionOverlay.VersionSelected += OnVersionSelected;
         // While an import writes to the game folders, Play and Join stay off (Core/Import/Launcher/ImportRunState).
@@ -229,8 +264,8 @@ public partial class HomePage : UserControl
     {
         var shift = new TranslateTransform();
         element.RenderTransform = shift;
-        element.BeginAnimation(OpacityProperty, OriginMark.Hold(0, 1, delay, length));
-        shift.BeginAnimation(TranslateTransform.YProperty, OriginMark.Hold(rise, 0, delay, length));
+        element.BeginAnimation(OpacityProperty, Motion.Hold(0, 1, delay, length));
+        shift.BeginAnimation(TranslateTransform.YProperty, Motion.Hold(rise, 0, delay, length));
     }
 
     private void StartPlayersOnline()
@@ -792,6 +827,10 @@ public partial class HomePage : UserControl
         // account's phase belongs to the game (WatchBootAsync, the Exited
         // handler) and the finally below must not reset it.
         var gameStarted = false;
+        // True only while the version is being installed/verified; a failure then is shown on the launch screen
+        // with a Retry (PlayFailure). `failure` is what the finally block puts on the screen instead of hiding it.
+        var provisioning = false;
+        PlayFailure? failure = null;
 
         try
         {
@@ -864,10 +903,12 @@ public partial class HomePage : UserControl
             // overlay stutter and the window look hung while it worked.
             // installProgress was constructed on the UI thread, so Progress<T>
             // still marshals every stage update back correctly.
+            provisioning = true;
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
                     version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey),
                 ticket.Token);
+            provisioning = false;
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the
@@ -927,10 +968,12 @@ public partial class HomePage : UserControl
                 : $"Running - {session.Username}";
             _ = WatchBootAsync(game, runningMessage);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex) when (PlayFailure.IsUserCancel(ex, ticket.Token))
         {
             // Player hit Cancel on the scene (or a newer launch for this
             // account superseded this one) — not an error, just back to Home.
+            // Only when the ticket's token was cancelled: an HttpClient timeout is also an
+            // OperationCanceledException (TaskCanceledException) and must reach the failure path.
             Note(key, "Cancelled", LaunchTone.Neutral);
         }
         catch (MicrosoftAuthException ex) when (ex.RateLimited)
@@ -946,6 +989,7 @@ public partial class HomePage : UserControl
             // "you're offline" line, no update check (it can't reach GitHub either).
             Note(key, ex.Message, LaunchTone.Warning);
             WriteLaunchErrorLog(ex);
+            if (provisioning) failure = PlayFailure.From(ex, version);
         }
         catch (IncompatibleModsException ex)
         {
@@ -972,6 +1016,7 @@ public partial class HomePage : UserControl
             Note(key, await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), LaunchTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
             WriteLaunchErrorLog(ex);
+            if (provisioning) failure = PlayFailure.From(ex, version);
         }
         finally
         {
@@ -992,6 +1037,12 @@ public partial class HomePage : UserControl
                     // The player switched account while it was preparing: that
                     // switch ran before the scene had a game, so lower it now.
                     if (started.Key != SelectedKey()) ReleaseScene(started, gameLoading: false);
+                }
+                else if (failure != null)
+                {
+                    // The install did not finish: say why, keep the screen up with Retry (U3.3).
+                    _failedLaunch = target is { } t ? t with { Version = version, AccountKey = key } : new LaunchTarget(version, AccountKey: key);
+                    LoadingOverlay.ShowFailure(failure);
                 }
                 else
                 {
@@ -1478,7 +1529,7 @@ public partial class HomePage : UserControl
         if (PlayButton.Template.FindName("FillScale", PlayButton) is ScaleTransform fill)
             fill.ScaleX = fill.ScaleY = hover ? 1 : 0;
         if (PlayButton.Template.FindName("Arrow", PlayButton) is System.Windows.Shapes.Path arrow)
-            arrow.Stroke = new SolidColorBrush(hover ? Color.FromRgb(0x0E, 0x0E, 0x0E) : Color.FromRgb(0xE6, 0xE6, 0xE6));
+            arrow.Stroke = new SolidColorBrush(((SolidColorBrush)FindResource(hover ? "Brush.TextOnAccent" : "Brush.Text")).Color);
     }
 
     /// <summary>Render mode only: back to the real Play state after <see cref="TourShowReady"/>.</summary>
@@ -1497,6 +1548,12 @@ public partial class HomePage : UserControl
     internal void TourReportLaunch(string stage) => LoadingOverlay.ReportStage(stage);
 
     internal void TourHideLaunch() => LoadingOverlay.Hide();
+
+    // Render mode: the Cancel press (the overlay shows "Cancelling" while the launch unwinds) and a failed install.
+    internal void TourCancelLaunch() => LoadingOverlay.TourPressCancel();
+
+    internal void TourFailLaunch(Exception error, string version) =>
+        LoadingOverlay.ShowFailure(PlayFailure.From(error, version));
 
     internal void TourShowVersions(int detailIndex) => VersionOverlay.TourOpen(detailIndex);
 
@@ -1544,10 +1601,10 @@ public partial class HomePage : UserControl
         StatusDot.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
         StatusDot.Margin = new Thickness(0, isError ? (line - StatusDot.Height) / 2 : 0, 10, 0);
         // Ready is the family accent (an indicator, so the one hue may show); the
-        // rest keep their status colours. By reference: FamilyTheme swaps Brush.Acc.
+        // rest keep their status colours. By reference: FamilyTheme swaps Brush.Accent.
         var brushKey = tone switch
         {
-            StatusTone.Success => "Brush.Acc",
+            StatusTone.Success => "Brush.Accent",
             StatusTone.Warning => "Brush.Warning",
             StatusTone.Error => "Brush.Danger",
             _ => "Brush.TextDim"

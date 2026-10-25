@@ -9,21 +9,22 @@
              KeyboardNavigation.TabNavigation="Contained"
              KeyboardNavigation.DirectionalNavigation="Contained">
 
-    <!-- Modal confirm dialog in the launcher's own visual language (a layered
-         card over a dim scrim), not a Win32 MessageBox. Awaited via ShowAsync;
-         Primary returns true, Secondary/Esc returns false. -->
+    <!-- Modal confirm dialog in the launcher's own visual language (spec 11.10: Surface fill, Radius.Lg, pad 24,
+         at most 440 wide, Shadow.Overlay, over the scrim), not a Win32 MessageBox. Footer right-aligned: the
+         secondary (cancel) first, then the primary or danger button, both lg 36 and at least 96 wide. Awaited via
+         ShowAsync; Primary returns true, Secondary/Esc returns false; the safe action holds the focus. -->
     <Border Background="{StaticResource Brush.Scrim}">
-        <Border Style="{StaticResource Surface.Dialog}" HorizontalAlignment="Center" VerticalAlignment="Center"
+        <Border Style="{StaticResource Surface.DialogSheet}" HorizontalAlignment="Center" VerticalAlignment="Center"
                 MaxWidth="440" Margin="24">
             <StackPanel>
-                <TextBlock x:Name="TitleText" Style="{StaticResource Text.H2}" TextWrapping="Wrap"/>
+                <TextBlock x:Name="TitleText" Style="{StaticResource Text.Title}" TextWrapping="Wrap"/>
                 <TextBlock x:Name="MessageText" Style="{StaticResource Text.BodyDim}"
                            TextWrapping="Wrap" Margin="0,10,0,0"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
                     <Button x:Name="SecondaryButton" Style="{StaticResource Button.Secondary}"
-                            Margin="0,0,8,0" Click="SecondaryButton_Click"/>
+                            MinWidth="96" Margin="0,0,8,0" Click="SecondaryButton_Click"/>
                     <Button x:Name="PrimaryButton" Style="{StaticResource Button.Primary.Medium}"
-                            Click="PrimaryButton_Click"/>
+                            MinWidth="96" Click="PrimaryButton_Click"/>
                 </StackPanel>
             </StackPanel>
         </Border>

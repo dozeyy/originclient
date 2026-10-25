@@ -15,7 +15,7 @@ Why this shape (measured on this repo's own transcripts, 2026-10-17): ~99% of
 input tokens are cache READS of the accumulated conversation, re-read on every
 call. So the only things that cut usage are (1) keeping big text out of the
 conversation in the first place and (2) compacting before it grows huge
-(autoCompactWindow in .claude/settings.json). Nothing here calls a model.
+(Claude Code's own auto-compact; Origin no longer pins autoCompactWindow). Nothing here calls a model.
 
 Rules this file must keep:
 - Fail OPEN. Any error -> exit 0 with no output, so Claude Code behaves exactly
@@ -93,12 +93,33 @@ def _rel(path):
         return path.replace("\\", "/")
 
 
+# Windows refuses os.replace() (PermissionError 13) while ANY other process has the
+# target open -- a parallel hook or the statusline reading the same state file.
+# Proven 2026-10-25: 4 writers + 2 readers on one session file -> 821 PermissionErrors
+# and 821 orphaned .tmp files (the 111 in errors.log were exactly this). So: retry
+# briefly, and never leave the temp file behind.
+REPLACE_TRIES = 12
+
+
 def _write_atomic(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = "%s.%d.%d.tmp" % (path, os.getpid(), random.randint(0, 1 << 30))
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(data)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(data)
+        for i in range(REPLACE_TRIES):
+            try:
+                os.replace(tmp, path)
+                return True
+            except PermissionError:
+                time.sleep(0.005 * (i + 1) + random.random() * 0.01)   # ~0.5 s worst case
+        return False                     # still locked: skip this write (state is best-effort)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def _stat(event, **fields):
@@ -111,17 +132,25 @@ def _stat(event, **fields):
         pass
 
 
-def _state_path(session_id):
-    safe = re.sub(r"[^A-Za-z0-9_-]", "_", session_id or "unknown")
+def _state_path(key):
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", key or "unknown")
     return os.path.join(STATE_DIR, safe + ".json")
 
 
-def load_state(session_id):
-    try:
-        with open(_state_path(session_id), encoding="utf-8") as f:
-            st = json.load(f)
-    except (OSError, ValueError):
-        st = {}
+def load_state(key):
+    st = None
+    for i in range(REPLACE_TRIES):
+        try:
+            with open(_state_path(key), encoding="utf-8") as f:
+                st = json.load(f)
+            break
+        except PermissionError:         # mid-replace by another hook: wait, don't reset
+            time.sleep(0.005 * (i + 1))
+        except (OSError, ValueError):    # missing or corrupt -> fresh state
+            st = {}
+            break
+    if st is None:                       # never readable: work on a blank copy, never save it
+        st = {"_unreadable": True}
     st.setdefault("epoch", 0)          # bumped at every compaction: reads before it are gone from context
     st.setdefault("calls", 0)          # tool calls seen (for "N calls ago")
     st.setdefault("reads", {})         # guard key -> {mtime, size, epoch, call}
@@ -133,8 +162,10 @@ def load_state(session_id):
     return st
 
 
-def save_state(session_id, st):
-    _write_atomic(_state_path(session_id), json.dumps(st))
+def save_state(key, st):
+    if st.get("_unreadable"):            # saving would wipe the real file with blanks
+        return False
+    return _write_atomic(_state_path(key), json.dumps(st))
 
 
 def reply(obj):

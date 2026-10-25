@@ -328,7 +328,7 @@ public partial class MainWindow : Window
         _friendsOpen = open;
         SocialHub.Service.SetDrawerOpen(open);
         _friendsPanel.SetShown(open);
-        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width + 32 : 32, 104);
+        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width : 0, 104); // bottom-centre of what the drawer leaves free
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
@@ -384,6 +384,10 @@ public partial class MainWindow : Window
 
     internal void TourHideLaunch() => _homePage.TourHideLaunch();
 
+    internal void TourCancelLaunch() => _homePage.TourCancelLaunch();
+
+    internal void TourFailLaunch(Exception error, string version) => _homePage.TourFailLaunch(error, version);
+
     internal void TourShowVersions(int detailIndex) => _homePage.TourShowVersions(detailIndex);
 
     internal void TourHideVersions() => _homePage.TourHideVersions();
@@ -392,6 +396,54 @@ public partial class MainWindow : Window
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
         SetAccountPanelOpen(open);
+    }
+
+    /// <summary>Render mode: the pill as it reads for a made-up player (no account is read, written or signed in).</summary>
+    internal void TourShowAccount(string? name, string uuid, bool offlineTestMode)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        ShowAccountChip(name, uuid, offlineTestMode);
+    }
+
+    /// <summary>Render mode: the account drawer's rows for made-up players (the real list is not touched).</summary>
+    internal void TourShowAccountRows(IReadOnlyList<Core.Models.MinecraftAccount> rows)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        _accountPanel.TourShowRows(rows);
+    }
+
+    /// <summary>Render mode: the pill's measured geometry for the shot log (the head's inset in the pill, the name cut or not).</summary>
+    internal string TourAccountFit()
+    {
+        var button = AccountButton;
+        var head = AccountHeadHost.Visibility == Visibility.Visible
+            ? AccountFace.TranslatePoint(new Point(0, 0), button)
+            : (Point?)null;
+        var headText = head is { } h
+            ? $"head={AccountFace.ActualWidth:0.#}x{AccountFace.ActualHeight:0.#} at x={h.X:0.#} y={h.Y:0.#} (inset below {button.ActualHeight - h.Y - AccountFace.ActualHeight:0.#})"
+            : "head=none (signed out)";
+        return $"pill={button.ActualWidth:0.#}x{button.ActualHeight:0.#} {headText} name={AccountName.ActualWidth:0.#} cut={AccountNameIsTrimmed()} "
+            + $"storeLabel={StoreLabel.Visibility} wordmark={BarWordmark.Visibility} {TourTopBarFit()}";
+    }
+
+    internal Button TourStoreButton => StoreButton;
+    internal Button TourAccountButton => AccountButton;
+
+    /// <summary>Render mode: the Store or the account pill as under the mouse (a render has no mouse): the hover fill, edge and ink.</summary>
+    internal void TourHover(Button button, bool on)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        if (!on)
+        {
+            button.ClearValue(BackgroundProperty);
+            button.ClearValue(BorderBrushProperty);
+            button.ClearValue(ForegroundProperty);
+            return;
+        }
+        var pill = ReferenceEquals(button, AccountButton) && !ReferenceEquals(button.Style, FindResource("Button.AccountPill.SignedOut"));
+        button.Background = new SolidColorBrush((Color)FindResource(pill ? "Color.CardAlt" : "Color.GhostHover"));
+        if (pill) button.BorderBrush = new SolidColorBrush((Color)FindResource("Color.StrokeHover"));
+        button.Foreground = (Brush)FindResource("Brush.Text");
     }
 
     /// <summary>Render mode: 0 = Home, 1 = Mods, 2 = Settings.</summary>
@@ -425,6 +477,14 @@ public partial class MainWindow : Window
             root.Arrange(new Rect(size));
             TopBar_LayoutChanged(this, null!);
         }
+        // A manual layout raises no SizeChanged, so what hangs on it (Home's density and the numeral's band) is run by hand.
+        _homePage.TourSettleDensity();
+        UI.RenderShots.Invalidate(root);
+        root.Measure(size);
+        root.Arrange(new Rect(size));
+        _homePage.TourReportStripTop();
+        Stage.TourRelayout();
+        // The numeral's glyphs were just moved: arrange once more so the picture shows them there.
         UI.RenderShots.Invalidate(root);
         root.Measure(size);
         root.Arrange(new Rect(size));
@@ -511,9 +571,11 @@ public partial class MainWindow : Window
     // 980 px with an update waiting; then they slide left just enough, never past the brand.
     // A render transform, so moving them never re-runs layout.
     //
-    // When even the fully slid tabs would still touch the actions (Website and Store carry words), those two drop to
-    // icon-only: their labels and arrows collapse, and come back as soon as the full width fits again. The decision
-    // uses the width the actions would have WITH labels (_linkLabelExtra), so it cannot flip back and forth.
+    // When even the fully slid tabs would still touch the actions (Store carries a word), it drops to icon-only: its
+    // label and arrow collapse, and come back as soon as the full width fits again. The decision uses the width the
+    // actions would have WITH the label (_linkLabelExtra), so it cannot flip back and forth. Below WordmarkMinWindow
+    // the brand lockup shows the logo alone (it is still the Website link); that depends on the window width only.
+    private const double WordmarkMinWindow = 1000;
     private bool _linkLabelsHidden;
     private double _linkLabelExtra;
 
@@ -521,7 +583,7 @@ public partial class MainWindow : Window
     {
         _linkLabelsHidden = !shown;
         var v = shown ? Visibility.Visible : Visibility.Collapsed;
-        WebsiteLabel.Visibility = StoreLabel.Visibility = WebsiteArrow.Visibility = StoreArrow.Visibility = v;
+        StoreLabel.Visibility = StoreArrow.Visibility = v;
     }
 
     /// <summary>Render mode: show the hover arrows as if the mouse were over both buttons (a render has no mouse).</summary>
@@ -535,7 +597,7 @@ public partial class MainWindow : Window
     /// <summary>Render mode: the space between the content of neighbouring buttons in the right-hand row.</summary>
     internal string TourLinkGaps()
     {
-        Button[] row = [UpdateBadge, WebsiteButton, StoreButton, ImportButton];
+        Button[] row = [UpdateBadge, StoreButton, ImportButton];
         var parts = new List<string>();
         for (var i = 0; i + 1 < row.Length; i++)
         {
@@ -550,14 +612,37 @@ public partial class MainWindow : Window
 
     /// <summary>Render mode: the numbers the top bar's fit rule just used, for the shot log.</summary>
     internal string TourTopBarFit() =>
-        $"topbar={TopBar.ActualWidth:0} brand={BarBrand.ActualWidth:0} tabs={NavTabs.ActualWidth:0} actions={BarActions.ActualWidth:0} "
+        $"topbar={TopBar.ActualWidth:0} brand={WebsiteButton.ActualWidth:0} tabs={NavTabs.ActualWidth:0} actions={BarActions.ActualWidth:0} "
         + $"labelExtra={_linkLabelExtra:0} labelsHidden={_linkLabelsHidden} tabShift={NavTabsShift.X:0}";
+
+    // The Home numeral's measured geometry (UI/RenderShots.cs): the ink rectangle against the free band under the bar.
+    internal string TourNumeralFit()
+    {
+        var (ink, top, bottom) = Stage.NumeralGeometry;
+        if (ink is not { } r) return "numeral not laid out";
+        return $"window={Stage.ActualWidth:0}x{Stage.ActualHeight:0} band={top:0.#}..{bottom:0.#} (middle {(top + bottom) / 2:0.#}) "
+            + $"ink x={r.Left:0.#} y={r.Top:0.#} w={r.Width:0.#} h={r.Height:0.#} (middle x {r.Left + r.Width / 2:0.#} y {r.Top + r.Height / 2:0.#}) "
+            + $"airAbove={r.Top - top:0.#} airBelow={bottom - r.Bottom:0.#} inkShareOfWidth={r.Width / Stage.ActualWidth:0.000}";
+    }
+
+    // The bar's translucent Home surface on or off, for the render tour's cost measurement only.
+    internal void TourSetBarGlass(bool on)
+    {
+        BarGlass.BeginAnimation(OpacityProperty, null);
+        BarGlass.Opacity = on ? 1 : 0;
+    }
 
     private void TopBar_LayoutChanged(object sender, SizeChangedEventArgs e)
     {
         double width = TopBar.ActualWidth, tabs = NavTabs.ActualWidth;
         if (width <= 0 || tabs <= 0) return;
         var gap = (double)FindResource("Space.5");
+        var wordmark = ((FrameworkElement)Content).ActualWidth >= WordmarkMinWindow ? Visibility.Visible : Visibility.Collapsed;
+        if (BarWordmark.Visibility != wordmark)
+        {
+            BarWordmark.Visibility = wordmark;
+            return; // the brand's size change runs this again with the new width
+        }
         if (_linkLabelsHidden && _linkLabelExtra <= 0)
         {
             // Hidden before their size was ever known: show them again so they can be measured, then decide.
@@ -566,11 +651,11 @@ public partial class MainWindow : Window
         }
         if (!_linkLabelsHidden)
         {
-            if (WebsiteLabel.ActualWidth <= 0 || StoreLabel.ActualWidth <= 0) return; // not laid out yet
-            _linkLabelExtra = WebsiteLabel.ActualWidth + StoreLabel.ActualWidth + 2 * WebsiteLabel.Margin.Left;
+            if (StoreLabel.ActualWidth <= 0) return; // not laid out yet
+            _linkLabelExtra = StoreLabel.ActualWidth + StoreLabel.Margin.Left;
         }
         var actionsWithLabels = BarActions.ActualWidth + (_linkLabelsHidden ? _linkLabelExtra : 0);
-        var hide = BarBrand.ActualWidth + gap + tabs + gap + actionsWithLabels > width;
+        var hide = WebsiteButton.ActualWidth + gap + tabs + gap + actionsWithLabels > width;
         if (hide != _linkLabelsHidden && (hide || _linkLabelExtra > 0))
         {
             SetLinkLabels(!hide);
@@ -578,7 +663,7 @@ public partial class MainWindow : Window
         }
         double tabsRight = (width + tabs) / 2, tabsLeft = (width - tabs) / 2;
         double overlap = tabsRight + gap - (width - BarActions.ActualWidth);
-        double room = tabsLeft - (BarBrand.ActualWidth + gap);
+        double room = tabsLeft - (WebsiteButton.ActualWidth + gap);
         NavTabsShift.X = overlap > 0 ? -Math.Min(overlap, Math.Max(0, room)) : 0;
     }
 
@@ -674,19 +759,64 @@ public partial class MainWindow : Window
         PageHost.Content = content;
         // Home shows the art; every other page sits on it dimmed, numeral away.
         Stage.SetPage(page == LauncherPage.Home);
+        SetBarSurface(page != LauncherPage.Home);
         AnimatePageIn(direction == 0 ? 1 : direction);
     }
 
-    // The top-bar account chip: the selected account's face and name, "Offline"
-    // in offline test mode, "Sign in" when nobody can play.
+    // The top-bar account pill: the selected account's face and name, "Offline" (with a warning dot) in offline
+    // test mode, "Sign in" (a ghost control with the account icon) when nobody can play. Reads the account list
+    // only; it never changes an account, a sign-in or a stored token.
     private void RefreshAccountChip()
     {
         var selected = Core.Accounts.AccountStore.GetSelected(Core.Accounts.AccountStore.Load());
-        var name = selected?.Gamertag;
-        var offline = name == null && Core.SettingsStore.Load().OfflineTestMode;
+        ShowAccountChip(selected?.Gamertag, selected?.Id ?? "", Core.SettingsStore.Load().OfflineTestMode);
+    }
+
+    private void ShowAccountChip(string? name, string uuid, bool offlineTestMode)
+    {
+        var offline = name == null && offlineTestMode;
+        var signedOut = name == null && !offline;
+        AccountButton.Style = (Style)FindResource(signedOut ? "Button.AccountPill.SignedOut" : "Button.AccountPill");
         AccountName.Text = name ?? (offline ? "Offline" : "Sign in");
-        // The player's own head; no account (offline / signed out) = the default head.
-        AccountFace.Uuid = selected?.Id ?? "";
+        // The player's own head; no account (offline) = the default head. Signed out shows the icon instead.
+        AccountFace.Uuid = uuid;
+        AccountHeadHost.Visibility = signedOut ? Visibility.Collapsed : Visibility.Visible;
+        SignInIcon.Visibility = signedOut ? Visibility.Visible : Visibility.Collapsed;
+        OfflineDot.Visibility = offline ? Visibility.Visible : Visibility.Collapsed;
+        // The full name, shown only when the pill had to cut it (AccountButton_ToolTipOpening).
+        AccountButton.ToolTip = name;
+    }
+
+    // A content tooltip, not a hover label: the pill shows the whole name unless it was cut with "...".
+    private void AccountButton_ToolTipOpening(object sender, ToolTipEventArgs e)
+    {
+        if (!AccountNameIsTrimmed()) e.Handled = true;
+    }
+
+    private bool AccountNameIsTrimmed()
+    {
+        if (AccountName.ActualWidth <= 0 || string.IsNullOrEmpty(AccountName.Text)) return false;
+        var text = new FormattedText(AccountName.Text, System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(AccountName.FontFamily, AccountName.FontStyle, AccountName.FontWeight, AccountName.FontStretch),
+            AccountName.FontSize, AccountName.Foreground, VisualTreeHelper.GetDpi(AccountName).PixelsPerDip);
+        return text.WidthIncludingTrailingWhitespace > AccountName.ActualWidth + 0.5;
+    }
+
+    // The bar's surface: opaque on every page but Home, color.nav at 88 % (BarGlass) over the art on Home. Both fade
+    // away with the bar while the launch screen covers Home.
+    private bool _barSolid;
+    private bool _barHidden;
+
+    private void SetBarSurface(bool solid)
+    {
+        _barSolid = solid;
+        ApplyBarSurface(260);
+    }
+
+    private void ApplyBarSurface(int ms)
+    {
+        BarSurface.BeginAnimation(OpacityProperty, UI.Motion.To(_barSolid && !_barHidden ? 1 : 0, ms));
+        BarGlass.BeginAnimation(OpacityProperty, UI.Motion.To(!_barSolid && !_barHidden ? 1 : 0, ms));
     }
 
     // Under the launch screen the bar fades away and stops taking clicks; it
@@ -695,6 +825,8 @@ public partial class MainWindow : Window
     {
         TopBar.IsHitTestVisible = !hidden;
         TopBar.BeginAnimation(OpacityProperty, UI.Motion.To(hidden ? 0 : 1, hidden ? 200 : 320, UI.Motion.Out));
+        _barHidden = hidden;
+        ApplyBarSurface(hidden ? 200 : 320);
     }
 
     private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
@@ -888,12 +1020,14 @@ public partial class MainWindow : Window
             ImportPageHost.Visibility = Visibility.Visible;
             SetNavigationSelection(null);
             Stage.SetPage(false);
+            SetBarSurface(true);
         }
         else
         {
             PageHost.Visibility = Visibility.Visible;
             SetNavigationSelection(_currentPage);
             Stage.SetPage(_currentPage == LauncherPage.Home);
+            SetBarSurface(_currentPage != LauncherPage.Home);
         }
 
         var fade = new DoubleAnimation(open ? 1 : 0, duration);

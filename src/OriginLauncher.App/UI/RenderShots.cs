@@ -154,6 +154,27 @@ public static class RenderShots
         window.TourHideLaunch();
         Pump(500);
 
+        // Play on a version that isn't installed (U3.3): it says what it is doing, counts it, can be cancelled,
+        // and when it fails says why with a Retry. 1.8.9 = the Forge path, the one with the most to download.
+        window.TourShowLaunch("1.8.9");
+        window.TourReportLaunch("Installing");
+        Pump(500);
+        Snap(window, outDir, "08-launch-c-installing");
+        window.TourReportLaunch("Downloading libraries (96/240)");
+        Pump(900);
+        Snap(window, outDir, "08-launch-d-installing-counted");
+        window.TourCancelLaunch();
+        Pump(400);
+        Snap(window, outDir, "08-launch-e-cancelling");
+        window.TourFailLaunch(new Core.Versions.OfflineInstallException("1.8.9", new System.Net.Http.HttpRequestException("no route")), "1.8.9");
+        Pump(500);
+        Snap(window, outDir, "08-launch-f-failed-offline");
+        window.TourFailLaunch(new System.IO.IOException("disk", unchecked((int)0x80070070)), "1.8.9");
+        Pump(400);
+        Snap(window, outDir, "08-launch-g-failed-disk");
+        window.TourHideLaunch();
+        Pump(500);
+
         // Mod profiles, with made-up profiles (the real settings are never touched):
         // the Profiles page, its new-profile form, then Home with a profile that
         // has a server (profile row + the Join button under Play).
@@ -173,6 +194,7 @@ public static class RenderShots
         window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
         Pump(700);
         Snap(window, outDir, "09-profiles");
+        SnapScrolledPage(window, outDir, "09b-profiles-scrolled");
         window.TourShowProfiles(demoProfiles, demoCount, openForm: true);
         Pump(500);
         Snap(window, outDir, "10-profiles-form");
@@ -215,6 +237,7 @@ public static class RenderShots
         window.TourShowModsDemo(DemoMods, 0);
         Pump(600);
         Snap(window, outDir, "13b-mods-list");
+        SnapScrolledPage(window, outDir, "13e-mods-scrolled");
         window.TourShowModsDemo(DemoMods, 1);
         Pump(600);
         Snap(window, outDir, "13c-mods-dragover");
@@ -223,6 +246,7 @@ public static class RenderShots
         Pump(250);
         Snap(window, outDir, "13d-mods-dropped");
         CompatShots.Run(window, outDir, DemoMods); // Phase 5.1: Replace / Keep old row + Home blocked-launch line
+        ModsProfilesShots.Run(window, outDir, "28", DemoMods, demoProfiles, demoCount); // every other Mods + Profiles state
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
@@ -235,6 +259,8 @@ public static class RenderShots
         SnapSettingsRailClick(window, outDir, "SecStartup", "14g-settings-click-startup");
         // Click an item, then press End by hand: the click stops deciding and the first section in view is lit.
         SnapSettingsKeyEnd(window, outDir, "SecStartup", "14h-settings-key-end");
+        // Phase 3 U3.7b: every section on its own, input states, an open dropdown, confirm dialogs, toasts.
+        SettingsStatesShots.Run(window, outDir);
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
@@ -264,6 +290,22 @@ public static class RenderShots
                 Pump(300);
             }
         window.TourShowUpdateBadge(false);
+
+        // The account pill, the Store entry and the account drawer in every state (UI/AccountShots.cs).
+        AccountShots.Run(window, outDir);
+
+        // The Home numeral in its band (bar bottom to strip top) at the three reference sizes: the shot plus the measured
+        // ink against the band (numeral-fit.txt), so centring and air are numbers, not an eyeball.
+        foreach (var (w, h) in new[] { (960, 600), (1180, 740), (1920, 1080) })
+        {
+            window.TourGoTo(0);
+            Pump(400);
+            var sized = new Size(w, h);
+            window.TourLayoutAt(sized);
+            File.AppendAllText(Path.Combine(outDir, "numeral-fit.txt"), $"{w}x{h}: {window.TourNumeralFit()}{Environment.NewLine}");
+            Snap(window, outDir, $"15f-home-numeral-{w}x{h}", size: sized, laidOut: true);
+        }
+        MeasureBarCost(window, outDir);
 
         // The top bar (Website and Store sit in it) at 1180 px, then at the narrowest, with and without an update waiting.
         window.Width = 1180;
@@ -307,6 +349,7 @@ public static class RenderShots
         window.TourShowModsDemo(DemoMods, 0);
         Pump(600);
         Snap(window, outDir, "23b-min-mods-list");
+        SnapScrolledPage(window, outDir, "23c-min-mods-scrolled");
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "24-min-settings");
@@ -319,6 +362,8 @@ public static class RenderShots
         window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
         Pump(700);
         Snap(window, outDir, "25-min-profiles");
+        SnapScrolledPage(window, outDir, "25b-min-profiles-scrolled");
+        ModsProfilesShots.Run(window, outDir, "29-min", DemoMods, demoProfiles, demoCount); // the same states at the smallest window
         window.TourShowHomeWithProfile(demoProfiles.ModProfiles[0]);
         Pump(700);
         Snap(window, outDir, "26-min-home-profile");
@@ -330,6 +375,65 @@ public static class RenderShots
 
         SnapCrashWindows(outDir);
         window.Close();
+    }
+
+    /// <summary>
+    /// What the Home bar's translucent surface costs to draw: the Home window rendered repeatedly with the surface on and
+    /// off (alternating, so drift hits both alike), median and best in bar-cost.txt. A render here is the CPU rasteriser,
+    /// so it is an upper bound on a GPU frame; what matters is the difference between the two rows.
+    /// </summary>
+    private static void MeasureBarCost(MainWindow window, string dir)
+    {
+        window.TourGoTo(0);
+        Pump(600);
+        window.UpdateLayout();
+        var root = (FrameworkElement)window.Content;
+        int w = (int)root.ActualWidth, h = (int)root.ActualHeight;
+        var on = new List<double>();
+        var off = new List<double>();
+        for (var i = 0; i < 43; i++)
+        {
+            var glass = i % 2 == 0;
+            window.TourSetBarGlass(glass);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var bitmap = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(root);
+            watch.Stop();
+            if (i >= 3) (glass ? on : off).Add(watch.Elapsed.TotalMilliseconds); // the first rounds warm the caches
+        }
+        window.TourSetBarGlass(true);
+        static double Median(List<double> v) { var s = v.OrderBy(x => x).ToList(); return s[s.Count / 2]; }
+        File.WriteAllText(Path.Combine(dir, "bar-cost.txt"),
+            $"Home {w}x{h}, {on.Count} renders with the bar surface, {off.Count} without (CPU rasteriser, ms per render)" + Environment.NewLine
+            + $"with surface:    median {Median(on):0.00}  best {on.Min():0.00}" + Environment.NewLine
+            + $"without surface: median {Median(off):0.00}  best {off.Min():0.00}" + Environment.NewLine
+            + $"difference of medians: {Median(on) - Median(off):0.00} ms" + Environment.NewLine);
+    }
+
+    /// <summary>
+    /// The visible page scrolled well past the top bar (the page's longest scroller, to 60 %), so a shot proves content
+    /// goes UNDER the bar's surface and never collides with the nav (Will's 24c note). No scroller to move = no shot.
+    /// </summary>
+    private static void SnapScrolledPage(Window window, string dir, string name)
+    {
+        ScrollViewer? best = null;
+        void Walk(DependencyObject parent)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is ScrollViewer sv && sv.IsVisible && sv.ScrollableHeight > 1
+                    && (best == null || sv.ScrollableHeight > best.ScrollableHeight)) best = sv;
+                Walk(child);
+            }
+        }
+        Walk(window);
+        if (best == null) return;
+        best.ScrollToVerticalOffset(best.ScrollableHeight * 0.6);
+        Pump(400);
+        Snap(window, dir, name);
+        best.ScrollToVerticalOffset(0);
+        Pump(200);
     }
 
     /// <summary>Settings scrolled to its middle and its end, so the sections below the first screen are in the shots too.</summary>
@@ -595,7 +699,7 @@ public static class RenderShots
     /// skipped: it is moving, not laid out.</item>
     /// <item>TRIMMED: a one-line text drawn with an ellipsis because it doesn't fit. Long names and status/server
     /// lines may trim (the tooltip has the rest): those are warnings in trim-checks.txt. A button's own label and a
-    /// header title (Text.H1 / Text.H2) must never trim: those count as cut.</item>
+    /// header title (Text.Heading / Text.Title) must never trim: those count as cut.</item>
     /// </list>
     /// Each cut goes to clip-errors.txt, which fails the launcher-shots workflow; clip-checks.txt counts what was checked.
     /// </summary>
@@ -609,8 +713,8 @@ public static class RenderShots
         // content pushed past it by a negative margin, an overhang or a static transform.
         var clips = new List<(Rect Rect, FrameworkElement By, bool Slot)>();
         var reported = new HashSet<FrameworkElement>();
-        var h1 = Application.Current.TryFindResource("Text.H1");
-        var h2 = Application.Current.TryFindResource("Text.H2");
+        var h1 = Application.Current.TryFindResource("Text.Heading");
+        var h2 = Application.Current.TryFindResource("Text.Title");
 
         // floor: the first entry of `clips` that applies. Inside a scroll viewport, content past an outer edge is
         // just scrolled out of view (the viewport can reach it), so only edges inside the viewport count there.

@@ -134,7 +134,7 @@ public static class OptiFineInstaller
                 File.Move(tempPath, cached, overwrite: true);
                 return true;
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch
             {
                 // Source down/blocked — try the next one.

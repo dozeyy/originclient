@@ -394,7 +394,7 @@ internal static class ImportShots
     /// way WPF's focus adorner does, so the frame can still be judged; focus-checks.txt says which happened. Returns the
     /// undo for a drawn frame.
     /// </summary>
-    private static Action? FocusFrame(MainWindow window, System.Windows.FrameworkElement? target, string what, System.Text.StringBuilder log)
+    internal static Action? FocusFrame(MainWindow window, System.Windows.FrameworkElement? target, string what, System.Text.StringBuilder log)
     {
         var focused = System.Windows.Input.Keyboard.FocusedElement as System.Windows.FrameworkElement;
         if (target == null)

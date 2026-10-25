@@ -41,6 +41,14 @@ public partial class AccountSwitcherPanel : UserControl
         EmptyStateText.Visibility = viewModels.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    /// <summary>Render mode only (UI/AccountShots.cs): the list for made-up players. Nothing is read from or written to the account store.</summary>
+    internal void TourShowRows(IReadOnlyList<MinecraftAccount> rows)
+    {
+        AccountList.ItemsSource = rows;
+        AccountList.Visibility = rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyStateText.Visibility = rows.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);

@@ -172,6 +172,32 @@ class Lean(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
         self.assertIn("updatedToolOutput", r.stdout.decode())
 
+    def test_parallel_hooks_leave_no_errors_or_temp_files(self):
+        # Windows: os.replace fails while another hook holds the state file open
+        # (111 PermissionErrors + 111 orphan .tmp files in errors.log, 2026-10-25).
+        # Whole hook processes rarely overlap in a test, so hammer the same
+        # load/save path the hooks use from 3 writers + 1 reader at once.
+        loop = ("import sys; sys.path.insert(0, %r); import lean\n"
+                "for _ in range(150):\n"
+                "    st = lean.load_state('s1')\n"
+                "    if sys.argv[1] == 'w': st['calls'] += 1; lean.save_state('s1', st)\n"
+                % os.path.dirname(self.lean))
+        ps = [subprocess.Popen([sys.executable, "-c", loop, role], stderr=subprocess.PIPE)
+              for role in ("w", "w", "w", "r")]
+        for p in ps:
+            _, err = p.communicate(timeout=120)
+            self.assertEqual(p.returncode, 0, err.decode()[-400:])
+        state = os.path.join(self.root, ".claude", "lean", "state")
+        self.assertEqual([f for f in os.listdir(state) if f.endswith(".tmp")], [])
+
+    def test_subagent_reads_are_not_the_parents(self):
+        path = self.big_file()
+        self.hook("post-tool", {"tool_name": "Read", "tool_input": {"file_path": path}})
+        # same session, but a subagent: its context never saw the parent's read
+        self.assertIsNone(self.hook("pre-tool", {"tool_name": "Read", "agent_id": "a1",
+                                                 "tool_input": {"file_path": path}}))
+        self.assertIsNotNone(self.hook("pre-tool", {"tool_name": "Read", "tool_input": {"file_path": path}}))
+
     def test_statusline(self):
         r = subprocess.run([sys.executable, self.lean, "statusline"], capture_output=True, input=json.dumps({
             "session_id": "s1", "context_window": {"used_percentage": 34, "current_usage": {

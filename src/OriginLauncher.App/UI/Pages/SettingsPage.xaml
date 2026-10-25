@@ -9,19 +9,19 @@
     <UserControl.Resources>
         <!-- One setting per card (Poster): the shared card (Theme/Surfaces.xaml) with title + one-line why on the
              left, the control on the right. Sections are plain eyebrow headings above their cards. The type is
-             the app scale: title = Text.Label (13.5), why / field label = Text.Caption (12). -->
+             the app scale: title = Text.BodyStrong (13.5), why / field label = Text.Caption (12). -->
         <Style x:Key="SettingCard" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
-            <Setter Property="MinHeight" Value="64"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.Row}"/>
         </Style>
         <Style x:Key="SettingLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
         </Style>
-        <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
+        <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
             <Setter Property="Margin" Value="0,32,0,10"/>
         </Style>
-        <Style x:Key="SettingTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}"/>
+        <Style x:Key="SettingTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.BodyStrong}"/>
         <Style x:Key="SettingWhy" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="TextTrimming" Value="None"/>
@@ -40,9 +40,9 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Grid Background="Transparent">
-                            <Border x:Name="Hover" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Sharp}" Opacity="0"/>
+                            <Border x:Name="Hover" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}" Opacity="0"/>
                             <Rectangle x:Name="Bar" Width="2" HorizontalAlignment="Left" Margin="0,9" Opacity="0"
-                                       Fill="{DynamicResource Brush.Acc}"/>
+                                       Fill="{DynamicResource Brush.Accent}"/>
                             <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -78,38 +78,91 @@
             </Grid.ColumnDefinitions>
 
             <!-- The title spans the rail's column too, so it starts at the page's left edge like every page. -->
-            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="SETTINGS" Style="{StaticResource Text.Poster}"
+            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Settings" Style="{StaticResource Text.Heading}"
                        HorizontalAlignment="Left"/>
 
             <!-- The rail stays put while the column scrolls (moved in code). -->
             <StackPanel x:Name="Rail" Grid.Row="1" Grid.Column="0" VerticalAlignment="Top" Margin="0,24,0,0"
-                        TextElement.FontSize="11" TextElement.FontWeight="SemiBold">
+                        TextElement.FontSize="{StaticResource FontSize.Label}" TextElement.FontWeight="SemiBold">
                 <StackPanel.RenderTransform>
                     <TranslateTransform x:Name="RailShift"/>
                 </StackPanel.RenderTransform>
-                <RadioButton Style="{StaticResource RailItem}" Tag="SecPerformance" Checked="Rail_Checked" Click="Rail_Click" IsChecked="True">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Mint}"/><controls:TrackedText Text="PERFORMANCE" Tracking="0.16"/></StackPanel>
+                <!-- Settings Sync is first: it is the setting players most often go looking for ("where do my settings
+                     follow me?"), so it has its own section and rail item rather than a row inside another section. -->
+                <RadioButton Style="{StaticResource RailItem}" Tag="SecSync" Checked="Rail_Checked" Click="Rail_Click" IsChecked="True">
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Sync}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Sky}"/><controls:TrackedText Text="SETTINGS SYNC" Tracking="0.16"/></StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource RailItem}" Tag="SecPerformance" Checked="Rail_Checked" Click="Rail_Click">
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Emerald}"/><controls:TrackedText Text="PERFORMANCE" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecGame" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Sky}"/><controls:TrackedText Text="GAME" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Sky}"/><controls:TrackedText Text="GAME" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecJvm" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Violet}"/><controls:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Lilac}"/><controls:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecClient" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{DynamicResource Brush.Acc}"/><controls:TrackedText Text="ORIGIN CLIENT" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{DynamicResource Brush.Accent}"/><controls:TrackedText Text="ORIGIN CLIENT" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecStartup" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Gold}"/><controls:TrackedText Text="STARTUP" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Gold}"/><controls:TrackedText Text="STARTUP" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton x:Name="RailDeveloper" Style="{StaticResource RailItem}" Tag="SecDeveloper" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Edit}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource TintInk.Coral}"/><controls:TrackedText Text="DEVELOPER" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Edit}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Coral}"/><controls:TrackedText Text="DEVELOPER" Tracking="0.16"/></StackPanel>
                 </RadioButton>
             </StackPanel>
 
             <StackPanel Grid.Row="1" Grid.Column="1" x:Name="Sections">
+                <!-- Settings Sync (Core/SettingsSync.cs): on by default. The first section of the page. The On / Off word is
+                     state only (it takes the accent when on) and reads the switch beside it, so it can never disagree. -->
+                <TextBlock x:Name="SecSync" Text="SETTINGS SYNC" Style="{StaticResource SectionTitle}" Margin="0,24,0,10"/>
+                <Border Style="{StaticResource SettingCard}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                            <TextBlock Text="Sync settings across versions" Style="{StaticResource SettingTitle}"/>
+                            <TextBlock Text="Your keybinds, video settings, mod settings, HUD positions and server list follow you to every version."
+                                       Style="{StaticResource SettingWhy}"/>
+                        </StackPanel>
+                        <!-- The ON / OFF readout: a Sm capsule (22 tall, Radius.Full, Padding.Capsule.Sm); ON washes it in the accent. -->
+                        <Border Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center"
+                                AutomationProperties.Name="Settings Sync state">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Surface.Capsule.Sm}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsChecked, ElementName=SettingsSyncToggle}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+                                        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}"/>
+                                        <Setter Property="Text" Value="OFF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsChecked, ElementName=SettingsSyncToggle}" Value="True">
+                                                <Setter Property="Text" Value="ON"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Brush.AccentHover}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <ToggleButton Grid.Column="2" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Sync settings across versions"
+                                      VerticalAlignment="Center"
+                                      Checked="SettingsSyncToggle_Checked" Unchecked="SettingsSyncToggle_Unchecked"/>
+                    </Grid>
+                </Border>
+
                 <!-- Performance -->
-                <TextBlock x:Name="SecPerformance" Text="PERFORMANCE" Style="{StaticResource SectionTitle}" Margin="0,24,0,10"/>
+                <TextBlock x:Name="SecPerformance" Text="PERFORMANCE" Style="{StaticResource SectionTitle}"/>
                 <Border Style="{StaticResource SettingCard}">
                     <StackPanel>
                         <Grid>
@@ -132,7 +185,7 @@
                             <!-- The readout comes first: setting Minimum fires ValueChanged during load, and the
                                  handler writes to it. -->
                             <TextBlock Grid.Column="1" x:Name="RamValueText" Text="4096 MB" MinWidth="80" TextAlignment="Right"
-                                       FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.CardTitle}" FontWeight="ExtraBold"
+                                       FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Title}" FontWeight="ExtraBold"
                                        Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="24,0,0,0"/>
                             <Slider x:Name="RamSlider" Minimum="1024" SmallChange="256" VerticalAlignment="Center"
                                     LargeChange="1024" TickFrequency="256" IsSnapToTickEnabled="True"
@@ -167,7 +220,19 @@
                             <TextBlock Text="Recommended for this PC" Style="{StaticResource SettingTitle}"/>
                             <TextBlock Text="Picks render distance, particles, clouds and graphics to match your PC. Changes video settings in every version you have played."
                                        Style="{StaticResource SettingWhy}"/>
-                            <TextBlock x:Name="PresetStatusText" Style="{StaticResource SettingWhy}" Margin="0,6,0,0"/>
+                            <!-- Collapsed while empty: an empty line still took its 6 px margin plus a 16 px line, the dead
+                                 space under the card's text. -->
+                            <TextBlock x:Name="PresetStatusText" Margin="0,6,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource SettingWhy}">
+                                        <Style.Triggers>
+                                            <Trigger Property="Text" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                         <Button Grid.Column="1" x:Name="PresetButton" Content="Apply" Style="{StaticResource Button.Secondary}"
                                 VerticalAlignment="Center" AutomationProperties.Name="Apply recommended video settings"
@@ -187,15 +252,20 @@
                                 <ColumnDefinition Width="8"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" x:Name="InstallPathTextBox" LostFocus="InstallPathTextBox_LostFocus"
+                            <TextBox Grid.Column="0" x:Name="InstallPathTextBox" LostFocus="InstallPathTextBox_LostFocus" TextChanged="InstallPathTextBox_TextChanged"
                                      AutomationProperties.Name="Install folder"/>
                             <Button Grid.Column="2" Content="Browse" Style="{StaticResource Button.Secondary}"
                                     Click="BrowseButton_Click"/>
                         </Grid>
+                        <TextBlock x:Name="InstallPathErrorText" Style="{StaticResource Input.ErrorText}" Visibility="Collapsed"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource SettingCard}">
                     <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -211,6 +281,8 @@
                             <TextBox x:Name="ResolutionHeightTextBox" Width="96" TextAlignment="Center" LostFocus="ResolutionTextBox_LostFocus"
                                      AutomationProperties.Name="Height"/>
                         </StackPanel>
+                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" x:Name="ResolutionErrorText" Style="{StaticResource Input.ErrorText}"
+                                   Visibility="Collapsed"/>
                     </Grid>
                 </Border>
 
@@ -276,23 +348,6 @@
                         <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Origin UI"
                                       VerticalAlignment="Center"
                                       Checked="OriginUiToggle_Checked" Unchecked="OriginUiToggle_Unchecked"/>
-                    </Grid>
-                </Border>
-                <!-- Settings Sync (Core/SettingsSync.cs): off by default. -->
-                <Border Style="{StaticResource SettingCard}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                            <TextBlock Text="Sync settings across versions" Style="{StaticResource SettingTitle}"/>
-                            <TextBlock Text="Your keybinds, video settings, mod settings, HUD positions and server list follow you to every version."
-                                       Style="{StaticResource SettingWhy}"/>
-                        </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Sync settings across versions"
-                                      VerticalAlignment="Center"
-                                      Checked="SettingsSyncToggle_Checked" Unchecked="SettingsSyncToggle_Unchecked"/>
                     </Grid>
                 </Border>
 

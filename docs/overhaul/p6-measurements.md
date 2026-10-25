@@ -264,6 +264,29 @@ Not proven: Will's resolution and GUI scale. Blur is also skipped when shaders o
 **Will to check:** open Esc in a world at his usual resolution and GUI scale and say whether the
 background is still blocky.
 
+**Update 2026-10-25 (pick 2, `claude/p6-opt-blur`):** the capture is not below full resolution. The blur
+reads `mc.getFramebuffer()` itself (full size); the first pyramid level is half size by design (an exact
+2x2 box average) and the result is stretched back in 2x steps. A 1920x1080 world shot (dev-shots
+`set=world`, `pause_1920x1080.png`) shows soft texel blocks, not a screen-pixel grid: at the default
+strength (4 = three levels, about 8 px) a close wall has texels far wider than the blur. That is the
+strength setting, not the capture, and it is identical before and after pick 2. Still Will's call at his
+own resolution and GUI scale.
+
+## Pick 2 result: Menu Blur reuses its backdrop while the world is frozen
+
+CI, relative only. Cost = origin-default minus the same round's optifine-only control (median of
+rounds, 3 alternated A/B runs of main vs branch, 11 rounds each, scenes menu,pause,idle, prof=1):
+
+| Scene | main p50 cost | branch p50 cost | note |
+|---|---|---|---|
+| pause (single-player Esc) | +5.13 ms | +3.23 ms | clear, sd 0.9 / 0.4; blur rebuilt on 2% of frames (every 3 s) |
+| menu (creative inventory, world runs) | +5.34 ms | +6.15 ms | per-frame blur kept on purpose; branch ran on slower runners, scaled by control p50 it is equal |
+| idle | +0.49 ms | +0.32 ms | unchanged |
+
+p99 and 1% low did not move beyond noise (a rebuild frame every ~3 s is about 1-2% of frames). The
+reuse never applies to inventories, multiplayer or LAN-open worlds (not `isGamePaused`), because the
+world moves there and a rate limit would show as lag. Safety rules are in `MenuBlur`'s class comment.
+
 ## B-04 shader lag: is any of it Origin's?
 
 The bench has no shader-pack variant, and adding one would not answer the question: an OptiFine

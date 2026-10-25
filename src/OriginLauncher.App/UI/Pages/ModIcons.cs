@@ -41,19 +41,18 @@ internal static class ModIcons
         ["zoom"] = "M3,10 A7,7 0 1 0 17,10 A7,7 0 1 0 3,10 Z M15,15 L20,20",
     };
 
-    // The Mods page's own hue palette (soft, one per glyph; light enough to read on the dark wells).
-    private static readonly Dictionary<string, Color> Hues = new()
+    // Each glyph wears one of the five fixed hues (Theme/Colors.xaml, spec 2.3): soft, readable on the dark wells.
+    private static readonly Dictionary<string, string> Hues = new()
     {
-        ["mark"] = Color.FromRgb(0xE0, 0xE0, 0xE0),
-        ["map"] = Color.FromRgb(0x5E, 0xD6, 0xA0),      // green
-        ["cube"] = Color.FromRgb(0x6F, 0xB1, 0xF2),     // blue
-        ["drop"] = Color.FromRgb(0xF2, 0x7A, 0x7A),     // red
-        ["pulse"] = Color.FromRgb(0xF2, 0xC9, 0x4C),    // yellow
-        ["aperture"] = Color.FromRgb(0xB4, 0x8C, 0xF2), // violet
-        ["chip"] = Color.FromRgb(0x3F, 0xD0, 0xD4),     // cyan
-        ["sliders"] = Color.FromRgb(0xF2, 0x9B, 0xC0),  // pink
-        ["search"] = Color.FromRgb(0xE8, 0x91, 0x4F),   // orange
-        ["zoom"] = Color.FromRgb(0x9B, 0xD6, 0x5A),     // lime
+        ["map"] = "Color.Hue.Emerald",
+        ["cube"] = "Color.Hue.Sky",
+        ["drop"] = "Color.Hue.Coral",
+        ["pulse"] = "Color.Hue.Gold",
+        ["aperture"] = "Color.Hue.Lilac",
+        ["chip"] = "Color.Hue.Sky",
+        ["sliders"] = "Color.Hue.Lilac",
+        ["search"] = "Color.Hue.Gold",
+        ["zoom"] = "Color.Hue.Emerald",
     };
 
     /// <summary>The soft hue for a mod's icon, or null (unknown mods stay neutral).</summary>
@@ -61,16 +60,21 @@ internal static class ModIcons
     {
         var hay = (mod.DisplayName + " " + mod.FileName).ToLowerInvariant();
         foreach (var (keyword, glyph) in Map)
-            if (hay.Contains(keyword)) return Hues[glyph];
+            if (hay.Contains(keyword) && Hues.TryGetValue(glyph, out var key))
+                return (Color)System.Windows.Application.Current.FindResource(key);
         return null;
     }
 
-    /// <summary>The glyph for a mod, or null for the plain jar glyph.</summary>
+    /// <summary>True for Origin Client's own entry, whose icon is the official logo image (Brand.Logo), never a drawing.</summary>
+    public static bool IsOrigin(ModEntry mod) =>
+        (mod.DisplayName + " " + mod.FileName).Contains("origin", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The glyph for a mod, or null for the plain jar glyph (and for Origin itself, see <see cref="IsOrigin"/>).</summary>
     public static Geometry? For(ModEntry mod)
     {
         var hay = (mod.DisplayName + " " + mod.FileName).ToLowerInvariant();
         foreach (var (keyword, glyph) in Map)
-            if (hay.Contains(keyword)) return Get(glyph);
+            if (hay.Contains(keyword)) return glyph == "mark" ? null : Get(glyph);
         return null;
     }
 
@@ -78,19 +82,7 @@ internal static class ModIcons
     {
         if (Cache.TryGetValue(glyph, out var cached)) return cached;
         Geometry g;
-        if (glyph == "mark")
-        {
-            // The Origin mark: three rings sharing one centre (0 / 60 / 120 degrees) and a dot.
-            var group = new GeometryGroup();
-            foreach (var angle in new[] { 0.0, 60.0, 120.0 })
-                group.Children.Add(new EllipseGeometry(new System.Windows.Point(12, 12), 9, 3.8)
-                {
-                    Transform = new RotateTransform(angle, 12, 12),
-                });
-            group.Children.Add(new EllipseGeometry(new System.Windows.Point(12, 12), 1.2, 1.2));
-            g = group;
-        }
-        else g = Geometry.Parse(Paths[glyph]);
+        g = Geometry.Parse(Paths[glyph]);
         g.Freeze();
         Cache[glyph] = g;
         return g;

@@ -10,11 +10,13 @@ namespace OriginLauncher.App.UI.Controls;
 
 /// <summary>
 /// The Poster backdrop behind every page: the version family's art in greyscale,
-/// darkened by scrims, with the giant version numeral at 15% ink in front of it.
+/// darkened by the bottom scrim, with the giant version numeral (VersionNumeral) in front of it.
 ///
 /// Layers (back to front): two grey art layers (the family crossfade swaps
-/// between them), a colour layer (the launch bloom), the numeral, the top and
-/// bottom scrims (7:1 text over art), and the page dim (every page but Home).
+/// between them), a colour layer (the launch bloom), the bottom scrim (7:1 text
+/// over art), the numeral, and the page dim (every page but Home). There is
+/// no top scrim: the top bar is its own surface (MainWindow BarGlass / BarSurface),
+/// so the art runs full strength right up under it (DESIGN-SYSTEM 12).
 ///
 /// Art is decoded off the UI thread, frozen, and picked by the window's physical
 /// width with room for the 1.19x peak scale (1280 / 2560 / 3840 wide, see TierFor).
@@ -30,6 +32,26 @@ public sealed class ArtStage : Grid
     // shown when the stage is built, so cold start opens on the art and numeral, not a blank.
     private static string? _pendingVersion;
     private static bool _hasPending;
+
+    // Where Home's strip starts, reported the same way (HomePage lays out before the stage exists).
+    private static double _stripTop = double.NaN;
+
+    /// <summary>
+    /// Home's strip starts at <paramref name="stripTop"/> (window coordinates): the numeral stands in the band between
+    /// the top bar and that line. Kept for a stage that is not built yet.
+    /// </summary>
+    public static void SetStripTop(double stripTop)
+    {
+        _stripTop = stripTop;
+        Instance?._numeral.SetBand(stripTop);
+    }
+
+    /// <summary>The render tour's manual layout raises no SizeChanged: place the numeral for the size it was laid out at.</summary>
+    internal void TourRelayout() => _numeral.Relayout();
+
+    /// <summary>The numeral's ink and band, for the render tour's measurements.</summary>
+    internal (Rect? Ink, double BandTop, double BandBottom) NumeralGeometry =>
+        (_numeral.InkRect, _numeral.CurrentBand.Top, _numeral.CurrentBand.Bottom);
 
     /// <summary>Show <paramref name="version"/>'s family now, or as soon as the stage exists.</summary>
     public static void Request(string? version, bool animate)
@@ -84,18 +106,15 @@ public sealed class ArtStage : Grid
         _stage.Children.Add(_colour.Image);
         Children.Add(_stage);
 
-        Children.Add(_numeral);
-
-        Children.Add(new Border
-        {
-            Height = 140, VerticalAlignment = VerticalAlignment.Top,
-            Background = (Brush)Application.Current.FindResource("Brush.ScrimTop"),
-        });
         Children.Add(new Border
         {
             Height = 330, VerticalAlignment = VerticalAlignment.Bottom,
             Background = (Brush)Application.Current.FindResource("Brush.ScrimBottom"),
         });
+        // The numeral sits ABOVE the scrim: on a short window the scrim reaches up into the figures, and a gradient
+        // across them would tint the neutral ink (the scrim's job is the strip's text, not the numeral).
+        Children.Add(_numeral);
+        if (!double.IsNaN(_stripTop)) _numeral.SetBand(_stripTop);
         _dim = new Border { Background = (Brush)Application.Current.FindResource("Brush.PageDim"), Opacity = 0 };
         Children.Add(_dim);
 
@@ -337,144 +356,3 @@ public sealed class ArtStage : Grid
     }
 }
 
-/// <summary>
-/// The giant version numeral: Inter ExtraBold narrowed to 70%, filling 90% of the
-/// width (at most 60% of the height), centred, its digits' middle at 42% of the
-/// height. A change rolls the old characters up and out and the new ones in from
-/// below, 28 ms apart (mockup: 320 ms in / 420 ms out, 140 ms overlap).
-/// </summary>
-public sealed class VersionNumeral : Canvas
-{
-    private const double Narrow = 0.7;
-    private readonly List<Glyph> _shown = new();
-    private string _text = "";
-
-    public VersionNumeral()
-    {
-        IsHitTestVisible = false;
-        ClipToBounds = false;
-        SizeChanged += (_, _) => Layout(_shown);
-    }
-
-    public void SetText(string text, bool animate)
-    {
-        if (text == _text && _shown.Count > 0) return;
-        _text = text;
-        var old = _shown.ToList();
-        _shown.Clear();
-        foreach (var ch in text)
-        {
-            var g = new Glyph(ch.ToString(), this);
-            _shown.Add(g);
-            Children.Add(g);
-        }
-        Layout(_shown);
-
-        if (!animate || Motion.Off)
-        {
-            foreach (var g in old) Children.Remove(g);
-            return;
-        }
-        var lift = FontSize() * 0.17;
-        for (var i = 0; i < old.Count; i++)
-        {
-            var g = old[i];
-            g.Shift.BeginAnimation(TranslateTransform.YProperty, Motion.FromTo(0, -lift, 320, Motion.In, i * 28));
-            var fade = Motion.FromTo(1, 0, 320, Motion.In, i * 28);
-            if (i == old.Count - 1) fade.Completed += (_, _) => { foreach (var o in old) Children.Remove(o); };
-            g.BeginAnimation(OpacityProperty, fade);
-        }
-        var drop = FontSize() * 0.2;
-        for (var i = 0; i < _shown.Count; i++)
-        {
-            var g = _shown[i];
-            g.Opacity = 0;
-            g.Shift.BeginAnimation(TranslateTransform.YProperty, Motion.FromTo(drop, 0, 420, Motion.Out, 140 + i * 28));
-            g.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 420, Motion.Out, 140 + i * 28));
-        }
-    }
-
-    private double FontSize()
-    {
-        var w = ActualWidth > 0 ? ActualWidth : 1180;
-        var h = ActualHeight > 0 ? ActualHeight : 740;
-        var at100 = Measure100(_text);
-        return Math.Min(at100 > 0 ? w * 0.9 / at100 * 100 : h * 0.6, h * 0.6);
-    }
-
-    private double Measure100(string text)
-    {
-        double w = 0;
-        foreach (var ch in text) w += Glyph.Shape(ch.ToString(), 100, this).WidthIncludingTrailingWhitespace * Narrow;
-        return w;
-    }
-
-    private void Layout(List<Glyph> glyphs)
-    {
-        if (glyphs.Count == 0 || ActualWidth <= 0) return;
-        var fs = FontSize();
-        var total = 0.0;
-        foreach (var g in glyphs) { g.Size(fs); total += g.Width; }
-        var x = (ActualWidth - total) / 2;
-        // Put the middle of the digits (baseline minus half the cap height) at 42% of the height.
-        var sample = Glyph.Shape("1", fs, this);
-        var caps = sample.CapsHeight();
-        var top = ActualHeight * 0.42 - (sample.Baseline - caps * fs / 2);
-        foreach (var g in glyphs)
-        {
-            SetLeft(g, x);
-            SetTop(g, top);
-            x += g.Width;
-        }
-    }
-
-    private sealed class Glyph : FrameworkElement
-    {
-        private readonly string _ch;
-        private readonly Visual _host;
-        private FormattedText? _ft;
-        public readonly TranslateTransform Shift = new();
-
-        public Glyph(string ch, Visual host)
-        {
-            _ch = ch;
-            _host = host;
-            RenderTransform = Shift;
-        }
-
-        public void Size(double fs)
-        {
-            _ft = Shape(_ch, fs, _host);
-            Width = _ft.WidthIncludingTrailingWhitespace * Narrow;
-            Height = _ft.Height;
-            InvalidateVisual();
-        }
-
-        public static FormattedText Shape(string ch, double fs, Visual host)
-        {
-            var family = (FontFamily)Application.Current.FindResource("Font.Display");
-            var face = new Typeface(family, FontStyles.Normal, FontWeights.ExtraBold, FontStretches.Normal);
-            return new FormattedText(ch, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, fs,
-                (Brush)Application.Current.FindResource("Brush.NumeralInk"), VisualTreeHelper.GetDpi(host).PixelsPerDip);
-        }
-
-        protected override void OnRender(DrawingContext dc)
-        {
-            if (_ft == null) return;
-            dc.PushTransform(new ScaleTransform(Narrow, 1));
-            dc.DrawText(_ft, new Point(0, 0));
-            dc.Pop();
-        }
-    }
-}
-
-internal static class FormattedTextCaps
-{
-    /// <summary>The numeral face's cap height as a fraction of the em (0.73 if the face can't say).</summary>
-    public static double CapsHeight(this FormattedText _)
-    {
-        var family = (FontFamily)Application.Current.FindResource("Font.Display");
-        var face = new Typeface(family, FontStyles.Normal, FontWeights.ExtraBold, FontStretches.Normal);
-        return face.TryGetGlyphTypeface(out var gt) ? gt.CapsHeight : 0.73;
-    }
-}

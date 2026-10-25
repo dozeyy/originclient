@@ -103,9 +103,9 @@ public static class JavaRuntimeProvisioner
             }
             return InstalledJavaw(pin, runtimesRoot) ?? Fail(pin);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            throw; // the player cancelled the launch: not a failure to remember
+            throw; // the player cancelled the launch: not a failure to remember (a timeout is: it reaches Fail below)
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException
             or HttpRequestException or TaskCanceledException or NotSupportedException)

@@ -47,7 +47,7 @@
                             AutomationProperties.Name="Choose Minecraft version">
                         <StackPanel Orientation="Horizontal">
                             <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
-                                                  FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.PillNumber}"
+                                                  FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Title}"
                                                   FontWeight="ExtraBold" Foreground="{StaticResource Brush.Text}"
                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
@@ -67,19 +67,19 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Border x:Name="ProfileEmblem" Width="{StaticResource Size.Emblem}" Height="{StaticResource Size.Emblem}"
-                                    CornerRadius="{StaticResource Radius.Chip}" Margin="0,0,8,0">
+                                    CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,8,0">
                                 <Grid>
                                     <!-- No profile: the Origin mark itself (plain Origin), never a bare letter. -->
-                                    <controls:OriginMark x:Name="ProfileMark" Width="24" Height="24"
+                                    <controls:BrandLogo x:Name="ProfileMark" Width="{StaticResource Size.Logo.Bar}" Height="{StaticResource Size.Logo.Bar}"
                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     <!-- The profile's icon (ProfileLook.EmblemGlyph); empty when its letter shows. -->
                                     <Border x:Name="ProfileIcon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <controls:TrackedText x:Name="ProfileInitial" Text="" Tracking="0" FontSize="15" FontWeight="Bold"
+                                    <controls:TrackedText x:Name="ProfileInitial" Text="" Tracking="0" FontSize="{StaticResource FontSize.Title}" FontWeight="Bold"
                                                           Foreground="{StaticResource Brush.OnPhoto}" Visibility="Collapsed"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
-                            <TextBlock x:Name="ProfileNameText" Grid.Column="1" Text="No profile" Style="{StaticResource Text.PillTitle}"
+                            <TextBlock x:Name="ProfileNameText" Grid.Column="1" Text="No profile" Style="{StaticResource Text.Title}"
                                        VerticalAlignment="Center" Margin="0,0,8,0" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
                             <Path Grid.Column="2" Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Small}"
                                   VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
@@ -92,13 +92,13 @@
                 <StackPanel x:Name="StatusRow" Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,12,0,0">
                     <Rectangle x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.TextDim}"
                                VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Status}"
+                    <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Caption}"
                                Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
                                LineHeight="{StaticResource Size.StatusLine}" LineStackingStrategy="BlockLineHeight"
                                TextTrimming="CharacterEllipsis" MaxWidth="{StaticResource Size.StatusWidth}"/>
                     <StackPanel x:Name="PlayersPill" Orientation="Horizontal" Visibility="Collapsed" Margin="14,0,0,0">
-                        <TextBlock Text="/" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,14,0" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
+                        <TextBlock Text="/" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
 
@@ -112,8 +112,8 @@
                 <ToggleButton x:Name="MyModsSwitch" Style="{StaticResource Toggle.Slider}" Margin="0,0,28,0"
                               VerticalAlignment="Center" Click="MyModsSwitch_Click"
                               AutomationProperties.Name="My mods">
-                    <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Display}"
-                                          FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                    <controls:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Primary}"
+                                          FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                 </ToggleButton>
 
@@ -129,7 +129,7 @@
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="Join server" Style="{StaticResource Text.Caption}"
                                        Foreground="{StaticResource Brush.TextDim}" LineHeight="16"/>
-                            <TextBlock x:Name="JoinServerText" Text="Server" Style="{StaticResource Text.Label}" LineHeight="18"
+                            <TextBlock x:Name="JoinServerText" Text="Server" Style="{StaticResource Text.BodyStrong}" LineHeight="18"
                                        MaxWidth="200" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </StackPanel>
@@ -142,12 +142,12 @@
                         Click="PlayButton_Click">
                     <Grid>
                         <controls:TrackedText x:Name="PlayLabel" Text="PLAY" Tracking="0.02"
-                                              FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.PlayWord}" FontWeight="ExtraBold"
+                                              FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Display}" FontWeight="ExtraBold"
                                               Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Center"/>
                         <!-- The selected account's game is already open: Play becomes
                              RUNNING and clicking it brings that window forward. -->
                         <controls:TrackedText x:Name="RunningLabel" Text="RUNNING" Tracking="0.02" Visibility="Collapsed"
-                                              FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.PlayWord}" FontWeight="ExtraBold"
+                                              FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Display}" FontWeight="ExtraBold"
                                               Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Center"/>
                         <Path x:Name="PlaySpinner" Visibility="Collapsed"
                               Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center"
