@@ -114,7 +114,7 @@ function requestFrame() {
 }
 
 // ------------------------------------------------------------ hero island
-// Desktop: the island and its rings are centred in the free area to the right of the
+// Desktop: the island and its mark are centred in the free area to the right of the
 // hero copy (up to the header's right edge) and sized to fit it, so the two never
 // overlap and the right side is never empty. Phone/tablet: the island sits in the band
 // between the header and the copy and shrinks if that band is too short for it. All in

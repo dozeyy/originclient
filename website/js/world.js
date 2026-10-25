@@ -1,8 +1,8 @@
 // The 3D layer behind the page: a floating island in the sky, built block by
 // block from Minecraft's own default textures and lit with the shaders look
 // (warm low sun, cool sky fill, the game's smooth-lighting corner shadows),
-// with Origin's three rings orbiting it so the island is the nucleus of the
-// Origin mark.
+// floating in front of the real Origin logo (a textured plane) so the island is
+// the nucleus of the mark.
 //
 // site.js owns WHAT is shown (which pose); this file owns HOW: meshing,
 // materials and motion. Motion is all damped: the island floats on slow sines
@@ -15,6 +15,7 @@ import * as THREE from './vendor/three.module.min.js';
 THREE.ColorManagement.enabled = false;
 
 const BLOCKS = 'assets/blocks/';
+const LOGO_URL = 'assets/origin-logo.png';   // the real logo, copied verbatim by tools/website/build_assets.py
 
 // Minecraft's fixed face brightness: up 1.0, north/south 0.8, east/west 0.6, down 0.5.
 const FACES = [
@@ -45,11 +46,11 @@ const EMISSIVE = new Set(['glowstone', 'torch']);
 // the whole picture by a fraction of the screen; orbit scales the slow sway.
 const POSES = {
   hero:     { pos: [42, 19, 53], target: [0.5, -4, 0.5], fov: 42, shiftX: 0.2, shiftY: 0.02, orbit: 1 },
-  heroMobile: { pos: [96, 41, 120], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.28, orbit: 1 },   // above the headline, small enough that its rings clear the header and the title
+  heroMobile: { pos: [96, 41, 120], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.28, orbit: 1 },   // above the headline, small enough that the mark clears the header and the title
   heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
   versions: { pos: [-36, 18, 46], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.24, shiftY: 0, orbit: 1 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
-  // centred under "Ready when you are", whole island + rings in frame below the text
+  // centred under "Ready when you are", whole island + mark in frame below the text
   get:      { pos: [0, 17, 100], target: [0.5, -4, 0.5], fov: 42, shiftX: 0, shiftY: -0.21, orbit: 1 },
 };
 
@@ -164,8 +165,8 @@ const FRAG = /* glsl */`
     vec3 sun = vec3(1.1, 0.92, 0.74);
     vec3 sky = vec3(0.36, 0.38, 0.5);
     vec3 lit = t.rgb * vAo * (sky + sun * ndl);
-    // The Origin rings light the island: each orb riding a ring is a small
-    // white point light, plus a faint white rim from the rings' glow.
+    // Three soft white lights drifting round the Origin mark rim-light the island,
+    // plus a faint white rim from the mark's glow.
     vec3 v = normalize(cameraPosition - vW);
     float orb = 0.0;
     for (int i = 0; i < 3; i++) {
@@ -393,47 +394,30 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   pivot.add(blocks, glows);
   scene.add(pivot);
 
-  // Origin's rings: the mark's three orbits (ellipse ratio 0.355 = a circle
-  // tilted ~69 deg) at 0/60/120 deg, always turned to the camera so it reads
-  // as the logo from anywhere. They circle the island's bounding sphere, so no
-  // ring can ever pass through a block, whatever the camera angle.
+  // The Origin mark behind the island: the REAL logo file (assets/origin-logo.png, byte-for-byte
+  // textures/ui/origin_logo.png), never redrawn here. It is one camera-facing plane parked just
+  // behind the island's bounding sphere, so the island floats in front of it as its nucleus and
+  // no block can ever poke through it. Perspective would shrink a plane that is farther than the
+  // island, so it is scaled up by the extra distance each frame and reads at a constant size.
+  // The plane's ink (the rings) spans 236 of the PNG's 256 px; its radius is `inner * LOGO_K`.
   const inner = bounds.radius + 0.87 + 0.8;   // + half a block diagonal + clearance
-  // Ring radii as multiples of `inner` (the innermost is the least that clears every block).
-  // Kept close so the island fills as much of the rings' sweep as it can.
-  const RING_K = [1.25, 1.12, 1];
-  const rings = new THREE.Group();
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.95 });
-  const ringGlow = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
-  // Comet tail behind each orb: a short arc of ring that fades in toward the orb.
-  const TAIL = 1.1;
-  const tailMat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'varying vec2 vUv; void main() { float a = pow(vUv.x, 2.4); gl_FragColor = vec4(mix(vec3(0.6), vec3(1.0), a) * a * 0.9, 1.0); }',
-  });
-  const spinners = [];
-  [[RING_K[0], 0], [RING_K[1], 60], [RING_K[2], 120]].forEach(([k, deg], i) => {
-    const rad = inner * k;
-    const holder = new THREE.Group();
-    holder.rotation.z = THREE.MathUtils.degToRad(deg);
-    const tilt = new THREE.Group();
-    tilt.rotation.x = Math.acos(0.355);
-    tilt.add(new THREE.Mesh(new THREE.TorusGeometry(rad, 0.08, 8, 220), ringMat));
-    tilt.add(new THREE.Mesh(new THREE.TorusGeometry(rad, 0.36, 8, 220), ringGlow));
-    const tail = new THREE.Mesh(new THREE.TorusGeometry(rad, 0.16, 6, 64, TAIL), tailMat);
-    tilt.add(tail);
-    // the orb: a bright core inside a soft white halo
-    const body = new THREE.Group();
-    body.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff })));
-    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
-    halo.scale.setScalar(2.4);
-    body.add(halo);
-    tilt.add(body);
-    holder.add(tilt);
-    rings.add(holder);
-    spinners.push({ holder, body, tail, rad, base: deg, period: [26, 34, 42][i], dir: [1, -1, 1][i], phase: i * 2.1 });
-  });
-  scene.add(rings);
+  const LOGO_K = 1.25, INK = 236 / 256;
+  const logoTex = await load(LOGO_URL);
+  logoTex.colorSpace = THREE.NoColorSpace;   // the renderer outputs linear values straight through (see outputColorSpace)
+  logoTex.generateMipmaps = true;
+  logoTex.minFilter = THREE.LinearMipmapLinearFilter;
+  logoTex.magFilter = THREE.LinearFilter;
+  logoTex.anisotropy = 8;
+  const LOGO_SIDE = 2 * inner * LOGO_K / INK;
+  const LOGO_BEHIND = bounds.radius + 1;     // distance behind the island's centre, along the view axis
+  const logo = new THREE.Mesh(
+    new THREE.PlaneGeometry(LOGO_SIDE, LOGO_SIDE),
+    new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, opacity: 0.95, depthWrite: false }));
+  logo.renderOrder = -1;
+  scene.add(logo);
+  // Three soft lights, invisible, drift round the mark's plane and rim-light the island (the
+  // shader's uOrb); they replace the glowing orbs that used to ride code-drawn rings.
+  const lights = [{ period: 26, dir: 1, phase: 0 }, { period: 34, dir: -1, phase: 2.1 }, { period: 42, dir: 1, phase: 4.2 }];
 
   // Dust motes drifting up through the void. Their motion lives in the vertex
   // shader, so a frame costs the CPU nothing for them.
@@ -469,12 +453,12 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   let W = 0, H = 0;
 
   // Hero framing, taken from the page: site.js reports the free area around the copy
-  // (px, viewport space) and the island is sized and placed so its three rings fit it,
+  // (px, viewport space) and the island is sized and placed so the Origin mark fits it,
   // whatever the window shape. Desktop: the area right of the copy (centre cx/cy, width
   // w). Phone and tablet: the band above the copy (top/bottom, bandW wide), centred, and
   // allowed to grow only a little past its pose; a phone held sideways has no such band, so
-  // it uses the free area beside the copy like the desktop. The rings spin, so the safe size
-  // is everything the longest one can sweep. Too little room anywhere: a small island
+  // it uses the free area beside the copy like the desktop. The mark's size is fixed, so the safe size
+  // is its radius. Too little room anywhere: a small island
   // parked top-right under the header (never the raw pose, which would sit behind the copy).
   const MIN_ZONE_W = 200, MIN_BAND_H = 160;
   const zone = { cx: 0, cy: 0, w: 0, bandW: 0, top: 0, bottom: 0, ...heroZone };   // known at start, so the first frame is already in place
@@ -483,12 +467,11 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   let rev = 1;
   const fit = { rev: 0, mobile: null, pos: [0, 0, 0], sx: 0, sy: 0 };
   const fitCam = new THREE.PerspectiveCamera(), fa = new THREE.Vector3(), fb = new THREE.Vector3(), frel = new THREE.Vector3(), ftarget = new THREE.Vector3();
-  // The rings face the camera but are tilted ~69 deg about their own axis (cos = .355),
-  // so as they spin their near side swings toward the lens and looks bigger than a flat
-  // circle of the same radius. `project` returns the largest on-screen distance (px) any
-  // ring point (or the orb's halo) can reach from the island's centre, over every spin
-  // angle, for the pose camera pulled back by factor k; it leaves the centre's NDC in fa.
-  const RING_R = inner * RING_K[0] + 1.2, TILT_C = 0.355, TILT_S = Math.sqrt(1 - 0.355 * 0.355);
+  // The mark is a flat plane facing the camera (constant on-screen size, see LOGO_BEHIND), so
+  // `project` returns its on-screen radius (px) from the island's centre for the pose camera
+  // pulled back by factor k; it leaves the centre's NDC in fa. (The loop over angles is kept
+  // from the days of tilted, spinning rings: with TILT_C = 1, TILT_S = 0 every angle agrees.)
+  const RING_R = inner * LOGO_K + 1.2, TILT_C = 1, TILT_S = 0;
   function project(q, k, W, H) {
     ftarget.set(q.target[0], q.target[1], q.target[2]);
     frel.set(q.pos[0], q.pos[1], q.pos[2]).sub(ftarget).multiplyScalar(k);
@@ -575,7 +558,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   const clock = new THREE.Clock();
   let raf = 0, running = true, slow = 0;
   const A = new Array(10), B = new Array(10);
-  const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3(), rel = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3(), rel = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
 
   function step() {
     raf = requestAnimationFrame(step);
@@ -613,18 +596,16 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
       pivot.position.y = bounds.center.y + bob;
       pivot.rotation.set(Math.sin(now * TAU / 17) * 0.012, Math.sin(now * TAU / 31) * 0.045, Math.sin(now * TAU / 13 + 0.6) * 0.012);
     }
-    rings.position.copy(pivot.position);
-
-    // rings face the camera and turn like the mark, a bright body riding each
-    rings.quaternion.copy(camera.quaternion);
-    rings.updateMatrixWorld();
-    spinners.forEach((sp, i) => {
-      // rings turn like the installer's OrbitMark (26/34/42 s, middle backwards)
-      sp.holder.rotation.z = THREE.MathUtils.degToRad(sp.base) + (reducedMotion ? 0 : sp.dir * now * TAU / sp.period);
-      const ang = now * TAU / (sp.period * 0.4) + sp.phase;
-      sp.body.position.set(Math.cos(ang) * sp.rad, Math.sin(ang) * sp.rad, 0);
-      sp.tail.rotation.z = ang - TAIL;
-      sp.body.getWorldPosition(uniforms.uOrb.value[i]);
+    // the mark faces the camera, just behind the island (see LOGO_BEHIND); scaled by the extra
+    // distance so perspective doesn't shrink it
+    const dist = camera.position.distanceTo(pivot.position);
+    fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    logo.position.copy(pivot.position).addScaledVector(fwd, LOGO_BEHIND);
+    logo.quaternion.copy(camera.quaternion);
+    logo.scale.setScalar((dist + LOGO_BEHIND) / dist);
+    lights.forEach((l, i) => {
+      const ang = (reducedMotion ? 0 : l.dir * now * TAU / (l.period * 0.4)) + l.phase;
+      uniforms.uOrb.value[i].set(Math.cos(ang) * inner * 1.1, Math.sin(ang) * inner * 1.1, 0).applyQuaternion(camera.quaternion).add(pivot.position);
     });
 
     renderer.render(scene, camera);

@@ -14,6 +14,14 @@ otherwise from a verbatim mirror of that jar's assets:
 
   website/js/vendor/three.module.min.js <- three.js (MIT), pinned
 
+Origin's logo (Will, 2026-10-25: the ONLY logo files, never redrawn in SVG, CSS or code):
+  website/assets/origin-logo.png            <- textures/ui/origin_logo.png, byte-for-byte (256 px master)
+  website/assets/origin-logo-{32,64,128}.png   pure resizes of that master (1x/2x/3x for the 32 px header mark)
+  website/assets/origin-wordmark.png        <- src/OriginLauncher.App/Assets/Brand/wordmark.png, byte-for-byte (430 px)
+  website/assets/origin-wordmark-{128,256}.png pure resizes of the wordmark (1x/2x of the header lockup)
+  website/assets/favicon-*.png, apple-touch-icon.png  the master resized onto a dark rounded tile
+                                            (the logo is white on transparent, so a tab icon needs a plate)
+
 Re-run after changing any source:
   python3 tools/website/build_assets.py
   python3 tools/website/build_assets.py --client-jar "%APPDATA%/.minecraft/versions/1.21.1/1.21.1.jar"
@@ -29,7 +37,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 REPO = Path(__file__).resolve().parents[2]
 SITE = REPO / "website"
@@ -162,13 +170,49 @@ def build_three(work: Path) -> None:
     shutil.copy(work / "package" / "LICENSE", out / "three-LICENSE.txt")
 
 
+LOGO = REPO / "src" / "mods" / "shared" / "src" / "client" / "resources" / "assets" / "originclient" / "textures" / "ui" / "origin_logo.png"
+WORDMARK = REPO / "src" / "OriginLauncher.App" / "Assets" / "Brand" / "wordmark.png"
+
+
+def build_logo() -> None:
+    """The real logo files, copied as-is or resized (Lanczos) and nothing else."""
+    out = SITE / "assets"
+    out.mkdir(parents=True, exist_ok=True)
+    shutil.copy(LOGO, out / "origin-logo.png")
+    shutil.copy(WORDMARK, out / "origin-wordmark.png")
+    logo, word = Image.open(LOGO).convert("RGBA"), Image.open(WORDMARK).convert("RGBA")
+    for size in (32, 64, 128):
+        logo.resize((size, size), Image.LANCZOS).save(out / f"origin-logo-{size}.png", optimize=True)
+    for width in (128, 256):
+        word.resize((width, round(word.height * width / word.width)), Image.LANCZOS).save(out / f"origin-wordmark-{width}.png", optimize=True)
+    # Tab / home-screen icons: the logo ink fills ~86% of the master's width, so scale it onto a
+    # dark rounded tile at ~92% of the tile and let the tile's corners stay transparent.
+    for name, size in (("favicon-32", 32), ("favicon-192", 192), ("apple-touch-icon", 180)):
+        scale = 4
+        big = size * scale
+        tile = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+        plate = Image.new("RGBA", (big, big), (5, 5, 5, 255))
+        mask = Image.new("L", (big, big), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, big - 1, big - 1), radius=0 if name == "apple-touch-icon" else big // 5, fill=255)
+        tile.paste(plate, (0, 0), mask)
+        mark = logo.resize((round(big * 0.96),) * 2, Image.LANCZOS)
+        tile.alpha_composite(mark, ((big - mark.width) // 2, (big - mark.height) // 2))
+        tile.resize((size, size), Image.LANCZOS).save(out / f"{name}.png", optimize=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--logo-only", action="store_true", help="only (re)build the logo files; needs no network")
     ap.add_argument("--client-jar", type=Path, help=f"official Minecraft {MC_VERSION} client jar to read textures from")
     args = ap.parse_args()
+    if args.logo_only:
+        build_logo()
+        print("website logo files rebuilt")
+        return
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         build_fonts()
+        build_logo()
         mc = Assets(work, args.client_jar)
         build_textures(mc)
         build_three(work)

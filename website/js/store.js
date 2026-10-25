@@ -496,10 +496,11 @@ function flatFallback(item) {
     img.className = 'item__flat item__flat--cape';
     return img;
   }
-  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  s.setAttribute('class', 'item__mark');
-  s.innerHTML = '<use href="#mark"/>';
-  return s;
+  const img = new Image();
+  img.src = 'assets/origin-logo-128.png';   // the real Origin logo (build_assets.py), never redrawn
+  img.alt = '';
+  img.className = 'item__mark';
+  return img;
 }
 
 function renderBag(error = '') {
