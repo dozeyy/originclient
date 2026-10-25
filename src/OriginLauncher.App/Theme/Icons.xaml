@@ -9,8 +9,10 @@
          at the slot's edge, which is how the Friends drawer's "..." lost a dot (2026-10-18). -->
     <system:Double x:Key="Icon.Size">18</system:Double>
     <system:Double x:Key="Icon.SizeSmall">14</system:Double>
-    <!-- The small "opens in your browser" arrow beside a link's label in the top bar. -->
-    <system:Double x:Key="Icon.SizeLinkHint">12</system:Double>
+    <!-- The small "opens in your browser" arrow after a link's label in the top bar. It sits inside the button's own
+         9 px right padding (offset + size < 9), so it is never wider than the gap the button already has. -->
+    <system:Double x:Key="Icon.SizeLinkHint">8</system:Double>
+    <system:Double x:Key="Icon.LinkHintOffset">1</system:Double>
 
     <Style x:Key="Icon.Base" TargetType="Path">
         <Setter Property="Stretch" Value="Uniform"/>
@@ -43,14 +45,16 @@
     <Geometry x:Key="Icon.Back">M19,12 L5,12 M12,19 L5,12 12,5</Geometry>
     <Geometry x:Key="Icon.External">M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15,3 L21,3 21,9 M10,14 L21,3</Geometry>
 
-    <!-- External-link arrow beside the label of a button that leaves the launcher (Website, Store). It always takes its
-         space (opacity, never visibility), so showing it on hover moves nothing; it takes the button's text colour. -->
+    <!-- External-link arrow after the label of a button that leaves the launcher (Website, Store). It lives in a
+         zero-width Canvas, so it takes no layout space at all: fading it in on hover moves nothing and the gaps stay
+         the same as between icon buttons. It overlays the button's right padding and takes the button's text colour. -->
     <Style x:Key="Icon.LinkHint" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
         <Setter Property="Width" Value="{StaticResource Icon.SizeLinkHint}"/>
         <Setter Property="Height" Value="{StaticResource Icon.SizeLinkHint}"/>
         <Setter Property="Data" Value="{StaticResource Icon.External}"/>
-        <Setter Property="Margin" Value="6,0,0,0"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="StrokeThickness" Value="1.5"/>
+        <Setter Property="Canvas.Left" Value="{StaticResource Icon.LinkHintOffset}"/>
+        <Setter Property="Canvas.Top" Value="0"/>
         <Setter Property="Opacity" Value="0"/>
         <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
         <Style.Triggers>

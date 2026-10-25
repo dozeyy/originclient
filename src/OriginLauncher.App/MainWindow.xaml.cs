@@ -524,6 +524,30 @@ public partial class MainWindow : Window
         WebsiteLabel.Visibility = StoreLabel.Visibility = WebsiteArrow.Visibility = StoreArrow.Visibility = v;
     }
 
+    /// <summary>Render mode: show the hover arrows as if the mouse were over both buttons (a render has no mouse).</summary>
+    internal void TourShowLinkHints(bool show)
+    {
+        foreach (var holder in new[] { WebsiteArrow, StoreArrow })
+            foreach (var path in holder.Children.OfType<System.Windows.Shapes.Path>())
+                if (show) path.Opacity = 0.8; else path.ClearValue(OpacityProperty);
+    }
+
+    /// <summary>Render mode: the space between the content of neighbouring buttons in the right-hand row.</summary>
+    internal string TourLinkGaps()
+    {
+        Button[] row = [UpdateBadge, WebsiteButton, StoreButton, ImportButton];
+        var parts = new List<string>();
+        for (var i = 0; i + 1 < row.Length; i++)
+        {
+            if (row[i].Visibility != Visibility.Visible || row[i + 1].Visibility != Visibility.Visible) continue;
+            // Content edge to content edge: the box gap (their margins) plus the padding either side.
+            var a = row[i].TranslatePoint(new Point(row[i].ActualWidth, 0), BarActions).X - row[i].Padding.Right;
+            var b = row[i + 1].TranslatePoint(new Point(0, 0), BarActions).X + row[i + 1].Padding.Left;
+            parts.Add($"{row[i].Name}->{row[i + 1].Name} {b - a:0.#}");
+        }
+        return string.Join("; ", parts);
+    }
+
     /// <summary>Render mode: the numbers the top bar's fit rule just used, for the shot log.</summary>
     internal string TourTopBarFit() =>
         $"topbar={TopBar.ActualWidth:0} brand={BarBrand.ActualWidth:0} tabs={NavTabs.ActualWidth:0} actions={BarActions.ActualWidth:0} "
@@ -543,8 +567,7 @@ public partial class MainWindow : Window
         if (!_linkLabelsHidden)
         {
             if (WebsiteLabel.ActualWidth <= 0 || StoreLabel.ActualWidth <= 0) return; // not laid out yet
-            _linkLabelExtra = WebsiteLabel.ActualWidth + StoreLabel.ActualWidth
-                + 2 * (WebsiteLabel.Margin.Left + WebsiteArrow.ActualWidth + WebsiteArrow.Margin.Left);
+            _linkLabelExtra = WebsiteLabel.ActualWidth + StoreLabel.ActualWidth + 2 * WebsiteLabel.Margin.Left;
         }
         var actionsWithLabels = BarActions.ActualWidth + (_linkLabelsHidden ? _linkLabelExtra : 0);
         var hide = BarBrand.ActualWidth + gap + tabs + gap + actionsWithLabels > width;

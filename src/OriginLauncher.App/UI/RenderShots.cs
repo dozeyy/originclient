@@ -241,7 +241,7 @@ public static class RenderShots
         // Website and Store with their words and the hover arrow's room: only a wide window has the width for them
         // (the narrower ones drop them to icons). Laid out in-process at 1440 and 1280 wide, with and without the
         // update badge; the top bar's own fit rule runs at that width (MainWindow.TourLayoutAt).
-        foreach (var (w, h) in new[] { (1440, 900), (1280, 800) })
+        foreach (var (w, h) in new[] { (1440, 900), (1280, 800), (1180, 740) })
             foreach (var update in new[] { false, true })
             {
                 window.TourShowUpdateBadge(update);
@@ -250,8 +250,16 @@ public static class RenderShots
                 var wide = new Size(w, h);
                 window.TourLayoutAt(wide);
                 var shot = $"15e-topbar-{w}x{h}{(update ? "-update" : "")}";
-                File.AppendAllText(Path.Combine(outDir, "topbar-fit.txt"), $"{shot}: {window.TourTopBarFit()}{Environment.NewLine}");
+                File.AppendAllText(Path.Combine(outDir, "topbar-fit.txt"),
+                    $"{shot}: {window.TourTopBarFit()}; gaps {window.TourLinkGaps()}{Environment.NewLine}");
                 Snap(window, outDir, shot, size: wide, laidOut: true);
+                if (!update)
+                {
+                    // The hover arrows shown (a render has no mouse): they must sit inside the button's own padding.
+                    window.TourShowLinkHints(true);
+                    Snap(window, outDir, shot + "-hint", size: wide, laidOut: true);
+                    window.TourShowLinkHints(false);
+                }
                 Pump(300);
             }
         window.TourShowUpdateBadge(false);
@@ -261,10 +269,10 @@ public static class RenderShots
         window.Height = 740;
         window.TourGoTo(0);
         Pump(600);
-        Snap(window, outDir, "15-topbar-1180");
+        Snap(window, outDir, "15-topbar-1044"); // the CI desktop caps a real window at 1044 wide; the true 1180 shot is 15e-topbar-1180x740
         window.TourShowUpdateBadge(true);
         Pump(300);
-        Snap(window, outDir, "15b-topbar-1180-update");
+        Snap(window, outDir, "15b-topbar-1044-update");
         window.TourShowUpdateBadge(false);
         window.Width = 960;
         window.Height = 600;
