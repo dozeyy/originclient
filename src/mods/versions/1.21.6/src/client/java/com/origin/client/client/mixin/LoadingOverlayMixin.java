@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Draws the custom Origin loading screen (charcoal + orbital rings + grain +
-// wordmark + progress bar) OVER vanilla's, injected at the TAIL of render().
+// Draws the custom Origin loading screen (near-black backdrop + the real origin_logo.png +
+// progress bar + stage line: LoadingLook) OVER vanilla's, injected at the TAIL of render().
 //
 // TAIL, non-cancelling, is deliberate: vanilla's render() also drives the
 // reload-progress smoothing, the fade timing, and the setOverlay(null)

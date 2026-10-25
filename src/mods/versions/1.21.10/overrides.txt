@@ -76,3 +76,12 @@ client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
 # (Mods.java, already forked above). Promote to shared/ (delete this line) when the
 # clean look is ported to every version.
 client/java/com/origin/client/client/OriginStyle.java
+
+# FORK (2026-10-25) - rings out (Will: "the only place you can use the oval shapes thing is our logo").
+# The loading screens draw 1.21.1's one loading picture (LoadingLook: the real logo, a plain
+# capsule bar, one caption). LoadingOverlayMixin: comment only (no rings in the description).
+# ConnectScreenMixin: drops vanilla's status line (it is the picture's caption), draws the picture
+# at TAIL and seats Cancel under it (1.21.6+ keeps vanilla's render and narration, unlike 1.21.1's
+# HEAD-cancel). shared/ still holds the old sweeping-bar versions for the modules not yet ported.
+client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
+client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
