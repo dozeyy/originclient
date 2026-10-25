@@ -382,7 +382,7 @@ public sealed class VersionManager
             version, modsFolder,
             profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null,
             externalMods, ModManager.IsManaged, ModManager.IsOriginProvisioned,
-            Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"), ct, overrideSetKey), ct);
+            Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"), ct, overrideSetKey, ModManager.IsOriginsCopy), ct);
 
     private async Task<Process> InstallAndBuildCoreAsync(
         string version, string accountKey, MLaunchOption option,
@@ -576,7 +576,7 @@ public sealed class VersionManager
 
         foreach (var family in Directory.EnumerateFiles(modsFolder)
                      .Where(f => Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                     .Where(f => ModManager.IsManaged(Path.GetFileName(f)))
+                     .Where(ModManager.IsManagedFile) // a player's jar only NAMED like Origin's is never deleted here
                      .GroupBy(f => ModManager.ModFamilyKey(Path.GetFileName(f)), StringComparer.OrdinalIgnoreCase))
         {
             var keep = family.FirstOrDefault(f => pinnedJarNames.Contains(Path.GetFileName(f)))
@@ -644,8 +644,8 @@ public sealed class VersionManager
                     Directory.Exists(OriginPaths.ProfileModsDir(version, profileId))
                         ? Directory.EnumerateFiles(OriginPaths.ProfileModsDir(version, profileId))
                         : Enumerable.Empty<string>(),
-                    ModManager.IsOriginProvisioned)
-                : LaunchModFolder.LaunchSet(sharedFiles, Enumerable.Empty<string>(), ModManager.IsManaged);
+                    ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy)
+                : LaunchModFolder.LaunchSet(sharedFiles, Enumerable.Empty<string>(), ModManager.IsManaged, ModManager.IsOriginsCopy);
 
             // Diff-synced rather than delete+recreate (see LaunchModFolder.Sync):
             // a still-running game of this account holds these jars open.
@@ -738,8 +738,8 @@ public sealed class VersionManager
         // none of the player's loose jars in the shared folder (SharedMods.Mirror).
         progress?.Report(profileId != null ? "Preparing profile mods..."
             : externalMods ? "Preparing mods..." : "Preparing Origin-only mod set...");
-        Func<string, bool> include = profileId != null ? static name => ModManager.IsOriginProvisioned(name)
-            : externalMods ? static _ => true : static name => ModManager.IsManaged(name);
+        Func<string, bool> include = profileId != null ? name => ModManager.IsOriginProvisionedFile(Path.Combine(modsFolder, name))
+            : externalMods ? static _ => true : name => ModManager.IsManagedFile(Path.Combine(modsFolder, name));
         SharedMods.Mirror(modsFolder, Path.Combine(path.BasePath, InstanceLayout.ModsFolder), include,
             profileMods: profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null);
 

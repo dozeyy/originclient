@@ -24,20 +24,25 @@ public static class LaunchModFolder
     /// in the shared folder are NOT in it — that is the point of a profile. A
     /// profile jar that looks like one of Origin's own (a second Fabric API
     /// would stop Fabric booting) is left out.
+    /// <paramref name="confirmOrigin"/> (a full path; ModManager.IsOriginsCopy) confirms a name that looks like
+    /// Origin's by the file's hash or metadata: a player's jar that is only NAMED like one of Origin's stays theirs.
     /// </summary>
     public static Dictionary<string, string> LaunchSet(
-        IEnumerable<string> sharedFiles, IEnumerable<string> profileFiles, Func<string, bool> isOriginJar)
+        IEnumerable<string> sharedFiles, IEnumerable<string> profileFiles, Func<string, bool> isOriginJar,
+        Func<string, bool>? confirmOrigin = null)
     {
+        bool IsOrigin(string path, string name) => isOriginJar(name) && (confirmOrigin?.Invoke(path) ?? true);
+
         var set = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in sharedFiles)
         {
             var name = Path.GetFileName(path);
-            if (IsEnabledJar(name) && isOriginJar(name)) set[name] = path;
+            if (IsEnabledJar(name) && IsOrigin(path, name)) set[name] = path;
         }
         foreach (var path in profileFiles)
         {
             var name = Path.GetFileName(path);
-            if (IsEnabledJar(name) && !isOriginJar(name) && !set.ContainsKey(name)) set[name] = path;
+            if (IsEnabledJar(name) && !IsOrigin(path, name) && !set.ContainsKey(name)) set[name] = path;
         }
         return set;
     }

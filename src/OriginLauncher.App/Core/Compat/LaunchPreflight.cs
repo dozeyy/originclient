@@ -160,14 +160,16 @@ public static class LaunchPreflight
     /// <param name="ct">Polled between jars; a cancelled launch stops the check (the caller's cancel, not a checker failure).</param>
     /// <param name="overrideSetKey">The set key the player accepted with Play (see <see cref="LaunchOverride"/>), or null.
     /// A blocking verdict for exactly that set is logged and let through; any other set is refused as usual.</param>
+    /// <param name="confirmOrigin">Confirms a jar NAMED like Origin's is Origin's copy (full path; ModManager.IsOriginsCopy).</param>
     public static void Run(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
         Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath,
-        CancellationToken ct = default, string? overrideSetKey = null)
+        CancellationToken ct = default, string? overrideSetKey = null, Func<string, bool>? confirmOrigin = null)
     {
         try
         {
-            var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct);
+            var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct,
+                confirmOrigin);
             if (verdict.Blocking.Count > 0)
             {
                 // The metadata can be wrong (a false positive must never lock a player out): once the player has seen
@@ -201,15 +203,15 @@ public static class LaunchPreflight
     public static LaunchVerdict Evaluate(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
         Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, Func<string, bool>? confirmOrigin = null)
     {
         if (!externalMods && profileFolder == null) return LaunchVerdict.Clear;
 
         var isProfile = profileFolder != null;
         var originTest = isProfile ? isOriginProvisioned : isManaged;
         var launchSet = new List<(string Path, string Name, long Length, long Ticks, ModRole Role)>();
-        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, ct);
-        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, ct);
+        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, confirmOrigin, ct);
+        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, confirmOrigin, ct);
 
         var key = Fingerprint(version, isProfile, launchSet);
         if (Verdicts.TryGetValue(key, out var cached)) return cached;
@@ -282,7 +284,7 @@ public static class LaunchPreflight
 
     private static void AddJars(
         List<(string Path, string Name, long Length, long Ticks, ModRole Role)> into, string folder,
-        bool shared, bool isProfile, Func<string, bool> isOriginJar, CancellationToken ct)
+        bool shared, bool isProfile, Func<string, bool> isOriginJar, Func<string, bool>? confirmOrigin, CancellationToken ct)
     {
         DirectoryInfo dir;
         try
@@ -303,7 +305,7 @@ public static class LaunchPreflight
         {
             ct.ThrowIfCancellationRequested();
             if (!file.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) continue; // disabled/partial files never load
-            var origin = isOriginJar(file.Name);
+            var origin = isOriginJar(file.Name) && (confirmOrigin?.Invoke(file.FullName) ?? true);
             // The same selection LaunchModFolder.LaunchSet makes: a profile launch takes only Origin's jars from the
             // shared folder, and none of Origin's look-alikes from the profile.
             if (isProfile && shared && !origin) continue;
