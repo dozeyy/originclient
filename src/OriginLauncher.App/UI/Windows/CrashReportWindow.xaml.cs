@@ -44,8 +44,8 @@ public partial class CrashReportWindow : Window
             UsingFallbackLayout = true;
             BuildFallbackLayout();
             // What the XAML says about size, in code: as tall as its content, wide enough for the one-row buttons.
-            Width = 840;
-            MinWidth = 820;
+            Width = 880;
+            MinWidth = 860;
             SizeToContent = SizeToContent.Height;
             DetailsPanel.Height = 200;
         }
