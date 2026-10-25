@@ -5556,3 +5556,16 @@ Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible f
 - Booted clean: 1.21.11 on Sodium 0.8.0 to 0.8.15-beta.1 (all 10 Origin mixins); 1.21.1 on 0.6.0, 0.6.5 and 0.6.13 (all 13). 1.21.1 + Sodium 0.8.13/Iris 1.8.14-beta.1 loses 4 of 13 Origin mixins.
 - Fabric Loader prefers a top-level jar over a nested jar with the same id, so per-profile pins can ship as top-level jars without rebuilding Origin. Sodium and Iris must move as a PAIR (Sodium 0.6.5 + Iris 1.8.8 crashes in Iris with NoClassDefFoundError; the loader doesn't stop it).
 - Pick for 5.2: one Origin jar per MC version, Sodium+Iris pinned as one pair per profile via the A1 component store, a CI-booted allowed-pair list per module, and a fallback to Origin's own pair with a notice. docs/overhaul/spike-tools/sigcheck.py predicts boot results in seconds.
+
+## 2026-10-25 - Workbench design system (Phase 2) merged, judge 95
+- docs/overhaul/DESIGN-SYSTEM.md + design-preview/index.html are the spec for Phase 3 (launcher, installer, uninstaller) and Phase 4 (main menu, loading). Judge rounds: 81 -> 92 -> 95.
+- Numerals on art follow one ground-line rule: bottom-left in a corner shade, first figure's ink on the gutter (12 on cards, 24 on Home, side-bearing corrected), baseline on the ground line, figures 25 % of art height, proportional lining figures, neutral #F5F5F5. The old squash came from ArtStage.cs:348 Narrow=0.7.
+- The numeral shadow is drawn in ArtStage.OnRender (+1 px y, 40 % black), never with a DropShadowEffect: the numeral crossfades, and WPF effects re-rasterise in software on animating elements.
+- Top bar is a row with the tabs centred in the free space, at least 24 px from each group. Store and the update chip shed to icons below 1100 (the chip shows a gold dot), the wordmark hides below 1000, and the brand lockup is the Website link (accessible name "Open originclient.org"). Worst case measured: 54/54 px at 960 with a 23-char name and the chip.
+- Preview gotchas: fixed-size display numerals inside cards need container units (min(px, cqw)) or they clip at 960. Headless Chrome on Windows can't render under ~500 px. The browser pane reports zero sizes while hidden (call resize_window before measuring).
+
+## 2026-10-25 - Phase 0 baseline (CI, main 924a5809d)
+- launcher-shots p0-baseline: run 40178166465, success, 263 shots.
+- dev-shots p0-baseline: run 40178168462, success, 20 modules / 2166 shots; Mod Menu refs = menu_*, menu_list_*, mod_settings_* per module.
+- boot-smoke all modules: run 40178170380, 20/20 passed.
+- launch-time (1 round, single samples; Play->java start cold/warm ms): run 40178172247. 1.21.1 3005/101, 1.16.5 3775/122, 1.8.9 3896/281, 26.3 3223/105.

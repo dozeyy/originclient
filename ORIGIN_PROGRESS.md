@@ -9,7 +9,7 @@ The one tracking file for the 2026-10-25 overhaul (03: "a single ORIGIN_PROGRESS
   `docs/overhaul/requests/` (Will's words), `docs/overhaul/audit/` (read-only audits of `de6b3eb6a`), `docs/overhaul/design/` (Workbench).
 - **Where the docs live:** on main (merged 2026-10-25).
 - **Current phase:** Phase 0 closed 2026-10-25 (judge 95). Running in parallel: P1 launcher (judging), P2 design system (fix loop), 5.1 compat engine, 6.1 benchmark, 7 mod updates, Sodium/Iris spike.
-- **Next step:** P2 pass -> Phase 3 launcher redesign; P1 launcher merge on judge pass.
+- **Next step:** Phase 3 launcher redesign (after the P1 launcher branch merges).
 - **Statuses:** Done and tested · Done but untested · In progress · Not started · Blocked · Needs my decision.
   "Done and tested" needs evidence (commit, CI run id, test name, shot path). A judge pass is an estimate, not Will's approval.
 
@@ -43,10 +43,10 @@ The one tracking file for the 2026-10-25 overhaul (03: "a single ORIGIN_PROGRESS
 | Latest release | `launcher-v1.0.65` (`d2282be60`) | `git tag` |
 | Launcher tests | 1434 passed, 0 failed (`de6b3eb6a`) | audit `launcher-systems.md` section 0 |
 | build-check run / three test-project counts | launcher 1523 passed, setup 61 passed | Phase 0 close, 2026-10-25 |
-| launcher-shots `p0-baseline` run | (U0.8) | |
-| dev-shots `p0-baseline` run (Mod Menu reference shots) | (U0.8) | |
-| boot-smoke all modules | (U0.8) | |
-| launch-time 1.8.9, 1.16.5, 26.3 | (U0.8) | |
+| launcher-shots `p0-baseline` run | run 40178166465, success, 263 shots (main 924a5809d) | CI |
+| dev-shots `p0-baseline` run (Mod Menu reference shots) | run 40178168462, success, 20 modules / 2166 shots; Mod Menu refs = menu_*, menu_list_*, mod_settings_* per module | CI |
+| boot-smoke all modules | run 40178170380, 20/20 passed | CI |
+| launch-time 1.8.9, 1.16.5, 26.3 | run 40178172247 (1 round, single samples), Play->java start cold/warm ms: 1.21.1 3005/101, 1.16.5 3775/122, 1.8.9 3896/281, 26.3 3223/105 | CI |
 | Worktrees / local branches / remote branches before cleanup | 148 / 249 / 102 (2026-10-25) | Phase 0 inventory |
 | Main at Phase 0 close | `3892cf1f6` | git log |
 | Worktrees after cleanup | 28 (was 148) | Phase 0 cleanup |
@@ -93,7 +93,7 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 | P0-09 | Carry the three 2026-10-19 MEMORY entries + entries for v1.0.62-v1.0.65 and the Origin AI work | 03 P0 | 0 | Done and tested | MEMORY.md 2026-10-19 entries (257a79721) + v1.0.62-65 catch-up |
 | P0-10 | Refresh stale notes: CLAUDE.md Current state, Roadmap, Brand (soft accents, Workbench); auto-memory marked superseded | 03 P0 | 0 | Done and tested | CLAUDE.md current state, roadmap and brand updated |
 | P0-11 | Bring the main checkout (480 behind, dirty) onto current main safely, backup first | brief | 0 | Done and tested | main checkout == origin/main (924a5809d); backup in scratchpad backup-main/ |
-| P0-12 | Accurate baseline (tests, launcher-shots, dev-shots, boot-smoke, launch-time) | 03 P0 | 0 | Not started | Baseline table |
+| P0-12 | Accurate baseline (tests, launcher-shots, dev-shots, boot-smoke, launch-time) | 03 P0 | 0 | Done and tested | Baseline table filled from 4 green CI runs on 924a5809d |
 
 ### Phase 1 - Quick fixes
 | ID | Requirement | Source | Phase | Status | Evidence |
@@ -118,15 +118,15 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 | P2-04 | In-game title and loading screens use the official logo; `OriginUi.mark()` fallback replaced; "Mod ID" placeholder `icon.png` fixed (1.21.10, 1.12.2, 1.21.5, shared) | 02 s1, s9, 04 | 2 | Not started | |
 | P2-05 | Website uses the official logo (inline symbols, `world.js:396-425`) | 02 s1, 04 | 2 | Not started | |
 | P2-06 | `check_logo.py` detector in build-check, proven able to fail | 02 s1 ("cannot come back") | 2 | Not started | |
-| P2-07 | Store placement chosen from previews | 02 s6, s11 | 2 | Not started | |
-| P2-08 | Account pill proportions chosen from previews | 02 s5, s11 | 2 | Not started | |
-| P2-09 | Version-card number treatment chosen from previews (neutral) | 02 s3, s11 | 2 | Not started | |
-| P2-10 | Main-menu icons without boxes chosen from previews | 02 s7, s11 | 2 | Not started | |
-| P2-11 | "Origin's custom backgrounds" meaning chosen from previews | 03 P4 | 2 | Not started | |
-| P2-12 | Spec: colours, typography, component sizing, spacing, corner radii | 03 P2, 01 s5 | 2 | Not started | |
-| P2-13 | Spec: buttons, dropdowns, navigation, icons, hover / selected / disabled / focus states | 03 P2, 01 s5 | 2 | Not started | |
-| P2-14 | Spec: animations, backgrounds, loading indicators | 03 P2, 01 s5 | 2 | Not started | |
-| P2-15 | Spec: launcher-to-game continuity; Mod Menu documented as frozen; no shared runtime UI dependency | 01 s5 | 2 | Not started | |
+| P2-07 | Store placement chosen from previews | 02 s6, s11 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-08 | Account pill proportions chosen from previews | 02 s5, s11 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-09 | Version-card number treatment chosen from previews (neutral) | 02 s3, s11 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-10 | Main-menu icons without boxes chosen from previews | 02 s7, s11 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-11 | "Origin's custom backgrounds" meaning chosen from previews | 03 P4 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-12 | Spec: colours, typography, component sizing, spacing, corner radii | 03 P2, 01 s5 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-13 | Spec: buttons, dropdowns, navigation, icons, hover / selected / disabled / focus states | 03 P2, 01 s5 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-14 | Spec: animations, backgrounds, loading indicators | 03 P2, 01 s5 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
+| P2-15 | Spec: launcher-to-game continuity; Mod Menu documented as frozen; no shared runtime UI dependency | 01 s5 | 2 | Done and tested | judge 95/100 round 3 (81 -> 92 -> 95); docs/overhaul/DESIGN-SYSTEM.md + design-preview; merged 2026-10-25 |
 | P2-16 | `check_tokens.py` detector (report in Phase 2, gate in Phase 3) | 01 s5, 02 s2 | 2 | Not started | |
 | P2-17 | Hue removed from the logo glow (`Effect.OriginGlow` jade) | 00 soft accents, CLAUDE.md brand | 2 | Not started | |
 | P2-18 | Display font for the numeral (new dependency) decided if the spec needs one | 01 s6 | 2 | Not started | |
