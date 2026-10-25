@@ -139,10 +139,20 @@ public final class OriginScreenRenderer {
 	 * Origin logo (still), the "ORIGIN" wordmark beneath it, a thin bar and the
 	 * percent (renderLoading0).
 	 */
+	// Loading-overlay frames drawn so far (render thread); only "is this the first" matters.
+	private static int loadingFrames = 0;
+
 	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
-		// The game is on screen now (Origin's scene, or vanilla's if ours
-		// broke): Origin Launcher can lower its progress screen.
-		com.origin.client.client.OriginHandoff.loading();
+		// The game is on screen now (Origin's scene, or vanilla's if ours broke):
+		// Origin Launcher can lower its progress screen. Said from the SECOND loading
+		// frame, i.e. once the first has been drawn and swapped (B-30: the process's
+		// first GUI frame pays the driver's first-use shader costs, 0.9 s on CI's
+		// software GL, and the launcher used to lower its cover at the start of it,
+		// over a window not yet painted). OriginHandoff.tick still says it if no
+		// second frame ever comes.
+		if (loadingFrames++ > 0) {
+			com.origin.client.client.OriginHandoff.loading();
+		}
 		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
 		// reveals the vanilla loading screen -- no cancel to unwind.
 		if (broken) {
