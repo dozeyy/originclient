@@ -44,7 +44,7 @@ public sealed class ManagedPinsTests : IDisposable
         Assert.True(ModrinthFileGuard.IsSafeJarName(pin.FileName), pin.FileName);
         Assert.StartsWith("fabric-api-", pin.FileName);
         Assert.True(IsHex(pin.Sha512, 128));
-        Assert.Equal(ModrinthFileGuard.Check(pin.Url, pin.FileName, pin.Sha512), ModrinthDownloadResult.Installed);
+        Assert.Equal(ModrinthDownloadResult.Installed, ModrinthFileGuard.Check(pin.Url, pin.FileName, pin.Sha512));
     }
 
     [Fact]

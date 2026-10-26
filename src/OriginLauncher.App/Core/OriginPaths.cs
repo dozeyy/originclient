@@ -67,6 +67,23 @@ public static class OriginPaths
     public static string ProfileModsDir(string version, string profileId) =>
         InstanceLayout.ProfileModsDir(Instances, version, profileId);
 
+    /// <summary>
+    /// Origin's component store (Core/Components/ComponentStore): components/&lt;family&gt;/&lt;sha512-12&gt;/&lt;file&gt;.
+    /// Write-once: a file is only ever added after its SHA-512 matched; games never load from here (each launch
+    /// folder gets a copy), so nothing here is ever held open by a running game.
+    /// </summary>
+    public static string ComponentStore => Path.Combine(Root, "components");
+
+    /// <summary>One journal file per Fix Compatibility run (Core/Components/RepairExecutor), so a crash mid-repair can be finished or undone.</summary>
+    public static string RepairJournals => Path.Combine(Root, "state", "repairs");
+
+    /// <summary>
+    /// Saved Sodium/Iris settings of each configuration one account has launched (Core/Components/ConfigOverlay):
+    /// a different Sodium/Iris pair writes its own config files, so they are swapped in and out around a launch.
+    /// </summary>
+    public static string ConfigOverlays(string version, string accountKey) =>
+        Path.Combine(VersionRoot(version), "config-overlays", accountKey);
+
     // Which account inherited the old one-folder-per-version game data
     // (Core/GameFolders/InstanceMigration.cs).
     public static string AccountMigrationMarker => Path.Combine(Instances, "account-migration.json");

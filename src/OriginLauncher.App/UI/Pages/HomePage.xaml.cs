@@ -12,6 +12,7 @@ using OriginLauncher.App.Core.Performance;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Compat;
+using OriginLauncher.App.Core.Components;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Import.Launcher;
@@ -90,6 +91,9 @@ public partial class HomePage : UserControl
         public HandoffStage Shown { get; set; }
         // The player stopped it from the progress screen: its exit is not a crash.
         public bool StoppedByPlayer { get; set; }
+        // A profile game's component configuration (Core/Components): its Sodium/Iris settings are in place while
+        // it runs; disposed when it exits (the shipped set's settings come back). Null for every other game.
+        public IDisposable? Configuration { get; init; }
     }
 
     // The game whose start the progress screen is showing, once its process is
@@ -944,9 +948,11 @@ public partial class HomePage : UserControl
             // installProgress was constructed on the UI thread, so Progress<T>
             // still marshals every stage update back correctly.
             provisioning = true;
+            string? configurationId = null; // set only for a profile on a version with vetted alternates
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
-                    version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey),
+                    version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey,
+                    profile?.ComponentPins, id => configurationId = id),
                 ticket.Token);
             provisioning = false;
 
@@ -979,6 +985,10 @@ public partial class HomePage : UserControl
             ticket.Token.ThrowIfCancellationRequested();
 
             Stage("Starting Minecraft");
+            // The picked configuration's Sodium/Iris settings go in now (one stat when it is the shipped set).
+            var configuration = profile != null && configurationId != null
+                ? ActiveConfiguration.Begin(profile.Id, configurationId, gameDir, OriginPaths.ConfigOverlays(version, key))
+                : null;
             var game = new RunningGame
             {
                 Key = key,
@@ -987,6 +997,7 @@ public partial class HomePage : UserControl
                 GameDir = gameDir,
                 Process = process,
                 Handoff = handoff,
+                Configuration = configuration,
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -1040,6 +1051,11 @@ public partial class HomePage : UserControl
             Note(key, ex.Message, LaunchTone.Error);
             _modOverride.Refuse(key, version, ex.SetKey, ex.Message);
             WriteLaunchErrorLog(ex);
+        }
+        catch (ConfigurationInUseException ex)
+        {
+            // The profile's other game runs on a different component set; its files are in use (Core/Components).
+            Note(key, ex.Message, LaunchTone.Warning);
         }
         catch (MicrosoftAuthException ex)
         {
@@ -1488,6 +1504,10 @@ public partial class HomePage : UserControl
 
                 Dispatcher.BeginInvoke(() => OnGameExited(game, exitCode));
 
+                // The shipped set's Sodium/Iris settings come back BEFORE Settings Sync reads this game folder,
+                // so an older Sodium's file never travels to the player's other versions.
+                game.Configuration?.Dispose();
+
                 // Settings Sync: take in what the player changed this session.
                 // Checks the switch itself and never throws; already on a pool
                 // thread, so its file work never touches the UI.
@@ -1508,6 +1528,7 @@ public partial class HomePage : UserControl
             // Start failed — release the log handle and let PlayButton_Click's
             // catch report it, rather than leaking the writer.
             lock (gate) { logWriter?.Dispose(); logWriter = null; }
+            game.Configuration?.Dispose();
             throw;
         }
     }

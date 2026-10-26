@@ -8,6 +8,7 @@ using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
 using CmlLib.Core.VersionLoader;
 using OriginLauncher.App.Core.Compat;
+using OriginLauncher.App.Core.Components;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
@@ -332,12 +333,16 @@ public sealed class VersionManager
     // prepares it first (AccountFolders.PrepareGameDir: migration + seeding).
     // profileId = the mod profile (Core/Profiles) whose mods this launch loads
     // INSTEAD of the player's loose jars in the shared folder; null = none.
+    // componentPins = that profile's ModProfile.ComponentPins. configurationPicked is told which component
+    // configuration a profile launch uses, only on versions that have vetted alternates (Core/Components);
+    // the caller puts that configuration's settings files in place before it starts the game.
     public async Task<Process> InstallAndBuildProcessAsync(
         string version, string accountKey, MLaunchOption option,
         bool externalMods = true,
         string? profileId = null,
         IProgress<string>? progress = null, CancellationToken ct = default,
-        string? overrideSetKey = null)
+        string? overrideSetKey = null,
+        string? componentPins = null, Action<string>? configurationPicked = null)
     {
         // A mod profile only ever applies with the player's mods on, and only
         // by an id this launcher made (it becomes a folder name).
@@ -351,7 +356,8 @@ public sealed class VersionManager
             // keeps a failed or cancelled install from ever reading as installed (InstallSession).
             return await InstallSession.RunAsync(
                 InstalledVersions.Shared, InstallJournal.Shared, version, progress,
-                () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey),
+                () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey,
+                    componentPins, configurationPicked),
                 v => InstallVerification.Invalidate(OriginPaths.VersionRoot(v)));
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
@@ -359,7 +365,7 @@ public sealed class VersionManager
             // A provisioning failure makes the files on disk a suspect, same as a
             // crashed boot: the next launch verifies in full instead of trusting them.
             // (A mod-compatibility stop is the player's mod set, not a suspect install.)
-            if (e is not IncompatibleModsException)
+            if (e is not (IncompatibleModsException or ConfigurationInUseException))
                 InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
             if (e is not OfflineInstallException && OfflineLaunch.IsNoConnection(e, ct))
                 throw new OfflineInstallException(version, e);
@@ -384,10 +390,58 @@ public sealed class VersionManager
             externalMods, ModManager.IsManaged, ModManager.IsOriginProvisioned,
             Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"), ct, overrideSetKey, ModManager.IsOriginsCopy), ct);
 
+    // A profile launch on a version with vetted alternates (Core/Components/ConfigurationLaunch): pick the newest
+    // configuration that starts, fetch its files into the store, check exactly that set. Off the UI thread.
+    private static async Task<ConfigurationChoice> ChooseConfigurationAsync(
+        string version, string modsFolder, string profileId, string? componentPins, string? overrideSetKey, CancellationToken ct)
+    {
+        var profileFolder = OriginPaths.ProfileModsDir(version, profileId);
+        var compatLog = Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log");
+        var lines = new List<string> { $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} profile {profileId} on {version}" };
+        try
+        {
+            return await ConfigurationLaunch.ChooseAsync(version, componentPins, Components.Value,
+                swap =>
+                {
+                    try
+                    {
+                        return LaunchPreflight.Evaluate(version, modsFolder, profileFolder, true, ModManager.IsManaged,
+                            ModManager.IsOriginProvisioned, compatLog, ct, ModManager.IsOriginsCopy, swap);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+                    {
+                        lines.Add("The compatibility check failed; treated as clean: " + ex.Message);
+                        return LaunchVerdict.Clear; // fail-soft, as LaunchPreflight.Run is
+                    }
+                },
+                swap => LaunchPreflight.Run(version, modsFolder, profileFolder, true, ModManager.IsManaged,
+                    ModManager.IsOriginProvisioned, compatLog, ct, overrideSetKey, ModManager.IsOriginsCopy, swap),
+                RunningConfigurations.For(profileId), lines.Add, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                Directory.CreateDirectory(OriginPaths.Logs);
+                File.WriteAllLines(Path.Combine(OriginPaths.Logs, $"mod-configuration-{version}.log"), lines);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* the log is best-effort */ }
+        }
+    }
+
+    // The component store (Core/Components); lazy so nothing reads OriginPaths.Root before render-shots redirects it.
+    private static readonly Lazy<ComponentStore> Components = new(() =>
+    {
+        var http = new HttpClient();
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("OriginLauncher/1.0 (+will@willhenry.me)");
+        return new ComponentStore(OriginPaths.ComponentStore, http);
+    });
+
     private async Task<Process> InstallAndBuildCoreAsync(
         string version, string accountKey, MLaunchOption option,
         bool externalMods, string? profileId,
-        IProgress<string>? progress, CancellationToken ct, string? overrideSetKey)
+        IProgress<string>? progress, CancellationToken ct, string? overrideSetKey,
+        string? componentPins = null, Action<string>? configurationPicked = null)
     {
         var path = new GameFolderPath(version, accountKey);
         // The shared root: where the install stamp and the loader profile live.
@@ -625,14 +679,28 @@ public sealed class VersionManager
         // The mods the game is about to load, checked by the shared compatibility engine BEFORE anything is synced
         // or started: a hard incompatibility becomes a sentence on Home, not a loader crash. Origin-only launches are
         // never checked; a checker failure is logged and the launch goes ahead (LaunchPreflight is fail-soft).
-        await CheckModsAsync(version, modsFolder, externalMods, profileId, overrideSetKey, ct);
+        // A profile on a version with vetted alternates picks its component configuration here (same check, plus the
+        // alternates only when the shipped set would not start). Every other launch is checked exactly as before.
+        ConfigurationChoice? configuration = null;
+        if (profileId != null && ConfigurationCatalog.HasAlternates(version))
+        {
+            configuration = await Task.Run(
+                () => ChooseConfigurationAsync(version, modsFolder, profileId, componentPins, overrideSetKey, ct), ct);
+            configurationPicked?.Invoke(configuration.Configuration.Id);
+        }
+        else
+            await CheckModsAsync(version, modsFolder, externalMods, profileId, overrideSetKey, ct);
 
         var gameModsFolder = modsFolder; // the shared folder, unless Origin-only or a profile
         if (!externalMods || profileId != null)
         {
             progress?.Report(profileId != null ? "Preparing profile mods..." : "Preparing Origin-only mod set...");
+            // An alternate configuration gets its own folder (mods-profile-<id>), so switching never rewrites the
+            // folder another configuration's game may still hold open.
             var launchFolder = Path.Combine(path.BasePath,
-                profileId != null ? LaunchModFolder.ProfileFolderName : LaunchModFolder.OriginOnlyFolderName);
+                profileId == null ? LaunchModFolder.OriginOnlyFolderName
+                : configuration?.Swap != null ? LaunchModFolder.ProfileFolderName + "-" + configuration.Configuration.Id
+                : LaunchModFolder.ProfileFolderName);
 
             // Origin-provisioned = originclient.jar, Fabric API, the
             // perf/shader stack (and, for a profile, Simple Voice Chat).
@@ -646,6 +714,12 @@ public sealed class VersionManager
                         : Enumerable.Empty<string>(),
                     ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy)
                 : LaunchModFolder.LaunchSet(sharedFiles, Enumerable.Empty<string>(), ModManager.IsManaged, ModManager.IsOriginsCopy);
+            if (configuration?.Swap is { } swap)
+            {
+                // The shipped Sodium/Iris jars stay in the shared folder (untouched); this launch loads the store copies.
+                foreach (var name in desired.Keys.Where(swap.Replaces).ToList()) desired.Remove(name);
+                foreach (var file in swap.Files) desired[LaunchSwap.NameOf(file)] = file.Path;
+            }
 
             // Diff-synced rather than delete+recreate (see LaunchModFolder.Sync):
             // a still-running game of this account holds these jars open.

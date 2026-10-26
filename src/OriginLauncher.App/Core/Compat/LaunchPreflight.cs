@@ -161,15 +161,17 @@ public static class LaunchPreflight
     /// <param name="overrideSetKey">The set key the player accepted with Play (see <see cref="LaunchOverride"/>), or null.
     /// A blocking verdict for exactly that set is logged and let through; any other set is refused as usual.</param>
     /// <param name="confirmOrigin">Confirms a jar NAMED like Origin's is Origin's copy (full path; ModManager.IsOriginsCopy).</param>
+    /// <param name="swap">An alternate component configuration's changes to Origin's side of the set (Core/Components), or null.</param>
     public static void Run(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
         Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath,
-        CancellationToken ct = default, string? overrideSetKey = null, Func<string, bool>? confirmOrigin = null)
+        CancellationToken ct = default, string? overrideSetKey = null, Func<string, bool>? confirmOrigin = null,
+        LaunchSwap? swap = null)
     {
         try
         {
             var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct,
-                confirmOrigin);
+                confirmOrigin, swap);
             if (verdict.Blocking.Count > 0)
             {
                 // The metadata can be wrong (a false positive must never lock a player out): once the player has seen
@@ -199,11 +201,13 @@ public static class LaunchPreflight
     /// verdict built while a jar could not be read (a half-copied or locked file is a moment, not a fact).
     /// If one of ORIGIN's own jars cannot be read, the check stands down (<see cref="LaunchVerdict.Clear"/>): with it
     /// missing from the picture every mod that needs Sodium or Fabric API would look broken.
+    /// With a <paramref name="swap"/>, a swap file that is not fetched yet is judged by what it will say about itself,
+    /// and that verdict is not cached (the real file is checked once it is there).
     /// </summary>
     public static LaunchVerdict Evaluate(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
         Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath = null,
-        CancellationToken ct = default, Func<string, bool>? confirmOrigin = null)
+        CancellationToken ct = default, Func<string, bool>? confirmOrigin = null, LaunchSwap? swap = null)
     {
         if (!externalMods && profileFolder == null) return LaunchVerdict.Clear;
 
@@ -212,17 +216,37 @@ public static class LaunchPreflight
         var launchSet = new List<(string Path, string Name, long Length, long Ticks, ModRole Role)>();
         AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, confirmOrigin, ct);
         if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, confirmOrigin, ct);
+        if (swap != null)
+        {
+            launchSet.RemoveAll(j => j.Role == ModRole.Managed && swap.Replaces(j.Name));
+            foreach (var add in swap.Files)
+            {
+                var file = new FileInfo(add.Path);
+                launchSet.Add((add.Path, LaunchSwap.NameOf(add), file.Exists ? file.Length : -1,
+                    file.Exists ? file.LastWriteTimeUtc.Ticks : 0, ModRole.Managed));
+            }
+        }
 
-        var key = Fingerprint(version, isProfile, launchSet);
+        var key = Fingerprint(version, isProfile, launchSet, swap?.Id);
         if (Verdicts.TryGetValue(key, out var cached)) return cached;
 
         var platform = PlatformFor(version);
         var entries = new List<ModFile>(launchSet.Count);
         var anyUnreadable = false;
-        foreach (var (path, name, _, _, role) in launchSet)
+        var anyExpected = false;
+        foreach (var (path, name, length, _, role) in launchSet)
         {
             ct.ThrowIfCancellationRequested();
-            var info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
+            var added = swap?.FileAt(path);
+            ModInfo info;
+            if (added != null && length < 0)
+            {
+                info = added.Expected; // not fetched yet
+                anyExpected = true;
+            }
+            else
+                info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
+            if (swap != null && role == ModRole.Managed && added == null) info = swap.WithoutReplaced(info);
             if (info.ReadFailed)
             {
                 anyUnreadable = true;
@@ -253,7 +277,7 @@ public static class LaunchPreflight
         }
 
         var verdict = new LaunchVerdict(blocking, soft, launchSet.Count) { BlockingNames = blockingNames, SetKey = key };
-        if (blocking.Count == 0 && !anyUnreadable)
+        if (blocking.Count == 0 && !anyUnreadable && !anyExpected)
         {
             if (Verdicts.Count >= VerdictCacheLimit) Verdicts.Clear();
             Verdicts[key] = verdict;
@@ -316,10 +340,13 @@ public static class LaunchPreflight
     }
 
     private static string Fingerprint(
-        string version, bool isProfile, List<(string Path, string Name, long Length, long Ticks, ModRole Role)> set)
+        string version, bool isProfile, List<(string Path, string Name, long Length, long Ticks, ModRole Role)> set,
+        string? swapId)
     {
         var sb = new StringBuilder(64 + set.Count * 56);
-        sb.Append(version).Append('|').Append(isProfile ? 'p' : 's').Append('\n');
+        sb.Append(version).Append('|').Append(isProfile ? 'p' : 's');
+        if (swapId != null) sb.Append('|').Append(swapId); // no swap: the same key as before configurations existed
+        sb.Append('\n');
         foreach (var (_, name, length, ticks, role) in set)
             sb.Append(name).Append('|').Append(length).Append('|').Append(ticks).Append('|').Append((int)role).Append('\n');
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
