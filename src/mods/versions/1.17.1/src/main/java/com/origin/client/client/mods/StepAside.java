@@ -163,7 +163,7 @@ public final class StepAside {
 	public static String cardNote(String feature, boolean forced) {
 		Replaced r = replaced(feature);
 		if (r == null) {
-			return null;
+			return compatNote(0, feature);
 		}
 		if (!forced) {
 			return "Replaced by " + r.by();
@@ -175,7 +175,7 @@ public final class StepAside {
 	public static String pageNote(String feature, String featureName, boolean forced) {
 		Replaced r = replaced(feature);
 		if (r == null) {
-			return null;
+			return compatNote(1, feature);
 		}
 		String by = r.by();
 		if (r.row().asideOn()) {
@@ -199,5 +199,34 @@ public final class StepAside {
 		}
 		String s = sb.toString().trim().replaceAll(" {2,}", " ");
 		return s.isEmpty() ? id : s;
+	}
+
+	/**
+	 * The same note slot also says when one of Origin's hooks into another mod is switched off because
+	 * the installed version of that mod isn't one the hook was proven on (compat/CompatGates, DECISIONS
+	 * 2026-10-26): "Off: needs a supported JEI". Looked up reflectively so this file stays pure Java for
+	 * tools/step-aside-tests (no CompatGates there: the lookup fails once and every note is null).
+	 */
+	private static volatile java.lang.reflect.Method[] compat;
+
+	private static String compatNote(int which, String feature) {
+		java.lang.reflect.Method[] m = compat;
+		if (m == null) {
+			try {
+				Class<?> c = Class.forName("com.origin.client.client.compat.CompatGates");
+				m = new java.lang.reflect.Method[] {c.getMethod("cardNote", String.class), c.getMethod("pageNote", String.class)};
+			} catch (Throwable t) {
+				m = new java.lang.reflect.Method[0];
+			}
+			compat = m;
+		}
+		if (m.length == 0) {
+			return null;
+		}
+		try {
+			return (String) m[which].invoke(null, feature);
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 }
