@@ -1213,17 +1213,56 @@ public final class Mods {
 	// ---- typed access (all read-through to ModsConfig with schema defaults) ----
 
 	public static boolean on(String modId) {
-		com.google.gson.JsonElement v = raw(modId).get("enabled");
+		Map<String, com.google.gson.JsonElement> vals = raw(modId);
+		com.google.gson.JsonElement v = vals.get("enabled");
+		boolean enabled;
 		if (v != null) {
-			return v.getAsBoolean();
+			enabled = v.getAsBoolean();
+		} else {
+			Mod m = byId(modId);
+			enabled = m != null && m.defaultOn();
 		}
-		Mod m = byId(modId);
-		return m != null && m.defaultOn();
+		// Origin steps aside when a player's own mod does this job (StepAside). This is
+		// the one gate every mixin, hook and keybind of the feature already reads, so a
+		// stepped-aside feature is off everywhere at once. Nothing replaced = the old value.
+		if (!StepAside.any()) {
+			return enabled;
+		}
+		return StepAside.effectiveOn(modId, enabled, forcedOn(vals));
 	}
 
 	public static void setOn(String modId, boolean on) {
-		raw(modId).put("enabled", new JsonPrimitive(on));
+		Map<String, com.google.gson.JsonElement> vals = raw(modId);
+		if (StepAside.replaced(modId) != null) {
+			// A replaced feature's switch sets/clears the player's "keep Origin's on" flag.
+			StepAside.Write w = StepAside.toggle(modId, on);
+			if (w.forced()) {
+				vals.put(StepAside.FORCED_KEY, new JsonPrimitive(true));
+			} else {
+				vals.remove(StepAside.FORCED_KEY);
+			}
+			if (w.enabled() != null) {
+				vals.put("enabled", new JsonPrimitive(w.enabled()));
+			}
+			ModsConfig.save();
+			return;
+		}
+		vals.put("enabled", new JsonPrimitive(on));
 		ModsConfig.save();
+	}
+
+	/** True once the player turned this feature back on over the mod that replaced it (StepAside). */
+	public static boolean forcedOn(String modId) {
+		return forcedOn(raw(modId));
+	}
+
+	private static boolean forcedOn(Map<String, com.google.gson.JsonElement> vals) {
+		com.google.gson.JsonElement f = vals.get(StepAside.FORCED_KEY);
+		try {
+			return f != null && f.getAsBoolean();
+		} catch (RuntimeException e) {
+			return false;   // a hand-edited non-boolean value reads as "not forced"
+		}
 	}
 
 	/** Whether this option exists in the mod's schema at all — lets consumers

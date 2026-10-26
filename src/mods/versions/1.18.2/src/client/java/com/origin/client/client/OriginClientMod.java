@@ -65,10 +65,9 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
 	// JEI bundled here is jei-1.18.2-fabric-10.2.1.1002 (see gradle.properties). A foreign
-	// JEI jar shadows ours (Fabric loads the higher version) — detectForeignJei() catches
-	// that; jeiNoticeShown gates the one-time in-world chat notice.
+	// JEI jar shadows ours (Fabric loads the higher version): Origin steps aside for it
+	// (StepAside, the JEI card says so); jeiNoticeShown gates the one-time hint.
 	private static final String BUNDLED_JEI = "10.2.1.1002";
-	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 	// Edge-trigger for death waypoints: true while the player is alive, so a death
 	// drops exactly one waypoint on the alive→dead transition.
@@ -76,6 +75,9 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		// Which of Origin's mods step aside for the player's own (freecam -> Freelook,
+		// a player's JEI -> Origin's JEI switch, ...). First, before anything reads Mods.on.
+		com.origin.client.client.mods.StepAsideDetect.run();
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
@@ -519,17 +521,13 @@ public class OriginClientMod implements ClientModInitializer {
 			return;
 		}
 
-		// One-time JEI onboarding, now that a player exists to message: warn if a
-		// foreign JEI is overriding ours, otherwise point at the bundled one (it ships
-		// off, so it's easy to miss).
+		// One-time JEI onboarding, now that a player exists to message: point at the
+		// bundled one (it ships off, so it's easy to miss). A player's own JEI gets no
+		// "remove that jar" nag: Origin steps aside for it (StepAside, the "jei" row).
 		if (!jeiNoticeShown && client.screen == null) {
 			jeiNoticeShown = true;
-			if (foreignJei != null) {
-				player.displayClientMessage(new net.minecraft.network.chat.TextComponent(
-						"§eOrigin already includes JEI (" + BUNDLED_JEI + "). A separate JEI ("
-								+ foreignJei + ") in your mods folder is overriding it — remove that jar so"
-								+ " Origin's JEI and its toggle work."), false);
-			} else if (!Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
+			if (com.origin.client.client.mods.StepAside.replaced("jei") == null
+					&& !Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
 				Mods.setMetaBool("jeiHintShown", true);
 				player.displayClientMessage(new net.minecraft.network.chat.TextComponent(
 						"§7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the"
@@ -903,12 +901,12 @@ public class OriginClientMod implements ClientModInitializer {
 	// Foreign-JEI detection (rec #10). Origin bundles JEI nested; if a player drops
 	// their own JEI jar in, Fabric deduplicates the "jei" id and may load THEIRS.
 	// Our toggle mixins target the bundled JEI's internals, so a different version breaks
-	// the integration silently. Detect the mismatch here; onEndTick surfaces it.
+	// the integration silently. Origin steps aside for it (StepAsideDetect); a different
+	// version is still worth a log line, since forcing Origin's switch back on may not bind.
 	private static void detectForeignJei() {
 		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
 			String v = c.getMetadata().getVersion().getFriendlyString();
 			if (!BUNDLED_JEI.equals(v)) {
-				foreignJei = v;
 				com.origin.client.OriginClient.LOGGER.warn(
 						"Origin bundles JEI {} but JEI {} is loaded -- a separate JEI jar is overriding "
 								+ "the bundled one; JEI integration may not work until it is removed.",

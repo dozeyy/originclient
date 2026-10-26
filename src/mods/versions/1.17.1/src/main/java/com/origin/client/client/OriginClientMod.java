@@ -70,6 +70,9 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		// Which of Origin's mods step aside for the player's own (freecam -> Freelook,
+		// a player's JEI -> Origin's JEI switch, ...). First, before anything reads Mods.on.
+		com.origin.client.client.mods.StepAsideDetect.run();
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the

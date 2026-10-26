@@ -73,7 +73,31 @@ public final class OriginDevShots {
 		STY_PACKS,
 		// ...and, LAST in the clean set because they create a world: Create New World, the pause menu inside
 		// that new world, then the world list with that save in it after Save and Quit.
-		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED;
+		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED,
+		// ORIGIN_SHOTS_SET=stepaside: a feature a loaded mod replaces (StepAside), as a card, a list row
+		// and its own page -- run with a real overlapping mod loaded (tools/frame-log/mods-<module>-stepaside.json).
+		STEP_CARD, STEP_ROW, STEP_PAGE;
+
+		/** The first replaced feature (Freelook when Freecam is loaded), or freelook when nothing is replaced. */
+		private static String stepFeature() {
+			// 1.8.9's dev game is MCP-named and no overlapping 1.8.9 Forge mod can load into it
+			// (they are SRG-named, and bring their own Mixin tweaker), so this set proves the
+			// card / row / page with the table resolved as if Perspective Mod Redux ("pmr")
+			// were installed. Dev-shots only (env ORIGIN_SHOTS); players always get the real
+			// Forge Loader detection (StepAsideDetect).
+			if (!com.origin.client.client.mods.StepAside.any()) {
+				com.origin.client.client.mods.StepAside.resolve(id -> "pmr".equals(id) ? "Perspective Mod Redux" : null);
+				com.origin.client.client.mods.Mods.clearOnCache();
+				com.origin.client.OriginClient.LOGGER.info("dev-shots stepaside: simulating Perspective Mod Redux (pmr) installed");
+			}
+			java.util.List<String> f = com.origin.client.client.mods.StepAside.replacedFeatures();
+			return f.contains("freelook") ? "freelook" : f.isEmpty() ? "freelook" : f.get(0);
+		}
+
+		private static String stepSearch() {
+			com.origin.client.client.mods.Mods.Mod m = com.origin.client.client.mods.Mods.byId(stepFeature());
+			return m == null ? "" : m.name();
+		}
 
 		GuiScreen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -120,6 +144,12 @@ public final class OriginDevShots {
 					return make(P + "shaders.ShaderBrowserScreen", (Object) null);
 				case MENU_CLEAR:
 					return preview(make(P + "gui.OriginModMenuScreen"), false, false);
+				case STEP_CARD:
+					return withSearch(preview(make(P + "gui.OriginModMenuScreen"), false, false), stepSearch());
+				case STEP_ROW:
+					return withSearch(preview(make(P + "gui.OriginModMenuScreen"), true, false), stepSearch());
+				case STEP_PAGE:
+					return preview(make(P + "gui.OriginModMenuScreen", null, stepFeature()), false, false);
 				case FRIENDS:
 					callStatic(P + "social.SocialDemo", "install", false);
 					return select(make(P + "gui.FriendsScreen", (Object) null),
@@ -538,6 +568,13 @@ public final class OriginDevShots {
 			// The loading -> title hand-off (filmed with dev-shots `video`): one title
 			// shot, taken only after the startup intro has fully dissolved (see tick).
 			SHOTS.add(new Shot(1920, 1080, 0, Kind.TITLE));
+		} else if ("stepaside".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Origin steps aside: the replaced feature's card, list row and page, at both desktop sizes.
+			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.STEP_CARD));
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.STEP_ROW));
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.STEP_PAGE));
+			}
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review: every screen at the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
@@ -793,6 +830,11 @@ public final class OriginDevShots {
 
 	private static GuiScreen preview(GuiScreen menu, boolean list, boolean settings) {
 		Object r = call(menu, "preview", list, settings);
+		return r instanceof GuiScreen ? (GuiScreen) r : menu;
+	}
+
+	private static GuiScreen withSearch(GuiScreen menu, String q) {
+		Object r = call(menu, "withSearch", q);
 		return r instanceof GuiScreen ? (GuiScreen) r : menu;
 	}
 
