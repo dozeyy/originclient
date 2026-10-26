@@ -43,14 +43,33 @@ public class CrashReportBundleTests
     [InlineData("[Server thread/INFO]: UUID of player Notch is 069a79f4-44e9-4726-a5be-fca90e38aaf5", "069a79f4")]
     [InlineData("[Server thread/INFO]: UUID of player Notch is 069a79f4-44e9-4726-a5be-fca90e38aaf5", "Notch")]
     [InlineData("local address 192.168.1.20 joined", "192.168.1.20")]
+    // From the privacy review (2026-10-25): server host names, IPv6, bare account ids, whole Authorization values.
+    [InlineData("[Render thread/INFO]: Connecting to mc.friendshome.net, 25565", "friendshome")]
+    [InlineData("Server IP: play.example-server.org", "example-server")]
+    [InlineData("joined [2001:db8:85a3::8a2e:370:7334]:25565", "8a2e")]
+    [InlineData(@"--gameDir C:\x\instances\1.21.1\accounts\069a79f4-44e9-4726-a5be-fca90e38aaf5\", "069a79f4")]
+    [InlineData("{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"x\"}", "069a79f4")]
+    [InlineData("Authorization: XBL3.0 x=1234567890;abcdefSHORT", "abcdefSHORT")]
     public void Scrub_removes_addresses_and_player_ids(string input, string mustNotSurvive) =>
         Assert.DoesNotContain(mustNotSurvive, CrashReportBundle.Scrub(input));
+
+    [Fact]
+    public void Scrub_hides_a_user_name_with_a_space_whole()
+    {
+        var s = CrashReportBundle.Scrub(@"at C:\Users\Sam Rivers\AppData\Local\OriginLauncher\x.jar and /home/sam rivers/", ["Sam Rivers"]);
+        Assert.DoesNotContain("Sam", s);
+        Assert.DoesNotContain("Rivers", s);
+        // ...and without being told the name, a path segment with a space still goes as one piece.
+        Assert.Equal(@"C:\Users\<user>\AppData", CrashReportBundle.Scrub(@"C:\Users\Sam Rivers\AppData"));
+    }
 
     [Theory]
     [InlineData("Forge Mod Loader version 11.15.1.2318 for Minecraft 1.8.9 loading")]
     [InlineData("Starting integrated server on 127.0.0.1:25565")]
     [InlineData("Bound to 0.0.0.0")]
     [InlineData("UCHIJA\tFML{8.0.99.99} [Forge Mod Loader] (forge-1.8.9.jar)")]
+    [InlineData("[12:00:01] [Render thread/INFO]: java.util.function.Function::apply at 13:45:07.123")]
+    [InlineData("Starting integrated server on [::1]:25565")]
     public void Scrub_keeps_versions_and_local_addresses(string line) =>
         Assert.Equal(line, CrashReportBundle.Scrub(line));
 

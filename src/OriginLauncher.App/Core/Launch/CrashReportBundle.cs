@@ -45,22 +45,48 @@ public static class CrashReportBundle
     public static string Scrub(string text, IEnumerable<string>? knownNames = null)
     {
         if (string.IsNullOrEmpty(text)) return text ?? "";
-        var s = Jwt.Replace(text, Redacted);
+        var s = text;
+        // Known names first: a later pattern may rewrite part of one ("C:\Users\Will Henry" -> "<user> Henry").
+        if (knownNames != null)
+            foreach (var name in knownNames.Where(n => n is { Length: >= 3 }).Distinct(StringComparer.OrdinalIgnoreCase)
+                         .OrderByDescending(n => n.Length))
+                s = Regex.Replace(s, $@"(?<![A-Za-z0-9_]){Regex.Escape(name)}(?![A-Za-z0-9_])", "<user>",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        s = Jwt.Replace(s, Redacted);
+        s = AuthorizationHeader.Replace(s, "$1" + Redacted);
         s = Bearer.Replace(s, "Bearer " + Redacted);
         s = LaunchArg.Replace(s, "$1" + Redacted);
         s = KeyedSecret.Replace(s, "$1$2" + Redacted);
         s = SettingUser.Replace(s, "$1<player>");
         s = PlayerUuid.Replace(s, "$1<player>$3" + Redacted);
+        s = ServerHost.Replace(s, "$1<server>$3");
+        s = Uuid.Replace(s, "<uuid>");
         s = Ipv4.Replace(s, "<ip>");
+        s = Ipv6Candidate.Replace(s, m => IsIpv6(m.Value) ? "<ip>" : m.Value);
         s = Email.Replace(s, "<email>");
+        s = UserPathWithSpaces.Replace(s, "$1<user>");
         s = UserPath.Replace(s, "$1<user>");
         s = UnixUserPath.Replace(s, "$1<user>");
-        if (knownNames != null)
-            foreach (var name in knownNames.Where(n => n is { Length: >= 3 }).Distinct(StringComparer.OrdinalIgnoreCase))
-                s = Regex.Replace(s, $@"(?<![A-Za-z0-9_]){Regex.Escape(name)}(?![A-Za-z0-9_])", "<user>",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         return s;
     }
+
+    // "Authorization: XBL3.0 x=<uhs>;<token>": everything after the header name is the secret.
+    private static readonly Regex AuthorizationHeader = Rx(@"(authorization[""']?\s*[:=]\s*)[^\r\n]+");
+    // Minecraft logs the server it joins ("Connecting to mc.example.net, 25565"), and crash reports name it.
+    private static readonly Regex ServerHost = Rx(@"(Connecting to\s+|Server (?:IP|address):\s*)([^\s,]+)(,?)");
+    // Account and player ids (dashed, or the 32-hex form in JSON and account folders): public lookups turn one back into a name.
+    private static readonly Regex Uuid = Rx(@"(?<![0-9a-f])(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32})(?![0-9a-f])");
+    // A user folder whose name has spaces ("C:\Users\Will Henry\..."): only when a separator follows, so plain text
+    // after "C:\Users\x" is not swallowed. The no-space form below catches the rest.
+    private static readonly Regex UserPathWithSpaces = Rx(@"([A-Za-z]:[\\/]+Users[\\/]+)(?!<user>)([^\\/""'<>|:*?\r\n]+)(?=[\\/])");
+    // IPv6 candidates are checked by the real parser, so timestamps ("12:00:01") and "Foo::bar" stay.
+    private static readonly Regex Ipv6Candidate = Rx(@"(?<![\w:.])[0-9a-f:]{3,39}(?![\w:.])");
+
+    private static bool IsIpv6(string s) =>
+        s.Contains(':') && s.Count(c => c == ':') >= 2 && s.Any(char.IsAsciiHexDigit)
+        && System.Net.IPAddress.TryParse(s, out var ip)
+        && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6
+        && !System.Net.IPAddress.IsLoopback(ip) && !ip.Equals(System.Net.IPAddress.IPv6Any);
 
     public sealed record Input(
         string LauncherVersion,

@@ -28,7 +28,7 @@ public static class CrashAnalyzer
             exitCode, stoppedByPlayer, crashedWhileStarting,
             LaunchLog: TryReadTail(launchLogPath, LaunchLogTailBytes),
             LatestLog: TryReadTail(FreshLatestLog(instanceDir, startedUtc), LatestLogTailBytes),
-            CrashReport: TryReadTail(NewestCrashReport(instanceDir, startedUtc), CrashReportTailBytes),
+            CrashReport: TryReadTail(NewestCrashReport(instanceDir, startedUtc), CrashReportTailBytes, fromStart: true),
             HsErr: TryReadTail(NewestHsErr(instanceDir, startedUtc), HsErrTailBytes),
             Mods: ReadMods(instanceDir),
             RamMb: ramMb,
@@ -153,15 +153,18 @@ public static class CrashAnalyzer
     }
 
     // The end of a file, at most maxBytes: a game that ran for hours has a huge log, and the crash is at its end.
-    internal static string? TryReadTail(string? path, int maxBytes)
+    // A crash report is the other way round (the exception and its cause come first), so it is read from the start.
+    internal static string? TryReadTail(string? path, int maxBytes, bool fromStart = false)
     {
         try
         {
             if (path == null || !File.Exists(path)) return null;
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            if (stream.Length > maxBytes) stream.Seek(-maxBytes, SeekOrigin.End);
+            if (stream.Length > maxBytes && !fromStart) stream.Seek(-maxBytes, SeekOrigin.End);
             using var reader = new StreamReader(stream);
-            return reader.ReadToEnd();
+            if (!fromStart || stream.Length <= maxBytes) return reader.ReadToEnd();
+            var buffer = new char[maxBytes];
+            return new string(buffer, 0, reader.ReadBlock(buffer, 0, maxBytes));
         }
         catch { return null; }
     }
