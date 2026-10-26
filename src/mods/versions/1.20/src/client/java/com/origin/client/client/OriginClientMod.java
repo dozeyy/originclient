@@ -71,7 +71,6 @@ public class OriginClientMod implements ClientModInitializer {
 	// shadowed — detectForeignJei() catches that. jeiNoticeShown gates the one-time
 	// in-world chat notice.
 	private static final String BUNDLED_JEI = "14.0.0.11";
-	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 	// Edge-trigger for death waypoints: true while the player is alive, so a death
 	// drops exactly one waypoint on the alive→dead transition.
@@ -79,6 +78,9 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		// Which of Origin's mods step aside for the player's own (freecam -> Freelook,
+		// a player's JEI -> Origin's JEI switch, ...). First, before anything reads Mods.on.
+		com.origin.client.client.mods.StepAsideDetect.run();
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
@@ -494,12 +496,8 @@ public class OriginClientMod implements ClientModInitializer {
 		// off, so it's easy to miss).
 		if (!jeiNoticeShown && client.screen == null) {
 			jeiNoticeShown = true;
-			if (foreignJei != null) {
-				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-						"§eOrigin already includes JEI (" + BUNDLED_JEI + "). A separate JEI ("
-								+ foreignJei + ") in your mods folder is overriding it — remove that jar so"
-								+ " Origin's JEI and its toggle work."), false);
-			} else if (!Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
+			if (com.origin.client.client.mods.StepAside.replaced("jei") == null
+					&& !Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
 				Mods.setMetaBool("jeiHintShown", true);
 				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
 						"§7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the"
@@ -872,13 +870,13 @@ public class OriginClientMod implements ClientModInitializer {
 
 	// Foreign-JEI detection (rec #10). Origin bundles JEI nested; if a player drops
 	// their own JEI jar in, Fabric deduplicates the "jei" id and may load THEIRS.
-	// Our toggle mixins target 19.27.0.340 internals, so a different version breaks
-	// the integration silently. Detect the mismatch here; onEndTick surfaces it.
+	// Origin then steps aside for it (StepAsideDetect: its toggle mixins stop hiding
+	// it). A different version is still worth a log line: the toggle mixins target
+	// the bundled JEI's internals, so forcing Origin's switch back on may not bind.
 	private static void detectForeignJei() {
 		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
 			String v = c.getMetadata().getVersion().getFriendlyString();
 			if (!BUNDLED_JEI.equals(v)) {
-				foreignJei = v;
 				com.origin.client.OriginClient.LOGGER.warn(
 						"Origin bundles JEI {} but JEI {} is loaded -- a separate JEI jar is overriding "
 								+ "the bundled one; JEI integration may not work until it is removed.",

@@ -165,3 +165,29 @@ jar {
 	// Notices for the bundled JEI (MIT; its jar carries no LICENSE of its own).
 	from("THIRD-PARTY-LICENSES.txt")
 }
+
+// `.\gradlew.bat prodClient -PextraMods=<folder>`: the BUILT jar (remapJar, with its
+// jar-in-jar stack) in a production Fabric game, i.e. the intermediary namespace a
+// real instance runs in, plus every jar in that folder. Copied from 1.21.1 for
+// dev-shots `set=stepaside` (Origin stepping aside needs a real player mod such as
+// Freecam loaded: tools/frame-log/mods-<module>-stepaside.json) and the "with mods"
+// frame log. The folder must bring its own Fabric API (a player's instance does).
+// Game dir run-prod/, so nothing from the dev run's run/mods leaks in. CI only.
+tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+	group = "origin"
+	description = "Runs the built Origin jar + -PextraMods=<folder> in a production Fabric client (run-prod/)."
+	mods.from(tasks.named("remapJar"))
+	if (project.hasProperty("extraMods")) {
+		mods.from(fileTree(project.property("extraMods").toString()) { include "*.jar" })
+	}
+	// Sodium + Iris as a player's instance has them (this module installs them standalone,
+	// PerformanceModCatalog): the pinned production jars dev-shots fetches into libs/
+	// (tools/ci/perf_libs.py). Without them the run's Sodium/Iris gate fails and Origin's
+	// Sodium/Iris mixins go unproven. Absent locally (libs/ is gitignored) = not loaded.
+	mods.from(fileTree("libs") { include "sodium*.jar", "iris*.jar" })
+	runDir = file("run-prod")
+	if (project.hasProperty("frameLog")) {
+		jvmArgs.add("-Dorigin.frameLog=true")
+		jvmArgs.add("-Xlog:gc:stdout:uptime,level,tags")
+	}
+}
