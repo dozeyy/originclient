@@ -8,7 +8,7 @@ namespace OriginLauncher.App.Core.Import;
 // into one of four answers, each with its reason:
 //   Succeeded   - it is on disk where the import put it (checked again, not taken from the plan)
 //   Skipped     - left out on purpose (Origin already has it, built for another Minecraft, a second copy)
-//   Unsupported - Origin can't bring this kind of thing over (accounts, Forge/Quilt jars, launchers it can't read)
+//   Unsupported - Origin can't bring this kind of thing over (accounts, other loaders' jars, launchers it can't read)
 //   Failed      - it should have come over and didn't (unreadable, gone at apply, missing when checked again)
 // Every profile the run made or reused is checked like a launch would check it (CompatEngine.Check over Origin's own
 // turned-on jars plus the profile's), so a setup that can't start says so on the report, not at Play.
@@ -52,8 +52,20 @@ public static class ImportVerifier
         ("Launcher app data", "Other launchers' own databases, cosmetics and friends lists stay with them."),
         ("ATLauncher, GDLauncher and Technic", "Origin can't read these launchers' setups yet."),
         ("Modpack files (.mrpack, CurseForge zips)", "Pack files aren't opened. Import the setup the launcher made from the pack."),
-        ("Quilt mods", "They need the Quilt loader. Origin runs Fabric, so they stay behind."),
+        ("Mods made for other mod setups", WrongLoaderReason + " They stay behind."),
     };
+
+    // Mandate 1: the player never reads a mod loader's name (and "Origin runs X" is false on 1.8.9 anyway). A mod that
+    // can't run in Origin's setup for its version gets this one sentence, whatever the jar was made for.
+    /// <summary>Why a mod made for another kind of setup (another loader) stays behind. No loader is named.</summary>
+    public const string WrongLoaderReason = "Made for a different kind of Minecraft mod setup, so it can't run here.";
+
+    /// <summary>Why a jar with no mod information in it stays behind.</summary>
+    public const string NotAModReason = "No mod information found in it, so it can't run here.";
+
+    /// <summary>True when <paramref name="text"/> names a mod loader (a player-facing line must not; see WrongLoaderReason).</summary>
+    public static bool NamesLoader(string? text) =>
+        text != null && System.Text.RegularExpressions.Regex.IsMatch(text, @"\b(Fabric|Forge|NeoForge|Quilt|LiteLoader)\b");
 
     /// <summary>The profile check a report runs: (version, profile mods folder) to the mods that stop the game.</summary>
     public delegate IReadOnlyList<string> ProfileChecker(string version, string profileModsDir);
@@ -128,10 +140,14 @@ public static class ImportVerifier
                 if (outcome.ProfileReused && outcome.ProfileName != null)
                     Add(VerifyBucket.Succeeded, label, "Mods", $"Already in the profile {outcome.ProfileName} from an earlier import.");
 
-                if (outcome.ProfileId != null && outcome.ProfileModsDir != null && profiles.All(x => x.ProfileId != outcome.ProfileId))
+                // A new profile exists only when a jar landed (BulkEngine.BuildDelta / ImportEngine.DropEmptyProfile):
+                // one whose every jar was held at apply time was never added, so it is not on the report either.
+                var jarsLanded = landed.GetValueOrDefault(PlanItemKind.Mod);
+                if (outcome.ProfileId != null && outcome.ProfileModsDir != null && (outcome.ProfileReused || jarsLanded > 0)
+                    && profiles.All(x => x.ProfileId != outcome.ProfileId))
                 {
                     var problems = checkProfile?.Invoke(version.Version, outcome.ProfileModsDir) ?? Array.Empty<string>();
-                    var jars = p.Mods.Count(m => m.IsCopied);
+                    var jars = outcome.ProfileReused ? p.Mods.Count(m => m.IsCopied) : jarsLanded;
                     profiles.Add(new ProfileCheck(version.Version, outcome.ProfileId, outcome.ProfileName ?? outcome.ProfileId,
                         outcome.ProfileModsDir, jars, outcome.ProfileReused, problems));
                 }
@@ -163,7 +179,7 @@ public static class ImportVerifier
 
     private static string DefaultReason(ModOutcome outcome) => outcome switch
     {
-        ModOutcome.WrongLoader => "Made for another mod loader (Forge, NeoForge or Quilt). Origin runs Fabric.",
+        ModOutcome.WrongLoader => WrongLoaderReason,
         ModOutcome.Unreadable => "Not a readable mod file.",
         ModOutcome.BuiltIn => "Origin already includes it.",
         ModOutcome.WrongMinecraft => "Built for another Minecraft version.",

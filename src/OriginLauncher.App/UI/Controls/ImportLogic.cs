@@ -6,6 +6,9 @@ namespace OriginLauncher.App.UI.Controls;
 // The import drawer's words and decisions that need no WPF: plurals, the Import all label, whether a start is
 // allowed, and what the Done page says. Pure, so it is linked into OriginLauncher.Tests (ImportDrawerLogicTests).
 
+/// <summary>Done's Play: the version to start and, when one profile came over, the profile to select first.</summary>
+public sealed record ImportPlayRequest(string Version, string? ProfileId);
+
 internal static class ImportLogic
 {
     /// <summary>"1 file", "2 files": the one place a count is turned into words.</summary>
@@ -30,6 +33,54 @@ internal static class ImportLogic
         if (setup.McVersion != null) parts.Add(setup.McVersion);
         if (mods > 0) parts.Add(Plural(mods, "mod", "mods"));
         return string.Join(" - ", parts);
+    }
+
+    // ---------------------------------------------------------------- Done: what the big button does
+
+    public enum DoneKind { Close, Play, OpenProfiles }
+
+    /// <summary>What Done's primary button does, with its label and the footer line that says so.</summary>
+    public sealed record DoneChoice(DoneKind Kind, string Label, string? Note, string? Version = null, string? ProfileId = null);
+
+    /// <summary>A profile the import made (or reused), as Done sees it.</summary>
+    public sealed record DoneProfile(string Version, string Id, string Name, bool CanStart);
+
+    /// <summary>
+    /// Gate review 2026-10-25: Play must start the game WITH the imported mods, so it never just plays "the version".
+    /// One profile came over and can start: Play selects it (MainWindow, SettingsStore.Update) and starts it. Several
+    /// came over, or the one can't start as it is: "Open Profiles" (the player picks; no wrong launch). No profile came
+    /// over (settings, worlds and packs only): Play starts that version as Home has it. Nothing to play: Done.
+    /// </summary>
+    public static DoneChoice DoneAction(string? playVersion, IReadOnlyList<DoneProfile> profiles)
+    {
+        if (profiles.Count == 1 && profiles[0] is { CanStart: true } one)
+            return new DoneChoice(DoneKind.Play, "Play", $"Everything is in Origin. **Play** starts Minecraft {one.Version} with {one.Name}.",
+                one.Version, one.Id);
+        if (profiles.Count > 0)
+            return new DoneChoice(DoneKind.OpenProfiles, "Open Profiles", profiles.Count == 1
+                ? $"Everything is in Origin. **{profiles[0].Name}** needs a fix before it can start: it is on the Profiles page."
+                : $"Everything is in Origin. **{profiles.Count} profiles** came over: pick the one to play on the Profiles page.");
+        if (playVersion != null)
+            return new DoneChoice(DoneKind.Play, "Play", $"Everything is in Origin. **Play** starts Minecraft {playVersion}.", playVersion);
+        return new DoneChoice(DoneKind.Close, "Done", null);
+    }
+
+    /// <summary>
+    /// The profiles a bulk import made or reused: the step-4 report's (checked like a launch) when it ran, else the
+    /// result's own (a new one only when a jar landed, as BulkEngine.BuildDelta adds it; unchecked, so taken as able
+    /// to start, as a launch would try it).
+    /// </summary>
+    public static IReadOnlyList<DoneProfile> DoneProfiles(BulkImportResult? result, ImportVerification? report)
+    {
+        if (report != null)
+            return report.Profiles.Select(p => new DoneProfile(p.Version, p.ProfileId, p.ProfileName, p.CanStart)).ToList();
+        if (result == null) return Array.Empty<DoneProfile>();
+        return result.Versions
+            .SelectMany(v => v.Setups.Select(s => (v.Version, s)))
+            .Where(x => x.s.ProfileId != null && (x.s.ProfileReused || BulkEngine.HasJar(x.s.ProfileModsDir)))
+            .GroupBy(x => x.s.ProfileId!, StringComparer.Ordinal)
+            .Select(g => new DoneProfile(g.First().Version, g.Key, g.First().s.ProfileName ?? g.Key, true))
+            .ToList();
     }
 
     /// <summary>The label and enabled state of the big button on the overview.</summary>

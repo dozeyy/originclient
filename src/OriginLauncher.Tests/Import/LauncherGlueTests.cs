@@ -334,7 +334,7 @@ public sealed class LauncherGlueTests
         Assert.Equal(SetupRole.ModsAndPacks, main.Setups.Single(s => s.Name == "Fresh").Role);
         var forge = main.Setups.Single(s => s.Name == "Forge pack");
         Assert.Equal(SetupRole.PacksOnly, forge.Role);
-        Assert.Equal("Forge mods can't come over. Origin runs Fabric, except on 1.8.9.", forge.Note);
+        Assert.Equal("Its mods were made for a different kind of Minecraft mod setup, so only its packs come over.", forge.Note);
         // Forge on 1.8.9 is Origin's legacy Forge path: its mods do come over.
         Assert.Null(report.Groups[2].Setups[0].Note);
 

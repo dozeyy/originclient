@@ -82,8 +82,9 @@ public static class ModSetResolver
                 case FindingKind.Unreadable:
                     return Info(mod, ModOutcome.Unreadable, terminal.Summary);
                 case FindingKind.ForeignClient:
+                    return Info(mod, ModOutcome.WrongLoader, LoaderFree(mod, terminal.Summary));
                 case FindingKind.WrongLoader:
-                    return Info(mod, ModOutcome.WrongLoader, terminal.Summary);
+                    return Info(mod, ModOutcome.WrongLoader, LoaderFree(mod, terminal.Summary));
                 case FindingKind.OriginManagedConflict:
                     return Info(mod, ModOutcome.BuiltIn, terminal.Summary);
                 case FindingKind.WrongMinecraft:
@@ -104,6 +105,13 @@ public static class ModSetResolver
             ? Copy(mod, ModOutcome.CopiedAsBefore, "Disabled in your old setup.")
             : Copy(mod, ModOutcome.Copied, null);
     }
+
+    // The compat check's own wording names loaders ("This is a Forge mod. Origin runs Fabric..."), which the import never
+    // shows (mandate 1; also false on 1.8.9). A line that names one is swapped for the loader-free sentence; any other
+    // specific reason (a known-incompatible mod, a client's own core) is kept as it is.
+    private static string LoaderFree(SourceMod mod, string reason) =>
+        !ImportVerifier.NamesLoader(reason) ? reason
+        : mod.Info.Loader == ModLoader.Unknown ? ImportVerifier.NotAModReason : ImportVerifier.WrongLoaderReason;
 
     private static ModDecision Info(SourceMod mod, ModOutcome outcome, string reason) =>
         new(mod.FileName, mod.Info.Id, mod.Info.Name, mod.Info.Version, outcome, reason, null, mod.Path);

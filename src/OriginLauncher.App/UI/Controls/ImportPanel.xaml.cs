@@ -51,10 +51,14 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     public event EventHandler? CloseRequested;
 
     /// <summary>
-    /// "Play" on Done: MainWindow selects this Minecraft version on Home and closes the page. The profiles the import made
-    /// are on the Profiles page; the Home selection stays the player's (BulkEngine.BuildDelta never changes it).
+    /// "Play" on Done (ImportLogic.DoneAction): MainWindow closes the page, selects the one imported profile when there
+    /// is one (SettingsStore.Update; the import itself never changes the Home selection, BulkEngine.BuildDelta) and starts
+    /// that version. ProfileId null: no profile came over, the version plays as Home has it.
     /// </summary>
-    public event EventHandler<string>? PlayRequested;
+    public event EventHandler<ImportPlayRequest>? PlayRequested;
+
+    /// <summary>"Open Profiles" on Done: several profiles came over (or the one can't start), the player picks on Profiles.</summary>
+    public event EventHandler? OpenProfilesRequested;
 
     /// <summary>An import finished and was kept: Home and Profiles re-read the settings.</summary>
     public event EventHandler? Imported;
@@ -759,7 +763,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         ScopeNote.Text = (stays > 0
                 ? $"{ImportLogic.Plural(stays, "setup is", "setups are")} on a Minecraft version Origin can't run, so {(stays == 1 ? "it stays" : "they stay")} behind. "
                 : "")
-            + "Accounts, launcher app data and Quilt mods never come over; the report names them.";
+            + "Accounts, launcher app data and mods made for other mod setups never come over; the report names them.";
         ScopeAllButton.IsEnabled = ScopeChooseButton.IsEnabled = Allowed && !Busy;
         SetFooter(FooterCopiesNote, null, null, null, null);
     }
@@ -2778,11 +2782,24 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         DoneNotes.Children.Add(DetailsLink());
 
         ShowPane(Pane.Done);
-        if (_playVersion is { } play)
-            SetFooter($"Everything is in Origin. **Play** starts Minecraft {play}.",
-                "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty), "Play", () => PlayRequested?.Invoke(this, play));
-        else
-            SetFooter(null, null, null, "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty));
+        // A single import already made and selected its profile (ImportEngine), so its Play is the version's; a bulk one
+        // selects nothing, so Play names the one profile to start, or sends the player to Profiles to pick.
+        var done = ImportLogic.DoneAction(_playVersion, _bulkResult != null
+            ? ImportLogic.DoneProfiles(_bulkResult, _report) : Array.Empty<ImportLogic.DoneProfile>());
+        Action close = () => CloseRequested?.Invoke(this, EventArgs.Empty);
+        switch (done.Kind)
+        {
+            case ImportLogic.DoneKind.Play:
+                SetFooter(done.Note, "Done", close, done.Label,
+                    () => PlayRequested?.Invoke(this, new ImportPlayRequest(done.Version!, done.ProfileId)));
+                break;
+            case ImportLogic.DoneKind.OpenProfiles:
+                SetFooter(done.Note, "Done", close, done.Label, () => OpenProfilesRequested?.Invoke(this, EventArgs.Empty));
+                break;
+            default:
+                SetFooter(null, null, null, done.Label, close);
+                break;
+        }
         WantFocus();
     }
 

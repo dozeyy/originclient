@@ -202,7 +202,7 @@ internal sealed class ImportGridModel
         if (column == GridColumn.Settings)
         {
             var mine = SettingsVersions(kind);
-            if (mine.Count == 0) return new GridCellState(false, false, $"{title}'s setups here bring packs only (Forge), not settings");
+            if (mine.Count == 0) return new GridCellState(false, false, $"{title}'s setups here bring packs only, not settings");
             // Versions this launcher has no setup on get its most played setup's settings: said in the tip.
             // The donor is the one the plan uses: a setup it can't take (Minecraft running from it) is passed over.
             var carried = Versions.Where(v => !SetupsOf(kind, v).Any(s => BulkComposer.CarriesSettings(s) && !_unavailable.Contains(s))).ToList();
@@ -231,7 +231,7 @@ internal sealed class ImportGridModel
     }
 
     /// <summary>A Forge setup on a Fabric version brings its packs only (BulkRules.IsPacksOnly).</summary>
-    public const string PacksOnlyReason = "Forge setups bring their packs only";
+    public const string PacksOnlyReason = "These setups bring their packs only";
 
     // Forge setups on a Fabric version bring packs (and screenshots) only: their mods, worlds and servers stay.
     private bool PacksOnly(SourceKind kind, string version, GridColumn column) =>

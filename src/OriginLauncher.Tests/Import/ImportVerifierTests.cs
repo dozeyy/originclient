@@ -35,7 +35,12 @@ public class ImportVerifierTests : IDisposable
         // The standing list: named every time, never implied.
         foreach (var (name, _) in ImportVerifier.NeverImported) Assert.Contains(unsupported, i => i.Name == name && i.Reason.Length > 0);
         Assert.Contains(unsupported, i => i.Name.Contains("Accounts") && i.Reason.Contains("Sign in again"));
-        Assert.Contains(unsupported, i => i.Name.Contains("Quilt"));
+        Assert.Contains(unsupported, i => i.Name.Contains("other mod setups") && i.Reason == ImportVerifier.WrongLoaderReason + " They stay behind.");
+        // Mandate 1: nothing on the report names a mod loader (the Forge jar's line included); file names are the
+        // player's own and may say anything, so only the names Origin wrote and every reason are checked.
+        Assert.All(report.Items, i => Assert.False(ImportVerifier.NamesLoader(i.Reason), i.Reason));
+        Assert.All(ImportVerifier.NeverImported, n => Assert.False(ImportVerifier.NamesLoader(n.Name + " " + n.Reason), n.Name));
+        Assert.Contains(unsupported, i => i.Name.Contains("forge", StringComparison.OrdinalIgnoreCase) && i.Reason == ImportVerifier.WrongLoaderReason);
         Assert.Contains(unsupported, i => i.Name.Contains("ATLauncher") && i.Name.Contains("GDLauncher") && i.Name.Contains("Technic"));
         Assert.Contains(unsupported, i => i.Name.Contains(".mrpack"));
         // This run's own: the credential-looking file, the Forge jar, the setup on an unsupported Minecraft.
@@ -49,6 +54,22 @@ public class ImportVerifierTests : IDisposable
         Assert.Contains(report.In(VerifyBucket.Succeeded), i => i.Name.Contains("world"));
         Assert.Empty(report.In(VerifyBucket.Failed));
         Assert.All(report.Items, i => Assert.False(string.IsNullOrWhiteSpace(i.Reason)));
+    }
+
+    [Fact]
+    public void NoPlayerFacingImportLineNamesAModLoader()
+    {
+        // Mandate 1 (the player never sees which loader a version uses; "Origin runs Fabric" is also false on 1.8.9).
+        var lines = new[]
+        {
+            ImportVerifier.WrongLoaderReason, ImportVerifier.NotAModReason, BulkRules.ForgeNote, BulkRules.ForgeCaption,
+            OriginLauncher.App.UI.Controls.ImportGridModel.PacksOnlyReason,
+        };
+        Assert.All(lines, l => Assert.False(ImportVerifier.NamesLoader(l), l));
+        // The detector itself still sees loaders: the check is a real one.
+        Assert.True(ImportVerifier.NamesLoader("This is a Forge mod. Origin runs Fabric, so it can't load it."));
+        Assert.True(ImportVerifier.NamesLoader("1.8.9 runs on Forge in Origin"));
+        Assert.False(ImportVerifier.NamesLoader("CurseForge: Skyblock"));
     }
 
     [Fact]

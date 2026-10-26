@@ -996,14 +996,22 @@ public partial class MainWindow : Window
         // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.
         panel.SetRefusal(ImportHooks.Refusal());
         panel.CloseRequested += (_, _) => CloseImportPanel();
-        // "Play" on the done screen: close the page, show Home on the version the import went to and start the game.
-        // The import never changes the Home selection, so the version as Home has it is what plays; the profiles it made
-        // are on the Profiles page.
-        panel.PlayRequested += (_, version) =>
+        // "Play" on the done screen (ImportLogic.DoneAction): close the page, select the one profile the import made when
+        // there is one (the import itself never changes the Home selection), then show Home on its version and start it,
+        // so the game starts WITH the imported mods. "Open Profiles": several came over, the player picks there.
+        panel.PlayRequested += (_, play) =>
         {
             CloseImportPanel();
+            if (play.ProfileId is { } id)
+                Core.SettingsStore.Update(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, id, play.Version));
             NavigateTo(LauncherPage.Home);
-            _homePage.PlayVersion(version);
+            _homePage.RefreshProfile();
+            _homePage.PlayVersion(play.Version);
+        };
+        panel.OpenProfilesRequested += (_, _) =>
+        {
+            CloseImportPanel();
+            NavigateTo(LauncherPage.Profiles);
         };
         panel.Imported += (_, _) =>
         {

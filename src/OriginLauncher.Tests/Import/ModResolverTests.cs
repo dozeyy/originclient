@@ -306,7 +306,7 @@ public class ModResolverTests : IDisposable
         foreach (var name in new[] { "fabric-a.jar", "fabric-b.jar", "quilt.jar" })
         {
             Assert.Equal(ModOutcome.WrongLoader, d[name].Outcome);
-            Assert.Contains("1.8.9 runs on Forge in Origin", d[name].Reason);
+            Assert.Contains("different kind of Minecraft mod setup", d[name].Reason);
             Assert.Null(d[name].DestFileName);
         }
         Assert.Equal(ModOutcome.Copied, d["forge189.jar"].Outcome);              // a real 1.8.9 Forge mod goes across

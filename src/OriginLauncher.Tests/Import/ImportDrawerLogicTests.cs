@@ -69,9 +69,9 @@ public class ImportDrawerLogicTests
     {
         Assert.Equal("Not supported", ImportLogic.SkipCaption(SkipKind.Unsupported));
         Assert.All(Enum.GetValues<SkipKind>(), k => Assert.False(ImportLogic.SkipCaption(k).EndsWith('.')));
-        Assert.Equal("Forge mods can't come over (Fabric only, except 1.8.9)", BulkRules.ForgeCaption);
+        Assert.Equal("Packs only: its mods are made for a different mod setup", BulkRules.ForgeCaption);
         // The full sentences (plan, summary, Done) are the engine's, one source each.
-        Assert.Equal("Forge mods can't come over. Origin runs Fabric, except on 1.8.9.", BulkRules.ForgeNote);
+        Assert.Equal("Its mods were made for a different kind of Minecraft mod setup, so only its packs come over.", BulkRules.ForgeNote);
         Assert.Equal("Origin doesn't support Minecraft 1.21.5, so this setup can't come over.", BulkRules.UnsupportedReason("1.21.5"));
     }
 
@@ -205,5 +205,61 @@ public class ImportDrawerLogicTests
         Assert.True(done.Cancelled);
         Assert.Equal(0, done.Brought);
         Assert.Empty(done.VersionLines);
+    }
+
+    // ------------------------------------------------------------ Done's button (gate review 2026-10-25)
+
+    private static ImportLogic.DoneProfile P(string id, string v = "1.21.1", bool ok = true) => new(v, id, "Prism: " + id, ok);
+
+    [Fact]
+    public void OneImportedProfileThatCanStartIsWhatPlayStarts()
+    {
+        var d = ImportLogic.DoneAction("1.20.1", new[] { P("fo", "1.21.1") });
+        Assert.Equal(ImportLogic.DoneKind.Play, d.Kind);
+        Assert.Equal("Play", d.Label);
+        Assert.Equal("1.21.1", d.Version);                 // the profile's version, not the most played one
+        Assert.Equal("fo", d.ProfileId);
+        Assert.Contains("Prism: fo", d.Note);             // the footer says what Play starts
+    }
+
+    [Fact]
+    public void SeveralProfilesOrOneThatCantStartSendThePlayerToProfilesNeverAWrongLaunch()
+    {
+        var several = ImportLogic.DoneAction("1.21.1", new[] { P("a"), P("b", "1.20.1") });
+        Assert.Equal(ImportLogic.DoneKind.OpenProfiles, several.Kind);
+        Assert.Equal("Open Profiles", several.Label);
+        Assert.Null(several.ProfileId);
+        Assert.Contains("2 profiles", several.Note);
+        Assert.DoesNotContain("Play", several.Note);
+
+        var broken = ImportLogic.DoneAction("1.21.1", new[] { P("a", ok: false) });
+        Assert.Equal(ImportLogic.DoneKind.OpenProfiles, broken.Kind);
+        Assert.Contains("needs a fix", broken.Note);
+    }
+
+    [Fact]
+    public void NoProfileMeansPlayStartsTheVersionAndNothingMeansDone()
+    {
+        var plain = ImportLogic.DoneAction("1.21.1", Array.Empty<ImportLogic.DoneProfile>());
+        Assert.Equal(ImportLogic.DoneKind.Play, plain.Kind);
+        Assert.Null(plain.ProfileId);
+        Assert.Equal("1.21.1", plain.Version);
+        Assert.Equal(ImportLogic.DoneKind.Close, ImportLogic.DoneAction(null, Array.Empty<ImportLogic.DoneProfile>()).Kind);
+    }
+
+    [Fact]
+    public void PlaySelectsTheImportedProfileOnlyWhenItStillExists()
+    {
+        var s = new OriginLauncher.App.Core.Models.LauncherSettings { SelectedVersion = "1.20.1", SelectedProfileId = "mine" };
+        s.ModProfiles.Add(new OriginLauncher.App.Core.Profiles.ModProfile { Id = "imp", Name = "Prism: X", Version = "1.21.1" });
+
+        Assert.False(OriginLauncher.App.Core.Import.Launcher.ImportSettingsRules.SelectImported(s, "gone", "1.21.1"));
+        Assert.Equal("mine", s.SelectedProfileId);
+        Assert.False(OriginLauncher.App.Core.Import.Launcher.ImportSettingsRules.SelectImported(s, "imp", "1.20.1")); // wrong version
+        Assert.Equal("1.20.1", s.SelectedVersion);
+
+        Assert.True(OriginLauncher.App.Core.Import.Launcher.ImportSettingsRules.SelectImported(s, "imp", "1.21.1"));
+        Assert.Equal("imp", s.SelectedProfileId);
+        Assert.Equal("1.21.1", s.SelectedVersion);
     }
 }

@@ -63,6 +63,48 @@ public class ImportEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task WhenNoModJarLandsNoProfileIsMadeAndHomeStaysWhereItWas()
+    {
+        // Gate review 2026-10-25: an antivirus (or the old launcher) holds every jar, so each is left out at apply. The
+        // plan had already added "Folder: Hypixel" and selected it; Home must not move to an empty profile.
+        Populate();
+        var before = _rig.Settings.Load();
+        var engine = _rig.Engine();
+        var plan = await Plan(engine: engine);
+        Assert.NotNull(plan.SettingsDelta?.AddProfile);
+        var jars = plan.Ops.Where(o => o.Item == PlanItemKind.Mod && o.Source != null).Select(o => o.Source!).ToList();
+        Assert.NotEmpty(jars);
+        var locks = jars.Select(j => new FileStream(j, FileMode.Open, FileAccess.ReadWrite, FileShare.None)).ToList();
+        ImportResult result;
+        try { result = await engine.ApplyAsync(plan, _rig.Settings, null, CancellationToken.None); }
+        finally { locks.ForEach(l => l.Dispose()); }
+
+        Assert.True(result.Succeeded);
+        Assert.NotEmpty(result.LeftOut); // each held jar is named as left out
+        var after = _rig.Settings.Load();
+        Assert.Empty(after.Profiles);
+        Assert.Equal(before.SelectedProfileId, after.SelectedProfileId);
+        Assert.Equal(before.SelectedVersion, after.SelectedVersion);
+        // The other things still came over: the import itself is not undone.
+        Assert.True(File.Exists(Dst("options.txt")));
+    }
+
+    [Fact]
+    public void AReusedProfileIsNeverDroppedEvenWithNoNewJar()
+    {
+        var plan = new ImportPlan
+        {
+            ImportId = "t", TargetVersion = "1.21.1",
+            Source = new DetectedInstance { Name = "x", GameDir = "x", Kind = SourceKind.Folder },
+            ProfileId = "p1", ProfileReused = true, ProfileModsDir = Path.Combine(Path.GetTempPath(), "origin-no-such-dir-" + Guid.NewGuid()),
+            SettingsDelta = new SettingsDelta { SetSelectedProfileId = "p1", SetSelectedVersion = "1.21.1" },
+        };
+        ImportEngine.DropEmptyProfile(plan);
+        Assert.Equal("p1", plan.SettingsDelta!.SetSelectedProfileId);
+        Assert.Equal("1.21.1", plan.SettingsDelta.SetSelectedVersion);
+    }
+
+    [Fact]
     public async Task AModOneOfOriginsOwnJarsAlreadyHasIsLeftAsItIs()
     {
         Populate();
@@ -316,8 +358,8 @@ public class ImportEngineTests : IDisposable
         Assert.True(result.Succeeded);
         Assert.DoesNotContain(plan.Ops, o => o.Item == PlanItemKind.Mod);
         Assert.All(plan.Mods.Where(m => m.FileName is "mymod.jar" or "sodium-fabric.jar" or "needs-lib.jar" or "old-thing.jar" or "disabled-thing.jar.disabled"),
-            m => Assert.Contains("1.8.9 runs on Forge in Origin", m.Reason));
-        Assert.Contains(plan.Lines, l => l.Section == SummarySection.NotImported && l.Reason!.Contains("1.8.9 runs on Forge in Origin"));
+            m => Assert.Contains("different kind of Minecraft mod setup", m.Reason));
+        Assert.Contains(plan.Lines, l => l.Section == SummarySection.NotImported && l.Reason!.Contains("different kind of Minecraft mod setup"));
         Assert.False(Directory.Exists(Path.Combine(_rig.Instances, "1.8.9", "profiles")));
     }
 
@@ -630,7 +672,7 @@ public class ImportEngineTests : IDisposable
         Assert.Contains("Missing.zip", attention);
         Assert.Contains("Origin includes Sodium 0.6.13", notImported);             // built-in
         Assert.Contains("forge-thing.jar", notImported);                            // wrong loader, with the reason
-        Assert.Contains("Forge mod", notImported);
+        Assert.Contains("different kind of Minecraft mod setup", notImported);
         Assert.Contains("old-thing.jar", notImported);                              // wrong Minecraft
         Assert.Contains("discord-token.json", notImported);                         // skipped for safety, by name
         Assert.Contains("Skipped for safety", notImported);

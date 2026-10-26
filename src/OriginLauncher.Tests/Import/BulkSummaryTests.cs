@@ -73,7 +73,7 @@ public class BulkSummaryTests : IDisposable
         Assert.Equal("Minecraft 1.20.1: settings from Prism: Fabric 1.20.1", view.Versions[1].SettingsLine);
         var forge = view.Versions[1].Setups.Single(s => s.Label == "Prism: Forgey");
         Assert.Equal(SetupResultKind.ImportedPartly, forge.Kind);
-        Assert.Contains("Forge mods can't come over. Origin runs Fabric, except on 1.8.9.", forge.NeedsAttention);
+        Assert.Contains("Its mods were made for a different kind of Minecraft mod setup, so only its packs come over.", forge.NeedsAttention);
         var creative = view.Versions[0].Setups.Single(s => s.Label == "Prism: Creative");
         Assert.Contains("Settings for Minecraft 1.21.1 come from Prism: Survival", creative.NotImported);
         Assert.Contains(view.DidntComeOver, d => d.Reason == "Origin doesn't support Minecraft 1.21.5, so this setup can't come over.");

@@ -641,7 +641,7 @@ internal static class ImportShots
             {
                 var forge = plan.Mods.Select(m => m with
                 {
-                    Outcome = ModOutcome.WrongLoader, DestFileName = null, Reason = ForgeNote,
+                    Outcome = ModOutcome.WrongLoader, DestFileName = null, Reason = Core.Import.ImportVerifier.WrongLoaderReason,
                 }).ToList();
                 plan.Mods.Clear();
                 plan.Mods.AddRange(forge);

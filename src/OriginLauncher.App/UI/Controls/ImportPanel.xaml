@@ -187,6 +187,27 @@
             <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
         </Style>
 
+        <!-- Step 2's two scope cards: their text starts at the same height whatever each card's length (at min size one
+             wraps to more lines). Theme/Template.Button centres its content, so these two cards get a local copy whose
+             content follows VerticalContentAlignment (Top); same chrome bindings, so StripCard's states are unchanged. -->
+        <ControlTemplate x:Key="Import.TopCardTemplate" TargetType="Button">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{Binding Path=(ui:Chrome.Corner), RelativeSource={RelativeSource TemplatedParent}}"
+                    SnapsToDevicePixels="True">
+                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  RecognizesAccessKey="True"/>
+            </Border>
+        </ControlTemplate>
+        <Style x:Key="Import.ScopeCard" TargetType="Button" BasedOn="{StaticResource Import.CardButton}">
+            <Setter Property="Template" Value="{StaticResource Import.TopCardTemplate}"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+
         <!-- A grey block standing in for text or a logo while the scan runs (the skeleton tiles). -->
         <Style x:Key="Import.Skeleton" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
@@ -1094,7 +1115,7 @@
                 <!-- Step 2: how much of the picked launcher comes over. Two cards, one press each. -->
                 <StackPanel x:Name="ScopePane" Visibility="Collapsed">
                     <UniformGrid Columns="2" Margin="0,0,-16,0">
-                        <Button x:Name="ScopeAllButton" Style="{StaticResource Import.CardButton}" Click="ScopeAll_Click"
+                        <Button x:Name="ScopeAllButton" Style="{StaticResource Import.ScopeCard}" Click="ScopeAll_Click"
                                 AutomationProperties.Name="Import everything">
                             <StackPanel>
                                 <Border Style="{StaticResource Surface.Tile}" Background="{StaticResource Brush.HueTile.Emerald}"
@@ -1107,7 +1128,7 @@
                                            Margin="0,12,0,0" TextWrapping="Wrap" TextTrimming="None"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="ScopeChooseButton" Style="{StaticResource Import.CardButton}" Click="ScopeChoose_Click"
+                        <Button x:Name="ScopeChooseButton" Style="{StaticResource Import.ScopeCard}" Click="ScopeChoose_Click"
                                 AutomationProperties.Name="Choose what to import">
                             <StackPanel>
                                 <Border Style="{StaticResource Surface.Tile}" Background="{StaticResource Brush.HueTile.Sky}"
