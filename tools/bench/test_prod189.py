@@ -641,11 +641,17 @@ class JarKeys(Tmp):
                  + bytes([cut - 12]) + target[12:cut]                                          # DATA
                  + b"\xf7" + (len(target) - cut).to_bytes(2, "big") + target[cut:] + b"\x00")
         self.assertEqual(P.gdiff_apply(vanilla, patch), target)
-        of_jar, van_jar = self.p("of.jar"), self.p("vanilla.jar")
+        self.assertEqual(P.gdiff_apply(vanilla, patch[:-1]), target)      # OptiFine's patches carry no EOF byte
+        of_jar, van_jar, bad_jar = self.p("of.jar"), self.p("vanilla.jar"), self.p("bad.jar")
         with zipfile.ZipFile(of_jar, "w") as z:
             z.writestr("patch/avh.class.xdelta", patch)
+            z.writestr("patch/avh.class.md5", hashlib.md5(target).hexdigest())
+        with zipfile.ZipFile(bad_jar, "w") as z:
+            z.writestr("patch/avh.class.xdelta", patch)
+            z.writestr("patch/avh.class.md5", "0" * 32)
         with zipfile.ZipFile(van_jar, "w") as z:
             z.writestr("avh.class", vanilla)
+        self.assertEqual(P.optifine_patched_classes(bad_jar, van_jar), {})  # md5 mismatch: not counted
         self.assertNotIn("ofAfterLong", P.optifine_jar_saved_keys(of_jar))          # the raw scan misses it
         rebuilt = P.optifine_patched_classes(of_jar, van_jar)
         found = P.optifine_jar_saved_keys(of_jar, rebuilt)

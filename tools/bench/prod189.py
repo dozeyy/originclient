@@ -647,7 +647,7 @@ def gdiff_apply(source, patch):
     copy_sizes = {249: (2, 1), 250: (2, 2), 251: (2, 4), 252: (4, 1), 253: (4, 2), 254: (4, 4), 255: (8, 4)}
     while True:
         if pos >= len(patch):
-            raise ValueError("GDIFF patch ends without EOF")
+            return bytes(out)   # javaxdelta (OptiFine's writer) ends the stream without the EOF command
         cmd = patch[pos]
         pos += 1
         if cmd == 0:
@@ -674,9 +674,15 @@ def optifine_patched_classes(jar_path, vanilla_jar):
                 base = name[len("patch/"):-len(".xdelta")]
                 if base in have:
                     try:
-                        out[base] = gdiff_apply(v.read(base), z.read(name))
+                        cls = gdiff_apply(v.read(base), z.read(name))
                     except ValueError:
-                        pass   # not GDIFF: the byte scan in optifine_jar_saved_keys still covers it
+                        continue   # not GDIFF: the byte scan in optifine_jar_saved_keys still covers it
+                    # OptiFine ships patch/<class>.md5 of the patched class: a wrong vanilla jar never counts
+                    md5 = "patch/%s.md5" % base
+                    if md5 in z.namelist() and z.read(md5).decode("ascii", "replace").strip().lower() \
+                            != hashlib.md5(cls).hexdigest():
+                        continue
+                    out[base] = cls
     return out
 
 
@@ -716,6 +722,9 @@ def cmd_jar_keys(args):
         for n, b in patched.items():
             with open(os.path.join(args.write_classes, n.replace("/", "_")), "wb") as f:
                 f.write(b)
+    if args.vanilla:
+        print("rebuilt %d patched classes from %s (each matched OptiFine's own .md5)"
+              % (len(patched), os.path.basename(args.vanilla)))
     found = optifine_jar_saved_keys(args.jar, patched)
     listed = {k for k in load_key_list(args.keys) if k.startswith("of")}
     if not listed:

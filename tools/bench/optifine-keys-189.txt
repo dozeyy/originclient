@@ -6,7 +6,9 @@
 # what a FRESH install wrote (defaults on that run; some, like render distance, can depend on the machine).
 # Cross-check: GameSettings declares 72 fields named of<Upper>* (reflection dump of-fields.txt). 71 of them are the
 # keys of the same name below; the 72nd, ofKeyBindZoom, is saved as key_of.key.zoom (the zoom key binding).
-# javap on the OptiFine jar cannot list them: the jar holds patches, not GameSettings.class (javap: class not found).
+# The jar holds GameSettings as a GDIFF patch (patch/avh.class.xdelta), not a class. `prod189.py jar-keys --vanilla`
+# rebuilds avh.class from the vanilla 1.8.9 jar (md5 matches OptiFine's patch/avh.class.md5); javap on it lists
+# exactly these 71 of<Key>: String constants (E3, 2026-10-25).
 # Presets (Phase 6.2) may only write keys listed here; tools/bench/prod189.py apply_preset refuses anything else.
 #
 ofFogType:1

@@ -410,3 +410,22 @@ On current main, the only Origin cost CI can still see is the cosmetics scene: o
 
 Candidates E (entity occlusion) and K (Patcher-style knobs) can only be ranked by a real-GPU measurement on Will's PC;
 llvmpipe cannot rank them.
+
+## E3 OptiFine setting keys, checked against the real jar: all 71 right, no preset change
+
+The question: do the 1.8.9 presets write `optionsof.txt` keys that OptiFine HD_U_M5 actually reads?
+
+- The jar (SHA-1 `d362d58a28f5373b141b9e426e8e160638bfafcd`, the pinned one) has no `GameSettings` class. It ships
+  `patch/avh.class.xdelta` (GDIFF, as written by javaxdelta, with no end byte) plus `patch/avh.class.md5`.
+- `python tools/bench/prod189.py jar-keys --jar <OptiFine jar> --vanilla <vanilla 1.8.9 client jar> --write-classes <dir>`
+  rebuilds every patched class from the vanilla jar. Local run: 238 classes rebuilt, and each one's md5 equals
+  OptiFine's own `.md5`. The rebuilt `avh.class` md5 is `7a4eca00cb8f920e37a800579e9ddd46`.
+- In the rebuilt `avh.class` there are 71 saved-key literals (`of<Key>:`). The verified list
+  (`tools/bench/optifine-keys-189.txt`) also has 71. Missing 0, extra 0. `javap -v` (JDK 21) on that class counts
+  the same 71 String constants (for example `ofPotionParticles:`, `ofRandomEntities:`).
+- The first CI checks (runs 40245185796, 40245198108, 40245200772, 40253195961) reported 69/71. They scanned the raw
+  patch bytes, where a GDIFF DATA boundary splits `ofPotionParticles` and `ofRandomEntities`. The second attempt also
+  rejected the missing end byte. Both are fixed: the patch is rebuilt, the end of the stream is treated as the end,
+  and a class whose md5 doesn't match is not counted. Tests are in `tools/bench/test_prod189.py` (`JarKeys`).
+- The presets: `GamePresetTests.EveryOptiFineKeyIsVerified` already restricts every 1.8.9 preset key to that
+  verified list, and the bench round-trip gate checks that OptiFine keeps each value. No preset change.
