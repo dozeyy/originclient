@@ -128,8 +128,40 @@ public sealed class ImportSharedModsTests : IDisposable
     private static string Lines(ImportPlan plan) => string.Join(" // ", plan.Lines.Select(l => $"{l.Section} {l.Kind} {l.Name}: {l.Reason}"));
 
     [Fact]
-    public async Task AnOriginJarTooOldForTheImportedModsStaysAndTheModsThatNeedTheNewerOneLandTurnedOff()
+    public async Task AfterAnImportPlayLoadsThePlayersVersionNotOriginsAndTheCheckLetsItStart()
     {
+        // Import -> profile -> Play, end to end on real files: the launch folder Play builds and the check it runs.
+        var origin = _rig.OriginJar("1.21.1", "cloth-config-0.90.0.jar", Kit.FabricJar("cloth-config", "0.90.0"));
+        Kit.WriteBytes(_rig.Source, "mods/cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
+        Kit.WriteBytes(_rig.Source, "mods/needsnew.jar", Kit.FabricJar("needsnew", "1.0", depends: new() { ["cloth-config"] = ">=0.100.0" }));
+        var (plan, result) = await Run();
+        Assert.True(result.Succeeded, result.Error);
+
+        App.Core.Compat.ModFolderScanner.ClearCache();
+        App.Core.Compat.LaunchPreflight.ClearCache();
+        var overrides = App.Core.Compat.LaunchPreflight.OverridesFor("1.21.1", SharedMods, plan.ProfileModsDir!, _rig.IsOriginJar);
+        Assert.Equal(new[] { "cloth-config" }, overrides.OverriddenIds);
+        Assert.True(overrides.Skips(origin));
+
+        var launch = App.Core.Profiles.LaunchModFolder.LaunchSet(
+            Directory.GetFiles(SharedMods), Directory.GetFiles(plan.ProfileModsDir!), _rig.IsOriginJar, skip: overrides.Skips);
+        Assert.DoesNotContain(origin, launch.Values);                                   // Origin's 0.90 is not linked in
+        Assert.Contains(In(plan, "cloth-config-0.100.0.jar"), launch.Values);           // the player's 0.100 is
+        Assert.Contains(In(plan, "needsnew.jar"), launch.Values);
+
+        var verdict = App.Core.Compat.LaunchPreflight.Evaluate("1.21.1", SharedMods, plan.ProfileModsDir!, true,
+            _rig.IsOriginJar, _rig.IsOriginJar);
+        Assert.True(verdict.Blocking.Count == 0, string.Join("; ", verdict.Blocking));
+        Assert.Contains("cloth-config", verdict.Overrides.OverriddenIds);
+        Assert.Contains(verdict.Soft, n => n.Contains("0.100.0 from the profile is used instead of Origin's 0.90.0"));
+    }
+
+    [Fact]
+    public async Task AnOriginJarTooOldForTheImportedModsStaysAndThePlayersNewerCopyLandsInTheProfile()
+    {
+        // Will (2026-10-25): the player's own mod list takes priority. Origin's copy in the shared folder is never
+        // swapped; the player's newer one lands in the profile and loads there instead (PlayerOverrides), so the mod
+        // that needs it lands turned on.
         var oldJar = Kit.FabricJar("cloth-config", "0.90.0");
         var origin = _rig.OriginJar("1.21.1", "cloth-config-0.90.0.jar", oldJar);
         Kit.WriteBytes(_rig.Source, "mods/cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
@@ -140,9 +172,8 @@ public sealed class ImportSharedModsTests : IDisposable
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(oldJar, File.ReadAllBytes(origin));                                   // Origin's copy: never swapped
         Assert.False(File.Exists(Shared("cloth-config-0.100.0.jar")), Lines(plan));
-        Assert.False(File.Exists(In(plan, "cloth-config-0.100.0.jar")));                   // never two copies of one mod
-        Assert.True(File.Exists(In(plan, "needsnew.jar.disabled")), Lines(plan));          // can't start next to 0.90: off
-        Assert.Contains(plan.Lines, l => l.Reason == ImportEngine.OriginKeepsItsCopy);     // and Fix Compatibility is named
+        Assert.True(File.Exists(In(plan, "cloth-config-0.100.0.jar")), Lines(plan));       // the player's copy, in the profile
+        Assert.True(File.Exists(In(plan, "needsnew.jar")), Lines(plan));                   // its need is met there: on
 
         var undone = await _rig.Engine().RollbackAsync(plan.ImportId, _rig.Settings);
         Assert.Equal(ImportState.RolledBack, undone.State);
@@ -152,7 +183,7 @@ public sealed class ImportSharedModsTests : IDisposable
     }
 
     [Fact]
-    public async Task WhenTheImportedJarIsNoNewerOriginsIsKeptAndTheLineSaysSo()
+    public async Task AnOlderCopyOfOriginsModIsStillThePlayersChoiceAndWhatNeedsANewerOneLandsTurnedOff()
     {
         var oldJar = Kit.FabricJar("cloth-config", "0.90.0");
         var origin = _rig.OriginJar("1.21.1", "cloth-config-0.90.0.jar", oldJar);
@@ -164,7 +195,8 @@ public sealed class ImportSharedModsTests : IDisposable
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(oldJar, File.ReadAllBytes(origin));
         Assert.False(File.Exists(Shared("cloth-config-0.80.0.jar")));
-        Assert.False(plan.ProfileModsDir != null && File.Exists(In(plan, "cloth-config-0.80.0.jar")));
+        Assert.True(File.Exists(In(plan, "cloth-config-0.80.0.jar")), Lines(plan));        // the player's version wins in the profile
+        Assert.True(File.Exists(In(plan, "needsnew.jar.disabled")), Lines(plan));          // nothing gives it 0.100+: off
         Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Kind == PlanItemKind.Mod);
     }
 
@@ -173,7 +205,7 @@ public sealed class ImportSharedModsTests : IDisposable
     // 2026-10-20 launch crash: Counter / Spawn Chaining / Unchained (Cobblemon 1.7.3 add-ons) were imported next to
     // Origin's Cobblemon 1.8.0, and Fabric refused to start the game ("only the wrong version is present").
     [Fact]
-    public async Task AnImportedModThatNeedsAnotherVersionOfOriginsModLandsTurnedOffNotToBreakTheBoot()
+    public async Task AnImportedModThatNeedsAnotherVersionOfOriginsModGetsThePlayersCopyAndLandsTurnedOn()
     {
         var cobblemon = Kit.FabricJar("cobblemon", "1.8.0+1.21.1");
         var origin = _rig.OriginJar("1.21.1", "cobblemon-1.8.0.jar", cobblemon);
@@ -186,28 +218,24 @@ public sealed class ImportSharedModsTests : IDisposable
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(cobblemon, File.ReadAllBytes(origin));                                 // Origin's copy untouched
-        Assert.False(File.Exists(In(plan, "counter.jar")), Lines(plan));                    // would stop the game: not turned on
-        Assert.True(File.Exists(In(plan, "counter.jar.disabled")));                         // but still brought over, turned off
-        Assert.False(File.Exists(In(plan, "counter-extra.jar")));                           // its add-on can't load without it
-        Assert.True(File.Exists(In(plan, "counter-extra.jar.disabled")));
-        Assert.True(File.Exists(In(plan, "unrelated.jar")));                                // everything else lands as before
-        Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Reason != null
-            && l.Reason.Contains("needs cobblemon") && l.Reason.Contains("1.8.0+1.21.1"));
+        Assert.True(File.Exists(In(plan, "cobblemon-1.7.3.jar")), Lines(plan));             // the player's Cobblemon wins there
+        Assert.True(File.Exists(In(plan, "counter.jar")), Lines(plan));                     // so its add-ons start
+        Assert.True(File.Exists(In(plan, "counter-extra.jar")));
+        Assert.True(File.Exists(In(plan, "unrelated.jar")));
     }
 
     // Review finding (2026-10-25): the imported lib 2.0 can't take the place of Origin's lib 1.0, and its own dependency
     // (helper 2+, which Origin keeps at 1.0) fails anyway. Origin's lib 1.0 stays ON, so the mod that accepts any lib
     // stays on too, and the lib's line says it was turned off, not "already in Origin's mods".
     [Fact]
-    public async Task AnImportedModTurnedOffInsteadOfReplacingOriginsCopyLeavesItsDependantsOnAndSaysWhy()
+    public async Task ThePlayersCopiesWinAndOriginsModThatCannotTakeThemIsKeptOutAndNamed()
     {
         var originLib = Kit.FabricJar("lib", "1.0.0");
         var lib = _rig.OriginJar("1.21.1", "lib-1.0.0.jar", originLib);
         _rig.OriginJar("1.21.1", "helper-1.0.0.jar", Kit.FabricJar("helper", "1.0.0"));
-        // Another of Origin's mods keeps Origin's helper 1.0, so the imported helper 2.0 cannot replace it...
+        // Another of Origin's mods says it does not work with helper 2: it is kept out of this profile's launches.
         _rig.OriginJar("1.21.1", "originuser.jar", Kit.FabricJar("originuser", "1.0", depends: new() { ["helper"] = "<2.0.0" }));
         Kit.WriteBytes(_rig.Source, "mods/helper-2.0.0.jar", Kit.FabricJar("helper", "2.0.0"));
-        // ...and the imported lib 2.0 (which would replace Origin's lib) needs helper 2+, so it is turned off.
         Kit.WriteBytes(_rig.Source, "mods/lib-2.0.0.jar", Kit.FabricJar("lib", "2.0.0", depends: new() { ["helper"] = ">=2.0.0" }));
         Kit.WriteBytes(_rig.Source, "mods/needs-lib2.jar", Kit.FabricJar("needs_lib2", "1.0", depends: new() { ["lib"] = ">=2.0.0" }));
         Kit.WriteBytes(_rig.Source, "mods/app.jar", Kit.FabricJar("app", "1.0", depends: new() { ["lib"] = "*" }));
@@ -215,14 +243,13 @@ public sealed class ImportSharedModsTests : IDisposable
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal(originLib, File.ReadAllBytes(lib));                                    // Origin's copy stays on
-        Assert.False(File.Exists(In(plan, "lib-2.0.0.jar")));
-        Assert.True(File.Exists(In(plan, "app.jar")), Lines(plan));
-        Assert.False(File.Exists(In(plan, "app.jar.disabled")));                            // lib IS there: app stays on
-        Assert.True(File.Exists(In(plan, "needs-lib2.jar.disabled")));                      // it really needs lib 2+: off
-        var libLine = plan.Lines.Single(l => l.Name == "lib");
-        Assert.Equal(SummarySection.NeedsAttention, libLine.Section);
-        Assert.DoesNotContain(ImportEngine.AlreadyInOriginMods, libLine.Reason);
+        Assert.Equal(originLib, File.ReadAllBytes(lib));                                    // Origin's copy: untouched
+        Assert.True(File.Exists(In(plan, "lib-2.0.0.jar")), Lines(plan));
+        Assert.True(File.Exists(In(plan, "helper-2.0.0.jar")));
+        Assert.True(File.Exists(In(plan, "app.jar")));
+        Assert.True(File.Exists(In(plan, "needs-lib2.jar")));
+        Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Reason != null
+            && l.Reason.Contains("originuser") && l.Reason.Contains("helper 2.0.0"));
     }
 
     [Fact]

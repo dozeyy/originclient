@@ -21,28 +21,30 @@ public static class LaunchModFolder
     /// The jars a profile launch loads, as file name -> full path: Origin's own
     /// enabled jars from the shared folder (<paramref name="isOriginJar"/>
     /// decides which), then the profile's enabled jars. The player's loose jars
-    /// in the shared folder are NOT in it — that is the point of a profile. A
-    /// profile jar that looks like one of Origin's own (a second Fabric API
-    /// would stop Fabric booting) is left out.
+    /// in the shared folder are NOT in it — that is the point of a profile.
     /// <paramref name="confirmOrigin"/> (a full path; ModManager.IsOriginsCopy) confirms a name that looks like
     /// Origin's by the file's hash or metadata: a player's jar that is only NAMED like one of Origin's stays theirs.
+    /// Every profile jar is the player's. Where the profile and Origin both have a mod, <paramref name="skip"/>
+    /// (PlayerOverridePlan.Skips: Origin's copy withheld, or the player's set aside) says which copy stays out; a
+    /// profile jar with exactly the name of one of Origin's loaded jars gives way to Origin's.
     /// </summary>
     public static Dictionary<string, string> LaunchSet(
         IEnumerable<string> sharedFiles, IEnumerable<string> profileFiles, Func<string, bool> isOriginJar,
-        Func<string, bool>? confirmOrigin = null)
+        Func<string, bool>? confirmOrigin = null, Func<string, bool>? skip = null)
     {
         bool IsOrigin(string path, string name) => isOriginJar(name) && (confirmOrigin?.Invoke(path) ?? true);
+        bool Skipped(string path) => skip?.Invoke(path) ?? false;
 
         var set = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in sharedFiles)
         {
             var name = Path.GetFileName(path);
-            if (IsEnabledJar(name) && IsOrigin(path, name)) set[name] = path;
+            if (IsEnabledJar(name) && IsOrigin(path, name) && !Skipped(path)) set[name] = path;
         }
         foreach (var path in profileFiles)
         {
             var name = Path.GetFileName(path);
-            if (IsEnabledJar(name) && !IsOrigin(path, name) && !set.ContainsKey(name)) set[name] = path;
+            if (IsEnabledJar(name) && !Skipped(path) && !set.ContainsKey(name)) set[name] = path;
         }
         return set;
     }

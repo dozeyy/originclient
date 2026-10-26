@@ -165,7 +165,10 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
                         print(f"boot-smoke: companions loaded at the catalog versions: {shown}", flush=True)
                         verdict = (True, verdict[1] + f"; companions loaded: {shown}", False)
                 if perf is not None and verdict[0]:
-                    pok, plines = perf_log.gate("".join(seen), os.path.basename(module), perf)
+                    # A player-profile row may require Iris NOT to load (covers.py --player with no Iris): then only the
+                    # expectation below decides what must be in the mod list.
+                    require = perf and not (expect_perf and "absent" in expect_perf.values())
+                    pok, plines = perf_log.gate("".join(seen), os.path.basename(module), require)
                     print(chr(10).join(plines), flush=True)
                     if not pok:
                         verdict = (False, "Sodium/Iris gate failed (see perf-gate lines above)", False)
@@ -175,7 +178,7 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
                     # covers.py --pair: the swapped-in pair must be what loaded (not a nested or shipped copy).
                     have = perf_log.loaded("".join(seen))
                     wrong = [f"{k} loaded {have.get(k, 'NOT LOADED')}, expected {v}" for k, v in sorted(expect_perf.items())
-                             if have.get(k) != v]
+                             if (k in have if v == "absent" else have.get(k) != v)]
                     if wrong:
                         print("::error title=pair not loaded::" + "; ".join(wrong), flush=True)
                         verdict = (False, "swapped Sodium/Iris pair not loaded: " + "; ".join(wrong), False)

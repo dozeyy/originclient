@@ -921,6 +921,47 @@ class CoversBoot(unittest.TestCase):
         self.assertIn('m="build/covers/$COVER"', wf)
         self.assertIn("args+=(--perf --companions)", wf)
 
+    # ---- --player: the player's own Sodium (+ Iris) win over Origin's (PlayerOverrides.cs)
+
+    def test_player_spec_parses_and_refuses_junk(self):
+        self.assertEqual(covers.parse_player("mc1.21.1-0.6.9-fabric/1.8.7+1.21.1-fabric"),
+                         ("mc1.21.1-0.6.9-fabric", "1.8.7+1.21.1-fabric"))
+        self.assertEqual(covers.parse_player("mc1.21.1-0.6.9-fabric/-"), ("mc1.21.1-0.6.9-fabric", None))
+        for bad in ("mc1.21.1-0.6.9-fabric", "/1.8.7", "a b/c", "x/"):
+            with self.assertRaises(covers.CoverError):
+                covers.parse_player(bad)
+
+    def test_player_version_is_that_exact_modrinth_version_with_its_hash(self):
+        listing = [{"version_number": "other", "files": [{"primary": True, "url": "u0", "filename": "f0.jar", "hashes": {"sha512": "A" * 128}}]},
+                   {"version_number": "mc1.21.1-0.6.9-fabric",
+                    "files": [{"primary": True, "url": "u1", "filename": "sodium-fabric-0.6.9+mc1.21.1.jar", "hashes": {"sha512": "B" * 128}}]}]
+        self.assertEqual(covers.player_version("sodium", "mc1.21.1-0.6.9-fabric", "1.21.1", fetch_json=lambda u: listing),
+                         ("u1", "sodium-fabric-0.6.9+mc1.21.1.jar", "b" * 128))
+        with self.assertRaises(covers.CoverError):
+            covers.player_version("sodium", "nope", "1.21.1", fetch_json=lambda u: listing)
+
+    def test_no_player_iris_disables_origins_nested_iris_in_the_boot(self):
+        import io, zipfile
+        inner = io.BytesIO()
+        with zipfile.ZipFile(inner, "w") as z:
+            z.writestr("fabric.mod.json", '{"id": "iris", "version": "1.8.8"}')
+        jar = os.path.join(tempfile.mkdtemp(), "originclient.jar")
+        with zipfile.ZipFile(jar, "w") as z:
+            z.writestr("fabric.mod.json", '{"id": "originclient", "version": "1"}')
+            z.writestr("META-INF/jars/iris.jar", inner.getvalue())
+        self.assertTrue(covers.nests(jar, "iris"))
+        self.assertFalse(covers.nests(jar, "sodium"))
+        self.assertEqual(covers.mod_identity(jar), ("originclient", "1"))
+        g = covers.build_gradle(_read(os.path.join(ROOT, "src", "mods", "versions", "1.21.1", "build.gradle")), ["iris"])
+        self.assertIn('property "fabric.debug.disableModIds", "iris"', g)
+        self.assertNotIn("disableModIds", covers.build_gradle(_read(os.path.join(ROOT, "src", "mods", "versions", "1.21.1", "build.gradle"))))
+
+    def test_workflow_wires_player_rows(self):
+        wf = _read(os.path.join(ROOT, ".github", "workflows", "boot-smoke.yml"))
+        self.assertIn("players:", wf)
+        self.assertIn('${PLAYER:+--player "$PLAYER"}', wf)
+        self.assertIn('if [ -n "$PAIR$PLAYER" ]; then args+=(--expect-perf', wf)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

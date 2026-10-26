@@ -112,6 +112,37 @@ public sealed class FixCompatibilityTests : IDisposable
     }
 
     [Fact]
+    public void Fix_keeps_the_players_own_Sodium_and_the_copy_starts_with_it()
+    {
+        // The player's own Sodium wins over the one Origin nests (Will, 2026-10-25): Fix Compatibility must not
+        // "repair" it away, and the copy must pass Play's check with the player's version in it.
+        static bool Origin(string n) => n.StartsWith("originclient");
+        Put(_shared, "originclient-0.4.2.jar", Kit.OriginClientJar());
+        Put(ProfileMods, "sodium-fabric-0.6.9+mc1.21.1.jar", Kit.FabricJar("sodium", "0.6.9+mc1.21.1", minecraft: "~1.21.1", name: "Sodium"));
+        Put(ProfileMods, "sodiumaddon-1.0.jar", Kit.FabricJar("sodiumaddon", depends: new() { ["sodium"] = "0.6.9+mc1.21.1" }, name: "Sodium Addon"));
+        Put(ProfileMods, "oldmod-1.0.jar", Kit.FabricJar("oldmod", minecraft: "1.20.4", name: "Old Mod"));
+        var before = Snapshot(Path.Combine(_profiles, _profile.Id));
+        var source = new FixSource(Mc, _profile, _shared, ProfileMods, Origin, Origin);
+        var report = LaunchPreflight.Inspect(Mc, _shared, ProfileMods, true, Origin, Origin)!;
+        Assert.DoesNotContain(report.Findings, f => f.Kind == FindingKind.OriginManagedConflict);
+        var proposal = FixCompatibility.Choose(source, new[] { (ConfigurationCatalog.For(Mc).First(c => c.IsDefault), report) },
+            null, LaunchPreflight.PlatformFor(Mc));
+        Assert.Equal(new[] { "Turn off Old Mod:" }, proposal.Changes.Select(c => c[..c.IndexOf(':')] + ":").ToArray());
+
+        var result = Apply(proposal);
+
+        Assert.True(result.Ok, result.Error);
+        Assert.Equal(before, Snapshot(Path.Combine(_profiles, _profile.Id)));          // the original is kept as it was
+        var copyMods = Path.Combine(_profiles, result.ProfileId!, "mods");
+        Assert.True(File.Exists(Path.Combine(copyMods, "sodium-fabric-0.6.9+mc1.21.1.jar")));
+        Assert.True(File.Exists(Path.Combine(copyMods, "sodiumaddon-1.0.jar")));
+        var verdict = LaunchPreflight.Evaluate(Mc, _shared, copyMods, true, Origin, Origin);
+        Assert.Empty(verdict.Blocking);
+        Assert.Contains("sodium", verdict.Overrides.OverriddenIds);
+        Assert.Equal("-Dfabric.debug.disableModIds=iris", verdict.Overrides.JvmArgument); // no tested Iris for 0.6.9
+    }
+
+    [Fact]
     public void A_fix_of_the_shared_folder_copies_only_the_players_mods_and_never_changes_the_folder()
     {
         Put(_shared, "originclient-0.4.2.jar", Kit.OriginClientJar());

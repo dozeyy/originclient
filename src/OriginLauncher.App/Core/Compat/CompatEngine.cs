@@ -163,6 +163,12 @@ public static class CompatEngine
 
             // Origin ships this mod (by its id, or one it provides): a second copy would be a duplicate id.
             var shippedId = FindOrigin(info.Id) != null ? info.Id : info.Provides.FirstOrDefault(p => FindOrigin(p) != null);
+            // In a mod profile the player's own copy (for this Minecraft version, another version than Origin's) wins:
+            // it is judged like any other mod of theirs (PlayerOverrides decides the launch).
+            if (shippedId == info.Id && _platform.PlayerCopiesWin
+                && (info.MinecraftRange is not { } fits || fits.IsSatisfiedBy(_platform.McVersion))
+                && PlayerOverrides.MayReplace(info.Id, info.Version, FindOrigin(info.Id)!.Version))
+                shippedId = null;
             if (shippedId != null)
             {
                 var shipped = FindOrigin(shippedId)!;

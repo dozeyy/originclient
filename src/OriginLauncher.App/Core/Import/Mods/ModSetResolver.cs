@@ -18,7 +18,10 @@ public sealed record ResolveContext(string TargetVersion, BuiltInModSet BuiltIns
 // is the shared compatibility engine (Core/Compat/CompatEngine, Phase 5.1): this class only asks it about the
 // source mods as import candidates and turns its findings into the import's own outcomes:
 //   not a Fabric mod (or 1.8.9's Forge rule)   -> WrongLoader, listed, not copied
-//   Origin already includes it (by mod id)     -> BuiltIn, "Origin includes X v", not copied
+//   Origin already includes it (by mod id)     -> BuiltIn, "Origin includes X v", not copied, when it is the same
+//                                                version, Origin's own mod, an older Fabric API or for another
+//                                                Minecraft version; any other copy is the player's and is imported
+//                                                (it wins over Origin's in the profile: Core/Compat/PlayerOverrides)
 //   built for another Minecraft version        -> WrongMinecraft, listed, not copied
 //   two versions of one id                     -> the kept one is imported, the rest are Duplicate
 //   known not to work with Origin (D13)        -> copied DISABLED with the reason
@@ -57,7 +60,7 @@ public static class ModSetResolver
             .ToList();
         var platform = new CompatPlatform(
             ctx.TargetVersion, ctx.TargetIsForge189 ? LoaderFamily.LegacyForge : LoaderFamily.Fabric,
-            ctx.LoaderVersion, ctx.JavaVersion, ctx.BuiltIns);
+            ctx.LoaderVersion, ctx.JavaVersion, ctx.BuiltIns) { PlayerCopiesWin = true }; // imports land in a profile
         var report = CompatEngine.Check(entries, platform);
 
         var decisions = new Dictionary<SourceMod, ModDecision>(ReferenceEqualityComparer.Instance);

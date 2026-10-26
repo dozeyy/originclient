@@ -235,6 +235,14 @@ public sealed class SharedModsLedger
 
     /// <summary>
     /// The version of Origin's own TURNED-ON copy of <paramref name="id"/> (it may be null when the jar states none), as
+    /// <summary>Origin's turned-on jars as read (role Managed, top-level metadata only), for PlayerOverrides.</summary>
+    public IReadOnlyList<ModFile> OriginFiles() => _originJars
+        .Where(j => !j.Disabled && j.Info != null)
+        .Select(j => new ModFile(j.Path, Path.GetFileName(j.Path), Enabled: true, ModRole.Managed, j.Info!))
+        .ToList();
+
+    /// <summary>
+    /// The version of Origin's own TURNED-ON copy of <paramref name="id"/> (it may be null when the jar states none), as
     /// read: false when Origin has no copy or has it turned off. Used to put Origin's copy back in the picture when an
     /// imported mod that would have replaced it is turned off after all.
     /// </summary>

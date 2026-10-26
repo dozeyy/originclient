@@ -109,27 +109,30 @@ public class ModResolverTests : IDisposable
     }
 
     [Fact]
-    public void ModsOriginAlreadyIncludesAreBuiltInByIdEvenWhenRenamedAndAtAnotherVersion()
+    public void ModsOriginAlreadyIncludesAreBuiltInByIdUnlessThePlayersOwnVersionFitsTheProfile()
     {
         var d = Resolve(new()
         {
             ["sodium-fabric-0.5.11+mc1.21.jar"] = Kit.FabricJar("sodium", "0.5.11", minecraft: "1.21"),
             ["totally-renamed.jar"] = Kit.FabricJar("iris", "1.7.0"),
-            ["modmenu-11.0.0.jar"] = Kit.FabricJar("modmenu", "11.0.0"),
+            ["modmenu-11.0.3.jar"] = Kit.FabricJar("modmenu", "11.0.3"),
+            ["originclient-old.jar"] = Kit.FabricJar("originclient", "0.1.0"),
             ["fabric-api-0.100.jar"] = Kit.FabricJar("fabric-api", "0.100.0"),
-            ["voicechat-fabric.jar"] = Kit.FabricJar("voicechat", "2.5.0"),
             ["mymod.jar"] = Kit.FabricJar("mymod", "1.0"),
         });
 
+        // For another Minecraft version: Origin's copy is used, as before.
         Assert.Equal(ModOutcome.BuiltIn, d["sodium-fabric-0.5.11+mc1.21.jar"].Outcome);
         Assert.Contains("Origin includes Sodium 0.6.13", d["sodium-fabric-0.5.11+mc1.21.jar"].Reason);
-        Assert.Equal(ModOutcome.BuiltIn, d["totally-renamed.jar"].Outcome);
-        Assert.Contains("Origin includes Iris 1.8.8", d["totally-renamed.jar"].Reason);
-        Assert.Equal(ModOutcome.BuiltIn, d["modmenu-11.0.0.jar"].Outcome);
+        Assert.Null(d["sodium-fabric-0.5.11+mc1.21.jar"].DestFileName);
+        // The player's own other version (found by id, whatever the file is called): imported, it wins in the profile.
+        Assert.Equal(ModOutcome.Copied, d["totally-renamed.jar"].Outcome);
+        Assert.Equal("totally-renamed.jar", d["totally-renamed.jar"].DestFileName);
+        // The very version Origin has, Origin's own mod and an older Fabric API: Origin's copy is used.
+        Assert.Equal(ModOutcome.BuiltIn, d["modmenu-11.0.3.jar"].Outcome);
+        Assert.Equal(ModOutcome.BuiltIn, d["originclient-old.jar"].Outcome);
         Assert.Equal(ModOutcome.BuiltIn, d["fabric-api-0.100.jar"].Outcome);
-        Assert.Equal(ModOutcome.BuiltIn, d["voicechat-fabric.jar"].Outcome);
         Assert.Equal(ModOutcome.Copied, d["mymod.jar"].Outcome);
-        Assert.All(new[] { "sodium-fabric-0.5.11+mc1.21.jar", "totally-renamed.jar" }, n => Assert.Null(d[n].DestFileName));
     }
 
     [Fact]

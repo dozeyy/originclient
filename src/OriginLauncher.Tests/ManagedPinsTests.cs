@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Profiles;
@@ -196,8 +197,11 @@ public sealed class ManagedPinsTests : IDisposable
         var lookalike = Jar("profile", "modmenu-badges-lib-2.0.jar", Kit.FabricJar("modmenu-badges-lib", "2.0.0"));
         var dupe = Jar("profile", "fabric-api-0.100.0+1.21.1.jar", Kit.FabricJar("fabric-api", "0.100.0+1.21.1"));
 
-        var set = LaunchModFolder.LaunchSet(new[] { api, fake }, new[] { lookalike, dupe },
+        // The player's older Fabric API gives way to Origin's (PlayerOverrides: only a newer one wins).
+        var plan = LaunchPreflight.OverridesFor("1.21.1", Path.GetDirectoryName(api)!, Path.GetDirectoryName(lookalike)!,
             ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy);
+        var set = LaunchModFolder.LaunchSet(new[] { api, fake }, new[] { lookalike, dupe },
+            ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy, plan.Skips);
 
         Assert.Equal(new[] { Path.GetFileName(api), Path.GetFileName(lookalike) }.OrderBy(n => n),
             set.Keys.OrderBy(n => n));

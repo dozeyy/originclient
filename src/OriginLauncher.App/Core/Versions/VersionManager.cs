@@ -391,6 +391,20 @@ public sealed class VersionManager
             externalMods, ModManager.IsManaged, ModManager.IsOriginProvisioned,
             Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"), ct, overrideSetKey, ModManager.IsOriginsCopy), ct);
 
+    // Where a profile's own copies replace Origin's for this launch. Fail-soft: a failure here launches as before.
+    private static PlayerOverridePlan PlayerPlanFor(string version, string modsFolder, string profileId, LaunchSwap? swap, CancellationToken ct)
+    {
+        try
+        {
+            return LaunchPreflight.OverridesFor(version, modsFolder, OriginPaths.ProfileModsDir(version, profileId),
+                ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy, swap, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return PlayerOverridePlan.Empty;
+        }
+    }
+
     // A profile launch on a version with vetted alternates (Core/Components/ConfigurationLaunch): pick the newest
     // configuration that starts, fetch its files into the store, check exactly that set. Off the UI thread.
     private static async Task<ConfigurationChoice> ChooseConfigurationAsync(
@@ -688,11 +702,20 @@ public sealed class VersionManager
         // never checked; a checker failure is logged and the launch goes ahead (LaunchPreflight is fail-soft).
         // A profile on a version with vetted alternates picks its component configuration here (same check, plus the
         // alternates only when the shipped set would not start). Every other launch is checked exactly as before.
+        // The profile's own Sodium or Iris decides the pair (PlayerOverrides): a vetted pair matching it is pinned for
+        // this launch, and with no vetted pair the launch keeps the player's set as it is (no alternate of Origin's).
         ConfigurationChoice? configuration = null;
-        if (profileId != null && ConfigurationCatalog.HasAlternates(version))
+        var playerPlan = profileId != null
+            ? await Task.Run(() => PlayerPlanFor(version, modsFolder, profileId, null, ct), ct)
+            : PlayerOverridePlan.Empty;
+        var launchPins = playerPlan.PairId != null
+            ? ComponentPinSet.With(componentPins, ConfigurationCatalog.PairFamily, playerPlan.PairId)
+            : componentPins;
+        if (profileId != null && ConfigurationCatalog.HasAlternates(version)
+            && (!playerPlan.PlayerDecidesPair || playerPlan.PairId != null))
         {
             configuration = await Task.Run(
-                () => ChooseConfigurationAsync(version, modsFolder, profileId, componentPins, overrideSetKey, ct), ct);
+                () => ChooseConfigurationAsync(version, modsFolder, profileId, launchPins, overrideSetKey, ct), ct);
             configurationPicked?.Invoke(configuration.Configuration.Id);
         }
         else
@@ -713,19 +736,27 @@ public sealed class VersionManager
             // perf/shader stack (and, for a profile, Simple Voice Chat).
             // Everything else is the player's and stays out of this launch
             // unless the profile holds it.
-            var sharedFiles = Directory.EnumerateFiles(modsFolder);
+            var sharedFiles = Directory.EnumerateFiles(modsFolder).ToList();
+            // Where the profile's own copy of a mod Origin ships loads instead of Origin's (decided on the exact set,
+            // swap included); nothing in the shared folder is touched, Origin's copy just stays out of this folder.
+            if (profileId != null)
+                playerPlan = await Task.Run(() => PlayerPlanFor(version, modsFolder, profileId, configuration?.Swap, ct), ct);
             var desired = profileId != null
                 ? LaunchModFolder.LaunchSet(sharedFiles,
                     Directory.Exists(OriginPaths.ProfileModsDir(version, profileId))
                         ? Directory.EnumerateFiles(OriginPaths.ProfileModsDir(version, profileId))
                         : Enumerable.Empty<string>(),
-                    ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy)
+                    ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy, playerPlan.Skips)
                 : LaunchModFolder.LaunchSet(sharedFiles, Enumerable.Empty<string>(), ModManager.IsManaged, ModManager.IsOriginsCopy);
             if (configuration?.Swap is { } swap)
             {
                 // The shipped Sodium/Iris jars stay in the shared folder (untouched); this launch loads the store copies.
-                foreach (var name in desired.Keys.Where(swap.Replaces).ToList()) desired.Remove(name);
-                foreach (var file in swap.Files) desired[LaunchSwap.NameOf(file)] = file.Path;
+                // Only Origin's jars give way: a profile jar named like Sodium is the player's.
+                var fromShared = new HashSet<string>(sharedFiles, StringComparer.OrdinalIgnoreCase);
+                foreach (var name in desired.Where(d => swap.Replaces(d.Key) && fromShared.Contains(d.Value)).Select(d => d.Key).ToList())
+                    desired.Remove(name);
+                foreach (var file in swap.Files)
+                    if (!playerPlan.Skips(file.Path)) desired[LaunchSwap.NameOf(file)] = file.Path;
             }
 
             // Diff-synced rather than delete+recreate (see LaunchModFolder.Sync):
@@ -738,6 +769,9 @@ public sealed class VersionManager
         // from (checked above: the installed loader reads it).
         var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
         extraJvm.Add(new MArgument(SharedMods.JvmArgument(gameModsFolder)));
+        // Copies nested in Origin's own jar that must not load next to the player's (e.g. Origin's Iris beside the
+        // player's Sodium): the loader's own switch (fabric.debug.disableModIds, Fabric Loader 0.15.0+).
+        if (profileId != null && playerPlan.JvmArgument is { } disableIds) extraJvm.Add(new MArgument(disableIds));
         option.ExtraJvmArguments = extraJvm;
         LaunchTimeline.Mark("mods");
 

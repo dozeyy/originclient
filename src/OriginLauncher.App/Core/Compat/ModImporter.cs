@@ -116,6 +116,9 @@ public static class ModImporter
         return Apply(items, context);
     }
 
+    /// <summary>A drop into a profile of the very mod Origin already loads there (same version, or Origin's own mod).</summary>
+    public const string AlreadyOriginText = "Origin already includes that mod, so there's no need to add it.";
+
     public static IReadOnlyList<ImportItem> Plan(IEnumerable<string> sources, ImportContext context)
     {
         var role = context.IsProfile ? ModRole.Profile : ModRole.SharedLoose;
@@ -134,11 +137,6 @@ public static class ModImporter
                 continue;
             }
             var name = Path.GetFileName(src);
-            if (context.IsProfile && context.IsOriginProvisioned(name))
-            {
-                items.Add(new ImportItem(src, name, ImportAction.AlreadyOrigin, "Origin already includes that mod, so there's no need to add it.", null, null));
-                continue;
-            }
             var info = ModFolderScanner.ReadInfo(src) ?? new ModInfo { FileName = name, ReadFailed = true };
             candidates.Add((items.Count, src, name, new ModFile(src, name, true, ModRole.ImportCandidate, info)));
             items.Add(null); // decided below, once the whole drop has been looked at together
@@ -148,8 +146,12 @@ public static class ModImporter
         {
             // A file that is about to take an existing file's name is that file, not a second one.
             var shadowed = candidates.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var entries = existing.Where(e => !shadowed.Contains(JarName(e.FileName))).Concat(candidates.Select(c => c.File)).ToList();
-            var report = CompatEngine.Check(entries, context.Platform);
+            // (In a profile Origin's jars live in the shared folder, so a file of the same name never takes their place.)
+            var entries = existing.Where(e => (context.IsProfile && e.Role == ModRole.Managed) || !shadowed.Contains(JarName(e.FileName)))
+                .Concat(candidates.Select(c => c.File)).ToList();
+            // In a profile the player's own version of a mod Origin ships is theirs to add: it loads instead of
+            // Origin's there (Core/Compat/PlayerOverrides). The same version, or Origin's own mod, is "already in".
+            var report = CompatEngine.Check(entries, context.IsProfile ? context.Platform with { PlayerCopiesWin = true } : context.Platform);
 
             var firstOfId = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var (index, src, name, file) in candidates)
@@ -166,6 +168,9 @@ public static class ModImporter
             RefusalKinds.Contains(f.Kind)
             && (f.Severity != Severity.Info || f.Kind == FindingKind.OriginManagedConflict) // for a candidate that one is Info: "would" conflict
             && (f.Kind != FindingKind.WrongMinecraft || f.Certainty == Certainty.Confirmed)); // 1.8.9's mcmod.info is advisory
+        if (refusal != null && context.IsProfile && refusal.Kind == FindingKind.OriginManagedConflict
+            && (file.Info.MinecraftRange is not { } range || range.IsSatisfiedBy(context.Platform.McVersion)))
+            return new ImportItem(src, name, ImportAction.AlreadyOrigin, AlreadyOriginText, file.Info, null);
         if (refusal != null)
             return new ImportItem(src, name, ImportAction.Refuse, $"{name} wasn't added: {refusal.Summary}", file.Info, null);
 
@@ -175,7 +180,9 @@ public static class ModImporter
         firstOfId[id] = name;
 
         var twin = existing.FirstOrDefault(e => e.Role != ModRole.Managed && string.Equals(e.Info.Id, id, StringComparison.Ordinal));
-        if (twin == null && existing.Any(e => string.Equals(JarName(e.FileName), name, StringComparison.OrdinalIgnoreCase)))
+        // A profile's folder is its own: Origin's jars (in the shared folder) never share a name with it on disk.
+        if (twin == null && existing.Any(e => (!context.IsProfile || e.Role != ModRole.Managed)
+                && string.Equals(JarName(e.FileName), name, StringComparison.OrdinalIgnoreCase)))
             return new ImportItem(src, name, ImportAction.Refuse,
                 $"{name} wasn't added: a different mod with that file name is already installed. Rename the file and try again.", file.Info, null);
         if (twin != null)
