@@ -97,49 +97,37 @@ internal static class ImportShots
             window.TourCloseImport();
             RenderShots.Pump(400);
 
-            // 30: Detect: a tile per launcher found (logo, folder, counts), then the slim "Locate folder" rows.
+            // 30: step 1, Source: a tile per launcher found (logo, folder, counts; a press picks that one launcher), then
+            // the slim "Locate folder" rows and the launchers Origin can't read yet, named.
             var panel = Open(window, Demo.Bulk, 1500);
             RenderShots.Snap(window, outDir, "30-import-page-detect");
             panel.TourScroll(double.MaxValue);
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "30b-import-page-detect-bottom");
             panel.TourScroll(0);
-            // 30c: one launcher taken out of the import (its tile dims, the button counts less).
-            panel.TourToggleLauncher(SourceKind.Lunar);
-            RenderShots.Pump(500);
-            RenderShots.Snap(window, outDir, "30c-import-page-detect-unticked");
-            panel.TourToggleLauncher(SourceKind.Lunar);
-            RenderShots.Pump(300);
 
-            // 61: Choose what to import, the grid: a row per launcher, a tick per thing, All versions first, one launcher's mods
-            // ticked so no warning. Lunar's mods are greyed (built in), the Forge setup's columns say why.
+            // 63: step 2, how much: Modrinth picked (one setup on a version Origin can't run, one Forge setup).
+            panel.TourChooseLauncher(SourceKind.Modrinth);
+            RenderShots.Pump(600);
+            RenderShots.Snap(window, outDir, "63-import-scope");
+
+            // 61: Choose what to import, the grid over Modrinth only: a tick per thing, All versions first; the Forge
+            // setup's columns say why. 61b: one version's tab, its mods ticked.
             panel.TourShowGrid();
             RenderShots.Pump(700);
             RenderShots.Snap(window, outDir, "61-import-grid");
-            // 61b: one version's tab; the second launcher's mods ticked too, so the mixed-mods warning shows.
             panel.TourGridTab("1.20.1");
-            panel.TourGridTurnOn(SourceKind.Prism, GridColumn.Mods);
             panel.TourGridTurnOn(SourceKind.Modrinth, GridColumn.Mods);
             RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "61b-import-grid-version-mixed");
-            // 61c: back on All versions, the warning stays (two launchers' mods ticked); Settings moved to Lunar.
-            panel.TourGridTab("1.21.1");
-            panel.TourGridTurnOn(SourceKind.Lunar, GridColumn.Settings);
+            RenderShots.Snap(window, outDir, "61b-import-grid-version");
             panel.TourGridTab(ImportGridModel.AllTab);
-            RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "61c-import-grid-all-mixed");
-            File.WriteAllText(Path.Combine(outDir, "grid-cells.txt"), panel.TourGridDump());
-            panel.TourBack();
             RenderShots.Pump(300);
+            File.WriteAllText(Path.Combine(outDir, "grid-cells.txt"), panel.TourGridDump());
 
-            // 31: Pick single setups (the grid's link): a card per launcher, a row per setup.
+            // 31: Pick single setups (the grid's link): the picked launcher's setups, a row each.
             panel.TourShowPick();
             RenderShots.Pump(700);
             RenderShots.Snap(window, outDir, "31-import-page-pick");
-            panel.TourToggleLauncher(SourceKind.Modrinth);
-            RenderShots.Pump(500);
-            RenderShots.Snap(window, outDir, "31b-import-page-pick-unticked");
-            panel.TourToggleLauncher(SourceKind.Modrinth);
             panel.TourScroll(double.MaxValue);
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "31c-import-page-pick-bottom");
@@ -167,7 +155,7 @@ internal static class ImportShots
             panel.TourOpenVersion("1.20.1");
             RenderShots.Pump(500);
             RenderShots.Snap(window, outDir, "45-import-version");
-            // 32: whose settings (1.20.1 has two setups with about the same playtime).
+            // 32: whose settings.
             panel.TourOpenChooser("1.20.1");
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "32-import-page-pick-settings");
@@ -182,7 +170,7 @@ internal static class ImportShots
             panel.TourBack();
             RenderShots.Pump(300);
 
-            // 46: Review: what comes over, what needs a look, each version's setups, what is left out and why.
+            // 46: step 3, Review: what comes over, the profiles it makes, each version's setups, what is left out and why.
             panel.TourOpenReview();
             RenderShots.Pump(1200);
             RenderShots.Snap(window, outDir, "46-import-review");
@@ -205,48 +193,86 @@ internal static class ImportShots
             RenderShots.Pump(300);
             panel.TourBack(); // What to bring
             RenderShots.Pump(300);
-            panel.TourBack(); // Choose what to import
+            panel.TourBack(); // Pick single setups
             RenderShots.Pump(400);
 
-            // 39: one setup on its own (the arrow on its row): a supported one, then one Origin cannot take as it is (pick a version).
-            panel.TourOpenPickReview("Survival 1.21.1");
+            // 39: one setup on its own (the arrow on its row), opened right after the scrolled Details page (its list must
+            // start at the top): a supported one, then one Origin cannot take as it is (pick a version).
+            panel.TourOpenPickReview("Fabulously Optimized");
             RenderShots.Pump(1200);
             RenderShots.Snap(window, outDir, "39-import-single-review");
             panel.TourBack();
             RenderShots.Pump(400);
-            panel.TourOpenPickReview("Better MC");
+            panel.TourOpenPickReview("Snapshot fun");
             RenderShots.Pump(700);
             RenderShots.Snap(window, outDir, "39b-import-single-unsupported");
             window.TourCloseImport();
             RenderShots.Pump(400);
 
-            // 44: one launcher only (Lunar: every other tile taken out), then 36c: Lunar imported. The Done page
-            // lists only Lunar's setups (another launcher's were never part of it).
+            // 46d: Import everything from Prism (three setups, so three profiles) lands on step 3 with the profiles listed;
+            // 36: Import pressed: step 4, the report. Profiles first (one can't start), then came over / skipped / not
+            // supported / failed, each line with its reason. 36e: the same with Fix Compatibility merged (the hook set).
             panel = Open(window, Demo.Bulk, 1500);
-            foreach (var kind in new[] { SourceKind.OfficialLauncher, SourceKind.Prism, SourceKind.Modrinth, SourceKind.CurseForge })
-                panel.TourToggleLauncher(kind);
-            RenderShots.Pump(600);
-            RenderShots.Snap(window, outDir, "44-import-page-detect-lunar-only");
-            panel.TourImportNow();
+            panel.TourChooseLauncher(SourceKind.Prism);
+            RenderShots.Pump(300);
+            panel.TourFastImport(SourceKind.Prism);
+            RenderShots.Pump(1200);
+            RenderShots.Snap(window, outDir, "46d-import-confirm-profiles");
+            panel.TourImportAll();
+            RenderShots.Pump(2200);
+            RenderShots.Snap(window, outDir, "36-import-page-done");
+            panel.TourScroll(420);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "36f-import-page-done-report");
+            panel.TourScroll(double.MaxValue);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "36d-import-page-done-bottom");
+            panel.TourScroll(0);
+            panel.TourOpenDetails(); // the footer holds Done and Play; Details is the link under the notes
+            RenderShots.Pump(500);
+            RenderShots.Snap(window, outDir, "36b-import-page-done-details");
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+            ImportHooks.FixCompatibility = (_, _) => Task.CompletedTask;
+            try
+            {
+                panel = Open(window, Demo.Bulk, 1500);
+                ImportEverything(panel, SourceKind.Prism);
+                RenderShots.Pump(2200);
+                panel.TourScroll(420);
+                RenderShots.Pump(300);
+                RenderShots.Snap(window, outDir, "36e-import-done-fix-compatibility");
+            }
+            finally
+            {
+                ImportHooks.FixCompatibility = null;
+            }
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+
+            // 36c: Lunar only. The report lists only Lunar's setups (another launcher's were never part of it) and names
+            // Lunar's setup on a version Origin can't run.
+            panel = Open(window, Demo.Bulk, 1500);
+            ImportEverything(panel, SourceKind.Lunar);
             RenderShots.Pump(2200);
             RenderShots.Snap(window, outDir, "36c-import-done-lunar");
             window.TourCloseImport();
             RenderShots.Pump(400);
 
-            // 60: only one other launcher (Prism): "Bring everything from Prism" is the page's main button. 60b: pressed,
-            // importing; 60c: done, with Play (the most played version) and Done.
+            // 60: only one other launcher (Prism): step 1 shows its one tile. 60b: Import everything, importing;
+            // 60c: done, with Play (the most played version) and Done.
             panel = Open(window, Demo.Bulk, 1500, oneLauncher: true);
             RenderShots.Snap(window, outDir, "60-import-detect-one-launcher");
             window.TourCloseImport();
             RenderShots.Pump(400);
             panel = Open(window, Demo.Progress, 1500, oneLauncher: true);
-            panel.TourFastImport(SourceKind.Prism);
+            ImportEverything(panel, SourceKind.Prism);
             RenderShots.Pump(1500);
             RenderShots.Snap(window, outDir, "60b-import-fast-progress");
             DemoBackend.Release();
             RenderShots.Pump(600);
             panel = Open(window, Demo.Bulk, 1500, oneLauncher: true);
-            panel.TourFastImport(SourceKind.Prism);
+            ImportEverything(panel, SourceKind.Prism);
             RenderShots.Pump(2200);
             RenderShots.Snap(window, outDir, "60c-import-fast-done");
             window.TourCloseImport();
@@ -254,7 +280,7 @@ internal static class ImportShots
 
             // 34: importing: the big percentage, the setup being copied and the setup list (Home's Play is off behind the page).
             panel = Open(window, Demo.Progress, 1500);
-            panel.TourImportNow();
+            ImportEverything(panel, SourceKind.Prism);
             RenderShots.Pump(1500);
             RenderShots.Snap(window, outDir, "34-import-page-progress");
 
@@ -265,33 +291,21 @@ internal static class ImportShots
             DemoBackend.Release();
             RenderShots.Pump(600);
 
-            // 36: done (the versions that are ready to play, Play and Done), its lower half, then its details.
-            panel = Open(window, Demo.Bulk, 1500);
-            panel.TourImportNow();
-            RenderShots.Pump(2200);
-            RenderShots.Snap(window, outDir, "36-import-page-done");
-            panel.TourScroll(double.MaxValue);
-            RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "36d-import-page-done-bottom");
-            panel.TourScroll(0);
-            panel.TourOpenDetails(); // the footer holds Done and Play; Details is the link under the notes
-            RenderShots.Pump(500);
-            RenderShots.Snap(window, outDir, "36b-import-page-done-details");
-
             // 37: nothing changed (failed and rolled back).
             panel = Open(window, Demo.Failed, 1500);
-            panel.TourImportNow();
+            ImportEverything(panel, SourceKind.Prism);
             RenderShots.Pump(1800);
             RenderShots.Snap(window, outDir, "37-import-page-failed");
 
-            // 40: blocked (Minecraft is still running from one of the setups): the press ends at Review, which says why.
+            // 40: blocked (Minecraft is still running from one of the setups): step 3 says why and Import stays off.
             panel = Open(window, Demo.Blocked, 1500);
-            panel.TourImportNow();
+            ImportEverything(panel, SourceKind.Prism);
             RenderShots.Pump(1500);
             RenderShots.Snap(window, outDir, "40-import-page-blocked");
 
-            // 41: a game is starting: Import is off until it opens.
+            // 41: a game is starting: step 2's two ways on are off until it opens.
             panel = Open(window, Demo.Bulk, 1500);
+            panel.TourChooseLauncher(SourceKind.Prism);
             panel.TourRefusal("Wait for Minecraft to finish starting.");
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "41-import-page-launching");
@@ -300,6 +314,7 @@ internal static class ImportShots
             window.TourCloseImport();
             RenderShots.Pump(400);
             panel = Open(window, Demo.Bulk, 1500);
+            panel.TourChooseLauncher(SourceKind.Prism);
             panel.TourBring();
             RenderShots.Pump(500);
             var focusLog = new System.Text.StringBuilder();
@@ -328,11 +343,12 @@ internal static class ImportShots
             RenderShots.Pump(600);
             panel = Open(window, Demo.Bulk, 1500);
             RenderShots.Snap(window, outDir, "52-min-import-detect");
+            panel.TourChooseLauncher(SourceKind.Modrinth);
+            RenderShots.Pump(500);
+            RenderShots.Snap(window, outDir, "64-min-import-scope");
             panel.TourShowGrid();
             RenderShots.Pump(600);
             RenderShots.Snap(window, outDir, "62-min-import-grid");
-            panel.TourBack();
-            RenderShots.Pump(300);
             panel.TourShowPick();
             RenderShots.Pump(600);
             RenderShots.Snap(window, outDir, "58-min-import-pick");
@@ -350,19 +366,19 @@ internal static class ImportShots
             RenderShots.Pump(300);
             panel.TourBack();
             RenderShots.Pump(400);
-            panel.TourOpenPickReview("Survival 1.21.1");
+            panel.TourOpenPickReview("Fabulously Optimized");
             RenderShots.Pump(1200);
             RenderShots.Snap(window, outDir, "53-min-import-single-review");
             window.TourCloseImport();
             RenderShots.Pump(400);
             panel = Open(window, Demo.Progress, 1500);
-            panel.TourImportNow();
+            ImportEverything(panel, SourceKind.Prism);
             RenderShots.Pump(1500);
             RenderShots.Snap(window, outDir, "59-min-import-progress");
             DemoBackend.Release();
             RenderShots.Pump(600);
             panel = Open(window, Demo.Bulk, 1500);
-            panel.TourImportNow();
+            ImportEverything(panel, SourceKind.Prism);
             RenderShots.Pump(2200);
             RenderShots.Snap(window, outDir, "57-min-import-done");
         }
@@ -386,6 +402,16 @@ internal static class ImportShots
         var panel = window.TourOpenImport(new DemoBackend(demo, oneLauncher));
         RenderShots.Pump(pumpMs);
         return panel;
+    }
+
+    // Steps 1-3 the way a player goes: the launcher's tile, Import everything, then Review's Import (once its plan is in).
+    private static void ImportEverything(ImportPanel panel, SourceKind kind)
+    {
+        panel.TourChooseLauncher(kind);
+        RenderShots.Pump(300);
+        panel.TourFastImport(kind);
+        RenderShots.Pump(1000);
+        panel.TourImportAll();
     }
 
     /// <summary>
@@ -755,7 +781,8 @@ internal static class ImportShots
             }
 
             var versions = plan.Groups.Select(g => new VersionOutcome(g.Version, g.Setups.Select(s => new SetupOutcome(
-                s.Setup, s.Role, s.Role == SetupRole.PacksOnly ? SetupResultKind.ImportedPartly : SetupResultKind.Imported, s.Note)).ToList())).ToList();
+                s.Setup, s.Role, s.Role == SetupRole.PacksOnly ? SetupResultKind.ImportedPartly : SetupResultKind.Imported, s.Note,
+                ProfileId: s.Plan.ProfileId, ProfileName: s.Plan.ProfileName, ProfileModsDir: s.Plan.ProfileModsDir)).ToList())).ToList();
             // Like the engine: the skipped setups are the "didn't come over" list (by label) and the structured Skipped list.
             var notImported = plan.Skipped.Select(k => new NotImportedItem(k.Setup.BulkLabel(), "Whole setup", k.Reason)).ToList();
             return new BulkImportResult
@@ -764,6 +791,19 @@ internal static class ImportShots
                 Skipped = plan.Skipped.ToList(),
                 SummaryText = $"Imported {all.Count} setups into {plan.Groups.Count} versions. {plan.Skipped.Count} could not come over.",
             };
+        }
+
+        // Step 4 over the demo's made-up result with the real verifier: nothing is read from disk (one shader pack
+        // reads as gone, so the Failed section has a line), and the second profile made can't start, so the report
+        // shows the Fix Compatibility line.
+        public Task<ImportVerification> VerifyAsync(BulkImportPlan plan, BulkImportResult result, CancellationToken ct)
+        {
+            var broken = result.Versions.SelectMany(v => v.Setups).Select(s => s.ProfileModsDir).Where(d => d != null).Skip(1).FirstOrDefault();
+            return Task.FromResult(ImportVerifier.Verify(plan, result,
+                exists: path => !path.EndsWith("Complementary Reimagined.zip", StringComparison.Ordinal),
+                checkProfile: (_, dir) => dir == broken
+                    ? new[] { "Create: needs Fabric Language Kotlin, which isn't in this profile." }
+                    : Array.Empty<string>()));
         }
 
         private static void Total(BulkImportPlan plan) =>
@@ -799,6 +839,13 @@ internal static class ImportShots
                 var role = PacksOnly(setup) ? SetupRole.PacksOnly : setup.BulkId() == winner.BulkId() ? SetupRole.Full : SetupRole.ModsAndPacks;
                 var plan = BuildPlan(setup, version, options, role, $"{setup.SourceLabel}: {setup.Name}", $"{runId}{n++:x2}", blocked: false);
                 plan.TargetGameDir = gameDir;
+                if (role != SetupRole.PacksOnly)
+                {
+                    // Like the engine: each setup whose mods come over gets its own profile.
+                    plan.ProfileId = $"demo-{version.Replace('.', '-')}-{plan.ImportId[^2..]}";
+                    plan.ProfileName = Core.Import.ImportEngine.MakeProfileName(setup, version, Array.Empty<Core.Profiles.ModProfile>());
+                    plan.ProfileModsDir = Path.Combine("demo", "profiles", plan.ProfileId, "mods");
+                }
                 plan.BytesToCopy = plan.Lines.Where(l => l.Section is SummarySection.Imported or SummarySection.NeedsAttention).Sum(l => l.Bytes)
                     + plan.Ops.Sum(o => o.Bytes);
                 group.Setups.Add(new PlannedSetup(setup, role, plan, role == SetupRole.PacksOnly ? ForgeNote : null));

@@ -997,7 +997,8 @@ public partial class MainWindow : Window
         panel.SetRefusal(ImportHooks.Refusal());
         panel.CloseRequested += (_, _) => CloseImportPanel();
         // "Play" on the done screen: close the page, show Home on the version the import went to and start the game.
-        // Imports make no profiles, so the plain version is what plays.
+        // The import never changes the Home selection, so the version as Home has it is what plays; the profiles it made
+        // are on the Profiles page.
         panel.PlayRequested += (_, version) =>
         {
             CloseImportPanel();

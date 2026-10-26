@@ -16,7 +16,9 @@
            PickList       "Pick single setups": a card per launcher, a row per setup, ticks at both levels
            Legacy         what to bring, versions, one version, review, whose settings, one setup, details (720 px column)
            ProgressPane   "Importing": one big percentage and bar, a row per setup (waiting, copying, done)
-           DonePane       "You're all set": what came over and the versions it went to (imports make no profiles)
+           ScopePane      step 2 for the picked launcher: Import everything, or Choose what to import (the grid)
+           DonePane       step 4, "You're all set": the versions it went to, then the report (profiles made and whether
+                          each can start; came over / skipped / not supported / failed, each with its reason)
            FailedPane     "Nothing changed": the reason
          Every colour, type and shape is a Theme token; the orange tick, dot and bar are the Poster accent (Brush.Accent, indicators only). -->
     <UserControl.Resources>
@@ -28,7 +30,15 @@
 
         <!-- The virtualized list. The column is the page's own edge, so the list sits flush with the title; the 3 px
              inset keeps the outset focus frame from being clipped and the scrollbar gets its own column. -->
+        <!-- A scrolled list's top edge: its first 12 px fade out, so a row scrolled under the edge melts away instead of
+             being cut in half (List_ScrollChanged puts it on only while the list is scrolled). A mask reads alpha only. -->
+        <LinearGradientBrush x:Key="Import.TopFade" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,12">
+            <GradientStop Color="Transparent" Offset="0"/>
+            <GradientStop Color="{StaticResource Color.Bg}" Offset="1"/>
+        </LinearGradientBrush>
+
         <Style x:Key="Import.List" TargetType="ItemsControl">
+            <EventSetter Event="ScrollViewer.ScrollChanged" Handler="List_ScrollChanged"/>
             <Setter Property="Margin" Value="-3,-3,-3,0"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
@@ -167,40 +177,21 @@
             <Setter Property="Margin" Value="8,0,0,0"/>
         </Style>
 
-                <!-- "Bring everything from Lunar" on a tile: the soft accent wash (Brush.AccentSoft), the accent edge on hover. -->
-        <Style x:Key="Import.FastButton" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
-            <Setter Property="Margin" Value="0,12,0,0"/>
-            <Setter Property="Padding" Value="12,0"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{DynamicResource Brush.AccentSoft}" BorderBrush="Transparent" BorderThickness="1"
-                                CornerRadius="{StaticResource Radius.Md}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
-                            <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
-                                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.45"/>
-                                <Setter Property="Cursor" Value="Arrow"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <!-- A card that is one press (a launcher tile on step 1, the two choices on step 2): the strip card's hover and
+             press, the card padding, its content stretched. -->
+        <Style x:Key="Import.CardButton" TargetType="Button" BasedOn="{StaticResource Button.StripCard}">
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,16,16"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+        </Style>
+
+        <!-- A grey block standing in for text or a logo while the scan runs (the skeleton tiles). -->
+        <Style x:Key="Import.Skeleton" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
 
         <!-- A version tab above the grid: the card surface, the soft accent with an accent edge when shown. -->
@@ -296,11 +287,12 @@
 
         <!-- ================= Detect ================= -->
 
-        <!-- A launcher found on this PC: its real logo, name and folder, one tick (in or out of Import everything),
-             and its three counts. The whole tile toggles the tick; the tick itself is the keyboard stop. -->
+        <!-- Step 1: a launcher found on this PC: its real logo, name and folder, and its three counts. The whole tile is
+             one press (pick this launcher, then step 2 asks how much of it); a launcher with nothing Origin can run is
+             off, and says why on hover. -->
         <DataTemplate DataType="{x:Type controls:LauncherTileVm}">
-            <Border Style="{StaticResource Import.Tile}" Cursor="Hand" ToolTip="{Binding Tip}"
-                    MouseLeftButtonUp="Tile_MouseUp">
+            <Button Style="{StaticResource Import.CardButton}" ToolTip="{Binding Tip}" Click="Tile_Click"
+                    IsEnabled="{Binding CanTick}" AutomationProperties.Name="{Binding TickName}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -328,11 +320,7 @@
                             <TextBlock Text="{Binding PathText}" Style="{StaticResource Social.Caption}"
                                        ToolTip="{Binding PathText}" Margin="0,2,0,0"/>
                         </StackPanel>
-                        <CheckBox Grid.Column="2" Style="{StaticResource Import.Tick}" IsThreeState="False"
-                                  IsChecked="{Binding Ticked, Mode=OneWay}" IsEnabled="{Binding CanTick}"
-                                  Margin="8,-6,-8,-6" VerticalAlignment="Top"
-                                  Click="TileTick_Click" ToolTip="Include in Import everything"
-                                  AutomationProperties.Name="{Binding TickName}"/>
+                        <Path Grid.Column="2" Style="{StaticResource Import.Go}" Margin="8,0,0,0"/>
                     </Grid>
                     <!-- Cell padding 8 and gap 4: "INSTANCES" (62 px) must fit a third of the smallest window's tile. -->
                     <UniformGrid Grid.Row="1" Columns="3" Margin="0,14,0,0">
@@ -358,15 +346,8 @@
                             </StackPanel>
                         </Border>
                     </UniformGrid>
-                    <!-- The one-click path: every setup of this launcher, its most played setup's settings on every
-                         version. A button, so a press on it never toggles the tile (Tile_MouseUp skips buttons). -->
-                    <Button Grid.Row="2" Style="{StaticResource Import.FastButton}" Content="{Binding FastText}"
-                            Visibility="{Binding CanFast, Converter={StaticResource BoolToVis}}"
-                            IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
-                            Click="TileFast_Click" ToolTip="{Binding FastTip}"
-                            AutomationProperties.Name="{Binding FastText}"/>
                 </Grid>
-            </Border>
+            </Button>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding HasLogo}" Value="True">
                     <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
@@ -987,7 +968,7 @@
                             <Path x:Name="StepTick3" Data="{StaticResource Icon.Check}" Style="{StaticResource Import.StepTick}"/>
                         </Grid>
                     </Border>
-                    <TextBlock x:Name="StepText3" Text="Importing" Style="{StaticResource Import.StepText}"/>
+                    <TextBlock x:Name="StepText3" Text="Confirm" Style="{StaticResource Import.StepText}"/>
                 </StackPanel>
                 <Border Grid.Column="5" Style="{StaticResource Import.StepLine}"/>
                 <StackPanel Grid.Column="6" Orientation="Horizontal">
@@ -1025,6 +1006,50 @@
                     <StackPanel Margin="3">
                         <TextBlock x:Name="ScanNote" Text="Looking through your other launchers..." Style="{StaticResource Text.BodyDim}"
                                    Margin="0,6,0,0" Visibility="Collapsed"/>
+                        <!-- While the scan runs: three grey tiles in the shape of the launcher tiles, so the page is
+                             never blank and nothing jumps when the real tiles land. -->
+                        <UniformGrid x:Name="SkeletonTiles" Columns="3" Margin="0,0,-16,0" Visibility="Collapsed"
+                                     IsHitTestVisible="False" AutomationProperties.Name="Looking for launchers">
+                            <Border Style="{StaticResource Import.Tile}" Background="{StaticResource Brush.Panel}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Style="{StaticResource Import.Skeleton}" Width="44" Height="44" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Border Style="{StaticResource Import.Skeleton}" Width="120" Height="14"/>
+                                            <Border Style="{StaticResource Import.Skeleton}" Width="160" Height="10" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource Import.Skeleton}" Height="64" HorizontalAlignment="Stretch"
+                                            CornerRadius="{StaticResource Radius.Md}" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Import.Tile}" Background="{StaticResource Brush.Panel}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Style="{StaticResource Import.Skeleton}" Width="44" Height="44" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Border Style="{StaticResource Import.Skeleton}" Width="96" Height="14"/>
+                                            <Border Style="{StaticResource Import.Skeleton}" Width="140" Height="10" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource Import.Skeleton}" Height="64" HorizontalAlignment="Stretch"
+                                            CornerRadius="{StaticResource Radius.Md}" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Import.Tile}" Background="{StaticResource Brush.Panel}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Style="{StaticResource Import.Skeleton}" Width="44" Height="44" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Border Style="{StaticResource Import.Skeleton}" Width="132" Height="14"/>
+                                            <Border Style="{StaticResource Import.Skeleton}" Width="120" Height="10" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource Import.Skeleton}" Height="64" HorizontalAlignment="Stretch"
+                                            CornerRadius="{StaticResource Radius.Md}" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
                         <ItemsControl x:Name="TilesList" Focusable="False" Margin="0,0,-16,0">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -1060,8 +1085,46 @@
                                 </Button>
                             </Grid>
                         </Border>
+                        <!-- Named, never implied: the launchers Origin can't read at all. -->
+                        <TextBlock x:Name="UnsupportedNote" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
+                                   TextWrapping="Wrap" TextTrimming="None" Margin="2,8,0,0" Visibility="Collapsed"/>
                     </StackPanel>
                 </ScrollViewer>
+
+                <!-- Step 2: how much of the picked launcher comes over. Two cards, one press each. -->
+                <StackPanel x:Name="ScopePane" Visibility="Collapsed">
+                    <UniformGrid Columns="2" Margin="0,0,-16,0">
+                        <Button x:Name="ScopeAllButton" Style="{StaticResource Import.CardButton}" Click="ScopeAll_Click"
+                                AutomationProperties.Name="Import everything">
+                            <StackPanel>
+                                <Border Style="{StaticResource Surface.Tile}" Background="{StaticResource Brush.HueTile.Emerald}"
+                                        HorizontalAlignment="Left">
+                                    <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}" Stroke="{StaticResource Brush.Hue.Emerald}"/>
+                                </Border>
+                                <TextBlock Text="Import everything" Style="{StaticResource Text.Title}" Margin="0,14,0,4"/>
+                                <TextBlock x:Name="ScopeAllText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"/>
+                                <TextBlock x:Name="ScopeAllCounts" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                           Margin="0,12,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ScopeChooseButton" Style="{StaticResource Import.CardButton}" Click="ScopeChoose_Click"
+                                AutomationProperties.Name="Choose what to import">
+                            <StackPanel>
+                                <Border Style="{StaticResource Surface.Tile}" Background="{StaticResource Brush.HueTile.Sky}"
+                                        HorizontalAlignment="Left">
+                                    <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}" Stroke="{StaticResource Brush.Hue.Sky}"/>
+                                </Border>
+                                <TextBlock Text="Choose what to import" Style="{StaticResource Text.Title}" Margin="0,14,0,4"/>
+                                <TextBlock x:Name="ScopeChooseText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"/>
+                                <!-- Same three lines as the other card, so both read from the same top line. -->
+                                <TextBlock x:Name="ScopeChooseCounts" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                           Margin="0,12,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+                    <TextBlock x:Name="ScopeNote" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
+                               TextWrapping="Wrap" TextTrimming="None" Margin="2,0,0,0"/>
+                </StackPanel>
 
                 <!-- Choose what to import -->
                 <ItemsControl x:Name="PickList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
@@ -1073,7 +1136,6 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <ItemsControl x:Name="GridTabs" Focusable="False" Margin="0,0,0,6">
                         <ItemsControl.ItemsPanel>
@@ -1112,16 +1174,16 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </Grid>
-                    <ItemsControl x:Name="GridRows" Grid.Row="2" Style="{StaticResource Import.List}"/>
-                    <Grid Grid.Row="3" Margin="0,6,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="GridSetupsButton" Grid.Column="1" Style="{StaticResource Import.HeaderButton}"
+                    <!-- The rows, then the "Pick single setups" link right under the last one (never stranded at the
+                         bottom of a tall window): a top-aligned dock sizes to the rows, and still scrolls them when
+                         they outgrow the page. -->
+                    <DockPanel Grid.Row="2" VerticalAlignment="Top" LastChildFill="True">
+                        <Button x:Name="GridSetupsButton" DockPanel.Dock="Bottom" Style="{StaticResource Import.HeaderButton}"
+                                HorizontalAlignment="Right" Margin="0,6,0,0"
                                 Content="Pick single setups" Click="GridSetups_Click"
                                 ToolTip="Tick setups one by one instead" AutomationProperties.Name="Pick single setups"/>
-                    </Grid>
+                        <ItemsControl x:Name="GridRows" Style="{StaticResource Import.List}"/>
+                    </DockPanel>
                 </Grid>
 
                 <!-- The older pages, in a narrower column beside the title: what to bring + versions, one version, review,
@@ -1151,7 +1213,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel x:Name="SingleTop" Margin="0,0,0,10" Visibility="Collapsed">
+                        <StackPanel x:Name="SingleTop" Margin="0,0,0,14" Visibility="Collapsed">
                             <TextBlock Text="VERSION" Style="{StaticResource Social.Section}" Margin="2,0,0,6"/>
                             <ComboBox x:Name="TargetBox" Tag="Pick a version" MinHeight="36" Padding="12,6,30,6"
                                       SelectionChanged="TargetBox_SelectionChanged" AutomationProperties.Name="Origin version"/>
@@ -1224,22 +1286,19 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <!-- The mark, with a green check badge on its corner: it worked. -->
-                                <!-- The small emerald tick tile sits on the logo's corner, on a card-coloured ring so the 16 % wash
-                                     never shows the logo through it. -->
-                                <Grid Width="64" Height="64" Margin="0,0,32,0" VerticalAlignment="Center">
-                                    <controls:BrandLogo Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                                    <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Md}" Padding="3"
-                                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                                        <Border Style="{StaticResource Surface.Tile.Sm}" Background="{StaticResource Brush.HueTile.Emerald}">
+                                <!-- The mark alone, with its clear space kept: the "it worked" tick lives beside the label. -->
+                                <controls:BrandLogo Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}"
+                                                    Margin="0,0,32,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Style="{StaticResource Surface.Tile.Sm}" Background="{StaticResource Brush.HueTile.Emerald}"
+                                                Margin="0,0,10,0" VerticalAlignment="Center">
                                             <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Small}"
                                                   StrokeThickness="2.4" Stroke="{StaticResource Brush.Hue.Emerald}"/>
                                         </Border>
-                                    </Border>
-                                </Grid>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="IMPORT FINISHED" Style="{StaticResource Text.Label}"
-                                               Foreground="{StaticResource Brush.Success}"/>
+                                        <TextBlock x:Name="DoneLabel" Text="IMPORT FINISHED" Style="{StaticResource Text.Label}"
+                                                   Foreground="{StaticResource Brush.Success}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                     <TextBlock x:Name="DoneTitle" Text="You're all set" Style="{StaticResource Text.Heading}"
                                                Margin="0,6,0,14" TextTrimming="None" TextWrapping="Wrap"/>
                                     <ItemsControl x:Name="DoneStats" Focusable="False" Margin="0,0,-8,0"
@@ -1263,6 +1322,9 @@
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
+                        <!-- Step 4's report: each profile made (can it start?), then what came over, what was skipped,
+                             what Origin doesn't support and what failed, each line with its reason (RenderReport). -->
+                        <StackPanel x:Name="DoneReport"/>
                         <StackPanel x:Name="DoneNotes" Margin="0,4,0,0"/>
                     </StackPanel>
                 </ScrollViewer>

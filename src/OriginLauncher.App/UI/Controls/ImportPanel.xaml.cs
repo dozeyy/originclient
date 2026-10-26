@@ -40,7 +40,9 @@ namespace OriginLauncher.App.UI.Controls;
 //  * progress is shown from a 100 ms timer reading the latest report, never one UI hop per file.
 public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 {
-    public enum Pane { Launchers, Grid, Pick, Versions, Version, Review, Chooser, Single, Details, Importing, Done, Failed }
+    // The guided import is four steps (decision 04): 1 Source (Launchers: pick ONE launcher), 2 What to bring (Scope:
+    // everything or choose; the grid and the older pick pages), 3 Confirm (Review, then Importing), 4 Report (Done/Failed).
+    public enum Pane { Launchers, Scope, Grid, Pick, Versions, Version, Review, Chooser, Single, Details, Importing, Done, Failed }
 
     /// <summary>What the page does as soon as the scan is in: just show it (Detect), import everything, or open the pick list.</summary>
     public enum Intent { Detect, Everything, Choose }
@@ -49,8 +51,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     public event EventHandler? CloseRequested;
 
     /// <summary>
-    /// "Play" on Done: MainWindow selects this Minecraft version on Home and closes the page. Imports make no profiles, so
-    /// the plain version is what plays.
+    /// "Play" on Done: MainWindow selects this Minecraft version on Home and closes the page. The profiles the import made
+    /// are on the Profiles page; the Home selection stays the player's (BulkEngine.BuildDelta never changes it).
     /// </summary>
     public event EventHandler<string>? PlayRequested;
 
@@ -98,6 +100,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private Intent _pending = Intent.Detect; // what to do when the scan lands
     private bool _autoStart;                 // Import pressed: start as soon as the plan for exactly this selection lands
     private BulkImportPlan? _runPlan;        // the plan being (or last) applied: Importing's rows and Done's profiles read it
+    private SourceKind? _picked;             // step 1's launcher: step 2, the grid and the pick list read it
+    private ImportVerification? _report;     // step 4: what the re-read after the run found (null: single path or no check)
     private Pane _versionsFrom = Pane.Launchers;
     private Pane _pickFrom = Pane.Launchers;   // Pick single setups opens from Detect's grid or the grid's own link
     private string? _gridRowKeys;
@@ -289,9 +293,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var intent = _pending;
         _pending = Intent.Detect;
         if (_pane != Pane.Launchers || _model.Setups.Count == 0) return;
-        if (intent == Intent.Choose) ShowPick();
-        else if (intent == Intent.Everything && _model.GoingSetups().Count > 0) ImportNow();
-        else PrefetchPlan();
+        // The Home card's buttons skip step 1 only when there is one launcher to pick; otherwise the player picks it.
+        if (intent == Intent.Detect || _model.LaunchersWithSetups() is not { Count: 1 } only) return;
+        ChooseLauncher(only[0]);
+        if (intent == Intent.Choose) ShowGrid();
+        else FastImport(only[0]);
     }
 
     // Which launchers are installed and what each setup holds (worlds, mods, packs): folder listings only, off the UI
@@ -333,6 +339,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         switch (_pane)
         {
             case Pane.Launchers: RenderLaunchers(); break;
+            case Pane.Scope: RenderScope(); break;
             case Pane.Grid: RenderGrid(); break;
             case Pane.Pick: RenderPick(); break;
             case Pane.Versions: ShowVersions(); break;
@@ -349,6 +356,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         _pane = pane;
         DetectPane.Visibility = V(pane == Pane.Launchers);
+        ScopePane.Visibility = V(pane == Pane.Scope);
         PickList.Visibility = V(pane == Pane.Pick);
         GridPane.Visibility = V(pane == Pane.Grid);
         Legacy.Visibility = V(pane is Pane.Versions or Pane.Version or Pane.Review or Pane.Chooser or Pane.Single or Pane.Details);
@@ -362,15 +370,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         FailedPane.Visibility = V(pane == Pane.Failed);
         HeaderBlock.Visibility = V(pane != Pane.Done); // Done carries its own title in its card
         BackButton.Visibility = V(CanGoBack(pane));
-        BringButton.Visibility = V(pane is Pane.Launchers or Pane.Pick);
+        BringButton.Visibility = V(pane == Pane.Pick);
         BrowseButton.Visibility = V(pane is Pane.Launchers or Pane.Pick or Pane.Versions);
         CancelButton.Visibility = V(pane == Pane.Importing);
         SetStep(pane switch
         {
             Pane.Launchers => 1,
-            Pane.Importing => 3,
+            Pane.Review or Pane.Importing => 3,
+            Pane.Details => _detailsFrom switch { Pane.Done => 4, Pane.Review => 3, _ => 2 },
             Pane.Done or Pane.Failed => 4,
-            _ => 2, // every "what to bring" page: the grid, the pick list, the per-version pages, review, details
+            _ => 2, // every "what to bring" page: how much, the grid, the pick list, the per-version pages, one setup
         });
         if (pane is not Pane.Single) PlanningRow.Visibility = Visibility.Collapsed;
         if (pane is not Pane.Review) ShowReviewPlanning(false);
@@ -379,7 +388,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         RefreshNotice();
     }
 
-    // The four-step row under the header (Source, What to bring, Importing, Report): steps before the current one are
+    // The four-step row under the header (Source, What to bring, Confirm, Report): steps before the current one are
     // done (emerald tick on the soft emerald wash), the current one carries the accent ring and full text, later ones
     // stay a plain hairline ring in muted text.
     private void SetStep(int current)
@@ -405,7 +414,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     }
 
     private static bool CanGoBack(Pane pane) =>
-        pane is Pane.Grid or Pane.Pick or Pane.Versions or Pane.Version or Pane.Review or Pane.Chooser or Pane.Single or Pane.Details;
+        pane is Pane.Scope or Pane.Grid or Pane.Pick or Pane.Versions or Pane.Version or Pane.Review or Pane.Chooser or Pane.Single or Pane.Details;
 
     private void UpdateScanSpinner()
     {
@@ -510,6 +519,10 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             case Pane.Grid:
                 FooterPrimary.IsEnabled = !Busy && !_autoStart && _model.GridModel is { BringsNothing: false };
                 break;
+            case Pane.Scope:
+                // A game starting (or an import already running) closes both ways on; the reason shows above the footer.
+                ScopeAllButton.IsEnabled = ScopeChooseButton.IsEnabled = Allowed && !Busy;
+                break;
             case Pane.Failed:
                 FooterPrimary.IsEnabled = !Busy;
                 FooterSecondary.IsEnabled = true;
@@ -549,7 +562,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private void RefreshNotice()
     {
         string? text = null;
-        if (Busy && _pane is Pane.Launchers or Pane.Grid or Pane.Pick or Pane.Versions or Pane.Version or Pane.Review or Pane.Single or Pane.Failed)
+        if (Busy && _pane is Pane.Launchers or Pane.Scope or Pane.Grid or Pane.Pick or Pane.Versions or Pane.Version or Pane.Review or Pane.Single or Pane.Failed)
             text = BusyReason;
         else if (_pane == Pane.Review && _planFailed)
             text = "Couldn't check your setups.";
@@ -589,9 +602,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         WantFocus();
     }
 
-    // The launchers found, as tiles (logo, folder, three counts, a tick); the ones that weren't found as one slim row.
-    // The tiles change in place while the scan and the count land; the list is rebuilt only when a tile comes or goes
-    // (Add a folder makes "Picked folders").
+    // Step 1: the launchers found, as tiles (logo, folder, three counts; a press picks one); the ones that weren't found as
+    // one slim row; while the scan runs, grey skeleton tiles. The tiles change in place while the scan and the count land;
+    // the list is rebuilt only when a tile comes or goes (Add a folder makes "Picked folders").
     private void RenderLaunchers(bool rebuild = false)
     {
         var tiles = _model.Tiles(_scanning);
@@ -615,7 +628,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         foreach (var tile in found)
             if (_tiles.TryGetValue(tile.Kind, out var vm)) Fill(vm, tile);
 
+        SkeletonTiles.Visibility = V(_scanning && found.Count == 0);
         MissingBar.Visibility = V(!_scanning && missing.Count > 0);
+        var never = ImportVerifier.NeverImported.First(n => n.Name.Contains("ATLauncher", StringComparison.Ordinal));
+        UnsupportedNote.Text = $"{never.Name}: {never.Reason}";
+        UnsupportedNote.Visibility = V(!_scanning);
         if (!_scanning && missing.Count > 0)
         {
             MissingLogos.ItemsSource = missing.Take(8).Select(t => new MissingLauncherVm { Kind = t.Kind, Title = t.Title }).ToList();
@@ -637,24 +654,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         else
             SetHeader("Bring it all over",
                 (launchers > 0 ? $"Found {ImportLogic.Plural(launchers, "launcher", "launchers")} on this PC. " : "Found the folder you picked. ")
-                + "Your settings, mods, worlds and servers come straight into Origin, no profiles to set up. The other launchers are never changed.",
+                + "Pick the one to bring over. Each setup with mods becomes its own Origin profile; the other launcher is never changed.",
                 $"Scan complete - {ImportFlowModel.TileOrder.Count} launchers checked");
 
-        if (_scanning) SetFooter(FooterCopiesNote, null, null, null, null);
-        else if (nothing) SetFooter(FooterCopiesNote, null, null, "Add a folder", () => _ = BrowseAsync());
-        else if (_model.LaunchersWithSetups() is { Count: 1 } only)
-        {
-            // One other launcher: the one-click path is the page's main button.
-            var kind = only[0];
-            SetFooter(ReadyNote(_model.FastSetups(kind), "ready to import"), "Choose what to import", ShowGrid,
-                _autoStart ? "Checking..." : "Bring everything from " + ImportGridModel.ShortName(kind), () => FastImport(kind), icon: !_autoStart);
-        }
-        else
-        {
-            SetFooter(ReadyNote(_model.GoingSetups(), "ready to import"), "Choose what to import", ShowGrid,
-                _autoStart ? "Checking..." : "Import everything", ImportNow, icon: !_autoStart);
-        }
-        if (_autoStart) ShowChecking();
+        if (nothing) SetFooter(FooterCopiesNote, null, null, "Add a folder", () => _ = BrowseAsync());
+        else SetFooter(FooterCopiesNote, null, null, null, null);
         TryFocusPrimary();
     }
 
@@ -701,63 +705,89 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         vm.WorldsText = counted ? N(_model.Total(mine, ImportCategories.Worlds)) : "...";
         vm.ModsText = counted ? N(_model.Total(mine, ImportCategories.Mods)) : "...";
         vm.CanTick = mine.Any(_model.CanGo);
-        vm.CanFast = vm.CanTick;
         vm.Ticked = _model.GoingState(mine);
-        vm.Tip = vm.CanTick ? "Press to take " + tile.Title + " in or out of Import everything"
+        vm.Tip = vm.CanTick ? "Bring things over from " + tile.Title
             : "Origin can't run any of these versions yet";
         vm.Resync();
     }
 
-    // A press on the tile ticks it (a tile is a switch for "Import everything"); the tick box is the keyboard stop.
-    private void Tile_MouseUp(object sender, MouseButtonEventArgs e)
-    {
-        if (IsWithin<ButtonBase>(e.OriginalSource, (DependencyObject)sender)) return; // the tick's (or Bring everything's) own click handles it
-        if (Row<LauncherTileVm>(sender) is { CanTick: true } tile) ToggleTile(tile);
-    }
-
-    // "Bring everything from <launcher>": every setup of that launcher, nothing from the others.
-    private void TileFast_Click(object sender, RoutedEventArgs e)
+    // A press on a tile picks that launcher: step 2 asks how much of it comes over.
+    private void Tile_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (Row<LauncherTileVm>(sender) is { } tile) FastImport(tile.Kind);
+        if (Row<LauncherTileVm>(sender) is { CanTick: true } tile) ChooseLauncher(tile.Kind);
     }
 
-    private void TileTick_Click(object sender, RoutedEventArgs e)
+    private void ChooseLauncher(SourceKind kind)
     {
-        e.Handled = true;
-        if (Row<LauncherTileVm>(sender) is { } tile) ToggleTile(tile);
+        if (_scanning || _model.FastSetups(kind).Count == 0 || IsApplying) return;
+        if (_picked != kind) _plan = null; // another launcher: nothing planned for the last one is reused
+        _picked = kind;
+        ShowScope();
     }
 
-    // All of a launcher's setups in or out. Some in -> all in (a press never leaves the answer half-way).
-    private void ToggleTile(LauncherTileVm tile)
+    // ---------------------------------------------------------------- 2. how much of it
+
+    // Two cards: everything from the picked launcher, or the grid over its setups. The plan for "everything" is made in the
+    // background while the player reads, so step 3 usually opens with it ready.
+    private void ShowScope()
     {
-        if (!Allowed || _autoStart || !tile.CanTick)
+        if (_picked is not { } kind)
         {
-            tile.Resync();
+            ShowLaunchers();
             return;
         }
-        var mine = _model.Setups.Where(s => s.Kind == tile.Kind).ToList();
-        var on = _model.GoingState(mine) != true;
-        foreach (var setup in mine) _model.SetGoing(setup, on);
-        RenderLaunchers();
+        ShowPane(Pane.Scope);
+        _model.UseFast(kind);
+        RenderScope();
         PrefetchPlan();
     }
 
-    private static bool IsWithin<T>(object? source, DependencyObject stop) where T : DependencyObject
+    private void RenderScope()
     {
-        for (var d = source as DependencyObject; d != null && !ReferenceEquals(d, stop);
-             d = d is Visual ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
-        {
-            if (d is T) return true;
-        }
-        return false;
+        if (_picked is not { } kind || _pane != Pane.Scope) return;
+        var title = ImportFlowModel.LauncherTitle(kind);
+        var going = _model.FastSetups(kind);
+        SetHeader(title, "How much should come over? Nothing in " + title + " is changed.");
+        ScopeAllText.Text = "Every setup Origin can run, with its settings, mods, packs, worlds and servers. "
+            + "Each setup with mods becomes its own profile.";
+        SetRich(ScopeAllCounts, ReadyNote(going, "will come over"));
+        ScopeChooseText.Text = $"Tick what to bring from {title}, version by version: settings, mods, packs, worlds and servers.";
+        var versions = going.Select(s => s.McVersion).Distinct().Count();
+        SetRich(ScopeChooseCounts, $"**{ImportLogic.Plural(going.Count, "setup", "setups")}** on **{ImportLogic.Plural(versions, "version", "versions")}** to pick from");
+        var stays = _model.Setups.Count(s => s.Kind == kind && !_model.CanGo(s));
+        ScopeNote.Text = (stays > 0
+                ? $"{ImportLogic.Plural(stays, "setup is", "setups are")} on a Minecraft version Origin can't run, so {(stays == 1 ? "it stays" : "they stay")} behind. "
+                : "")
+            + "Accounts, launcher app data and Quilt mods never come over; the report names them.";
+        ScopeAllButton.IsEnabled = ScopeChooseButton.IsEnabled = Allowed && !Busy;
+        SetFooter(FooterCopiesNote, null, null, null, null);
     }
 
-    // ---------------------------------------------------------------- Import everything / Import selected
+    private void ScopeAll_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (_picked is { } kind) FastImport(kind);
+    }
 
-    // One press: the plan for exactly what is going is made (it was usually made already, in the background) and the
-    // import starts the moment it lands. Only a plan that can't go (disk space, nothing to import, a failed check) stops at
-    // Review, which says why.
+    private void ScopeChoose_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        ShowGrid();
+    }
+
+    // A scrolled list fades its top edge (Import.TopFade); at the top it is cut by nothing, so no mask.
+    private void List_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (sender is not UIElement list || e.OriginalSource is not ScrollViewer scroll) return;
+        var fade = scroll.VerticalOffset > 0.5 ? (Brush)FindResource("Import.TopFade") : null;
+        if (!ReferenceEquals(list.OpacityMask, fade)) list.OpacityMask = fade;
+    }
+
+    // ---------------------------------------------------------------- on to step 3 (Confirm)
+
+    // Every way out of step 2 lands on Review (step 3): what comes over, which profiles are made and what stays behind,
+    // with Import as its main button. Nothing is written before that press.
     private void ImportNow()
     {
         if (!CanStartImport() || _model.GoingSetups().Count == 0) return;
@@ -765,8 +795,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         StartImport();
     }
 
-    // The one-click path: every setup of one launcher, its most played setup's settings on every version (the engine's
-    // "same settings everywhere"), its most played setup's mods per version, the union of its packs, worlds and servers.
+    // Import everything: every setup of one launcher, its most played setup's settings on every version (the engine's
+    // "same settings everywhere"), each setup's mods in its own profile, the union of its packs, worlds and servers.
     private void FastImport(SourceKind launcher)
     {
         if (!CanStartImport() || _model.FastSetups(launcher).Count == 0) return;
@@ -774,33 +804,20 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         StartImport();
     }
 
-    // Import on the grid: who brings what per version, as ticked.
+    // Import on the grid: who brings what per version, as ticked (the picked launcher's setups only).
     private void ImportFromGrid()
     {
         if (!CanStartImport() || _model.GridModel is not { BringsNothing: false }) return;
-        _model.UseGrid();
+        _model.UseGrid(_picked);
         StartImport();
     }
 
     private bool CanStartImport() =>
-        _pane is Pane.Launchers or Pane.Grid or Pane.Pick && !_autoStart && !_scanning
+        _pane is Pane.Launchers or Pane.Scope or Pane.Grid or Pane.Pick && !_autoStart && !_scanning
         && ImportLogic.CheckStart(IsApplying, Busy ? BusyReason : null) == ImportLogic.StartKind.Start;
 
-    private void StartImport()
-    {
-        var key = _model.SelectionKey();
-        var options = _model.Options(_options);
-        if (_plan is { } ready && !_listChanged && _planKey == key && Equals(_planOptions, options))
-        {
-            if (ready.CanApply) StartBulk(ready);
-            else OpenReview();
-            return;
-        }
-        _autoStart = true;
-        ShowChecking();
-        if (_planning && !_listChanged && _planningKey == key && Equals(_planningOptions, options)) return; // on its way
-        _ = ReplanAsync();
-    }
+    // Step 3 always: OpenReview reuses the plan made in the background when it is for exactly this selection.
+    private void StartImport() => OpenReview();
 
     // The page while the plan for Import is made: the button says so, nothing else can be pressed.
     private void ShowChecking()
@@ -815,13 +832,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     // ---------------------------------------------------------------- 1a. choose what to import: the grid
 
-    // One screen for someone mixing launchers: a row per launcher, a tick per thing, version tabs when there is more than
-    // one version. Everything lands in plain Origin; no profile is made. The grid is made once and kept while the page
-    // lives, so Back and a second visit keep the ticks.
+    // Step 2's "Choose what to import": the picked launcher's row, a tick per thing, version tabs when there is more than
+    // one version. Each setup with mods becomes its own profile. The grid is kept per launcher while the page lives, so
+    // Back and a second visit keep the ticks.
     private void ShowGrid()
     {
         if (_scanning || _model.Setups.Count == 0 || _autoStart) return;
-        _model.UseGrid();
+        _model.UseGrid(_picked);
         ShowPane(Pane.Grid);
         RenderGrid(rebuild: true);
         WantFocus();
@@ -874,8 +891,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
         if (_pane != Pane.Grid) return;
 
-        SetHeader("Choose what to import", "Tick what to bring over.", compact: true);
-        SetFooter(GridNote(grid), null, null, _autoStart ? "Checking..." : "Import", ImportFromGrid, icon: !_autoStart);
+        SetHeader("Choose what to import",
+            _picked is { } from ? $"Tick what to bring over from {ImportFlowModel.LauncherTitle(from)}." : "Tick what to bring over.", compact: true);
+        SetFooter(GridNote(grid), null, null, _autoStart ? "Checking..." : "Next", ImportFromGrid);
         if (_autoStart) ShowChecking();
         TryFocusPrimary();
     }
@@ -921,6 +939,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_scanning || _model.Setups.Count == 0 || _autoStart) return;
         if (_pane is Pane.Launchers or Pane.Grid) _pickFrom = _pane;
         _model.UseTicks();
+        _model.SetScope(_picked); // one source: only the picked launcher's setups are listed and can go
         ShowPane(Pane.Pick);
         RenderPick(rebuild: true);
         WantFocus();
@@ -930,7 +949,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     // Minecraft version). Ticks change the rows in place; the list is rebuilt only when the setups themselves change.
     private void RenderPick(bool rebuild = false)
     {
-        var groups = _model.Tiles(false).Where(t => t.State == LauncherState.Found).ToList();
+        var groups = _model.Tiles(false).Where(t => t.State == LauncherState.Found && (_picked == null || t.Kind == _picked)).ToList();
         var keys = string.Join(",", _model.Setups.Select(s => s.BulkId()));
         if (rebuild || keys != _pickKeys)
         {
@@ -984,8 +1003,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_pane != Pane.Pick) return;
 
         SetHeader("Pick single setups",
-            "Tick the setups to bring. Each one goes into Origin's own folder for its Minecraft version, no profiles. Setups on a version Origin can't run yet are listed, but stay out.");
-        SetFooter(ReadyNote(_model.GoingSetups(), "selected"), null, null, _autoStart ? "Checking..." : "Import selected", ImportNow, icon: !_autoStart);
+            "Tick the setups to bring. Each one goes into Origin's own folder for its Minecraft version, its mods into its own profile. Setups on a version Origin can't run yet are listed, but stay out.");
+        SetFooter(ReadyNote(_model.GoingSetups().Where(_model.InScopeOf).ToList(), "selected"), null, null,
+            _autoStart ? "Checking..." : "Next", ImportNow);
         if (_autoStart) ShowChecking();
         TryFocusPrimary();
     }
@@ -1024,6 +1044,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (Row<PickRowVm>(sender) is { } row) TogglePick(row);
     }
 
+    private static bool IsWithin<T>(object? source, DependencyObject stop) where T : DependencyObject
+    {
+        for (var d = source as DependencyObject; d != null && !ReferenceEquals(d, stop);
+             d = d is Visual ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+        {
+            if (d is T) return true;
+        }
+        return false;
+    }
+
     // A press on the row ticks it; a setup Origin can't run opens its own page, to pick a version for it.
     private void PickRow_MouseUp(object sender, MouseButtonEventArgs e)
     {
@@ -1056,7 +1086,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         if (_scanning || _model.Setups.Count == 0 || _autoStart) return;
         _versionsFrom = _pane;
-        OpenLauncher(null);
+        OpenLauncher(_picked);
     }
 
     private void OpenLauncher(SourceKind? kind)
@@ -1480,8 +1510,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     // reuseFailure: Import everything's own plan failed or can't go; Review shows that instead of planning the same thing again.
     private void OpenReview(bool reuseFailure = false)
     {
-        if (_model.SelectedVersionCount == 0) return;
-        if (_pane is Pane.Launchers or Pane.Grid or Pane.Pick or Pane.Versions) _reviewFrom = _pane;
+        // The page's version ticks belong to the pick pages; Import everything and the grid decide by themselves.
+        if (_model.Mode == ImportMode.Ticks && _model.SelectedVersionCount == 0) return;
+        if (_pane is Pane.Launchers or Pane.Scope or Pane.Grid or Pane.Pick or Pane.Versions) _reviewFrom = _pane;
         ShowPane(Pane.Review);
         SetHeader("Review", ReviewSubtitle());
         SetFooter(null, "Details", () => OpenDetails(), "Import", ImportAll);
@@ -1671,8 +1702,25 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         items.Add(new HintVm
         {
             Id = "where", Pos = CardPos.Only,
-            Text = "Each version lands in Origin's own folder for it, ready to play from Home. No profiles are made. Your other launchers are only read.",
+            Text = "Each version lands in Origin's own folder for it, ready to play from Home. Each setup with mods becomes its own profile. Your other launchers are only read.",
         });
+
+        // The profiles this import makes (or reuses: a profile of that version already holding exactly these mods), so
+        // the player sees them before pressing Import.
+        var profiles = new List<CardRowVm>();
+        foreach (var (setup, setupPlan) in setups.Select(p => (p.Setup, p.Plan)).Where(x => x.Plan.ProfileId != null))
+            profiles.Add(new ImportLineVm
+            {
+                Id = "p" + setupPlan.ProfileId, Title = setupPlan.ProfileName ?? setup.Name,
+                Caption = $"Minecraft {setupPlan.TargetVersion} - {ImportLogic.Plural(setupPlan.Mods.Count(m => m.IsCopied), "mod", "mods")}"
+                    + (setupPlan.ProfileReused ? " - already in Origin, reused" : " - new profile"),
+            });
+        if (profiles.Count > 0)
+        {
+            items.Add(new ImportSectionVm { Id = "profiles", Title = "PROFILES", Count = profiles.Count });
+            AssignPos(profiles);
+            items.AddRange(profiles);
+        }
 
         var attention = new List<CardRowVm>();
         for (var i = 0; i < plan.Notes.Count; i++)
@@ -1768,7 +1816,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_pane != Pane.Review) return;
         var importable = _plan?.Groups.Sum(g => g.Setups.Count) ?? 0;
         var (label, enabled) = ImportLogic.ImportAllButton(_planning, _planFailed, _plan is { CanApply: true }, importable, Busy);
-        FooterPrimary.Content = label;
+        // The label goes into the button's own text (never Content): replacing Content dropped PrimaryText, so every later
+        // page's SetFooter wrote to a detached block and Done's Play still read "Import 3".
+        SetPrimaryText(label);
         FooterPrimary.IsEnabled = enabled;
         TryFocusPrimary();
     }
@@ -1824,6 +1874,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         _singleSeq++;
         try { _singleCts?.Cancel(); } catch (ObjectDisposedException) { }
         PageList.ItemsSource = new List<RowVm>();
+        ScrollOf(PageList)?.ScrollToTop(); // the list is shared with Details, which may have been scrolled
 
         _singleTarget = null;
         _suppressTarget = true;
@@ -2250,8 +2301,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         switch (_pane)
         {
-            case Pane.Grid:
+            case Pane.Scope:
                 ShowLaunchers();
+                break;
+            case Pane.Grid:
+                ShowScope(); // step 2's first page (no launcher picked: ShowScope falls back to step 1)
                 break;
             case Pane.Pick:
                 if (_pickFrom == Pane.Grid) ShowGrid(); else ShowLaunchers();
@@ -2267,6 +2321,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 // a plan in flight keeps going: the next Import reuses it if nothing changes
                 if (_reviewFrom == Pane.Pick) ShowPick();
                 else if (_reviewFrom == Pane.Grid) ShowGrid();
+                else if (_reviewFrom == Pane.Scope) ShowScope();
                 else if (_reviewFrom == Pane.Launchers) ShowLaunchers();
                 else
                 {
@@ -2446,6 +2501,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_disposed) return;
         // The Done page lists only what was part of this import: another launcher's setups never were.
         result = _model.ForDone(result);
+        // Step 4: what landed is read again from disk and each profile made is checked like a launch, off the UI thread,
+        // while the page still shows Importing. A check that can't run leaves the report out, never the result.
+        _report = null;
+        if (result.Succeeded)
+        {
+            ProgressDetail.Text = "Checking what came over...";
+            try { _report = await _backend.VerifyAsync(plan, result, CancellationToken.None); }
+            catch (Exception) { _report = null; }
+            if (_disposed) return;
+        }
         _bulkResult = result;
         _singleResult = null;
         ShowResult(ImportDoneModel.FromBulk(result));
@@ -2490,6 +2555,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_disposed) return;
         _singleResult = result;
         _bulkResult = null;
+        _report = null;
         ShowResult(ImportDoneModel.FromSingle(plan, result));
     }
 
@@ -2672,7 +2738,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var worlds = landed.Sum(l => l.Plan.Ops.Count(o => o.Item == PlanItemKind.World));
         var mods = landed.Sum(l => l.Plan.Mods.Count(x => x.IsCopied));
 
-        // The versions that got something, the one played most first (Play opens it): imports make no profiles.
+        // The versions that got something, the one played most first (Play opens it).
         var versions = DoneVersionList(landed);
         _playVersion = versions.FirstOrDefault().Version;
 
@@ -2697,18 +2763,23 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         DoneVersionsTitle.Visibility = V(cards.Count > 0);
         DoneVersions.Visibility = V(cards.Count > 0);
 
+        RenderReport();
         DoneNotes.Children.Clear();
         DoneNotes.Children.Add(NoteLine("Nothing was changed in your other launchers. They still work exactly as before.", "Import.Icon.Shield", muted: false));
-        foreach (var lost in m.Lost.Take(3))
-            DoneNotes.Children.Add(NoteLine(LostSentence(lost), "Icon.Globe", muted: false));
-        if (m.Lost.Count > 3)
-            DoneNotes.Children.Add(NoteLine($"and {m.Lost.Count - 3} more left out: open Details to see them.", "Icon.Globe", muted: true));
+        // Without the step-4 report (the single-setup path, or a check that couldn't run), the engine's own lines.
+        if (_report == null)
+        {
+            foreach (var lost in m.Lost.Take(3))
+                DoneNotes.Children.Add(NoteLine(LostSentence(lost), "Icon.Globe", muted: false));
+            if (m.Lost.Count > 3)
+                DoneNotes.Children.Add(NoteLine($"and {m.Lost.Count - 3} more left out: open Details to see them.", "Icon.Globe", muted: true));
+        }
 
         DoneNotes.Children.Add(DetailsLink());
 
         ShowPane(Pane.Done);
         if (_playVersion is { } play)
-            SetFooter($"Everything is in Origin, no profile needed. **Play** starts Minecraft {play}.",
+            SetFooter($"Everything is in Origin. **Play** starts Minecraft {play}.",
                 "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty), "Play", () => PlayRequested?.Invoke(this, play));
         else
             SetFooter(null, null, null, "Done", () => CloseRequested?.Invoke(this, EventArgs.Empty));
@@ -2717,6 +2788,154 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     // At most this many version cards, then one "+N more" card (two rows of four).
     private const int MaxVersionCards = 7;
+
+    // ---------------------------------------------------------------- 4. the report
+
+    // At most this many lines per bucket; the rest are one press away (See what came over).
+    private const int ReportRows = 8;
+
+    private static readonly (VerifyBucket Bucket, string Title, string Empty)[] ReportBuckets =
+    {
+        (VerifyBucket.Succeeded, "CAME OVER", "Nothing was copied."),
+        (VerifyBucket.Skipped, "SKIPPED", "Nothing was skipped."),
+        (VerifyBucket.Unsupported, "NOT SUPPORTED", "Everything here is something Origin imports."),
+        (VerifyBucket.Failed, "FAILED", "Nothing failed. Everything was found again after importing."),
+    };
+
+    // Each profile the import made (can it start as it is?), then what came over, what was skipped, what Origin doesn't
+    // support and what failed, each line with its reason: all from the verifier's re-read (ImportVerifier), built once.
+    private void RenderReport()
+    {
+        DoneReport.Children.Clear();
+        if (_report is not { } report) return;
+        if (report.Profiles.Count > 0)
+        {
+            var rows = ReportSection("PROFILES", report.Profiles.Count);
+            foreach (var profile in report.Profiles) rows.Children.Add(ProfileRow(profile));
+        }
+        foreach (var (bucket, title, empty) in ReportBuckets)
+        {
+            var items = report.In(bucket).ToList();
+            var rows = ReportSection(title, items.Count);
+            if (items.Count == 0) rows.Children.Add(ReportLine(empty, null, null, muted: true));
+            foreach (var item in items.Take(ReportRows))
+                rows.Children.Add(ReportLine(item.Name, item.Setup, item.Reason, warn: bucket == VerifyBucket.Failed));
+            if (items.Count > ReportRows)
+                rows.Children.Add(ReportLine($"and {items.Count - ReportRows} more", null, "See what came over lists every one.", muted: true));
+        }
+    }
+
+    // A section's label ("SKIPPED  3") and its card; returns the card's row stack.
+    private StackPanel ReportSection(string title, int count)
+    {
+        var label = new TextBlock { Text = count > 0 ? $"{title}  {count}" : title, Style = (Style)FindResource("Text.Label"), Margin = new Thickness(0, 20, 0, 8) };
+        DoneReport.Children.Add(label);
+        var rows = new StackPanel();
+        var card = new Border { Child = rows, CornerRadius = (CornerRadius)FindResource("Radius.Lg"), Padding = new Thickness(16, 8, 16, 8) };
+        card.SetResourceReference(Border.BackgroundProperty, "Brush.Card");
+        DoneReport.Children.Add(card);
+        return rows;
+    }
+
+    // One report line: what, from which setup, and why (the reason in the warning colour for a failure).
+    private UIElement ReportLine(string name, string? setup, string? reason, bool warn = false, bool muted = false)
+    {
+        var line = new StackPanel { Margin = new Thickness(0, 6, 0, 6) };
+        var title = new TextBlock { Style = (Style)FindResource("Text.Body"), TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.None };
+        title.Inlines.Add(new Run(name));
+        if (!string.IsNullOrEmpty(setup))
+        {
+            var from = new Run("  " + setup);
+            from.SetResourceReference(TextElement.ForegroundProperty, "Brush.TextMuted");
+            title.Inlines.Add(from);
+        }
+        title.SetResourceReference(TextBlock.ForegroundProperty, muted ? "Brush.TextMuted" : "Brush.Text");
+        line.Children.Add(title);
+        if (!string.IsNullOrEmpty(reason))
+        {
+            var why = new TextBlock { Text = reason, Style = (Style)FindResource("Text.Caption"), TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.None, Margin = new Thickness(0, 2, 0, 0) };
+            why.SetResourceReference(TextBlock.ForegroundProperty, warn ? "Brush.Warning" : "Brush.TextDim");
+            line.Children.Add(why);
+        }
+        return line;
+    }
+
+    // A profile the import made: its name, version and mods, and whether it can start as it is. One that can't says a
+    // repaired copy can be made, with the Fix Compatibility button once that feature is merged (ImportHooks).
+    private UIElement ProfileRow(ProfileCheck profile)
+    {
+        var row = new Grid { Margin = new Thickness(0, 8, 0, 8) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var glyph = new System.Windows.Shapes.Path
+        {
+            Style = (Style)FindResource("Icon.Small"),
+            Data = (Geometry)FindResource(profile.CanStart ? "Icon.Check" : "Icon.Alert"),
+        };
+        glyph.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, profile.CanStart ? "Brush.Hue.Emerald" : "Brush.Hue.Gold");
+        var tile = new Border { Style = (Style)FindResource("Surface.Tile.Sm"), Child = glyph, Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Top };
+        tile.SetResourceReference(Border.BackgroundProperty, profile.CanStart ? "Brush.HueTile.Emerald" : "Brush.HueTile.Gold");
+        row.Children.Add(tile);
+
+        var text = new StackPanel();
+        var name = new TextBlock { Text = profile.ProfileName, Style = (Style)FindResource("Text.Body"), FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+        name.SetResourceReference(TextBlock.ForegroundProperty, "Brush.Text");
+        text.Children.Add(name);
+        var caption = $"Minecraft {profile.Version} - {ImportLogic.Plural(profile.Mods, "mod", "mods")}"
+            + (profile.Reused ? " - already in Origin, reused" : " - new profile")
+            + (profile.CanStart ? " - ready to start" : "");
+        var info = new TextBlock { Text = caption, Style = (Style)FindResource("Text.Caption"), TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.None, Margin = new Thickness(0, 2, 0, 0) };
+        info.SetResourceReference(TextBlock.ForegroundProperty, "Brush.TextDim");
+        text.Children.Add(info);
+        if (profile.FixLine is { } fixLine)
+        {
+            var why = string.Join(" ", profile.Problems.Take(2));
+            var line = new TextBlock { Text = fixLine + (why.Length > 0 ? " " + why : ""), Style = (Style)FindResource("Text.Caption"), TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.None, Margin = new Thickness(0, 4, 0, 0) };
+            line.SetResourceReference(TextBlock.ForegroundProperty, "Brush.Warning");
+            text.Children.Add(line);
+        }
+        Grid.SetColumn(text, 1);
+        row.Children.Add(text);
+
+        if (!profile.CanStart && ImportHooks.FixCompatibility != null)
+        {
+            var fix = new Button
+            {
+                Content = "Fix Compatibility", Tag = profile, Style = (Style)FindResource("Button.Secondary.Small"),
+                Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Make a repaired copy of this profile that can start",
+            };
+            System.Windows.Automation.AutomationProperties.SetName(fix, "Fix Compatibility: " + profile.ProfileName);
+            fix.Click += FixProfile_Click;
+            Grid.SetColumn(fix, 2);
+            row.Children.Add(fix);
+        }
+        return row;
+    }
+
+    // MERGE HOOK call site (ImportHooks.FixCompatibility): a profile the report says can't start gets a repaired copy. The
+    // hook does the work off the UI thread; this only shows what it is doing, and lets Home and Profiles re-read.
+    private async void FixProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ProfileCheck profile } button || ImportHooks.FixCompatibility is not { } fix) return;
+        button.IsEnabled = false;
+        button.Content = "Making a repaired copy...";
+        try
+        {
+            await fix(profile.Version, profile.ProfileId);
+            if (_disposed) return;
+            button.Content = "Repaired copy made";
+            Imported?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception)
+        {
+            if (_disposed) return;
+            button.Content = "Try Fix Compatibility again";
+            button.IsEnabled = true;
+        }
+    }
 
     // The version Play on Done opens: the most played version that got something (null before a result).
     private string? _playVersion;
@@ -2986,7 +3205,10 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         RenderGrid();
     }
 
-    /// <summary>"Bring everything from" a launcher's tile.</summary>
+    /// <summary>Step 1: a press on a launcher's tile (picks it; step 2 shows).</summary>
+    internal void TourChooseLauncher(SourceKind kind) => ChooseLauncher(kind);
+
+    /// <summary>Step 2's "Import everything" card (opens step 3).</summary>
     internal void TourFastImport(SourceKind kind) => FastImport(kind);
 
     /// <summary>Ticks or unticks one version, as its tick box would.</summary>
@@ -3037,17 +3259,6 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     /// <summary>"Choose what to import", as the footer's button opens it.</summary>
     internal void TourShowPick() => ShowPick();
 
-    /// <summary>"Import everything" / "Import selected", as the footer's primary does.</summary>
-    internal void TourImportNow() => ImportNow();
-
-    /// <summary>A launcher's tile (or the whole launcher in Choose) in or out of the import, as its tick does.</summary>
-    internal void TourToggleLauncher(SourceKind kind)
-    {
-        var mine = _model.Setups.Where(s => s.Kind == kind).ToList();
-        var on = _model.GoingState(mine) != true;
-        foreach (var setup in mine) _model.SetGoing(setup, on);
-        RefreshCurrent();
-    }
 
     /// <summary>The header's "What to bring" button.</summary>
     internal void TourBring() => Bring_Click(this, new RoutedEventArgs());
