@@ -31,7 +31,7 @@ import java.util.Map;
  * EVERYTHING IS DONE IN STRING SPACE via {@code serialize}/{@code deserialize},
  * so we never touch JEI's concrete generic value types (List&lt;IngredientSortStage&gt;
  * etc.). Kind is detected structurally, verified against jei-1.19.2-fabric-
- * 11.8.1.1035 with javap (not assumed):
+ * 11.68.0.1086 with javap (not assumed):
  *   - serializer is a list serializer  -> MULTISELECT (element set from the API)
  *   - value is a Boolean               -> TOGGLE
  *   - value is an Integer              -> SLIDER, bounds found by PROBING
