@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * SODIUM 0.8 ONLY (OriginMixinPlugin applies it only on Sodium 0.8.x: 26.1 / 26.1.1; Sodium 0.9 has no
+ * SODIUM 0.8 ONLY (CompatMixinPlugin (originclient.compat-gates.txt) applies it only on Sodium 0.8.x: 26.1 / 26.1.1; Sodium 0.9 has no
  * createTerrainRenderList / update / scheduleSort).
  * Target: Sodium 0.8.9+mc26.1.1 RenderSectionManager (javap 2026-10-20; the same code as 0.8.12+mc1.21.11,
  * the 1.21.11 donor). No handler here reads a

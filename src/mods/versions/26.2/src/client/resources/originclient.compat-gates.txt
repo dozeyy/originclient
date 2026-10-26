@@ -1,0 +1,12 @@
+# Origin compat gates for MC 26.2 (read by compat/CompatGates at mixin load; see that class).
+# A third-party mixin applies only while its group's mods are inside these ranges; a feature runs only
+# while its groups are on. Ranges: the builds this module ships or the launcher vets (Sodium 0.9.2 + Iris 1.11.4),
+# up to the end of that minor line. Anything else: that feature turns off, one log line, rest of Origin runs.
+# group   <id> | <label> | <mod> <range> [; <mod> <range>] | <mixins>
+# feature <id> | <label> | <groups> [/ <groups>]
+group iris | Origin's Iris hooks | iris ~1.11.4 | IrisShadowDirectivesMixin IrisPipelineHalfRateMixin IrisShadowRendererHalfRateMixin IrisDebugEntryOriginMixin
+group sodium | Origin's Sodium hooks | sodium ~0.9.2 | SodiumViewportShadowMapMixin SodiumRenderSectionManagerHooksMixin SodiumChunkChangeMixin SodiumSortedRenderListsAccessor
+group jei | Origin's JEI show/hide switch | jei >=30.48.0.242 <31.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
+feature shaderPerformanceMode | Shader Performance Mode | iris
+feature halfRateShadows | Half-Rate Shadows | iris sodium
+feature offMapShadows | Off-Map Shadows | iris sodium

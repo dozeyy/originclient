@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * SODIUM 0.8 ONLY (OriginMixinPlugin applies it only on Sodium 0.8.x: 26.1 / 26.1.1).
+ * SODIUM 0.8 ONLY (CompatMixinPlugin (originclient.compat-gates.txt) applies it only on Sodium 0.8.x: 26.1 / 26.1.1).
  * Target: Sodium 0.8.9+mc26.1.1 RenderSectionManager (javap 2026-10-20, same code as 0.8.12+mc1.21.11):
  * <ul>
  * <li>createTerrainRenderList(Camera, Viewport, FogParameters, int, boolean)Z HEAD / RETURN: one chunk-graph

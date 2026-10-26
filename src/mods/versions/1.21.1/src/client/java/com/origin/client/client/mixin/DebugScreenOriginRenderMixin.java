@@ -17,11 +17,15 @@ public class DebugScreenOriginRenderMixin {
 		// Settings > Performance > Limit Far Shadows: how many far shadow casters it skipped last frame.
 		add(cir.getReturnValue(), com.origin.client.client.render.ShadowCasterLimit.debugLine());
 		// Settings > Performance > Off-Map Shadows: sections and entities kept out of the shadow map last frame.
-		add(cir.getReturnValue(), com.origin.client.client.render.OffMapShadows.debugLine());
+		if (com.origin.client.client.render.SodiumIrisBuilds.SODIUM) {   // Sodium-typed class: proven Sodium only
+			add(cir.getReturnValue(), com.origin.client.client.render.OffMapShadows.debugLine());
+		}
 		// Settings > Performance > Half-Rate Shadows: shadow maps reused (not redrawn) in the last second.
 		add(cir.getReturnValue(), com.origin.client.client.render.HalfRateShadows.debugLine());
 		// Settings > Performance > Smart Terrain Updates: main chunk-graph walks reused per second + walk CPU time.
-		add(cir.getReturnValue(), com.origin.client.client.render.SmartTerrainUpdates.debugLine());
+		if (com.origin.client.client.render.SodiumIrisBuilds.SODIUM) {
+			add(cir.getReturnValue(), com.origin.client.client.render.SmartTerrainUpdates.debugLine());
+		}
 	}
 
 	private static void add(List<String> lines, String line) {

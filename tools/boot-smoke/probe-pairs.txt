@@ -1,0 +1,16 @@
+# CI-only Sodium + Iris pairs that Origin's compat gates must REFUSE (boot-smoke `pairs=<mc>:<pairId>`).
+# Never offered to players: the launcher reads ManagedPins.Data.cs, not this file. Each pair is a real,
+# self-consistent Modrinth pair OUTSIDE that module's originclient.compat-gates.txt ranges, so a green row
+# proves: the game reaches the title screen, zero "Mixin apply" failures, and one
+# "Origin compat gate: <feature> is off (...)" line per gated feature (DECISIONS 2026-10-26).
+# Same row shape as ManagedPins.Data.cs (covers.py ALT_PIN); sha512 from the Modrinth API, 2026-10-26.
+#
+# 1.21.1 ships Sodium 0.8.13 + Iris 1.8.14-beta.1 (range ~0.8.13 or ~0.6.5 / ~1.8.1): Sodium 0.6.0 + Iris 1.8.0
+# lacks OcclusionCuller.addNearbySections (sigcheck 45/46, docs/overhaul/configuration-matrix.md).
+["1.21.1:sodium-probe-0.6.0+1.8.0"] = new("0.6.0+mc1.21.1", "https://cdn.modrinth.com/data/AANobbMI/versions/b70slbHV/sodium-fabric-0.6.0%2Bmc1.21.1.jar", "sodium-fabric-0.6.0+mc1.21.1.jar", "f7b92989ba6312352623d0311c5bb71eb8da14ea2e5a070f3a959a1f10cfe68cfc8487cf8dbde9187d849d6c04833df2a974be12949efae8aaffe873815ba7a5"),
+["1.21.1:iris-probe-0.6.0+1.8.0"] = new("1.8.0+mc1.21.1", "https://cdn.modrinth.com/data/YL57xq9U/versions/MA2sKKaG/iris-fabric-1.8.0%2Bmc1.21.1.jar", "iris-fabric-1.8.0+mc1.21.1.jar", "9feafdd697118f9fb22be78857c7e4a4367bea93e63affe65da4795ad383de68653569d99d5839aa9db8d4d93589a30cb48f74a074db004ccc089a7b0b55a766"),
+# 1.21 ships Sodium 0.6.13 + Iris 1.8.8 (range ~0.6.13 / ~1.8.8): the older Sodium 0.5 / Iris 1.7 era pair.
+# Modrinth names the Iris file iris-1.7.3+mc1.21.jar; it is saved as iris-fabric-* so covers.py's LaunchSwap rule
+# (ConfigurationCatalog.ReplacedPrefixes) treats it like any Iris jar. The sha512 is of the file's bytes.
+["1.21:sodium-probe-0.5.11+1.7.3"] = new("0.5.11+mc1.21", "https://cdn.modrinth.com/data/AANobbMI/versions/RncWhTxD/sodium-fabric-0.5.11%2Bmc1.21.jar", "sodium-fabric-0.5.11+mc1.21.jar", "a8a4520c2891e6a3c891b0b5c1106c29851a97c8e5a0131fe94cdcdfd755b679ce55dbaeafd14638ef7987b8efcd32619209aba4460762027f1a2ebe121a4046"),
+["1.21:iris-probe-0.5.11+1.7.3"] = new("1.7.3+mc1.21", "https://cdn.modrinth.com/data/YL57xq9U/versions/kuOV4Ece/iris-1.7.3%2Bmc1.21.jar", "iris-fabric-1.7.3+mc1.21.jar", "bcd9b4f5cef1521c00b59cc9409725556922a077c60f62ba834dca680e29f334660a7c68150ff827779fb888585042b1ba687dfce6fd4d650507d9c59f023703"),

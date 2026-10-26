@@ -78,6 +78,12 @@ public final class Mods {
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
 			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%")));
 
+	// A speed-up whose Sodium/Iris hooks are off on this player's builds says so in its tooltip
+	// (compat/CompatGates: "Off: needs a supported Sodium").
+	static {
+		com.origin.client.client.compat.CompatNotes.mark(PERFORMANCE_SETTINGS);
+	}
+
 	/**
 	 * Drops options the installed Sodium/Iris builds can't run, so no toggle does nothing. This jar also runs
 	 * MC 1.20, whose Sodium 0.4.10 has none of the graph-walk hooks Smart Terrain Updates needs

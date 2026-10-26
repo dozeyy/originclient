@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * SODIUM 0.9 ONLY (OriginMixinPlugin applies it only on Sodium 0.9.x: 26.1.2; Sodium 0.8.9 on 26.1 / 26.1.1
+ * SODIUM 0.9 ONLY (CompatMixinPlugin (originclient.compat-gates.txt) applies it only on Sodium 0.9.x: 26.1.2; Sodium 0.8.9 on 26.1 / 26.1.1
  * has none of these methods, SodiumWalkEndMixin covers its walk).
  * Target: Sodium 0.9.2+mc26.2 RenderSectionManager (javap 2026-10-20; the same three methods and
  * descriptors in 0.9.2+mc26.1.2):

@@ -35,7 +35,7 @@ public abstract class LevelRendererCullFrustumMixin {
 	@Inject(method = "prepareCullFrustum", at = @At("HEAD"))
 	private void originclient$cullFingerprint(Vec3 pos, Matrix4f frustumMatrix, Matrix4f projectionMatrix,
 			CallbackInfo ci) {
-		if (originclient$dead) {
+		if (originclient$dead || !com.origin.client.client.compat.CompatGates.on("sodium")) {
 			return;
 		}
 		try {

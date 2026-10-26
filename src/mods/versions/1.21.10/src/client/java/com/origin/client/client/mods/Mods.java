@@ -73,6 +73,12 @@ public final class Mods {
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
 			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%")));
 
+	// A speed-up whose Sodium/Iris hooks are off on this player's builds says so in its tooltip
+	// (compat/CompatGates: "Off: needs a supported Sodium").
+	static {
+		com.origin.client.client.compat.CompatNotes.mark(PERFORMANCE_SETTINGS);
+	}
+
 	/**
 	 * Drops options the installed Sodium/Iris builds can't run, so no toggle does nothing. Smart Terrain
 	 * Updates was read from Sodium 0.7.3+mc1.21.8 + Iris 1.9.6+mc1.21.8 only (render/SodiumIrisBuilds);

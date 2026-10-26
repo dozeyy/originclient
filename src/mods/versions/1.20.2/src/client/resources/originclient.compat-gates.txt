@@ -1,0 +1,14 @@
+# Origin compat gates for MC 1.20.2 (read by compat/CompatGates at mixin load; see that class).
+# A third-party mixin applies only while its group's mods are inside these ranges; a feature runs only
+# while its groups are on. Ranges: the builds this module ships or the launcher vets (Sodium 0.5.5 + Iris 1.6.14),
+# up to the end of that minor line. Anything else: that feature turns off, one log line, rest of Origin runs.
+# group   <id> | <label> | <mod> <range> [; <mod> <range>] | <mixins>
+# feature <id> | <label> | <groups> [/ <groups>]
+group iris | Origin's Iris hooks | iris ~1.6.14 | IrisShadowDirectivesMixin IrisWatermarkMixin IrisListDecorationsMixin IrisPipelineHalfRateMixin IrisShadowRendererHalfRateMixin IrisShadowProjectionMixin
+group sodium | Origin's Sodium hooks | sodium ~0.5.5 | SodiumRenderSectionManagerAccessor SodiumSortedRenderListsAccessor SodiumChunkRenderListAccessor SodiumGraphReuseMixin SodiumUpdateReuseMixin SodiumWalkEndMixin SodiumOcclusionStampMixin SodiumViewportShadowMapMixin SodiumWorldRendererReuseMixin
+group smartTerrainPair | Smart Terrain's Sodium + Iris pair | sodium 0.5.5; iris 1.6.14 |
+group jei | Origin's JEI show/hide switch | jei >=16.0.0.2 <17.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
+feature shaderPerformanceMode | Shader Performance Mode | iris
+feature halfRateShadows | Half-Rate Shadows | iris sodium
+feature offMapShadows | Off-Map Shadows | iris sodium
+feature smartTerrainUpdates | Smart Terrain Updates | iris sodium smartTerrainPair

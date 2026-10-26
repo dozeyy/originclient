@@ -10,5 +10,6 @@ package com.origin.client.client.render;
 public final class SodiumLoaded {
 	private SodiumLoaded() { }
 
-	public static final boolean YES = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium");
+	// A Sodium build Origin's hooks were proven on (compat/CompatGates), not just any Sodium.
+	public static final boolean YES = com.origin.client.client.compat.CompatGates.on("sodium");
 }

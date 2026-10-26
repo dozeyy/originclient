@@ -26,6 +26,9 @@ public abstract class LevelRendererCullFrustumMixin {
 	@Inject(method = "prepareCullFrustum", at = @At("HEAD"))
 	private void originclient$cullFingerprint(Vec3 pos, Matrix4f frustumMatrix, Matrix4f projectionMatrix,
 			CallbackInfo ci) {
-		SmartTerrainUpdates.onCullFrustum(pos, frustumMatrix, projectionMatrix, capturedFrustum != null);
+		// SmartTerrainUpdates links Sodium types: only with a Sodium build its hooks were proven on.
+		if (com.origin.client.client.render.SodiumIrisBuilds.SODIUM) {
+			SmartTerrainUpdates.onCullFrustum(pos, frustumMatrix, projectionMatrix, capturedFrustum != null);
+		}
 	}
 }

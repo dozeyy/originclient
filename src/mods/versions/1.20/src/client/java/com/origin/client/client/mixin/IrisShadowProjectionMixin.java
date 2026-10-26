@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * SETTINGS > Performance > Off-Map Shadows: where the shadow projection comes from on Iris 1.6.x (MC 1.20;
- * OriginMixinPlugin applies it on Iris 1.6.4 only -- Iris 1.7.6 on MC 1.20.1 has ShadowRenderer.PROJECTION).
+ * CompatMixinPlugin (originclient.compat-gates.txt) applies it on Iris 1.6.4 only -- Iris 1.7.6 on MC 1.20.1 has ShadowRenderer.PROJECTION).
  * Target: Iris 1.6.4 net.coderbot.iris.pipeline.ShadowRenderer.renderShadows(LevelRendererAccessor,
  * Camera)V (javap of the jar 2026-10-20): HEAD, and its two projection builders -- INVOKE
  * ShadowMatrices.createPerspectiveMatrix(F) (offset 317, a pack with a shadow fov) and

@@ -92,7 +92,9 @@ public final class OffMapShadows {
 		}
 	}
 
-	private static boolean broken = IS_SHADOW_PASS == null || MODELVIEW == null;
+	// Off for good when this module's compat gates say the installed Sodium/Iris isn't one these hooks
+	// were proven on (compat/CompatGates; DEV forcing can't switch it back on).
+	private static boolean broken = !com.origin.client.client.compat.CompatGates.on(KEY_ON) || IS_SHADOW_PASS == null || MODELVIEW == null;
 
 	// Light-space x and y rows of PROJECTION * MODELVIEW, rebuilt when Iris installs new matrices (a new
 	// MODELVIEW object every shadow frame, ShadowRenderer.renderShadows).

@@ -75,6 +75,12 @@ public final class Mods {
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
 			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"));
 
+	// A speed-up whose Sodium/Iris hooks are off on this player's builds says so in its tooltip
+	// (compat/CompatGates: "Off: needs a supported Sodium").
+	static {
+		com.origin.client.client.compat.CompatNotes.mark(PERFORMANCE_SETTINGS);
+	}
+
 	// Vanilla 1.21.1 particle types (net.minecraft.core.particles.ParticleTypes)
 	// — the Particle Changer builds a per-type control block from this list so
 	// coverage is exhaustive rather than a hand-picked sample.

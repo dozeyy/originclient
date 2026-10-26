@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * MC 1.20.1 only (OriginMixinPlugin: Iris 1.7.6; MC 1.20's Iris 1.6.4 uses IrisShadowRendererHalfRate16Mixin).
+ * MC 1.20.1 only (CompatMixinPlugin (originclient.compat-gates.txt): Iris 1.7.6; MC 1.20's Iris 1.6.4 uses IrisShadowRendererHalfRate16Mixin).
  * Target: Iris 1.7.6+1.20.1 ShadowRenderer (javap of the jar 2026-10-20):
  * renderShadows(Lnet/irisshaders/iris/mixin/LevelRendererAccessor;Lnet/minecraft/client/Camera;)V,
  * static createShadowModelView(FF)Lcom/mojang/blaze3d/vertex/PoseStack; (two floats here; Iris 1.8

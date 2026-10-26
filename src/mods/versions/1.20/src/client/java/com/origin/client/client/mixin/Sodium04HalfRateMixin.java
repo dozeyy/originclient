@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Half-Rate Shadows' chunk-change hooks on Sodium 0.4.10 (MC 1.20). Sodium 0.5's are in
- * SodiumGraphReuseMixin, whose other handlers don't fit 0.4.10, so OriginMixinPlugin applies this one
+ * SodiumGraphReuseMixin, whose other handlers don't fit 0.4.10, so CompatMixinPlugin (originclient.compat-gates.txt) applies this one
  * only on Sodium 0.4.10 and that one only on 0.5.13 (same class name, different members).
  *
  * <p>TARGET (javap of sodium-fabric-mc1.20-0.4.10+build.27, 2026-10-20): RenderSectionManager

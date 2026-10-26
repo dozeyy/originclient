@@ -88,3 +88,42 @@ There are four features: Limit Far, Smart Terrain, Off-Map Shadows and Half-Rate
 - `Entity.getBoundingBoxForCulling` moved to `EntityRenderer` (protected); read it through an `@Invoker` plus `@Local` capture of the renderer.
 - Iris is not on the 1.21.4 compile classpath by default; add `modCompileOnly maven.modrinth:iris:<version id>`.
 - The 1.21.4 module also serves MC 1.21.2/1.21.3 (Sodium 0.6.1/0.6.8, Iris 1.8.0/1.8.1); every Sodium/Iris hook must fail soft there.
+
+## Version gates on third-party hooks (compat/CompatGates, 2026-10-26)
+Every Origin mixin into Sodium, Iris or JEI applies only on the builds it was proven on (DECISIONS 2026-10-26).
+- **Where:** the shared `compat/CompatGates` (+ `CompatMixinPlugin` on every client mixin config) reads the module's own
+  `originclient.compat-gates.txt`. `group` = mods + Fabric version ranges + the mixins it gates; `feature` = the groups
+  a feature needs (`/` = alternatives). Ranges = the shipped build, up to the end of its minor line (`~0.8.13`), plus the
+  launcher's vetted pairs; join alternatives with ` or ` (never `||`: it splits the `|` fields).
+- **Out of range:** the group's mixins never apply, the feature reads off (`CompatGates.on("<option key>")` in
+  `SodiumIrisBuilds` and in each feature's `broken` flag), one log line `Origin compat gate: <feature> is off (<mod>
+  <version> is outside <range>)`, and the Mod Menu says "Off: needs a supported Sodium" (option tooltip via
+  `CompatNotes`, card/page notes via StepAside's note slot). The rest of Origin runs.
+- **Adding a hook:** put the new mixin in a group of that module's data file. `tools/compat-gates/check.py` (build-check)
+  fails on an ungated third-party mixin, stale data, an unknown `CompatGates.on` id, or a pre-1.20 copy of compat/
+  that drifted (pre-1.20 modules are no-sync: copy compat/*.java by hand).
+- **Shipped pair = unchanged behaviour:** every module's shipped Sodium/Iris/JEI is inside its own ranges.
+
+| Module | Gated mixins | Groups: mod range (mixins) | Features: groups |
+|---|---|---|---|
+| 26.3 | 10 | `iris` iris ~1.11.7 (4); `sodium` sodium ~0.9.2 (4); `jei` jei >=31.17.0.93 <32.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium |
+| 26.2 | 10 | `iris` iris ~1.11.4 (4); `sodium` sodium ~0.9.2 (4); `jei` jei >=30.48.0.242 <31.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium |
+| 26.1 | 15 | `iris` iris ~1.10.9 or ~1.11.4 (4); `sodium` sodium ~0.8.9 or ~0.9.2 (3); `sodium08` sodium ~0.8.9 (4); `sodium09` sodium ~0.9.2 (1); `smartTerrainPair` sodium 0.8.9; iris 1.10.9 (1); `jei` jei >=29.37.0.100 <30.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium sodium08 / iris sodium sodium09, smartTerrainUpdates = iris sodium sodium08 smartTerrainPair |
+| 1.21.1 | 12 | `iris` iris ~1.8.1 (3); `sodium` sodium ~0.8.13 or ~0.6.5 (7); `smartTerrainPair` sodium 0.8.13; iris 1.8.14-beta.1 (0); `jei` jei >=19.51.0.418 <20.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair |
+| 1.21 | 17 | `iris` iris ~1.8.8 (3); `sodium` sodium ~0.6.13 (12); `smartTerrainPair` sodium 0.6.13; iris 1.8.8 (0); `jei` jei >=19.39.0.372 <20.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair, originRender = sodium |
+| 1.21.4 | 14 | `iris` iris ~1.8.0 (3); `sodium` sodium ~0.6.0 (10); `smartTerrainPair` sodium 0.6.13; iris 1.8.8 (1) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair, originRender = sodium |
+| 1.21.6 | 10 | `iris` iris ~1.9.6 (3); `sodium` sodium ~0.7.3 (7); `smartTerrainPair` sodium 0.7.3; iris 1.9.6 (0) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair |
+| 1.21.8 | 10 | `iris` iris ~1.9.6 (3); `sodium` sodium ~0.7.3 (7); `smartTerrainPair` sodium 0.7.3; iris 1.9.6 (0) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair |
+| 1.21.10 | 12 | `iris` iris ~1.9.7 (3); `sodium` sodium ~0.7.3 (7); `smartTerrainPair` sodium 0.7.3; iris 1.9.7 (0); `jei` jei >=26.3.0.31 <27.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair |
+| 1.21.11 | 12 | `iris` iris ~1.10.0 (3); `sodium` sodium ~0.8.0 (7); `smartTerrain812` sodium 0.8.12; iris 1.10.7 (0); `smartTerrain814` sodium 0.8.14; iris 1.10.8 (0); `jei` jei >=27.54.0.112 <28.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrain812 / iris sodium smartTerrain814 |
+| 1.20 | 20 | `iris` iris ~1.6.4 or ~1.7.6 (2); `sodium` sodium 0.4.10 or 0.5.13 (0); `sodium05` sodium 0.5.13 (10); `sodium04` sodium 0.4.10 (1); `iris17` iris 1.7.6 (2); `iris16` iris 1.6.4 (3); `jei` jei >=14.0.0.11 <15.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium sodium05 iris17 / iris sodium sodium04 iris16, offMapShadows = iris sodium sodium05 iris17 / iris sodium sodium04 iris16, smartTerrainUpdates = iris sodium sodium05 iris17 |
+| 1.20.2 | 17 | `iris` iris ~1.6.14 (6); `sodium` sodium ~0.5.5 (9); `smartTerrainPair` sodium 0.5.5; iris 1.6.14 (0); `jei` jei >=16.0.0.2 <17.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair |
+| 1.20.4 | 16 | `iris` iris ~1.7.2 (5); `sodium` sodium ~0.5.8 (9); `smartTerrainPair` sodium 0.5.8; iris 1.7.2 (0); `jei` jei >=17.3.1.5 <18.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium smartTerrainPair |
+| 1.19.4 | 11 | `iris` iris ~1.6.11 (4); `sodium` sodium ~0.4.10 (5); `jei` jei >=13.1.0.19 <14.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium |
+| 1.19.3 | 11 | `iris` iris ~1.5.2 (4); `sodium` sodium ~0.4.9 (5); `jei` jei >=12.4.0.22 <13.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium |
+| 1.19.2 | 11 | `iris` iris ~1.6.11 (4); `sodium` sodium ~0.4.4 (5); `jei` jei >=11.68.0.1086 <12.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium |
+| 1.18.2 | 11 | `iris` iris ~1.6.11 (4); `sodium` sodium ~0.4.1 (5); `jei` jei >=10.2.1.1002 <11.0.0- (2) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium |
+| 1.17.1 | 9 | `iris` iris ~1.2.7 (4); `sodium` sodium ~0.3.4 (5) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium |
+| 1.16.5 | 8 | `iris` iris ~1.4.5 (4); `sodium` sodium ~0.2.0 (4) | shaderPerformanceMode = iris, halfRateShadows = iris sodium, offMapShadows = iris sodium, smartTerrainUpdates = iris sodium |
+
+1.8.9 (Forge) has two mixins, both into Forge's own fixed classes; no third-party gate is needed there.

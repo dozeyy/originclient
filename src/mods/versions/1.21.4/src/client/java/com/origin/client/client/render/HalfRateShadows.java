@@ -78,7 +78,9 @@ public final class HalfRateShadows {
 
 	private static final boolean MISSING = PIPE_SHADOW_RENDERER == null || PIPE_CUSTOM_IMAGES == null || PIPE_SSBO == null
 			|| SR_VOXEL == null || SR_MODELVIEW == null || SR_ACTIVE == null || SHADOW_DISTANCE == null || FULL_CLEAR == null;
-	private static boolean broken = MISSING;
+	// Off for good when this module's compat gates say the installed Sodium/Iris isn't one these hooks
+	// were proven on (compat/CompatGates; DEV forcing can't switch it back on).
+	private static boolean broken = !com.origin.client.client.compat.CompatGates.on(KEY_ON) || MISSING;
 
 	/** Field getter as (Object)Object, or ()Object for a static field; null if absent. */
 	private static MethodHandle getter(String owner, String field, boolean isStatic) {

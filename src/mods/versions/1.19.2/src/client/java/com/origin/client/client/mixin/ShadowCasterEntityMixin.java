@@ -28,7 +28,8 @@ public abstract class ShadowCasterEntityMixin {
 	private boolean originclient$farShadowCaster(boolean visible, Entity entity, Frustum frustum,
 			double camX, double camY, double camZ) {
 		// Off-Map Shadows first: an entity entirely off the shadow map's x/y edges.
-		if (visible && (OffMapShadows.skipEntity(entity, camX, camY, camZ)
+		// OffMapShadows links Sodium types: only with a Sodium build its hooks were proven on.
+		if (visible && ((com.origin.client.client.compat.CompatGates.on("sodium") && OffMapShadows.skipEntity(entity, camX, camY, camZ))
 				|| ShadowCasterLimit.skipEntity(entity, camX, camY, camZ))) {
 			return false;
 		}

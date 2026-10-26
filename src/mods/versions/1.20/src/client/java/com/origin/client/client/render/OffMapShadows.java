@@ -87,7 +87,7 @@ public final class OffMapShadows {
 	 * The chunk half of this feature hooks Sodium 0.5's walk (SodiumViewportShadowMapMixin /
 	 * SodiumGraphReuseMixin / SodiumWalkEndMixin). Sodium 0.4.10 (MC 1.20) has no Viewport or
 	 * OcclusionCuller and walks with a different graph (RenderSectionManager.iterateChunks/bfsEnqueue,
-	 * javap 2026-10-20), so on MC 1.20 only the entity half runs; OriginMixinPlugin skips the Sodium 0.5
+	 * javap 2026-10-20), so on MC 1.20 only the entity half runs; CompatMixinPlugin (originclient.compat-gates.txt) skips the Sodium 0.5
 	 * mixins there and the F3 line says so.
 	 */
 	private static final boolean SECTIONS_HOOKED = SodiumIrisBuilds.SODIUM_05;
@@ -104,7 +104,9 @@ public final class OffMapShadows {
 		return null;
 	}
 
-	private static boolean broken = IS_SHADOW_PASS == null || MODELVIEW == null;
+	// Off for good when this module's compat gates say the installed Sodium/Iris isn't one these hooks
+	// were proven on (compat/CompatGates; DEV forcing can't switch it back on).
+	private static boolean broken = !com.origin.client.client.compat.CompatGates.on(KEY_ON) || IS_SHADOW_PASS == null || MODELVIEW == null;
 
 	// Light-space x and y rows of PROJECTION * MODELVIEW, rebuilt when Iris installs new matrices (a new
 	// MODELVIEW object every shadow frame, ShadowRenderer.renderShadows).

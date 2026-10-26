@@ -8,6 +8,9 @@ package com.origin.client.client.render;
  * (PerformanceModCatalog.Data.cs). The shader speed-ups that reach into Sodium/Iris internals were
  * written against exactly those builds.
  */
+// Every flag below reads compat/CompatGates (this module's originclient.compat-gates.txt): the
+// Sodium/Iris builds each hook was proven on. A player's own Sodium/Iris outside them = flag false.
+// (CompatGates gate)
 public final class SodiumIrisBuilds {
 	private SodiumIrisBuilds() { }
 
@@ -16,7 +19,7 @@ public final class SodiumIrisBuilds {
 	 * every vanilla-target mixin that calls into a Sodium-typed class (OffMapShadows, SmartTerrainUpdates)
 	 * checks this first: touching those classes without Sodium throws NoClassDefFoundError on the first frame.
 	 */
-	public static final boolean SODIUM = loaded("sodium");
+	public static final boolean SODIUM = com.origin.client.client.compat.CompatGates.on("sodium");
 
 	private static boolean loaded(String mod) {
 		try {
@@ -35,8 +38,7 @@ public final class SodiumIrisBuilds {
 	 * Viewport, SodiumWorldRenderer, SortedRenderLists, Iris's Sodium-compat mixins -- unchanged in
 	 * behaviour). Sodium and Iris move together, so mixed pairs stay off.
 	 */
-	public static final boolean SMART_TERRAIN =
-			(is("sodium", "0.8.12") && is("iris", "1.10.7")) || (is("sodium", "0.8.14") && is("iris", "1.10.8"));
+	public static final boolean SMART_TERRAIN = com.origin.client.client.compat.CompatGates.on("smartTerrainUpdates");
 
 	/** True when mod {@code mod} is loaded at version {@code prefix} (with or without a "+build" suffix). */
 	public static boolean is(String mod, String prefix) {
