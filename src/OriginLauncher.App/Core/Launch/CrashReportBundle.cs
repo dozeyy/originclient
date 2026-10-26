@@ -63,6 +63,7 @@ public static class CrashReportBundle
         s = Uuid.Replace(s, "<uuid>");
         s = Ipv4.Replace(s, "<ip>");
         s = Ipv6Candidate.Replace(s, m => IsIpv6(m.Value) ? "<ip>" : m.Value);
+        s = HostBeforeIp.Replace(s, "<server>/");
         s = Email.Replace(s, "<email>");
         s = UserPathWithSpaces.Replace(s, "$1<user>");
         s = UserPath.Replace(s, "$1<user>");
@@ -74,6 +75,9 @@ public static class CrashReportBundle
     private static readonly Regex AuthorizationHeader = Rx(@"(authorization[""']?\s*[:=]\s*)[^\r\n]+");
     // Minecraft logs the server it joins ("Connecting to mc.example.net, 25565"), and crash reports name it.
     private static readonly Regex ServerHost = Rx(@"(Connecting to\s+|Server (?:IP|address):\s*)([^\s,]+)(,?)");
+    // Netty names the host right before the address it resolved: "Connection refused: mc.example.net/<ip>:25565".
+    // Runs after the IP patterns, so it only fires next to an address already hidden.
+    private static readonly Regex HostBeforeIp = Rx(@"(?<![\w.-])[a-z0-9-]+(?:\.[a-z0-9-]+)+/(?=\[?<ip>)");
     // Account and player ids (dashed, or the 32-hex form in JSON and account folders): public lookups turn one back into a name.
     private static readonly Regex Uuid = Rx(@"(?<![0-9a-f])(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32})(?![0-9a-f])");
     // A user folder whose name has spaces ("C:\Users\Will Henry\..."): only when a separator follows, so plain text
@@ -101,6 +105,11 @@ public static class CrashReportBundle
 
     public static string Build(Input input)
     {
+        // Scrub BEFORE any line is cut to MaxLineChars: a cut can land inside "C:\Users\Will Henry\" and drop the
+        // separator the with-spaces pattern needs, leaking part of the name. The final Scrub below is a no-op re-check.
+        string Clean(string? t) => t == null ? "" : Scrub(t, input.KnownNames);
+        var logText = input.LogText == null ? null : Clean(input.LogText);
+        var crashText = input.CrashReportText == null ? null : Clean(input.CrashReportText);
         var sb = new StringBuilder();
         sb.AppendLine("Origin Launcher - crash report");
         sb.AppendLine($"Launcher     : {input.LauncherVersion}");
@@ -113,16 +122,16 @@ public static class CrashReportBundle
         sb.AppendLine($"Likely cause : {f.LikelyCause} [{f.Confidence.Word()}, rule {f.Rule}]");
         if (f.Culprits.Count > 0)
             sb.AppendLine($"Mods named   : {string.Join(", ", f.Culprits.Select(c => c.JarFileName != null ? $"{c.ModId} ({c.JarFileName})" : c.ModId))}");
-        foreach (var line in f.TechnicalLines.Take(6)) sb.AppendLine($"Evidence     : {Clip(line)}");
+        foreach (var line in f.TechnicalLines.Take(6)) sb.AppendLine($"Evidence     : {Clip(Clean(line))}");
         foreach (var other in input.Verdict.Others.Take(4))
             sb.AppendLine($"Also seen    : {other.Headline} [{other.Confidence.Word()}, rule {other.Rule}]");
 
         sb.AppendLine().AppendLine($"----- last {MaxLogLines} log lines -----");
-        sb.AppendLine(Tail(input.LogText, MaxLogLines));
-        if (!string.IsNullOrWhiteSpace(input.CrashReportText))
+        sb.AppendLine(Tail(logText, MaxLogLines));
+        if (!string.IsNullOrWhiteSpace(crashText))
         {
             sb.AppendLine().AppendLine("----- crash report (start) -----");
-            sb.AppendLine(Head(input.CrashReportText, MaxCrashReportLines));
+            sb.AppendLine(Head(crashText, MaxCrashReportLines));
         }
 
         var scrubbed = Scrub(sb.ToString(), input.KnownNames);

@@ -54,6 +54,30 @@ public class CrashReportBundleTests
         Assert.DoesNotContain(mustNotSurvive, CrashReportBundle.Scrub(input));
 
     [Fact]
+    public void Build_scrubs_before_cutting_long_lines()
+    {
+        // 284 x's + a space puts the 300-char cut inside the name: "C:\Users\Sam Ri". Cut first, and the
+        // with-spaces pattern has no separator to anchor on, so part of the surname leaked.
+        var line = new string('x', 284) + @" C:\Users\Sam Rivers\AppData\x.jar";
+        var text = CrashReportBundle.Build(new CrashReportBundle.Input("1", "1.21.1", 4096, 8192, 1, Diagnosis,
+            line, line));
+        Assert.DoesNotContain("Sam", text);
+        Assert.DoesNotContain("Ri ...", text); // the old leak: "C:\Users\<user> Ri ..."
+    }
+
+    [Fact]
+    public void Scrub_hides_the_host_netty_names_before_an_address()
+    {
+        var s = CrashReportBundle.Scrub("io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: mc.example.net/203.0.113.7:25565");
+        Assert.DoesNotContain("mc.example.net", s);
+        Assert.DoesNotContain("203.0.113.7", s);
+        Assert.Contains("Connection refused: <server>/<ip>:25565", s);
+        // Java class names and versions next to no address stay as they are.
+        Assert.Contains("io.netty.channel.AbstractChannel", s);
+        Assert.Equal("<server>/[<ip>]:25565", CrashReportBundle.Scrub("play.example.org/[2001:db8::1]:25565"));
+    }
+
+    [Fact]
     public void Scrub_hides_a_user_name_with_a_space_whole()
     {
         var s = CrashReportBundle.Scrub(@"at C:\Users\Sam Rivers\AppData\Local\OriginLauncher\x.jar and /home/sam rivers/", ["Sam Rivers"]);

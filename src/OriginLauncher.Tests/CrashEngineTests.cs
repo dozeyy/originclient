@@ -340,4 +340,25 @@ More details:
 
         Assert.False(guard.AnyTried("steve", t.AddMinutes(2) + CrashRetryGuard.Window)); // expired
     }
+
+    [Fact]
+    public void Mixin_config_belongs_to_the_exact_or_longest_matching_mod_id()
+    {
+        var mods = new List<CrashModEntry>
+        {
+            new("carpet", "carpet.jar", true), new("carpet-extra", "carpet-extra.jar", true),
+            new("sodium", "sodium.jar", false), new("sodium-extra", "sodium-extra.jar", true),
+        };
+        Assert.Equal("carpet-extra", CrashFactsParser.ModOfConfig("carpet-extra.mixins.json", mods));
+        Assert.Equal("carpet", CrashFactsParser.ModOfConfig("carpet.mixins.json", mods));
+        Assert.Equal("carpet-extra", CrashFactsParser.ModOfConfig("carpet-extra-client.mixins.json", mods));
+        Assert.Equal("sodium-extra", CrashFactsParser.ModOfConfig("sodium-extra.mixins.json", mods));
+        Assert.Equal("sodium", CrashFactsParser.ModOfConfig("sodium-client.mixins.json", mods));
+        Assert.Null(CrashFactsParser.ModOfConfig("other.mixins.json", mods));
+
+        // Order of the launch set must not matter: the longer id wins even when listed first or last.
+        mods.Reverse();
+        Assert.Equal("carpet-extra", CrashFactsParser.ModOfConfig("carpet-extra.mixins.json", mods));
+        Assert.Equal("sodium-extra", CrashFactsParser.ModOfConfig("sodium-extra.mixins.json", mods));
+    }
 }

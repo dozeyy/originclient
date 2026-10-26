@@ -295,13 +295,18 @@ public static class CrashFactsParser
     }
 
     // "somemod.mixins.json" / "somemod-client.mixins.json" -> "somemod", only when that id is in the launch set.
-    private static string? ModOfConfig(string? cfg, IReadOnlyList<CrashModEntry> mods)
+    // Exact id first, then the LONGEST id the stem starts with: "carpet-extra.mixins.json" is carpet-extra's, not
+    // carpet's, and "sodium-extra.mixins.json" must not blame Origin's own sodium.
+    internal static string? ModOfConfig(string? cfg, IReadOnlyList<CrashModEntry> mods)
     {
         if (cfg == null) return null;
         var stem = cfg.Split('.')[0];
-        return mods.FirstOrDefault(m => m.ModId.Length > 0 && (stem.Equals(m.ModId, StringComparison.OrdinalIgnoreCase)
-            || stem.StartsWith(m.ModId + "-", StringComparison.OrdinalIgnoreCase)
-            || stem.StartsWith(m.ModId + "_", StringComparison.OrdinalIgnoreCase)))?.ModId;
+        var exact = mods.FirstOrDefault(m => m.ModId.Length > 0 && stem.Equals(m.ModId, StringComparison.OrdinalIgnoreCase));
+        if (exact != null) return exact.ModId;
+        return mods.Where(m => m.ModId.Length > 0
+                && (stem.StartsWith(m.ModId + "-", StringComparison.OrdinalIgnoreCase)
+                    || stem.StartsWith(m.ModId + "_", StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(m => m.ModId.Length).FirstOrDefault()?.ModId;
     }
 
     private static List<string> ParseSuspected(string crash, out string? line)
