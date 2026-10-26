@@ -263,8 +263,8 @@ public class ImportStressTests : IDisposable
                 AssertRecoversExactly(rig, plan, before, $"crash at step {k}");
             }
         }
-        // (An import changes no launcher settings any more - no profile, no selection - so there is no
-        // "settings saved, journal not yet committed" window left to crash in.)
+        // The "settings saved (the new profile), journal not yet committed" window is its own test:
+        // ImportVerifierTests.AnImportWhoseProfileWasSavedButNeverCommittedIsPutBackWholeOnTheNextStart.
     }
 
     [Fact]

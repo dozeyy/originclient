@@ -78,6 +78,13 @@ public interface IImportBackend
 
     Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct);
 
+    /// <summary>
+    /// Step 4 of the guided import: re-reads what the run put on disk and checks each profile it made (ImportVerifier),
+    /// on the thread pool. The default re-reads files only (no profile check) for backends without the mod rules.
+    /// </summary>
+    Task<ImportVerification> VerifyAsync(BulkImportPlan plan, BulkImportResult result, CancellationToken ct) =>
+        Task.Run(() => ImportVerifier.Verify(plan, result), ct);
+
     // ---- the drawer's launcher tiles and version rows (Core/Import/SetupInventory) ----
 
     /// <summary>
@@ -338,6 +345,22 @@ public sealed class LauncherImportBackend : IImportBackend
             return result;
         }, CancellationToken.None);
     }
+
+    // Each profile is checked the way its launch will check it: Origin's own turned-on jars from the version's shared
+    // mods folder plus the profile's jars (ImportProfileCheck), read only.
+    public Task<ImportVerification> VerifyAsync(BulkImportPlan plan, BulkImportResult result, CancellationToken ct) =>
+        Task.Run(() => ImportVerifier.Verify(plan, result, checkProfile: (version, profileMods) =>
+        {
+            try
+            {
+                return ImportProfileCheck.Check(version, InstanceLayout.ModsDir(OriginPaths.Instances, version), profileMods,
+                    OriginLauncher.App.Core.Mods.ModManager.IsOriginProvisioned, ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                return Array.Empty<string>(); // a check that can't read is no verdict; the launch checks again at Play
+            }
+        }), ct);
 
     /// <summary>
     /// A re-plan starts from the plan's request, whose external-mods switch may be minutes old: it is read again, so the
