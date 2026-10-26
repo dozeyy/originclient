@@ -1,0 +1,10 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "confirmed",
+  "rule": "fabric-dependency",
+  "culprits": [
+    "originclient"
+  ],
+  "fix": "None"
+}

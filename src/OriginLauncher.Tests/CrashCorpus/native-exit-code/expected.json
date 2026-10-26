@@ -1,0 +1,8 @@
+{
+  "crash": true,
+  "cause": "NativeCrash",
+  "confidence": "possible",
+  "rule": "native-crash",
+  "culprits": [],
+  "fix": "None"
+}

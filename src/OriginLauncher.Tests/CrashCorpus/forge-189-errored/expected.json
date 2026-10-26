@@ -1,0 +1,13 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "strong",
+  "rule": "forge-errored",
+  "culprits": [
+    "somemod"
+  ],
+  "fix": "DisableMods",
+  "fixJars": [
+    "somemod-1.0.0.jar"
+  ]
+}

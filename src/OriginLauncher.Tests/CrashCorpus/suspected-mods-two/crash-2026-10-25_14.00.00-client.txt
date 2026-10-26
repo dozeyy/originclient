@@ -1,0 +1,13 @@
+---- Minecraft Crash Report ----
+Description: Rendering screen
+
+java.lang.IllegalStateException: boom
+	at net.minecraft.client.gui.screens.Screen.render(Screen.java:10)
+
+-- Head --
+Thread: Render thread
+Suspected Mods:
+	Some Mod (somemod), Version: 1.0.0
+	Other Mod (othermod), Version: 2.0
+Stacktrace:
+	at net.minecraft.client.gui.screens.Screen.render(Screen.java:10)

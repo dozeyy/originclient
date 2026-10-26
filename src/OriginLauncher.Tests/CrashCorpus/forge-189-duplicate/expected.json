@@ -1,0 +1,14 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "confirmed",
+  "rule": "duplicate-mod",
+  "culprits": [
+    "somemod",
+    "somemod"
+  ],
+  "fix": "DisableMods",
+  "fixJars": [
+    "somemod-1.0.jar"
+  ]
+}

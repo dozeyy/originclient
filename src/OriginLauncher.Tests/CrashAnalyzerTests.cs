@@ -52,44 +52,48 @@ public class CrashAnalyzerTests : IDisposable
         Jar(FeatherJar, "feather", "net/digitalingot/feather/mixin/FeatherMixinPlugin.class", "net/digitalingot/feather/tk.class");
     }
 
+    private CrashVerdict Diagnose(string log) =>
+        CrashEngine.Diagnose(CrashAnalyzer.ReadEvidence(GameDir, Log(log), 1, false, true, 4096, 16384));
+
     [Fact]
     public void Feather_mixin_plugin_crash_blames_feather_not_modernfix()
     {
         BothJars();
 
-        var analysis = CrashAnalyzer.Analyze(GameDir, Log(CrashFixtures.FeatherSentryLaunchLog));
+        var v = Diagnose(CrashFixtures.FeatherSentryLaunchLog);
 
-        var culprit = Assert.Single(analysis.Culprits);
+        var culprit = Assert.Single(v.Finding.Culprits);
         Assert.Equal("feather", culprit.ModId);
         Assert.Equal(FeatherJar, culprit.JarFileName);
         Assert.True(culprit.IsExternal);
+        Assert.Equal(CrashConfidence.Strong, v.Finding.Confidence);
     }
 
     [Fact]
-    public void Feather_crash_offers_Relaunch_without_Feather()
+    public void Feather_crash_offers_to_turn_Feather_off()
     {
         BothJars();
-        var analysis = CrashAnalyzer.Analyze(GameDir, Log(CrashFixtures.FeatherSentryLaunchLog));
 
-        var d = CrashClassifier.Classify(analysis, CrashFixtures.FeatherSentryLaunchLog, 1, 4096, 16384);
+        var v = Diagnose(CrashFixtures.FeatherSentryLaunchLog);
 
-        Assert.Equal(CrashCause.ModProblem, d.Cause);
-        Assert.Equal(CrashAction.DisableMod, d.Action);
-        Assert.Equal("feather", d.ModId);
-        Assert.Equal(FeatherJar, d.ModJar);
-        Assert.Contains("feather", d.ActionLabel, StringComparison.OrdinalIgnoreCase);
+        Assert.True(v.IsCrash);
+        Assert.Equal(CrashCause.ModProblem, v.Finding.Cause);
+        Assert.Equal(CrashFixKind.DisableMods, v.SafeFix?.Kind);
+        Assert.Equal([FeatherJar], v.SafeFix!.Jars);
+        Assert.Contains("feather", v.SafeFix.Label, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void A_known_client_core_in_the_stack_is_blamed_even_when_its_jar_is_not_in_the_index()
     {
-        // The jar can't be read, or sits where the index doesn't look: the stack alone still names Feather.
+        // The jar can't be read, or sits where the index doesn't look: the stack alone still names Feather, but with
+        // no file to turn off there is no fix button.
         ModernFixJarOnly();
 
-        var analysis = CrashAnalyzer.Analyze(GameDir, Log(CrashFixtures.FeatherSentryLaunchLog));
+        var v = Diagnose(CrashFixtures.FeatherSentryLaunchLog);
 
-        var culprit = Assert.Single(analysis.Culprits);
-        Assert.Equal("feather", culprit.ModId);
+        Assert.Equal("feather", Assert.Single(v.Finding.Culprits).ModId);
+        Assert.Null(v.SafeFix);
     }
 
     [Fact]
@@ -105,9 +109,35 @@ Caused by: java.lang.IllegalStateException: boom
 	at net.fabricmc.loader.impl.FabricLoaderImpl.invokeEntrypoints(FabricLoaderImpl.java:414)
 """;
 
-        var analysis = CrashAnalyzer.Analyze(GameDir, Log(log));
+        var v = Diagnose(log);
 
-        var culprit = Assert.Single(analysis.Culprits);
-        Assert.Equal("somemod", culprit.ModId);
+        Assert.Equal("somemod", Assert.Single(v.Finding.Culprits).ModId);
+    }
+
+    [Fact]
+    public void An_unreadable_jar_stays_in_the_mod_set_by_its_file_name()
+    {
+        File.WriteAllText(Path.Combine(ModsDir, "broken-1.0.jar"), "not a zip");
+        Jar("somemod-1.0.0.jar", "somemod");
+
+        var mods = CrashAnalyzer.ReadMods(GameDir);
+
+        Assert.Contains(mods, m => m.JarFileName == "broken-1.0.jar" && m.ModId == "" && m.IsExternal);
+        Assert.Contains(mods, m => m.JarFileName == "somemod-1.0.0.jar" && m.ModId == "somemod");
+    }
+
+    [Fact]
+    public void Files_older_than_the_game_start_do_not_explain_its_exit()
+    {
+        var reports = Path.Combine(GameDir, "crash-reports");
+        Directory.CreateDirectory(reports);
+        var old = Path.Combine(reports, "crash-old.txt");
+        File.WriteAllText(old, "Description: from yesterday");
+        File.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddHours(-1));
+
+        var e = CrashAnalyzer.ReadEvidence(GameDir, null, 1, false, true, 4096, 16384, DateTime.UtcNow.AddMinutes(-1));
+
+        Assert.Null(e.CrashReport);
+        Assert.False(CrashEngine.Diagnose(e).IsCrash);
     }
 }

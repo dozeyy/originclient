@@ -1,0 +1,10 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "strong",
+  "rule": "mixin-apply",
+  "culprits": [
+    "originclient"
+  ],
+  "fix": "None"
+}

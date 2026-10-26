@@ -1,0 +1,19 @@
+---- Minecraft Crash Report ----
+Time: 2026-10-25 14:00:00
+Description: Ticking entity
+
+java.lang.NullPointerException: Cannot invoke "Object.hashCode()" because "key" is null
+	at java.base/java.util.HashMap.hash(HashMap.java:338)
+	at net.minecraft.world.entity.Entity.tick(Entity.java:500)
+
+A detailed walkthrough of the error, its code path and all known details is as follows:
+---------------------------------------------------------------------------------------
+
+-- Head --
+Thread: Server thread
+Suspected Mod:
+	Some Mod (somemod), Version: 1.0.0
+		Issue tracker URL: https://example.invalid/issues
+		at TRANSFORMER/somemod@1.0.0/com.example.somemod.mixin.EntityMixin.onTick(EntityMixin.java:20)
+Stacktrace:
+	at java.base/java.util.HashMap.hash(HashMap.java:338)

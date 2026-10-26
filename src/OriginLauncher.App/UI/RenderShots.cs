@@ -601,7 +601,8 @@ public static class RenderShots
         Pump(200);
     }
 
-    /// <summary>The two crash dialogs with made-up details (the themed layout; the in-code fallback is covered by src/OriginLauncher.UiTests).</summary>
+    /// <summary>The launcher's own crash dialog, then the game crash report once per confidence level (41-44), all
+    /// with made-up details (the themed layout; the in-code fallback is covered by src/OriginLauncher.UiTests).</summary>
     private static void SnapCrashWindows(string dir)
     {
         try
@@ -614,28 +615,44 @@ public static class RenderShots
             Snap(error, dir, "40-crash-window", size: new Size(error.Width, error.Height));
             error.Close();
 
-            var analysis = new Core.Launch.CrashAnalysis(
-                [new Core.Launch.CrashCulprit("examplemod", "examplemod-1.2.3.jar", true), new Core.Launch.CrashCulprit("origin-hud", null, false)],
-                "Minecraft stopped while loading.", "java.lang.NullPointerException: example\n\tat examplemod.Init.run(Init.java:42)");
-            var report = new Windows.CrashReportWindow(analysis, null, "OriginPlayer - Minecraft 1.21.1");
-            report.Show();
-            Pump(400);
-            Snap(report, dir, "41-crash-report-window");
-            // The same report with the technical details unfolded (the fold's open state).
-            report.DetailsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-            Pump(300);
-            Snap(report, dir, "41b-crash-report-details");
-            report.Close();
+            // Crash Report V3, one shot per confidence level, each diagnosed by the real engine from made-up evidence.
+            Core.Launch.CrashVerdict Diagnose(string? log, string? crash, string? hsErr, bool whileStarting) =>
+                Core.Launch.CrashEngine.Diagnose(new Core.Launch.CrashEvidence(1, false, whileStarting, log, null, crash, hsErr,
+                    [
+                        new Core.Launch.CrashModEntry("examplemod", "examplemod-1.2.3.jar", true, ["com.example.examplemod"]),
+                        new Core.Launch.CrashModEntry("originclient", "originclient.jar", false),
+                    ], 4096, 16384));
+            void Shot(Core.Launch.CrashVerdict verdict, string name, bool unfold = false)
+            {
+                var window = new Windows.CrashReportWindow(verdict, null, "OriginPlayer - Minecraft 1.21.1", () => "report");
+                window.Show();
+                Pump(400);
+                Snap(window, dir, name);
+                if (unfold)
+                {
+                    // The same report with the technical details unfolded (the fold's open state).
+                    window.DetailsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                    Pump(300);
+                    Snap(window, dir, name + "-details");
+                }
+                window.Close();
+            }
 
-            // The most common cause: out of memory, with its one-click fix.
-            var oom = Core.Launch.CrashClassifier.Classify(new Core.Launch.CrashAnalysis([], "r", null),
-                "java.lang.OutOfMemoryError: Java heap space", 1, 4096, 16384);
-            var oomWindow = new Windows.CrashReportWindow(new Core.Launch.CrashAnalysis([], "r", null), null,
-                "OriginPlayer - Minecraft 1.21.1", oom, () => "report");
-            oomWindow.Show();
-            Pump(400);
-            Snap(oomWindow, dir, "42-crash-report-memory");
-            oomWindow.Close();
+            // confirmed: Java's own out-of-memory line, with the one-click memory raise.
+            Shot(Diagnose("[Render thread/ERROR]: java.lang.OutOfMemoryError: Java heap space", null, null, false),
+                "41-crash-confirmed");
+            // strong: one added mod's mixin failed to apply, with "turn it off" (reversible on the Mods tab).
+            Shot(Diagnose(
+                "[main/ERROR]: Mixin apply for mod examplemod failed examplemod.mixins.json:ExampleMixin from mod examplemod -> net.minecraft.class_310: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure",
+                null, null, true), "42-crash-strong", unfold: true);
+            // possible: the JVM died inside the graphics driver. No fix button; the one-time try without added mods.
+            Shot(Diagnose(null, null,
+                "# A fatal error has been detected by the Java Runtime Environment:\n#\n#  EXCEPTION_ACCESS_VIOLATION (0xc0000005)\n# Problematic frame:\n# C  [nvoglv64.dll+0x9a1f2c]\n",
+                false), "43-crash-possible");
+            // unknown: a crash report that names nothing Origin can read.
+            Shot(Diagnose(null,
+                "---- Minecraft Crash Report ----\nDescription: Unexpected error\n\njava.lang.IllegalStateException: example\n\tat net.minecraft.client.Minecraft.run(Minecraft.java:1)\n",
+                null, false), "44-crash-unknown");
         }
         catch (Exception e)
         {

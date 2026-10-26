@@ -1,0 +1,6 @@
+---- Minecraft Crash Report ----
+Description: Unexpected error
+
+java.lang.IllegalStateException: Something went wrong
+	at net.minecraft.client.Minecraft.run(Minecraft.java:800)
+	at net.minecraft.client.main.Main.main(Main.java:250)
