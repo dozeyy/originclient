@@ -6,6 +6,7 @@ import com.origin.client.client.hud.HudElements;
 import com.origin.client.client.mods.ModOption;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.mods.Profiles;
+import com.origin.client.client.mods.StepAside;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -151,6 +152,12 @@ public class OriginModMenuScreen extends Screen {
 		Mods.setMetaBool("menuListView", false);
 		tab = Tab.SETTINGS;
 		subTab = SubTab.PERFORMANCE;
+		return this;
+	}
+
+	/** Dev-shots only: open with this text already in the search box. */
+	public OriginModMenuScreen withSearch(String q) {
+		search = q == null ? "" : q;
 		return this;
 	}
 
@@ -783,8 +790,15 @@ public class OriginModMenuScreen extends Screen {
 		d.hit(x, y, w, CARD_H, () -> openMod(m));
 
 		float k = on ? 1f : 0.55f;
-		d.icon(id, x + w / 2 - 20, y + 24, 40, mul(TEXT, k));
-		d.textCenter(d.fit(m.name(), w - 24, 15, true, 0), x + w / 2, y + 86, 15, true, 0, mul(TEXT, k));
+		// A player's own mod does this job (StepAside): one short line under the name
+		// says which ("Replaced by Freecam"); icon and name sit 9 px higher to make room.
+		String note = StepAside.cardNote(id, Mods.forcedOn(id));
+		float lift = note == null ? 0 : 9;
+		d.icon(id, x + w / 2 - 20, y + 24 - lift, 40, mul(TEXT, k));
+		d.textCenter(d.fit(m.name(), w - 24, 15, true, 0), x + w / 2, y + 86 - lift, 15, true, 0, mul(TEXT, k));
+		if (note != null) {
+			d.textCenter(d.fit(note, w - 24, 11, false, 0), x + w / 2, y + 95, 11, false, 0, DIM);
+		}
 
 		// OPTIONS bar
 		float oy = y + CARD_H - 48 - 30;
@@ -837,6 +851,14 @@ public class OriginModMenuScreen extends Screen {
 		if (isNew) {
 			d.circle(x + 40 + nw + 9, y + ROW_H / 2, 3, GOLD);
 		}
+		String note = StepAside.cardNote(id, Mods.forcedOn(id));
+		if (note != null) {
+			float nx = x + 40 + nw + (isNew ? 22 : 12);
+			float noteMax = x + w - 12 - 36 - 12 - nx;
+			if (noteMax > 40) {
+				d.textMid(d.fit(note, noteMax, 11.5f, false, 0), nx, y + ROW_H / 2, 11.5f, false, 0, MUTE);
+			}
+		}
 		d.toggle(id, x + w - 12 - 36, y + 12, on);
 		d.hit(x + w - 12 - 40, y + 6, 44, 32, () -> Mods.setOn(id, !on));
 	}
@@ -877,6 +899,14 @@ public class OriginModMenuScreen extends Screen {
 		float top = BAR_Y + 32 + 12;
 		d.clip(0, top - 4, W, BOTTOM - top + 4);
 		float y = top - (float) pageScroll;
+		String stepNote = StepAside.pageNote(id, mod.name(), Mods.forcedOn(id));
+		if (stepNote != null) {
+			for (String line : d.wrap(stepNote, CW, 13, false)) {
+				d.textMid(line, M, y + 10, 13, false, 0, TEXT);
+				y += 20;
+			}
+			y += 6;
+		}
 		String desc = mod.description() == null || mod.description().isEmpty() ? null : mod.description();
 		if (desc != null) {
 			for (String line : d.wrap(desc, CW, 13, false)) {

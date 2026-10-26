@@ -33,7 +33,7 @@ on:
         description: "Comma-separated modules, or 'all'"
         default: "1.21.1"
       set:
-        description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld)"
+        description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld); stepaside = a replaced mod's card/row/page with Freecam loaded (tools/frame-log/mods-<module>-stepaside.json, prodClient)"
         default: "design"
       style:
         description: "Button Style / Main Menu Style forced for the run (ORIGIN_SHOTS_STYLE): empty = the default (Origin), 'buttons' = Button Style Minecraft, 'menu' = Main Menu Style Vanilla, 'vanilla' = both. Use with set 'style' (Minecraft's own menus) or 'world' (pause menu)"
@@ -212,12 +212,19 @@ jobs:
           gargs=""
           task=runClient
           rundir=run
+          # set=stepaside: Origin stepping aside for a player's own mod (StepAside) needs a real
+          # overlapping mod loaded -- the pinned mods-<module>-stepaside.json set (Freecam), CI only.
+          pins="mods-${{ matrix.module }}.json"
+          if [ "$ORIGIN_SHOTS_SET" = "stepaside" ]; then
+            EXTRA_MODS=true
+            pins="mods-${{ matrix.module }}-stepaside.json"
+          fi
           if [ "$EXTRA_MODS" = "true" ]; then
             # A player's modded instance runs in production (intermediary names);
             # many big mods (Cobblemon) can't start in the Mojang-named dev game.
             # prodClient = the built jar + the set, in a production Fabric game (run-prod/).
             python3 "$GITHUB_WORKSPACE/tools/frame-log/fetch_mods.py" "$RUNNER_TEMP/extra-mods" \
-              "$GITHUB_WORKSPACE/tools/frame-log/mods-${{ matrix.module }}.json"
+              "$GITHUB_WORKSPACE/tools/frame-log/$pins"
             gargs="$gargs -PextraMods=$RUNNER_TEMP/extra-mods"
             task=prodClient
             rundir=run-prod

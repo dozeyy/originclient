@@ -1,0 +1,15 @@
+{
+ "_why": "dev-shots set=stepaside (CI only, never bundled): one real mod that does the same job as an Origin mod, so the shots show Origin stepping aside ('Replaced by Freecam' on the Freelook card). Freecam is the exact jar from Will's 1.21.1 instance (same pin as mods-1.21.1.json); Fabric API comes along because prodClient runs a production game, which has no Fabric API of its own. Pinned by Modrinth VERSION id, SHA-512 checked by fetch_mods.py.",
+ "mods": [
+  {
+   "slug": "fabric-api",
+   "version": "Mys3P7lK",
+   "number": "0.116.17+1.21.1"
+  },
+  {
+   "slug": "freecam",
+   "version": "Cg10zLnR",
+   "number": "1.3.0+mc1.21.1"
+  }
+ ]
+}

@@ -20,6 +20,7 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/step-aside-tests/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
@@ -33,6 +34,7 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/step-aside-tests/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
@@ -69,6 +71,12 @@ jobs:
       # every module's copy byte-identical (pre-1.20 copies are outside sync).
       - name: Test loading bar
         run: python3 tools/loading-bar-tests/run.py
+
+      # Origin steps aside for a player's own mod (StepAside, pure Java): the overlap
+      # table resolve, the forced-on flag and its config contract (old configs read
+      # unchanged; forcing on then off leaves the file as it was).
+      - name: Test step-aside logic
+        run: python3 tools/step-aside-tests/run.py
 
       # The 1.8.9 benchmark's own tests: summarizer maths (known CSV -> known numbers, corrupt CSV -> loud
       # failure), the production-like launcher's pure logic, and bench-189.ps1 -DryRun against fixtures.
