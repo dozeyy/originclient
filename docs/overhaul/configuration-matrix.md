@@ -38,3 +38,23 @@ its shipped set and nothing else; Play never offers more.
    `iris.properties`) are swapped in before the game starts and the shipped set's are put back when it exits
    (`instances/<version>/config-overlays/<account>/`).
 6. While a game of the profile runs on one configuration, Play refuses to start it on another.
+
+## Measurements: the compatibility check on a 150-jar set (U5.1)
+
+What Play pays for `LaunchPreflight.Evaluate` (which runs `CompatEngine.Check`) on a launch set of 150 small Fabric
+jars (50 of them declare a dependency on `mod000`, which is in the set). Measured 2026-10-25 on Will's PC (Windows 11), three separate runs
+of `dotnet test src/OriginLauncher.Tests --filter "FullyQualifiedName~ColdAndWarmCheckOfA150JarSet" --logger
+"console;verbosity=detailed"` (Debug test build; each run is a fresh process, so the cold number also pays .NET's
+first-call JIT). The test prints the line; it fails if warm is 25 ms or more, cold 400 ms or more, or warm is not
+faster than cold.
+
+| Run | Cold (every jar opened and read) | Re-check (jar metadata cached, verdict not) | Warm (verdict cached by the set's fingerprint) |
+|---|---|---|---|
+| 1 | 78.8 ms | 17.9 ms | 0.35 ms |
+| 2 | 131.0 ms | 35.3 ms | 0.35 ms |
+| 3 | 72.5 ms | 16.3 ms | 0.24 ms |
+
+- Cold = the first Play after the jars changed. Re-check = the set changed but the jars were read before (a jar is
+  re-read only when its size or time stamp changes). Warm = Play on an unchanged set: a folder listing and one hash.
+- Not measured here: a set of large real jars (the real Fabric API + Origin jars have their own test,
+  `ColdCheckOfTheRealFabricApiAndOriginJarsIsFast`, which runs only on a machine that has built them).

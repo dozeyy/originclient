@@ -118,8 +118,7 @@ public sealed record LaunchVerdict(IReadOnlyList<string> Blocking, IReadOnlyList
 
 /// <summary>
 /// The compatibility check made right before a launch (Phase 5.1), on the jars the game is about to load. A hard
-/// incompatibility (a mod for another Minecraft version, a missing required mod, a declared "breaks", the same mod
-/// twice) is turned into an <see cref="IncompatibleModsException"/> so the player gets a sentence instead of a crash
+/// incompatibility (a mod for another Minecraft version, a missing required mod, a declared "breaks") is turned into an <see cref="IncompatibleModsException"/> so the player gets a sentence instead of a crash
 /// on the loader's screen. Rules:
 ///   * only what the metadata CONFIRMS blocks; a "likely" or advisory finding is a log line, never a stop;
 ///   * Origin's own jars are never the reason (a bug in the check must not make Origin unbootable);
@@ -131,11 +130,11 @@ public sealed record LaunchVerdict(IReadOnlyList<string> Blocking, IReadOnlyList
 /// </summary>
 public static class LaunchPreflight
 {
-    // Findings that mean "the loader will refuse to start". Everything else is advisory here.
+    // Findings that mean "the loader will refuse to start". Everything else is advisory here. Not DuplicateId:
+    // Fabric Loader loads one copy and starts (CompatEngine.FindDuplicates: the 0.19.3 loader source, and crash-plant's planted duplicate booted).
     private static readonly HashSet<FindingKind> BlockingKinds = new()
     {
-        FindingKind.WrongMinecraft, FindingKind.MissingDependency, FindingKind.WrongVersion,
-        FindingKind.Breaks, FindingKind.DuplicateId,
+        FindingKind.WrongMinecraft, FindingKind.MissingDependency, FindingKind.WrongVersion, FindingKind.Breaks,
     };
 
     private const int VerdictCacheLimit = 64;

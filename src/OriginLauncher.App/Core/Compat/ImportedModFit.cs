@@ -1,7 +1,10 @@
-using OriginLauncher.App.Core.Compat;
+using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Import.Mods;
 
-namespace OriginLauncher.App.Core.Import;
+namespace OriginLauncher.App.Core.Compat;
+
+// Lives in Core/Compat with the rest of "will this mod set boot" (Phase 5.1, U5.1); it works on the import's own
+// types (ModDecision, SharedModsLedger), so only builds that also link Core/Import compile it (the app, the tests).
 
 /// <summary>
 /// The second half of "will the imported mods boot next to Origin's mods". <see cref="ModSetResolver"/> checks an

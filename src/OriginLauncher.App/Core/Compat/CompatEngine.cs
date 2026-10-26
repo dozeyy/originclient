@@ -7,7 +7,8 @@ namespace OriginLauncher.App.Core.Compat;
 // Phases, in this order (the order is the design; the import resolver's old order is preserved):
 //   1. per mod, terminal: unreadable -> another client's core jar -> wrong loader -> no id -> Origin already ships
 //      it -> built for another Minecraft -> wrong side
-//   2. two jars with one mod id: the enabled, then the higher version, then the file name is kept
+//   2. two jars with one mod id: the enabled, then the higher version, then the file name is kept. On Fabric this is
+//      a note, never a stop: Fabric Loader loads one jar per id and the game starts (see FindDuplicates)
 //   3. Origin's short list of mods that don't work with what it ships (hand-kept, so Likely)
 //   4. dependencies and "breaks", repeated until nothing more changes: a mod left out for a missing dependency
 //      can't satisfy another's, so its dependants get a knock-on finding (CausedBy)
@@ -35,6 +36,9 @@ public static class CompatEngine
         private readonly CompatPlatform _platform;
         private readonly List<CompatFinding> _findings = new();
         private readonly HashSet<ModFile> _excluded = new(ReferenceEqualityComparer.Instance);
+        // Fabric: the turned-on copies a duplicate id left out. The loader may still pick one of them to meet a
+        // requirement, so they answer "depends" (never "breaks", which the loader avoids by picking another copy).
+        private readonly HashSet<ModFile> _alternates = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<string, (BuiltInMod Mod, ModFile? Source)> _origin = new(StringComparer.Ordinal);
 
         public Run(IReadOnlyList<ModFile> entries, CompatPlatform platform)
@@ -232,14 +236,31 @@ public static class CompatEngine
                     .ThenBy(e => e.FileName, StringComparer.OrdinalIgnoreCase)
                     .ToList();
                 var keep = ranked[0];
+                var shown = DependencyRules.Shown(keep.Info.Version ?? "");
+                var keepText = keep.DisplayName + (shown.Length > 0 ? " " + shown : "");
                 foreach (var other in ranked.Skip(1))
                 {
-                    // Only two jars that are both turned on stop the game; a turned-off twin is just clutter.
-                    var severity = other.Enabled && keep.Enabled ? Severity.Blocking : Severity.Info;
-                    var shown = DependencyRules.Shown(keep.Info.Version ?? "");
-                    Add(other, FindingKind.DuplicateId, severity, Certainty.Confirmed,
-                        $"Duplicate of {keep.DisplayName}{(shown.Length > 0 ? " " + shown : "")}: only one copy can load.",
+                    if (_platform.IsLegacyForge)
+                    {
+                        // Forge 1.8.9 refuses two enabled copies of one mod id; a turned-off twin is just clutter.
+                        var severity = other.Enabled && keep.Enabled ? Severity.Blocking : Severity.Info;
+                        Add(other, FindingKind.DuplicateId, severity, Certainty.Confirmed,
+                            $"Duplicate of {keepText}: only one copy can load.",
+                            excludes: true, related: keep, targetId: group.Key, evidence: $"id: {group.Key}");
+                        continue;
+                    }
+
+                    // Fabric Loader 0.19.3 (ModSolver: ROOT_FORCELOAD "at least one" + UNIQUE_ID "at most one" per id)
+                    // loads exactly one jar of the id, the higher version first (ModPrioSorter), and the game starts:
+                    // same version or not, it is never a stop (read from the 0.19.3 loader source, 2026-10-25). A real
+                    // boot of two versions of one id reached the title screen (crash-plant plant-duplicate-id).
+                    var summary = !other.Enabled ? $"Turned off; {keepText} is the copy in use."
+                        : FabricVersion.Compare(other.Info.Version, keep.Info.Version) == 0
+                            ? $"Second copy of {keepText}: the game loads only one of them."
+                            : $"Older copy of {keep.DisplayName}: the game loads {keepText} and ignores this one.";
+                    Add(other, FindingKind.DuplicateId, Severity.Info, Certainty.Confirmed, summary,
                         excludes: true, related: keep, targetId: group.Key, evidence: $"id: {group.Key}");
+                    if (other.Enabled && keep.Enabled) _alternates.Add(other);
                 }
             }
         }
@@ -262,6 +283,7 @@ public static class CompatEngine
             {
                 changed = false;
                 var env = new World(this);
+                var needs = _alternates.Count == 0 ? env : new World(this, withAlternates: true);
                 var nestedHidden = _ordered.Any(m => m.Enabled && !_excluded.Contains(m) && !m.Info.ReadFailed && m.Info.NestedIncomplete);
                 var round = new List<(ModFile Mod, List<CompatFinding> Findings)>();
 
@@ -269,7 +291,11 @@ public static class CompatEngine
                 {
                     if (!CanJudge(e)) continue;
                     var findings = new List<CompatFinding>();
-                    foreach (var p in DependencyRules.Evaluate(e.Info, env, new DependencyOptions(IgnoreIds: MinecraftOnly)))
+                    IEnumerable<DependencyProblem> problems = DependencyRules.Evaluate(e.Info, env, new DependencyOptions(IgnoreIds: MinecraftOnly));
+                    if (needs != env) // requirements may be met by a left-out duplicate copy; "breaks" only by what loads
+                        problems = DependencyRules.Evaluate(e.Info, needs, new DependencyOptions(IgnoreIds: MinecraftOnly, ConflictChecks: false))
+                            .Concat(problems.Where(p => p.Kind == DependencyProblemKind.Breaks));
+                    foreach (var p in problems)
                     {
                         if (p.Kind is DependencyProblemKind.Missing or DependencyProblemKind.WrongVersion && nestedHidden)
                         {
@@ -460,7 +486,7 @@ public static class CompatEngine
             private readonly Dictionary<string, List<ProvidedVersion>> _byId = new(StringComparer.Ordinal);
             private readonly CompatPlatform _platform;
 
-            public World(Run run)
+            public World(Run run, bool withAlternates = false)
             {
                 _platform = run._platform;
                 Put("minecraft", _platform.McVersion, null, true);
@@ -480,6 +506,11 @@ public static class CompatEngine
                         foreach (var (id, version) in Provided(e.Info)) Put(id, version, e, role);
                     }
                 }
+                // After everything that loads, so the copy the loader prefers stays first ("best first").
+                if (withAlternates)
+                    foreach (var e in run._ordered)
+                        if (run._alternates.Contains(e) && !e.Info.ReadFailed)
+                            foreach (var (id, version) in Provided(e.Info)) Put(id, version, e, false);
             }
 
             private void Put(string id, string? version, ModFile? source, bool isOrigin)

@@ -214,17 +214,10 @@ public static class ImportVerifier
 /// <summary>
 /// One profile checked the way a launch checks it (LaunchModFolder's launch set): Origin's own turned-on jars from the
 /// version's shared mods folder, plus the profile's turned-on jars minus any with an Origin jar's name. Read-only.
-/// Calls CompatEngine.Check (existing API only); "stops the game" is LaunchPreflight's rule, restated here because its
-/// IsHard is private to that file (keep the two in step).
+/// Calls CompatEngine.Check (existing API only); "stops the game" is LaunchPreflight's own rule (LaunchPreflight.Stops).
 /// </summary>
 public static class ImportProfileCheck
 {
-    private static readonly HashSet<FindingKind> Stops = new()
-    {
-        FindingKind.WrongMinecraft, FindingKind.MissingDependency, FindingKind.WrongVersion,
-        FindingKind.Breaks, FindingKind.DuplicateId,
-    };
-
     public static IReadOnlyList<string> Check(string version, string sharedModsDir, string profileModsDir,
         Func<string, bool> isOriginProvisioned, CancellationToken ct = default)
     {
@@ -252,20 +245,12 @@ public static class ImportProfileCheck
         var named = new HashSet<ModFile>(ReferenceEqualityComparer.Instance);
         foreach (var f in report.Findings)
         {
-            if (!StopsGame(f)) continue;
+            if (!LaunchPreflight.Stops(f, platform)) continue;
             var subject = f.Subject.Role == ModRole.Managed ? f.Related! : f.Subject;
             if (!named.Add(subject)) continue;
             var reason = f.Kind is FindingKind.MissingDependency or FindingKind.WrongVersion && report.ReasonFor(f.Subject) is { } r ? r : f.Summary;
             problems.Add($"{subject.DisplayName}: {reason}");
         }
         return problems;
-    }
-
-    private static bool StopsGame(CompatFinding f)
-    {
-        if (f.Severity != Severity.Blocking || f.Certainty != Certainty.Confirmed) return false;
-        if (!Stops.Contains(f.Kind) || f.IsKnockOn) return false;
-        if (f.Subject.Role != ModRole.Managed) return true;
-        return f.Kind == FindingKind.Breaks && f.Related is { Role: not ModRole.Managed };
     }
 }

@@ -71,7 +71,10 @@ public enum FindingKind
     /// <summary>The mod lives on the other side only (a client-only mod on a server, or the reverse): the loader skips it.</summary>
     WrongSide,
 
-    /// <summary>Two jars carry the same mod id; Fabric refuses to start with both turned on.</summary>
+    /// <summary>
+    /// Two jars carry the same mod id. Fabric loads one of them (the higher version) and starts, so this is a note
+    /// there; Forge 1.8.9 refuses two turned-on copies.
+    /// </summary>
     DuplicateId,
 
     /// <summary>Origin already ships this mod (same id, or provided by one of Origin's): a second copy conflicts with it.</summary>

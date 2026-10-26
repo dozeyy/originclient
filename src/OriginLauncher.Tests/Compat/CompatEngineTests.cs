@@ -213,18 +213,71 @@ public class CompatEngineTests
 
     // ---- DuplicateId ----
 
+    // Fabric Loader 0.19.3 loads exactly one jar per id (the higher version) and the game starts: a note, never a stop.
     [Fact]
-    public void TwoEnabledCopiesOfOneIdStopTheGameAndTheHigherVersionStays()
+    public void TwoEnabledCopiesOfOneIdAreANoteAndTheHigherVersionLoads()
     {
         var old = Mod("lib", "1.0.0");
         var newer = Mod("lib", "2.0.0");
         var report = Check(old, newer);
         var f = Assert.Single(report.Findings);
         Assert.Equal(FindingKind.DuplicateId, f.Kind);
-        Assert.Equal(Severity.Blocking, f.Severity);
+        Assert.Equal(Severity.Info, f.Severity);
+        Assert.Equal(Certainty.Confirmed, f.Certainty);
+        Assert.True(f.Excludes);              // the older copy does not load
         Assert.Same(old, f.Subject);
         Assert.Same(newer, f.Related);
-        Assert.Contains("Duplicate of lib 2.0.0", f.Summary);
+        Assert.Equal("Older copy of lib: the game loads lib 2.0.0 and ignores this one.", f.Summary);
+        Assert.False(report.HasBlocking);
+        Assert.True(report.IsClean);
+    }
+
+    [Fact]
+    public void TwoCopiesOfTheSameVersionAreANoteToo()
+    {
+        var a = Mod("lib", "1.0.0");
+        var b = Mod("lib", "1.0.0");
+        var report = Check(a, b);
+        var f = Assert.Single(report.Findings);
+        Assert.Equal(Severity.Info, f.Severity);
+        Assert.Equal("Second copy of lib 1.0.0: the game loads only one of them.", f.Summary);
+        Assert.False(report.HasBlocking);
+    }
+
+    [Fact]
+    public void AModPinnedToTheOlderCopyIsNotBlocked()
+    {
+        // The loader may pick the older copy to meet the requirement, so this set starts.
+        var report = Check(Mod("lib", "1.0.0"), Mod("lib", "2.0.0"), Mod("addon", needs: new[] { ("lib", "1.0.0") }));
+        Assert.Empty(Of(report, FindingKind.WrongVersion));
+        Assert.False(report.HasBlocking);
+    }
+
+    [Fact]
+    public void ARequirementNeitherCopyMeetsIsStillBlocking()
+    {
+        var addon = Mod("addon", needs: new[] { ("lib", ">=3.0") });
+        var report = Check(Mod("lib", "1.0.0"), Mod("lib", "2.0.0"), addon);
+        var f = Assert.Single(Of(report, FindingKind.WrongVersion));
+        Assert.Same(addon, f.Subject);
+        Assert.Equal(Severity.Blocking, f.Severity);
+        Assert.Equal("2.0.0", f.Found); // the copy that loads is named first
+    }
+
+    [Fact]
+    public void BreaksAgainstOnlyTheOlderCopyDoesNotFire()
+    {
+        // The loader avoids the conflict by loading 2.0.0, which this mod does not break.
+        var report = Check(Mod("lib", "1.0.0"), Mod("lib", "2.0.0"), Mod("x", breaks: new[] { ("lib", "<2.0") }));
+        Assert.Empty(Of(report, FindingKind.Breaks));
+        Assert.False(report.HasBlocking);
+    }
+
+    [Fact]
+    public void BreaksAgainstTheCopyThatLoadsStillFires()
+    {
+        var report = Check(Mod("lib", "1.0.0"), Mod("lib", "2.0.0"), Mod("x", breaks: new[] { ("lib", ">=2.0") }));
+        Assert.Equal(Severity.Blocking, Assert.Single(Of(report, FindingKind.Breaks)).Severity);
     }
 
     [Fact]
