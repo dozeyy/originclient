@@ -304,3 +304,128 @@ What the data does say:
 So the shader lag is OptiFine plus the pack on his GPU, plus Origin's fixed ~0.3 ms and any
 cosmetics in view. Proving that needs a real-GPU A/B on Will's PC (probe vs origin with the same
 pack).
+
+## U6.4 Java / GC / BetterFps A/B (candidates H, I, J): keep current
+
+**Decision:** keep the shipped 1.8.9 stack and flags:
+- Temurin 8u504.
+- BetterFps on.
+- `JvmArgPresets.LegacySmallHeapFlags`: G1, MaxGCPauseMillis=200, young generation 25-35 %, 4 MB regions.
+- Heap size from RamAdvice.
+
+No variant won beyond noise on current main without losing somewhere else, so the launcher is unchanged.
+
+### Method
+
+- **Variants:** each one is the shipped launch with exactly one thing changed (`prod189.py JVM_AB`,
+  `--no-betterfps`, or Zulu 8).
+- **Order:** every variant runs in the same CI job as `origin-default`. Launches alternate, and every other round
+  runs in reverse order.
+- **Pairing:** `tools/bench/ab189.py` divides each variant by the `origin-default` launch from the same run and
+  round, so runner speed cancels out.
+- **Cells:** the median of those per-round deltas, with [min..max]. **+ = better**: higher FPS, lower frame time or
+  heap, less GC pause. GC cells are milliseconds of pause per 45 s scene.
+- **Limits:**
+  - CI, relative only: llvmpipe on 4 shared vCPUs. The software renderer competes with the GC threads, so a GC
+    result here is a hint, never a player number.
+  - Noise: per-round deltas spread about +/-3-5 % for avg FPS and +/-10-20 % for 1 % lows. At n=4, a median under
+    about 2 % (avg) or 5 % (1 % low) is noise.
+  - The two runs with every variant have 10 launches per round. In them nearly every extra variant lands 2-4 % below
+    the control, including ones that should be neutral. That looks like an effect of launch position, and it biases
+    against the extras. Small losses in those runs therefore do not prove harm, but no variant showed a win either.
+    pause40's own run has only 3 launches per round and is the cleanest.
+
+### Runs on current main
+
+All picks 1-5 are in (branch `claude/p6-finish`). Scenes: idle, particles, flythrough, cosmetics. 15 s warm-up,
+45 s measured.
+
+- 40245185796 and 40245198108: every variant, 2 rounds each, so n=4.
+- 40245200772: pause40 only, 6 rounds, so pause40 has n=10.
+
+The bench data in all three is complete. They end red only because of the first E3 jar check (see the E3 section
+below).
+
+origin-default, absolute (median over its 10 rounds):
+
+| scene | avg FPS | 1 % low | p50 ms | p99 ms | GC pause total / max (ms per 45 s) | heap avg MB |
+|---|---|---|---|---|---|---|
+| idle | 18.7 | 14.6 | 52.6 | 65.6 | 0 / 0 | 908 |
+| particles | 14.9 | 12.6 | 65.5 | 76.8 | 7 / 7 | 1135 |
+| flythrough | 14.6 | 8.8 | 66.7 | 104.6 | 80 / 24 | 1287 |
+| cosmetics (16 wearers) | 14.6 | 11.4 | 67.6 | 83.4 | 0 / 0 | 1371 |
+
+Paired deltas vs origin-default. Each cell lists avg FPS %, 1 % low %, p99 % and GC pause total ms, as medians;
+[min..max] is given for avg FPS where it matters.
+
+| variant (n) | idle | particles | flythrough | cosmetics | verdict |
+|---|---|---|---|---|---|
+| jvm-g1-pause40 (10) | +0.0 [-3.5..+1.6], -0.6, -0.2, 0 | -0.1 [-5.4..+1.4], -1.6, -1.7, -3 | +0.7 [-5.4..+2.9], +1.0, -0.7, -17.5 | +0.3 [-3.3..+2.1], -0.6, -1.0, 0 | noise; the earlier lean did not reproduce |
+| jvm-g1-young15 (4) | -0.9, -5.0, -3.3, -9.5 | -1.6 [-2.7..-1.1], -4.2, -2.7, -3 | -2.1, -3.3, -2.8, -36.5 | -3.0 [-5.8..-0.8], -1.5, -2.1, -14 | no win |
+| jvm-parallel (4) | -0.9, -5.5, -4.2, -24 | -0.7, -5.0 [-6.9..-2.9], -2.6, -24.5 | -1.1, **-14.8** [-27..-3.2], -0.8, **-213** | +2.2, +0.5, +1.3, -4.5 | worse: flythrough max pause 153 ms longer |
+| jvm-cms (4) | -1.1, -4.4, -2.8, -10 | -1.7, **-10.3**, -6.3, -63.5 | -1.8, +1.3, +1.7, **-298** | +0.6, -0.4, -0.8, -18.5 | worse: more GC pause, lower 1 % lows (heap avg 52 % lower) |
+| jvm-heap2g (4) | -2.8, -8.5, -6.6, -7 | -3.4, -9.1, -4.9, -3.5 | -3.7, -1.1, -5.2, -112.5 | -3.5, -5.0, -5.6, -14.5 | worse |
+| jvm-heap6g (4) | -2.5, -5.2, -2.7, -19 | -4.1, -6.3, -3.2, -4 | -3.2, -1.0, -0.3, -2 | -2.7, -2.4, -3.6, -2 | no win; heap size is RamAdvice's call anyway |
+| java-zulu8 (4, Azul 1.8.0_512) | -3.9, -6.9, -5.9, 0 | -2.3, -6.1, -4.3, +7 | -3.0, +0.1, -2.2, -16 | -2.5, -2.2, -3.0, 0 | no win; keep Temurin 8u504 |
+| no-betterfps (4) | -1.9, -2.8, +0.0, 0 | -3.4, -4.0, -5.2, +2.5 | -3.0, -2.5, -1.7, -11 | -4.1, **-10.8**, -4.9, 0 | no win from removing it; keep BetterFps |
+| optifine-only (10, reference) | +0.9, +2.9, +2.4, 0 | +0.7, -1.2, -0.2, 0 | +0.2, +0.4, -0.9, -11 | **+18.6**, +13.7, +13.4, 0 | Origin's measurable cost: cosmetics only |
+
+### Earlier runs
+
+These ran from `claude/p6-measure2`, before 6cf43d628 and the minimap hash. Same method; n=4, except pause40 and
+no-betterfps at n=8.
+
+- 40204889619, 40204892249: GC set A.
+- 40204895263, 40204898099: set B.
+- 40210129210, 40210132032: pause40 + no-betterfps confirmation.
+
+They gave the same answer:
+- CMS and Parallel gained about 4-5 % cosmetics FPS but paused 165-330 ms more in flythrough and had lower 1 % lows
+  in particles.
+- heap2g lowered cosmetics 1 % lows in all 4 rounds.
+- Zulu and no-betterfps were flat.
+- pause40 leaned positive (flythrough p99 +4.6 %, 8/8 rounds). The 10 rounds above re-tested that lean on current main
+  and did not find it (-0.7 % [-5.8..+7.5]).
+
+### Not measurable here
+
+How each collector's stutter feels on a real GPU at 200+ FPS. If Will reports GC hitches on 1.8.9, the next test is
+the real-GPU bench (`tools/bench/bench-189.ps1`, his PC) with the pause40 flag set. bench-189.ps1 has no JVM-variant
+switch yet.
+
+## Remaining ranked picks
+
+All five are on main, so nothing in the ranking is left to implement:
+
+| Pick | Commits | Result |
+|---|---|---|
+| 1 cosmetics | 38b7566ff, 8f7974f98, 6cf43d628 | cosmetic layer 261 -> 26 KB/frame, cape 54 -> 2.6; still bones use display lists |
+| 2 blur | a6ffa9291, ef0765ebd | see "Pick 2 result" above |
+| 3 HUD batching | merge 4957fbe1b (deed72708, c91661e61, 29946572d) | - |
+| 4 minimap | 6f904bdc5, 5f4ca283a | - |
+| 5 particle filter + `Mods.on` | c7f5e9e76 | measured as noise, kept because it costs nothing |
+
+On current main, the only Origin cost CI can still see is the cosmetics scene: optifine-only is +18.6 % avg FPS there
+(+26 % in the earlier runs). Idle, particles and flythrough are within noise.
+
+Candidates E (entity occlusion) and K (Patcher-style knobs) can only be ranked by a real-GPU measurement on Will's PC;
+llvmpipe cannot rank them.
+
+## E3 OptiFine setting keys, checked against the real jar: all 71 right, no preset change
+
+The question: do the 1.8.9 presets write `optionsof.txt` keys that OptiFine HD_U_M5 actually reads?
+
+- The jar (SHA-1 `d362d58a28f5373b141b9e426e8e160638bfafcd`, the pinned one) has no `GameSettings` class. It ships
+  `patch/avh.class.xdelta` (GDIFF, as written by javaxdelta, with no end byte) plus `patch/avh.class.md5`.
+- `python tools/bench/prod189.py jar-keys --jar <OptiFine jar> --vanilla <vanilla 1.8.9 client jar> --write-classes <dir>`
+  rebuilds every patched class from the vanilla jar. Local run: 238 classes rebuilt, and each one's md5 equals
+  OptiFine's own `.md5`. The rebuilt `avh.class` md5 is `7a4eca00cb8f920e37a800579e9ddd46`.
+- In the rebuilt `avh.class` there are 71 saved-key literals (`of<Key>:`). The verified list
+  (`tools/bench/optifine-keys-189.txt`) also has 71. Missing 0, extra 0. `javap -v` (JDK 21) on that class counts
+  the same 71 String constants (for example `ofPotionParticles:`, `ofRandomEntities:`).
+- The first CI checks (runs 40245185796, 40245198108, 40245200772, 40253195961) reported 69/71. They scanned the raw
+  patch bytes, where a GDIFF DATA boundary splits `ofPotionParticles` and `ofRandomEntities`. The second attempt also
+  rejected the missing end byte. Both are fixed: the patch is rebuilt, the end of the stream is treated as the end,
+  and a class whose md5 doesn't match is not counted. Tests are in `tools/bench/test_prod189.py` (`JarKeys`).
+- The presets: `GamePresetTests.EveryOptiFineKeyIsVerified` already restricts every 1.8.9 preset key to that
+  verified list, and the bench round-trip gate checks that OptiFine keeps each value. No preset change.

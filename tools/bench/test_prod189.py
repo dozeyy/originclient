@@ -560,5 +560,114 @@ class ShaderPack(Tmp):
         self.assertFalse(P.shaders_were_on(self.p("missing.json")))
 
 
+class JvmAb(unittest.TestCase):
+    """U6.4: each named JVM set is the shipped one with ONE change, so its delta belongs to that change."""
+
+    def test_one_change_each(self):
+        base = P.LAUNCHER_JVM.split()
+        for name, want_gone, want_new in (
+                ("g1-pause40", {"-XX:MaxGCPauseMillis=200"}, {"-XX:MaxGCPauseMillis=40"}),
+                ("g1-young15", {"-XX:G1NewSizePercent=25", "-XX:G1MaxNewSizePercent=35"},
+                 {"-XX:G1NewSizePercent=15", "-XX:G1MaxNewSizePercent=25"}),
+                ("heap2g", {"-Xms4096M", "-Xmx4096M"}, {"-Xms2048M", "-Xmx2048M"}),
+                ("heap6g", {"-Xms4096M", "-Xmx4096M"}, {"-Xms6144M", "-Xmx6144M"})):
+            flags = P.JVM_AB[name].split()
+            self.assertEqual(set(base) - set(flags), want_gone, name)
+            self.assertEqual(set(flags) - set(base), want_new, name)
+
+    def test_other_collectors_carry_no_g1_flag(self):
+        for name, gc in (("parallel", "-XX:+UseParallelGC"), ("cms", "-XX:+UseConcMarkSweepGC")):
+            flags = P.JVM_AB[name].split()
+            self.assertIn(gc, flags)
+            self.assertNotIn("-XX:+UseG1GC", flags)
+            self.assertFalse([f for f in flags if f.startswith("-XX:G1")], name)
+            self.assertIn("-Xmx4096M", flags)
+
+    def test_cli_variant_overrides_jvm(self):
+        a = P.build_parser().parse_args(["run", "--origin-jar", "x", "--out", "o", "--jvm-variant", "cms", "--no-betterfps"])
+        self.assertEqual((a.jvm_variant, a.no_betterfps), ("cms", True))
+
+
+class JarKeys(Tmp):
+    """E3: saved-key literals come out of the jar's String constants, never from field names."""
+
+    @staticmethod
+    def _class():
+        def utf8(s):
+            b = s.encode("utf-8")
+            return b"\x01" + len(b).to_bytes(2, "big") + b
+        pool = [utf8("ofFogType:"), b"\x08\x00\x01",          # 1, 2: String "ofFogType:"
+                utf8("ofFieldOnly:"),                          # 3: a Utf8 no String points at (a name, not a literal)
+                b"\x05" + (7).to_bytes(8, "big"),              # 4-5: a long takes two slots
+                utf8("ofAfterLong:"), b"\x08\x00\x06",         # 6, 7
+                utf8("ofNoColon"), b"\x08\x00\x08"]            # 8, 9: a load-side literal, not a save one
+        return b"\xca\xfe\xba\xbe\x00\x00\x00\x34" + (10).to_bytes(2, "big") + b"".join(pool) + b"\x00" * 8
+
+    def _jar(self):
+        path = self.p("optifine.jar")
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("avh.class", self._class())
+            z.writestr("patch/other.xdelta", b"\x00\x01ofSky:\x02")
+            z.writestr("notes/", b"")
+        return path
+
+    def _keys(self, *names):
+        path = self.p("keys.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("# comment\n" + "".join("%s:x\n" % n for n in names) + "key_of.key.zoom:46\n")
+        return path
+
+    def test_reads_string_constants_only(self):
+        found = P.optifine_jar_saved_keys(self._jar())
+        self.assertEqual(sorted(found), ["ofAfterLong", "ofFogType", "ofSky"])
+        self.assertEqual(found["ofFogType"], ["avh.class"])
+        self.assertEqual(found["ofSky"], ["patch/other.xdelta"])
+
+    def test_cli_passes_when_every_listed_key_is_in_the_jar(self):
+        argv = ["jar-keys", "--jar", self._jar(), "--sha1", ""]
+        self.assertEqual(P.main(argv + ["--keys", self._keys("ofFogType", "ofSky")]), 0)
+
+    def test_cli_fails_on_a_listed_key_the_jar_never_writes(self):
+        argv = ["jar-keys", "--jar", self._jar(), "--sha1", ""]
+        self.assertEqual(P.main(argv + ["--keys", self._keys("ofFogType", "ofFieldOnly")]), 1)
+
+    def test_gdiff_patch_is_rebuilt_against_vanilla(self):
+        # OptiFine M5 ships patch/avh.class.xdelta (GDIFF). A DATA command boundary can split a literal in the raw
+        # bytes (CI run 40245200772: ofPotionParticles, ofRandomEntities), so the class is rebuilt from vanilla.
+        target = self._class()
+        vanilla = target[:12] + b"vanilla-only"
+        cut = target.index(b"ofAfterLong:") + 4                     # split "ofAf" | "terLong:"
+        patch = (b"\xd1\xff\xd1\xff\x04" + b"\xf9" + (0).to_bytes(2, "big") + bytes([12])   # COPY 12 from 0
+                 + bytes([cut - 12]) + target[12:cut]                                          # DATA
+                 + b"\xf7" + (len(target) - cut).to_bytes(2, "big") + target[cut:] + b"\x00")
+        self.assertEqual(P.gdiff_apply(vanilla, patch), target)
+        self.assertEqual(P.gdiff_apply(vanilla, patch[:-1]), target)      # OptiFine's patches carry no EOF byte
+        of_jar, van_jar, bad_jar = self.p("of.jar"), self.p("vanilla.jar"), self.p("bad.jar")
+        with zipfile.ZipFile(of_jar, "w") as z:
+            z.writestr("patch/avh.class.xdelta", patch)
+            z.writestr("patch/avh.class.md5", hashlib.md5(target).hexdigest())
+        with zipfile.ZipFile(bad_jar, "w") as z:
+            z.writestr("patch/avh.class.xdelta", patch)
+            z.writestr("patch/avh.class.md5", "0" * 32)
+        with zipfile.ZipFile(van_jar, "w") as z:
+            z.writestr("avh.class", vanilla)
+        self.assertEqual(P.optifine_patched_classes(bad_jar, van_jar), {})  # md5 mismatch: not counted
+        self.assertNotIn("ofAfterLong", P.optifine_jar_saved_keys(of_jar))          # the raw scan misses it
+        rebuilt = P.optifine_patched_classes(of_jar, van_jar)
+        found = P.optifine_jar_saved_keys(of_jar, rebuilt)
+        self.assertEqual(sorted(found), ["ofAfterLong", "ofFogType"])
+        out = self.p("classes")
+        argv = ["jar-keys", "--jar", of_jar, "--sha1", "", "--vanilla", van_jar, "--write-classes", out]
+        self.assertEqual(P.main(argv + ["--keys", self._keys("ofFogType", "ofAfterLong")]), 0)
+        self.assertTrue(os.path.isfile(os.path.join(out, "avh.class")))
+
+    def test_gdiff_rejects_other_formats(self):
+        with self.assertRaises(ValueError):
+            P.gdiff_apply(b"", b"\xd6\xc3\xc4\x00\x00")       # VCDIFF (xdelta3) magic
+
+    def test_cli_refuses_another_jar(self):
+        self.assertEqual(P.main(["jar-keys", "--jar", self._jar(), "--keys", self._keys("ofFogType")]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
