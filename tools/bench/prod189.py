@@ -632,25 +632,77 @@ def class_string_constants(data):
     return [utf8.get(s, "") for s in strings]
 
 
-def optifine_jar_saved_keys(jar_path):
-    """{key: [jar entries that write it]} for every "of<Key>:" literal in the jar."""
-    found = {}
-    with zipfile.ZipFile(jar_path) as z:
+def gdiff_apply(source, patch):
+    """Apply a GDIFF patch (OptiFine's patch/<class>.xdelta, written by javaxdelta) to the vanilla class bytes.
+    Raises ValueError when the patch is not GDIFF version 4."""
+    if patch[:5] != b"\xd1\xff\xd1\xff\x04":
+        raise ValueError("not a GDIFF v4 patch")
+    out, pos = bytearray(), 5
+
+    def num(n):
+        nonlocal pos
+        v = int.from_bytes(patch[pos:pos + n], "big")
+        pos += n
+        return v
+    copy_sizes = {249: (2, 1), 250: (2, 2), 251: (2, 4), 252: (4, 1), 253: (4, 2), 254: (4, 4), 255: (8, 4)}
+    while True:
+        if pos >= len(patch):
+            raise ValueError("GDIFF patch ends without EOF")
+        cmd = patch[pos]
+        pos += 1
+        if cmd == 0:
+            return bytes(out)
+        if cmd <= 248:
+            n = cmd if cmd <= 246 else num(2 if cmd == 247 else 4)
+            out += patch[pos:pos + n]
+            pos += n
+        else:
+            off_n, len_n = copy_sizes[cmd]
+            off, n = num(off_n), num(len_n)
+            if off + n > len(source):
+                raise ValueError("GDIFF copy past the end of the source")
+            out += source[off:off + n]
+
+
+def optifine_patched_classes(jar_path, vanilla_jar):
+    """{class entry name: the full patched class} for every patch/<name>.xdelta the vanilla jar has a base for."""
+    out = {}
+    with zipfile.ZipFile(jar_path) as z, zipfile.ZipFile(vanilla_jar) as v:
+        have = set(v.namelist())
         for name in z.namelist():
-            if name.endswith("/"):
-                continue
-            data = z.read(name)
-            if name.endswith(".class"):
-                try:
-                    keys = [m.group(1) for m in map(_SAVED_KEY.match, class_string_constants(data)) if m]
-                except (ValueError, IndexError):
-                    keys = []
-            else:
-                keys = [m.group(0)[:-1].decode("ascii") for m in _SAVED_KEY_BYTES.finditer(data)]
-            for k in keys:
-                found.setdefault(k, [])
-                if name not in found[k]:
-                    found[k].append(name)
+            if name.startswith("patch/") and name.endswith(".xdelta"):
+                base = name[len("patch/"):-len(".xdelta")]
+                if base in have:
+                    try:
+                        out[base] = gdiff_apply(v.read(base), z.read(name))
+                    except ValueError:
+                        pass   # not GDIFF: the byte scan in optifine_jar_saved_keys still covers it
+    return out
+
+
+def optifine_jar_saved_keys(jar_path, patched=None):
+    """{key: [jar entries that write it]} for every "of<Key>:" literal in the jar.
+
+    patched ({class name: bytes}, from optifine_patched_classes) replaces a byte scan of the patch with a proper
+    String-constant read of the rebuilt class: a GDIFF data command can split a literal in the raw patch bytes."""
+    found = {}
+    patched = patched or {}
+    rebuilt = {"patch/%s.xdelta" % n for n in patched}
+    with zipfile.ZipFile(jar_path) as z:
+        entries = [(n, z.read(n)) for n in z.namelist() if not n.endswith("/") and n not in rebuilt]
+    entries += [("%s (rebuilt from patch/%s.xdelta)" % (n, n), b) for n, b in sorted(patched.items())]
+    for name, data in entries:
+        if name.endswith(".class") or " (rebuilt from " in name:
+            try:
+                keys = [m.group(1) for m in map(_SAVED_KEY.match, class_string_constants(data)) if m]
+            except (ValueError, IndexError):
+                keys = []
+        else:
+            keys = [m.group(0)[:-1].decode("ascii") for m in _SAVED_KEY_BYTES.finditer(data)]
+        for k in keys:
+            found.setdefault(k, [])
+            if name not in found[k]:
+                found[k].append(name)
     return found
 
 
@@ -658,7 +710,13 @@ def cmd_jar_keys(args):
     """Every of* key in the verified list must be a saved-key literal in the real jar (exit 1 when one is not)."""
     if args.sha1 and sha1_file(args.jar) != args.sha1:
         raise ProvisionError("%s is not the pinned OptiFine build (SHA-1 mismatch)" % args.jar)
-    found = optifine_jar_saved_keys(args.jar)
+    patched = optifine_patched_classes(args.jar, args.vanilla) if args.vanilla else {}
+    if args.write_classes:
+        os.makedirs(args.write_classes, exist_ok=True)
+        for n, b in patched.items():
+            with open(os.path.join(args.write_classes, n.replace("/", "_")), "wb") as f:
+                f.write(b)
+    found = optifine_jar_saved_keys(args.jar, patched)
     listed = {k for k in load_key_list(args.keys) if k.startswith("of")}
     if not listed:
         raise ProvisionError("%s is missing or empty" % args.keys)
@@ -852,6 +910,8 @@ def build_parser():
     j.add_argument("--jar", required=True)
     j.add_argument("--keys", default=KEYS_FILE)
     j.add_argument("--sha1", default=OPTIFINE_SHA1, help="refuse any other jar (empty = skip, tests only)")
+    j.add_argument("--vanilla", help="the vanilla 1.8.9 client jar: rebuild OptiFine's patched classes from it")
+    j.add_argument("--write-classes", help="folder to write the rebuilt classes into (for javap)")
     return ap
 
 

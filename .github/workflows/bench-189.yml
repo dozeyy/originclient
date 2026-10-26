@@ -276,10 +276,14 @@ jobs:
         run: |
           jar=$(find artifacts/bench-189/work/downloads -name 'OptiFine_1.8.9_HD_U_M5.jar' | head -n 1)
           if [ -z "$jar" ]; then echo "no OptiFine jar was fetched"; exit 1; fi
-          python3 tools/bench/prod189.py jar-keys --jar "$jar" | tee jar-keys.txt
-          for cls in $(unzip -Z1 "$jar" | grep '\.class$'); do
-            n=$(javap -v -cp "$jar" "${cls%.class}" 2>/dev/null | grep -cE '// of[A-Z][A-Za-z0-9]*:$' || true)
-            if [ "${n:-0}" -gt 0 ]; then echo "javap ${cls}: $n String constants of the form of<Key>:" | tee -a jar-keys.txt; fi
+          # M5 ships GameSettings as patch/avh.class.xdelta (GDIFF): rebuild it from the vanilla client jar first
+          CLS="$RUNNER_TEMP/of-classes"
+          python3 tools/bench/prod189.py jar-keys --jar "$jar" --vanilla artifacts/bench-189/cache/versions/1.8.9/1.8.9.jar \
+            --write-classes "$CLS" | tee jar-keys.txt
+          for f in "$CLS"/*.class; do
+            [ -f "$f" ] || continue
+            n=$(javap -v "$f" 2>/dev/null | grep -cE '// of[A-Z][A-Za-z0-9]*:$' || true)
+            if [ "${n:-0}" -gt 0 ]; then echo "javap $(basename "$f") (rebuilt): $n String constants of the form of<Key>:" | tee -a jar-keys.txt; fi
           done
           { echo '### OptiFine keys from the jar (E3)'; echo '```'; cat jar-keys.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 

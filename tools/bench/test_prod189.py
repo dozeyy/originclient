@@ -631,6 +631,34 @@ class JarKeys(Tmp):
         argv = ["jar-keys", "--jar", self._jar(), "--sha1", ""]
         self.assertEqual(P.main(argv + ["--keys", self._keys("ofFogType", "ofFieldOnly")]), 1)
 
+    def test_gdiff_patch_is_rebuilt_against_vanilla(self):
+        # OptiFine M5 ships patch/avh.class.xdelta (GDIFF). A DATA command boundary can split a literal in the raw
+        # bytes (CI run 40245200772: ofPotionParticles, ofRandomEntities), so the class is rebuilt from vanilla.
+        target = self._class()
+        vanilla = target[:12] + b"vanilla-only"
+        cut = target.index(b"ofAfterLong:") + 4                     # split "ofAf" | "terLong:"
+        patch = (b"\xd1\xff\xd1\xff\x04" + b"\xf9" + (0).to_bytes(2, "big") + bytes([12])   # COPY 12 from 0
+                 + bytes([cut - 12]) + target[12:cut]                                          # DATA
+                 + b"\xf7" + (len(target) - cut).to_bytes(2, "big") + target[cut:] + b"\x00")
+        self.assertEqual(P.gdiff_apply(vanilla, patch), target)
+        of_jar, van_jar = self.p("of.jar"), self.p("vanilla.jar")
+        with zipfile.ZipFile(of_jar, "w") as z:
+            z.writestr("patch/avh.class.xdelta", patch)
+        with zipfile.ZipFile(van_jar, "w") as z:
+            z.writestr("avh.class", vanilla)
+        self.assertNotIn("ofAfterLong", P.optifine_jar_saved_keys(of_jar))          # the raw scan misses it
+        rebuilt = P.optifine_patched_classes(of_jar, van_jar)
+        found = P.optifine_jar_saved_keys(of_jar, rebuilt)
+        self.assertEqual(sorted(found), ["ofAfterLong", "ofFogType"])
+        out = self.p("classes")
+        argv = ["jar-keys", "--jar", of_jar, "--sha1", "", "--vanilla", van_jar, "--write-classes", out]
+        self.assertEqual(P.main(argv + ["--keys", self._keys("ofFogType", "ofAfterLong")]), 0)
+        self.assertTrue(os.path.isfile(os.path.join(out, "avh.class")))
+
+    def test_gdiff_rejects_other_formats(self):
+        with self.assertRaises(ValueError):
+            P.gdiff_apply(b"", b"\xd6\xc3\xc4\x00\x00")       # VCDIFF (xdelta3) magic
+
     def test_cli_refuses_another_jar(self):
         self.assertEqual(P.main(["jar-keys", "--jar", self._jar(), "--keys", self._keys("ofFogType")]), 2)
 
