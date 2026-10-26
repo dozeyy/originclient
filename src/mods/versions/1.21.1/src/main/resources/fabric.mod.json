@@ -30,6 +30,10 @@
 		{
 			"config": "originclient.loading.mixins.json",
 			"environment": "client"
+		},
+		{
+			"config": "originclient.devremap.mixins.json",
+			"environment": "client"
 		}
 	],
 	"depends": {
