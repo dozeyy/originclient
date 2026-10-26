@@ -6,13 +6,19 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 
 **Boot column.** Run ids are real GitHub Actions runs on `claude/p7-deps`. *boot-smoke companions* = `companions=true`: the launcher catalog's ImmediatelyFast + Mod Menu jars were loaded into the dev client and the run FAILS unless the loaded mod list names them at the catalog versions. *not re-run* = nothing changed for that module in this phase (it keeps its earlier boot; the full matrix is not repeated, per "one check per change").
 
-**Not covered by this table:** 1.8.9 (Forge 11.15.1.2318 + OptiFine, a fixed chain: no Modrinth Fabric stack; unchanged by P7). Fabric API on players' machines is not a pin at all: `FabricApiInstaller` looks the newest *release* up on Modrinth at install time (and, since this fix, verifies its SHA-512). The gradle pin only decides what the dev build compiles against.
+**Not covered by this table:** 1.8.9 (Forge 11.15.1.2318 + OptiFine, a fixed chain: no Modrinth Fabric stack; unchanged by P7; its Forge files are SHA-256 pinned in `LegacyStackInstaller` / `LegacyForgeBuilds`).
+
+**What players get, and how it is pinned (corrected 2026-10-25 against the code on `main`).** Every jar the launcher puts in a Fabric mods folder is an exact file with its SHA-512; a download that does not hash to its pin is refused, never installed (`PinnedDownload` / `ModrinthFileGuard`, fail-soft: the install carries on without that jar).
+- **Fabric API:** pinned per exact Minecraft version in `src/OriginLauncher.App/Core/Loaders/ManagedPins.Data.cs` (`FabricApiPins`, one Modrinth file + its SHA-512 for every live Fabric version, 1.16.5 to 26.3; Phase 5.2a, commit `7c0870f3e`). `FabricApiInstaller` installs `ManagedPins.FabricApi(mc)` first. The old live Modrinth lookup (newest *release*, SHA-512 checked) only runs for a version with no pin, and no live Fabric version lacks one. The `fabric_api_version` in each module's `gradle.properties` is only what the dev build compiles against; the "Fabric API" rows below record that dev pin, and the player-side pin is the `FabricApiPins` row for the same version.
+- **Simple Voice Chat:** pinned the same way (`ManagedPins.VoiceChatPins`, `SimpleVoiceChatInstaller` uses `ManagedPins.VoiceChat(mc)` first, SHA-512 checked, commit `7c0870f3e`). No build exists for 1.21.2, 1.21.6 and 26.3, which run without it; 1.21.1 bundles it jar-in-jar.
+- **Sodium / Iris / Lithium / the rest of the perf stack:** `PerformanceModCatalog.Data.cs`, every row SHA-512 pinned (the tables below).
+- **Older vetted Sodium + Iris pairs:** `ManagedPins.AlternatePins` (`<mc>:<sodium|iris>-<pairId>`, SHA-512). A profile is put on one only through its `ModProfile.ComponentPins` string (`Core/Components/ComponentPinSet.cs`, e.g. `sodium-iris=0.6.5+1.8.1`), which Fix Compatibility writes; Play then picks that vetted configuration (`ConfigurationCatalog`).
 
 ## 26.3
 
 | Dependency | Where pinned | Current | Latest stable | Decision | Reason | Boot |
 |---|---|---|---|---|---|---|
-| Fabric API | gradle.properties | 0.165.0+26.3 | 0.165.0+26.3 | bumped | 0.162.0 -> 0.165.0 (dev build pin; players get the live lookup) | boot-smoke 40183076637 + 40184982512, dev-shots world 40184984449 (green) |
+| Fabric API | gradle.properties | 0.165.0+26.3 | 0.165.0+26.3 | bumped | 0.162.0 -> 0.165.0 (dev build pin; players get the `ManagedPins.FabricApiPins` row for this version) | boot-smoke 40183076637 + 40184982512, dev-shots world 40184984449 (green) |
 | JEI | gradle.properties (bundled jar-in-jar) | 31.14.0.72 | 31.14.0.72 | bumped | 31.12.0.65 (beta) -> 31.14.0.72 (stable, Modrinth id Zebwcvua); javap: GuiEventHandler + ClientInputHandler identical to the old pin, every hook the 26.3 JEI mixins bind to is intact | boot-smoke 40183076637 + 40184982512, dev-shots world 40184984449 (green) |
 | Sodium | launcher catalog (+ module libs/ or maven pin) | mc26.3-0.9.2-fabric | mc26.3-0.9.2-fabric | unchanged | already the newest release; newer 0.9.3-beta.1 is beta-only, so rejected | boot-smoke 40183076637 + 40184982512, dev-shots world 40184984449 (green) |
 | Lithium | launcher catalog (+ module libs/ or maven pin) | mc26.3-0.26.2-fabric | mc26.3-0.26.2-fabric | unchanged | already the newest release | boot-smoke 40183076637 + 40184982512, dev-shots world 40184984449 (green) |
@@ -75,7 +81,7 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 
 | Dependency | Where pinned | Current | Latest stable | Decision | Reason | Boot |
 |---|---|---|---|---|---|---|
-| Fabric API | gradle.properties | 0.116.17+1.21.1 | 0.116.17+1.21.1 | bumped | 0.116.13 -> 0.116.17 (dev build pin; players get the live lookup) | boot-smoke 40182818181 (green) |
+| Fabric API | gradle.properties | 0.116.17+1.21.1 | 0.116.17+1.21.1 | bumped | 0.116.13 -> 0.116.17 (dev build pin; players get the `ManagedPins.FabricApiPins` row for this version) | boot-smoke 40182818181 (green) |
 | JEI | gradle.properties (bundled jar-in-jar) | 19.27.0.340 (beta) | 19.64.0.455 | held | 19.64.0.455 drops the GUI render hooks Origin's JEI toggle mixins bind to (`onDrawScreenPost` / `onDrawForeground`), so the toggle would stop applying | boot-smoke 40182818181 (green) |
 | Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.1-0.6.13-fabric | mc1.21.1-0.8.13-fabric | held | newest release mc1.21.1-0.8.13-fabric: Sodium 0.8.x is a shader-breaking pair on 1.21.1: the newest Iris there is 1.8.8 (stable, needs Sodium 0.6.x); the only newer Iris, 1.8.14-beta.1, is a beta. Stays on 0.6.13 (see video-settings-mod-rail) | boot-smoke 40182818181 (green) |
 | Indium | launcher catalog (+ module libs/ or maven pin) | 1.0.35+mc1.21 | 1.0.35+mc1.21 | unchanged | already the newest release | boot-smoke 40182818181 (green) |
@@ -119,12 +125,12 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 | Mod Menu | launcher catalog (+ module libs/ or maven pin) | 13.0.4 | 13.0.4 | unchanged | already the newest release | not re-run (unchanged) |
 | EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | not re-run (unchanged) |
 | *covered version 1.21.2* | | | | | | |
-| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.6.1-fabric | mc1.21.3-0.6.13-fabric | **change to mc1.21.3-0.6.0-fabric** (launcher catalog, not done here) | 0.6.13 is refused next to Iris 1.8.0 ("breaks iris <1.8.7"); the current 0.6.1 fails Iris 1.8.0's own cloud mixin; 0.6.0 (the build Iris 1.8.0 declares) boots clean (40245754930) | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
-| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.14.6-fabric | mc1.21.3-0.14.6-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
-| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.8 | 0.2.8 | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
-| Iris | launcher catalog (+ module libs/ or maven pin) | 1.8.0+1.21.3-fabric | 1.8.0+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
-| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.7.2+1.21.3-fabric | 1.7.2+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
-| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 12.0.1 | 12.0.1 | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
+| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.6.1-fabric | mc1.21.3-0.6.13-fabric | **changed to mc1.21.3-0.6.0-fabric** (launcher catalog, on `main` since `bd38abe04`) | 0.6.13 is refused next to Iris 1.8.0 ("breaks iris <1.8.7"); the current 0.6.1 fails Iris 1.8.0's own cloud mixin; 0.6.0 (the build Iris 1.8.0 declares) boots clean (40245754930) | covers boot 40245168662: **FAIL** on the old 0.6.1 pin; 0.6.0 passed in 40245754930 on a scratch branch (see Covered-version boots), not yet on the merged commit |
+| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.14.6-fabric | mc1.21.3-0.14.6-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** on the old 0.6.1 pin; 0.6.0 passed in 40245754930 on a scratch branch (see Covered-version boots), not yet on the merged commit |
+| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.8 | 0.2.8 | unchanged | already the newest release | covers boot 40245168662: **FAIL** on the old 0.6.1 pin; 0.6.0 passed in 40245754930 on a scratch branch (see Covered-version boots), not yet on the merged commit |
+| Iris | launcher catalog (+ module libs/ or maven pin) | 1.8.0+1.21.3-fabric | 1.8.0+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** on the old 0.6.1 pin; 0.6.0 passed in 40245754930 on a scratch branch (see Covered-version boots), not yet on the merged commit |
+| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.7.2+1.21.3-fabric | 1.7.2+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** on the old 0.6.1 pin; 0.6.0 passed in 40245754930 on a scratch branch (see Covered-version boots), not yet on the merged commit |
+| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 12.0.1 | 12.0.1 | unchanged | already the newest release | covers boot 40245168662: **FAIL** on the old 0.6.1 pin; 0.6.0 passed in 40245754930 on a scratch branch (see Covered-version boots), not yet on the merged commit |
 | *covered version 1.21.3* | | | | | | |
 | Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.6.8-fabric | mc1.21.3-0.6.13-fabric | held | 0.6.9+ declares "breaks iris <1.8.7" and 1.21.3 tops out at Iris 1.8.1; the current 0.6.8 + Iris 1.8.1 pair boots clean | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
 | Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.14.6-fabric | mc1.21.3-0.14.6-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
@@ -191,7 +197,7 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 
 | Dependency | Where pinned | Current | Latest stable | Decision | Reason | Boot |
 |---|---|---|---|---|---|---|
-| Fabric API | gradle.properties | 0.141.6+1.21.11 | 0.141.6+1.21.11 | bumped | 0.141.4 -> 0.141.6 (dev build pin; players get the live lookup) | boot-smoke 40182818181 + dev-shots world 40182853615 (green) |
+| Fabric API | gradle.properties | 0.141.6+1.21.11 | 0.141.6+1.21.11 | bumped | 0.141.4 -> 0.141.6 (dev build pin; players get the `ManagedPins.FabricApiPins` row for this version) | boot-smoke 40182818181 + dev-shots world 40182853615 (green) |
 | JEI | gradle.properties (bundled jar-in-jar) | 27.17.0.50 (beta) | 27.48.0.106 | held | 27.48.0.106 drops the GUI render hooks Origin's JEI toggle mixins bind to (`drawForScreen` / `drawForContainerScreen`), so the toggle would stop applying | boot-smoke 40182818181 + dev-shots world 40182853615 (green) |
 | Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.11-0.8.14-fabric | mc1.21.11-0.8.14-fabric | bumped | 0.8.12 -> 0.8.14 | boot-smoke 40182818181 + dev-shots world 40182853615 (green) |
 | Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.11-0.21.4-fabric | mc1.21.11-0.21.4-fabric | unchanged | already the newest release | boot-smoke 40182818181 + dev-shots world 40182853615 (green) |
@@ -301,7 +307,7 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 | Dependency | Where pinned | Current | Latest stable | Decision | Reason | Boot |
 |---|---|---|---|---|---|---|
 | Fabric API | gradle.properties | 0.77.0+1.19.2 | 0.77.0+1.19.2 | unchanged | already the newest release | not re-run (unchanged) |
-| JEI | gradle.properties (bundled jar-in-jar) | 11.8.1.1035 (beta) | 11.68.0.1086 | held | 11.68.0.1086 is a release 57 builds ahead of the pin; not run through the gate (big jump, hook check needed) | not re-run (unchanged) |
+| JEI | gradle.properties (bundled jar-in-jar) | 11.8.1.1035 (beta) | 11.68.0.1086 | held | javap hook check (2026-10-25): the shipped 11.8.1.1035 matches all 10 Origin JEI injectors; 11.68.0.1086 moved `UserInput` to `mezz.jei.common.input`, so 4 of the 7 `ClientInputHandler` injectors would stop applying (Held list) | not re-run (unchanged) |
 | Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.19.2-0.4.4 | mc1.19.2-0.4.4 | unchanged | already the newest release | not re-run (unchanged) |
 | Indium | launcher catalog (+ module libs/ or maven pin) | 1.0.9+mc1.19.2 | 1.0.9+mc1.19.2 | unchanged | already the newest release | not re-run (unchanged) |
 | Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.19.2-0.11.1 | mc1.19.2-0.11.1 | unchanged | already the newest release | not re-run (unchanged) |
@@ -366,7 +372,7 @@ Newer releases that exist and were deliberately not taken. Each needs its own ga
 | 1.21.1 | Sodium | 0.6.13 | 0.8.13 | Iris has no stable build for Sodium 0.8 on 1.21.1 (newest stable Iris 1.8.8 needs Sodium 0.6.x; 1.8.14-beta.1 is a beta) |
 | 26.3 | Sodium | 0.9.2 | 0.9.2 (current) | the only newer Sodium is 0.9.3-beta.1: beta-only, rejected (Iris 1.11.7 pairs with 0.9.x) |
 | 26.1 | JEI | 29.37.0.100 | 29.47.0.110 | javap hook check FAILED: `UserInput` moved to `mezz.jei.common.input`, `renderCompactPotionIndicators` gained a parameter; the 26.1 JEI mixins would stop applying silently |
-| 1.19.2 | JEI | 11.8 | 11.68.0.1086 | release exists, 57 builds ahead; hook check + boot not done |
+| 1.19.2 | JEI | 11.8.1.1035 (beta) | 11.68.0.1086 | javap hook check FAILED for 11.68.0.1086: `ClientInputHandler.onKeyboardKeyPressedPre/Post`, `onGuiMouseClicked` and `onGuiMouseReleased` now take `mezz.jei.common.input.UserInput` (was `mezz.jei.gui.input.UserInput`), so those 4 injectors would stop applying silently; the `GuiEventHandler` hooks are unchanged. Bumping means porting the 1.19.2 input mixin first (see 1.19.2 JEI hook check) |
 | 26.1, 26.1.1 | Iris | 1.10.9 | 1.11.4 | needs Sodium 0.9.2, published for 26.1.2 only |
 | 1.21 | Sodium / Iris | 0.5.11 / 1.7.3 | 0.6.13 / 1.8.8 | era-pair exception in the catalog (Iris 1.8.8 is refused next to Sodium 0.5.x) |
 | 1.20 | Iris | 1.6.4 | 1.6.11 | catalog exception: 1.6.11 needs Sodium 0.5.7+, none exists for plain 1.20 |
@@ -393,14 +399,14 @@ Earlier boot-smoke runs 40180270272, 40180272944 and 40180280870 are superseded:
 
 ## Covered-version boots (U7.2, B-31)
 
-`boot-smoke.yml` input `covers` (`all`, or a list of exact versions; `modules=none` runs covers rows only). A covers row boots what a player on that version runs, production-style: the covering module's **built** release jar + that Minecraft version + Fabric API (newest Modrinth release, the `FabricApiInstaller` rule) + **every** mod `PerformanceModCatalog` lists for that version (SHA-512 checked against the catalog), all loaded through `fabric.addMods` by a Loom project with no sources (`tools/boot-smoke/covers.py`; same Gradle, plugin, mappings and loader as the module). Fabric Loader remaps the intermediary jars at launch, so the built jar's own refmap is what applies. Same `smoke.py` gates as a normal row: title screen reached, zero `Mixin apply ... failed`, Sodium + Iris in the mod list, ImmediatelyFast + Mod Menu at the catalog versions, and the players' game JVM (Java 17 on 1.20.1, checked from `/proc`).
+`boot-smoke.yml` input `covers` (`all`, or a list of exact versions; `modules=none` runs covers rows only). A covers row boots what a player on that version runs, production-style: the covering module's **built** release jar + that Minecraft version + Fabric API (`covers.py` still takes the newest Modrinth release, the pre-5.2a `FabricApiInstaller` rule; for every row below that file is the same version as today's `ManagedPins.FabricApiPins` pin, e.g. 0.106.1+1.21.2, 0.92.12+1.20.1, 0.155.3+26.1.2) + **every** mod `PerformanceModCatalog` lists for that version (SHA-512 checked against the catalog), all loaded through `fabric.addMods` by a Loom project with no sources (`tools/boot-smoke/covers.py`; same Gradle, plugin, mappings and loader as the module). Fabric Loader remaps the intermediary jars at launch, so the built jar's own refmap is what applies. Same `smoke.py` gates as a normal row: title screen reached, zero `Mixin apply ... failed`, Sodium + Iris in the mod list, ImmediatelyFast + Mod Menu at the catalog versions, and the players' game JVM (Java 17 on 1.20.1, checked from `/proc`).
 
 Run 40245168662 on `claude/p7-covers` (head `4dae6ccbc`): the four covering modules' normal rows (1.21.4, 1.21.6, 1.20, 26.1 = primary 26.1.2) plus seven covers rows. Run 40245754930: the two re-runs after the fixes below (branch `claude/p7-covers-1212-proof` = `claude/p7-covers` `451a25314` + one scratch catalog commit, never merged).
 
 | Version | Covered by | Run | Loaded (game log) | Origin Sodium/Iris mixins | Mixin apply failures | Result |
 |---|---|---|---|---|---|---|
 | 1.21.2 | 1.21.4 | 40245168662 | minecraft 1.21.2, fabric-api 0.106.1+1.21.2, sodium 0.6.1+mc1.21.3, iris 1.8.0+mc1.21.3 (71 mods) | - | **1** | **FAIL** at the title screen: `Mixin apply for mod iris failed mixins.iris.compat.sodium.json:MixinCloudRenderer ... @Shadow field cachedGeometry was not located in the target class net.caffeinemc.mods.sodium.client.render.immediate.CloudRenderer`. Not an Origin bug: the catalog pairs Iris 1.8.0 with Sodium 0.6.1, but Iris 1.8.0+1.21.3 declares Sodium **0.6.0** (version id `SzAjFUSx`) and its cloud mixin only fits that build |
-| 1.21.2 (scratch: Sodium 0.6.0) | 1.21.4 | 40245754930 | sodium 0.6.0+mc1.21.3, iris 1.8.0+mc1.21.3, immediatelyfast 1.7.2+1.21.3, modmenu 12.0.1 | 2 | 0 | PASS, title 38 s. **Catalog fix needed (launcher, not done here):** `PerformanceModCatalog.Data.cs` 1.21.2 row Sodium -> `mc1.21.3-0.6.0-fabric`, `https://cdn.modrinth.com/data/AANobbMI/versions/SzAjFUSx/sodium-fabric-0.6.0%2Bmc1.21.3.jar`, sha512 `c1ec717a...9fff3fad` (exact line on the scratch branch) |
+| 1.21.2 (scratch: Sodium 0.6.0) | 1.21.4 | 40245754930 | sodium 0.6.0+mc1.21.3, iris 1.8.0+mc1.21.3, immediatelyfast 1.7.2+1.21.3, modmenu 12.0.1 | 2 | 0 | PASS, title 38 s. Catalog fix **done on `main`** (`bd38abe04`: `PerformanceModCatalog.Data.cs` 1.21.2 row Sodium `mc1.21.3-0.6.0-fabric`, version id `SzAjFUSx`, sha512 `c1ec717a...`). This PASS was booted on the scratch branch `claude/p7-covers-1212-proof`, which was never merged; the merged commit has not had its own covers boot yet (Open follow-ups) |
 | 1.21.3 | 1.21.4 | 40245168662 | minecraft 1.21.3, fabric-api 0.114.1+1.21.3, sodium 0.6.8+mc1.21.3, iris 1.8.1+mc1.21.3, immediatelyfast 1.7.2+1.21.3, modmenu 12.0.1 (76 mods) | 2 | 0 | PASS, title 39 s |
 | 1.21.7 | 1.21.6 | 40245168662 | minecraft 1.21.7, fabric-api 0.129.0+1.21.7, sodium 0.7.3+mc1.21.8, iris 1.9.6+mc1.21.8, immediatelyfast 1.11.2+1.21.7, modmenu 15.0.2 (69 mods) | 3 | 0 | PASS, title 36 s |
 | 1.20.1 | 1.20 | 40245168662 | minecraft 1.20.1, sodium 0.5.13+mc1.20.1 (83 mods) | - | 0 | **FAIL (harness, not players):** Sodium's early check `The game failed to start because the currently active LWJGL version is not compatible`. Loom swaps the game's LWJGL 3.3.1 for 3.3.2 whenever Gradle's JVM is 19+ (`LWJGL3UpgradeLibraryProcessor`, read from the Loom 1.17 jar); players on Java 17 keep 3.3.1. Fixed in `covers.py`: `fabric.loom.runtimeJavaCompatibilityVersion=<game Java>` |
@@ -413,8 +419,51 @@ Normal rows in the same run 40245168662, unchanged mode: 1.21.4 PASS (43 s, 3 mi
 
 Limits: like every boot-smoke row, coverage ends at the title screen (no world join), under Xvfb + llvmpipe software GL.
 
-## Not done
+## 1.19.2 JEI hook check (2026-10-25)
 
-- 1.21.2 catalog Sodium pin (above): needs the one-line launcher catalog change and its tests; until then players on 1.21.2 get the pair whose Iris mixin fails to apply.
-- JEI newer than the pins: 26.3 and 26.1 were javap hook-checked (26.3 bumped, 26.1 held, see above); 1.19.2's newer JEI was not checked.
-- `SimpleVoiceChatInstaller` downloads with the same unguarded pattern `FabricApiInstaller` had; not changed here (follow-up).
+`javap -p` (JDK 21.0.10) on `mezz.jei.gui.events.GuiEventHandler` and `mezz.jei.gui.input.ClientInputHandler` in three jars:
+the Loom-remapped shipped jar (`jei-d2c7c86f-11.8.1.1035.jar`, Mojang names, from the 1.19.2 module's `loom-cache`), the same
+version from Modrinth (`b6hpbBC6`, intermediary), and the newest release `11.68.0.1086` (`XqeAdX1b`, intermediary, SHA-512 checked).
+The Origin side is `src/mods/versions/1.19.2/.../mixin/JeiGuiEventHandlerMixin.java` (3 injectors) and
+`JeiClientInputHandlerMixin.java` (7 injectors), plus the reflective self-check in `OriginClientMod.selfCheckJeiMixins`.
+
+| Target | Origin injector expects | 11.8.1.1035 (shipped) | 11.68.0.1086 (newest release) |
+|---|---|---|---|
+| `GuiEventHandler.onDrawScreenPost` | `(Screen, PoseStack, int, int)V` | match | match |
+| `GuiEventHandler.onDrawForeground` | `(AbstractContainerScreen, PoseStack, int, int)V` | match | match |
+| `GuiEventHandler.renderCompactPotionIndicators` | `()Z` | match | match |
+| `ClientInputHandler.onKeyboardKeyPressedPre` / `Post` | `(Screen, mezz.jei.gui.input.UserInput)Z` | match | **mismatch**: `mezz.jei.common.input.UserInput` |
+| `ClientInputHandler.onKeyboardCharTypedPre` | `(Screen, char, int)Z` | match | match |
+| `ClientInputHandler.onKeyboardCharTypedPost` | `(Screen, char, int)V` | match | match |
+| `ClientInputHandler.onGuiMouseClicked` / `onGuiMouseReleased` | `(Screen, mezz.jei.gui.input.UserInput)Z` | match | **mismatch**: `mezz.jei.common.input.UserInput` |
+| `ClientInputHandler.onGuiMouseScroll` | `(double, double, double)Z` | match | match |
+
+Verdict: what 1.19.2 ships is hook-correct (no code change). 11.68.0.1086 stays held: 4 input injectors would stop applying, and
+the self-check would not catch it (it checks method names only, and the names are unchanged). The shipped pin is a Modrinth
+**beta**; moving to the 11.68 release needs the input mixin re-pointed at `mezz.jei.common.input.UserInput`, then a build and a
+boot into a world.
+
+## Open follow-ups (replaces the old "Not done" list, 2026-10-25)
+
+Done since the first draft of this audit, on `main`: the 1.21.2 catalog Sodium pin (`bd38abe04`, Sodium 0.6.0 `SzAjFUSx`), the
+Simple Voice Chat hash guard and the Fabric API pins (`7c0870f3e`, `ManagedPins`), and the 1.19.2 JEI hook check (above).
+
+Still open (Will, 2026-10-25: no CI runs that start Minecraft for now; he tests these himself):
+- **1.21.2 on the merged code.** The Sodium 0.6.0 + Iris 1.8.0 PASS (40245754930) was booted on the never-merged scratch branch
+  `claude/p7-covers-1212-proof`. The merged commit has not been booted. To prove it: `boot-smoke` with `modules=none`,
+  `covers=1.21.2` on `main`, or a real 1.21.2 install on Will's PC (title screen, then a world, shaders on).
+- **Covered versions in a world.** Every covers row stops at the title screen, so mixins that apply only on world join are
+  unproven on 1.21.2, 1.21.3, 1.21.7, 1.20.1, 26.1, 26.1.1. The way to do it: covers rows set `ORIGIN_SHOTS` +
+  `ORIGIN_SHOTS_SET=world` (the dev-shots world tour, `OriginDevWorld`, is in every built jar and keys only off those variables)
+  and `smoke.py` keeps reading past the title until `[dev-shots] captured world_off` and `[dev-shots] done`, failing on
+  `Mixin apply ... failed`, `world step N failed` or a crash report. Not built.
+- **Covers rows and the Fabric API pin.** `covers.py` should read `ManagedPins.FabricApiPins` (and `VoiceChatPins`: players on
+  covered versions also get Simple Voice Chat, which covers rows do not load) instead of the live newest-release lookup.
+- **Java-17 dev rows and LWJGL.** Facts gathered, no change made: Mojang's version JSONs ship LWJGL 3.2.1/3.2.2 (1.18.2),
+  3.3.1 (1.19.2, 1.19.3, 1.19.4, 1.20, 1.20.1) and 3.3.2 (1.20.2, 1.20.4). With Gradle on Java 21, Loom upgrades the older ones
+  to 3.3.2: the 1.20 dev row logs `LWJGL version 3.3.2-snapshot` (job 121325130679) while players on 1.20 run 3.3.1. The
+  1.20.2 and 1.20.4 rows (jobs 121301212725, 121301212717) also log `3.3.2-snapshot`, which is their own version's LWJGL line.
+  No dev row has failed on it: 1.20's Sodium 0.4.10 has no LWJGL check, and 1.20.2 / 1.20.4 run Sodium 0.5.5 / 0.5.8 on the
+  LWJGL line their version ships. Only the 1.20.1 covers row (Sodium 0.5.13) refused 3.3.2, and `covers.py` already sets
+  `fabric.loom.runtimeJavaCompatibilityVersion` there. So dev rows do not need the setting to pass; whether they should carry it
+  for fidelity (1.18.2 to 1.20) stays open and needs one boot-smoke run with and without it before any change.
