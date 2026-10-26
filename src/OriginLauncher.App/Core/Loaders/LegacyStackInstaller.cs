@@ -15,20 +15,24 @@ namespace OriginLauncher.App.Core.Loaders;
 //           (math + algorithm swaps)
 //   1.8.9:  TexFix + BetterFps (the 1.8.9 era has no deeper perf mods —
 //           OptiFine IS the perf layer there, same call Lunar made)
-// All pins are exact CurseForge CDN files, verified reachable.
+// All pins are exact CurseForge CDN files, verified reachable. The live 1.8.9 files also carry the SHA-256
+// measured on CI bench-189 runs 40182245060 and 40184750903 (tools/bench/prod189.py); a download that differs
+// is refused (PinnedDownload). 1.12.2 is pulled, so its rows were never measured and stay unpinned.
 public static class LegacyStackInstaller
 {
     private static readonly HttpClient Http = new();
 
-    private sealed record LegacyMod(string FileName, string Url);
+    private sealed record LegacyMod(string FileName, string Url, string? Sha256 = null);
 
     private static readonly IReadOnlyDictionary<string, LegacyMod[]> Stacks =
         new Dictionary<string, LegacyMod[]>
         {
             ["1.8.9"] = new[]
             {
-                new LegacyMod("TexFix-1.8.9-4.0.jar", "https://edge.forgecdn.net/files/2540/156/TexFix%20V-1.8.9-4.0.jar"),
-                new LegacyMod("BetterFps-1.2.0.jar", "https://edge.forgecdn.net/files/2271/480/BetterFps-1.2.0.jar"),
+                new LegacyMod("TexFix-1.8.9-4.0.jar", "https://edge.forgecdn.net/files/2540/156/TexFix%20V-1.8.9-4.0.jar",
+                    "c7a9602cb95109c6cd371d805b7bf35cc79488a16bc5b5d37f266a29093a38c4"),
+                new LegacyMod("BetterFps-1.2.0.jar", "https://edge.forgecdn.net/files/2271/480/BetterFps-1.2.0.jar",
+                    "d87561a739436eacb540f61277524fcc2992a40ceb6cbcbb7a8235abdb25ed5a"),
             },
             ["1.12.2"] = new[]
             {
@@ -41,6 +45,15 @@ public static class LegacyStackInstaller
         };
 
     public static bool Supports(string version) => Stacks.ContainsKey(version);
+
+    /// <summary>Every pinned SHA-256 (ManagedPins' known-hash set).</summary>
+    public static IEnumerable<string> Sha256Pins() =>
+        Stacks.Values.SelectMany(mods => mods).Select(m => m.Sha256).OfType<string>();
+
+    /// <summary>The pinned SHA-256 for this exact stack file name, or null.</summary>
+    public static string? Sha256For(string jarName) =>
+        Stacks.Values.SelectMany(mods => mods)
+            .FirstOrDefault(m => m.FileName.Equals(jarName, StringComparison.OrdinalIgnoreCase))?.Sha256;
 
     /// <summary>
     /// True for a jar this catalog installs (exact pinned file names — the
@@ -67,21 +80,9 @@ public static class LegacyStackInstaller
             if (File.Exists(destPath) || File.Exists(destPath + ".disabled")) continue;
 
             progress?.Report($"Downloading {mod.FileName}...");
-            try
-            {
-                using var response = await Http.GetAsync(mod.Url, HttpCompletionOption.ResponseHeadersRead, ct);
-                response.EnsureSuccessStatusCode();
-                var tempPath = destPath + ".download";
-                await using (var fileStream = File.Create(tempPath))
-                    await response.Content.CopyToAsync(fileStream, ct);
-                File.Move(tempPath, destPath, overwrite: true);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch
-            {
-                // A perf mod is an enhancement, not a requirement — the game
-                // must still launch without it. Next launch retries.
-            }
+            // A perf mod is an enhancement, not a requirement: a failed or refused (hash mismatch) download
+            // leaves the game launching without it, and the next launch retries.
+            await PinnedDownload.TryDownloadAsync(Http, mod.Url, destPath, mod.Sha256, ct);
         }
     }
 

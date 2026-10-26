@@ -36,6 +36,13 @@ public sealed class ModProfile
     /// name's first letter instead.</summary>
     public string? Icon { get; set; }
 
+    /// <summary>
+    /// Pinned component pairs, e.g. "sodium-iris=0.6.5+1.8.1" (Core/Components/ComponentPinSet). Null = Play picks
+    /// freely among the vetted configurations. Read leniently: a malformed value never resets the settings file.
+    /// </summary>
+    [JsonConverter(typeof(Components.LenientStringJsonConverter))]
+    public string? ComponentPins { get; set; }
+
     [JsonIgnore]
     public bool HasServer => !string.IsNullOrWhiteSpace(ServerAddress);
 }

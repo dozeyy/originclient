@@ -1,0 +1,3 @@
+somemod somemod-1.0.jar external
+somemod somemod-1.1.jar external
+originclient originclient.jar origin

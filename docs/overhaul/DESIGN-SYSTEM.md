@@ -680,7 +680,8 @@ ever the official image file (1.5), and `tools/design/check_logo.py` allows no e
 
 ## 14. Installer and uninstaller (Origin Setup)
 
-- **Window:** 640 x 440, fixed, chromeless, `color.bg`, Win 11 rounded corners (DWM, 8).
+- **Window:** 640 x 440, fixed, chromeless (Ready with Customize open: 640 x 584, 144 taller so the
+  footer stays pinned 32 up; decided 2026-10-25, the taller window stays: `Size.WindowHeightOpen`), `color.bg`, Win 11 rounded corners (DWM, 8).
   Title bar 40: logo 20 + "Origin Setup" (`bodyStrong`) left at 16, ghost icon buttons
   minimise and close (32) right at 4. The bar is the drag area. Content gutter 32. Footer: 32
   from the bottom, buttons right-aligned, `lg` 36, 8 apart.

@@ -75,6 +75,7 @@
          touch temp folders. -->
     <!-- The compatibility engine (Phase 5.1): pure, shared by the import resolver, launch and crash repair. -->
     <Compile Include="..\OriginLauncher.App\Core\Compat\*.cs" LinkBase="Compat" />
+    <Compile Include="..\OriginLauncher.App\Core\Components\*.cs" LinkBase="Components" />
     <None Include="Compat\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\OriginLauncher.App\Core\Import\**\*.cs" Exclude="..\OriginLauncher.App\Core\Import\Launcher\**" LinkBase="Import" />
     <!-- The launcher glue that is pure: where each launcher keeps its data (roots), the settings change an
@@ -115,7 +116,10 @@
     <!-- Crash handling that needs no files or WPF: cause table + classifier, memory bump, the show/no-show gate,
          the one-retry guard and the secret-free Copy report (CrashAnalyzer/CrashDiagnoser read files, so they stay out). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashModels.cs" LinkBase="Launch" />
-    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashClassifier.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashEngine.cs" LinkBase="Launch" />
+    <!-- Crash Report V3: evidence -> facts -> ordered rules (pure). The corpus folders are copied next to the tests. -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashFacts.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashRules.cs" LinkBase="Launch" />
     <!-- Other clients' core jars (Feather, Lunar, ...): never imported, blamed first in a crash stack. -->
     <Compile Include="..\OriginLauncher.App\Core\ClientCoreMods.cs" LinkBase="Launch" />
     <!-- Mod blame from crash logs (uses the real ModManager linked further down). -->
@@ -140,6 +144,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Loaders\VersionPerfProfile.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\PerformanceModCatalog.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\PerformanceModCatalog.Data.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\ManagedPins*.cs" LinkBase="Loaders" />
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\PinnedDownload.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Mods\ModManager.cs" LinkBase="Mods" />
     <!-- 1.8.9's FML splash theme (pure file IO). -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\ForgeSplashTheme.cs" LinkBase="Loaders" />
@@ -169,5 +175,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
     <!-- Compile-time only for AccountStore; the tests never call DPAPI. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CrashCorpus\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

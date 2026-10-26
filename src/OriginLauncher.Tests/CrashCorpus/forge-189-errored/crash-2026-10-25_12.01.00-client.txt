@@ -1,0 +1,12 @@
+---- Minecraft Crash Report ----
+Description: Initializing game
+
+java.lang.NullPointerException: Initializing game
+	at net.minecraft.client.Minecraft.startGame(Minecraft.java:500)
+
+-- System Details --
+	FML: MCP 9.19 Powered by Forge 11.15.1.2318 4 mods loaded, 4 mods active
+	States: 'U' = Unloaded 'L' = Loaded 'C' = Constructed 'H' = Pre-initialized 'I' = Initialized 'J' = Post-initialized 'A' = Available 'D' = Disabled 'E' = Errored
+	UCHIJA	mcp{9.19} [Minecraft Coder Pack] (minecraft.jar)
+	UCHIJA	FML{8.0.99.99} [Forge Mod Loader] (forge-1.8.9.jar)
+	UCHE	somemod{1.0.0} [Some Mod] (somemod-1.0.0.jar)

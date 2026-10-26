@@ -1,0 +1,57 @@
+  <log4j:Event logger="Sodium-GraphicsAdapterProbe" timestamp="1792543696892" level="INFO" thread="main">
+    <log4j:Message><![CDATA[Found graphics adapter: AdapterInfo{vendor=AMD, description='AMD Radeon RX 9070 XT', adapterType=0x0000230B}]]></log4j:Message>
+  </log4j:Event>
+  <log4j:Event logger="FabricLoader" timestamp="1792543696918" level="ERROR" thread="main">
+    <log4j:Message><![CDATA[A mod crashed on startup!]]></log4j:Message>
+    <log4j:Throwable><![CDATA[net.fabricmc.loader.impl.FormattedException: java.lang.RuntimeException: Could not execute entrypoint stage 'preLaunch' due to errors, provided by 'modernfix' at 'org.embeddedt.modernfix.ModernFixPreLaunchFabric'!
+	at net.fabricmc.loader.impl.FormattedException.ofLocalized(FormattedException.java:63)
+	at net.fabricmc.loader.impl.launch.knot.Knot.init(Knot.java:158)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:66)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+Caused by: java.lang.RuntimeException: Could not execute entrypoint stage 'preLaunch' due to errors, provided by 'modernfix' at 'org.embeddedt.modernfix.ModernFixPreLaunchFabric'!
+	at net.fabricmc.loader.impl.FabricLoaderImpl.lambda$invokeEntrypoints$0(FabricLoaderImpl.java:418)
+	at net.fabricmc.loader.impl.util.ExceptionUtil.gatherExceptions(ExceptionUtil.java:33)
+	at net.fabricmc.loader.impl.FabricLoaderImpl.invokeEntrypoints(FabricLoaderImpl.java:416)
+	at net.fabricmc.loader.impl.launch.knot.Knot.init(Knot.java:156)
+	... 2 more
+Caused by: net.fabricmc.loader.api.EntrypointException: Exception while loading entries for entrypoint 'preLaunch' provided by 'modernfix'
+	at net.fabricmc.loader.impl.entrypoint.EntrypointContainerImpl.getEntrypoint(EntrypointContainerImpl.java:56)
+	at net.fabricmc.loader.impl.FabricLoaderImpl.invokeEntrypoints(FabricLoaderImpl.java:414)
+	... 3 more
+Caused by: java.lang.RuntimeException: Mixin transformation of org.embeddedt.modernfix.ModernFixPreLaunchFabric failed
+	at net.fabricmc.loader.impl.launch.knot.KnotClassDelegate.getPostMixinClassByteArray(KnotClassDelegate.java:441)
+	at net.fabricmc.loader.impl.launch.knot.KnotClassDelegate.tryLoadClass(KnotClassDelegate.java:337)
+	at net.fabricmc.loader.impl.launch.knot.KnotClassDelegate.loadClass(KnotClassDelegate.java:232)
+	at net.fabricmc.loader.impl.launch.knot.KnotClassLoader.loadClass(KnotClassLoader.java:119)
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526)
+	at java.base/java.lang.Class.forName0(Native Method)
+	at java.base/java.lang.Class.forName(Class.java:534)
+	at java.base/java.lang.Class.forName(Class.java:513)
+	at net.fabricmc.loader.impl.util.DefaultLanguageAdapter.create(DefaultLanguageAdapter.java:53)
+	at net.fabricmc.loader.impl.entrypoint.EntrypointStorage$NewEntry.getOrCreate(EntrypointStorage.java:124)
+	at net.fabricmc.loader.impl.entrypoint.EntrypointContainerImpl.getEntrypoint(EntrypointContainerImpl.java:53)
+	... 4 more
+Caused by: java.lang.NoClassDefFoundError: feather/lib/sentry/Sentry
+	at knot//net.digitalingot.feather.tk.le(FeatherSourceFile:68)
+	at knot//net.digitalingot.feather.mixin.FeatherMixinPlugin.onLoad(FeatherSourceFile:57)
+	at org.spongepowered.asm.mixin.transformer.PluginHandle.onLoad(PluginHandle.java:144)
+	at org.spongepowered.asm.mixin.transformer.MixinConfig.onSelect(MixinConfig.java:790)
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.selectConfigs(MixinProcessor.java:545)
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.select(MixinProcessor.java:507)
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.checkSelect(MixinProcessor.java:485)
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.lockAndSelect(MixinProcessor.java:437)
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.couldTransformClass(MixinProcessor.java:397)
+	at org.spongepowered.asm.mixin.transformer.MixinTransformer.couldTransformClass(MixinTransformer.java:265)
+	at org.spongepowered.asm.mixin.transformer.MixinTransformer.transformClass(MixinTransformer.java:233)
+	at org.spongepowered.asm.mixin.transformer.MixinTransformer.transformClassBytes(MixinTransformer.java:202)
+	at net.fabricmc.loader.impl.launch.knot.KnotClassDelegate.getPostMixinClassByteArray(KnotClassDelegate.java:436)
+	... 14 more
+Caused by: java.lang.ClassNotFoundException: feather.lib.sentry.Sentry
+	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641)
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526)
+	at net.fabricmc.loader.impl.launch.knot.KnotClassDelegate.loadClass(KnotClassDelegate.java:240)
+	at net.fabricmc.loader.impl.launch.knot.KnotClassLoader.loadClass(KnotClassLoader.java:119)
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526)
+	... 27 more
+]]></log4j:Throwable>
+  </log4j:Event>

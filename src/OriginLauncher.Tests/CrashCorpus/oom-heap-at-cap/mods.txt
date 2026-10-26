@@ -1,0 +1,3 @@
+somemod somemod-1.0.0.jar external com.example.somemod
+originclient originclient.jar origin
+fabric-api fabric-api-0.116.1+1.21.1.jar origin

@@ -94,7 +94,7 @@ public class OriginClientMod implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);
 		// Vanilla options save the moment they change (Settings Sync needs it).
 		OptionsAutosave.register();
-		// Team View, Discord Status and Hypixel register their own events.
+		// Team View, Discord presence (always on) and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
 		com.origin.client.client.mods.SaturationOverlay.registerTooltip();

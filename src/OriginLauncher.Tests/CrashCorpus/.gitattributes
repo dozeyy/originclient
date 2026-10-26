@@ -1,0 +1,2 @@
+# Corpus files are evidence: keep their bytes exactly as written (no line-ending conversion).
+* -text

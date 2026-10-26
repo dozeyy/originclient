@@ -63,6 +63,12 @@ public partial class MainWindow : Window
 
         // Home's profile chip opens Profiles; its launch screen covers the bar too.
         _homePage.LaunchSceneChanged += SetTopBarHidden;
+        _homePage.StripHeightChanged += height =>
+        {
+            if (Math.Abs(height - _stripHeight) < 0.5) return;
+            _stripHeight = height;
+            PlaceToasts();
+        };
         RefreshAccountChip();
 
         _accountPanel.CloseRequested += (_, _) => SetAccountPanelOpen(false);
@@ -316,6 +322,14 @@ public partial class MainWindow : Window
 
     private void FriendsButton_Click(object sender, RoutedEventArgs e) => SetFriendsOpen(!_friendsOpen);
 
+    // The toast stack's bottom edge sits Space.2 (8) above the top of Home's strip (version card, Play, the status
+    // line), measured, so no toast covers the strip at any window size or with a profile's taller Play card; and it
+    // centres in what the Friends drawer leaves free. 96 until Home has measured its strip (the old fixed 104 bottom).
+    private double _stripHeight = 96;
+
+    private void PlaceToasts() =>
+        Toasts.Margin = new Thickness(0, 0, _friendsOpen ? FriendsDrawer.Width : 0, _stripHeight + (double)FindResource("Space.2"));
+
     private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen; // Import is a page now, not a drawer
 
     private void SetFriendsOpen(bool open)
@@ -327,7 +341,7 @@ public partial class MainWindow : Window
         _friendsOpen = open;
         SocialHub.Service.SetDrawerOpen(open);
         _friendsPanel.SetShown(open);
-        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width : 0, 104); // bottom-centre of what the drawer leaves free
+        PlaceToasts();
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
@@ -377,6 +391,7 @@ public partial class MainWindow : Window
     internal void TourEndReady() => _homePage.TourEndReady();
 
     internal void TourShowLaunch(string version) => _homePage.TourShowLaunch(version);
+    internal void TourSelectVersion(string? version) => _homePage.TourSelectVersion(version);
     internal void TourShowMyMods(bool on) => _homePage.TourShowMyMods(on);
 
     internal void TourReportLaunch(string stage) => _homePage.TourReportLaunch(stage);

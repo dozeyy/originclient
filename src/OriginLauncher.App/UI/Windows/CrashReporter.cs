@@ -63,7 +63,7 @@ public static class CrashReporter
         var sb = new StringBuilder();
         var name = Assembly.GetEntryAssembly()?.GetName();
 
-        sb.AppendLine("Origin Launcher — crash report");
+        sb.AppendLine("Origin Launcher - crash report");
         sb.AppendLine($"Version : {name?.Version?.ToString() ?? "unknown"}");
         sb.AppendLine($"OS      : {Environment.OSVersion} ({RuntimeInformation.OSArchitecture})");
         sb.AppendLine($"Runtime : {RuntimeInformation.FrameworkDescription}");

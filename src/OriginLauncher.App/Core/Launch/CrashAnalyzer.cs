@@ -1,207 +1,106 @@
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace OriginLauncher.App.Core.Launch;
 
-// Post-mortem crash blame for a Minecraft boot that died (non-zero exit).
-// Pure parsing over evidence the launcher already has: the per-launch
-// stdout/stderr log (StartWithLifecycleCapture) and the game's own
-// crash-reports/*.txt. No runtime instrumentation. Parsers are ordered from
-// most to least reliable, and the honest fallback is "unknown" — a wrong
-// accusation would send the player deleting the wrong mod.
+// The file-reading half of crash handling (the deciding half is pure: CrashFactsParser + CrashRules + CrashEngine).
+// Reads what a stopped game left behind into a CrashEvidence: the launch log the launcher captured, the game's own
+// logs/latest.log, the newest crash-reports/crash-*.txt, the JVM's hs_err_pid*.log, and the launch mod set (every jar
+// in the folder the game loaded mods from, with its mod id; unreadable jars are kept by file name, since a damaged jar
+// must still be matchable). Nothing here writes, uploads or deletes: crash data stays on the PC.
 //
-// Two loaders: Fabric (every version but 1.8.9) and Forge 1.8.9 (FML 8.0.x).
-// The Forge parsers read FML's own wording — its mod state table in the crash
-// report ("UCHE  somemod{1.0} [Some Mod] (somemod.jar)", E = errored), its
-// "Found a duplicate mod" and "requires mods ... to be available" lines — and
-// Forge mods are indexed by their mcmod.info. The steps never collide: each
-// loader's wording only ever appears in its own logs.
+// Two loaders: Fabric (every version but 1.8.9, fabric.mod.json) and Forge 1.8.9 (mcmod.info).
 public static class CrashAnalyzer
 {
+    public const int LaunchLogTailBytes = 512 * 1024;
+    public const int LatestLogTailBytes = 512 * 1024;
+    public const int CrashReportTailBytes = 256 * 1024;
+    public const int HsErrTailBytes = 64 * 1024;
+
     /// <param name="instanceDir">The crashed game's folder (one account's game folder for the version).</param>
-    public static CrashAnalysis Analyze(string instanceDir, string? launchLogPath)
+    /// <param name="startedUtc">When this game started: only files written since then count (a file from an earlier
+    /// session must not explain this one). Null: the last 5 minutes.</param>
+    public static CrashEvidence ReadEvidence(string instanceDir, string? launchLogPath, int exitCode,
+        bool stoppedByPlayer, bool crashedWhileStarting, int ramMb, int totalPhysicalMb, DateTime? startedUtc = null)
     {
-        // Mods live in the version's shared folder, not the account's (SharedMods)
-        // — except a mod-profile launch, whose jars the game loaded from this
-        // account's own "mods-profile" copy (Core/Profiles/LaunchModFolder).
-        var modIndex = BuildModIndex(
-            GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir),
+        return new CrashEvidence(
+            exitCode, stoppedByPlayer, crashedWhileStarting,
+            LaunchLog: TryReadTail(launchLogPath, LaunchLogTailBytes),
+            LatestLog: TryReadTail(FreshLatestLog(instanceDir, startedUtc), LatestLogTailBytes),
+            CrashReport: TryReadTail(NewestCrashReport(instanceDir, startedUtc), CrashReportTailBytes, fromStart: true),
+            HsErr: TryReadTail(NewestHsErr(instanceDir, startedUtc), HsErrTailBytes),
+            Mods: ReadMods(instanceDir),
+            RamMb: ramMb,
+            TotalPhysicalMb: totalPhysicalMb);
+    }
+
+    /// <summary>
+    /// The launch mod set. Mods live in the version's shared folder (SharedMods), except a mod-profile launch, whose
+    /// jars the game loaded from this account's own copy (Core/Profiles/LaunchModFolder): both are read.
+    /// </summary>
+    public static List<CrashModEntry> ReadMods(string instanceDir) =>
+        ReadModsFrom(GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir),
             Path.Combine(instanceDir, Profiles.LaunchModFolder.ProfileFolderName));
 
-        var logText = TryRead(launchLogPath);
-        var crashReportText = TryRead(NewestCrashReport(instanceDir));
-        // The launch log is the primary source (Fabric prints resolution and
-        // mixin failures to stderr before a crash report even exists); the
-        // crash report supplements it for in-boot crashes past mod resolution.
-        var combined = (logText ?? "") + "\n" + (crashReportText ?? "");
-        if (string.IsNullOrWhiteSpace(combined))
-            return new CrashAnalysis([], "Minecraft crashed while starting.", null);
-
-        // 1. Fabric mod-resolution failure: names exact mod ids, e.g.
-        //    "Mod 'Some Mod' (somemod) 1.2.3 requires version 1.21 of minecraft"
-        //    under "Incompatible mods found!" / "Mod resolution encountered ...".
-        if (Regex.IsMatch(combined, @"Incompatible mods? (found|set)|Mod resolution (encountered|failed)", RegexOptions.IgnoreCase))
-        {
-            var ids = Regex.Matches(combined, @"[Mm]od '[^']*' \(([a-z0-9_\-]+)\)")
-                .Select(m => m.Groups[1].Value)
-                .Where(id => id != "minecraft" && id != "java" && id != "fabricloader")
-                .Distinct().ToList();
-            if (ids.Count > 0)
-                return Blame(ids, "Minecraft couldn't start because of an incompatible mod.", combined, modIndex,
-                             excerptAround: "ncompatible mod");
-        }
-
-        // 2. Duplicate mod id — two jars claiming the same id hard-fail the boot.
-        var dup = Regex.Match(combined, @"[Dd]uplicate[^\n]*?\b(?:mod id|mods?)\b[^\n]*?['""]([a-z0-9_\-]+)['""]");
-        if (dup.Success)
-            return Blame([dup.Groups[1].Value],
-                         "Two copies of the same mod are installed — Minecraft refuses to start.",
-                         combined, modIndex, excerptAround: dup.Value);
-
-        // 2b. Forge 1.8.9: the errored mod(s) in FML's mod state table — the
-        //     line names the jar too. FML puts this table in every crash
-        //     report from mod loading on, so it is the strongest Forge signal.
-        //     FML's own entries (mcp, FML, Forge) are the loader, never blamed.
-        if (crashReportText != null)
-        {
-            var errored = Regex.Matches(crashReportText,
-                    @"^\s*[ULCHIJAD]*E[ULCHIJADE]*\s+([A-Za-z0-9_\-\.]+)\{[^}\n]*\}\s+\[[^\]\n]*\]\s+\(([^)\n]+)\)",
-                    RegexOptions.Multiline)
-                .Where(m => !ForgeLoaderIds.Contains(m.Groups[1].Value))
-                .ToList();
-            if (errored.Count > 0)
-                return Blame(errored.Select(m => m.Groups[1].Value).Distinct().ToList(),
-                             "Forge stopped loading because a mod failed.", crashReportText, modIndex,
-                             excerptAround: errored[0].Value.Trim(),
-                             jarNames: errored
-                                 .GroupBy(m => m.Groups[1].Value, StringComparer.OrdinalIgnoreCase)
-                                 .ToDictionary(g => g.Key, g => g.First().Groups[2].Value.Trim(),
-                                               StringComparer.OrdinalIgnoreCase));
-        }
-
-        // 2c. Forge 1.8.9: two jars with one mod id, or a mod missing a
-        //     dependency — FML names the mod id in both messages.
-        var forgeDup = Regex.Match(combined, @"Found a duplicate mod ([A-Za-z0-9_\-\.]+) at");
-        if (forgeDup.Success)
-            return Blame([forgeDup.Groups[1].Value],
-                         "Two copies of the same mod are installed — Minecraft refuses to start.",
-                         combined, modIndex, excerptAround: forgeDup.Value);
-        var forgeMissing = Regex.Matches(combined, @"The mod ([A-Za-z0-9_\-\.]+) \([^)\n]*\) requires mods? ")
-            .Select(m => m.Groups[1].Value).Distinct().ToList();
-        if (forgeMissing.Count > 0)
-            return Blame(forgeMissing, "Minecraft couldn't start because a mod is missing something it needs.",
-                         combined, modIndex, excerptAround: "requires mod");
-
-        // 3. Mixin apply failure names the owning config, which names the mod:
-        //    "Mixin apply failed somemod.mixins.json:..." or
-        //    "... in config [somemod.mixins.json]" / "from mod somemod".
-        var mixinIds = Regex.Matches(combined, @"Mixin apply(?: for mod ([a-z0-9_\-]+))? failed(?:\s+([a-z0-9_\-\.]+)\.mixins\.json)?", RegexOptions.IgnoreCase)
-            .SelectMany(m => new[] { m.Groups[1].Value, m.Groups[2].Value })
-            .Concat(Regex.Matches(combined, @"from mod ([a-z0-9_\-]+)\]").Select(m => m.Groups[1].Value))
-            .Where(s => !string.IsNullOrEmpty(s) && s != "minecraft")
-            .Distinct().ToList();
-        if (mixinIds.Count > 0)
-            return Blame(mixinIds, "A mod failed to hook into this Minecraft version (mixin apply failure).",
-                         combined, modIndex, excerptAround: "Mixin apply");
-
-        // 3b. The deepest "Caused by" that runs through a mod's own code names the culprit. Fabric's headline names
-        //     only the mod whose entrypoint happened to be loading ("provided by 'modernfix'"): 2026-10-20 an
-        //     imported Feather jar died in its mixin plugin during ModernFix's first class and ModernFix got the
-        //     blame. A known other-client core (ClientCoreMods) is recognised by its package alone, even when its
-        //     jar can't be read.
-        var deepest = BlameByDeepestCause(combined, modIndex);
-        if (deepest != null)
-            return Blame([deepest.Value.ModId], deepest.Value.Reason, combined, modIndex,
-                         excerptAround: deepest.Value.Excerpt);
-
-        // 4. Fabric crash reports carry an explicit blame line when the loader
-        //    can attribute the crash: "Suspected Mod(s): Some Mod (somemod)".
-        if (crashReportText != null)
-        {
-            var suspected = Regex.Matches(crashReportText, @"Suspected Mods?[^\n]*?\(([a-z0-9_\-]+)\)")
-                .Select(m => m.Groups[1].Value)
-                .Where(id => id != "minecraft" && id != "fabricloader")
-                .Distinct().ToList();
-            if (suspected.Count > 0)
-                return Blame(suspected, "Minecraft's crash report points at a mod.",
-                             crashReportText, modIndex, excerptAround: "Suspected Mod");
-        }
-
-        // 5. Last resort: match exception stack frames against the code
-        //    packages inside each installed jar. Only trust it when exactly
-        //    one non-Origin mod's packages appear in the failing stack.
-        var packageHits = BlameByStackPackages(combined, modIndex);
-        if (packageHits.Count == 1)
-            return Blame(packageHits, "A mod's code appears in the crash stack.",
-                         combined, modIndex, excerptAround: "Exception");
-
-        return new CrashAnalysis([],
-            "Minecraft crashed while starting, and no single mod could be identified with confidence.",
-            Excerpt(combined, "Exception"));
-    }
-
-    // FML's own entries in its mod state table: the loader itself.
-    private static readonly HashSet<string> ForgeLoaderIds = new(StringComparer.OrdinalIgnoreCase)
+    public static List<CrashModEntry> ReadModsFrom(params string[] modsFolders)
     {
-        "mcp", "FML", "Forge",
-    };
-
-    // jarNames: the jar file per mod id when the evidence names it (Forge's
-    // state table); otherwise the jar is looked up in the mods-folder index.
-    private static CrashAnalysis Blame(IReadOnlyList<string> modIds, string reason, string sourceText,
-        IReadOnlyDictionary<string, string> modIndex, string excerptAround,
-        IReadOnlyDictionary<string, string>? jarNames = null)
-    {
-        var culprits = modIds.Select(id =>
-        {
-            var jarName = jarNames != null && jarNames.TryGetValue(id, out var named) ? named
-                : modIndex.TryGetValue(id, out var jarPath) ? Path.GetFileName(jarPath) : null;
-            var external = jarName == null
-                || (!Mods.ModManager.IsManaged(jarName)
-                    && !jarName.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase));
-            return new CrashCulprit(id, jarName, external);
-        }).ToList();
-        return new CrashAnalysis(culprits, reason, Excerpt(sourceText, excerptAround));
-    }
-
-    // mod id -> full jar path, built by reading fabric.mod.json (Fabric) or
-    // mcmod.info (Forge 1.8.9) inside every enabled jar in the instance's mods
-    // folder. Best-effort per jar: one unreadable jar must not blank the whole
-    // index.
-    private static Dictionary<string, string> BuildModIndex(params string[] modsFolders)
-    {
-        var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var list = new List<CrashModEntry>();
+        IEnumerable<string> jars;
         try
         {
-            foreach (var jar in modsFolders.Where(Directory.Exists).SelectMany(f => Directory.EnumerateFiles(f, "*.jar")))
+            jars = modsFolders.Where(Directory.Exists)
+                .SelectMany(f => Directory.EnumerateFiles(f, "*.jar")).ToList();
+        }
+        catch { return list; /* folder unreadable: no mod set, rules degrade to ids only */ }
+
+        foreach (var jar in jars)
+        {
+            var name = Path.GetFileName(jar);
+            var external = IsExternalJar(name);
+            try
             {
-                try
+                using var zip = ZipFile.OpenRead(jar);
+                var ids = new List<string>();
+                if (zip.GetEntry("fabric.mod.json") is { } fabric)
                 {
-                    using var zip = ZipFile.OpenRead(jar);
-                    if (zip.GetEntry("fabric.mod.json") is { } fabric)
-                    {
-                        using var doc = JsonDocument.Parse(fabric.Open());
-                        if (doc.RootElement.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
-                            index[id.GetString()!] = jar;
-                    }
-                    else if (zip.GetEntry("mcmod.info") is { } forge)
-                    {
-                        foreach (var modId in ForgeModIds(forge))
-                            index[modId] = jar;
-                    }
+                    using var doc = JsonDocument.Parse(fabric.Open(), new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+                    if (doc.RootElement.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
+                        ids.Add(id.GetString()!);
                 }
-                catch { /* corrupt/locked jar — skip it */ }
+                else if (zip.GetEntry("mcmod.info") is { } forge)
+                {
+                    ids.AddRange(ForgeModIds(forge));
+                }
+                // Code packages only for added mods: Origin's own jars run on every launch, blaming them by stack is noise.
+                var packages = external ? CodePackages(zip) : null;
+                if (ids.Count == 0) list.Add(new CrashModEntry("", name, external, packages));
+                foreach (var id in ids) list.Add(new CrashModEntry(id, name, external, packages));
+            }
+            catch
+            {
+                // Corrupt or locked jar: kept by file name so a "damaged file" finding can still name it.
+                list.Add(new CrashModEntry("", name, external));
             }
         }
-        catch { /* folder unreadable — empty index, analyzer degrades to ids only */ }
-        return index;
+        return list;
     }
 
-    // mcmod.info comes in two shapes — a bare array of mod entries, or
-    // {"modListVersion": 2, "modList": [...]} — and is hand-written by mod
-    // authors, so trailing commas and comments are tolerated.
+    /// <summary>A jar the player added (not Origin's own, not the managed stack it installs). Matches what
+    /// Core/Compat/CrashRepair.DisableBlamed refuses to touch, so a fix is only ever offered for a jar it can turn off.</summary>
+    public static bool IsExternalJar(string jarFileName) =>
+        !Mods.ModManager.IsOriginProvisioned(jarFileName)
+        && !jarFileName.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase);
+
+    private static HashSet<string> CodePackages(ZipArchive zip) =>
+        zip.Entries
+            .Where(e => e.FullName.EndsWith(".class", StringComparison.Ordinal) && e.FullName.Contains('/'))
+            .Select(e => string.Join('.', e.FullName.Split('/').SkipLast(1)))
+            .Where(p => p.Length > 0 && !p.StartsWith("META-INF", StringComparison.Ordinal))
+            .ToHashSet(StringComparer.Ordinal);
+
+    // mcmod.info comes in two shapes - a bare array of mod entries, or {"modListVersion": 2, "modList": [...]} - and
+    // is hand-written by mod authors, so trailing commas and comments are tolerated.
     private static IEnumerable<string> ForgeModIds(ZipArchiveEntry mcmodInfo)
     {
         using var doc = JsonDocument.Parse(mcmodInfo.Open(), new JsonDocumentOptions
@@ -222,145 +121,20 @@ public static class CrashAnalyzer
             .ToList();
     }
 
-    // Frames that are never a mod's own code: the JDK, the loader, mixin, Minecraft and its libraries.
-    private static readonly string[] NotModCode =
-    [
-        "java.", "javax.", "jdk.", "sun.", "net.fabricmc.", "org.spongepowered.", "com.llamalad7.", "net.minecraft.",
-        "com.mojang.", "org.lwjgl.", "io.netty.", "com.google.", "org.apache.", "org.slf4j.",
-    ];
-
-    // "at knot//net.example.Foo.bar(Foo.java:1)" (Fabric prints mod classes with the knot// prefix) or a plain
-    // "at net.example.Foo.bar(...)"; the capture is "net.example.Foo.bar". Obfuscated lowercase classes match too.
-    private static readonly Regex FrameLine = new(
-        @"^\s*at (?:knot//)?([A-Za-z_$][\w$]*(?:\.[\w$<>]+)+)\(", RegexOptions.Multiline | RegexOptions.Compiled);
-
-    // The last exception chain in the text (a throwable and its "Caused by" blocks), deepest block first. Only the
-    // final chain counts: an earlier, harmless logged exception must not decide the blame.
-    private static List<(string Header, List<string> Classes)> LastChainBlocks(string text)
-    {
-        var lines = text.Split('\n');
-        var last = -1;
-        for (var i = lines.Length - 1; i >= 0; i--)
-            if (lines[i].StartsWith("Caused by:", StringComparison.Ordinal)) { last = i; break; }
-        if (last < 0) return [];
-
-        static bool IsChainLine(string l)
-        {
-            var t = l.TrimStart();
-            return t.StartsWith("at ", StringComparison.Ordinal) || t.StartsWith("...", StringComparison.Ordinal)
-                || t.StartsWith("Caused by:", StringComparison.Ordinal) || t.StartsWith("Suppressed:", StringComparison.Ordinal);
-        }
-
-        var start = last;
-        while (start > 0 && IsChainLine(lines[start - 1])) start--;
-        if (start > 0) start--; // the top exception's own header line
-
-        var blocks = new List<(string Header, List<string> Classes)>();
-        for (var i = start; i < lines.Length; i++)
-        {
-            var line = lines[i].TrimEnd('\r');
-            if (i > start && !IsChainLine(line)) break;
-            var isHeader = i == start || line.TrimStart().StartsWith("Caused by:", StringComparison.Ordinal);
-            if (isHeader) blocks.Add((line.Trim(), []));
-            else if (FrameLine.Match(line) is { Success: true } m)
-            {
-                var qualified = m.Groups[1].Value;
-                var dot = qualified.LastIndexOf('.');
-                if (dot > 0) blocks[^1].Classes.Add(qualified[..dot]);
-            }
-        }
-        blocks.Reverse();
-        return blocks;
-    }
-
-    // The mod whose own code is where the deepest cause was thrown, or null when the chain doesn't say one mod
-    // clearly. A known other-client core wins on its package alone; any other mod must be the ONLY mod in the
-    // block (a wrong accusation sends the player deleting the wrong jar).
-    private static (string ModId, string Reason, string Excerpt)? BlameByDeepestCause(
-        string text, IReadOnlyDictionary<string, string> modIndex)
-    {
-        Dictionary<string, HashSet<string>>? packagesByMod = null;
-        foreach (var (header, classes) in LastChainBlocks(text))
-        {
-            var candidates = classes.Where(c => !NotModCode.Any(p => c.StartsWith(p, StringComparison.Ordinal))).ToList();
-            if (candidates.Count == 0) continue;
-
-            if (candidates.Select(ClientCoreMods.FindByClassName).FirstOrDefault(c => c != null) is { } core)
-                return (core.ModId, $"{core.Name}'s own client files can't run inside Origin and stopped the game.", header);
-
-            packagesByMod ??= PackagesByMod(modIndex);
-            var owners = candidates
-                .Select(c => packagesByMod.FirstOrDefault(kv => kv.Value.Any(p => c.StartsWith(p + ".", StringComparison.Ordinal) || c == p)).Key)
-                .Where(id => id != null).Distinct().ToList();
-            if (owners.Count == 1)
-                return (owners[0], "A mod's own code is where the game failed.", header);
-            if (owners.Count > 1) return null; // several mods in one block: not clear enough, fall back to the other steps
-        }
-        return null;
-    }
-
-    // mod id -> every code package in its jar. Origin's own jar and the managed perf stack are left out: they run
-    // on every launch, so blaming them is noise.
-    private static Dictionary<string, HashSet<string>> PackagesByMod(IReadOnlyDictionary<string, string> modIndex)
-    {
-        var result = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (modId, jarPath) in modIndex)
-        {
-            if (modId == "originclient" || Mods.ModManager.IsManaged(Path.GetFileName(jarPath))) continue;
-            try
-            {
-                using var zip = ZipFile.OpenRead(jarPath);
-                result[modId] = zip.Entries
-                    .Where(e => e.FullName.EndsWith(".class") && e.FullName.Contains('/'))
-                    .Select(e => string.Join('.', e.FullName.Split('/').SkipLast(1)))
-                    .Where(p => p.Length > 0 && !p.StartsWith("META-INF"))
-                    .ToHashSet();
-            }
-            catch { /* unreadable jar — skip */ }
-        }
-        return result;
-    }
-
-    // Match "at com.example.foo.Bar.baz(...)" stack frames against the code
-    // packages inside each installed jar. Origin's own jar and the managed perf
-    // stack are excluded — they run on every launch; blaming them is noise.
-    private static List<string> BlameByStackPackages(string text, IReadOnlyDictionary<string, string> modIndex)
-    {
-        var frames = Regex.Matches(text, @"^\s*at (?:knot//)?([a-z][a-z0-9_]*(?:\.[a-z0-9_]+){2,})\.[A-Z]", RegexOptions.Multiline)
-            .Select(m => m.Groups[1].Value).Distinct().ToList();
-        if (frames.Count == 0) return [];
-
-        var hits = new List<string>();
-        foreach (var (modId, jarPath) in modIndex)
-        {
-            var jarName = Path.GetFileName(jarPath);
-            if (modId == "originclient" || Mods.ModManager.IsManaged(jarName)) continue;
-            try
-            {
-                using var zip = ZipFile.OpenRead(jarPath);
-                var packages = zip.Entries
-                    .Where(e => e.FullName.EndsWith(".class") && e.FullName.Contains('/'))
-                    .Select(e => string.Join('.', e.FullName.Split('/').SkipLast(1)))
-                    .Where(p => p.Length > 0 && !p.StartsWith("META-INF"))
-                    .Distinct().ToHashSet();
-                if (frames.Any(f => packages.Any(p => f.StartsWith(p + ".", StringComparison.Ordinal) || f == p)))
-                    hits.Add(modId);
-            }
-            catch { /* unreadable jar — skip */ }
-        }
-        return hits;
-    }
-
-    internal static string? NewestCrashReport(string instanceDir) =>
-        NewestRecent(Path.Combine(instanceDir, "crash-reports"), "crash-*.txt");
+    internal static string? NewestCrashReport(string instanceDir, DateTime? sinceUtc = null) =>
+        NewestRecent(Path.Combine(instanceDir, "crash-reports"), "crash-*.txt", sinceUtc);
 
     // The JVM's own native-crash dump (hs_err_pid*.log) lands in the game's working folder.
-    internal static string? NewestHsErr(string instanceDir) =>
-        NewestRecent(instanceDir, "hs_err_pid*.log");
+    internal static string? NewestHsErr(string instanceDir, DateTime? sinceUtc = null) =>
+        NewestRecent(instanceDir, "hs_err_pid*.log", sinceUtc);
 
-    // Only trust a file from the last few minutes — an older one belongs to some
-    // previous session's crash, not this launch.
-    private static string? NewestRecent(string dir, string pattern)
+    // logs/latest.log (Minecraft rewrites it all game long, so a live one is always recent).
+    internal static string? FreshLatestLog(string instanceDir, DateTime? sinceUtc = null) =>
+        NewestRecent(Path.Combine(instanceDir, "logs"), "latest.log", sinceUtc);
+
+    // Only trust a file this game wrote: newer than its start (2 s slack for file-time rounding), or, with no start
+    // time, from the last 5 minutes. An older one belongs to a previous session.
+    private static string? NewestRecent(string dir, string pattern, DateTime? sinceUtc)
     {
         try
         {
@@ -368,38 +142,30 @@ public static class CrashAnalyzer
             var newest = Directory.EnumerateFiles(dir, pattern)
                 .OrderByDescending(File.GetLastWriteTimeUtc)
                 .FirstOrDefault();
-            return newest != null && DateTime.UtcNow - File.GetLastWriteTimeUtc(newest) < TimeSpan.FromMinutes(5)
-                ? newest
-                : null;
+            if (newest == null) return null;
+            var written = File.GetLastWriteTimeUtc(newest);
+            var fresh = sinceUtc is { } since
+                ? written >= since.AddSeconds(-2)
+                : DateTime.UtcNow - written < TimeSpan.FromMinutes(5);
+            return fresh ? newest : null;
         }
         catch { return null; }
     }
 
-    internal static string? TryRead(string? path) => TryReadTail(path, 2 * 1024 * 1024);
-
-    // The end of a file, at most maxBytes: a game that ran for hours has a huge log, and the
-    // crash is always at its end.
-    internal static string? TryReadTail(string? path, int maxBytes)
+    // The end of a file, at most maxBytes: a game that ran for hours has a huge log, and the crash is at its end.
+    // A crash report is the other way round (the exception and its cause come first), so it is read from the start.
+    internal static string? TryReadTail(string? path, int maxBytes, bool fromStart = false)
     {
         try
         {
             if (path == null || !File.Exists(path)) return null;
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            if (stream.Length > maxBytes) stream.Seek(-maxBytes, SeekOrigin.End);
+            if (stream.Length > maxBytes && !fromStart) stream.Seek(-maxBytes, SeekOrigin.End);
             using var reader = new StreamReader(stream);
-            return reader.ReadToEnd();
+            if (!fromStart || stream.Length <= maxBytes) return reader.ReadToEnd();
+            var buffer = new char[maxBytes];
+            return new string(buffer, 0, reader.ReadBlock(buffer, 0, maxBytes));
         }
         catch { return null; }
-    }
-
-    // A short window of the evidence around the interesting line, for the
-    // details box — enough to act on, not the whole log.
-    private static string? Excerpt(string text, string around)
-    {
-        var idx = text.IndexOf(around, StringComparison.OrdinalIgnoreCase);
-        if (idx < 0) return null;
-        var start = text.LastIndexOf('\n', Math.Max(0, idx - 400)) + 1;
-        var end = Math.Min(text.Length, idx + 1200);
-        return text[start..end].Trim();
     }
 }

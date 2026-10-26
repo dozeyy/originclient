@@ -254,7 +254,9 @@
              inside the launcher. Only ever shown while AccountPanel is already
              open, so it reuses that panel's Scrim rather than needing its own. -->
         <!-- The dialog corner (Radius.Dialog, 16), like every dialog over the scrim. -->
-        <Border x:Name="SignInPanel" Width="460" Height="640"
+        <!-- No fixed height: the card fits its content (a loading line, an outcome) and grows to the page well
+             (Size.SignInPage) only while Microsoft's page shows (MicrosoftSignInPanel.ShowPage). -->
+        <Border x:Name="SignInPanel" Width="{StaticResource Size.SignInCard}"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
                 Background="{StaticResource Brush.Card}"
                 BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
@@ -268,9 +270,9 @@
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
 
-        <!-- Social toasts, above everything, bottom-centre. They sit 104 px up from the bottom, clear of Home's Play row
-             (48 px tall, 32 up) and its status line, so a toast never covers Play or Join server.
-             Centres in the space left of the Friends drawer while it's open (MainWindow.xaml.cs: SetFriendsOpen). -->
+        <!-- Social toasts, above everything, bottom-centre. Their bottom edge sits 8 px above the top of Home's strip
+             (version card, Play, Join server, the status line), measured at every size (MainWindow.xaml.cs: PlaceToasts),
+             so a toast never covers them. Centres in the space left of the Friends drawer while it's open. -->
         <controls:SocialToastHost x:Name="Toasts" Width="360"
                                   HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,104"/>
 

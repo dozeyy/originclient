@@ -1,0 +1,10 @@
+{
+  "crash": true,
+  "cause": "JavaProblem",
+  "confidence": "confirmed",
+  "rule": "java-version",
+  "culprits": [
+    "somemod"
+  ],
+  "fix": "None"
+}

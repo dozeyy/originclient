@@ -1,0 +1,3 @@
+exit=1
+whileStarting=true
+stoppedByPlayer=true

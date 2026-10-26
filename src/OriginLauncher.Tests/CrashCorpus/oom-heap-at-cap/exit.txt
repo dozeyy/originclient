@@ -1,0 +1,4 @@
+exit=-1
+whileStarting=false
+ramMb=14336
+totalMb=16384

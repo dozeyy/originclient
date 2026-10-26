@@ -71,20 +71,32 @@ public class CrashWindowFallbackTests
             Assert.Equal(new[] { "Copy details", "Continue" }, ButtonLabels(recovered));
             Assert.Equal(Visibility.Collapsed, recovered.SavedTo.Visibility);
 
-            var analysis = new CrashAnalysis([new CrashCulprit("badmod", "badmod-1.0.jar", true)], "A mod crashed.", "stack...");
-            var report = new CrashReportWindow(analysis, null, who: "Steve - Minecraft 1.21.1");
+            // Crash Report V3: verdicts from the real engine. strong + one added mod = the fix button carries the fix.
+            CrashVerdict Diagnose(string? log, string? crash) => CrashEngine.Diagnose(new CrashEvidence(1, false, true, log, null, crash, null,
+                [new CrashModEntry("badmod", "badmod-1.0.jar", true), new CrashModEntry("originclient", "originclient.jar", false)], 4096, 16384));
+            var strong = Diagnose("[main/ERROR]: Mixin apply for mod badmod failed badmod.mixins.json:BadMixin from mod badmod -> net.minecraft.class_310: InvalidInjectionException", null);
+            Assert.Equal(CrashConfidence.Strong, strong.Finding.Confidence);
+            string[] reportButtons = ["Show details", "Copy report", "Open logs folder", "Close", "Try once without my mods", strong.SafeFix!.Label];
+            var report = new CrashReportWindow(strong, null, who: "Steve - Minecraft 1.21.1", buildReport: () => "r");
             Assert.True(report.UsingFallbackLayout);
-            Assert.Equal(new[] { "Show details", "Copy report", "Open logs folder", "Close", "Relaunch without badmod" }, ButtonLabels(report));
+            Assert.Equal(reportButtons, ButtonLabels(report));
+            Assert.Equal(Visibility.Visible, report.ActionButton.Visibility);
+            Assert.Equal(Visibility.Collapsed, report.TryButton.Visibility); // strong: the fix, not the blind try
             Assert.Equal("Steve - Minecraft 1.21.1", report.WhoText.Text);
             Assert.Equal(Visibility.Visible, report.WhoText.Visibility);
             Assert.Equal(Visibility.Visible, report.CulpritPanel.Visibility);
             Assert.Single(report.CulpritList.Children);
-            Assert.Equal("stack...", report.DetailsBox.Text);
-            Assert.Equal("A mod didn't load: badmod", report.HeadlineText.Text);
+            Assert.Equal("strong", report.ConfidenceText.Text);
+            Assert.Equal(strong.Finding.Headline, report.HeadlineText.Text);
+            Assert.Contains("mixin-apply", report.DetailsBox.Text);
             Assert.Equal(Visibility.Collapsed, report.DetailsPanel.Visibility); // technical detail starts folded away
 
-            var unknown = new CrashReportWindow(new CrashAnalysis([], "Unknown.", null), null);
-            Assert.Equal(Visibility.Collapsed, unknown.CulpritPanel.Visibility);
+            // unknown: no fix button, the one-time try without added mods instead, and the word "unknown".
+            var unknown = new CrashReportWindow(Diagnose(null, "---- Minecraft Crash Report ----\nDescription: x\n\njava.lang.IllegalStateException: x\n"), null);
+            Assert.Equal("unknown", unknown.ConfidenceText.Text);
+            Assert.Equal(Visibility.Collapsed, unknown.ActionButton.Visibility);
+            Assert.Equal(Visibility.Visible, unknown.TryButton.Visibility);
+            Assert.Empty(unknown.CulpritList.Children);
             Assert.Equal(Visibility.Collapsed, unknown.WhoText.Visibility);
 
             // A fallback window lays out and renders without throwing, even though it is never shown.
@@ -102,9 +114,10 @@ public class CrashWindowFallbackTests
             var themed = new CrashWindow("REPORT", null, fatal: true);
             Assert.False(themed.UsingFallbackLayout);
             Assert.Equal(new[] { "Copy details", "Close" }, ButtonLabels(themed));
-            var themedReport = new CrashReportWindow(analysis, null);
+            var themedReport = new CrashReportWindow(strong, null);
             Assert.False(themedReport.UsingFallbackLayout);
-            Assert.Equal(new[] { "Show details", "Copy report", "Open logs folder", "Close", "Relaunch without badmod" }, ButtonLabels(themedReport));
+            Assert.Equal(reportButtons, ButtonLabels(themedReport));
+            Assert.Equal("strong", themedReport.ConfidenceText.Text);
 
             // Same Application, so the Home blank-after-picker regression runs here (HomeSceneRegression.cs).
             HomeSceneRegression.Run();

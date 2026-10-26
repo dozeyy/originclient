@@ -1,0 +1,11 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "possible",
+  "rule": "mixin-apply",
+  "culprits": [
+    "somemod",
+    "othermod"
+  ],
+  "fix": "None"
+}

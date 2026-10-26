@@ -66,7 +66,8 @@ public sealed class IncompatibleModsException : Exception
                 line1 = FirstLine(new[] { name }, names.Count - 1, tail);
             }
         }
-        // TODO(Phase 5.3): "Fix Compatibility" button: RepairPlanner.Plan on this report, one click to turn the mods off.
+        // Home also opens the Fix Compatibility prompt over this line (Play/Enter only: UI/Controls/FixCompatibilityOverlay,
+        // Core/Components/FixCompatibility); the line stays as the record after the prompt closes.
         return line1 + "\n" + $"Turn {(names.Count > 1 ? "them" : "it")} off on the Mods page, or press Play to start anyway.";
     }
 
@@ -160,14 +161,18 @@ public static class LaunchPreflight
     /// <param name="ct">Polled between jars; a cancelled launch stops the check (the caller's cancel, not a checker failure).</param>
     /// <param name="overrideSetKey">The set key the player accepted with Play (see <see cref="LaunchOverride"/>), or null.
     /// A blocking verdict for exactly that set is logged and let through; any other set is refused as usual.</param>
+    /// <param name="confirmOrigin">Confirms a jar NAMED like Origin's is Origin's copy (full path; ModManager.IsOriginsCopy).</param>
+    /// <param name="swap">An alternate component configuration's changes to Origin's side of the set (Core/Components), or null.</param>
     public static void Run(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
         Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath,
-        CancellationToken ct = default, string? overrideSetKey = null)
+        CancellationToken ct = default, string? overrideSetKey = null, Func<string, bool>? confirmOrigin = null,
+        LaunchSwap? swap = null)
     {
         try
         {
-            var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct);
+            var verdict = Evaluate(version, sharedFolder, profileFolder, externalMods, isManaged, isOriginProvisioned, logPath, ct,
+                confirmOrigin, swap);
             if (verdict.Blocking.Count > 0)
             {
                 // The metadata can be wrong (a false positive must never lock a player out): once the player has seen
@@ -197,41 +202,24 @@ public static class LaunchPreflight
     /// verdict built while a jar could not be read (a half-copied or locked file is a moment, not a fact).
     /// If one of ORIGIN's own jars cannot be read, the check stands down (<see cref="LaunchVerdict.Clear"/>): with it
     /// missing from the picture every mod that needs Sodium or Fabric API would look broken.
+    /// With a <paramref name="swap"/>, a swap file that is not fetched yet is judged by what it will say about itself,
+    /// and that verdict is not cached (the real file is checked once it is there).
     /// </summary>
     public static LaunchVerdict Evaluate(
         string version, string sharedFolder, string? profileFolder, bool externalMods,
         Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, string? logPath = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, Func<string, bool>? confirmOrigin = null, LaunchSwap? swap = null)
     {
         if (!externalMods && profileFolder == null) return LaunchVerdict.Clear;
 
         var isProfile = profileFolder != null;
-        var originTest = isProfile ? isOriginProvisioned : isManaged;
-        var launchSet = new List<(string Path, string Name, long Length, long Ticks, ModRole Role)>();
-        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, ct);
-        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, ct);
-
-        var key = Fingerprint(version, isProfile, launchSet);
+        var launchSet = Gather(sharedFolder, profileFolder, isManaged, isOriginProvisioned, confirmOrigin, swap, ct);
+        var key = Fingerprint(version, isProfile, launchSet, swap?.Id);
         if (Verdicts.TryGetValue(key, out var cached)) return cached;
 
         var platform = PlatformFor(version);
-        var entries = new List<ModFile>(launchSet.Count);
-        var anyUnreadable = false;
-        foreach (var (path, name, _, _, role) in launchSet)
-        {
-            ct.ThrowIfCancellationRequested();
-            var info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
-            if (info.ReadFailed)
-            {
-                anyUnreadable = true;
-                if (role == ModRole.Managed)
-                {
-                    WriteLog(logPath, version, new[] { $"Origin's own {name} could not be read just now; the compatibility check stood down." });
-                    return LaunchVerdict.Clear;
-                }
-            }
-            entries.Add(new ModFile(path, name, Enabled: true, role, info));
-        }
+        var entries = Read(launchSet, swap, version, logPath, ct, out var anyUnreadable, out var anyExpected);
+        if (entries == null) return LaunchVerdict.Clear; // Origin's own jar unreadable: the check stood down (logged)
 
         var report = CompatEngine.Check(entries, platform);
         var blocking = new List<string>();
@@ -251,13 +239,90 @@ public static class LaunchPreflight
         }
 
         var verdict = new LaunchVerdict(blocking, soft, launchSet.Count) { BlockingNames = blockingNames, SetKey = key };
-        if (blocking.Count == 0 && !anyUnreadable)
+        if (blocking.Count == 0 && !anyUnreadable && !anyExpected)
         {
             if (Verdicts.Count >= VerdictCacheLimit) Verdicts.Clear();
             Verdicts[key] = verdict;
         }
         WriteLog(logPath, version, Describe(verdict));
         return verdict;
+    }
+
+    /// <summary>
+    /// The full report for the launch set <see cref="Evaluate"/> judges (same jars, roles and metadata), for Fix
+    /// Compatibility to plan on. Null when there is nothing to check or Origin's own jar can't be read. Not cached.
+    /// </summary>
+    public static CompatReport? Inspect(
+        string version, string sharedFolder, string? profileFolder, bool externalMods,
+        Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, Func<string, bool>? confirmOrigin = null,
+        LaunchSwap? swap = null, CancellationToken ct = default)
+    {
+        if (!externalMods && profileFolder == null) return null;
+        var launchSet = Gather(sharedFolder, profileFolder, isManaged, isOriginProvisioned, confirmOrigin, swap, ct);
+        var entries = Read(launchSet, swap, version, null, ct, out _, out _);
+        return entries == null ? null : CompatEngine.Check(entries, PlatformFor(version));
+    }
+
+    /// <summary>True when <paramref name="f"/> is one the launch check refuses the game for.</summary>
+    public static bool Stops(CompatFinding f, CompatPlatform platform) => IsHard(f, platform);
+
+    // The jars a launch loads: Origin's from the shared folder, the player's from the profile (or the shared folder
+    // with no profile), with an alternate configuration's swap applied.
+    private static List<(string Path, string Name, long Length, long Ticks, ModRole Role)> Gather(
+        string sharedFolder, string? profileFolder, Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned,
+        Func<string, bool>? confirmOrigin, LaunchSwap? swap, CancellationToken ct)
+    {
+        var isProfile = profileFolder != null;
+        var originTest = isProfile ? isOriginProvisioned : isManaged;
+        var launchSet = new List<(string Path, string Name, long Length, long Ticks, ModRole Role)>();
+        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, confirmOrigin, ct);
+        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, confirmOrigin, ct);
+        if (swap != null)
+        {
+            launchSet.RemoveAll(j => j.Role == ModRole.Managed && swap.Replaces(j.Name));
+            foreach (var add in swap.Files)
+            {
+                var file = new FileInfo(add.Path);
+                launchSet.Add((add.Path, LaunchSwap.NameOf(add), file.Exists ? file.Length : -1,
+                    file.Exists ? file.LastWriteTimeUtc.Ticks : 0, ModRole.Managed));
+            }
+        }
+        return launchSet;
+    }
+
+    // Reads each jar's metadata. Null when one of Origin's own jars can't be read (the check stands down, logged).
+    private static List<ModFile>? Read(
+        List<(string Path, string Name, long Length, long Ticks, ModRole Role)> launchSet, LaunchSwap? swap,
+        string version, string? logPath, CancellationToken ct, out bool anyUnreadable, out bool anyExpected)
+    {
+        anyUnreadable = false;
+        anyExpected = false;
+        var entries = new List<ModFile>(launchSet.Count);
+        foreach (var (path, name, length, _, role) in launchSet)
+        {
+            ct.ThrowIfCancellationRequested();
+            var added = swap?.FileAt(path);
+            ModInfo info;
+            if (added != null && length < 0)
+            {
+                info = added.Expected; // not fetched yet
+                anyExpected = true;
+            }
+            else
+                info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
+            if (swap != null && role == ModRole.Managed && added == null) info = swap.WithoutReplaced(info);
+            if (info.ReadFailed)
+            {
+                anyUnreadable = true;
+                if (role == ModRole.Managed)
+                {
+                    WriteLog(logPath, version, new[] { $"Origin's own {name} could not be read just now; the compatibility check stood down." });
+                    return null;
+                }
+            }
+            entries.Add(new ModFile(path, name, Enabled: true, role, info));
+        }
+        return entries;
     }
 
     // A finding stops the game when the metadata says so (Confirmed + Blocking + a kind the loader refuses),
@@ -282,7 +347,7 @@ public static class LaunchPreflight
 
     private static void AddJars(
         List<(string Path, string Name, long Length, long Ticks, ModRole Role)> into, string folder,
-        bool shared, bool isProfile, Func<string, bool> isOriginJar, CancellationToken ct)
+        bool shared, bool isProfile, Func<string, bool> isOriginJar, Func<string, bool>? confirmOrigin, CancellationToken ct)
     {
         DirectoryInfo dir;
         try
@@ -303,7 +368,7 @@ public static class LaunchPreflight
         {
             ct.ThrowIfCancellationRequested();
             if (!file.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) continue; // disabled/partial files never load
-            var origin = isOriginJar(file.Name);
+            var origin = isOriginJar(file.Name) && (confirmOrigin?.Invoke(file.FullName) ?? true);
             // The same selection LaunchModFolder.LaunchSet makes: a profile launch takes only Origin's jars from the
             // shared folder, and none of Origin's look-alikes from the profile.
             if (isProfile && shared && !origin) continue;
@@ -314,10 +379,13 @@ public static class LaunchPreflight
     }
 
     private static string Fingerprint(
-        string version, bool isProfile, List<(string Path, string Name, long Length, long Ticks, ModRole Role)> set)
+        string version, bool isProfile, List<(string Path, string Name, long Length, long Ticks, ModRole Role)> set,
+        string? swapId)
     {
         var sb = new StringBuilder(64 + set.Count * 56);
-        sb.Append(version).Append('|').Append(isProfile ? 'p' : 's').Append('\n');
+        sb.Append(version).Append('|').Append(isProfile ? 'p' : 's');
+        if (swapId != null) sb.Append('|').Append(swapId); // no swap: the same key as before configurations existed
+        sb.Append('\n');
         foreach (var (_, name, length, ticks, role) in set)
             sb.Append(name).Append('|').Append(length).Append('|').Append(ticks).Append('|').Append((int)role).Append('\n');
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));

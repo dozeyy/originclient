@@ -1,0 +1,13 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "strong",
+  "rule": "client-core",
+  "culprits": [
+    "feather"
+  ],
+  "fix": "DisableMods",
+  "fixJars": [
+    "feather-fabric-1.21.1-1.0.0-SNAPSHOT.temp.jar"
+  ]
+}

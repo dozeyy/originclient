@@ -11,7 +11,9 @@ namespace OriginLauncher.App.Core.Compat;
 /// <param name="Info">What the file says about itself, known up front so the planner can check the repair would work.</param>
 /// <param name="Source">Where the executor's fetcher gets it (a path or URL the fetcher understands).</param>
 /// <param name="Sha256">When known, the file is verified against it before it is put in place.</param>
-public sealed record DependencyOffer(string Id, string Version, string FileName, ModInfo Info, string Source, string? Sha256 = null);
+/// <param name="Sha512">The same for a SHA-512 (what Modrinth publishes; Fix Compatibility's offers always carry one).</param>
+public sealed record DependencyOffer(
+    string Id, string Version, string FileName, ModInfo Info, string Source, string? Sha256 = null, string? Sha512 = null);
 
 /// <summary>Pure lookup of a file that would satisfy a missing requirement; null when there is none.</summary>
 public interface IDependencyCatalog

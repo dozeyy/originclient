@@ -1,0 +1,5 @@
+[main/INFO]: Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+net.fabricmc.loader.impl.FormattedException: Mod discovery failed!
+	at net.fabricmc.loader.impl.FabricLoaderImpl.load(FabricLoaderImpl.java:202)
+Caused by: java.lang.RuntimeException: Error analyzing C:\Users\<user>\AppData\Local\OriginLauncher\instances\1.21.1\mods\somemod-1.0.0.jar: java.util.zip.ZipException: zip END header not found
+	at net.fabricmc.loader.impl.discovery.ModDiscoverer.discoverMods(ModDiscoverer.java:200)

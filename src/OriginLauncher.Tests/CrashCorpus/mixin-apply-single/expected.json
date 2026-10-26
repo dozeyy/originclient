@@ -1,0 +1,13 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "strong",
+  "rule": "mixin-apply",
+  "culprits": [
+    "somemod"
+  ],
+  "fix": "DisableMods",
+  "fixJars": [
+    "somemod-1.0.0.jar"
+  ]
+}

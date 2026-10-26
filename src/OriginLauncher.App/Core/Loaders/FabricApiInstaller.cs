@@ -17,6 +17,10 @@ namespace OriginLauncher.App.Core.Loaders;
 // a table across every Fabric-supported MC version back to 1.14 — the same
 // "ask the real source" approach FabricInstaller already uses for the
 // loader itself.
+// 2026-10-25 (Phase 5.2a): every live Fabric version now has an exact pin with
+// Modrinth's SHA-512 in ManagedPins.Data.cs, used first. The live query stays
+// only as the fallback for a version with no pin, and it too installs a file
+// only when it hashes to the SHA-512 Modrinth published (ModrinthFileGuard).
 public static class FabricApiInstaller
 {
     private const string ProjectSlug = "fabric-api";
@@ -33,11 +37,16 @@ public static class FabricApiInstaller
 
     public static Task InstallAsync(
         string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
-        InstallProjectAsync(ProjectSlug, "fabric-api-", "[\"fabric\"]",
-            "Installing Fabric API...", mcVersion, modsFolder, progress, ct);
+        InstallProjectAsync(Http, ProjectSlug, "fabric-api-", "[\"fabric\"]",
+            "Installing Fabric API...", ManagedPins.FabricApi(mcVersion), mcVersion, modsFolder, progress, ct);
 
-    private static async Task InstallProjectAsync(
-        string slug, string presentPrefix, string? loadersFilter, string progressText,
+    /// <summary>
+    /// The shared Modrinth install path (Fabric API, Simple Voice Chat): skip when the family is present in either
+    /// state, else the exact pin when there is one, else the newest release with a published SHA-512. Never throws
+    /// for a network, hash or disk problem (the instance is left without the jar); a cancellation is rethrown.
+    /// </summary>
+    internal static async Task InstallProjectAsync(
+        HttpClient http, string slug, string presentPrefix, string? loadersFilter, string progressText, PerfMod? pin,
         string mcVersion, string modsFolder, IProgress<string>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(modsFolder);
@@ -58,6 +67,12 @@ public static class FabricApiInstaller
 
         progress?.Report(progressText);
 
+        if (pin != null)
+        {
+            await ModrinthFileGuard.TryDownloadAsync(http, pin.Url, pin.FileName, pin.Sha512, modsFolder, ct);
+            return;
+        }
+
         // Modrinth's API rejects these query params with a 400 unless the
         // brackets/quotes are percent-encoded — confirmed against the real
         // API, a literal `?loaders=["fabric"]` is not accepted as-is.
@@ -70,7 +85,7 @@ public static class FabricApiInstaller
         List<ModrinthVersion>? versions;
         try
         {
-            versions = await Http.GetFromJsonAsync<List<ModrinthVersion>>(url, ct);
+            versions = await http.GetFromJsonAsync<List<ModrinthVersion>>(url, ct);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException
                                    || (ex is OperationCanceledException && !ct.IsCancellationRequested))
@@ -89,7 +104,7 @@ public static class FabricApiInstaller
         // wrong SHA-512 or a failed download leaves the instance without Fabric API instead of throwing,
         // and never leaves a ".download" file behind. Same policy as the self-update zip.
         await ModrinthFileGuard.TryDownloadAsync(
-            Http, file.Url, file.Filename, ModrinthFileGuard.ParseSha512(file.Hashes), modsFolder, ct);
+            http, file.Url, file.Filename, ModrinthFileGuard.ParseSha512(file.Hashes), modsFolder, ct);
     }
 
     private sealed record ModrinthVersion(

@@ -1,0 +1,13 @@
+---- Minecraft Crash Report ----
+// Who set us up the TNT?
+
+Time: 2026-10-25 13:40:13
+Description: Out of memory
+
+java.lang.OutOfMemoryError: Java heap space
+	at java.base/java.util.Arrays.copyOf(Arrays.java:3541)
+
+-- System Details --
+	Minecraft Version: 1.21.1
+	Java Version: 21.0.7, Eclipse Adoptium
+	Memory: 12345 bytes (0 MiB) / 4294967296 bytes (4096 MiB) up to 4294967296 bytes (4096 MiB)
