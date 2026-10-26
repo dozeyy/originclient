@@ -19,6 +19,10 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Opening any screen must feel instant: no blocking entrance animations, no per-open loads (2026-10-18).
 - Launcher settings writes go through `SettingsStore.Update(mutate)` only (2026-07-12/13).
 - One game window per account, several at once; mods shared per version (2026-10-12).
+- A player's own mods win: if their mods carry an id Origin also ships (Sodium, Iris, JEI, ...), theirs loads and Origin's steps aside (2026-10-25).
+- When a player's mod does the same job as an Origin mod (freecam vs Freelook, EntityCulling vs entity distance, ...), Origin's turns off automatically, the Mod Menu says which mod replaced it, and the player can turn it back on (2026-10-26).
+- Origin's Sodium/Iris hooks check the version; on one they don't know, that feature switches off and the rest of Origin keeps working (2026-10-26).
+- 1.21.1 ships Sodium 0.8 by default (Will's own mods need it); Origin Render (experimental terrain culler, Sodium 0.6 only) stays removed (2026-10-26).
 
 ## Look
 - Vanilla screens (title, pause, options, inventory, world select) use STOCK Minecraft buttons. Origin's widget skin only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-08-23).
