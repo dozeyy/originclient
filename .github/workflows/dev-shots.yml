@@ -33,7 +33,7 @@ on:
         description: "Comma-separated modules, or 'all'"
         default: "1.21.1"
       set:
-        description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld); stepaside = a replaced mod's card/row/page with Freecam loaded (tools/frame-log/mods-<module>-stepaside.json, prodClient)"
+        description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld); stepaside = a replaced mod's card/row/page with Freecam loaded (tools/frame-log/mods-<module>-stepaside.json; prodClient on 1.21.1, runClient elsewhere)"
         default: "design"
       style:
         description: "Button Style / Main Menu Style forced for the run (ORIGIN_SHOTS_STYLE): empty = the default (Origin), 'buttons' = Button Style Minecraft, 'menu' = Main Menu Style Vanilla, 'vanilla' = both. Use with set 'style' (Minecraft's own menus) or 'world' (pause menu)"
@@ -226,8 +226,13 @@ jobs:
             python3 "$GITHUB_WORKSPACE/tools/frame-log/fetch_mods.py" "$RUNNER_TEMP/extra-mods" \
               "$GITHUB_WORKSPACE/tools/frame-log/$pins"
             gargs="$gargs -PextraMods=$RUNNER_TEMP/extra-mods"
-            task=prodClient
-            rundir=run-prod
+            # Only 1.21.1 registers prodClient. Every other module's runClient loads the same
+            # -PextraMods folder through fabric.addMods (Loader remaps an intermediary jar at
+            # launch; 26.x needs no remap), so its stepaside pins carry no Fabric API of their own.
+            if grep -q 'register("prodClient"' build.gradle; then
+              task=prodClient
+              rundir=run-prod
+            fi
           fi
           if [ "${{ github.event.inputs.perf_mods }}" != "false" ]; then
             # Mixin logs every "Mixing <mixin> from <config> into <target>" at INFO instead of DEBUG:

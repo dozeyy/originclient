@@ -1,0 +1,10 @@
+{
+ "_why": "dev-shots set=stepaside (CI only, never bundled): one real mod that does the same job as an Origin mod, so the shots show Origin stepping aside ('Replaced by Freecam' on the Freelook card). Freecam 1.3.5+mc1.21.10 is Modrinth's Fabric build for this module's Minecraft version. No Fabric API here: this module has no prodClient, so dev-shots runs runClient with this folder added (fabric.addMods), and the dev game already has Fabric API; Loader remaps the intermediary jar at launch. Pinned by Modrinth VERSION id, SHA-512 checked by fetch_mods.py.",
+ "mods": [
+  {
+   "slug": "freecam",
+   "version": "W6tFgWep",
+   "number": "1.3.5+mc1.21.10"
+  }
+ ]
+}
