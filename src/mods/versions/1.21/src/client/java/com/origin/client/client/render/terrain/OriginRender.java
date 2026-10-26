@@ -5,23 +5,23 @@ import com.origin.client.client.mixin.SodiumDefaultChunkRendererAccessor;
 import com.origin.client.client.mixin.SodiumShaderChunkRendererAccessor;
 import com.origin.client.client.mods.Mods;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import me.jellysquid.mods.sodium.client.SodiumClientMod;
-import me.jellysquid.mods.sodium.client.gl.device.CommandList;
-import me.jellysquid.mods.sodium.client.gl.device.DrawCommandList;
-import me.jellysquid.mods.sodium.client.gl.tessellation.GlTessellation;
-import me.jellysquid.mods.sodium.client.model.quad.properties.ModelQuadFacing;
-import me.jellysquid.mods.sodium.client.render.chunk.ChunkRenderMatrices;
-import me.jellysquid.mods.sodium.client.render.chunk.DefaultChunkRenderer;
-import me.jellysquid.mods.sodium.client.render.chunk.LocalSectionIndex;
-import me.jellysquid.mods.sodium.client.render.chunk.data.SectionRenderDataStorage;
-import me.jellysquid.mods.sodium.client.render.chunk.data.SectionRenderDataUnsafe;
-import me.jellysquid.mods.sodium.client.render.chunk.lists.ChunkRenderList;
-import me.jellysquid.mods.sodium.client.render.chunk.lists.ChunkRenderListIterable;
-import me.jellysquid.mods.sodium.client.render.chunk.region.RenderRegion;
-import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkShaderInterface;
-import me.jellysquid.mods.sodium.client.render.chunk.terrain.DefaultTerrainRenderPasses;
-import me.jellysquid.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
-import me.jellysquid.mods.sodium.client.render.viewport.CameraTransform;
+import net.caffeinemc.mods.sodium.client.SodiumClientMod;
+import net.caffeinemc.mods.sodium.client.gl.device.CommandList;
+import net.caffeinemc.mods.sodium.client.gl.device.DrawCommandList;
+import net.caffeinemc.mods.sodium.client.gl.tessellation.GlTessellation;
+import net.caffeinemc.mods.sodium.client.model.quad.properties.ModelQuadFacing;
+import net.caffeinemc.mods.sodium.client.render.chunk.ChunkRenderMatrices;
+import net.caffeinemc.mods.sodium.client.render.chunk.DefaultChunkRenderer;
+import net.caffeinemc.mods.sodium.client.render.chunk.LocalSectionIndex;
+import net.caffeinemc.mods.sodium.client.render.chunk.data.SectionRenderDataStorage;
+import net.caffeinemc.mods.sodium.client.render.chunk.data.SectionRenderDataUnsafe;
+import net.caffeinemc.mods.sodium.client.render.chunk.lists.ChunkRenderList;
+import net.caffeinemc.mods.sodium.client.render.chunk.lists.ChunkRenderListIterable;
+import net.caffeinemc.mods.sodium.client.render.chunk.region.RenderRegion;
+import net.caffeinemc.mods.sodium.client.render.chunk.shader.ChunkShaderInterface;
+import net.caffeinemc.mods.sodium.client.render.chunk.terrain.DefaultTerrainRenderPasses;
+import net.caffeinemc.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
+import net.caffeinemc.mods.sodium.client.render.viewport.CameraTransform;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
@@ -35,12 +35,10 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Iterator;
 
-// 1.21 PORT (Sodium 0.5.11, the launcher's 1.21 catalog pin): the same renderer
-// hook as 1.21.1's 0.6.13 under Sodium's old package (me.jellysquid.mods.sodium,
-// compile-only in build.gradle). Two API deltas, checked against the
-// mc1.21-0.5.11 sources: TerrainRenderPass has no isTranslucent() (the SOLID/
-// CUTOUT check below already excludes translucent), RenderRegion has no
-// getX/Y/Z (the region slot hashes getChunkX/Y/Z, as unique per region).
+// 1.21 PORT: since 2026-10-25 the 1.21 catalog ships 1.21.1's Sodium 0.6.13 (compile-only in
+// build.gradle). The code keeps the two forms it used on 0.5.11, both valid on 0.6.13: the
+// SOLID/CUTOUT check (it already excludes translucent) and the region slot hashed from
+// getChunkX/Y/Z (as unique per region as 1.21.1's getX/Y/Z).
 // Iris is reached by reflection (not on this module's compile path), and the
 // Sodium-typed region array is created on first use, so menu/F3 calls into this
 // class can never NoClassDefFoundError on an instance without Sodium.
@@ -215,7 +213,7 @@ public final class OriginRender {
 				continue;
 			}
 			int first = culler.commandCount();
-			// 0.5.11 has no getX/Y/Z: the region coords are the chunk origin over the region size (8x4x8)
+			// region coords = the chunk origin over the region size (8x4x8)
 			int regionSlot = ((region.getChunkX() >> 3) * 73856093 ^ (region.getChunkY() >> 2) * 19349663
 					^ (region.getChunkZ() >> 3) * 83492791) & (TerrainCuller.REGION_SLOTS - 1);
 			while (sections.hasNext()) {

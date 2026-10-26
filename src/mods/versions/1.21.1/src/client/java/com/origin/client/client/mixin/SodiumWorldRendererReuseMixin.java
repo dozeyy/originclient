@@ -12,17 +12,19 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Target: Sodium 0.6.13 SodiumWorldRenderer.setupTerrain(Camera, Viewport, boolean, boolean)
- * (read from the jar 2026-10-19; its only markGraphDirty call is the camera-change one in
- * camera_setup). Why: Smart Terrain Updates fingerprints the main pass's camera at HEAD, and
- * brackets Sodium's own camera-change markGraphDirty so that call is judged by the fingerprint.
- * What breaks if it stops applying: the feature refuses to reuse (setupTerrain must have been
- * seen, and a missing camera fingerprint always counts as changed).
- *
- * <p>isEntityVisible(Entity) RETURN: dev-shots only (ORIGIN_SHOTS) counts the main pass's entity
- * culling results, so CI can prove reused frames cull exactly like walked ones. For players the
- * handler returns the value untouched after one constant-false branch (ModifyReturnValue: no
- * allocation). If it stops applying the CI counts read zero; gameplay is unaffected.
+ * Target: Sodium 0.8.13+mc1.21.1 SodiumWorldRenderer (javap 2026-10-25). This module ships one Sodium
+ * build, so the handlers name the arguments.
+ * <ul>
+ * <li>setupTerrain(Camera, Viewport, boolean spectator, boolean updateChunksImmediately) HEAD: Smart Terrain
+ *     Updates fingerprints the main pass's camera, projection and fog. Its one markGraphDirty call (offset
+ *     295) is Sodium's camera-change check; it is bracketed so that call is judged by the fingerprint
+ *     instead.</li>
+ * <li>isEntityVisible(Entity) RETURN: dev-shots only (ORIGIN_SHOTS) counts the main pass's entity culling
+ *     results, so CI can prove reused frames cull exactly like walked ones. For players the handler
+ *     returns the value untouched after one constant-false branch (ModifyReturnValue: no allocation).</li>
+ * </ul>
+ * What breaks if it stops applying: the feature refuses to reuse (setupTerrain must have been seen, and a
+ * missing camera fingerprint always counts as changed); the dev entity counts read zero.
  */
 @Mixin(value = SodiumWorldRenderer.class, remap = false)
 public abstract class SodiumWorldRendererReuseMixin {
@@ -34,16 +36,14 @@ public abstract class SodiumWorldRendererReuseMixin {
 
 	@Inject(method = "setupTerrain", at = @At(value = "INVOKE",
 			target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSectionManager;markGraphDirty()V"))
-	private void originclient$cameraMarkBegin(Camera camera, Viewport viewport, boolean spectator,
-			boolean updateChunksImmediately, CallbackInfo ci) {
+	private void originclient$cameraMarkBegin(CallbackInfo ci) {
 		SmartTerrainUpdates.cameraMark(true);
 	}
 
 	@Inject(method = "setupTerrain", at = @At(value = "INVOKE",
 			target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSectionManager;markGraphDirty()V",
 			shift = At.Shift.AFTER))
-	private void originclient$cameraMarkEnd(Camera camera, Viewport viewport, boolean spectator,
-			boolean updateChunksImmediately, CallbackInfo ci) {
+	private void originclient$cameraMarkEnd(CallbackInfo ci) {
 		SmartTerrainUpdates.cameraMark(false);
 	}
 

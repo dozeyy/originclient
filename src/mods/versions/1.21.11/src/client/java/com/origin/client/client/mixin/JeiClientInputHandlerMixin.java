@@ -2,9 +2,13 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.mods.Mods;
 import mezz.jei.gui.input.ClientInputHandler;
-import mezz.jei.gui.input.UserInput;
+// JEI 27.5x moved UserInput from mezz.jei.gui.input to mezz.jei.common.input (same class, same
+// role); javap-verified against jei-1.21.11-fabric-27.54.0.112. The 1.21.10 module (JEI 26.3)
+// keeps the old package in its own copy of this file.
+import mezz.jei.common.input.UserInput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -56,7 +60,7 @@ public abstract class JeiClientInputHandlerMixin {
 	// JEI 26/27 char-typed API: the (char codePoint, int modifiers) pair became a
 	// single net.minecraft.client.input.CharacterEvent on MC 1.21.10/1.21.11 (the
 	// same CharacterEvent this era's Screen.charTyped takes). javap-verified against
-	// jei-1.21.11-fabric-27.17.0.50 / jei-1.21.10-fabric-26.3.0.31.
+	// jei-1.21.11-fabric-27.17.0.50 / 27.54.0.112 / jei-1.21.10-fabric-26.3.0.31.
 	@Inject(method = "onKeyboardCharTypedPre", at = @At("HEAD"), cancellable = true)
 	private void originclient$blockCharPre(Screen screen, CharacterEvent event,
 			CallbackInfoReturnable<Boolean> cir) {
@@ -88,6 +92,16 @@ public abstract class JeiClientInputHandlerMixin {
 
 	@Inject(method = "onGuiMouseScroll", at = @At("HEAD"), cancellable = true)
 	private void originclient$blockScroll(double mouseX, double mouseY, double scrollDeltaX, double scrollDeltaY,
+			CallbackInfoReturnable<Boolean> cir) {
+		if (!Mods.on("jei")) {
+			cir.setReturnValue(false);
+		}
+	}
+
+	// New in JEI 27.5x (absent in 27.17): drags are routed here too, so "off" refuses them like
+	// every other input. javap: onGuiMouseDragged(Screen, MouseButtonEvent, double, double) -> boolean.
+	@Inject(method = "onGuiMouseDragged", at = @At("HEAD"), cancellable = true)
+	private void originclient$blockDrag(Screen screen, MouseButtonEvent event, double dragX, double dragY,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (!Mods.on("jei")) {
 			cir.setReturnValue(false);

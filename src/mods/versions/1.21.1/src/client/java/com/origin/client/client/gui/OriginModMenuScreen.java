@@ -1191,13 +1191,6 @@ public class OriginModMenuScreen extends Screen {
 		if (Mods.PERFORMANCE_ID.equals(id) && "shaderPerformanceMode".equals(o.key)) {
 			com.origin.client.client.shaders.IrisBridge.reloadIfPackActive();
 		}
-		if (Mods.PERFORMANCE_ID.equals(id) && "originRender".equals(o.key) && vBool(id, o.key)) {
-			String why = com.origin.client.client.render.terrain.OriginRender.blockedReason();
-			Minecraft mc = Minecraft.getInstance();
-			if (why != null && mc.player != null) {
-				mc.player.displayClientMessage(Component.literal("Origin Render is on but " + why + "."), false);
-			}
-		}
 		if ("fullbright".equals(id) && "fullBright".equals(o.key) && Mods.bool(id, o.key)
 				&& com.origin.client.client.shaders.IrisBridge.currentPack() != null) {
 			Minecraft mc = Minecraft.getInstance();

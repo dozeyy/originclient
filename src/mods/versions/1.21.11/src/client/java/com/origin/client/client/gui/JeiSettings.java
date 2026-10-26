@@ -9,6 +9,11 @@ import mezz.jei.api.runtime.config.IJeiConfigValue;
 import mezz.jei.api.runtime.config.IJeiConfigValueSerializer;
 import mezz.jei.fabric.plugins.fabric.FabricGuiPlugin;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,7 +56,18 @@ import java.util.Map;
  * JEI-BUNDLING VERSIONS ONLY. This module bundles JEI, so this file references mezz.jei.* and
  * must never be synced to a version without JEI on the classpath. It is not in
  * shared/, so sync never touches it.
+ *
+ * JEI 27.54 (bundled since 2026-10-25) moved its settings into MezzConfig (a nested jar) and
+ * keeps this IJeiConfig* API as a deprecated-for-removal adapter
+ * (mezz.jei.common.config.ConfigManagerAdapter). Two things changed for us, both javap-verified:
+ *   - the adapter's serializer never implements IJeiConfigListValueSerializer, so list values
+ *     are recognised through its record accessor delegate() (a MezzConfig
+ *     IConfigListValueSerializer) by reflection — MezzConfig is not on our compile classpath;
+ *   - MezzConfig serializes a list as a JSON array ("[\"A\",\"B\"]") and rejects anything else
+ *     ("Expected a structured array"), so getMulti/setMulti translate to and from the menu's
+ *     "A, B" form. When JEI removes the adapter this page degrades to "no settings".
  */
+@SuppressWarnings("removal") // the JEI config API above is deprecated for removal in JEI 27.54
 public final class JeiSettings {
 	private JeiSettings() {
 	}
@@ -145,12 +161,18 @@ public final class JeiSettings {
 			String label = v.getLocalizedName().getString();
 
 			ModOption row;
+			List<String> mezzList = ser instanceof IJeiConfigListValueSerializer<?> ? null : mezzListChoices(ser);
 			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
 				List<String> choices = elementChoices(ls);
 				if (choices.isEmpty()) {
 					return null; // a list with no enumerable element set — no control
 				}
 				row = ModOption.multiselect(key, label, choices.toArray(new String[0]));
+			} else if (mezzList != null) {
+				if (mezzList.isEmpty()) {
+					return null;
+				}
+				row = ModOption.multiselect(key, label, mezzList.toArray(new String[0]));
 			} else {
 				Object cur = v.getValue();
 				if (cur instanceof Boolean b) {
@@ -231,11 +253,35 @@ public final class JeiSettings {
 
 	/** Current ordered multi-select as the serialized comma string ("A, B, C"). */
 	public static String getMulti(String key) {
-		return getMode(key);
+		String s = getMode(key);
+		if (!s.trim().startsWith("[")) {
+			return s; // JEI <= 27.17 list format is already "A, B, C"
+		}
+		try {
+			List<String> out = new ArrayList<>();
+			for (JsonElement e : JsonParser.parseString(s).getAsJsonArray()) {
+				out.add(e.isJsonPrimitive() ? e.getAsString() : e.toString());
+			}
+			return String.join(", ", out);
+		} catch (Throwable t) {
+			return "";
+		}
 	}
 
 	public static void setMulti(String key, String csv) {
-		write(key, csv);
+		if (!getMode(key).trim().startsWith("[")) {
+			write(key, csv);
+			return;
+		}
+		// MezzConfig list (JEI 27.54): it only accepts a JSON array.
+		JsonArray arr = new JsonArray();
+		for (String p : csv.split(",")) {
+			String t = p.trim();
+			if (!t.isEmpty()) {
+				arr.add(t);
+			}
+		}
+		write(key, arr.toString());
 	}
 
 	private static void write(String key, String s) {
@@ -280,6 +326,43 @@ public final class JeiSettings {
 
 	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
 		return validTokens(ls.getListValueSerializer());
+	}
+
+	/**
+	 * JEI 27.54: the element choices of a MezzConfig list value behind the JEI adapter, or null
+	 * when {@code ser} is not one. Reflection only (see the class note): the adapter record's
+	 * delegate() is a net.mezzdev.config.api.value.serializer.IConfigListValueSerializer whose
+	 * getElementSerializer().getAllValidValues() is the element set; each element is rendered
+	 * with the element serializer's serialize(), the same token the JSON array holds.
+	 */
+	private static List<String> mezzListChoices(Object ser) {
+		try {
+			Method delegate = ser.getClass().getDeclaredMethod("delegate");
+			delegate.setAccessible(true); // the adapter record is package-private
+			Object del = delegate.invoke(ser);
+			ClassLoader cl = del.getClass().getClassLoader();
+			Class<?> listSer = Class.forName("net.mezzdev.config.api.value.serializer.IConfigListValueSerializer", false, cl);
+			if (!listSer.isInstance(del)) {
+				return null;
+			}
+			Class<?> valSer = Class.forName("net.mezzdev.config.api.value.serializer.IConfigValueSerializer", false, cl);
+			Object elem = listSer.getMethod("getElementSerializer").invoke(del);
+			Object valid = valSer.getMethod("getAllValidValues").invoke(elem);
+			if (!(valid instanceof java.util.Optional<?> opt) || opt.isEmpty()
+					|| !(opt.get() instanceof java.util.Collection<?> vals)) {
+				return List.of();
+			}
+			Method serialize = valSer.getMethod("serialize", Object.class);
+			List<String> out = new ArrayList<>(vals.size());
+			for (Object v : vals) {
+				out.add(String.valueOf(serialize.invoke(elem, v)));
+			}
+			return out;
+		} catch (NoSuchMethodException | ClassNotFoundException e) {
+			return null; // not the 27.54 adapter: ordinary single value
+		} catch (Throwable t) {
+			return List.of(); // a list we could not read: no control
+		}
 	}
 
 	// ---- integer slider bounds by probing (no prose, no private fields) ----

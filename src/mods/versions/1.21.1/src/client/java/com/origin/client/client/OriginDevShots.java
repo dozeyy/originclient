@@ -214,7 +214,7 @@ public final class OriginDevShots {
 					com.origin.client.client.social.SocialDemo.install(false);
 					yield new OriginModMenuScreen().preview(false, false);
 				}
-				case PERF_SODIUM -> perfScreen("net.caffeinemc.mods.sodium.client.gui.SodiumOptionsGUI", "me.jellysquid.mods.sodium.client.gui.SodiumOptionsGUI");
+				case PERF_SODIUM -> perfScreen("net.caffeinemc.mods.sodium.client.gui.VideoSettingsScreen", "net.caffeinemc.mods.sodium.client.gui.SodiumOptionsGUI", "me.jellysquid.mods.sodium.client.gui.SodiumOptionsGUI");
 				case PERF_ORIGIN -> new OriginModMenuScreen().performanceTab();
 				case PERF_IRIS -> perfScreen("net.irisshaders.iris.gui.screen.ShaderPackScreen", "net.coderbot.iris.gui.screen.ShaderPackScreen");
 				case STY_OPTIONS, STY_VIDEO -> new net.minecraft.client.gui.screens.options.OptionsScreen(

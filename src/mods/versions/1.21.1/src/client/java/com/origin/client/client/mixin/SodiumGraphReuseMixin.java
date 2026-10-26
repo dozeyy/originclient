@@ -1,5 +1,8 @@
 package com.origin.client.client.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.origin.client.client.render.HalfRateShadows;
+import com.origin.client.client.render.OffMapShadows;
 import com.origin.client.client.render.SmartTerrainUpdates;
 import net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager;
 import org.spongepowered.asm.mixin.Mixin;
@@ -9,44 +12,45 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Target: Sodium 0.6.13 RenderSectionManager (names and signatures read from the jar 2026-10-19).
- * Why: Smart Terrain Updates (SmartTerrainUpdates has the full proof). update() is the chunk-graph
- * walk; with a shader pack Iris forces it every frame. HEAD may cancel the MAIN pass's walk when
- * nothing changed (after restoring the last walk's lists); every method that changes what a walk
- * would find marks the cache dirty first; destroy() drops everything held for the manager.
- * What breaks if it stops applying: nothing -- every graph-change hook only ever makes the feature
- * walk; the feature is version-gated to the exact Sodium + Iris builds this was read from and
- * refuses to reuse until the graph-change hooks have been seen firing.
+ * Target: Sodium 0.8.13+mc1.21.1 RenderSectionManager (javap 2026-10-25). No handler here reads a
+ * method argument, so a later Sodium that changes an argument list only stops the walk hooks, never the
+ * chunk-change hooks Half-Rate Shadows needs.
+ * Why: Smart Terrain Updates (SmartTerrainUpdates has the full proof).
+ * <ul>
+ * <li>createTerrainRenderList HEAD (private, (Camera, Viewport, int, boolean)Z, called by
+ *     update() right after lastUpdatedFrame++): may answer false without walking for the MAIN pass when
+ *     nothing changed (PER-VERSION: the Sodium 0.6 build this module shipped before cancelled update()
+ *     itself and restored a snapshot; Sodium 0.8 + Iris 1.8.14-beta.1 keep the main walk's lists
+ *     intact, see SmartTerrainUpdates).
+ *     A walk that runs starts the walk timer and arms Off-Map Shadows' section test for a shadow walk.</li>
+ * <li>update RETURN: prime from the main walk that just ran.</li>
+ * <li>Every method that changes what a walk would find marks the cache dirty: onSectionAdded,
+ *     onSectionRemoved, scheduleRebuild / scheduleSort (only when their one upgradePendingUpdate call
+ *     really changed the section's pending update -- it returns true; vanilla calls setSectionDirty
+ *     thousands of times while chunks light up, which changes nothing a walk would find),
+ *     processChunkBuildResults (only reached with results), markGraphDirty; destroy() drops everything
+ *     held for the manager.</li>
+ * </ul>
+ * What breaks if it stops applying: nothing -- every graph-change hook only ever makes the feature walk;
+ * the feature is version-gated to the exact Sodium + Iris builds this was read from and refuses to reuse
+ * until the graph-change hooks have been seen firing.
  */
 @Mixin(value = RenderSectionManager.class, remap = false)
 public abstract class SodiumGraphReuseMixin {
-	@Inject(method = "update", at = @At("HEAD"), cancellable = true)
-	private void originclient$reuseGraph(CallbackInfo ci) {
-		if (SmartTerrainUpdates.beforeUpdate((RenderSectionManager) (Object) this)) {
-			ci.cancel();
+	@Inject(method = "createTerrainRenderList", at = @At("HEAD"), cancellable = true)
+	private void originclient$reuseGraph(CallbackInfoReturnable<Boolean> cir) {
+		if (SmartTerrainUpdates.beforeWalk((RenderSectionManager) (Object) this)) {
+			cir.setReturnValue(false);   // update() stores it: needsGraphUpdate = false, as after a quiet walk
+			return;
 		}
+		SmartTerrainUpdates.walkBegin();
+		// Off-Map Shadows arms its per-section test for a shadow-pass walk (render/OffMapShadows).
+		OffMapShadows.walkBegin();
 	}
 
 	@Inject(method = "update", at = @At("RETURN"))
 	private void originclient$graphWalked(CallbackInfo ci) {
 		SmartTerrainUpdates.afterUpdate((RenderSectionManager) (Object) this);
-	}
-
-	@Inject(method = "createTerrainRenderList", at = @At("HEAD"))
-	private void originclient$walkBegin(CallbackInfo ci) {
-		SmartTerrainUpdates.walkBegin();
-		// Off-Map Shadows arms its per-section test for a shadow-pass walk (render/OffMapShadows).
-		com.origin.client.client.render.OffMapShadows.walkBegin();
-	}
-
-	// Also: Off-Map Shadows disarms its section test, and in dev-shots only (ORIGIN_SHOTS) counts what a
-	// shadow-pass walk put in the shadow render lists (render/OffMapShadows.afterWalk).
-	// Signature (Camera, Viewport, int, boolean)V, javap 2026-10-19.
-	@Inject(method = "createTerrainRenderList", at = @At("RETURN"))
-	private void originclient$walkEnd(net.minecraft.client.Camera camera,
-			net.caffeinemc.mods.sodium.client.render.viewport.Viewport viewport, int frame, boolean spectator, CallbackInfo ci) {
-		SmartTerrainUpdates.walkEnd();
-		com.origin.client.client.render.OffMapShadows.afterWalk((RenderSectionManager) (Object) this, viewport);
 	}
 
 	@Inject(method = "onSectionAdded", at = @At("HEAD"))
@@ -59,25 +63,30 @@ public abstract class SodiumGraphReuseMixin {
 		SmartTerrainUpdates.graphChanged(1);
 	}
 
-	// scheduleRebuild / scheduleSort: only when a section's pending update really changes (their one
-	// setPendingUpdate call each, javap 2026-10-19). Vanilla calls setSectionDirty for unbuilt
-	// sections thousands of times while chunks light up; those change nothing a walk would find.
-	@Inject(method = "scheduleRebuild", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
-	private void originclient$rebuild(CallbackInfo ci) {
-		SmartTerrainUpdates.graphChanged(2);
-		// Half-Rate Shadows: a chunk is about to change, so the next frame redraws the shadow map.
-		com.origin.client.client.render.HalfRateShadows.onChunksChanged();
+	@ModifyExpressionValue(method = "scheduleRebuild", at = @At(value = "INVOKE",
+			target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSectionManager;upgradePendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;I)Z"))
+	private boolean originclient$rebuild(boolean changed) {
+		if (changed) {
+			SmartTerrainUpdates.graphChanged(2);
+			// Half-Rate Shadows: a chunk is about to change, so the next frame redraws the shadow map.
+			HalfRateShadows.onChunksChanged();
+		}
+		return changed;
 	}
 
-	@Inject(method = "scheduleSort", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
-	private void originclient$sort(CallbackInfo ci) {
-		SmartTerrainUpdates.graphChanged(3);
+	@ModifyExpressionValue(method = "scheduleSort", at = @At(value = "INVOKE",
+			target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSectionManager;upgradePendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;I)Z"))
+	private boolean originclient$sort(boolean changed) {
+		if (changed) {
+			SmartTerrainUpdates.graphChanged(3);
+		}
+		return changed;
 	}
 
 	@Inject(method = "processChunkBuildResults", at = @At("HEAD"))
 	private void originclient$buildResults(CallbackInfoReturnable<Boolean> cir) {
 		SmartTerrainUpdates.graphChanged(4);
-		com.origin.client.client.render.HalfRateShadows.onChunksChanged();
+		HalfRateShadows.onChunksChanged();
 	}
 
 	@Inject(method = "markGraphDirty", at = @At("HEAD"))
@@ -86,7 +95,7 @@ public abstract class SodiumGraphReuseMixin {
 	}
 
 	// Leaving a world, a render-distance change or a shader reload destroys the manager: drop the
-	// snapshot and recorded sections so they don't keep the old ClientLevel alive.
+	// recorded sections and held collector so they don't keep the old ClientLevel alive.
 	@Inject(method = "destroy", at = @At("HEAD"))
 	private void originclient$destroyed(CallbackInfo ci) {
 		SmartTerrainUpdates.onDestroy();

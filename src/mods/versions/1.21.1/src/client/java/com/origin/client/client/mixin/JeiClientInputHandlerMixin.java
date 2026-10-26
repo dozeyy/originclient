@@ -81,6 +81,15 @@ public abstract class JeiClientInputHandlerMixin {
 		}
 	}
 
+	/** JEI 19.51 added drags (moving a bookmark or ingredient out of the hidden overlay). */
+	@Inject(method = "onGuiMouseDragged", at = @At("HEAD"), cancellable = true)
+	private void originclient$blockDrag(Screen screen, double mouseX, double mouseY, int button, double dragX,
+			double dragY, CallbackInfoReturnable<Boolean> cir) {
+		if (!Mods.on("jei")) {
+			cir.setReturnValue(false);
+		}
+	}
+
 	@Inject(method = "onGuiMouseScroll", at = @At("HEAD"), cancellable = true)
 	private void originclient$blockScroll(double mouseX, double mouseY, double scrollDeltaX, double scrollDeltaY,
 			CallbackInfoReturnable<Boolean> cir) {

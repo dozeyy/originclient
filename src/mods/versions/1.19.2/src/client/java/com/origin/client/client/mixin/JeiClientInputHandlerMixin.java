@@ -2,7 +2,7 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.mods.Mods;
 import mezz.jei.gui.input.ClientInputHandler;
-import mezz.jei.gui.input.UserInput;
+import mezz.jei.common.input.UserInput;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -76,6 +76,17 @@ public abstract class JeiClientInputHandlerMixin {
 
 	@Inject(method = "onGuiMouseReleased", at = @At("HEAD"), cancellable = true)
 	private void originclient$blockRelease(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+		if (!Mods.on("jei")) {
+			cir.setReturnValue(false);
+		}
+	}
+
+	// JEI 11.68 added a mouse-drag route (EventRegistration -> onGuiMouseDragged,
+	// javap 2026-10-25: (Screen, double, double, int, double, double)Z); 11.8.1 had none.
+	// Blocked like every other input so JEI off still means no JEI input at all.
+	@Inject(method = "onGuiMouseDragged", at = @At("HEAD"), cancellable = true)
+	private void originclient$blockDrag(Screen screen, double mouseX, double mouseY, int button,
+			double dragX, double dragY, CallbackInfoReturnable<Boolean> cir) {
 		if (!Mods.on("jei")) {
 			cir.setReturnValue(false);
 		}

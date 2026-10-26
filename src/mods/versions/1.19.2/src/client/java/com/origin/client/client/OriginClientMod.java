@@ -64,10 +64,10 @@ public class OriginClientMod implements ClientModInitializer {
 	// Fly Boost restore latch + thunder-sound cadence counter.
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
-	// JEI bundled here is jei-1.19.2-fabric-11.8.1.1035 (see gradle.properties). A foreign
+	// JEI bundled here is jei-1.19.2-fabric-11.68.0.1086 (see gradle.properties). A foreign
 	// JEI jar shadows ours (Fabric loads the higher version) — detectForeignJei() catches
 	// that; jeiNoticeShown gates the one-time in-world chat notice.
-	private static final String BUNDLED_JEI = "11.8.1.1035";
+	private static final String BUNDLED_JEI = "11.68.0.1086";
 	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 	// Edge-trigger for death waypoints: true while the player is alive, so a death

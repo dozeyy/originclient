@@ -2,13 +2,11 @@ package com.origin.client.client.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.hud.FrameStats;
-import com.origin.client.client.mixin.SodiumChunkRenderListAccessor;
 import com.origin.client.client.mixin.SodiumRenderSectionManagerAccessor;
-import com.origin.client.client.mixin.SodiumSortedRenderListsAccessor;
 import com.origin.client.client.mods.Mods;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.caffeinemc.mods.sodium.client.render.chunk.RenderSection;
 import net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager;
-import net.caffeinemc.mods.sodium.client.render.chunk.lists.ChunkRenderList;
+import net.caffeinemc.mods.sodium.client.render.chunk.lists.SectionCollector;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
@@ -19,50 +17,59 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayDeque;
 
 /**
- * SETTINGS > Performance > Smart Terrain Updates (1.21.1, default OFF). Shader packs only.
+ * SETTINGS > Performance > Smart Terrain Updates (default OFF). Shader packs only. 1.21.1 on Sodium 0.8
+ * (walk logic ported back from 1.21.11, camera fingerprint kept from 1.21.1). Runs only on the bundled
+ * Sodium 0.8.13 + Iris 1.8.14-beta.1 (SodiumIrisBuilds.SMART_TERRAIN; Mods hides the toggle otherwise).
  *
- * <p>What it saves (read from Sodium 0.6.13 / Iris 1.8.8 bytecode, 2026-10-19): Sodium normally
- * walks its chunk graph (which sections are visible) only when something changed. With a shader
- * pack, Iris's shadow pass calls LevelRenderer.needsUpdate() (= RenderSectionManager.markGraphDirty)
- * every frame and then cancels RenderSectionManager.update() right after createTerrainRenderList,
- * BEFORE the line that clears the dirty flag. So the flag is always true and the MAIN pass redoes
- * the whole walk every frame, even standing still. This skips the main walk when it would produce
- * exactly the last result.
+ * <p>What it saves (read from Sodium 0.8.13+mc1.21.1 / Iris 1.8.14-beta.1+mc1.21.1 bytecode, 2026-10-25): Sodium
+ * walks its chunk graph (which sections are visible) only when something changed. With a shader pack,
+ * Iris's shadow pass runs SodiumWorldRenderer.setupTerrain with the shadow matrices, so the main pass's
+ * setupTerrain always sees a "changed" projection (lastProjectionMatrix is shared) and calls
+ * markGraphDirty; Iris's ShadowRenderer also calls LevelRenderer.needsUpdate() every frame. So the MAIN
+ * pass redoes the whole walk every frame, even standing still. This skips the main walk when it would
+ * produce exactly the last result.
  *
  * <p>Reuse is allowed only when ALL of this holds since the last real main walk (any doubt = walk):
  * <ul>
- * <li>Sodium 0.6.13 and Iris 1.8.8 exactly (the internals below were read from those builds);</li>
+ * <li>Sodium 0.8.13 + Iris 1.8.14-beta.1 (the internals below were read from those builds);</li>
  * <li>same RenderSectionManager (a render-distance change, shader reload or dimension change makes
  *     a new one) and a shader pack in use;</li>
- * <li>camera: same position, pitch, yaw, rotation, RenderSystem projection, fog end, smartCull,
- *     spectator flag (Sodium's own camera checks plus more), and the same culling frustum
- *     (LevelRenderer.prepareCullFrustum's position + both matrices, bit-exact);</li>
- * <li>no graph change: no section added/removed, no rebuild or sort scheduled, no chunk build
- *     result uploaded, no markGraphDirty outside the shadow pass except Sodium's own camera-change
- *     call (covered by the camera checks above), not an "update chunks immediately" frame;</li>
- * <li>Sodium's rebuild queues are empty (nothing waits to be picked up by a walk).</li>
+ * <li>camera: same position, pitch, yaw, rotation, RenderSystem projection matrix and shader fog end,
+ *     smartCull and spectator flag (Sodium's own camera checks plus more), and the same
+ *     culling frustum (LevelRenderer.prepareCullFrustum's position + both matrices, bit-exact);</li>
+ * <li>no graph change: no section added/removed, no rebuild or sort that changed a pending update, no
+ *     chunk build result uploaded, no markGraphDirty outside the shadow pass except Sodium's own
+ *     camera-change call (covered by the camera checks above), not an "update chunks immediately" frame;</li>
+ * <li>Sodium's rebuild queues are empty, and the last real walk queued nothing (a queue is capped, so a
+ *     walk that queued work is followed by walks until one finds nothing left).</li>
  * </ul>
  *
- * <p>Frame order (LevelRenderer.renderLevel bytecode, Iris MixinLevelRenderer): Iris runs the
- * whole shadow pass at the renderSky call (offset 437) -- shadow setupTerrain, shadow walk, shadow
- * draw -- BEFORE the main pass's setupRender (offset 495), which runs the main walk; the main
- * terrain and entities draw after that. So each frame is: shadow walk, then main walk, then the
- * main draw. Both walks write two shared things, and a reused frame must leave both exactly as a
- * real main walk would:
+ * <p>Where it decides (PER-VERSION, Sodium 0.8.13): RenderSectionManager.update() does lastUpdatedFrame++ and
+ * then needsGraphUpdate = createTerrainRenderList(...). The decision is at createTerrainRenderList HEAD
+ * (main pass only), which answers false (= "no revisit needed", what a quiet walk returns) without
+ * walking. What a real main walk leaves behind, and why a reused frame matches it:
  * <ul>
- * <li><b>Region lists.</b> Each RenderRegion has ONE ChunkRenderList, written by both walks. The
- *     shadow walk (earlier in the frame) refills the lists of the regions it reaches; a real main
- *     walk then refills every region it reaches. On a reused frame the main walk's region lists are
- *     copied back from the snapshot taken right after the last real main walk, at the main
- *     update() call, i.e. after this frame's shadow walk.</li>
- * <li><b>Section stamps.</b> update() bumps lastUpdatedFrame and the walk stamps every section it
- *     reaches with it; main-pass entity culling (SodiumWorldRenderer.isEntityVisible ->
- *     RenderSectionManager.isSectionVisible) draws an entity only in a section stamped with the
- *     current lastUpdatedFrame. The shadow walk has just bumped the counter and stamped ITS
- *     sections, so a reused frame does what update() does: bump lastUpdatedFrame once more and
- *     stamp, with that number, exactly the sections the last real main walk stamped (recorded at
- *     OcclusionCuller's three setLastVisibleFrame calls). Entity culling then gives the same answer
- *     for every entity as with the feature off. It also clears needsGraphUpdate, as update() does.</li>
+ * <li><b>Render lists.</b> Iris 1.8.14-beta.1 keeps the shadow walk's output apart from the main walk's:
+ *     MixinRenderSectionManagerShadow sends the shadow pass's renderLists / taskLists to its own fields
+ *     (redirects in finalizeRenderLists, resetRenderLists and createTerrainRenderList),
+ *     and swaps every RenderRegion to a second ChunkRenderList + batch cache around the shadow walk. So
+ *     unlike Sodium 0.6 + Iris 1.8.8 (one region list shared by both walks, snapshot + restore needed), the main
+ *     renderLists, taskLists and region lists still hold the last main walk's output; nothing is copied.
+ *     finalizeRenderLists only rebuilds renderLists when a walk set sectionCollector, so it keeps them.</li>
+ * <li><b>Collector for mid-frame builds.</b> An "immediate presentation" build result is added to
+ *     sectionCollector, or lastSectionCollector between walks. After the shadow walk that is the
+ *     shadow walk's collector, so a reused frame points lastSectionCollector back at the last main
+ *     walk's collector -- exactly what Sodium itself does on a frame without a walk.</li>
+ * <li><b>Section stamps.</b> The walk stamps every section it reaches with lastUpdatedFrame; main-pass
+ *     entity culling (SodiumWorldRenderer.isEntityVisible -> isSectionVisible) draws an entity only in a
+ *     section stamped with the current number. The counter is shared with the shadow walk's update()
+ *     (Iris 1.8.14-beta.1 has no MixinRenderSection, but its iris$setOutOfGraph forces the shadow walk
+ *     onto Sodium's tree path, which does not stamp), so the main stamps are one or two frames old. A reused
+ *     frame stamps, with this update's number, exactly the sections the last real main walk stamped
+ *     (recorded at OcclusionCuller's three setLastVisibleFrame calls). Entity culling then gives the same
+ *     answer for every entity as with the feature off. On 1.21.1 the shadow pass runs at renderSky, before
+ *     the main setupRender, and main entity rendering runs after the main walk in the same frame, so it
+ *     sees this frame's stamps.</li>
  * </ul>
  *
  * <p>Safety (mandate 4): every hook is try/catch; any error latches the feature off for the session
@@ -81,23 +88,27 @@ public final class SmartTerrainUpdates {
 	private static final MethodHandle PACK_IN_USE = IrisState.PACK_IN_USE;
 
 	/** The exact builds whose internals this was written against; anything else = feature off. */
-	private static final boolean VERSIONS_OK = versionIs("sodium", "0.6.13") && versionIs("iris", "1.8.8");
+	private static final boolean VERSIONS_OK = SodiumIrisBuilds.SMART_TERRAIN;
 
 	private static boolean broken;
 
 	// ---- reuse state ----
 	/** Something that can change the walk's result happened since the last real main walk. */
 	private static boolean dirty = true;
-	/** The RenderSectionManager the snapshot belongs to. */
+	/** The RenderSectionManager the held walk belongs to. */
 	private static Object manager;
-	/** A snapshot of the last real main walk's region lists is held. */
+	/** The last real main walk is held (its stamps recorded, its collector kept). */
 	private static boolean primed;
+	/** The last real main walk's SectionCollector (lastSectionCollector on a reused frame). */
+	private static SectionCollector heldCollector;
 	/** Inside Sodium's own camera-change markGraphDirty call in setupTerrain. */
 	private static boolean cameraMark;
+	/** This update()'s walk was reused: its RETURN hook must not prime from it. */
+	private static boolean reusedThisUpdate;
 
 	// ---- sections the last real main walk stamped (entity culling reads the stamps) ----
-	private static final net.caffeinemc.mods.sodium.client.render.chunk.RenderSection[] NO_SECTIONS = {};
-	private static net.caffeinemc.mods.sodium.client.render.chunk.RenderSection[] stamped = NO_SECTIONS;
+	private static final RenderSection[] NO_SECTIONS = {};
+	private static RenderSection[] stamped = NO_SECTIONS;
 	private static int stampN;
 	/** Inside a main-pass walk with the toggle on: OcclusionCuller's stamps are recorded. */
 	private static boolean recording;
@@ -116,12 +127,6 @@ public final class SmartTerrainUpdates {
 	private static final Matrix4f CULL_VIEW = new Matrix4f();
 	private static final Matrix4f CULL_PROJ = new Matrix4f();
 
-	// ---- snapshot of the main render lists ----
-	private static ChunkRenderList[] lists = new ChunkRenderList[0];
-	private static byte[][] geo = new byte[0][], spr = new byte[0][], ent = new byte[0][];
-	private static int[] geoN = new int[0], sprN = new int[0], entN = new int[0], size = new int[0];
-	private static int count;
-
 	// ---- counters (render thread only) ----
 	public static long totalMainWalks, totalReused, totalMainNanos, totalShadowWalks, totalShadowNanos, totalRestoreNanos;
 	private static long walkStart;
@@ -133,11 +138,12 @@ public final class SmartTerrainUpdates {
 			"buildResults", "markGraphDirty", "cameraMark", "cullFrustum", "setupTerrain",
 			"stampVisit", "stampNearby", "stampInit"};
 	/**
-	 * Hooks that fire during any world load (chunks added, built and re-meshed as neighbours arrive, Iris's per-frame mark, the camera
-	 * hooks) and in every main walk with the toggle on (the visitNode and initWithinWorld stamps):
-	 * reuse waits until all of them have fired once, so a mixin that failed to apply (the config is
-	 * defaultRequire 0) turns the feature off instead of letting a change go unseen. stampNearby is
-	 * not required: addNearbySections stamps nothing when the walk already reached its sections.
+	 * Hooks that fire during any world load (chunks added, built and re-meshed as neighbours arrive, Iris's
+	 * per-frame mark, the camera hooks) and in every main walk with the toggle on (the visitNode and
+	 * initWithinWorld stamps): reuse waits until all of them have fired once, so a mixin that failed to
+	 * apply (the config is defaultRequire 0) turns the feature off instead of letting a change go unseen.
+	 * stampNearby is not required: addNearbySections stamps nothing when the walk already reached its
+	 * sections. scheduleSort is not required: a still world never re-sorts.
 	 */
 	private static final int REQUIRED_HOOKS = (1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 7) | (1 << 8)
 			| (1 << 9) | (1 << 11);
@@ -164,17 +170,6 @@ public final class SmartTerrainUpdates {
 		return (boolean) SHADOW_PASS.invokeExact();
 	}
 
-	private static boolean versionIs(String mod, String prefix) {
-		try {
-			return net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer(mod)
-					.map(c -> c.getMetadata().getVersion().getFriendlyString().startsWith(prefix + "+")
-							|| c.getMetadata().getVersion().getFriendlyString().equals(prefix))
-					.orElse(false);
-		} catch (Throwable t) {
-			return false;
-		}
-	}
-
 	private static void fail(Throwable t) {
 		if (!broken) {
 			broken = true;
@@ -186,8 +181,9 @@ public final class SmartTerrainUpdates {
 	// Dev diagnosis: what set the dirty flag, why a main update walked, which camera part moved.
 	private static final String[] DIRTY_NAMES = {"sectionAdded", "sectionRemoved", "scheduleRebuild", "scheduleSort",
 			"buildResults", "markGraphDirty", "camera", "cullFrustum", "immediate", "tasksQueued", "captured"};
-	private static final String[] WALK_NAMES = {"off", "notPrimed", "dirty", "newManager", "hooksMissing", "noPack", "tasksPending"};
-	private static final String[] CAM_NAMES = {"pos", "angle", "rotation", "projection", "fog", "cullOrSpectator"};
+	private static final String[] WALK_NAMES = {"off", "notPrimed", "dirty", "newManager", "hooksMissing", "noPack",
+			"tasksPending", "collectorSet"};
+	private static final String[] CAM_NAMES = {"pos", "angle", "rotation", "matrices", "fog", "cullOrSpectator"};
 	public static final long[] dirtyWhy = new long[DIRTY_NAMES.length];
 	public static final long[] walkWhy = new long[WALK_NAMES.length];
 	public static final long[] camWhy = new long[CAM_NAMES.length];
@@ -258,7 +254,7 @@ public final class SmartTerrainUpdates {
 
 	// ======================= camera / frustum fingerprint =======================
 
-	/** LevelRenderer.prepareCullFrustum (main frame only; GameRenderer calls it once per frame). */
+	/** LevelRenderer.prepareCullFrustum (main frame only; renderLevel calls it once per frame). */
 	public static void onCullFrustum(Vec3 pos, Matrix4f view, Matrix4f proj, boolean captured) {
 		if (!live()) {
 			haveCull = false;
@@ -285,7 +281,13 @@ public final class SmartTerrainUpdates {
 		}
 	}
 
-	/** SodiumWorldRenderer.setupTerrain HEAD: the main pass's camera state against the previous frame's. */
+	/**
+	 * SodiumWorldRenderer.setupTerrain(Camera, Viewport, boolean, boolean) HEAD: the main pass's camera state
+	 * against the previous frame's. PER-VERSION (Sodium 0.8.13+mc1.21.1, javap 2026-10-25): setupTerrain itself
+	 * compares Camera.getPosition, getXRot/getYRot, RenderSystem.getProjectionMatrix and
+	 * RenderSystem.getShaderFogEnd (then one markGraphDirty call). All of those are fingerprinted here, plus
+	 * the rotation quaternion, smartCull and the spectator flag. Read in place, no allocation.
+	 */
 	public static void onSetupTerrain(Camera camera, boolean spectatorNow, boolean immediate) {
 		if (!live()) {
 			haveCam = false;
@@ -300,11 +302,11 @@ public final class SmartTerrainUpdates {
 			Quaternionf r = camera.rotation();
 			Matrix4f proj = RenderSystem.getProjectionMatrix();
 			float fog = RenderSystem.getShaderFogEnd();
-			boolean cull = Minecraft.getInstance().smartCull;
+			boolean smart = Minecraft.getInstance().smartCull;
 			boolean same = haveCam && p.x == camX && p.y == camY && p.z == camZ
 					&& camera.getXRot() == xRot && camera.getYRot() == yRot
 					&& r.equals(ROT) && PROJ.equals(proj) && fog == fogEnd
-					&& cull == smartCull && spectatorNow == spectator;
+					&& smart == smartCull && spectatorNow == spectator;
 			if (!same || immediate) {
 				markDirty(immediate ? 8 : 6);
 				if (DEV && haveCam) {
@@ -314,7 +316,7 @@ public final class SmartTerrainUpdates {
 					if (!r.equals(ROT)) camWhy[2]++;
 					if (!PROJ.equals(proj)) camWhy[3]++;
 					if (fog != fogEnd) camWhy[4]++;
-					if (cull != smartCull || spectatorNow != spectator) camWhy[5]++;
+					if (smart != smartCull || spectatorNow != spectator) camWhy[5]++;
 				}
 			}
 			camX = p.x;
@@ -325,7 +327,7 @@ public final class SmartTerrainUpdates {
 			ROT.set(r);
 			PROJ.set(proj);
 			fogEnd = fog;
-			smartCull = cull;
+			smartCull = smart;
 			spectator = spectatorNow;
 			haveCam = true;
 		} catch (Throwable t) {
@@ -336,10 +338,11 @@ public final class SmartTerrainUpdates {
 	// ======================= the walk =======================
 
 	/**
-	 * RenderSectionManager.update HEAD. True = skip this main walk (the snapshot was restored).
-	 * The shadow pass's update is never touched.
+	 * RenderSectionManager.createTerrainRenderList HEAD. True = skip this main walk (the caller returns
+	 * false from it); the shadow pass's walk is never touched. update() has already bumped lastUpdatedFrame.
 	 */
-	public static boolean beforeUpdate(RenderSectionManager rsm) {
+	public static boolean beforeWalk(RenderSectionManager rsm) {
+		reusedThisUpdate = false;
 		if (!live()) {
 			releaseIfHeld();
 			return false;
@@ -353,25 +356,25 @@ public final class SmartTerrainUpdates {
 				entityFrameDone();
 			}
 			boolean on = settingOn();
+			SodiumRenderSectionManagerAccessor m = (SodiumRenderSectionManagerAccessor) rsm;
+			boolean collectorFree = m.originclient$sectionCollector() == null;
 			if (DEV) {
 				int w = !on ? 0 : !primed ? 1 : dirty ? 2 : rsm != manager ? 3
-						: (hooksSeen & REQUIRED_HOOKS) != REQUIRED_HOOKS ? 4 : !packInUse() ? 5 : !tasksEmpty(rsm) ? 6 : -1;
+						: (hooksSeen & REQUIRED_HOOKS) != REQUIRED_HOOKS ? 4 : !packInUse() ? 5
+						: !tasksEmpty(rsm) ? 6 : !collectorFree ? 7 : -1;
 				if (w >= 0) {
 					walkWhy[w]++;
 				}
 			}
 			if (on && primed && !dirty && rsm == manager && (hooksSeen & REQUIRED_HOOKS) == REQUIRED_HOOKS
-					&& packInUse() && tasksEmpty(rsm)) {
+					&& packInUse() && tasksEmpty(rsm) && collectorFree && heldCollector != null) {
 				long t0 = System.nanoTime();
-				// Exactly what update() does around the walk: bump the frame, (walk), clear the flag.
-				SodiumRenderSectionManagerAccessor m = (SodiumRenderSectionManagerAccessor) rsm;
-				int f = m.originclient$lastUpdatedFrame() + 1;
-				m.originclient$setLastUpdatedFrame(f);
-				restore(f);
+				int f = m.originclient$lastUpdatedFrame();   // update() bumped it right before this call
 				for (int i = 0; i < stampN; i++) {
-					stamped[i].setLastVisibleFrame(f);   // the main walk's stamps over this frame's shadow walk's
+					stamped[i].setLastVisibleFrame(f);   // the main walk's stamps, with this frame's number
 				}
-				m.originclient$setNeedsGraphUpdate(false);
+				m.originclient$setLastSectionCollector(heldCollector);
+				reusedThisUpdate = true;
 				long dt = System.nanoTime() - t0;
 				totalRestoreNanos += dt;
 				totalReused++;
@@ -387,8 +390,12 @@ public final class SmartTerrainUpdates {
 		}
 	}
 
-	/** RenderSectionManager.update RETURN (main pass only: Iris cancels the shadow pass's update earlier). */
+	/** RenderSectionManager.update RETURN: prime from a real main walk. */
 	public static void afterUpdate(RenderSectionManager rsm) {
+		if (reusedThisUpdate) {
+			reusedThisUpdate = false;
+			return;
+		}
 		if (!live()) {
 			return;
 		}
@@ -399,16 +406,17 @@ public final class SmartTerrainUpdates {
 			totalMainWalks++;
 			secWalks++;
 			if (!tasksEmpty(rsm)) {
-				// This walk queued rebuild/sort work. A queue is capped (ChunkUpdateType max queue
-				// size), so sections past the cap stay pending and only a later walk picks them up:
-				// keep walking until a walk finds nothing left to queue.
+				// This walk queued rebuild/sort work. A queue is capped, so sections past the cap stay
+				// pending and only a later walk picks them up: keep walking until a walk queues nothing.
 				markDirty(9);
 			}
 			if (settingOn()) {
-				// A walk that recorded no stamps (a stamp redirect missing, or no shader pack so
-				// nothing was recorded) is never reused.
-				primed = stampN > 0 && packInUse() && snapshot(rsm);
+				// A walk that recorded no stamps (a stamp redirect missing, no shader pack, or Sodium's tree
+				// path, which stamps nothing) is never reused.
+				SectionCollector c = ((SodiumRenderSectionManagerAccessor) rsm).originclient$sectionCollector();
+				primed = stampN > 0 && c != null && packInUse();
 				manager = primed ? rsm : null;
+				heldCollector = primed ? c : null;
 				if (!primed) {
 					unprime();
 				}
@@ -420,7 +428,7 @@ public final class SmartTerrainUpdates {
 		}
 	}
 
-	/** createTerrainRenderList HEAD / RETURN: CPU time of each walk, split main / shadow. */
+	/** createTerrainRenderList HEAD (a walk that runs) / RETURN: CPU time of each walk, split main / shadow. */
 	public static void walkBegin() {
 		if (!live()) {
 			return;
@@ -431,6 +439,7 @@ public final class SmartTerrainUpdates {
 				// This main walk replaces what is held; afterUpdate primes again from it. No pack =
 				// no per-section recording (reuse needs a pack anyway).
 				primed = false;
+				heldCollector = null;
 				java.util.Arrays.fill(stamped, 0, stampN, null);
 				stampN = 0;
 				recording = true;
@@ -441,7 +450,7 @@ public final class SmartTerrainUpdates {
 	}
 
 	/** OcclusionCuller stamped a section (any pass); recorded only inside a main walk with the toggle on. */
-	public static void onStamp(net.caffeinemc.mods.sodium.client.render.chunk.RenderSection section, int hook) {
+	public static void onStamp(RenderSection section, int hook) {
 		if (recording) {
 			hooksSeen |= 1 << hook;
 			if (stampN == stamped.length) {
@@ -478,7 +487,11 @@ public final class SmartTerrainUpdates {
 	}
 
 	private static boolean tasksEmpty(RenderSectionManager rsm) {
-		for (ArrayDeque<?> q : ((SodiumRenderSectionManagerAccessor) rsm).originclient$taskLists().values()) {
+		var lists = ((SodiumRenderSectionManagerAccessor) rsm).originclient$taskLists();
+		if (lists == null) {
+			return true;
+		}
+		for (ArrayDeque<?> q : lists.values()) {
 			if (!q.isEmpty()) {
 				return false;
 			}
@@ -486,78 +499,30 @@ public final class SmartTerrainUpdates {
 		return true;
 	}
 
-	/** Copy the main walk's region lists. False (= don't reuse) if anything looks off. */
-	private static boolean snapshot(RenderSectionManager rsm) {
-		SodiumRenderSectionManagerAccessor m = (SodiumRenderSectionManagerAccessor) rsm;
-		int walkFrame = m.originclient$lastUpdatedFrame();
-		ObjectArrayList<ChunkRenderList> src = ((SodiumSortedRenderListsAccessor) m.originclient$renderLists()).originclient$lists();
-		int n = src.size();
-		ensure(n);
-		for (int i = 0; i < n; i++) {
-			ChunkRenderList list = src.get(i);
-			if (list.getLastVisibleFrame() != walkFrame) {
-				return false;   // a list this walk didn't fill: not the state we think it is (caller releases)
-			}
-			SodiumChunkRenderListAccessor a = (SodiumChunkRenderListAccessor) list;
-			lists[i] = list;
-			geoN[i] = a.originclient$geoCount();
-			sprN[i] = a.originclient$spriteCount();
-			entN[i] = a.originclient$entityCount();
-			size[i] = a.originclient$size();
-			System.arraycopy(a.originclient$geo(), 0, geo[i], 0, geoN[i]);
-			System.arraycopy(a.originclient$sprites(), 0, spr[i], 0, sprN[i]);
-			System.arraycopy(a.originclient$entities(), 0, ent[i], 0, entN[i]);
-		}
-		for (int i = n; i < count; i++) {
-			lists[i] = null;   // don't keep dead regions' lists alive
-		}
-		count = n;
-		return true;
-	}
-
-	/** Put the main walk's sections back into every region list it drew (after this frame's shadow walk). */
-	private static void restore(int f) {
-		for (int i = 0; i < count; i++) {
-			SodiumChunkRenderListAccessor a = (SodiumChunkRenderListAccessor) lists[i];
-			System.arraycopy(geo[i], 0, a.originclient$geo(), 0, geoN[i]);
-			System.arraycopy(spr[i], 0, a.originclient$sprites(), 0, sprN[i]);
-			System.arraycopy(ent[i], 0, a.originclient$entities(), 0, entN[i]);
-			a.originclient$setGeoCount(geoN[i]);
-			a.originclient$setSpriteCount(sprN[i]);
-			a.originclient$setEntityCount(entN[i]);
-			a.originclient$setSize(size[i]);
-			a.originclient$setLastVisibleFrame(f);
-		}
-	}
-
-	/** Drop everything held for a manager (snapshot lists, recorded sections): they reference its ClientLevel. */
+	/** Drop everything held for a manager (recorded sections, the collector): they reference its ClientLevel. */
 	private static void release() {
 		primed = false;
 		manager = null;
-		count = 0;
-		lists = new ChunkRenderList[0];
-		geo = spr = ent = new byte[0][];
-		geoN = sprN = entN = size = new int[0];
+		heldCollector = null;
 		stamped = NO_SECTIONS;
 		stampN = 0;
 		recording = false;
 	}
 
 	/**
-	 * Priming failed: hold nothing for this walk but keep the arrays (this can repeat every frame,
-	 * so no allocation). References are cleared so no old level stays reachable through them.
+	 * Priming failed: hold nothing for this walk but keep the array (this can repeat every frame, so no
+	 * allocation). References are cleared so no old level stays reachable through them.
 	 */
 	private static void unprime() {
 		primed = false;
 		manager = null;
-		java.util.Arrays.fill(lists, null);
-		count = 0;
+		heldCollector = null;
 		java.util.Arrays.fill(stamped, 0, stampN, null);
 		stampN = 0;
 	}
 
 	private static void releaseIfHeld() {
-		if (primed || manager != null || lists.length != 0 || stamped.length != 0) {
+		if (primed || manager != null || heldCollector != null || stamped.length != 0) {
 			release();
 		}
 	}
@@ -570,30 +535,6 @@ public final class SmartTerrainUpdates {
 		} catch (Throwable t) {
 			fail(t);
 		}
-	}
-
-	private static void ensure(int n) {
-		if (lists.length >= n) {
-			return;
-		}
-		int cap = Math.max(n, lists.length * 2);
-		ChunkRenderList[] nl = new ChunkRenderList[cap];
-		System.arraycopy(lists, 0, nl, 0, lists.length);
-		byte[][] ng = new byte[cap][], ns = new byte[cap][], ne = new byte[cap][];
-		for (int i = 0; i < cap; i++) {
-			// ChunkRenderList's arrays are byte[256] (one byte per section of a 8x4x8 region).
-			ng[i] = i < geo.length ? geo[i] : new byte[256];
-			ns[i] = i < spr.length ? spr[i] : new byte[256];
-			ne[i] = i < ent.length ? ent[i] : new byte[256];
-		}
-		lists = nl;
-		geo = ng;
-		spr = ns;
-		ent = ne;
-		geoN = java.util.Arrays.copyOf(geoN, cap);
-		sprN = java.util.Arrays.copyOf(sprN, cap);
-		entN = java.util.Arrays.copyOf(entN, cap);
-		size = java.util.Arrays.copyOf(size, cap);
 	}
 
 	private static void rollSecond() {
@@ -623,7 +564,7 @@ public final class SmartTerrainUpdates {
 			return "Origin Smart Terrain: off after an error";
 		}
 		if (!VERSIONS_OK) {
-			return "Origin Smart Terrain: off (needs Sodium 0.6.13 + Iris 1.8.8)";
+			return "Origin Smart Terrain: off (needs Sodium 0.8.13 + Iris 1.8.14-beta.1)";
 		}
 		if (lastSecAt == 0 || System.nanoTime() - lastSecAt > 3_000_000_000L) {
 			return null;   // no shader frames lately
@@ -637,7 +578,7 @@ public final class SmartTerrainUpdates {
 	}
 
 	// ======================= dev: main-pass entity culling counts =======================
-	// Counted from one main update() to the next (= one frame's main entity draw), shadow pass excluded.
+	// Counted from one main walk decision to the next (= one frame's main entity extraction), shadow pass excluded.
 	public static final String HIDDEN_TAG = "origin_stu_hidden";
 	/** Dev: the sealed pocket section (SectionPos long). Entity tags are server-only, so the client finds the pocket pigs by section. */
 	public static long hiddenSection = Long.MIN_VALUE;

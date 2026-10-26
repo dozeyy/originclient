@@ -105,7 +105,7 @@ jobs:
           # lines are skipped -- they are those mods' own optional hooks, not Origin's.
           # Classes intermediary never renames (com/mojang/...) give no such hint, so a
           # line also counts only when an Origin mixin names that method in quotes
-          # (method = "x" / target = "...;x(...)") -- 1.21's compile-only Sodium 0.5.11
+          # (method = "x" / target = "...;x(...)") -- a compile-only Sodium (1.21's, once 0.5.11)
           # prints dead RenderSystem hooks of its own that Origin never mentions.
           dead=$(grep -E "Cannot remap .* does not exist in any of the targets \[(net/minecraft|com/mojang)/" gradle.log \
                  | grep -vE "targets \[net/minecraft/class_[0-9]+" \

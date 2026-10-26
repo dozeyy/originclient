@@ -71,11 +71,11 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
 
-	// JEI bundled here is jei 31.14.0.72 for 26.3 (see gradle.properties). If
+	// JEI bundled here is jei 31.17.0.93 for 26.3 (see gradle.properties). If
 	// a player drops a different JEI in, Fabric loads the higher version and ours is
 	// shadowed — detectForeignJei() catches that. jeiNoticeShown gates the one-time
 	// in-world chat notice.
-	private static final String BUNDLED_JEI = "31.14.0.72";
+	private static final String BUNDLED_JEI = "31.17.0.93";
 	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 

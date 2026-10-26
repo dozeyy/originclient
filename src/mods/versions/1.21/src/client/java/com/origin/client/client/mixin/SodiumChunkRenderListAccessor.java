@@ -1,13 +1,13 @@
 package com.origin.client.client.mixin;
 
-import me.jellysquid.mods.sodium.client.render.chunk.lists.ChunkRenderList;
+import net.caffeinemc.mods.sodium.client.render.chunk.lists.ChunkRenderList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-// Target: Sodium 0.5.11 ChunkRenderList (one per render region, SHARED by the main walk and Iris's
+// Target: Sodium 0.6.13 ChunkRenderList (one per render region, SHARED by the main walk and Iris's
 // shadow walk). Why: Smart Terrain Updates snapshots the main walk's contents and writes them back
 // before the shadow walk on a reused frame, so the main draw sees exactly what a fresh walk gives.
-// Field names re-read from the 0.5.11 jar 2026-10-20. Missing -> the feature never engages (version-gated).
+// Field names read from the 0.6.13 jar 2026-10-19. Missing -> the feature never engages (version-gated).
 @Mixin(value = ChunkRenderList.class, remap = false)
 public interface SodiumChunkRenderListAccessor {
 	@Accessor("sectionsWithGeometry")

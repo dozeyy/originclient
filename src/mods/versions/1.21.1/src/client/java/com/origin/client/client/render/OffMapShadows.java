@@ -18,9 +18,9 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 /**
- * SETTINGS > Performance > Off-Map Shadows (1.21.1, default OFF).
+ * SETTINGS > Performance > Off-Map Shadows (default OFF). 1.21.1 on Sodium 0.8 (ported back from 1.21.11).
  *
- * <p>Why it saves work (Iris 1.8.8 / Sodium 0.6.13, read from the jars 2026-10-19): Iris's shadow
+ * <p>Why it saves work (Iris 1.8.14-beta.1 / Sodium 0.8.13 +mc1.21.1, read from the jars 2026-10-25): Iris's shadow
  * pass culls with AdvancedShadowCullingFrustum, which is the player's view stretched toward the sun
  * plus, only when the pack sets shadowDistanceRenderMul, a world-axis distance box. Its constructor
  * takes the shadow projection and never uses it, so nothing culls against the shadow map's own
@@ -157,36 +157,93 @@ public final class OffMapShadows {
 		return y - ry > EDGE || y + ry < -EDGE;
 	}
 
+	/** Sodium's padded section half size (Viewport.CHUNK_SECTION_PADDED_RADIUS: 8 + 1.125 margin). */
+	private static final float SECTION_HALF = 9.125f;
+
 	/**
-	 * Sodium's section frustum test (Viewport.isBoxVisible), already answered "visible": false when
-	 * this is the shadow pass and the section box lies entirely off the shadow map.
+	 * PER-VERSION (Sodium 0.8): Sodium 0.8's tree walk (the one Iris's shadow pass always takes) tests each
+	 * node with Viewport.getBoxIntersectionDirect(center - camera, half size): -2 = fully inside (children
+	 * skip their tests), -1 = intersecting, anything else = outside (not traversed). A node entirely off
+	 * the shadow map answers outside; one only partly off loses "fully inside" so each child is tested.
 	 */
-	public static boolean keepSection(CameraTransform t, int ox, int oy, int oz, float sx, float sy, float sz) {
+	public static int nodeIntersection(int result, float cx, float cy, float cz, float half) {
+		if (!armed || (result != -2 && result != -1)) {
+			return result;
+		}
+		if (offMap(cx, cy, cz, half, half, half)) {
+			curSkipS++;
+			return 0;   // outside
+		}
+		if (result == -2 && !insideMap(cx, cy, cz, half)) {
+			return -1;  // partly past an edge: let the children be tested one by one
+		}
+		return result;
+	}
+
+	/** Viewport.isBoxVisibleDirect (tree leaf sections), already answered "visible". */
+	public static boolean keepBox(float cx, float cy, float cz, float half) {
 		if (!armed) {
 			return true;
 		}
-		if (offMap((ox - t.intX) - t.fracX, (oy - t.intY) - t.fracY, (oz - t.intZ) - t.fracZ, sx, sy, sz)) {
+		if (offMap(cx, cy, cz, half, half, half)) {
 			curSkipS++;
 			return false;
 		}
 		return true;
 	}
 
+	/** Viewport.isBoxVisible(III) (the occlusion walk): a section center in block coordinates, already "visible". */
+	public static boolean keepSection(CameraTransform t, int x, int y, int z) {
+		if (!armed) {
+			return true;
+		}
+		if (offMap((x - t.intX) - t.fracX, (y - t.intY) - t.fracY, (z - t.intZ) - t.fracZ,
+				SECTION_HALF, SECTION_HALF, SECTION_HALF)) {
+			curSkipS++;
+			return false;
+		}
+		return true;
+	}
+
+	/** Cube (camera-relative center, half size) entirely inside the map's x/y range, margin included. */
+	private static boolean insideMap(float cx, float cy, float cz, float h) {
+		float x = ax * cx + ay * cy + az * cz + aw;
+		float rx = (aax + aay + aaz) * h;
+		float y = bx * cx + by * cy + bz * cz + bw;
+		float ry = (abx + aby + abz) * h;
+		return x - rx >= -EDGE && x + rx <= EDGE && y - ry >= -EDGE && y + ry <= EDGE;
+	}
+
+	/** A shadow walk ran in dev-shots: count its lists once finalizeRenderLists has built them. */
+	private static boolean devCountPending;
+
 	/** Sodium createTerrainRenderList HEAD (SodiumGraphReuseMixin): arm the section test for a shadow walk. */
 	public static void walkBegin() {
 		armed = false;
-		if (broken || !settingOn()) {
+		if (broken) {
+			return;
+		}
+		boolean on = settingOn();
+		if (!on && !DEV) {
 			return;
 		}
 		try {
 			if ((boolean) IS_SHADOW_PASS.invokeExact() && matrices()) {
-				shadowFrame = FrameStats.frames();
-				rollFrame();
-				armed = true;
+				devCountPending = DEV;
+				if (on) {
+					shadowFrame = FrameStats.frames();
+					rollFrame();
+					armed = true;
+				}
 			}
 		} catch (Throwable e) {
 			fail(e);
 		}
+	}
+
+	/** Sodium createTerrainRenderList RETURN (SodiumWalkEndMixin): the walk is over. */
+	public static void walkEnd() {
+		armed = false;
 	}
 
 	/** True when this entity, which the shadow pass already decided to draw, lies entirely off the map. */
@@ -229,14 +286,15 @@ public final class OffMapShadows {
 	}
 
 	/**
-	 * Dev only: after a shadow-pass walk (createTerrainRenderList RETURN), count the sections with
-	 * geometry it put in the shadow render lists and how many of them lie fully off the map (no margin).
+	 * Dev only: after a shadow-pass walk, once finalizeRenderLists has built its lists (SodiumWalkEndMixin),
+	 * count the sections with geometry it put in the shadow render lists and how many of them lie fully
+	 * off the map (no margin).
 	 */
 	public static void afterWalk(RenderSectionManager rsm, Viewport viewport) {
-		armed = false;
-		if (!DEV || broken) {
+		if (!DEV || broken || !devCountPending) {
 			return;
 		}
+		devCountPending = false;
 		try {
 			if (!(boolean) IS_SHADOW_PASS.invokeExact() || !matrices()) {
 				return;
@@ -280,8 +338,14 @@ public final class OffMapShadows {
 
 	/** One F3 line while the option is on and a shader pack is drawing shadows; null otherwise. */
 	public static String debugLine() {
-		if (broken || !Mods.bool(Mods.PERFORMANCE_ID, KEY_ON)) {
+		if (!Mods.bool(Mods.PERFORMANCE_ID, KEY_ON)) {
 			return null;
+		}
+		if (broken) {
+			// Iris is bundled on 1.21.1, but a reflected member can still go missing: say why the option does nothing.
+			return IS_SHADOW_PASS == null || MODELVIEW == null || PROJECTION == null
+					? "Origin Off-Map Shadows: off (Iris missing or not supported; shadows draw normally)"
+					: "Origin Off-Map Shadows: off after an error (shadows draw normally)";
 		}
 		long f = FrameStats.frames();
 		if (f - shadowFrame > 2) {

@@ -68,7 +68,7 @@ public class OriginClientMod implements ClientModInitializer {
 	// a JEI version other than the bundled one is loaded (a player added their own
 	// jar, which Fabric picked over our nested one). jeiNoticeShown gates the
 	// one-time message.
-	private static final String BUNDLED_JEI = "19.27.0.340";
+	private static final String BUNDLED_JEI = "19.51.0.418";
 	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 	// Edge-trigger for death waypoints: true while the player is alive, so a death
@@ -835,7 +835,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	// Foreign-JEI detection (rec #10). Origin bundles JEI nested; if a player drops
 	// their own JEI jar in, Fabric deduplicates the "jei" id and may load THEIRS.
-	// Our toggle mixins target 19.27.0.340 internals, so a different version breaks
+	// Our toggle mixins target 19.51.0.418 internals, so a different version breaks
 	// the integration silently. Detect the mismatch here; onEndTick surfaces it.
 	private static void detectForeignJei() {
 		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
@@ -857,7 +857,8 @@ public class OriginClientMod implements ClientModInitializer {
 	// no build-specific handler names.
 	private static void selfCheckJeiMixins() {
 		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler",
-				"onDrawScreenPost", "onDrawForeground", "renderCompactPotionIndicators");
+				"drawForScreenForeground|onDrawScreenPost", "drawForScreenBackground|onDrawForeground",
+				"renderCompactPotionIndicators");
 		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler",
 				"onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
 	}
@@ -869,8 +870,9 @@ public class OriginClientMod implements ClientModInitializer {
 			for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
 				present.add(m.getName());
 			}
+			// "a|b" = either name (JEI 19.51 | 19.27: the bundled build, or a player's own older jar).
 			for (String m : methods) {
-				if (!present.contains(m)) {
+				if (java.util.Arrays.stream(m.split("\\|")).noneMatch(present::contains)) {
 					com.origin.client.OriginClient.LOGGER.warn(
 							"Origin self-check: JEI method {}.{} is missing -- the JEI toggle mixin may "
 									+ "not have applied. JEI integration is likely broken with this JEI version; "

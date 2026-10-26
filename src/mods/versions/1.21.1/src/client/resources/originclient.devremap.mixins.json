@@ -1,0 +1,7 @@
+{
+	"required": false,
+	"package": "com.origin.client.client.mixin.devremap",
+	"plugin": "com.origin.client.client.DevRemapFix",
+	"compatibilityLevel": "JAVA_21",
+	"client": []
+}

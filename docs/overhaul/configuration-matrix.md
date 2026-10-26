@@ -7,8 +7,9 @@ its shipped set and nothing else; Play never offers more.
 
 | Module | Shipped set (default) | Alternates, newest first | Proof | Notes |
 |---|---|---|---|---|
-| 1.21.1 | Sodium 0.6.13 + Iris 1.8.8, nested in originclient-1.21.1.jar | Sodium 0.6.5 + Iris 1.8.1 (top-level jars) | CI: boot-smoke 40252040490 job 121345919262; spike: dev 13/13 mixins applied, prod top-level-over-nested 13/13, sigcheck 46/46 | Smart Terrain off (exact-pair gate). 0.6.0 + 1.8.0 left out: loses `OcclusionCuller.addNearbySections` (45/46). |
+| 1.21.1 | Sodium 0.8.13 + Iris 1.8.14-beta.1, nested in originclient-1.21.1.jar (2026-10-25; no Indium) | Sodium 0.6.5 + Iris 1.8.1 (top-level jars) | Re-proven on the new jar: boot-smoke `pairs=1.21.1:0.6.5+1.8.1` on `claude/deps-all` (2026-10-25). First proof: CI boot-smoke 40252040490 job 121345919262; spike: dev 13/13 mixins applied, prod top-level-over-nested 13/13, sigcheck 46/46 | Kept as the fallback when the shipped 0.8 pair won't start (no add-on needs it). Smart Terrain off (exact-pair gate: 0.8.13 + 1.8.14-beta.1 only). Add-ons that need Sodium >=0.8.12 (Voxy, Sable) refuse it, so Play never picks it for them. 0.6.0 + 1.8.0 left out: loses `OcclusionCuller.addNearbySections` (45/46). |
 | 1.21.11 | Sodium 0.8.14 + Iris 1.10.8 (catalog jars) | Sodium 0.8.4 + Iris 1.10.5; Sodium 0.8.0 + Iris 1.10.0 | CI: boot-smoke 40252040490 jobs 121345919180 (0.8.4) and 121345919166 (0.8.0); spike: dev 10/10 mixins applied, sigcheck 32/32 | Smart Terrain off. 0.8.15-beta.1 not offered (beta). |
+| 26.3 | Sodium 0.9.3-beta.1 + Iris 1.11.7 (catalog jars, 2026-10-25) | none | boot-smoke on `claude/deps-all` (2026-10-25) | The only Sodium line for 26.3 newer than 0.9.2 is the beta; Iris 1.11.7 runs on it. |
 | every other live module | its shipped set | none | - | Not tested in the spike: nothing to offer. |
 
 ## What the proof is, and is not
