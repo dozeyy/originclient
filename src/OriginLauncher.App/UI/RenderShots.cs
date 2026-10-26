@@ -159,6 +159,11 @@ public static class RenderShots
         // that has no count (the sliding block), then one with real counts (the fill).
         window.TourSetFriendsOpen(false);
         Pump(400);
+        // Play launches the selected version, so Home is put on each shot's version first: the art behind the
+        // launch screen and its footer (family name) then name the same version. Home goes back after.
+        var homeVersion = window.TourHomeVersion;
+        window.TourSelectVersion("1.21.1");
+        Pump(700);
         window.TourShowLaunch("1.21.1");
         Pump(500);
         Snap(window, outDir, "08-launch-a-preparing");
@@ -170,6 +175,8 @@ public static class RenderShots
 
         // Play on a version that isn't installed (U3.3): it says what it is doing, counts it, can be cancelled,
         // and when it fails says why with a Retry. 1.8.9 = the Forge path, the one with the most to download.
+        window.TourSelectVersion("1.8.9");
+        Pump(700);
         window.TourShowLaunch("1.8.9");
         window.TourReportLaunch("Installing");
         Pump(500);
@@ -187,7 +194,8 @@ public static class RenderShots
         Pump(400);
         Snap(window, outDir, "08-launch-g-failed-disk");
         window.TourHideLaunch();
-        Pump(500);
+        window.TourSelectVersion(homeVersion);
+        Pump(700);
 
         // Mod profiles, with made-up profiles (the real settings are never touched):
         // the Profiles page, its new-profile form, then Home with a profile that
@@ -205,6 +213,7 @@ public static class RenderShots
             SelectedVersion = "1.21.1",
         };
         Func<ModProfile, int> demoCount = p => p.Name.StartsWith("PvP", StringComparison.Ordinal) ? 1 : p.HasServer ? 6 : 3;
+        DpiMatrix(window, outDir, demoProfiles, demoCount, homeVersion);
         window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
         Pump(700);
         Snap(window, outDir, "09-profiles");
@@ -392,6 +401,90 @@ public static class RenderShots
         SnapCrashWindows(outDir);
         SnapStartupIntro(outDir);
         window.Close();
+    }
+
+    /// <summary>
+    /// Phase 3 U3.9: the main pages and the overlays that were fixed in the sanity pass, at the three reference window
+    /// sizes (980x600 = the launcher's minimum, 1180x740 = its default, 1920x1080) times 100 / 150 / 200 % display
+    /// scale: 9 scenes x 9 = 81 shots, `dpi-<scene>-<w>x<h>-<pct>pct.png`, in every default run (no flag), each one
+    /// clip-checked like every other shot. Sizes are the window's size in DIP (what the player's window is), laid out
+    /// in-process (MainWindow.TourLayoutAt) because the OS caps a real window at the desktop; the scale is the
+    /// tree's DPI (SetTreeDpi: per-monitor rounding and text shaping), rasterised at the same DPI.
+    /// Each scene is set up once (page changes settle once); <c>Refresh</c> re-runs before every shot for the parts
+    /// that time out (toasts).
+    /// </summary>
+    private static void DpiMatrix(MainWindow window, string dir, LauncherSettings demoProfiles, Func<ModProfile, int> demoCount,
+        string? homeVersion)
+    {
+        void Toasts()
+        {
+            window.TourClearToasts();
+            foreach (var toast in SocialDemo.Toasts()) window.TourShowToast(toast);
+            Pump(450);
+        }
+        var scenes = new (string Name, Action Setup, Action? Refresh, Action Cleanup)[]
+        {
+            ("home", () => window.TourGoTo(0), null, () => { }),
+            // A signed-in player's full drawer (the run is on the signed-out state here; it goes back after).
+            ("home-friends-toasts", () =>
+            {
+                SocialHub.Service.ShowDemo(SocialDemo.Online(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+                window.TourGoTo(0);
+                window.TourSetFriendsOpen(true);
+            }, Toasts, () =>
+            {
+                window.TourClearToasts();
+                window.TourSetFriendsOpen(false);
+                SocialHub.Service.ShowDemo(new SocialSnapshot { Status = SocialStatus.NotSignedIn, StatusMessage = "Sign in with Microsoft to use friends." });
+            }),
+            ("versions-grid", () => { window.TourGoTo(0); window.TourShowVersions(-1); }, null, () => window.TourHideVersions()),
+            ("mods-list", () => { window.TourGoTo(1); window.TourShowModsDemo(DemoMods, 0); }, null, () => { }),
+            ("settings", () => window.TourGoTo(2), null, () => { }),
+            ("profiles", () => window.TourShowProfiles(demoProfiles, demoCount, openForm: false), null, () => { }),
+            ("sign-in-loading", () => { window.TourGoTo(0); window.TourShowSignIn(null, null); }, null, () => window.TourCloseSignIn()),
+            ("sign-in-message", () =>
+            {
+                window.TourGoTo(0);
+                window.TourShowSignIn("Couldn't add this account", "Couldn't save this account. Please try again.");
+            }, null, () => window.TourCloseSignIn()),
+            ("launch-failed", () =>
+            {
+                window.TourGoTo(0);
+                window.TourSelectVersion("1.8.9");
+                Pump(700);
+                window.TourShowLaunch("1.8.9");
+                window.TourFailLaunch(new Core.Versions.OfflineInstallException("1.8.9", new System.Net.Http.HttpRequestException("no route")), "1.8.9");
+            }, null, () => { window.TourHideLaunch(); window.TourSelectVersion(homeVersion); }),
+        };
+        foreach (var (name, setup, refresh, cleanup) in scenes)
+        {
+            setup();
+            Pump(800);
+            foreach (var percent in new[] { 100, 150, 200 })
+            {
+                SetTreeDpi(window, percent / 100.0);
+                foreach (var (w, h) in new[] { (980, 600), (1180, 740), (1920, 1080) })
+                {
+                    refresh?.Invoke();
+                    var size = new Size(w, h);
+                    window.TourLayoutAt(size);
+                    // The picker sizes its sheet on SizeChanged, which a hand layout never raises: size it for this
+                    // size too, until it settles (as SelectorShots does).
+                    if (CardShots.Find<OriginLauncher.App.UI.Controls.VersionSelectOverlay>(window) is { IsOpen: true } picker)
+                        for (var i = 0; i < 3; i++)
+                        {
+                            picker.TourRelayout();
+                            window.TourLayoutAt(size);
+                        }
+                    Snap(window, dir, $"dpi-{name}-{w}x{h}-{percent}pct", percent * 0.96, size, laidOut: true);
+                }
+            }
+            SetTreeDpi(window, 1.0);
+            cleanup();
+            Pump(500);
+        }
+        window.TourGoTo(0);
+        Pump(500);
     }
 
     /// <summary>
