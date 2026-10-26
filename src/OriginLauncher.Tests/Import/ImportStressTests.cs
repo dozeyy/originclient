@@ -232,7 +232,7 @@ public class ImportStressTests : IDisposable
             var again = await engine.PlanAsync(rig.Request(options: WithWorlds), null, CancellationToken.None);
             var result = await engine.ApplyAsync(again, rig.Settings, null, CancellationToken.None);
             Assert.True(result.Succeeded, $"re-import after crash at open {k}: {result.Error}");
-            Assert.Empty(rig.Settings.Load().Profiles);                                 // imports never make profiles
+            Assert.Equal(again.ProfileId, Assert.Single(rig.Settings.Load().Profiles).Id);  // the crashed run left no profile behind
             Assert.Equal(new[] { "World1", "World1 (imported)" },
                 Directory.GetDirectories(Path.Combine(rig.GameDir(), "saves")).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
         }
@@ -263,8 +263,8 @@ public class ImportStressTests : IDisposable
                 AssertRecoversExactly(rig, plan, before, $"crash at step {k}");
             }
         }
-        // (An import changes no launcher settings any more - no profile, no selection - so there is no
-        // "settings saved, journal not yet committed" window left to crash in.)
+        // The "settings saved (the new profile), journal not yet committed" window is its own test:
+        // ImportVerifierTests.AnImportWhoseProfileWasSavedButNeverCommittedIsPutBackWholeOnTheNextStart.
     }
 
     [Fact]

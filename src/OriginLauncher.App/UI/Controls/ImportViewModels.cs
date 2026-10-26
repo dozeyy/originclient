@@ -308,14 +308,6 @@ public sealed class LauncherTileVm : LiveCardRowVm
     /// <summary>False when none of its setups can come over (nothing to tick).</summary>
     public bool CanTick { get => _canTick; set => Set(ref _canTick, value); }
 
-    private bool _canFast;
-
-    /// <summary>"Bring everything from Lunar Client" is on the tile (something from it can come over).</summary>
-    public bool CanFast { get => _canFast; set => Set(ref _canFast, value); }
-
-    /// <summary>The one-click button: every setup of this launcher, its most played one's settings on every version.</summary>
-    public string FastText => "Bring everything from " + ImportGridModel.ShortName(Kind);
-    public string FastTip => $"Bring every version, mod, world and server from {Title}, with the settings of the setup you play most";
 
     /// <summary>The tick box keeps its own toggled value after a click; this puts the model's answer back.</summary>
     public void Resync() => Raise(nameof(Ticked));
@@ -448,7 +440,7 @@ public sealed class ProgressRowVm : LiveCardRowVm
 
 /// <summary>
 /// A Minecraft version that got something on the Done screen: the logo of the launcher its settings came from, "Minecraft
-/// 1.21.1" and "From Prism, Lunar". Imports make no profiles: this is the plain version, ready on Home.
+/// 1.21.1" and "From Prism, Lunar": the version, ready on Home (each setup's mods are in its own profile).
 /// </summary>
 public sealed class VersionCardVm : CardRowVm
 {

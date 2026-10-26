@@ -138,12 +138,16 @@ internal sealed class ImportFlowModel
         Scope = launcher;
     }
 
-    /// <summary>"Choose what to import": the grid over every setup Origin can run (made once, then kept).</summary>
-    public ImportGridModel UseGrid()
+    /// <summary>
+    /// "Choose what to import": the grid over every setup Origin can run, or (the guided flow, step 2) over one
+    /// launcher's setups only. Made once per launcher, then kept, so going back keeps the ticks.
+    /// </summary>
+    public ImportGridModel UseGrid(SourceKind? launcher = null)
     {
         Mode = ImportMode.Grid;
-        Scope = null;
-        GridModel ??= new ImportGridModel(_setups.Where(CanGo));
+        if (GridModel == null || Scope != launcher)
+            GridModel = new ImportGridModel(_setups.Where(s => CanGo(s) && (launcher == null || s.Kind == launcher)));
+        Scope = launcher;
         GridModel.Contents = Contents;
         return GridModel;
     }
@@ -463,8 +467,9 @@ internal sealed class ImportFlowModel
     {
         // The fast path is the whole launcher: the engine reads OfLauncher with no grid as "same settings everywhere".
         if (Mode == ImportMode.Fast && Scope is { } fast) return BulkSelection.OfLauncher(fast);
-        // The grid is every setup: its ticks decide who brings what (a row with nothing ticked brings nothing).
-        if (Mode == ImportMode.Grid) return BulkSelection.All();
+        // The grid's ticks decide who brings what (a row with nothing ticked brings nothing); a grid over one launcher
+        // leaves every other launcher out (the engine marks them NotSelected, which the report never shows).
+        if (Mode == ImportMode.Grid) return Scope is { } only ? BulkSelection.OfLauncher(only) : BulkSelection.All();
         var selection = Scope is { } launcher ? BulkSelection.OfLauncher(launcher) : BulkSelection.All();
         foreach (var version in Versions().Where(v => v.Supported))
             foreach (var setup in version.Setups)
@@ -531,7 +536,7 @@ internal sealed class ImportFlowModel
     {
         // Fast and grid ignore the page's ticks and the settings picks: the launcher (or the grid) is the whole choice.
         if (Mode == ImportMode.Fast) return $"fast|{Scope}|{_setups.Count}";
-        if (Mode == ImportMode.Grid) return $"grid:{GridModel?.Key()}|{_setups.Count}";
+        if (Mode == ImportMode.Grid) return $"grid:{Scope?.ToString() ?? "all"}:{GridModel?.Key()}|{_setups.Count}";
         var left = new List<string>();
         foreach (var version in Versions().Where(v => v.Supported))
             foreach (var setup in version.Setups)

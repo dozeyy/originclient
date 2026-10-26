@@ -65,6 +65,37 @@ public partial class HomePage
         }
     }
 
+    /// <summary>
+    /// The import report's "Fix Compatibility" on a profile it says can't start (ImportHooks.FixCompatibility, wired by
+    /// MainWindow, which has already selected that profile and shown Home). The same check Play runs decides, off the UI
+    /// thread, and the same prompt opens: nothing is written until the player presses Fix, and then only a copy is made.
+    /// Nothing to fix any more (the check now passes): the status line says so and nothing starts.
+    /// </summary>
+    internal async Task FixImportedProfileAsync(string version, string profileId)
+    {
+        if (_fixRunning) return;
+        var profile = SettingsStore.Load().ModProfiles.FirstOrDefault(p => p.Id == profileId && p.Version == version);
+        if (profile == null) return;
+        LaunchVerdict verdict;
+        try
+        {
+            verdict = await Task.Run(() => LaunchPreflight.Evaluate(version, OriginPaths.ModsDir(version),
+                OriginPaths.ProfileModsDir(version, profile.Id), true, ModManager.IsManaged, ModManager.IsOriginProvisioned,
+                confirmOrigin: ModManager.IsOriginsCopy));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            verdict = LaunchVerdict.Clear; // fail-soft, as the launch check is: Play checks again
+        }
+        if (verdict.Blocking.Count == 0)
+        {
+            SetStatus($"\"{profile.Name}\" passes the start check now. Press Play to start it.", StatusTone.Neutral);
+            return;
+        }
+        await OfferFixAsync(new IncompatibleModsException(version, verdict.BlockingNames, verdict.Blocking, verdict.SetKey),
+            version, profile);
+    }
+
     // The prompt's first state: the refused mods by name (render shots call this too, CompatShots).
     private Task<FixChoice> OpenFixPrompt(IReadOnlyList<string> refusedNames, string version)
     {

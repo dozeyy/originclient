@@ -332,9 +332,9 @@ public class ImportFixRoundTests : IDisposable
     // ------------------------------------------------------------ 7: a failing rollback never escapes as an exception
 
     [Fact]
-    public async Task AnImportAndItsUndoNeverTouchTheLauncherSettingsSoALockedSettingsFileCantFailThem()
+    public async Task AnImportWithNoModsNeverTouchesTheLauncherSettingsSoALockedSettingsFileCantFailIt()
     {
-        TypicalSource.Populate(_rig.Source);
+        TypicalSource.Populate(_rig.Source, withMods: false);
         Kit.Write(_rig.GameDir(), "options.txt", "fov:1.0\n");
         var before = Kit.TreeHash(_rig.Instances, mtimes: true);
         var settings = new ThrowingSettings(() => new InvalidOperationException("the settings file is locked"),
@@ -342,7 +342,7 @@ public class ImportFixRoundTests : IDisposable
         var engine = _rig.Engine();
         var plan = await engine.PlanAsync(_rig.Request(), null, CancellationToken.None);
 
-        var result = await engine.ApplyAsync(plan, settings, null, CancellationToken.None);   // imports never make profiles or move the selection
+        var result = await engine.ApplyAsync(plan, settings, null, CancellationToken.None);   // no mods: no profile, no selection change
 
         Assert.Equal(ImportState.Committed, result.State);
         Assert.Null(plan.SettingsDelta);
@@ -351,6 +351,28 @@ public class ImportFixRoundTests : IDisposable
         Assert.Equal(before, Kit.TreeHash(_rig.Instances, mtimes: true));              // the files came back exactly
         Assert.Equal(ImportState.RolledBack, ImportJournalStore.Load(ImportLayout.Journal(_rig.Imports, plan.ImportId))!.State);
         Assert.True(File.Exists(ImportLayout.Summary(_rig.Imports, plan.ImportId)));
+    }
+
+    // With mods the import adds a profile: a locked settings file then rolls the whole import back (files and the
+    // half-made profile folder), as a result, never an exception.
+    [Fact]
+    public async Task ALockedSettingsFileRollsAnImportWithModsBackWholeAndNeverThrows()
+    {
+        TypicalSource.Populate(_rig.Source);
+        Kit.Write(_rig.GameDir(), "options.txt", "fov:1.0\n");
+        var before = Kit.TreeHash(_rig.Instances, mtimes: true);
+        var settings = new ThrowingSettings(() => new InvalidOperationException("the settings file is locked"),
+            () => new InvalidOperationException("still locked"));
+        var engine = _rig.Engine();
+        var plan = await engine.PlanAsync(_rig.Request(), null, CancellationToken.None);
+        Assert.NotNull(plan.SettingsDelta?.AddProfile);
+
+        var result = await engine.ApplyAsync(plan, settings, null, CancellationToken.None);
+
+        Assert.Equal(ImportState.RolledBack, result.State);
+        Assert.NotNull(result.Error);
+        Assert.Equal(before, Kit.TreeHash(_rig.Instances, mtimes: true));              // no profile folder left behind
+        Assert.Equal(ImportState.RolledBack, ImportJournalStore.Load(ImportLayout.Journal(_rig.Imports, plan.ImportId))!.State);
     }
 
     [Fact]

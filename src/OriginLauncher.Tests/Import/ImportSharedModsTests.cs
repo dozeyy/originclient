@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Sync;
@@ -121,41 +122,49 @@ public sealed class ImportSharedModsTests : IDisposable
 
     // ------------------------------------------------------------ Origin's jar is too old for the imported mods
 
+    // Mods land in a profile of their own; Origin's jars in the version's shared folder are never swapped for it.
+    private static string In(ImportPlan plan, string name) => Path.Combine(plan.ProfileModsDir!, name);
+
+    private static string Lines(ImportPlan plan) => string.Join(" // ", plan.Lines.Select(l => $"{l.Section} {l.Kind} {l.Name}: {l.Reason}"));
+
     [Fact]
-    public async Task AnOriginJarTooOldForTheImportedModsIsSwappedForTheImportedOneAndUndoPutsItBack()
+    public async Task AnOriginJarTooOldForTheImportedModsStaysAndTheModsThatNeedTheNewerOneLandTurnedOff()
     {
         var oldJar = Kit.FabricJar("cloth-config", "0.90.0");
-        Kit.WriteBytes(SharedMods, "cloth-config-0.90.0.jar", oldJar);
+        var origin = _rig.OriginJar("1.21.1", "cloth-config-0.90.0.jar", oldJar);
         Kit.WriteBytes(_rig.Source, "mods/cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
         Kit.WriteBytes(_rig.Source, "mods/needsnew.jar", Kit.FabricJar("needsnew", "1.0", depends: new() { ["cloth-config"] = ">=0.100.0" }));
 
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.True(File.Exists(Shared("cloth-config-0.100.0.jar")), string.Join(" // ", plan.Lines.Select(l => $"{l.Section} {l.Kind} {l.Name}: {l.Reason}")));
-        Assert.False(File.Exists(Shared("cloth-config-0.90.0.jar")));                     // never two copies of one mod
-        Assert.True(File.Exists(Shared("needsnew.jar")));
-        Assert.Contains(plan.Lines, l => l.Reason != null && l.Reason.Contains("replacing Origin's older 0.90.0"));
+        Assert.Equal(oldJar, File.ReadAllBytes(origin));                                   // Origin's copy: never swapped
+        Assert.False(File.Exists(Shared("cloth-config-0.100.0.jar")), Lines(plan));
+        Assert.False(File.Exists(In(plan, "cloth-config-0.100.0.jar")));                   // never two copies of one mod
+        Assert.True(File.Exists(In(plan, "needsnew.jar.disabled")), Lines(plan));          // can't start next to 0.90: off
+        Assert.Contains(plan.Lines, l => l.Reason == ImportEngine.OriginKeepsItsCopy);     // and Fix Compatibility is named
 
         var undone = await _rig.Engine().RollbackAsync(plan.ImportId, _rig.Settings);
         Assert.Equal(ImportState.RolledBack, undone.State);
-        Assert.Equal(oldJar, File.ReadAllBytes(Shared("cloth-config-0.90.0.jar")));
-        Assert.False(File.Exists(Shared("cloth-config-0.100.0.jar")));
+        Assert.Equal(oldJar, File.ReadAllBytes(origin));
+        Assert.False(Directory.Exists(InstanceLayout.ProfileDir(_rig.Instances, "1.21.1", plan.ProfileId!)));
+        Assert.Empty(_rig.Settings.Load().Profiles);
     }
 
     [Fact]
     public async Task WhenTheImportedJarIsNoNewerOriginsIsKeptAndTheLineSaysSo()
     {
         var oldJar = Kit.FabricJar("cloth-config", "0.90.0");
-        Kit.WriteBytes(SharedMods, "cloth-config-0.90.0.jar", oldJar);
+        var origin = _rig.OriginJar("1.21.1", "cloth-config-0.90.0.jar", oldJar);
         Kit.WriteBytes(_rig.Source, "mods/cloth-config-0.80.0.jar", Kit.FabricJar("cloth-config", "0.80.0"));
         Kit.WriteBytes(_rig.Source, "mods/needsnew.jar", Kit.FabricJar("needsnew", "1.0", depends: new() { ["cloth-config"] = ">=0.100.0" }));
 
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal(oldJar, File.ReadAllBytes(Shared("cloth-config-0.90.0.jar")));
+        Assert.Equal(oldJar, File.ReadAllBytes(origin));
         Assert.False(File.Exists(Shared("cloth-config-0.80.0.jar")));
+        Assert.False(plan.ProfileModsDir != null && File.Exists(In(plan, "cloth-config-0.80.0.jar")));
         Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Kind == PlanItemKind.Mod);
     }
 
@@ -167,7 +176,7 @@ public sealed class ImportSharedModsTests : IDisposable
     public async Task AnImportedModThatNeedsAnotherVersionOfOriginsModLandsTurnedOffNotToBreakTheBoot()
     {
         var cobblemon = Kit.FabricJar("cobblemon", "1.8.0+1.21.1");
-        Kit.WriteBytes(SharedMods, "cobblemon-1.8.0.jar", cobblemon);
+        var origin = _rig.OriginJar("1.21.1", "cobblemon-1.8.0.jar", cobblemon);
         Kit.WriteBytes(_rig.Source, "mods/cobblemon-1.7.3.jar", Kit.FabricJar("cobblemon", "1.7.3+1.21.1"));
         Kit.WriteBytes(_rig.Source, "mods/counter.jar", Kit.FabricJar("cobbled_counter", "1.9.0", depends: new() { ["cobblemon"] = "1.7.3+1.21.1" }));
         Kit.WriteBytes(_rig.Source, "mods/counter-extra.jar", Kit.FabricJar("counter_extra", "1.0", depends: new() { ["cobbled_counter"] = "*" }));
@@ -176,27 +185,27 @@ public sealed class ImportSharedModsTests : IDisposable
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal(cobblemon, File.ReadAllBytes(Shared("cobblemon-1.8.0.jar")));     // Origin's copy untouched
-        Assert.False(File.Exists(Shared("counter.jar")));                               // would stop the game: not turned on
-        Assert.True(File.Exists(Shared("counter.jar.disabled")));                       // but still brought over, turned off
-        Assert.False(File.Exists(Shared("counter-extra.jar")));                         // its add-on can't load without it
-        Assert.True(File.Exists(Shared("counter-extra.jar.disabled")));
-        Assert.True(File.Exists(Shared("unrelated.jar")));                              // everything else lands as before
+        Assert.Equal(cobblemon, File.ReadAllBytes(origin));                                 // Origin's copy untouched
+        Assert.False(File.Exists(In(plan, "counter.jar")), Lines(plan));                    // would stop the game: not turned on
+        Assert.True(File.Exists(In(plan, "counter.jar.disabled")));                         // but still brought over, turned off
+        Assert.False(File.Exists(In(plan, "counter-extra.jar")));                           // its add-on can't load without it
+        Assert.True(File.Exists(In(plan, "counter-extra.jar.disabled")));
+        Assert.True(File.Exists(In(plan, "unrelated.jar")));                                // everything else lands as before
         Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Reason != null
             && l.Reason.Contains("needs cobblemon") && l.Reason.Contains("1.8.0+1.21.1"));
     }
 
-    // Review finding (2026-10-25): the imported lib 2.0 would replace Origin's lib 1.0, but its own dependency (helper 2+,
-    // which Origin's other mods keep at 1.0) fails, so it is turned off. Origin's lib 1.0 stays ON, so the mod that accepts any lib must stay on too, and the
-    // lib's line must say it was turned off, not "already in Origin's mods".
+    // Review finding (2026-10-25): the imported lib 2.0 can't take the place of Origin's lib 1.0, and its own dependency
+    // (helper 2+, which Origin keeps at 1.0) fails anyway. Origin's lib 1.0 stays ON, so the mod that accepts any lib
+    // stays on too, and the lib's line says it was turned off, not "already in Origin's mods".
     [Fact]
     public async Task AnImportedModTurnedOffInsteadOfReplacingOriginsCopyLeavesItsDependantsOnAndSaysWhy()
     {
         var originLib = Kit.FabricJar("lib", "1.0.0");
-        Kit.WriteBytes(SharedMods, "lib-1.0.0.jar", originLib);
-        Kit.WriteBytes(SharedMods, "helper-1.0.0.jar", Kit.FabricJar("helper", "1.0.0"));
+        var lib = _rig.OriginJar("1.21.1", "lib-1.0.0.jar", originLib);
+        _rig.OriginJar("1.21.1", "helper-1.0.0.jar", Kit.FabricJar("helper", "1.0.0"));
         // Another of Origin's mods keeps Origin's helper 1.0, so the imported helper 2.0 cannot replace it...
-        Kit.WriteBytes(SharedMods, "originuser.jar", Kit.FabricJar("originuser", "1.0", depends: new() { ["helper"] = "<2.0.0" }));
+        _rig.OriginJar("1.21.1", "originuser.jar", Kit.FabricJar("originuser", "1.0", depends: new() { ["helper"] = "<2.0.0" }));
         Kit.WriteBytes(_rig.Source, "mods/helper-2.0.0.jar", Kit.FabricJar("helper", "2.0.0"));
         // ...and the imported lib 2.0 (which would replace Origin's lib) needs helper 2+, so it is turned off.
         Kit.WriteBytes(_rig.Source, "mods/lib-2.0.0.jar", Kit.FabricJar("lib", "2.0.0", depends: new() { ["helper"] = ">=2.0.0" }));
@@ -206,46 +215,48 @@ public sealed class ImportSharedModsTests : IDisposable
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal(originLib, File.ReadAllBytes(Shared("lib-1.0.0.jar")));            // Origin's copy stays on
-        Assert.False(File.Exists(Shared("lib-2.0.0.jar")));
-        Assert.True(File.Exists(Shared("app.jar")), string.Join(" // ", plan.Lines.Select(l => $"{l.Section} {l.Name}: {l.Reason}")));
-        Assert.False(File.Exists(Shared("app.jar.disabled")));                           // lib IS there: app stays on
-        Assert.True(File.Exists(Shared("needs-lib2.jar.disabled")));                     // it really needs lib 2+: off
+        Assert.Equal(originLib, File.ReadAllBytes(lib));                                    // Origin's copy stays on
+        Assert.False(File.Exists(In(plan, "lib-2.0.0.jar")));
+        Assert.True(File.Exists(In(plan, "app.jar")), Lines(plan));
+        Assert.False(File.Exists(In(plan, "app.jar.disabled")));                            // lib IS there: app stays on
+        Assert.True(File.Exists(In(plan, "needs-lib2.jar.disabled")));                      // it really needs lib 2+: off
         var libLine = plan.Lines.Single(l => l.Name == "lib");
         Assert.Equal(SummarySection.NeedsAttention, libLine.Section);
-        Assert.Contains("turned off", libLine.Reason);
-        Assert.Contains("helper", libLine.Reason);
         Assert.DoesNotContain(ImportEngine.AlreadyInOriginMods, libLine.Reason);
     }
 
     [Fact]
     public async Task AnImportedModWhoseNeedIsMetByOriginsModLandsTurnedOnAsBefore()
     {
-        Kit.WriteBytes(SharedMods, "cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
+        _rig.OriginJar("1.21.1", "cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
         Kit.WriteBytes(_rig.Source, "mods/cloth-config-0.100.0.jar", Kit.FabricJar("cloth-config", "0.100.0"));
         Kit.WriteBytes(_rig.Source, "mods/needsok.jar", Kit.FabricJar("needsok", "1.0", depends: new() { ["cloth-config"] = ">=0.90.0" }));
 
-        var (_, result) = await Run();
+        var (plan, result) = await Run();
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.True(File.Exists(Shared("needsok.jar")));
-        Assert.False(File.Exists(Shared("needsok.jar.disabled")));
+        Assert.True(File.Exists(In(plan, "needsok.jar")), Lines(plan));
+        Assert.False(File.Exists(In(plan, "needsok.jar.disabled")));
+        Assert.False(File.Exists(In(plan, "cloth-config-0.100.0.jar")));                    // Origin's copy is the one used
     }
 
-    // ------------------------------------------------------------ the .disabled twin
+    // ------------------------------------------------------------ the player's own jars in the shared folder
 
+    // A profile launch loads only Origin's own turned-on jars from the shared folder (LaunchModFolder), so a player's
+    // loose jar there - on or off - is not "already in Origin": the imported mod lands in the profile, turned on.
     [Fact]
-    public async Task ATurnedOffOriginTwinIsNotAlreadyInOriginTheImportedOnLandsInItsPlace()
+    public async Task APlayersOwnJarInTheSharedFolderDoesNotCountTheImportedOneLandsInTheProfile()
     {
-        Kit.WriteBytes(SharedMods, "mymod.jar.disabled", Kit.FabricJar("mymod", "1.0"));
+        var loose = Kit.WriteBytes(SharedMods, "mymod.jar.disabled", Kit.FabricJar("mymod", "1.0"));
+        var before = File.ReadAllBytes(loose);
         Kit.WriteBytes(_rig.Source, "mods/mymod.jar", Kit.FabricJar("mymod", "1.0"));
 
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.True(File.Exists(Shared("mymod.jar")));
-        Assert.False(File.Exists(Shared("mymod.jar.disabled")));                        // one copy, turned on
-        Assert.Contains(plan.Lines, l => l.Reason == SharedModsLedger.TurnedOffNote);
+        Assert.True(File.Exists(In(plan, "mymod.jar")), Lines(plan));
+        Assert.Equal(before, File.ReadAllBytes(loose));                                     // the shared folder: untouched
+        Assert.False(File.Exists(Shared("mymod.jar")));
     }
 
     [Fact]
@@ -264,37 +275,47 @@ public sealed class ImportSharedModsTests : IDisposable
         Assert.Null(ImportEngine.ModTwinThere(Op("y.jar")));
     }
 
-    // ------------------------------------------------------------ undo and the shared mods folder
+    // ------------------------------------------------------------ undo and the profile another import counts on
 
     private void PopulateOneMod() =>
         Kit.WriteBytes(_rig.Source, "mods/onlyhere.jar", Kit.FabricJar("onlyhere", "1.0"));
 
+    // Another account imports the same setup: it reuses the profile (same files) instead of making "Folder: Hypixel 2".
+    // Undoing the FIRST import must not take that profile away from the second.
     [Fact]
-    public async Task UndoKeepsASharedJarAnotherAccountsImportCountsOn()
+    public async Task UndoKeepsAProfileAnotherAccountsImportCountsOn()
     {
         PopulateOneMod();
         var (planA, a) = await Run();
         Assert.True(a.Succeeded, a.Error);
-        var (_, b) = await Run(_rig.Request(account: OtherAccount));                   // finds the jar already in Origin
+        var (planB, b) = await Run(_rig.Request(account: OtherAccount) with { ExistingProfiles = _rig.Settings.Load().Profiles });
         Assert.True(b.Succeeded, b.Error);
+        Assert.True(planB.ProfileReused);
+        Assert.Equal(planA.ProfileId, planB.ProfileId);
 
         var undone = await _rig.Engine().RollbackAsync(planA.ImportId, _rig.Settings);
 
         Assert.Equal(ImportState.RolledBack, undone.State);
-        Assert.True(File.Exists(Shared("onlyhere.jar")));                              // the other account still needs it
+        Assert.True(File.Exists(In(planA, "onlyhere.jar")));                               // the other account still needs it
+        Assert.Contains(_rig.Settings.Load().Profiles, p => p.Id == planA.ProfileId);
     }
 
     [Fact]
-    public async Task UndoWithNobodyCountingOnTheSharedJarRemovesIt()
+    public async Task UndoWithNobodyCountingOnTheProfileRemovesItAndItsSettingsEntry()
     {
         PopulateOneMod();
         var (plan, result) = await Run();
         Assert.True(result.Succeeded, result.Error);
+        Assert.Single(_rig.Settings.Load().Profiles);
 
         var undone = await _rig.Engine().RollbackAsync(plan.ImportId, _rig.Settings);
 
         Assert.Equal(ImportState.RolledBack, undone.State);
-        Assert.False(File.Exists(Shared("onlyhere.jar")));
+        Assert.False(Directory.Exists(InstanceLayout.ProfileDir(_rig.Instances, "1.21.1", plan.ProfileId!)));
+        var settings = _rig.Settings.Load();
+        Assert.Empty(settings.Profiles);
+        Assert.Equal("1.21.11", settings.SelectedVersion);                                 // the selection goes back too
+        Assert.Null(settings.SelectedProfileId);
     }
 
     [Fact]
@@ -311,12 +332,12 @@ public sealed class ImportSharedModsTests : IDisposable
 
         Assert.NotEqual(ImportState.RolledBack, refused.State);
         Assert.Contains("Close Minecraft first", refused.Error);
-        Assert.True(File.Exists(Shared("onlyhere.jar")));
+        Assert.True(File.Exists(In(plan, "onlyhere.jar")));                                // any account may play the profile
 
         _rig.RunningDirs.Remove(other);                                                 // closed: the undo goes through
         var undone = await _rig.Engine().RollbackAsync(plan.ImportId, _rig.Settings);
         Assert.Equal(ImportState.RolledBack, undone.State);
-        Assert.False(File.Exists(Shared("onlyhere.jar")));
+        Assert.False(File.Exists(In(plan, "onlyhere.jar")));
     }
 }
 

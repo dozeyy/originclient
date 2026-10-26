@@ -78,6 +78,13 @@ public interface IImportBackend
 
     Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct);
 
+    /// <summary>
+    /// Step 4 of the guided import: re-reads what the run put on disk and checks each profile it made (ImportVerifier),
+    /// on the thread pool. The default re-reads files only (no profile check) for backends without the mod rules.
+    /// </summary>
+    Task<ImportVerification> VerifyAsync(BulkImportPlan plan, BulkImportResult result, CancellationToken ct) =>
+        Task.Run(() => ImportVerifier.Verify(plan, result), ct);
+
     // ---- the drawer's launcher tiles and version rows (Core/Import/SetupInventory) ----
 
     /// <summary>
@@ -170,6 +177,8 @@ public sealed class LauncherImportBackend : IImportBackend
             IsGameRunning = SettingsSync.IsGameRunning,
             Log = dryRun ? null : ImportLog.Write, // a dry run appends to no file at all
             VersionGate = new LauncherVersionGate(),
+            // Imported mods land in profiles; a profile launch takes these jars from the shared folder (LaunchModFolder).
+            IsOriginProvisioned = OriginLauncher.App.Core.Mods.ModManager.IsOriginProvisioned,
             Contributors = new IImportPlanContributor[]
             {
                 new GameFileContributor(gameFiles, new ImportMetadataHttp(), new LauncherVersionGate()),
@@ -337,10 +346,26 @@ public sealed class LauncherImportBackend : IImportBackend
         }, CancellationToken.None);
     }
 
+    // Each profile is checked the way its launch will check it: Origin's own turned-on jars from the version's shared
+    // mods folder plus the profile's jars (ImportProfileCheck), read only.
+    public Task<ImportVerification> VerifyAsync(BulkImportPlan plan, BulkImportResult result, CancellationToken ct) =>
+        Task.Run(() => ImportVerifier.Verify(plan, result, checkProfile: (version, profileMods) =>
+        {
+            try
+            {
+                return ImportProfileCheck.Check(version, InstanceLayout.ModsDir(OriginPaths.Instances, version), profileMods,
+                    OriginLauncher.App.Core.Mods.ModManager.IsOriginProvisioned, ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                return Array.Empty<string>(); // a check that can't read is no verdict; the launch checks again at Play
+            }
+        }), ct);
+
     /// <summary>
     /// A re-plan starts from the plan's request, whose external-mods switch may be minutes old: it is read again, so the
-    /// plan's "your own mods are off" note follows what is saved now. (Imports change no launcher setting: no profile,
-    /// no selection.)
+    /// plan's "your own mods are off" note follows what is saved now. (A run's only settings change is adding its new
+    /// profiles, in one write at the end of the apply.)
     /// </summary>
     private static BulkImportPlan Fresh(BulkImportPlan plan)
     {
@@ -373,6 +398,7 @@ public sealed class LauncherImportBackend : IImportBackend
             SupportedTargets = parts.SupportedTargets,
             Facts = TargetFactsFor,
             PlayWithExternalMods = settings.PlayWithExternalMods,
+            ExistingProfiles = settings.ModProfiles.ToList(),
         };
     }
 
@@ -407,6 +433,9 @@ public sealed class LauncherImportBackend : IImportBackend
             BundledOriginJarPath = target == null ? null : VersionManager.BundledJarFor(target),
             CatalogMods = target == null ? Array.Empty<CatalogMod>() : CatalogModsFor(target),
             PlayWithExternalMods = settings.PlayWithExternalMods,
+            ExistingProfiles = settings.ModProfiles.ToList(),
+            SelectedVersion = settings.SelectedVersion,
+            SelectedProfileId = settings.SelectedProfileId,
         };
     }
 

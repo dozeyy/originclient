@@ -27,6 +27,7 @@ internal static class EngineBKit
             FreeSpace = freeSpace ?? (_ => long.MaxValue),
             IsGameRunning = isRunning ?? (dir => rig.RunningDirs.Contains(dir)),
             OnSourceOpen = rig.Opened.Add, Log = rig.LogLines.Add, Contributors = contributors, VersionGate = versionGate,
+            IsOriginProvisioned = rig.IsOriginJar,
         });
 
     public static string Sha1(byte[] data) => Convert.ToHexString(SHA1.HashData(data)).ToLowerInvariant();

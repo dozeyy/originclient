@@ -252,9 +252,9 @@ public class ModResolverTests : IDisposable
         Assert.Contains("~1.20.4", d["old.jar"].Reason);
         Assert.Contains("1.21.1", d["old.jar"].Reason);
         Assert.Equal(ModOutcome.WrongLoader, d["forge.jar"].Outcome);
-        Assert.Contains("Forge", d["forge.jar"].Reason);
-        Assert.Contains("NeoForge", d["neo.jar"].Reason);
-        Assert.Contains("Quilt", d["quilt.jar"].Reason);
+        Assert.Equal(ImportVerifier.WrongLoaderReason, d["forge.jar"].Reason); // one loader-free sentence (mandate 1)
+        Assert.Equal(ImportVerifier.WrongLoaderReason, d["neo.jar"].Reason);
+        Assert.Equal(ImportVerifier.WrongLoaderReason, d["quilt.jar"].Reason);
         Assert.Equal(ModOutcome.WrongLoader, d["legacy.jar"].Outcome);
         Assert.Equal(ModOutcome.WrongLoader, d["plain.jar"].Outcome);
         Assert.Equal(ModOutcome.Unreadable, d["broken.jar"].Outcome);
@@ -306,7 +306,7 @@ public class ModResolverTests : IDisposable
         foreach (var name in new[] { "fabric-a.jar", "fabric-b.jar", "quilt.jar" })
         {
             Assert.Equal(ModOutcome.WrongLoader, d[name].Outcome);
-            Assert.Contains("1.8.9 runs on Forge in Origin", d[name].Reason);
+            Assert.Contains("different kind of Minecraft mod setup", d[name].Reason);
             Assert.Null(d[name].DestFileName);
         }
         Assert.Equal(ModOutcome.Copied, d["forge189.jar"].Outcome);              // a real 1.8.9 Forge mod goes across

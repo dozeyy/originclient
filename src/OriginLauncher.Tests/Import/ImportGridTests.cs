@@ -6,7 +6,7 @@ using Xunit;
 namespace OriginLauncher.Tests.Import;
 
 /// <summary>
-/// Imports go into plain Origin, never a profile: the one-launcher fast path ("Bring everything from Prism") and the
+/// Every imported setup that brings mods becomes its own profile (Will, 2026-10-25): the one-launcher fast path ("Bring everything from Prism") and the
 /// "Choose what to import" grid (a row per launcher, a tick per thing, Settings one launcher per version).
 /// Temp folders only (BulkFixture); the grid model is pure.
 /// </summary>
@@ -24,7 +24,7 @@ public sealed class ImportGridTests : IDisposable
     // ------------------------------------------------------------ the fast path (one launcher, everything)
 
     [Fact]
-    public async Task TheFastPathMakesNoProfileAndEveryVersionGetsTheMostPlayedSetupsSettings()
+    public async Task TheFastPathMakesAProfilePerSetupAndEveryVersionGetsTheMostPlayedSetupsSettings()
     {
         var a = _f.Add("Survival", "1.21.1", playtimeHours: 20);
         var b = _f.Add("Skyblock", "1.20.4", playtimeHours: 50);              // the most played of all
@@ -44,16 +44,15 @@ public sealed class ImportGridTests : IDisposable
         Assert.Contains("fov:0.9", File.ReadAllText(_f.Target("1.21.1", "options.txt")));
         Assert.Contains("fov:0.9", File.ReadAllText(_f.Target("1.20.4", "options.txt")));
         Assert.DoesNotContain(plan.AllSetups, s => s.Setup.Kind == SourceKind.Modrinth);
-        // No profile, no picked version changed, no profiles folder.
+        // One profile per Prism setup (each brings its own mods); a bulk run never changes the picked version.
         var settings = _f.Rig.Settings.Load();
-        Assert.Empty(settings.Profiles);
+        Assert.Equal(new[] { "Prism: Skyblock", "Prism: Survival", "Prism: Testing" }, settings.Profiles.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
         Assert.Null(settings.SelectedProfileId);
         Assert.Equal("1.21.11", settings.SelectedVersion);
-        Assert.False(Directory.Exists(Path.Combine(_f.Rig.Instances, "1.21.1", "profiles")));
     }
 
     [Fact]
-    public async Task ModsComeFromTheMostPlayedSetupOfEachVersionWhilePacksAndWorldsAreUnioned()
+    public async Task EachSetupsModsLandInItsOwnProfileWhilePacksAndWorldsAreUnioned()
     {
         var a = _f.Add("Survival", "1.21.1", playtimeHours: 20);
         var c = _f.Add("Testing", "1.21.1", playtimeHours: 2);
@@ -68,9 +67,13 @@ public sealed class ImportGridTests : IDisposable
 
         Assert.True(result.Succeeded, result.Error);
         var shared = Path.Combine(_f.Rig.Instances, "1.21.1", "mods");
-        Assert.True(File.Exists(Path.Combine(shared, "aonly.jar")));
-        Assert.False(File.Exists(Path.Combine(shared, "conly.jar")));           // one setup's mods, never a union
-        Assert.DoesNotContain(plan.AllSetups.Single(s => s.Setup == c).Plan.Ops, o => o.Item == PlanItemKind.Mod);
+        var aMods = plan.AllSetups.Single(s => s.Setup == a).Plan.ProfileModsDir!;
+        var cMods = plan.AllSetups.Single(s => s.Setup == c).Plan.ProfileModsDir!;
+        Assert.NotEqual(aMods, cMods);
+        Assert.True(File.Exists(Path.Combine(aMods, "aonly.jar")));
+        Assert.False(File.Exists(Path.Combine(aMods, "conly.jar")));            // each setup's own mods, never a union
+        Assert.True(File.Exists(Path.Combine(cMods, "conly.jar")));
+        Assert.False(File.Exists(Path.Combine(shared, "aonly.jar")));           // Origin's shared folder: nothing imported
         Assert.True(File.Exists(_f.Target("1.21.1", "resourcepacks/TestingPack.zip")));
         Assert.True(File.Exists(_f.Target("1.21.1", "shaderpacks/TestingShader.zip")));
         Assert.True(File.Exists(_f.Target("1.21.1", "saves/Testing World/level.dat")));
@@ -98,7 +101,7 @@ public sealed class ImportGridTests : IDisposable
     }
 
     [Fact]
-    public async Task ImportEverythingAcrossLaunchersMakesNoProfileEither()
+    public async Task ImportEverythingAcrossLaunchersMakesAProfilePerSetupAndKeepsThePickedVersion()
     {
         _f.Add("Survival", "1.21.1", playtimeHours: 20);
         _f.Add("Fabulously Optimized", "1.21.1", kind: SourceKind.Modrinth, playtimeHours: 5);
@@ -108,7 +111,8 @@ public sealed class ImportGridTests : IDisposable
         var result = await _f.Engine().ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Empty(_f.Rig.Settings.Load().Profiles);
+        Assert.Equal(new[] { "CurseForge: Skyblock", "Modrinth: Fabulously Optimized", "Prism: Survival" },
+            _f.Rig.Settings.Load().Profiles.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
         Assert.Equal("1.21.11", _f.Rig.Settings.Load().SelectedVersion);
     }
 
@@ -263,49 +267,41 @@ public sealed class ImportGridTests : IDisposable
         Assert.Equal("All versions", ImportGridModel.TabTitle(two.Tab));
     }
 
+    // ------------------------------------------------------------ mods: every setup is its own profile, nothing mixes
+
     [Fact]
-    public void ModsFromTwoLaunchersOnOneVersionAreAllowedWithTheWarning()
+    public void EveryLaunchersModsStartTickedAndEachSetupBringsItsOwn()
     {
         var setups = TwoLaunchersTwoVersions();
         var grid = new ImportGridModel(setups);
-        Assert.Null(grid.Warning());                                              // the default: one launcher's mods per version
         grid.SetTab("1.21.1");
-        var off = grid.Cell(SourceKind.Prism, GridColumn.Mods).On == true ? SourceKind.Modrinth : SourceKind.Prism;
+        Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);           // two launchers: two profiles, no warning
 
-        grid.Toggle(off, GridColumn.Mods);
-
-        Assert.Equal("Mods from different launchers might not work together.", grid.Warning());
-        grid.SetTab("1.20.4");                                                    // shown whatever the tab
-        Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
-        grid.SetTab(ImportGridModel.AllTab);
-        Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
-        Assert.Equal(new[] { "1.21.1" }, grid.MixedModsVersions());
         var composition = BulkComposer.Compose(setups, grid.Grid());
-        Assert.Contains(composition, c => c.Version == "1.21.1" && c.MixedMods);
-        Assert.DoesNotContain(composition, c => c.Version == "1.20.4" && c.MixedMods);
+        var v1211 = composition.Single(c => c.Version == "1.21.1");
+        Assert.Equal(new[] { "FO", "Survival" },
+            v1211.Order.Where(c => (c.Brings & ImportCategories.Mods) != 0).Select(c => c.Setup.Name).OrderBy(n => n, StringComparer.Ordinal));
     }
 
     [Fact]
-    public void TwoLaunchersModsTickedWarnEvenOnDifferentVersions()
+    public void UntickingOneLaunchersModsLeavesTheOthers()
     {
-        // Will's rule, literally: more than one launcher's Mods box ticked = the warning, whatever the versions.
         var grid = new ImportGridModel(new[] { Setup("Survival", SourceKind.Prism, "1.21.1", 40), Setup("FO", SourceKind.Modrinth, "1.20.4", 5) });
         Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
-        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);             // one launcher's mods by default
-        Assert.Null(grid.Warning());
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
 
-        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);                        // a second launcher's mods: the warning
-        Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
-        Assert.Empty(grid.MixedModsVersions());                                   // no version's folder mixes them
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);
+        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
 
-        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);                        // back to one launcher's mods: none
-        Assert.Null(grid.Warning());
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
     }
 
     [Fact]
-    public void TheDefaultGridNeverOpensWithTheModsWarning()
+    public void TheDefaultGridTicksModsWhereverThereAreSome()
     {
-        // Three launchers with mods on three versions: only the settings launcher's Mods start ticked.
         var grid = new ImportGridModel(new[]
         {
             Setup("Survival", SourceKind.Prism, "1.21.1", 40),
@@ -316,18 +312,15 @@ public sealed class ImportGridTests : IDisposable
         });
 
         Assert.Equal(SourceKind.Prism, grid.SettingsLauncher);
-        Assert.Equal(SourceKind.Prism, grid.DefaultModsLauncher);
-        Assert.Null(grid.Warning());
         Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
-        Assert.False(grid.Cell(SourceKind.OfficialLauncher, GridColumn.Mods).On);
-        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
         Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.ResourcePacks).On);      // the other columns keep their defaults
         Assert.True(grid.Cell(SourceKind.OfficialLauncher, GridColumn.Worlds).On);
         Assert.True(grid.Cell(SourceKind.OfficialLauncher, GridColumn.Servers).On);
     }
 
     [Fact]
-    public void WhenTheSettingsLauncherHasNoModsTheLauncherWithTheMostModsIsTicked()
+    public void ACountedLauncherWithNoModsStartsUntickedAndAPressedTickSurvivesALaterCount()
     {
         var prism = Setup("Survival", SourceKind.Prism, "1.21.1", 40);
         var modrinth = Setup("FO", SourceKind.Modrinth, "1.21.1", 5);
@@ -341,18 +334,15 @@ public sealed class ImportGridTests : IDisposable
         };
 
         Assert.Equal(SourceKind.Prism, grid.SettingsLauncher);
-        Assert.Equal(SourceKind.CurseForge, grid.DefaultModsLauncher);
+        Assert.False(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);                // nothing behind it
         Assert.True(grid.Cell(SourceKind.CurseForge, GridColumn.Mods).On);
-        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
-        Assert.Null(grid.Warning());
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
 
         // Once the player pressed a Mods tick, a later count never moves it.
         grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);
         grid.Contents = new Dictionary<string, SetupContents>(grid.Contents);
-        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
-        Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
+        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
     }
-
     [Fact]
     public void AnUntouchedGridPlansExactlyLikeImportEverything()
     {

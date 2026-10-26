@@ -24,4 +24,12 @@ internal static class ImportHooks
 
     /// <summary>The sentence to show when Import must be off (a launch is starting or an update is running), else null.</summary>
     public static string? Refusal() => LaunchRunState.ImportRefusal();
+
+    /// <summary>
+    /// Fix Compatibility (U5.3) for an imported profile that can't start, given its Minecraft version and profile id.
+    /// MainWindow.OpenImportPanel sets it to the real flow (HomePage.FixImportedProfileAsync: select the profile, the
+    /// same prompt Play opens, a repaired COPY only on Fix); render shots set a stand-in. Null: the report only says a
+    /// repaired copy can be made, with no button. Its one call site is ImportPanel.FixProfile_Click.
+    /// </summary>
+    public static Func<string, string, Task>? FixCompatibility { get; set; }
 }

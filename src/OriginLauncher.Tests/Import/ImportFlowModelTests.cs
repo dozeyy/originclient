@@ -175,6 +175,28 @@ public class ImportFlowModelTests
         Assert.False(selection.Includes(setups[1]));
     }
 
+    // Step 2 of the guided import (decision 04): one source launcher. The grid over it brings only its setups; the other
+    // launchers are out of the selection (the engine marks them NotSelected, which the report never shows).
+    [Fact]
+    public void Grid_over_one_launcher_selects_only_that_launcher_and_keeps_its_ticks_until_another_is_picked()
+    {
+        var (model, setups) = Mixed();
+        var lunarGrid = model.UseGrid(SourceKind.Lunar);
+        var selection = model.Selection();
+        Assert.All(setups.Where(s => s.Kind == SourceKind.Lunar), s => Assert.True(selection.Includes(s)));
+        Assert.All(setups.Where(s => s.Kind != SourceKind.Lunar), s => Assert.False(selection.Includes(s)));
+        var lunarKey = model.SelectionKey();
+
+        Assert.Same(lunarGrid, model.UseGrid(SourceKind.Lunar));               // Back and a second visit keep the ticks
+        var officialGrid = model.UseGrid(SourceKind.OfficialLauncher);
+        Assert.NotSame(lunarGrid, officialGrid);                                // another launcher: its own grid
+        Assert.NotEqual(lunarKey, model.SelectionKey());                        // and its own plan
+        Assert.All(setups.Where(s => s.Kind == SourceKind.Lunar), s => Assert.False(model.Selection().Includes(s)));
+
+        model.UseGrid();
+        Assert.All(setups, s => Assert.True(model.Selection().Includes(s)));   // no launcher picked: every setup
+    }
+
     [Fact]
     public void All_launchers_scope_selects_every_setup()
     {

@@ -1,13 +1,14 @@
 using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
+using OriginLauncher.App.Core.Profiles;
 
 namespace OriginLauncher.App.Core.Import.Bulk;
 
 // "Import everything": the data the bulk import passes around. Where the single-instance import
 // (ImportModels) takes ONE detected instance into one Origin game folder, a bulk import takes MANY
 // setups (every instance of every launcher found, or the ticked ones) and merges them per Minecraft
-// version: one setup's settings, the picked mods, everyone's packs, worlds and servers, one game-file reuse. Nothing
-// makes a profile: mods land in the version's shared mods folder (BulkComposer decides who brings what).
+// version: one setup's settings, everyone's packs, worlds and servers, one game-file reuse, and each setup's mods in
+// an Origin profile of its own (BulkComposer decides who brings what; Will, 2026-10-25).
 //
 // Plain records and enums, no IO and no launcher state, so every piece is unit tested on Linux like the
 // rest of Core/Import. The engine fills these in (ImportEngine.PlanBulkAsync / ApplyBulkAsync in
@@ -127,6 +128,9 @@ public sealed record BulkRequest
 
     /// <summary>"Play with my own mods" as it is now (only read for the run's note; never changed by an import).</summary>
     public bool PlayWithExternalMods { get; init; } = true;
+
+    /// <summary>The player's profiles as they are now: each new profile's name is unique among them (and a repeat import reuses its profile).</summary>
+    public IReadOnlyList<ModProfile> ExistingProfiles { get; init; } = Array.Empty<ModProfile>();
 }
 
 // ---- the plan ----------------------------------------------------------------
@@ -169,9 +173,6 @@ public sealed class VersionGroup
 
     /// <summary>Kept for the panel's old choice prompt: never set now (the grid decides whose settings a version gets).</summary>
     public bool NeedsChoice { get; set; }
-
-    /// <summary>Mods come from more than one launcher (allowed; the grid warns).</summary>
-    public bool MixedMods => Setups.Where(s => (s.Brings & ImportCategories.Mods) != 0).Select(s => s.Setup.Kind).Distinct().Count() > 1;
 
     public List<PlannedSetup> Setups { get; } = new();
 
@@ -250,9 +251,14 @@ public enum SetupResultKind
 }
 
 /// <param name="Lines">What happened to this setup's items (Imported / Reused / Needs attention / Not imported).</param>
+/// <param name="ProfileId">The Origin profile its mods landed in (null: no mod came over, or the import didn't finish).</param>
+/// <param name="ProfileName">That profile's name.</param>
+/// <param name="ProfileModsDir">That profile's mods folder (the report re-reads it).</param>
+/// <param name="ProfileReused">A profile of this version already held exactly these mods: it was reused, not made.</param>
 public sealed record SetupOutcome(
     DetectedInstance Setup, SetupRole Role, SetupResultKind Kind, string? Message = null, ImportResult? Result = null,
-    IReadOnlyList<SummaryLine>? Lines = null, IReadOnlyList<SummaryLine>? LeftOut = null);
+    IReadOnlyList<SummaryLine>? Lines = null, IReadOnlyList<SummaryLine>? LeftOut = null,
+    string? ProfileId = null, string? ProfileName = null, string? ProfileModsDir = null, bool ProfileReused = false);
 
 /// <param name="SettingsFrom">The label of the setup whose settings this version got (null: none came over).</param>
 /// <param name="GameFiles">What game-file reuse found for this version.</param>

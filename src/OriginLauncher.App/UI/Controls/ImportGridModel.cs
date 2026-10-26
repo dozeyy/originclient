@@ -14,8 +14,8 @@ namespace OriginLauncher.App.UI.Controls;
 //    settings ever meet (Will, 2026-10-19). The default is the launcher the engine picks for the most versions
 //    (BulkComposer.DefaultSettingsLauncher). A version that launcher has no setup on gets its MOST PLAYED setup's
 //    settings, migrated to that version (Will, 2026-10-19; BulkComposer.SettingsDonor + SettingsMigrator);
-//  * Mods start ticked for ONE launcher only (the settings launcher when it has mods, else the one with the most),
-//    so the grid never opens with the warning; ticking a second launcher's mods is allowed, with the warning;
+//  * Mods start ticked for every launcher that has some: each setup's mods land in a profile of their own (Will,
+//    2026-10-25, decision 04), so two launchers' mods never meet in one folder and there is no mixed-mods warning;
 //  * every other column is a plain tick;
 //    packs, shaders and servers come from every ticked launcher with duplicates removed, worlds all come;
 //  * a cell with nothing behind it is greyed with the reason ("Lunar's mods are built in, not files"), never hidden;
@@ -31,8 +31,6 @@ internal sealed class ImportGridModel
 {
     /// <summary>The "All versions" tab.</summary>
     public const string AllTab = "all";
-
-    public const string MixedModsWarning = "Mods from different launchers might not work together.";
 
     public static readonly IReadOnlyList<GridColumn> Columns = new[]
     {
@@ -73,29 +71,15 @@ internal sealed class ImportGridModel
     }
     private IReadOnlyDictionary<string, SetupContents> _contents = new Dictionary<string, SetupContents>();
 
-    /// <summary>The one launcher whose Mods start ticked; null when no launcher has mods.</summary>
-    public SourceKind? DefaultModsLauncher { get; private set; }
-
-    // Mods from one launcher only (Will, 2026-10-19: the grid never opens with the mixed-mods warning): the settings
-    // launcher when it has mods, else the launcher with the most mods (counted; before the count, the most versions the
-    // engine would take mods from, then the most played). Every other launcher's Mods start unticked.
+    // Mods start ticked wherever there are mods to bring (each setup becomes its own profile, so nothing mixes); a cell
+    // the count shows empty starts unticked. Re-run after a count until the player presses a Mods tick.
     private void DefaultMods()
     {
-        var withMods = Versions.SelectMany(v => LaunchersOn(v).Where(k => Has(k, v, GridColumn.Mods))).Distinct().ToList();
-        int ModsCount(SourceKind kind) => Versions.Sum(v =>
-            BulkComposer.ModsSetup(kind, v, SetupsOf(kind, v)) is { } s && _contents.TryGetValue(s.SetupId, out var c) ? c.Mods : 0);
-        DefaultModsLauncher = SettingsLauncher is { } settings && withMods.Contains(settings)
-            ? settings
-            : withMods.OrderByDescending(ModsCount)
-                .ThenByDescending(k => Versions.Count(v => BulkComposer.DefaultModsLauncher(v, _setups) == k))
-                .ThenByDescending(k => _setups.Where(s => s.Kind == k).Sum(s => s.PlaytimeSeconds ?? 0))
-                .ThenBy(TileIndex)
-                .Select(k => (SourceKind?)k).FirstOrDefault();
         foreach (var version in Versions)
             foreach (var kind in LaunchersOn(version))
             {
                 var brings = _cells.Brings(kind, version);
-                var on = kind == DefaultModsLauncher && Has(kind, version, GridColumn.Mods);
+                var on = Has(kind, version, GridColumn.Mods);
                 _cells.Set(version, kind, on ? brings | ImportCategories.Mods : brings & ~ImportCategories.Mods);
             }
     }
@@ -218,7 +202,7 @@ internal sealed class ImportGridModel
         if (column == GridColumn.Settings)
         {
             var mine = SettingsVersions(kind);
-            if (mine.Count == 0) return new GridCellState(false, false, $"{title}'s setups here bring packs only (Forge), not settings");
+            if (mine.Count == 0) return new GridCellState(false, false, $"{title}'s setups here bring packs only, not settings");
             // Versions this launcher has no setup on get its most played setup's settings: said in the tip.
             // The donor is the one the plan uses: a setup it can't take (Minecraft running from it) is passed over.
             var carried = Versions.Where(v => !SetupsOf(kind, v).Any(s => BulkComposer.CarriesSettings(s) && !_unavailable.Contains(s))).ToList();
@@ -247,7 +231,7 @@ internal sealed class ImportGridModel
     }
 
     /// <summary>A Forge setup on a Fabric version brings its packs only (BulkRules.IsPacksOnly).</summary>
-    public const string PacksOnlyReason = "Forge setups bring their packs only";
+    public const string PacksOnlyReason = "These setups bring their packs only";
 
     // Forge setups on a Fabric version bring packs (and screenshots) only: their mods, worlds and servers stay.
     private bool PacksOnly(SourceKind kind, string version, GridColumn column) =>
@@ -328,21 +312,6 @@ internal sealed class ImportGridModel
         }
     }
 
-    /// <summary>The versions (whole grid, whatever the tab) whose mods come from more than one launcher.</summary>
-    public IReadOnlyList<string> MixedModsVersions() =>
-        Versions.Where(v => LaunchersOn(v).Count(k => Has(k, v, GridColumn.Mods) && (_cells.Brings(k, v) & ImportCategories.Mods) != 0) > 1).ToList();
-
-    /// <summary>
-    /// The short warning whenever more than one launcher's Mods box is ticked (on any versions), or null. Will's rule
-    /// taken literally (2026-10-19): two ticked Mods boxes with no warning reads as a bug, even when the mods land in
-    /// different versions' folders.
-    /// </summary>
-    public string? Warning() => ModsLaunchers().Count > 1 ? MixedModsWarning : null;
-
-    // The launchers whose Mods box brings mods on at least one version.
-    private IReadOnlyList<SourceKind> ModsLaunchers() =>
-        Versions.SelectMany(v => LaunchersOn(v).Where(k => Has(k, v, GridColumn.Mods) && (_cells.Brings(k, v) & ImportCategories.Mods) != 0))
-            .Distinct().ToList();
 
     /// <summary>True when the grid brings nothing at all (Import is off then).</summary>
     public bool BringsNothing =>

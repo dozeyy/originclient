@@ -42,7 +42,9 @@ public static class BulkRules
 
     public static string UnsupportedReason(string version) => $"Origin doesn't support Minecraft {version}, so this setup can't come over.";
 
-    public const string ForgeNote = "Forge mods can't come over. Origin runs Fabric, except on 1.8.9.";
+    // A Forge/NeoForge setup on a version Origin doesn't run that way brings its packs only. The player never reads a
+    // loader's name (mandate 1), so the line says what happens and why without one.
+    public const string ForgeNote = "Its mods were made for a different kind of Minecraft mod setup, so only its packs come over.";
 
     public const string NothingPickedReason = "Nothing was picked to come over from this setup.";
 
@@ -54,7 +56,7 @@ public static class BulkRules
     // are what the plan, the summary and the Done page say; these are what a row says. One source each.
 
     /// <summary>A Forge/NeoForge setup's row caption: what happens, and why, in one line (Will asked for the reason to stay).</summary>
-    public const string ForgeCaption = "Forge mods can't come over (Fabric only, except 1.8.9)";
+    public const string ForgeCaption = "Packs only: its mods are made for a different mod setup";
 
     /// <summary>The row caption of a setup on a Minecraft version Origin doesn't have (the full sentence: <see cref="UnsupportedReason"/>).</summary>
     public const string UnsupportedCaption = "Not supported";

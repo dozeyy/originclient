@@ -16,12 +16,12 @@ public sealed record ModLanding(string? Holder, string? Replaces = null, string?
 
 /// <summary>
 /// What one Minecraft version's SHARED mods folder (instances/&lt;version&gt;/mods, Core/GameFolders/SharedMods) already
-/// holds and what this run puts in it. Imports never make a profile: mods land in that one folder, every account of the
-/// version plays them. Nothing in it is ever rewritten in place (a running game of another account may hold a jar): a
-/// mod Origin already has stays as it is, a mod two setups of one run both bring lands once, from the first. Two cases
-/// swap instead (add the imported jar, then remove Origin's): Origin's copy is turned off while the import's is on (a
-/// turned-off jar doesn't load), or Origin's copy is older than the imported mods need (an old Fabric API under mods
-/// that need a newer one won't boot) and the imported copy satisfies them and everything else in the folder.
+/// holds, and what a mod coming in would meet there. Since 2026-10-25 (decision 04) every imported setup's mods land
+/// in a profile of their own; ImportEngine.PlanMods reads only Origin's own turned-on jars here (the ones a profile
+/// launch also loads), and never takes a swap: where this ledger would replace Origin's older copy, the engine keeps
+/// Origin's and turns off the imported mods that need the newer one (Fix Compatibility can make a repaired copy). The
+/// swap rules below still describe Decide's answer: Origin's copy turned off while the import's is on, or Origin's copy
+/// older than the imported mods need and the imported copy satisfying them and everything else in the folder.
 /// </summary>
 public sealed class SharedModsLedger
 {
@@ -40,7 +40,14 @@ public sealed class SharedModsLedger
     private readonly Dictionary<string, string?> _landed = new(StringComparer.Ordinal);
 
     /// <summary>The ledger of <paramref name="modsDir"/> as it is now: every jar's file name and mod id. A jar that can't be read still counts by name.</summary>
-    public static SharedModsLedger Read(string modsDir)
+    public static SharedModsLedger Read(string modsDir) => Read(modsDir, null);
+
+    /// <summary>
+    /// The ledger of only the jars <paramref name="include"/> accepts (by file name). A profile import reads the shared
+    /// folder this way: a profile launch loads Origin's own TURNED-ON jars from it and nothing else, so only those can
+    /// already "have" a mod the setup brings.
+    /// </summary>
+    public static SharedModsLedger Read(string modsDir, Func<string, bool>? include)
     {
         var ledger = new SharedModsLedger();
         if (!Directory.Exists(modsDir)) return ledger;
@@ -52,6 +59,7 @@ public sealed class SharedModsLedger
         {
             var name = Path.GetFileName(path);
             if (!IsModFile(name)) continue;
+            if (include != null && !include(name)) continue;
             // In use or unreadable gives null: its file name still keeps an import from landing on it.
             var info = ModFolderScanner.ReadInfo(path, readNested: false);
             var jar = new OriginJar(path, info?.Version, IsDisabledName(name), info);

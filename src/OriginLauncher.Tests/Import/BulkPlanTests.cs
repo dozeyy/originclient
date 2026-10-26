@@ -202,7 +202,8 @@ public class BulkPlanTests : IDisposable
         var result = await engine.ApplyAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
         Assert.True(result.Succeeded, result.Error);
         Assert.True(File.Exists(_f.Target("1.21.4", "options.txt")));
-        Assert.Equal("1.21.11", _f.Rig.Settings.Load().SelectedVersion);           // imports never move the player's pick
+        Assert.Equal("1.21.4", _f.Rig.Settings.Load().SelectedVersion);            // one setup: Home picks its new profile
+        Assert.Equal(plan.ProfileId, _f.Rig.Settings.Load().SelectedProfileId);
     }
 
     // ------------------------------------------------------------ the settings winner (B6)
@@ -356,7 +357,7 @@ public class BulkPlanTests : IDisposable
         var plan = await _f.Plan(_f.Engine());
         var p = Planned(plan, forge);
 
-        const string sentence = "Forge mods can't come over. Origin runs Fabric, except on 1.8.9.";
+        const string sentence = "Its mods were made for a different kind of Minecraft mod setup, so only its packs come over.";
         Assert.Equal(SetupRole.PacksOnly, p.Role);
         Assert.Equal(sentence, p.Note);
         Assert.Contains(p.Plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Name == sentence);

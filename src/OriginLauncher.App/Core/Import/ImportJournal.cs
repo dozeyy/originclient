@@ -92,6 +92,20 @@ public sealed class ImportJournal
     /// </summary>
     public List<string>? KeepSharedModsDirs { get; set; }
 
+    // ---- profiles (instances/<version>/profiles/<id>): every imported setup's mods land in a profile of their own. ----
+
+    /// <summary>
+    /// The mods folders of the profiles this run MADE. Every account of the version can play a profile, so the undo of a
+    /// finished run waits until none of that version's games is running.
+    /// </summary>
+    public List<string> ProfileModsDirs { get; set; } = new();
+
+    /// <summary>
+    /// Profiles (ids) this run found already holding exactly its mods and reused instead of making a second copy. The
+    /// undo of the EARLIER import that made one keeps that profile (its files and its settings entry).
+    /// </summary>
+    public List<string> ProfilesReliedOn { get; set; } = new();
+
     /// <summary>True for <paramref name="path"/> being one of <paramref name="dirs"/> or directly inside one.</summary>
     public static bool InDirs(string? path, IEnumerable<string>? dirs)
     {

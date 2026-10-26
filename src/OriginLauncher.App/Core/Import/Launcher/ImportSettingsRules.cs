@@ -12,6 +12,19 @@ namespace OriginLauncher.App.Core.Import.Launcher;
 // one write. A journal written before AddProfiles existed only has AddProfile and still reverts.
 public static class ImportSettingsRules
 {
+    /// <summary>
+    /// Done's Play on a bulk import (ImportLogic.DoneAction): select the one profile it made, and its version, so the game
+    /// starts with the imported mods. Only a profile that still exists on that version (nothing if it was removed since).
+    /// Returns whether the selection changed. Run inside SettingsStore.Update.
+    /// </summary>
+    public static bool SelectImported(LauncherSettings s, string profileId, string version)
+    {
+        if (!s.ModProfiles.Any(p => p.Id == profileId && p.Version == version)) return false;
+        s.SelectedProfileId = profileId;
+        s.SelectedVersion = version;
+        return true;
+    }
+
     /// <summary>Adds the new profile(s) (each once), selects the target version and the profile.</summary>
     public static void Apply(LauncherSettings s, SettingsDelta delta)
     {

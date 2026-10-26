@@ -51,6 +51,14 @@ public sealed class ImportEnvironment
     /// <summary>The versions' provisioning gate, held while a finished import is undone (null = none to take).</summary>
     public IVersionGate? VersionGate { get; init; }
 
+    /// <summary>
+    /// Origin's own jar names (<c>ModManager.IsOriginProvisioned</c>): a profile launch loads THESE from the version's
+    /// shared mods folder and everything else from the profile (Core/Profiles/LaunchModFolder). Imported mods land in a
+    /// profile, so the plan checks them against these jars only. The default (nothing is Origin's) suits tests that
+    /// don't care; the launcher glue always passes the real rule.
+    /// </summary>
+    public Func<string, bool> IsOriginProvisioned { get; init; } = static _ => false;
+
     private static long DriveFreeSpace(string path)
     {
         try
@@ -125,6 +133,13 @@ public sealed record ImportRequest
     public IReadOnlyList<CatalogMod> CatalogMods { get; init; } = Array.Empty<CatalogMod>();
 
     public bool? TargetHasIris { get; init; }
+
+    /// <summary>The player's profiles as they are now: the new profile's name is unique among them, and a profile of this version that already holds exactly these mods is reused.</summary>
+    public IReadOnlyList<ModProfile> ExistingProfiles { get; init; } = Array.Empty<ModProfile>();
+
+    /// <summary>The version and profile picked on Home now (a single import moves the selection to its new profile; an undo puts these back).</summary>
+    public string? SelectedVersion { get; init; }
+    public string? SelectedProfileId { get; init; }
 
     /// <summary>"Play with my own mods" as it is now: imported mods only load when it is on (the plan says so; it is never flipped).</summary>
     public bool PlayWithExternalMods { get; init; } = true;
@@ -279,10 +294,10 @@ public sealed partial class ImportEngine
 
         progress?.Report(new ImportProgress(ImportStage.Planning, 0, 3, source.Name));
 
-        // ---- mods -> the version's shared mods folder, never a profile (a setup that doesn't bring mods never reads them) ----
+        // ---- mods -> a profile of their own (profiles/<id>/mods); a setup that doesn't bring mods never reads them ----
         var ledger = r.Ledger ?? new DestinationLedger();
         if (r.Role != SetupRole.PacksOnly && (r.Brings & ImportCategories.Mods) != 0 && (r.Options.LeaveOut & ImportCategories.Mods) == 0)
-            PlanMods(plan, r, fs, target, ledger, ct);
+            PlanMods(plan, r, fs, target, ct);
         if ((r.Brings & ImportCategories.Mods) != 0 && PvpClientSource.BuiltInModsNote(source.Kind) is { } builtIn)
             plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, builtIn.Name, builtIn.Reason));
         progress?.Report(new ImportProgress(ImportStage.Planning, 1, 3, "settings"));
@@ -302,10 +317,16 @@ public sealed partial class ImportEngine
         return plan;
     }
 
-    // Mods land in the version's ONE shared mods folder (every account of the version plays them), never in a profile.
-    // The folder is only added to: a mod Origin's folder already has (same id or file name) stays as it is, and in a
-    // bulk run a mod an earlier setup of the version brings lands once (DestinationLedger.Mods).
-    private void PlanMods(ImportPlan plan, ImportRequest r, SourceFs fs, string target, DestinationLedger ledger, CancellationToken ct)
+    // Mods land in a NEW Origin profile of the target version, profiles/<id>/mods: every imported setup becomes its own
+    // profile (Will, 2026-10-25; this reverses bdcd7dc5a, which put them in the shared folder). A profile launch loads
+    // Origin's own TURNED-ON jars from the version's shared mods folder plus the profile's jars (LaunchModFolder), so:
+    //  * a mod one of Origin's own jars already has (same id or file name) is not copied; Origin's jar is never touched
+    //    (no swap: the shared folder is only ever changed by Origin itself);
+    //  * a jar named like one of Origin's own would be dropped at launch, so it is named as not imported;
+    //  * the player's other loose jars in the shared folder don't load with a profile, so they don't count.
+    // No mod comes over -> no profile is made. A profile of this version that already holds exactly these files is
+    // reused (importing the same setup twice never makes "Survival 2").
+    private void PlanMods(ImportPlan plan, ImportRequest r, SourceFs fs, string target, CancellationToken ct)
     {
         BuiltInModSet builtIns;
         Stream? bundled = null;
@@ -331,11 +352,14 @@ public sealed partial class ImportEngine
 
         var sourceMods = ModSetResolver.ReadSourceMods(plan.Source.ModsFolder, fs, ct);
         var decisions = ModSetResolver.Resolve(sourceMods, new ResolveContext(target, builtIns, JavaFor(target)));
+        // A jar named like one of Origin's own is never loaded from a profile (LaunchSet drops it): Origin's copy is used.
+        decisions = decisions.Select(d => d.IsCopied && d.DestFileName is { } dest && _env.IsOriginProvisioned(SharedModsLedger.FileKey(dest))
+            ? d with { Outcome = ModOutcome.BuiltIn, Reason = OriginsOwnCopy, DestFileName = null }
+            : d).ToList();
 
-        var modsDir = InstanceLayout.ModsDir(_env.InstancesRoot, target);
-        var shared = ledger.Mods ??= SharedModsLedger.Read(modsDir);
-        var label = plan.Source.BulkLabel();
-        var copied = 0;
+        // Origin's own turned-on jars of the version: the only shared-folder jars a profile launch loads.
+        var origin = SharedModsLedger.Read(InstanceLayout.ModsDir(_env.InstancesRoot, target),
+            name => !SharedModsLedger.IsDisabledName(name) && _env.IsOriginProvisioned(name));
         // What the imported (copied) mods require, so a mod Origin already has is checked against it, not kept on id alone.
         var infoByPath = sourceMods.GroupBy(m => m.Path, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Info, StringComparer.OrdinalIgnoreCase);
         ModInfo? InfoOf(ModDecision d) => d.SourcePath != null && infoByPath.TryGetValue(d.SourcePath, out var info) ? info : null;
@@ -347,10 +371,38 @@ public sealed partial class ImportEngine
             foreach (var provided in InfoOf(d)?.Provides ?? Array.Empty<string>()) needNames.Add(provided);
             return importedDepends.Where(dep => needNames.Contains(dep.Id)).ToList();
         }
+        // Origin's jar is never swapped out of the shared folder for a profile: the ledger's "replace Origin's older
+        // copy" becomes "Origin's copy stays", and ImportedModFit then turns off the imported mods that need the newer one.
+        ModLanding Landing(ModDecision d)
+        {
+            var landing = origin.Decide(d, NeedsOf(d));
+            return landing.Replaces == null ? landing
+                : new ModLanding(SharedModsLedger.InOrigin, Note: OriginKeepsItsCopy, Existing: landing.Replaces);
+        }
         // An imported mod that needs another version of a mod Origin already has would stop the whole game at boot
         // (2026-10-20: Counter/Spawn Chaining/Unchained wanted Cobblemon 1.7.3, Origin has 1.8.0): it lands turned off.
-        decisions = ImportedModFit.Apply(decisions, InfoOf, shared, d => shared.Decide(d, NeedsOf(d)));
+        decisions = ImportedModFit.Apply(decisions, InfoOf, origin, Landing);
         plan.Mods.AddRange(decisions);
+
+        // The profile: reused when one of this version already holds exactly these files, else a new one.
+        var landingOnes = decisions.Where(d => d.IsCopied && Landing(d).Holder == null).ToList();
+        if (landingOnes.Count > 0)
+        {
+            if (ProfileWithSameMods(target, landingOnes, r.ExistingProfiles, fs) is { } same)
+            {
+                plan.ProfileId = same.Id;
+                plan.ProfileName = same.Name;
+                plan.ProfileReused = true;
+            }
+            else
+            {
+                plan.ProfileId = _env.NewId();
+                plan.ProfileName = MakeProfileName(plan.Source, target, r.ExistingProfiles);
+            }
+            plan.ProfileModsDir = InstanceLayout.ProfileModsDir(_env.InstancesRoot, target, plan.ProfileId);
+        }
+
+        var copied = 0;
         foreach (var d in decisions)
         {
             var name = d.DisplayName ?? d.ModId ?? d.FileName;
@@ -359,20 +411,18 @@ public sealed partial class ImportEngine
                 case ModOutcome.Copied:
                 case ModOutcome.CopiedAsBefore:
                 case ModOutcome.CopiedDisabled:
-                    var landing = shared.Decide(d, NeedsOf(d));
-                    if (landing.Holder is { } holder)
+                    var landing = Landing(d);
+                    if (landing.Holder is not null)
                     {
-                        if (landing.Existing is { } existing) plan.SharedModsReliedOn.Add(existing);
                         // Turned off by ImportedModFit while Origin's own copy stays: say that, not "already in Origin's mods".
-                        if (holder == SharedModsLedger.InOrigin && d.Outcome == ModOutcome.CopiedDisabled && ImportedModFit.IsFitReason(d.Reason))
+                        if (d.Outcome == ModOutcome.CopiedDisabled && ImportedModFit.IsFitReason(d.Reason))
                         {
                             plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, "Not imported, turned off: " + d.Reason));
                             break;
                         }
                         plan.Lines.Add(landing.Note != null
                             ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, landing.Note)
-                            : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
-                                holder == SharedModsLedger.InOrigin ? AlreadyInOriginMods : $"already brought over from {holder}"));
+                            : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name, AlreadyInOriginMods));
                         break;
                     }
                     if (ImportFiles.SizeOrNull(d.SourcePath!) is not { } bytes)
@@ -382,16 +432,21 @@ public sealed partial class ImportEngine
                             "It disappeared from the old setup while Origin was looking at it."));
                         break;
                     }
-                    shared.Add(d, label);
+                    if (plan.ProfileReused)
+                    {
+                        plan.Lines.Add(new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
+                            $"already in your \"{plan.ProfileName}\" profile (same file), left as it is"));
+                        break;
+                    }
                     copied++;
                     var modLine = d.Outcome == ModOutcome.CopiedDisabled
                         ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, name, "Imported but turned off: " + d.Reason, bytes)
                         : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, name,
-                            d.Outcome == ModOutcome.CopiedAsBefore ? "imported turned off, as it was" : landing.Note, bytes);
+                            d.Outcome == ModOutcome.CopiedAsBefore ? "imported turned off, as it was" : null, bytes);
                     plan.Ops.Add(new PlannedOp
                     {
                         Kind = OpKind.CopyFile, Item = PlanItemKind.Mod, Label = d.DestFileName!, Source = d.SourcePath,
-                        Dest = Path.Combine(modsDir, d.DestFileName!), Bytes = bytes, PlannedLine = modLine, Replaces = landing.Replaces,
+                        Dest = Path.Combine(plan.ProfileModsDir!, d.DestFileName!), Bytes = bytes, PlannedLine = modLine,
                     });
                     plan.Lines.Add(modLine);
                     break;
@@ -401,17 +456,74 @@ public sealed partial class ImportEngine
             }
         }
 
+        if (plan.ProfileId != null && !r.Bulk)
+            plan.SettingsDelta = new SettingsDelta
+            {
+                // A reused profile is the player's already: never in the delta, so an undo can never remove it.
+                AddProfile = plan.ProfileReused ? null : new ModProfile { Id = plan.ProfileId, Name = plan.ProfileName!, Version = target },
+                SetSelectedVersion = target,
+                SetSelectedProfileId = plan.ProfileId,
+                PreviousSelectedVersion = r.SelectedVersion,
+                PreviousSelectedProfileId = r.SelectedProfileId,
+            };
+
         // Imported mods only load when "Play with my own mods" is on; we never flip that switch for the player.
         // (A bulk run says this once for the whole run, not once per setup.)
         if (copied > 0 && !r.PlayWithExternalMods && !r.Bulk)
             plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, "Your own mods are turned off", ModsOffNote));
     }
 
+    // The existing profile of this version whose mods folder holds exactly the files this import would copy, byte for
+    // byte, and nothing else. Read-only: a folder that can't be read is simply not a match.
+    private ModProfile? ProfileWithSameMods(string target, IReadOnlyList<ModDecision> landing, IReadOnlyList<ModProfile> existing, SourceFs fs)
+    {
+        var copied = landing.Where(d => d.SourcePath != null && d.DestFileName != null).ToList();
+        if (copied.Count == 0) return null;
+        foreach (var profile in existing.Where(p => p.Version == target && ProfileRules.IsValidId(p.Id)))
+        {
+            try
+            {
+                var dir = InstanceLayout.ProfileModsDir(_env.InstancesRoot, target, profile.Id);
+                if (!Directory.Exists(dir)) continue;
+                var present = Directory.EnumerateFiles(dir).Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (present.Count != copied.Count) continue;
+                if (copied.All(d => present.Contains(d.DestFileName!) && FileCompare.Same(d.SourcePath!, Path.Combine(dir, d.DestFileName!), fs)))
+                    return profile;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* not provably the same */ }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The new profile's name: "Prism: Survival" (the launcher, then the setup's own name), control characters
+    /// stripped, within <see cref="ProfileRules.MaxNameLength"/>, and unique among the version's profiles (" 2", " 3"...).
+    /// </summary>
+    internal static string MakeProfileName(DetectedInstance source, string version, IReadOnlyList<ModProfile> existing)
+    {
+        var raw = new string($"{source.SourceLabel}: {source.Name}".Where(c => !char.IsControl(c)).ToArray()).Trim();
+        if (raw.Length == 0) raw = "Imported";
+        for (var n = 1; ; n++)
+        {
+            var suffix = n == 1 ? "" : $" {n}";
+            var room = ProfileRules.MaxNameLength - suffix.Length;
+            var candidate = (raw.Length > room ? raw[..room].TrimEnd() : raw) + suffix;
+            if (ProfileRules.ValidateName(candidate, version, existing) == null) return candidate;
+        }
+    }
+
+    /// <summary>A mod jar named like one of Origin's own: a profile launch takes Origin's copy instead.</summary>
+    internal const string OriginsOwnCopy = "Origin brings its own copy of this mod, so that one is used.";
+
+    /// <summary>The imported mods need a newer copy of a mod Origin brings itself; Origin's copy stays (never swapped for a profile).</summary>
+    internal const string OriginKeepsItsCopy =
+        "Origin's own copy is older than your mods need; it stays as it is. Fix Compatibility can make a repaired copy of this profile.";
+
     /// <summary>The line a mod gets when Origin's shared mods folder already has it (same id or file name).</summary>
     internal const string AlreadyInOriginMods = "already in Origin's mods, left as it is";
 
     internal const string ModsOffNote =
-        "The imported mods are in Origin's mods for this version, but \"Play with my own mods\" is off, so they won't load until you turn it on.";
+        "The imported mods are in their own profile, but \"Play with my own mods\" is off, so they won't load until you turn it on.";
 
     // True when one path is the other or inside it (full paths; case-insensitive where the file system is).
     private static bool Overlaps(string a, string b)
@@ -456,8 +568,8 @@ public sealed partial class ImportEngine
             plan.Blocked.Add($"Not enough free disk space: the import needs about {ImportSummary.Megabytes(needed)} and {ImportSummary.Megabytes(free)} is free.");
     }
 
-    // The folders an apply writes and locks: the game folder, plus the version's shared mods folder when mods land there
-    // (another account's import of the same version writes that folder too).
+    // The folders an apply writes and locks: the game folder, plus the profile's mods folder when mods land there
+    // (a new folder nobody else writes, locked all the same so an undo of the same profile waits).
     internal static List<string> LockDirs(ImportPlan plan)
     {
         var dirs = new List<string> { plan.TargetGameDir };
@@ -467,9 +579,10 @@ public sealed partial class ImportEngine
         return dirs;
     }
 
-    // The shared mods folders among them (everything but the game folder): ImportJournal.SharedModsDirs.
+    // The shared mods folders among them (ImportJournal.SharedModsDirs): none since imports land in profiles.
     internal static IEnumerable<string> SharedModsDirs(ImportPlan plan) =>
-        LockDirs(plan).Where(d => !string.Equals(d, plan.TargetGameDir, StringComparison.OrdinalIgnoreCase));
+        LockDirs(plan).Where(d => !string.Equals(d, plan.TargetGameDir, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(d, plan.ProfileModsDir, StringComparison.OrdinalIgnoreCase));
 
     // The Java each era runs (only used for "java" requirements in mods' depends).
     internal static string JavaFor(string mcVersion) =>
@@ -517,6 +630,7 @@ public sealed partial class ImportEngine
             plan.TargetGameDir);
         tx.Journal.SharedModsDirs = SharedModsDirs(plan).ToList();
         tx.Journal.SharedModsReliedOn = plan.SharedModsReliedOn.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        RecordProfile(tx.Journal, plan);
         var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = plan.Source.GameDir, SharedRoot = plan.Source.SharedGameDir };
         var extra = new List<SummaryLine>();
         var dropped = new HashSet<SummaryLine>(ReferenceEqualityComparer.Instance);
@@ -566,6 +680,7 @@ public sealed partial class ImportEngine
 
             progress?.Report(new ImportProgress(ImportStage.Finishing, plan.Ops.Count, plan.Ops.Count));
             ct.ThrowIfCancellationRequested(); // the last chance to cancel: past here the settings change is made
+            DropEmptyProfile(plan);
             if (plan.SettingsDelta != null)
             {
                 tx.RecordSettingsDelta(plan.SettingsDelta);
@@ -634,6 +749,94 @@ public sealed partial class ImportEngine
             if (added.Any(path => ImportJournal.InDirs(path, new[] { dir }) && reliedOn.Contains(path)))
                 keep.Add(dir);
         return keep;
+    }
+
+    // The plan adds and selects its new profile before anything is copied. When no mod jar actually landed (an
+    // antivirus or the old launcher held every one, so LeftOut skipped each), there is no profile to make: Home must not
+    // move to an empty profile. Same rule as a bulk run (BuildDelta: HasJar). A reused profile is the
+    // player's already and never in the delta, so it is untouched here.
+    internal static void DropEmptyProfile(ImportPlan plan)
+    {
+        if (plan.SettingsDelta is not { } delta || plan.ProfileId == null || plan.ProfileReused) return;
+        if (HasJar(plan.ProfileModsDir)) return;
+        delta.AddProfile = null;
+        if (delta.SetSelectedProfileId == plan.ProfileId)
+        {
+            delta.SetSelectedProfileId = null;
+            delta.SetSelectedVersion = null; // the version and its profile move together, or not at all
+        }
+    }
+
+    // The profile a plan made (ImportJournal.ProfileModsDirs) or reused (ImportJournal.ProfilesReliedOn).
+    internal static void RecordProfile(ImportJournal journal, ImportPlan plan)
+    {
+        if (plan.ProfileId == null || plan.ProfileModsDir == null) return;
+        if (plan.ProfileReused)
+        {
+            if (!journal.ProfilesReliedOn.Contains(plan.ProfileId)) journal.ProfilesReliedOn.Add(plan.ProfileId);
+        }
+        else if (!journal.ProfileModsDirs.Contains(plan.ProfileModsDir, StringComparer.OrdinalIgnoreCase))
+            journal.ProfileModsDirs.Add(plan.ProfileModsDir);
+    }
+
+    // Profiles this journal made that a LATER finished import reused (ImportJournal.ProfilesReliedOn): their folders and
+    // their settings entries stay, or the undo would take that import's mods away. Can't tell -> every one stays.
+    private List<ModProfile> ProfilesOthersCountOn(ImportJournal journal)
+    {
+        var made = journal.Entries.Where(e => e.Kind == JournalEntryKinds.SettingsDelta && e.Delta != null)
+            .SelectMany(e => new[] { e.Delta!.AddProfile }.Concat(e.Delta.AddProfiles ?? new List<ModProfile>()))
+            .OfType<ModProfile>().GroupBy(p => p.Id).Select(g => g.First()).ToList();
+        if (made.Count == 0) return made;
+        var reliedOn = new HashSet<string>(StringComparer.Ordinal);
+        try
+        {
+            foreach (var run in Directory.EnumerateDirectories(_env.ImportsRoot))
+            {
+                var id = Path.GetFileName(run);
+                if (id == journal.ImportId || !ImportLayout.IsValidId(id)) continue;
+                if (ImportJournalStore.Load(ImportLayout.Journal(_env.ImportsRoot, id)) is { State: ImportState.Committed } other)
+                    reliedOn.UnionWith(other.ProfilesReliedOn ?? new List<string>());
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return made;
+        }
+        return made.Where(p => reliedOn.Contains(p.Id)).ToList();
+    }
+
+    // Keeps the profiles another import counts on: their folders join KeepSharedModsDirs and the journal's settings
+    // change no longer removes them (nor moves the selection, which that later import set again).
+    private void KeepProfilesOthersCountOn(ImportJournal journal)
+    {
+        var kept = ProfilesOthersCountOn(journal);
+        if (kept.Count == 0) return;
+        var ids = kept.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        journal.KeepSharedModsDirs ??= new List<string>();
+        foreach (var p in kept.Where(p => ProfileRules.IsValidId(p.Id) && !string.IsNullOrEmpty(p.Version)))
+        {
+            journal.KeepSharedModsDirs.Add(InstanceLayout.ProfileDir(_env.InstancesRoot, p.Version, p.Id));
+            journal.KeepSharedModsDirs.Add(InstanceLayout.ProfileModsDir(_env.InstancesRoot, p.Version, p.Id));
+        }
+        foreach (var entry in journal.Entries.Where(e => e.Kind == JournalEntryKinds.SettingsDelta && e.Delta != null))
+        {
+            var d = entry.Delta!;
+            if (d.AddProfile != null && ids.Contains(d.AddProfile.Id)) d.AddProfile = null;
+            d.AddProfiles?.RemoveAll(p => p != null && ids.Contains(p.Id));
+            if (d.SetSelectedProfileId != null && ids.Contains(d.SetSelectedProfileId))
+            {
+                d.SetSelectedProfileId = null;
+                d.SetSelectedVersion = null;
+            }
+        }
+    }
+
+    // The version folder a profile's mods folder belongs to: instances/<version>/profiles/<id>/mods -> instances/<version>.
+    private static string? VersionDirOfProfileMods(string profileModsDir)
+    {
+        var profileDir = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(profileModsDir));
+        var profilesDir = profileDir == null ? null : Path.GetDirectoryName(profileDir);
+        return profilesDir == null ? null : Path.GetDirectoryName(profilesDir);
     }
 
     // Every account's game folder of the version a shared mods folder belongs to (instances/<version>/accounts/*).
@@ -719,9 +922,11 @@ public sealed partial class ImportEngine
                 // The shared mods folder is only ever added to: a jar of that name that appeared since the plan (the
                 // Mods page, another account's import) stays as it is - a running game may hold it. The mod is in
                 // Origin's mods either way, so the plan's line stays true.
+                // (A profile's folder is new and named by a fresh id, so a twin there is the same jar landing twice.)
                 if (op.Item == PlanItemKind.Mod && ModTwinThere(op) is { } twin)
                 {
-                    tx.Journal.SharedModsReliedOn.Add(twin); // saved with the journal at commit
+                    if (!string.Equals(Path.GetDirectoryName(op.Dest), plan.ProfileModsDir, StringComparison.OrdinalIgnoreCase))
+                        tx.Journal.SharedModsReliedOn.Add(twin); // saved with the journal at commit
                     break;
                 }
                 tx.CopyFile(op.Source!, op.Dest, op.TouchNow);
@@ -864,11 +1069,21 @@ public sealed partial class ImportEngine
                         // A shared mods folder another import counts on keeps this import's changes; the others go back,
                         // and every account of that version plays them, so none of those accounts' games may be running.
                         journal.KeepSharedModsDirs = SharedModsDirsOthersCountOn(journal);
+                        // A profile a later import reused stays too, settings entry and all.
+                        KeepProfilesOthersCountOn(journal);
                         foreach (var dir in journal.SharedModsDirs ?? new List<string>())
                         {
                             if (ImportJournal.InDirs(dir, journal.KeepSharedModsDirs)) continue;
                             if (!journal.Entries.Any(e => e.Kind != JournalEntryKinds.SettingsDelta && ImportJournal.InDirs(e.Path, new[] { dir }))) continue;
                             if (AccountGameDirs(dir).Any(_env.IsGameRunning))
+                                return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = "Close Minecraft first: it is running on this version from another account." };
+                        }
+                        // Any account of the version can be playing a profile this import made.
+                        foreach (var dir in journal.ProfileModsDirs ?? new List<string>())
+                        {
+                            if (ImportJournal.InDirs(dir, journal.KeepSharedModsDirs)) continue;
+                            if (VersionDirOfProfileMods(dir) is { } versionDir
+                                && AccountGameDirs(Path.Combine(versionDir, InstanceLayout.ModsFolder)).Any(_env.IsGameRunning))
                                 return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = "Close Minecraft first: it is running on this version from another account." };
                         }
                     }

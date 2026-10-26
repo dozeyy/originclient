@@ -1006,18 +1006,39 @@ public partial class MainWindow : Window
         _homePage.ImportCard.Hide();
         MarkImportPromptSeen(); // any way in (Profiles, the Home card, --import, a second launch): the card never offers it again
 
+        // The report's "Fix Compatibility" on a profile that can't start: the real flow (HomePage.Fix.cs). The page closes,
+        // Home selects that profile, and the same prompt Play opens shows what the fix would change; nothing is written
+        // before the player presses Fix. Render shots (a tour backend) set their own stand-in (UI/ImportShots.cs).
+        if (backend == null && TourBackendFactory == null)
+            ImportHooks.FixCompatibility = (version, profileId) =>
+            {
+                CloseImportPanel();
+                Core.SettingsStore.Update(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, profileId, version));
+                NavigateTo(LauncherPage.Home);
+                _homePage.RefreshProfile();
+                return _homePage.FixImportedProfileAsync(version, profileId);
+            };
         var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
         // A launch starting or an update running turns Import off: the panel learns the sentence now and on every
         // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.
         panel.SetRefusal(ImportHooks.Refusal());
         panel.CloseRequested += (_, _) => CloseImportPanel();
-        // "Play" on the done screen: close the page, show Home on the version the import went to and start the game.
-        // Imports make no profiles, so the plain version is what plays.
-        panel.PlayRequested += (_, version) =>
+        // "Play" on the done screen (ImportLogic.DoneAction): close the page, select the one profile the import made when
+        // there is one (the import itself never changes the Home selection), then show Home on its version and start it,
+        // so the game starts WITH the imported mods. "Open Profiles": several came over, the player picks there.
+        panel.PlayRequested += (_, play) =>
         {
             CloseImportPanel();
+            if (play.ProfileId is { } id)
+                Core.SettingsStore.Update(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, id, play.Version));
             NavigateTo(LauncherPage.Home);
-            _homePage.PlayVersion(version);
+            _homePage.RefreshProfile();
+            _homePage.PlayVersion(play.Version);
+        };
+        panel.OpenProfilesRequested += (_, _) =>
+        {
+            CloseImportPanel();
+            NavigateTo(LauncherPage.Profiles);
         };
         panel.Imported += (_, _) =>
         {
