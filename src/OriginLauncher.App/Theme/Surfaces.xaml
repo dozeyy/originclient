@@ -155,10 +155,15 @@
     </Style>
 
     <!-- The brand lockup in the top bar (logo + wordmark) is the Website link: a ghost control like the others, md 32
-         at Radius.Sm; its hover arrow comes from Icon.LinkHint. -->
+         at Radius.Sm (no hover arrow). -->
     <Style x:Key="Button.Brand" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
         <Setter Property="Padding" Value="{StaticResource Padding.Brand}"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <!-- A local brush: Button.Chrome's hover fades this colour (Theme/Buttons.xaml). -->
+        <Setter Property="Foreground">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.TextMuted}"/>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- A drawer's header (Accounts, Friends, Import): a 16 px gutter all round, the title in H1 and one

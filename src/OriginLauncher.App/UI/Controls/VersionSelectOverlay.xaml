@@ -33,8 +33,12 @@
                             </Grid.RenderTransform>
                             <Border x:Name="Ring" Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
                                     BorderBrush="{StaticResource Brush.Accent}" Visibility="Collapsed" IsHitTestVisible="False"/>
-                            <Border x:Name="Face" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                            <!-- A local brush, so the hover fades its colour with the lift instead of switching it. -->
+                            <Border x:Name="Face" BorderBrush="{StaticResource Brush.SoftStroke}"
                                     BorderThickness="1" CornerRadius="{StaticResource Radius.Lg}">
+                                <Border.Background>
+                                    <SolidColorBrush Color="{StaticResource Color.Card}"/>
+                                </Border.Background>
                                 <StackPanel>
                                     <!-- The art is a brush on a rounded border: the corners are the card's, with no clip to pay for. -->
                                     <Border Height="{Binding ThumbHeight}" CornerRadius="{StaticResource Radius.Lg.Top}">
@@ -66,11 +70,12 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Face" Property="Background" Value="{StaticResource Brush.CardAlt}"/>
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="-4" Duration="{StaticResource Motion.Hover}"/>
+                                            <ColorAnimation Storyboard.TargetName="Face" Storyboard.TargetProperty="Background.Color"
+                                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Hover}"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
@@ -78,6 +83,8 @@
                                     <BeginStoryboard>
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="0" Duration="{StaticResource Motion.Hover}"/>
+                                            <ColorAnimation Storyboard.TargetName="Face" Storyboard.TargetProperty="Background.Color"
+                                                            Duration="{StaticResource Motion.Hover}"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
@@ -120,8 +127,15 @@
                  behind a resize and a bar flashed up on the right edge.) -->
             <ScrollViewer x:Name="Body" VerticalAlignment="Center" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           Focusable="False" IsTabStop="False">
+                <!-- The sheet's shadow is its own still layer behind it, drawn once and cached (BitmapCache), not an
+                     Effect on the sheet: an Effect re-renders the whole sheet (art, text, cards) through the blur on every
+                     frame anything inside it moves, so each card hover, the panel's grow and the entrance ran at a
+                     fraction of the frame rate and hover lagged behind the mouse (Will, 2026-10-25). -->
+                <Grid HorizontalAlignment="Center" Margin="24,8,24,16">
+                <Border x:Name="SheetShadow" Background="{StaticResource Brush.Sheet}" CornerRadius="{StaticResource Radius.Dialog}"
+                        Effect="{StaticResource Shadow.Overlay}" IsHitTestVisible="False"/>
                 <Border x:Name="Sheet" Style="{StaticResource Surface.Dialog}" Background="{StaticResource Brush.Sheet}"
-                        HorizontalAlignment="Center" MaxWidth="{StaticResource Size.Sheet.Max}" Margin="24,8,24,16">
+                        Effect="{x:Null}" MaxWidth="{StaticResource Size.Sheet.Max}">
                     <Grid x:Name="SheetContent">
                         <!-- ===== Step 1: the families ===== -->
                         <Grid x:Name="FamiliesPane">
@@ -208,6 +222,7 @@
                         </Border>
                     </Grid>
                 </Border>
+                </Grid>
             </ScrollViewer>
         </Grid>
     </Grid>

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -88,6 +89,14 @@ public static class RenderShots
         };
         window.Show();
         Pump(2500); // first layout, fonts, the players pill's idle fetch
+
+        // `--switch-cost`: only the tab-click and picker timings (switch-cost.txt), no pictures.
+        if (Environment.GetCommandLineArgs().Contains("--switch-cost"))
+        {
+            MeasureSwitchCost(window, outDir);
+            window.Close();
+            return;
+        }
 
         Snap(window, outDir, "01-home");
 
@@ -305,13 +314,6 @@ public static class RenderShots
                 File.AppendAllText(Path.Combine(outDir, "topbar-fit.txt"),
                     $"{shot}: {window.TourTopBarFit()}; gaps {window.TourLinkGaps()}{Environment.NewLine}");
                 Snap(window, outDir, shot, size: wide, laidOut: true);
-                if (!update)
-                {
-                    // The hover arrows shown (a render has no mouse): they must sit inside the button's own padding.
-                    window.TourShowLinkHints(true);
-                    Snap(window, outDir, shot + "-hint", size: wide, laidOut: true);
-                    window.TourShowLinkHints(false);
-                }
                 Pump(300);
             }
         window.TourShowUpdateBadge(false);
@@ -331,6 +333,7 @@ public static class RenderShots
             Snap(window, outDir, $"15f-home-numeral-{w}x{h}", size: sized, laidOut: true);
         }
         MeasureBarCost(window, outDir);
+        MeasureSwitchCost(window, outDir);
 
         // The top bar (Website and Store sit in it) at 1180 px, then at the narrowest, with and without an update waiting.
         window.Width = 1180;
@@ -518,6 +521,110 @@ public static class RenderShots
             + $"with surface:    median {Median(on):0.00}  best {on.Min():0.00}" + Environment.NewLine
             + $"without surface: median {Median(off):0.00}  best {off.Min():0.00}" + Environment.NewLine
             + $"difference of medians: {Median(on) - Median(off):0.00} ms" + Environment.NewLine);
+    }
+
+    /// <summary>
+    /// What a tab click and the version picker cost (switch-cost.txt): each tab's UI-thread time for the switch and the
+    /// layout it causes (12 rounds of Home, Mods, Profiles, Settings, the first round dropped as warm-up), the picker's
+    /// open (Show + layout), and the picker drawn whole (CPU rasteriser, so an upper bound on a GPU frame; what matters
+    /// is the number before and after a change). Made-up data in the scratch root, so a page's own disk reads are small.
+    /// </summary>
+    private static void MeasureSwitchCost(MainWindow window, string dir)
+    {
+        static double Median(List<double> v) { var s = v.OrderBy(x => x).ToList(); return s[s.Count / 2]; }
+        var names = new[] { "Home", "Mods", "Profiles", "Settings" };
+        var times = names.Select(_ => new List<double>()).ToArray();
+        window.TourGoTo(0);
+        Pump(400);
+        for (var round = 0; round < 12; round++)
+            for (var page = 1; page <= 4; page++)
+            {
+                var p = page % 4; // Mods, Profiles, Settings, Home
+                var ms = window.TourTimeNavigate(p);
+                if (round > 0) times[p].Add(ms);
+                Pump(30);
+            }
+        var report = new StringBuilder("tab switch, UI thread ms per click (switch + layout), median / worst of 11" + Environment.NewLine);
+        for (var p = 0; p < 4; p++)
+            report.AppendLine($"  {names[p],-9} median {Median(times[p]):0.00}  worst {times[p].Max():0.00}");
+        // The same clicks, now counting the refresh each one queues behind its frame (it runs only for the last click
+        // when tabs are spammed, so this is the cost of a click the player stops on).
+        var full = names.Select(_ => new List<double>()).ToArray();
+        for (var round = 0; round < 12; round++)
+            for (var page = 1; page <= 4; page++)
+            {
+                var p = page % 4;
+                var ms = window.TourTimeNavigateWithRefresh(p);
+                if (round > 0) full[p].Add(ms);
+                Pump(30);
+            }
+        report.AppendLine("tab switch plus its deferred refresh, median / worst of 11");
+        for (var p = 0; p < 4; p++)
+            report.AppendLine($"  {names[p],-9} median {Median(full[p]):0.00}  worst {full[p].Max():0.00}");
+
+        // The picker: open it (Show + layout), then render the whole window with it up, repeatedly.
+        window.TourGoTo(0);
+        Pump(400);
+        var overlay = window.TourVersionOverlay;
+        var opens = new List<double>();
+        for (var i = 0; i < 6; i++)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            overlay.Show(null);
+            window.UpdateLayout();
+            opens.Add(watch.Elapsed.TotalMilliseconds);
+            Pump(100);
+            overlay.Dismiss();
+            Pump(100);
+        }
+        report.AppendLine($"picker open (Show + layout): first {opens[0]:0.00}  median of rest {Median(opens.Skip(1).ToList()):0.00}");
+        overlay.Show(null);
+        Pump(600);
+        window.UpdateLayout();
+        var root = (FrameworkElement)window.Content;
+        int w = (int)root.ActualWidth, h = (int)root.ActualHeight;
+        var renders = new List<double>();
+        for (var i = 0; i < 23; i++)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var bitmap = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(root);
+            watch.Stop();
+            if (i >= 3) renders.Add(watch.Elapsed.TotalMilliseconds);
+        }
+        report.AppendLine($"window with the picker up, one full render (CPU rasteriser): median {Median(renders):0.00}  best {renders.Min():0.00}");
+
+        // The real thing: frames the window actually presents (GPU) while every card bobs like a hover lift, with the
+        // sheet's shadow as an Effect on the sheet (the old way) and as its own cached layer (now), same run.
+        foreach (var shadowOnSheet in new[] { true, false, true, false })
+        {
+            overlay.TourBobCards(false, shadowOnSheet);
+            Pump(100);
+            window.UpdateLayout();
+            var cpu = new List<double>();
+            for (var i = 0; i < 13; i++)
+            {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32).Render(root);
+                if (i >= 3) cpu.Add(watch.Elapsed.TotalMilliseconds);
+            }
+            report.AppendLine($"full CPU render, shadow {(shadowOnSheet ? "on the sheet (old)" : "own layer (new)  ")}: median {Median(cpu):0.00}");
+            overlay.TourBobCards(true, shadowOnSheet);
+            Pump(300);
+            var stamps = new List<TimeSpan>();
+            void Tick(object? s, EventArgs e) { if (e is RenderingEventArgs r && (stamps.Count == 0 || stamps[^1] != r.RenderingTime)) stamps.Add(r.RenderingTime); }
+            CompositionTarget.Rendering += Tick;
+            Pump(1500);
+            CompositionTarget.Rendering -= Tick;
+            overlay.TourBobCards(false, false);
+            var gaps = stamps.Zip(stamps.Skip(1), (a, b) => (b - a).TotalMilliseconds).ToList();
+            var span = (stamps[^1] - stamps[0]).TotalSeconds;
+            report.AppendLine($"cards bobbing, shadow {(shadowOnSheet ? "on the sheet (old)" : "own layer (new)  ")}: " +
+                              $"{(stamps.Count - 1) / span:0.0} fps, frame median {Median(gaps):0.00} ms, worst {gaps.Max():0.00} ms");
+        }
+        overlay.Dismiss();
+        Pump(200);
+        File.WriteAllText(Path.Combine(dir, "switch-cost.txt"), report.ToString());
     }
 
     /// <summary>

@@ -11,14 +11,11 @@
     <system:Double x:Key="Icon.Size">16</system:Double>
     <system:Double x:Key="Icon.SizeLarge">18</system:Double>
     <system:Double x:Key="Icon.Stroke">1.7</system:Double>
-    <!-- The small "opens in your browser" arrow after a link's label in the top bar: 10 px, a 1.25 line, 3 px in from
-         the label's end. It lives in a zero-width Canvas, so it takes no layout space whatever its size. -->
+    <!-- A 10 px glyph (the Import page's small inline arrows). -->
     <system:Double x:Key="Icon.SizeLinkHint">10</system:Double>
     <!-- The glyph inside a status capsule (Padding.Capsule.Sm): 10 px, a 1.7 line, 6 before the caps. -->
     <system:Double x:Key="Icon.SizeCapsule">10</system:Double>
     <Thickness x:Key="Margin.CapsuleIcon">0,0,6,0</Thickness>
-    <system:Double x:Key="Icon.StrokeLinkHint">1.25</system:Double>
-    <system:Double x:Key="Icon.LinkHintOffset">3</system:Double>
 
     <Style x:Key="Icon.Base" TargetType="Path">
         <Setter Property="Stretch" Value="Uniform"/>
@@ -52,37 +49,6 @@
     <Geometry x:Key="Icon.ArrowUpRight">M7,17 L17,7 M8,7 L17,7 L17,16</Geometry>
     <Geometry x:Key="Icon.External">M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15,3 L21,3 21,9 M10,14 L21,3</Geometry>
 
-    <!-- External-link arrow after the label of a button that leaves the launcher (Website, Store). It lives in a
-         zero-width Canvas, so it takes no layout space at all: fading it in on hover moves nothing and the gaps stay
-         the same as between icon buttons. It overlays the button's right padding and takes the button's text colour. -->
-    <Style x:Key="Icon.LinkHint" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
-        <Setter Property="Width" Value="{StaticResource Icon.SizeLinkHint}"/>
-        <Setter Property="Height" Value="{StaticResource Icon.SizeLinkHint}"/>
-        <Setter Property="Data" Value="{StaticResource Icon.External}"/>
-        <Setter Property="StrokeThickness" Value="{StaticResource Icon.StrokeLinkHint}"/>
-        <Setter Property="Canvas.Left" Value="{StaticResource Icon.LinkHintOffset}"/>
-        <Setter Property="Canvas.Top" Value="0"/>
-        <Setter Property="Opacity" Value="0"/>
-        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                <DataTrigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.8" Duration="{StaticResource Motion.Hover}"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </DataTrigger.EnterActions>
-                <DataTrigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="{StaticResource Motion.Hover}"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </DataTrigger.ExitActions>
-            </DataTrigger>
-        </Style.Triggers>
-    </Style>
     <Geometry x:Key="Icon.Minimize">M5,12 L19,12</Geometry>
     <Geometry x:Key="Icon.Close">M18,6 L6,18 M6,6 L18,18</Geometry>
     <Geometry x:Key="Icon.Loading">M12,2 L12,6 M12,18 L12,22 M4.93,4.93 L7.76,7.76 M16.24,16.24 L19.07,19.07 M2,12 L6,12 M18,12 L22,12 M4.93,19.07 L7.76,16.24 M16.24,7.76 L19.07,4.93</Geometry>

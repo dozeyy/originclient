@@ -72,9 +72,7 @@ internal static class AccountShots
         window.TourHover(window.TourAccountButton, false);
 
         window.TourHover(window.TourStoreButton, true);
-        window.TourShowLinkHints(true);
         Frame(window, dir, "16g-store-hover", at, false, log);
-        window.TourShowLinkHints(false);
         window.TourHover(window.TourStoreButton, false);
 
         // Focus is shot in the window's own layout (the CI desktop caps a window at 1044 wide): the focus frame is a visual

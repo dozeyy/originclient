@@ -62,6 +62,17 @@ public partial class VersionSelectOverlay : UserControl
             CloseOverlay();
             e.Handled = true;
         };
+        // With the release list open the ComboBox holds the mouse (capture on its subtree), so a click off the panel
+        // reached only the ComboBox, which closed its list and swallowed the click: the picker stayed up until Esc
+        // (Will, 2026-10-25). Such a click arrives with the ComboBox itself as its source (a click on the list or the
+        // box has their own elements as source); off the panel it closes the picker like any other outside click.
+        PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            if (!ReleaseBox.IsDropDownOpen || !ReferenceEquals(e.OriginalSource, ReleaseBox)) return;
+            if (new Rect(FamilyPanel.RenderSize).Contains(e.GetPosition(FamilyPanel))) return;
+            CloseOverlay();
+            e.Handled = true;
+        };
         _installs = InstalledVersions.Shared;
         _installs.Changed += OnInstallChanged;
         // Thumbnails decode off the UI thread (frozen bitmaps).
@@ -114,7 +125,12 @@ public partial class VersionSelectOverlay : UserControl
         {
             // Fades in while rising 20 px: the view arrives, it does not slide over the art like a sheet.
             Scene.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 260, Motion.Out));
-            OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, Motion.FromTo(20, 0, 420, Motion.Expo));
+            // WPF re-tests what is under a still mouse after a layout pass, not after a render-transform move: the card
+            // that rose under the cursor would not light until the mouse moved. Re-test once the rise lands.
+            var revision = _sceneRevision;
+            var rise = Motion.FromTo(20, 0, 420, Motion.Expo);
+            rise.Completed += (_, _) => { if (_sceneRevision == revision) Mouse.Synchronize(); };
+            OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, rise);
         }
 
         Dispatcher.BeginInvoke(() => FocusFamily(_nav.FamilyIndex));
@@ -527,6 +543,23 @@ public partial class VersionSelectOverlay : UserControl
 
     /// <summary>Whether the dropdown's list is open.</summary>
     internal bool DropdownOpen => ReleaseBox.IsDropDownOpen;
+
+    /// <summary>Render shots' frame-rate measure only: every card bobs like a hover lift, without end (or stops), and
+    /// the sheet's shadow either sits on its own cached layer (as shipped) or on the sheet as an Effect (the old way),
+    /// so the two can be timed in one run.</summary>
+    internal void TourBobCards(bool on, bool shadowOnSheet)
+    {
+        Sheet.Effect = shadowOnSheet ? (System.Windows.Media.Effects.Effect)FindResource("Shadow.Overlay") : null;
+        SheetShadow.Visibility = shadowOnSheet ? Visibility.Collapsed : Visibility.Visible;
+        for (var i = 0; i < _tiles.Count; i++)
+        {
+            if (FamilyList.ItemContainerGenerator.ContainerFromIndex(i) is not ListBoxItem item) continue;
+            if (item.Template?.FindName("Lift", item) is not TranslateTransform lift) continue;
+            lift.BeginAnimation(TranslateTransform.YProperty, on
+                ? new DoubleAnimation(0, -4, TimeSpan.FromMilliseconds(120)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }
+                : null);
+        }
+    }
 
     // Render mode only (UI/RenderShots.cs): open the picker, optionally on one
     // family (index into VersionCatalog.Groups) at step 2, expanded with no motion. They do nothing outside a

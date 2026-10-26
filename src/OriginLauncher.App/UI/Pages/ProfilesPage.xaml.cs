@@ -23,6 +23,9 @@ public partial class ProfilesPage : UserControl
     private Func<ModProfile, int> _countMods = p => ProfileFolders.CountMods(OriginPaths.ProfileModsDir(p.Version, p.Id));
     private LauncherSettings? _demo;                 // CI screen render only: shown instead of the real settings
     private string? _homeVersion;                    // the version Home shows; the create form starts on it
+
+    /// <summary>The Home version the page was last shown for (MainWindow: another version rebuilds before showing).</summary>
+    internal string? ShownVersion => _homeVersion;
     private string? _editingId;                      // the profile the form is editing; null = creating a new one
     private string? _pendingDelete;                  // profile id awaiting the inline "Delete?" confirm
     private bool _busy;                              // a duplicate / delete is copying or removing files
