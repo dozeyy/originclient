@@ -242,7 +242,7 @@ public final class HudElements {
 		boolean right = Mods.bool("cps", "rightClick");
 		int rightCps = right ? ClickStats.rightCps() : -1;
 		int opts = (right ? 1 : 0) | (Mods.bool("cps", "showText") ? 2 : 0) | (Mods.bool("cps", "reverseText") ? 4 : 0);
-		if (cpsCached != null && left == cpsKeyL && rightCps == cpsKeyR && opts == cpsKeyOpts) {
+		if (!com.origin.client.client.BenchSwitches.HUD_OFF && cpsCached != null && left == cpsKeyL && rightCps == cpsKeyR && opts == cpsKeyOpts) {
 			return cpsCached;
 		}
 		String value = String.valueOf(left);
@@ -265,6 +265,9 @@ public final class HudElements {
 			return "Singleplayer";
 		}
 		int players = mc.getNetHandler() != null ? mc.getNetHandler().getPlayerInfoMap().size() : 0;
+		if (com.origin.client.client.BenchSwitches.HUD_OFF) {
+			return server.serverIP + " (" + players + ")";   // bench A/B "pick 3 off": rebuilt per call
+		}
 		if (serverCached != null && players == serverKeyPlayers && java.util.Objects.equals(server.serverIP, serverKeyIp)) {
 			return serverCached;
 		}
@@ -967,6 +970,9 @@ public final class HudElements {
 	private static final String[][] KS_KEYS = new String[32][];
 
 	private static String ksAnimKey(String label, int x, int y) {
+		if (com.origin.client.client.BenchSwitches.HUD_OFF) {
+			return "ks:" + label + x;   // bench A/B "pick 3 off": concatenated per key per frame, as before
+		}
 		int spot = (x << 12) ^ y;
 		int slot = (spot ^ (spot >>> 5) ^ (spot >>> 11)) & 31;
 		String[] e = KS_KEYS[slot];

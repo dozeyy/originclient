@@ -111,6 +111,9 @@ JVM_AB = {
     "heap6g": LAUNCHER_JVM.replace("-Xms4096M -Xmx4096M", "-Xms6144M -Xmx6144M"),
 }
 
+# Phase 6 picks the bench can switch back off (OriginBench env ORIGIN_BENCH_OFF -> BenchSwitches.java)
+PICKS_OFF = ("hud", "minimap", "particles")
+
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OriginBench"
 VARIANTS = ("origin-default", "optifine-only")
 
@@ -820,6 +823,8 @@ def bench_env(args, variant, out_dir, build_label):
         "ORIGIN_BENCH_SHOTS": "1" if args.shots else "0",
         "ORIGIN_BENCH_SAVE_OPTIONS": "1" if getattr(args, "save_options", False) else "0",
         "ORIGIN_BENCH_IGNORE_FOCUS": "1" if getattr(args, "ignore_focus", False) else "0",
+        # judge fix 2026-10-25: Phase 6 picks switched back to their old code (BenchSwitches.java); "" = as shipped
+        "ORIGIN_BENCH_OFF": ",".join(getattr(args, "off", None) or []),
     })
     return env
 
@@ -912,6 +917,8 @@ def build_parser():
     r.add_argument("--shaderpack", help="a shader pack FOLDER (tools/bench/shaderpack-189/origin-bench) to install and select (B-04)")
     r.add_argument("--keep-game", action="store_true")
     r.add_argument("--no-betterfps", action="store_true", help="leave BetterFps out of the stack (U6.4 J A/B)")
+    r.add_argument("--off", action="append", choices=PICKS_OFF,
+                   help="switch one kept Phase 6 pick off for an A/B (repeatable): hud = pick 3, minimap = 4, particles = 5")
     c = sub.add_parser("check-roundtrip", help="fail when the game saved back a different value than the preset wrote")
     c.add_argument("--preset", required=True)
     c.add_argument("--saved", nargs="+", required=True, help="run folder(s) holding the saved options.txt + optionsof.txt")

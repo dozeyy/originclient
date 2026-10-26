@@ -190,6 +190,9 @@ public final class OriginBench {
 	private boolean gcNotify = false, gcMeasuring = false;
 	private long gcPauseTotalMs = 0, gcPauseMaxMs = 0, gcPauseCount = 0;
 	private String startedAt;
+	// Phase 6.1 startup metric: JVM start -> first tick on the title screen, in ms (-1 = not seen). Same
+	// probe in every variant (the OptiFine-only one too), so tools/bench/ab189.py pairs it like a scene.
+	private long startupMs = -1;
 
 	private OriginBench() {
 		for (String s : SPEC.toLowerCase(Locale.ROOT).split(",")) {
@@ -262,6 +265,8 @@ public final class OriginBench {
 				if (!OriginDevShots.isTitle(mc.currentScreen)) {
 					return;
 				}
+				startupMs = System.currentTimeMillis() - ManagementFactory.getRuntimeMXBean().getStartTime();
+				log("[OriginBoot] title screen " + startupMs + " ms after JVM start");
 				startedAt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(new Date());
 				outDir = resolveOutDir(mc);
 				glRenderer = GL11.glGetString(GL11.GL_RENDERER);
@@ -924,6 +929,8 @@ public final class OriginBench {
 			// load would otherwise be measured as "shaders on"). Reads OptiFine's own flag; false without OptiFine.
 			env.addProperty("shaderPackActive", com.origin.client.client.shaders.IrisBridge.shadersActive());
 			env.addProperty("profiling", BenchProf.ON);
+			env.addProperty("startupMs", startupMs);
+			env.addProperty("picksOff", BenchSwitches.describe());
 			env.addProperty("fakePlayers", FAKE_PLAYERS);
 			env.addProperty("focusIgnored", IGNORE_FOCUS);
 			env.addProperty("menuBlur", PROBE ? "n/a (Origin inert)"

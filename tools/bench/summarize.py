@@ -223,12 +223,15 @@ def aggregate(root, label=LABEL_CI, baseline=None):
                           if d.startswith("run-") and os.path.isdir(os.path.join(vdir, d)))
         if not run_dirs:
             continue
-        runs, per_scene, left_out = [], {}, []
+        runs, per_scene, left_out, startups = [], {}, [], []
         env = {}
         for rd in run_dirs:
             res = summarize_run(os.path.join(vdir, rd))   # raises on a corrupt run: never skipped quietly
             env = env or res["environment"]
             runs.append(rd)
+            ms = res["environment"].get("startupMs")
+            if isinstance(ms, (int, float)) and ms > 0:   # -1 / missing = title never seen, or an older jar
+                startups.append(ms / 1000.0)
             for sc, s in res["scenes"].items():
                 if not s["valid"]:
                     left_out.append("%s/%s" % (rd, sc))
@@ -240,7 +243,8 @@ def aggregate(root, label=LABEL_CI, baseline=None):
             for name, _ in METRICS:
                 m[name] = _spread([row.get(name) for row in rows])
             scenes[sc] = m
-        variants[vname] = {"runs": runs, "leftOutInvalid": left_out, "environment": env, "scenes": scenes}
+        variants[vname] = {"runs": runs, "leftOutInvalid": left_out, "environment": env, "scenes": scenes,
+                           "startupS": _spread(startups)}   # JVM start -> title screen, seconds (6.1 startup)
     if not variants:
         raise SummaryError("%s: no <variant>/run-<n> folders found" % root)
 
@@ -279,7 +283,10 @@ def require_valid(agg):
         expected.update(x.split("/", 1)[1] for x in v["leftOutInvalid"])
     problems = []
     for name, v in agg["variants"].items():
-        missing = sorted(expected - set(v["scenes"]))
+        want = set(expected)
+        if v["environment"].get("originActive") is False:
+            want.discard("hud")   # the OptiFine-only probe skips hud on purpose (no Origin HUD to draw)
+        missing = sorted(want - set(v["scenes"]))
         if missing:
             problems.append("%s has no valid run of: %s (left out as invalid: %s)"
                             % (name, ", ".join(missing), ", ".join(v["leftOutInvalid"]) or "none"))
@@ -332,6 +339,9 @@ def to_markdown(agg):
         if v["leftOutInvalid"]:
             lines.append("Left out as invalid (window unfocused / camera off / truncated): " + ", ".join(v["leftOutInvalid"]))
         lines.append("")
+        if v.get("startupS"):
+            lines.append("Time to title screen (JVM start -> title, s): %s" % _cell(v["startupS"], 1))
+            lines.append("")
         lines.append("| Scene | Runs | Avg FPS | 1% low | 0.1% low | p50 ms | p99 ms | stdev ms | GC pause total ms | GC pause max ms | Alloc MB/s |")
         lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for sc, m in v["scenes"].items():

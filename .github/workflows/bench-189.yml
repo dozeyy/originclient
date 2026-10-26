@@ -13,10 +13,15 @@
 # are labelled "CI, relative only": compare the variants with each other, never quote an FPS as a player's.
 # Java is Temurin 8 from setup-java (Linux, latest 8u), not the launcher's 8u504 Windows JRE.
 #
-# Start it by hand (Run workflow, once this file is on main) or from a push to a claude/** branch whose head
-# commit message carries a tag:
-#   [bench-189 runs=3 scenes=idle,particles,menu,flythrough warmup=15 duration=45 label=x]
-# (every key optional; a bare [bench-189] runs the defaults). Every launch also leaves a fresh
+# Start it by hand only (Run workflow, or `gh workflow run bench-189.yml --ref <branch> -f runs=4 ...`). The
+# push trigger was removed 2026-10-25 (Will: no CI run starts Minecraft by itself; he decides when one runs).
+#
+# PICK A/B (judge fix 2026-10-25): extra=off-hud,off-minimap,off-particles adds one origin-default launch per
+# kept Phase 6 pick with that ONE pick switched back to its old code (BenchSwitches.java, bench-only env
+# ORIGIN_BENCH_OFF). tools/bench/ab189.py pairs each with the same round's origin-default (+ = the pick helps).
+# Scenes that exercise them: hud (picks 3 + 4: all HUD elements, minimap included), particles (pick 5).
+# Every launch also records the time to the title screen (bench.json environment.startupMs); ab189.py reports
+# it as the `startup` row and summarize.py as its own table. Every launch also leaves a fresh
 # options.txt + optionsof.txt + of-fields.txt in the artifact (U6.0: tools/bench/optifine-keys-189.txt).
 #
 # PRESET MODE (presets=competitive,balanced,quality; Phase 6 U6.2): the variants become origin-default (the
@@ -28,8 +33,6 @@
 name: bench-189
 
 on:
-  push:
-    branches: ["claude/**"]
   workflow_dispatch:
     inputs:
       runs:
@@ -63,7 +66,7 @@ on:
         description: "Window WxH (default 1280x720; a small one lifts llvmpipe above 30 FPS to check frame caps)"
         default: "1280x720"
       extra:
-        description: "Extra variants (U6.4 A/B), comma list: optifine-only (the control, for preset mode), jvm-g1-pause40, jvm-g1-young15, jvm-parallel, jvm-cms, jvm-heap2g, jvm-heap6g, java-zulu8, no-betterfps"
+        description: "Extra variants (U6.4 A/B), comma list: optifine-only (the control, for preset mode), jvm-g1-pause40, jvm-g1-young15, jvm-parallel, jvm-cms, jvm-heap2g, jvm-heap6g, java-zulu8, no-betterfps, off-hud, off-minimap, off-particles (one Phase 6 pick switched off)"
         default: ""
 
 permissions:
@@ -136,7 +139,7 @@ jobs:
                       if k in cfg and re.fullmatch(r"[A-Za-z0-9._,-]+", v):
                           cfg[k] = v
           scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause)"
-          ab = r"(optifine-only|jvm-(g1-pause40|g1-young15|parallel|cms|heap2g|heap6g)|java-zulu8|no-betterfps)"
+          ab = r"(optifine-only|jvm-(g1-pause40|g1-young15|parallel|cms|heap2g|heap6g)|java-zulu8|no-betterfps|off-(hud|minimap|particles))"
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
                          ("presets", r"|(competitive|balanced|quality)(,(competitive|balanced|quality))*"),
                          ("prof", r"[01]"), ("shots", r"[01]"), ("shader", r"[01]"), ("size", r"\d{3,4}x\d{3,4}"), ("scenes", scene + "(," + scene + ")*"),
@@ -250,6 +253,7 @@ jobs:
                 jvm-*) pv="origin-default"; vargs="--jvm-variant ${v#jvm-}" ;;
                 java-zulu8) pv="origin-default"; java="$ZULU8/bin/java" ;;
                 no-betterfps) pv="origin-default"; vargs="--no-betterfps" ;;
+                off-*) pv="origin-default"; vargs="--off ${v#off-}" ;;
               esac
               for attempt in 1 2; do
                 echo "::group::round $r  $v  (attempt $attempt)"
@@ -306,6 +310,8 @@ jobs:
             python3 tools/bench/summarize.py aggregate "$OUT" --baseline optifine-only --require-valid \
               $gate --label "CI, relative only" \
               | tee -a "$GITHUB_STEP_SUMMARY"
+            # every extra (and the startup row) paired with the same round's origin-default: the keep/revert table
+            python3 tools/bench/ab189.py "$OUT" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
       # Preset mode: did OptiFine keep every value a preset wrote? Written vs what the game saved back.
