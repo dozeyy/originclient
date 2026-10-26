@@ -30,10 +30,6 @@ public sealed class LaunchOverrideTests
         Assert.Equal(Set, Refused().Accept(LaunchRoute.EnterKey, Account, Version, Line));
 
     [Fact]
-    public void ThePickersLaunchIsPlayAndStartsTheRefusedSetAnyway() =>
-        Assert.Equal(Set, Refused().Accept(LaunchRoute.Picker, Account, Version, Line));
-
-    [Fact]
     public void JoinServerChecksNormally()
     {
         var o = Refused();

@@ -143,5 +143,7 @@
 
         <controls:VersionSelectOverlay x:Name="VersionOverlay"/>
         <controls:LaunchLoadingOverlay x:Name="LoadingOverlay"/>
+        <!-- Phase 5.3: over a refused Play (HomePage.Fix.cs). -->
+        <controls:FixCompatibilityOverlay x:Name="FixPrompt"/>
     </Grid>
 </UserControl>

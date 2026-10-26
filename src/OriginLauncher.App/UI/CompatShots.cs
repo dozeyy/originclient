@@ -1,6 +1,8 @@
 using System.Reflection;
 using OriginLauncher.App.Core.Compat;
+using OriginLauncher.App.Core.Components;
 using OriginLauncher.App.Core.GameFolders;
+using OriginLauncher.App.Core.Profiles;
 
 namespace OriginLauncher.App.UI;
 
@@ -79,6 +81,61 @@ internal static class CompatShots
         System.IO.File.WriteAllText(System.IO.Path.Combine(outDir, "31-measure.txt"), report.ToString());
         Console.WriteLine(report.ToString());
         if (report.ToString().Contains("FAIL")) throw new InvalidOperationException("Home error line out of bounds:\n" + report);
+
+        FixPrompt(window, outDir, home, version, tone);
+    }
+
+    // 3. Phase 5.3: the Fix Compatibility prompt over the refused Play, through the page's own OpenFixPrompt and
+    // ShowFixPlan, with proposals the real planner (FixCompatibility.Choose -> RepairPlanner) makes from model mods.
+    private static void FixPrompt(MainWindow window, string outDir, object home, string version, object tone)
+    {
+        var platform = LaunchPreflight.PlatformFor(version);
+        var profile = new ModProfile { Id = ProfileRules.NewId(), Name = "Hypixel PvP", Version = version };
+        var source = new FixSource(version, profile, @"C:\demo\mods", @"C:\demo\profile\mods", _ => false, _ => false);
+        var shipped = ConfigurationCatalog.For(version).First(c => c.IsDefault);
+
+        ModFile Mod(string file, string id, string name, ModRole role, params ModDependency[] depends) =>
+            new(@"C:\demo\profile\mods\" + file, file, true, role, new ModInfo
+            {
+                FileName = file, Loader = ModLoader.Fabric, Id = id, Name = name, Version = "1.0.0", Depends = depends,
+            });
+        var minecraft = new ModDependency("minecraft", new[] { "1.20.4" });
+        var entries = new[]
+        {
+            Mod("oldmod-1.0.0.jar", "oldmod", "Old Mod", ModRole.Profile, minecraft),
+            Mod("somelib-2.1.jar", "somelib", "Some Lib", ModRole.Profile, new ModDependency("cloth-config", new[] { ">=15.0.0" })),
+        };
+        var proposal = FixCompatibility.Choose(source, new[] { (shipped, CompatEngine.Check(entries, platform)) },
+            new DemoCatalog(), platform);
+
+        // The status line behind the prompt is the refusal Play just set: the same mods the prompt names.
+        Call(home, "SetStatus", new[] { new IncompatibleModsException(version, new[] { "Old Mod", "Some Lib" },
+            new[] { $"Old Mod: needs Minecraft 1.20.4, not {version}.", "Some Lib: it needs Cloth Config." }).Message, tone });
+        Call(home, "OpenFixPrompt", new object[] { new[] { "Old Mod", "Some Lib" }, version });
+        Call(home, "ShowFixPlan", new object?[] { proposal, profile });
+        RenderShots.Pump(500);
+        RenderShots.Snap(window, outDir, "32-compat-fix-prompt");
+
+        // 3b. No plan could be made (Modrinth too slow, a jar unreadable): the prompt says so plainly and keeps
+        // Launch anyway, with no Fix button.
+        Call(home, "SetStatus", new[] { new IncompatibleModsException(version, new[] { "Old Mod" },
+            new[] { $"Old Mod: needs Minecraft 1.20.4, not {version}." }).Message, tone });
+        Call(home, "OpenFixPrompt", new object[] { new[] { "Old Mod" }, version });
+        Call(home, "ShowFixPlan", new object?[] { null, profile });
+        RenderShots.Pump(500);
+        RenderShots.Snap(window, outDir, "32b-compat-fix-prompt-nofix");
+        ((Controls.FixCompatibilityOverlay)Field(home, "FixPrompt")).Dismiss();
+        RenderShots.Pump(200);
+    }
+
+    // What Modrinth would answer for the demo's missing library (no network in render mode).
+    private sealed class DemoCatalog : IDependencyCatalog
+    {
+        public DependencyOffer? Find(string id, VersionPredicate range, CompatPlatform platform) =>
+            id != "cloth-config" ? null
+                : new DependencyOffer(id, "15.0.140", "cloth-config-15.0.140-fabric.jar",
+                    new ModInfo { FileName = "cloth-config-15.0.140-fabric.jar", Loader = ModLoader.Fabric, Id = id, Version = "15.0.140" },
+                    "https://cdn.modrinth.com/data/demo/cloth-config-15.0.140-fabric.jar", Sha512: new string('0', 128));
     }
 
     // Measures the status line the page really shows: each row's real width against the text box's own limit, the rows

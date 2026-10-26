@@ -1,7 +1,5 @@
 using System.IO;
 using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 
 namespace OriginLauncher.App.Core.Loaders;
 
@@ -35,63 +33,11 @@ public static class SimpleVoiceChatInstaller
         return http;
     }
 
-    public static async Task InstallAsync(
-        string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default)
-    {
-        Directory.CreateDirectory(modsFolder);
-
-        // Skip-if-present (same as FabricApiInstaller): no repeat network call on
-        // every subsequent launch of an already-provisioned instance. Match the
-        // SVC filename prefix in either state (".jar" or a player-disabled
-        // ".jar.disabled") so a mod the player deliberately turned off is respected.
-        if (Directory.EnumerateFiles(modsFolder).Any(f =>
-        {
-            var n = Path.GetFileName(f);
-            return n.StartsWith(FilePrefix, StringComparison.OrdinalIgnoreCase)
-                && (n.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                    || n.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase));
-        }))
-            return;
-
-        progress?.Report("Installing Simple Voice Chat...");
-
-        // Brackets/quotes must be percent-encoded or Modrinth returns 400.
-        var gameVersions = Uri.EscapeDataString($"[\"{mcVersion}\"]");
-        var loaders = Uri.EscapeDataString("[\"fabric\"]");
-        var url = $"https://api.modrinth.com/v2/project/{ProjectSlug}/version" +
-                  $"?game_versions={gameVersions}&loaders={loaders}";
-
-        List<ModrinthVersion>? versions;
-        try
-        {
-            versions = await Http.GetFromJsonAsync<List<ModrinthVersion>>(url, ct);
-        }
-        catch (HttpRequestException)
-        {
-            return; // offline or Modrinth unreachable — leave the instance without it rather than fail the install
-        }
-
-        var latest = versions?.OrderByDescending(v => v.DatePublished).FirstOrDefault();
-        var file = latest?.Files.FirstOrDefault(f => f.Primary) ?? latest?.Files.FirstOrDefault();
-        if (file == null)
-            return; // no SVC build published for this exact MC version
-
-        var destPath = Path.Combine(modsFolder, file.Filename);
-        using var response = await Http.GetAsync(file.Url, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-
-        var tempPath = destPath + ".download";
-        await using (var fileStream = File.Create(tempPath))
-            await response.Content.CopyToAsync(fileStream, ct);
-        File.Move(tempPath, destPath, overwrite: true);
-    }
-
-    private sealed record ModrinthVersion(
-        [property: JsonPropertyName("date_published")] DateTimeOffset DatePublished,
-        [property: JsonPropertyName("files")] List<ModrinthFile> Files);
-
-    private sealed record ModrinthFile(
-        [property: JsonPropertyName("url")] string Url,
-        [property: JsonPropertyName("filename")] string Filename,
-        [property: JsonPropertyName("primary")] bool Primary);
+    // 2026-10-25 (Phase 5.2a): the exact pinned file (ManagedPins.Data.cs, Modrinth's SHA-512) first; the live
+    // query only for a version with no pin, and it too must match the SHA-512 Modrinth published. Before this, the
+    // jar was installed with no hash check, and an unreadable reply or a timeout threw out of the launch.
+    public static Task InstallAsync(
+        string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
+        FabricApiInstaller.InstallProjectAsync(Http, ProjectSlug, FilePrefix, "[\"fabric\"]",
+            "Installing Simple Voice Chat...", ManagedPins.VoiceChat(mcVersion), mcVersion, modsFolder, progress, ct);
 }

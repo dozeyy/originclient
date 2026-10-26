@@ -1,0 +1,60 @@
+<UserControl x:Class="OriginLauncher.App.UI.Controls.FixCompatibilityOverlay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             Visibility="Collapsed"
+             IsHitTestVisible="True"
+             KeyboardNavigation.TabNavigation="Contained"
+             KeyboardNavigation.DirectionalNavigation="Contained">
+
+    <!-- The pre-launch Fix Compatibility prompt (Phase 5.3), in ConfirmOverlay's dialog style (Surface.DialogSheet over
+         the scrim, at most 440 wide, footer right-aligned). It shows straight away with the refused mods; the plan
+         arrives a moment later (Fix stays off until it does). Three answers: Cancel, Launch anyway (the same override
+         Play gives), Fix Compatibility (a fixed COPY of the profile; the original is never changed). -->
+    <Border Background="{StaticResource Brush.Scrim}">
+        <Border Style="{StaticResource Surface.DialogSheet}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                MaxWidth="440" Margin="24">
+            <StackPanel>
+                <TextBlock x:Name="TitleText" Style="{StaticResource Text.Title}" TextWrapping="Wrap"/>
+                <TextBlock x:Name="MessageText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                <ScrollViewer MaxHeight="232" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <StackPanel>
+                        <TextBlock x:Name="PlanHeading" Style="{StaticResource Text.Label}" TextWrapping="Wrap"/>
+                        <ItemsControl x:Name="ChangeList" Margin="0,6,0,0" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,0,0,4"
+                                               Text="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="NoFixHeading" Style="{StaticResource Text.Label}" TextWrapping="Wrap"
+                                   Margin="0,10,0,0" Text="Not fixed by this" Visibility="Collapsed"/>
+                        <ItemsControl x:Name="NoFixList" Margin="0,6,0,0" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,0,0,4"
+                                               Text="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+                <TextBlock x:Name="FootText" Style="{StaticResource Text.CaptionDim}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                    <Button x:Name="CancelButton" Style="{StaticResource Button.Ghost}" Content="Cancel"
+                            MinWidth="96" Margin="0,0,8,0" Click="CancelButton_Click"/>
+                    <Button x:Name="AnywayButton" Style="{StaticResource Button.Secondary}" Content="Launch anyway"
+                            MinWidth="96" Margin="0,0,8,0" Click="AnywayButton_Click"/>
+                    <Button x:Name="FixButton" Style="{StaticResource Button.Primary.Medium}" Content="Fix Compatibility"
+                            MinWidth="96" Click="FixButton_Click"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Border>
+</UserControl>

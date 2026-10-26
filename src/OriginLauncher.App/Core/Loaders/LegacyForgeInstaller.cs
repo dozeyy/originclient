@@ -49,10 +49,18 @@ public static class LegacyForgeInstaller
             progress?.Report("Downloading Forge...");
             Directory.CreateDirectory(Path.GetDirectoryName(libPath)!);
             using var response = await Http.GetAsync(build.UniversalUrl, HttpCompletionOption.ResponseHeadersRead, ct);
-            response.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode(); // offline: the HttpRequestException reaches OfflineLaunch as before
             var tempPath = libPath + ".download";
             await using (var fileStream = File.Create(tempPath))
                 await response.Content.CopyToAsync(fileStream, ct);
+
+            // Forge IS the loader: a file that is not the pinned one fails the launch loudly (like a perf pin
+            // mismatch) instead of starting a game on it. The temp name is never on the class path.
+            if (!PinnedDownload.Matches(tempPath, build.UniversalSha256))
+            {
+                try { File.Delete(tempPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                throw new InvalidDataException("The Forge download did not match its pinned SHA-256; not installed.");
+            }
             File.Move(tempPath, libPath, overwrite: true);
         }
 

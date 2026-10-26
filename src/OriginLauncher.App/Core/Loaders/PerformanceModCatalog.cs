@@ -16,4 +16,7 @@ public static partial class PerformanceModCatalog
     // (once Sodium/Iris ship for a new version) makes it appear automatically.
     public static bool HasShaderStack(string mcVersion) =>
         Data.TryGetValue(mcVersion, out var p) && p.Sodium != null && p.Iris != null;
+
+    /// <summary>Every pinned perf jar across every version (ManagedPins builds its known-hash set from these).</summary>
+    public static IEnumerable<PerfMod> AllPins() => Data.Values.SelectMany(p => p.Mods());
 }

@@ -12,6 +12,7 @@ using OriginLauncher.App.Core.Performance;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Compat;
+using OriginLauncher.App.Core.Components;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Import.Launcher;
@@ -92,6 +93,9 @@ public partial class HomePage : UserControl
         public bool StoppedByPlayer { get; set; }
         // When it started: only crash files written since then can explain its exit.
         public DateTime StartedUtc { get; init; } = DateTime.UtcNow;
+        // A profile game's component configuration (Core/Components): its Sodium/Iris settings are in place while
+        // it runs; disposed when it exits (the shipped set's settings come back). Null for every other game.
+        public IDisposable? Configuration { get; init; }
     }
 
     // The game whose start the progress screen is showing, once its process is
@@ -596,7 +600,7 @@ public partial class HomePage : UserControl
         ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: _selectedVersion != null));
         // Join follows Play: usable only when Play itself could start a launch.
         JoinButton.IsEnabled = key != null && phase == GamePhase.Idle && _selectedVersion != null;
-        if (ImportRunState.IsApplying)
+        if (ImportRunState.IsApplying || _fixRunning) // _fixRunning: a fixed copy is being made (HomePage.Fix.cs)
         {
             PlayButton.IsEnabled = false;
             JoinButton.IsEnabled = false;
@@ -882,6 +886,7 @@ public partial class HomePage : UserControl
         // with a Retry (PlayFailure). `failure` is what the finally block puts on the screen instead of hiding it.
         var provisioning = false;
         PlayFailure? failure = null;
+        IncompatibleModsException? refused = null; // offered Fix Compatibility once this launch has unwound
 
         try
         {
@@ -955,9 +960,11 @@ public partial class HomePage : UserControl
             // installProgress was constructed on the UI thread, so Progress<T>
             // still marshals every stage update back correctly.
             provisioning = true;
+            string? configurationId = null; // set only for a profile on a version with vetted alternates
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
-                    version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey),
+                    version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey,
+                    profile?.ComponentPins, id => configurationId = id),
                 ticket.Token);
             provisioning = false;
 
@@ -990,6 +997,10 @@ public partial class HomePage : UserControl
             ticket.Token.ThrowIfCancellationRequested();
 
             Stage("Starting Minecraft");
+            // The picked configuration's Sodium/Iris settings go in now (one stat when it is the shipped set).
+            var configuration = profile != null && configurationId != null
+                ? ActiveConfiguration.Begin(profile.Id, configurationId, gameDir, OriginPaths.ConfigOverlays(version, key))
+                : null;
             var game = new RunningGame
             {
                 Key = key,
@@ -998,6 +1009,7 @@ public partial class HomePage : UserControl
                 GameDir = gameDir,
                 Process = process,
                 Handoff = handoff,
+                Configuration = configuration,
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -1045,12 +1057,18 @@ public partial class HomePage : UserControl
         catch (IncompatibleModsException ex)
         {
             // Mods that cannot start the game, caught before it launched (Core/Compat/LaunchPreflight): a plain
-            // sentence naming them, not a loader crash. TODO(Phase 5.3): a "Fix Compatibility" button here.
-            // The metadata can be wrong, so Play on this same set, for this account and version, while this line is
+            // sentence naming them, not a loader crash; Play and Enter also open the Fix Compatibility prompt
+            // (HomePage.Fix.cs) once this launch has unwound. The metadata can be wrong, so Play on this same set, for this account and version, while this line is
             // still showing, starts it anyway (LaunchOverride). Join server and Retry never do.
             Note(key, ex.Message, LaunchTone.Error);
             _modOverride.Refuse(key, version, ex.SetKey, ex.Message);
             WriteLaunchErrorLog(ex);
+            refused = ex;
+        }
+        catch (ConfigurationInUseException ex)
+        {
+            // The profile's other game runs on a different component set; its files are in use (Core/Components).
+            Note(key, ex.Message, LaunchTone.Warning);
         }
         catch (MicrosoftAuthException ex)
         {
@@ -1110,6 +1128,8 @@ public partial class HomePage : UserControl
             // line the try/catch above just set. Only re-sync the button.
             RefreshPlayButton();
         }
+        // Join server and the crash Retry never prompt: the player did not press Play on these mods.
+        if (refused != null && route is LaunchRoute.Play or LaunchRoute.EnterKey) _ = OfferFixAsync(refused, version, profile);
     }
 
     // Owns the tail of one game's launch: keeps the progress screen up and the
@@ -1537,6 +1557,10 @@ public partial class HomePage : UserControl
 
                 Dispatcher.BeginInvoke(() => OnGameExited(game, exitCode));
 
+                // The shipped set's Sodium/Iris settings come back BEFORE Settings Sync reads this game folder,
+                // so an older Sodium's file never travels to the player's other versions.
+                game.Configuration?.Dispose();
+
                 // Settings Sync: take in what the player changed this session.
                 // Checks the switch itself and never throws; already on a pool
                 // thread, so its file work never touches the UI.
@@ -1557,6 +1581,7 @@ public partial class HomePage : UserControl
             // Start failed — release the log handle and let PlayButton_Click's
             // catch report it, rather than leaking the writer.
             lock (gate) { logWriter?.Dispose(); logWriter = null; }
+            game.Configuration?.Dispose();
             throw;
         }
     }
