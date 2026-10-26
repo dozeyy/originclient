@@ -1,0 +1,4 @@
+{
+ "_why": "dev-shots set=stepaside on 1.8.9: no jars. The overlapping 1.8.9 Forge mods (Perspective Mod Redux, Freelook, Omnilook, FreeCam by Zergatul, Epic Zoomer) are SRG-named and can't load into the MCP-named dev game, so OriginDevShots resolves the StepAside table itself (as if Perspective Mod Redux were installed). Players get the real Forge Loader detection.",
+ "mods": []
+}

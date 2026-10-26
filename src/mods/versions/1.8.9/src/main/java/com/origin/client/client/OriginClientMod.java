@@ -85,6 +85,9 @@ public class OriginClientMod {
 
 	/** Called once by OriginClient (FMLInitializationEvent). */
 	public static void init() {
+		// Which of Origin's mods step aside for the player's own (a perspective mod ->
+		// Freelook, Epic Zoomer -> Zoom). First, before anything reads Mods.on.
+		com.origin.client.client.mods.StepAsideDetect.run();
 		if (OriginBench.probeOnly()) {
 			// CI "OptiFine-only" baseline (ORIGIN_BENCH_PROBE=1, benchmark mode only, never a player's
 			// game): Origin stays inert -- no hooks, keys, HUD or flush thread -- and only the

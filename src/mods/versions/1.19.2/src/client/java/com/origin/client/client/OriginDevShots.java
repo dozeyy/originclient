@@ -59,7 +59,21 @@ public final class OriginDevShots {
 		// world list with that save in it after Save and Quit.
 		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED,
 		// ORIGIN_SHOTS_SET=perf: the real Sodium / Iris screens (opened by reflection, see perfScreen)
-		PERF_SODIUM, PERF_IRIS;
+		PERF_SODIUM, PERF_IRIS,
+		// ORIGIN_SHOTS_SET=stepaside: a feature a loaded mod replaces (StepAside), as a card, a list row
+		// and its own page -- run with a real overlapping mod loaded (tools/frame-log/mods-<module>-stepaside.json).
+		STEP_CARD, STEP_ROW, STEP_PAGE;
+
+		/** The first replaced feature (Freelook when Freecam is loaded), or freelook when nothing is replaced. */
+		private static String stepFeature() {
+			java.util.List<String> f = com.origin.client.client.mods.StepAside.replacedFeatures();
+			return f.contains("freelook") ? "freelook" : f.isEmpty() ? "freelook" : f.get(0);
+		}
+
+		private static String stepSearch() {
+			com.origin.client.client.mods.Mods.Mod m = com.origin.client.client.mods.Mods.byId(stepFeature());
+			return m == null ? "" : m.name();
+		}
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -90,6 +104,9 @@ public final class OriginDevShots {
 				case QUICKPLAY -> new com.origin.client.client.gui.QuickplayScreen();
 				case SHADERS -> new com.origin.client.client.shaders.ShaderBrowserScreen(null);
 				case MENU_CLEAR -> new OriginModMenuScreen().preview(false, false);
+				case STEP_CARD -> new OriginModMenuScreen().preview(false, false).withSearch(stepSearch());
+				case STEP_ROW -> new OriginModMenuScreen().preview(true, false).withSearch(stepSearch());
+				case STEP_PAGE -> new OriginModMenuScreen(null, stepFeature()).preview(false, false);
 				case FRIENDS -> {
 					com.origin.client.client.social.SocialDemo.install(false);
 					yield new com.origin.client.client.gui.FriendsScreen(null)
@@ -439,12 +456,19 @@ public final class OriginDevShots {
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.TITLE));
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.PERF_SODIUM));
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.PERF_IRIS));
+		} else if ("stepaside".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Origin steps aside: the replaced feature's card, list row and page, at both desktop sizes.
+			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.STEP_CARD));
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.STEP_ROW));
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.STEP_PAGE));
+			}
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
-					if (!k.name().startsWith("STY_") && !k.name().startsWith("PERF_")) {
+					if (!k.name().startsWith("STY_") && !k.name().startsWith("PERF_") && !k.name().startsWith("STEP_")) {
 						SHOTS.add(new Shot(s[0], s[1], 0, k));
 					}
 				}
