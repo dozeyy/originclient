@@ -23,7 +23,13 @@ folder after the Minecraft version so smoke.py's catalog lookups (--companions) 
 Every download is checked: catalog jars against the catalog's own SHA-512 (what the launcher checks), Fabric
 API against Modrinth's SHA-512; only https://cdn.modrinth.com is accepted.
 
-Usage: covers.py <module-dir> <mc-version> --out <dir>
+--pair <pairId> (U5.2b configurations): boot the same set with Sodium + Iris swapped for an older pair the launcher
+may pin per profile (ManagedPins.Data.cs AlternatePins, the launcher's own SHA-512 pins), exactly as the launcher's
+LaunchSwap does: the catalog's sodium-fabric-* / iris-fabric-* jars are replaced by the pair's. It writes
+<out>/pair-expect.txt so smoke.py --expect-perf can require the mod list to name THAT pair (on 1.21.1 the Origin jar
+also nests the shipped pair; the top-level one must win).
+
+Usage: covers.py <module-dir> <mc-version> --out <dir> [--pair <pairId>]
 Exit 0 = project ready, 1 = a check failed (printed as ::error), 2 = usage.
 """
 import argparse
@@ -41,6 +47,11 @@ import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CATALOG = os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "PerformanceModCatalog.Data.cs")
+PINS = os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "ManagedPins.Data.cs")
+# ["<mc>:<sodium|iris>-<pairId>"] = new("<version>", "<url>", "<file>", "<sha512>")
+ALT_PIN = re.compile(r'\["([^"]+):(sodium|iris)-([^"]+)"\] = new\("[^"]*", "([^"]+)", "([^"/\\]+\.jar)", "([0-9a-fA-F]{128})"\)')
+# What the launcher's LaunchSwap replaces (ConfigurationCatalog.ReplacedPrefixes).
+REPLACED = ("sodium-fabric-", "iris-fabric-")
 LIVE = os.path.join(ROOT, "src", "mods", "live-modules.json")
 API = "https://api.modrinth.com/v2"
 UA = "originclient-ci/1.0 (github.com/dozeyy/originclient)"
@@ -79,6 +90,33 @@ def catalog_mods(catalog_text, mc_version):
         if not any(n.startswith(need) for n in names):
             raise CoverError(f"{mc_version}: catalog entry has no {need} jar")
     return out
+
+
+def alternate_pair(pins_text, mc_version, pair):
+    """[(url, file, sha512)] of the pair's Sodium + Iris pins for mc_version. Raises unless both are pinned."""
+    got = {fam: (url, fn, sha.lower()) for mc, fam, pid, url, fn, sha in ALT_PIN.findall(pins_text)
+           if mc == mc_version and pid == pair}
+    missing = [f for f in ("sodium", "iris") if f not in got]
+    if missing:
+        raise CoverError(f"{mc_version}: ManagedPins has no {'/'.join(missing)} pin for pair {pair}")
+    return [got["sodium"], got["iris"]]
+
+
+def swap_pair(mods, alternates):
+    """The catalog set with its sodium-fabric-* / iris-fabric-* jars replaced by the pair (LaunchSwap's rule)."""
+    kept = [m for m in mods if not m[1].lower().startswith(REPLACED)]
+    if len(mods) - len(kept) != 2:
+        raise CoverError(f"expected exactly one sodium-fabric and one iris-fabric catalog jar, replaced {len(mods) - len(kept)}")
+    return kept + list(alternates)
+
+
+def jar_version(filename):
+    """'sodium-fabric-0.6.5+mc1.21.1.jar' -> 'sodium', '0.6.5+mc1.21.1'."""
+    base = filename[:-4] if filename.lower().endswith(".jar") else filename
+    for prefix in REPLACED:
+        if base.lower().startswith(prefix):
+            return prefix.split("-")[0], base[len(prefix):]
+    raise CoverError(f"not a Sodium/Iris jar name: {filename}")
 
 
 def gradle_property(props_text, key):
@@ -197,7 +235,7 @@ def fabric_api(mc_version, fetch_json=None):
     return f["url"], f["filename"], f.get("hashes", {}).get("sha512", ""), v.get("version_number", "?")
 
 
-def prepare(module_dir, mc_version, out, run_java=0):
+def prepare(module_dir, mc_version, out, run_java=0, pair=None):
     module_dir = os.path.abspath(module_dir)
     name = os.path.basename(module_dir)
     with open(LIVE, encoding="utf-8") as f:
@@ -206,6 +244,11 @@ def prepare(module_dir, mc_version, out, run_java=0):
         raise CoverError(f"{mc_version} is covered by module {owner!r}, not {name!r} (live-modules.json)")
     with open(CATALOG, encoding="utf-8") as f:
         mods = catalog_mods(f.read(), mc_version)
+    alternates = None
+    if pair:
+        with open(PINS, encoding="utf-8") as f:
+            alternates = alternate_pair(f.read(), mc_version, pair)
+        mods = swap_pair(mods, alternates)
     jar = built_jar(module_dir)
 
     if os.path.exists(out):
@@ -235,6 +278,12 @@ def prepare(module_dir, mc_version, out, run_java=0):
     url, fn, sha, ver = fabric_api(mc_version)
     _download(url, fn, sha, os.path.join(out, "mods"))
     loaded.append(f"{fn} (Fabric API {ver}, newest release, sha512 ok)")
+    if alternates:
+        with open(os.path.join(out, "pair-expect.txt"), "w", encoding="ascii", newline="\n") as f:
+            for _url, fn, _sha in alternates:
+                fam, v = jar_version(fn)
+                f.write(f"{fam}={v}\n")
+        loaded.append(f"pair {pair}: {', '.join(fn for _u, fn, _s in alternates)} replace the catalog's Sodium + Iris")
     return loaded
 
 
@@ -244,12 +293,13 @@ def main():
     ap.add_argument("mc_version")
     ap.add_argument("--out", required=True)
     ap.add_argument("--run-java", type=int, default=0, help="the game JVM players use, when older than Gradle's (keeps vanilla LWJGL)")
+    ap.add_argument("--pair", default="", help="swap in this vetted older Sodium + Iris pair (ManagedPins AlternatePins), e.g. 0.6.5+1.8.1")
     a = ap.parse_args()
     if not os.path.isfile(os.path.join(a.module, "build.gradle")):
         print(f"covers: no build.gradle in {a.module}", file=sys.stderr)
         return 2
     try:
-        loaded = prepare(a.module, a.mc_version, os.path.abspath(a.out), a.run_java)
+        loaded = prepare(a.module, a.mc_version, os.path.abspath(a.out), a.run_java, a.pair or None)
     except (CoverError, OSError) as e:
         print(f"::error title=covers {a.mc_version}::{e}")
         return 1
