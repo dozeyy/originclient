@@ -33,6 +33,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * gate the draw itself, which no keybind state can defeat. (Verified with javap
  * against jei-1.21.1-fabric-19.27.0.340, not assumed.)
  *
+ * PER-VERSION (JEI 19.51.0.418, javap 2026-10-25): JEI 19.51 replaced the old
+ * onDrawScreenPost + onDrawForeground(AbstractContainerScreen) pair with
+ * drawForScreenBackground(Screen, GuiGraphics) and drawForScreenForeground(Screen,
+ * GuiGraphics, int, int), both called from its ScreenMixin through
+ * EventRegistration.drawBackground/drawForeground; the container pass is folded
+ * into drawForScreenForeground (drawOverlayForegrounds -> *.drawOnForeground).
+ * renderCompactPotionIndicators is unchanged. Both name sets are targeted: Origin
+ * bundles 19.51, but a player's own JEI jar wins over the bundled one (Will's
+ * 1.21.1 folder has 19.27.0.340), and a missing name is skipped (defaultRequire 0),
+ * so the toggle works on either build.
+ *
  * remap = false: the targets are another mod's classes, so their names must be
  * taken literally rather than looked up in the Minecraft refmap. Our own handler
  * signatures still get remapped by Loom, which is why they can name Mojang types.
@@ -52,7 +63,7 @@ public abstract class JeiGuiEventHandlerMixin {
 	 * button all draw from here (IngredientListOverlay.drawScreen +
 	 * BookmarkOverlay.drawScreen). Cancelling is what makes the screen look stock.
 	 */
-	@Inject(method = "onDrawScreenPost", at = @At("HEAD"), cancellable = true)
+	@Inject(method = {"drawForScreenForeground", "onDrawScreenPost"}, at = @At("HEAD"), cancellable = true)
 	private void originclient$hideJeiOverlay(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY,
 			CallbackInfo ci) {
 		if (!Mods.on("jei")) {
@@ -60,7 +71,15 @@ public abstract class JeiGuiEventHandlerMixin {
 		}
 	}
 
-	/** The foreground pass over container screens (drawOnForeground on both overlays). */
+	/** The background pass (the overlays' backgrounds, drawn before the screen itself). */
+	@Inject(method = "drawForScreenBackground", at = @At("HEAD"), cancellable = true)
+	private void originclient$hideJeiBackground(Screen screen, GuiGraphics guiGraphics, CallbackInfo ci) {
+		if (!Mods.on("jei")) {
+			ci.cancel();
+		}
+	}
+
+	/** JEI 19.27 only: the foreground pass over container screens (19.51 folds it into drawForScreenForeground). */
 	@Inject(method = "onDrawForeground", at = @At("HEAD"), cancellable = true)
 	private void originclient$hideJeiForeground(AbstractContainerScreen<?> screen, GuiGraphics guiGraphics,
 			int mouseX, int mouseY, CallbackInfo ci) {
