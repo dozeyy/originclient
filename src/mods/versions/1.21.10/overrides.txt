@@ -85,3 +85,5 @@ client/java/com/origin/client/client/OriginStyle.java
 # HEAD-cancel). shared/ still holds the old sweeping-bar versions for the modules not yet ported.
 client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
 client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
+# Sable compat (2026-10-26): @WrapOperation on Camera.setup's setRotation instead of shared's @Redirect, which blocked Sable's redirect and crashed launch. MixinExtras is in these modules.
+client/java/com/origin/client/client/mixin/CameraMixin.java
