@@ -27,7 +27,8 @@ API against Modrinth's SHA-512; only https://cdn.modrinth.com is accepted.
 may pin per profile (ManagedPins.Data.cs AlternatePins, the launcher's own SHA-512 pins), exactly as the launcher's
 LaunchSwap does: the catalog's sodium-fabric-* / iris-fabric-* jars are replaced by the pair's. It writes
 <out>/pair-expect.txt so smoke.py --expect-perf can require the mod list to name THAT pair (on 1.21.1 the Origin jar
-also nests the shipped pair; the top-level one must win).
+also nests the shipped pair; the top-level one must win). A pairId starting "probe-" comes from probe-pairs.txt: a
+CI-only pair outside the module's compat gates (Origin must switch those hooks off and still reach the title).
 
 Usage: covers.py <module-dir> <mc-version> --out <dir> [--pair <pairId>]
 Exit 0 = project ready, 1 = a check failed (printed as ::error), 2 = usage.
@@ -48,6 +49,9 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CATALOG = os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "PerformanceModCatalog.Data.cs")
 PINS = os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "ManagedPins.Data.cs")
+# CI-only Sodium + Iris pairs OUTSIDE a module's compat-gates ranges (pairId "probe-..."): a green boot proves the
+# gates switch those features off cleanly. Same row shape as ManagedPins; the launcher never reads this file.
+PROBES = os.path.join(ROOT, "tools", "boot-smoke", "probe-pairs.txt")
 # ["<mc>:<sodium|iris>-<pairId>"] = new("<version>", "<url>", "<file>", "<sha512>")
 ALT_PIN = re.compile(r'\["([^"]+):(sodium|iris)-([^"]+)"\] = new\("[^"]*", "([^"]+)", "([^"/\\]+\.jar)", "([0-9a-fA-F]{128})"\)')
 # What the launcher's LaunchSwap replaces (ConfigurationCatalog.ReplacedPrefixes).
@@ -247,7 +251,11 @@ def prepare(module_dir, mc_version, out, run_java=0, pair=None):
     alternates = None
     if pair:
         with open(PINS, encoding="utf-8") as f:
-            alternates = alternate_pair(f.read(), mc_version, pair)
+            pins = f.read()
+        # Plus CI-only probe pairs the compat gates must refuse (never offered to players).
+        with open(PROBES, encoding="utf-8") as f:
+            pins += "\n" + f.read()
+        alternates = alternate_pair(pins, mc_version, pair)
         mods = swap_pair(mods, alternates)
     jar = built_jar(module_dir)
 

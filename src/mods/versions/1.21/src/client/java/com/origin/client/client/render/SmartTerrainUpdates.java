@@ -84,7 +84,7 @@ public final class SmartTerrainUpdates {
 	private static final MethodHandle PACK_IN_USE = IrisState.PACK_IN_USE;
 
 	/** The exact builds whose internals this was written against; anything else = feature off. */
-	private static final boolean VERSIONS_OK = versionIs("sodium", "0.6.13") && versionIs("iris", "1.8.8");
+	private static final boolean VERSIONS_OK = com.origin.client.client.compat.CompatGates.on(KEY_ON);   // compat-gates.txt pair
 
 	private static boolean broken;
 

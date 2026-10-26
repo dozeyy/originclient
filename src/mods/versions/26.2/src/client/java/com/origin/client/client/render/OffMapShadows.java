@@ -58,7 +58,8 @@ public final class OffMapShadows {
 	private static final boolean DEV = System.getenv("ORIGIN_SHOTS") != null;
 
 	/** Sodium is a separate install the player can disable; without it there is no shadow walk to cull. */
-	private static final boolean SODIUM = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium");
+	// A Sodium build Origin's hooks were proven on (compat/CompatGates), not just any Sodium.
+	private static final boolean SODIUM = com.origin.client.client.compat.CompatGates.on("sodium");
 
 	/** Keep anything within 10% past the edge (in map units, 1 = the edge). */
 	private static final float EDGE = 1.1f;
@@ -76,7 +77,9 @@ public final class OffMapShadows {
 		}
 	}
 
-	private static boolean broken = !SODIUM || IS_SHADOW_PASS == null || MODELVIEW == null || PROJECTION == null;
+	// Off for good when this module's compat gates say the installed Sodium/Iris isn't one these hooks
+	// were proven on (compat/CompatGates; DEV forcing can't switch it back on).
+	private static boolean broken = !com.origin.client.client.compat.CompatGates.on(KEY_ON) || !SODIUM || IS_SHADOW_PASS == null || MODELVIEW == null || PROJECTION == null;
 
 	// Light-space x and y rows of PROJECTION * MODELVIEW, rebuilt when Iris installs new matrices (a new
 	// MODELVIEW object every shadow frame, renderShadows offset 189).

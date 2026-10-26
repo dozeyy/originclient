@@ -2,13 +2,16 @@ package com.origin.client.client.render;
 
 /**
  * Which Sodium / Iris builds are installed, read once from Fabric Loader's metadata. No Sodium, Iris or
- * Minecraft types here, so the settings list and the mixin plugin (OriginMixinPlugin) can read it.
+ * Minecraft types here, so the settings list and the mixin plugin (CompatMixinPlugin (originclient.compat-gates.txt)) can read it.
  *
  * <p>PER-VERSION (26.1): this one jar meets two Sodium generations (PerformanceModCatalog.Data.cs):
  * 26.1 and 26.1.1 get Sodium 0.8.9 + Iris 1.10.9 (the +mc26.1.1 builds), 26.1.2 gets Sodium 0.9.2 +
  * Iris 1.11.4. The shader speed-ups that reach into Sodium/Iris internals were written against exactly
  * those builds.
  */
+// Every flag below reads compat/CompatGates (this module's originclient.compat-gates.txt): the
+// Sodium/Iris builds each hook was proven on. A player's own Sodium/Iris outside them = flag false.
+// (CompatGates gate)
 public final class SodiumIrisBuilds {
 	private SodiumIrisBuilds() { }
 
@@ -17,13 +20,13 @@ public final class SodiumIrisBuilds {
 	 * every vanilla-target mixin that calls into a Sodium-typed class (OffMapShadows, SmartTerrainUpdates)
 	 * checks this first: touching those classes without Sodium throws NoClassDefFoundError on the first frame.
 	 */
-	public static final boolean SODIUM = loaded("sodium");
+	public static final boolean SODIUM = com.origin.client.client.compat.CompatGates.on("sodium");
 
 	/** Sodium 0.8.x: the synchronous graph walk (createTerrainRenderList, SectionCollector). */
-	public static final boolean SODIUM_08 = startsWith("sodium", "0.8.");
+	public static final boolean SODIUM_08 = com.origin.client.client.compat.CompatGates.on("sodium08");
 
 	/** Sodium 0.9.x: async culling, the shadow walk is renderOutOfGraph. */
-	public static final boolean SODIUM_09 = startsWith("sodium", "0.9.");
+	public static final boolean SODIUM_09 = com.origin.client.client.compat.CompatGates.on("sodium09");
 
 	/**
 	 * Smart Terrain Updates was written against Sodium 0.8.9+mc26.1.1 and Iris 1.10.9+mc26.1.1 (javap
@@ -31,7 +34,7 @@ public final class SodiumIrisBuilds {
 	 * Iris keeping separate main/shadow render lists, both of which change between Sodium/Iris releases.
 	 * Sodium 0.9 has no such walk to skip (render/ShadowTerrainStats).
 	 */
-	public static final boolean SMART_TERRAIN = is("sodium", "0.8.9") && is("iris", "1.10.9");
+	public static final boolean SMART_TERRAIN = com.origin.client.client.compat.CompatGates.on("smartTerrainUpdates");
 
 	/** True when mod {@code mod} is loaded at version {@code prefix} (with or without a "+build" suffix). */
 	public static boolean is(String mod, String prefix) {

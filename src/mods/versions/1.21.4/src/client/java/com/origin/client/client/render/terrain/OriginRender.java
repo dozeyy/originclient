@@ -290,7 +290,7 @@ public final class OriginRender {
 
 	private static boolean enabled() {
 		try {
-			return Mods.bool(Mods.PERFORMANCE_ID, "originRender");
+			return com.origin.client.client.compat.CompatGates.on("originRender") && Mods.bool(Mods.PERFORMANCE_ID, "originRender");
 		} catch (Throwable t) {
 			return false;
 		}

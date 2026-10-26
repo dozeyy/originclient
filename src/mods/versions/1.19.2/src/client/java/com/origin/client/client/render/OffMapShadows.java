@@ -79,7 +79,9 @@ public final class OffMapShadows {
 	}
 
 	private static final boolean MISSING = IS_SHADOW_PASS == null || MODELVIEW == null || HALF_PLANE == null || FOV == null;
-	private static boolean broken = MISSING;
+	// Off for good when this module's compat gates say the installed Sodium/Iris isn't one these hooks
+	// were proven on (compat/CompatGates; DEV forcing can't switch it back on).
+	private static boolean broken = !com.origin.client.client.compat.CompatGates.on(KEY_ON) || MISSING;
 
 	// The current shadow renderer's projection, read at its renderShadows HEAD this frame.
 	private static long passFrame = Long.MIN_VALUE;

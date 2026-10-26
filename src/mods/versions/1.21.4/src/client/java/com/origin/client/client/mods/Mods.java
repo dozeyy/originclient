@@ -74,6 +74,12 @@ public final class Mods {
 			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"),
 			ModOption.toggle("originRender", "Origin Render (Experimental)", false).tip("Your graphics card skips terrain hidden behind other terrain. Works on almost every graphics card made since 2013; pauses while shaders are on. F3 shows what it's doing.")));
 
+	// A speed-up whose Sodium/Iris hooks are off on this player's builds says so in its tooltip
+	// (compat/CompatGates: "Off: needs a supported Sodium").
+	static {
+		com.origin.client.client.compat.CompatNotes.mark(PERFORMANCE_SETTINGS);
+	}
+
 	/**
 	 * Drops options the installed Sodium/Iris builds can't run, so no toggle does nothing. This jar also
 	 * runs 1.21.2/1.21.3, whose Sodium 0.6.1/0.6.8 + Iris 1.8.0/1.8.1 Smart Terrain Updates doesn't support

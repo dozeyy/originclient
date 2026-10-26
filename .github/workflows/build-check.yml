@@ -21,6 +21,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
+      - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
@@ -35,6 +36,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
+      - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
@@ -77,6 +79,15 @@ jobs:
       # unchanged; forcing on then off leaves the file as it was).
       - name: Test step-aside logic
         run: python3 tools/step-aside-tests/run.py
+
+      # Every Origin mixin into another mod (Sodium, Iris, JEI) is gated to the versions it was proven
+      # on (compat/CompatGates + originclient.compat-gates.txt, DECISIONS 2026-10-26): fails on an
+      # ungated third-party mixin, stale gate data, an unknown CompatGates id, or a pre-1.20 copy of
+      # compat/ that drifted from shared. --selftest proves each of those checks can fail.
+      - name: Check compat gates
+        run: |
+          python3 tools/compat-gates/check.py --selftest
+          python3 tools/compat-gates/check.py
 
       # The 1.8.9 benchmark's own tests: summarizer maths (known CSV -> known numbers, corrupt CSV -> loud
       # failure), the production-like launcher's pure logic, and bench-189.ps1 -DryRun against fixtures.

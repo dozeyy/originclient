@@ -22,7 +22,7 @@ import java.util.ArrayDeque;
 /**
  * SETTINGS > Performance > Smart Terrain Updates (1.21.4 port of 1.21.1, default OFF). Shader packs only.
  * This module also serves 1.21.2/1.21.3, whose Sodium/Iris builds differ: there VERSIONS_OK turns it off,
- * OriginMixinPlugin skips SodiumWorldRendererReuseMixin (its handlers take 0.6.13's FogParameters
+ * CompatMixinPlugin (originclient.compat-gates.txt) skips SodiumWorldRendererReuseMixin (its handlers take 0.6.13's FogParameters
  * argument), and Mods hides the toggle (SodiumIrisBuilds.SMART_TERRAIN is the one test for all three).
  *
  * <p>What it saves (read from Sodium 0.6.13+mc1.21.4 / Iris 1.8.8+mc1.21.4 bytecode, 2026-10-20; the

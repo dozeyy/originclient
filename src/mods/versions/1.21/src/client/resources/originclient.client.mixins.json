@@ -1,6 +1,7 @@
 {
 	"required": false,
 	"package": "com.origin.client.client.mixin",
+	"plugin": "com.origin.client.client.compat.CompatMixinPlugin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"AbstractButtonMixin",

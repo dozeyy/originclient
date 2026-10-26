@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * Target: Sodium 0.8.9+mc26.1.1 (same code as 0.8.12+mc1.21.11; SODIUM 0.8 ONLY, OriginMixinPlugin skips it on 0.9) OcclusionCuller, its three RenderSection.setLastVisibleFrame(I)V
+ * Target: Sodium 0.8.9+mc26.1.1 (same code as 0.8.12+mc1.21.11; SODIUM 0.8 ONLY, CompatMixinPlugin (originclient.compat-gates.txt) skips it on 0.9) OcclusionCuller, its three RenderSection.setLastVisibleFrame(I)V
  * calls (javap 2026-10-20: static visitNode, addNearbySections, initWithinWorld -- the same three as
  * 1.21.1; nothing else in Sodium 0.8.12 or Iris 1.10.7 calls it, and the tree walk stamps nothing).
  * Why: main-pass entity culling (isSectionVisible) asks "was this section stamped with the current

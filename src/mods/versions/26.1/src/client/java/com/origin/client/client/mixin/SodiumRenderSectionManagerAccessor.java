@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import java.util.ArrayDeque;
 import java.util.Map;
 
-// Target: Sodium 0.8.9+mc26.1.1 (same code as 0.8.12+mc1.21.11; SODIUM 0.8 ONLY, OriginMixinPlugin skips it on 0.9) RenderSectionManager's walk state (javap 2026-10-20): taskLists
+// Target: Sodium 0.8.9+mc26.1.1 (same code as 0.8.12+mc1.21.11; SODIUM 0.8 ONLY, CompatMixinPlugin (originclient.compat-gates.txt) skips it on 0.9) RenderSectionManager's walk state (javap 2026-10-20): taskLists
 // (Map<TaskQueueType, ArrayDeque<RenderSection>>, set from the walk's collector), lastUpdatedFrame (int,
 // bumped by update() before each walk), sectionCollector (the walk's SectionCollector until
 // finalizeRenderLists) and lastSectionCollector (the one mid-frame immediate build results go to between

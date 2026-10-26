@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * MC 1.20 only (OriginMixinPlugin: Iris 1.6.4, net.coderbot; MC 1.20.1 uses IrisPipelineHalfRateMixin).
+ * MC 1.20 only (CompatMixinPlugin (originclient.compat-gates.txt): Iris 1.6.4, net.coderbot; MC 1.20.1 uses IrisPipelineHalfRateMixin).
  * Target: Iris 1.6.4 NewWorldRenderingPipeline.beginLevelRendering()V, its first read of the
  * shadowRenderTargets field (bytecode 79, `getfield shadowRenderTargets; ifnull 304`: the
  * "if (shadowRenderTargets != null)" around the per-frame shadow clear, the pack's shadow compute

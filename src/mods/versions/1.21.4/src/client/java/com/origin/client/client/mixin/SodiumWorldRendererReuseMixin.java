@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * fingerprint. What breaks if it stops applying: the feature refuses to reuse (setupTerrain must have
  * been seen, and a missing camera fingerprint always counts as changed).
  *
- * <p>Applied only on Sodium 0.6.13 + Iris 1.8.8 (OriginMixinPlugin, SodiumIrisBuilds.SMART_TERRAIN): the
+ * <p>Applied only on Sodium 0.6.13 + Iris 1.8.8 (CompatMixinPlugin (originclient.compat-gates.txt), SodiumIrisBuilds.SMART_TERRAIN): the
  * HEAD handler takes the FogParameters argument, and Sodium 0.6.1/0.6.8 (1.21.2/1.21.3) have
  * setupTerrain(Camera, Viewport, boolean, boolean) (javap 2026-10-20), where it would fail to apply.
  * Smart Terrain is off on those builds anyway.

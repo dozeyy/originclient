@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * SMART TERRAIN BUILDS ONLY: OriginMixinPlugin applies it only on Sodium 0.8.9 + Iris 1.10.9 (26.1 /
+ * SMART TERRAIN BUILDS ONLY: CompatMixinPlugin (originclient.compat-gates.txt) applies it only on Sodium 0.8.9 + Iris 1.10.9 (26.1 /
  * 26.1.1, SodiumIrisBuilds.SMART_TERRAIN), so the handlers may name the arguments; Sodium 0.9.2 (26.1.2)
  * never sees it. Target: Sodium 0.8.9+mc26.1.1 SodiumWorldRenderer (javap 2026-10-20).
  * <ul>
