@@ -52,12 +52,13 @@ public abstract class JeiGuiEventHandlerMixin {
 	 * button all draw from here (IngredientListOverlay.drawScreen +
 	 * BookmarkOverlay.drawScreen). Cancelling is what makes the screen look stock.
 	 *
-	 * JEI 26/27 RENAME: this was {@code onDrawScreenPost} through JEI 19.x; JEI 26
-	 * (MC 1.21.10) / 27 (MC 1.21.11) renamed it to {@code drawForScreen} — same
-	 * signature (Screen, GuiGraphics, int, int). Verified with javap against
-	 * jei-1.21.11-fabric-27.17.0.50 and jei-1.21.10-fabric-26.3.0.31.
+	 * RENAMES: {@code onDrawScreenPost} through JEI 19.x, {@code drawForScreen} in JEI 26 and
+	 * 27.17, and in JEI 27.54 {@code drawForScreenForeground} (Screen, GuiGraphics, int, int):
+	 * it draws the overlay backgrounds, both overlays' foregrounds (the old
+	 * drawForContainerScreen work, now for every screen), tooltips and input layers.
+	 * javap-verified against jei-1.21.11-fabric-27.54.0.112.
 	 */
-	@Inject(method = "drawForScreen", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "drawForScreenForeground", at = @At("HEAD"), cancellable = true)
 	private void originclient$hideJeiOverlay(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY,
 			CallbackInfo ci) {
 		if (!Mods.on("jei")) {
@@ -66,13 +67,12 @@ public abstract class JeiGuiEventHandlerMixin {
 	}
 
 	/**
-	 * The foreground pass over container screens (drawOnForeground on both overlays).
-	 * JEI 26/27 RENAME: was {@code onDrawForeground} ≤19.x, now
-	 * {@code drawForContainerScreen} — same signature.
+	 * The background pass (IngredientListOverlay + BookmarkOverlay drawBackground), JEI 27.54's
+	 * replacement for the old container-only {@code drawForContainerScreen} hook:
+	 * {@code drawForScreenBackground(Screen, GuiGraphics)}.
 	 */
-	@Inject(method = "drawForContainerScreen", at = @At("HEAD"), cancellable = true)
-	private void originclient$hideJeiForeground(AbstractContainerScreen<?> screen, GuiGraphics guiGraphics,
-			int mouseX, int mouseY, CallbackInfo ci) {
+	@Inject(method = "drawForScreenBackground", at = @At("HEAD"), cancellable = true)
+	private void originclient$hideJeiBackground(Screen screen, GuiGraphics guiGraphics, CallbackInfo ci) {
 		if (!Mods.on("jei")) {
 			ci.cancel();
 		}
@@ -85,9 +85,13 @@ public abstract class JeiGuiEventHandlerMixin {
 	 * this and "off" still shows a wrong-looking inventory whenever you have an
 	 * effect active — the overlay is gone but vanilla's potion display stays
 	 * squashed. Returning false hands the vanilla layout back.
+	 *
+	 * JEI 27.54 added an AbstractContainerScreen parameter; the handler takes it so the
+	 * descriptor matches exactly (javap: renderCompactPotionIndicators(AbstractContainerScreen)).
 	 */
 	@Inject(method = "renderCompactPotionIndicators", at = @At("HEAD"), cancellable = true)
-	private void originclient$vanillaPotionLayout(CallbackInfoReturnable<Boolean> cir) {
+	private void originclient$vanillaPotionLayout(AbstractContainerScreen<?> screen,
+			CallbackInfoReturnable<Boolean> cir) {
 		if (!Mods.on("jei")) {
 			cir.setReturnValue(false);
 		}

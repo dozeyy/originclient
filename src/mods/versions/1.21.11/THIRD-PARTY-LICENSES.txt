@@ -13,7 +13,7 @@ Origin Client's own code is licensed separately — see LICENSE_originclient.
 Just Enough Items (JEI)
 -------------------------------------------------------------------------------
 Author:     mezz
-Version:    27.17.0.50 (1.21.11, Fabric)
+Version:    27.54.0.112 (1.21.11, Fabric)
 Source:     https://github.com/mezz/JustEnoughItems
 Licence:    The MIT License (MIT)
 
@@ -21,6 +21,9 @@ The MIT licence requires that the copyright notice and permission notice below
 be included with all copies of the software. The JEI jar carries no LICENSE file
 of its own, so Origin ships that notice here on its behalf. Text reproduced
 verbatim from LICENSE.txt in the upstream repository.
+
+This JEI build nests MezzConfig 0.6.6 (mezz, MIT, github.com/mezz/MezzConfig)
+inside its own jar; that jar carries its own META-INF/LICENSE-* files.
 
 The MIT License (MIT)
 
