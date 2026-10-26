@@ -1,0 +1,13 @@
+{
+  "crash": true,
+  "cause": "DamagedFiles",
+  "confidence": "confirmed",
+  "rule": "damaged-file",
+  "culprits": [
+    "somemod-1.0.0.jar"
+  ],
+  "fix": "DisableMods",
+  "fixJars": [
+    "somemod-1.0.0.jar"
+  ]
+}

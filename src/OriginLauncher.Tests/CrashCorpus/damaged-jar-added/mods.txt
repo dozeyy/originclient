@@ -1,0 +1,2 @@
+- somemod-1.0.0.jar external
+originclient originclient.jar origin

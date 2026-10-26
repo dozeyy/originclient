@@ -5,7 +5,8 @@ namespace OriginLauncher.App.Core.Launch;
 
 // The "Copy report" text: what a player pastes into Discord or a support thread.
 // Pure (strings in, string out). Everything passes through Scrub, so tokens,
-// emails and the Windows user name never leave the PC by accident.
+// emails, server addresses and the Windows user name never leave the PC by accident.
+// Origin never sends it anywhere: it only goes to the clipboard when the player presses Copy report.
 public static class CrashReportBundle
 {
     public const int MaxLogLines = 200;
@@ -28,6 +29,14 @@ public static class CrashReportBundle
     private static readonly Regex UserPath = Rx(@"([A-Za-z]:[\\/]+Users[\\/]+)([^\\/\s""'<>|:*?]+)");
     private static readonly Regex UnixUserPath = Rx(@"(/(?:Users|home)/)([^/\s""'<>|:*?]+)");
     private static readonly Regex SettingUser = Rx(@"(Setting user:\s*)(\S+)");
+    // "UUID of player Steve is 069a79f4-..." (the server side of a singleplayer world logs the player's name and id).
+    private static readonly Regex PlayerUuid = Rx(@"(UUID of player\s+)(\S+)(\s+is\s+)(\S+)");
+    // Any IPv4 address except loopback and the any-address: a server the player joined, or their own address.
+    // Octets are 0-255 and no digit or dot may touch either end, so four-part versions like 11.15.1.2318 stay. A
+    // number glued to a word, a brace or a dash is a version, not an address: "FML{8.0.99.99}", "v1.2.3.4", "1.2.3.4-beta".
+    private static readonly Regex Ipv4 = new(
+        @"(?<![\w.{-])(?!127\.)(?!0\.0\.0\.0(?![\d.]))(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?![\w.}-])",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     /// <summary>
     /// Removes secrets from text. <paramref name="knownNames"/> (the Windows user name, the player name)
@@ -41,6 +50,8 @@ public static class CrashReportBundle
         s = LaunchArg.Replace(s, "$1" + Redacted);
         s = KeyedSecret.Replace(s, "$1$2" + Redacted);
         s = SettingUser.Replace(s, "$1<player>");
+        s = PlayerUuid.Replace(s, "$1<player>$3" + Redacted);
+        s = Ipv4.Replace(s, "<ip>");
         s = Email.Replace(s, "<email>");
         s = UserPath.Replace(s, "$1<user>");
         s = UnixUserPath.Replace(s, "$1<user>");
@@ -57,7 +68,7 @@ public static class CrashReportBundle
         int RamMb,
         int TotalRamMb,
         int ExitCode,
-        CrashDiagnosis Diagnosis,
+        CrashVerdict Verdict,
         string? LogText,
         string? CrashReportText,
         IReadOnlyCollection<string>? KnownNames = null);
@@ -71,8 +82,14 @@ public static class CrashReportBundle
         sb.AppendLine($"Java         : {JavaVersionOf(input.CrashReportText ?? input.LogText)}");
         sb.AppendLine($"Memory       : {input.RamMb} MB given of {input.TotalRamMb} MB installed");
         sb.AppendLine($"Exit code    : {input.ExitCode}");
-        sb.AppendLine($"Looks like   : {input.Diagnosis.Headline} ({input.Diagnosis.Cause})");
-        if (input.Diagnosis.ModId != null) sb.AppendLine($"Mod named    : {input.Diagnosis.ModId}");
+        var f = input.Verdict.Finding;
+        sb.AppendLine($"Looks like   : {f.Headline} ({f.Cause})");
+        sb.AppendLine($"Likely cause : {f.LikelyCause} [{f.Confidence.Word()}, rule {f.Rule}]");
+        if (f.Culprits.Count > 0)
+            sb.AppendLine($"Mods named   : {string.Join(", ", f.Culprits.Select(c => c.JarFileName != null ? $"{c.ModId} ({c.JarFileName})" : c.ModId))}");
+        foreach (var line in f.TechnicalLines.Take(6)) sb.AppendLine($"Evidence     : {Clip(line)}");
+        foreach (var other in input.Verdict.Others.Take(4))
+            sb.AppendLine($"Also seen    : {other.Headline} [{other.Confidence.Word()}, rule {other.Rule}]");
 
         sb.AppendLine().AppendLine($"----- last {MaxLogLines} log lines -----");
         sb.AppendLine(Tail(input.LogText, MaxLogLines));

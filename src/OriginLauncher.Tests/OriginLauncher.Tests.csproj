@@ -115,7 +115,10 @@
     <!-- Crash handling that needs no files or WPF: cause table + classifier, memory bump, the show/no-show gate,
          the one-retry guard and the secret-free Copy report (CrashAnalyzer/CrashDiagnoser read files, so they stay out). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashModels.cs" LinkBase="Launch" />
-    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashClassifier.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashEngine.cs" LinkBase="Launch" />
+    <!-- Crash Report V3: evidence -> facts -> ordered rules (pure). The corpus folders are copied next to the tests. -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashFacts.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashRules.cs" LinkBase="Launch" />
     <!-- Other clients' core jars (Feather, Lunar, ...): never imported, blamed first in a crash stack. -->
     <Compile Include="..\OriginLauncher.App\Core\ClientCoreMods.cs" LinkBase="Launch" />
     <!-- Mod blame from crash logs (uses the real ModManager linked further down). -->
@@ -169,5 +172,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
     <!-- Compile-time only for AccountStore; the tests never call DPAPI. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CrashCorpus\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

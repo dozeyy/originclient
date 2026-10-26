@@ -4,7 +4,7 @@ namespace OriginLauncher.Tests;
 internal static class CrashFixtures
 {
     /// <summary>
-    /// 1.21.1 launch log of 2026-10-20 17:48 (Will's PC): an imported Feather Client jar sat in the shared mods folder.
+    /// 1.21.1 launch log of 2026-10-20 17:48 (a tester's PC): an imported Feather Client jar sat in the shared mods folder.
     /// Fabric names ModernFix ("provided by 'modernfix'") only because ModernFix's entrypoint was the first class mixin
     /// transformed; the deepest "Caused by" is Feather's own mixin plugin missing its feather.lib.* libraries.
     /// </summary>

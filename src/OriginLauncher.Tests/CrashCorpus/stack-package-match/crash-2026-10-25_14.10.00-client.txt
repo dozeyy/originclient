@@ -1,0 +1,8 @@
+---- Minecraft Crash Report ----
+Description: Unexpected error
+
+java.lang.RuntimeException: wrapped
+	at net.minecraft.client.Minecraft.run(Minecraft.java:800)
+Caused by: java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 4
+	at com.example.somemod.client.Hud.draw(Hud.java:41)
+	at net.minecraft.client.gui.Gui.render(Gui.java:200)

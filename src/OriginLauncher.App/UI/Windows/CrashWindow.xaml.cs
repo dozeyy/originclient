@@ -31,8 +31,8 @@ public partial class CrashWindow : Window
             ? "Origin Launcher has to close"
             : "Origin Launcher ran into a problem";
         Summary.Text = fatal
-            ? "An unexpected error means the launcher can't keep running. The details below explain exactly what happened — click Copy details, then paste them into a search or send them along so it can be fixed."
-            : "Something went wrong, but the launcher recovered and is still open. The details below explain exactly what happened — click Copy details, then paste them into a search or send them along so it can be fixed.";
+            ? "An unexpected error means the launcher can't keep running. The details below explain exactly what happened. Click Copy details, then paste them into a search or send them along so it can be fixed."
+            : "Something went wrong, but the launcher recovered and is still open. The details below explain exactly what happened. Click Copy details, then paste them into a search or send them along so it can be fixed.";
         CloseButton.Content = fatal ? "Close" : "Continue";
 
         if (!string.IsNullOrEmpty(savedPath))

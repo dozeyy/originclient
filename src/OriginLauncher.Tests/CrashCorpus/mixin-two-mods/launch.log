@@ -1,0 +1,6 @@
+[12:00:00] [main/INFO]: Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+[12:00:01] [main/INFO]: Loading 42 mods:
+[12:00:02] [Render thread/INFO]: Setting user: <player>
+[12:00:03] [Render thread/INFO]: Backend library: LWJGL version 3.3.3-snapshot
+[main/ERROR]: Mixin apply for mod somemod failed somemod.mixins.json:A from mod somemod -> net.minecraft.class_310: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure: @Inject annotation on onInit could not find any targets matching 'plantNoSuchMethod' in net/minecraft/class_310. [PREINJECT Applicator Phase -> somemod.mixins.json:A from mod somemod -> Prepare Injections -> -> handler$zza000$onInit()V -> Parse]
+[main/ERROR]: Mixin apply for mod othermod failed othermod.mixins.json:B from mod othermod -> net.minecraft.class_310: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure: @Inject annotation on onInit could not find any targets matching 'plantNoSuchMethod' in net/minecraft/class_310. [PREINJECT Applicator Phase -> othermod.mixins.json:B from mod othermod -> Prepare Injections -> -> handler$zza000$onInit()V -> Parse]

@@ -6,8 +6,8 @@ namespace OriginLauncher.Tests;
 /// <summary>The Copy report text: trimmed, and free of tokens, emails and user names.</summary>
 public class CrashReportBundleTests
 {
-    private static readonly CrashDiagnosis Diagnosis = new(CrashCause.OutOfMemory, "OUT OF MEMORY",
-        "Minecraft ran out of memory", "x", CrashAction.RaiseMemory, "Raise memory and relaunch");
+    private static readonly CrashVerdict Diagnosis = CrashEngine.Diagnose(new CrashEvidence(1, false, false,
+        "java.lang.OutOfMemoryError: Java heap space", null, null, null, [], 4096, 16384));
 
     [Theory]
     [InlineData("--accessToken eyJhbGciOiJIUzI1NiJ9.abcdefghijkl.zyxwvutsrq", "eyJhbGci")]
@@ -36,6 +36,30 @@ public class CrashReportBundleTests
         Assert.DoesNotContain("SteveTheGreat\n", s + "\n");
         Assert.Contains("Steve123", s);
         Assert.Contains("misteveTheGreatx", s);
+    }
+
+    [Theory]
+    [InlineData("Connecting to 203.0.113.45, 25565", "203.0.113.45")]
+    [InlineData("[Server thread/INFO]: UUID of player Notch is 069a79f4-44e9-4726-a5be-fca90e38aaf5", "069a79f4")]
+    [InlineData("[Server thread/INFO]: UUID of player Notch is 069a79f4-44e9-4726-a5be-fca90e38aaf5", "Notch")]
+    [InlineData("local address 192.168.1.20 joined", "192.168.1.20")]
+    public void Scrub_removes_addresses_and_player_ids(string input, string mustNotSurvive) =>
+        Assert.DoesNotContain(mustNotSurvive, CrashReportBundle.Scrub(input));
+
+    [Theory]
+    [InlineData("Forge Mod Loader version 11.15.1.2318 for Minecraft 1.8.9 loading")]
+    [InlineData("Starting integrated server on 127.0.0.1:25565")]
+    [InlineData("Bound to 0.0.0.0")]
+    [InlineData("UCHIJA\tFML{8.0.99.99} [Forge Mod Loader] (forge-1.8.9.jar)")]
+    public void Scrub_keeps_versions_and_local_addresses(string line) =>
+        Assert.Equal(line, CrashReportBundle.Scrub(line));
+
+    [Fact]
+    public void Bundle_states_the_diagnosis_with_its_confidence_word()
+    {
+        var text = CrashReportBundle.Build(new CrashReportBundle.Input("1", "1.21.1", 4096, 16384, 1, Diagnosis, "log", null));
+        Assert.Contains("[confirmed, rule out-of-memory]", text);
+        Assert.Contains("Evidence     : java.lang.OutOfMemoryError: Java heap space", text);
     }
 
     [Fact]

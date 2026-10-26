@@ -1,0 +1,8 @@
+[12:00:00] [main/INFO]: Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+[12:00:01] [main/INFO]: Loading 42 mods:
+[12:00:02] [Render thread/INFO]: Setting user: <player>
+[12:00:03] [Render thread/INFO]: Backend library: LWJGL version 3.3.3-snapshot
+[13:40:12] [Render thread/ERROR]: Unreported exception thrown!
+java.lang.OutOfMemoryError: Java heap space
+	at java.base/java.util.Arrays.copyOf(Arrays.java:3541)
+	at net.minecraft.client.renderer.chunk.SectionRenderDispatcher.compile(SectionRenderDispatcher.java:120)

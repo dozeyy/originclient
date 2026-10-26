@@ -1,0 +1,11 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "possible",
+  "rule": "suspected-mod",
+  "culprits": [
+    "somemod",
+    "othermod"
+  ],
+  "fix": "None"
+}

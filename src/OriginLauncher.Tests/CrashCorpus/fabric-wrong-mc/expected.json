@@ -1,0 +1,13 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "confirmed",
+  "rule": "fabric-dependency",
+  "culprits": [
+    "somemod"
+  ],
+  "fix": "DisableMods",
+  "fixJars": [
+    "somemod-1.0.0.jar"
+  ]
+}

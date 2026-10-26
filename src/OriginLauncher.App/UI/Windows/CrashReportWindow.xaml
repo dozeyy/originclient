@@ -1,35 +1,36 @@
 <Window x:Class="OriginLauncher.App.UI.Windows.CrashReportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Origin — Minecraft crashed"
+        Title="Origin - Minecraft crashed"
         Width="720" MinWidth="600" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Panel}"
         FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
-    <!-- The crash report, Workbench dialog (docs/overhaul/design/A-Workbench-3.jpg, "Crash report"): it leads with plain
-         words and one fix. A danger tile and the headline, what happened, the likely cause (the mod list), then the fix
-         (the main button) and Close; the technical part (details, copy, logs) is folded under one hairline at the foot.
-         The window is the dialog: surface fill, the 24 dialog gutter, sections 20 apart.
-         The window is as tall as its content (SizeToContent), so there is no empty band when the mod list is hidden;
-         "Show details" adds a fixed 200 px panel.
+    <!-- Crash Report V3, Workbench dialog (docs/overhaul/design/A-Workbench-3.jpg, "Crash report"), five sections:
+         What happened / Likely cause (with the confidence word, verbatim: confirmed, strong, possible, unknown) /
+         Recommended fix / the fix button (only when the cause is strong or confirmed and the fix is reversible) /
+         Technical details (folded under one hairline at the foot).
+         The window is the dialog: surface fill, the 24 dialog gutter, sections 20 apart. It is as tall as its content
+         (SizeToContent); "Show details" adds a fixed 200 px panel.
          LOGICAL ORDER IS LOAD-BEARING: the buttons appear in the XAML as Show details, Copy report, Open logs folder,
-         Close, then the fix (src/OriginLauncher.UiTests/CrashWindowFallbackTests reads them in that order, the same as
-         the in-code fallback); Grid rows and columns place them on screen. Same rule as CrashWindow: theme brushes,
-         type scale and the shared buttons only, no literals. -->
+         Close, Try once without my mods, then the fix (src/OriginLauncher.UiTests/CrashWindowFallbackTests reads them in
+         that order, the same as the in-code fallback); Grid rows and columns place them on screen. Same rule as
+         CrashWindow: theme brushes, type scale and the shared buttons only, no literals. -->
     <Border Padding="24">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>   <!-- 0 header: tile, tag, headline, who -->
             <RowDefinition Height="Auto"/>   <!-- 1 what happened -->
-            <RowDefinition Height="Auto"/>   <!-- 2 likely cause -->
-            <RowDefinition Height="Auto"/>   <!-- 3 the fix + Close -->
-            <RowDefinition Height="Auto"/>   <!-- 4 technical details bar -->
-            <RowDefinition Height="*"/>      <!-- 5 the details, folded -->
+            <RowDefinition Height="Auto"/>   <!-- 2 likely cause + confidence -->
+            <RowDefinition Height="Auto"/>   <!-- 3 recommended fix -->
+            <RowDefinition Height="Auto"/>   <!-- 4 the fix + Close -->
+            <RowDefinition Height="Auto"/>   <!-- 5 technical details bar -->
+            <RowDefinition Height="*"/>      <!-- 6 the details, folded -->
         </Grid.RowDefinitions>
 
-        <!-- Several games can run at once (one per account), so the window names which one crashed: "<account> ·
+        <!-- Several games can run at once (one per account), so the window names which one crashed: "<account> -
              Minecraft <version>", under the headline. -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
@@ -43,7 +44,7 @@
                       Stroke="{StaticResource Brush.DangerText}"/>
             </Border>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <!-- The cause in a word or two (CrashClassifier's Tag), as the eyebrow over the headline. -->
+                <!-- The cause in a word or two (the finding's Tag), as the eyebrow over the headline. -->
                 <TextBlock x:Name="CauseTag" Style="{StaticResource Dialog.Eyebrow}" Foreground="{StaticResource Brush.Warning}"
                            Margin="0,0,0,4"/>
                 <TextBlock x:Name="HeadlineText" Text="Minecraft closed unexpectedly" Style="{StaticResource Text.Heading}"
@@ -59,21 +60,34 @@
                        TextWrapping="Wrap" Margin="0,6,0,0"/>
         </StackPanel>
 
-        <!-- The likely cause: one row per implicated mod, in a raised well; hidden when the culprit is unknown. -->
-        <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,20,0,0" Visibility="Collapsed">
-            <StackPanel>
-                <TextBlock Text="LIKELY CAUSE" Style="{StaticResource Dialog.Eyebrow}"/>
-                <Border Margin="0,8,0,0" Padding="12,8" Background="{StaticResource Brush.Card}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Lg}">
-                    <StackPanel x:Name="CulpritList"/>
+        <!-- The likely cause, in a raised well: the sentence, then one row per implicated mod. The confidence word sits
+             in a capsule beside the eyebrow; its colour is set in code from the soft hue tokens. -->
+        <StackPanel Grid.Row="2" x:Name="CulpritPanel" Margin="0,20,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="LIKELY CAUSE" Style="{StaticResource Dialog.Eyebrow}" VerticalAlignment="Center"/>
+                <Border x:Name="ConfidenceChip" Style="{StaticResource Surface.Chip}" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="ConfidenceText" Style="{StaticResource Surface.ChipText}" Text="unknown"/>
                 </Border>
             </StackPanel>
-        </Border>
+            <Border Margin="0,8,0,0" Padding="12,8" Background="{StaticResource Brush.Card}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Lg}">
+                <StackPanel>
+                    <TextBlock x:Name="LikelyCauseText" Style="{StaticResource Text.Body}" LineHeight="20" TextWrapping="Wrap"/>
+                    <StackPanel x:Name="CulpritList" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Margin="0,20,0,0">
+            <TextBlock Text="RECOMMENDED FIX" Style="{StaticResource Dialog.Eyebrow}"/>
+            <TextBlock x:Name="RecommendedText" Style="{StaticResource Text.Body}" LineHeight="20"
+                       TextWrapping="Wrap" Margin="0,6,0,0"/>
+        </StackPanel>
 
         <!-- Technical detail stays folded: a player should not meet a stack trace first. The bar is the fold's
              handle: eyebrow on the left, the three tools as quiet ghost buttons on the right. -->
-        <Border Grid.Row="4" Margin="0,24,0,0" Padding="0,12,0,0" BorderBrush="{StaticResource Brush.SoftStroke}"
+        <Border Grid.Row="5" Margin="0,24,0,0" Padding="0,12,0,0" BorderBrush="{StaticResource Brush.SoftStroke}"
                 BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -99,26 +113,30 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="5" x:Name="DetailsPanel" Visibility="Collapsed" Height="200" Margin="0,8,0,0"
+        <Border Grid.Row="6" x:Name="DetailsPanel" Visibility="Collapsed" Height="200" Margin="0,8,0,0"
                 Background="{StaticResource Brush.BgAlt}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                 CornerRadius="{StaticResource Radius.Lg}">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True" VerticalContentAlignment="Top"
                      Background="Transparent" Foreground="{StaticResource Brush.TextDim}" BorderThickness="0"
                      FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Label}" Padding="16,12"
-                     TextWrapping="NoWrap" AcceptsReturn="True"
-                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                     TextWrapping="Wrap" AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
         </Border>
 
-        <!-- The fix: the one filled button first, Close beside it (both lg, 8 apart, left-aligned under the text as in the
-             mockup). Logical order Close, then the fix. -->
-        <Grid Grid.Row="3" Margin="0,24,0,0" HorizontalAlignment="Left">
+        <!-- The fix: the one filled button first (only when safe), then the one-time try without the player's own mods
+             (only when the cause is below strong), then Close; all 8 apart, left-aligned under the text as in the
+             mockup. Logical order Close, Try, then the fix. -->
+        <Grid Grid.Row="4" Margin="0,24,0,0" HorizontalAlignment="Left">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Button x:Name="CloseButton" Grid.Column="1" Content="Close" Style="{StaticResource Button.Secondary}"
+            <Button x:Name="CloseButton" Grid.Column="2" Content="Close" Style="{StaticResource Button.Secondary}"
                     MinWidth="96" Click="Close_Click"/>
-            <Button x:Name="ActionButton" Grid.Column="0" Content="Relaunch with Origin only"
+            <Button x:Name="TryButton" Grid.Column="1" Content="Try once without my mods" Style="{StaticResource Button.Secondary}"
+                    MinWidth="96" Margin="0,0,8,0" Visibility="Collapsed" Click="Try_Click"/>
+            <Button x:Name="ActionButton" Grid.Column="0" Content="Fix and relaunch"
                     Style="{StaticResource Button.Primary.Medium}" MinWidth="96" Margin="0,0,8,0" Click="Action_Click"/>
         </Grid>
     </Grid>

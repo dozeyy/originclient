@@ -90,6 +90,8 @@ public partial class HomePage : UserControl
         public HandoffStage Shown { get; set; }
         // The player stopped it from the progress screen: its exit is not a crash.
         public bool StoppedByPlayer { get; set; }
+        // When it started: only crash files written since then can explain its exit.
+        public DateTime StartedUtc { get; init; } = DateTime.UtcNow;
     }
 
     // The game whose start the progress screen is showing, once its process is
@@ -797,6 +799,10 @@ public partial class HomePage : UserControl
         if ((target?.Version ?? _selectedVersion) is not { } version) return;
         var accountName = account?.Gamertag ?? "Offline";
 
+        // The crash window's "Try once without my mods": THIS one relaunch leaves the player's own mods out. Nothing is
+        // saved (the external-mods setting and the Mods tab stay as they were), and any other launch spends it unused.
+        if (_tryWithoutAddedModsOnce.Remove(key) && route == LaunchRoute.Retry) externalMods = false;
+
         // One game per account: an open game is brought forward instead of a
         // second copy (the same Microsoft session can't play twice anyway).
         switch (AccountLaunchBook.ActionFor(_launches.PhaseOf(key)))
@@ -1141,14 +1147,9 @@ public partial class HomePage : UserControl
                         Note(game.Key, "Ready", LaunchTone.Neutral);
                         return;
                     }
-                    Note(game.Key, game.LogPath != null
-                        ? $"Minecraft crashed while starting (exit code {exitCode}) - log saved to {game.LogPath}"
-                        : $"Minecraft crashed while starting (exit code {exitCode}).", LaunchTone.Error);
-                    // A boot crash is the one case where a bad file on disk is a
-                    // live suspect, so drop the "already verified" stamp and make
-                    // the next launch re-hash the whole install. This is the
-                    // safety net that lets normal launches skip verification.
-                    Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
+                    // Crash or not is decided from the evidence first (ShowCrashReportAsync): a killed or
+                    // closed boot is not a crash and gets no window. Neutral until then.
+                    Note(game.Key, $"Minecraft closed while starting (exit code {exitCode}).", LaunchTone.Neutral);
                     // Queued (not awaited) so this watch finishes (button
                     // restored) first — the crash window's "retry" path
                     // launches the account again.
@@ -1283,11 +1284,15 @@ public partial class HomePage : UserControl
     // game boots (see CrashRetryGuard). The player can always press Play themselves.
     private static readonly CrashRetryGuard CrashRetries = new();
 
-    // Post-mortem for a game that died: name the cause in plain words (CrashClassifier), offer the ONE
-    // fix that suits it, and a secret-free "Copy report". Analysis reads files + jars, so it runs off the
-    // UI thread. Several games can be open, so the window says whose game (account + version) crashed,
-    // and the fix relaunches exactly that one. A normal quit or a player stop never reaches here with a
-    // window (CrashGate); a non-zero exit after the game was up needs real crash evidence.
+    // Accounts whose next Retry launch leaves the player's own mods out, once (the crash window's
+    // "Try once without my mods"). In memory only: nothing about it is saved.
+    private readonly HashSet<string> _tryWithoutAddedModsOnce = new();
+
+    // Post-mortem for a game that stopped (Crash Report V3: Core/Launch/CrashEngine). Crash or normal close is
+    // decided FIRST from the exit code and the evidence; a normal close opens nothing. A crash shows the window: what
+    // happened, the likely cause with its confidence word, the recommended fix, the fix button only when safe (strong
+    // or confirmed), and the technical details. Reading files and jars runs off the UI thread. Several games can be
+    // open, so the window says whose game (account + version) stopped, and the fix relaunches exactly that one.
     private async Task ShowCrashReportAsync(RunningGame game, int exitCode, bool crashedWhileStarting)
     {
         try
@@ -1295,24 +1300,44 @@ public partial class HomePage : UserControl
             var ramMb = SettingsStore.Load().RamMb;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
-            var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode, ramMb, totalMb,
-                _ => CrashRetries.AnyTried(key, DateTime.UtcNow)));
-            if (!CrashGate.ShouldShow(exitCode, game.StoppedByPlayer, crashedWhileStarting, findings.HasFreshCrashFile, findings.Diagnosis))
+            var fixTried = CrashRetries.AnyTried(key, DateTime.UtcNow);
+            var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
+                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc));
+            var verdict = findings.Verdict;
+            System.Diagnostics.Debug.WriteLine(
+                $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
+            var idle = _launches.PhaseOf(key) is not (GamePhase.Starting or GamePhase.Running);
+            if (!verdict.IsCrash)
+            {
+                if (crashedWhileStarting && idle) Note(key, "Ready", LaunchTone.Neutral);
                 return;
+            }
+
+            if (crashedWhileStarting)
+            {
+                if (idle)
+                    Note(key, game.LogPath != null
+                        ? $"Minecraft crashed while starting (exit code {exitCode}) - log saved to {game.LogPath}"
+                        : $"Minecraft crashed while starting (exit code {exitCode}).", LaunchTone.Error);
+                // A boot crash is the one case where a bad file on disk is a live suspect, so drop the "already
+                // verified" stamp and make the next launch re-hash the whole install. This is the safety net that
+                // lets normal launches skip verification. Only for a real crash: a closed boot keeps its stamp.
+                Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
+            }
 
             var launcherVersion = Core.Updates.UpdateService.CurrentVersion.ToString();
             var windowsUser = Environment.UserName;
             string BuildReport() => CrashReportBundle.Build(new CrashReportBundle.Input(
-                launcherVersion, game.Version, ramMb, totalMb, exitCode, findings.Diagnosis,
+                launcherVersion, game.Version, ramMb, totalMb, exitCode, verdict,
                 findings.LogText, findings.CrashReportText, [windowsUser, game.AccountName]));
 
-            var window = new UI.Windows.CrashReportWindow(findings.Analysis, game.LogPath,
-                $"{game.AccountName} - Minecraft {game.Version}", findings.Diagnosis, BuildReport)
+            var window = new UI.Windows.CrashReportWindow(verdict, game.LogPath,
+                $"{game.AccountName} - Minecraft {game.Version}", BuildReport)
             {
                 Owner = Window.GetWindow(this)
             };
             window.ShowDialog();
-            await ApplyCrashActionAsync(game, window.ChosenAction, findings.Diagnosis);
+            await ApplyCrashChoiceAsync(game, window.ChosenFix, window.ChoseTryWithoutAddedMods);
         }
         catch (Exception ex)
         {
@@ -1322,35 +1347,54 @@ public partial class HomePage : UserControl
         }
     }
 
-    // Runs the fix the player chose in the crash window, then relaunches that account's game.
+    // Runs what the player chose in the crash window, then relaunches that account's game once.
     // Newest launch action wins: if the player already started this account again, nothing is done.
-    private async Task ApplyCrashActionAsync(RunningGame game, CrashAction action, CrashDiagnosis diagnosis)
+    // Every fix is reversible, and none falls back to a broader change when it can't be done: a mod
+    // that can't be turned off is reported on the status line, never "turn off all your mods".
+    private async Task ApplyCrashChoiceAsync(RunningGame game, CrashFix? fix, bool tryWithoutAddedMods)
     {
-        if (action is CrashAction.None or CrashAction.OpenLogs) return;
+        if (fix == null && !tryWithoutAddedMods) return;
         if (_launches.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
-        if (!CrashRetries.TryBegin(game.Key, action, DateTime.UtcNow)) return;
+        if (!CrashRetries.TryBegin(game.Key, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
 
-        switch (action)
+        if (fix == null)
         {
-            case CrashAction.RaiseMemory when diagnosis.NewRamMb is int ram:
-                _settings.RamMb = ram;
-                SettingsStore.Update(s => s.RamMb = ram);
-                break;
-            case CrashAction.DisableMod when diagnosis.ModJar is { } jar:
-                // The shared repair path (Core/Compat): the jar is turned off (foo.jar -> foo.jar.disabled, reversible on
-                // the Mods tab) in the folder THIS game loaded it from - its mod profile's folder when it had one, so
-                // another profile's or account's mods are never touched. Origin's own jars are never turned off.
-                if (Core.Compat.CrashRepair.DisableBlamed(game.Version, _profileByKey.GetValueOrDefault(game.Key), jar,
-                        Core.Mods.ModManager.IsOriginProvisioned).Outcome != Core.Compat.CrashRepairOutcome.Disabled)
-                    SaveExternalMods(false); // could not switch just that one off: Origin-only is the next best
-                break;
-            case CrashAction.OriginOnly:
-                SaveExternalMods(false);
-                break;
-            case CrashAction.Relaunch:
-                // The next launch re-hashes the whole install (the boot-crash path already dropped the stamp).
-                Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
-                break;
+            _tryWithoutAddedModsOnce.Add(game.Key);
+        }
+        else
+        {
+            switch (fix.Kind)
+            {
+                case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
+                    _settings.RamMb = ram;
+                    SettingsStore.Update(s => s.RamMb = ram);
+                    break;
+                case CrashFixKind.DisableMods:
+                    // The shared repair path (Core/Compat/CrashRepair -> RepairExecutor): each jar is turned off
+                    // (foo.jar -> foo.jar.disabled, back on from the Mods tab) in the folder THIS game loaded it
+                    // from - its mod profile's folder when it had one, so another profile's or account's mods are
+                    // never touched. Origin's own jars are refused there too.
+                    var failed = new List<string>();
+                    foreach (var jar in fix.Jars)
+                    {
+                        var result = Core.Compat.CrashRepair.DisableBlamed(game.Version,
+                            _profileByKey.GetValueOrDefault(game.Key), jar, Core.Mods.ModManager.IsOriginProvisioned);
+                        if (result.Outcome != Core.Compat.CrashRepairOutcome.Disabled) failed.Add(jar);
+                    }
+                    if (failed.Count > 0)
+                    {
+                        Note(game.Key, $"Couldn't turn off {string.Join(", ", failed)}. Turn it off on the Mods tab, then press Play.",
+                            LaunchTone.Error);
+                        return; // relaunching with the cause still in place would only crash again
+                    }
+                    break;
+                case CrashFixKind.RepairFiles:
+                    // The next launch re-hashes the whole install and re-downloads only what is broken.
+                    Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
+                    break;
+                default:
+                    return;
+            }
         }
         await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key), LaunchRoute.Retry);
     }
@@ -1528,7 +1572,7 @@ public partial class HomePage : UserControl
         SyncSocialMirror();
         RefreshPlayButton();
         // A non-zero exit after the game was up: explain it when there is real crash evidence
-        // (CrashGate inside). A boot crash is the boot watcher's, and a normal quit never lands here.
+        // (CrashEngine.Decide inside). A boot crash is the boot watcher's, and a normal quit never lands here.
         if (wasRunning && exitCode != 0 && !game.StoppedByPlayer)
             _ = Dispatcher.BeginInvoke(async () => await ShowCrashReportAsync(game, exitCode, crashedWhileStarting: false),
                 DispatcherPriority.Background);
