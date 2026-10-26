@@ -403,6 +403,15 @@ class GameDir(Tmp):
         e2 = P.bench_env(a, "origin-default", "/o", "b")
         self.assertEqual(e2["ORIGIN_BENCH_PROBE"], "0")
         self.assertEqual(e2["ORIGIN_BENCH_VARIANT"], "origin-default")
+        self.assertEqual(e2["ORIGIN_BENCH_OFF"], "")   # every pick as shipped unless --off says otherwise
+
+    def test_off_switches_one_pick_and_rejects_unknown_names(self):
+        ap = P.build_parser()
+        base = ["run", "--origin-jar", "x.jar", "--out", "o"]
+        a = ap.parse_args(base + ["--off", "hud", "--off", "particles"])
+        self.assertEqual(P.bench_env(a, "origin-default", "/o", "b")["ORIGIN_BENCH_OFF"], "hud,particles")
+        with self.assertRaises(SystemExit):
+            ap.parse_args(base + ["--off", "cosmetics"])   # only the kept picks 3/4/5 have a switch
 
 
 class Presets(Tmp):

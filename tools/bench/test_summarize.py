@@ -337,6 +337,30 @@ class Aggregate(Tmp):
         S.require_valid(S.aggregate(self.p("root"), baseline="optifine-only"))
         self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only", "--require-valid"]), 0)
 
+    def test_probe_without_hud_scene_still_counts_as_valid(self):
+        # the OptiFine-only probe skips hud on purpose; an Origin variant without hud is still a failure
+        for i in (1, 2):
+            write_run(self.p("root", "optifine-only", "run-%d" % i), {"idle": ([10 * MS] * 400, {})},
+                      env={"originActive": False})
+            write_run(self.p("root", "origin-default", "run-%d" % i),
+                      {"idle": ([10 * MS] * 400, {}), "hud": ([11 * MS] * 400, {})}, env={"originActive": True})
+        S.require_valid(S.aggregate(self.p("root"), baseline="optifine-only"))
+        write_run(self.p("root", "off-hud", "run-1"), {"idle": ([10 * MS] * 400, {})}, env={"originActive": True})
+        with self.assertRaises(S.SummaryError) as c:
+            S.require_valid(S.aggregate(self.p("root"), baseline="optifine-only"))
+        self.assertIn("off-hud has no valid run of: hud", str(c.exception))
+
+    def test_startup_time_is_spread_per_variant_and_printed(self):
+        for i, ms in enumerate((20000, 22000, 21000), start=1):
+            write_run(self.p("root", "origin-default", "run-%d" % i), {"idle": ([10 * MS] * 400, {})},
+                      env={"startupMs": ms})
+        write_run(self.p("root", "origin-default", "run-4"), {"idle": ([10 * MS] * 400, {})},
+                  env={"startupMs": -1})   # title never seen: left out, not counted as 0
+        agg = S.aggregate(self.p("root"))
+        self.assertEqual(agg["variants"]["origin-default"]["startupS"],
+                         {"median": 21.0, "min": 20.0, "max": 22.0, "n": 3})
+        self.assertIn("Time to title screen (JVM start -> title, s): 21.0 (20.0-22.0)", S.to_markdown(agg))
+
     def _slow_variant(self, factor):
         """A third variant whose every frame is `factor` x the baseline's 10 ms (so avg FPS and 1 % low drop)."""
         for i in (1, 2, 3):

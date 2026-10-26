@@ -38,6 +38,22 @@ class Paired(unittest.TestCase):
         self.assertEqual(sorted(row["gcPauseTotalMs"]), [-15, 15])      # + = less pause than the control
         self.assertIn("| idle | 2 | +10.0% [+10.0..+10.0]", A.report(d))
 
+    def put_startup(self, var, rn, ms):
+        d = os.path.join(self.root, "A", var, "run-%d" % rn)
+        os.makedirs(d)
+        with open(os.path.join(d, "bench.json"), "w", encoding="utf-8") as f:
+            json.dump({"environment": {"startupMs": ms}, "scenarios": []}, f)
+
+    def test_startup_is_paired_like_a_scene(self):
+        # optifine-only boots in 20 s, origin-default in 25 s: Origin costs 25% more time to title (- = worse)
+        self.put_startup("origin-default", 1, 25000)
+        self.put_startup("optifine-only", 1, 20000)
+        self.put_startup("off-hud", 1, -1)          # title never seen: no row, never a fake 0
+        d = A.paired(A.load([os.path.join(self.root, "A")]))
+        self.assertEqual(d["optifine-only"]["startup"]["startupMs"], [20.0])
+        self.assertNotIn("off-hud", d)
+        self.assertIn("| startup | 1 |", A.report(d))
+
     def test_no_control_in_that_round_means_no_pair(self):
         self.put("A", "origin-default", 1, 40.0)
         self.put("A", "jvm-x", 2, 44.0)

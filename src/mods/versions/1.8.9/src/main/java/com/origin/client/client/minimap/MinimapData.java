@@ -73,6 +73,11 @@ public final class MinimapData {
 	// cannot move SCAN_POS while baseRgb still needs the column's surface position.
 	private static final BlockPos.MutableBlockPos SCAN_POS = new BlockPos.MutableBlockPos();
 	private static final BlockPos.MutableBlockPos DEPTH_POS = new BlockPos.MutableBlockPos();
+
+	/** The scan's position: the reused one, or (bench A/B "pick 4 off") a fresh BlockPos as before the pick. */
+	private static BlockPos at(BlockPos.MutableBlockPos reuse, int x, int y, int z) {
+		return com.origin.client.client.BenchSwitches.MINIMAP_OFF ? new BlockPos(x, y, z) : reuse.set(x, y, z);
+	}
 	private static final int MAX_SCANS = 6;
 	private static final int MAX_CLEARS = 160;
 	// Periodic refresh: the 3x3 chunks around the player every second (block edits you
@@ -398,7 +403,7 @@ public final class MinimapData {
 				if (look.lighting()) {
 					// clamped: Chunk.getLightFor indexes its 16 sections by y >> 4 (256 = out of range)
 					int ly = Math.min(255, colHeight[i] + 1);
-					colLight[i] = chunk.getLightFor(EnumSkyBlock.BLOCK, SCAN_POS.set(bx + lx, ly, bz + lz));   // 1.8.9 NAME UNVERIFIED
+					colLight[i] = chunk.getLightFor(EnumSkyBlock.BLOCK, at(SCAN_POS, bx + lx, ly, bz + lz));   // 1.8.9 NAME UNVERIFIED
 				}
 			}
 		}
@@ -424,7 +429,7 @@ public final class MinimapData {
 		// brightness moves every tick, and a step that small changes no 8-bit channel by more than one.
 		int slot = slot(cx, cz);
 		long hash = columnsHash(north, west, look.lighting() ? (int) (ambient * 512f) : -1, look.lighting());
-		if (slotHasData[slot] && slotKey[slot] == chunkKey(cx, cz) && slotSig[slot] == sig && slotHash[slot] == hash) {
+		if (!com.origin.client.client.BenchSwitches.MINIMAP_OFF && slotHasData[slot] && slotKey[slot] == chunkKey(cx, cz) && slotSig[slot] == sig && slotHash[slot] == hash) {
 			slotScannedAt[slot] = now;
 			return;
 		}
@@ -473,7 +478,7 @@ public final class MinimapData {
 		for (int i = 0; i < 256; i++) {
 			IBlockState s = colState[i];
 			if (s != null) {
-				BlockPos.MutableBlockPos pos = SCAN_POS.set(bx + (i & 15), colHeight[i], bz + (i >> 4));
+				BlockPos pos = at(SCAN_POS, bx + (i & 15), colHeight[i], bz + (i >> 4));
 				colArgb[i] = 0xFF000000 | baseRgb(level, s, pos, mapColor(s), look);
 			}
 		}
@@ -532,12 +537,12 @@ public final class MinimapData {
 		int y = Math.min(maxY, chunk.getHeightValue(x & 15, z & 15));   // 1.8.9 NAME UNVERIFIED: Chunk.getHeightValue / getBlockState
 		colWater[i] = false;
 		colDepth[i] = 0;
-		BlockPos.MutableBlockPos pos = SCAN_POS.set(x, y, z);
+		BlockPos pos = at(SCAN_POS, x, y, z);
 		IBlockState state = chunk.getBlockState(pos);
 		MapColor color = mapColor(state);
 		while (color == MapColor.airColor && y > minY) {
 			y--;
-			pos.set(x, y, z);
+			pos = at(SCAN_POS, x, y, z);
 			state = chunk.getBlockState(pos);
 			color = mapColor(state);
 		}
@@ -550,7 +555,7 @@ public final class MinimapData {
 		if (liquid(state.getBlock())) {
 			int depth = 0;
 			for (int yy = y - 1; yy > minY && depth < 16; yy--) {
-				if (!liquid(chunk.getBlockState(DEPTH_POS.set(x, yy, z)).getBlock())) {
+				if (!liquid(chunk.getBlockState(at(DEPTH_POS, x, yy, z)).getBlock())) {
 					break;
 				}
 				depth++;
@@ -572,7 +577,7 @@ public final class MinimapData {
 		boolean sawAir = false;
 		int stop = Math.max(minY, top - CAVE_SCAN_DEPTH);
 		for (int y = top; y > stop; y--) {
-			BlockPos.MutableBlockPos pos = SCAN_POS.set(x, y, z);
+			BlockPos pos = at(SCAN_POS, x, y, z);
 			IBlockState state = chunk.getBlockState(pos);
 			if (state.getBlock().getMaterial() == Material.air) {
 				sawAir = true;

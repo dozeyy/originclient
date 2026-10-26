@@ -143,7 +143,7 @@ public final class ParticleFilter {
 	private static Snap snap() {
 		Snap s = snap;
 		int r = Mods.configRev();
-		if (s == null || s.rev != r) {
+		if (s == null || s.rev != r || com.origin.client.client.BenchSwitches.PARTICLES_OFF) {   // "pick 5 off": resolve per call
 			s = new Snap(r);
 			snap = s;
 		}
