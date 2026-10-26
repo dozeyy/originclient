@@ -1,0 +1,15 @@
+{
+ "_why": "dev-shots set=stepaside (CI only, never bundled): one real mod that does the same job as an Origin mod, so the shots show Origin stepping aside ('Replaced by Freecam' on the Freelook card). Freecam 1.3.2+mc1.21.4 is the Modrinth Fabric release listed for MC 1.21.4; Fabric API is this module's own fabric_api_version, because prodClient runs a production game, which has no Fabric API of its own. Pinned by Modrinth VERSION id, SHA-512 checked by fetch_mods.py.",
+ "mods": [
+  {
+   "slug": "fabric-api",
+   "version": "p96k10UR",
+   "number": "0.119.4+1.21.4"
+  },
+  {
+   "slug": "freecam",
+   "version": "2NxXpmvb",
+   "number": "1.3.2+mc1.21.4"
+  }
+ ]
+}

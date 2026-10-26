@@ -2,6 +2,7 @@ package com.origin.client.client.worldedit;
 
 import com.origin.client.OriginClient;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.mods.StepAside;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
@@ -48,8 +49,10 @@ import java.util.UUID;
 // unknown plugin-channel payload silently (vanilla does exactly that).
 //
 // Coexistence (never broken):
-//   * the real WorldEditCUI mod installed -> we stay dormant; it owns the channel
-//     and the drawing, and two overlays on one selection would just fight.
+//   * the real WorldEditCUI mod installed -> we step aside (StepAside "worldeditcui"
+//     row): dormant, the card says "Replaced by WorldEditCUI"; it owns the channel
+//     and the drawing, and two overlays on one selection would just fight. Only a
+//     player who forces Origin's back on gets both.
 //   * anything else already owns the channel's client receiver -> log once and
 //     stay dormant. (WorldEdit's shared CUI protocol library, the 1.21.1 build's
 //     other branch, only exists from the 1.20.5 payload era; WorldEdit for 1.20.x
@@ -88,7 +91,11 @@ public final class WorldEditCui {
 	public static void init() {
 		try {
 			FabricLoader loader = FabricLoader.getInstance();
-			if (loader.isModLoaded("worldeditcui")) {
+			// The player's own WorldEditCUI replaces Origin's (StepAside, resolved before this
+			// runs). Unless they turned Origin's back on, its channel is never opened at all.
+			// Forced on next to the real one: the channel registration below may find the id
+			// taken and stay dormant (caught), never a crash. Takes effect from the next start.
+			if (StepAside.aside(ID, Mods.forcedOn(ID))) {
 				OriginClient.LOGGER.info("Origin: WorldEditCUI is installed; Origin's WorldEdit CUI stays off");
 				return;
 			}
