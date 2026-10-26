@@ -34,6 +34,7 @@ public sealed class FabricLoaderModsTests
     [InlineData("0.19.3", "0.5.4")]
     [InlineData("0.19.4", "0.5.4")]  // between rows: the row at or below
     [InlineData("0.19.5", "0.5.5")]
+    [InlineData("0.20.1", "0.5.5")]  // the launcher's floor (FabricLoaderFloor)
     [InlineData("0.30.0", "0.5.5")]  // newer than the table: the newest row
     [InlineData("0.14.0", "0.5.4")]  // older than the table: the oldest row
     public void PicksTheRowForTheLoaderVersion(string? loader, string expected)

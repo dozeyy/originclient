@@ -72,8 +72,9 @@ public sealed class VersionManager
             ["1.20.4"] = new("originclient-1.20.4.jar", BundlesPerfStack: false),
             // 1.21 (src/mods/versions/1.21) — LIVE. Same pre-1.21.2-blit-rework
             // API family as 1.21.1 (byte-identical source), but its own mapped
-            // build + the standalone install model (1.21's Sodium mc1.21-0.5.11
-            // differs from 1.21.1's bundled 0.6.13). 1.21 is a real version + Full
+            // build + the standalone install model (1.21 installs Sodium 0.6.13 +
+            // Iris 1.8.8 beside it since 2026-10-25; 1.21.1 bundles Sodium 0.8.13 +
+            // Iris 1.8.14-beta.1 jar-in-jar). 1.21 is a real version + Full
             // in the catalog, so it ships like 1.20.4. runClient at home confirms
             // mixin-apply; a runtime miss fail-softs to vanilla (never crashes).
             ["1.21"] = new("originclient-1.21.jar", BundlesPerfStack: false),
@@ -490,13 +491,15 @@ public sealed class VersionManager
         // doubt returns Full and behaves exactly like it always did. See
         // InstallVerification for the safety contract.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
+        if (FabricLoaderFloor.ForcesFullVerify(decision.CachedVersionName)) decision = InstallVerification.Decision.Full;
         LaunchTimeline.Mark(decision.FullVerify ? "stamp-full" : "stamp-fast");
 
-        // The cached loader must also read fabric.modsFolder (Loader 0.15.0+),
-        // or the game would look in the account's empty mods/ — an older one
-        // is replaced by a fresh install, which is always the newest loader.
+        // The cached loader must meet FabricLoaderFloor (0.20.1: the floor the
+        // bundled jars declare, and what every module boots on in CI; it also
+        // reads fabric.modsFolder, which needs 0.15.0+). An older one is
+        // replaced by a fresh install, which is always the newest loader.
         string versionName;
-        if (decision.CachedVersionName is { } cached && SharedMods.LoaderReadsModsFolderProperty(cached))
+        if (decision.CachedVersionName is { } cached && FabricLoaderFloor.IsMet(cached))
         {
             versionName = cached;
         }

@@ -40,15 +40,19 @@ changes unless you change it or deliberately run the sync.
 MEMORY.md and `docs/PORTING-ERA-NOTES.md`). JEI ships only where a Fabric JEI exists
 (not 1.21.2-1.21.8, 1.17.1, 1.16.5); Color Saturation is absent on 1.16.5 (no shaders).
 
+**2026-10-25 ("newer everything"):** every live Fabric module builds and boots on Fabric Loader
+0.20.1, and the launcher's `FabricLoaderFloor` (0.20.1) reinstalls any cached older loader (JEI 11.68+ needs
+fabricloader >=0.19.4). Raise the floor and the modules' `loader_version` together (FabricLoaderFloorTests).
+
 | Module | Covers | fabric.mod.json range | Install model | Java |
 |--------|--------|----------------------|---------------|------|
-| `26.3` | 26.3 | `~26.3` | standalone stack (Sodium 0.9.2 + Iris 1.11.7, Lithium 0.26.2 …) + JEI 31.12 jar-in-jar. Derived from `26.2` on 2026-10-13. 26.3 swapped GLFW for **SDL3** (window/input; `InputConstants.KEY_*`, `SDLVideo`) and moved the render API to **`com.mojang.renderpearl.api`** (pipelines, textures, GpuFormat) — see `docs/PORTING-ERA-NOTES.md` "26.3". No 26.3.x patch releases yet (2026-10-13); add them to this jar's range only after an API diff | 25 |
+| `26.3` | 26.3 | `~26.3` | standalone stack (Sodium 0.9.3-beta.1 + Iris 1.11.7 since 2026-10-25, Lithium 0.26.2 …) + JEI 31.17 jar-in-jar. Derived from `26.2` on 2026-10-13. 26.3 swapped GLFW for **SDL3** (window/input; `InputConstants.KEY_*`, `SDLVideo`) and moved the render API to **`com.mojang.renderpearl.api`** (pipelines, textures, GpuFormat) — see `docs/PORTING-ERA-NOTES.md` "26.3". No 26.3.x patch releases yet (2026-10-13); add them to this jar's range only after an API diff | 25 |
 | `26.2` | 26.2 | `~26.2` | standalone stack (Sodium 0.9.2 + Iris 1.11.4 …) + JEI jar-in-jar. **26.x era**: unobfuscated (no mappings), extract/submit GUI — ported from 1.21.11 on 2026-10-13, see `docs/PORTING-ERA-NOTES.md` "26.x era" | 25 (CI runs Gradle on JDK 25: `"java": "25"` in live-modules.json) |
 | `26.1` | 26.1, 26.1.1, 26.1.2 | `>=26.1- <26.2-` | standalone stack (26.1.2: Sodium 0.9.2 + Iris 1.11.4; 26.1 / 26.1.1: Sodium 0.8.9 + Iris 1.10.9 — Iris 1.11 needs Sodium 0.9, whose only build here requires 26.1.2) + JEI 29.37 jar-in-jar (newer JEI nests mezz_config, which demands 26.1.2 exactly and would not boot on 26.1 / 26.1.1). **One jar for all three**: version-scout's API diff found no class or public signature change across 26.1 → 26.1.2. Derived from `26.2` on 2026-10-13 (a middle era: extract GUI like 26.2, but `Gui` is still the HUD, `mc.screen`, immediate block outline, `RenderType.draw`, beds are block entities) — `docs/PORTING-ERA-NOTES.md` "26.1.x" | 25 |
-| `1.21.1` | 1.21.1 | `~1.21.1` | **Bundles perf stack jar-in-jar** (Sodium/Indium/Iris/Lithium/…) | 21 |
+| `1.21.1` | 1.21.1 | `~1.21.1` | **Bundles perf stack jar-in-jar** (Sodium 0.8.13 + Iris 1.8.14-beta.1 since 2026-10-25, no Indium: Sodium 0.8 provides it; Lithium/FerriteCore/…) | 21 |
 | `1.20` | 1.20, 1.20.1 | `>=1.20- <1.20.2` | Origin jar + standalone catalog stack | 17 (via JDK 21) |
 | `1.20.4` | 1.20.3, 1.20.4 | `>=1.20.3- <1.20.5` | standalone stack | 17 (via JDK 21) |
-| `1.21` | 1.21 | `>=1.21- <1.21.1` | standalone stack (source byte-identical to 1.21.1 — shared pre-1.21.2 blit API — except Store cosmetics, 1.21.1-only for now: docs/STORE.md) | 21 |
+| `1.21` | 1.21 | `>=1.21- <1.21.1` | standalone stack (Sodium 0.6.13 + Iris 1.8.8, no Indium, since 2026-10-25; source byte-identical to 1.21.1 — shared pre-1.21.2 blit API — except Store cosmetics, 1.21.1-only for now: docs/STORE.md) | 21 |
 | `1.21.8` | 1.21.8 | `>=1.21.6- <1.21.9` | standalone stack (Matrix3x2fStack + no-setShaderColor era) | 21 |
 | `1.21.10` | 1.21.10 | `>=1.21.10- <1.21.11` | standalone stack (split from 1.21.11: the 1.21.11 mapping-rename wave made one jar impossible) | 21 |
 | `1.21.11` | 1.21.11 | `>=1.21.10- <1.22` | standalone stack (render-pipeline + world-event-v2 era) | 21 |

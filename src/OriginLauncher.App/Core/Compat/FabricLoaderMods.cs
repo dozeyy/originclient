@@ -9,7 +9,8 @@ namespace OriginLauncher.App.Core.Compat;
 /// missing a dependency.
 ///
 /// Checked jars (gradle cache, 2026-10-25): fabric-loader-0.19.3.jar -> mixinextras-fabric-0.5.4.jar,
-/// fabric-loader-0.19.5.jar -> mixinextras-fabric-0.5.5.jar. Add a row only after reading the next loader jar.
+/// fabric-loader-0.19.5.jar -> mixinextras-fabric-0.5.5.jar, fabric-loader-0.20.1.jar -> mixinextras-fabric-0.5.5.jar
+/// (its "jars" entry and the nested jar's own fabric.mod.json, read 2026-10-25). Add a row only after reading the next loader jar.
 /// </summary>
 internal static class FabricLoaderMods
 {
@@ -22,6 +23,7 @@ internal static class FabricLoaderMods
     {
         new Row("0.19.3", "0.5.4"),
         new Row("0.19.5", "0.5.5"),
+        new Row("0.20.1", "0.5.5"),
     };
 
     /// <summary>The ids mixinextras answers to (its own id plus the one it <c>provides</c>).</summary>

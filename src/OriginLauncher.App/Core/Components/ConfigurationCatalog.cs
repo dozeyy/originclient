@@ -49,7 +49,9 @@ public static class ConfigurationCatalog
         {
             ["1.21.1"] = new[]
             {
-                ("0.6.5+1.8.1", "CI boot-smoke 40252040490 (prod layout, 0 mixin-apply failures, pair loaded over the nested one); spike dev 13/13, signatures 46/46; Smart Terrain off"),
+                // Re-proven 2026-10-25 against the jar that nests Sodium 0.8.13 + Iris 1.8.14-beta.1 (boot-smoke
+                // pairs row on claude/deps-all); the fallback when the shipped 0.8 pair won't start.
+                ("0.6.5+1.8.1", "CI boot-smoke on claude/deps-all 2026-10-25 over the Sodium 0.8.13 jar, first 40252040490 (prod layout, 0 mixin-apply failures, pair loaded over the nested one); spike dev 13/13, signatures 46/46; Smart Terrain off"),
             },
             ["1.21.11"] = new[]
             {
