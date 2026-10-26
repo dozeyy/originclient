@@ -27,6 +27,12 @@ import time
 import zipfile
 
 READY = re.compile(r"\[origin-smoke\] title screen reached")
+# ModernFix logs this once loading is over. CI run 40249284621: the duplicate-id boot printed it but the Origin
+# marker never reached stdout (Gradle held the game's output until the kill), so either line counts as booted,
+# and latest.log on disk is watched as well as stdout.
+GAME_TOOK = re.compile(r"Game took [0-9.]+ seconds to start")
+FATAL = re.compile(r"Minecraft has crashed|Uncaught exception in thread|Incompatible mods found|"
+                   r"Error: Could not create the Java Virtual Machine|OutOfMemoryError|Mixin apply .* failed")
 GRADLE_EXIT = re.compile(r"finished with non-zero exit value (-?\d+)")
 TASK_START = re.compile(r"^> Task :runClient\b")
 GRADLE_TAIL = re.compile(r"^(FAILURE: Build failed|BUILD FAILED|BUILD SUCCESSFUL|\* What went wrong:|> Task :)")
@@ -182,7 +188,29 @@ def run_case(module, name, plant, jvm_args, ram_mb, expected, out_root, timeout)
                             universal_newlines=True, errors="replace", env=env, preexec_fn=os.setsid)
     timer = threading.Timer(timeout, lambda: kill_tree(proc))
     timer.start()
-    lines, game, booted, in_game, start = [], [], False, False, time.monotonic()
+    lines, game, in_game, start = [], [], False, time.monotonic()
+    booted = threading.Event()
+    done = threading.Event()
+
+    def booted_text(text):
+        return bool(READY.search(text) or GAME_TOOK.search(text)) and not FATAL.search(text)
+
+    def watch_log():
+        # latest.log is written by the game itself, so it shows the boot even while Gradle buffers stdout.
+        path = os.path.join(run, "logs", "latest.log")
+        while not done.wait(3):
+            try:
+                with open(path, errors="replace") as f:
+                    text = f.read()
+            except OSError:
+                continue
+            if booted_text(text):
+                booted.set()
+                kill_tree(proc)
+                return
+
+    watcher = threading.Thread(target=watch_log, daemon=True)
+    watcher.start()
     try:
         for line in proc.stdout:
             sys.stdout.write(line)
@@ -194,13 +222,17 @@ def run_case(module, name, plant, jvm_args, ram_mb, expected, out_root, timeout)
                 in_game = False
             if in_game:
                 game.append(line)
-            if READY.search(line):
-                booted = True
-                break
+            if READY.search(line) or GAME_TOOK.search(line):
+                if not FATAL.search("".join(game)):
+                    booted.set()
+                    break
     finally:
+        done.set()
         timer.cancel()
         kill_tree(proc)
         proc.wait()
+        watcher.join(5)
+    booted = booted.is_set()
     elapsed = time.monotonic() - start
     gradle_exit = GRADLE_EXIT.search("".join(lines))
     timed_out = not booted and elapsed >= timeout - 1
@@ -223,7 +255,7 @@ def run_case(module, name, plant, jvm_args, ram_mb, expected, out_root, timeout)
         json.dump(expected, f, indent=2)
     for old in glob.glob(os.path.join(mods, "plant-*.jar")):
         os.remove(old)
-    state = "booted to the title screen" if booted else ("TIMED OUT" if timed_out else f"exited {exit_code}")
+    state = "booted (clean close)" if booted else ("TIMED OUT" if timed_out else f"exited {exit_code}")
     print(f"::notice title=crash-plant {name}::{state} after {elapsed:.0f}s; {len(game)} game lines", flush=True)
     return state
 
