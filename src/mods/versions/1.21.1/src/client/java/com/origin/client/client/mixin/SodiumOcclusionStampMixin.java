@@ -8,12 +8,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * Target: Sodium 0.6.13 OcclusionCuller, its three RenderSection.setLastVisibleFrame(I)V calls
- * (javap 2026-10-19: static visitNode, addNearbySections, initWithinWorld; nothing else in Sodium
- * or Iris 1.8.8 stamps sections). Why: main-pass entity culling (isSectionVisible) asks "was this
- * section stamped by the last walk". Iris's shadow walk runs BEFORE the main walk each frame and
- * stamps the same sections, so a reused main walk must re-apply the main walk's stamps; Smart
- * Terrain Updates records which sections the main walk stamped. Redirect (not Inject) so the hot
+ * Target: Sodium 0.8.13+mc1.21.1 OcclusionCuller, its three RenderSection.setLastVisibleFrame(I)V
+ * calls (javap 2026-10-25: static visitNode, addNearbySections, initWithinWorld -- the same three as
+ * Sodium 0.6; nothing else in Sodium 0.8.13 or Iris 1.8.14-beta.1 calls it, and the tree walk stamps nothing).
+ * Why: main-pass entity culling (isSectionVisible) asks "was this section stamped with the current
+ * lastUpdatedFrame". Iris's shadow walk runs BEFORE the main walk each frame and bumps that shared
+ * counter (Iris 1.8.14-beta.1 forces the shadow walk onto the tree path, which stamps nothing), so a reused
+ * main walk must re-apply the main walk's stamps; Smart Terrain Updates records which sections the main
+ * walk stamped. Redirect (not Inject) so the hot
  * path allocates nothing: the handler is the original call plus one static boolean read.
  * What breaks if it stops applying: visitNode and initWithinWorld must have been seen recording
  * before the feature reuses anything (REQUIRED_HOOKS), and a walk that recorded nothing is never

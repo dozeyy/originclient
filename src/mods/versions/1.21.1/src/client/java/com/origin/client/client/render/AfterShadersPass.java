@@ -345,11 +345,9 @@ public final class AfterShadersPass {
 	}
 
 	/** Is an Iris shader pack rendering the world? Iris is bundled jar-in-jar on
-	 *  1.21.1 (build.gradle include), so this is the direct API call. NOT
-	 *  OriginRender.shaderPackOn(): that one is private, answers TRUE on any doubt
-	 *  (we need false: "doubt" must mean the unchanged LAST path), and living in
-	 *  render.terrain it would load a class full of Sodium internals just to ask
-	 *  this question. The Iris-loaded check is resolved once; the API call is two
+	 *  1.21.1 (build.gradle include), so this is the direct API call. On any
+	 *  doubt it answers false ("doubt" must mean the unchanged LAST path).
+	 *  The Iris-loaded check is resolved once; the API call is two
 	 *  null checks (javap IrisApiV0Impl.isShaderPackInUse): no allocation. */
 	private static final class ShaderPack {
 		private static final boolean IRIS =

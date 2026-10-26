@@ -58,7 +58,7 @@ public final class Mods {
 	// sitting on the main menu. Shader Performance Mode halves every active
 	// shaderpack's shadow map resolution + shadow render distance (the biggest
 	// GPU lever with shaders on) via IrisShadowDirectivesMixin.
-	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
+	public static final List<ModOption> PERFORMANCE_SETTINGS = runnableOnly(List.of(
 			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load renders shadows at half distance for a big FPS gain. Turn off for full quality; applies instantly."),
 			// Limit Far Shadows: render/ShadowCasterLimit + ShadowCaster*Mixin. Shader packs only.
 			ModOption.toggle("farShadowLimit", "Limit Far Shadows", false).tip("With a shader on, mobs and blocks like chests farther away than the distance below stop casting shadows. Saves work every frame in busy places; everything closer looks exactly the same."),
@@ -71,8 +71,27 @@ public final class Mods {
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
-			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"),
-			ModOption.toggle("originRender", "Origin Render (Experimental)", false).tip("Your graphics card skips terrain hidden behind other terrain. Works on almost every graphics card made since 2013; pauses while shaders are on. F3 shows what it's doing."));
+			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%")));
+
+	/**
+	 * Drops options the installed Sodium/Iris builds can't run, so no toggle does nothing. Smart Terrain
+	 * Updates is written against exact Sodium + Iris internals (render/SodiumIrisBuilds.SMART_TERRAIN); any
+	 * other build hides it. A stored value for a hidden key is kept; the feature stays inert there.
+	 * (The old "Origin Render (Experimental)" toggle is gone: it drew Sodium 0.6's terrain itself, and
+	 * 1.21.1 ships Sodium 0.8, whose section draw data it can't read. Same as 1.21.11.)
+	 */
+	private static List<ModOption> runnableOnly(List<ModOption> options) {
+		if (com.origin.client.client.render.SodiumIrisBuilds.SMART_TERRAIN) {
+			return options;
+		}
+		List<ModOption> kept = new ArrayList<>(options.size());
+		for (ModOption o : options) {
+			if (!"smartTerrainUpdates".equals(o.key)) {
+				kept.add(o);
+			}
+		}
+		return List.copyOf(kept);
+	}
 
 	// Vanilla 1.21.1 particle types (net.minecraft.core.particles.ParticleTypes)
 	// — the Particle Changer builds a per-type control block from this list so

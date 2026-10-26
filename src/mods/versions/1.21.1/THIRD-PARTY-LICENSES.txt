@@ -58,7 +58,6 @@ this section as a compliance claim.
   lithium         LGPL-3.0-only
   immediatelyfast LGPL-3.0-or-later
   modernfix       LGPL-3.0
-  indium          Apache-2.0
   ferrite-core    MIT
   twelvemonkeys   "The BSD License" (imageio-*, common-*)
 
