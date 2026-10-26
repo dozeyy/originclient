@@ -656,6 +656,13 @@ internal static class ImportShots
                 else
                     plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{label} ({m.FileName})", m.Reason));
             }
+            // Each copied jar is a copy op, as the engine plans it: the report counts a profile only once a jar landed.
+            foreach (var m in plan.Mods.Where(m => m.IsCopied))
+                plan.Ops.Add(new PlannedOp
+                {
+                    Kind = OpKind.CopyFile, Item = PlanItemKind.Mod, Label = m.DestFileName!,
+                    Dest = Path.Combine("demo", "mods", m.DestFileName!), Bytes = 400_000,
+                });
             foreach (var (name, kind) in new[]
                      {
                          ("options.txt", PlanItemKind.Setting), ("servers.dat", PlanItemKind.Setting), ("iris.properties", PlanItemKind.Setting),

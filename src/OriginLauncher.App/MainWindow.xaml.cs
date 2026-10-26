@@ -1006,6 +1006,18 @@ public partial class MainWindow : Window
         _homePage.ImportCard.Hide();
         MarkImportPromptSeen(); // any way in (Profiles, the Home card, --import, a second launch): the card never offers it again
 
+        // The report's "Fix Compatibility" on a profile that can't start: the real flow (HomePage.Fix.cs). The page closes,
+        // Home selects that profile, and the same prompt Play opens shows what the fix would change; nothing is written
+        // before the player presses Fix. Render shots (a tour backend) set their own stand-in (UI/ImportShots.cs).
+        if (backend == null && TourBackendFactory == null)
+            ImportHooks.FixCompatibility = (version, profileId) =>
+            {
+                CloseImportPanel();
+                Core.SettingsStore.Update(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, profileId, version));
+                NavigateTo(LauncherPage.Home);
+                _homePage.RefreshProfile();
+                return _homePage.FixImportedProfileAsync(version, profileId);
+            };
         var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
         // A launch starting or an update running turns Import off: the panel learns the sentence now and on every
         // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.

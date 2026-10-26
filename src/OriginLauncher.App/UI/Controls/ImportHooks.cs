@@ -26,10 +26,10 @@ internal static class ImportHooks
     public static string? Refusal() => LaunchRunState.ImportRefusal();
 
     /// <summary>
-    /// MERGE HOOK (U5.3 Fix Compatibility): makes a repaired copy of an imported profile that can't start, given its
-    /// Minecraft version and profile id. Null until the Fix Compatibility branch assigns it at merge; until then the
-    /// import report only says a repaired copy can be made, with no button. Its one call site is
-    /// ImportPanel.FixProfile_Click (the report's profile card).
+    /// Fix Compatibility (U5.3) for an imported profile that can't start, given its Minecraft version and profile id.
+    /// MainWindow.OpenImportPanel sets it to the real flow (HomePage.FixImportedProfileAsync: select the profile, the
+    /// same prompt Play opens, a repaired COPY only on Fix); render shots set a stand-in. Null: the report only says a
+    /// repaired copy can be made, with no button. Its one call site is ImportPanel.FixProfile_Click.
     /// </summary>
     public static Func<string, string, Task>? FixCompatibility { get; set; }
 }

@@ -77,7 +77,7 @@ internal static class ImportLogic
         if (result == null) return Array.Empty<DoneProfile>();
         return result.Versions
             .SelectMany(v => v.Setups.Select(s => (v.Version, s)))
-            .Where(x => x.s.ProfileId != null && (x.s.ProfileReused || BulkEngine.HasJar(x.s.ProfileModsDir)))
+            .Where(x => x.s.ProfileId != null && (x.s.ProfileReused || ImportEngine.HasJar(x.s.ProfileModsDir)))
             .GroupBy(x => x.s.ProfileId!, StringComparer.Ordinal)
             .Select(g => new DoneProfile(g.First().Version, g.Key, g.First().s.ProfileName ?? g.Key, true))
             .ToList();

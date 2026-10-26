@@ -112,6 +112,30 @@ public class ImportVerifierTests : IDisposable
     }
 
     [Fact]
+    public async Task TwoSameNamedSetupsInOneRunGetTwoProfilesNothingShared()
+    {
+        // Verifier finding 2026-10-25: a name without " 2", an id made from the name, or a run that forgets the profiles
+        // it planned a moment ago would each put two setups in one profile (one overwriting the other).
+        var a = _f.Add("Survival", "1.21.1", playtimeHours: 30);
+        var b = _f.Add("Survival", "1.21.1", playtimeHours: 20);
+        Kit.WriteBytes(_f.Dir(b, "mods"), "only-in-b.jar", Kit.FabricJar("onlyinb", "1.0")); // not the same mod set
+        var (_, result) = await ImportAll();
+
+        var made = result.Versions.SelectMany(v => v.Setups).Where(s => s.ProfileId != null).ToList();
+        Assert.Equal(2, made.Count);
+        Assert.NotEqual(made[0].ProfileId, made[1].ProfileId);
+        Assert.False(string.Equals(made[0].ProfileModsDir, made[1].ProfileModsDir, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(new[] { "Prism: Survival", "Prism: Survival 2" }, made.Select(s => s.ProfileName).OrderBy(n => n, StringComparer.Ordinal));
+        var profiles = _f.Rig.Settings.Load().Profiles;
+        Assert.Equal(2, profiles.Select(p => p.Id).Distinct().Count());
+        Assert.Equal(2, profiles.Select(p => p.Name).Distinct().Count());
+        // Each folder holds its own setup's jars: B's extra jar is in exactly one of them.
+        var withExtra = made.Count(s => File.Exists(Path.Combine(s.ProfileModsDir!, "only-in-b.jar")));
+        Assert.Equal(1, withExtra);
+        Assert.All(made, s => Assert.True(File.Exists(Path.Combine(s.ProfileModsDir!, "mymod.jar"))));
+    }
+
+    [Fact]
     public void AProfileWithAModMissingWhatItNeedsCantStartAndOneThatFitsCan()
     {
         var shared = Path.Combine(_f.Rig.Root, "shared-mods");

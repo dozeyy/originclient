@@ -753,12 +753,12 @@ public sealed partial class ImportEngine
 
     // The plan adds and selects its new profile before anything is copied. When no mod jar actually landed (an
     // antivirus or the old launcher held every one, so LeftOut skipped each), there is no profile to make: Home must not
-    // move to an empty profile. Same rule as a bulk run (BulkEngine.BuildDelta: HasJar). A reused profile is the
+    // move to an empty profile. Same rule as a bulk run (BuildDelta: HasJar). A reused profile is the
     // player's already and never in the delta, so it is untouched here.
     internal static void DropEmptyProfile(ImportPlan plan)
     {
         if (plan.SettingsDelta is not { } delta || plan.ProfileId == null || plan.ProfileReused) return;
-        if (BulkEngine.HasJar(plan.ProfileModsDir)) return;
+        if (HasJar(plan.ProfileModsDir)) return;
         delta.AddProfile = null;
         if (delta.SetSelectedProfileId == plan.ProfileId)
         {

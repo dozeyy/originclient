@@ -90,11 +90,36 @@ public class ImportEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportingTheSameNameAgainMakesASecondProfileAndLeavesTheFirstAlone()
+    {
+        // Verifier finding 2026-10-25: a second import whose name already exists in settings gets " 2", its own id and
+        // its own folder; the first profile's folder is not touched.
+        Populate();
+        var (first, _) = await Run();
+        var firstFiles = Directory.GetFiles(first.ProfileModsDir!).ToDictionary(Path.GetFileName, File.ReadAllBytes);
+        Kit.WriteBytes(Path.Combine(_rig.Source, "mods"), "added-later.jar", Kit.FabricJar("addedlater", "1.0")); // another mod set
+
+        var (second, result) = await Run(); // Rig.Request carries the settings' profiles, as the launcher's request does
+
+        Assert.True(result.Succeeded);
+        Assert.False(second.ProfileReused);
+        Assert.NotEqual(first.ProfileId, second.ProfileId);
+        Assert.False(string.Equals(first.ProfileModsDir, second.ProfileModsDir, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("Folder: Hypixel", first.ProfileName);
+        Assert.Equal("Folder: Hypixel 2", second.ProfileName);
+        var profiles = _rig.Settings.Load().Profiles;
+        Assert.Equal(new[] { "Folder: Hypixel", "Folder: Hypixel 2" }, profiles.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
+        Assert.Equal(firstFiles.Keys.OrderBy(k => k), Directory.GetFiles(first.ProfileModsDir!).Select(Path.GetFileName).OrderBy(k => k));
+        Assert.All(firstFiles, f => Assert.Equal(f.Value, File.ReadAllBytes(Path.Combine(first.ProfileModsDir!, f.Key!))));
+        Assert.True(File.Exists(Path.Combine(second.ProfileModsDir!, "added-later.jar")));
+    }
+
+    [Fact]
     public void AReusedProfileIsNeverDroppedEvenWithNoNewJar()
     {
         var plan = new ImportPlan
         {
-            ImportId = "t", TargetVersion = "1.21.1",
+            ImportId = "t", TargetVersion = "1.21.1", Options = new ImportOptions(),
             Source = new DetectedInstance { Name = "x", GameDir = "x", Kind = SourceKind.Folder },
             ProfileId = "p1", ProfileReused = true, ProfileModsDir = Path.Combine(Path.GetTempPath(), "origin-no-such-dir-" + Guid.NewGuid()),
             SettingsDelta = new SettingsDelta { SetSelectedProfileId = "p1", SetSelectedVersion = "1.21.1" },

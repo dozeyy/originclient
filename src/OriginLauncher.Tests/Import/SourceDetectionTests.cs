@@ -520,6 +520,6 @@ public class SourceDetectionTests : IDisposable
         using var rig = new Rig();
         var plan = await rig.Engine().PlanAsync(rig.Request() with { Source = neo }, null, CancellationToken.None);
         Assert.Equal(ModOutcome.WrongLoader, Assert.Single(plan.Mods).Outcome);
-        Assert.Contains("NeoForge", plan.Mods[0].Reason);
+        Assert.Equal(ImportVerifier.WrongLoaderReason, plan.Mods[0].Reason); // never a loader name (mandate 1)
     }
 }
