@@ -103,8 +103,8 @@ public static class Installer
         report(new InstallProgress(InstallStage.Finishing, 0.97, version: version));
         var exe = Path.Combine(dir, InstallLocation.LauncherExe);
         Shortcuts.DeleteLegacyGroup();
-        Shortcuts.Create(Shortcuts.StartMenuPath, exe, "Origin — the Minecraft launcher for every version");
-        Shortcuts.Create(Shortcuts.DesktopPath, exe, "Origin — the Minecraft launcher for every version");
+        Shortcuts.Create(Shortcuts.StartMenuPath, exe, "Origin - the Minecraft launcher for every version");
+        Shortcuts.Create(Shortcuts.DesktopPath, exe, "Origin - the Minecraft launcher for every version");
         Registration.Write(dir, version);
         InstallRegistry.SetStartWithWindows(options.StartWithWindows, exe);
         Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync);

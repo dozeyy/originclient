@@ -42,7 +42,7 @@ public class DiscordInviteTests
             info.IconUrl!.AbsoluteUri);
         Assert.Equal(1873, info.Online);
         Assert.Equal(15234, info.Members);
-        Assert.Equal("1,873 online · 15.2K members", DiscordInvite.DescribeCounts(info));
+        Assert.Equal("1,873 online - 15.2K members", DiscordInvite.DescribeCounts(info));
     }
 
     [Fact]

@@ -424,8 +424,8 @@ endlocal
         public string Describe() => Stage switch
         {
             UpdateStage.Downloading when Fraction is { } f =>
-                $"Downloading — {f * 100:0}% · {Mb(ReceivedBytes)} of {Mb(TotalBytes!.Value)} MB",
-            UpdateStage.Downloading when ReceivedBytes > 0 => $"Downloading — {Mb(ReceivedBytes)} MB",
+                $"Downloading - {f * 100:0}% - {Mb(ReceivedBytes)} of {Mb(TotalBytes!.Value)} MB",
+            UpdateStage.Downloading when ReceivedBytes > 0 => $"Downloading - {Mb(ReceivedBytes)} MB",
             UpdateStage.Downloading => "Downloading",
             UpdateStage.Installing => "Installing",
             UpdateStage.FinishingImport => "Finishing your import first...",

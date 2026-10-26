@@ -68,7 +68,7 @@ public static class ProfileFolders
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return "Couldn't remove the profile's mods — close Minecraft and try again.";
+            return "Couldn't remove the profile's mods - close Minecraft and try again.";
         }
         try { Directory.Delete(parked, recursive: true); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* swept next time */ }

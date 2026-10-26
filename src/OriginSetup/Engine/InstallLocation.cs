@@ -54,7 +54,7 @@ public static class InstallLocation
             return "Choose a folder on this PC (not a network location).";
         if (dir.IndexOfAny(Path.GetInvalidPathChars()) >= 0) return "That folder name has characters Windows doesn't allow.";
         if (IsDriveRoot(dir)) return "Choose a folder, not a whole drive.";
-        if (dir.Length > 180) return "That folder path is too long — choose a shorter one.";
+        if (dir.Length > 180) return "That folder path is too long - choose a shorter one.";
         string withSep;
         try { withSep = Trim(Path.GetFullPath(dir)) + Path.DirectorySeparatorChar; }
         catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
@@ -64,7 +64,7 @@ public static class InstallLocation
         foreach (var root in protectedRoots.Where(r => !string.IsNullOrEmpty(r)))
         {
             if (withSep.StartsWith(Trim(Path.GetFullPath(root)) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                return "Origin can't go in Program Files or Windows — it updates itself, which needs a folder you own.";
+                return "Origin can't go in Program Files or Windows - it updates itself, which needs a folder you own.";
         }
         return null;
     }
@@ -81,7 +81,7 @@ public static class InstallLocation
             // Room for the unpack plus the files it replaces on an update.
             long needed = bytesNeeded + bytesNeeded / 10;
             if (drive.AvailableFreeSpace >= needed) return null;
-            return $"Not enough free space on {root.TrimEnd('\\')} — Origin needs {needed / 1048576} MB, " +
+            return $"Not enough free space on {root.TrimEnd('\\')} - Origin needs {needed / 1048576} MB, " +
                    $"{drive.AvailableFreeSpace / 1048576} MB is free.";
         }
         catch (Exception ex) when (ex is ArgumentException || ex is IOException || ex is UnauthorizedAccessException)

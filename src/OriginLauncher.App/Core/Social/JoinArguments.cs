@@ -49,7 +49,7 @@ public static class JoinArguments
     {
         JoinBlock.NoServer => $"{who} isn't on a server right now.",
         JoinBlock.UnknownVersion => $"Origin can't tell which Minecraft version {who} is playing, so it can't join from here.",
-        JoinBlock.UnsupportedVersion => $"{who} is playing Minecraft {version}, which Origin doesn't support yet — so you can't join from the launcher.",
+        JoinBlock.UnsupportedVersion => $"{who} is playing Minecraft {version}, which Origin doesn't support yet - so you can't join from the launcher.",
         _ => "",
     };
 

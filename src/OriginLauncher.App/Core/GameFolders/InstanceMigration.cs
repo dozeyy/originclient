@@ -59,7 +59,7 @@ public static class InstanceMigration
 
             if (IsOldLayoutGameRunning(versionRoot))
             {
-                log($"{Path.GetFileName(versionRoot)}: its game is still running from the old folder — moving it later");
+                log($"{Path.GetFileName(versionRoot)}: its game is still running from the old folder - moving it later");
                 return false;
             }
 
@@ -68,7 +68,7 @@ public static class InstanceMigration
             var complete = true;
             foreach (var name in toMove)
                 complete &= MoveEntry(Path.Combine(versionRoot, name), Path.Combine(target, name), log);
-            log($"{Path.GetFileName(versionRoot)}: moved into accounts/{accountKey}" + (complete ? "" : " (some files were busy — retried next start)"));
+            log($"{Path.GetFileName(versionRoot)}: moved into accounts/{accountKey}" + (complete ? "" : " (some files were busy - retried next start)"));
             return complete;
         }
         catch (Exception ex)

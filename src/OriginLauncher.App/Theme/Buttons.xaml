@@ -237,6 +237,42 @@
         </Style.Triggers>
     </Style>
 
+    <!-- The update chip (DESIGN-SYSTEM 11.4): a ghost md 32 with a gold wash, hue.gold at 12 % (20 % on hover). Below
+         1100 the window shows the compact form instead (MainWindow.SetUpdateCompact swaps in Button.Chrome). -->
+    <Style x:Key="Button.UpdateChip" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.HueChip.Gold}"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Hue.Gold}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.HueChip.GoldHover}" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.HueChip.Gold}" Duration="{StaticResource Motion.Hover}"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Primary: the one emerald fill per decision area. lg 36 (dialogs); Play is the primary at xl. Flat: no sheen,
          no gradient edge, no shadow. -->
     <Style x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">

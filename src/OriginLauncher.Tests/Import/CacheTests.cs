@@ -133,7 +133,7 @@ public class CacheTests : IDisposable
             Assert.False(Directory.Exists(Dst($"saves/{w}/voxy")), w);
             Assert.False(Imported(plan, CacheKind.DistantHorizons, w), w);
             Assert.Contains(plan.Lines, l => l.Section == SummarySection.NotImported && l.Name.StartsWith(w)
-                                             && l.Reason == "No matching Origin world — left in source.");
+                                             && l.Reason == "No matching Origin world - left in source.");
         }
         Assert.True(Imported(plan, CacheKind.DistantHorizons, "Match"));
         Assert.True(Imported(plan, CacheKind.DistantHorizons, "Match", "DIM-1"));

@@ -111,7 +111,7 @@ public static class SettingsSync
             if (!Directory.Exists(directory)) continue;
             if (skipRunning && IsGameRunning(directory))
             {
-                Log($"{account} {version}: game is running — left alone");
+                Log($"{account} {version}: game is running - left alone");
                 continue;
             }
             instances.Add(new SyncInstance(version, directory));

@@ -16,11 +16,11 @@ public sealed class DownloadException : Exception
     public const string CantConnect =
         "Setup couldn't reach Origin's download server. Check that you're connected to the internet, then try again.";
     public const string Dropped =
-        "The download stopped partway — your internet connection may have dropped. Check it, then try again.";
+        "The download stopped partway - your internet connection may have dropped. Check it, then try again.";
     public const string ServerProblem =
         "Origin's download server isn't answering properly right now. Try again in a few minutes.";
     public const string Damaged =
-        "The download arrived damaged. Try again — Setup will download Origin fresh.";
+        "The download arrived damaged. Try again - Setup will download Origin fresh.";
 
     public DownloadException(string message, Exception? inner = null) : base(message, inner) { }
 }
@@ -192,7 +192,7 @@ public static class Download
                 catch (IOException ex) when (!ct.IsCancellationRequested)
                 {
                     // Not the network's fault, so never retried or worded as a connection problem.
-                    throw new SetupException("Setup couldn't save the download — the drive may be full. Free up some space, then try again.", ex);
+                    throw new SetupException("Setup couldn't save the download - the drive may be full. Free up some space, then try again.", ex);
                 }
                 onRead(n);
             }

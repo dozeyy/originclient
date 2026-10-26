@@ -162,7 +162,7 @@ public static class SharedMods
             {
                 if (isGameRunning(Path.GetDirectoryName(mods)!))
                 {
-                    log($"{version}: {key}'s game is open — its mods join the shared folder after it closes");
+                    log($"{version}: {key}'s game is open - its mods join the shared folder after it closes");
                     complete = false;
                     continue;
                 }
@@ -176,7 +176,7 @@ public static class SharedMods
                     if ((info.Attributes & FileAttributes.ReadOnly) != 0) info.Attributes &= ~FileAttributes.ReadOnly;
                     info.Delete();
                 }
-                log($"{version}: {key}'s mods merged into the shared folder" + (done ? "" : " (some files were busy — retried next time)"));
+                log($"{version}: {key}'s mods merged into the shared folder" + (done ? "" : " (some files were busy - retried next time)"));
                 complete &= done;
             }
             complete &= ResolveDisabledTwins(shared, log);

@@ -122,7 +122,7 @@ public sealed class SettingsSyncEngine
         if (vanished.Count == 0) return;
         if (vanished.Count > Math.Max(MassDeletionFloor, baseline.Count * MassDeletionShare))
         {
-            _log($"{instance.Version}: {vanished.Count} keys vanished from {file.Id} at once — treated as a reset, not deletions");
+            _log($"{instance.Version}: {vanished.Count} keys vanished from {file.Id} at once - treated as a reset, not deletions");
             return;
         }
         foreach (var key in vanished)

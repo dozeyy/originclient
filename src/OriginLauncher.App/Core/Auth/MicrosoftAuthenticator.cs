@@ -255,7 +255,7 @@ public sealed class MicrosoftAuthenticator
         }
         else
         {
-            responseHtml = "<html><body>Signed in — you can close this window and return to Origin Launcher.</body></html>";
+            responseHtml = "<html><body>Signed in - you can close this window and return to Origin Launcher.</body></html>";
         }
 
         var buffer = Encoding.UTF8.GetBytes(responseHtml);
