@@ -847,17 +847,16 @@ public class OriginModMenuScreen extends Screen {
 		d.icon(id, x + 12, y + 13, 18, on ? TEXT : mul(TEXT, 0.6f));
 		boolean isNew = showNewBadge(id);
 		float nameMax = w - 40 - 12 - 36 - 10 - (isNew ? 14 : 0);
-		float nw = d.textMid(d.fit(m.name(), nameMax, 13.5f, true, 0), x + 40, y + ROW_H / 2, 13.5f, true, 0, on ? TEXT : DIM);
-		if (isNew) {
-			d.circle(x + 40 + nw + 9, y + ROW_H / 2, 3, GOLD);
-		}
+		// A player's own mod does this job (StepAside): the note goes on a second line under the
+		// name -- list rows are ~200 px wide, too narrow to fit it beside the name (dev-shots 2026-10-26).
 		String note = StepAside.cardNote(id, Mods.forcedOn(id));
+		float nameY = note != null ? y + ROW_H / 2 - 7 : y + ROW_H / 2;
+		float nw = d.textMid(d.fit(m.name(), nameMax, 13.5f, true, 0), x + 40, nameY, 13.5f, true, 0, on ? TEXT : DIM);
+		if (isNew) {
+			d.circle(x + 40 + nw + 9, nameY, 3, GOLD);
+		}
 		if (note != null) {
-			float nx = x + 40 + nw + (isNew ? 22 : 12);
-			float noteMax = x + w - 12 - 36 - 12 - nx;
-			if (noteMax > 40) {
-				d.textMid(d.fit(note, noteMax, 11.5f, false, 0), nx, y + ROW_H / 2, 11.5f, false, 0, MUTE);
-			}
+			d.textMid(d.fit(note, w - 40 - 12 - 36 - 10, 11, false, 0), x + 40, y + ROW_H / 2 + 8, 11, false, 0, MUTE);
 		}
 		d.toggle(id, x + w - 12 - 36, y + 12, on);
 		d.hit(x + w - 12 - 40, y + 6, 44, 32, () -> Mods.setOn(id, !on));
