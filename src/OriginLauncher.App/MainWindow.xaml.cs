@@ -37,7 +37,13 @@ public partial class MainWindow : Window
     private ImportPanel? _importPanel;
     private bool _promptChecking;
     private bool _syncingNavigation;
-    private LauncherPage _currentPage = LauncherPage.Home;
+    // The tab switch (UI/PageSwitch): which page is on screen, and which click's deferred refresh may still run.
+    private readonly UI.PageSwitch<LauncherPage> _tabs = new(LauncherPage.Home);
+    private LauncherPage _currentPage => _tabs.Current;
+    // Every built page lives here, inside PageHost, for the launcher's life; a tab switch only flips Visibility
+    // (ShowPage). Swapping PageHost.Content detached one page tree and re-attached another on every click (Loaded /
+    // Unloaded over the whole tree, inherited values and resources re-resolved, Home's Loaded handlers run again).
+    private readonly Grid _pages = new();
 
     private enum LauncherPage
     {
@@ -56,7 +62,8 @@ public partial class MainWindow : Window
         Core.StartupTrace.Mark("MainWindow ctor: fields (HomePage etc.) built");
         InitializeComponent();
         Core.StartupTrace.Mark("MainWindow.InitializeComponent");
-        PageHost.Content = _homePage;
+        PageHost.Content = _pages;
+        ShowPage(_homePage);
         Core.StartupTrace.Mark("Home placed");
         // Opening animation over the already-built Home; ~0.85 s, skippable (StartupIntro).
         Intro.Play(this);
@@ -132,11 +139,27 @@ public partial class MainWindow : Window
         return page;
     }
 
-    // One page per idle slot, so no single hitch is longer than one page's build.
+    // One page per idle slot, so no single hitch is longer than one page's build. Each is attached (collapsed) as it
+    // is built, so its first tab click only shows it.
     private void WarmPagesAtIdle()
     {
-        foreach (var warm in new Action[] { () => _ = SettingsView, () => _ = ModsView, () => _ = ProfilesView })
+        foreach (var warm in new Action[] { () => AttachPage(SettingsView), () => AttachPage(ModsView), () => AttachPage(ProfilesView) })
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, warm);
+    }
+
+    private void AttachPage(FrameworkElement page)
+    {
+        if (_pages.Children.Contains(page)) return;
+        page.Visibility = Visibility.Collapsed;
+        _pages.Children.Add(page);
+    }
+
+    // The one visible page; the others stay attached, collapsed (no layout, no hit testing, no rendering).
+    private void ShowPage(FrameworkElement page)
+    {
+        AttachPage(page);
+        foreach (UIElement child in _pages.Children)
+            child.Visibility = ReferenceEquals(child, page) ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // Poll loop lives for the app's lifetime; process shutdown ends it. A short
@@ -431,6 +454,7 @@ public partial class MainWindow : Window
     internal void TourFailLaunch(Exception error, string version) => _homePage.TourFailLaunch(error, version);
 
     internal void TourShowVersions(int detailIndex) => _homePage.TourShowVersions(detailIndex);
+    internal UI.Controls.VersionSelectOverlay TourVersionOverlay => _homePage.VersionOverlay;
 
     internal void TourHideVersions() => _homePage.TourHideVersions();
 
@@ -533,6 +557,28 @@ public partial class MainWindow : Window
         UI.RenderShots.Invalidate(root);
         root.Measure(size);
         root.Arrange(new Rect(size));
+    }
+
+    /// <summary>Render mode: one tab click's UI-thread cost in ms (the switch itself plus the layout it causes), for
+    /// switch-cost.txt. 0 = Home, 1 = Mods, 2 = Profiles, 3 = Settings.</summary>
+    internal double TourTimeNavigate(int page)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return -1;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        NavigateTo((LauncherPage)page);
+        UpdateLayout();
+        return watch.Elapsed.TotalMilliseconds;
+    }
+
+    /// <summary>Render shots only: the same click plus the page refresh it queues behind the frame (all UI thread).</summary>
+    internal double TourTimeNavigateWithRefresh(int page)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return -1;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        NavigateTo((LauncherPage)page);
+        UpdateLayout();
+        Dispatcher.Invoke(UpdateLayout, System.Windows.Threading.DispatcherPriority.Background);
+        return watch.Elapsed.TotalMilliseconds;
     }
 
     internal void TourGoTo(int page)
@@ -645,15 +691,7 @@ public partial class MainWindow : Window
     {
         _linkLabelsHidden = !shown;
         var v = shown ? Visibility.Visible : Visibility.Collapsed;
-        StoreLabel.Visibility = StoreArrow.Visibility = v;
-    }
-
-    /// <summary>Render mode: show the hover arrows as if the mouse were over the Website and Store buttons (a render has no mouse).</summary>
-    internal void TourShowLinkHints(bool show)
-    {
-        foreach (var holder in new[] { WebsiteArrow, StoreArrow })
-            foreach (var path in holder.Children.OfType<System.Windows.Shapes.Path>())
-                if (show) path.Opacity = 0.8; else path.ClearValue(OpacityProperty);
+        StoreLabel.Visibility = v;
     }
 
     /// <summary>Render mode: the space between the content of neighbouring buttons in the right-hand row.</summary>
@@ -796,13 +834,11 @@ public partial class MainWindow : Window
         if (_currentPage == LauncherPage.Home) _homePage.CloseVersionPicker();
 
         SetNavigationSelection(page);
-        if (page == _currentPage && PageHost.Content != null) return;
-
         var direction = Math.Sign((int)page - (int)_currentPage);
-        _currentPage = page;
+        if (_tabs.Go(page) is not { } ticket) return; // already on screen
         PlaceToasts(); // the strip gap is Home's only
 
-        object content = page switch
+        FrameworkElement content = page switch
         {
             LauncherPage.Home => _homePage,
             LauncherPage.Mods => ModsView,
@@ -810,23 +846,56 @@ public partial class MainWindow : Window
             _ => SettingsView
         };
 
-        if (page == LauncherPage.Home)
+        // Before the page appears: only what its FIRST frame must already show. A page pointed at another version than
+        // the one it last showed rebuilds now (it would otherwise flash the other version's list); Settings always
+        // opens on its first section (a scroll, no reads).
+        var refreshed = false;
+        if (page == LauncherPage.Mods && ModsView.ShownVersion != _homePage.CurrentVersion)
         {
-            _homePage.RefreshAccountState();
-            _homePage.RefreshProfile(); // a profile picked on the Profiles page
-        }
-        else if (page == LauncherPage.Mods)
             ModsView.ShowVersion(_homePage.CurrentVersion);
-        else if (page == LauncherPage.Profiles)
+            refreshed = true;
+        }
+        else if (page == LauncherPage.Profiles && ProfilesView.ShownVersion != _homePage.CurrentVersion)
+        {
             ProfilesView.Show(_homePage.CurrentVersion);
-        else
-            SettingsView.ShowFromTop(); // always opens on the first section
+            refreshed = true;
+        }
+        else if (page == LauncherPage.Settings)
+            SettingsView.ShowFromTop();
 
-        PageHost.Content = content;
+        ShowPage(content);
         // Home shows the art; every other page sits on it dimmed, numeral away.
         Stage.SetPage(page == LauncherPage.Home);
         SetBarSurface(page != LauncherPage.Home);
         AnimatePageIn(direction == 0 ? 1 : direction);
+
+        // The rest of the page's refresh (settings and account reads, row rebuilds) runs after this frame, behind any
+        // input already waiting, and only if no newer tab click came first (UI/PageSwitch): spammed tabs never queue
+        // a read and a rebuild per click.
+        if (!refreshed)
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+            {
+                if (_tabs.IsNewest(ticket)) RefreshShownPage(page);
+            });
+    }
+
+    // What a page re-reads each time it is shown (changes made elsewhere: a profile picked on Profiles, the offline
+    // switch in Settings, a jar added in Explorer).
+    private void RefreshShownPage(LauncherPage page)
+    {
+        switch (page)
+        {
+            case LauncherPage.Home:
+                _homePage.RefreshAccountState();
+                _homePage.RefreshProfile(); // a profile picked on the Profiles page
+                break;
+            case LauncherPage.Mods:
+                ModsView.ShowVersion(_homePage.CurrentVersion);
+                break;
+            case LauncherPage.Profiles:
+                ProfilesView.Show(_homePage.CurrentVersion);
+                break;
+        }
     }
 
     // The top-bar account pill: the selected account's face and name, "Offline" (with a warning dot) in offline
@@ -927,13 +996,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        var duration = (Duration)FindResource("Motion.Scene");
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        // Short and front-loaded (Motion.Base, quintic out): the page is readable on its first frames, and a click
+        // during it simply restarts it from the new page (one animation per property, never stacked).
+        var duration = (Duration)FindResource("Motion.Base");
         PageHost.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(0.72, 1, duration) { EasingFunction = ease },
+            new DoubleAnimation(0.85, 1, duration) { EasingFunction = UI.Motion.Out },
             HandoffBehavior.SnapshotAndReplace);
         PageTransform.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(direction * 14, 0, duration) { EasingFunction = ease },
+            new DoubleAnimation(direction * 10, 0, duration) { EasingFunction = UI.Motion.Out },
             HandoffBehavior.SnapshotAndReplace);
     }
 

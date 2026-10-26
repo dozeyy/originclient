@@ -68,8 +68,8 @@
             <!-- The top bar: brand left, page tabs centred, actions right. -->
             <Grid x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" Margin="18,0,12,0"
                   SizeChanged="TopBar_LayoutChanged">
-                <!-- The brand lockup is the Website link (originclient.org): a ghost control, the hover arrow after the
-                     wordmark. Its left padding sits the logo at the bar's 24. Below 1000 px the wordmark hides and
+                <!-- The brand lockup is the Website link (originclient.org): a ghost control with no hover arrow (Will,
+                     2026-10-25). Its left padding sits the logo at the bar's 24. Below 1000 px the wordmark hides and
                      the logo stays the link (TopBar_LayoutChanged); the name is for screen readers (no hover label). -->
                 <Button x:Name="WebsiteButton" Click="WebsiteButton_Click"
                         Style="{StaticResource Button.Brand}" HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -79,9 +79,6 @@
                         <controls:BrandLogo Width="{StaticResource Size.Logo.Bar}" Height="{StaticResource Size.Logo.Bar}" VerticalAlignment="Center"/>
                         <Image x:Name="BarWordmark" Source="{StaticResource Brand.Wordmark}" Height="{StaticResource Size.Wordmark.Bar}" Margin="8,0,0,0" VerticalAlignment="Center"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
-                        <Canvas x:Name="WebsiteArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
-                            <Path Style="{StaticResource Icon.LinkHint}"/>
-                        </Canvas>
                     </StackPanel>
                 </Button>
 
@@ -146,9 +143,9 @@
                                      IsHitTestVisible="False" Visibility="Collapsed"/>
                         </Grid>
                     </Button>
-                    <!-- Store: first in the group, a ghost control (DESIGN-SYSTEM 11.4): gold bag, "Store", and the hover
-                         arrow after it (it opens the browser). Opens OriginLinks.Store. Under the fit rule the label and arrow
-                         go and it is the bag alone (accessible name below). -->
+                    <!-- Store: first in the group, a ghost control (DESIGN-SYSTEM 11.4): gold bag and "Store", no hover arrow
+                         (Will, 2026-10-25). Opens OriginLinks.Store in the browser. Under the fit rule the label
+                         goes and it is the bag alone (accessible name below). -->
                     <Button x:Name="StoreButton" Click="StoreButton_Click"
                             Style="{StaticResource Button.Chrome}"
                             Padding="8" Margin="0,0,4,0" MinHeight="{StaticResource Size.ControlMd}"
@@ -158,9 +155,6 @@
                                   Stroke="{StaticResource Brush.Hue.Gold}"/>
                             <TextBlock x:Name="StoreLabel" Text="Store" Style="{StaticResource Text.BodyStrong}" VerticalAlignment="Center" Margin="8,0,0,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                            <Canvas x:Name="StoreArrow" Width="0" Height="{StaticResource Icon.SizeLinkHint}" VerticalAlignment="Center">
-                                <Path Style="{StaticResource Icon.LinkHint}"/>
-                            </Canvas>
                         </StackPanel>
                     </Button>
                     <!-- Import from another launcher: opens the Import page. -->

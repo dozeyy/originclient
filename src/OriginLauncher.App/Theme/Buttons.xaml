@@ -202,26 +202,36 @@
     </Style>
 
     <!-- Ghost / icon: no fill or edge at rest, a soft wash on hover. Title-bar and toolbar icon buttons. md 32. The
-         rest colour is the hover colour at alpha 0 so the fade only animates alpha. -->
+         rest colour is the hover colour at alpha 0 so the fade only animates alpha.
+         The ink (Foreground: the glyph and label bind to it) FADES to Text with the wash, over the same Motion.Hover.
+         It used to be an instant Setter while the wash faded, so the glyph jumped to full brightness ahead of its
+         plate and read as a flash on every pass of the mouse (the top bar's "Sign in" person icon, Will 2026-10-25).
+         Foreground is a local brush like Background (the storyboard animates its Color); the exit animation has no
+         To, so it returns to whatever rest ink a derived style set (Button.Brand rests on TextMuted). -->
     <Style x:Key="Button.Chrome" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background">
             <Setter.Value>
                 <SolidColorBrush Color="{StaticResource Color.GhostRest}"/>
             </Setter.Value>
         </Setter>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="Foreground">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.TextDim}"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
         <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Sm}"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button.Sm}"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                 <Trigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                             To="{StaticResource Color.GhostHover}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="Foreground.Color"
+                                            To="{StaticResource Color.Text}" Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -230,6 +240,8 @@
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                             To="{StaticResource Color.GhostRest}" Duration="{StaticResource Motion.Hover}"/>
+                            <ColorAnimation Storyboard.TargetProperty="Foreground.Color"
+                                            Duration="{StaticResource Motion.Hover}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>

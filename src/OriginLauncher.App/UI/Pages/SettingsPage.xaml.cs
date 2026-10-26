@@ -64,6 +64,8 @@ public partial class SettingsPage : UserControl
         };
         _ramSaveTimer.Tick += (_, _) => PersistPendingRam();
         Unloaded += (_, _) => PersistPendingRam();
+        // Pages stay attached and are hidden on a tab switch (MainWindow.ShowPage), so leaving Settings is a hide.
+        IsVisibleChanged += (_, e) => { if (!(bool)e.NewValue) PersistPendingRam(); };
 
         // Memory is Auto until the player moves the slider (RamPolicy). The slider is only DISPLAYED
         // clamped to this PC's range: nothing here writes the stored number back, so a Manual value

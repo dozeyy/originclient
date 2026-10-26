@@ -36,6 +36,13 @@ public partial class ModsPage : UserControl
     private bool _dragOver;
     private bool _adding;              // an import is copying (off the UI thread)
     private IReadOnlyList<ModEntry>? _demo; // render shots only: made-up rows instead of the disk
+    // What the rows on screen were last built from (plain rows only, no confirm/replace/landing): a re-show with the
+    // same version, profile and jars keeps them instead of rebuilding every card (a tab switch back to Mods).
+    private string? _builtKey;
+    private List<ModEntry>? _builtFrom;
+
+    /// <summary>The version the page last showed (MainWindow: a switch to another version rebuilds before showing).</summary>
+    internal string? ShownVersion => _version;
 
     public ModsPage()
     {
@@ -97,11 +104,12 @@ public partial class ModsPage : UserControl
 
     private void Refresh(ICollection<string>? landed = null)
     {
-        UserModsPanel.Children.Clear();
-        BuiltInPanel.Children.Clear();
-
         if (_version == null)
         {
+            _builtKey = null;
+            _builtFrom = null;
+            UserModsPanel.Children.Clear();
+            BuiltInPanel.Children.Clear();
             UserEmptyText.Text = "Choose a version first";
             UserEmptyState.Visibility = Visibility.Visible;
             UserCount.Text = "0";
@@ -112,6 +120,13 @@ public partial class ModsPage : UserControl
         }
 
         var mods = _demo ?? ModManager.Enumerate(_version, _profile?.Id);
+        var plain = landed == null && _pendingRemove == null && _pendingReplace.Count == 0 && _demo == null;
+        var key = $"{_version}|{_profile?.Id}|{_profile?.Name}";
+        if (plain && key == _builtKey && _builtFrom != null && mods.SequenceEqual(_builtFrom)) return; // same rows
+        _builtKey = plain ? key : null;
+        _builtFrom = plain ? mods.ToList() : null;
+        UserModsPanel.Children.Clear();
+        BuiltInPanel.Children.Clear();
         var user = mods.Where(m => !m.IsManaged).ToList();
         // A profile folder holds only the player's own mods; Origin's built-in
         // ones come from the version's shared folder and aren't part of it.

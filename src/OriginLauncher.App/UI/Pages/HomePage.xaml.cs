@@ -292,6 +292,17 @@ public partial class HomePage : UserControl
         InitVersionSelection();
         RefreshAccountState();
         Loaded += (_, _) => SnapSceneState();
+        // Pages now stay in the window and are hidden on a tab switch (MainWindow.ShowPage), so coming back to Home is
+        // a show, not a re-attach: snap the strip the same way. Only after Home was hidden once, so the window's first
+        // show never cuts the opening intro (PlayIntroOnce).
+        var hiddenOnce = false;
+        IsVisibleChanged += (_, e) =>
+        {
+            if (!(bool)e.NewValue) { hiddenOnce = true; return; }
+            if (!hiddenOnce) return;
+            SnapSceneState();
+            ReportStripTop();
+        };
         Loaded += (_, _) => StartPlayersOnline();
         Loaded += async (_, _) =>
         {
