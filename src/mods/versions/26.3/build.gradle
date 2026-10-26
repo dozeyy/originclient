@@ -99,8 +99,13 @@ dependencies {
 	//
 	// compileOnly: the shader speed-ups (render/ShadowCasterLimit, OffMapShadows, HalfRateShadows,
 	// ShadowTerrainStats) mix into Sodium/Iris classes, so they compile against the EXACT jars the
-	// launcher installs for 26.3 (PerformanceModCatalog.Data.cs: Sodium bAZQdGpg = 0.9.2+mc26.3,
+	// launcher installs for 26.3 (PerformanceModCatalog.Data.cs: Sodium g6ju16VJ = 0.9.3-beta.1+mc26.3,
 	// Iris vTN4NRGW = 1.11.7+mc26.3). Never include(): the launcher ships them, not this jar.
+	// Sodium 0.9.3-beta.1 (2026-10-25 "newer everything" bump, the only Sodium newer than 0.9.2 for 26.3):
+	// Iris 1.11.7 declares sodium "0.9.x"; RenderSectionManager, Viewport, SortedRenderLists and
+	// ChunkRenderList (every class Origin's Sodium mixins touch) are bytecode-identical to 0.9.2, and the
+	// Sodium methods Iris 1.11.7 hooks (DefaultFluidRenderer.writeQuad/updateQuad,
+	// VideoSettingsScreen.renderIconWithSpacing) keep their descriptors (javap of both jars).
 	// runtimeOnly (DEV ONLY, never in the built jar): runClient / dev-shots / boot-smoke load the same
 	// pair, so every @Pseudo Sodium/Iris mixin really applies in CI (26.x has no modRuntimeOnly
 	// configuration, so tools/ci/perf_libs.py's libs/ route does not exist here; dev-shots sees these
@@ -108,9 +113,9 @@ dependencies {
 	// classpath does not unpack: the three runtimeOnly libs below are exactly the versions
 	// iris-fabric-1.11.7+mc26.3.jar's META-INF/jars/ carries (read from the jar 2026-10-20), non-transitive
 	// because those three nested jars ARE the whole set (their POMs would drag in the antlr4 tool + icu4j).
-	compileOnly "maven.modrinth:sodium:bAZQdGpg"
+	compileOnly "maven.modrinth:sodium:g6ju16VJ"
 	compileOnly "maven.modrinth:iris:vTN4NRGW"
-	runtimeOnly "maven.modrinth:sodium:bAZQdGpg"
+	runtimeOnly "maven.modrinth:sodium:g6ju16VJ"
 	runtimeOnly "maven.modrinth:iris:vTN4NRGW"
 	runtimeOnly("org.anarres:jcpp:1.4.14") { transitive = false }
 	runtimeOnly("io.github.douira:glsl-transformer:3.0.0-pre3") { transitive = false }
