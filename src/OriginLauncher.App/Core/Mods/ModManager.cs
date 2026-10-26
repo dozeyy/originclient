@@ -320,10 +320,10 @@ public static class ModManager
 
     /// <summary>
     /// Groups a managed jar under its mod-family key so provisioning can keep
-    /// exactly ONE enabled copy per family. Fabric refuses to boot at all on a
-    /// duplicate mod id, so two coexisting copies of e.g. fabric-api (a player
+    /// exactly ONE enabled copy per family. Fabric loads only the higher version
+    /// of a duplicate mod id, so two coexisting copies of e.g. fabric-api (a player
     /// updating it by hand next to the launcher's, or a catalog version bump
-    /// leaving the old pin behind) turn into "the game never launches".
+    /// leaving the old pin behind) silently replace the pinned copy.
     /// Non-managed names key to themselves (a group of one — never touched).
     /// </summary>
     public static string ModFamilyKey(string jarName)

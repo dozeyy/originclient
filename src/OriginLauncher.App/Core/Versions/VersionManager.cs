@@ -612,12 +612,13 @@ public sealed class VersionManager
         // mod regenerates its defaults. Swept before every launch.
         SanitizeCorruptConfigs(configFolder);
 
-        // Exactly ONE enabled jar per managed mod family. Fabric hard-
-        // fails the entire boot on a duplicate mod id, so a second copy
-        // of a launcher-managed mod — a player hand-updating fabric-api
-        // next to the launcher's copy, or a catalog version bump leaving
-        // the old pinned jar behind — silently turns into "the game
-        // never launches". Heal it on every launch. Which twin survives:
+        // Exactly ONE enabled jar per managed mod family. Fabric Loader
+        // 0.19.3 loads only the HIGHER version of a duplicate mod id, so a
+        // second copy of a launcher-managed mod — a player hand-updating
+        // fabric-api next to the launcher's copy, or a catalog version bump
+        // leaving the old pinned jar behind — silently replaces the pinned
+        // one (a higher Sodium can break the pinned Iris). Heal it on every
+        // launch. Which twin survives:
         //   1. The catalog PIN for this version, when the family has one
         //      — pins are deliberate era-pairings (Iris 1.7.x must ride
         //      Sodium 0.5.x), so a numerically higher leftover from a

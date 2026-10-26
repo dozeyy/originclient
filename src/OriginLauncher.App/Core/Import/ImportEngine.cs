@@ -983,7 +983,7 @@ public sealed partial class ImportEngine
     }
 
     // The second half of a swap (the new jar is already in place): Origin's old copy goes to the import's backup, so
-    // the folder never holds two copies of one mod (Fabric refuses to boot with duplicates). If the old jar can't be
+    // the folder never holds two copies of one mod (Fabric would load only the higher one, whichever that is). If the old jar can't be
     // moved (another program holds it), the new jar goes too and Origin's copy stays: the folder is as it was.
     private static void ReplaceOriginsCopy(PlannedOp op, ImportTransaction tx)
     {

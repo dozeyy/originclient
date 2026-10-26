@@ -154,12 +154,13 @@ public sealed class RepairTests : IDisposable
     }
 
     [Fact]
-    public void ADuplicateKeepsTheNewerAndTurnsTheOlderOff()
+    public void ADuplicateNeedsNoRepairBecauseFabricLoadsTheNewer()
     {
         var old = Mod("lib", "1.0.0");
         var newer = Mod("lib", "2.0.0");
         var plan = RepairPlanner.Plan(Check(old, newer), Context());
-        Assert.Same(old, Assert.IsType<DisableModStep>(Assert.Single(plan.Steps)).Mod);
+        Assert.Empty(plan.Steps);
+        Assert.Empty(plan.Unfixable);
     }
 
     [Fact]

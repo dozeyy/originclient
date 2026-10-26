@@ -150,6 +150,29 @@ public sealed class LaunchPreflightTests : IDisposable
         Assert.Contains("somelib", ex.Reasons[0]);  // the reason (what it needs) goes to the log
     }
 
+    // Fabric Loader 0.19.3 loads one jar per id (the newer) and starts: two copies must never be a block on Play.
+    [Theory]
+    [InlineData("1.0.0", "1.0.1")]
+    [InlineData("1.0.0", "1.0.0")]
+    public void TwoCopiesOfOneModNeverStopTheLaunch(string first, string second)
+    {
+        Jar(_mods, "dup-a.jar", "dup", first);
+        Jar(_mods, "dup-b.jar", "dup", second);
+        Run(); // no IncompatibleModsException
+        var verdict = LaunchPreflight.Evaluate("1.21.1", _mods, null, true, IsManaged, IsProvisioned);
+        Assert.Empty(verdict.Blocking);
+    }
+
+    [Fact]
+    public void ADuplicateDoesNotHideARealProblemNextToIt()
+    {
+        Jar(_mods, "dup-a.jar", "dup", "1.0.0");
+        Jar(_mods, "dup-b.jar", "dup", "1.0.1");
+        Jar(_mods, "addon-1.0.jar", "addon", needs: new[] { ("dup", ">=2.0") }); // neither copy is 2.0
+        var ex = Assert.Throws<IncompatibleModsException>(() => Run());
+        Assert.Equal(new[] { "addon" }, ex.Names);
+    }
+
     [Fact]
     public void ADeclaredBreaksStopsTheLaunch()
     {
@@ -332,7 +355,7 @@ public sealed class LaunchPreflightTests : IDisposable
         var coldMs = sw.Elapsed.TotalMilliseconds;
         Assert.Equal(150, cold.ModCount);
         Assert.Empty(cold.Blocking);
-        // Measured 2026-10-25: 33 ms on Will's PC. Cold means every jar opened once, so this is the price of a changed set.
+        // Recorded numbers (cold / re-check / warm, how measured): docs/overhaul/configuration-matrix.md "Measurements". Cold means every jar opened once, so this is the price of a changed set.
         Assert.True(coldMs < 400, $"a cold check of 150 jars took {coldMs:F0} ms");
 
         // Jar metadata cached, verdict not: what a changed set costs once the jars have been read.
