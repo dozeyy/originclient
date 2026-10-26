@@ -31,6 +31,9 @@ public sealed class ComponentStore
         _http = http;
     }
 
+    /// <summary>The client the store fetches with (Fix Compatibility asks Modrinth with the same one).</summary>
+    public HttpClient Http => _http;
+
     /// <summary>Where <paramref name="pin"/> lives in the store; null when the family, name or hash is not well formed.</summary>
     public string? PathFor(string family, PerfMod pin)
     {

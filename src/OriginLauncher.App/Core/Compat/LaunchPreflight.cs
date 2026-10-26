@@ -66,7 +66,8 @@ public sealed class IncompatibleModsException : Exception
                 line1 = FirstLine(new[] { name }, names.Count - 1, tail);
             }
         }
-        // TODO(Phase 5.3): "Fix Compatibility" button: RepairPlanner.Plan on this report, one click to turn the mods off.
+        // Home also opens the Fix Compatibility prompt over this line (Play/Enter only: UI/Controls/FixCompatibilityOverlay,
+        // Core/Components/FixCompatibility); the line stays as the record after the prompt closes.
         return line1 + "\n" + $"Turn {(names.Count > 1 ? "them" : "it")} off on the Mods page, or press Play to start anyway.";
     }
 
@@ -212,52 +213,13 @@ public static class LaunchPreflight
         if (!externalMods && profileFolder == null) return LaunchVerdict.Clear;
 
         var isProfile = profileFolder != null;
-        var originTest = isProfile ? isOriginProvisioned : isManaged;
-        var launchSet = new List<(string Path, string Name, long Length, long Ticks, ModRole Role)>();
-        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, confirmOrigin, ct);
-        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, confirmOrigin, ct);
-        if (swap != null)
-        {
-            launchSet.RemoveAll(j => j.Role == ModRole.Managed && swap.Replaces(j.Name));
-            foreach (var add in swap.Files)
-            {
-                var file = new FileInfo(add.Path);
-                launchSet.Add((add.Path, LaunchSwap.NameOf(add), file.Exists ? file.Length : -1,
-                    file.Exists ? file.LastWriteTimeUtc.Ticks : 0, ModRole.Managed));
-            }
-        }
-
+        var launchSet = Gather(sharedFolder, profileFolder, isManaged, isOriginProvisioned, confirmOrigin, swap, ct);
         var key = Fingerprint(version, isProfile, launchSet, swap?.Id);
         if (Verdicts.TryGetValue(key, out var cached)) return cached;
 
         var platform = PlatformFor(version);
-        var entries = new List<ModFile>(launchSet.Count);
-        var anyUnreadable = false;
-        var anyExpected = false;
-        foreach (var (path, name, length, _, role) in launchSet)
-        {
-            ct.ThrowIfCancellationRequested();
-            var added = swap?.FileAt(path);
-            ModInfo info;
-            if (added != null && length < 0)
-            {
-                info = added.Expected; // not fetched yet
-                anyExpected = true;
-            }
-            else
-                info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
-            if (swap != null && role == ModRole.Managed && added == null) info = swap.WithoutReplaced(info);
-            if (info.ReadFailed)
-            {
-                anyUnreadable = true;
-                if (role == ModRole.Managed)
-                {
-                    WriteLog(logPath, version, new[] { $"Origin's own {name} could not be read just now; the compatibility check stood down." });
-                    return LaunchVerdict.Clear;
-                }
-            }
-            entries.Add(new ModFile(path, name, Enabled: true, role, info));
-        }
+        var entries = Read(launchSet, swap, version, logPath, ct, out var anyUnreadable, out var anyExpected);
+        if (entries == null) return LaunchVerdict.Clear; // Origin's own jar unreadable: the check stood down (logged)
 
         var report = CompatEngine.Check(entries, platform);
         var blocking = new List<string>();
@@ -284,6 +246,83 @@ public static class LaunchPreflight
         }
         WriteLog(logPath, version, Describe(verdict));
         return verdict;
+    }
+
+    /// <summary>
+    /// The full report for the launch set <see cref="Evaluate"/> judges (same jars, roles and metadata), for Fix
+    /// Compatibility to plan on. Null when there is nothing to check or Origin's own jar can't be read. Not cached.
+    /// </summary>
+    public static CompatReport? Inspect(
+        string version, string sharedFolder, string? profileFolder, bool externalMods,
+        Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned, Func<string, bool>? confirmOrigin = null,
+        LaunchSwap? swap = null, CancellationToken ct = default)
+    {
+        if (!externalMods && profileFolder == null) return null;
+        var launchSet = Gather(sharedFolder, profileFolder, isManaged, isOriginProvisioned, confirmOrigin, swap, ct);
+        var entries = Read(launchSet, swap, version, null, ct, out _, out _);
+        return entries == null ? null : CompatEngine.Check(entries, PlatformFor(version));
+    }
+
+    /// <summary>True when <paramref name="f"/> is one the launch check refuses the game for.</summary>
+    public static bool Stops(CompatFinding f, CompatPlatform platform) => IsHard(f, platform);
+
+    // The jars a launch loads: Origin's from the shared folder, the player's from the profile (or the shared folder
+    // with no profile), with an alternate configuration's swap applied.
+    private static List<(string Path, string Name, long Length, long Ticks, ModRole Role)> Gather(
+        string sharedFolder, string? profileFolder, Func<string, bool> isManaged, Func<string, bool> isOriginProvisioned,
+        Func<string, bool>? confirmOrigin, LaunchSwap? swap, CancellationToken ct)
+    {
+        var isProfile = profileFolder != null;
+        var originTest = isProfile ? isOriginProvisioned : isManaged;
+        var launchSet = new List<(string Path, string Name, long Length, long Ticks, ModRole Role)>();
+        AddJars(launchSet, sharedFolder, shared: true, isProfile, originTest, confirmOrigin, ct);
+        if (isProfile) AddJars(launchSet, profileFolder!, shared: false, isProfile, originTest, confirmOrigin, ct);
+        if (swap != null)
+        {
+            launchSet.RemoveAll(j => j.Role == ModRole.Managed && swap.Replaces(j.Name));
+            foreach (var add in swap.Files)
+            {
+                var file = new FileInfo(add.Path);
+                launchSet.Add((add.Path, LaunchSwap.NameOf(add), file.Exists ? file.Length : -1,
+                    file.Exists ? file.LastWriteTimeUtc.Ticks : 0, ModRole.Managed));
+            }
+        }
+        return launchSet;
+    }
+
+    // Reads each jar's metadata. Null when one of Origin's own jars can't be read (the check stands down, logged).
+    private static List<ModFile>? Read(
+        List<(string Path, string Name, long Length, long Ticks, ModRole Role)> launchSet, LaunchSwap? swap,
+        string version, string? logPath, CancellationToken ct, out bool anyUnreadable, out bool anyExpected)
+    {
+        anyUnreadable = false;
+        anyExpected = false;
+        var entries = new List<ModFile>(launchSet.Count);
+        foreach (var (path, name, length, _, role) in launchSet)
+        {
+            ct.ThrowIfCancellationRequested();
+            var added = swap?.FileAt(path);
+            ModInfo info;
+            if (added != null && length < 0)
+            {
+                info = added.Expected; // not fetched yet
+                anyExpected = true;
+            }
+            else
+                info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
+            if (swap != null && role == ModRole.Managed && added == null) info = swap.WithoutReplaced(info);
+            if (info.ReadFailed)
+            {
+                anyUnreadable = true;
+                if (role == ModRole.Managed)
+                {
+                    WriteLog(logPath, version, new[] { $"Origin's own {name} could not be read just now; the compatibility check stood down." });
+                    return null;
+                }
+            }
+            entries.Add(new ModFile(path, name, Enabled: true, role, info));
+        }
+        return entries;
     }
 
     // A finding stops the game when the metadata says so (Confirmed + Blocking + a kind the loader refuses),

@@ -875,6 +875,7 @@ public partial class HomePage : UserControl
         // with a Retry (PlayFailure). `failure` is what the finally block puts on the screen instead of hiding it.
         var provisioning = false;
         PlayFailure? failure = null;
+        IncompatibleModsException? refused = null; // offered Fix Compatibility once this launch has unwound
 
         try
         {
@@ -1045,12 +1046,13 @@ public partial class HomePage : UserControl
         catch (IncompatibleModsException ex)
         {
             // Mods that cannot start the game, caught before it launched (Core/Compat/LaunchPreflight): a plain
-            // sentence naming them, not a loader crash. TODO(Phase 5.3): a "Fix Compatibility" button here.
-            // The metadata can be wrong, so Play on this same set, for this account and version, while this line is
+            // sentence naming them, not a loader crash; Play and Enter also open the Fix Compatibility prompt
+            // (HomePage.Fix.cs) once this launch has unwound. The metadata can be wrong, so Play on this same set, for this account and version, while this line is
             // still showing, starts it anyway (LaunchOverride). Join server and Retry never do.
             Note(key, ex.Message, LaunchTone.Error);
             _modOverride.Refuse(key, version, ex.SetKey, ex.Message);
             WriteLaunchErrorLog(ex);
+            refused = ex;
         }
         catch (ConfigurationInUseException ex)
         {
@@ -1115,6 +1117,8 @@ public partial class HomePage : UserControl
             // line the try/catch above just set. Only re-sync the button.
             RefreshPlayButton();
         }
+        // Join server and the crash Retry never prompt: the player did not press Play on these mods.
+        if (refused != null && route is LaunchRoute.Play or LaunchRoute.EnterKey) _ = OfferFixAsync(refused, version, profile);
     }
 
     // Owns the tail of one game's launch: keeps the progress screen up and the

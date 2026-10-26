@@ -13,7 +13,7 @@ namespace OriginLauncher.App.Core.Compat;
 /// A step that can't be done (the game holds the file, the name is taken) is reported and the rest still run: one
 /// stuck mod must not stop the others being fixed. Never throws for an I/O problem.
 /// </summary>
-public static class RepairExecutor
+public static partial class RepairExecutor
 {
     public static RepairResult Apply(RepairPlan plan, RepairContext context, IDependencyFetcher? fetcher = null)
     {
@@ -100,7 +100,8 @@ public static class RepairExecutor
                 DeleteOwnPart(part);
                 return Fail(step, error ?? "Couldn't get that mod.");
             }
-            if (offer.Sha256 != null && !HashMatches(part, offer.Sha256))
+            if ((offer.Sha256 != null && !HashMatches(part, offer.Sha256))
+                || (offer.Sha512 != null && !new Loaders.PerfMod("", "", "", offer.Sha512).Matches(part)))
             {
                 DeleteOwnPart(part);
                 return Fail(step, "The downloaded file isn't the one expected, so it was not added.");

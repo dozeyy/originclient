@@ -430,6 +430,9 @@ public sealed class VersionManager
     }
 
     // The component store (Core/Components); lazy so nothing reads OriginPaths.Root before render-shots redirects it.
+    /// <summary>Origin's component store (Core/Components), shared with Fix Compatibility.</summary>
+    public static ComponentStore SharedComponents => Components.Value;
+
     private static readonly Lazy<ComponentStore> Components = new(() =>
     {
         var http = new HttpClient();
