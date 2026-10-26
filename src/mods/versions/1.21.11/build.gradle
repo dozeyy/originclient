@@ -83,6 +83,11 @@ dependencies {
 	// the perf stack below, JEI is NOT in the launcher's catalog, so it must ship
 	// inside the Origin jar via include().
 	modImplementation(include("maven.modrinth:jei:${project.jei_modrinth_id}"))   // = jei_version, fabric build
+	// DEV-ONLY: JEI 27.54 nests MezzConfig 0.6.6 and hard-depends on it. A real install loads the
+	// nested jar; Loom's dev classpath does not (boot-smoke 40277043569: HARD_DEP_NO_CANDIDATE jei ->
+	// mezz_config), so runClient gets that same 0.6.6 from Modrinth (version id AVyAs3RA). Never
+	// include()d: the shipped jar already carries it inside JEI.
+	modLocalRuntime "maven.modrinth:mezzconfig:AVyAs3RA"
 
 	// The shader speed-ups (Settings > Performance: Limit Far / Off-Map / Half-Rate Shadows, Smart
 	// Terrain Updates) mix into Sodium and Iris, so they compile against the exact pair the launcher
