@@ -17,7 +17,7 @@ import java.util.Set;
 /**
  * SETTINGS > Performance > Half-Rate Shadows (1.21 module, default OFF; ported from 1.21.1).
  *
- * <p>What it does (Iris 1.7.3, re-read from the jar 2026-10-20): with a shader pack on, Iris clears and
+ * <p>What it does (Iris 1.8.8, the jar 1.21.1 ships too; read 2026-10-19): with a shader pack on, Iris clears and
  * redraws the whole shadow map every frame (IrisRenderingPipeline.beginLevelRendering clears the shadow
  * targets and runs the pack's shadow compute programs; ShadowRenderer.renderShadows walks and draws every
  * shadow caster, then runs shadowcomp). With this on, every second frame keeps the last frame's shadow
@@ -56,7 +56,7 @@ public final class HalfRateShadows {
 	/** A camera move longer than this since the kept map was drawn counts as a jump (teleport). */
 	private static final double JUMP_SQ = 4.0 * 4.0;
 
-	// ---- Iris 1.7.3 members (javap 2026-10-20; same names as 1.8.8), bound once; any missing = feature off ----
+	// ---- Iris 1.8.8 members (javap 2026-10-19; same names as 1.7.3), bound once; any missing = feature off ----
 	private static final String PIPE = "net.irisshaders.iris.pipeline.IrisRenderingPipeline";
 	private static final String SR = "net.irisshaders.iris.shadows.ShadowRenderer";
 	/** IrisRenderingPipeline: private final ShadowRenderer shadowRenderer. */
@@ -335,7 +335,7 @@ public final class HalfRateShadows {
 	}
 
 	/**
-	 * ShadowRenderer.createShadowModelView RETURN (Iris 1.7.3 calls it at renderShadows offset 117 for the shadow draw and in MatrixUniforms for the
+	 * ShadowRenderer.createShadowModelView RETURN (Iris 1.8.8 calls it in renderShadows for the shadow draw and in MatrixUniforms for the
 	 * shadowModelView / shadowModelViewInverse uniforms). On a kept frame, outside the shadow pass,
 	 * swap in the drawn matrix shifted by the camera's move since the draw.
 	 */

@@ -3,13 +3,13 @@ package com.origin.client.client.render;
 import com.origin.client.client.hud.FrameStats;
 import com.origin.client.client.mixin.SodiumSortedRenderListsAccessor;
 import com.origin.client.client.mods.Mods;
-import me.jellysquid.mods.sodium.client.render.chunk.LocalSectionIndex;
-import me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager;
-import me.jellysquid.mods.sodium.client.render.chunk.lists.ChunkRenderList;
-import me.jellysquid.mods.sodium.client.render.chunk.region.RenderRegion;
-import me.jellysquid.mods.sodium.client.render.viewport.CameraTransform;
-import me.jellysquid.mods.sodium.client.render.viewport.Viewport;
-import me.jellysquid.mods.sodium.client.util.iterator.ByteIterator;
+import net.caffeinemc.mods.sodium.client.render.chunk.LocalSectionIndex;
+import net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager;
+import net.caffeinemc.mods.sodium.client.render.chunk.lists.ChunkRenderList;
+import net.caffeinemc.mods.sodium.client.render.chunk.region.RenderRegion;
+import net.caffeinemc.mods.sodium.client.render.viewport.CameraTransform;
+import net.caffeinemc.mods.sodium.client.render.viewport.Viewport;
+import net.caffeinemc.mods.sodium.client.util.iterator.ByteIterator;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import org.joml.Matrix4f;
@@ -20,11 +20,10 @@ import java.lang.invoke.MethodHandles;
 /**
  * SETTINGS > Performance > Off-Map Shadows (1.21 module, default OFF; ported from 1.21.1).
  *
- * <p>Why it saves work (Iris 1.7.3 / Sodium 0.5.11, read from the jars 2026-10-20): Iris's shadow
+ * <p>Why it saves work (Iris 1.8.8 / Sodium 0.6.13, read from the jars 2026-10-19): Iris's shadow
  * pass culls with AdvancedShadowCullingFrustum, which is the player's view stretched toward the sun
  * plus, only when the pack sets shadowDistanceRenderMul, a world-axis distance box. Its constructor
- * (Matrix4fc, Matrix4fc, Vector3f, BoxCuller) builds its planes from the player's matrices and is
- * never given the shadow projection, so nothing culls against the shadow map's own
+ * takes the shadow projection and never uses it, so nothing culls against the shadow map's own
  * left/right/top/bottom edges. With the default render multiplier the shadow walk reaches the Iris
  * "Shadow Distance" video setting (capped by render distance) while the map only covers the pack's
  * shadowDistance (halved again by Shader Performance Mode): every chunk section, entity and block
@@ -95,7 +94,7 @@ public final class OffMapShadows {
 
 	// Per-frame skip counts (last finished frame) for the F3 line. Sections count section CHECKS the
 	// shadow walk answered "off the map": Sodium's walk can check one section more than once (from
-	// several neighbours), and empty air sections count too, so this is
+	// several neighbours, and its nearby-section pass), and empty air sections count too, so this is
 	// not the number of drawn sections removed (dev-shots measures that: afterWalk).
 	private static long frameId = -1, shadowFrame = Long.MIN_VALUE;
 	private static int curSkipS, curSkipE, lastSkipS, lastSkipE;

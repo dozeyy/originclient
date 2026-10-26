@@ -14,8 +14,8 @@ import org.spongepowered.asm.mixin.injection.At;
 //   (render/ShadowCasterLimit, render/OffMapShadows).
 // Target: EntityRenderDispatcher.shouldRender(Entity, Frustum, DDD)Z at RETURN (javap of the MC 1.21
 //   Mojmap jar 2026-10-20; generic <E extends Entity>, erased to Entity).
-// Why: Iris 1.7.3 ShadowRenderer.renderEntities / renderPlayerEntity ask exactly this (bytecode
-//   offsets 74 and 39) for every loaded entity during the shadow pass, then rebuild the model of
+// Why: Iris 1.8.8 ShadowRenderer.renderEntities / renderPlayerEntity ask exactly this (bytecode
+//   offsets read on 1.7.3, the call is unchanged on 1.8.8) for every loaded entity during the shadow pass, then rebuild the model of
 //   each one that passes. Answering false there skips that rebuild. Outside the shadow pass both
 //   helpers always answer "keep", so the normal view is untouched. @ModifyReturnValue (not a
 //   cancellable CIR): no CallbackInfoReturnable is allocated per entity per frame.

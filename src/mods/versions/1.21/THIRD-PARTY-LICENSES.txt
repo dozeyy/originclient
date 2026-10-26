@@ -13,7 +13,7 @@ Origin Client's own code is licensed separately — see LICENSE_originclient.
 Just Enough Items (JEI)
 -------------------------------------------------------------------------------
 Author:     mezz
-Version:    19.27.0.340 (1.21.1, Fabric)
+Version:    19.39.0.372 (1.21.1, Fabric)
 Source:     https://github.com/mezz/JustEnoughItems
 Licence:    The MIT License (MIT)
 

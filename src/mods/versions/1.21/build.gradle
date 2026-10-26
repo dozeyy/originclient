@@ -76,14 +76,15 @@ dependencies {
 
 	// Origin Render (render/terrain, Sodium mixins) compiles against the exact
 	// Sodium the launcher installs for 1.21 (PerformanceModCatalog "1.21":
-	// mc1.21-0.5.11-fabric, Modrinth version id RncWhTxD). compileOnly: never
+	// mc1.21.1-0.6.13-fabric, Modrinth version id u1OEbNKx -- the same build 1.21.1 ships; it lists
+	// MC 1.21 and replaced mc1.21-0.5.11 RncWhTxD on 2026-10-25). compileOnly: never
 	// bundled, never on the dev runtime classpath (libs/ above serves runClient).
-	modCompileOnly "maven.modrinth:sodium:RncWhTxD"   // version id: unique, unlike a version number
+	modCompileOnly "maven.modrinth:sodium:u1OEbNKx"   // version id: unique, unlike a version number
 	// The shader speed-ups (Half-Rate Shadows' Iris mixins; Settings > Performance) compile against
-	// the Iris the launcher installs for 1.21 (PerformanceModCatalog: iris-1.7.3+mc1.21, Modrinth
-	// version id kuOV4Ece). compileOnly: never bundled; every Iris member the features call at
+	// the Iris the launcher installs for 1.21 (PerformanceModCatalog: iris-fabric-1.8.8+mc1.21.1,
+	// Modrinth version id zsoi0dso, lists MC 1.21; was 1.7.3 kuOV4Ece until 2026-10-25). compileOnly: never bundled; every Iris member the features call at
 	// runtime is bound by reflection and fails soft (render/IrisState, HalfRateShadows).
-	modCompileOnly "maven.modrinth:iris:kuOV4Ece"
+	modCompileOnly "maven.modrinth:iris:zsoi0dso"
 
 	// The perf/shader stack is NOT bundled here — the launcher installs the
 	// matching 1.21 stack from PerformanceModCatalog alongside this jar. Only the
@@ -97,9 +98,9 @@ dependencies {
 	// jar stays Origin-only. Jars live in libs/ (gitignored); re-fetch from the
 	// URLs in the catalog's "1.21" entry. Guarded on .exists() so release/CI
 	// builds (no libs/) still run — Loom eagerly checksums modRuntimeOnly files.
-	if (file("libs/sodium-fabric-0.5.11+mc1.21.jar").exists()) {
-		modRuntimeOnly files("libs/sodium-fabric-0.5.11+mc1.21.jar")
-		modRuntimeOnly files("libs/iris-1.7.3+mc1.21.jar")
+	if (file("libs/sodium-fabric-0.6.13+mc1.21.1.jar").exists()) {
+		modRuntimeOnly files("libs/sodium-fabric-0.6.13+mc1.21.1.jar")
+		modRuntimeOnly files("libs/iris-fabric-1.8.8+mc1.21.1.jar")
 	}
 	// Iris bundles its GLSL toolchain (anarres jcpp, douira glsl-transformer,
 	// antlr4) as jar-in-jar; Loom's include() doesn't propagate a nested mod's
