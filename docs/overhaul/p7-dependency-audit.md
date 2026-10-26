@@ -53,23 +53,23 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 | Mod Menu | launcher catalog (+ module libs/ or maven pin) | 18.0.2 | 18.0.2 | unchanged | already the newest release | not re-run (unchanged) |
 | EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | not re-run (unchanged) |
 | *covered version 26.1.1* | | | | | | |
-| Sodium | launcher catalog (+ module libs/ or maven pin) | mc26.1.1-0.8.9-fabric | mc26.1.1-0.8.9-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Lithium | launcher catalog (+ module libs/ or maven pin) | mc26.1.2-0.24.7-fabric | mc26.1.2-0.24.7-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 9.0.0-fabric | 9.0.0-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.3.0 | 0.3.0 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Iris | launcher catalog (+ module libs/ or maven pin) | 1.10.9+26.1-fabric | 1.11.4+26.1-fabric | held | same as 26.1: Iris 1.11.4 needs Sodium 0.9.2, published for 26.1.2 only | not booted (no `covers` mode) |
-| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.15.3+26.1-fabric | 1.15.3+26.1-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 18.0.2 | 18.0.2 | unchanged | already the newest release | not booted (no `covers` mode) |
-| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | not booted (no `covers` mode) |
+| Sodium | launcher catalog (+ module libs/ or maven pin) | mc26.1.1-0.8.9-fabric | mc26.1.1-0.8.9-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
+| Lithium | launcher catalog (+ module libs/ or maven pin) | mc26.1.2-0.24.7-fabric | mc26.1.2-0.24.7-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
+| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 9.0.0-fabric | 9.0.0-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
+| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.3.0 | 0.3.0 | unchanged | already the newest release | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
+| Iris | launcher catalog (+ module libs/ or maven pin) | 1.10.9+26.1-fabric | 1.11.4+26.1-fabric | held | same as 26.1: Iris 1.11.4 needs Sodium 0.9.2, published for 26.1.2 only | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
+| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.15.3+26.1-fabric | 1.15.3+26.1-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
+| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 18.0.2 | 18.0.2 | unchanged | already the newest release | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
+| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | covers boot 40245168662: PASS (title 21 s, 0 mixin failures) |
 | *covered version 26.1.2* | | | | | | |
-| Sodium | launcher catalog (+ module libs/ or maven pin) | mc26.1.2-0.9.2-fabric | mc26.1.2-0.9.2-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Lithium | launcher catalog (+ module libs/ or maven pin) | mc26.1.2-0.24.7-fabric | mc26.1.2-0.24.7-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 9.0.0-fabric | 9.0.0-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.3.0 | 0.3.0 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Iris | launcher catalog (+ module libs/ or maven pin) | 1.11.4+26.1-fabric | 1.11.4+26.1-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.15.3+26.1-fabric | 1.15.3+26.1-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 18.0.2 | 18.0.2 | unchanged | already the newest release | not booted (no `covers` mode) |
-| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | not booted (no `covers` mode) |
+| Sodium | launcher catalog (+ module libs/ or maven pin) | mc26.1.2-0.9.2-fabric | mc26.1.2-0.9.2-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
+| Lithium | launcher catalog (+ module libs/ or maven pin) | mc26.1.2-0.24.7-fabric | mc26.1.2-0.24.7-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
+| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 9.0.0-fabric | 9.0.0-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
+| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.3.0 | 0.3.0 | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
+| Iris | launcher catalog (+ module libs/ or maven pin) | 1.11.4+26.1-fabric | 1.11.4+26.1-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
+| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.15.3+26.1-fabric | 1.15.3+26.1-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
+| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 18.0.2 | 18.0.2 | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
+| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | covers boot 40245168662: PASS (title 26 s, 0 mixin failures) |
 
 ## 1.21.1
 
@@ -119,21 +119,21 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 | Mod Menu | launcher catalog (+ module libs/ or maven pin) | 13.0.4 | 13.0.4 | unchanged | already the newest release | not re-run (unchanged) |
 | EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | not re-run (unchanged) |
 | *covered version 1.21.2* | | | | | | |
-| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.6.1-fabric | mc1.21.3-0.6.13-fabric | held | newest release mc1.21.3-0.6.13-fabric: newer release exists; covered versions have no CI boot (the `covers` mode is not built, B-31), so a bump could not be proven | not booted (no `covers` mode) |
-| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.14.6-fabric | mc1.21.3-0.14.6-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.8 | 0.2.8 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Iris | launcher catalog (+ module libs/ or maven pin) | 1.8.0+1.21.3-fabric | 1.8.0+1.21.3-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.7.2+1.21.3-fabric | 1.7.2+1.21.3-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 12.0.1 | 12.0.1 | unchanged | already the newest release | not booted (no `covers` mode) |
+| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.6.1-fabric | mc1.21.3-0.6.13-fabric | **change to mc1.21.3-0.6.0-fabric** (launcher catalog, not done here) | 0.6.13 is refused next to Iris 1.8.0 ("breaks iris <1.8.7"); the current 0.6.1 fails Iris 1.8.0's own cloud mixin; 0.6.0 (the build Iris 1.8.0 declares) boots clean (40245754930) | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
+| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.14.6-fabric | mc1.21.3-0.14.6-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
+| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.8 | 0.2.8 | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
+| Iris | launcher catalog (+ module libs/ or maven pin) | 1.8.0+1.21.3-fabric | 1.8.0+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
+| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.7.2+1.21.3-fabric | 1.7.2+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
+| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 12.0.1 | 12.0.1 | unchanged | already the newest release | covers boot 40245168662: **FAIL** (Iris 1.8.0 mixin vs Sodium 0.6.1, see Covered-version boots) |
 | *covered version 1.21.3* | | | | | | |
-| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.6.8-fabric | mc1.21.3-0.6.13-fabric | held | newest release mc1.21.3-0.6.13-fabric: newer release exists; covered versions have no CI boot (the `covers` mode is not built, B-31), so a bump could not be proven | not booted (no `covers` mode) |
-| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.14.6-fabric | mc1.21.3-0.14.6-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 7.1.0-hotfix-fabric | 7.1.0-hotfix-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.8 | 0.2.8 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Iris | launcher catalog (+ module libs/ or maven pin) | 1.8.1+1.21.3-fabric | 1.8.1+1.21.3-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.7.2+1.21.3-fabric | 1.7.2+1.21.3-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 12.0.1 | 12.0.1 | unchanged | already the newest release | not booted (no `covers` mode) |
-| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | not booted (no `covers` mode) |
+| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.6.8-fabric | mc1.21.3-0.6.13-fabric | held | 0.6.9+ declares "breaks iris <1.8.7" and 1.21.3 tops out at Iris 1.8.1; the current 0.6.8 + Iris 1.8.1 pair boots clean | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
+| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.3-0.14.6-fabric | mc1.21.3-0.14.6-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
+| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 7.1.0-hotfix-fabric | 7.1.0-hotfix-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
+| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.8 | 0.2.8 | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
+| Iris | launcher catalog (+ module libs/ or maven pin) | 1.8.1+1.21.3-fabric | 1.8.1+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
+| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.7.2+1.21.3-fabric | 1.7.2+1.21.3-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
+| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 12.0.1 | 12.0.1 | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
+| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | covers boot 40245168662: PASS (title 39 s, 0 mixin failures) |
 
 ## 1.21.6
 
@@ -149,14 +149,14 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 | Mod Menu | launcher catalog (+ module libs/ or maven pin) | 15.0.2 | 15.0.2 | unchanged | already the newest release | not re-run (unchanged) |
 | EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.8.2 | 1.8.2 | unchanged | already the newest release | not re-run (unchanged) |
 | *covered version 1.21.7* | | | | | | |
-| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.8-0.7.3-fabric | mc1.21.8-0.7.3-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.7-0.18.0-fabric | mc1.21.7-0.18.0-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 8.0.4-fabric | 8.0.4-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.9 | 0.2.9 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Iris | launcher catalog (+ module libs/ or maven pin) | 1.9.6+1.21.8-fabric | 1.9.6+1.21.8-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.11.2+1.21.7-fabric | 1.11.2+1.21.7-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 15.0.2 | 15.0.2 | unchanged | already the newest release | not booted (no `covers` mode) |
-| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.8.2 | 1.8.2 | unchanged | already the newest release | not booted (no `covers` mode) |
+| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.21.8-0.7.3-fabric | mc1.21.8-0.7.3-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
+| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.21.7-0.18.0-fabric | mc1.21.7-0.18.0-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
+| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 8.0.4-fabric | 8.0.4-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
+| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.9 | 0.2.9 | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
+| Iris | launcher catalog (+ module libs/ or maven pin) | 1.9.6+1.21.8-fabric | 1.9.6+1.21.8-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
+| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.11.2+1.21.7-fabric | 1.11.2+1.21.7-fabric | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
+| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 15.0.2 | 15.0.2 | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
+| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.8.2 | 1.8.2 | unchanged | already the newest release | covers boot 40245168662: PASS (title 36 s, 0 mixin failures) |
 
 ## 1.21.8
 
@@ -218,16 +218,16 @@ Phase 7 (ORIGIN_PROGRESS P7-01, P7-05). Audited 2026-10-25 against the Modrinth 
 | ModernFix | launcher catalog (+ module libs/ or maven pin) | 5.0.2+mc1.20 | 5.0.2+mc1.20 | unchanged | already the newest release | not re-run (unchanged) |
 | Mod Menu | launcher catalog (+ module libs/ or maven pin) | 7.0.1 | 7.0.1 | unchanged | already the newest release | not re-run (unchanged) |
 | *covered version 1.20.1* | | | | | | |
-| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.20.1-0.5.13-fabric | mc1.20.1-0.5.13-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| Indium | launcher catalog (+ module libs/ or maven pin) | 1.0.36+mc1.20.1 | 1.0.36+mc1.20.1 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.20.1-0.11.4-fabric | mc1.20.1-0.11.4-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 6.0.1 | 6.0.1 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.3 | 0.2.3 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Iris | launcher catalog (+ module libs/ or maven pin) | 1.7.6+1.20.1 | 1.7.6+1.20.1 | unchanged | already the newest release | not booted (no `covers` mode) |
-| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.5.5+1.20.4-fabric | 1.5.5+1.20.4-fabric | unchanged | already the newest release | not booted (no `covers` mode) |
-| ModernFix | launcher catalog (+ module libs/ or maven pin) | 5.25.2+mc1.20.1 | 5.25.2+mc1.20.1 | unchanged | already the newest release | not booted (no `covers` mode) |
-| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 7.2.2 | 7.2.2 | unchanged | already the newest release | not booted (no `covers` mode) |
-| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | not booted (no `covers` mode) |
+| Sodium | launcher catalog (+ module libs/ or maven pin) | mc1.20.1-0.5.13-fabric | mc1.20.1-0.5.13-fabric | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| Indium | launcher catalog (+ module libs/ or maven pin) | 1.0.36+mc1.20.1 | 1.0.36+mc1.20.1 | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| Lithium | launcher catalog (+ module libs/ or maven pin) | mc1.20.1-0.11.4-fabric | mc1.20.1-0.11.4-fabric | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| FerriteCore | launcher catalog (+ module libs/ or maven pin) | 6.0.1 | 6.0.1 | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| Krypton | launcher catalog (+ module libs/ or maven pin) | 0.2.3 | 0.2.3 | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| Iris | launcher catalog (+ module libs/ or maven pin) | 1.7.6+1.20.1 | 1.7.6+1.20.1 | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| ImmediatelyFast | launcher catalog (+ module libs/ or maven pin) | 1.5.5+1.20.4-fabric | 1.5.5+1.20.4-fabric | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| ModernFix | launcher catalog (+ module libs/ or maven pin) | 5.25.2+mc1.20.1 | 5.25.2+mc1.20.1 | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| Mod Menu | launcher catalog (+ module libs/ or maven pin) | 7.2.2 | 7.2.2 | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
+| EntityCulling | launcher catalog (+ module libs/ or maven pin) | 1.11.3 | 1.11.3 | unchanged | already the newest release | covers boot 40245754930: PASS (title 44 s, Java 17, 0 mixin failures) |
 
 ## 1.20.2
 
@@ -370,7 +370,7 @@ Newer releases that exist and were deliberately not taken. Each needs its own ga
 | 26.1, 26.1.1 | Iris | 1.10.9 | 1.11.4 | needs Sodium 0.9.2, published for 26.1.2 only |
 | 1.21 | Sodium / Iris | 0.5.11 / 1.7.3 | 0.6.13 / 1.8.8 | era-pair exception in the catalog (Iris 1.8.8 is refused next to Sodium 0.5.x) |
 | 1.20 | Iris | 1.6.4 | 1.6.11 | catalog exception: 1.6.11 needs Sodium 0.5.7+, none exists for plain 1.20 |
-| 1.21.2, 1.21.3 | Sodium | 0.6.1 / 0.6.8 | 0.6.13 | covered versions have no CI boot, so a bump cannot be proven |
+| 1.21.2, 1.21.3 | Sodium | 0.6.1 / 0.6.8 | 0.6.13 | Sodium 0.6.9+ declares "breaks iris <1.8.7" and these versions top out at Iris 1.8.0 / 1.8.1. **1.21.2's 0.6.1 is itself broken** (covers boot below): the fix is DOWN to 0.6.0, not up |
 
 
 ## Boot evidence
@@ -391,8 +391,30 @@ Boot-smoke stops at the title screen, so its 3 / 3 / 2 / 3 counts are the mixins
 
 Earlier boot-smoke runs 40180270272, 40180272944 and 40180280870 are superseded: they passed with `companions=true` while loading no companions (1.21.11 had no `-PextraMods` hook), so they proved nothing about Mod Menu 17.0.1.
 
+## Covered-version boots (U7.2, B-31)
+
+`boot-smoke.yml` input `covers` (`all`, or a list of exact versions; `modules=none` runs covers rows only). A covers row boots what a player on that version runs, production-style: the covering module's **built** release jar + that Minecraft version + Fabric API (newest Modrinth release, the `FabricApiInstaller` rule) + **every** mod `PerformanceModCatalog` lists for that version (SHA-512 checked against the catalog), all loaded through `fabric.addMods` by a Loom project with no sources (`tools/boot-smoke/covers.py`; same Gradle, plugin, mappings and loader as the module). Fabric Loader remaps the intermediary jars at launch, so the built jar's own refmap is what applies. Same `smoke.py` gates as a normal row: title screen reached, zero `Mixin apply ... failed`, Sodium + Iris in the mod list, ImmediatelyFast + Mod Menu at the catalog versions, and the players' game JVM (Java 17 on 1.20.1, checked from `/proc`).
+
+Run 40245168662 on `claude/p7-covers` (head `4dae6ccbc`): the four covering modules' normal rows (1.21.4, 1.21.6, 1.20, 26.1 = primary 26.1.2) plus seven covers rows. Run 40245754930: the two re-runs after the fixes below (branch `claude/p7-covers-1212-proof` = `claude/p7-covers` `451a25314` + one scratch catalog commit, never merged).
+
+| Version | Covered by | Run | Loaded (game log) | Origin Sodium/Iris mixins | Mixin apply failures | Result |
+|---|---|---|---|---|---|---|
+| 1.21.2 | 1.21.4 | 40245168662 | minecraft 1.21.2, fabric-api 0.106.1+1.21.2, sodium 0.6.1+mc1.21.3, iris 1.8.0+mc1.21.3 (71 mods) | - | **1** | **FAIL** at the title screen: `Mixin apply for mod iris failed mixins.iris.compat.sodium.json:MixinCloudRenderer ... @Shadow field cachedGeometry was not located in the target class net.caffeinemc.mods.sodium.client.render.immediate.CloudRenderer`. Not an Origin bug: the catalog pairs Iris 1.8.0 with Sodium 0.6.1, but Iris 1.8.0+1.21.3 declares Sodium **0.6.0** (version id `SzAjFUSx`) and its cloud mixin only fits that build |
+| 1.21.2 (scratch: Sodium 0.6.0) | 1.21.4 | 40245754930 | sodium 0.6.0+mc1.21.3, iris 1.8.0+mc1.21.3, immediatelyfast 1.7.2+1.21.3, modmenu 12.0.1 | 2 | 0 | PASS, title 38 s. **Catalog fix needed (launcher, not done here):** `PerformanceModCatalog.Data.cs` 1.21.2 row Sodium -> `mc1.21.3-0.6.0-fabric`, `https://cdn.modrinth.com/data/AANobbMI/versions/SzAjFUSx/sodium-fabric-0.6.0%2Bmc1.21.3.jar`, sha512 `c1ec717a...9fff3fad` (exact line on the scratch branch) |
+| 1.21.3 | 1.21.4 | 40245168662 | minecraft 1.21.3, fabric-api 0.114.1+1.21.3, sodium 0.6.8+mc1.21.3, iris 1.8.1+mc1.21.3, immediatelyfast 1.7.2+1.21.3, modmenu 12.0.1 (76 mods) | 2 | 0 | PASS, title 39 s |
+| 1.21.7 | 1.21.6 | 40245168662 | minecraft 1.21.7, fabric-api 0.129.0+1.21.7, sodium 0.7.3+mc1.21.8, iris 1.9.6+mc1.21.8, immediatelyfast 1.11.2+1.21.7, modmenu 15.0.2 (69 mods) | 3 | 0 | PASS, title 36 s |
+| 1.20.1 | 1.20 | 40245168662 | minecraft 1.20.1, sodium 0.5.13+mc1.20.1 (83 mods) | - | 0 | **FAIL (harness, not players):** Sodium's early check `The game failed to start because the currently active LWJGL version is not compatible`. Loom swaps the game's LWJGL 3.3.1 for 3.3.2 whenever Gradle's JVM is 19+ (`LWJGL3UpgradeLibraryProcessor`, read from the Loom 1.17 jar); players on Java 17 keep 3.3.1. Fixed in `covers.py`: `fabric.loom.runtimeJavaCompatibilityVersion=<game Java>` |
+| 1.20.1 (after the harness fix) | 1.20 | 40245754930 | LWJGL 3.3.1, fabric-api 0.92.12+1.20.1, sodium 0.5.13+mc1.20.1, iris 1.7.6+mc1.20.1, immediatelyfast 1.5.5+1.20.4, modmenu 7.2.2; game JVM Java 17 | 3 | 0 | PASS, title 44 s |
+| 26.1 | 26.1 | 40245168662 | minecraft 26.1, fabric-api 0.155.3+26.1.2, sodium 0.8.9+mc26.1.1, iris 1.10.9+mc26.1.1, immediatelyfast 1.15.3+26.1, modmenu 18.0.2 (72 mods) | 4 | 0 | PASS, title 30 s |
+| 26.1.1 | 26.1 | 40245168662 | minecraft 26.1.1, same stack as 26.1 (72 mods) | 4 | 0 | PASS, title 21 s |
+| 26.1.2 | 26.1 | 40245168662 | minecraft 26.1.2, fabric-api 0.155.3+26.1.2, sodium 0.9.2+mc26.1.2, iris 1.11.4+mc26.1.2, immediatelyfast 1.15.3+26.1, modmenu 18.0.2 (72 mods) | 3 | 0 | PASS, title 26 s (26.1.2 is the module's primary; this is the production-jar control) |
+
+Normal rows in the same run 40245168662, unchanged mode: 1.21.4 PASS (43 s, 3 mixins), 1.21.6 PASS (51 s, 3), 1.20 PASS (55 s, 3, game JVM Java 17), 26.1 PASS (56 s, 3). Note: those dev rows on Java-17 modules still run on Loom's upgraded LWJGL 3.3.2 (the 1.20 row logs `LWJGL version 3.3.2-snapshot`), not the players' 3.3.1; the covers row is the faithful one.
+
+Limits: like every boot-smoke row, coverage ends at the title screen (no world join), under Xvfb + llvmpipe software GL.
+
 ## Not done
 
-- `covers` boot mode (U7.2): not built. A covered version (1.21.2, 1.21.3, 1.21.7, 1.20.1, 26.1.1, 26.1.2) needs its own Minecraft, Fabric API, Sodium and Iris pins inside the module's Gradle build, which is a per-version Gradle override, not a workflow flag. Covered versions therefore keep no CI boot (ORIGIN_PROGRESS B-31 stays open).
+- 1.21.2 catalog Sodium pin (above): needs the one-line launcher catalog change and its tests; until then players on 1.21.2 get the pair whose Iris mixin fails to apply.
 - JEI newer than the pins: 26.3 and 26.1 were javap hook-checked (26.3 bumped, 26.1 held, see above); 1.19.2's newer JEI was not checked.
 - `SimpleVoiceChatInstaller` downloads with the same unguarded pattern `FabricApiInstaller` had; not changed here (follow-up).
