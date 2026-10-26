@@ -176,9 +176,20 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
                         verdict = (True, verdict[1] + f"; Origin Sodium/Iris mixins applied: {len(perf_log.tally(''.join(seen)))}", False)
                 if expect_perf and verdict[0]:
                     # covers.py --pair: the swapped-in pair must be what loaded (not a nested or shipped copy).
-                    have = perf_log.loaded("".join(seen))
+                    text = "".join(seen)
+                    have = perf_log.loaded(text)
                     wrong = [f"{k} loaded {have.get(k, 'NOT LOADED')}, expected {v}" for k, v in sorted(expect_perf.items())
-                             if (k in have if v == "absent" else have.get(k) != v)]
+                             if v != "absent" and have.get(k) != v]
+                    # "absent" (covers.py --player, no player Iris): Fabric's mod list still draws a disabled nested
+                    # mod under its parent ("|-- iris ..."), so the proof is that it is not a top-level entry AND that
+                    # none of its own mixin configs applied (run 40286066973: 0 lines from mixins.iris*.json).
+                    for k, v in sorted(expect_perf.items()):
+                        if v != "absent":
+                            continue
+                        top = re.search(r"^[ \t]*- %s " % re.escape(k), text, re.M)
+                        own = re.search(r"Mixing \S+ from (?!originclient)\S*\b%s\b\S*\.json into" % re.escape(k), text)
+                        if top or own:
+                            wrong.append(f"{k} loaded ({'top-level' if top else 'its mixins applied'}), expected absent")
                     if wrong:
                         print("::error title=pair not loaded::" + "; ".join(wrong), flush=True)
                         verdict = (False, "swapped Sodium/Iris pair not loaded: " + "; ".join(wrong), False)
