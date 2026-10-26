@@ -89,8 +89,14 @@ public static class OptiFineInstaller
         var temp = destPath + ".download";
         try
         {
+            // An optifine.jar Origin did not install (not in this folder's install record) may be the player's own
+            // build: it is renamed aside as a turned-off copy (bytes kept, one click on the Mods page brings it back),
+            // never overwritten. Origin's own older copy is simply replaced.
+            if (File.Exists(destPath) && !IsOriginsInstall(destPath))
+                File.Move(destPath, FreeName(modsFolder, "optifine-previous.jar.disabled"));
             File.Copy(cached, temp, overwrite: true);
             File.Move(temp, destPath, overwrite: true);
+            Mods.OriginInstallRecord.AddFile(destPath);
         }
         catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && File.Exists(destPath))
         {
@@ -158,6 +164,30 @@ public static class OptiFineInstaller
         {
             return null;
         }
+    }
+
+    // True when this folder's install record lists the file's bytes (an older OptiFine Origin itself put here).
+    private static bool IsOriginsInstall(string filePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(filePath);
+            return Mods.OriginInstallRecord.Contains(Path.GetDirectoryName(filePath)!, Convert.ToHexString(SHA512.HashData(stream)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false; // unsure: treated as the player's, so it is kept
+        }
+    }
+
+    // "<stem>.jar.disabled", or "<stem>-2.jar.disabled" ... when taken: a rename never lands on another file.
+    private static string FreeName(string folder, string fileName)
+    {
+        const string suffix = ".jar.disabled";
+        var stem = fileName[..^suffix.Length];
+        var path = Path.Combine(folder, fileName);
+        for (var n = 2; File.Exists(path); n++) path = Path.Combine(folder, $"{stem}-{n}{suffix}");
+        return path;
     }
 
     private static bool Sha1Matches(string filePath, string expectedSha1)

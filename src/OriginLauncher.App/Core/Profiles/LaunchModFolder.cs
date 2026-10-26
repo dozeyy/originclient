@@ -18,6 +18,15 @@ public static class LaunchModFolder
     public const string OriginOnlyFolderName = "mods-origin-only";
 
     /// <summary>
+    /// The launch folder name for a shared-folder launch where the player's own copy of a mod Origin ships must load
+    /// INSTEAD of Origin's (PlayerOverrides withheld one of Origin's jars, set one of the player's aside, or swapped in
+    /// a vetted Sodium/Iris pair): every jar of the shared folder but those. The shared folder itself is not touched,
+    /// so another account's running game is never disturbed. Without such a decision the game loads the shared folder
+    /// directly, as always.
+    /// </summary>
+    public const string SharedFolderName = "mods-shared";
+
+    /// <summary>
     /// The jars a profile launch loads, as file name -> full path: Origin's own
     /// enabled jars from the shared folder (<paramref name="isOriginJar"/>
     /// decides which), then the profile's enabled jars. The player's loose jars

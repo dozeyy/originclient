@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using OriginLauncher.App.Core.Loaders;
+using OriginLauncher.App.Core.Mods;
 using Xunit;
 
 namespace OriginLauncher.Tests;
@@ -49,8 +50,21 @@ public sealed class ModrinthFileGuardTests : IDisposable
     {
         var stub = ServesJar();
         Assert.Equal(ModrinthDownloadResult.Installed, await Run(stub));
-        Assert.Equal([GoodName], FilesInMods());
+        // The jar plus Origin's install record, which names it by its bytes (so it is Origin's to clean up later).
+        Assert.Equal(new[] { GoodName, OriginInstallRecord.FileName }.OrderBy(n => n), FilesInMods().OrderBy(n => n));
         Assert.Equal(Jar, await File.ReadAllBytesAsync(Path.Combine(_mods, GoodName)));
+        Assert.True(OriginInstallRecord.Contains(_mods, Convert.ToHexString(SHA512.HashData(Jar))));
+    }
+
+    [Fact]
+    public async Task A_jar_already_under_that_name_is_never_overwritten()
+    {
+        // The installers skip a present family; if a same-named jar lands meanwhile, it is the player's and stays.
+        var theirs = new byte[] { 0x50, 0x4B, 9, 9, 9 };
+        File.WriteAllBytes(Path.Combine(_mods, GoodName), theirs);
+        Assert.Equal(ModrinthDownloadResult.Failed, await Run(ServesJar()));
+        Assert.Equal(theirs, await File.ReadAllBytesAsync(Path.Combine(_mods, GoodName)));
+        Assert.False(File.Exists(Path.Combine(_mods, GoodName + ".download")));
     }
 
     [Fact]

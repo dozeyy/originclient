@@ -36,6 +36,7 @@ public static partial class ManagedPins
         foreach (var mod in FabricApiPins.Values) Add(set, mod.Sha512);
         foreach (var mod in VoiceChatPins.Values) Add(set, mod.Sha512);
         foreach (var mod in AlternatePins.Values) Add(set, mod.Sha512);
+        foreach (var sha in EverPinnedSha512) Add(set, sha); // pins that left the catalog (ManagedPins.History.cs)
         return set;
     }
 

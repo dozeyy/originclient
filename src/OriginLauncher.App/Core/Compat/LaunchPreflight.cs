@@ -224,7 +224,7 @@ public static class LaunchPreflight
         var platform = PlatformFor(version);
         var entries = Read(launchSet, swap, version, logPath, ct, out var anyUnreadable, out var anyExpected);
         if (entries == null) return LaunchVerdict.Clear; // Origin's own jar unreadable: the check stood down (logged)
-        var overrides = isProfile ? PlanOverrides(version, entries) : PlayerOverridePlan.Empty;
+        var overrides = PlanOverrides(version, entries); // the player's copies win, in a profile or the shared folder
         entries = overrides.ApplyTo(entries);
 
         var report = CompatEngine.Check(entries, platform);
@@ -271,7 +271,7 @@ public static class LaunchPreflight
         var launchSet = Gather(sharedFolder, profileFolder, isManaged, isOriginProvisioned, confirmOrigin, swap, ct);
         var entries = Read(launchSet, swap, version, null, ct, out _, out _);
         if (entries == null) return null;
-        if (profileFolder != null) entries = PlanOverrides(version, entries).ApplyTo(entries);
+        entries = PlanOverrides(version, entries).ApplyTo(entries);
         return CompatEngine.Check(entries, PlatformFor(version));
     }
 
@@ -289,10 +289,26 @@ public static class LaunchPreflight
         return entries == null ? PlayerOverridePlan.Empty : PlanOverrides(version, entries);
     }
 
+    /// <summary>
+    /// <see cref="OverridesFor"/> for a launch straight from the version's SHARED folder (no profile): the player's
+    /// loose jars there against Origin's jars beside them, on the same jars <see cref="Evaluate"/> judges for that
+    /// launch. Will's own setup is exactly this (his Sodium in instances/1.21.1/mods), and DECISIONS.md 2026-10-25
+    /// ("a player's own mods win") applies to it as much as to a profile.
+    /// </summary>
+    public static PlayerOverridePlan SharedOverridesFor(
+        string version, string sharedFolder, Func<string, bool> isManaged, Func<string, bool>? confirmOrigin = null,
+        LaunchSwap? swap = null, CancellationToken ct = default)
+    {
+        var launchSet = Gather(sharedFolder, null, isManaged, isManaged, confirmOrigin, swap, ct);
+        var entries = Read(launchSet, swap, version, null, ct, out _, out _);
+        return entries == null ? PlayerOverridePlan.Empty : PlanOverrides(version, entries);
+    }
+
+    // Origin's jars against the player's: a profile's own jars, or the loose jars of the shared folder.
     private static PlayerOverridePlan PlanOverrides(string version, List<ModFile> entries) =>
         PlayerOverrides.Plan(version,
             entries.Where(e => e.Role == ModRole.Managed).ToList(),
-            entries.Where(e => e.Role == ModRole.Profile).ToList(),
+            entries.Where(e => e.Role != ModRole.Managed).ToList(),
             ConfigurationCatalog.For(version));
 
     /// <summary>True when <paramref name="f"/> is one the launch check refuses the game for.</summary>
