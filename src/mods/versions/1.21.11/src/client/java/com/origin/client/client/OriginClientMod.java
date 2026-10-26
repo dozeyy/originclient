@@ -68,11 +68,11 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
 
-	// JEI bundled here is jei-1.21.11-fabric-27.17.0.50 (see gradle.properties). If
+	// JEI bundled here is jei-1.21.11-fabric-27.54.0.112 (gradle.properties jei_version). If
 	// a player drops a different JEI in, Fabric loads the higher version and ours is
 	// shadowed — detectForeignJei() catches that. jeiNoticeShown gates the one-time
 	// in-world chat notice.
-	private static final String BUNDLED_JEI = "27.17.0.50";
+	private static final String BUNDLED_JEI = "27.54.0.112";
 	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 
@@ -866,12 +866,12 @@ public class OriginClientMod implements ClientModInitializer {
 		});
 	}
 
-	// JEI 26/27 renamed the render hooks (drawForScreen / drawForContainerScreen);
-	// the input names below are unchanged. Names only — no signatures — so this stays
-	// valid across the char-typed CharacterEvent change.
+	// JEI 27.54 render hooks: drawForScreenForeground / drawForScreenBackground (were
+	// drawForScreen / drawForContainerScreen in 27.17); the input names are unchanged and
+	// onGuiMouseDragged is new. Names only — no signatures.
 	private static void selfCheckJeiMixins() {
-		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "drawForScreen", "drawForContainerScreen", "renderCompactPotionIndicators");
-		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler", "onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
+		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "drawForScreenForeground", "drawForScreenBackground", "renderCompactPotionIndicators");
+		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler", "onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll", "onGuiMouseDragged");
 	}
 
 	private static void jeiMethodCheck(String className, String... methods) {
