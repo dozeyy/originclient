@@ -165,6 +165,11 @@ tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask
 	if (project.hasProperty("extraMods")) {
 		mods.from(fileTree(project.property("extraMods").toString()) { include "*.jar" })
 	}
+	// Sodium + Iris as a player's instance has them (this module installs them standalone,
+	// PerformanceModCatalog): the pinned production jars dev-shots fetches into libs/
+	// (tools/ci/perf_libs.py). Without them the run's Sodium/Iris gate fails and Origin's
+	// Sodium/Iris mixins go unproven. Absent locally (libs/ is gitignored) = not loaded.
+	mods.from(fileTree("libs") { include "sodium*.jar", "iris*.jar" })
 	runDir = file("run-prod")
 	if (project.hasProperty("frameLog")) {
 		jvmArgs.add("-Dorigin.frameLog=true")
