@@ -344,16 +344,31 @@ public sealed class ModImporterTests : IDisposable
         Assert.Contains(report.Notes, n => n.Contains("fabric-api"));
     }
 
+    // The shared folder follows the same rule as a profile (DECISIONS 2026-10-25, "a player's own mods win"): the
+    // player's own version of a mod Origin ships is added and loads instead of Origin's; Origin's own version (or an
+    // older Fabric API) is "already included" and never becomes a second copy.
     [Fact]
-    public void ASecondCopyOfAnOriginManagedModIsRefused()
+    public void TheSharedFolderTakesThePlayersOwnVersionButNeverASecondCopyOfOrigins()
     {
-        WriteJar(_mods, "fabric-api-0.100.0.jar", "fabric-api", "0.100.0");
-        var src = WriteJar(_incoming, "fabric-api-fork-1.0.jar", "fabric-api", "1.0.0");
-        var report = ModImporter.Import(new[] { src }, Context());
-        Assert.Empty(report.NeedsReplace);
-        Assert.Equal(0, report.Added);
-        Assert.False(System.IO.File.Exists(Path.Combine(_mods, "fabric-api-fork-1.0.jar")));
-        Assert.False(report.Ok);
+        var origins = WriteJar(_mods, "fabric-api-0.100.0.jar", "fabric-api", "0.100.0");
+        var before = System.IO.File.ReadAllBytes(origins);
+
+        var newer = WriteJar(_incoming, "fabric-api-fork-1.0.jar", "fabric-api", "1.0.0");
+        var added = ModImporter.Import(new[] { newer }, Context());
+        Assert.True(added.Ok, added.Error);
+        Assert.Equal(1, added.Added);
+        Assert.True(System.IO.File.Exists(Path.Combine(_mods, "fabric-api-fork-1.0.jar")));
+        Assert.Equal(before, System.IO.File.ReadAllBytes(origins)); // Origin's copy is untouched
+
+        foreach (var version in new[] { "0.100.0", "0.90.0" })
+        {
+            var src = WriteJar(_incoming, $"fabric-api-same-{version}.jar", "fabric-api", version);
+            var report = ModImporter.Import(new[] { src }, Context());
+            Assert.Empty(report.NeedsReplace);
+            Assert.Equal(0, report.Added);
+            Assert.False(report.Ok);
+            Assert.False(System.IO.File.Exists(Path.Combine(_mods, $"fabric-api-same-{version}.jar")));
+        }
     }
 
     [Fact]

@@ -131,6 +131,7 @@ public static class PlayerOverrides
         var notices = new List<string>();
         var setAside = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var wins = new SortedDictionary<string, ModFile>(StringComparer.Ordinal);
+        var sameAsOrigin = new HashSet<string>(StringComparer.Ordinal); // the player has these, at Origin's exact version
 
         // Newest first, so the copy the loader would pick among the player's own duplicates is the one weighed.
         foreach (var p in player.Where(p => p.Enabled).OrderByDescending(p => p.Info.Version, VersionOrder.Instance))
@@ -152,6 +153,7 @@ public static class PlayerOverrides
             if (SameVersion(info.Version, mine.Version))
             {
                 SetAside(p, null); // the same mod: Origin's copy loads, nothing changes
+                sameAsOrigin.Add(id); // but it still counts as the player's half of a Sodium + Iris pair (below)
                 continue;
             }
             if (NewerOnly.Contains(id) && !IsNewer(info.Version, mine.Version))
@@ -180,11 +182,32 @@ public static class PlayerOverrides
             {
                 // Origin's side already is the vetted partner (the pair's files are in this launch).
             }
+            else if (sameAsOrigin.Contains(otherId))
+            {
+                // The player brought BOTH halves: the other one is the very version Origin ships (so Origin's identical
+                // copy loads for it). Their pair is their choice and loads as they put it together.
+                log.Add($"Your {Display(mineId)} {mineVersion} and your {Display(otherId)} {originMods[otherId].Version} are used together.");
+            }
             else if (pair != null && partner != null)
             {
                 pairId = pair.PairId;
                 log.Add($"Your {Display(mineId)} {mineVersion} has a tested partner ({Display(otherId)} {partner.ModVersion}): that pair is used.");
                 KeepOut(originMods[otherId], null); // until the vetted partner is in the launch, never the mismatched one
+            }
+            else if (mineId == "sodium" && PlayerNeeds("iris") is { } addon)
+            {
+                // One of the player's mods needs Iris (an Iris addon): turning Iris off would stop the game starting.
+                // Keep a pair instead: Origin's tested Sodium + Iris, unless the player's mods need their own Sodium
+                // (then their Sodium stays with Origin's Iris, the only set that can start at all).
+                var originSodium = originMods["sodium"].Version;
+                if (PlayerNeedsVersion("sodium", originSodium) is { } needsTheirs)
+                    log.Add($"Your {needsTheirs} needs your Sodium {mineVersion} and your {addon} needs Iris: Origin's Iris stays on with your Sodium.");
+                else
+                {
+                    SetAside(wins["sodium"],
+                        $"Your {addon} needs Iris, and Origin has not tested an Iris with your Sodium {mineVersion}: Origin's Sodium and Iris are used.");
+                    wins.Remove("sodium");
+                }
             }
             else if (mineId == "sodium")
             {
@@ -257,6 +280,19 @@ public static class PlayerOverrides
             setAside.Add(PlayerOverridePlan.Full(p.Path));
             if (why != null) { log.Add(why); notices.Add(why); }
         }
+
+        // The player's mods in this launch (on, readable, not set aside) other than the copies of Sodium / Iris themselves.
+        IEnumerable<ModFile> PlayerMods() => player.Where(q => q.Enabled && !q.Info.ReadFailed
+            && q.Info.Id is not ("sodium" or "iris") && !setAside.Contains(PlayerOverridePlan.Full(q.Path)));
+
+        // The name of a player mod that requires <id> at all, or null.
+        string? PlayerNeeds(string id) => PlayerMods().FirstOrDefault(q => q.Info.Depends.Any(d => d.Id == id)) is { } q
+            ? q.Info.Name ?? q.Info.Id : null;
+
+        // The name of a player mod whose requirement on <id> Origin's <originVersion> does NOT meet, or null.
+        string? PlayerNeedsVersion(string id, string? originVersion) =>
+            PlayerMods().FirstOrDefault(q => q.Info.Depends.Any(d => d.Id == id && !d.IsSatisfiedBy(originVersion))) is { } q
+                ? q.Info.Name ?? q.Info.Id : null;
 
         bool IsWithheld(string id) => originMods.TryGetValue(id, out var m) && !m.Nested && withheld.Contains(PlayerOverridePlan.Full(m.Host.Path));
 

@@ -201,6 +201,18 @@ public sealed class ManagedPinsTests : IDisposable
             .Where(s => !string.IsNullOrEmpty(s));
         var missing = current.Where(s => !set.Contains(s!)).ToList();
         Assert.True(missing.Count == 0, "Add to ManagedPins.History.cs: " + string.Join(", ", missing));
+
+        // And every current pin's URL (tools/release/pin_history.py --check proves the same for every URL ever pinned).
+        var urls = new HashSet<string>((typeof(ManagedPins).GetField("EverPinnedUrls",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null) as string[])!,
+            StringComparer.Ordinal);
+        var currentUrls = PerformanceModCatalog.AllPins().Select(p => p.Url)
+            .Concat(ManagedPins.FabricApiVersions.Select(v => ManagedPins.FabricApi(v)!.Url))
+            .Concat(ManagedPins.VoiceChatVersions.Select(v => ManagedPins.VoiceChat(v)!.Url))
+            .Concat(ManagedPins.AlternateRows.Select(r => r.Value.Url))
+            .Where(u => u.StartsWith("https://cdn.modrinth.com/", StringComparison.Ordinal));
+        var missingUrls = currentUrls.Where(u => !urls.Contains(u)).ToList();
+        Assert.True(missingUrls.Count == 0, "Run tools/release/pin_history.py: " + string.Join(", ", missingUrls));
     }
 
     [Fact]

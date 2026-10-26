@@ -166,6 +166,69 @@ public class PlayerOverridesTests
         Assert.False(plan.Skips(cloth.Path));
     }
 
+    // Origin's 1.21.1 shape with an Iris that accepts any 0.6 Sodium (as the real Iris 1.8 declares a range).
+    private static readonly ModFile OriginClientLooseIris = File(Info("originclient", "1.0.0", nested: new[]
+    {
+        new NestedMod("sodium", "0.6.13+mc1.21.1", "Sodium"),
+        new NestedMod("iris", "1.8.8+mc1.21.1", "Iris") { Depends = new[] { Dep("sodium", ">=0.6.0") } },
+    }), ModRole.Managed);
+
+    [Fact]
+    public void ThePlayersSodiumWithTheirOwnIrisAtOriginsVersionIsAFullPairAndShadersStayOn()
+    {
+        // Review finding 5: their Iris equals Origin's, so it was set aside as "the same mod", their Sodium won alone
+        // and Iris was turned off for everyone although the player supplied the whole pair.
+        var sodium = Mod("sodium", "0.6.9+mc1.21.1");
+        var iris = Mod("iris", "1.8.8+mc1.21.1");
+        var plan = PlayerOverrides.Plan("1.21.1", new[] { OriginClientLooseIris, OriginApi }, new[] { sodium, iris }, Vetted);
+
+        Assert.Empty(plan.DisabledIds);
+        Assert.Null(plan.JvmArgument);
+        Assert.Contains("sodium", plan.OverriddenIds);
+        Assert.DoesNotContain(plan.Notices, n => n.StartsWith("Shaders are off"));
+        Assert.Contains(plan.Log, l => l.Contains("used together"));
+    }
+
+    [Fact]
+    public void ThePlayersIrisWithTheirSodiumAtOriginsVersionIsAFullPairAndTheirIrisLoads()
+    {
+        var sodium = Mod("sodium", "0.6.13+mc1.21.1");
+        var iris = Mod("iris", "1.8.9+mc1.21.1");
+        var plan = PlayerOverrides.Plan("1.21.1", new[] { OriginClientLooseIris, OriginApi }, new[] { sodium, iris }, Vetted);
+
+        Assert.Contains("iris", plan.OverriddenIds);
+        Assert.False(plan.Skips(iris.Path));
+        Assert.Empty(plan.DisabledIds);
+    }
+
+    [Fact]
+    public void AnIrisAddonOfThePlayersKeepsATestedPairInsteadOfTurningIrisOff()
+    {
+        // Review finding 7: turning Iris off stops a game whose player mod requires Iris from starting at all.
+        var sodium = Mod("sodium", "0.6.9+mc1.21.1");
+        var addon = Mod("iris-addon", "1.0.0", needs: new[] { ("iris", "*") });
+        var plan = PlayerOverrides.Plan("1.21.1", new[] { OriginClientLooseIris, OriginApi }, new[] { sodium, addon }, Vetted);
+
+        Assert.Empty(plan.DisabledIds);                   // Iris stays on
+        Assert.True(plan.Skips(sodium.Path));             // with Origin's tested Sodium, not the untested mix
+        Assert.Empty(plan.OverriddenIds);
+        Assert.Contains(plan.Notices, n => n.Contains("needs Iris"));
+    }
+
+    [Fact]
+    public void AnIrisAddonPlusAModThatNeedsTheirSodiumKeepsTheirSodiumAndOriginsIris()
+    {
+        var sodium = Mod("sodium", "0.6.9+mc1.21.1");
+        var addon = Mod("iris-addon", "1.0.0", needs: new[] { ("iris", "*") });
+        var sodiumAddon = Mod("sodium-addon", "1.0.0", needs: new[] { ("sodium", "<0.6.10") });
+        var plan = PlayerOverrides.Plan("1.21.1", new[] { OriginClientLooseIris, OriginApi },
+            new[] { sodium, addon, sodiumAddon }, Vetted);
+
+        Assert.Empty(plan.DisabledIds);
+        Assert.False(plan.Skips(sodium.Path));
+        Assert.Contains("sodium", plan.OverriddenIds);
+    }
+
     [Fact]
     public void ForgeOneEightNineHasNoPlan() =>
         Assert.True(PlayerOverrides.Plan("1.8.9", new[] { OriginApi }, new[] { Mod("fabric-api", "9.0.0") }).IsEmpty);

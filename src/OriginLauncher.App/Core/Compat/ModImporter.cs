@@ -149,9 +149,10 @@ public static class ModImporter
             // (In a profile Origin's jars live in the shared folder, so a file of the same name never takes their place.)
             var entries = existing.Where(e => (context.IsProfile && e.Role == ModRole.Managed) || !shadowed.Contains(JarName(e.FileName)))
                 .Concat(candidates.Select(c => c.File)).ToList();
-            // In a profile the player's own version of a mod Origin ships is theirs to add: it loads instead of
-            // Origin's there (Core/Compat/PlayerOverrides). The same version, or Origin's own mod, is "already in".
-            var report = CompatEngine.Check(entries, context.IsProfile ? context.Platform with { PlayerCopiesWin = true } : context.Platform);
+            // The player's own version of a mod Origin ships is theirs to add, in a profile AND in the version's shared
+            // folder: it loads instead of Origin's there (Core/Compat/PlayerOverrides; DECISIONS 2026-10-25). The same
+            // version, or Origin's own mod, is "already in". Not on 1.8.9 (Forge: no ids to weigh, Origin's stays).
+            var report = CompatEngine.Check(entries, PlayerCopiesWin(context) ? context.Platform with { PlayerCopiesWin = true } : context.Platform);
 
             var firstOfId = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var (index, src, name, file) in candidates)
@@ -159,6 +160,9 @@ public static class ModImporter
         }
         return items.Select(i => i!).ToList();
     }
+
+    // Where the player's own copy of a mod Origin ships may be added (and then loads instead of Origin's).
+    private static bool PlayerCopiesWin(ImportContext context) => context.IsProfile || !context.Platform.IsLegacyForge;
 
     private static ImportItem Decide(
         string src, string name, ModFile file, CompatReport report, List<ModFile> existing,
@@ -168,7 +172,7 @@ public static class ModImporter
             RefusalKinds.Contains(f.Kind)
             && (f.Severity != Severity.Info || f.Kind == FindingKind.OriginManagedConflict) // for a candidate that one is Info: "would" conflict
             && (f.Kind != FindingKind.WrongMinecraft || f.Certainty == Certainty.Confirmed)); // 1.8.9's mcmod.info is advisory
-        if (refusal != null && context.IsProfile && refusal.Kind == FindingKind.OriginManagedConflict
+        if (refusal != null && PlayerCopiesWin(context) && refusal.Kind == FindingKind.OriginManagedConflict
             && (file.Info.MinecraftRange is not { } range || range.IsSatisfiedBy(context.Platform.McVersion)))
             return new ImportItem(src, name, ImportAction.AlreadyOrigin, AlreadyOriginText, file.Info, null);
         if (refusal != null)

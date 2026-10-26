@@ -54,9 +54,9 @@ public sealed record CompatPlatform(
     public bool IsLegacyForge => Loader == LoaderFamily.LegacyForge;
 
     /// <summary>
-    /// The mods being judged go into a mod profile, where the player's own copy of a mod Origin also ships wins
-    /// (Core/Compat/PlayerOverrides): such a copy is judged as the player's mod, not refused as "Origin includes it".
-    /// Off for the version's shared folder, where Origin's copy stays.
+    /// The mods being judged go where the player's own copy of a mod Origin also ships wins (a mod profile or a Fabric
+    /// version's shared folder; Core/Compat/PlayerOverrides): such a copy is judged as the player's mod, not refused as
+    /// "Origin includes it". Off on 1.8.9 (Forge), where Origin's copy stays.
     /// </summary>
     public bool PlayerCopiesWin { get; init; }
 }

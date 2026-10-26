@@ -56,13 +56,10 @@ public static class FabricApiInstaller
         // Enumerate all files and match the project's filename prefix in either
         // state (".jar" or a player-disabled ".jar.disabled") — never a Win32
         // glob, and never re-downloading a copy the player deliberately turned off.
-        if (Directory.EnumerateFiles(modsFolder).Any(f =>
-        {
-            var n = Path.GetFileName(f);
-            return n.StartsWith(presentPrefix, StringComparison.OrdinalIgnoreCase)
-                && (n.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                    || n.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase));
-        }))
+        // Only ORIGIN's copy counts (ModManager.IsOriginsCopy: by its bytes, a pin or this folder's install record):
+        // a player's own Fabric API of that name is theirs, and Origin's mods (and every profile or Origin-only
+        // launch, which loads Origin's jars only) still need Origin's beside it.
+        if (Mods.ModManager.HasOriginsCopy(modsFolder, presentPrefix))
             return;
 
         progress?.Report(progressText);
