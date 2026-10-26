@@ -106,7 +106,7 @@ def retryable(pre_start_lines):
     return any(NETWORK.search(l) for l in block)
 
 
-def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None):
+def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expect_perf=None):
     """One runClient. Returns (ok, reason, retryable). companions = {mod id: catalog version} that
     must appear in the loaded mod list (--companions), else the run fails."""
     env = dict(os.environ, ORIGIN_SMOKE="1")
@@ -171,6 +171,18 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None):
                         verdict = (False, "Sodium/Iris gate failed (see perf-gate lines above)", False)
                     else:
                         verdict = (True, verdict[1] + f"; Origin Sodium/Iris mixins applied: {len(perf_log.tally(''.join(seen)))}", False)
+                if expect_perf and verdict[0]:
+                    # covers.py --pair: the swapped-in pair must be what loaded (not a nested or shipped copy).
+                    have = perf_log.loaded("".join(seen))
+                    wrong = [f"{k} loaded {have.get(k, 'NOT LOADED')}, expected {v}" for k, v in sorted(expect_perf.items())
+                             if have.get(k) != v]
+                    if wrong:
+                        print("::error title=pair not loaded::" + "; ".join(wrong), flush=True)
+                        verdict = (False, "swapped Sodium/Iris pair not loaded: " + "; ".join(wrong), False)
+                    else:
+                        shown = ", ".join(f"{k} {v}" for k, v in sorted(expect_perf.items()))
+                        print(f"boot-smoke: pair loaded: {shown}", flush=True)
+                        verdict = (True, verdict[1] + f"; pair loaded: {shown}", False)
                 break
     finally:
         timer.cancel()
@@ -197,6 +209,9 @@ def main():
     ap.add_argument("--companions", action="store_true",
                     help="CI: tools/ci/companion_mods.py put the catalog's ImmediatelyFast + Mod Menu jars in run/extra-mods "
                          "(loaded via -PextraMods): FAIL unless the loaded mod list names each at its catalog version")
+    ap.add_argument("--expect-perf", default="",
+                    help="CI (covers.py --pair): a file of 'sodium=<ver>' / 'iris=<ver>' lines; FAIL unless the loaded mod "
+                         "list names exactly those versions")
     ap.add_argument("--gradle-arg", action="append", default=[],
                     help="extra argument for the gradle runClient call (repeatable), e.g. --stacktrace")
     args = ap.parse_args()
@@ -246,10 +261,19 @@ def main():
             print(f"boot-smoke: --companions: the launcher catalog bundles no ImmediatelyFast / Mod Menu for {name}", file=sys.stderr)
             return 1
 
+    expect_perf = None
+    if args.expect_perf:
+        with open(args.expect_perf, encoding="ascii") as f:
+            expect_perf = dict(l.strip().split("=", 1) for l in f if "=" in l)
+        if set(expect_perf) != {"sodium", "iris"} or not args.perf:
+            print("boot-smoke: --expect-perf needs --perf and both sodium= and iris= lines", file=sys.stderr)
+            return 2
+
     ok, reason = False, "not run"
     for attempt in range(1, max(1, args.attempts) + 1):
         print(f"boot-smoke: {name} attempt {attempt} -> {' '.join(cmd)}", flush=True)
-        ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java, True if args.perf else None, companions)
+        ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java, True if args.perf else None, companions,
+                                         expect_perf)
         if ok or not retryable or attempt == args.attempts:
             if retryable and not ok:
                 reason += f" (network/download failure on all {attempt} attempts -- not an Origin bug; re-run)"
