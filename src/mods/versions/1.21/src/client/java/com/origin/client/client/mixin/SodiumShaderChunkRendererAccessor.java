@@ -1,14 +1,14 @@
 package com.origin.client.client.mixin;
 
-import me.jellysquid.mods.sodium.client.gl.shader.GlProgram;
-import me.jellysquid.mods.sodium.client.render.chunk.ShaderChunkRenderer;
-import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkShaderInterface;
-import me.jellysquid.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
+import net.caffeinemc.mods.sodium.client.gl.shader.GlProgram;
+import net.caffeinemc.mods.sodium.client.render.chunk.ShaderChunkRenderer;
+import net.caffeinemc.mods.sodium.client.render.chunk.shader.ChunkShaderInterface;
+import net.caffeinemc.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-// Target: Sodium 0.5.11's (1.21 catalog pin) ShaderChunkRenderer begin/end + activeProgram. Why:
+// Target: Sodium 0.6.13's ShaderChunkRenderer begin/end + activeProgram. Why:
 // Origin Render (render/terrain/OriginRender) replaces only the draw loop of a
 // terrain pass and must set up and tear down exactly as Sodium does, so begin()
 // still runs Iris's hooks and binds the same program, textures and fog. If this

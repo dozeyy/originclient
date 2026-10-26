@@ -2,8 +2,8 @@ package com.origin.client.client.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.origin.client.client.render.OffMapShadows;
-import me.jellysquid.mods.sodium.client.render.viewport.CameraTransform;
-import me.jellysquid.mods.sodium.client.render.viewport.Viewport;
+import net.caffeinemc.mods.sodium.client.render.viewport.CameraTransform;
+import net.caffeinemc.mods.sodium.client.render.viewport.Viewport;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -11,9 +11,9 @@ import org.spongepowered.asm.mixin.injection.At;
 
 /**
  * SETTINGS > Performance > Off-Map Shadows, chunk-section half (render/OffMapShadows).
- * Target: Sodium 0.5.11 Viewport.isBoxVisible(IIIFFF)Z at RETURN, and its private final field
- * transform (CameraTransform) -- javap 2026-10-20. OcclusionCuller calls it for every section the
- * chunk-graph walk reaches (isWithinFrustum, its only caller in Sodium 0.5.11 + Iris 1.7.3); the box it tests is
+ * Target: Sodium 0.6.13 Viewport.isBoxVisible(IIIFFF)Z at RETURN, and its private final field
+ * transform (CameraTransform) -- javap 2026-10-19. OcclusionCuller calls it for every section the
+ * chunk-graph walk reaches (isWithinFrustum / isWithinNearbySectionFrustum); the box it tests is
  * section center minus camera, which the handler rebuilds the same way.
  * Why: during Iris's shadow-pass walk, a section entirely off the shadow map's x/y edges answers
  * "not visible", so it never enters the shadow render list (no draw, and its block entities are

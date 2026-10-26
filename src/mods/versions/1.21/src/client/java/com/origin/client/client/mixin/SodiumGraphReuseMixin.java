@@ -3,20 +3,23 @@ package com.origin.client.client.mixin;
 import com.origin.client.client.render.HalfRateShadows;
 import com.origin.client.client.render.OffMapShadows;
 import com.origin.client.client.render.SmartTerrainUpdates;
-import me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager;
+import net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Target: Sodium 0.5.11 RenderSectionManager (names and signatures read from the jar 2026-10-20).
+ * Target: Sodium 0.6.13 RenderSectionManager (the 1.21 catalog pin since 2026-10-25; names and
+ * signatures read from the jar 2026-10-25, the same jar 1.21.1 ships).
  * Why: Smart Terrain Updates (SmartTerrainUpdates has the full proof) and Half-Rate Shadows' chunk
  * invalidation. Every method that changes what a chunk-graph walk would find marks the cache dirty
  * first; destroy() drops everything held for the manager; update() RETURN snapshots a real walk.
- * This mixin holds ONLY CallbackInfo handlers (no target arguments), so a changed signature can
- * never fail it at apply time: these are the must-run hooks. The arg-dependent ones live apart:
- * SodiumUpdateReuseMixin (update HEAD, needs the frame argument) and SodiumWalkEndMixin
+ * This mixin holds only handlers that take no target arguments (processChunkBuildResults returns
+ * boolean, so its handler takes a CallbackInfoReturnable), so a changed argument list can never
+ * fail it at apply time: these are the must-run hooks. The others live apart:
+ * SodiumUpdateReuseMixin (update HEAD, may cancel the walk) and SodiumWalkEndMixin
  * (createTerrainRenderList RETURN, needs the Viewport).
  * What breaks if it stops applying: nothing -- every graph-change hook only ever makes the feature
  * walk; the feature is version-gated to the exact Sodium + Iris builds this was read from and
@@ -25,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(value = RenderSectionManager.class, remap = false)
 public abstract class SodiumGraphReuseMixin {
-	// update(Camera, Viewport, int, boolean)V RETURN: the main pass only (Iris cancels the shadow
+	// update(Camera, Viewport, boolean)V RETURN: the main pass only (Iris cancels the shadow
 	// pass's update at its createTerrainRenderList call, before RETURN).
 	@Inject(method = "update", at = @At("RETURN"))
 	private void originclient$graphWalked(CallbackInfo ci) {
@@ -50,21 +53,26 @@ public abstract class SodiumGraphReuseMixin {
 		SmartTerrainUpdates.graphChanged(1);
 	}
 
-	// scheduleRebuild(IIIZ)V: only when a section's pending update really changes (its one
-	// setPendingUpdate call, bytecode offset 97, javap 2026-10-20). Vanilla calls setSectionDirty for
-	// unbuilt sections thousands of times while chunks light up; those change nothing a walk would
-	// find. Sodium 0.5.11 has no scheduleSort (0.6.13's translucency sort queue does not exist yet).
-	@Inject(method = "scheduleRebuild", at = @At(value = "INVOKE", target = "Lme/jellysquid/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lme/jellysquid/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
+	// scheduleRebuild(IIIZ)V / scheduleSort(JZ)V: only when a section's pending update really
+	// changes (their one setPendingUpdate call each, javap 2026-10-25). Vanilla calls setSectionDirty
+	// for unbuilt sections thousands of times while chunks light up; those change nothing a walk
+	// would find.
+	@Inject(method = "scheduleRebuild", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
 	private void originclient$rebuild(CallbackInfo ci) {
 		SmartTerrainUpdates.graphChanged(2);
 		// Half-Rate Shadows: a chunk is about to change, so the next frame redraws the shadow map.
 		HalfRateShadows.onChunksChanged();
 	}
 
-	// processChunkBuildResults(ArrayList)V -- void on 0.5.11 (0.6.13 returns boolean). uploadChunks
-	// calls it only when there are results, then sets needsUpdate.
+	@Inject(method = "scheduleSort", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
+	private void originclient$sort(CallbackInfo ci) {
+		SmartTerrainUpdates.graphChanged(3);
+	}
+
+	// processChunkBuildResults(ArrayList)Z (it returned void on 0.5.11). uploadChunks calls it only
+	// when there are results.
 	@Inject(method = "processChunkBuildResults", at = @At("HEAD"))
-	private void originclient$buildResults(CallbackInfo ci) {
+	private void originclient$buildResults(CallbackInfoReturnable<Boolean> cir) {
 		SmartTerrainUpdates.graphChanged(4);
 		HalfRateShadows.onChunksChanged();
 	}

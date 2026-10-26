@@ -10,15 +10,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Target: Iris 1.7.3 ShadowRenderer (javap of the jar 2026-10-20):
+ * Target: Iris 1.8.8 ShadowRenderer (javap of the jar 2026-10-25):
  * renderShadows(Lnet/irisshaders/iris/mixin/LevelRendererAccessor;Lnet/minecraft/client/Camera;)V,
- * static createShadowModelView(FF)Lcom/mojang/blaze3d/vertex/PoseStack; -- two floats here, four on
- * Iris 1.8.8, so that handler takes only the CallbackInfoReturnable (no argument list to go stale).
+ * static createShadowModelView(FF)Lcom/mojang/blaze3d/vertex/PoseStack; -- four floats on Iris 1.8.8 (two on
+ * the 1.7.3 this module used before 2026-10-25), so that handler takes only the CallbackInfoReturnable (no argument list to go stale).
  * No @Shadow and no direct field access: MODELVIEW, ACTIVE and packHasVoxelization are read by
  * reflection in HalfRateShadows, so a different Iris build only turns the feature off.
  * Why: Half-Rate Shadows (render/HalfRateShadows). renderShadows HEAD skips the whole shadow draw on
  * a kept frame (shadow walk, terrain/entity draws, mipmaps, shadowcomp); RETURN saves the matrix and
- * camera of a real draw. createShadowModelView RETURN (callers: renderShadows offset 117 and the
+ * camera of a real draw. createShadowModelView RETURN (callers: renderShadows and the
  * shadowModelView uniform in MatrixUniforms) corrects the uniform on a kept frame so the main pass
  * looks the kept map up where it was drawn (no swimming).
  * What breaks if it stops applying: nothing -- HalfRateShadows keeps a frame only after both the

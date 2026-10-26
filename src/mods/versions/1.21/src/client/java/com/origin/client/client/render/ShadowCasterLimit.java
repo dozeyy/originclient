@@ -14,7 +14,7 @@ import java.lang.invoke.MethodHandle;
 /**
  * SETTINGS > Performance > Limit Far Shadows (1.21 module, default OFF; ported from 1.21.1).
  *
- * <p>Why it saves work (re-read from Iris 1.7.3 / Sodium 0.5.11 bytecode, 2026-10-20: Iris
+ * <p>Why it saves work (read from Iris 1.8.8 / Sodium 0.6.13 bytecode, 2026-10-19; first read on 1.7.3 / 0.5.11: Iris
  * ShadowRenderer.renderEntities / renderPlayerEntity call shouldRender at offsets 74 / 39, Sodium
  * SodiumWorldRenderer.renderBlockEntity calls BlockEntityRenderDispatcher.render at 158): with a
  * shader pack on, Iris's ShadowRenderer draws the world a second time into the shadow map
