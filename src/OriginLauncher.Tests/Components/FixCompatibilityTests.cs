@@ -217,6 +217,55 @@ public sealed class FixCompatibilityTests : IDisposable
         Assert.NotEmpty(proposal.NoFix);
     }
 
+    // Holds the first fix inside its download until the test lets it go.
+    private sealed class Held(byte[] bytes) : IDependencyFetcher
+    {
+        public readonly ManualResetEventSlim Entered = new();
+        public readonly ManualResetEventSlim Go = new();
+
+        public bool Fetch(DependencyOffer offer, string destinationPath, out string? error)
+        {
+            Entered.Set();
+            Go.Wait(TimeSpan.FromSeconds(30));
+            File.WriteAllBytes(destinationPath, bytes);
+            error = null;
+            return true;
+        }
+    }
+
+    [Fact]
+    public async Task A_second_fix_while_one_is_running_is_refused_and_leaves_the_first_ones_copy_alone()
+    {
+        Put(ProfileMods, "somelib-2.1.jar", Kit.FabricJar("somelib", depends: new() { ["cloth-config"] = ">=15.0.0" }, name: "Some Lib"));
+        Put(ProfileMods, "goodmod-2.0.jar", Kit.FabricJar("goodmod", name: "Good Mod"));
+        var cloth = Kit.FabricJar("cloth-config", "15.0.140", name: "Cloth Config");
+        var proposal = Plan(new OneOffer("cloth-config", cloth));
+        var held = new Held(cloth);
+
+        var first = Task.Run(() => Apply(proposal, held));
+        Assert.True(held.Entered.Wait(TimeSpan.FromSeconds(30)));
+        var staging = Assert.Single(Directory.GetDirectories(_profiles, "*" + RepairExecutor.StagingSuffix));
+        var journal = Assert.Single(Directory.GetFiles(_journals));
+
+        var second = Apply(proposal, new Serving(cloth));
+
+        Assert.False(second.Ok);
+        Assert.Equal(FixCompatibility.BusyText, second.Error);
+        Assert.True(Directory.Exists(staging));
+        Assert.True(File.Exists(journal));
+        Assert.True(File.Exists(Path.Combine(staging, "mods", "goodmod-2.0.jar")));
+        Assert.Single(_settings.ModProfiles);
+
+        held.Go.Set();
+        var done = await first;
+        Assert.True(done.Ok, done.Error);
+        var mods = Path.Combine(_profiles, done.ProfileId!, "mods");
+        Assert.True(File.Exists(Path.Combine(mods, "goodmod-2.0.jar")));
+        Assert.True(File.Exists(Path.Combine(mods, "somelib-2.1.jar")));
+        Assert.True(File.Exists(Path.Combine(mods, "cloth-config-15.0.140.jar")));
+        Assert.Equal(2, _settings.ModProfiles.Count);
+    }
+
     // ---- journal + recovery ----
 
     [Fact]

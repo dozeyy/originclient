@@ -138,12 +138,36 @@ public static class FixCompatibility
         return best!;
     }
 
-    /// <summary>Builds the fixed copy (and selects it). The caller runs it off the UI thread.</summary>
+    // One fix at a time, process-wide: recovery treats every journal it finds as a crashed fix, so a second fix
+    // running beside the first would clear the first one's half-built copy.
+    private static readonly SemaphoreSlim OneAtATime = new(1, 1);
+
+    /// <summary>Text of the refusal when another fix is still being made.</summary>
+    public const string BusyText = "Origin is already making a fixed copy. Wait for it to finish.";
+
+    /// <summary>Builds the fixed copy (and selects it). The caller runs it off the UI thread. A second call while
+    /// one is running is refused at once (<see cref="BusyText"/>) and touches nothing.</summary>
     public static RepairCopyResult Apply(
         FixProposal proposal, string profilesDir, string journalsDir, Action<Action<LauncherSettings>> update,
         IDependencyFetcher? fetcher, Func<string, bool> isRegistered, Func<string, string> profilesDirFor)
     {
-        // A fix that was interrupted before (power cut, crash) is finished or cleared first: one at a time.
+        if (!OneAtATime.Wait(0)) return new RepairCopyResult(null, null, BusyText, null);
+        try
+        {
+            return ApplyAlone(proposal, profilesDir, journalsDir, update, fetcher, isRegistered, profilesDirFor);
+        }
+        finally
+        {
+            OneAtATime.Release();
+        }
+    }
+
+    private static RepairCopyResult ApplyAlone(
+        FixProposal proposal, string profilesDir, string journalsDir, Action<Action<LauncherSettings>> update,
+        IDependencyFetcher? fetcher, Func<string, bool> isRegistered, Func<string, string> profilesDirFor)
+    {
+        // A fix that was interrupted before (power cut, crash) is finished or cleared first. Nothing else is
+        // running (OneAtATime), so every journal here really is left over.
         RepairExecutor.RecoverCopies(journalsDir, profilesDirFor, isRegistered);
 
         var source = proposal.Source;

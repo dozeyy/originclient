@@ -7,18 +7,22 @@ its shipped set and nothing else; Play never offers more.
 
 | Module | Shipped set (default) | Alternates, newest first | Proof | Notes |
 |---|---|---|---|---|
-| 1.21.1 | Sodium 0.6.13 + Iris 1.8.8, nested in originclient-1.21.1.jar | Sodium 0.6.5 + Iris 1.8.1 (top-level jars) | dev 13/13 mixins applied, prod top-level-over-nested 13/13, sigcheck 46/46 | Smart Terrain off (exact-pair gate). 0.6.0 + 1.8.0 left out: loses `OcclusionCuller.addNearbySections` (45/46). |
-| 1.21.11 | Sodium 0.8.14 + Iris 1.10.8 (catalog jars) | Sodium 0.8.4 + Iris 1.10.5; Sodium 0.8.0 + Iris 1.10.0 | dev 10/10 mixins applied, sigcheck 32/32 | Dev runs only, no prod run. Smart Terrain off. 0.8.15-beta.1 not offered (beta). |
+| 1.21.1 | Sodium 0.6.13 + Iris 1.8.8, nested in originclient-1.21.1.jar | Sodium 0.6.5 + Iris 1.8.1 (top-level jars) | CI: boot-smoke 40252040490 job 121345919262; spike: dev 13/13 mixins applied, prod top-level-over-nested 13/13, sigcheck 46/46 | Smart Terrain off (exact-pair gate). 0.6.0 + 1.8.0 left out: loses `OcclusionCuller.addNearbySections` (45/46). |
+| 1.21.11 | Sodium 0.8.14 + Iris 1.10.8 (catalog jars) | Sodium 0.8.4 + Iris 1.10.5; Sodium 0.8.0 + Iris 1.10.0 | CI: boot-smoke 40252040490 jobs 121345919180 (0.8.4) and 121345919166 (0.8.0); spike: dev 10/10 mixins applied, sigcheck 32/32 | Smart Terrain off. 0.8.15-beta.1 not offered (beta). |
 | every other live module | its shipped set | none | - | Not tested in the spike: nothing to offer. |
 
 ## What the proof is, and is not
 
-- The proof is the spike's local runs (`run-dev.sh` / `run-prod.sh`, screenshots checked by eye) and the static
-  signature check (`docs/overhaul/spike-tools/sigcheck.py`). **No CI run id exists for any alternate.** The spike's
-  step 5 (a CI matrix job per pair) has not been built.
-- 1.21.11 alternates were booted in the dev environment only; 1.21.1's alternate also booted in a production layout.
-- Before adding a pair: boot it on that module in CI (dev-shots + boot-smoke), zero `Mixin apply ... failed` lines,
-  then add its pins to `ManagedPins.Data.cs` (Modrinth SHA-512) and its row here and in the catalog.
+- CI proof (2026-10-25): boot-smoke run 40252040490, input `pairs` (branch `claude/p5-pair-proof`:
+  `tools/boot-smoke/covers.py --pair`, `smoke.py --expect-perf`). Each pair booted production-style: the module's
+  BUILT jar + that version's catalog mods with the catalog Sodium + Iris replaced by the pair (the launcher's
+  LaunchSwap rule) + Fabric API. All three reached the title screen with zero `Mixin apply ... failed` lines and the
+  mod list named exactly the pair (on 1.21.1 the top-level pair won over the one nested in Origin's jar). Boot covers
+  the title screen only: 3 Origin Sodium/Iris mixins applied there; the rest apply in a world.
+- Before that, the spike's local runs (`run-dev.sh` / `run-prod.sh`) and the static signature check
+  (`docs/overhaul/spike-tools/sigcheck.py`).
+- Before adding a pair: add its pins to `ManagedPins.Data.cs` (Modrinth SHA-512), boot it with boot-smoke
+  `pairs=<mc>:<pairId>` (zero `Mixin apply ... failed`, pair loaded), then its row here and in the catalog.
 
 ## How Play uses it
 

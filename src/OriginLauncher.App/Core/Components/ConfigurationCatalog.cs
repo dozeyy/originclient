@@ -26,9 +26,9 @@ public sealed record VettedConfiguration(
 }
 
 /// <summary>
-/// Which configurations each version may launch with. ONLY pairs the Sodium/Iris spike proved are listed
-/// (docs/overhaul/configuration-matrix.md); every other version has its shipped set and nothing else. Never add a
-/// pair here without a boot with zero mixin-apply failures on that module.
+/// Which configurations each version may launch with. ONLY pairs proven in CI are listed (boot-smoke input
+/// `pairs`, docs/overhaul/configuration-matrix.md); every other version has its shipped set and nothing else. Never
+/// add a pair here without a green boot-smoke row for it: zero mixin-apply failures and that exact pair loaded.
 /// </summary>
 public static class ConfigurationCatalog
 {
@@ -49,12 +49,12 @@ public static class ConfigurationCatalog
         {
             ["1.21.1"] = new[]
             {
-                ("0.6.5+1.8.1", "spike 2026-10-25: dev 13/13 mixins applied, prod (top-level over nested) 13/13, signatures 46/46; Smart Terrain off"),
+                ("0.6.5+1.8.1", "CI boot-smoke 40252040490 (prod layout, 0 mixin-apply failures, pair loaded over the nested one); spike dev 13/13, signatures 46/46; Smart Terrain off"),
             },
             ["1.21.11"] = new[]
             {
-                ("0.8.4+1.10.5", "spike 2026-10-25: dev 10/10 mixins applied, signatures 32/32, no prod run; Smart Terrain off"),
-                ("0.8.0+1.10.0", "spike 2026-10-25: dev 10/10 mixins applied, signatures 32/32, no prod run; Smart Terrain off"),
+                ("0.8.4+1.10.5", "CI boot-smoke 40252040490 (prod layout, 0 mixin-apply failures, pair loaded); spike dev 10/10, signatures 32/32; Smart Terrain off"),
+                ("0.8.0+1.10.0", "CI boot-smoke 40252040490 (prod layout, 0 mixin-apply failures, pair loaded); spike dev 10/10, signatures 32/32; Smart Terrain off"),
             },
         };
 

@@ -82,12 +82,12 @@ internal static class CompatShots
         Console.WriteLine(report.ToString());
         if (report.ToString().Contains("FAIL")) throw new InvalidOperationException("Home error line out of bounds:\n" + report);
 
-        FixPrompt(window, outDir, home, version);
+        FixPrompt(window, outDir, home, version, tone);
     }
 
     // 3. Phase 5.3: the Fix Compatibility prompt over the refused Play, through the page's own OpenFixPrompt and
     // ShowFixPlan, with proposals the real planner (FixCompatibility.Choose -> RepairPlanner) makes from model mods.
-    private static void FixPrompt(MainWindow window, string outDir, object home, string version)
+    private static void FixPrompt(MainWindow window, string outDir, object home, string version, object tone)
     {
         var platform = LaunchPreflight.PlatformFor(version);
         var profile = new ModProfile { Id = ProfileRules.NewId(), Name = "Hypixel PvP", Version = version };
@@ -108,6 +108,9 @@ internal static class CompatShots
         var proposal = FixCompatibility.Choose(source, new[] { (shipped, CompatEngine.Check(entries, platform)) },
             new DemoCatalog(), platform);
 
+        // The status line behind the prompt is the refusal Play just set: the same mods the prompt names.
+        Call(home, "SetStatus", new[] { new IncompatibleModsException(version, new[] { "Old Mod", "Some Lib" },
+            new[] { $"Old Mod: needs Minecraft 1.20.4, not {version}.", "Some Lib: it needs Cloth Config." }).Message, tone });
         Call(home, "OpenFixPrompt", new object[] { new[] { "Old Mod", "Some Lib" }, version });
         Call(home, "ShowFixPlan", new object?[] { proposal, profile });
         RenderShots.Pump(500);
@@ -115,6 +118,8 @@ internal static class CompatShots
 
         // 3b. No plan could be made (Modrinth too slow, a jar unreadable): the prompt says so plainly and keeps
         // Launch anyway, with no Fix button.
+        Call(home, "SetStatus", new[] { new IncompatibleModsException(version, new[] { "Old Mod" },
+            new[] { $"Old Mod: needs Minecraft 1.20.4, not {version}." }).Message, tone });
         Call(home, "OpenFixPrompt", new object[] { new[] { "Old Mod" }, version });
         Call(home, "ShowFixPlan", new object?[] { null, profile });
         RenderShots.Pump(500);

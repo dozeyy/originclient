@@ -18,8 +18,12 @@ public partial class HomePage
 {
     private const string FixFoot = "Your original stays exactly as it is: the fix is made in a copy, which Play then starts.";
 
+    // True while a fixed copy is being made: Play/Join are off and no second prompt opens.
+    private bool _fixRunning;
+
     private async Task OfferFixAsync(IncompatibleModsException refused, string version, ModProfile? profile)
     {
+        if (_fixRunning) return;
         try
         {
             var choice = OpenFixPrompt(refused.Names, version);
@@ -88,14 +92,28 @@ public partial class HomePage
 
     private async Task ApplyFixAsync(FixProposal proposal)
     {
-        SetStatus("Making a fixed copy...", StatusTone.Neutral);
-        var store = VersionManager.SharedComponents;
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var result = await Task.Run(() => FixCompatibility.Apply(
-            proposal, OriginPaths.ProfilesDir(proposal.Source.Version), OriginPaths.RepairJournals, SettingsStore.Update,
-            new ModrinthDependencyFetcher(store.Http, cts.Token),
-            id => SettingsStore.Load().ModProfiles.Any(p => p.Id == id),
-            OriginPaths.ProfilesDir));
+        if (_fixRunning) return;
+        // Play (and Join) stay off while the copy is made (RefreshPlayButton), so no second refusal can start a second
+        // fix; FixCompatibility.Apply refuses one anyway.
+        _fixRunning = true;
+        RefreshPlayButton();
+        RepairCopyResult result;
+        try
+        {
+            SetStatus("Making a fixed copy...", StatusTone.Neutral);
+            var store = VersionManager.SharedComponents;
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            result = await Task.Run(() => FixCompatibility.Apply(
+                proposal, OriginPaths.ProfilesDir(proposal.Source.Version), OriginPaths.RepairJournals, SettingsStore.Update,
+                new ModrinthDependencyFetcher(store.Http, cts.Token),
+                id => SettingsStore.Load().ModProfiles.Any(p => p.Id == id),
+                OriginPaths.ProfilesDir));
+        }
+        finally
+        {
+            _fixRunning = false;
+            RefreshPlayButton();
+        }
         if (!result.Ok)
         {
             SetStatus(result.Error!, StatusTone.Error);

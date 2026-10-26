@@ -593,7 +593,7 @@ public partial class HomePage : UserControl
         ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: _selectedVersion != null));
         // Join follows Play: usable only when Play itself could start a launch.
         JoinButton.IsEnabled = key != null && phase == GamePhase.Idle && _selectedVersion != null;
-        if (ImportRunState.IsApplying)
+        if (ImportRunState.IsApplying || _fixRunning) // _fixRunning: a fixed copy is being made (HomePage.Fix.cs)
         {
             PlayButton.IsEnabled = false;
             JoinButton.IsEnabled = false;

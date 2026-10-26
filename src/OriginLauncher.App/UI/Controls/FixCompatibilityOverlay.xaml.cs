@@ -24,6 +24,12 @@ public partial class FixCompatibilityOverlay : UserControl
     public FixCompatibilityOverlay()
     {
         InitializeComponent();
+        // Leaving Home while the prompt is open (Ctrl+1..4, a nav click) answers it with Cancel, the same as Esc, so
+        // no answer is left pending on a page the player can't see.
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is false) Dismiss();
+        };
     }
 
     /// <summary>Opens the prompt in its "looking for a fix" state and waits for the answer.</summary>
