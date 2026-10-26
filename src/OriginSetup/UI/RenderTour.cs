@@ -12,16 +12,19 @@ namespace OriginSetup.UI;
 // every change — nothing is installed or removed.
 public static class RenderTour
 {
-    // Rendered twice: the detail pass at 1.5x in <dir>, and a 100% pass in <dir>/100pct (how a 100% display draws it).
+    // Rendered at three display scales: the 150% pass in <dir> (the detail pass build-check uploads), then 100% in
+    // <dir>/100pct and 200% in <dir>/200pct. Each pass gives the window's tree that DPI (Snap), so layout rounding and
+    // text are laid out as on a monitor at that scale, not a 100% layout scaled up.
     private static double _scale = 1.5;
 
     public static void Run(string outDir, string self)
     {
         PageMotion.Instant = true;
-        _scale = 1.5;
-        Tour(outDir, self);
-        _scale = 1.0;
-        Tour(Path.Combine(outDir, "100pct"), self);
+        foreach (var (scale, sub) in new[] { (1.5, ""), (1.0, "100pct"), (2.0, "200pct") })
+        {
+            _scale = scale;
+            Tour(sub.Length == 0 ? outDir : Path.Combine(outDir, sub), self);
+        }
     }
 
     private static void Tour(string outDir, string self)
@@ -76,11 +79,17 @@ public static class RenderTour
 
     private static void Snap(Window window, string dir, string name)
     {
-        // Let layout, bindings and the first render pass settle.
+        double scale = _scale;
+        // The pass's DPI on the whole tree (what per-monitor DPI does on a scaled monitor), re-measured so the new
+        // pixel-grid rounding applies; then let layout, bindings and the first render pass settle.
+        if (Math.Abs(VisualTreeHelper.GetDpi(window).DpiScaleX - scale) > 0.001)
+        {
+            VisualTreeHelper.SetRootDpi(window, new DpiScale(scale, scale));
+            Invalidate(window);
+        }
         window.UpdateLayout();
         window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-        double scale = _scale;
         var root = (FrameworkElement)window.Content;
         var bitmap = new RenderTargetBitmap((int)(root.ActualWidth * scale), (int)(root.ActualHeight * scale),
                                             96 * scale, 96 * scale, PixelFormats.Pbgra32);
@@ -89,5 +98,16 @@ public static class RenderTour
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var file = File.Create(Path.Combine(dir, name + ".png"));
         encoder.Save(file);
+    }
+
+    private static void Invalidate(DependencyObject d)
+    {
+        if (d is UIElement e)
+        {
+            e.InvalidateMeasure();
+            e.InvalidateArrange();
+            e.InvalidateVisual();
+        }
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++) Invalidate(VisualTreeHelper.GetChild(d, i));
     }
 }
