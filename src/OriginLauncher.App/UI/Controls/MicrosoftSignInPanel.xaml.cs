@@ -62,7 +62,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             {
                 // The cancelled redirect also "completes": keep covering the
                 // page once it's finishing or showing an outcome.
-                if (!_holdOverlay) LoadingOverlay.Visibility = Visibility.Collapsed;
+                if (!_holdOverlay) ShowPage(true);
             };
 
             var result = MicrosoftAuthenticator.IsTestMode
@@ -109,8 +109,24 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         MessageText.Text = text;
         LoadingText.Visibility = Visibility.Collapsed;
         MessagePanel.Visibility = Visibility.Visible;
-        LoadingOverlay.Visibility = Visibility.Visible;
+        ShowPage(false);
     }
+
+    /// <summary>
+    /// Microsoft's page on show (true): the well takes the page's height (Size.SignInPage) and the cover lifts.
+    /// Anything else (loading, finishing, an outcome): the cover is up and the well fits it, so the card is only
+    /// as tall as what it says. Once the page has shown, the browser is hidden under a cover: it is a separate
+    /// window that would draw over the cover's text in the smaller well.
+    /// </summary>
+    private void ShowPage(bool page)
+    {
+        if (page) _pageShown = true;
+        PageArea.Height = page ? (double)FindResource("Size.SignInPage") : double.NaN;
+        LoadingOverlay.Visibility = page ? Visibility.Collapsed : Visibility.Visible;
+        if (_pageShown) WebView.Visibility = page ? Visibility.Visible : Visibility.Hidden;
+    }
+
+    private bool _pageShown;
 
     // TEMPORARY — testing only. Prism's client ID expects a custom URI scheme
     // redirect (prismlauncher://oauth/microsoft) rather than a localhost
@@ -173,7 +189,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         // Minecraft finish (a few seconds) so the card never looks stuck.
         _holdOverlay = true;
         LoadingText.Text = "Finishing sign-in...";
-        LoadingOverlay.Visibility = Visibility.Visible;
+        ShowPage(false);
         return await authenticator.CompleteTestSignInAsync(authCode, codeVerifier, ct);
     }
 

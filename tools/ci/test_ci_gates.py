@@ -853,5 +853,74 @@ class LaunchTimeForgeMarkers(unittest.TestCase):
         self.assertNotIn("new(OriginPaths.VersionRoot", journal)
 
 
+covers = _load("covers", os.path.join(ROOT, "tools", "boot-smoke", "covers.py"))
+
+
+class CoversBoot(unittest.TestCase):
+    """boot-smoke covers mode (tools/boot-smoke/covers.py): a covered version boots the BUILT jar + its catalog mods."""
+
+    def test_every_covered_fabric_version_has_a_full_catalog_row(self):
+        import json
+        live = json.loads(_read(covers.LIVE))["modules"]
+        cat = _read(covers.CATALOG)
+        for m in live:
+            if m["module"] == "1.8.9":
+                continue
+            for v in m["versions"]:
+                self.assertEqual(covers.covering_module(_read(covers.LIVE), v), m["module"])
+                mods = covers.catalog_mods(cat, v)   # raises without Sodium + Iris or with an unpinned SHA
+                self.assertTrue(all(len(sha) == 128 for _u, _f, sha in mods), v)
+
+    def test_catalog_row_without_iris_or_sha_fails(self):
+        row = '["9.9"] = new("9.9", T, new PerfMod("1", "https://cdn.modrinth.com/a/sodium-x.jar", "sodium-x.jar", "%s"))\n' % ("a" * 128)
+        with self.assertRaises(covers.CoverError):
+            covers.catalog_mods(row, "9.9")   # no iris
+        with self.assertRaises(covers.CoverError):
+            covers.catalog_mods(row, "1.0")   # no entry
+        nosha = row.replace(', "%s"' % ("a" * 128), "") + row.replace("9.9", "9.8").replace("sodium", "iris")
+        with self.assertRaises(covers.CoverError):
+            covers.catalog_mods(nosha, "9.9")
+
+    def test_generated_project_follows_the_module_era(self):
+        for mod, mapped, cfg in (("1.21.4", True, "modImplementation"), ("1.20", True, "modImplementation"),
+                                 ("26.1", False, "implementation")):
+            g = covers.build_gradle(_read(os.path.join(ROOT, "src", "mods", "versions", mod, "build.gradle")))
+            self.assertEqual("officialMojangMappings()" in g, mapped, mod)
+            self.assertIn('\t%s "net.fabricmc:fabric-loader:' % cfg, g)
+            self.assertIn('"fabric.addMods", file("mods")', g)
+            self.assertNotIn("sourceSet", g)   # no sources of its own: Origin comes in as the built jar
+        props = covers.gradle_properties("a=1\nminecraft_version=1.21.4\nloader_version=0.19.3\n", "1.21.2")
+        self.assertIn("minecraft_version=1.21.2\n", props)
+        self.assertIn("loader_version=0.19.3", props)
+        self.assertNotIn("runtimeJavaCompatibilityVersion", props)
+        # 1.20.x players run Java 17: Loom must keep the version's own LWJGL (Sodium 0.5 refuses Loom's 3.3.2)
+        props17 = covers.gradle_properties("minecraft_version=1.20\n", "1.20.1", 17)
+        self.assertIn("fabric.loom.runtimeJavaCompatibilityVersion=17\n", props17)
+
+    def test_fabric_api_pick_is_newest_release_only(self):
+        vs = [{"version_type": "beta", "date_published": "2026-10-03"},
+              {"version_type": "release", "date_published": "2026-10-01", "version_number": "old"},
+              {"version_type": "release", "date_published": "2026-10-02", "version_number": "new"}]
+        self.assertEqual(covers.pick_newest_release(vs)["version_number"], "new")
+        self.assertIsNone(covers.pick_newest_release(vs[:1]))
+
+    def test_download_refuses_other_hosts_and_bad_hashes(self):
+        d = tempfile.mkdtemp()
+        with self.assertRaises(covers.CoverError):
+            covers._download("https://example.com/x.jar", "x.jar", "", d, fetch=lambda u: b"x")
+        with self.assertRaises(covers.CoverError):
+            covers._download("https://cdn.modrinth.com/x.jar", "x.jar", "0" * 128, d, fetch=lambda u: b"x")
+        import hashlib
+        covers._download("https://cdn.modrinth.com/x.jar", "x.jar", hashlib.sha512(b"x").hexdigest(), d, fetch=lambda u: b"x")
+        self.assertTrue(os.path.isfile(os.path.join(d, "x.jar")))
+
+    def test_workflow_wires_covers_rows(self):
+        wf = _read(os.path.join(ROOT, ".github", "workflows", "boot-smoke.yml"))
+        self.assertIn("covers:", wf)
+        self.assertIn("python3 tools/boot-smoke/covers.py", wf)
+        self.assertIn('m="build/covers/$COVER"', wf)
+        self.assertIn("args+=(--perf --companions)", wf)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

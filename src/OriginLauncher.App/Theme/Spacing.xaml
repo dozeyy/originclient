@@ -91,6 +91,10 @@
     <system:Double x:Key="Size.TileLg">40</system:Double>
     <!-- A dialog's width (spec 11.10: max 440) and the swatch / emblem pickers inside the profile form. -->
     <system:Double x:Key="Size.Dialog">440</system:Double>
+    <!-- The Microsoft sign-in card: 460 wide; the page well is 564 tall once Microsoft's page shows (card 640 with its
+         60 header and 16 bottom gutter). Until then, and for an outcome message, the card fits its content. -->
+    <system:Double x:Key="Size.SignInCard">460</system:Double>
+    <system:Double x:Key="Size.SignInPage">564</system:Double>
     <!-- Brand sizes (spec 1.3): the top bar mark 24 with a 16 tall wordmark. -->
     <system:Double x:Key="Size.Emblem">24</system:Double>
     <system:Double x:Key="Size.Logo.Bar">24</system:Double>

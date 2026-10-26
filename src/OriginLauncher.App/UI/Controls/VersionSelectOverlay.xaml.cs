@@ -396,6 +396,13 @@ public partial class VersionSelectOverlay : UserControl
 
     private double Token(string key) => (double)FindResource(key);
 
+    // Moved to a monitor at another scale: the edges' device-pixel width changed (SizeCards), the size may not have.
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        SizeCards();
+    }
+
     // The sheet follows the window: Size.Sheet.Share of its width, between Size.Sheet.Min and Size.Sheet.Max, never
     // wider than the window less the gutters. The cards stay 16:9 art at whatever width that gives; when the window is
     // too short for two rows at that width the cards (and so the sheet) get narrower instead of squashing the art.
@@ -404,8 +411,12 @@ public partial class VersionSelectOverlay : UserControl
         var stageW = Stage.ActualWidth;
         var stageH = Stage.ActualHeight;
         if (_tiles.Count == 0 || stageW <= 0 || stageH <= 0) return;
+        // Layout rounding draws the sheet's 1 px edges in whole device pixels: at 150 % each is 2 px = 1.33 px here,
+        // which the cards' row would lose (the last card's edge was cut by 0.67). Count the edges as drawn at this DPI.
+        var dpi = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        var innerX = SheetInnerX + Math.Max(0, 2 * (Math.Round(dpi) / dpi - 1));
         var sheet = Math.Min(stageW - SheetGutterX, Math.Clamp(stageW * Token("Size.Sheet.Share"), Token("Size.Sheet.Min"), Token("Size.Sheet.Max")));
-        var column = Math.Floor((sheet - SheetInnerX + RowGap) / Columns) - RowGap;
+        var column = Math.Floor((sheet - innerX + RowGap) / Columns) - RowGap;
         var rows = (_tiles.Count + Columns - 1) / Columns;
         var fit = (stageH - SheetChrome - FamiliesHeader + RowGap) / rows - CardText - RowGap;
         if ((column - CardEdges) * 9 / 16 > fit) column = Math.Floor(fit * 16 / 9 + CardEdges);
@@ -416,11 +427,11 @@ public partial class VersionSelectOverlay : UserControl
             tile.CardWidth = column;
             tile.ThumbHeight = art;
         }
-        Sheet.Width = Columns * column + (Columns - 1) * RowGap + SheetInnerX;
+        Sheet.Width = Columns * column + (Columns - 1) * RowGap + innerX;
 
         // Step 2's panel: a share of the sheet (Size.FamilyPanel tokens), and never taller than the cards' block, so
         // the sheet keeps its size between the steps. Its art is 16:9 at that width, shorter when the window is.
-        var panel = Math.Round(Math.Clamp((Sheet.Width - SheetInnerX) * Token("Size.FamilyPanel.Share"), Token("Size.FamilyPanel.Min"), Token("Size.FamilyPanel.Max")));
+        var panel = Math.Round(Math.Clamp((Sheet.Width - innerX) * Token("Size.FamilyPanel.Share"), Token("Size.FamilyPanel.Min"), Token("Size.FamilyPanel.Max")));
         FamilyPanel.Width = panel;
         var inner = panel - PanelEdges;
         var block = FamiliesHeader + rows * (art + CardText) + (rows - 1) * RowGap;

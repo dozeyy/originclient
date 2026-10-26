@@ -379,8 +379,10 @@
         </Setter>
     </Style>
 
-    <!-- A list row: 32 tall (Size.ControlMd), Radius.Sm. Hover and the keyboard highlight are the white 6 % wash;
-         the chosen row is the soft accent wash with full-strength text. -->
+    <!-- A list row (spec 11.2): 32 tall (Size.ControlMd), Radius.Sm, pad X 10. Hover and the keyboard highlight are
+         the white 6 % wash. The chosen row has no fill of its own: its label goes bodyStrong in full-strength text and
+         a 14 px check in the accent sits on the right. Every row keeps the check's slot (Hidden, not Collapsed), so
+         the menu's width and the labels never move when the selection changes. -->
     <Style x:Key="Input.ComboBoxItem" TargetType="ComboBoxItem">
         <Setter Property="Padding" Value="10,0"/>
         <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
@@ -391,7 +393,16 @@
                 <ControlTemplate TargetType="ComboBoxItem">
                     <Border x:Name="Bg" CornerRadius="{StaticResource Radius.Sm}" MinHeight="{TemplateBinding MinHeight}"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter VerticalAlignment="Center"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter VerticalAlignment="Center"/>
+                            <Path x:Name="Check" Grid.Column="1" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Small}"
+                                  Stroke="{StaticResource Brush.Accent}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                  Visibility="Hidden"/>
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
@@ -399,7 +410,8 @@
                             <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
                             <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">

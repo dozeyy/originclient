@@ -148,7 +148,8 @@
     <CornerRadius x:Key="Radius.Sm">6</CornerRadius>
     <CornerRadius x:Key="Radius.Md">8</CornerRadius>
     <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
-    <CornerRadius x:Key="Radius.Full">999</CornerRadius>
+    <!-- No Radius.Full (999): WPF scales an over-large radius per axis and draws an oval on anything wider than
+         tall. Capsules take radius = height / 2 (DECISIONS: no ovals). -->
     <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
     <CornerRadius x:Key="Radius.Track">2</CornerRadius>
     <!-- Focus ring corner = control corner + 2 (spec 8). -->

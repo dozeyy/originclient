@@ -131,8 +131,13 @@ public partial class HomePage : UserControl
     private void ReportStripTop()
     {
         if (ActualHeight <= 0 || HomeCard.ActualHeight <= 0) return;
-        ArtStage.SetStripTop(ActualHeight - HomeCard.Margin.Bottom - HomeCard.ActualHeight);
+        var stripHeight = HomeCard.Margin.Bottom + HomeCard.ActualHeight;
+        ArtStage.SetStripTop(ActualHeight - stripHeight);
+        StripHeightChanged?.Invoke(stripHeight);
     }
+
+    /// <summary>MainWindow: how far Home's strip reaches up from the window's bottom edge (the toasts stack above it).</summary>
+    public event Action<double>? StripHeightChanged;
 
     /// <summary>MainWindow: the launch screen came up or went down (the top bar hides under it).</summary>
     public event Action<bool>? LaunchSceneChanged;
@@ -1606,6 +1611,14 @@ public partial class HomePage : UserControl
     /// without preparing or starting anything.
     /// </summary>
     internal void TourShowLaunch(string version) => LoadingOverlay.Show(version, "OriginPlayer - Survival SMP");
+
+    /// <summary>Render mode only: Home on <paramref name="version"/> (its card, art and numeral) with no settings touched,
+    /// so a launch shot's art matches the version it names, as a real Play press does.</summary>
+    internal void TourSelectVersion(string? version)
+    {
+        _selectedVersion = version;
+        SetVersionButtonText(version);
+    }
 
     internal void TourReportLaunch(string stage) => LoadingOverlay.ReportStage(stage);
 

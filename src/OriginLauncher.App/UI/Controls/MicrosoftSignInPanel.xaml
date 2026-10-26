@@ -32,9 +32,12 @@
              sees a blank white flash while CoreWebView2 spins up. -->
         <!-- Inset by the 16 gutter so the page (a separate window that WPF can't round) sits as a well inside the
              dialog's 16 corners instead of poking square corners through them. -->
-        <Grid Grid.Row="1" Margin="16,0,16,16" ClipToBounds="True">
+        <!-- PageArea has no height of its own until Microsoft's page shows (ShowPage): the card fits the loading line
+             or an outcome instead of standing 640 tall around one sentence. -->
+        <Grid x:Name="PageArea" Grid.Row="1" Margin="16,0,16,16" ClipToBounds="True">
             <wv2:WebView2 x:Name="WebView"/>
-            <Border x:Name="LoadingOverlay" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}">
+            <Border x:Name="LoadingOverlay" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}"
+                    Padding="24">
                 <Grid>
                     <TextBlock x:Name="LoadingText" Text="Loading sign-in..." Style="{StaticResource Text.BodyDim}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -43,9 +46,9 @@
                     <StackPanel x:Name="MessagePanel" Visibility="Collapsed" MaxWidth="380"
                                 HorizontalAlignment="Center" VerticalAlignment="Center">
                         <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.Title}"
-                                   TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                   TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,8"/>
                         <TextBlock x:Name="MessageText" Style="{StaticResource Text.BodyDim}"
-                                   TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                                   TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,24"/>
                         <Button Content="OK" Style="{StaticResource Button.Primary.Medium}" MinWidth="140"
                                 HorizontalAlignment="Center" HorizontalContentAlignment="Center"
                                 Click="CancelButton_Click"/>

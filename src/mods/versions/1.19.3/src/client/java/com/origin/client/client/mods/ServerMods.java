@@ -6,7 +6,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 /**
  * Wires the server-integration mods (Lunar parity batch 3b: Team View, Discord
- * Status, Hypixel) into Fabric's events, from one call in
+ * presence (always on), Hypixel) into Fabric's events, from one call in
  * OriginClientMod.onInitializeClient. Every listener is wrapped so a failure in
  * one of these mods can never break a tick, a frame or an incoming chat line --
  * it just leaves that mod quiet.
