@@ -352,10 +352,9 @@ public sealed partial class ImportEngine
 
         var sourceMods = ModSetResolver.ReadSourceMods(plan.Source.ModsFolder, fs, ct);
         var decisions = ModSetResolver.Resolve(sourceMods, new ResolveContext(target, builtIns, JavaFor(target)));
-        // A jar named like one of Origin's own is never loaded from a profile (LaunchSet drops it): Origin's copy is used.
-        decisions = decisions.Select(d => d.IsCopied && d.DestFileName is { } dest && _env.IsOriginProvisioned(SharedModsLedger.FileKey(dest))
-            ? d with { Outcome = ModOutcome.BuiltIn, Reason = OriginsOwnCopy, DestFileName = null }
-            : d).ToList();
+        // A copy of a mod Origin also ships is the player's when the resolver kept it (another version, for this
+        // Minecraft): it lands in the profile and wins there (Core/Compat/PlayerOverrides). The resolver already
+        // turned the same version, Origin's own mod and an older Fabric API into BuiltIn.
 
         // Origin's own turned-on jars of the version: the only shared-folder jars a profile launch loads.
         var origin = SharedModsLedger.Read(InstanceLayout.ModsDir(_env.InstancesRoot, target),
@@ -371,10 +370,22 @@ public sealed partial class ImportEngine
             foreach (var provided in InfoOf(d)?.Provides ?? Array.Empty<string>()) needNames.Add(provided);
             return importedDepends.Where(dep => needNames.Contains(dep.Id)).ToList();
         }
-        // Origin's jar is never swapped out of the shared folder for a profile: the ledger's "replace Origin's older
-        // copy" becomes "Origin's copy stays", and ImportedModFit then turns off the imported mods that need the newer one.
+        // The player's own version of a mod Origin has lands in the profile and loads there instead of Origin's, which
+        // stays in the shared folder untouched: the same rule a profile launch applies (Core/Compat/PlayerOverrides),
+        // decided here on the copied mods so the summary says what Play will do.
+        var playerCopies = decisions
+            .Where(d => d.IsCopied && d.SourcePath != null && d.DestFileName != null && InfoOf(d) != null)
+            .Select(d => new ModFile(d.SourcePath!, d.DestFileName!, !SharedModsLedger.IsDisabledName(d.DestFileName!), ModRole.Profile, InfoOf(d)!))
+            .ToList();
+        var overrides = PlayerOverrides.Plan(target, origin.OriginFiles(), playerCopies, Components.ConfigurationCatalog.For(target));
+        foreach (var notice in overrides.Notices)
+            plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, "Origin's mods", notice));
+        // Otherwise Origin's jar is never swapped out of the shared folder for a profile: the ledger's "replace Origin's
+        // older copy" becomes "Origin's copy stays", and ImportedModFit then turns off the imported mods that need the newer one.
         ModLanding Landing(ModDecision d)
         {
+            if (d.ModId is { Length: > 0 } ownId && overrides.OverriddenIds.Contains(ownId) && d.SourcePath != null && !overrides.Skips(d.SourcePath))
+                return ModLanding.Lands;
             var landing = origin.Decide(d, NeedsOf(d));
             return landing.Replaces == null ? landing
                 : new ModLanding(SharedModsLedger.InOrigin, Note: OriginKeepsItsCopy, Existing: landing.Replaces);
@@ -511,9 +522,6 @@ public sealed partial class ImportEngine
             if (ProfileRules.ValidateName(candidate, version, existing) == null) return candidate;
         }
     }
-
-    /// <summary>A mod jar named like one of Origin's own: a profile launch takes Origin's copy instead.</summary>
-    internal const string OriginsOwnCopy = "Origin brings its own copy of this mod, so that one is used.";
 
     /// <summary>The imported mods need a newer copy of a mod Origin brings itself; Origin's copy stays (never swapped for a profile).</summary>
     internal const string OriginKeepsItsCopy =

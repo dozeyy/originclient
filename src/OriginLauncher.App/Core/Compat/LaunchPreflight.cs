@@ -4,6 +4,8 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
+using OriginLauncher.App.Core.Components;
+
 namespace OriginLauncher.App.Core.Compat;
 
 /// <summary>
@@ -113,6 +115,9 @@ public sealed record LaunchVerdict(IReadOnlyList<string> Blocking, IReadOnlyList
     /// <summary>Fingerprint of the launch set this verdict is for (names, sizes, times, version).</summary>
     public string SetKey { get; init; } = "";
 
+    /// <summary>Where the profile's own copies replace Origin's this launch (PlayerOverrides); empty otherwise.</summary>
+    public PlayerOverridePlan Overrides { get; init; } = PlayerOverridePlan.Empty;
+
     public static readonly LaunchVerdict Clear = new(Array.Empty<string>(), Array.Empty<string>(), 0);
 }
 
@@ -219,6 +224,8 @@ public static class LaunchPreflight
         var platform = PlatformFor(version);
         var entries = Read(launchSet, swap, version, logPath, ct, out var anyUnreadable, out var anyExpected);
         if (entries == null) return LaunchVerdict.Clear; // Origin's own jar unreadable: the check stood down (logged)
+        var overrides = PlanOverrides(version, entries); // the player's copies win, in a profile or the shared folder
+        entries = overrides.ApplyTo(entries);
 
         var report = CompatEngine.Check(entries, platform);
         var blocking = new List<string>();
@@ -237,7 +244,11 @@ public static class LaunchPreflight
                 soft.Add($"{f.Subject.DisplayName} [{f.Kind}, {f.Severity}, {f.Certainty}]: {f.Summary}");
         }
 
-        var verdict = new LaunchVerdict(blocking, soft, launchSet.Count) { BlockingNames = blockingNames, SetKey = key };
+        soft.InsertRange(0, overrides.Log);
+        var verdict = new LaunchVerdict(blocking, soft, entries.Count)
+        {
+            BlockingNames = blockingNames, SetKey = key, Overrides = overrides,
+        };
         if (blocking.Count == 0 && !anyUnreadable && !anyExpected)
         {
             if (Verdicts.Count >= VerdictCacheLimit) Verdicts.Clear();
@@ -259,8 +270,46 @@ public static class LaunchPreflight
         if (!externalMods && profileFolder == null) return null;
         var launchSet = Gather(sharedFolder, profileFolder, isManaged, isOriginProvisioned, confirmOrigin, swap, ct);
         var entries = Read(launchSet, swap, version, null, ct, out _, out _);
-        return entries == null ? null : CompatEngine.Check(entries, PlatformFor(version));
+        if (entries == null) return null;
+        entries = PlanOverrides(version, entries).ApplyTo(entries);
+        return CompatEngine.Check(entries, PlatformFor(version));
     }
+
+    /// <summary>
+    /// Where the profile's own copies replace Origin's for this launch (PlayerOverrides), on the same jars the check
+    /// judges. Empty when Origin's own jar can't be read. Metadata comes through the scanner's cache, so a warm
+    /// launch pays one stat per jar.
+    /// </summary>
+    public static PlayerOverridePlan OverridesFor(
+        string version, string sharedFolder, string profileFolder, Func<string, bool> isOriginProvisioned,
+        Func<string, bool>? confirmOrigin = null, LaunchSwap? swap = null, CancellationToken ct = default)
+    {
+        var launchSet = Gather(sharedFolder, profileFolder, isOriginProvisioned, isOriginProvisioned, confirmOrigin, swap, ct);
+        var entries = Read(launchSet, swap, version, null, ct, out _, out _);
+        return entries == null ? PlayerOverridePlan.Empty : PlanOverrides(version, entries);
+    }
+
+    /// <summary>
+    /// <see cref="OverridesFor"/> for a launch straight from the version's SHARED folder (no profile): the player's
+    /// loose jars there against Origin's jars beside them, on the same jars <see cref="Evaluate"/> judges for that
+    /// launch. Will's own setup is exactly this (his Sodium in instances/1.21.1/mods), and DECISIONS.md 2026-10-25
+    /// ("a player's own mods win") applies to it as much as to a profile.
+    /// </summary>
+    public static PlayerOverridePlan SharedOverridesFor(
+        string version, string sharedFolder, Func<string, bool> isManaged, Func<string, bool>? confirmOrigin = null,
+        LaunchSwap? swap = null, CancellationToken ct = default)
+    {
+        var launchSet = Gather(sharedFolder, null, isManaged, isManaged, confirmOrigin, swap, ct);
+        var entries = Read(launchSet, swap, version, null, ct, out _, out _);
+        return entries == null ? PlayerOverridePlan.Empty : PlanOverrides(version, entries);
+    }
+
+    // Origin's jars against the player's: a profile's own jars, or the loose jars of the shared folder.
+    private static PlayerOverridePlan PlanOverrides(string version, List<ModFile> entries) =>
+        PlayerOverrides.Plan(version,
+            entries.Where(e => e.Role == ModRole.Managed).ToList(),
+            entries.Where(e => e.Role != ModRole.Managed).ToList(),
+            ConfigurationCatalog.For(version));
 
     /// <summary>True when <paramref name="f"/> is one the launch check refuses the game for.</summary>
     public static bool Stops(CompatFinding f, CompatPlatform platform) => IsHard(f, platform);
@@ -369,10 +418,10 @@ public static class LaunchPreflight
             if (!file.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) continue; // disabled/partial files never load
             var origin = isOriginJar(file.Name) && (confirmOrigin?.Invoke(file.FullName) ?? true);
             // The same selection LaunchModFolder.LaunchSet makes: a profile launch takes only Origin's jars from the
-            // shared folder, and none of Origin's look-alikes from the profile.
+            // shared folder and every jar of the profile, as the player's (PlayerOverrides then decides which copy of
+            // a mod both have loads).
             if (isProfile && shared && !origin) continue;
-            if (isProfile && !shared && origin) continue;
-            var role = origin ? ModRole.Managed : isProfile ? ModRole.Profile : ModRole.SharedLoose;
+            var role = !shared ? ModRole.Profile : origin ? ModRole.Managed : isProfile ? ModRole.Profile : ModRole.SharedLoose;
             into.Add((file.FullName, file.Name, file.Length, file.LastWriteTimeUtc.Ticks, role));
         }
     }

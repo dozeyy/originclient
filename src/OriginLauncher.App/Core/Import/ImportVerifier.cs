@@ -229,7 +229,7 @@ public static class ImportProfileCheck
             {
                 ct.ThrowIfCancellationRequested();
                 var name = Path.GetFileName(path);
-                if (isOriginProvisioned(name) != origin) continue;
+                if (origin && !isOriginProvisioned(name)) continue; // the player's loose jars are not in a profile launch
                 var info = ModFolderScanner.ReadInfo(path) ?? new ModInfo { FileName = name, ReadFailed = true };
                 entries.Add(new ModFile(path, name, Enabled: true, role, info));
             }
@@ -240,6 +240,9 @@ public static class ImportProfileCheck
 
         var platform = LaunchPreflight.PlatformFor(version);
         if (platform.IsLegacyForge) return Array.Empty<string>(); // mcmod.info is advisory: never a stop
+        // The profile's own copy of a mod Origin ships loads instead of Origin's, as at Play (PlayerOverrides).
+        entries = PlayerOverrides.Plan(version, entries.Where(e => e.Role == ModRole.Managed).ToList(),
+            entries.Where(e => e.Role == ModRole.Profile).ToList(), Components.ConfigurationCatalog.For(version)).ApplyTo(entries);
         var report = CompatEngine.Check(entries, platform);
         var problems = new List<string>();
         var named = new HashSet<ModFile>(ReferenceEqualityComparer.Instance);

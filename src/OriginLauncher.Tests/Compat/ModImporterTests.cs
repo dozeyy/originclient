@@ -296,13 +296,39 @@ public sealed class ModImporterTests : IDisposable
     }
 
     [Fact]
-    public void AProfileNeverTakesAJarOriginAlreadyProvides()
+    public void AProfileNeverTakesOriginsOwnVersionOrAnOlderFabricApi()
     {
-        var src = WriteJar(_incoming, "fabric-api-0.116.0.jar", "fabric-api", "0.116.0");
-        var report = ModImporter.Import(new[] { src }, Context(_profile));
-        Assert.False(report.Ok);
-        Assert.Contains("Origin already includes", report.Error);
+        WriteJar(_mods, "fabric-api-0.116.0.jar", "fabric-api", "0.116.0");
+        foreach (var version in new[] { "0.116.0", "0.100.0" })
+        {
+            var src = WriteJar(_incoming, $"fabric-api-{version}.jar", "fabric-api", version);
+            var report = ModImporter.Import(new[] { src }, Context(_profile));
+            Assert.False(report.Ok);
+            Assert.Contains("Origin already includes", report.Error);
+        }
         Assert.Empty(Directory.GetFiles(_profile));
+    }
+
+    // Will (2026-10-25): "if their mods list has a different sodium or anything it should replace ours". Dropping the
+    // player's own version of a mod Origin ships into a profile adds it; at Play it loads instead of Origin's
+    // (PlayerOverrides), and Origin's copy in the shared folder is never touched.
+    [Fact]
+    public void AProfileTakesThePlayersOwnVersionOfAModOriginShips()
+    {
+        var origins = WriteJar(_mods, "voicechat-fabric-2.5.0.jar", "voicechat", "2.5.0");
+        var before = System.IO.File.ReadAllBytes(origins);
+        var src = WriteJar(_incoming, "voicechat-fabric-2.4.0.jar", "voicechat", "2.4.0", mc: "1.21.1");
+        var report = ModImporter.Import(new[] { src }, Context(_profile));
+        Assert.True(report.Ok, report.Error);
+        Assert.Equal(1, report.Added);
+        Assert.True(System.IO.File.Exists(Path.Combine(_profile, "voicechat-fabric-2.4.0.jar")));
+        Assert.Equal(before, System.IO.File.ReadAllBytes(origins));
+
+        // ...but not a copy made for another Minecraft version: Origin's stays the one that loads.
+        var wrong = WriteJar(_incoming, "voicechat-fabric-2.3.0.jar", "voicechat", "2.3.0", mc: "1.20.1");
+        var refused = ModImporter.Import(new[] { wrong }, Context(_profile));
+        Assert.False(refused.Ok);
+        Assert.False(System.IO.File.Exists(Path.Combine(_profile, "voicechat-fabric-2.3.0.jar")));
     }
 
     [Fact]
@@ -318,16 +344,31 @@ public sealed class ModImporterTests : IDisposable
         Assert.Contains(report.Notes, n => n.Contains("fabric-api"));
     }
 
+    // The shared folder follows the same rule as a profile (DECISIONS 2026-10-25, "a player's own mods win"): the
+    // player's own version of a mod Origin ships is added and loads instead of Origin's; Origin's own version (or an
+    // older Fabric API) is "already included" and never becomes a second copy.
     [Fact]
-    public void ASecondCopyOfAnOriginManagedModIsRefused()
+    public void TheSharedFolderTakesThePlayersOwnVersionButNeverASecondCopyOfOrigins()
     {
-        WriteJar(_mods, "fabric-api-0.100.0.jar", "fabric-api", "0.100.0");
-        var src = WriteJar(_incoming, "fabric-api-fork-1.0.jar", "fabric-api", "1.0.0");
-        var report = ModImporter.Import(new[] { src }, Context());
-        Assert.Empty(report.NeedsReplace);
-        Assert.Equal(0, report.Added);
-        Assert.False(System.IO.File.Exists(Path.Combine(_mods, "fabric-api-fork-1.0.jar")));
-        Assert.False(report.Ok);
+        var origins = WriteJar(_mods, "fabric-api-0.100.0.jar", "fabric-api", "0.100.0");
+        var before = System.IO.File.ReadAllBytes(origins);
+
+        var newer = WriteJar(_incoming, "fabric-api-fork-1.0.jar", "fabric-api", "1.0.0");
+        var added = ModImporter.Import(new[] { newer }, Context());
+        Assert.True(added.Ok, added.Error);
+        Assert.Equal(1, added.Added);
+        Assert.True(System.IO.File.Exists(Path.Combine(_mods, "fabric-api-fork-1.0.jar")));
+        Assert.Equal(before, System.IO.File.ReadAllBytes(origins)); // Origin's copy is untouched
+
+        foreach (var version in new[] { "0.100.0", "0.90.0" })
+        {
+            var src = WriteJar(_incoming, $"fabric-api-same-{version}.jar", "fabric-api", version);
+            var report = ModImporter.Import(new[] { src }, Context());
+            Assert.Empty(report.NeedsReplace);
+            Assert.Equal(0, report.Added);
+            Assert.False(report.Ok);
+            Assert.False(System.IO.File.Exists(Path.Combine(_mods, $"fabric-api-same-{version}.jar")));
+        }
     }
 
     [Fact]

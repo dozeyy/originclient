@@ -106,8 +106,8 @@ public static class ModManager
                 jarName,
                 PrettyName(jarName),
                 enabled,
-                // Metadata only, no hashing: this runs on the UI thread, and the answer is the same by
-                // construction (a pinned file always carries its family's id, see IsOriginsCopy).
+                // No hashing: this runs on the UI thread. The last launch hashed these jars, so the answer
+                // normally comes from memory; one not known yet shows as the player's (IsOriginsCopy).
                 IsManaged(jarName) && IsOriginsCopy(path, allowHash: false)));
         }
 
@@ -120,9 +120,12 @@ public static class ModManager
     /// <summary>Enable/disable a user mod by renaming between "foo.jar" and
     /// "foo.jar.disabled". Idempotent; tolerant of the target already existing
     /// (a prior crash could leave both) — the stale duplicate is overwritten.</summary>
-    public static ModActionResult SetEnabled(string version, string fileName, bool enabled, string? profileId = null)
+    public static ModActionResult SetEnabled(string version, string fileName, bool enabled, string? profileId = null) =>
+        SetEnabledIn(ModsFolder(version, profileId), fileName, enabled);
+
+    /// <summary><see cref="SetEnabled"/> on a given folder (the unit-tested core).</summary>
+    public static ModActionResult SetEnabledIn(string folder, string fileName, bool enabled)
     {
-        var folder = ModsFolder(version, profileId);
         var jarPath = Path.Combine(folder, fileName);
         var disabledPath = jarPath + ".disabled";
         var from = enabled ? disabledPath : jarPath;
@@ -138,7 +141,14 @@ public static class ModManager
                     : ModActionResult.Fail($"{PrettyName(fileName)} is no longer in the mods folder.");
             }
 
+            // Both forms on disk (a crash between two toggles): an identical twin is just replaced, but a DIFFERENT
+            // jar under the other name is another copy of the player's and is never overwritten by a toggle.
+            if (File.Exists(to) && !SameBytes(from, to))
+                return ModActionResult.Fail(
+                    $"There are two different copies of {PrettyName(fileName)} (one on, one off). Remove one first.");
             File.Move(from, to, overwrite: true);
+            // A leftover Origin set aside and the player turned back on is theirs from now on (never set aside again).
+            if (enabled) OriginInstallRecord.NoteTurnedOn(to);
             return ModActionResult.Success;
         }
         catch (IOException)
@@ -362,20 +372,71 @@ public static class ModManager
     public static bool IsOriginProvisionedFile(string path) => IsOriginProvisioned(JarNameOf(path)) && IsOriginsCopy(path);
 
     /// <summary>
-    /// Decides whether a jar whose name looks like one of Origin's really is Origin's (architecture.md section 3:
-    /// "managed becomes metadata, not filename shape"), in this order:
-    ///   1. its SHA-512 (legacy Forge stack: SHA-256) is a pin Origin ships (ManagedPins) -> Origin's;
-    ///   2. otherwise its own mod id is the one that family must have (an older pin left behind, or a hand update of
-    ///      the same mod, still counts, so the one-copy-per-family heal and profile launches keep working);
-    ///   3. a jar that cannot be read right now (locked, half-copied) falls back to its name.
-    /// OptiFine, the legacy stack and originclient (built by Origin's CI, unpinned, Origin's own name) carry no
-    /// metadata worth asking, so step 2 is the name for them.
-    /// Only names with Origin's shapes are ever checked (about ten jars, not the player's whole folder), and the
-    /// answer is remembered by (path, size, time), so a repeat call costs one stat. Step 1 never changes the answer
-    /// (a pinned file always has its family's id); it is the fast, exact accept, and callers on the UI thread pass
-    /// <paramref name="allowHash"/> false to skip it.
+    /// Decides whether a jar whose name looks like one of Origin's really is Origin's, by its BYTES, never its name or
+    /// mod id (Will, 2026-10-25: "a player's own mods win" -- his own Sodium sits in the shared folder beside Origin's
+    /// and carries the same id, and the old "same id counts as Origin's" rule deleted it every launch):
+    ///   1. its SHA-512 is a file Origin pins now or ever pinned (ManagedPins, incl. ManagedPins.History.cs), or one an
+    ///      Origin installer wrote into this folder (OriginInstallRecord) -> Origin's;
+    ///   2. otherwise it is the player's, even when it is the same mod (a hand update is the player's choice);
+    ///   3. a jar that cannot be read right now (locked, half-copied) falls back to its name, and is not remembered.
+    ///      Anything that DELETES, renames or replaces a jar asks <see cref="OwnerOf"/> instead, where "not sure" is no.
+    /// OptiFine, the legacy Forge stack and originclient (Origin's own name; nothing else is called that) are decided
+    /// by name. Only names with Origin's shapes are ever checked (about ten jars, not the player's whole folder), and
+    /// the answer is remembered by (path, size, time), so a repeat call costs one stat. Callers on the UI thread pass
+    /// <paramref name="allowHash"/> false: then a jar whose mod id is not the family's is the player's, and one whose
+    /// id matches is answered from memory (the last launch hashed it) or, unknown, as the player's (shown, never acted on).
     /// </summary>
     public static bool IsOriginsCopy(string path) => IsOriginsCopy(path, allowHash: true);
+
+    /// <summary>
+    /// True when <paramref name="modsFolder"/> already holds ORIGIN's copy of the family named by
+    /// <paramref name="filePrefix"/> ("fabric-api-", "voicechat-"), on or off (a copy the player turned off is never
+    /// fetched again). A player's own jar of that name does not count: Origin's still has to be there for Origin's mods
+    /// and for every profile or Origin-only launch (they load Origin's jars only). The installers' skip test.
+    /// </summary>
+    public static bool HasOriginsCopy(string modsFolder, string filePrefix) =>
+        Directory.Exists(modsFolder) && Directory.EnumerateFiles(modsFolder).Any(f =>
+        {
+            var n = Path.GetFileName(f);
+            return n.StartsWith(filePrefix, StringComparison.OrdinalIgnoreCase)
+                && (n.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase) || n.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase))
+                && IsOriginsCopy(f);
+        });
+
+    /// <summary>
+    /// True only when the file is there and is certainly Origin's (step 1 above). A missing, locked or unreadable jar
+    /// is never Origin's here. Cleanups that remove a jar ask <see cref="OwnerOf"/>, which also says HOW it is known.
+    /// </summary>
+    public static bool IsOriginsOwnJar(string path) => OwnerOf(path) != JarOwner.Player;
+
+    /// <summary>
+    /// Who a jar in a mods folder belongs to, strictly (missing, locked or unreadable = the player's), and how sure:
+    /// <see cref="JarOwner.OriginInstalled"/> only when this folder's install record says an Origin installer wrote
+    /// these bytes here (or the name is Origin's own: originclient, OptiFine, the legacy stack); a match with a pin
+    /// alone (current or past) or an adopted pre-record jar is <see cref="JarOwner.OriginByPin"/>, because a player's
+    /// own download of a version Origin once pinned has exactly the same bytes. Only OriginInstalled may be deleted;
+    /// OriginByPin is at most renamed aside (".jar.disabled", bytes kept). A jar the player turned back on after
+    /// Origin set it aside is theirs (OriginInstallRecord "player" line).
+    /// </summary>
+    public static JarOwner OwnerOf(string path)
+    {
+        FileInfo file;
+        try
+        {
+            file = new FileInfo(path);
+            if (!file.Exists) return JarOwner.Player;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return JarOwner.Player;
+        }
+        var stamp = (file.Length, file.LastWriteTimeUtc.Ticks);
+        if (Ownership.TryGetValue(file.FullName, out var hit) && hit.Stamp == stamp) return hit.Owner;
+        var decided = Decide(file.FullName, JarNameOf(file.Name), allowHash: true);
+        if (decided is not { } owner) return JarOwner.Player;
+        Remember(file.FullName, stamp, owner);
+        return owner;
+    }
 
     public static bool IsOriginsCopy(string path, bool allowHash)
     {
@@ -392,54 +453,67 @@ public static class ModManager
 
         var key = file.FullName;
         var stamp = (file.Length, file.LastWriteTimeUtc.Ticks);
-        if (Ownership.TryGetValue(key, out var hit) && hit.Stamp == stamp) return hit.Origin;
+        if (Ownership.TryGetValue(key, out var hit) && hit.Stamp == stamp) return hit.Owner != JarOwner.Player;
 
-        bool? decided = Decide(file.FullName, JarNameOf(file.Name), allowHash);
-        if (decided is not { } origin) return true; // unreadable: the name decides, and nothing is remembered
+        var decided = Decide(file.FullName, JarNameOf(file.Name), allowHash);
+        // Not known yet without hashing (the Mods page on the UI thread): the player's, shown as theirs until a launch
+        // hashes it. Never Origin's on a guess: that hid Will's own Sodium as an Origin row. Nothing is remembered.
+        if (decided is not { } owner) return allowHash;
+        Remember(key, stamp, owner);
+        return owner != JarOwner.Player;
+    }
+
+    private static void Remember(string key, (long, long) stamp, JarOwner owner)
+    {
         if (Ownership.Count >= OwnershipCacheLimit) Ownership.Clear();
-        Ownership[key] = (stamp, origin);
-        return origin;
+        Ownership[key] = (stamp, owner);
     }
 
     private const int OwnershipCacheLimit = 512;
-    private static readonly ConcurrentDictionary<string, ((long, long) Stamp, bool Origin)> Ownership =
+    private static readonly ConcurrentDictionary<string, ((long, long) Stamp, JarOwner Owner)> Ownership =
         new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Forgets remembered answers (tests that rewrite a file inside one clock tick).</summary>
     public static void ClearOwnershipCache() => Ownership.Clear();
 
-    // True/false when the bytes or the metadata decide; null when the jar could not be read.
-    private static bool? Decide(string path, string jarName, bool allowHash)
+    // Decided by the bytes; null when the jar could not be read (or, without hashing, could be either).
+    private static JarOwner? Decide(string path, string jarName, bool allowHash)
     {
-        if (allowHash)
-        try
+        if (IsOriginOwnName(jarName)) return JarOwner.OriginInstalled; // originclient / OptiFine / legacy stack
+
+        if (!allowHash)
         {
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                if (Loaders.ManagedPins.IsKnownSha512(Convert.ToHexString(SHA512.HashData(stream)))) return true;
-            if (Loaders.LegacyStackInstaller.IsStackJar(jarName))
-            {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                if (Loaders.ManagedPins.IsKnownSha256(Convert.ToHexString(SHA256.HashData(stream)))) return true;
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
+            // Cheap negative only: a jar carrying another mod's id is certainly not Origin's copy of this family.
+            if (ExpectedIds(jarName) is not { } ids) return null; // a family with no known id: only the bytes can say
+            var info = ModFolderScanner.ReadInfo(path, readNested: false); // the top-level id is all this needs
+            if (info == null || info.ReadFailed || info.Id == null) return null;
+            return ids.Contains(info.Id) || info.Provides.Any(ids.Contains) ? null : JarOwner.Player;
         }
 
-        var ids = ExpectedIds(jarName);
-        if (ids == null) return true; // OptiFine / legacy stack: no Fabric metadata to ask
-        var info = ModFolderScanner.ReadInfo(path, readNested: false); // the top-level id is all this needs
-        if (info == null || info.ReadFailed || info.Id == null) return null;
-        return ids.Contains(info.Id) || info.Provides.Any(ids.Contains);
+        if (OriginInstallRecord.Sha512Of(path) is not { } sha) return null;
+        var folder = Path.GetDirectoryName(path);
+        var entry = folder == null ? OriginInstallRecord.Entry.None : OriginInstallRecord.Lookup(folder, sha);
+        return entry switch
+        {
+            OriginInstallRecord.Entry.Player => JarOwner.Player,
+            OriginInstallRecord.Entry.Installed => JarOwner.OriginInstalled,
+            OriginInstallRecord.Entry.Adopted => JarOwner.OriginByPin,
+            _ => Loaders.ManagedPins.IsKnownSha512(sha) ? JarOwner.OriginByPin : JarOwner.Player,
+        };
     }
 
-    // The mod id each of Origin's filename families must carry, or null where the jar has no Fabric metadata.
+    // Origin's own file names, decided by name (nothing else is called that; these jars carry no family to compare).
+    private static bool IsOriginOwnName(string jarName)
+    {
+        var n = jarName.ToLowerInvariant();
+        return n.StartsWith("originclient") || n.Equals("optifine.jar") || Loaders.LegacyStackInstaller.IsStackJar(jarName);
+    }
+
+    // The mod id each of Origin's filename families must carry, or null for a family without a known id.
     private static HashSet<string>? ExpectedIds(string jarName)
     {
         var n = jarName.ToLowerInvariant();
         if (n.StartsWith("voicechat-")) return Ids("voicechat");
-        if (n.StartsWith("originclient") || n.Equals("optifine.jar") || Loaders.LegacyStackInstaller.IsStackJar(jarName)) return null;
         return ModFamilyKey(jarName) switch
         {
             "fabric-api-" => Ids("fabric-api", "fabric"), // the 1.16-era Fabric API's id was "fabric"
@@ -467,6 +541,16 @@ public static class ModManager
         return name.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase) ? name[..^".disabled".Length] : name;
     }
 
+    private static bool SameBytes(string a, string b)
+    {
+        var fa = new FileInfo(a);
+        var fb = new FileInfo(b);
+        if (fa.Length != fb.Length) return false;
+        using var sa = File.OpenRead(a);
+        using var sb = File.OpenRead(b);
+        return SHA256.HashData(sa).AsSpan().SequenceEqual(SHA256.HashData(sb));
+    }
+
     // Turn "sodium-fabric-0.6.13+mc1.21.1.jar" into "sodium-fabric 0.6.13".
     // Purely cosmetic; the real identity is always the filename.
     private static string PrettyName(string jarName)
@@ -476,4 +560,17 @@ public static class ModManager
             : jarName;
         return name.Replace('_', ' ');
     }
+}
+
+/// <summary>Who a jar in a mods folder belongs to (<see cref="ModManager.OwnerOf"/>).</summary>
+public enum JarOwner
+{
+    /// <summary>The player's (or not known for sure): never deleted, renamed or replaced by the launcher.</summary>
+    Player,
+
+    /// <summary>Origin's by a pin match or adoption alone: may be set aside (renamed to .disabled), never deleted.</summary>
+    OriginByPin,
+
+    /// <summary>An Origin installer recorded writing exactly these bytes into this folder: may be deleted.</summary>
+    OriginInstalled,
 }

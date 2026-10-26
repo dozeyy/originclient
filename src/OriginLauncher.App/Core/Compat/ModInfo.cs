@@ -43,6 +43,12 @@ public sealed class ModDependency : IEquatable<ModDependency>
 public sealed record NestedMod(string Id, string? Version, string? Name)
 {
     public IReadOnlyList<string> Provides { get; init; } = Array.Empty<string>();
+
+    /// <summary>The nested jar's own "depends" (PlayerOverrides: does Origin's nested copy accept the player's version).</summary>
+    public IReadOnlyList<ModDependency> Depends { get; init; } = Array.Empty<ModDependency>();
+
+    /// <summary>The nested jar's own "breaks".</summary>
+    public IReadOnlyList<ModDependency> Breaks { get; init; } = Array.Empty<ModDependency>();
 }
 
 /// <summary>What a mod jar says about itself. Identity comes from metadata, never from the file name.</summary>

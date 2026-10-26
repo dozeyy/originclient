@@ -149,6 +149,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Loaders\ManagedPins*.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Loaders\PinnedDownload.cs" LinkBase="Loaders" />
     <Compile Include="..\OriginLauncher.App\Core\Mods\ModManager.cs" LinkBase="Mods" />
+    <!-- Which jars Origin itself installed (by SHA-512), and the shared-folder cleanups that delete only those. -->
+    <Compile Include="..\OriginLauncher.App\Core\Mods\OriginInstallRecord.cs" LinkBase="Mods" />
+    <Compile Include="..\OriginLauncher.App\Core\Mods\SharedFolderCleanup.cs" LinkBase="Mods" />
     <!-- 1.8.9's FML splash theme (pure file IO). -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\ForgeSplashTheme.cs" LinkBase="Loaders" />
     <!-- Offline launching: the Mojang metadata disk copy and the "you're offline" classifier (pure). -->

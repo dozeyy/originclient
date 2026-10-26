@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
+using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Profiles;
@@ -156,28 +157,75 @@ public sealed class ManagedPinsTests : IDisposable
     }
 
     [Fact]
-    public void Origins_family_id_keeps_an_unpinned_copy_managed()
+    public void The_players_own_copy_of_a_mod_origin_ships_is_theirs_even_with_the_same_id()
     {
-        // An older Fabric API left by a previous catalog (no pin matches its bytes) is still Fabric API: managed,
-        // so the one-copy-per-family heal and profile launches keep it.
+        // Will's case: his own Sodium (or a hand-updated Fabric API) in the shared folder carries exactly the id of
+        // Origin's copy. Same id is not Origin's: only a pinned or recorded file is (2026-10-25, player's mods win).
+        var sodium = Jar("shared", "sodium-fabric-0.6.9+mc1.21.1.jar", Kit.FabricJar("sodium", "0.6.9+mc1.21.1"));
         var api = Jar("shared", "fabric-api-0.90.0+1.21.1.jar", Kit.FabricJar("fabric-api", "0.90.0+1.21.1"));
-        Assert.True(ModManager.IsManagedFile(api));
-        var legacyId = Jar("shared2", "fabric-api-0.42.0+1.16.jar", Kit.FabricJar("fabric", "0.42.0+1.16"));
-        Assert.True(ModManager.IsManagedFile(legacyId));
+        Assert.False(ModManager.IsManagedFile(sodium));
+        Assert.False(ModManager.IsOriginsOwnJar(sodium));
+        Assert.False(ModManager.IsManagedFile(api));
         var svc = Jar("shared3", "voicechat-fabric-1.21.1-2.6.22.jar", Kit.FabricJar("voicechat", "1.21.1-2.6.22"));
-        Assert.True(ModManager.IsOriginProvisionedFile(svc));
-        Assert.False(ModManager.IsManagedFile(svc)); // voice chat stays a toggleable row
+        Assert.False(ModManager.IsOriginProvisionedFile(svc));
     }
 
     [Fact]
-    public void An_unreadable_jar_falls_back_to_its_name_and_is_not_remembered()
+    public void A_jar_an_origin_installer_recorded_is_origins_and_stays_origins_after_a_rename()
     {
-        var broken = Jar("shared", "sodium-fabric-0.6.13+mc1.21.1.jar", [1, 2, 3, 4]);
-        Assert.True(ModManager.IsManagedFile(broken));
-        // Rewritten into a real non-Sodium jar: the next answer comes from the file, not a cached guess.
-        File.WriteAllBytes(broken, Kit.FabricJar("sodium-extra", "1.0.0"));
-        File.SetLastWriteTimeUtc(broken, DateTime.UtcNow.AddMinutes(1));
-        Assert.False(ModManager.IsManagedFile(broken));
+        var api = Jar("shared", "fabric-api-0.90.0+1.21.1.jar", Kit.FabricJar("fabric-api", "0.90.0+1.21.1"));
+        OriginInstallRecord.AddFile(api);
+        Assert.True(ModManager.IsManagedFile(api));
+        Assert.True(ModManager.IsOriginsOwnJar(api));
+        var svc = Jar("shared", "voicechat-fabric-1.21.1-2.6.22.jar", Kit.FabricJar("voicechat", "1.21.1-2.6.22"));
+        OriginInstallRecord.AddFile(svc);
+        Assert.True(ModManager.IsOriginProvisionedFile(svc));
+        Assert.False(ModManager.IsManagedFile(svc)); // voice chat stays a toggleable row
+        // The record is per folder: the same bytes in another folder are not "installed by Origin" there.
+        var elsewhere = Jar("other", "fabric-api-0.90.0+1.21.1.jar", Kit.FabricJar("fabric-api", "0.90.0+1.21.1"));
+        Assert.False(ModManager.IsOriginsOwnJar(elsewhere));
+    }
+
+    [Fact]
+    public void Every_current_pin_is_in_the_append_only_history()
+    {
+        // A pin that leaves the catalog must still mark the file Origin installed (an old leftover is Origin's to
+        // clean up, not the player's). So a new pin goes into ManagedPins.History.cs the day it is added.
+        var history = typeof(ManagedPins).GetField("EverPinnedSha512",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null) as string[];
+        var set = new HashSet<string>(history!, StringComparer.OrdinalIgnoreCase);
+        var current = PerformanceModCatalog.AllPins().Select(p => p.Sha512)
+            .Concat(ManagedPins.FabricApiVersions.Select(v => ManagedPins.FabricApi(v)!.Sha512))
+            .Concat(ManagedPins.VoiceChatVersions.Select(v => ManagedPins.VoiceChat(v)!.Sha512))
+            .Concat(ManagedPins.AlternateRows.Select(r => r.Value.Sha512))
+            .Where(s => !string.IsNullOrEmpty(s));
+        var missing = current.Where(s => !set.Contains(s!)).ToList();
+        Assert.True(missing.Count == 0, "Add to ManagedPins.History.cs: " + string.Join(", ", missing));
+
+        // And every current pin's URL (tools/release/pin_history.py --check proves the same for every URL ever pinned).
+        var urls = new HashSet<string>((typeof(ManagedPins).GetField("EverPinnedUrls",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null) as string[])!,
+            StringComparer.Ordinal);
+        var currentUrls = PerformanceModCatalog.AllPins().Select(p => p.Url)
+            .Concat(ManagedPins.FabricApiVersions.Select(v => ManagedPins.FabricApi(v)!.Url))
+            .Concat(ManagedPins.VoiceChatVersions.Select(v => ManagedPins.VoiceChat(v)!.Url))
+            .Concat(ManagedPins.AlternateRows.Select(r => r.Value.Url))
+            .Where(u => u.StartsWith("https://cdn.modrinth.com/", StringComparison.Ordinal));
+        var missingUrls = currentUrls.Where(u => !urls.Contains(u)).ToList();
+        Assert.True(missingUrls.Count == 0, "Run tools/release/pin_history.py: " + string.Join(", ", missingUrls));
+    }
+
+    [Fact]
+    public void An_unreadable_jar_falls_back_to_its_name_and_is_never_certainly_origins()
+    {
+        var locked = Jar("shared", "sodium-fabric-0.6.13+mc1.21.1.jar", Kit.FabricJar("sodium", "0.6.13+mc1.21.1"));
+        using (new FileStream(locked, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.True(ModManager.IsManagedFile(locked));     // shown as Origin's by its name for the moment
+            Assert.False(ModManager.IsOriginsOwnJar(locked));  // but nothing that deletes ever acts on "maybe"
+        }
+        // Readable again: the bytes decide (not pinned, not recorded: the player's), and nothing stale was remembered.
+        Assert.False(ModManager.IsManagedFile(locked));
     }
 
     [Fact]
@@ -195,9 +243,13 @@ public sealed class ManagedPinsTests : IDisposable
         var fake = Jar("shared", "krypton-fnp-0.2.jar", Kit.FabricJar("krypton-fnp", "0.2"));
         var lookalike = Jar("profile", "modmenu-badges-lib-2.0.jar", Kit.FabricJar("modmenu-badges-lib", "2.0.0"));
         var dupe = Jar("profile", "fabric-api-0.100.0+1.21.1.jar", Kit.FabricJar("fabric-api", "0.100.0+1.21.1"));
+        OriginInstallRecord.AddFile(api); // Origin's own Fabric API, as FabricApiInstaller leaves it
 
-        var set = LaunchModFolder.LaunchSet(new[] { api, fake }, new[] { lookalike, dupe },
+        // The player's older Fabric API gives way to Origin's (PlayerOverrides: only a newer one wins).
+        var plan = LaunchPreflight.OverridesFor("1.21.1", Path.GetDirectoryName(api)!, Path.GetDirectoryName(lookalike)!,
             ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy);
+        var set = LaunchModFolder.LaunchSet(new[] { api, fake }, new[] { lookalike, dupe },
+            ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy, plan.Skips);
 
         Assert.Equal(new[] { Path.GetFileName(api), Path.GetFileName(lookalike) }.OrderBy(n => n),
             set.Keys.OrderBy(n => n));

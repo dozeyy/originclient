@@ -48,7 +48,8 @@ public class ImportEngineTests : IDisposable
         Assert.NotNull(plan.ProfileId);
         Assert.False(plan.ProfileReused);
         Assert.Equal(InstanceLayout.ProfileModsDir(_rig.Instances, "1.21.1", plan.ProfileId!), plan.ProfileModsDir);
-        Assert.Equal(new[] { "disabled-thing.jar.disabled", "mymod.jar", "needs-lib.jar.disabled" },
+        // sodium-fabric.jar (Sodium 0.5.0, another version than Origin's) is the player's own: it lands and wins there.
+        Assert.Equal(new[] { "disabled-thing.jar.disabled", "mymod.jar", "needs-lib.jar.disabled", "sodium-fabric.jar" },
             Directory.GetFiles(plan.ProfileModsDir!).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
         // The version's shared folder is Origin's: nothing imported lands there, and its jars are untouched.
         Assert.Equal(new[] { "existing.jar" }, Directory.GetFiles(shared).Select(Path.GetFileName));
@@ -130,18 +131,33 @@ public class ImportEngineTests : IDisposable
     }
 
     [Fact]
-    public async Task AModOneOfOriginsOwnJarsAlreadyHasIsLeftAsItIs()
+    public async Task ThePlayersOwnVersionOfAModOriginHasLandsInTheProfileAndOriginsCopyIsUntouched()
     {
         Populate();
-        // Same file name as one of Origin's own jars, other bytes: Origin's copy stays and the old setup's is not copied.
-        var mine = _rig.OriginJar("1.21.1", "mymod.jar", Kit.FabricJar("mymod", "0.9"));
-        var before = File.ReadAllBytes(mine);
+        // Same file name as one of Origin's own jars, another version: the player's lands in the profile (it loads
+        // there instead of Origin's, PlayerOverrides) and Origin's copy in the shared folder is never touched.
+        var origins = _rig.OriginJar("1.21.1", "mymod.jar", Kit.FabricJar("mymod", "0.9"));
+        var before = File.ReadAllBytes(origins);
 
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded);
-        Assert.Equal(before, File.ReadAllBytes(mine));
-        Assert.Contains(plan.Lines, l => l.Kind == PlanItemKind.Mod && l.Reason == ImportEngine.OriginsOwnCopy);
+        Assert.Equal(before, File.ReadAllBytes(origins));
+        Assert.True(File.Exists(Path.Combine(plan.ProfileModsDir!, "mymod.jar")));
+        Assert.NotEqual(before, File.ReadAllBytes(Path.Combine(plan.ProfileModsDir!, "mymod.jar")));
+    }
+
+    [Fact]
+    public async Task TheVeryVersionOriginAlreadyHasIsLeftAsItIs()
+    {
+        Populate();
+        var origins = _rig.OriginJar("1.21.1", "mymod-1.0.jar", Kit.FabricJar("mymod", "1.0"));
+        var before = File.ReadAllBytes(origins);
+
+        var (plan, result) = await Run();
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(before, File.ReadAllBytes(origins));
         Assert.DoesNotContain(plan.Ops, o => o.Item == PlanItemKind.Mod && Path.GetFileName(o.Dest) == "mymod.jar");
     }
 
@@ -670,6 +686,8 @@ public class ImportEngineTests : IDisposable
     public async Task TheSummaryPutsEachItemUnderTheRightSectionAndIsWrittenToDisk()
     {
         Populate();
+        // A Sodium made for another Minecraft version: Origin's own is used, and the summary says so.
+        Kit.WriteBytes(_rig.Source, "mods/sodium-old.jar", Kit.FabricJar("sodium", "0.4.10", minecraft: "1.19.2"));
         var (plan, result) = await Run();
         Assert.True(result.Succeeded);
 

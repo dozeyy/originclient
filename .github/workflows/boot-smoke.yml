@@ -44,6 +44,11 @@
 #  - VETTED PAIRS (input `pairs`, U5.2b): the same production-style boot with Sodium + Iris swapped for an
 #    older pair a profile may be pinned to (ManagedPins AlternatePins; covers.py --pair), and FAIL unless the
 #    mod list names exactly that pair. A pair stays on ConfigurationCatalog's allow-list only with a green row.
+#  - PLAYER PROFILES (input `players`): the launch a profile gets when it holds the PLAYER'S OWN Sodium (+ Iris), the
+#    player's mods winning over Origin's (PlayerOverrides.cs): Origin's top-level Sodium/Iris are left out, the player's
+#    jars go in beside Origin's (a nested Origin pair must lose to them), and with no player Iris the boot carries
+#    -Dfabric.debug.disableModIds=iris like the launcher (covers.py --player). FAIL unless the mod list names the
+#    player's versions (and no Iris when none was given) with zero mixin-apply failures.
 #
 # Starts as manual (workflow_dispatch) so a flaky software-GL result can't block
 # merges. Promote to `on: pull_request` once it's proven stable per version.
@@ -70,9 +75,12 @@ on:
       pairs:
         description: "Vetted older Sodium + Iris pairs to boot production-style, as <mc>:<pairId> comma list, e.g. 1.21.1:0.6.5+1.8.1 (ConfigurationCatalog). Use with modules='none' for a pairs-only run"
         default: ""
+      players:
+        description: "Player-profile boots: the player's own Sodium + Iris (Modrinth version numbers) win over Origin's, as <mc>:<sodium>/<iris> comma list, iris '-' = none, e.g. 1.21.1:mc1.21.1-0.6.9-fabric/1.8.7+1.21.1-fabric"
+        default: ""
 
 concurrency:
-  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}-${{ github.event.inputs.covers }}-${{ github.event.inputs.pairs }}
+  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}-${{ github.event.inputs.covers }}-${{ github.event.inputs.pairs }}-${{ github.event.inputs.players }}
   cancel-in-progress: true
 
 jobs:
@@ -87,6 +95,7 @@ jobs:
           INPUT: ${{ github.event.inputs.modules }}
           COVERS: ${{ github.event.inputs.covers }}
           PAIRS: ${{ github.event.inputs.pairs }}
+          PLAYERS: ${{ github.event.inputs.players }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
           import json, os, re
@@ -144,6 +153,19 @@ jobs:
               if m is None:
                   raise SystemExit("boot-smoke: pairs: not a live Fabric version: %s" % mc)
               row = {"version": m["module"], "label": "%s with Sodium+Iris %s" % (mc, pair), "cover": mc, "pair": pair,
+                     "java": m.get("java", "21")}
+              if m["module"] in RUN_JAVA:
+                  row["run_java"] = RUN_JAVA[m["module"]]
+              picked.append(row)
+          # players rows: a covers row for <mc> where the profile's own Sodium (+ Iris) win (covers.py --player).
+          for item in [x.strip() for x in (os.environ.get("PLAYERS") or "").split(",") if x.strip()]:
+              mc, _, spec = item.partition(":")
+              if not re.fullmatch(r"[0-9][0-9A-Za-z.]*", mc) or not re.fullmatch(r"[0-9A-Za-z.+_-]+/[0-9A-Za-z.+_-]+", spec):
+                  raise SystemExit("boot-smoke: players: expected <mc>:<sodium>/<iris>, got %r" % item)
+              m = next((e for e in entries if mc in e.get("versions", []) and e["module"] != "1.8.9"), None)
+              if m is None:
+                  raise SystemExit("boot-smoke: players: not a live Fabric version: %s" % mc)
+              row = {"version": m["module"], "label": "%s with the player's own %s" % (mc, spec), "cover": mc, "player": spec,
                      "java": m.get("java", "21")}
               if m["module"] in RUN_JAVA:
                   row["run_java"] = RUN_JAVA[m["module"]]
@@ -227,10 +249,11 @@ jobs:
         env:
           RUN_JAVA: ${{ matrix.run_java }}
           PAIR: ${{ matrix.pair }}
+          PLAYER: ${{ matrix.player }}
         run: |
           # --run-java: keeps the version's own LWJGL (Loom upgrades it when Gradle's JVM is 19+; covers.py).
           python3 tools/boot-smoke/covers.py "src/mods/versions/${{ matrix.version }}" "${{ matrix.cover }}" \
-            --out "build/covers/${{ matrix.cover }}" ${RUN_JAVA:+--run-java "$RUN_JAVA"} ${PAIR:+--pair "$PAIR"}
+            --out "build/covers/${{ matrix.cover }}" ${RUN_JAVA:+--run-java "$RUN_JAVA"} ${PAIR:+--pair "$PAIR"} ${PLAYER:+--player "$PLAYER"}
           bash tools/ci/gradle_prefetch.sh "build/covers/${{ matrix.cover }}"
 
       - name: Boot-smoke ${{ matrix.version }}
@@ -247,6 +270,7 @@ jobs:
           COMPANIONS: ${{ github.event.inputs.companions }}
           COVER: ${{ matrix.cover }}
           PAIR: ${{ matrix.pair }}
+          PLAYER: ${{ matrix.player }}
         run: |
           echo "Gradle JAVA_HOME=$JAVA_HOME"
           args=()
@@ -256,7 +280,7 @@ jobs:
             # Named after the Minecraft version, so --companions checks that version's catalog row.
             m="build/covers/$COVER"
             args+=(--perf --companions)
-            if [ -n "$PAIR" ]; then args+=(--expect-perf "$m/pair-expect.txt"); fi
+            if [ -n "$PAIR$PLAYER" ]; then args+=(--expect-perf "$m/pair-expect.txt"); fi
           elif ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; then args+=(--perf); fi
           for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
           # companions=true: load the jars companion_mods.py fetched AND require them in the mod list

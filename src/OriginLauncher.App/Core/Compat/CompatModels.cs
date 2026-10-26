@@ -52,6 +52,13 @@ public sealed record CompatPlatform(
     BuiltInModSet? BuiltIns = null, RunSide Side = RunSide.Client)
 {
     public bool IsLegacyForge => Loader == LoaderFamily.LegacyForge;
+
+    /// <summary>
+    /// The mods being judged go where the player's own copy of a mod Origin also ships wins (a mod profile or a Fabric
+    /// version's shared folder; Core/Compat/PlayerOverrides): such a copy is judged as the player's mod, not refused as
+    /// "Origin includes it". Off on 1.8.9 (Forge), where Origin's copy stays.
+    /// </summary>
+    public bool PlayerCopiesWin { get; init; }
 }
 
 public enum FindingKind

@@ -101,7 +101,9 @@ public static class ModMetadataReader
                     var nestedInfo = nestedIncomplete ? null : ReadNestedJar(zip, file.GetString() ?? "", depth + 1, budget, out nestedIncomplete);
                     incomplete |= nestedIncomplete || nestedInfo is { NestedIncomplete: true };
                     if (nestedInfo?.Id != null)
-                        nested.Add(new NestedMod(nestedInfo.Id, nestedInfo.Version, nestedInfo.Name) { Provides = nestedInfo.Provides });
+                        nested.Add(new NestedMod(nestedInfo.Id, nestedInfo.Version, nestedInfo.Name) {
+                            Provides = nestedInfo.Provides, Depends = nestedInfo.Depends, Breaks = nestedInfo.Breaks,
+                        });
                     // Jar-in-jar of jar-in-jar (Fabric API's modules inside a bundle): count their ids too.
                     if (nestedInfo != null) nested.AddRange(nestedInfo.Nested);
                 }

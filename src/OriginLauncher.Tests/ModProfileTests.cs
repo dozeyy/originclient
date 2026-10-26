@@ -338,10 +338,11 @@ public class ModProfileTests : IDisposable
         {
             Write("profile/sodium-extra.jar", "s"),
             Write("profile/turned-off.jar.disabled", "off"),
-            Write("profile/fabric-api-copy.jar", "a second Fabric API would stop boot"),
+            Write("profile/fabric-api-copy.jar", "an older Fabric API the plan sets aside"),
         };
 
-        var set = LaunchModFolder.LaunchSet(shared, profile, OriginJar);
+        // Which copy of a mod both have loads is the plan's call (PlayerOverrides), passed in as skip.
+        var set = LaunchModFolder.LaunchSet(shared, profile, OriginJar, skip: p => p == profile[2]);
 
         Assert.Equal(
             ["fabric-api.jar", "originclient.jar", "sodium-extra.jar"],

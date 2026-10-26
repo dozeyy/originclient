@@ -119,7 +119,9 @@ public static class ModrinthFileGuard
                 TryDelete(tempPath);
                 return ModrinthDownloadResult.HashMismatch;
             }
-            File.Move(tempPath, destPath, overwrite: true);
+            // No overwrite: a jar already under this name is the player's (callers skip a present family) and stays.
+            File.Move(tempPath, destPath, overwrite: false);
+            Mods.OriginInstallRecord.Add(destPath, actual);
             return ModrinthDownloadResult.Installed;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

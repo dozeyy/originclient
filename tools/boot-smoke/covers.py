@@ -30,7 +30,15 @@ LaunchSwap does: the catalog's sodium-fabric-* / iris-fabric-* jars are replaced
 also nests the shipped pair; the top-level one must win). A pairId starting "probe-" comes from probe-pairs.txt: a
 CI-only pair outside the module's compat gates (Origin must switch those hooks off and still reach the title).
 
-Usage: covers.py <module-dir> <mc-version> --out <dir> [--pair <pairId>]
+--player <sodium>/<iris> (the player's own mods win, PlayerOverrides.cs): boot the set the launcher builds for a
+PROFILE that holds the player's own Sodium + Iris (Modrinth version numbers; iris "-" = the player has no Iris).
+Origin's top-level Sodium/Iris jars are left out of the launch (matched by the mod id in each jar, not its name), the
+player's jars go in beside Origin's; Origin's jar may still nest its own pair (1.21.1), and Fabric Loader takes the
+player's top-level copy over a nested one. With no player Iris and an Origin jar that nests Iris, the boot runs with
+-Dfabric.debug.disableModIds=iris, exactly what the launcher adds (shaders off for that profile). Writes
+pair-expect.txt with the versions the jars declare (iris=absent when it must NOT load).
+
+Usage: covers.py <module-dir> <mc-version> --out <dir> [--pair <pairId> | --player <sodium>/<iris>]
 Exit 0 = project ready, 1 = a check failed (printed as ::error), 2 = usage.
 """
 import argparse
@@ -114,6 +122,54 @@ def swap_pair(mods, alternates):
     return kept + list(alternates)
 
 
+def mod_identity(jar_path):
+    """(id, version) from a jar's fabric.mod.json, or (None, None)."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(jar_path) as z:
+            meta = json.loads(z.read("fabric.mod.json").decode("utf-8", "replace"), strict=False)
+        return meta.get("id"), meta.get("version")
+    except (KeyError, OSError, ValueError, zipfile.BadZipFile):
+        return None, None
+
+
+def nests(jar_path, mod_id):
+    """True when the jar nests a jar whose fabric.mod.json id is mod_id (META-INF/jars/*)."""
+    import io
+    import zipfile
+    with zipfile.ZipFile(jar_path) as z:
+        for name in z.namelist():
+            if name.startswith("META-INF/jars/") and name.endswith(".jar"):
+                try:
+                    with zipfile.ZipFile(io.BytesIO(z.read(name))) as inner:
+                        if json.loads(inner.read("fabric.mod.json").decode("utf-8", "replace"), strict=False).get("id") == mod_id:
+                            return True
+                except (KeyError, ValueError, zipfile.BadZipFile):
+                    continue
+    return False
+
+
+def player_version(slug, version_number, mc_version, fetch_json=None):
+    """(url, filename, sha512) of one exact Modrinth version of slug for mc_version (the player's own copy)."""
+    fetch_json = fetch_json or (lambda u: json.loads(_get(u)))
+    q = "game_versions=" + urllib.parse.quote(json.dumps([mc_version])) + "&loaders=" + urllib.parse.quote('["fabric"]')
+    v = next((x for x in fetch_json(f"{API}/project/{slug}/version?{q}") if x.get("version_number") == version_number), None)
+    if not v:
+        raise CoverError(f"Modrinth lists no {slug} {version_number} for {mc_version}")
+    f = next((x for x in v.get("files", []) if x.get("primary")), None) or (v.get("files") or [None])[0]
+    if not f or not f.get("hashes", {}).get("sha512"):
+        raise CoverError(f"{slug} {version_number} has no file with a SHA-512")
+    return f["url"], f["filename"], f["hashes"]["sha512"].lower()
+
+
+def parse_player(spec):
+    """'<sodium>/<iris>' -> (sodium, iris or None). iris '-' = the player has no Iris."""
+    sodium, sep, iris = spec.partition("/")
+    if not sep or not sodium or not iris or not re.fullmatch(r"[0-9A-Za-z.+_-]+", sodium + iris):
+        raise CoverError(f"--player: expected <sodium>/<iris> Modrinth version numbers, got {spec!r}")
+    return sodium, (None if iris == "-" else iris)
+
+
 def jar_version(filename):
     """'sodium-fabric-0.6.5+mc1.21.1.jar' -> 'sodium', '0.6.5+mc1.21.1'."""
     base = filename[:-4] if filename.lower().endswith(".jar") else filename
@@ -132,7 +188,7 @@ def _strip_comments(gradle_text):
     return re.sub(r"/\*.*?\*/|//[^\n]*", "", gradle_text, flags=re.S)
 
 
-def build_gradle(module_gradle_text):
+def build_gradle(module_gradle_text, disable_ids=None):
     """The cover project's build.gradle, derived from the covering module's: same plugins block, same mappings
     line (none on unobfuscated 26.x), same configuration for fabric-loader. No sources, no Origin dependency:
     every mod (Origin included) comes in through fabric.addMods as a production jar."""
@@ -159,7 +215,8 @@ def build_gradle(module_gradle_text):
         "}\n\n"
         "loom {\n\truns {\n\t\tclient {\n"
         '\t\t\tproperty "fabric.addMods", file("mods").absolutePath\n'
-        "\t\t}\n\t}\n}\n"
+        + (f'\t\t\tproperty "fabric.debug.disableModIds", "{",".join(disable_ids)}"\n' if disable_ids else "")
+        + "\t\t}\n\t}\n}\n"
     )
 
 
@@ -239,7 +296,7 @@ def fabric_api(mc_version, fetch_json=None):
     return f["url"], f["filename"], f.get("hashes", {}).get("sha512", ""), v.get("version_number", "?")
 
 
-def prepare(module_dir, mc_version, out, run_java=0, pair=None):
+def prepare(module_dir, mc_version, out, run_java=0, pair=None, player=None):
     module_dir = os.path.abspath(module_dir)
     name = os.path.basename(module_dir)
     with open(LIVE, encoding="utf-8") as f:
@@ -257,7 +314,12 @@ def prepare(module_dir, mc_version, out, run_java=0, pair=None):
             pins += "\n" + f.read()
         alternates = alternate_pair(pins, mc_version, pair)
         mods = swap_pair(mods, alternates)
+    if pair and player:
+        raise CoverError("--pair and --player are different launches; pick one")
     jar = built_jar(module_dir)
+    disable = []
+    if player and player[1] is None and nests(jar, "iris"):
+        disable = ["iris"]   # the launcher's PlayerOverrides keeps Origin's nested Iris out of the launch
 
     if os.path.exists(out):
         shutil.rmtree(out)
@@ -273,7 +335,7 @@ def prepare(module_dir, mc_version, out, run_java=0, pair=None):
     with open(os.path.join(out, "gradle.properties"), "w", encoding="utf-8", newline="\n") as f:
         f.write(props)
     with open(os.path.join(module_dir, "build.gradle"), encoding="utf-8") as f:
-        gradle = build_gradle(f.read())
+        gradle = build_gradle(f.read(), disable)
     with open(os.path.join(out, "build.gradle"), "w", encoding="utf-8", newline="\n") as f:
         f.write(gradle)
 
@@ -286,6 +348,29 @@ def prepare(module_dir, mc_version, out, run_java=0, pair=None):
     url, fn, sha, ver = fabric_api(mc_version)
     _download(url, fn, sha, os.path.join(out, "mods"))
     loaded.append(f"{fn} (Fabric API {ver}, newest release, sha512 ok)")
+    if player:
+        # Origin leaves its own top-level Sodium/Iris out of this profile's launch (by mod id, like the launcher).
+        for fn in sorted(os.listdir(os.path.join(out, "mods"))):
+            path = os.path.join(out, "mods", fn)
+            if fn != os.path.basename(jar) and mod_identity(path)[0] in ("sodium", "iris"):
+                os.remove(path)
+                loaded.append(f"{fn}: Origin's copy left out (the player's own wins)")
+        expect = {"iris": "absent"}
+        for slug, vn in (("sodium", player[0]), ("iris", player[1])):
+            if vn is None:
+                continue
+            url, fn, sha = player_version(slug, vn, mc_version)
+            _download(url, fn, sha, os.path.join(out, "mods"))
+            mid, mver = mod_identity(os.path.join(out, "mods", fn))
+            if mid != slug or not mver:
+                raise CoverError(f"{fn}: fabric.mod.json says id {mid!r}, expected {slug}")
+            expect[slug] = mver
+            loaded.append(f"{fn} (the player's own {slug} {mver}, sha512 ok)")
+        if disable:
+            loaded.append("-Dfabric.debug.disableModIds=" + ",".join(disable) + " (Origin's nested Iris kept out)")
+        with open(os.path.join(out, "pair-expect.txt"), "w", encoding="ascii", newline="\n") as f:
+            for k in ("sodium", "iris"):
+                f.write(f"{k}={expect[k]}\n")
     if alternates:
         with open(os.path.join(out, "pair-expect.txt"), "w", encoding="ascii", newline="\n") as f:
             for _url, fn, _sha in alternates:
@@ -302,12 +387,14 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--run-java", type=int, default=0, help="the game JVM players use, when older than Gradle's (keeps vanilla LWJGL)")
     ap.add_argument("--pair", default="", help="swap in this vetted older Sodium + Iris pair (ManagedPins AlternatePins), e.g. 0.6.5+1.8.1")
+    ap.add_argument("--player", default="", help="a profile with the player's own <sodium>/<iris> (Modrinth version numbers; iris '-' = none)")
     a = ap.parse_args()
     if not os.path.isfile(os.path.join(a.module, "build.gradle")):
         print(f"covers: no build.gradle in {a.module}", file=sys.stderr)
         return 2
     try:
-        loaded = prepare(a.module, a.mc_version, os.path.abspath(a.out), a.run_java, a.pair or None)
+        loaded = prepare(a.module, a.mc_version, os.path.abspath(a.out), a.run_java, a.pair or None,
+                         parse_player(a.player) if a.player else None)
     except (CoverError, OSError) as e:
         print(f"::error title=covers {a.mc_version}::{e}")
         return 1

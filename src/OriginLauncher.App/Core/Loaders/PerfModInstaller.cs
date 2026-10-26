@@ -38,7 +38,9 @@ public static class PerfModInstaller
                 try { File.Delete(tempPath); } catch { /* best effort */ }
                 throw new InvalidDataException($"{mod.FileName} did not match its pinned SHA-512; not installed.");
             }
-            File.Move(tempPath, destPath, overwrite: true);
+            // No overwrite: a jar that appeared under this name meanwhile is the player's and stays.
+            File.Move(tempPath, destPath, overwrite: false);
+            Mods.OriginInstallRecord.Add(destPath, mod.Sha512);
         }
     }
 }

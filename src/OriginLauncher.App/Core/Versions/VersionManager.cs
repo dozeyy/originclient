@@ -391,14 +391,46 @@ public sealed class VersionManager
             externalMods, ModManager.IsManaged, ModManager.IsOriginProvisioned,
             Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"), ct, overrideSetKey, ModManager.IsOriginsCopy), ct);
 
+    // Where the player's own copies replace Origin's for this launch: a profile's jars, or (profileId null) the
+    // player's loose jars in the shared folder. Fail-soft: a failure here launches as before.
+    private static PlayerOverridePlan PlayerPlanFor(string version, string modsFolder, string? profileId, LaunchSwap? swap, CancellationToken ct)
+    {
+        try
+        {
+            return profileId != null
+                ? LaunchPreflight.OverridesFor(version, modsFolder, OriginPaths.ProfileModsDir(version, profileId),
+                    ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy, swap, ct)
+                : LaunchPreflight.SharedOverridesFor(version, modsFolder, ModManager.IsManaged, ModManager.IsOriginsCopy, swap, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return PlayerOverridePlan.Empty;
+        }
+    }
+
+    // One line in the version's compatibility log (logs/mod-compat-<version>.log). Best-effort.
+    private static void AppendCompatLog(string version, string line)
+    {
+        try
+        {
+            File.AppendAllText(Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {line}{Environment.NewLine}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
     // A profile launch on a version with vetted alternates (Core/Components/ConfigurationLaunch): pick the newest
     // configuration that starts, fetch its files into the store, check exactly that set. Off the UI thread.
+    // profileId null = a shared-folder launch whose player Sodium matches a vetted pair (only then is this called).
     private static async Task<ConfigurationChoice> ChooseConfigurationAsync(
-        string version, string modsFolder, string profileId, string? componentPins, string? overrideSetKey, CancellationToken ct)
+        string version, string modsFolder, string? profileId, string? componentPins, string? overrideSetKey, CancellationToken ct)
     {
-        var profileFolder = OriginPaths.ProfileModsDir(version, profileId);
+        var profileFolder = profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null;
         var compatLog = Path.Combine(OriginPaths.Logs, $"mod-compat-{version}.log");
-        var lines = new List<string> { $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} profile {profileId} on {version}" };
+        var lines = new List<string>
+        {
+            $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {(profileId != null ? "profile " + profileId : "shared mods folder")} on {version}",
+        };
         try
         {
             return await ConfigurationLaunch.ChooseAsync(version, componentPins, Components.Value,
@@ -417,7 +449,9 @@ public sealed class VersionManager
                 },
                 swap => LaunchPreflight.Run(version, modsFolder, profileFolder, true, ModManager.IsManaged,
                     ModManager.IsOriginProvisioned, compatLog, ct, overrideSetKey, ModManager.IsOriginsCopy, swap),
-                RunningConfigurations.For(profileId), lines.Add, ct).ConfigureAwait(false);
+                // A shared launch set's folder is per account and per configuration (mods-shared-<id>), so no other
+                // game can be holding the one it writes: nothing to wait for.
+                profileId != null ? RunningConfigurations.For(profileId) : Array.Empty<string>(), lines.Add, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -531,6 +565,10 @@ public sealed class VersionManager
         // third-party jar a player drops in) depends on this, so it's
         // installed unconditionally for every Fabric version, not
         // just the one Origin Client itself targets.
+        // First, once per folder: the Fabric API / Simple Voice Chat jars an older launcher installed without a pin
+        // are recorded as Origin's (OriginInstallRecord.AdoptLegacy), so they still count as Origin's below and in a
+        // profile or Origin-only launch, instead of turning into "the player's" after an update.
+        OriginInstallRecord.AdoptLegacy(modsFolder);
         await FabricApiInstaller.InstallAsync(version, modsFolder, progress, ct);
         LaunchTimeline.Mark("fabric-api");
 
@@ -541,37 +579,16 @@ public sealed class VersionManager
             originBundlesPerfStack = originBuild.BundlesPerfStack;
 
             // Only when THIS build carries its own perf stack jar-in-jar
-            // (e.g. 1.21.1): purge any STANDALONE copies a pre-bundle
-            // install (or a hand-dropped mod) left behind. A stray newer
-            // Sodium overrides the bundled 0.6.x and, being incompatible
-            // with the pinned Iris 1.8.x, silently disables Iris — killing
-            // shaders AND leaving the client in a mixed Sodium state that
-            // breaks other Origin mixins. Builds that DON'T bundle the perf
-            // stack (1.20) need the standalone jars, so this purge is
-            // skipped for them and the catalog install below runs instead.
-            //
-            // Matched by ModManager.IsBundledPerfJar, which keys on each
-            // project's canonical filename SHAPE (sodium-fabric-*, etc.)
-            // — so a version-drifted leftover is caught, but user addons
-            // like sodium-extra / sodiumdynamiclights are spared (the old
-            // bare "sodium" prefix silently deleted those every launch).
-            // Only enabled ".jar" files are considered; ".jar.disabled"
-            // user mods are left alone.
+            // (e.g. 1.21.1): delete ORIGIN's own standalone copies a
+            // pre-bundle install left behind. Builds that DON'T bundle the
+            // perf stack (1.20) need the standalone jars, so this is skipped
+            // for them and the catalog install below runs instead.
+            // Origin's copies only, known by their bytes (pins + install
+            // record): a player's own Sodium/Iris/Mod Menu here is theirs and
+            // wins (PlayerOverrides below decides the pair), so it is never
+            // deleted by its name any more.
             if (originBundlesPerfStack)
-            {
-                foreach (var file in Directory.EnumerateFiles(modsFolder))
-                {
-                    var name = Path.GetFileName(file);
-                    if (!name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    if (name.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    if (ModManager.IsBundledPerfJar(name))
-                    {
-                        try { File.Delete(file); } catch { /* locked/removed already */ }
-                    }
-                }
-            }
+                SharedFolderCleanup.PurgeStandalonePerf(modsFolder, ModManager.OwnerOf);
         }
 
         // Install the standalone perf catalog UNLESS the Origin build we
@@ -615,56 +632,16 @@ public sealed class VersionManager
         // mod regenerates its defaults. Swept before every launch.
         SanitizeCorruptConfigs(configFolder);
 
-        // Exactly ONE enabled jar per managed mod family. Fabric Loader
-        // 0.19.3 loads only the HIGHER version of a duplicate mod id, so a
-        // second copy of a launcher-managed mod — a player hand-updating
-        // fabric-api next to the launcher's copy, or a catalog version bump
-        // leaving the old pinned jar behind — silently replaces the pinned
-        // one (a higher Sodium can break the pinned Iris). Heal it on every
-        // launch. Which twin survives:
-        //   1. The catalog PIN for this version, when the family has one
-        //      — pins are deliberate era-pairings (Iris 1.7.x must ride
-        //      Sodium 0.5.x), so a numerically higher leftover from a
-        //      different MC version is exactly the wrong file to keep.
-        //   2. Otherwise the highest filename version (a hand-updated
-        //      fabric-api is an upgrade — keep it), then most-recently-
-        //      landed time when versions don't parse.
-        // User (unmanaged) jars group as singletons — never touched.
+        // Exactly ONE of Origin's own jars per managed family (a catalog bump
+        // leaves the old pin behind). Only Origin's copies, known by their
+        // bytes, are ever compared or deleted: a player's own copy of the same
+        // mod (a hand-updated Fabric API, their own Sodium) is theirs, stays,
+        // and wins over Origin's through PlayerOverrides at launch.
         var pinnedJarNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (perfProfile != null)
             foreach (var pinned in perfProfile.Mods())
                 pinnedJarNames.Add(pinned.FileName);
-
-        foreach (var family in Directory.EnumerateFiles(modsFolder)
-                     .Where(f => Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                     .Where(ModManager.IsManagedFile) // a player's jar only NAMED like Origin's is never deleted here
-                     .GroupBy(f => ModManager.ModFamilyKey(Path.GetFileName(f)), StringComparer.OrdinalIgnoreCase))
-        {
-            var keep = family.FirstOrDefault(f => pinnedJarNames.Contains(Path.GetFileName(f)))
-                ?? family
-                    .OrderByDescending(f => ModManager.TryParseVersion(Path.GetFileName(f)) ?? new Version(0, 0))
-                    .ThenByDescending(f => Max(File.GetCreationTimeUtc(f), File.GetLastWriteTimeUtc(f)))
-                    .First();
-            foreach (var stale in family.Where(f => !ReferenceEquals(f, keep)))
-            {
-                try { File.Delete(stale); } catch { /* locked/removed already */ }
-            }
-
-            // A twin that would not go is held open by another account's game
-            // of this version (the mods folder is shared) — e.g. a catalog bump
-            // added the new pin while that game still runs the old one. Two
-            // copies would stop THIS game booting, so keep the one in use and
-            // drop the rest; the next launch after that game closes swaps them.
-            var left = family.Where(File.Exists).ToList();
-            if (left.Count > 1)
-            {
-                var inUse = left.First(f => !ReferenceEquals(f, keep));
-                foreach (var other in left.Where(f => !ReferenceEquals(f, inUse)))
-                {
-                    try { File.Delete(other); } catch { /* locked/removed already */ }
-                }
-            }
-        }
+        SharedFolderCleanup.DedupeOriginFamilies(modsFolder, pinnedJarNames, ModManager.OwnerOf);
 
         // "Play with external mods" OFF: the game must load ONLY the
         // jars Origin itself provisions. Fabric Loader's supported
@@ -688,18 +665,43 @@ public sealed class VersionManager
         // never checked; a checker failure is logged and the launch goes ahead (LaunchPreflight is fail-soft).
         // A profile on a version with vetted alternates picks its component configuration here (same check, plus the
         // alternates only when the shipped set would not start). Every other launch is checked exactly as before.
+        // The player's own Sodium or Iris decides the pair (PlayerOverrides), in a profile AND in the shared folder
+        // (Will's own setup: his Sodium in instances/<v>/mods, no profile): a vetted pair matching it is pinned for
+        // this launch, and with no vetted pair the launch keeps the player's set as it is (no alternate of Origin's).
+        // A shared-folder launch takes an alternate ONLY for that vetted pair; otherwise it is checked as before.
         ConfigurationChoice? configuration = null;
-        if (profileId != null && ConfigurationCatalog.HasAlternates(version))
+        var sharedLaunch = externalMods && profileId == null;
+        var playerPlan = profileId != null || sharedLaunch
+            ? await Task.Run(() => PlayerPlanFor(version, modsFolder, profileId, null, ct), ct)
+            : PlayerOverridePlan.Empty;
+        var launchPins = playerPlan.PairId != null
+            ? ComponentPinSet.With(componentPins, ConfigurationCatalog.PairFamily, playerPlan.PairId)
+            : componentPins;
+        if (ConfigurationCatalog.HasAlternates(version)
+            && (profileId != null ? !playerPlan.PlayerDecidesPair || playerPlan.PairId != null
+                : sharedLaunch && playerPlan.PairId != null))
         {
             configuration = await Task.Run(
-                () => ChooseConfigurationAsync(version, modsFolder, profileId, componentPins, overrideSetKey, ct), ct);
-            configurationPicked?.Invoke(configuration.Configuration.Id);
+                () => ChooseConfigurationAsync(version, modsFolder, profileId, launchPins, overrideSetKey, ct), ct);
+            if (profileId != null) configurationPicked?.Invoke(configuration.Configuration.Id);
+            if (sharedLaunch && configuration.Swap != null)
+                playerPlan = await Task.Run(() => PlayerPlanFor(version, modsFolder, null, configuration.Swap, ct), ct);
         }
         else
             await CheckModsAsync(version, modsFolder, externalMods, profileId, overrideSetKey, ct);
 
-        var gameModsFolder = modsFolder; // the shared folder, unless Origin-only or a profile
-        if (!externalMods || profileId != null)
+        var gameModsFolder = modsFolder; // the shared folder, unless Origin-only, a profile or a shared launch set
+        if (sharedLaunch)
+        {
+            // The shared folder directly, unless the player's copies replace one of Origin's top-level jars, set one
+            // of their own aside, or take a vetted pair: then this account loads mods-shared (hard links to every
+            // shared jar but those; LaunchModFolder.PrepareSharedLaunch), and the shared folder is left exactly as it
+            // is. Fail-soft: if that folder can't be built, the shared folder loads as it is.
+            gameModsFolder = LaunchModFolder.PrepareSharedLaunch(path.BasePath, modsFolder, playerPlan,
+                configuration?.Swap, configuration?.Configuration.Id, ModManager.IsOriginsCopy,
+                line => AppendCompatLog(version, line));
+        }
+        else if (!externalMods || profileId != null)
         {
             progress?.Report(profileId != null ? "Preparing profile mods..." : "Preparing Origin-only mod set...");
             // An alternate configuration gets its own folder (mods-profile-<id>), so switching never rewrites the
@@ -713,20 +715,22 @@ public sealed class VersionManager
             // perf/shader stack (and, for a profile, Simple Voice Chat).
             // Everything else is the player's and stays out of this launch
             // unless the profile holds it.
-            var sharedFiles = Directory.EnumerateFiles(modsFolder);
+            var sharedFiles = Directory.EnumerateFiles(modsFolder).ToList();
+            // Where the profile's own copy of a mod Origin ships loads instead of Origin's (decided on the exact set,
+            // swap included); nothing in the shared folder is touched, Origin's copy just stays out of this folder.
+            if (profileId != null)
+                playerPlan = await Task.Run(() => PlayerPlanFor(version, modsFolder, profileId, configuration?.Swap, ct), ct);
             var desired = profileId != null
                 ? LaunchModFolder.LaunchSet(sharedFiles,
                     Directory.Exists(OriginPaths.ProfileModsDir(version, profileId))
                         ? Directory.EnumerateFiles(OriginPaths.ProfileModsDir(version, profileId))
                         : Enumerable.Empty<string>(),
-                    ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy)
+                    ModManager.IsOriginProvisioned, ModManager.IsOriginsCopy, playerPlan.Skips)
                 : LaunchModFolder.LaunchSet(sharedFiles, Enumerable.Empty<string>(), ModManager.IsManaged, ModManager.IsOriginsCopy);
+            // The shipped Sodium/Iris jars stay in the shared folder (untouched); this launch loads the store copies.
+            // Only Origin's jars give way: a jar of the player's named like Sodium in the profile stays.
             if (configuration?.Swap is { } swap)
-            {
-                // The shipped Sodium/Iris jars stay in the shared folder (untouched); this launch loads the store copies.
-                foreach (var name in desired.Keys.Where(swap.Replaces).ToList()) desired.Remove(name);
-                foreach (var file in swap.Files) desired[LaunchSwap.NameOf(file)] = file.Path;
-            }
+                LaunchModFolder.ApplySwap(desired, swap, sharedFiles, ModManager.IsOriginsCopy, playerPlan.Skips);
 
             // Diff-synced rather than delete+recreate (see LaunchModFolder.Sync):
             // a still-running game of this account holds these jars open.
@@ -738,6 +742,10 @@ public sealed class VersionManager
         // from (checked above: the installed loader reads it).
         var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
         extraJvm.Add(new MArgument(SharedMods.JvmArgument(gameModsFolder)));
+        // Copies nested in Origin's own jar that must not load next to the player's (e.g. Origin's Iris beside the
+        // player's Sodium): the loader's own switch (fabric.debug.disableModIds, Fabric Loader 0.15.0+).
+        // Applies to a profile and to a shared-folder launch alike (the plan is empty for Origin-only).
+        if (playerPlan.JvmArgument is { } disableIds) extraJvm.Add(new MArgument(disableIds));
         option.ExtraJvmArguments = extraJvm;
         LaunchTimeline.Mark("mods");
 
@@ -881,13 +889,17 @@ public sealed class VersionManager
         // jar, which changes both.
         if (IsSameFile(bundledJar, installedJar)) return true;
 
-        // Other names only: originclient.jar itself is swapped below.
+        // Other names only: originclient.jar itself is swapped below. Only an
+        // older ORIGIN CLIENT goes (its mod id is originclient: two of them
+        // can never load together); another mod that merely starts with the
+        // same word is the player's and stays.
         foreach (var file in Directory.EnumerateFiles(modsFolder))
         {
             var fn = Path.GetFileName(file);
             if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
                 && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
-                && !fn.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
+                && !fn.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase)
+                && ModFolderScanner.ReadInfo(file, readNested: false) is { Id: "originclient" })
             {
                 try { File.Delete(file); } catch { /* locked/removed already */ }
             }
@@ -974,7 +986,6 @@ public sealed class VersionManager
         }
     }
 
-    private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
 
     // Puts the launcher's bundled Origin jar in place as originclient.jar with
     // one rename, never by rewriting the file: another account's game of this
