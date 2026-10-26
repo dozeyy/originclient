@@ -57,7 +57,7 @@ public class ImportStressEdgeTests : IDisposable
         // The list is JSON (Minecraft reads it with Gson on every version), so escaped and plain spellings are the same name.
         var packsLine = File.ReadAllLines(Path.Combine(game, "options.txt"), Encoding.UTF8).Single(l => l.StartsWith("resourcePacks:"));
         Assert.Contains($"file/{pack}", JsonSerializer.Deserialize<string[]>(packsLine["resourcePacks:".Length..])!);
-        Assert.True(File.Exists(Path.Combine(InstanceLayout.ModsDir(_rig.Instances, "1.21.1"), "mod é ñ.jar")));
+        Assert.True(File.Exists(Path.Combine(plan.ProfileModsDir!, "mod é ñ.jar")));
         Assert.Equal(sourceBefore, Kit.TreeHash(src, mtimes: true));
     }
 
@@ -85,7 +85,7 @@ public class ImportStressEdgeTests : IDisposable
         foreach (var jar in new[] { "zero-bytes.jar", "random-bytes.jar", "bad-metadata.jar", "truncated.jar" })
             Assert.Contains(plan.Lines, l => l.Section == SummarySection.NotImported && l.Name.Contains(jar));
         Assert.False(Directory.Exists(Path.Combine(_rig.GameDir(), "saves", "NoLevelDat")));
-        Assert.True(File.Exists(Path.Combine(InstanceLayout.ModsDir(_rig.Instances, "1.21.1"), "mymod.jar")));
+        Assert.True(File.Exists(Path.Combine(plan.ProfileModsDir!, "mymod.jar")));
     }
 
     [Theory]
@@ -313,10 +313,10 @@ public class ImportStressEdgeTests : IDisposable
             var game = rig.GameDir();
             AssertWholeWorld(game);
             Assert.Contains("renderDistance:12", File.ReadAllText(Path.Combine(game, "options.txt")));
-            // One finished: its mods are in the version's shared mods folder (the refused one never wrote there).
-            var mods = InstanceLayout.ModsDir(rig.Instances, "1.21.1");
-            Assert.True(File.Exists(Path.Combine(mods, "mymod.jar")), $"round {round}: a finished import lost its mods");
-            Assert.Empty(rig.Settings.Load().Profiles);
+            // One finished: its mods are in its profile (the refused one made none).
+            var won = results[0].Succeeded ? a : b;
+            Assert.True(File.Exists(Path.Combine(won.ProfileModsDir!, "mymod.jar")), $"round {round}: a finished import lost its mods");
+            Assert.Equal(won.ProfileId, Assert.Single(rig.Settings.Load().Profiles).Id);
         }
     }
 
@@ -340,7 +340,8 @@ public class ImportStressEdgeTests : IDisposable
         var again = await engine.PlanAsync(_rig.Request(options: WithWorlds), null, CancellationToken.None);
         Assert.True((await engine.ApplyAsync(again, _rig.Settings, null, CancellationToken.None)).Succeeded);
         Assert.False(Directory.Exists(Path.Combine(_rig.GameDir(), "saves", "World1 (imported)")));
-        Assert.Empty(_rig.Settings.Load().Profiles);
+        Assert.True(again.ProfileReused);                                              // the same mods: the first one's profile
+        Assert.Equal(first.ProfileId, Assert.Single(_rig.Settings.Load().Profiles).Id);
     }
 
     [Fact]

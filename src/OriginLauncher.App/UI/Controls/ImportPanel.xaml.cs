@@ -872,9 +872,6 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             }
         }
 
-        var warning = grid.Warning();
-        GridWarning.Text = warning ?? "";
-        GridWarningRow.Visibility = V(warning != null);
         if (_pane != Pane.Grid) return;
 
         SetHeader("Choose what to import", "Tick what to bring over.", compact: true);
@@ -2977,7 +2974,6 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 }
                 sb.AppendLine();
             }
-            sb.AppendLine("  warning: " + (grid.Warning() ?? "none"));
         }
         grid.SetTab(shown);
         return sb.ToString();

@@ -418,6 +418,18 @@ public sealed class ImportPlan
     public SettingsDelta? SettingsDelta { get; set; }
     public bool BuiltInListIncomplete { get; set; }
 
+    // ---- the Origin profile this setup's mods land in (Will, 2026-10-25: every imported setup becomes a profile) ----
+
+    /// <summary>The profile the setup's mods land in (32 hex); null when no mod comes over (no empty profile is made).</summary>
+    public string? ProfileId { get; set; }
+    public string? ProfileName { get; set; }
+
+    /// <summary>A profile of this version already held exactly these mods (a repeat import): nothing is copied, nothing is added to settings.</summary>
+    public bool ProfileReused { get; set; }
+
+    /// <summary>profiles/&lt;id&gt;/mods of the target version (where the mods land); null with <see cref="ProfileId"/>.</summary>
+    public string? ProfileModsDir { get; set; }
+
     // ---- Engine B plug-in data ----
 
     /// <summary>

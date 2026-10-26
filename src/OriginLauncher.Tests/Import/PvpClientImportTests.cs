@@ -66,7 +66,7 @@ public class PvpClientImportTests : IDisposable
         await _rig.Engine().PlanAsync(_rig.Request(options: new ImportOptions { CopyWorlds = worlds }) with { Source = setup },
             null, CancellationToken.None);
 
-    private string ProfileMods(ImportPlan plan) => InstanceLayout.ModsDir(_rig.Instances, plan.TargetVersion);
+    private static string ProfileMods(ImportPlan plan) => plan.ProfileModsDir!; // every imported setup is its own profile
 
     private void AssertNoSecretOpened()
     {
@@ -131,7 +131,7 @@ public class PvpClientImportTests : IDisposable
         Assert.True(Kit.Exists(game, "servers.dat"));
         Assert.Contains("fov:0.9", Kit.Read(game, "options.txt"));
         Assert.False(Kit.Exists(game, "optionsLC.txt"));
-        Assert.Empty(_rig.Settings.Load().Profiles);                                   // imports never make profiles
+        Assert.Equal(plan.ProfileId, Assert.Single(_rig.Settings.Load().Profiles).Id);    // the setup is its own profile
 
         Assert.Equal(lunarBefore, Kit.TreeHash(Lunar, mtimes: true));
         Assert.Equal(minecraftBefore, Kit.TreeHash(Minecraft, mtimes: true));
@@ -146,10 +146,11 @@ public class PvpClientImportTests : IDisposable
         var mods = Assert.Single((await Scan()).Instances, s => s.ModsDir != null);
         Assert.True((await _rig.Engine().ApplyAsync(await Plan(mods), _rig.Settings, null, CancellationToken.None)).Succeeded);
 
-        var again = await _rig.Engine().PlanAsync(_rig.Request(options: new ImportOptions { CopyWorlds = true }) with { Source = mods }, null, CancellationToken.None);
+        var again = await _rig.Engine().PlanAsync(_rig.Request(options: new ImportOptions { CopyWorlds = true }) with { Source = mods, ExistingProfiles = _rig.Settings.Load().Profiles }, null, CancellationToken.None);
+        Assert.True(again.ProfileReused); // the same files: the first import's profile, not "Lunar: 1.21.1 2"
         Assert.True((await _rig.Engine().ApplyAsync(again, _rig.Settings, null, CancellationToken.None)).Succeeded);
 
-        Assert.Empty(_rig.Settings.Load().Profiles);
+        Assert.Single(_rig.Settings.Load().Profiles);
         Assert.False(Directory.Exists(Path.Combine(_rig.GameDir(), "saves", "Bedwars Practice (imported)")));
     }
 

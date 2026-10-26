@@ -32,10 +32,10 @@ public class ImportEngineTests : IDisposable
         return (plan, result);
     }
 
-    // ------------------------------------------------------------ mods: the version's shared folder, never a profile
+    // ------------------------------------------------------------ mods: a new profile of their own (Will, 2026-10-25)
 
     [Fact]
-    public async Task ModsLandInTheVersionsSharedModsFolderAndNoProfileIsMade()
+    public async Task ModsLandInANewProfileOfTheirOwnWhichHomeThenPicks()
     {
         Populate();
         var shared = Path.Combine(_rig.Instances, "1.21.1", "mods");
@@ -45,33 +45,37 @@ public class ImportEngineTests : IDisposable
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded);
-        Assert.Equal(new[] { "disabled-thing.jar.disabled", "existing.jar", "mymod.jar", "needs-lib.jar.disabled" },
-            Directory.GetFiles(shared).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
-        Assert.Equal(existingBytes, File.ReadAllBytes(existing));                 // Origin's own mod: untouched
-        // No launcher setting changes at all: no profile, and the picked version stays the player's.
-        Assert.Null(plan.SettingsDelta);
+        Assert.NotNull(plan.ProfileId);
+        Assert.False(plan.ProfileReused);
+        Assert.Equal(InstanceLayout.ProfileModsDir(_rig.Instances, "1.21.1", plan.ProfileId!), plan.ProfileModsDir);
+        Assert.Equal(new[] { "disabled-thing.jar.disabled", "mymod.jar", "needs-lib.jar.disabled" },
+            Directory.GetFiles(plan.ProfileModsDir!).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
+        // The version's shared folder is Origin's: nothing imported lands there, and its jars are untouched.
+        Assert.Equal(new[] { "existing.jar" }, Directory.GetFiles(shared).Select(Path.GetFileName));
+        Assert.Equal(existingBytes, File.ReadAllBytes(existing));
         var settings = _rig.Settings.Load();
-        Assert.Empty(settings.Profiles);
-        Assert.Equal("1.21.11", settings.SelectedVersion);
-        Assert.Null(settings.SelectedProfileId);
-        Assert.False(Directory.Exists(Path.Combine(_rig.Instances, "1.21.1", "profiles")));
+        var profile = Assert.Single(settings.Profiles);
+        Assert.Equal(plan.ProfileId, profile.Id);
+        Assert.Equal("1.21.1", profile.Version);
+        Assert.Equal("Folder: Hypixel", profile.Name);
+        Assert.Equal("1.21.1", settings.SelectedVersion);
+        Assert.Equal(plan.ProfileId, settings.SelectedProfileId);
     }
 
     [Fact]
-    public async Task AModOriginsSharedFolderAlreadyHasIsLeftAsItIs()
+    public async Task AModOneOfOriginsOwnJarsAlreadyHasIsLeftAsItIs()
     {
         Populate();
-        var shared = Path.Combine(_rig.Instances, "1.21.1", "mods");
-        // Same file name, other bytes: Origin's copy stays, the old setup's is never written over it.
-        var mine = Kit.WriteBytes(shared, "mymod.jar", Kit.FabricJar("mymod", "0.9"));
+        // Same file name as one of Origin's own jars, other bytes: Origin's copy stays and the old setup's is not copied.
+        var mine = _rig.OriginJar("1.21.1", "mymod.jar", Kit.FabricJar("mymod", "0.9"));
         var before = File.ReadAllBytes(mine);
 
         var (plan, result) = await Run();
 
         Assert.True(result.Succeeded);
         Assert.Equal(before, File.ReadAllBytes(mine));
-        Assert.Contains(plan.Lines, l => l.Kind == PlanItemKind.Mod && l.Reason == ImportEngine.AlreadyInOriginMods);
-        Assert.DoesNotContain(plan.Ops, o => o.Item == PlanItemKind.Mod && o.Dest == mine);
+        Assert.Contains(plan.Lines, l => l.Kind == PlanItemKind.Mod && l.Reason == ImportEngine.OriginsOwnCopy);
+        Assert.DoesNotContain(plan.Ops, o => o.Item == PlanItemKind.Mod && Path.GetFileName(o.Dest) == "mymod.jar");
     }
 
     [Fact]
@@ -643,7 +647,7 @@ public class ImportEngineTests : IDisposable
 
         var log = File.ReadAllText(ImportLayout.Log(_rig.Imports, plan.ImportId));
         Assert.Contains($"instances/1.21.1/accounts/{Rig.Account}/options.txt", log);
-        Assert.Contains("instances/1.21.1/mods/mymod.jar", log);
+        Assert.Contains($"instances/1.21.1/profiles/{plan.ProfileId}/mods/mymod.jar", log);
         Assert.DoesNotContain(_rig.Root, log);                                      // relative, never the machine's absolute path
         Assert.DoesNotContain("highContrast", log);                                 // no file contents
         Assert.DoesNotContain("SERVERLIST", log);

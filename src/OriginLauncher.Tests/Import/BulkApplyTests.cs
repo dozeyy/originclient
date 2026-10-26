@@ -47,13 +47,17 @@ public class BulkApplyTests : IDisposable
         var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, progress, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal(0, _f.Rig.Settings.ApplyCalls);                                   // B12: no launcher setting changes
+        Assert.Equal(1, _f.Rig.Settings.ApplyCalls);                                   // B12: ONE settings change for the run
         var settings = _f.Rig.Settings.Load();
-        Assert.Empty(settings.Profiles);                                                // imports never make profiles
-        Assert.Equal("1.21.11", settings.SelectedVersion);                              // the player's pick stays theirs
+        // Every setup that brought mods is its own profile (decision 04); the player's pick stays theirs.
+        var made = result.Versions.SelectMany(v => v.Setups).Where(s => s.ProfileId != null).ToList();
+        Assert.NotEmpty(made);
+        Assert.Equal(made.Select(s => s.ProfileId).OrderBy(i => i), settings.Profiles.Select(p => p.Id).OrderBy(i => i));
+        Assert.Equal("1.21.11", settings.SelectedVersion);
         Assert.Null(settings.SelectedProfileId);
-        // mymod is built for 1.21.1: it lands in that version's shared mods folder (the others leave it out as not fitting).
-        Assert.True(File.Exists(Path.Combine(_f.Rig.Instances, "1.21.1", "mods", "mymod.jar")));
+        // mymod is built for 1.21.1: it lands in a 1.21.1 setup's profile, never in the version's shared folder.
+        Assert.Contains(made, s => File.Exists(Path.Combine(s.ProfileModsDir!, "mymod.jar")) && s.ProfileModsDir!.Contains(Path.Combine("1.21.1", "profiles")));
+        Assert.False(File.Exists(Path.Combine(_f.Rig.Instances, "1.21.1", "mods", "mymod.jar")));
         foreach (var v in new[] { "1.21.1", "1.20.4", "1.16.5" })
         {
             Assert.True(File.Exists(_f.Target(v, "options.txt")), v);

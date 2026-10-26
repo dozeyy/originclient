@@ -1118,11 +1118,6 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel x:Name="GridWarningRow" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
-                            <Path Data="{StaticResource Icon.Alert}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
-                                  Margin="0,0,8,0" VerticalAlignment="Center" Stroke="{StaticResource Brush.Warning}"/>
-                            <TextBlock x:Name="GridWarning" Style="{StaticResource Import.Warning}" Margin="0" VerticalAlignment="Center"/>
-                        </StackPanel>
                         <Button x:Name="GridSetupsButton" Grid.Column="1" Style="{StaticResource Import.HeaderButton}"
                                 Content="Pick single setups" Click="GridSetups_Click"
                                 ToolTip="Tick setups one by one instead" AutomationProperties.Name="Pick single setups"/>

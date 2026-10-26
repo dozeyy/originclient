@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Compat;
 using OriginLauncher.App.Core.Import.Mods;
@@ -244,7 +245,24 @@ internal sealed class Rig : IDisposable
         IsGameRunning = isRunning ?? (dir => RunningDirs.Contains(dir)),
         OnSourceOpen = Opened.Add,
         Log = LogLines.Add,
+        IsOriginProvisioned = IsOriginJar,
     };
+
+    /// <summary>The jar names (file name, ".disabled" or not) the tests treat as Origin's own (ModManager.IsOriginProvisioned).</summary>
+    public HashSet<string> OriginJars { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsOriginJar(string name) => OriginJars.Contains(SharedModsLedger.FileKey(name));
+
+    /// <summary>Puts one of Origin's own jars in the version's shared mods folder (what a profile launch loads beside the profile).</summary>
+    public string OriginJar(string version, string fileName, byte[] bytes)
+    {
+        OriginJars.Add(SharedModsLedger.FileKey(fileName));
+        var dir = InstanceLayout.ModsDir(Instances, version);
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, fileName);
+        File.WriteAllBytes(path, bytes);
+        return path;
+    }
 
     public ImportEngine Engine(Func<string, bool>? isRunning = null, Func<string, long>? freeSpace = null) => new(Env(isRunning, freeSpace));
 
@@ -275,6 +293,10 @@ internal sealed class Rig : IDisposable
             new CatalogMod("modmenu", "modmenu-17.0.0.jar"),
         },
         PlayWithExternalMods = playWithExternalMods,
+        // What the launcher's own request carries (ImportBackend.BuildRequest): the settings as they are now.
+        SelectedVersion = Settings.Load().SelectedVersion,
+        SelectedProfileId = Settings.Load().SelectedProfileId,
+        ExistingProfiles = Settings.Load().Profiles,
     };
 
     public string GameDir(string version = "1.21.1") => Path.Combine(Instances, version, "accounts", Account);

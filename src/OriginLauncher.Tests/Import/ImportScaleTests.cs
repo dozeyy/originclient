@@ -48,7 +48,7 @@ public class ImportScaleTests : IDisposable
         apply.Stop();
         Assert.True(result.Succeeded, result.Error);
 
-        var profileMods = InstanceLayout.ModsDir(_rig.Instances, "1.21.1");
+        var profileMods = p.ProfileModsDir!;
         Assert.Equal(mods, Directory.GetFiles(profileMods, "mod-*.jar").Length);
         var world = Path.Combine(_rig.GameDir(), "saves", "Big World");
         Assert.Equal(regions, Directory.GetFiles(world, "*.mca", SearchOption.AllDirectories).Length);

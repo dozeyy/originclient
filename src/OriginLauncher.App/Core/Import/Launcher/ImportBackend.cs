@@ -170,6 +170,8 @@ public sealed class LauncherImportBackend : IImportBackend
             IsGameRunning = SettingsSync.IsGameRunning,
             Log = dryRun ? null : ImportLog.Write, // a dry run appends to no file at all
             VersionGate = new LauncherVersionGate(),
+            // Imported mods land in profiles; a profile launch takes these jars from the shared folder (LaunchModFolder).
+            IsOriginProvisioned = OriginLauncher.App.Core.Mods.ModManager.IsOriginProvisioned,
             Contributors = new IImportPlanContributor[]
             {
                 new GameFileContributor(gameFiles, new ImportMetadataHttp(), new LauncherVersionGate()),
@@ -339,8 +341,8 @@ public sealed class LauncherImportBackend : IImportBackend
 
     /// <summary>
     /// A re-plan starts from the plan's request, whose external-mods switch may be minutes old: it is read again, so the
-    /// plan's "your own mods are off" note follows what is saved now. (Imports change no launcher setting: no profile,
-    /// no selection.)
+    /// plan's "your own mods are off" note follows what is saved now. (A run's only settings change is adding its new
+    /// profiles, in one write at the end of the apply.)
     /// </summary>
     private static BulkImportPlan Fresh(BulkImportPlan plan)
     {
@@ -373,6 +375,7 @@ public sealed class LauncherImportBackend : IImportBackend
             SupportedTargets = parts.SupportedTargets,
             Facts = TargetFactsFor,
             PlayWithExternalMods = settings.PlayWithExternalMods,
+            ExistingProfiles = settings.ModProfiles.ToList(),
         };
     }
 
@@ -407,6 +410,9 @@ public sealed class LauncherImportBackend : IImportBackend
             BundledOriginJarPath = target == null ? null : VersionManager.BundledJarFor(target),
             CatalogMods = target == null ? Array.Empty<CatalogMod>() : CatalogModsFor(target),
             PlayWithExternalMods = settings.PlayWithExternalMods,
+            ExistingProfiles = settings.ModProfiles.ToList(),
+            SelectedVersion = settings.SelectedVersion,
+            SelectedProfileId = settings.SelectedProfileId,
         };
     }
 

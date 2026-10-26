@@ -202,7 +202,8 @@ public class BulkPlanTests : IDisposable
         var result = await engine.ApplyAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
         Assert.True(result.Succeeded, result.Error);
         Assert.True(File.Exists(_f.Target("1.21.4", "options.txt")));
-        Assert.Equal("1.21.11", _f.Rig.Settings.Load().SelectedVersion);           // imports never move the player's pick
+        Assert.Equal("1.21.4", _f.Rig.Settings.Load().SelectedVersion);            // one setup: Home picks its new profile
+        Assert.Equal(plan.ProfileId, _f.Rig.Settings.Load().SelectedProfileId);
     }
 
     // ------------------------------------------------------------ the settings winner (B6)

@@ -249,6 +249,8 @@ public sealed partial class ImportEngine
         };
         var ledger = new DestinationLedger(); // B10: one per target folder, shared by the group
         var facts = request.Facts?.Invoke(version) ?? new TargetFacts();
+        // B11: each setup's profile name is unique among the version's profiles AND the ones this run already named.
+        var plannedProfiles = new List<ModProfile>();
 
         for (var position = 0; position < composition.Order.Count; position++)
         {
@@ -271,6 +273,7 @@ public sealed partial class ImportEngine
                 SupportedTargets = request.SupportedTargets, BundledOriginJarPath = facts.BundledOriginJarPath,
                 CatalogMods = facts.CatalogMods, TargetHasIris = facts.TargetHasIris,
                 PlayWithExternalMods = request.PlayWithExternalMods,
+                ExistingProfiles = request.ExistingProfiles.Concat(plannedProfiles).ToList(),
                 Role = role, Ledger = ledger, ImportId = runId, Bulk = true, Metadata = metadata,
                 Brings = part.Brings, PrimaryMods = part.PrimaryMods, SelectedPacksOnly = part.OtherVersion,
                 SettingsWinnerLabel = carriesSettings ? null : donor?.BulkLabel(),
@@ -308,6 +311,8 @@ public sealed partial class ImportEngine
                 setupPlan.Lines.Insert(0, new SummaryLine(SummarySection.Imported, PlanItemKind.Setting, note));
             }
 
+            if (setupPlan.ProfileId != null && !setupPlan.ProfileReused)
+                plannedProfiles.Add(new ModProfile { Id = setupPlan.ProfileId, Name = setupPlan.ProfileName!, Version = version });
             var planned = new PlannedSetup(setup, role, setupPlan, note, uncertain, part.Brings, part.PrimaryMods, part.OtherVersion);
             group.Setups.Add(planned);
             if (reported.Add(setup))
@@ -426,6 +431,7 @@ public sealed partial class ImportEngine
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         tx.Journal.SharedModsReliedOn = plan.Groups.SelectMany(g => g.Setups).SelectMany(s => s.Plan.SharedModsReliedOn)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var s in plan.Groups.SelectMany(g => g.Setups)) ImportEngine.RecordProfile(tx.Journal, s.Plan);
 
         var held = new List<IAsyncDisposable>();
         IDisposable? folders = null; // every target folder's writer lock, taken before the version gates
@@ -614,9 +620,35 @@ public sealed partial class ImportEngine
     private static bool IsSourceProblem(PlannedOp op, Exception ex) =>
         (ex is SourceUnreadableException && !ImportFiles.IsDiskFull(ex) || ex is ItemLeftOutException) && op.Kind != OpKind.Custom;
 
-    // B12: an import changes no launcher setting at all (Will, 2026-10-19: imports never make profiles, and the player's
-    // picked version stays theirs; the done screen's Play picks one). PlayWithExternalMods is never touched either.
-    private static SettingsDelta? BuildDelta(BulkImportPlan plan, Dictionary<PlannedSetup, SetupState> states) => null;
+    // B12: ONE settings change for the run: a profile for every setup whose mods really landed (Will, 2026-10-25: every
+    // imported setup becomes an Origin profile). Read back from disk: a setup whose every mod copy was left out at apply
+    // time has no folder, so no empty profile is ever added. The Home selection stays the player's (the report's Play
+    // picks one); PlayWithExternalMods is never touched. A reused profile (a repeat import) is never added, so an undo
+    // never removes it.
+    private SettingsDelta? BuildDelta(BulkImportPlan plan, Dictionary<PlannedSetup, SetupState> states)
+    {
+        var profiles = plan.AllSetups
+            .Where(s => states[s].Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly)
+            .Where(s => s.Plan.ProfileId != null && !s.Plan.ProfileReused && HasJar(s.Plan.ProfileModsDir))
+            .Select(s => new ModProfile { Id = s.Plan.ProfileId!, Name = s.Plan.ProfileName!, Version = s.Plan.TargetVersion })
+            .ToList();
+        return profiles.Count == 0 ? null : new SettingsDelta { AddProfiles = profiles };
+    }
+
+    /// <summary>True when the folder holds at least one mod jar (turned on or off).</summary>
+    internal static bool HasJar(string? dir)
+    {
+        if (string.IsNullOrEmpty(dir)) return false;
+        try
+        {
+            return Directory.Exists(dir) && Directory.EnumerateFiles(dir)
+                .Any(p => p.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     private BulkImportResult BulkRolledBack(BulkImportPlan plan, ImportTransaction tx, IImportSettings settings,
         Dictionary<PlannedSetup, SetupState> states, Dictionary<VersionGroup, List<SummaryLine>> versionExtra, bool cancelled, string? error)
@@ -641,9 +673,14 @@ public sealed partial class ImportEngine
             var outcomes = g.Setups.Select(s =>
             {
                 var st = states[s];
+                // The profile only counts once its mods are really in its folder (re-read; BuildDelta added it on the same test).
+                var landed = state == ImportState.Committed && st.Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly
+                    && s.Plan.ProfileId != null && (s.Plan.ProfileReused || HasJar(s.Plan.ProfileModsDir));
                 return new SetupOutcome(s.Setup, s.Role, st.Kind, st.Message, null,
                     s.Plan.Lines.Where(l => !st.Superseded.Contains(l)).Concat(st.Extra).ToList(),
-                    st.Extra.Where(l => l.Section == SummarySection.NotImported).ToList());
+                    st.Extra.Where(l => l.Section == SummarySection.NotImported).ToList(),
+                    landed ? s.Plan.ProfileId : null, landed ? s.Plan.ProfileName : null,
+                    landed ? s.Plan.ProfileModsDir : null, landed && s.Plan.ProfileReused);
             }).ToList();
             var winner = g.Setups.FirstOrDefault(s => s.Role == SetupRole.Full);
             var settingsFrom = winner != null && states[winner].Kind == SetupResultKind.Imported ? winner.Setup.BulkLabel() : null;

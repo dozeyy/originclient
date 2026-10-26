@@ -125,12 +125,13 @@ public class ImportSafetyTests : IDisposable
         var applied1 = await engine.ApplyAsync(plan1, _rig.Settings, null, CancellationToken.None);
         Assert.True(applied1.Succeeded);
         Assert.Equal(sourceBefore, Kit.TreeHash(_rig.Source, mtimes: true));
-        string Listing() => string.Join("\n", Directory.EnumerateFiles(_rig.Instances, "*", SearchOption.AllDirectories)
-            .Select(f => Path.GetRelativePath(_rig.Instances, f)).OrderBy(p => p, StringComparer.Ordinal));
-        var listingAfterFirst = Listing();
+        // Each run's new profile has a fresh id: the listing names it "<profile>".
+        string Listing(ImportPlan plan) => string.Join("\n", Directory.EnumerateFiles(_rig.Instances, "*", SearchOption.AllDirectories)
+            .Select(f => Path.GetRelativePath(_rig.Instances, f).Replace(plan.ProfileId!, "<profile>")).OrderBy(p => p, StringComparer.Ordinal));
+        var listingAfterFirst = Listing(plan1);
         Assert.True(listingAfterFirst.Split('\n').Length > 10);
-        Assert.Contains(Path.Combine("1.21.1", "mods", "mymod.jar"), listingAfterFirst);   // the version's shared mods
-        Assert.Empty(_rig.Settings.Load().Profiles);
+        Assert.Contains(Path.Combine("1.21.1", "profiles", "<profile>", "mods", "mymod.jar"), listingAfterFirst); // its own profile
+        Assert.Single(_rig.Settings.Load().Profiles);
 
         var undone = await engine.RollbackAsync(plan1.ImportId, _rig.Settings);
         Assert.Equal(ImportState.RolledBack, undone.State);
@@ -138,7 +139,7 @@ public class ImportSafetyTests : IDisposable
         Assert.Equal(sourceBefore, Kit.TreeHash(_rig.Source, mtimes: true));
         Assert.False(Directory.Exists(_rig.Instances));                              // everything the import made is gone
         Assert.Empty(_rig.Settings.Load().Profiles);
-        Assert.Equal("1.21.11", _rig.Settings.Load().SelectedVersion);               // the selection was never moved
+        Assert.Equal("1.21.11", _rig.Settings.Load().SelectedVersion);               // the selection is put back
         Assert.Null(_rig.Settings.Load().SelectedProfileId);
 
         var plan2 = await engine.PlanAsync(request, null, CancellationToken.None);
@@ -147,7 +148,7 @@ public class ImportSafetyTests : IDisposable
         Assert.Equal(sourceBefore, Kit.TreeHash(_rig.Source, mtimes: true));
 
         // The second run lands exactly the same files as the first.
-        Assert.Equal(listingAfterFirst, Listing());
+        Assert.Equal(listingAfterFirst, Listing(plan2));
     }
 
     // ------------------------------------------------------------ every replaced file is backed up (criterion 49)

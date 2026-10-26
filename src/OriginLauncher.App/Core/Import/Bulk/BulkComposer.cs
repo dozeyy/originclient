@@ -2,7 +2,7 @@ using OriginLauncher.App.Core.Sync;
 
 namespace OriginLauncher.App.Core.Import.Bulk;
 
-// Who brings what into each Minecraft version (Will, 2026-10-19: imports never make profiles; a player who used one
+// Who brings what into each Minecraft version (Will, 2026-10-19, amended 2026-10-25: each setup's mods become a profile; a player who used one
 // launcher brings everything from it in one click; a player who mixed launchers picks, per launcher, what comes from
 // it on one grid). Pure: it decides from the scan alone, so the engine plans with it and the Import page shows the
 // same defaults it would plan.
@@ -14,8 +14,8 @@ namespace OriginLauncher.App.Core.Import.Bulk;
 //    - Otherwise the version's settings launcher is the grid's pick, else the launcher of VersionPicker's pick among
 //      the version's setups (B6). The setup: VersionPicker's pick when it is that launcher's, else the launcher's
 //      most played setup of the version, else its most played setup of any version (written for this one).
-//  * Mods: per launcher and version, only that launcher's most played setup of the version (never a union of its
-//    setups). By default one launcher per version brings mods: the one whose setup of it is played most.
+//  * Mods: every setup that brings mods brings its OWN mods into an Origin profile of its own (Will, 2026-10-25), so
+//    setups never mix: two Prism setups of one version become two profiles. By default every launcher brings mods.
 //  * Resource packs, shader packs, worlds (+ screenshots), servers: from every setup of the launcher on the version.
 //  * A Forge / NeoForge setup on a Fabric version brings packs (and screenshots) only (B4).
 
@@ -79,11 +79,7 @@ public sealed record Contribution(DetectedInstance Setup, ImportCategories Bring
 /// <summary>What one Minecraft version gets, in apply order (the settings setup first).</summary>
 /// <param name="Left">The version's setups that bring nothing (the player unticked every cell of their launcher).</param>
 public sealed record VersionComposition(string Version, IReadOnlyList<Contribution> Order, DetectedInstance? SettingsFrom,
-    PickResult Pick, IReadOnlyList<DetectedInstance> Left)
-{
-    /// <summary>Mods come from more than one launcher (allowed, with the grid's warning).</summary>
-    public bool MixedMods => Order.Where(c => (c.Brings & ImportCategories.Mods) != 0).Select(c => c.Setup.Kind).Distinct().Count() > 1;
-}
+    PickResult Pick, IReadOnlyList<DetectedInstance> Left);
 
 public static class BulkComposer
 {
@@ -144,12 +140,11 @@ public static class BulkComposer
     public static SourceKind? DefaultModsLauncher(string version, IReadOnlyList<DetectedInstance> setups) =>
         setups.Where(s => s.McVersion == version && CarriesSettings(s)).OrderBy(s => s, MostPlayed).FirstOrDefault()?.Kind;
 
-    /// <summary>What a launcher's setups of a version bring when nobody changed the grid: everything, mods from one launcher only.</summary>
+    /// <summary>What a launcher's setups of a version bring when nobody changed the grid: everything.</summary>
     public static ImportCategories DefaultBrings(SourceKind launcher, string version, IReadOnlyList<DetectedInstance> setups)
     {
-        var brings = ImportGrid.Things;
-        if (DefaultModsLauncher(version, setups) != launcher) brings &= ~ImportCategories.Mods;
-        return brings;
+        // Every launcher brings its mods: each setup's land in a profile of their own, so nothing mixes.
+        return ImportGrid.Things;
     }
 
     /// <summary>
@@ -181,7 +176,7 @@ public static class BulkComposer
                 var cell = Cell(setup.Kind, version);
                 var brings = cell & ~ImportCategories.Mods;
                 if (!CarriesSettings(setup)) brings &= ImportCategories.ResourcePacks | ImportCategories.ShaderPacks | ImportCategories.Screenshots;
-                else if ((cell & ImportCategories.Mods) != 0 && ReferenceEquals(ModsSetup(setup.Kind, version, members), setup)) brings |= ImportCategories.Mods;
+                else if ((cell & ImportCategories.Mods) != 0) brings |= ImportCategories.Mods; // its own profile
                 if (ReferenceEquals(setup, donor)) brings |= ImportCategories.Settings;
                 if (brings == ImportCategories.None) left.Add(setup);
                 else order.Add(new Contribution(setup, brings, false, false));
