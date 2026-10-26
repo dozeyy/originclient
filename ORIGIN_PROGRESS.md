@@ -218,8 +218,8 @@ Source codes: 01 = master overhaul (section), 02 = Workbench refinement (section
 | P7-06 | Final pass: every row here has a final status and evidence | 01 s20-21, 03 | 7 | In progress | statuses filled from merged work 2026-10-25; rows marked Needs Will and the judge scores stay open; judge 89/100 (fail; audit doc corrected 52d7cda8d, remaining items are follow-ups) |
 | P7-07 | One launcher release `launcher-v1.0.66`+ once tests, CI boots and the judge pass | 04 | 7 | Not started | |
 | P7-08 | Real-install checks after the release (launcher, import, menus on real GPU) | 04 | 7 | Not started | Needs Will: real-install checks after the release (launcher, import, menus on a real GPU); judge 89/100 (fail; audit doc corrected 52d7cda8d, remaining items are follow-ups) |
-| F-01 | Final report to Will (phases, judge scores, verified features, issues, blocked items, real benchmarks, what to test) | 04 Reports, 01 s20-21 | 7 | Not started | |
-| F-02 | Additional recommendations list (not built) | 01 s22 | 7 | Not started | |
+| F-01 | Final report to Will (phases, judge scores, verified features, issues, blocked items, real benchmarks, what to test) | 04 Reports, 01 s20-21 | 7 | Done | docs/overhaul/FINAL-REPORT.md |
+| F-02 | Additional recommendations list (not built) | 01 s22 | 7 | Done | docs/overhaul/FINAL-REPORT.md, Recommendations |
 
 ### Backlog folded in (2026-10-20 playtest list = B-01-B-25; other open ledger items = B-26+)
 Status mapping from `docs/overhaul/audit/ledger.md`: Completed+verified = Done and tested; Implemented-unverified = Done but untested;
