@@ -803,7 +803,7 @@ public sealed class VersionManager
         // retries the download.
         var optifineOk = await OptiFineInstaller.InstallAsync(version, modsFolder, progress, ct);
         if (!optifineOk)
-            progress?.Report("OptiFine unavailable right now — launching without shaders");
+            progress?.Report("OptiFine unavailable right now - launching without shaders");
 
         await LegacyStackInstaller.InstallAsync(version, modsFolder, progress, ct);
         LegacyStackInstaller.SeedSplashTheme(configFolder);

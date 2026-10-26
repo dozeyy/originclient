@@ -52,7 +52,7 @@ public sealed class LauncherZip
         using (var fs = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             records = ReadCentralDirectory(fs);
         if (records == null)
-            SetupLog.Write("zip: zip64 archive — per-file CRC check skipped, sizes still checked");
+            SetupLog.Write("zip: zip64 archive - per-file CRC check skipped, sizes still checked");
 
         var files = new List<Entry>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

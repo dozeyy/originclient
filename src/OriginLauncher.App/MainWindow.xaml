@@ -116,21 +116,35 @@
 
                 <StackPanel x:Name="BarActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
                             SizeChanged="TopBar_LayoutChanged">
-                    <!-- Update badge: hidden until UpdateService finds a newer release;
-                         clicking downloads it, swaps the install, and restarts. -->
+                    <!-- Update chip (DESIGN-SYSTEM 11.4): hidden until UpdateService finds a newer release; clicking downloads
+                         it, swaps the install, and restarts. 1100 and wider: gold wash, gold download glyph + "Update".
+                         Below 1100 (SetUpdateCompact): an icon button 32, the glyph in textDim with a gold dot at its
+                         top-right. It never hides at any width. No hover label (ToolTipTests: only Import, Friends, Minimize, Close
+                         keep one in the bar); the accessible name says what a click does. -->
                     <Button x:Name="UpdateBadge" Click="UpdateBadge_Click"
-                            Style="{StaticResource Button.Chrome}"
-                            Padding="8" Margin="0,0,4,0" MinWidth="{StaticResource Size.ControlMd}" MinHeight="{StaticResource Size.ControlMd}"
+                            Style="{StaticResource Button.UpdateChip}"
+                            Margin="0,0,4,0" MinWidth="{StaticResource Size.ControlMd}"
                             Visibility="Collapsed"
-                            AutomationProperties.Name="Install update">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
-                                  Stroke="{StaticResource Brush.Text}"/>
-                            <!-- After a failed update: one calm word on the badge itself (no hover label needed). -->
-                            <TextBlock x:Name="UpdateRetryText" Text="Update failed - retry" Style="{StaticResource Text.Caption}"
-                                       Visibility="Collapsed" VerticalAlignment="Center" Margin="8,0,2,0"
-                                       Foreground="{StaticResource Brush.Warning}"/>
-                        </StackPanel>
+                            AutomationProperties.Name="Update ready: restart to install">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <Path x:Name="UpdateGlyph" Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
+                                      Stroke="{StaticResource Brush.Hue.Gold}"/>
+                                <TextBlock x:Name="UpdateLabel" Text="Update" Style="{StaticResource Text.BodyStrong}"
+                                           VerticalAlignment="Center" Margin="6,0,0,0"
+                                           Foreground="{StaticResource Brush.Hue.Gold}"/>
+                                <!-- After a failed update: one calm line on the chip itself (no hover label needed); it replaces "Update". -->
+                                <TextBlock x:Name="UpdateRetryText" Text="Update failed - retry" Style="{StaticResource Text.Caption}"
+                                           Visibility="Collapsed" VerticalAlignment="Center" Margin="6,0,0,0"
+                                           Foreground="{StaticResource Brush.Warning}"/>
+                            </StackPanel>
+                            <!-- Compact form only: the 6 px gold dot with a 2 px bg ring at the glyph's top-right. -->
+                            <Ellipse x:Name="UpdateDot" Width="{StaticResource Size.DotRinged}" Height="{StaticResource Size.DotRinged}"
+                                     Fill="{StaticResource Brush.Hue.Gold}" Stroke="{StaticResource Brush.Bg}"
+                                     StrokeThickness="{StaticResource Size.DotRing}"
+                                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="9,-5,0,0"
+                                     IsHitTestVisible="False" Visibility="Collapsed"/>
+                        </Grid>
                     </Button>
                     <!-- Store: first in the group, a ghost control (DESIGN-SYSTEM 11.4): gold bag, "Store", and the hover
                          arrow after it (it opens the browser). Opens OriginLinks.Store. Under the fit rule the label and arrow

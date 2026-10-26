@@ -77,7 +77,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         }
         catch (TimeoutException)
         {
-            SignInFailed?.Invoke(this, "Sign-in timed out — no response after 5 minutes.");
+            SignInFailed?.Invoke(this, "Sign-in timed out - no response after 5 minutes.");
         }
         catch (MicrosoftAuthException ex)
         {

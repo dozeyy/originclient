@@ -285,7 +285,7 @@ public static class ModMetadataReader
         {
             using var reader = new StreamReader(entry.Open(), System.Text.Encoding.UTF8, true);
             var text = reader.ReadToEnd();
-            return text.Length > 0 && text[0] == '﻿' ? text[1..] : text;
+            return text.Length > 0 && text[0] == '\uFEFF' ? text[1..] : text;
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException)
         {

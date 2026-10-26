@@ -112,7 +112,7 @@ public static class DiscordInvite
         var parts = new List<string>(2);
         if (info.Online is int online) parts.Add($"{FormatCount(online)} online");
         if (info.Members is int members) parts.Add($"{FormatCount(members)} members");
-        return parts.Count == 0 ? "Join the community" : string.Join(" · ", parts);
+        return parts.Count == 0 ? "Join the community" : string.Join(" - ", parts);
     }
 
     /// <summary>Compact counts: 987 → "987", 12,345 → "12.3K", 1,200,000 → "1.2M".</summary>

@@ -194,7 +194,7 @@ public sealed class CacheContributor : IImportPlanContributor
         private string? WorldProblem(string world)
         {
             if (_worldProblems.TryGetValue(world, out var known)) return known;
-            const string none = "No matching Origin world — left in source.";
+            const string none = "No matching Origin world - left in source.";
             string? problem = none;
             var sourceDat = Path.Combine(_sourceDir, "saves", world, "level.dat");
             var destDat = Path.Combine(_targetDir, "saves", world, "level.dat");
@@ -273,26 +273,26 @@ public sealed class CacheContributor : IImportPlanContributor
         {
             var all = mods.Where(m => m.ModId == "distanthorizons").ToList();
             if (all.Count == 0)
-                return "Distant Horizons isn't among the mods being imported, so it will rebuild — left in the source.";
+                return "Distant Horizons isn't among the mods being imported, so it will rebuild - left in the source.";
             var enabled = all.Where(m => m.Outcome == ModOutcome.Copied).ToList();
             if (enabled.Count == 0)
             {
                 var why = all[0];
                 return why.Outcome switch
                 {
-                    ModOutcome.CopiedDisabled => $"Distant Horizons is imported turned off ({why.Reason?.TrimEnd('.')}), so it will rebuild — left in the source.",
-                    ModOutcome.CopiedAsBefore => "Distant Horizons was turned off in your old setup, so it will rebuild — left in the source.",
-                    _ => $"Distant Horizons isn't coming across ({why.Reason?.TrimEnd('.')}), so it will rebuild — left in the source.",
+                    ModOutcome.CopiedDisabled => $"Distant Horizons is imported turned off ({why.Reason?.TrimEnd('.')}), so it will rebuild - left in the source.",
+                    ModOutcome.CopiedAsBefore => "Distant Horizons was turned off in your old setup, so it will rebuild - left in the source.",
+                    _ => $"Distant Horizons isn't coming across ({why.Reason?.TrimEnd('.')}), so it will rebuild - left in the source.",
                 };
             }
             var source = Highest(all);
             var destination = Highest(enabled);
             if (!FabricVersion.TryParse(source, out var s) || !FabricVersion.TryParse(destination, out var d))
-                return "Distant Horizons' version couldn't be compared, so it will rebuild — left in the source.";
+                return "Distant Horizons' version couldn't be compared, so it will rebuild - left in the source.";
             if (s.Component(0) != 2 || d.Component(0) != 2)
-                return $"Distant Horizons {(s.Component(0) != 2 ? "1.x" : "this")} data can't be used by Distant Horizons 2.x, so it will rebuild — left in the source.";
+                return $"Distant Horizons {(s.Component(0) != 2 ? "1.x" : "this")} data can't be used by Distant Horizons 2.x, so it will rebuild - left in the source.";
             if (d.CompareTo(s) < 0)
-                return "The imported Distant Horizons is older than the one that built this data, so it will rebuild — left in the source.";
+                return "The imported Distant Horizons is older than the one that built this data, so it will rebuild - left in the source.";
             return null;
         }
 
@@ -301,13 +301,13 @@ public sealed class CacheContributor : IImportPlanContributor
         {
             var all = mods.Where(m => m.ModId == "voxy").ToList();
             if (all.Count == 0)
-                return "Voxy isn't among the mods being imported, so it will rebuild — left in the source.";
+                return "Voxy isn't among the mods being imported, so it will rebuild - left in the source.";
             var enabled = all.Where(m => m.Outcome == ModOutcome.Copied).ToList();
             if (enabled.Count == 0)
-                return "Voxy isn't coming across turned on, so it will rebuild — left in the source.";
+                return "Voxy isn't coming across turned on, so it will rebuild - left in the source.";
             return string.Equals(Highest(enabled), Highest(all), StringComparison.Ordinal)
                 ? null
-                : "The imported Voxy is a different version from the one that built this data, so it will rebuild — left in the source.";
+                : "The imported Voxy is a different version from the one that built this data, so it will rebuild - left in the source.";
         }
 
         private static string? Highest(IEnumerable<ModDecision> decisions) =>
@@ -445,7 +445,7 @@ public sealed class CacheContributor : IImportPlanContributor
 
     private const string InUse = "In use right now, so it was left in the source.";
     private const string AnotherSetup = "Another of your setups already brings this one.";
-    private const string Rebuilds = "Couldn't be read; it will rebuild — left in the source.";
+    private const string Rebuilds = "Couldn't be read; it will rebuild - left in the source.";
 
 
     private static void Left(ImportOpContext ctx, string label, string reason) =>

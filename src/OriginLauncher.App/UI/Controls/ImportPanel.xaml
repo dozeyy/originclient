@@ -207,6 +207,12 @@
             <Setter Property="VerticalContentAlignment" Value="Top"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         </Style>
+        <!-- Step 2's two choices as Settings-style rows: the same card press and hover, row padding, 8 between them. -->
+        <Style x:Key="Import.ScopeRow" TargetType="Button" BasedOn="{StaticResource Import.ScopeCard}">
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
 
         <!-- A grey block standing in for text or a logo while the scan runs (the skeleton tiles). -->
         <Style x:Key="Import.Skeleton" TargetType="Border">
@@ -892,7 +898,10 @@
     <Grid>
         <!-- The page column: the shared one (Page.Column: left-aligned under the logo, 1000 px, clears the 56 px bar). -->
         <controls:PageColumn x:Name="Column" Style="{StaticResource Page.Column}">
-        <Grid>
+        <!-- Content-sized, not stretched: the footer's buttons sit 16 under the page's content instead of at the
+             bottom of a tall empty area. The page row is still a star row, so in a short window it is capped and
+             the long lists scroll (a star row in a grid that is not stretched sizes to its content). -->
+        <Grid VerticalAlignment="Top">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>   <!-- header -->
                 <RowDefinition Height="Auto"/>   <!-- the four steps -->
@@ -1112,39 +1121,53 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- Step 2: how much of the picked launcher comes over. Two cards, one press each. -->
+                <!-- Step 2: how much of the picked launcher comes over. One row per choice, the Settings row look (DESIGN-SYSTEM
+                     2.3: a 28 px hue tile labels the row): icon, title and what it brings, the counts, a chevron. -->
                 <StackPanel x:Name="ScopePane" Visibility="Collapsed">
-                    <UniformGrid Columns="2" Margin="0,0,-16,0">
-                        <Button x:Name="ScopeAllButton" Style="{StaticResource Import.ScopeCard}" Click="ScopeAll_Click"
-                                AutomationProperties.Name="Import everything">
-                            <StackPanel>
-                                <Border Style="{StaticResource Surface.Tile}" Background="{StaticResource Brush.HueTile.Emerald}"
-                                        HorizontalAlignment="Left">
-                                    <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}" Stroke="{StaticResource Brush.Hue.Emerald}"/>
-                                </Border>
-                                <TextBlock Text="Import everything" Style="{StaticResource Text.Title}" Margin="0,14,0,4"/>
+                    <Button x:Name="ScopeAllButton" Style="{StaticResource Import.ScopeRow}" Click="ScopeAll_Click"
+                            AutomationProperties.Name="Import everything">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource Surface.Tile.Sm}" Background="{StaticResource Brush.HueTile.Emerald}"
+                                    VerticalAlignment="Top" Margin="0,0,12,0">
+                                <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Small}" Stroke="{StaticResource Brush.Hue.Emerald}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Import everything" Style="{StaticResource Text.BodyStrong}"/>
                                 <TextBlock x:Name="ScopeAllText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"/>
                                 <TextBlock x:Name="ScopeAllCounts" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
-                                           Margin="0,12,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                                           Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="None"/>
                             </StackPanel>
-                        </Button>
-                        <Button x:Name="ScopeChooseButton" Style="{StaticResource Import.ScopeCard}" Click="ScopeChoose_Click"
-                                AutomationProperties.Name="Choose what to import">
-                            <StackPanel>
-                                <Border Style="{StaticResource Surface.Tile}" Background="{StaticResource Brush.HueTile.Sky}"
-                                        HorizontalAlignment="Left">
-                                    <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}" Stroke="{StaticResource Brush.Hue.Sky}"/>
-                                </Border>
-                                <TextBlock Text="Choose what to import" Style="{StaticResource Text.Title}" Margin="0,14,0,4"/>
+                            <Path Grid.Column="2" Style="{StaticResource Import.Go}" Margin="16,0,2,0"/>
+                        </Grid>
+                    </Button>
+                    <Button x:Name="ScopeChooseButton" Style="{StaticResource Import.ScopeRow}" Click="ScopeChoose_Click"
+                            AutomationProperties.Name="Choose what to import">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource Surface.Tile.Sm}" Background="{StaticResource Brush.HueTile.Sky}"
+                                    VerticalAlignment="Top" Margin="0,0,12,0">
+                                <Path Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Small}" Stroke="{StaticResource Brush.Hue.Sky}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Choose what to import" Style="{StaticResource Text.BodyStrong}"/>
                                 <TextBlock x:Name="ScopeChooseText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"/>
-                                <!-- Same three lines as the other card, so both read from the same top line. -->
                                 <TextBlock x:Name="ScopeChooseCounts" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
-                                           Margin="0,12,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                                           Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="None"/>
                             </StackPanel>
-                        </Button>
-                    </UniformGrid>
+                            <Path Grid.Column="2" Style="{StaticResource Import.Go}" Margin="16,0,2,0"/>
+                        </Grid>
+                    </Button>
                     <TextBlock x:Name="ScopeNote" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
-                               TextWrapping="Wrap" TextTrimming="None" Margin="2,0,0,0"/>
+                               TextWrapping="Wrap" TextTrimming="None" Margin="2,4,0,0"/>
                 </StackPanel>
 
                 <!-- Choose what to import -->

@@ -143,11 +143,11 @@ public static class ModManager
         }
         catch (IOException)
         {
-            return ModActionResult.Fail("Couldn't change that mod — " + CloseGameHint);
+            return ModActionResult.Fail("Couldn't change that mod - " + CloseGameHint);
         }
         catch (UnauthorizedAccessException)
         {
-            return ModActionResult.Fail("Couldn't change that mod — " + CloseGameHint);
+            return ModActionResult.Fail("Couldn't change that mod - " + CloseGameHint);
         }
     }
 
@@ -193,11 +193,11 @@ public static class ModManager
         }
         catch (IOException)
         {
-            return ModActionResult.Fail("Couldn't remove that mod — " + CloseGameHint);
+            return ModActionResult.Fail("Couldn't remove that mod - " + CloseGameHint);
         }
         catch (UnauthorizedAccessException)
         {
-            return ModActionResult.Fail("Couldn't remove that mod — " + CloseGameHint);
+            return ModActionResult.Fail("Couldn't remove that mod - " + CloseGameHint);
         }
     }
 

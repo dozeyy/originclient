@@ -157,6 +157,29 @@ public partial class MainWindow : Window
         UpdateRetryText.Text = text;
         UpdateRetryText.Foreground = (Brush)FindResource(brushKey);
         UpdateRetryText.Visibility = Visibility.Visible;
+        UpdateLabel.Visibility = Visibility.Collapsed; // the note takes the label's place, at every width
+    }
+
+    private void HideUpdateNote()
+    {
+        UpdateRetryText.Visibility = Visibility.Collapsed;
+        UpdateLabel.Visibility = _updateCompact ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    // DESIGN-SYSTEM 11.4: 1100 and wider the update chip is the gold wash with "Update"; below 1100 it is an icon
+    // button 32 (glyph in textDim, a gold dot at its top-right). It never hides at any width.
+    private const double UpdateChipMinWindow = 1100;
+    private bool _updateCompact;
+
+    private void SetUpdateCompact(bool compact)
+    {
+        _updateCompact = compact;
+        UpdateBadge.Style = (Style)FindResource(compact ? "Button.Chrome" : "Button.UpdateChip");
+        UpdateBadge.Padding = compact ? new Thickness(8) : new Thickness(10, 0, 10, 0);
+        UpdateGlyph.Stroke = (Brush)FindResource(compact ? "Brush.TextDim" : "Brush.Hue.Gold");
+        UpdateDot.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+        if (UpdateRetryText.Visibility != Visibility.Visible)
+            UpdateLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
@@ -166,8 +189,8 @@ public partial class MainWindow : Window
         // import can open or apply once the download is under way (Core/Import/Launcher/UpdateRunState).
 
         UpdateBadge.IsEnabled = false;
-        UpdateRetryText.Visibility = Visibility.Collapsed;
-        System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Install update");
+        HideUpdateNote();
+        System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Update ready: restart to install");
 
         // Show the download on Home's full-page loading scene (a real
         // percentage fill), unless a game launch is mid-flight there - then
@@ -322,13 +345,18 @@ public partial class MainWindow : Window
 
     private void FriendsButton_Click(object sender, RoutedEventArgs e) => SetFriendsOpen(!_friendsOpen);
 
-    // The toast stack's bottom edge sits Space.2 (8) above the top of Home's strip (version card, Play, the status
-    // line), measured, so no toast covers the strip at any window size or with a profile's taller Play card; and it
+    // On Home the toast stack's bottom edge sits Space.2 (8) above the top of Home's strip (version card, Play, the
+    // status line), measured, so no toast covers the strip at any window size or with a profile's taller Play card. On
+    // every other page (and the Import page) there is no strip, so it takes the plain bottom gap, Space.6 (24). It
     // centres in what the Friends drawer leaves free. 96 until Home has measured its strip (the old fixed 104 bottom).
     private double _stripHeight = 96;
 
-    private void PlaceToasts() =>
-        Toasts.Margin = new Thickness(0, 0, _friendsOpen ? FriendsDrawer.Width : 0, _stripHeight + (double)FindResource("Space.2"));
+    private void PlaceToasts()
+    {
+        var onHome = _currentPage == LauncherPage.Home && !_importPanelOpen;
+        var bottom = onHome ? _stripHeight + (double)FindResource("Space.2") : (double)FindResource("Space.6");
+        Toasts.Margin = new Thickness(0, 0, _friendsOpen ? FriendsDrawer.Width : 0, bottom);
+    }
 
     private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen; // Import is a page now, not a drawer
 
@@ -671,7 +699,10 @@ public partial class MainWindow : Window
         double width = TopBar.ActualWidth, tabs = NavTabs.ActualWidth;
         if (width <= 0 || tabs <= 0) return;
         var gap = (double)FindResource("Space.5");
-        var wordmark = ((FrameworkElement)Content).ActualWidth >= WordmarkMinWindow ? Visibility.Visible : Visibility.Collapsed;
+        var windowWidth = ((FrameworkElement)Content).ActualWidth;
+        // The chip's own size change (when it shows) runs this again with the new actions width.
+        if (windowWidth < UpdateChipMinWindow != _updateCompact) SetUpdateCompact(!_updateCompact);
+        var wordmark = windowWidth >= WordmarkMinWindow ? Visibility.Visible : Visibility.Collapsed;
         if (BarWordmark.Visibility != wordmark)
         {
             BarWordmark.Visibility = wordmark;
@@ -769,6 +800,7 @@ public partial class MainWindow : Window
 
         var direction = Math.Sign((int)page - (int)_currentPage);
         _currentPage = page;
+        PlaceToasts(); // the strip gap is Home's only
 
         object content = page switch
         {
@@ -1067,6 +1099,7 @@ public partial class MainWindow : Window
     private void SetImportPanelOpen(bool open)
     {
         _importPanelOpen = open;
+        PlaceToasts();
         OnImportPanelOpenChanged(open); // MainWindow.ImportWiring.cs: the page behind goes inert / comes back, focus restored
 
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");

@@ -88,7 +88,7 @@ public static class JvmArgLine
             t.StartsWith("-Xmx", StringComparison.OrdinalIgnoreCase) ||
             t.StartsWith("-Xms", StringComparison.OrdinalIgnoreCase));
         if (heap != null)
-            return $"\"{heap}\" conflicts with the RAM allocation slider — set memory there instead.";
+            return $"\"{heap}\" conflicts with the RAM allocation slider - set memory there instead.";
 
         var notAFlag = tokens.FirstOrDefault(t => !t.StartsWith('-'));
         if (notAFlag != null)
