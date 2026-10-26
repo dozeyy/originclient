@@ -73,14 +73,17 @@ public class OriginClientMod implements ClientModInitializer {
 
 	// JEI bundled here is jei 29.37.0.100 for 26.1.x (see gradle.properties). If
 	// a player drops a different JEI in, Fabric loads the higher version and ours is
-	// shadowed — detectForeignJei() catches that. jeiNoticeShown gates the one-time
-	// in-world chat notice.
+	// shadowed. A player's own JEI jar no longer gets a "remove that jar" nag: Origin
+	// steps aside for it (StepAside, the "jei" row) and the JEI card says so.
+	// jeiNoticeShown gates the one-time in-world hint.
 	private static final String BUNDLED_JEI = "29.37.0.100";
-	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 
 	@Override
 	public void onInitializeClient() {
+		// Which of Origin's mods step aside for the player's own (freecam -> Freelook,
+		// a player's JEI -> Origin's JEI switch, ...). First, before anything reads Mods.on.
+		com.origin.client.client.mods.StepAsideDetect.run();
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		// FIRST world-render registration: every later COLLECT_SUBMITS listener
 		// (Origin's overlays, Social, WorldEdit CUI, Team View) records into
@@ -499,12 +502,8 @@ public class OriginClientMod implements ClientModInitializer {
 
 		if (!jeiNoticeShown && client.screen == null) {
 			jeiNoticeShown = true;
-			if (foreignJei != null) {
-				player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-						"§eOrigin already includes JEI (" + BUNDLED_JEI + "). A separate JEI ("
-								+ foreignJei + ") in your mods folder is overriding it — remove that jar so"
-								+ " Origin's JEI and its toggle work."));
-			} else if (!Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
+			if (com.origin.client.client.mods.StepAside.replaced("jei") == null
+					&& !Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
 				Mods.setMetaBool("jeiHintShown", true);
 				player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
 						"§7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the"
@@ -878,11 +877,13 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 	}
 
+	// A player's own JEI jar: Origin steps aside for it (StepAsideDetect: its toggle
+	// mixins stop hiding it). A different version is still worth a log line: the toggle
+	// mixins target the bundled JEI's internals, so forcing Origin's switch back on may not bind.
 	private static void detectForeignJei() {
 		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
 			String v = c.getMetadata().getVersion().getFriendlyString();
 			if (!BUNDLED_JEI.equals(v)) {
-				foreignJei = v;
 				com.origin.client.OriginClient.LOGGER.warn(
 						"Origin bundles JEI {} but JEI {} is loaded -- a separate JEI jar is overriding "
 								+ "the bundled one; JEI integration may not work until it is removed.", BUNDLED_JEI, v);
