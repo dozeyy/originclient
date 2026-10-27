@@ -305,6 +305,11 @@ public final class OriginButtonRenderer {
 				} else if (r != null) {
 					// Vanilla SpriteIconButton's placement on the body (odd pixel left/top), so it sits like Language / Accessibility.
 					g.blit(TITLE_ICONS, x + w / 2 - r[4] / 2, y + h / 2 - r[5] / 2, r[0], r[1], r[2], r[3], ICONS_W, ICONS_H);
+				} else if (tp.icon() != null && tp.icon().startsWith("@")) {
+					// Language / Accessibility on 1.20 (their vanilla art has stone baked in): Origin's own 12 px glyph,
+					// centred, with ModIcons' text-style shadow, as the 1.8.9 dock draws them.
+					g.setColor(1f, 1f, 1f, 1f);
+					ModIcons.draw(g, tp.icon(), x + (w - 12) / 2, y + (h - 12) / 2, 12, enabled ? 0xFFFFFFFF : 0xFFA0A0A0);
 				}
 			} else {
 				g.setColor(1f, 1f, 1f, 1f);
