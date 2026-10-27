@@ -1593,6 +1593,7 @@ public final class Mods {
 			return;
 		}
 		migrated = true;
+		upgradeOptions();
 		if (!ModsConfig.VALUES.isEmpty()) {
 			return; // already have real state
 		}
@@ -1607,6 +1608,52 @@ public final class Mods {
 		ModsConfig.VALUES.computeIfAbsent("zoom", k -> new java.util.HashMap<>())
 				.put("fov", new JsonPrimitive(legacy.zoomFov));
 		ModsConfig.touch();
+	}
+
+	// Option versions: when the meaning of a saved value changes (a default flipped
+	// that earlier builds or presets wrote into the file as if the player chose it),
+	// the option's version goes up. A file whose meta "optionVersion.<mod>.<key>" is
+	// below it has that ONE value dropped once, so it falls back to today's default;
+	// the new version is then recorded in meta, and anything the player (or a
+	// synced version) sets afterwards sticks. Settings Sync carries both the meta
+	// marker and the removal (originclient-mods.json is deletion-aware).
+	//   menublur.inventory v2 (2026-10-27): Inventories defaults OFF on 1.8.9 (Will:
+	//   "there is still inventory blur ... on my default in 1.8.9"); the old default
+	//   and the Balanced/Quality presets had written true.
+	private static final String[][] OPTION_VERSIONS = {
+			{"menublur", "inventory", "2"},
+	};
+
+	private static void upgradeOptions() {
+		boolean removed = false;
+		for (String[] o : OPTION_VERSIONS) {
+			String metaKey = "optionVersion." + o[0] + "." + o[1];
+			int want = Integer.parseInt(o[2]);
+			int have = 1;
+			com.google.gson.JsonElement v = ModsConfig.META.get(metaKey);
+			try {
+				if (v != null && v.isJsonPrimitive()) {
+					have = v.getAsInt();
+				}
+			} catch (RuntimeException ignored) {
+				// a hand-edited non-number counts as the first version
+			}
+			if (have >= want) {
+				continue;
+			}
+			Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get(o[0]);
+			if (m != null && m.remove(o[1]) != null) {
+				removed = true;
+			}
+			ModsConfig.META.put(metaKey, new JsonPrimitive(want));
+		}
+		if (removed) {
+			ModsConfig.save();
+		} else {
+			// Only the marker changed: it goes to disk with the next save (every
+			// setting change saves). Until then a later load just finds nothing to drop.
+			ModsConfig.touch();
+		}
 	}
 
 	private static void seed(String id, boolean on) {
