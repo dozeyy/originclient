@@ -23,7 +23,12 @@ public sealed record CrashEvidence(
     string? HsErr,
     IReadOnlyList<CrashModEntry> Mods,
     int RamMb,
-    int TotalPhysicalMb);
+    int TotalPhysicalMb)
+{
+    /// <summary>The crashed version's own Java arguments (Settings, Java arguments), exactly as saved; null when it
+    /// has none. Lets the Java rule tell "your arguments" from "Origin's" (only the first can be reset).</summary>
+    public string? CustomJvmArgs { get; init; }
+}
 
 public enum DependencyKind { Missing, WrongVersion, Incompatible, Unloadable }
 
@@ -71,6 +76,10 @@ public sealed record CrashFacts
     public string? NativeOomLine { get; init; }
     public string? JvmStartLine { get; init; }
     public string? UnrecognizedOption { get; init; }
+    /// <summary>The crashed version's own Java arguments, or null (copied from <see cref="CrashEvidence.CustomJvmArgs"/>).</summary>
+    public string? CustomJvmArgs { get; init; }
+    /// <summary>Java itself could not be found or run (not an argument problem).</summary>
+    public bool JavaMissing { get; init; }
     public bool HeapReserveFailed { get; init; }
     public string? ClassVersionLine { get; init; }
     public string? ClassVersionClass { get; init; }
@@ -131,6 +140,7 @@ public static class CrashFactsParser
     private static readonly Regex NativeOom = Rx(@"Native memory allocation \((?:mmap|malloc)\) failed[^\r\n]*|insufficient memory for the Java Runtime[^\r\n]*");
     private static readonly Regex HeapReserve = Rx(@"Could not reserve enough space for[^\r\n]*heap[^\r\n]*|Invalid (?:maximum|initial) heap size[^\r\n]*|Initial heap size set to a larger value than the maximum heap size");
     private static readonly Regex BadOption = Rx(@"Unrecognized VM option '(?<opt>[^'\r\n]+)'|Unrecognized option: (?<opt>\S+)");
+    private static readonly Regex JavaMissingRx = Rx(@"Unable to locate a Java Runtime|is not recognized as an internal or external command");
     private static readonly Regex JvmStart = Rx(@"Could not create the Java Virtual Machine|Error occurred during initialization of VM|Unable to locate a Java Runtime|is not recognized as an internal or external command");
     private static readonly Regex ClassVersion = Rx(@"UnsupportedClassVersionError: (?<cls>[\w/$.]+) has been compiled by a more recent version of the Java Runtime[^\r\n]*|compiled by a more recent version of the Java Runtime[^\r\n]*");
     private static readonly Regex Damaged = Rx(@"Invalid or corrupt jarfile[^\r\n]*|Error analyzing [^\r\n]*|zip END header not found|java\.util\.zip\.Zip(?:Exception|Error)[^\r\n]*|Error opening zip file[^\r\n]*|Invalid CEN header[^\r\n]*|Unable to access jarfile[^\r\n]*|Could not find or load main class[^\r\n]*|is not a ZIP archive|Archive is not a ZIP archive[^\r\n]*|ZipException[^\r\n]*");
@@ -213,6 +223,8 @@ public static class CrashFactsParser
             NativeOomLine = Line(NativeOom.Match(all), all),
             JvmStartLine = badOption.Success ? Line(badOption, all) : Line(jvmStart, all),
             UnrecognizedOption = badOption.Success ? badOption.Groups["opt"].Value : null,
+            CustomJvmArgs = string.IsNullOrWhiteSpace(e.CustomJvmArgs) ? null : e.CustomJvmArgs,
+            JavaMissing = JavaMissingRx.IsMatch(all),
             HeapReserveFailed = heapReserve.Success,
             ClassVersionLine = Line(classVersion, all),
             ClassVersionClass = classVersion.Success && classVersion.Groups["cls"].Success

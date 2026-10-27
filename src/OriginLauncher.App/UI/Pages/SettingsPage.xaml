@@ -312,6 +312,21 @@
                                  TextChanged="JvmArgsTextBox_TextChanged"
                                  LostFocus="JvmArgsTextBox_LostFocus"/>
                         <TextBlock x:Name="JvmArgsStatusText" Style="{StaticResource SettingWhy}" Margin="0,6,0,0"/>
+                        <!-- Shown only after the crash window reset this version's arguments (RepairExecutor.Settings):
+                             Undo puts the old ones back. Hidden again once the player types arguments of their own. -->
+                        <Grid x:Name="JvmUndoRow" Margin="0,14,0,0" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Reset after a crash" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock x:Name="JvmUndoText" Style="{StaticResource SettingWhy}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" x:Name="JvmUndoButton" Content="Undo" Style="{StaticResource Button.Secondary}"
+                                    AutomationProperties.Name="Undo Java arguments reset"
+                                    VerticalAlignment="Center" Click="JvmUndoButton_Click"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource SettingCard}">

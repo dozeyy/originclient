@@ -975,6 +975,12 @@ public static class RenderShots
             // confirmed: Java's own out-of-memory line, with the one-click memory raise.
             Shot(Diagnose("[Render thread/ERROR]: java.lang.OutOfMemoryError: Java heap space", null, null, false),
                 "41-crash-confirmed");
+            // confirmed: Java refused an option from the version's OWN Java arguments, with the one-click reset
+            // (the old arguments are kept for Undo in Settings, Java arguments).
+            Shot(Core.Launch.CrashEngine.Diagnose(new Core.Launch.CrashEvidence(1, false, true,
+                    "Unrecognized VM option 'UseZGCx'\nError: Could not create the Java Virtual Machine.\nError: A fatal exception has occurred. Program will exit.",
+                    null, null, null, [], 4096, 16384) { CustomJvmArgs = "-XX:+UseZGCx -Xss2m" }),
+                "41b-crash-java-args");
             // strong: one added mod's mixin failed to apply, with "turn it off" (reversible on the Mods tab).
             Shot(Diagnose(
                 "[main/ERROR]: Mixin apply for mod examplemod failed examplemod.mixins.json:ExampleMixin from mod examplemod -> net.minecraft.class_310: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure",

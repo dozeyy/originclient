@@ -12,8 +12,10 @@ namespace OriginLauncher.App.Core.Compat;
 /// <param name="Source">Where the executor's fetcher gets it (a path or URL the fetcher understands).</param>
 /// <param name="Sha256">When known, the file is verified against it before it is put in place.</param>
 /// <param name="Sha512">The same for a SHA-512 (what Modrinth publishes; Fix Compatibility's offers always carry one).</param>
+/// <param name="FromOrigin">True when the file is one Origin itself pins (OriginDependencyCatalog), false for a Modrinth lookup.</param>
 public sealed record DependencyOffer(
-    string Id, string Version, string FileName, ModInfo Info, string Source, string? Sha256 = null, string? Sha512 = null);
+    string Id, string Version, string FileName, ModInfo Info, string Source, string? Sha256 = null, string? Sha512 = null,
+    bool FromOrigin = false);
 
 /// <summary>Pure lookup of a file that would satisfy a missing requirement; null when there is none.</summary>
 public interface IDependencyCatalog
@@ -64,6 +66,13 @@ public sealed record DisableModStep(ModFile Mod, string Why, Certainty Certainty
 
 /// <summary>Add a missing dependency as a new file.</summary>
 public sealed record AddModStep(DependencyOffer Offer, string DestinationPath, string Why) : RepairStep(Why);
+
+/// <summary>
+/// Put one version's custom Java arguments (Settings, Java arguments: <c>LauncherSettings.JvmArgsByVersion</c>) back to
+/// Origin's own. <paramref name="Old"/> is what was there when the plan was made: the executor only resets when that
+/// is still what is saved, and keeps it in <c>LauncherSettings.JvmArgsBeforeReset</c> so Undo can put it back.
+/// </summary>
+public sealed record ResetJavaArgsStep(string Version, Models.VersionJvmOptions Old, string Why) : RepairStep(Why);
 
 /// <summary>A blocking finding the plan can't fix (Origin's own mod, a protected mod, nothing to add), with the plain reason.</summary>
 public sealed record UnfixableFinding(CompatFinding Finding, string Reason);

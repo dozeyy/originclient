@@ -25,6 +25,10 @@ public partial class SettingsPage : UserControl
     // guard while its fields are being repopulated.
     private bool _jvmLoading = true;
     private string? _jvmVersion;
+    // True once the player has typed in the Java arguments box since it was last loaded. Only then is the box
+    // written back: a box that merely SHOWS what was saved (and may be stale after the crash window reset the
+    // arguments) never writes over the reset.
+    private bool _jvmDirty;
 
     /// <summary>
     /// Render mode (UI/RenderShots.cs): scrolls so the Settings Sync row sits a little below the top of the page, whole.
@@ -65,7 +69,11 @@ public partial class SettingsPage : UserControl
         _ramSaveTimer.Tick += (_, _) => PersistPendingRam();
         Unloaded += (_, _) => PersistPendingRam();
         // Pages stay attached and are hidden on a tab switch (MainWindow.ShowPage), so leaving Settings is a hide.
-        IsVisibleChanged += (_, e) => { if (!(bool)e.NewValue) PersistPendingRam(); };
+        IsVisibleChanged += (_, e) =>
+        {
+            if (!(bool)e.NewValue) PersistPendingRam();
+            else ReloadJvmFromStore(); // the crash window may have reset (or Undo restored) a version's arguments meanwhile
+        };
 
         // Memory is Auto until the player moves the slider (RamPolicy). The slider is only DISPLAYED
         // clamped to this PC's range: nothing here writes the stored number back, so a Manual value
@@ -353,9 +361,54 @@ public partial class SettingsPage : UserControl
 
         JvmArgsTextBox.Text = opts.Arguments;
         JvmReplacePresetsToggle.IsChecked = opts.ReplacePresets;
+        _jvmDirty = false;
         UpdateJvmStatus();
         UpdateJvmCustomizedList();
+        UpdateJvmUndo();
         _jvmLoading = false;
+    }
+
+    // Picks up Java-argument changes made outside this page (the crash window's reset). Never while the player has
+    // an unsaved edit in the box: theirs stays.
+    private void ReloadJvmFromStore()
+    {
+        if (_jvmDirty || _jvmLoading) return;
+        var fresh = SettingsStore.Load();
+        _settings.JvmArgsByVersion = fresh.JvmArgsByVersion;
+        _settings.JvmArgsBeforeReset = fresh.JvmArgsBeforeReset;
+        LoadJvmOptionsForSelectedVersion();
+    }
+
+    /// <summary>Render mode: show what is saved now (a shot that seeds a reset record calls this).</summary>
+    internal void TourReloadJvm() => ReloadJvmFromStore();
+
+    // "Reset after a crash" + Undo: only while a reset is on record and the version has no arguments of its own.
+    private void UpdateJvmUndo()
+    {
+        var show = Core.Compat.RepairExecutor.CanUndoJavaArgsReset(_settings, _jvmVersion)
+                   && string.IsNullOrWhiteSpace(JvmArgsTextBox.Text) && JvmReplacePresetsToggle.IsChecked != true;
+        JvmUndoRow.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (!show) return;
+        var before = _settings.JvmArgsBeforeReset[_jvmVersion!];
+        var args = string.Join(" ", JvmArgLine.Split(before.Arguments));
+        if (args.Length > 90) args = args[..87].TrimEnd() + "...";
+        JvmUndoText.Text = args.Length == 0
+            ? "Java wouldn't start with your settings here, so Origin went back to its own."
+            : $"Java wouldn't start with your arguments, so Origin went back to its own. Yours were: {args}";
+    }
+
+    // Puts back the arguments the crash window reset. One control, one job: it only touches this version's Java arguments.
+    private void JvmUndoButton_Click(object sender, RoutedEventArgs e)
+    {
+        var version = _jvmVersion;
+        if (version == null) return;
+        var outcome = Core.Compat.RepairExecutor.UndoJavaArgsReset(version, SettingsStore.Update);
+        var fresh = SettingsStore.Load();
+        _settings.JvmArgsByVersion = fresh.JvmArgsByVersion;
+        _settings.JvmArgsBeforeReset = fresh.JvmArgsBeforeReset;
+        LoadJvmOptionsForSelectedVersion();
+        if (outcome == Core.Compat.JavaArgsUndoOutcome.ChangedSince)
+            JvmArgsStatusText.Text = "You've set new arguments since, so they were kept.";
     }
 
     private void JvmVersionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -373,6 +426,7 @@ public partial class SettingsPage : UserControl
         // Live feedback only — persistence happens on LostFocus, matching the
         // other text fields on this page.
         if (_jvmLoading) return;
+        _jvmDirty = true;
         UpdateJvmStatus();
     }
 
@@ -381,22 +435,27 @@ public partial class SettingsPage : UserControl
         if (_jvmLoading) return;
         SaveJvmOptions();
         UpdateJvmCustomizedList();
+        UpdateJvmUndo();
     }
 
     private void JvmReplacePresetsToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_jvmLoading) return;
+        _jvmDirty = true;
         SaveJvmOptions();
         UpdateJvmStatus();
         UpdateJvmCustomizedList();
+        UpdateJvmUndo();
     }
 
     private void JvmReplacePresetsToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_jvmLoading) return;
+        _jvmDirty = true;
         SaveJvmOptions();
         UpdateJvmStatus();
         UpdateJvmCustomizedList();
+        UpdateJvmUndo();
     }
 
     // Writes the editor's current contents to _jvmVersion (the version the editor
@@ -405,7 +464,8 @@ public partial class SettingsPage : UserControl
     private void SaveJvmOptions()
     {
         var version = _jvmVersion;
-        if (version == null) return;
+        if (version == null || !_jvmDirty) return;
+        _jvmDirty = false;
 
         var text = JvmArgsTextBox.Text ?? "";
         var replace = JvmReplacePresetsToggle.IsChecked == true;

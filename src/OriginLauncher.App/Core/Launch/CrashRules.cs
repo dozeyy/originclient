@@ -71,29 +71,51 @@ public static class CrashRules
 
     // ---- the rules ---------------------------------------------------------------------------------------------
 
+    // Java stopped before Minecraft started. When the version has Java arguments of its OWN and they are the likely
+    // cause, the fix button resets them to Origin's (kept for Undo in Settings, Java arguments). Arguments Origin
+    // itself passes are never blamed on the player, and a missing Java is not an argument problem.
     private static CrashFinding? JvmStart(CrashFacts f)
     {
+        var custom = JvmArgLine.Split(f.CustomJvmArgs);
+        var reset = new CrashFix(CrashFixKind.ResetJavaArgs, "Reset Java arguments and relaunch", []);
+        const string resetText = "Reset this version's Java arguments to Origin's own. Origin can do it for you; Undo is in Settings, Java arguments.";
+
         if (f.HeapReserveFailed)
+        {
+            var ownHeap = custom.Any(t => t.StartsWith("-Xmx", StringComparison.Ordinal) || t.StartsWith("-Xms", StringComparison.Ordinal));
             return new("jvm-start", CrashCause.JavaProblem, CrashConfidence.Confirmed, [],
                 "JAVA", "Java couldn't set aside Minecraft's memory",
                 "Java stopped before Minecraft started: it couldn't reserve the memory Minecraft is set to use.",
-                $"The memory setting ({Gb(f.RamMb)}) is more than Windows could give Java right now.",
-                "Lower Memory in Settings, or close other programs, then press Play.",
-                null, Lines(f.JvmStartLine));
+                ownHeap
+                    ? "Your Java arguments for this version set a memory size Java couldn't use."
+                    : $"The memory setting ({Gb(f.RamMb)}) is more than Windows could give Java right now.",
+                ownHeap ? resetText : "Lower Memory in Settings, or close other programs, then press Play.",
+                ownHeap ? reset : null, Lines(f.JvmStartLine));
+        }
         if (f.UnrecognizedOption is { } opt)
+        {
+            var own = custom.Any(t => t.Contains(opt, StringComparison.Ordinal));
             return new("jvm-start", CrashCause.JavaProblem, CrashConfidence.Confirmed, [],
                 "JAVA", "Java didn't accept a launch option",
                 "Java stopped before Minecraft started.",
-                $"Java doesn't know the option \"{opt}\".",
-                "Remove it from Settings, Java arguments, then press Play.",
-                null, Lines(f.JvmStartLine));
+                own
+                    ? $"Java doesn't know the option \"{opt}\" from your Java arguments for this version."
+                    : $"Java doesn't know the option \"{opt}\".",
+                own ? resetText : "Remove it from Settings, Java arguments, then press Play.",
+                own ? reset : null, Lines(f.JvmStartLine));
+        }
         if (f.JvmStartLine != null)
+        {
+            var own = custom.Count > 0 && !f.JavaMissing;
             return new("jvm-start", CrashCause.JavaProblem, CrashConfidence.Confirmed, [],
                 "JAVA", "Minecraft's Java wouldn't start",
                 "Java stopped before Minecraft started.",
-                "Java refused to start the game: usually a Java argument it doesn't accept, or a Java install that is missing or broken.",
-                "Check Settings, Java arguments. If they are empty, press Play again: Origin re-checks its Java on the next launch.",
-                null, Lines(f.JvmStartLine));
+                own
+                    ? "Java refused to start the game, and this version has Java arguments of your own: they are the most likely cause."
+                    : "Java refused to start the game: usually a Java argument it doesn't accept, or a Java install that is missing or broken.",
+                own ? resetText : "Check Settings, Java arguments. If they are empty, press Play again: Origin re-checks its Java on the next launch.",
+                own ? reset : null, Lines(f.JvmStartLine));
+        }
         return null;
     }
 

@@ -1333,12 +1333,15 @@ public partial class HomePage : UserControl
     {
         try
         {
-            var ramMb = SettingsStore.Load().RamMb;
+            var saved = SettingsStore.Load();
+            var ramMb = saved.RamMb;
+            // The version's own Java arguments: only these can be reset by the crash window (never Origin's own).
+            var customJvm = saved.JvmArgsFor(game.Version)?.Arguments;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
             var fixTried = CrashRetries.AnyTried(key, DateTime.UtcNow);
             var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
-                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc));
+                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm));
             var verdict = findings.Verdict;
             System.Diagnostics.Debug.WriteLine(
                 $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
@@ -1422,6 +1425,20 @@ public partial class HomePage : UserControl
                         Note(game.Key, $"Couldn't turn off {string.Join(", ", failed)}. Turn it off on the Mods tab, then press Play.",
                             LaunchTone.Error);
                         return; // relaunching with the cause still in place would only crash again
+                    }
+                    break;
+                case CrashFixKind.ResetJavaArgs:
+                    // The shared repair path (RepairPlanner -> RepairExecutor.ApplySettings): the version's own Java
+                    // arguments go back to Origin's in ONE settings write that also keeps the old ones for Undo
+                    // (Settings, Java arguments). Arguments the player changed since the crash are left alone.
+                    var reset = RepairExecutor.ApplySettings(
+                        RepairPlanner.ResetJavaArgs(game.Version, SettingsStore.Load().JvmArgsFor(game.Version),
+                            "Java refused to start the game with them."),
+                        SettingsStore.Update);
+                    if (!reset.AllOk)
+                    {
+                        Note(game.Key, reset.Failed.First().Error ?? "Couldn't reset the Java arguments.", LaunchTone.Error);
+                        return;
                     }
                     break;
                 case CrashFixKind.RepairFiles:
