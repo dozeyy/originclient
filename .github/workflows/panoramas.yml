@@ -100,7 +100,7 @@ jobs:
           echo "$sha  run/shaderpacks/$name" | sha512sum -c -
           printf 'enableShaders=true\nshaderPack=%s\n' "$name" > run/config/iris.properties
           # The pack's own option overrides, in Iris's per-pack file (why: spots.json optionsWhy).
-          python3 tools/panorama/pack_options.py "$GITHUB_WORKSPACE/tools/panorama/spots.json" > "run/shaderpacks/$name.txt"
+          python3 "$GITHUB_WORKSPACE/tools/panorama/pack_options.py" "$GITHUB_WORKSPACE/tools/panorama/spots.json" > "run/shaderpacks/$name.txt"
           cat "run/shaderpacks/$name.txt"
           printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run/options.txt
 

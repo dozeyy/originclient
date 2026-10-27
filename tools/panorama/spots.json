@@ -85,6 +85,73 @@
         {"id": "minecraft:wolf", "dist": 6, "angle": 18, "nbt": "{body_armor_item:{id:\"minecraft:wolf_armor\",count:1}}"},
         {"id": "minecraft:breeze", "dist": 10, "angle": 6, "up": 1}
       ]
+    },
+    {
+      "id": "1.21.4", "capture": "1.21.4", "targets": ["1.21.4"],
+      "about": "The Garden Awakens: the pale garden and its creakings",
+      "locate": "biome minecraft:pale_garden", "up": 1.6, "yaw": 45, "time": 3000,
+      "mobs": [
+        {"id": "minecraft:creaking", "dist": 6, "angle": -12},
+        {"id": "minecraft:creaking", "dist": 10, "angle": 16, "turn": -40}
+      ]
+    },
+    {
+      "id": "1.21.6", "capture": "1.21.6", "targets": ["1.21.6", "1.21.8"],
+      "about": "Chase the Skies: a harnessed happy ghast and a ghastling over a meadow",
+      "locate": "biome minecraft:meadow", "vista": 16, "up": 1.6, "yaw": 45, "time": 3000,
+      "mobs": [
+        {"id": "minecraft:happy_ghast", "dist": 14, "angle": -8, "up": 6, "nbt": "{equipment:{body:{id:\"minecraft:light_blue_harness\",count:1}}}"},
+        {"id": "minecraft:happy_ghast", "dist": 7, "angle": 22, "up": 3, "turn": -40, "nbt": "{Age:-24000}"}
+      ]
+    },
+    {
+      "id": "1.21.10", "capture": "1.21.10", "targets": ["1.21.10"],
+      "about": "The Copper Age: copper golems at a village copper chest",
+      "locate": "structure minecraft:village_plains", "offset": [4, 4], "up": 1.6, "yaw": 45, "time": 3000,
+      "commands": ["setblock ^-1 ~ ^5 minecraft:copper_chest", "setblock ^2 ~ ^6 minecraft:exposed_copper"],
+      "mobs": [
+        {"id": "minecraft:copper_golem", "dist": 4, "angle": -14},
+        {"id": "minecraft:copper_golem", "dist": 6, "angle": 14, "turn": -50}
+      ]
+    },
+    {
+      "id": "1.21.11", "capture": "1.21.11", "targets": ["1.21.11"],
+      "about": "Mounts of Mayhem: a camel husk with a spear-carrying parched rider in the desert",
+      "locate": "biome minecraft:desert", "vista": 16, "up": 1.6, "yaw": 45, "time": 3000,
+      "mobs": [
+        {"id": "minecraft:camel_husk", "dist": 8, "angle": -10, "nbt": "{Passengers:[{id:\"minecraft:parched\",NoAI:1b,Silent:1b,Invulnerable:1b,equipment:{mainhand:{id:\"minecraft:iron_spear\",count:1}}}]}"},
+        {"id": "minecraft:husk", "dist": 5, "angle": 20, "turn": -40, "nbt": "{equipment:{mainhand:{id:\"minecraft:golden_spear\",count:1}}}"}
+      ]
+    },
+    {
+      "id": "26.1", "capture": "26.1", "targets": ["26.1"],
+      "about": "26.1: the redesigned baby animals among golden dandelions",
+      "locate": "biome minecraft:meadow", "vista": 16, "up": 1.4, "yaw": 45, "time": 3000,
+      "commands": ["setblock ^-2 ~ ^3 minecraft:golden_dandelion", "setblock ^1 ~ ^4 minecraft:golden_dandelion",
+                   "setblock ^3 ~ ^6 minecraft:golden_dandelion", "setblock ^-4 ~ ^7 minecraft:golden_dandelion"],
+      "mobs": [
+        {"id": "minecraft:cow", "dist": 5, "angle": -20, "nbt": "{Age:-24000}"},
+        {"id": "minecraft:pig", "dist": 4, "angle": 2, "turn": -50, "nbt": "{Age:-24000}"},
+        {"id": "minecraft:sheep", "dist": 6, "angle": 18, "nbt": "{Age:-24000}"},
+        {"id": "minecraft:chicken", "dist": 3.5, "angle": 12, "nbt": "{Age:-24000}"},
+        {"id": "minecraft:wolf", "dist": 4.5, "angle": -6, "turn": 60, "nbt": "{Age:-24000}"}
+      ]
+    },
+    {
+      "id": "26.2", "capture": "26.2", "targets": ["26.2"],
+      "about": "26.2: the sulfur caves and their sulfur cubes, lit by invisible light blocks",
+      "locate": "biome minecraft:sulfur_caves", "ground": "floor", "headroom": 6, "up": 0.6, "yaw": 45, "time": 3000,
+      "commands": ["fill ~-12 ~4 ~-12 ~12 ~4 ~12 minecraft:light[level=15] replace air",
+                   "fill ~-12 ~1 ~-12 ~12 ~1 ~12 minecraft:light[level=12] replace air"],
+      "mobs": [
+        {"id": "minecraft:sulfur_cube", "dist": 5, "angle": -12},
+        {"id": "minecraft:sulfur_cube", "dist": 8, "angle": 16, "turn": -40}
+      ]
+    },
+    {
+      "id": "26.3", "capture": "26.3", "targets": ["26.3"],
+      "about": "26.3: the dappled forest's coloured poplars",
+      "locate": "biome minecraft:dappled_forest", "up": 1.6, "yaw": 45, "time": 3000
     }
   ]
 }

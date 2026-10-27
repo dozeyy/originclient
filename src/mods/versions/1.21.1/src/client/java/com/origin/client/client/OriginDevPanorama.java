@@ -94,8 +94,7 @@ final class OriginDevPanorama {
 					mc.options.bobView().set(false);
 					mc.options.entityDistanceScaling().set(2.0);
 					mc.options.onboardAccessibility = false;
-					LevelSettings settings = new LevelSettings(LEVEL, GameType.CREATIVE, false, Difficulty.NORMAL, true,
-							new GameRules(), WorldDataConfiguration.DEFAULT);
+					LevelSettings settings = levelSettings();
 					long seed = spot.has("seed") ? spot.get("seed").getAsLong() : 4242424242L;
 					mc.createWorldOpenFlows().createFreshLevel(LEVEL, settings, new WorldOptions(seed, true, false),
 							WorldPresets::createNormalWorldDimensions, new TitleScreen());
@@ -103,11 +102,9 @@ final class OriginDevPanorama {
 					phase = 1;
 				}
 				case 1 -> {
-					if (mc.screen instanceof PauseScreen) {
-						mc.setScreen(null);   // focus loss under Xvfb
-					}
+					unpause(mc);   // focus loss under Xvfb
 					MinecraftServer server = mc.getSingleplayerServer();
-					if (mc.level == null || mc.player == null || server == null || mc.screen != null) {
+					if (mc.level == null || mc.player == null || server == null || screen(mc) != null) {
 						return;
 					}
 					server.execute(() -> setupWorld(server));
@@ -131,9 +128,8 @@ final class OriginDevPanorama {
 						return;
 					}
 					// Square window: FOV 90 both ways, exactly one cube face.
-					mc.getWindow().setWindowed(FACE, FACE);
-					mc.resizeDisplay();
-					mc.options.hideGui = true;
+					sizeWindow(mc);
+					hideHud(mc);
 					phase = 4;
 					phaseAt = now;
 					warm = 0;
@@ -142,9 +138,7 @@ final class OriginDevPanorama {
 				}
 				case 4 -> {
 					// Warm-up turn: every face once, so every direction's sections get built before any capture.
-					if (mc.screen instanceof PauseScreen) {
-						mc.setScreen(null);
-					}
+					unpause(mc);
 					if (warm < 6) {
 						aim(mc, warm++);
 						nextAt = now + 6000;
@@ -157,9 +151,7 @@ final class OriginDevPanorama {
 					phase = 5;
 				}
 				case 5 -> {
-					if (mc.screen instanceof PauseScreen) {
-						mc.setScreen(null);
-					}
+					unpause(mc);
 					long frames = com.origin.client.client.hud.FrameStats.frames();
 					boolean built = mc.levelRenderer.hasRenderedAllSections();
 					if (frames != lastFrames) {
@@ -173,14 +165,12 @@ final class OriginDevPanorama {
 						return;
 					}
 					if (mc.getWindow().getWidth() != FACE || mc.getWindow().getHeight() != FACE) {
-						mc.getWindow().setWindowed(FACE, FACE);
-						mc.resizeDisplay();
+						sizeWindow(mc);
 						startFace(mc, now);
 						return;
 					}
 					String name = "panorama_" + face + ".png";
-					Screenshot.grab(new File(dir), name, mc.getMainRenderTarget(), c -> {
-					});
+					grab(mc, dir, name);
 					log("[dev-shots] captured " + name);
 					log(String.format(Locale.ROOT, "[panorama] face %d: %d frames over %.1f s, built=%s%s", face,
 							frames - faceFrames, waited / 1000.0, built, ready ? "" : " (gave up waiting)"));
@@ -248,9 +238,13 @@ final class OriginDevPanorama {
 		try {
 			CommandSourceStack src = server.createCommandSourceStack().withSuppressedOutput();
 			List<String> cmds = new ArrayList<>(List.of(
+					// Both rule spellings: camelCase up to 1.21.10, snake_case ids from 1.21.11. The unknown one fails quietly.
 					"gamerule doDaylightCycle false", "gamerule doWeatherCycle false", "gamerule doMobSpawning false",
 					"gamerule doFireTick false", "gamerule doInsomnia false", "gamerule doPatrolSpawning false",
 					"gamerule doTraderSpawning false", "gamerule randomTickSpeed 0", "gamerule sendCommandFeedback false",
+					"gamerule advance_time false", "gamerule advance_weather false", "gamerule spawn_mobs false",
+					"gamerule fire_spread_radius_around_player 0", "gamerule spawn_phantoms false", "gamerule spawn_patrols false",
+					"gamerule spawn_wandering_traders false", "gamerule random_tick_speed 0", "gamerule send_command_feedback false",
 					"weather clear 1000000", "time set " + num("time", 3000), "gamemode spectator @a"));
 			for (String c : cmds) {
 				server.getCommands().performPrefixedCommand(src, c);
@@ -278,7 +272,7 @@ final class OriginDevPanorama {
 					return false;
 				}
 			};
-			BlockPos origin = server.overworld().getSharedSpawnPos();
+			BlockPos origin = server.getPlayerList().getPlayers().get(0).blockPosition();   // near the world spawn (ServerLevel.getSharedSpawnPos is gone by 1.21.10)
 			CommandSourceStack locSrc = server.createCommandSourceStack().withSource(rec).withLevel(level)
 					.withPosition(Vec3.atCenterOf(origin));
 			String locate = spot.get("locate").getAsString();
@@ -383,7 +377,7 @@ final class OriginDevPanorama {
 	private static int groundAt(ServerLevel level, int x, int z) {
 		int y = height(level, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, y - 1, z);
-		while (p.getY() > level.getMinBuildHeight()) {
+		while (p.getY() > minY(level)) {
 			var state = level.getBlockState(p);
 			if (!(state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES) || state.is(Blocks.MANGROVE_ROOTS)
 					|| state.is(Blocks.MUDDY_MANGROVE_ROOTS) || state.is(Blocks.MOSS_CARPET) || state.is(Blocks.VINE))) {
@@ -399,10 +393,10 @@ final class OriginDevPanorama {
 	 * it. Starts below the dimension's ceiling (the Nether's bedrock roof is a "floor" with open sky above it).
 	 */
 	private static int floorAt(ServerLevel level, int x, int fromY, int z, int headroom) {
-		int top = Math.min(fromY + 12, level.getMinBuildHeight() + level.getLogicalHeight() - 6);
+		int top = Math.min(fromY + 12, minY(level) + level.getLogicalHeight() - 6);
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
 		int airRun = 0;
-		for (int y = top; y > level.getMinBuildHeight() + 1; y--) {
+		for (int y = top; y > minY(level) + 1; y--) {
 			p.set(x, y, z);
 			boolean air = level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty();
 			airRun = air ? airRun + 1 : 0;
@@ -414,9 +408,48 @@ final class OriginDevPanorama {
 		return fromY;
 	}
 
+	// ---- the per-version seams: the only lines that differ between the module copies ----
+
+	private static LevelSettings levelSettings() {
+		return new LevelSettings(LEVEL, GameType.CREATIVE, false, Difficulty.NORMAL, true, new GameRules(),
+				WorldDataConfiguration.DEFAULT);
+	}
+
+	private static int minY(ServerLevel level) {
+		return level.getMinBuildHeight();
+	}
+
+	/** Square window: FOV 90 both ways, exactly one cube face. */
+	private static void sizeWindow(Minecraft mc) {
+		mc.getWindow().setWindowed(FACE, FACE);
+		mc.resizeDisplay();
+	}
+
+	/** Writes screenshots/<name> under dir (async on the IO pool; check_shots.py confirms the file at the end). */
+	private static void grab(Minecraft mc, String dir, String name) {
+		Screenshot.grab(new File(dir), name, mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void hideHud(Minecraft mc) {
+		mc.options.hideGui = true;
+	}
+
+	private static Object screen(Minecraft mc) {
+		return mc.screen;
+	}
+
+	private static void unpause(Minecraft mc) {
+		if (mc.screen instanceof PauseScreen) {
+			mc.setScreen(null);
+		}
+	}
+
+	// ---- end of the seams ----
+
 	private static ServerLevel level(MinecraftServer server) {
 		String dim = str("dimension", "minecraft:overworld");
-		ServerLevel l = server.getLevel(ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(dim)));
+		ServerLevel l = server.getLevel(ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(dim)));   // seam: Identifier from 1.21.11
 		return l != null ? l : server.getLevel(Level.OVERWORLD);
 	}
 
