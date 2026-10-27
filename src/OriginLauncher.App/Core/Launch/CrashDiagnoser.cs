@@ -14,10 +14,11 @@ public sealed record CrashFindings(
 public static class CrashDiagnoser
 {
     public static CrashFindings Run(string instanceDir, string? launchLogPath, int exitCode, bool stoppedByPlayer,
-        bool crashedWhileStarting, int ramMb, int totalPhysicalMb, bool fixTried, DateTime? startedUtc = null)
+        bool crashedWhileStarting, int ramMb, int totalPhysicalMb, bool fixTried, DateTime? startedUtc = null,
+        string? customJvmArgs = null)
     {
         var evidence = CrashAnalyzer.ReadEvidence(instanceDir, launchLogPath, exitCode, stoppedByPlayer,
-            crashedWhileStarting, ramMb, totalPhysicalMb, startedUtc);
+            crashedWhileStarting, ramMb, totalPhysicalMb, startedUtc) with { CustomJvmArgs = customJvmArgs };
         var verdict = CrashEngine.Diagnose(evidence, fixTried);
         return new CrashFindings(verdict, evidence, evidence.LaunchLog ?? evidence.LatestLog,
             evidence.CrashReport ?? evidence.HsErr);

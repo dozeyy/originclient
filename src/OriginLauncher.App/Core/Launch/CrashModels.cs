@@ -57,7 +57,8 @@ public static class CrashConfidenceWords
 }
 
 /// <summary>What the fix button does. Every kind is reversible: a mod is turned off by a rename (Mods tab turns it
-/// back on), memory keeps its old value for the settings slider, a file check only re-downloads what is broken.</summary>
+/// back on), memory keeps its old value for the settings slider, a file check only re-downloads what is broken, and
+/// reset Java arguments are kept for Undo.</summary>
 public enum CrashFixKind
 {
     /// <summary>No safe fix: the window shows no fix button.</summary>
@@ -68,6 +69,9 @@ public enum CrashFixKind
     DisableMods,
     /// <summary>Make the next launch re-check every game file, then launch again.</summary>
     RepairFiles,
+    /// <summary>Put this version's own Java arguments back to Origin's (the old ones are kept: Undo in Settings, Java
+    /// arguments), then launch again. Only offered when the version HAS arguments of its own (CrashFacts.CustomJvmArgs).</summary>
+    ResetJavaArgs,
 }
 
 /// <summary>The one safe fix a finding offers. Only built by a rule at Strong or Confirmed (CrashRules enforces it).</summary>

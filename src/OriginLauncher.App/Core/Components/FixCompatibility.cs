@@ -40,7 +40,8 @@ public sealed record FixProposal(
             {
                 lines.Add(step switch
                 {
-                    AddModStep a => $"Add {a.Offer.Id} {a.Offer.Version} from Modrinth (its checksum is checked).",
+                    AddModStep { Offer.FromOrigin: true } a => $"Add {Named(a.Offer)}, the copy Origin itself uses (its checksum is checked).",
+                    AddModStep a => $"Add {Named(a.Offer)} from Modrinth (its checksum is checked).",
                     DisableModStep d => $"Turn off {d.Mod.DisplayName}: {d.Why}",
                     _ => step.Why,
                 });
@@ -68,6 +69,17 @@ public sealed record FixProposal(
         }
     }
 
+    // "Cloth Config 15.0.140": the mod's own name (Origin's pin or Modrinth's title, else its id), plus the version only
+    // when it is a short plain number. Build strings like "fabric-1.21.1-2.6.22" or "0.116.17+1.21.1" are dropped.
+    internal static string Named(DependencyOffer offer)
+    {
+        var name = string.IsNullOrWhiteSpace(offer.Info.Name) ? offer.Id : offer.Info.Name;
+        return ShortVersion.IsMatch(offer.Version) ? $"{name} {offer.Version}" : name;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ShortVersion =
+        new(@"^\d+(\.\d+){0,3}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
     private string VersionOf(string modId) =>
         Configuration.Files.FirstOrDefault(f => f.ModId == modId)?.ModVersion ?? "?";
 }
@@ -76,7 +88,9 @@ public sealed record FixProposal(
 /// Fix Compatibility: plans the smallest repair of a refused launch set and makes it as a new, fixed profile.
 ///   * Planning compares every vetted configuration of the version (only for a profile, as at Play) and keeps the one
 ///     that needs the fewest changes, so "use the older Sodium + Iris" is offered only when the spike proved that pair.
-///   * A missing dependency may come from Modrinth: only its mod id is sent (ModrinthDependencyCatalog).
+///   * A missing dependency comes from Origin's own pinned files first (OriginDependencyCatalog, no network), otherwise
+///     from Modrinth: only its mod id is sent (ModrinthDependencyCatalog). Either way the file is installed only when
+///     its SHA-512 matches the published one (Will, 2026-10-27: "Yes, Modrinth + hash").
 ///   * Applying it is <see cref="RepairExecutor.ApplyToCopy"/> (journaled, all-or-nothing); the copy is selected.
 /// Runs off the UI thread (the caller's Task.Run); nothing here touches the original files except to read them.
 /// </summary>
@@ -102,12 +116,15 @@ public static class FixCompatibility
         }
         if (reports.Count == 0) return null;
 
-        IDependencyCatalog? catalog = null;
-        var missing = ModrinthDependencyCatalog.MissingIds(reports.Select(r => r.Report));
+        // Origin's own pinned files first (no network); Modrinth is asked only about what they can't answer.
+        var origin = OriginDependencyCatalog.Instance;
+        IDependencyCatalog? modrinth = null;
+        var missing = ModrinthDependencyCatalog.MissingIds(reports.Select(r => r.Report),
+            f => origin.Find(f.TargetId!, VersionPredicate.Parse(f.Range ?? "*"), platform) != null);
         if (http != null && missing.Count > 0)
-            catalog = await ModrinthDependencyCatalog.ResolveAsync(http, missing, source.Version, ct).ConfigureAwait(false);
+            modrinth = await ModrinthDependencyCatalog.ResolveAsync(http, missing, source.Version, ct).ConfigureAwait(false);
 
-        return Choose(source, reports, catalog, platform);
+        return Choose(source, reports, new LayeredDependencyCatalog(origin, modrinth), platform);
     }
 
     /// <summary>The planning half with the reports and catalog in hand (pure; the tests drive it directly).</summary>

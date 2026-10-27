@@ -62,6 +62,17 @@ public static class RepairPlanner
         return steps.Count == 0 && unfixable.Count == 0 ? RepairPlan.Empty : new RepairPlan(steps, unfixable);
     }
 
+    /// <summary>
+    /// The plan for "Java refused this version's own arguments": put them back to Origin's own. Pure: it only reads the
+    /// value the caller passes (<c>LauncherSettings.JvmArgsFor(version)</c>). Nothing custom = nothing to reset (Empty).
+    /// </summary>
+    public static RepairPlan ResetJavaArgs(string version, Models.VersionJvmOptions? current, string why)
+    {
+        if (current == null || current.IsEmpty) return RepairPlan.Empty;
+        var old = new Models.VersionJvmOptions { Arguments = current.Arguments, ReplacePresets = current.ReplacePresets };
+        return new RepairPlan(new RepairStep[] { new ResetJavaArgsStep(version, old, why) }, Array.Empty<UnfixableFinding>());
+    }
+
     // Why a mod can't be turned off here, or null when it can.
     private static string? Refuse(ModFile mod, RepairContext context)
     {

@@ -122,6 +122,8 @@
     <!-- Crash Report V3: evidence -> facts -> ordered rules (pure). The corpus folders are copied next to the tests. -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashFacts.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashRules.cs" LinkBase="Launch" />
+    <!-- The Java-arguments box's splitter: the jvm-start rule uses it to tell the player's own arguments apart (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\JvmArgLine.cs" LinkBase="Launch" />
     <!-- Other clients' core jars (Feather, Lunar, ...): never imported, blamed first in a crash stack. -->
     <Compile Include="..\OriginLauncher.App\Core\ClientCoreMods.cs" LinkBase="Launch" />
     <!-- Mod blame from crash logs (uses the real ModManager linked further down). -->

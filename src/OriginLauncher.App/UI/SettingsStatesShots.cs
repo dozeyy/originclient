@@ -47,12 +47,47 @@ internal static class SettingsStatesShots
                 RenderShots.Snap(window, dir, name);
             });
 
+        Step(dir, "jvm-undo", () => JvmUndo(window, page, dir));
         Step(dir, "inputs", () => Inputs(window, page, dir));
         Step(dir, "dropdown", () => Dropdown(window, page, dir));
         Step(dir, "confirm", () => Confirms(window, dir));
         Step(dir, "toasts", () => Toasts(window, dir));
 
         page.ShowFromTop();
+        RenderShots.Pump(200);
+    }
+
+    /// <summary>
+    /// Java arguments after the crash window reset them: the "Reset after a crash" row with Undo. The record is put in
+    /// the scratch settings through the real repair (RepairExecutor.ApplySettings), then removed again. Never runs
+    /// outside the scratch root (it writes settings).
+    /// </summary>
+    private static void JvmUndo(MainWindow window, Pages.SettingsPage page, string dir)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        var version = page.FindName("JvmVersionComboBox") is ComboBox { SelectedItem: string v } ? v : null;
+        if (version == null) return;
+        Core.SettingsStore.Update(s => s.JvmArgsByVersion[version] =
+            new Core.Models.VersionJvmOptions { Arguments = "-XX:+UseZGCx -Xss2m" });
+        Core.Compat.RepairExecutor.ApplySettings(Core.Compat.RepairPlanner.ResetJavaArgs(version,
+            Core.SettingsStore.Load().JvmArgsFor(version), "Java refused to start the game with them."), Core.SettingsStore.Update);
+        page.TourReloadJvm();
+        page.TourClickRail("SecJvm");
+        RenderShots.Pump(500);
+        RenderShots.Snap(window, dir, "14lb-settings-jvm-undo");
+
+        // The longest the line gets: many flags and a long path, which must wrap or trim beside Undo, never crowd it.
+        Core.SettingsStore.Update(s => s.JvmArgsBeforeReset[version] = new Core.Models.VersionJvmOptions
+        {
+            Arguments = "-XX:+UseZGCx -Xss2m -XX:MaxGCPauseMillis=37 -XX:+UnlockExperimentalVMOptions "
+                        + "-Djava.library.path=C:\\Users\\Player\\AppData\\Roaming\\natives\\very\\deep\\folder\\for\\testing "
+                        + "-XX:G1NewSizePercent=20 -XX:G1ReservePercent=20",
+        });
+        page.TourReloadJvm();
+        RenderShots.Pump(400);
+        RenderShots.Snap(window, dir, "14lc-settings-jvm-undo-long");
+        Core.SettingsStore.Update(s => s.JvmArgsBeforeReset.Remove(version));
+        page.TourReloadJvm();
         RenderShots.Pump(200);
     }
 

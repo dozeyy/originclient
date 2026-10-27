@@ -96,6 +96,10 @@ public partial class HomePage : UserControl
         // A profile game's component configuration (Core/Components): its Sodium/Iris settings are in place while
         // it runs; disposed when it exits (the shipped set's settings come back). Null for every other game.
         public IDisposable? Configuration { get; init; }
+        // The version's own Java arguments exactly as this launch used them (a copy, null = Origin's own). The crash
+        // window judges and resets THESE, never what Settings holds when the game exits: arguments typed while the
+        // game was starting were not the ones Java refused.
+        public Core.Models.VersionJvmOptions? LaunchedJvmArgs { get; init; }
     }
 
     // The game whose start the progress screen is showing, once its process is
@@ -1021,6 +1025,9 @@ public partial class HomePage : UserControl
                 Process = process,
                 Handoff = handoff,
                 Configuration = configuration,
+                LaunchedJvmArgs = freshSettings.JvmArgsFor(version) is { } jvm
+                    ? new Core.Models.VersionJvmOptions { Arguments = jvm.Arguments, ReplacePresets = jvm.ReplacePresets }
+                    : null,
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -1333,12 +1340,15 @@ public partial class HomePage : UserControl
     {
         try
         {
-            var ramMb = SettingsStore.Load().RamMb;
+            var saved = SettingsStore.Load();
+            var ramMb = saved.RamMb;
+            // The version's own Java arguments as this launch used them: only these can be reset (never Origin's own).
+            var customJvm = game.LaunchedJvmArgs?.Arguments;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
             var fixTried = CrashRetries.AnyTried(key, DateTime.UtcNow);
             var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
-                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc));
+                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm));
             var verdict = findings.Verdict;
             System.Diagnostics.Debug.WriteLine(
                 $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
@@ -1422,6 +1432,21 @@ public partial class HomePage : UserControl
                         Note(game.Key, $"Couldn't turn off {string.Join(", ", failed)}. Turn it off on the Mods tab, then press Play.",
                             LaunchTone.Error);
                         return; // relaunching with the cause still in place would only crash again
+                    }
+                    break;
+                case CrashFixKind.ResetJavaArgs:
+                    // The shared repair path (RepairPlanner -> RepairExecutor.ApplySettings): the version's own Java
+                    // arguments go back to Origin's in ONE settings write that also keeps the old ones for Undo
+                    // (Settings, Java arguments). The plan carries the arguments the crashed launch used, so arguments
+                    // the player changed since that launch are left alone (the executor refuses them).
+                    var reset = RepairExecutor.ApplySettings(
+                        RepairPlanner.ResetJavaArgs(game.Version, game.LaunchedJvmArgs,
+                            "Java refused to start the game with them."),
+                        SettingsStore.Update);
+                    if (!reset.AllOk)
+                    {
+                        Note(game.Key, reset.Failed.First().Error ?? "Couldn't reset the Java arguments.", LaunchTone.Error);
+                        return;
                     }
                     break;
                 case CrashFixKind.RepairFiles:

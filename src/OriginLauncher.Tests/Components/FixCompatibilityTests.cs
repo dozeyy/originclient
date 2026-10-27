@@ -348,7 +348,8 @@ public sealed class FixCompatibilityTests : IDisposable
 
     // ---- Modrinth: what is sent ----
 
-    private sealed class Recording(string json) : HttpMessageHandler
+    // Answers a version list with `json` and a project page (no "/version") with `project`.
+    private sealed class Recording(string json, string project = "{}") : HttpMessageHandler
     {
         public readonly List<(HttpMethod Method, Uri Uri, string? Body, string Headers)> Requests = new();
 
@@ -356,7 +357,8 @@ public sealed class FixCompatibilityTests : IDisposable
         {
             var body = request.Content == null ? null : await request.Content.ReadAsStringAsync(ct);
             Requests.Add((request.Method, request.RequestUri!, body, request.Headers.ToString()));
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+            var answer = request.RequestUri!.AbsolutePath.EndsWith("/version", StringComparison.Ordinal) ? json : project;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(answer, Encoding.UTF8, "application/json") };
         }
     }
 
@@ -388,18 +390,24 @@ public sealed class FixCompatibilityTests : IDisposable
             Version("15.0.137", "release", new[] { "fabric", "quilt" }, new[] { Mc }, cdn + "cloth-config-15.0.137.jar",
                 "cloth-config-15.0.137.jar", hash),
             Version("14.0.1", "release", new[] { "fabric" }, new[] { Mc }, cdn + "old.jar", "old.jar", hash)) + "]";
-        var handler = new Recording(json);
+        var handler = new Recording(json, """{"title":"Cloth Config API","slug":"cloth-config"}""");
         using var http = new HttpClient(handler);
 
         var catalog = await ModrinthDependencyCatalog.ResolveAsync(http,
             new[] { "cloth-config", "minecraft", "Not An Id", "../../etc", "cloth-config" }, Mc, default);
 
-        var request = Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal("https://api.modrinth.com/v2/project/cloth-config/version", request.Uri.AbsoluteUri);
-        Assert.Equal("", request.Uri.Query);
-        Assert.Null(request.Body); // no body at all: the mod id in the path is the whole request
-        Assert.Equal("", request.Headers.Trim());
+        // The version list, then the project (for its title): the mod id in the path is the whole of each request.
+        Assert.Equal(new[]
+        {
+            "https://api.modrinth.com/v2/project/cloth-config/version", "https://api.modrinth.com/v2/project/cloth-config",
+        }, handler.Requests.Select(r => r.Uri.AbsoluteUri).ToArray());
+        foreach (var request in handler.Requests)
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal("", request.Uri.Query);
+            Assert.Null(request.Body); // no body at all
+            Assert.Equal("", request.Headers.Trim());
+        }
 
         var platform = LaunchPreflight.PlatformFor(Mc);
         var offer = catalog.Find("cloth-config", VersionPredicate.Parse(">=15.0.0"), platform);
@@ -407,6 +415,8 @@ public sealed class FixCompatibilityTests : IDisposable
         Assert.Equal("15.0.137", offer!.Version);
         Assert.Equal(hash, offer.Sha512);
         Assert.Equal("cloth-config-15.0.137.jar", offer.FileName);
+        Assert.Equal("Cloth Config API", offer.Info.Name);
+        Assert.Equal("Cloth Config API 15.0.137", FixProposal.Named(offer));
         Assert.Null(catalog.Find("cloth-config", VersionPredicate.Parse(">=16.0.0"), platform));
         Assert.Null(catalog.Find("other", VersionPredicate.Parse("*"), platform));
     }
@@ -422,5 +432,100 @@ public sealed class FixCompatibilityTests : IDisposable
             } });
         var ids = ModrinthDependencyCatalog.MissingIds(new[] { CompatEngine.Check(new[] { mod }, platform) });
         Assert.Equal(new[] { "cloth-config" }, ids);
+    }
+
+    // ---- Origin's own pinned files come first ----
+
+    [Fact]
+    public void Origins_catalog_offers_its_own_pinned_file_with_the_pinned_checksum()
+    {
+        var platform = LaunchPreflight.PlatformFor(Mc);
+        var pin = OriginDependencyCatalog.PinFor("voicechat", Mc)!;
+
+        var offer = OriginDependencyCatalog.Instance.Find("voicechat", VersionPredicate.Parse("*"), platform);
+
+        Assert.NotNull(offer);
+        Assert.True(offer!.FromOrigin);
+        Assert.Equal(pin.Sha512, offer.Sha512);
+        Assert.Equal(pin.Url, offer.Source);
+        Assert.StartsWith("https://cdn.modrinth.com/", offer.Source);
+        Assert.Equal(128, offer.Sha512!.Length);
+        Assert.NotNull(OriginDependencyCatalog.Instance.Find("fabric-api", VersionPredicate.Parse("*"), platform));
+        Assert.Null(OriginDependencyCatalog.Instance.Find("cloth-config", VersionPredicate.Parse("*"), platform));
+        Assert.Null(OriginDependencyCatalog.Instance.Find("voicechat", VersionPredicate.Parse("*"),
+            platform with { Loader = LoaderFamily.LegacyForge }));
+    }
+
+    [Fact]
+    public void The_layered_catalog_takes_Origins_pin_before_Modrinth()
+    {
+        var platform = LaunchPreflight.PlatformFor(Mc);
+        var layered = new LayeredDependencyCatalog(OriginDependencyCatalog.Instance, new OneOffer("voicechat", new byte[] { 1 }),
+            new OneOffer("cloth-config", new byte[] { 2 }));
+
+        Assert.True(layered.Find("voicechat", VersionPredicate.Parse("*"), platform)!.FromOrigin);
+        var cloth = layered.Find("cloth-config", VersionPredicate.Parse("*"), platform)!;
+        Assert.False(cloth.FromOrigin);
+        Assert.Equal("15.0.140", cloth.Version);
+    }
+
+    [Fact]
+    public async Task A_missing_mod_Origin_pins_is_never_asked_about_on_Modrinth()
+    {
+        Put(ProfileMods, "voicemessages-1.4.jar", Kit.FabricJar("voicemessages", depends: new() { ["voicechat"] = "*" }, name: "Voice Messages"));
+        Put(ProfileMods, "somelib-2.1.jar", Kit.FabricJar("somelib", depends: new() { ["cloth-config"] = ">=15.0.0" }, name: "Some Lib"));
+        var handler = new Recording("[]");
+        using var http = new HttpClient(handler);
+
+        var proposal = await FixCompatibility.PlanAsync(Source(), null, http, default);
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal("https://api.modrinth.com/v2/project/cloth-config/version", request.Uri.AbsoluteUri);
+        var add = Assert.Single(proposal!.Plan.Steps.OfType<AddModStep>());
+        Assert.Equal("voicechat", add.Offer.Id);
+        Assert.True(add.Offer.FromOrigin);
+        // Its name, not its id; its build string ("fabric-1.21.1-2.6.22") is no use to a player and is left out.
+        Assert.Contains("Add Simple Voice Chat, the copy Origin itself uses (its checksum is checked).", proposal.Changes);
+    }
+
+    [Theory]
+    [InlineData("cloth-config", "Cloth Config", "15.0.140", "Cloth Config 15.0.140")]
+    [InlineData("cloth-config", null, "15.0.140", "cloth-config 15.0.140")]           // no title: the id
+    [InlineData("fabric-api", "Fabric API", "0.116.17+1.21.1", "Fabric API")]       // build strings dropped
+    [InlineData("voicechat", "Simple Voice Chat", "fabric-1.21.1-2.6.22", "Simple Voice Chat")]
+    public void A_dependency_is_named_the_way_players_know_it(string id, string? name, string version, string expected)
+    {
+        var offer = new DependencyOffer(id, version, id + ".jar", new ModInfo { FileName = id + ".jar", Id = id, Name = name }, "x");
+        Assert.Equal(expected, FixProposal.Named(offer));
+    }
+
+    [Theory]
+    [InlineData("""{"title":"Cloth Config API"}""", "Cloth Config API")]
+    [InlineData("""{"title":"   "}""", null)]
+    [InlineData("""{"title":"a\nb"}""", null)]
+    [InlineData("""[{"title":"x"}]""", null)]
+    [InlineData("""{"slug":"x"}""", null)]
+    public void Only_a_plain_Modrinth_title_is_shown(string json, string? expected) =>
+        Assert.Equal(expected, ModrinthDependencyCatalog.ParseTitle(json));
+
+    [Fact]
+    public void An_Origin_pinned_file_with_the_wrong_bytes_is_refused_and_nothing_is_touched()
+    {
+        Put(ProfileMods, "voicemessages-1.4.jar", Kit.FabricJar("voicemessages", depends: new() { ["voicechat"] = "*" }, name: "Voice Messages"));
+        Put(_shared, "sodium-0.8.jar", Kit.FabricJar("sodium", "0.8.0", name: "Sodium"));
+        var profileBefore = Snapshot(ProfileMods);
+        var sharedBefore = Snapshot(_shared);
+        var proposal = Plan(new LayeredDependencyCatalog(OriginDependencyCatalog.Instance));
+        Assert.Single(proposal.Plan.Steps.OfType<AddModStep>(), a => a.Offer.FromOrigin);
+
+        var fetcher = new Serving(Kit.FabricJar("voicechat", "6.6.6", name: "Not the pinned file"));
+        var result = Apply(proposal, fetcher);
+
+        Assert.False(result.Ok);
+        Assert.Equal(1, fetcher.Calls);
+        Assert.Single(_settings.ModProfiles); // no fixed profile registered
+        Assert.Equal(new[] { _profile.Id }, Directory.GetDirectories(_profiles).Select(Path.GetFileName).ToArray());
+        Assert.Equal(profileBefore, Snapshot(ProfileMods));
+        Assert.Equal(sharedBefore, Snapshot(_shared));
     }
 }

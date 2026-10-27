@@ -89,6 +89,11 @@ public sealed class LauncherSettings
     // older settings.json upgrades to an empty map and behaves exactly as before.
     public Dictionary<string, VersionJvmOptions> JvmArgsByVersion { get; set; } = new();
 
+    // What a version's custom JVM arguments were before a repair reset them to Origin's own (the crash window's
+    // "Reset Java arguments", Core/Compat/RepairExecutor.Settings). Written in the SAME Update as the reset, so the
+    // old value is never lost; Settings, Java arguments offers Undo while the version has no arguments of its own.
+    public Dictionary<string, VersionJvmOptions> JvmArgsBeforeReset { get; set; } = new();
+
     /// <summary>The saved JVM options for a version, or null when it has none.</summary>
     public VersionJvmOptions? JvmArgsFor(string? version) =>
         version != null && JvmArgsByVersion.TryGetValue(version, out var opts) && !opts.IsEmpty
