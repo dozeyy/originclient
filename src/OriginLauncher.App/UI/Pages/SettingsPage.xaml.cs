@@ -402,7 +402,17 @@ public partial class SettingsPage : UserControl
     {
         var version = _jvmVersion;
         if (version == null) return;
-        var outcome = Core.Compat.RepairExecutor.UndoJavaArgsReset(version, SettingsStore.Update);
+        Core.Compat.JavaArgsUndoOutcome outcome;
+        try
+        {
+            outcome = Core.Compat.RepairExecutor.UndoJavaArgsReset(version, SettingsStore.Update);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            // settings.json held by another program (antivirus, a sync tool): nothing changed, say so and stay put.
+            JvmArgsStatusText.Text = "Couldn't put your arguments back - the settings file is in use. Try again in a moment.";
+            return;
+        }
         var fresh = SettingsStore.Load();
         _settings.JvmArgsByVersion = fresh.JvmArgsByVersion;
         _settings.JvmArgsBeforeReset = fresh.JvmArgsBeforeReset;
@@ -478,9 +488,15 @@ public partial class SettingsPage : UserControl
         }
         else
         {
+            // Arguments of the player's own replace the reset ones for good: the Undo record goes in the same write,
+            // so clearing the box later never brings back an old "Reset after a crash" offer.
             _settings.JvmArgsByVersion[version] = opts;
-            SettingsStore.Update(s => s.JvmArgsByVersion[version] =
-                new VersionJvmOptions { Arguments = text, ReplacePresets = replace });
+            _settings.JvmArgsBeforeReset.Remove(version);
+            SettingsStore.Update(s =>
+            {
+                s.JvmArgsByVersion[version] = new VersionJvmOptions { Arguments = text, ReplacePresets = replace };
+                s.JvmArgsBeforeReset.Remove(version);
+            });
         }
     }
 

@@ -83,11 +83,13 @@ public sealed class JavaArgsRepairTests
     }
 
     [Fact]
-    public void A_reset_planned_before_the_player_changed_the_arguments_changes_nothing()
+    public void A_reset_of_the_launched_arguments_leaves_arguments_typed_since_the_launch_alone()
     {
+        // HomePage plans from RunningGame.LaunchedJvmArgs (a copy taken at launch), not from Settings at click time.
         Own("-XX:+UseZGCx");
-        var plan = RepairPlanner.ResetJavaArgs(Mc, _settings.JvmArgsFor(Mc), "x");
-        Own("-Xss8m");
+        var launched = new VersionJvmOptions { Arguments = _settings.JvmArgsFor(Mc)!.Arguments };
+        Own("-Xss8m"); // typed in Settings while the game was starting
+        var plan = RepairPlanner.ResetJavaArgs(Mc, launched, "x");
 
         var result = RepairExecutor.ApplySettings(plan, Update);
 
@@ -155,5 +157,8 @@ public sealed class JavaArgsRepairTests
     {
         var verdict = Crash("Error occurred during initialization of VM\nMultiple garbage collectors selected", "-XX:+UseZGC");
         Assert.Equal(CrashFixKind.ResetJavaArgs, verdict.SafeFix?.Kind);
+        // Only likely, not certain: a broken Java install fails the same way.
+        Assert.Equal(CrashConfidence.Strong, verdict.Finding.Confidence);
+        Assert.Equal(CrashConfidence.Confirmed, Crash(UnknownOption, "-XX:+UseZGCx").Finding.Confidence);
     }
 }

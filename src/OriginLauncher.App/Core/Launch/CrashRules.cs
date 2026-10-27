@@ -107,7 +107,9 @@ public static class CrashRules
         if (f.JvmStartLine != null)
         {
             var own = custom.Count > 0 && !f.JavaMissing;
-            return new("jvm-start", CrashCause.JavaProblem, CrashConfidence.Confirmed, [],
+            // Java not starting is certain; blaming the player's arguments is not (a broken Java install fails the
+            // same way), so that attribution is Strong, never Confirmed. The reset is reversible either way.
+            return new("jvm-start", CrashCause.JavaProblem, own ? CrashConfidence.Strong : CrashConfidence.Confirmed, [],
                 "JAVA", "Minecraft's Java wouldn't start",
                 "Java stopped before Minecraft started.",
                 own
