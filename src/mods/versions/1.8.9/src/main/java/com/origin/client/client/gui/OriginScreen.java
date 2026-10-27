@@ -300,17 +300,28 @@ public abstract class OriginScreen extends GuiScreen {
 		}
 	}
 
+	/** Bench (hudrobot): drag positions handed to mouseDragged through this bridge, and the last one. Render thread. */
+	public static long dragDeliveries;
+	public static double lastDeliveredX, lastDeliveredY;
+
 	@Override
 	protected final void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
 		double x = eventX(), y = eventY();
+		deliverDrag(x, y, dragButton >= 0 ? dragButton : button);
+	}
+
+	private void deliverDrag(double x, double y, int button) {
 		double dx = x - lastDragX, dy = y - lastDragY;
 		lastDragX = x;
 		lastDragY = y;
 		if (dx == 0 && dy == 0) {
 			return;
 		}
+		dragDeliveries++;
+		lastDeliveredX = x;
+		lastDeliveredY = y;
 		try {
-			mouseDragged(x, y, dragButton >= 0 ? dragButton : button, dx, dy);
+			mouseDragged(x, y, button, dx, dy);
 		} catch (Throwable t) {
 			fail("mouseDragged", t);
 		}

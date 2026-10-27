@@ -44,7 +44,7 @@ on:
         description: "Rounds (each: both variants once, order alternating)"
         default: "3"
       scenes:
-        description: "Scenes: idle,particles,menu,flythrough (hud needs Origin, so it is not in the A/B); also players,cosmetics,pause,pvp-ui,hudedit (HUD editor open, scripted drag + resize)"
+        description: "Scenes: idle,particles,menu,flythrough (hud needs Origin, so it is not in the A/B); also players,cosmetics,pause,pvp-ui,hudedit (HUD editor, scripted drag + resize), hudrobot (HUD editor dragged by real X input, CI only)"
         default: "idle,particles,menu,flythrough"
       warmup:
         description: "Warm-up seconds per scene"
@@ -143,7 +143,7 @@ jobs:
                       k, v = tok.split("=", 1)
                       if k in cfg and re.fullmatch(r"[A-Za-z0-9._,-]+", v):
                           cfg[k] = v
-          scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause|pvp-ui|hudedit)"
+          scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause|pvp-ui|hudedit|hudrobot)"
           ab = r"(optifine-only|jvm-(g1-pause40|g1-young15|parallel|cms|heap2g|heap6g)|java-zulu8|no-betterfps|off-(hud|minimap|particles|invblur))"
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
                          ("presets", r"|(competitive|balanced|quality)(,(competitive|balanced|quality))*"),
