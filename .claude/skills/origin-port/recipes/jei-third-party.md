@@ -1,9 +1,16 @@
 # Recipe: JEI and other third-party mod hooks
 
 ## Rules that hold everywhere
-- Soft dependency: compile against the mod and guard every hook. JEI hooks use
-  `IMixinConfigPlugin` + `FabricLoader.isModLoaded`, or the module's self-check.
-  - The JEI mixin self-check and foreign-JEI detection exist on 1.21.1.
+- Soft dependency: compile against the mod and guard every hook. JEI hooks are gated by
+  `compat/CompatGates` (mixin plugin): the `group jei` version range, then the module's
+  `sig jei` lines in `originclient.compat-gates.txt` (owner class + method + full descriptor
+  for EVERY method the two Jei*Mixins inject into). A moved class or changed descriptor turns
+  the group off before any JEI mixin applies, one `Origin compat gate:` log line names the miss.
+  - New or changed JEI hook / JEI bump: re-derive the sig lines with `javap -p -s` on the pinned
+    jar from the Gradle cache (`maven.modrinth/jei/<id>`; MC classes stay intermediary there,
+    which is what the table wants), then `python tools/compat-gates/check.py --jars`.
+    `check.py` (CI) fails a hooked method with no sig row or a stale row.
+  - Foreign-JEI detection (log only) stays in each module's OriginClientMod.
 - `isOverlayEnabled` is a trap. The two real choke points are in the memory note "jei-toggle-architecture".
   JEI also mutates vanilla's potion layout.
 - Pin the version from live metadata (Modrinth version id). A nested jar can carry its own exact Minecraft pin:
@@ -41,5 +48,6 @@ that module's JEI mixin (grep `mezz.jei` under `src/mods/versions/<m>`).
 
 ## Proof
 - `dev-shots set=design` with JEI present: open an inventory shot.
-- Prove the JEI self-check line in run.log.
+- Prove the JEI signature check in run.log: `Origin compat gate: Origin's JEI show/hide switch is on
+  (signature check: N of N methods match jei <ver>)`. An "is off (...)" line names what's missing.
 - Run once without JEI (soft-dep path) when the hook is new.

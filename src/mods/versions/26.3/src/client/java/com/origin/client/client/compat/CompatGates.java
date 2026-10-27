@@ -27,7 +27,16 @@ import net.fabricmc.loader.api.metadata.version.VersionPredicate;
  * <pre>
  *   group   &lt;id&gt; | &lt;label&gt; | &lt;mod&gt; &lt;range&gt; [; &lt;mod&gt; &lt;range&gt; ...] | [mixin simple names ...]
  *   feature &lt;id&gt; | &lt;label&gt; | &lt;group&gt; ... [ / &lt;group&gt; ... ]
+ *   sig     &lt;group&gt; | &lt;owner class&gt; | &lt;method&gt;&lt;descriptor&gt; [or &lt;method&gt;&lt;descriptor&gt; ...]
  * </pre>
+ * A sig line is one method a group's mixins inject into: the owner class by its exact binary name,
+ * the method name and its full descriptor (javap -s on the jar the module pins). After the version
+ * range passes, every sig line of the group must be declared by its class (ClassSignatures, read from
+ * the class file without loading it); a moved class, a renamed method or a changed descriptor turns
+ * the group off before Mixin applies any of its mixins, with one log line naming what is missing.
+ * Minecraft classes in a descriptor are written in intermediary ({@code net/minecraft/class_437}) and
+ * mapped to the running namespace (named in dev, intermediary for players); 26.x has no intermediary,
+ * so its tables use the real names.
  * A group is on when every listed mod is loaded at a version inside its range (Fabric's predicate
  * syntax, e.g. {@code ~0.8.13} = 0.8.13 or newer on the 0.8 line; {@code >=19.51 <20.0.0-}; several
  * alternatives joined by {@code or}, e.g. {@code ~0.8.9 or ~0.9.2}; not {@code ||}, which would split the
@@ -51,6 +60,8 @@ public final class CompatGates {
 		final String id, label;
 		final Map<String, String> needs = new LinkedHashMap<>();
 		final List<String> mixins = new ArrayList<>();
+		/** {owner class, "name(desc)ret [or ...]"} per sig line. */
+		final List<String[]> sigs = new ArrayList<>();
 		boolean on;
 		String why;
 		/** The mod and version that turned it off (for the Mod Menu page note), or null. */
@@ -97,6 +108,14 @@ public final class CompatGates {
 			for (Group g : GROUPS.values()) {
 				if (!g.on && !named(g.id)) {
 					log(g.label + " is off (" + g.why + ")");
+				}
+			}
+			// A passed signature check says so too: CI greps run.log for it (proof the check ran, not just
+			// that nothing failed).
+			for (Group g : GROUPS.values()) {
+				if (g.on && !g.sigs.isEmpty()) {
+					log(g.label + " is on (signature check: " + g.sigs.size() + " of " + g.sigs.size()
+							+ " methods match " + versions(g) + ")");
 				}
 			}
 		} catch (Throwable t) {
@@ -197,6 +216,7 @@ public final class CompatGates {
 	// ---- data ------------------------------------------------------------------------------------
 
 	private static void read() throws Exception {
+		List<String[]> sigLines = new ArrayList<>();
 		InputStream in = CompatGates.class.getClassLoader().getResourceAsStream(RESOURCE);
 		if (in == null) {
 			throw new IllegalStateException("resource missing");
@@ -242,10 +262,20 @@ public final class CompatGates {
 						f.alternatives.add(ids);
 					}
 					FEATURES.put(f.id, f);
+				} else if ("sig".equals(head[0]) && p.length == 3 && !p[1].trim().isEmpty()
+						&& p[2].trim().indexOf('(') > 0) {
+					sigLines.add(new String[] {head[1], p[1].trim(), p[2].trim()});
 				} else {
 					throw new IllegalArgumentException("bad line: " + line);
 				}
 			}
+		}
+		for (String[] s : sigLines) {
+			Group g = GROUPS.get(s[0]);
+			if (g == null) {
+				throw new IllegalArgumentException("sig names unknown group " + s[0]);
+			}
+			g.sigs.add(new String[] {s[1], s[2]});
 		}
 		for (Feature f : FEATURES.values()) {
 			for (List<String> alt : f.alternatives) {
@@ -278,6 +308,83 @@ public final class CompatGates {
 			}
 			g.offMod = null;
 		}
+		checkSignatures(g);
+	}
+
+	/**
+	 * The version range passed; now every method the group's mixins inject into must exist with the exact
+	 * descriptor. Off on the first group with a miss, naming every missing method in its one log line.
+	 */
+	private static void checkSignatures(Group g) {
+		if (g.sigs.isEmpty()) {
+			return;
+		}
+		StringBuilder misses = new StringBuilder();
+		Map<String, byte[]> classes = new HashMap<>();
+		for (String[] sig : g.sigs) {
+			byte[] bytes;
+			if (classes.containsKey(sig[0])) {
+				bytes = classes.get(sig[0]);
+			} else {
+				bytes = classBytes(sig[0]);
+				classes.put(sig[0], bytes);
+			}
+			String miss = ClassSignatures.missing(bytes, sig[0], sig[1], CompatGates::runtimeClassName);
+			if (miss != null) {
+				misses.append(misses.length() == 0 ? "" : ", ").append(miss);
+			}
+		}
+		if (misses.length() == 0) {
+			return;
+		}
+		g.on = false;
+		g.why = "signature check failed against " + versions(g) + ": " + misses;
+		// The Mod Menu note: "made for another JEI than the one installed (x)". True here too: this JEI
+		// build moved or changed a method Origin's switch hooks.
+		g.offMod = g.needs.isEmpty() ? null : g.needs.keySet().iterator().next();
+		ModContainer c = g.offMod == null ? null : FabricLoader.getInstance().getModContainer(g.offMod).orElse(null);
+		g.offVersion = c == null ? null : c.getMetadata().getVersion().getFriendlyString();
+	}
+
+	/** The class file of {@code binaryName} as the game will load it, or null when it is not on the classpath. */
+	private static byte[] classBytes(String binaryName) {
+		try (InputStream in = CompatGates.class.getClassLoader().getResourceAsStream(binaryName.replace('.', '/') + ".class")) {
+			if (in == null) {
+				return null;
+			}
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			byte[] buf = new byte[8192];
+			int n;
+			while ((n = in.read(buf)) > 0) {
+				out.write(buf, 0, n);
+			}
+			return out.toByteArray();
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/**
+	 * Internal class name from a sig descriptor -> the name in the running namespace. Only intermediary
+	 * names (net/minecraft/class_N) are mapped; every other name, and all of 26.x, is already literal.
+	 */
+	private static String runtimeClassName(String internal) {
+		if (!internal.startsWith("net/minecraft/class_")) {
+			return internal;
+		}
+		return FabricLoader.getInstance().getMappingResolver()
+				.mapClassName("intermediary", internal.replace('/', '.')).replace('.', '/');
+	}
+
+	/** "jei 19.51.0.418" for the group's mods as loaded (for the log line). */
+	private static String versions(Group g) {
+		StringBuilder sb = new StringBuilder();
+		for (String mod : g.needs.keySet()) {
+			ModContainer c = FabricLoader.getInstance().getModContainer(mod).orElse(null);
+			sb.append(sb.length() == 0 ? "" : ", ").append(mod).append(' ')
+					.append(c == null ? "?" : c.getMetadata().getVersion().getFriendlyString());
+		}
+		return sb.toString();
 	}
 
 	private static boolean matches(String ranges, Version v) {

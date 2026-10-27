@@ -9,6 +9,20 @@ group sodium | Origin's Sodium hooks | sodium ~0.8.0 | SodiumGraphReuseMixin Sod
 group smartTerrain812 | Smart Terrain's Sodium + Iris pair | sodium 0.8.12; iris 1.10.7 |
 group smartTerrain814 | Smart Terrain's Sodium + Iris pair | sodium 0.8.14; iris 1.10.8 |
 group jei | Origin's JEI show/hide switch | jei >=27.54.0.112 <28.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
+# JEI signature table: every JEI method the two Jei*Mixins inject into, owner + name + descriptor from
+# javap -s on the pinned JEI jar (jv98kc5z). A miss turns the jei group off before its mixins apply.
+# Intermediary (mapped at runtime): class_332 = GuiGraphics, class_437 = Screen, class_465 = AbstractContainerScreen, class_11905 = CharacterEvent, class_11909 = MouseButtonEvent.
+sig jei | mezz.jei.gui.events.GuiEventHandler | drawForScreenForeground(Lnet/minecraft/class_437;Lnet/minecraft/class_332;II)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | drawForScreenBackground(Lnet/minecraft/class_437;Lnet/minecraft/class_332;)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | renderCompactPotionIndicators(Lnet/minecraft/class_465;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPre(Lnet/minecraft/class_437;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPost(Lnet/minecraft/class_437;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPre(Lnet/minecraft/class_437;Lnet/minecraft/class_11905;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPost(Lnet/minecraft/class_437;Lnet/minecraft/class_11905;)V
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseClicked(Lnet/minecraft/class_437;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseReleased(Lnet/minecraft/class_437;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseScroll(DDDD)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseDragged(Lnet/minecraft/class_437;Lnet/minecraft/class_11909;DD)Z
 feature shaderPerformanceMode | Shader Performance Mode | iris
 feature halfRateShadows | Half-Rate Shadows | iris sodium
 feature offMapShadows | Off-Map Shadows | iris sodium

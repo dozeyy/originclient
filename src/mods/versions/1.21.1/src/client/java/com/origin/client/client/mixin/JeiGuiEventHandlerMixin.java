@@ -4,7 +4,6 @@ import com.origin.client.client.mods.Mods;
 import mezz.jei.gui.events.GuiEventHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -39,21 +38,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * GuiGraphics, int, int), both called from its ScreenMixin through
  * EventRegistration.drawBackground/drawForeground; the container pass is folded
  * into drawForScreenForeground (drawOverlayForegrounds -> *.drawOnForeground).
- * renderCompactPotionIndicators is unchanged. Both name sets are targeted: Origin
- * bundles 19.51, but a player's own JEI jar wins over the bundled one (Will's
- * 1.21.1 folder has 19.27.0.340), and a missing name is skipped (defaultRequire 0),
- * so the toggle works on either build.
+ * renderCompactPotionIndicators is unchanged. Only the 19.51 names are targeted:
+ * the compat gate (originclient.compat-gates.txt, group jei) applies this mixin
+ * only for JEI >=19.51 <20 AND only when every hooked method below exists with the
+ * exact descriptor in its signature table, so the old 19.27 pair could never apply
+ * (a player's own 19.27 jar turns the switch off, one log line, JEI keeps working).
  *
  * remap = false: the targets are another mod's classes, so their names must be
  * taken literally rather than looked up in the Minecraft refmap. Our own handler
  * signatures still get remapped by Loom, which is why they can name Mojang types.
  *
  * Fragility, accepted knowingly: these are JEI internals, not its public API, so
- * a JEI update can rename them. The mixin config is `"required": false` with
- * `defaultRequire: 0`, so a rename makes this silently not apply — Origin keeps
- * booting, but JEI would then ignore its toggle rather than crash. That is the
- * right failure direction for the "never broken" mandate, but it is a real
- * failure: re-verify these three method names on every JEI bump.
+ * a JEI update can move, rename or re-sign them. The compat gate's signature table
+ * (sig jei lines) catches all three before Mixin applies anything: the jei group
+ * turns off with one "Origin compat gate:" log line naming the missing method, and
+ * JEI then simply ignores Origin's switch rather than crash. On every JEI bump,
+ * re-derive the sig lines with javap -s on the new jar.
  */
 @Mixin(value = GuiEventHandler.class, remap = false)
 public abstract class JeiGuiEventHandlerMixin {
@@ -63,7 +63,7 @@ public abstract class JeiGuiEventHandlerMixin {
 	 * button all draw from here (IngredientListOverlay.drawScreen +
 	 * BookmarkOverlay.drawScreen). Cancelling is what makes the screen look stock.
 	 */
-	@Inject(method = {"drawForScreenForeground", "onDrawScreenPost"}, at = @At("HEAD"), cancellable = true)
+	@Inject(method = "drawForScreenForeground", at = @At("HEAD"), cancellable = true)
 	private void originclient$hideJeiOverlay(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY,
 			CallbackInfo ci) {
 		if (!Mods.on("jei")) {
@@ -74,15 +74,6 @@ public abstract class JeiGuiEventHandlerMixin {
 	/** The background pass (the overlays' backgrounds, drawn before the screen itself). */
 	@Inject(method = "drawForScreenBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$hideJeiBackground(Screen screen, GuiGraphics guiGraphics, CallbackInfo ci) {
-		if (!Mods.on("jei")) {
-			ci.cancel();
-		}
-	}
-
-	/** JEI 19.27 only: the foreground pass over container screens (19.51 folds it into drawForScreenForeground). */
-	@Inject(method = "onDrawForeground", at = @At("HEAD"), cancellable = true)
-	private void originclient$hideJeiForeground(AbstractContainerScreen<?> screen, GuiGraphics guiGraphics,
-			int mouseX, int mouseY, CallbackInfo ci) {
 		if (!Mods.on("jei")) {
 			ci.cancel();
 		}
