@@ -2,6 +2,7 @@ package com.origin.client.client.mixin.menus;
 
 import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.Gfx;
+import com.origin.client.client.gui.OriginButtonRenderer;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -18,10 +19,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 
 // "Connecting to the server..." draws 1.21.1's one loading picture (LoadingLook:
-// the real logo at 44 % of the height, the plain progress bar sweeping, the
-// connection status as its caption), the same picture as every other loading
-// screen, then the screen's own Cancel button on top. The backdrop already comes
-// from MenuHooks' DrawScreenEvent.Pre (no world while connecting).
+// opaque color.bg, the real logo at 44 % of the height, the plain progress bar
+// sweeping, the connection status as its caption), the same picture as every other
+// loading screen, then the screen's own Cancel button on top as the Workbench card.
+// 1.8.9 has no Realms connecting screen (Realms is retired on 1.8.9's title), so this
+// is the only connecting surface.
 //
 // Target (javap 1.8.9, MCP): GuiConnecting.drawScreen(IIF)V is drawDefaultBackground,
 // then drawCenteredString(I18n "connect.connecting" if networkManager == null, else
@@ -42,13 +44,21 @@ public abstract class GuiConnectingMixin {
 	private boolean originclient$authorizing;
 	@Unique
 	private String originclient$lang;
+	// One Gfx for this screen's frames (no allocation per frame).
+	@Unique
+	private Gfx originclient$gfx;
+	// One "hook active" log line per game, so a CI run proves the initGui TAIL applied.
+	@Unique
+	private static boolean originclient$initLogged;
 
 	// Vanilla anchors Cancel at height/4 + 132 (javap 1.8.9), which on a tall GUI
 	// climbs into the middle of the screen (the overlap Will hit joining a world,
-	// 2026-10-20 playtest). With the Origin picture up, Cancel sits at vanilla's
-	// spot when that is clear of the picture, else 12 GUI px under its caption
-	// (OriginScreenRenderer.connectCancelTop); in vanilla mode, 36 px under the
-	// vanilla status line's top. Kept on screen. A miss leaves vanilla's layout.
+	// 2026-10-20 playtest). With the Origin picture up, Cancel is 1.21.1's loading
+	// Cancel (Will, 2026-10-27): the Workbench card LOADING_CANCEL_W x 20 GUI px with a
+	// parchment Minecraft-font label (OriginButtonRenderer.setLoadingButton), centred one
+	// picture step under the caption (OriginScreenRenderer.connectCancelTop); the picture
+	// never moves for it. In vanilla mode, 36 px under the vanilla status line's top.
+	// Kept on screen. A miss leaves vanilla's layout.
 	@Inject(method = "initGui", at = @At("TAIL"))
 	private void originclient$clearCancel(CallbackInfo ci) {
 		try {
@@ -56,14 +66,26 @@ public abstract class GuiConnectingMixin {
 			if (!(self instanceof GuiScreenAccessor)) {
 				return;
 			}
-			int h = ((net.minecraft.client.gui.GuiScreen) self).height;
+			net.minecraft.client.gui.GuiScreen screen = (net.minecraft.client.gui.GuiScreen) self;
+			int h = screen.height;
 			boolean origin = !OriginStyle.vanillaMenusOn(this) && OriginScreenRenderer.isActive();
 			for (GuiButton b : ((GuiScreenAccessor) self).originclient$buttonList()) {
 				if (b.id == 0) {
-					b.yPosition = origin
-							? OriginScreenRenderer.connectCancelTop(b.yPosition, h, b.height)
-							: Math.min(Math.max(b.yPosition, h / 2 - 50 + 36), h - 24);
+					if (origin) {
+						OriginButtonRenderer.setLoadingButton(b);
+						int bw = Math.min(OriginScreenRenderer.LOADING_CANCEL_W, Math.max(80, screen.width - 24));
+						b.width = bw;
+						b.height = 20;
+						b.xPosition = (screen.width - bw) / 2;
+						b.yPosition = OriginScreenRenderer.connectCancelTop(h, 20);
+					} else {
+						b.yPosition = Math.min(Math.max(b.yPosition, h / 2 - 50 + 36), h - 24);
+					}
 				}
+			}
+			if (origin && !originclient$initLogged) {
+				originclient$initLogged = true;
+				com.origin.client.OriginClient.LOGGER.info("[origin] GuiConnecting loading Cancel: hook active");
 			}
 		} catch (Throwable t) {
 			// vanilla's layout
@@ -89,14 +111,24 @@ public abstract class GuiConnectingMixin {
 				originclient$lang = lang;
 				originclient$status = I18n.format(authorizing ? "connect.authorizing" : "connect.connecting");
 			}
-			if (!OriginScreenRenderer.renderConnecting(new Gfx(), originclient$status)) {
+			if (originclient$gfx == null) {
+				originclient$gfx = new Gfx();
+			}
+			Gfx g = originclient$gfx;
+			if (!OriginScreenRenderer.renderConnecting(g, originclient$status)) {
 				return;   // Origin rendering is off: vanilla draws this frame
 			}
 			ci.cancel();
-			// GuiScreen.drawScreen's own button pass (index loop: no iterator per frame).
+			// GuiScreen.drawScreen's own button pass (index loop: no iterator per frame); the registered
+			// Cancel draws as the Workbench card, anything else (or a latched card) as vanilla's button.
 			List<GuiButton> buttons = ((GuiScreenAccessor) self).originclient$buttonList();
 			for (int i = 0; i < buttons.size(); i++) {
-				buttons.get(i).drawButton(mc, mouseX, mouseY);
+				GuiButton b = buttons.get(i);
+				boolean hovered = b.visible && mouseX >= b.xPosition && mouseY >= b.yPosition
+						&& mouseX < b.xPosition + b.width && mouseY < b.yPosition + b.height;
+				if (!b.visible || !OriginButtonRenderer.titleControl(g, b, hovered)) {
+					b.drawButton(mc, mouseX, mouseY);
+				}
 			}
 		} catch (Throwable t) {
 			// vanilla's screen (if the picture already drew, the frame just lacks its button)

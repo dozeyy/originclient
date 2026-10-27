@@ -21,18 +21,18 @@ import java.util.List;
 //
 //                            (logo)                 the real origin_logo.png
 //                          [wordmark]               the real origin_wordmark.png
-//                 [ >  Singleplayer            ]    200 x 20 Workbench cards,
-//                 [ >  Multiplayer             ]    lead glyph + Inter label
-//                 [ > Options  ][ >   Mods     ]
+//                 [      Singleplayer          ]    200 x 20 Minecraft dark buttons,
+//                 [      Multiplayer           ]    words only, Minecraft's font
+//                 [   Options  ][    Mods      ]
 //
-//              [friends][cosmetics][lang][quit]     20 x 20 cards, parchment glyph
+//              [friends][cosmetics][lang][quit]     20 x 20 dark buttons, premade icons
 //   Minecraft 1.8.9 . Origin          Copyright Mojang AB. Do not distribute!
 //
 // Background: 1.8.9's own panorama, drawn and blurred by vanilla's renderer
 // (MenuPanorama), under the title dim and vignette. No splash.
-// GEOMETRY LIVES IN ONE PLACE: TitleLayout. Every control is a TitleButton: the
-// Workbench card from OriginButtonRenderer.titleControl, or vanilla's own button
-// when the title skin is latched off. No hover tooltips anywhere on the title
+// GEOMETRY LIVES IN ONE PLACE: TitleLayout. Every control is a TitleButton:
+// Minecraft's own dark button (the dark-widget path) with a white Minecraft-font
+// label or a dock icon (TitleButton). No hover tooltips anywhere on the title
 // (1.21.1 narrates its dock tips but never draws them; 1.8.9 has no narrator).
 //
 // 1.8.9 best fit: later versions REPOSITION vanilla's own TitleScreen widgets
@@ -130,12 +130,6 @@ public class OriginTitleScreen extends OriginScreen {
 		cosmetics = add(5, "");
 		language = add(6, "");
 		quit = add(7, "");
-		// 1.21.1's glyphs (TitleScreenMixin): worded leads, then the dock in 1.21.1's order (no Realms or
-		// Accessibility on 1.8.9; class comment).
-		OriginButtonRenderer.setTitleButton(singleplayer, "@title-singleplayer");
-		OriginButtonRenderer.setTitleButton(multiplayer, "@title-multiplayer");
-		OriginButtonRenderer.setTitleButton(options, "@title-options");
-		OriginButtonRenderer.setTitleButton(mods, "@title-mods");
 
 		// Two full rows, then the Options | Mods pair.
 		TitleLayout.rows(3);
@@ -146,11 +140,14 @@ public class OriginTitleScreen extends OriginScreen {
 		place(options, L.mainX, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
 		place(mods, L.mainX + L.mainW - half, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
 
-		// Bottom row of dock cards, Quit at its end.
+		// Bottom row of 20 x 20 dark buttons in 1.21.1's order, Quit at its end (no Realms or Accessibility on
+		// 1.8.9; class comment). Cosmetics and Quit are title_icons.png (1.21.1's sheet); Friends and Language are
+		// Origin's own glyphs: 1.8.9 has no toast/social_interactions sprite, and its Language button is vanilla's
+		// LIGHT widgets.png globe sprite (GuiButtonLanguage draws it itself, outside the dark-widget path).
 		icon(friends, "@title-multiplayer");
-		icon(cosmetics, "@shirt");
+		icon(cosmetics, "cosmetics");
 		icon(language, "@title-language");
-		icon(quit, "@title-quit");
+		icon(quit, "quit");
 		int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
 		int dx = (width - totalW) / 2;
 		for (GuiButton b : dock) {
@@ -168,17 +165,19 @@ public class OriginTitleScreen extends OriginScreen {
 
 	private void icon(GuiButton b, String id) {
 		dock.add(b);
-		OriginButtonRenderer.setTitleDock(b, id);
 		((TitleButton) b).dockIcon = id;
 	}
 
 	/**
-	 * A title control: the Workbench card (OriginButtonRenderer.titleControl), or vanilla's own button when the
-	 * title skin is off or latched. Hover is vanilla's own hit test, set here as GuiButton.drawButton would.
-	 * A subclass, not a mixin: these are this screen's own buttons (1.21.1 skins vanilla's via AbstractButtonMixin).
+	 * A title control (Will, 2026-10-27: "the same ones" as every other menu): Minecraft's own button -- GuiButton's
+	 * drawButton, which the module's dark-widget path (GuiButtonMixin -> OriginDarkWidgets) points at the dark page --
+	 * with its label in Minecraft's font, white (0xA0A0A0 disabled; never the yellow hover tint, as 1.21.1), and a
+	 * dock button's icon on top (OriginButtonRenderer.titleIcon). Forge's GuiButton picks packedFGColour first when
+	 * it is non-zero (javap), so white is set there; 0 lets vanilla's own disabled grey through.
+	 * A subclass, not a mixin: these are this screen's own buttons (1.21.1 draws vanilla's via AbstractButtonMixin).
 	 */
 	private final class TitleButton extends GuiButton {
-		/** The dock glyph (null for worded buttons): drawn over vanilla's blank square on the fallback path. */
+		/** The dock icon id (null for worded buttons), drawn over the dark button's blank face. */
 		String dockIcon;
 
 		TitleButton(int id, String label) {
@@ -190,14 +189,11 @@ public class OriginTitleScreen extends OriginScreen {
 			if (!visible) {
 				return;
 			}
-			hovered = mouseX >= xPosition && mouseY >= yPosition && mouseX < xPosition + width && mouseY < yPosition + height;
+			packedFGColour = enabled ? 0xFFFFFF : 0;
+			super.drawButton(mc, mouseX, mouseY);
 			Gfx g = frameGfx;
-			if (g == null || !OriginButtonRenderer.titleControl(g, this, hovered)) {
-				super.drawButton(mc, mouseX, mouseY);
-				if (dockIcon != null && g != null) {
-					ModIcons.drawCrisp(g, dockIcon, xPosition + (width - 12) / 2, yPosition + (height - 12) / 2, 12,
-							enabled ? 0xFFFFFFFF : 0xFFA0A0A0);
-				}
+			if (dockIcon != null && g != null) {
+				OriginButtonRenderer.titleIcon(g, dockIcon, xPosition, yPosition, width, height, enabled);
 			}
 		}
 	}

@@ -15,7 +15,7 @@ ScreenBackgroundMixin, ScreenInvoker. "Proven" means CI and review passed (clean
 
 | Era | Panorama / backdrop | Buttons and widgets | Traps (proven unless marked) |
 |---|---|---|---|
-| G9 1.8.9 | GuiMainMenu drawPanorama | GuiButton | drawPanorama leaves depth+cull ON: restore. GuiSlot.overlayBackground cancel needs a scissor around drawSelectionBox + drawListHeader. Never show GuiModList. See legacy-forge-189.md |
+| G9 1.8.9 | GuiMainMenu drawPanorama | GuiButton | drawPanorama leaves depth+cull ON: restore. GuiSlot.overlayBackground cancel needs a scissor around drawSelectionBox + drawListHeader. Never show GuiModList. Dark title buttons: super.drawButton + packedFGColour 0xFFFFFF; dock icons drawn after it. See legacy-forge-189.md |
 | G8 1.16.5 | 6-arg-era redirects like 1.18.2; TitleScreen white fill = `fill` ordinal 0 | `Screen.addButton` (@Invoker "addButton"); isHovered() includes focus | color4f + TextureManager.bind + fillLayer; alpha test drops faint pixels (Gfx sets alphaFunc GREATER 0) |
 | G8 1.17.1 / G7 ≤1.18.2 | redirects PanoramaRenderer.render(FF), 10-arg overlay blit, blitOutlineBlack x2 → wordmark, 8-arg edition blit, splash drawCenteredString, version drawString (`gfx_old.title_screen_118` shape) | `new Button(...)`, x/y public fields, isHoveredOrFocused() / isMouseOver(mx,my) | Pre-1.18: no PlainTextButton, so the copyright is `drawString` ordinal 1 |
 | G7 1.19.2 / 1.19.3 | as above | ScreenInvoker bound: `Widget` ≤1.19.2, `Renderable` 1.19.3. Bind on the ERASED descriptor: `<T extends GuiEventListener & NarratableEntry>` works on every 1.19.x | 1.19.3 layouts are GridWidget containers: descend into them. No AbstractSelectionList enableScissor on 1.19.2/1.19.3. renderButton (not renderWidget) on ≤1.19.3 |

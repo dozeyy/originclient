@@ -37,6 +37,18 @@ traps proven since then.
 - A dev `GuiConnecting` created via Unsafe needs the GuiScreen fields copied over.
 - Never show `GuiModList` (Forge's mod list). Origin's menu replaces it.
 - Every hook body is fail-soft: catch Throwable, volatile latch.
+- Dark title buttons (one-look port, 2026-10-27): OriginTitleScreen's own GuiButtons call `super.drawButton`, which
+  GuiButtonMixin's ModifyArgs point at the dark page. White labels: Forge's `GuiButton.packedFGColour` wins over the
+  enabled/hover colours when non-zero (javap), so set it to 0xFFFFFF (0 when disabled lets vanilla's A0A0A0 through).
+  `GuiButtonLanguage` draws its own LIGHT widgets.png globe sprite outside the dark path, and 1.8.9 has no
+  `toast/social_interactions` sprite, so Language and Friends keep Origin's glyphs on a dark button.
+- Forge's `Minecraft.loadWorld(null)` sleeps until the integrated server `isServerStopped()` (javap), so the
+  world is saved when Save and Quit's loadWorld returns.
+- In-world smoke on Forge: the same env route as Fabric (smoke.py / dev-shots.yml are module-generic). Turn
+  `pauseOnLostFocus` and Limit Unfocused FPS off (Xvfb is never focused) and use Peaceful: a flat world at y 4
+  sits in slime-chunk height.
+- Dev-shots design set takes Kinds with `ordinal < TITLE_HOVER` only: LEVEL_LOADING / CONNECTING sit after it,
+  so they were never shot until added explicitly.
 - Missing on 1.8.9, so drop the card: cooldowns, offhand, elytra, shields/totems, sweep, toasts (use GuiAchievement),
   boss list (one BossStatus), bed block entity, subtitles toggle, attack indicator, narrator.
 

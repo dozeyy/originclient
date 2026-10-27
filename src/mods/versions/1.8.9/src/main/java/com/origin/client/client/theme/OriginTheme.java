@@ -104,7 +104,7 @@ public final class OriginTheme {
 	public static final int CLEAN_TEXT = 0xFFF3F4F6;
 	public static final int CLEAN_TEXT_DIM = 0xA8F3F4F6;       // 66%
 	public static final int CLEAN_TEXT_FAINT = 0x70F3F4F6;     // 44%
-	public static final int CLEAN_BG = 0xFF0B0C0F;             // splash background
+	public static final int CLEAN_BG = 0xFF0E1110;             // color.bg: the loading picture's backdrop (DESIGN-SYSTEM 17.3)
 	public static final int CLEAN_DIM_MENU = 0x8C0B0C0F;       // dim over the blurred panorama, menus (~55%)
 	public static final int CLEAN_DIM_TITLE = 0x590E1110;      // title (~35%), the Workbench bg hue (as 1.21.1)
 	public static final int CLEAN_DIM_LOADING = 0x990B0C0F;    // loading scenes (~60%)

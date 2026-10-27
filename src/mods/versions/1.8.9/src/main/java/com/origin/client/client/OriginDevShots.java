@@ -585,6 +585,9 @@ public final class OriginDevShots {
 						SHOTS.add(new Shot(s[0], s[1], 0, k));
 					}
 				}
+				// The one loading look (2026-10-27): world loading and Connecting with its Cancel.
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.LEVEL_LOADING));
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.CONNECTING));
 			}
 			// Same menu at a forced GUI scale: the redesign must not change size with it.
 			SHOTS.add(new Shot(1920, 1080, 2, Kind.MENU));
@@ -671,6 +674,12 @@ public final class OriginDevShots {
 
 	public static void tick(Minecraft mc) {
 		if (done) {
+			if (inWorld) {
+				// The design set's last step: the in-world smoke (OriginDevWorld.inWorldTick); its two shots count
+				// toward the "done" line check_shots.py reads, printed only once the step has ended.
+				OriginDevWorld.inWorldTick(mc, DIR, () -> com.origin.client.OriginClient.LOGGER.info(
+						"[dev-shots] done — {} shots in {}", SHOTS.size() + 2, DIR));
+			}
 			return;
 		}
 		long now = System.currentTimeMillis();
@@ -794,9 +803,20 @@ public final class OriginDevShots {
 		} catch (Throwable ignored) {
 			// dev only
 		}
+		if (INWORLD) {
+			// dev-shots.yml sets ORIGIN_INWORLD=1 for "inworld": true modules: the in-world step runs next
+			// (tick hands over) and prints the done line + quits when it ends.
+			inWorld = true;
+			return;
+		}
 		com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — {} shots in {}", SHOTS.size(), DIR);
 		mc.shutdown();
 	}
+
+	/** The design set ends with the in-world smoke step (env ORIGIN_INWORLD=1, dev-shots.yml). */
+	private static final boolean INWORLD = "1".equals(System.getenv("ORIGIN_INWORLD"))
+			&& "design".equals(System.getenv("ORIGIN_SHOTS_SET"));
+	private static boolean inWorld = false;
 
 	// ---- 1.8.9 helpers (shared with OriginDevWorld) ----
 
