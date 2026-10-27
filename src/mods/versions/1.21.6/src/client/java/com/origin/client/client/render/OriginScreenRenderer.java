@@ -202,12 +202,9 @@ public final class OriginScreenRenderer {
 			// loader's worth per frame now, so the title's first frames don't.
 			com.origin.client.client.OriginAssets.uploadSlice();
 		}
-		// The splash's own backdrop (solid near-black, a soft centre lift), then the one
-		// loading picture (LoadingLook): the real logo, the progress bar and the stage
-		// line with the reload's real percentage, in the boot font (no font text
-		// during the initial reload).
-		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.CLEAN_BG));
-		drawCenterLift(guiGraphics, w, h, 0.05f);
+		// The one loading picture (LoadingLook, 1.21.1's): its own opaque color.bg backdrop,
+		// the real logo, the progress bar and the stage line with the reload's real
+		// percentage, in the boot font (no font text during the initial reload).
 		LoadingLook.draw(guiGraphics, layerAlpha, LoadingLook.LOGO_AT, loadFill, startupCaption(loadFill), true);
 	}
 
@@ -264,10 +261,9 @@ public final class OriginScreenRenderer {
 	/**
 	 * Full-screen loading/progress scene for the world-load screens
 	 * (LevelLoadingScreen, ReceivingLevelScreen, ProgressScreen, GenericMessageScreen):
-	 * this version's blurred panorama, then the one loading picture (LoadingLook)
-	 * with the screen's own title as the caption and the bar sweeping (no real
-	 * measure). Drawn as a HEAD-cancel takeover, so it replaces vanilla's chunk
-	 * map / progress clutter with one clean Origin scene.
+	 * the one loading picture (LoadingLook, DESIGN-SYSTEM 15.3) with the screen's own
+	 * title as the caption. Drawn as a HEAD-cancel takeover, so it replaces vanilla's
+	 * chunk map / dirt / progress clutter with one clean Origin scene.
 	 */
 	public static boolean renderLoadingScene(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title) {
 		return renderLoadingScene(guiGraphics, title, -1f);
@@ -276,88 +272,133 @@ public final class OriginScreenRenderer {
 	/**
 	 * The world-loading scene with a real fraction done ({@code progress} 0..1,
 	 * the chunk count LevelLoadingScreen reports), or -1 when the screen has no
-	 * real measure — then the bar sweeps. Never a made-up percentage.
+	 * real measure - then the rail sweeps. Never a made-up percentage. A real
+	 * fraction here is the spawn-area preparation, so the caption is vanilla's
+	 * own "Preparing spawn area: N%" line.
 	 */
 	public static boolean renderLoadingScene(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress) {
+		return renderLoadingScene(guiGraphics, title, progress, progress >= 0f);
+	}
+
+	/**
+	 * As above; {@code spawnLine} false makes a real fraction a plain "title NN%"
+	 * caption (ProgressScreen's stages report their own percentage).
+	 */
+	public static boolean renderLoadingScene(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress, boolean spawnLine) {
 		// HEAD-cancel takeover: callers must only ci.cancel() when this
 		// returns true, so a failure mid-draw falls back to the vanilla screen.
 		if (broken) {
 			return false;
 		}
 		try {
-			renderLoadingScene0(guiGraphics, title, progress);
+			renderLoadingScene0(guiGraphics, title, progress, spawnLine);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
-	// The world-loading scene's shown bar fill, gliding to each new count.
-	// sceneFill < 0 = the bar is sweeping.
+	// The world-loading scene's shown rail fill, gliding to each new count.
+	// sceneFill < 0 = the rail is sweeping.
 	private static double sceneFill = -1;
-	// Never backward within a world load, never full before the world is up (LoadBar.scene).
-	private static final LoadBar SCENE_BAR = new LoadBar();
+	// The rail's state for one world load (sceneRail): the frame count at the last
+	// scene frame, the highest number reported so far (-1 = none yet), and when the
+	// fill last moved.
+	private static long sceneFrame = -1;
+	private static double sceneTarget = -1, sceneAt;
 
-	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress) {
-		ensureLoaded();
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
-
-		// This version's own panorama, blurred and dimmed (Will's approved mockup,
-		// 2026-10-19). Solid background if the panorama can't draw.
-		if (!backdrop(mc.screen, guiGraphics, mc.getDeltaTracker().getRealtimeDeltaTicks(), true, OriginTheme.CLEAN_DIM_LOADING)) {
-			guiGraphics.fill(0, 0, w, h, OriginTheme.CLEAN_BG);
+	/**
+	 * The world-loading scene's rail: exactly the number its caption shows, never a
+	 * made-up one (judge 2026-10-25: "Preparing spawn area: 0%" over a rail at about
+	 * 15%, from LoadBar's creep and its 75 % prep share, which suit the startup reload's
+	 * lying fraction, not a chunk count the caption prints). The rail sweeps until the
+	 * load's first reported number, then starts from empty and glides (FILL_TAU) to the
+	 * highest number so far: never backward within one load, held through a stage that
+	 * reports none ("Loading terrain"). A new world load is told apart by frames, as
+	 * LoadBar.scene does: more than LoadBar.NEW_LOAD_FRAMES frames drawn without the scene.
+	 * No allocation; render thread only.
+	 */
+	private static double sceneRail(long frame, float progress, double now) {
+		if (sceneFrame < 0 || frame < sceneFrame || frame - sceneFrame - 1 > LoadBar.NEW_LOAD_FRAMES) {
+			sceneTarget = -1;   // a new world load: sweep until it reports a number
+			sceneFill = -1;
 		}
+		sceneFrame = frame;
+		if (progress >= 0f) {   // false for NaN too: no number this frame
+			double p = Math.min(1.0, progress);
+			if (sceneTarget < 0) {
+				sceneTarget = p;
+				sceneFill = 0;      // the first number: glide up from an empty track
+				sceneAt = now;
+			} else {
+				sceneTarget = Math.max(sceneTarget, p);
+			}
+		}
+		if (sceneTarget < 0) {
+			return -1;
+		}
+		double k = Math.exp(-Math.max(0.0, now - sceneAt) / FILL_TAU);
+		sceneAt = now;
+		return Math.max(sceneFill, sceneTarget + (sceneFill - sceneTarget) * k);
+	}
 
-		// The fill glides to each new count and only moves forward within one world
-		// load; it sweeps until the load's first measured stage (LoadBar.scene).
+	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress, boolean spawnLine) {
+		Minecraft mc = Minecraft.getInstance();
+		// The scene clock times the bar, so it is read once per frame here.
 		double now = SceneClock.sceneMs();
-		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
+		// The rail shows the caption's own number (sceneRail): sweeping until the first.
+		sceneFill = sceneRail(com.origin.client.client.hud.FrameStats.frames(), progress, now);
 		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
 			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		}
 		// The caption is rebuilt only when the title, the whole percent or the
-		// language changes (compared by reference: the screen keeps one Component;
-		// a language change keeps the Component but changes its text).
+		// language changes (compared by reference: the screen keeps one Component).
 		int pct = progress >= 0f ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : -1;
-		String lang = mc.getLanguageManager().getSelected();
-		if (title != labelTitle || pct != labelPct || !Objects.equals(lang, labelLang)) {
-			labelLang = lang;
+		String lang = mc.getLanguageManager().getSelected();   // a stored field: no allocation
+		if (title != labelTitle || pct != labelPct || spawnLine != labelSpawn || !java.util.Objects.equals(lang, labelLang)) {
 			labelTitle = title;
 			labelPct = pct;
-			labelCaption = sceneCaption(title, pct);
+			labelSpawn = spawnLine;
+			labelLang = lang;
+			labelCaption = sceneCaption(title, pct, spawnLine);
 		}
 		LoadingLook.draw(guiGraphics, 1f, LoadingLook.LOGO_AT, sceneFill, labelCaption, false);
 	}
 
 	// The loading scene's caption and what it was built from.
 	private static net.minecraft.network.chat.Component labelTitle;
-	private static int labelPct = Integer.MIN_VALUE;
 	private static String labelLang;
+	private static int labelPct = Integer.MIN_VALUE;
+	private static boolean labelSpawn;
 	private static String labelCaption = "";
 
-	/** The stage line: vanilla's own "Preparing spawn area: N%" for the chunk load, else the screen's title. */
-	private static String sceneCaption(net.minecraft.network.chat.Component title, int pct) {
-		if (pct >= 0) {
+	/** The stage line: vanilla's spawn line for the chunk load, else the screen's title (+ " NN%" if it reports one). */
+	private static String sceneCaption(net.minecraft.network.chat.Component title, int pct, boolean spawnLine) {
+		String text = title == null ? "" : title.getString().trim();
+		if (spawnLine && pct >= 0) {
 			return net.minecraft.client.resources.language.I18n.get("menu.preparingSpawn", pct);
 		}
-		return title == null ? "" : title.getString().trim();
+		if (pct >= 0 && !text.isEmpty()) {
+			return text + " " + pct + "%";
+		}
+		return text;
 	}
 
 	/**
-	 * Connecting to a server: the one loading picture with the connection status as
-	 * its caption and the bar sweeping. ConnectScreen keeps its own render (backdrop
-	 * from ScreenBackgroundMixin, the Cancel button, narration); ConnectScreenMixin
-	 * drops vanilla's status line (it is this caption) and seats Cancel under the
-	 * picture ({@link #connectCancelTop}). The logo sits where every loading screen
-	 * has it. False when Origin rendering is off or this draw fails.
+	 * Connecting to a server: the same loading picture as the other screens, the
+	 * connection status as its caption. ConnectScreenMixin draws it in place of
+	 * vanilla's renderBackground (PER-VERSION 1.21.6-1.21.8: the backdrop runs before render), and
+	 * vanilla's render then draws the screen's own Cancel button on top, its status line dropped. The logo sits at
+	 * exactly the spot every other loading screen uses (judge 2026-10-25: it used to be
+	 * lifted to clear Cancel and jumped ~11 px between Connecting and the world load);
+	 * Cancel is seated below the picture instead ({@link #connectCancelTop}).
 	 */
 	public static boolean renderConnecting(GuiGraphics guiGraphics, net.minecraft.network.chat.Component status) {
 		if (broken) {
 			return false;
 		}
 		try {
+			SceneClock.sceneMs();   // advances the scene clock that times the sweep
 			if (status != connectStatus) {
 				connectStatus = status;
 				connectCaption = status == null ? "" : status.getString().trim();
@@ -369,15 +410,18 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** A loading screen's Cancel width (GUI px): about the caption's own width, so the button sits with the
+	 *  picture instead of spanning past it (judge 2026-10-27: a 200 px slab under a 200 design px bar). */
+	public static final int LOADING_CANCEL_W = 120;
+
 	/**
-	 * Where Connecting's Cancel button goes (GUI px, its top edge): at 62 % of the height, and
-	 * always at least 12 GUI px under the loading picture's caption, so the picture never has to
-	 * move for it; kept 8 GUI px clear of the bottom when the window allows (1.21.1's rule).
+	 * Where a loading screen's Cancel goes (GUI px, its top edge): one picture step (the logo-to-bar gap,
+	 * LoadingLook.stepGui) under the caption, so logo, bar, caption and Cancel share one rhythm and the
+	 * picture never moves for it; kept 8 GUI px clear of the bottom when the window allows.
 	 */
 	public static int connectCancelTop(int screenH, int buttonH) {
-		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
-		int top = (int) Math.max(Math.round(screenH * 0.62) - buttonH / 2, Math.ceil(clearOfPicture));
-		return Math.max(0, Math.min(top, screenH - buttonH - 8));
+		double top = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + LoadingLook.stepGui();
+		return Math.max(0, Math.min((int) Math.ceil(top), screenH - buttonH - 8));
 	}
 
 	private static net.minecraft.network.chat.Component connectStatus;

@@ -77,3 +77,12 @@ client/java/com/origin/client/client/OriginStyle.java
 # HEAD-cancel). shared/ still holds the old sweeping-bar versions for the modules not yet ported.
 client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
 client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
+
+# FORK (2026-10-27, one look) - every loading screen draws 1.21.1's one loading picture over an
+# opaque color.bg. PER-VERSION (deferred GUI): renderBackground runs BEFORE render, so the picture
+# replaces the backdrop there (ProgressScreen: an added renderBackground override; ReceivingLevelScreen:
+# HEAD-cancel of its own renderBackground) and render is cancelled only when it drew. The
+# ProgressScreen caption is the real stage + percentage (ProgressScreenAccessor), as on 1.21.1.
+# shared/ still holds the HEAD-cancel versions for the modules not yet ported.
+client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/ReceivingLevelScreenMixin.java
