@@ -366,6 +366,14 @@ final class OriginDevPanorama {
 			log(String.format(Locale.ROOT, "[panorama] camera at %.1f %.1f %.1f (ground %d) yaw %.0f in %s", cx, cy, cz, ground, yaw, dim));
 			// Extra commands run AT the camera's ground point facing the front face: ~ and ^ work.
 			// Their answers are logged: a failed fill was silent before (26.2's outcrop never showed, run 40455429322).
+			// /fill refuses any box touching a chunk that isn't loaded ("That position is not loaded"): the cave light
+			// fills all failed that way and the lush and sulfur caves rendered black (run 40461789308). Load every
+			// chunk within 2 of the camera first, synchronously, on this (server) thread.
+			for (int ccx = (x >> 4) - 2; ccx <= (x >> 4) + 2; ccx++) {
+				for (int ccz = (z >> 4) - 2; ccz <= (z >> 4) + 2; ccz++) {
+					level.getChunk(ccx, ccz);
+				}
+			}
 			CommandSourceStack here = server.createCommandSourceStack().withSource(REC).withLevel(level)
 					.withPosition(new Vec3(cx, ground, cz)).withRotation(new Vec2(0f, yaw));
 			if (spot.has("commands")) {
@@ -373,6 +381,28 @@ final class OriginDevPanorama {
 					SAID.clear();
 					server.getCommands().performPrefixedCommand(here, c.getAsString());
 					log("[panorama] " + c.getAsString() + " -> " + String.join(" / ", SAID));
+				}
+			}
+			// "light": [[dy, level], ...] fills every air block of a 29x29 layer dy above the camera's ground with an
+			// invisible light block, so a cave scene is lit under the shader. Placed here, not by /fill, which refused
+			// the not-yet-loaded chunks (run 40461789308).
+			if (spot.has("light")) {
+				BlockPos.MutableBlockPos lp = new BlockPos.MutableBlockPos();
+				for (JsonElement e : spot.getAsJsonArray("light")) {
+					int dy = e.getAsJsonArray().get(0).getAsInt();
+					int lvl = e.getAsJsonArray().get(1).getAsInt();
+					var lightState = Blocks.LIGHT.defaultBlockState().setValue(net.minecraft.world.level.block.LightBlock.LEVEL, lvl);
+					int placed = 0;
+					for (int dx = -14; dx <= 14; dx++) {
+						for (int dz = -14; dz <= 14; dz++) {
+							lp.set(x + dx, ground + dy, z + dz);
+							if (level.getBlockState(lp).isAir()) {
+								level.setBlock(lp, lightState, 2);
+								placed++;
+							}
+						}
+					}
+					log("[panorama] light level " + lvl + " at +" + dy + ": " + placed + " blocks");
 				}
 			}
 			if (spot.has("mobs")) {
