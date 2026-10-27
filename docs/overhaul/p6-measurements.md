@@ -429,3 +429,43 @@ The question: do the 1.8.9 presets write `optionsof.txt` keys that OptiFine HD_U
   and a class whose md5 doesn't match is not counted. Tests are in `tools/bench/test_prod189.py` (`JarKeys`).
 - The presets: `GamePresetTests.EveryOptiFineKeyIsVerified` already restricts every 1.8.9 preset key to that
   verified list, and the bench round-trip gate checks that OptiFine keeps each value. No preset change.
+
+## 2026-10-27: picks 3-5 switched off one at a time, and the inventory blur (candidate G)
+
+Branch `claude/p6-189-perf` (bench switches from `claude/p6-judge-fix` da2f14b69, brought up to main). CI, relative
+only. Every cell is `tools/bench/ab189.py`: the variant paired with the same round's origin-default, median
+[min..max] over the rounds, + = the variant is faster. For an `off-*` row a MINUS means the pick helps.
+
+**Runs:** 40469380647 (picks, 1280x720, 5 rounds, hud + particles), 40477173770 (picks, 427x240, 5 rounds: a
+small window keeps llvmpipe off the fill limit so CPU-side savings show), 40469384713 (blur, 1280x720, 6 rounds,
+menu + pvp-ui; pvp-ui = the inventory open 1 s / closed 1 s, over and over).
+
+| Pick (scene) | window | avg FPS | 1% low | p50 frame | p99 frame | heap avg |
+|---|---|---|---|---|---|---|
+| 3 HUD batching, off (hud) | 1280x720 | -0.6 [-3.4..+1.7] | -1.5 [-10.2..+9.4] | -0.9 [-2.7..+1.6] | +0.3 [-9.7..+5.2] | -2.3 [-11.5..+8.1] |
+| 3 HUD batching, off (hud) | 427x240 | -2.0 [-5.9..+1.6] | -5.9 [-15.8..+7.4] | **-0.9 [-2.4..-0.2]** | -5.5 [-20.9..+6.5] | **-21.3 [-50.2..-4.1]** |
+| 4 minimap, off (hud) | 1280x720 | -1.7 [-3.9..+0.0] | -2.2 [-6.6..+1.6] | **-1.8 [-3.7..-0.4]** | +0.2 [-4.0..+1.0] | **-8.8 [-16.4..-0.3]** |
+| 4 minimap, off (hud) | 427x240 | -3.1 [-6.0..+1.6] | -2.0 [-10.7..+9.5] | **-1.0 [-3.1..-0.1]** | -5.6 [-13.1..+12.5] | -5.0 [-32.8..+12.2] |
+| 5 particles, off (particles) | 1280x720 | -1.4 [-2.7..+1.4] | +0.8 [-7.3..+4.3] | -1.4 [-3.1..+1.4] | +0.9 [-8.8..+6.4] | -5.6 [-14.7..+1.4] |
+| 5 particles, off (particles) | 427x240 | -0.6 [-3.6..+0.0] | -1.6 [-2.7..+4.1] | **-1.0 [-3.7..-0.1]** | +2.0 [-3.0..+6.0] | +2.9 [-2.1..+6.0] |
+
+Bold = every round on the same side. **All three picks kept.** Pick 4 is faster in all 10 rounds (both windows).
+Picks 3 and 5 are faster in every CPU-bound round (427x240) by about 1 % of frame time, and pick 3 also lowers
+the average heap. At 1280x720 llvmpipe is limited by fill, so their CPU saving is inside the noise there. Avg FPS
+and p99 stay inside the spread for picks 3 and 5. These are small CPU wins. A real GPU at high FPS is where they
+should count (P6-12).
+
+**Inventory blur (candidate G).** p50 frame medians (ms) of the 6 rounds. The cost column is that median minus OptiFine alone:
+
+| Variant | menu p50 | menu cost | pvp-ui p50 | pvp-ui p99 | paired avg FPS menu / pvp-ui |
+|---|---|---|---|---|---|
+| OptiFine alone | 37.31 | - | 36.57 | 46.47 | - |
+| Origin default (blur every frame) | 42.30 | +4.99 | 37.44 | 50.20 | (control) |
+| capture once on open (try-bluronce) | 40.88 | +3.57 | 38.21 | 46.95 | +3.2 [-1.3..+8.5] / +2.3 [+0.4..+3.8] |
+| inventory blur off (off-invblur = Competitive) | 38.41 | +1.10 | 37.26 | 46.24 | **+11.9 [+5.8..+13.0]** / +4.6 [+0.8..+6.6] |
+
+Capture-once removes about a quarter of the open-inventory blur cost: the full-screen redraw of the captured image
+plus the tint still cost on llvmpipe. Turning the blur off removes almost all of it, with every round faster.
+The Competitive preset already sets `menublur.inventory=false` (GamePresetOptions.cs:98, presets-189/competitive.json),
+so nothing changes for players. Capture-once was dropped (41b414821). It would also have frozen the world behind
+an open inventory.
