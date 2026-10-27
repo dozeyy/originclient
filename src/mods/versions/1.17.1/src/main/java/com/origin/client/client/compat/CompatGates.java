@@ -110,8 +110,9 @@ public final class CompatGates {
 					log(g.label + " is off (" + g.why + ")");
 				}
 			}
-			// A passed signature check says so too: CI greps run.log for it (proof the check ran, not just
-			// that nothing failed).
+			// A passed signature check says so too: tools/boot-smoke/smoke.py fails a module whose data has
+			// sig lines and whose boot lacks this line (proof the check ran and passed, not just that nothing
+			// failed). Keep the wording in step with smoke.py's SIG_ON.
 			for (Group g : GROUPS.values()) {
 				if (g.on && !g.sigs.isEmpty()) {
 					log(g.label + " is on (signature check: " + g.sigs.size() + " of " + g.sigs.size()
@@ -308,7 +309,13 @@ public final class CompatGates {
 			}
 			g.offMod = null;
 		}
-		checkSignatures(g);
+		try {
+			checkSignatures(g);
+		} catch (Throwable t) {
+			// Only this group goes off: a throw reaching init's catch would turn off every hook (Sodium, Iris too).
+			g.on = false;
+			g.why = "signature check could not run (" + t + ")";
+		}
 	}
 
 	/**

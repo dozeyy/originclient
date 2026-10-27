@@ -96,9 +96,18 @@ public final class ClassSignatures {
 		return owner + "." + alternatives.trim() + " not found";
 	}
 
-	/** Maps every class named in a signature ("name(Lnet/minecraft/class_437;I)V") through {@code mapClass}. */
+	/**
+	 * Maps every class named in a signature ("name(Lnet/minecraft/class_437;I)V") through {@code mapClass}.
+	 * Only the descriptor (from the first '(') is scanned: a method name with an 'L' in it ("onLoad") would
+	 * otherwise swallow the first class token and leave it unmapped.
+	 */
 	public static String mapDescriptor(String signature, UnaryOperator<String> mapClass) {
+		int open = signature.indexOf('(');
+		if (open < 0) {
+			return signature;
+		}
 		Matcher m = CLASS_TOKEN.matcher(signature);
+		m.region(open, signature.length());
 		StringBuffer sb = new StringBuffer();
 		while (m.find()) {
 			String mapped;

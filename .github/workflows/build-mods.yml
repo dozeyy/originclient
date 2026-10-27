@@ -120,6 +120,13 @@ jobs:
           fi
           echo "No dead mixin targets."
 
+      # JEI modules: every `sig jei` row (originclient.compat-gates.txt) must exist, with that exact descriptor,
+      # in the JEI jar this build just resolved. A pin bump that moved a class or changed a descriptor would
+      # otherwise only switch Origin's JEI hooks off at runtime (boot-smoke checks that side). No-op elsewhere.
+      - name: Check JEI signatures against the pinned jar
+        shell: bash
+        run: python3 ../../../../tools/compat-gates/check.py --jars --module "${{ matrix.module }}"
+
       # Exactly one shippable jar per module: build/libs also holds the
       # -sources (and on some modules -dev) jars, which the csproj excludes too.
       - name: Collect jar

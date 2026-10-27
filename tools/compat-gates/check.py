@@ -20,6 +20,9 @@ Usage: python tools/compat-gates/check.py            (exit 1 on any finding)
                                                       SignatureTests.java against ClassSignatures)
        python tools/compat-gates/check.py --jars     (local: every module's sig table against the JEI
                                                       jar it pins, from the Gradle cache)
+       python tools/compat-gates/check.py --jars --module <mc>
+                                                     (CI build-mods after the build: that module only; a
+                                                      missing jar or any miss fails)
 """
 from __future__ import annotations
 
@@ -238,15 +241,26 @@ def pinned_jei_jar(mc: str) -> Path | None:
     return jars[0] if jars else None
 
 
-def jar_check() -> int:
-    """Local proof that each module's sig table matches the JEI jar it pins (the jar holds the names players run)."""
+def jar_check(only: str | None = None) -> int:
+    """Each module's sig table against the JEI jar it pins (the jar holds the names players run).
+
+    only=None (local): every live module whose jar is in the Gradle cache. only=<mc> (CI build-mods, right
+    after that module's build resolved its dependencies): that module alone, and a missing jar FAILS -- a JEI
+    pin bump that changed a descriptor must fail the build, not wait for a player to lose the switch."""
     pairs = []
-    for mc in live_fabric_modules():
-        data = source_set(VERSIONS / mc) / "resources" / DATA
+    for mc in [only] if only else live_fabric_modules():
+        module = VERSIONS / mc
+        data = source_set(module) / "resources" / DATA
         if not data.is_file() or not re.search(r"(?m)^sig ", data.read_text(encoding="utf-8")):
+            if only:
+                print(f"{mc}: no sig table, nothing to check")
+                return 0
             continue
         jar = pinned_jei_jar(mc)
         if jar is None:
+            if only:
+                print(f"FAIL {mc}: its pinned JEI jar is not in the Gradle cache (did the build resolve it?)")
+                return 1
             print(f"skip {mc}: pinned JEI jar not in the Gradle cache (build the module once)")
             continue
         pairs.append(f"{mc}={data}={jar}")
@@ -298,7 +312,9 @@ def main() -> int:
     if "--selftest" in sys.argv[1:]:
         return selftest()
     if "--jars" in sys.argv[1:]:
-        return jar_check()
+        args = sys.argv[1:]
+        only = args[args.index("--module") + 1] if "--module" in args and args.index("--module") + 1 < len(args) else None
+        return jar_check(only)
     findings = run()
     for f in findings:
         print("FAIL " + f)

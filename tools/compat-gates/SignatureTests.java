@@ -48,6 +48,8 @@ public class SignatureTests {
 		}
 
 		boolean renderCompactPotionIndicators() { return false; }
+
+		void onLoad(List<?> screen) { } // an 'L' in the name must not swallow the first class token
 	}
 
 	static byte[] bytes(InputStream in) throws IOException {
@@ -102,6 +104,8 @@ public class SignatureTests {
 		String inter = "drawForScreen(Lnet/minecraft/class_437;Lnet/minecraft/class_332;II)V";
 		check(ClassSignatures.missing(h, owner, inter, mapped) == null, "intermediary descriptor matches after mapping");
 		check(ClassSignatures.missing(h, owner, inter, same) != null, "unmapped intermediary descriptor is missing");
+		check(ClassSignatures.missing(h, owner, "onLoad(Lnet/minecraft/class_437;)V", mapped) == null,
+				"a method name containing 'L' still maps its descriptor");
 		check(ClassSignatures.missing(h, owner, inter, n -> { throw new IllegalStateException("no mappings"); }) != null,
 				"a mapper that throws reads as missing, never crashes");
 

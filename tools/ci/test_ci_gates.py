@@ -710,6 +710,65 @@ class CompanionGate(unittest.TestCase):
             self.assertIn('hasProperty("extraMods")', gradle, mod)
 
 
+class SignatureGate(unittest.TestCase):
+    """boot-smoke must FAIL a module whose compat-gates data has `sig` lines when the boot log lacks
+    CompatGates' 'is on (signature check' line (a JEI pin bump changed a descriptor: hooks off, boot green)."""
+    LABEL = "Origin's JEI show/hide switch"
+    TITLE = "print('[origin-smoke] title screen reached')"
+
+    def _module(self, d):
+        res = os.path.join(d, "src", "client", "resources")
+        os.makedirs(res)
+        with open(os.path.join(res, smoke.GATES_FILE), "w", encoding="utf-8") as f:
+            f.write("group jei | %s | jei >=1 | JeiMixin\n"
+                    "sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseScroll(DDDD)Z\n" % self.LABEL)
+
+    def _run(self, d, gate_line):
+        import sys
+        script = ("print(%r);" % gate_line if gate_line else "") + self.TITLE
+        return smoke.run_once(d, [sys.executable, "-c", script], 60, 0, None, None, None, smoke.sig_groups(d))
+
+    def test_sig_groups_reads_labels(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._module(d)
+            self.assertEqual(smoke.sig_groups(d), {"jei": self.LABEL})
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(smoke.sig_groups(d), {})   # cover rows / Forge: no data, no requirement
+
+    def test_signature_check_off_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._module(d)
+            ok, reason, _ = self._run(d, "Origin compat gate: %s is off (signature check failed against jei 1: "
+                                         "mezz.jei.gui.input.ClientInputHandler.onGuiMouseScroll(DDDD)Z not found)" % self.LABEL)
+            self.assertFalse(ok)
+            self.assertIn("onGuiMouseScroll(DDDD)Z not found", reason)
+
+    def test_missing_line_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._module(d)
+            ok, reason, _ = self._run(d, "")
+            self.assertFalse(ok)
+            self.assertIn("no signature-check line", reason)
+
+    def test_signature_check_on_passes(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._module(d)
+            ok, reason, _ = self._run(d, "Origin compat gate: %s is on (signature check: 1 of 1 methods match jei 1)"
+                                      % self.LABEL)
+            self.assertTrue(ok, reason)
+
+    def test_line_matches_compatgates_wording(self):
+        src = _read(os.path.join(ROOT, "src", "mods", "shared", "src", "client", "java", "com", "origin", "client",
+                                 "client", "compat", "CompatGates.java"))
+        self.assertIn('" is on (signature check: "', src)
+        self.assertTrue(smoke.SIG_ON.startswith("Origin compat gate: "))
+        self.assertIn('"Origin compat gate: "', src)
+
+    def test_every_jei_module_has_a_sig_table(self):
+        for v in ("1.18.2", "1.21.1", "26.3"):
+            self.assertIn("jei", smoke.sig_groups(os.path.join(ROOT, "src", "mods", "versions", v)), v)
+
+
 class DevPinsMatchCatalog(unittest.TestCase):
     """A module's dev-run Mod Menu / ImmediatelyFast pins (gradle.properties, Modrinth version ids) must be the
     exact files the launcher catalog gives players for that module -- otherwise the dev client (and boot-smoke)
