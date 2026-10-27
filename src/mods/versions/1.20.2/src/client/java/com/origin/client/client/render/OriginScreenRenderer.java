@@ -363,15 +363,18 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** A loading screen's Cancel width (GUI px): about the caption's own width, so the button sits with the
+	 *  picture instead of spanning past it (judge 2026-10-27: a 200 px slab under a 200 design px bar). */
+	public static final int LOADING_CANCEL_W = 120;
+
 	/**
-	 * Where Connecting's Cancel button goes (GUI px, its top edge): at 62 % of the height, and
-	 * always at least 12 GUI px under the loading picture's caption, so the picture never has to
-	 * move for it; kept 8 GUI px clear of the bottom when the window allows.
+	 * Where a loading screen's Cancel goes (GUI px, its top edge): one picture step (the logo-to-bar gap,
+	 * LoadingLook.stepGui) under the caption, so logo, bar, caption and Cancel share one rhythm and the
+	 * picture never moves for it; kept 8 GUI px clear of the bottom when the window allows.
 	 */
 	public static int connectCancelTop(int screenH, int buttonH) {
-		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
-		int top = (int) Math.max(Math.round(screenH * 0.62) - buttonH / 2, Math.ceil(clearOfPicture));
-		return Math.max(0, Math.min(top, screenH - buttonH - 8));
+		double top = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + LoadingLook.stepGui();
+		return Math.max(0, Math.min((int) Math.ceil(top), screenH - buttonH - 8));
 	}
 
 	private static net.minecraft.network.chat.Component connectStatus;

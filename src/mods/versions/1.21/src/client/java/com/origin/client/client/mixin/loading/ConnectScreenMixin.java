@@ -5,6 +5,7 @@ import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import com.origin.client.client.gui.OriginButtonRenderer;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -20,10 +21,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // "Connecting to the server..." draws the one Origin loading picture (LoadingLook: the
 // real logo, the sweeping bar, the connection status as its caption), HEAD-cancelling
 // vanilla's render, then draws the screen's own widgets (the Cancel button) on top so
-// Cancel keeps working. Ported from 1.21.1 (rings out, 2026-10-25); this fork keeps
-// vanilla's own Cancel button (its stock 200 x 20 size: 1.20.2 has no setHeight) and
-// only re-seats it at init (TAIL) below the picture (OriginScreenRenderer.connectCancelTop),
-// because vanilla's h/4 + 132 overlaps the logo at GUI scale 1-2.
+// Cancel keeps working. Ported from 1.21.1 (2026-10-27): Cancel is registered at init (TAIL)
+// as the Workbench loading button (OriginButtonRenderer.setLoadingButton: the title's card, its
+// label Minecraft's font in parchment), LOADING_CANCEL_W x 20 GUI px, re-seated one picture step
+// under the caption (OriginScreenRenderer.connectCancelTop). Its height is left alone: vanilla
+// builds it 20 high already, and 1.20.2 has no setHeight (javap), so this fork never calls it.
 // Vanilla's render() also says the narrator's "Joining world" line (sayNow, narrator.joining)
 // every 2 s; the HEAD-cancel would drop it, so the mixin repeats that exact throttle
 // (lastNarration, 2000 ms, javap ConnectScreen.render on 1.20-1.21.4) and screen-reader users
@@ -44,20 +46,23 @@ public abstract class ConnectScreenMixin {
 	// again on every resize, re-seating the rebuilt button). If it stops applying, Cancel
 	// stays at vanilla's spot and may overlap the picture at small GUI scales.
 	@Inject(method = "init()V", at = @At("TAIL"))
-	private void originclient$seatCancel(CallbackInfo ci) {
-		if (OriginStyle.vanillaMenusOn(this)) {
-			return;   // vanilla mode: stock layout
-		}
+	private void originclient$workbenchCancel(CallbackInfo ci) {
 		try {
 			Screen self = (Screen) (Object) this;
 			for (GuiEventListener child : self.children()) {
 				if (child instanceof Button button) {
-					button.setX((self.width - button.getWidth()) / 2);
-					button.setY(OriginScreenRenderer.connectCancelTop(self.height, button.getHeight()));
+					OriginButtonRenderer.setLoadingButton(button);
+					if (!OriginStyle.vanillaMenusOn(this)) {
+						// LOADING_CANCEL_W wide (vanilla mode keeps the stock 200 px button and spot).
+						int bw = Math.min(OriginScreenRenderer.LOADING_CANCEL_W, Math.max(80, self.width - 24));
+						button.setWidth(bw);
+						button.setX((self.width - bw) / 2);
+						button.setY(Math.max(0, OriginScreenRenderer.connectCancelTop(self.height, button.getHeight())));
+					}
 				}
 			}
 		} catch (Throwable ignored) {
-			// Vanilla's position: the button still works.
+			// No registration: the stock button at vanilla's spot, still working.
 		}
 	}
 

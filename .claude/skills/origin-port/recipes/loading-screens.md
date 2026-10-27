@@ -65,6 +65,16 @@ receiving/progress/message screens, Connecting to a server, Realms connecting. C
 - **ConnectScreen status line (2026-10-25, rings-out port):** 1.16.5-1.21.11 call drawCenteredString(Font,Component,III) exactly once for the status - @WrapOperation/@Redirect it and draw the picture at render TAIL (keeps narration); 26.x calls `centeredText(Font,Component,III)V` once in extractRenderState - same pattern. 1.8.9 GuiConnecting.drawScreen (func_73863_a) is safe to HEAD-cancel (OptiFine doesn't replace it). Move Cancel: `setY` on 1.19.3+, the `y` field before; 1.20.2 has no setHeight.
 - **Dock tooltip cards:** WidgetTooltipHolder.refreshTooltipForNextRenderPass HEAD-cancel on 1.21.1-26.x (no AbstractWidget.getTooltip on 1.21.6+/26.x: register the Tooltip when created); 1.19.3/1.19.4 AbstractWidget.updateTooltip (private, HEAD); 1.19.2 and older have no Tooltip API.
 - **No refmap on 1.16.5-1.21.11 Loom builds:** mixin targets are remapped in-class to intermediary; check javap names, not a refmap. Pre-1.20 reuse one Gfx via `rebind` (PoseStack is new each frame).
+- **Realms connecting (2026-10-27, G1/G2):** RealmsLongRunningMcoTaskScreen on 1.20.2-1.21.1 has `repositionElements()V`,
+  no render() of its own and `private volatile Component title`: 1.21.1's mixin ports as-is (extends RealmsScreen, adds render).
+  1.20 is the OLD screen: declares `render(GuiGraphics,IIF)V`, `init()V` builds `cancelOrBackButton` (width/2-106, row(12), 212 x 20),
+  `errorMessage` field, and error(Component) swaps in a fresh Back button at vanilla's spot. There: init TAIL re-seats the button,
+  render HEAD cancels unless errorMessage != null. LongRunningTask: `getTitle()` abstract on 1.20.2+; 1.20 has none (a task calls
+  `setTitle`). Cancel buttons are built 20 high, so the 120 x 20 seat needs only setWidth (none of these call setHeight).
+- **In-world step per era (OriginDevWorld):** 1.21 `WorldOpenFlows.openWorld(String, Runnable)` + 5-arg createFreshLevel (with a
+  Screen); 1.20.4 `checkForBackupAndLoad(String, Runnable)` + 5-arg; 1.20.2 / 1.20 `loadLevel(Screen, String)` + 4-arg
+  createFreshLevel (no Screen). Leaving the world: `Minecraft.disconnect(Screen)` on 1.20.2+, `clearLevel(Screen)` on 1.20.
+  GenericDirtMessageScreen on 1.20.x.
 
 ## Proof
 - Use `dev-shots -f set=handoff -f framelog=true`. It writes `[OriginFrameLog]` lines and GC for the loading → main menu handoff.
