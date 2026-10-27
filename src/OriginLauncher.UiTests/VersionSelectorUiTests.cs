@@ -55,7 +55,7 @@ internal static class VersionSelectorUiTests
         Assert.True(items["1.21.2"]);   // an update waiting still counts as on disk
         Assert.False(items["1.21"]);    // half-installed: no dot, and no words about it
         Assert.False(items["1.21.11"]); // not installed: nothing at all, never "download"
-        Assert.Equal("1.21.1", sheet.DropdownChoice); // the current one is preselected
+        Assert.Null(sheet.DropdownChoice); // "Choose a version": nothing preselected, not even the saved one (Will, 2026-10-26)
         sheet.Dismiss();
     }
 
@@ -78,28 +78,29 @@ internal static class VersionSelectorUiTests
         Assert.Equal("1.17", sheet.Nav.Family.Key);
         Assert.Empty(picked);
 
-        // Back up to 1.21; Enter expands it into the panel with the dropdown on the saved version.
+        // Back up to 1.21; Enter expands it into the panel with the dropdown on "Choose a version".
         Assert.True(sheet.HandleKey(Key.Up, null));
         Assert.Equal("1.21", sheet.Nav.Family.Key);
         Assert.True(sheet.HandleKey(Key.Enter, null));
         Assert.Equal(SelectorStep.Releases, sheet.Nav.Step);
         Assert.True(sheet.PanelShown);
-        Assert.Equal("1.21.1", sheet.Nav.Release); // the saved one
-        Assert.Equal("1.21.1", sheet.DropdownChoice);
+        Assert.Null(sheet.Nav.Release); // nothing chosen, even in the saved version's family
+        Assert.Null(sheet.DropdownChoice);
         Assert.Empty(picked); // opening a family picks nothing
 
-        // Step 2: Down / Up on the closed dropdown move the pick and pick as they go.
+        // Step 2: Down / Up on the closed dropdown move the pick and pick as they go; Down from "Choose a version"
+        // takes the newest.
+        var releases = VersionCatalog.Groups[1].Versions;
         Assert.True(sheet.HandleKey(Key.Down, null));
-        Assert.Equal(["1.21"], picked);
+        Assert.True(sheet.HandleKey(Key.Down, null));
         Assert.True(sheet.HandleKey(Key.Up, null));
-        Assert.True(sheet.HandleKey(Key.Up, null));
-        Assert.Equal(["1.21", "1.21.1", "1.21.2"], picked);
-        Assert.Equal("1.21.2", sheet.DropdownChoice);
+        Assert.Equal([releases[0], releases[1], releases[0]], picked);
+        Assert.Equal(releases[0], sheet.DropdownChoice);
 
         // Enter asks the dropdown to open its list (a ComboBox only opens once it is on screen, so the list itself is
         // checked in the render shots and DropdownKeyboardRegression): it picks, launches and installs nothing.
         Assert.True(sheet.HandleKey(Key.Enter, null));
-        Assert.Equal(["1.21", "1.21.1", "1.21.2"], picked);
+        Assert.Equal([releases[0], releases[1], releases[0]], picked);
         Assert.True(sheet.IsOpen);
 
         // Back ("All versions") shrinks the panel into its card: step 1, still on the same family; the sheet stays open.
@@ -173,7 +174,7 @@ internal static class VersionSelectorUiTests
         home.VersionOverlay.HandleKey(Key.Enter, null);
         home.VersionOverlay.HandleKey(Key.Down, null);
         var after = SettingsStore.Load();
-        Assert.Equal("1.21", after.SelectedVersion);
+        Assert.Equal(VersionCatalog.Groups[1].Versions[0], after.SelectedVersion); // Down from "Choose a version": the newest
         Assert.Equal(before.RamManual, after.RamManual);
         Assert.Equal(before.JvmArgsByVersion.Count, after.JvmArgsByVersion.Count);
 
