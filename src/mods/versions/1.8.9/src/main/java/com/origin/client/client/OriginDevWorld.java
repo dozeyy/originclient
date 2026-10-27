@@ -107,6 +107,14 @@ final class OriginDevWorld {
 			}
 			if (phase == 4) {
 				OriginDevShots.grab(mc, dir, "pause_1920x1080.png");
+				// The player's inventory on default settings: no blur behind it (Will, 2026-10-27).
+				mc.displayGuiScreen(new net.minecraft.client.gui.inventory.GuiInventory(mc.thePlayer));
+				phase = 40;
+				nextAt = now + 1500;
+				return;
+			}
+			if (phase == 40) {
+				OriginDevShots.grab(mc, dir, "inventory_1920x1080.png");
 				// The Cosmetics window over the world: its preview is the real player here.
 				net.minecraft.client.gui.GuiScreen cos =
 						OriginDevShots.make("com.origin.client.client.gui.CosmeticsScreen", (Object) null);

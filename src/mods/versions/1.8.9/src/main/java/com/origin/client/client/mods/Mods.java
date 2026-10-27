@@ -800,7 +800,10 @@ public final class Mods {
 		// mod menu is see-through on purpose so HUD changes preview live behind it.
 		add("menublur", "Menu Blur", "Blur the world behind menus.", true,
 				ModOption.slider("strength", "Blur Strength", 0, 20, 1, 4, "%.0f"),
-				ModOption.toggle("inventory", "Inventories", true).tip("Blur behind your inventory, chests and every other container."),
+				// Inventories default OFF on 1.8.9 (Will, 2026-10-27: "there is still inventory blur ...
+				// on my default in 1.8.9 so fix that"; also +11.9 % avg FPS with it off, p6-measurements).
+				// Only the default changed: a player who switched it on has a saved key, which wins.
+				ModOption.toggle("inventory", "Inventories", false).tip("Blur behind your inventory, chests and every other container."),
 				ModOption.color("inventoryBg", "Inventory Tint", 0x6F000000).under("inventory"),
 				ModOption.toggle("pause", "Pause & Game Menus", true).tip("Blur behind the pause menu and the in-game option screens."),
 				ModOption.color("pauseBg", "Pause Menu Tint", 0x6F000000).under("pause"),

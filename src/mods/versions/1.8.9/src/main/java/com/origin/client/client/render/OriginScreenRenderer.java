@@ -28,8 +28,8 @@ import org.lwjgl.opengl.GL11;
 // Origin window (OriginWindow draws renderTitleBackground itself). The clean
 // in-game look (ported from 1.21.1, 2026-10-19):
 //
-//  - MINECRAFT'S MENUS + TITLE: 1.8.9's own title panorama, drawn and blurred by
-//    vanilla's renderer (MenuPanorama), under Origin's dim and vignette
+//  - MINECRAFT'S MENUS + TITLE: 1.8.9's own title panorama, drawn sharp with a
+//    fixed pitch like 1.21.1 (MenuPanorama), under Origin's dim and vignette
 //    (renderMenuBackdrop / renderTitleBackdrop). Stock buttons and font.
 //  - LOADING: the same panorama under the loading dim, then 1.21.1's one loading
 //    picture (LoadingLook: the real Origin logo, a plain progress bar, the stage
@@ -266,7 +266,7 @@ public final class OriginScreenRenderer {
 
 	/**
 	 * Out-of-world Minecraft menus (MenuHooks' DrawScreenEvent.Pre): 1.8.9's own
-	 * title panorama, drawn and blurred by vanilla's renderer (MenuPanorama),
+	 * title panorama, drawn sharp by MenuPanorama,
 	 * under the menu dim and the vignette. False only once Origin rendering has
 	 * failed (the caller keeps vanilla's dirt).
 	 */

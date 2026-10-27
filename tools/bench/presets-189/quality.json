@@ -46,7 +46,7 @@
     "@general.cosmeticEffects": "true",
     "@performance.entityDistance": "100",
     "@performance.tileEntityDistance": "100",
-    "menublur.inventory": "true",
+    "menublur.inventory": "false",
     "menublur.pause": "true",
     "particles.enabled": "true",
     "particles.hideBlockBreak": "false",
