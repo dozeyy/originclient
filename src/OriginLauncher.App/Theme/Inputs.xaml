@@ -162,7 +162,8 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
-                    <Grid VerticalAlignment="Center">
+                    <!-- Painted (Transparent) so the whole slider height takes the mouse, not just the 4 px groove. -->
+                    <Grid VerticalAlignment="Center" Background="Transparent">
                         <Border Height="{StaticResource Size.SliderTrack}" Background="{StaticResource Brush.ProgressTrack}" CornerRadius="{StaticResource Radius.Track}"/>
                         <Track x:Name="PART_Track">
                             <Track.DecreaseRepeatButton>
@@ -170,7 +171,9 @@
                                               Command="Slider.DecreaseLarge">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
-                                            <Border Height="{StaticResource Size.SliderTrack}" Background="{DynamicResource Brush.Accent}" CornerRadius="{StaticResource Radius.Track}"/>
+                                            <Grid Background="Transparent">
+                                                <Border Height="{StaticResource Size.SliderTrack}" Background="{DynamicResource Brush.Accent}" CornerRadius="{StaticResource Radius.Track}"/>
+                                            </Grid>
                                         </ControlTemplate>
                                     </RepeatButton.Template>
                                 </RepeatButton>
@@ -391,7 +394,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBoxItem">
-                    <Border x:Name="Bg" CornerRadius="{StaticResource Radius.Sm}" MinHeight="{TemplateBinding MinHeight}"
+                    <!-- Transparent, never empty: WPF only hovers where something is painted, and a ComboBox lights a
+                         row only when the mouse ENTERS it, so an unpainted row lit only once the pointer crossed its
+                         text (Will, 2026-10-26: "hovering over different versions is not registering"). -->
+                    <Border x:Name="Bg" Background="Transparent" CornerRadius="{StaticResource Radius.Sm}" MinHeight="{TemplateBinding MinHeight}"
                             Padding="{TemplateBinding Padding}">
                         <Grid>
                             <Grid.ColumnDefinitions>

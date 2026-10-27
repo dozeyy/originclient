@@ -82,6 +82,17 @@ jobs:
           }
           Write-Host "Rendered $($shots.Count) Friends drawer screens."
 
+      # Dead hover spots (RenderShots.AuditHoverSurfaces): a button or list row with unpainted empty space only lights
+      # when the pointer crosses its text (the release list, 2026-10-26). Every hoverable thing is probed; any miss fails.
+      - name: Check every hover surface takes the mouse
+        shell: pwsh
+        run: |
+          $p = Start-Process .\lbin\OriginLauncher.App.exe -ArgumentList '--render-shots hover-audit --hover-audit' -Wait -PassThru
+          $report = 'hover-audit\hover-audit.txt'
+          if ($p.ExitCode -ne 0 -or -not (Test-Path $report)) { Write-Host "::error::Hover audit did not run (exit $($p.ExitCode))"; exit 1 }
+          Get-Content $report
+          if (-not ((Get-Content $report -TotalCount 1) -like '0 *')) { Write-Host "::error::Hover dead spots found"; exit 1 }
+
       # Every picture above is also measured (RenderShots.ClipCheck): anything visible (icon, text, a tile)
       # that its slot cuts off, or a button label or title that trims, is listed in clip-errors.txt. A cut "..." still looks like dots in a picture, so
       # this is the check that catches it. Runs after both renders so every hit is listed at once.

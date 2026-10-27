@@ -99,6 +99,22 @@ public static class RenderShots
             return;
         }
 
+        // `--dropdown-cost`: only how fast the picker's open release list repaints (dropdown-cost.txt), no pictures.
+        if (Environment.GetCommandLineArgs().Contains("--dropdown-cost"))
+        {
+            MeasureDropdownCost(window, outDir);
+            window.Close();
+            return;
+        }
+
+        // `--hover-audit`: every hoverable thing on every screen, checked for dead spots (hover-audit.txt), no pictures.
+        if (Environment.GetCommandLineArgs().Contains("--hover-audit"))
+        {
+            AuditHoverSurfaces(window, outDir);
+            window.Close();
+            return;
+        }
+
         // `--switch-cost`: only the tab-click and picker timings (switch-cost.txt), no pictures.
         if (Environment.GetCommandLineArgs().Contains("--switch-cost"))
         {
@@ -566,6 +582,172 @@ public static class RenderShots
         window.Stage.TourDrift(true);
 
         File.WriteAllText(Path.Combine(dir, "hover-cost.txt"), report.ToString());
+    }
+
+    /// <summary>
+    /// Dead spots (hover-audit.txt): WPF only hovers an element where something inside it is painted, and a template
+    /// part with no Background is see-through to the mouse. A row or button whose empty space is unpainted at rest
+    /// lights only when the pointer crosses its text (the picker's release list, Will 2026-10-26: 1 of 9 points of a
+    /// row took the mouse). Every visible hoverable thing (a button, a list row, anything with the hand cursor) on each
+    /// screen is probed at nine points inside its rounded corners; any miss is listed. No mouse is moved.
+    /// </summary>
+    private static void AuditHoverSurfaces(MainWindow window, string dir)
+    {
+        var report = new StringBuilder();
+        var bad = 0;
+        void Audit(string screen, Visual root)
+        {
+            var stack = new Stack<DependencyObject>();
+            stack.Push(root);
+            while (stack.Count > 0)
+            {
+                var node = stack.Pop();
+                for (var i = VisualTreeHelper.GetChildrenCount(node) - 1; i >= 0; i--) stack.Push(VisualTreeHelper.GetChild(node, i));
+                if (node is not FrameworkElement e || !e.IsVisible || !e.IsHitTestVisible || !e.IsEnabled) continue;
+                if (e.ActualWidth < 6 || e.ActualHeight < 6) continue;
+                // Cursor does not inherit, so a hand here was set on this element (or its style) itself.
+                var hoverable = e is System.Windows.Controls.Primitives.ButtonBase or ListBoxItem or ComboBoxItem
+                    || e.Cursor == System.Windows.Input.Cursors.Hand;
+                if (!hoverable) continue;
+                var misses = 0;
+                foreach (var x in new[] { 0.2, 0.5, 0.8 })
+                    foreach (var y in new[] { 0.3, 0.5, 0.7 })
+                        if (e.InputHitTest(new Point(e.ActualWidth * x, e.ActualHeight * y)) is not DependencyObject hit
+                            || !(ReferenceEquals(hit, e) || e.IsAncestorOf(hit)))
+                            misses++;
+                if (misses == 0) continue;
+                bad++;
+                var label = e.Name is { Length: > 0 } n ? n
+                    : e is ContentControl { Content: string s } ? $"\"{s}\""
+                    : e is ContentControl { Content: { } c } ? c.ToString() ?? "" : "";
+                report.AppendLine($"{screen}: {e.GetType().Name} {label} ({e.ActualWidth:0}x{e.ActualHeight:0}) misses {misses} of 9");
+            }
+        }
+
+        var screens = new (string Name, Action Open)[]
+        {
+            ("Home", () => window.TourGoTo(0)),
+            ("Mods", () => { window.TourGoTo(1); window.TourShowModsDemo(DemoMods, 0); }),
+            ("Settings", () => window.TourGoTo(2)),
+            ("Profiles", () => window.TourShowProfiles(new LauncherSettings(), _ => 0, openForm: true)),
+        };
+        foreach (var (name, open) in screens)
+        {
+            open();
+            Pump(600);
+            Audit(name, window);
+        }
+        window.TourGoTo(0);
+        Pump(400);
+        window.TourSetAccountOpen(true);
+        Pump(400);
+        Audit("Account menu", window);
+        foreach (var popup in PopupRoots()) Audit("Account menu popup", popup);
+        window.TourSetAccountOpen(false);
+        window.TourSetFriendsOpen(true);
+        Pump(500);
+        Audit("Friends", window);
+        window.TourSetFriendsOpen(false);
+        window.TourShowVersions(-1);
+        Pump(600);
+        Audit("Versions", window);
+        window.TourShowVersions(1);
+        Pump(600);
+        Audit("Versions detail", window);
+        window.TourVersionOverlay.TourDropdown(true);
+        Pump(600);
+        foreach (var popup in PopupRoots()) Audit("Release list", popup);
+        window.TourVersionOverlay.TourDropdown(false);
+        window.TourHideVersions();
+        Pump(300);
+
+        report.Insert(0, $"{bad} hoverable element(s) with dead spots" + Environment.NewLine);
+        File.WriteAllText(Path.Combine(dir, "hover-audit.txt"), report.ToString());
+
+        // Every open popup's content (dropdown lists, menus): each is its own window, outside the main tree.
+        static IEnumerable<Visual> PopupRoots() =>
+            PresentationSource.CurrentSources.OfType<System.Windows.Interop.HwndSource>()
+                .Where(s => s.RootVisual is FrameworkElement { IsVisible: true } r && r.GetType().Name == "PopupRoot")
+                .Select(s => s.RootVisual);
+    }
+
+    /// <summary>
+    /// How fast the picker's open release list repaints (dropdown-cost.txt): a hover in the list is one repaint of the
+    /// popup window, so the list's row highlight is flipped on every frame WPF offers (CompositionTarget.Rendering, on
+    /// purpose here: it asks for frames as fast as they can be presented) and the frames per second counted. The same
+    /// flip on a row of the main window is the baseline. No mouse: the cursor is never moved (DECISIONS.md).
+    /// </summary>
+    private static void MeasureDropdownCost(MainWindow window, string dir)
+    {
+        window.TourGoTo(0);
+        Pump(400);
+        window.TourShowVersions(1);
+        Pump(800);
+        var overlay = window.TourVersionOverlay;
+        var report = new StringBuilder($"render tier {RenderCapability.Tier >> 16}, window {window.ActualWidth:0}x{window.ActualHeight:0}" + Environment.NewLine);
+        var a = new SolidColorBrush(Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF));
+        var b = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF));
+        a.Freeze();
+        b.Freeze();
+
+        double Fps(Border target)
+        {
+            var frames = 0;
+            var flip = false;
+            void Tick(object? s, EventArgs e) { flip = !flip; target.Background = flip ? a : b; frames++; }
+            CompositionTarget.Rendering += Tick;
+            Pump(300);
+            frames = 0;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            Pump(2500);
+            var fps = frames / clock.Elapsed.TotalSeconds;
+            CompositionTarget.Rendering -= Tick;
+            target.ClearValue(Border.BackgroundProperty);
+            Pump(200);
+            return fps;
+        }
+
+        for (var round = 0; round < 2; round++)
+        {
+            var box = overlay.TourDropdown(true)!;
+            Pump(600);
+            var item = (ComboBoxItem)box.ItemContainerGenerator.ContainerFromIndex(1);
+            var row = (Border)item.Template.FindName("Bg", item);
+            var popup = (System.Windows.Controls.Primitives.Popup)box.Template.FindName("Popup", box);
+            var shadow = (Border)((Grid)popup.Child).Children[0];
+            // What every mouse move pays before any hover can change: WPF hit-tests the tree under the cursor.
+            double HitMs(Visual root, Size size)
+            {
+                var rng = new Random(7);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                for (var i = 0; i < 400; i++)
+                    VisualTreeHelper.HitTest(root, new Point(rng.NextDouble() * size.Width, rng.NextDouble() * size.Height));
+                return sw.Elapsed.TotalMilliseconds / 400;
+            }
+            report.AppendLine($"hit test per mouse move: list {HitMs(popup.Child, popup.Child.RenderSize):0.000} ms, window {HitMs(window, window.RenderSize):0.000} ms");
+            // A row only lights when the mouse ENTERS it (WPF ComboBox), so every point of the row must be hit-testable.
+            var hits = 0; var misses = 0;
+            foreach (var x in new[] { 0.1, 0.5, 0.9 })
+                foreach (var y in new[] { 0.15, 0.5, 0.85 })
+                {
+                    var p = new Point(item.ActualWidth * x, item.ActualHeight * y);
+                    var hit = item.InputHitTest(p) as DependencyObject;
+                    if (hit != null && (ReferenceEquals(hit, item) || item.IsAncestorOf(hit))) hits++; else misses++;
+                }
+            report.AppendLine($"row points that register the mouse: {hits} of {hits + misses}");
+            report.AppendLine($"list open, as shipped:      {Fps(row):0.0} fps");
+            var effect = shadow.Effect;
+            shadow.Effect = null;
+            report.AppendLine($"list open, no list shadow:  {Fps(row):0.0} fps");
+            shadow.Effect = effect;
+            overlay.TourDropdown(false);
+            Pump(400);
+            var toggle = (System.Windows.Controls.Primitives.ToggleButton)box.Template.FindName("Toggle", box);
+            var face = (Border)toggle.Template.FindName("Bd", toggle);
+            report.AppendLine($"list closed, main window:   {Fps(face):0.0} fps");
+        }
+        window.TourHideVersions();
+        File.WriteAllText(Path.Combine(dir, "dropdown-cost.txt"), report.ToString());
     }
 
     /// <summary>
