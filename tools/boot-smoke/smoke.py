@@ -32,7 +32,15 @@ toolchain (found through setup-java's JAVA_HOME_N_X64), then PROVES it: once the
 is up, the Knot client process is located under /proc and its real java binary's
 `-version` is printed and checked against N. A mismatch fails the run.
 
-Exit code 0 = reached the title screen with zero mixin-apply failures.
+--inworld DIR (modules with "inworld": true in src/mods/live-modules.json): after the
+title marker, keep the game running for the in-world step (OriginDevWorld.inWorldTick,
+env ORIGIN_SMOKE_WORLD=DIR): a flat test world, the HUD and the Mod Menu shot into
+DIR/screenshots, Save and Quit. Passes only on "[origin-smoke] in-world: PASS" with both
+PNGs on disk; "[origin-smoke] in-world: FAIL <reason>", a crash or the extra time budget
+running out fails the run with that reason.
+
+Exit code 0 = reached the title screen with zero mixin-apply failures (and, with --inworld,
+passed the in-world step).
 1 = a failure signature appeared, or it never reached the title before the timeout.
 """
 import argparse
@@ -63,6 +71,12 @@ FAIL_PATTERNS = [
 ]
 # The ONE ready marker: Origin's own dev-only title-screen line (see module docstring).
 READY = re.compile(r"\[origin-smoke\] title screen reached")
+# The in-world step's verdict (--inworld): exactly one of these, from OriginDevWorld.inWorldEnd.
+INWORLD = re.compile(r"\[origin-smoke\] in-world: (PASS|FAIL)\b ?(.*)")
+# The two shots the step must leave in DIR/screenshots (prefixes; the size is the window's).
+INWORLD_SHOTS = ("inworld_hud_", "inworld_modmenu_")
+# Extra seconds after the title for world creation + the step (a fresh flat world on CI's software GL).
+INWORLD_BUDGET = 420
 # Known red herrings that look scary but prove nothing about our code
 # (see MEMORY.md -> runclient-voxy-blocker, and the Iris shader-var warnings).
 IGNORE = re.compile(r"twelvemonkeys|ImageInputStreamSpi|BIOME_PALE_GARDEN|endFlashIntensity", re.I)
@@ -106,10 +120,29 @@ def retryable(pre_start_lines):
     return any(NETWORK.search(l) for l in block)
 
 
-def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expect_perf=None):
+def inworld_verdict(line, shots_dir):
+    """(ok, reason) for an in-world verdict line, or None when the line is not one. A PASS still
+    fails when either shot is missing from shots_dir/screenshots."""
+    m = INWORLD.search(line)
+    if not m:
+        return None
+    if m.group(1) == "FAIL":
+        return False, f"in-world step FAILED: {m.group(2).strip()[:200] or 'no reason given'}"
+    folder = os.path.join(shots_dir, "screenshots")
+    have = sorted(f for f in os.listdir(folder) if f.endswith(".png")) if os.path.isdir(folder) else []
+    missing = [p for p in INWORLD_SHOTS if not any(f.startswith(p) for f in have)]
+    if missing:
+        return False, f"in-world step said PASS but {', '.join(p + '*.png' for p in missing)} missing from {folder}"
+    return True, "in-world PASS (" + ", ".join(f for f in have if f.startswith(INWORLD_SHOTS)) + ")"
+
+
+def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expect_perf=None, inworld=""):
     """One runClient. Returns (ok, reason, retryable). companions = {mod id: catalog version} that
-    must appear in the loaded mod list (--companions), else the run fails."""
+    must appear in the loaded mod list (--companions), else the run fails. inworld = shots dir for the
+    in-world step (blank = stop at the title)."""
     env = dict(os.environ, ORIGIN_SMOKE="1")
+    if inworld:
+        env["ORIGIN_SMOKE_WORLD"] = inworld
     if perf is not None:
         # Mixin logs "Mixing X from Y into Z" at INFO only with this flag (perf_log.tally counts them).
         env["JAVA_TOOL_OPTIONS"] = (env.get("JAVA_TOOL_OPTIONS", "") + " -Dmixin.debug.verbose=true").strip()
@@ -136,9 +169,17 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
     verdict = None
     started = False
     pre_start = []
+    title = None   # with --inworld: the title verdict, kept while the in-world step runs
     try:
         for line in proc.stdout:
             sys.stdout.write(line)
+            if title is not None and IGNORE.search(line) is None:
+                iv = inworld_verdict(line, inworld)
+                if iv is not None:
+                    verdict = (iv[0], title + "; " + iv[1], False)
+                    if not iv[0]:
+                        print("::error title=in-world step failed::" + iv[1], flush=True)
+                    break
             if perf is not None or companions:
                 seen.append(line)
             if not started and GAME_STARTED.search(line):
@@ -197,6 +238,14 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
                         shown = ", ".join(f"{k} {v}" for k, v in sorted(expect_perf.items()))
                         print(f"boot-smoke: pair loaded: {shown}", flush=True)
                         verdict = (True, verdict[1] + f"; pair loaded: {shown}", False)
+                if inworld and verdict[0]:
+                    # Keep the game: the in-world step starts now, on a fresh deadline of its own.
+                    title, verdict = verdict[1], None
+                    timer.cancel()
+                    timer = threading.Timer(INWORLD_BUDGET, _expire)
+                    timer.start()
+                    print(f"boot-smoke: title reached; in-world step running (budget {INWORLD_BUDGET}s)", flush=True)
+                    continue
                 break
     finally:
         timer.cancel()
@@ -204,6 +253,10 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
     if verdict:
         return verdict
     flake = not started and retryable(pre_start)
+    if title is not None:
+        why = f"no verdict within {INWORLD_BUDGET}s" if timed_out.is_set() else "the game exited first"
+        print("::error title=in-world step failed::" + why, flush=True)
+        return (False, f"{title}; in-world step FAILED: {why} (grep '[origin-smoke] in-world' in the log)", False)
     if timed_out.is_set():
         return (False, f"timeout after {timeout}s without reaching the title screen", flake)
     return (False, "process exited before the title screen", flake)
@@ -228,6 +281,8 @@ def main():
                          "list names exactly those versions")
     ap.add_argument("--gradle-arg", action="append", default=[],
                     help="extra argument for the gradle runClient call (repeatable), e.g. --stacktrace")
+    ap.add_argument("--inworld", default="",
+                    help="after the title: flat world, HUD + Mod Menu shots into DIR/screenshots, Save and Quit (must PASS)")
     args = ap.parse_args()
 
     module = os.path.abspath(args.module)
@@ -287,7 +342,7 @@ def main():
     for attempt in range(1, max(1, args.attempts) + 1):
         print(f"boot-smoke: {name} attempt {attempt} -> {' '.join(cmd)}", flush=True)
         ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java, True if args.perf else None, companions,
-                                         expect_perf)
+                                         expect_perf, os.path.abspath(args.inworld) if args.inworld else "")
         if ok or not retryable or attempt == args.attempts:
             if retryable and not ok:
                 reason += f" (network/download failure on all {attempt} attempts -- not an Origin bug; re-run)"

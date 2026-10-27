@@ -75,9 +75,11 @@ permissions:
 # [shots] tag still starts a (skipped) run, and in the shared group it would
 # cancel the real run in progress. Hand-started runs are grouped by their own
 # module list + set, so parallel sessions/agents shooting different modules
-# never cancel each other.
+# never cancel each other. Pushes are grouped per BRANCH too: one group for every
+# tagged push ("dev-shots-true") let another session's [shots] push on its own branch
+# cancel this branch's run half way (2026-10-27, run 40472378806).
 concurrency:
-  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}-{3}', github.event.inputs.modules, github.event.inputs.set, github.event.inputs.label, github.event.inputs.style) || contains(github.event.head_commit.message, '[shots') }}
+  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}-{3}', github.event.inputs.modules, github.event.inputs.set, github.event.inputs.label, github.event.inputs.style) || format('{0}-{1}', github.ref, contains(github.event.head_commit.message, '[shots')) }}
   cancel-in-progress: true
 
 jobs:
@@ -99,6 +101,8 @@ jobs:
           entries = json.load(open("src/mods/live-modules.json"))["modules"]
           live = [m["module"] for m in entries]
           java = {m["module"]: m.get("java", "21") for m in entries}
+          # "inworld": true = the design set ends with the in-world step (OriginDevWorld.inWorldTick).
+          inworld = {m["module"] for m in entries if m.get("inworld")}
           raw = os.environ.get("INPUT") or ""
           if not raw:
               # A tag WITH a module list wins over a bare one wherever it sits.
@@ -131,7 +135,8 @@ jobs:
           if unknown or not picked:
               print(f"::error::dev-shots: unknown module(s) {unknown or raw!r}; expected names from src/mods/live-modules.json or src/mods/versions/", file=sys.stderr)
               sys.exit(1)
-          print("modules=" + json.dumps([{"module": x, "java": java_of(x)} for x in picked]))
+          print("modules=" + json.dumps([{"module": x, "java": java_of(x), "inworld": "1" if x in inworld else ""}
+                                         for x in picked]))
           EOF
 
   shots:
@@ -199,6 +204,9 @@ jobs:
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
           ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
           ORIGIN_SHOTS_STYLE: ${{ github.event.inputs.style || '' }}
+          # Design set only, modules flagged "inworld" in live-modules.json: after the screens, a flat world's
+          # HUD + Mod Menu (inworld_*.png) and Save and Quit; "[origin-smoke] in-world: FAIL" fails check_shots.
+          ORIGIN_INWORLD: ${{ matrix.inworld }}
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
           FRAMELOG: ${{ github.event.inputs.framelog || 'false' }}
           EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}

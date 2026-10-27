@@ -24,11 +24,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // draws the screen's own widgets (the Cancel button) on top so Cancel keeps
 // working. Cancel is registered at init (TAIL) as a Workbench title button
 // (OriginButtonRenderer.setLoadingButton, DESIGN-SYSTEM 15.2): the same card
-// as the title's buttons, at 200 x 20 GUI px (the title's main button size, TitleLayout
-// MAIN_W x BUTTON_H), its label the caption's size and muted (judge 2026-10-25), re-seated
-// centred at 62 % of the height (A-Workbench-3) or lower: the picture's logo stays where
-// every loading screen has it, and Cancel moves below the caption instead
-// (OriginScreenRenderer.connectCancelTop). Without that registration it drew
+// as the title's buttons, LOADING_CANCEL_W x 20 GUI px, its label Minecraft's font in parchment
+// like the title's labels (Will 2026-10-27), re-seated one picture step under the caption: the
+// picture's logo stays where every loading screen has it (OriginScreenRenderer.connectCancelTop). Without that registration it drew
 // as the stock stone button (judge 2026-10-25). The Main Menu Style = Vanilla
 // check is in the skin itself, so vanilla mode keeps the stock button.
 // Vanilla's render() also says the narrator's "Joining world" line (sayNow, narrator.joining)
@@ -59,10 +57,9 @@ public abstract class ConnectScreenMixin {
 				if (child instanceof Button button) {
 					OriginButtonRenderer.setLoadingButton(button);
 					if (seat) {
-						// A-Workbench-3: Cancel is a Workbench card at most 200 x 20 GUI px (the title's
-						// button size, inside the brief's 200 x 28 cap), centred at 62 % of the height or
-						// lower, always under the picture (the picture never moves for it).
-						int bw = Math.min(200, Math.max(80, self.width - 24));
+						// Cancel is a Workbench card LOADING_CANCEL_W x 20 GUI px, centred one picture step
+						// under the caption (connectCancelTop); the picture never moves for it.
+						int bw = Math.min(OriginScreenRenderer.LOADING_CANCEL_W, Math.max(80, self.width - 24));
 						int bh = 20;
 						int by = OriginScreenRenderer.connectCancelTop(self.height, bh);
 						button.setWidth(bw);

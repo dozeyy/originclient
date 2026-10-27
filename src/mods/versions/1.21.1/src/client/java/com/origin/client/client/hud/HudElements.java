@@ -891,6 +891,10 @@ public final class HudElements {
 		}
 	}
 
+	/** Origin HUD passes drawn so far (render thread only). The in-world smoke step
+	 *  (OriginDevWorld.inWorldTick) waits for it to climb: proof the HUD really drew in a world. */
+	public static long passes;
+
 	/** Main in-game dispatcher: draws every enabled element at its anchored,
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
 	 *  editor draws its own draggable versions). */
@@ -902,6 +906,7 @@ public final class HudElements {
 		if (FrameWatch.idle()) {
 			return;   // window unfocused (Limit Unfocused FPS): skip Origin's HUD, nobody is looking
 		}
+		passes++;
 		int sw = g.guiWidth(), sh = g.guiHeight();
 		for (Element e : ALL) {
 			if (!Mods.on(e.modId())) {

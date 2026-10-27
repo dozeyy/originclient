@@ -56,6 +56,9 @@ public final class OriginDevShots {
 		TITLE_HOVER, TITLE_HOVER_BTN, TITLE_PRESS, TITLE_FOCUS, CONTROLS, LEVEL_LOADING, CONNECTING,
 		// The world-loading screen half way: the progress bar's real fill (design set only).
 		LEVEL_LOADING_MID,
+		// Realms' long-running task screen ("Connecting to the realm..."), the other loading screen with a
+		// Cancel: a dummy task that only waits, no network (design + clean sets).
+		CONNECTING_REALMS,
 		// ...and, LAST in the clean set because they create a world: the Create World screen (a fresh game dir
 		// has no saves, so Singleplayer goes straight there), the pause menu inside that new world, then the
 		// world list with that save in it after Save and Quit.
@@ -250,6 +253,7 @@ public final class OriginDevShots {
 						net.minecraft.server.level.progress.StoringChunkProgressListener.create(2));
 				case CONNECTING -> connectScreen();
 				case LEVEL_LOADING_MID -> midLoading();
+				case CONNECTING_REALMS -> realmsTask();
 				case CREATE_TABS, WORLD_PAUSE -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
 				case WORLDS_SAVED -> {
 					Minecraft mc = Minecraft.getInstance();
@@ -278,6 +282,29 @@ public final class OriginDevShots {
 					net.minecraft.world.level.chunk.status.ChunkStatus.FULL);
 		}
 		return new net.minecraft.client.gui.screens.LevelLoadingScreen(l);
+	}
+
+	/** RealmsLongRunningMcoTaskScreen with a task that only waits (no network) until Cancel or ~60 s: the screen
+	 *  a player sees while Realms connects, creates or resets. Its title is Realms' own "Connecting to the realm...". */
+	private static Screen realmsTask() {
+		com.mojang.realmsclient.util.task.LongRunningTask task = new com.mojang.realmsclient.util.task.LongRunningTask() {
+			@Override
+			public net.minecraft.network.chat.Component getTitle() {
+				return net.minecraft.network.chat.Component.translatable("mco.connect.connecting");
+			}
+
+			@Override
+			public void run() {
+				for (int i = 0; i < 600 && !aborted(); i++) {
+					try {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {
+						return;
+					}
+				}
+			}
+		};
+		return new com.mojang.realmsclient.gui.screens.RealmsLongRunningMcoTaskScreen(new TitleScreen(), task);
 	}
 
 	private static Screen connectScreen() {
@@ -419,6 +446,11 @@ public final class OriginDevShots {
 	private static double savedBgOpacity = -1;
 	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
 	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
+	/** Design set + ORIGIN_INWORLD=1 (dev-shots.yml sets it for modules with "inworld": true in live-modules.json):
+	 *  after the screens, OriginDevWorld.inWorldTick's flat-world step (HUD + Mod Menu in a world, Save and Quit). */
+	private static final boolean INWORLD = "1".equals(System.getenv("ORIGIN_INWORLD"))
+			&& "design".equals(System.getenv("ORIGIN_SHOTS_SET"));
+	private static boolean inWorld = false;
 	/** ORIGIN_SHOTS_SET=panorama: OriginDevPanorama renders the title panorama's 6 faces (panoramas.yml). */
 	private static final boolean PANORAMA = "panorama".equals(System.getenv("ORIGIN_SHOTS_SET"));
 	static {
@@ -438,7 +470,7 @@ public final class OriginDevShots {
 			// Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4 (clipping checks).
 			// The startup loading screen comes from the boot shot below.
 			Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS,
-					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.MENU};
+					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.CONNECTING_REALMS, Kind.MENU};
 			for (Kind k : ks) {
 				SHOTS.add(new Shot(1920, 1080, 2, k));
 			}
@@ -661,6 +693,11 @@ public final class OriginDevShots {
 
 	public static void tick(Minecraft mc) {
 		if (done) {
+			if (inWorld) {
+				// The in-world shots count towards the done line (check_shots.py needs them on disk).
+				OriginDevWorld.inWorldTick(mc, DIR, () -> com.origin.client.OriginClient.LOGGER.info(
+						"[dev-shots] done — {} shots in {}", SHOTS.size() + 2, DIR));
+			}
 			return;
 		}
 		bootLoadingShot(mc);
@@ -823,6 +860,10 @@ public final class OriginDevShots {
 				mc.options.guiScale().set(savedScale);
 			}
 		} catch (Throwable ignored) {
+		}
+		if (INWORLD) {
+			inWorld = true;   // tick() drives the in-world step; it prints the done line and stops the game
+			return;
 		}
 		com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — {} shots in {}", SHOTS.size(), DIR);
 		mc.stop();
