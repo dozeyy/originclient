@@ -5,6 +5,7 @@ import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import com.origin.client.client.gui.OriginButtonRenderer;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -17,19 +18,22 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// "Connecting to the server..." draws the one Origin loading picture (LoadingLook: the
-// real logo, the sweeping bar, the connection status as its caption), HEAD-cancelling
-// vanilla's render, then draws the screen's own widgets (the Cancel button) on top so
-// Cancel keeps working. Ported from 1.21.1 (rings out, 2026-10-25); this fork keeps
-// vanilla's own Cancel button (its stock 200 x 20 size: 1.20.2 has no setHeight) and
-// only re-seats it at init (TAIL) below the picture (OriginScreenRenderer.connectCancelTop),
-// because vanilla's h/4 + 132 overlaps the logo at GUI scale 1-2.
+// "Connecting to the server..." draws the one Origin loading picture (logo, rail,
+// the connection status as its caption), HEAD-cancelling vanilla's render, then
+// draws the screen's own widgets (the Cancel button) on top so Cancel keeps
+// working. Cancel is registered at init (TAIL) as a Workbench title button
+// (OriginButtonRenderer.setLoadingButton, DESIGN-SYSTEM 15.2): the same card
+// as the title's buttons, LOADING_CANCEL_W x 20 GUI px, its label Minecraft's font in parchment
+// like the title's labels (Will 2026-10-27), re-seated one picture step under the caption: the
+// picture's logo stays where every loading screen has it (OriginScreenRenderer.connectCancelTop). Without that registration it drew
+// as the stock stone button (judge 2026-10-25). The Main Menu Style = Vanilla
+// check is in the skin itself, so vanilla mode keeps the stock button.
 // Vanilla's render() also says the narrator's "Joining world" line (sayNow, narrator.joining)
 // every 2 s; the HEAD-cancel would drop it, so the mixin repeats that exact throttle
-// (lastNarration, 2000 ms, javap ConnectScreen.render on 1.20-1.21.4) and screen-reader users
-// still hear it. Main Menu Style = Vanilla keeps the stock screen and button position.
-// In the isolated required:false config: if a target moves (the status / lastNarration
-// shadows included), this mixin is skipped and the stock connect screen shows; nothing else breaks.
+// (lastNarration, 2000 ms) itself and screen-reader users still hear it. If the
+// lastNarration shadow stops applying, this whole mixin is skipped (required:false): the stock connect screen, narration included.
+// In the isolated required:false config: if a target moves, that injection is
+// skipped (no skin, or the stock connect screen) and nothing else breaks.
 @Mixin(ConnectScreen.class)
 public abstract class ConnectScreenMixin {
 	// The status line vanilla shows ("Connecting to the server...", "Logging in...").
@@ -40,24 +44,39 @@ public abstract class ConnectScreenMixin {
 	@Shadow
 	private long lastNarration;
 
-	// Target: ConnectScreen.init()V, TAIL, after vanilla adds the Cancel button (it runs
-	// again on every resize, re-seating the rebuilt button). If it stops applying, Cancel
-	// stays at vanilla's spot and may overlap the picture at small GUI scales.
+	// Target: ConnectScreen.init()V, TAIL, after vanilla adds the Cancel button (it
+	// runs again on every resize, re-registering the rebuilt button). If it stops
+	// applying, Cancel draws as the stock stone button over the Origin picture.
+	@org.spongepowered.asm.mixin.Unique
+	private static boolean originclient$cancelLogged;
+
 	@Inject(method = "init()V", at = @At("TAIL"))
-	private void originclient$seatCancel(CallbackInfo ci) {
-		if (OriginStyle.vanillaMenusOn(this)) {
-			return;   // vanilla mode: stock layout
-		}
+	private void originclient$workbenchCancel(CallbackInfo ci) {
 		try {
 			Screen self = (Screen) (Object) this;
+			boolean seat = !OriginStyle.vanillaMenusOn(this);
 			for (GuiEventListener child : self.children()) {
 				if (child instanceof Button button) {
-					button.setX((self.width - button.getWidth()) / 2);
-					button.setY(OriginScreenRenderer.connectCancelTop(self.height, button.getHeight()));
+					OriginButtonRenderer.setLoadingButton(button);
+					if (seat) {
+						// Cancel is a Workbench card LOADING_CANCEL_W x 20 GUI px, centred one picture step
+						// under the caption (connectCancelTop); the picture never moves for it.
+						int bw = Math.min(OriginScreenRenderer.LOADING_CANCEL_W, Math.max(80, self.width - 24));
+						int bh = 20;
+						int by = OriginScreenRenderer.connectCancelTop(self.height, bh);
+						button.setWidth(bw);
+						button.setHeight(bh);
+						button.setX((self.width - bw) / 2);
+						button.setY(Math.max(0, by));
+					}
 				}
 			}
-		} catch (Throwable ignored) {
-			// Vanilla's position: the button still works.
+		} catch (Throwable t) {
+			// No registration: the stock button, still working. Logged once (fail-soft rule).
+			if (!originclient$cancelLogged) {
+				originclient$cancelLogged = true;
+				com.origin.client.OriginClient.LOGGER.warn("Origin: Connecting's Cancel skin failed; stock button kept", t);
+			}
 		}
 	}
 
@@ -66,7 +85,9 @@ public abstract class ConnectScreenMixin {
 		if (OriginStyle.vanillaMenusOn(this)) {
 			return;   // vanilla mode: stock screen
 		}
-		// Only cancel vanilla when the Origin picture actually drew (fail-soft).
+		Screen self = (Screen) (Object) this;
+		// Only cancel vanilla when the Origin picture actually drew (fail-soft). 1.21.4's
+		// renderConnecting takes no Cancel position (1.21.1's third argument is unused there).
 		if (!OriginScreenRenderer.renderConnecting(guiGraphics, this.status)) {
 			return;
 		}
@@ -82,7 +103,6 @@ public abstract class ConnectScreenMixin {
 			// Narration is a nicety: never take the connect screen down for it.
 		}
 		try {
-			Screen self = (Screen) (Object) this;
 			for (GuiEventListener child : self.children()) {
 				if (child instanceof Renderable renderable) {
 					renderable.render(guiGraphics, mouseX, mouseY, partialTick);
