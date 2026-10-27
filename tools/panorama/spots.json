@@ -39,7 +39,7 @@
         {"id": "minecraft:hoglin", "dist": 10, "angle": 4, "nbt": "{IsImmuneToZombification:1b}"}
       ]
     },
-    {"id": "1.17", "capture": "1.21.1", "targets": ["1.17.1"], "about": "Caves & Cliffs: a lush cave with axolotls, lit by invisible light blocks (underground is fine, Will 2026-10-26; the snowy-slope shot read as a flat white picture). The harness places the light blocks itself: /fill refused the not-yet-loaded chunks (runs 40453214783, 40461789308 rendered black)", "locate": "biome minecraft:lush_caves", "ground": "floor", "headroom": 6, "up": 1.4, "yaw": 45, "time": 3000, "mobs": [{"id": "minecraft:axolotl", "dist": 4, "angle": -16, "nbt": "{Variant:0}"}, {"id": "minecraft:axolotl", "dist": 5, "angle": 8, "turn": -50, "nbt": "{Variant:2}"}, {"id": "minecraft:axolotl", "dist": 6, "angle": 24, "nbt": "{Variant:3}"}], "light": [[1, 15, 24], [4, 15, 24], [7, 15, 24], [10, 15, 24], [13, 13, 24]]},
+    {"id": "1.17", "capture": "1.21.1", "targets": ["1.17.1"], "about": "Caves & Cliffs part 1: goats on a snowy slope", "locate": "biome minecraft:snowy_slopes", "vista": 24, "up": 1.5, "yaw": 60, "time": 2500, "mobs": [{"id": "minecraft:goat", "dist": 5, "angle": -15}, {"id": "minecraft:goat", "dist": 7, "angle": 18, "turn": -50, "nbt": "{IsScreamingGoat:1b}"}, {"id": "minecraft:goat", "dist": 9, "angle": 2, "nbt": "{Age:-24000}"}]},
     {
       "id": "1.18", "capture": "1.21.1", "targets": ["1.18.2"],
       "about": "Caves & Cliffs part 2: the new mountains",
@@ -120,7 +120,7 @@
         {"id": "minecraft:wolf", "dist": 4.5, "angle": -6, "turn": 60, "nbt": "{Age:-24000}"}
       ]
     },
-    {"id": "26.2", "capture": "26.2", "targets": ["26.2"], "about": "26.2: the sulfur caves and their sulfur cubes, underground (Will 2026-10-26), lit by invisible light blocks. The harness places the light blocks itself: /fill refused the not-yet-loaded chunks (runs 40453214783, 40461789308 rendered black)", "locate": "biome minecraft:sulfur_caves", "ground": "floor", "headroom": 6, "up": 1.4, "yaw": 45, "time": 3000, "mobs": [{"id": "minecraft:sulfur_cube", "dist": 4, "angle": -12}, {"id": "minecraft:sulfur_cube", "dist": 7, "angle": 16, "turn": -40}], "light": [[1, 15, 24], [4, 15, 24], [7, 15, 24], [10, 15, 24], [13, 13, 24]]},
+    {"id": "26.2", "capture": "26.2", "targets": ["26.2"], "about": "26.2: the sulfur caves and their sulfur cubes, underground (Will 2026-10-26: caves may stay underground, never dull), lit by harness-placed light blocks across the whole view (run 40463430377). /fill refused the not-yet-loaded chunks before (runs 40453214783, 40461789308 rendered black). The 1.17 lush cave tried the same way rendered as broken dark silhouettes, so 1.17 stays on the goat slope", "locate": "biome minecraft:sulfur_caves", "ground": "floor", "headroom": 6, "up": 1.4, "yaw": 45, "time": 3000, "mobs": [{"id": "minecraft:sulfur_cube", "dist": 4, "angle": -12}, {"id": "minecraft:sulfur_cube", "dist": 7, "angle": 16, "turn": -40}], "light": [[1, 15, 24], [4, 15, 24], [7, 15, 24], [10, 15, 24], [13, 13, 24]]},
     {
       "id": "26.3", "capture": "26.3", "targets": ["26.3"],
       "about": "26.3: the dappled forest's coloured poplars",
