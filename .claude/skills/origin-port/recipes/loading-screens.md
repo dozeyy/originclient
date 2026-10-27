@@ -58,7 +58,7 @@ receiving/progress/message screens, Connecting to a server, Realms connecting. C
 | G1/G2 1.20.x | GenericDirtMessageScreen exists until 1.20.5 (GenericMessageScreen after). renderBackground arity: 1-arg on 1.20, 4-arg on 1.20.2+ |
 | G1 1.21 / 1.21.1 | the source set; GenericMessageScreenMixin |
 | G3 1.21.4 | no font text during the initial reload (ShaderManager era) |
-| G4 1.21.6 / 1.21.8 | renderBackground runs BEFORE render: cancel the ProgressScreen and LevelLoadingScreen backdrop SEPARATELY. ReloadTaskTagMixin targets `prepareTasks` |
+| G4 1.21.6 / 1.21.8 | renderBackground runs BEFORE render: cancel the ProgressScreen and LevelLoadingScreen backdrop SEPARATELY. ReloadTaskTagMixin targets `prepareTasks`. One-look port (2026-10-27, javap 1.21.6 = 1.21.8): LevelLoadingScreen, ProgressScreen, ConnectScreen and RealmsLongRunningMcoTaskScreen (and RealmsScreen) declare NO renderBackground, so the mixin `extends Screen` (RealmsScreen) and ADDS the override: draw the picture there, set an `@Unique drew` flag, else `super.renderBackground`; render HEAD-cancels only when `drew`. ReceivingLevelScreen and GenericMessageScreen declare their own, so @Inject HEAD on it. ConnectScreen keeps vanilla's render (Cancel + `GameNarrator.saySystemNow` narration), status line dropped by WrapOperation while `drew`. Realms: render override draws only Buttons when `drew`. ProgressScreen fields header/stage/progress/stop unchanged from 1.21.1 (ProgressScreenAccessor copies over). OriginFrameLog has no partStart/part here: drop those timers from LoadingLook. bootGlyphs fades by layerAlpha itself: pass the boot caption colour unfaded |
 | G5 1.21.10 / 1.21.11 | no `menu.loadingLevel` key. A bare LevelLoadTracker reports no progress until `start(Stage, n)`. Don't read progress from a tracker the game didn't start |
 | G6 26.x | extract names (extractBackground / extractRenderState). `mc.gui.overlay()` on 26.2+, `mc.getOverlay()` on 26.1. 26.3: never build a pipeline while the overlay is up |
 
@@ -72,4 +72,7 @@ receiving/progress/message screens, Connecting to a server, Realms connecting. C
 - Also run `set=world` for level loading and the receiving screen.
 - Modules flagged `"inworld": true` (live-modules.json) also prove the flat-world load end to end: boot-smoke and the
   design set end with `inworld_hud_*` / `inworld_modmenu_*` shots and Save and Quit (verify-loop.md section 2).
+  Porting OriginDevWorld.inWorldTick to 1.21.6/1.21.8 (javap): `new GameRules(WorldDataConfiguration.DEFAULT.enabledFeatures())`;
+  `createFreshLevel`'s function takes a `HolderLookup.Provider` (`lookupOrThrow(WORLD_PRESET).getOrThrow(FLAT)`, not
+  registryOrThrow/getHolderOrThrow); Save and Quit = `PauseScreen.disconnectFromWorld(mc, ClientLevel.DEFAULT_QUIT_MESSAGE)`.
 - Use `boot-time` (workflow_dispatch, `module`, `base_ref`, `boots`) for boot-time regressions. It needs OriginBootLog, which only 1.21.1 has.
