@@ -62,3 +62,7 @@ src/mods/versions/*/runthick-*.log
 
 # Benchmark scratch (tools/bench/prod189.py): holds a downloaded OptiFine jar, which is never committed.
 artifacts/bench-189/
+
+# Local panorama renders (tools/panorama/local_render.py): downloads + outputs, never committed
+tools/panorama/cache/
+tools/panorama/out/

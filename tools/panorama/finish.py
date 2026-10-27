@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn a panorama capture (6 raw 1024 px faces from OriginDevPanorama) into what ships.
+"""Turn a panorama capture (6 raw faces from OriginDevPanorama, cropped per panorama_meta.json) into what ships.
 
   finish.py <shots-dir> <out-dir> [--size N]
 
@@ -12,6 +12,7 @@
 Exit 1 when a face is missing or not square.
 """
 import argparse
+import json
 import math
 import os
 import shutil
@@ -22,6 +23,13 @@ from PIL import Image
 
 
 def faces_from(shots):
+    """The 6 faces. When OriginDevPanorama wrote panorama_meta.json, each face is the centre `face` px of a
+    `window` px render at FOV `fov` (exactly 90 degrees; screen-edge shader effects such as a vignette fall
+    outside the crop, which is what put dark seams in the sky before)."""
+    meta = {}
+    mp = os.path.join(shots, "panorama_meta.json")
+    if os.path.isfile(mp):
+        meta = json.load(open(mp, encoding="utf-8"))
     out = []
     for i in range(6):
         p = os.path.join(shots, f"panorama_{i}.png")
@@ -30,6 +38,11 @@ def faces_from(shots):
         im = Image.open(p).convert("RGB")
         if im.width != im.height:
             sys.exit(f"finish: {p} is {im.width}x{im.height}, not square")
+        if meta and im.width == meta["window"] and meta["face"] < im.width:
+            o = (im.width - meta["face"]) // 2
+            im = im.crop((o, o, o + meta["face"], o + meta["face"]))
+        elif meta:
+            sys.exit(f"finish: {p} is {im.width}px, panorama_meta.json says the window was {meta['window']}px")
         out.append(im)
     return out
 
@@ -70,17 +83,30 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     preview(faces).save(os.path.join(a.out, "preview.jpg"), quality=88)
     quant = shutil.which("pngquant")
+    try:
+        import imagequant as iq
+    except ImportError:
+        iq = None
     total = 0
     for i, im in enumerate(faces):
         dst = os.path.join(a.out, f"panorama_{i}.png")
         small = im.resize((a.size, a.size), Image.LANCZOS) if im.width != a.size else im
+        how = ""
+        if not quant and iq:
+            # Same libimagequant pngquant uses, through `pip install imagequant` (no binary on PATH needed).
+            small = iq.quantize_pil_image(small.convert("RGBA"), dithering_level=1.0, max_quality=98, min_quality=70)
+            opaque = Image.frombytes("P", small.size, small.tobytes())   # every pixel is opaque: drop the RGBA palette (tRNS)
+            opaque.putpalette(small.getpalette("RGB"))
+            small = opaque
+            how = " (imagequant)"
         small.save(dst, optimize=True)
         if quant:
+            how = " (pngquant)"
             subprocess.run([quant, "--force", "--skip-if-larger", "--speed", "1", "--quality", "80-98",
                             "--output", dst, dst], check=False)
         size = os.path.getsize(dst)
         total += size
-        print(f"finish: panorama_{i}.png {a.size}px {size} bytes{' (pngquant)' if quant else ''}")
+        print(f"finish: panorama_{i}.png {a.size}px {size} bytes{how}")
     print(f"finish: total {total} bytes for 6 faces")
 
 
