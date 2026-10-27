@@ -53,7 +53,7 @@ receiving/progress/message screens, Connecting to a server, Realms connecting. C
 
 | Era | Facts (proven unless marked) |
 |---|---|
-| G9 1.8.9 | Dev GuiConnecting is created via Unsafe and needs the GuiScreen fields copied. See legacy-forge-189.md |
+| G9 1.8.9 | Dev GuiConnecting is created via Unsafe and needs the GuiScreen fields copied. LoadingLook.draw fills CLEAN_BG itself (callers drop their panorama backdrop); Cancel = setLoadingButton at GuiConnecting.initGui TAIL, drawn in the drawScreen HEAD-cancel's own button loop via titleControl. No Realms connecting screen exists. See legacy-forge-189.md |
 | G7/G8 pre-1.20 | Gfx wrapper. 1.17.1: ensureCompiled() is skipped while the loading overlay is up. Its core shaders compile on demand with un-namespaced names because 1.17 ShaderInstance has no namespace handling |
 | G1/G2 1.20.x | GenericDirtMessageScreen exists until 1.20.5 (GenericMessageScreen after). renderBackground arity: 1-arg on 1.20, 4-arg on 1.20.2+ |
 | G1 1.21 / 1.21.1 | the source set; GenericMessageScreenMixin |

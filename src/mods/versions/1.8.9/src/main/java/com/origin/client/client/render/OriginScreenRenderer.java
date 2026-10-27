@@ -86,7 +86,7 @@ public final class OriginScreenRenderer {
 	private static final LoadBar SCENE_BAR = new LoadBar();
 
 	// Every fill and blit colour of the startup layer goes through layerAlpha
-	// (fade / drawCenterLift / drawVignette), so the whole layer can be drawn
+	// (fade / drawVignette), so the whole layer can be drawn
 	// translucent (the loading -> title dissolve) without each helper knowing.
 	// 1 everywhere else.
 	private static float layerAlpha = 1f;
@@ -111,10 +111,9 @@ public final class OriginScreenRenderer {
 	/**
 	 * Full-screen loading/progress scene for the world-load screens
 	 * (GuiDownloadTerrain, GuiScreenWorking, the LoadingScreenRenderer
-	 * replacement), the clean look (1.21.1, 2026-10-19): this version's own
-	 * panorama under the loading dim (a solid near-black if it can't draw), then
-	 * the one loading picture (LoadingLook: the real Origin logo, a plain progress
-	 * bar and vanilla's own stage line as the caption). Drawn as a HEAD-cancel
+	 * replacement): the one loading picture (LoadingLook: opaque color.bg, the real
+	 * Origin logo, a plain progress bar and vanilla's own stage line as the caption;
+	 * the parity spec, no panorama showing through). Drawn as a HEAD-cancel
 	 * takeover: callers must only cancel vanilla when this returns true.
 	 */
 	public static boolean renderLoadingScene(Gfx guiGraphics, IChatComponent title) {
@@ -148,7 +147,6 @@ public final class OriginScreenRenderer {
 	private static void renderLoadingScene0(Gfx guiGraphics, String title, String stage, int progress) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getMinecraft();
-		cleanBackdrop(guiGraphics, gw(), gh(), OriginTheme.CLEAN_DIM_LOADING);
 
 		// The fill glides to each new count and only moves forward within one world
 		// load; it sweeps until the load's first measured stage (LoadBar.scene).
@@ -186,11 +184,13 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Connecting to a server: the same loading picture as the other screens, the
-	 * connection status as its caption, over the menu backdrop MenuHooks already
-	 * drew (DrawScreenEvent.Pre). GuiConnectingMixin takes vanilla's draw over, calls
-	 * this, then draws the screen's own Cancel button, seated below the picture
-	 * ({@link #connectCancelTop}). False (draw vanilla) once Origin rendering failed.
+	 * Connecting to a server: the same loading picture as the other screens (its own
+	 * opaque backdrop), the connection status as its caption. GuiConnectingMixin takes
+	 * vanilla's draw over, calls this, then draws the screen's own Cancel button as the
+	 * Workbench card (OriginButtonRenderer.setLoadingButton), seated one step under the
+	 * caption ({@link #connectCancelTop}). False (draw vanilla) once Origin rendering failed.
+	 * 1.8.9 has no Realms connecting screen (no RealmsLongRunningMcoTaskScreen era class
+	 * on the title: Realms is retired there), so Connecting is the only one.
 	 */
 	public static boolean renderConnecting(Gfx guiGraphics, String status) {
 		if (broken) {
@@ -205,15 +205,17 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** The loading Cancel's width, GUI px (1.21.1's LOADING_CANCEL_W). */
+	public static final int LOADING_CANCEL_W = 120;
+
 	/**
-	 * Where Connecting's Cancel button goes (GUI px, its top edge): vanilla's own spot
-	 * when it is clear of the loading picture, else 12 GUI px under the picture's
-	 * caption, so the picture never has to move for it; kept on screen.
+	 * Where a loading screen's Cancel goes (GUI px, its top edge): one step of the picture's own rhythm
+	 * (24 design px, LoadingLook.stepGui) under the caption, so the picture never has to move for it;
+	 * kept 8 GUI px clear of the bottom (1.21.1's connectCancelTop).
 	 */
-	public static int connectCancelTop(int vanillaTop, int screenH, int buttonH) {
-		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
-		int top = (int) Math.max(vanillaTop, Math.ceil(clearOfPicture));
-		return Math.max(0, Math.min(top, screenH - buttonH - 4));
+	public static int connectCancelTop(int screenH, int buttonH) {
+		double top = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + LoadingLook.stepGui();
+		return Math.max(0, Math.min((int) Math.ceil(top), screenH - buttonH - 8));
 	}
 
 	/** A colour with layerAlpha (the loading -> title dissolve) multiplied into its alpha. */
@@ -459,18 +461,6 @@ public final class OriginScreenRenderer {
 		pose.popPose();
 	}
 
-	/** A barely-there radial lift behind the centre (the splash's "soft centre lift"). */
-	private static void drawCenterLift(Gfx g, int w, int h, float alpha) {
-		if (radialGlowId == null) {
-			return;
-		}
-		Gfx.defaultBlend();
-		GlStateManager.color(1f, 1f, 1f, alpha * layerAlpha);
-		int d = (int) Math.round(Math.max(w, h) * 0.9);
-		g.blit(radialGlowId, (w - d) / 2, (int) Math.round(h * 0.44 - d / 2.0), d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
-		Gfx.resetColor();
-	}
-
 	// ---- GUI size without a ScaledResolution per call ----
 
 	/** ScaledResolution's scale factor (1.8.9's algorithm, javap), allocation-free. */
@@ -675,17 +665,14 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * The clean splash (1.21.1's settle-hold picture): solid near-black with a soft
-	 * centre lift, then the one loading picture (LoadingLook) with the bar full.
+	 * The clean splash (1.21.1's settle-hold picture): the one loading picture
+	 * (LoadingLook, its opaque color.bg backdrop faded by the dissolve) with the bar full.
 	 * 1.8.9's startup load itself is Forge's splash (themed by the launcher), so
 	 * this layer only ever shows a FINISHED load: the bar sits full at 100%, the
 	 * caption 1.21.1 shows at that moment.
 	 */
 	private static void renderSplash(Gfx guiGraphics) {
 		ensureLoaded();
-		int w = gw(), h = gh();
-		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.CLEAN_BG));
-		drawCenterLift(guiGraphics, w, h, 0.05f);
 		LoadingLook.draw(guiGraphics, layerAlpha, 1.0, STARTUP_DONE);
 	}
 

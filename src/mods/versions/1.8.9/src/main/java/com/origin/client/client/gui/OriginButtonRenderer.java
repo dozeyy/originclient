@@ -81,14 +81,17 @@ public final class OriginButtonRenderer {
 	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
 	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
 
-	// Java 8 has no records: a final value class.
+	// Java 8 has no records: a final value class. small = a loading screen's Cancel (the only control still drawn
+	// as the Workbench card; the title's own buttons are Minecraft's dark buttons, see titleIcon).
 	private static final class TitlePresentation {
 		private final String icon;
 		private final boolean iconOnly;
+		private final boolean small;
 
-		private TitlePresentation(String icon, boolean iconOnly) {
+		private TitlePresentation(String icon, boolean iconOnly, boolean small) {
 			this.icon = icon;
 			this.iconOnly = iconOnly;
+			this.small = small;
 		}
 
 		public String icon() {
@@ -98,6 +101,10 @@ public final class OriginButtonRenderer {
 		public boolean iconOnly() {
 			return iconOnly;
 		}
+
+		public boolean small() {
+			return small;
+		}
 	}
 
 	public static void markPrimary(Object widget) {
@@ -106,18 +113,11 @@ public final class OriginButtonRenderer {
 		}
 	}
 
-	/** Registers a worded title button (Singleplayer, Multiplayer, Options, Mods): the Workbench card with an
-	 *  Inter label and an optional 8 GUI px leading glyph (null = label only). As 1.21.1's setTitleButton. */
-	public static void setTitleButton(Object widget, String icon) {
+	/** A loading screen's Cancel (Connecting): the Workbench card, its label in Minecraft's font in parchment
+	 *  like the loading caption above it (1.21.1's setLoadingButton, Will 2026-10-27). */
+	public static void setLoadingButton(Object widget) {
 		if (widget != null) {
-			TITLE.put(widget, new TitlePresentation(icon, false));
-		}
-	}
-
-	/** Registers a title dock action: the same card with a centred 12 GUI px parchment glyph. */
-	public static void setTitleDock(Object widget, String icon) {
-		if (widget != null && icon != null) {
-			TITLE.put(widget, new TitlePresentation(icon, true));
+			TITLE.put(widget, new TitlePresentation(null, false, true));
 		}
 	}
 
@@ -418,27 +418,25 @@ public final class OriginButtonRenderer {
 		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
 	}
 
-	// ---- skin 2: the title screen's controls (1.21.1's Workbench title, DESIGN-SYSTEM 15.2) ----
-	// Worded buttons are a card (radius 3 GUI px, 1 GUI px edge) with an Inter 600 label centred and an optional
-	// 8 GUI px leading glyph; the dock is the same card with a 12 GUI px parchment glyph. Hover eases over the
-	// shared 48 / 64 ms; press darkens the card and drops the label / glyph 1 GUI px; geometry never moves.
+	// ---- skin 2: a loading screen's Cancel (1.21.1's setLoadingButton, Will 2026-10-27) ----
+	// The Workbench card (radius 3 GUI px, 1 GUI px edge) with its label in Minecraft's font in parchment, like
+	// every loading-screen line. Hover eases over the shared 48 / 64 ms; press darkens the card and drops the
+	// label 1 GUI px; geometry never moves. The title's own buttons are NOT drawn here any more: they are
+	// Minecraft's dark buttons (the module's dark-widget path, GuiButtonMixin) plus titleIcon for the dock.
 	// 1.8.9 (fixed-function, no SDF shader): the card is OriginUi's software AA box drawn in PHYSICAL pixels
-	// (radius 3 x guiScale, edge guiScale px), and Inter is OriginTtfFont -- the bundled Inter TTFs rasterised
-	// at the exact physical size (1.16.5's best-fit; the MSDF atlases need a shader this GL path lacks).
-	// No keyboard focus ring: 1.8.9's GuiButton has no focus state.
-	private static final int GLYPH = 12, LEAD_ICON = 8, LEAD_GAP = 6;
+	// (radius 3 x guiScale, edge guiScale px). No keyboard focus ring: 1.8.9's GuiButton has no focus state.
 	private static volatile boolean titleBroken = false;
 
 	/** Dev-shots only (OriginDevShots' title-press shot): the hovered title control draws pressed. */
 	public static volatile boolean devPress = false;
 
 	/**
-	 * Draws a registered title control; false = not ours (or latched): the caller draws vanilla's button.
+	 * Draws a registered loading Cancel; false = not ours (or latched): the caller draws vanilla's button.
 	 * {@code hovered} is vanilla's own hit test for this frame (GuiButton.hovered).
 	 */
 	public static boolean titleControl(Gfx g, GuiButton button, boolean hovered) {
 		TitlePresentation tp = TITLE.get(button);
-		if (tp == null || titleBroken || com.origin.client.client.OriginStyle.vanillaTitle()) {
+		if (tp == null || !tp.small() || titleBroken || com.origin.client.client.OriginStyle.vanillaTitle()) {
 			return false;
 		}
 		try {
@@ -446,47 +444,25 @@ public final class OriginButtonRenderer {
 			double hv = hoverEase(button, enabled && hovered);
 			boolean pressed = enabled && hovered && (devPress || Mouse.isButtonDown(0));
 			int x = button.xPosition, y = button.yPosition, w = button.width, h = button.height;
-			if (tp.iconOnly()) {
-				drawDock(g, tp, x, y, w, h, enabled, hv, pressed);
-			} else {
-				drawPanelButton(g, button, tp, x, y, w, h, enabled, hv, pressed);
-			}
+			drawCard(g, x, y, w, h, enabled, hv, pressed);
+			// Minecraft's font, parchment at rest (muted read as disabled, judge 2026-10-27), muted when disabled.
+			// Measured once per widget and again only when its displayString is replaced or the GUI scale changes.
+			Label lab = label(button, false, OriginTheme.TITLE_SMALL_EM);
+			int textColor = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
+			g.drawString(Minecraft.getMinecraft().fontRendererObj, lab.text, Math.round(x + (w - lab.width) / 2f),
+					y + (h - 8) / 2 + (pressed ? 1 : 0), textColor, true);
 			return true;
 		} catch (Throwable t) {
 			titleBroken = true;
 			com.origin.client.OriginClient.LOGGER.error(
-					"Origin title controls failed; falling back to vanilla widgets on the title for this session", t);
+					"Origin loading Cancel failed; falling back to vanilla's button for this session", t);
 			return false;
 		} finally {
 			Gfx.resetColor();
 		}
 	}
 
-	private static void drawPanelButton(Gfx g, GuiButton button, TitlePresentation tp,
-										int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
-		drawCard(g, x, y, w, h, enabled, hv, pressed);
-		// The label: Inter 600 in parchment, centred on its cap height; Minecraft's font when Inter is not live.
-		// Measured once per widget and again only when its displayString is replaced or the GUI scale changes.
-		float em = OriginTheme.TITLE_LABEL_EM;
-		Label lab = label(button, titleTextActive(), em);
-		int textColor = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
-		boolean lead = tp.icon() != null;
-		float groupW = lead ? LEAD_ICON + LEAD_GAP + lab.width : lab.width;
-		float gx = x + (w - groupW) / 2f;
-		int dy = pressed ? 1 : 0;
-		if (lead) {
-			int iconColor = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TITLE_TEXT, hv) : OriginTheme.TITLE_TEXT_MUTED;
-			ModIcons.drawFlat(g, tp.icon(), Math.round(gx), y + (h - LEAD_ICON) / 2 + dy, LEAD_ICON, iconColor);
-			gx += LEAD_ICON + LEAD_GAP;
-		}
-		if (lab.ttf) {
-			drawInter(g, lab.text, gx, y + h / 2f + lab.cap / 2f + dy, em, textColor, true);
-		} else {
-			g.drawString(Minecraft.getMinecraft().fontRendererObj, lab.text, Math.round(gx), y + (h - 8) / 2 + dy, textColor, true);
-		}
-	}
-
-	/** A title button's label, measured once: text, advance width and cap height (GUI px), and which font measured it. */
+	/** A button's label, measured once: text, advance width and cap height (GUI px), and which font measured it. */
 	private static final class Label {
 		String source;
 		String text;
@@ -522,7 +498,7 @@ public final class OriginButtonRenderer {
 		return lab;
 	}
 
-	/** The Workbench card behind every title control (worded or dock): fill + 1 GUI px hairline, radius 3. */
+	/** The Workbench card behind the loading Cancel: fill + 1 GUI px hairline, radius 3. */
 	private static void drawCard(Gfx g, int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
 		int fill, edge;
 		if (!enabled) {
@@ -546,14 +522,49 @@ public final class OriginButtonRenderer {
 		pose.popPose();
 	}
 
-	// Dock action (Will, 2026-10-25: "make the icons on the bottom of the title screen not colored and the same
-	// colorscheme as the normal buttons"): the worded buttons' card, the glyph centred in parchment (muted when
-	// disabled). Press drops the glyph 1 GUI px, like a label.
-	private static void drawDock(Gfx g, TitlePresentation tp, int x, int y, int w, int h,
-								 boolean enabled, double hv, boolean pressed) {
-		drawCard(g, x, y, w, h, enabled, hv, pressed);
-		int color = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
-		ModIcons.drawFlat(g, tp.icon(), x + (w - GLYPH) / 2, y + (h - GLYPH) / 2 + (pressed ? 1 : 0), GLYPH, color);
+	// ---- the title dock's icons (Will, 2026-10-27: the title buttons are "the same ones" as every other menu --
+	// Minecraft's dark button, Minecraft's font -- with premade icons, words only on the big buttons) ----
+	// Cosmetics and Quit come from free icon packs, rebuilt by tools/title-icons/make_icons.py into one sheet
+	// (credits shipped beside it as title_icons_CREDITS.txt), copied verbatim from 1.21.1. Realms does not exist
+	// on 1.8.9's title. 1.8.9 has no toast/social_interactions sprite (no social interactions screen, no sprite
+	// atlas): Friends and Language keep Origin's own crisp glyphs, white like a label.
+	private static final net.minecraft.util.ResourceLocation TITLE_ICONS =
+			new net.minecraft.util.ResourceLocation("originclient", "textures/gui/title_icons.png");
+	private static final int ICONS_W = 48, ICONS_H = 16;
+	// {u, v, w, h} of the art with its 1 px shadow, then the white body's own w, h: the body is what is centred.
+	private static final int[] ICON_COSMETICS = {0, 0, 15, 13, 14, 12};
+	private static final int[] ICON_QUIT = {32, 0, 13, 13, 12, 12};
+	private static final int GLYPH = 12;
+	private static volatile boolean iconBroken = false;
+
+	/**
+	 * Draws a dock button's icon over its dark button: "cosmetics" / "quit" from title_icons.png, centred on
+	 * the body like vanilla's SpriteIconButton (x + w/2 - bodyW/2, the odd pixel left/top); any other id is an
+	 * Origin glyph (ModIcons) centred at 12 GUI px. A disabled button greys it like a label (0xA0A0A0).
+	 */
+	public static void titleIcon(Gfx g, String icon, int x, int y, int w, int h, boolean enabled) {
+		if (icon == null || iconBroken) {
+			return;
+		}
+		try {
+			int[] r = "cosmetics".equals(icon) ? ICON_COSMETICS : "quit".equals(icon) ? ICON_QUIT : null;
+			if (r != null) {
+				Gfx.defaultBlend();
+				if (enabled) {
+					Gfx.resetColor();
+				} else {
+					Gfx.color(0xFFA0A0A0);
+				}
+				g.blit(TITLE_ICONS, x + w / 2 - r[4] / 2, y + h / 2 - r[5] / 2, (float) r[0], (float) r[1], r[2], r[3], ICONS_W, ICONS_H);
+			} else {
+				ModIcons.drawCrisp(g, icon, x + (w - GLYPH) / 2, y + (h - GLYPH) / 2, GLYPH, enabled ? 0xFFFFFFFF : 0xFFA0A0A0);
+			}
+		} catch (Throwable t) {
+			iconBroken = true;
+			com.origin.client.OriginClient.LOGGER.error("Origin title dock icons failed; dock buttons draw without icons", t);
+		} finally {
+			Gfx.resetColor();
+		}
 	}
 
 	// ---- Inter on the title's own text (player name, footer) ----

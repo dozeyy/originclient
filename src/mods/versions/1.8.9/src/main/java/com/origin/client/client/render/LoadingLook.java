@@ -31,11 +31,14 @@ import net.minecraft.client.gui.FontRenderer;
  * whole physical pixels (the pose is scaled back to 1 GUI unit = 1 pixel), so it is crisp
  * at every GUI scale.
  *
- * <p>1.8.9 differences from 1.21.1, on purpose: the backdrop is each screen's own (the caller
- * draws it: the panorama under the loading dim, the menu backdrop, or the splash's near-black),
- * and the caption is Minecraft's own font with its shadow (DECISIONS: Inter only on 1.21.1's
- * title text; 1.8.9 fonts are baked before anything here draws, so no boot font is needed).
- * The window size comes from Minecraft.displayWidth/displayHeight and the GUI scale from
+ * <p>Backdrop rule (the parity spec, origin-port recipes/loading-screens.md): every loading screen
+ * is OPAQUE flat color.bg (OriginTheme.CLEAN_BG, #0E1110) over the whole window, drawn HERE, never
+ * the world or a panorama showing through; the only translucency is the startup splash's dissolve
+ * into the title (the {@code layer} argument). The progress fill is exactly its fraction wide:
+ * nothing at 0 % (pill() draws nothing for w <= 0). The caption is Minecraft's own font with its
+ * shadow in TITLE_TEXT_MUTED, centred on its ink (Will, 2026-10-27: Minecraft's font on every
+ * loading screen; 1.8.9's fonts are loaded before anything here draws, so no boot font is needed).
+ * 1.8.9: the window size comes from Minecraft.displayWidth/displayHeight and the GUI scale from
  * OriginScreenRenderer.scale() (1.8.9's ScaledResolution rule, allocation-free).
  *
  * <p>Cost: one logo blit (baked once per size by OriginScreenRenderer.drawLogo), a few bar
@@ -77,6 +80,11 @@ final class LoadingLook {
 		return (box / 2.0 + (GAP_BAR + GAP_CAPTION) * s) / g + BAR_GUI + CAPTION_LINE_GUI;
 	}
 
+	/** The picture's own step (logo to bar, 24 design px) in GUI px: the gap from the caption down to Cancel. */
+	static double stepGui() {
+		return GAP_BAR * scale() / OriginScreenRenderer.scale();
+	}
+
 	/** The logo centre's height, GUI px, on every loading screen at this window size (what draw() uses). */
 	static double logoCentreGui() {
 		return Math.round(Math.max(1, Minecraft.getMinecraft().displayHeight) * LOGO_AT) / (double) OriginScreenRenderer.scale();
@@ -94,7 +102,7 @@ final class LoadingLook {
 	}
 
 	/**
-	 * Draws the loading picture (no backdrop: the caller has drawn its own).
+	 * Draws the loading picture over its opaque backdrop.
 	 *
 	 * @param layer    whole-picture opacity 0..1 (the splash -> title dissolve; 1 elsewhere)
 	 * @param fill     bar fill 0..1, or a negative number for the sweep (no real measure)
@@ -102,6 +110,10 @@ final class LoadingLook {
 	 */
 	static void draw(Gfx g, float layer, double fill, String caption) {
 		layout();
+		// The backdrop is flat color.bg over the whole GUI window (ceil: 1.8.9's ScaledResolution rounds up).
+		int gw = (physW + gs - 1) / gs, gh = (Math.max(1, Minecraft.getMinecraft().displayHeight) + gs - 1) / gs;
+		Gfx.defaultBlend();
+		g.fill(0, 0, gw, gh, fade(OriginTheme.CLEAN_BG, layer));
 		OriginScreenRenderer.drawLogo(g, physW / 2.0 / gs, logoCy / gs, logoBox / gs, layer);
 		bar(g, layer, fill);
 		if (caption != null && !caption.isEmpty()) {
@@ -174,16 +186,28 @@ final class LoadingLook {
 	// ---- the caption ----
 
 	private static void caption(Gfx g, float layer, String text) {
-		int argb = fade(OriginTheme.CLEAN_TEXT_DIM, layer);
+		int argb = fade(OriginTheme.TITLE_TEXT_MUTED, layer);
 		// FontRenderer draws a colour whose alpha is under 4 fully opaque.
 		if (((argb >>> 24) & 0xFF) < 4) {
 			return;
 		}
 		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
+		boolean unicode = font.getUnicodeFlag();
+		if (text != inkText || unicode != inkUnicode) {
+			// Measured once per caption string (callers cache their strings), not per frame.
+			inkText = text;
+			inkUnicode = unicode;
+			inkWidth = Math.max(0, font.getStringWidth(text) - 1);   // the width counts the last glyph's 1 px advance gap
+		}
 		double cx = physW / 2.0 / gs;
-		g.drawString(font, text, (int) Math.round(cx - font.getStringWidth(text) / 2.0),
+		g.drawString(font, text, (int) Math.round(cx - inkWidth / 2.0),
 				(int) Math.round(captionMid / gs - 4), argb, true);
 	}
+
+	// The last measured caption (render thread only): identity of the string, the font mode, its ink width.
+	private static String inkText;
+	private static boolean inkUnicode;
+	private static int inkWidth;
 
 	/** A colour with its alpha scaled by {@code k} (0..1). */
 	private static int fade(int argb, float k) {

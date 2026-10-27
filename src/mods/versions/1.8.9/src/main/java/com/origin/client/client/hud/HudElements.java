@@ -1111,6 +1111,9 @@ public final class HudElements {
 		}
 	}
 
+	/** renderAll passes that got past the skips (the in-world smoke step waits for real HUD frames). Render thread only. */
+	public static long passes;
+
 	/** Main in-game dispatcher: draws every enabled element at its anchored,
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
 	 *  editor draws its own draggable versions), with the HUD hidden (F1), and
@@ -1125,6 +1128,7 @@ public final class HudElements {
 		if (FrameWatch.idle()) {
 			return;   // window unfocused (Limit Unfocused FPS): skip Origin's HUD, nobody is looking
 		}
+		passes++;
 		int sw = g.guiWidth(), sh = g.guiHeight();
 		for (int ei = 0; ei < ALL.size(); ei++) {
 			Element e = ALL.get(ei);
