@@ -25,7 +25,9 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - 1.21.1 ships Sodium 0.8 by default (Will's own mods need it); Origin Render (experimental terrain culler, Sodium 0.6 only) stays removed (2026-10-26).
 
 ## Look
-- Vanilla screens (title, pause, options, inventory, world select) use STOCK Minecraft buttons. Origin's widget skin only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-08-23).
+- Vanilla screens (pause, options, world select, every other Minecraft menu) use Origin's own DARK buttons in the Default Dark Mode look, drawn by Origin (`tools/dark-widgets/make_widgets.py`; that pack is CC BY-NC-SA, never copied) and built into the jar, never a resource pack in the pack list. Origin's title buttons keep their own card look in the same charcoal. Origin's widget skin stays only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-10-26).
+- Title-screen panoramas: each version's own landscape showing that update's content, daytime, shaders on, rendered in CI and shipped in the jar (2026-10-26).
+- Sodium's translations (Translations for Sodium, CC0) ship built into the jar, never as a resource pack (2026-10-26).
 - In-game text is Minecraft's own font everywhere; no Inter/Space Grotesk/MSDF in game; no hand-rolled glyph rendering (2026-07-08, re-confirmed 2026-09-09).
 - Exception (2026-10-25, Will approved the Workbench mockup and asked to "fix the font on the middle"): Origin's own title-screen text (buttons, player name, footer) uses Inter via the MSDF font; every other in-game text stays Minecraft's font.
 - In-game title dock icons are not coloured: same Workbench card colours and states as the title buttons, parchment glyphs (2026-10-25).
@@ -64,4 +66,5 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - 2026-10-18 "no windows on Will's PC, never run the launcher or --render-shots locally" vs 2026-10-25 "local sessions build and run it; verifier screenshots the launcher": 2026-10-25 wins for builds, `--render-shots` and `--render-tour` (no other local runs); the no-Minecraft-window and no-clicks-into-other-apps parts stand.
 - 2026-10-13 "website judge >= 9/10 before every publish" vs 2026-10-25 "judges only on overhaul/redesign work": small website fixes ship without a judge round.
 - CLAUDE.md "ask whatever clarifying questions" / "plain-English summary after every change" replaced 2026-10-25 by 1-3 clickable questions and the Field Report one-line done.
+- 2026-08-23 "vanilla screens use STOCK Minecraft buttons" vs 2026-10-26 "change all the UI buttons besides the main menu custom ones to the default dark mode ones": 2026-10-26 wins; vanilla screens get Origin's dark buttons.
 - Palette history (Aurora -> Slate -> Ion Jade -> Workbench, 2026-09-03 to 2026-09-09): Workbench is current.
