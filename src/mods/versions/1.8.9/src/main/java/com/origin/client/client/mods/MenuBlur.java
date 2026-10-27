@@ -196,6 +196,7 @@ public final class MenuBlur {
 		}
 		return screen != null && !com.origin.client.client.OriginStyle.vanillaMenusOn(screen) && !broken && Minecraft.getMinecraft().theWorld != null
 				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen))
+				&& !(com.origin.client.client.BenchSwitches.INV_BLUR_OFF && screen instanceof GuiContainer)
 				&& OpenGlHelper.isFramebufferEnabled() && !IrisBridge.shadersActive();
 	}
 

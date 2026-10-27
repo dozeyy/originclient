@@ -297,11 +297,17 @@ public final class Gfx {
 
 	/** Starts queueing fills. Pair with {@link #batchEnd()} (use try/finally). */
 	public static void batchBegin() {
+		if (com.origin.client.client.BenchSwitches.HUD_OFF) {
+			return;   // bench A/B "pick 3 off": every fill draws on its own, as before the pick
+		}
 		batchDepth++;
 	}
 
 	/** Ends one batchBegin; the outermost one draws what is queued. */
 	public static void batchEnd() {
+		if (com.origin.client.client.BenchSwitches.HUD_OFF) {
+			return;
+		}
 		if (batchDepth > 0 && --batchDepth == 0) {
 			flushBatch();
 		}

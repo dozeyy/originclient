@@ -1312,7 +1312,7 @@ public final class Mods {
 			ON_CACHE.clear();
 			onCacheRev = r;
 		}
-		Boolean cached = ON_CACHE.get(modId);
+		Boolean cached = com.origin.client.client.BenchSwitches.PARTICLES_OFF ? null : ON_CACHE.get(modId);   // bench A/B "pick 5 off"
 		if (cached != null) {
 			return cached;
 		}
@@ -1331,7 +1331,7 @@ public final class Mods {
 		if (StepAside.any()) {
 			result = StepAside.effectiveOn(modId, result, forcedOn(vals));
 		}
-		if (ModsConfig.rev == r) { // a save during the lookup means the value may already be stale: do not keep it
+		if (ModsConfig.rev == r && !com.origin.client.client.BenchSwitches.PARTICLES_OFF) { // a save during the lookup means the value may already be stale: do not keep it
 			ON_CACHE.put(modId, result);
 		}
 		return result;

@@ -131,9 +131,10 @@ public final class OriginBench {
 	 * Named only, never part of "all": 16 client-side fake players in a ring in front of the camera
 	 * ("players": vanilla look, Origin's nametag / entity hooks; "cosmetics": the same players wearing
 	 * Origin cosmetics -- capes with physics, hats, masks, wings -- via CosmeticsService.benchWear;
-	 * "pause": the Esc menu over the world, i.e. Menu Blur's "pause" kind).
+	 * "pause": the Esc menu over the world, i.e. Menu Blur's "pause" kind; "pvp-ui": the inventory opened
+	 * for 1 s and closed for 1 s, over and over, as in a PvP refill -- Menu Blur's open/close cost).
 	 */
-	private static final String[] EXTRA_SCENARIOS = {"players", "cosmetics", "pause"};
+	private static final String[] EXTRA_SCENARIOS = {"players", "cosmetics", "pause", "pvp-ui"};
 	private static final int FAKE_PLAYERS = (int) num("origin.bench.players", 16);
 	private final List<net.minecraft.client.entity.EntityOtherPlayerMP> fakes = new ArrayList<>();
 	private Map<Object, Object> fakeInfoMap;
@@ -190,6 +191,9 @@ public final class OriginBench {
 	private boolean gcNotify = false, gcMeasuring = false;
 	private long gcPauseTotalMs = 0, gcPauseMaxMs = 0, gcPauseCount = 0;
 	private String startedAt;
+	// Phase 6.1 startup metric: JVM start -> first tick on the title screen, in ms (-1 = not seen). Same
+	// probe in every variant (the OptiFine-only one too), so tools/bench/ab189.py pairs it like a scene.
+	private long startupMs = -1;
 
 	private OriginBench() {
 		for (String s : SPEC.toLowerCase(Locale.ROOT).split(",")) {
@@ -262,6 +266,8 @@ public final class OriginBench {
 				if (!OriginDevShots.isTitle(mc.currentScreen)) {
 					return;
 				}
+				startupMs = System.currentTimeMillis() - ManagementFactory.getRuntimeMXBean().getStartTime();
+				log("[OriginBoot] title screen " + startupMs + " ms after JVM start");
 				startedAt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(new Date());
 				outDir = resolveOutDir(mc);
 				glRenderer = GL11.glGetString(GL11.GL_RENDERER);
@@ -420,7 +426,7 @@ public final class OriginBench {
 	private void teardownScenario(Minecraft mc, String sc) {
 		if (sc.equals("hud")) {
 			restoreMods();
-		} else if (sc.equals("menu") || sc.equals("pause")) {
+		} else if (sc.equals("menu") || sc.equals("pause") || sc.equals("pvp-ui")) {
 			mc.displayGuiScreen(null);
 		} else if (sc.equals("players") || sc.equals("cosmetics")) {
 			removeFakePlayers(mc);
@@ -554,6 +560,15 @@ public final class OriginBench {
 			mc.displayGuiScreen(new GuiContainerCreative(mc.thePlayer));
 		} else if (sc.equals("pause") && !(mc.currentScreen instanceof GuiIngameMenu)) {
 			mc.displayGuiScreen(new GuiIngameMenu());
+		} else if (sc.equals("pvp-ui")) {
+			// 20 ticks open, 20 closed: a new inventory screen every 2 s (a refill), the world running throughout
+			boolean open = (scenarioTick / 20) % 2 == 0;
+			boolean isOpen = mc.currentScreen instanceof GuiContainerCreative;
+			if (open && !isOpen) {
+				mc.displayGuiScreen(new GuiContainerCreative(mc.thePlayer));
+			} else if (!open && isOpen) {
+				mc.displayGuiScreen(null);
+			}
 		}
 	}
 
@@ -924,6 +939,8 @@ public final class OriginBench {
 			// load would otherwise be measured as "shaders on"). Reads OptiFine's own flag; false without OptiFine.
 			env.addProperty("shaderPackActive", com.origin.client.client.shaders.IrisBridge.shadersActive());
 			env.addProperty("profiling", BenchProf.ON);
+			env.addProperty("startupMs", startupMs);
+			env.addProperty("picksOff", BenchSwitches.describe());
 			env.addProperty("fakePlayers", FAKE_PLAYERS);
 			env.addProperty("focusIgnored", IGNORE_FOCUS);
 			env.addProperty("menuBlur", PROBE ? "n/a (Origin inert)"
@@ -1006,6 +1023,7 @@ public final class OriginBench {
 		sb.append("- **particles**: same spot with ").append(str(env, "particlesPerTick"))
 				.append(" crit / magic-crit particles spawned every tick in front of you (a PvP fight, exaggerated).\n");
 		sb.append("- **menu**: the creative inventory open over the world (Menu Blur ").append(str(env, "menuBlur")).append(").\n");
+		sb.append("- **pvp-ui**: the creative inventory opened for 1 s and closed for 1 s, over and over (a refill).\n");
 		sb.append("- **flythrough**: flying east at creative speed through new terrain with a slow camera sweep.\n\n");
 		sb.append("## Setup\n\n");
 		for (Map.Entry<String, com.google.gson.JsonElement> en : env.entrySet()) {

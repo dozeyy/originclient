@@ -16,7 +16,9 @@ import sys
 
 CONTROL = "origin-default"
 METRICS = (("avgFps", 1, "%"), ("low1Fps", 1, "%"), ("p50Ms", -1, "%"), ("p99Ms", -1, "%"),
-           ("gcPauseTotalMs", -1, "ms"), ("gcPauseMaxMs", -1, "ms"), ("heapAvgMb", -1, "%"))
+           ("gcPauseTotalMs", -1, "ms"), ("gcPauseMaxMs", -1, "ms"), ("heapAvgMb", -1, "%"),
+           ("startupMs", -1, "%"))
+STARTUP = "startup"   # pseudo-scene: JVM start -> title screen (bench.json environment.startupMs), one per launch
 
 
 def load(dirs):
@@ -32,7 +34,11 @@ def load(dirs):
                 if os.path.isfile(bj):
                     with open(bj, encoding="utf-8") as f:
                         doc = json.load(f)
-                    data[(d, var, rn)] = {s["scenario"]: s for s in doc.get("scenarios", []) if s.get("valid")}
+                    scenes = {s["scenario"]: s for s in doc.get("scenarios", []) if s.get("valid")}
+                    ms = (doc.get("environment") or {}).get("startupMs")
+                    if isinstance(ms, (int, float)) and ms > 0:
+                        scenes[STARTUP] = {"startupMs": ms}
+                    data[(d, var, rn)] = scenes
     return data
 
 
