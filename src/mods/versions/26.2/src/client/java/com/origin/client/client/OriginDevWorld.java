@@ -848,18 +848,191 @@ final class OriginDevWorld {
 		return false;
 	}
 
+	// ---- In-world smoke step (boot-smoke + the dev-shots design set) ----
+	// The screen sets never enter a world, so a mod that boots to the title and then breaks the moment a
+	// world loads (HUD, mod menu over a world, Save and Quit) passed every gate. This is the one in-world
+	// route both gates share, turned on per module by "inworld": true in src/mods/live-modules.json:
+	//   boot-smoke.yml -> smoke.py --inworld DIR -> env ORIGIN_SMOKE_WORLD=DIR (OriginClientMod's end-tick hook)
+	//   dev-shots.yml design set -> env ORIGIN_INWORLD=1 (OriginDevShots.finish hands over to it)
+	// Steps, each with a deadline: make (or reopen) a flat test world straight through WorldOpenFlows, wait
+	// until Origin's HUD has really drawn (HudElements.passes climbing), shoot it, open the Mod Menu over the
+	// world, shoot it, Save and Quit back to the title. One verdict line, gated by smoke.py and check_shots.py:
+	//   [origin-smoke] in-world: PASS      or      [origin-smoke] in-world: FAIL <reason>
+	// A throw or a missed deadline is a FAIL, never a hang. It always ends with onEnd + mc.stop().
+	// PER-VERSION (26.2, javap): screens via mc.gui.screen() / mc.gui.setScreen; LevelSettings takes a
+	// DifficultySettings record and no GameRules (26.x); the flat preset through HolderLookup.Provider
+	// lookupOrThrow/getOrThrow; Save and Quit is vanilla's own Minecraft.disconnectFromWorld (what
+	// PauseScreen's button calls: level disconnect, saving screen for the local server, then the title).
+	static final String SMOKE_WORLD = "origin-smoke";
+	private static final long IW_LOAD_MS = 240_000, IW_QUIT_MS = 90_000;
+	private static int iw = 0;
+	private static long iwAt = 0, iwFrom = 0, iwHudFrom = -1, iwHudAt = 0;
+	private static Boolean iwLimitUnfocused;
+	private static boolean iwDone;
+
+	static void inWorldTick(Minecraft mc, String dir, Runnable onEnd) {
+		if (iwDone) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now < iwAt) {
+			return;
+		}
+		try {
+			// 26.x Screenshot.grab writes a timestamped PNG on a worker thread: no step moves on (or quits)
+			// until the last capture is on disk under its shot name (finishGrab), or smoke.py finds it missing.
+			if (pending != null && !finishGrab(dir)) {
+				iwAt = now + 100;
+				return;
+			}
+			var screen = mc.gui.screen();
+			switch (iw) {
+				case 0 -> {
+					log("[origin-smoke] in-world: starting (" + (mc.getLevelSource().levelExists(SMOKE_WORLD) ? "reopening" : "creating")
+							+ " flat world '" + SMOKE_WORLD + "')");
+					// Xvfb has no window manager, so the window is never "active": with Limit Unfocused FPS on,
+					// Origin's HUD skips itself (FrameWatch.idle). Off for the step, restored at the end.
+					iwLimitUnfocused = Mods.bool(Mods.PERFORMANCE_ID, "limitUnfocusedFps");
+					Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", false);
+					if (mc.getWindow().getWidth() < 1280) {
+						mc.getWindow().setWindowed(1280, 720);   // boot-smoke's 854x480 default is too small to read
+					}
+					var flows = mc.createWorldOpenFlows();
+					if (mc.getLevelSource().levelExists(SMOKE_WORLD)) {
+						flows.openWorld(SMOKE_WORLD, () -> mc.gui.setScreen(new TitleScreen()));
+					} else {
+						var settings = new net.minecraft.world.level.LevelSettings("Origin Smoke",
+								net.minecraft.world.level.GameType.SURVIVAL,
+								new net.minecraft.world.level.LevelSettings.DifficultySettings(net.minecraft.world.Difficulty.PEACEFUL, false, false),
+								true, net.minecraft.world.level.WorldDataConfiguration.DEFAULT);
+						var options = new net.minecraft.world.level.levelgen.WorldOptions(20261027L, false, false);
+						flows.createFreshLevel(SMOKE_WORLD, settings, options, ra -> ra
+								.lookupOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getOrThrow(net.minecraft.world.level.levelgen.presets.WorldPresets.FLAT)
+								.value().createWorldDimensions(), new TitleScreen());
+					}
+					iw = 1;
+					iwFrom = now;
+				}
+				case 1 -> {
+					if (now - iwFrom > IW_LOAD_MS) {
+						inWorldEnd(mc, false, "world not playable after " + IW_LOAD_MS / 1000 + " s (screen: "
+								+ (screen == null ? "none" : screen.getClass().getSimpleName()) + ", player: "
+								+ (mc.player != null) + ", HUD passes: " + com.origin.client.client.hud.HudElements.passes + ")", onEnd);
+						return;
+					}
+					if (screen instanceof PauseScreen) {
+						mc.gui.setScreen(null);   // lost focus under Xvfb
+					}
+					if (mc.level == null || mc.player == null || screen != null) {
+						iwAt = now + 250;
+						return;
+					}
+					if (iwHudFrom < 0) {
+						iwHudFrom = com.origin.client.client.hud.HudElements.passes;
+						iwHudAt = now;
+						log("[origin-smoke] in-world: world loaded after " + (now - iwFrom) / 1000 + " s");
+					}
+					long passes = com.origin.client.client.hud.HudElements.passes - iwHudFrom;
+					if (passes < 60 || now - iwHudAt < 8000) {
+						iwAt = now + 250;   // 60 real HUD frames, and 8 s for the spawn chunks to draw
+						return;
+					}
+					grab(mc, dir, "inworld_hud_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					log("[origin-smoke] in-world: HUD up (" + passes + " HUD passes)");
+					iw = 2;
+					iwAt = now + 1500;
+				}
+				case 2 -> {
+					mc.gui.setScreen(new com.origin.client.client.gui.OriginModMenuScreen());
+					iw = 3;
+					iwAt = now + 2500;
+				}
+				case 3 -> {
+					if (!(screen instanceof com.origin.client.client.gui.OriginModMenuScreen)) {
+						inWorldEnd(mc, false, "mod menu did not open over the world (screen: "
+								+ (screen == null ? "none" : screen.getClass().getSimpleName()) + ")", onEnd);
+						return;
+					}
+					grab(mc, dir, "inworld_modmenu_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					log("[origin-smoke] in-world: mod menu open");
+					iw = 4;
+					iwAt = now + 1500;
+				}
+				case 4 -> {
+					// Vanilla's Save and Quit (PauseScreen's button -> disconnectFromWorld), which ends on the title.
+					mc.gui.setScreen(null);
+					mc.disconnectFromWorld(net.minecraft.client.multiplayer.ClientLevel.DEFAULT_QUIT_MESSAGE);
+					iw = 5;
+					iwFrom = now;
+				}
+				case 5 -> {
+					if (mc.level == null && mc.getSingleplayerServer() == null && screen instanceof TitleScreen) {
+						log("[origin-smoke] in-world: quit clean (saved, back on the title)");
+						inWorldEnd(mc, true, "", onEnd);
+						return;
+					}
+					if (now - iwFrom > IW_QUIT_MS) {
+						inWorldEnd(mc, false, "Save and Quit did not reach the title in " + IW_QUIT_MS / 1000 + " s", onEnd);
+						return;
+					}
+					iwAt = now + 250;
+				}
+				default -> {
+				}
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.error("[origin-smoke] in-world step {} threw", iw, t);
+			inWorldEnd(mc, false, "step " + iw + " threw " + t, onEnd);
+		}
+	}
+
+	private static void inWorldEnd(Minecraft mc, boolean pass, String reason, Runnable onEnd) {
+		iwDone = true;
+		try {
+			if (iwLimitUnfocused != null) {
+				Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", iwLimitUnfocused);
+			}
+		} catch (Throwable ignored) {
+		}
+		if (pass) {
+			log("[origin-smoke] in-world: PASS");
+		} else {
+			com.origin.client.OriginClient.LOGGER.error("[origin-smoke] in-world: FAIL {}", reason);
+		}
+		try {
+			onEnd.run();
+		} finally {
+			mc.stop();
+		}
+	}
+
 	private static void grab(Minecraft mc, String dir, String name) {
-		before = OriginDevShots.pngs();
+		before = pngsIn(dir);
 		renameTries = 0;
 		pending = name;
 		Screenshot.grab(new File(dir), mc.gameRenderer.mainRenderTarget(), c -> {
 		});
 	}
 
+	/** The PNGs in {@code dir}/screenshots (the world set passes OriginDevShots' DIR; boot-smoke's in-world step its own dir). */
+	private static Set<String> pngsIn(String dir) {
+		Set<String> out = new HashSet<>();
+		String[] names = new File(dir, "screenshots").list();
+		if (names != null) {
+			for (String n : names) {
+				if (n.endsWith(".png")) {
+					out.add(n);
+				}
+			}
+		}
+		return out;
+	}
+
 	/** Renames the pending capture's new PNG to its shot name; false while it isn't written yet. */
 	private static boolean finishGrab(String dir) throws java.io.IOException {
 		String fresh = null;
-		for (String n : OriginDevShots.pngs()) {
+		for (String n : pngsIn(dir)) {
 			if (!before.contains(n)) {
 				fresh = n;
 			}

@@ -195,9 +195,6 @@ public final class OriginScreenRenderer {
 
 	private static void renderLoading0(GuiGraphicsExtractor guiGraphics, float progress, boolean drive) {
 		ensureLoaded();
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
 		float clamped = Math.max(0f, Math.min(1f, progress));
 
 		double scene = SceneClock.sceneMs();
@@ -214,11 +211,9 @@ public final class OriginScreenRenderer {
 			// loader's worth per frame now, so the title's first frames don't.
 			com.origin.client.client.OriginAssets.uploadSlice();
 		}
-		// The splash's own backdrop (solid near-black with a soft centre lift), then
-		// the one loading picture (1.21.1's LoadingLook): the real logo, the capsule
-		// bar and the stage line with the reload's real percentage, in the boot font.
-		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.CLEAN_BG));
-		drawCenterLift(guiGraphics, w, h, 0.05f);
+		// The one loading picture (1.21.1's LoadingLook): the opaque flat backdrop, the real
+		// logo, the capsule bar and the stage line with the reload's real percentage, in the
+		// boot font. No centre lift: the backdrop is one flat colour (the parity spec).
 		LoadingLook.draw(guiGraphics, layerAlpha, loadFill, startupCaption(loadFill), true);
 	}
 
@@ -272,8 +267,9 @@ public final class OriginScreenRenderer {
 
 	/**
 	 * Full-screen loading/progress scene for the world-load screens
-	 * (LevelLoadingScreen, ProgressScreen, GenericMessageScreen): the panorama
-	 * backdrop, the logo, the screen's title and a thin bar. Drawn as a
+	 * (LevelLoadingScreen, ProgressScreen, GenericMessageScreen): the one loading
+	 * picture over an opaque flat backdrop (the parity spec: never the world or a
+	 * panorama showing through), the screen's title as the caption. Drawn as a
 	 * HEAD-cancel takeover of the screen's render pass, so it replaces vanilla's
 	 * chunk map / progress clutter with one clean Origin scene. Without a real
 	 * measure the bar sweeps.
@@ -301,29 +297,21 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	// True from the moment the background pass drew a loading scene's backdrop
-	// until that scene's render pass consumes it: the backdrop (panorama +
-	// blur) is drawn ONCE per frame. Drawing the panorama twice would double its
-	// spin speed, and a second blur throws in this era.
-	private static boolean loadingBackdropDrawn;
-
 	/**
 	 * A loading scene's backdrop, from the screen's background pass
-	 * (ScreenBackgroundMixin / LevelLoadingScreenMixin): this version's panorama,
-	 * blurred and dimmed, or solid near-black if the panorama can't draw. False
-	 * (keep vanilla's) only when Origin rendering is off or this draw fails.
+	 * (ScreenBackgroundMixin / LevelLoadingScreenMixin): flat opaque color.bg (the
+	 * parity spec: no panorama, no blur, no world). The render pass's LoadingLook
+	 * draws the same fill again under the picture, so this only keeps vanilla's
+	 * own backdrop (dirt / blurred world) from ever showing. False (keep vanilla's)
+	 * only when Origin rendering is off or this draw fails.
 	 */
 	public static boolean renderLoadingBackdrop(net.minecraft.client.gui.screens.Screen screen, GuiGraphicsExtractor g, float partialTick) {
 		if (broken) {
 			return false;
 		}
 		try {
-			ensureLoaded();
-			if (!backdrop(screen, g, partialTick, true, OriginTheme.CLEAN_DIM_LOADING)) {
-				Minecraft mc = Minecraft.getInstance();
-				g.fill(0, 0, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), OriginTheme.CLEAN_BG);
-			}
-			loadingBackdropDrawn = true;
+			Minecraft mc = Minecraft.getInstance();
+			g.fill(0, 0, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), OriginTheme.CLEAN_BG);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -339,18 +327,7 @@ public final class OriginScreenRenderer {
 	private static void renderLoadingScene0(GuiGraphicsExtractor guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
-
-		// This version's own panorama, blurred and dimmed (the background pass
-		// normally drew it already this frame; a screen whose background pass Origin
-		// doesn't own -- GenericMessageScreen draws its whole scene there -- draws it
-		// here), then the one loading picture (LoadingLook) with the stage caption.
-		if (loadingBackdropDrawn) {
-			loadingBackdropDrawn = false;
-		} else if (!backdrop(mc.gui.screen(), guiGraphics, mc.getDeltaTracker().getRealtimeDeltaTicks(), true, OriginTheme.CLEAN_DIM_LOADING)) {
-			guiGraphics.fill(0, 0, w, h, OriginTheme.CLEAN_BG);
-		}
+		// The one loading picture (LoadingLook: opaque flat backdrop, logo, bar) with the stage caption.
 
 		// The fill glides to each new count and only moves forward within one world
 		// load; it sweeps until the load's first measured stage (LoadBar.scene).
@@ -392,12 +369,13 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Connecting to a server: the same loading picture as the other screens (the
-	 * logo at 44 %, the bar sweeping: no real measure), the connection status as its
-	 * caption. ConnectScreenMixin hides vanilla's status line and calls this at TAIL,
-	 * over the menu backdrop (ScreenBackgroundMixin); the screen's Cancel button is
-	 * seated below the picture ({@link #connectCancelTop}). False when Origin
-	 * rendering is off or this draw fails (the mixin then keeps vanilla's status line).
+	 * Connecting to a server or to a realm: the same loading picture as the other
+	 * screens (the opaque backdrop, the logo at 44 %, the bar sweeping: no real measure),
+	 * the connection status / task title as its caption. ConnectScreenMixin and
+	 * RealmsTaskScreenMixin call this from the screen's background pass
+	 * (extractBackground), so the screen's own Cancel draws over it in the next stratum;
+	 * Cancel is seated below the picture ({@link #connectCancelTop}). False when Origin
+	 * rendering is off or this draw fails (the mixin then keeps vanilla's backdrop and text).
 	 */
 	public static boolean renderConnecting(GuiGraphicsExtractor guiGraphics, net.minecraft.network.chat.Component status) {
 		if (broken) {
@@ -416,15 +394,18 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** A loading screen's Cancel width (GUI px): about the caption's own width, so the button sits with the
+	 *  picture instead of spanning past it (1.21.1, judge 2026-10-27: a 200 px slab under a 200 design px bar). */
+	public static final int LOADING_CANCEL_W = 120;
+
 	/**
-	 * Where Connecting's Cancel button goes (GUI px, its top edge): at 62 % of the height (1.21.1,
-	 * A-Workbench-3), and always at least 12 GUI px under the loading picture's caption, so the
-	 * picture never has to move for it; kept 8 GUI px clear of the bottom when the window allows.
+	 * Where a loading screen's Cancel goes (GUI px, its top edge): one picture step (the logo-to-bar gap,
+	 * LoadingLook.stepGui) under the caption, so logo, bar, caption and Cancel share one rhythm and the
+	 * picture never moves for it; kept 8 GUI px clear of the bottom when the window allows (1.21.1).
 	 */
 	public static int connectCancelTop(int screenH, int buttonH) {
-		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
-		int top = (int) Math.max(Math.round(screenH * 0.62) - buttonH / 2, Math.ceil(clearOfPicture));
-		return Math.max(0, Math.min(top, screenH - buttonH - 8));
+		double top = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + LoadingLook.stepGui();
+		return Math.max(0, Math.min((int) Math.ceil(top), screenH - buttonH - 8));
 	}
 
 	private static net.minecraft.network.chat.Component connectStatus;
@@ -677,16 +658,6 @@ public final class OriginScreenRenderer {
 	 */
 	private static void drawWordmarkText(GuiGraphicsExtractor g, double cx, double baseline, int argb) {
 		bootText(g, "ORIGIN", cx, baseline - 14, 2f, 3, argb, 0.5f);
-	}
-
-	/** A barely-there radial lift behind the centre (the splash's "soft centre lift"). */
-	private static void drawCenterLift(GuiGraphicsExtractor g, int w, int h, float alpha) {
-		if (radialGlowId == null) {
-			return;
-		}
-		int d = (int) Math.round(Math.max(w, h) * 0.9);
-		g.blit(RenderPipelines.GUI_TEXTURED, radialGlowId, (w - d) / 2, (int) Math.round(h * 0.44 - d / 2.0),
-				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, ARGB.white(alpha * layerAlpha));
 	}
 
 	/**

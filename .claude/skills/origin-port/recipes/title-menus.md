@@ -39,6 +39,7 @@ ScreenBackgroundMixin, ScreenInvoker. "Proven" means CI and review passed (clean
 - Baked head: 1.16.5 `TextureManager.getTexture` returns null until `bind()`; 26.x bakes on the CPU via `DynamicTexture.getPixels()` (skin id `PlayerSkin.body().texturePath()`; `TextureManager.register` closes the old texture).
 - Press state: `MouseHandler.isLeftPressed()` on 1.21.6+ and 26.x.
 - 26.3 dev-shots: opening a screen resyncs the cursor to the real Xvfb pointer; put it back after each setScreen or a stray hover lands in the shot.
+- **Dark title buttons, 26.x (2026-10-27):** big buttons blit vanilla's own `widget/button` / `button_disabled` / `button_highlighted` sprites (the jar's dark widget art overrides them) with `GuiGraphicsExtractor.blitSprite(RenderPipelines.GUI_TEXTURED, id, x, y, w, h, argb)` + `centeredText(font, msg, cx, y, argb)`; dock glyphs from `title_icons.png` via `blit(GUI_TEXTURED, id, x, y, u, v, w, h, texW, texH, argb)`. The vanilla social bubble is `toast/social_interactions` on 26.1.2 but `pause_menu/social_interactions` on 26.2/26.3 (same 20x20 art; unzipped jars). RenderPipelines package: `com.mojang.blaze3d.pipeline` 26.1/26.2, `com.mojang.renderpearl.api.pipeline` 26.3 (RenderPipelines itself stays `net.minecraft.client.renderer`).
 - Write the footer middle dot as `·` (sources stay ASCII). Normalize CRLF before diff3-merging a donor file.
 
 ## Dark title buttons + icon dock (2026-10-27, G1/G2 1.20-1.21; javap-proven)
