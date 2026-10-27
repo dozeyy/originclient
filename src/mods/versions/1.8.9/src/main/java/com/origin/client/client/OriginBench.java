@@ -134,7 +134,16 @@ public final class OriginBench {
 	 * "pause": the Esc menu over the world, i.e. Menu Blur's "pause" kind; "pvp-ui": the inventory opened
 	 * for 1 s and closed for 1 s, over and over, as in a PvP refill -- Menu Blur's open/close cost).
 	 */
-	private static final String[] EXTRA_SCENARIOS = {"players", "cosmetics", "pause", "pvp-ui"};
+	private static final String[] EXTRA_SCENARIOS = {"players", "cosmetics", "pause", "pvp-ui", "hudedit"};
+	// "hudedit": every HUD element on, the HUD editor open over the world and reopened every 5 s, with one
+	// synthetic mouse event per rendered frame (no OS input): 2 s dragging Coords in a loop, then 2 s
+	// resizing Keystrokes by its handle. Positions/scales are put back at teardown.
+	private boolean editDrive = false;
+	private int editMode = 0;   // 0 idle, 1 moving, 2 resizing
+	private long editCycleStart = 0, editorEvents = 0, editorOpens = 0;
+	private double editGx, editGy, editFx, editFy, editLx, editLy;
+	private final Map<String, double[]> savedHud = new LinkedHashMap<>();
+	private long polls0, saves0, events0;
 	private static final int FAKE_PLAYERS = (int) num("origin.bench.players", 16);
 	private final List<net.minecraft.client.entity.EntityOtherPlayerMP> fakes = new ArrayList<>();
 	private Map<Object, Object> fakeInfoMap;
@@ -212,6 +221,9 @@ public final class OriginBench {
 		if (PROBE && scenarios.remove("hud")) {
 			warnings.add("probe run (Origin inert): the hud scene needs Origin's HUD and was skipped");
 		}
+		if (PROBE && scenarios.remove("hudedit")) {
+			warnings.add("probe run (Origin inert): the hudedit scene needs Origin's HUD editor and was skipped");
+		}
 	}
 
 	// ======================================================================
@@ -220,7 +232,19 @@ public final class OriginBench {
 
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent e) {
-		if (e.phase != TickEvent.Phase.START || !recording) {
+		if (e.phase != TickEvent.Phase.START) {
+			return;
+		}
+		if (editDrive) {
+			try {
+				driveEditorFrame(Minecraft.getMinecraft(), System.nanoTime());
+			} catch (Throwable t) {
+				editDrive = false;
+				warnings.add("hudedit driver stopped: " + t);
+				com.origin.client.OriginClient.LOGGER.error("[origin-bench] hudedit driver failed", t);
+			}
+		}
+		if (!recording) {
 			return;
 		}
 		long now = System.nanoTime();
@@ -398,7 +422,16 @@ public final class OriginBench {
 
 	private void setupScenario(Minecraft mc, String sc) throws Exception {
 		mc.ingameGUI.getChatGUI().clearChatMessages();
-		if (sc.equals("hud")) {
+		if (sc.equals("hudedit")) {
+			savedHud.clear();
+			for (HudElements.Element el : HudElements.ALL) {
+				double[] v = com.origin.client.client.mods.ModsConfigAccess.hud(el.id());
+				savedHud.put(el.id(), v == null ? null : v.clone());
+			}
+			editMode = 0;
+			editDrive = true;   // driveScenario opens the editor on its first tick
+		}
+		if (sc.equals("hud") || sc.equals("hudedit")) {
 			// Every Origin HUD element's mod on, plus the FPS readout's frame-time extras.
 			for (HudElements.Element el : HudElements.ALL) {
 				String id = el.modId();
@@ -424,7 +457,19 @@ public final class OriginBench {
 	}
 
 	private void teardownScenario(Minecraft mc, String sc) {
-		if (sc.equals("hud")) {
+		if (sc.equals("hudedit")) {
+			editDrive = false;
+			mc.displayGuiScreen(null);
+			for (Map.Entry<String, double[]> en : savedHud.entrySet()) {
+				if (en.getValue() == null) {
+					com.origin.client.client.mods.ModsConfigAccess.resetHud(en.getKey());
+				} else {
+					com.origin.client.client.mods.ModsConfigAccess.putHud(en.getKey(), en.getValue());
+				}
+			}
+			savedHud.clear();
+			restoreMods();
+		} else if (sc.equals("hud")) {
 			restoreMods();
 		} else if (sc.equals("menu") || sc.equals("pause") || sc.equals("pvp-ui")) {
 			mc.displayGuiScreen(null);
@@ -560,6 +605,17 @@ public final class OriginBench {
 			mc.displayGuiScreen(new GuiContainerCreative(mc.thePlayer));
 		} else if (sc.equals("pause") && !(mc.currentScreen instanceof GuiIngameMenu)) {
 			mc.displayGuiScreen(new GuiIngameMenu());
+		} else if (sc.equals("hudedit")) {
+			// a fresh editor every 5 s (the open path is part of what the player feels)
+			if (scenarioTick % 100 == 1 || !(mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen)) {
+				if (editMode != 0 && mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen) {
+					((com.origin.client.client.hud.HudEditorScreen) mc.currentScreen).mouseReleased(editLx, editLy, 0);
+				}
+				editMode = 0;
+				mc.displayGuiScreen(new com.origin.client.client.hud.HudEditorScreen());
+				editCycleStart = System.nanoTime();
+				editorOpens++;
+			}
 		} else if (sc.equals("pvp-ui")) {
 			// 20 ticks open, 20 closed: a new inventory screen every 2 s (a refill), the world running throughout
 			boolean open = (scenarioTick / 20) % 2 == 0;
@@ -570,6 +626,102 @@ public final class OriginBench {
 				mc.displayGuiScreen(null);
 			}
 		}
+	}
+
+	/**
+	 * hudedit, once per rendered frame: one synthetic mouse event straight into the editor's handlers (what a
+	 * real mouse delivers once input is read every frame). 0.2-2.2 s of each 5 s cycle: Coords dragged round a
+	 * loop that ends where it started; 2.4-4.4 s: Keystrokes resized by its handle out to 1.4x and back.
+	 */
+	private void driveEditorFrame(Minecraft mc, long now) {
+		if (!(mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen)) {
+			return;
+		}
+		com.origin.client.client.hud.HudEditorScreen s = (com.origin.client.client.hud.HudEditorScreen) mc.currentScreen;
+		double t = (now - editCycleStart) / 1e9;
+		if (t >= 0.2 && t < 2.2) {
+			if (editMode != 1) {
+				double[] b = editorBox(mc, s, "coords");
+				if (b == null) {
+					return;
+				}
+				editGx = b[0] + b[2] / 2;
+				editGy = b[1] + b[3] / 2;
+				editLx = editGx;
+				editLy = editGy;
+				s.mouseClicked(editGx, editGy, 0);
+				editMode = 1;
+				editorEvents++;
+			}
+			double a = (t - 0.2) / 2.0 * 2 * Math.PI;
+			editorMove(s, editGx + 60 * Math.sin(a), editGy + 30 * (1 - Math.cos(a)));
+			return;
+		}
+		if (editMode == 1) {
+			s.mouseReleased(editGx, editGy, 0);
+			editorEvents++;
+			editMode = 0;
+		}
+		if (t >= 2.4 && t < 4.4) {
+			if (editMode != 2) {
+				HudElements.Element el = null;
+				for (HudElements.Element x : HudElements.ALL) {
+					if (x.id().equals("keystrokes")) {
+						el = x;
+					}
+				}
+				double[] b = editorBox(mc, s, "keystrokes");
+				if (b == null || el == null) {
+					return;
+				}
+				int anchor = el.pos().anchor;
+				boolean freeLeft = anchor % 3 == 2, freeTop = anchor / 3 == 2;
+				// the editor's handle: a 5 px square in the outline's free corner (outline = box + 4 px)
+				double hx = freeLeft ? b[0] - 4 + 2.5 : b[0] + b[2] + 4 - 2.5;
+				double hy = freeTop ? b[1] - 4 + 2.5 : b[1] + b[3] + 4 - 2.5;
+				editFx = freeLeft ? b[0] + b[2] : b[0];
+				editFy = freeTop ? b[1] + b[3] : b[1];
+				editGx = hx;
+				editGy = hy;
+				editLx = hx;
+				editLy = hy;
+				s.mouseClicked(hx, hy, 0);
+				editMode = 2;
+				editorEvents++;
+			}
+			double f = 1 + 0.4 * Math.sin(Math.PI * (t - 2.4) / 2.0);
+			editorMove(s, editFx + (editGx - editFx) * f, editFy + (editGy - editFy) * f);
+			return;
+		}
+		if (editMode == 2) {
+			s.mouseReleased(editLx, editLy, 0);
+			editorEvents++;
+			editMode = 0;
+		}
+	}
+
+	private void editorMove(com.origin.client.client.hud.HudEditorScreen s, double x, double y) {
+		s.mouseDragged(x, y, 0, x - editLx, y - editLy);
+		editLx = x;
+		editLy = y;
+		editorEvents++;
+	}
+
+	/** {x, y, w, h} of an element's box in GUI px as the editor places it, or null when it has nothing to show. */
+	private static double[] editorBox(Minecraft mc, net.minecraft.client.gui.GuiScreen s, String id) {
+		for (HudElements.Element el : HudElements.ALL) {
+			if (!el.id().equals(id)) {
+				continue;
+			}
+			com.origin.client.client.hud.HudPos pos = el.pos();
+			int[] size = el.measure().apply(mc);
+			if (size[0] <= 0 || size[1] <= 0) {
+				return null;
+			}
+			double w = size[0] * pos.scale, h = size[1] * pos.scale;
+			return new double[]{pos.x(s.width, w), pos.y(s.height, h), w, h};
+		}
+		return null;
 	}
 
 	/** The fixed camera of the static scenes: above spawn, looking south-east and a little down. */
@@ -633,6 +785,9 @@ public final class OriginBench {
 		if (BenchProf.ON) {
 			BenchProf.start();   // calibrates its own timer first (a few ms), then opens its window
 		}
+		polls0 = com.origin.client.client.gui.OriginScreen.inputPolls;
+		saves0 = com.origin.client.client.mods.ModsConfig.saveCount;
+		events0 = editorEvents;
 		lastFrame = 0;
 		recordStart = System.nanoTime();
 		recordEndAt = recordStart + (long) (DURATION_S * 1e9);
@@ -697,6 +852,12 @@ public final class OriginBench {
 			r.addProperty("gcPauseMaxMs", pauseMax);
 		}
 		r.addProperty("renderThreadAllocMbPerSec", alloc < 0 ? -1 : round(alloc / 1048576.0 / (wall / 1e9), 2));
+		// Origin screens only: how often the open screen read its input queue (vanilla 1.8.9 reads it in
+		// runTick, 20/s), synthetic editor events delivered, and settings-file writes, all per second.
+		double ws = wall / 1e9;
+		r.addProperty("screenInputPollsPerSec", round((com.origin.client.client.gui.OriginScreen.inputPolls - polls0) / ws, 1));
+		r.addProperty("editorEventsPerSec", round((editorEvents - events0) / ws, 1));
+		r.addProperty("configSavesPerSec", round((com.origin.client.client.mods.ModsConfig.saveCount - saves0) / ws, 1));
 		r.addProperty("unfocusedTicks", unfocusedTicks);
 		r.addProperty("cameraOffTicks", cameraResets);
 		r.addProperty("truncated", truncated);

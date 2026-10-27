@@ -189,8 +189,29 @@ public abstract class OriginScreen extends GuiScreen {
 		}
 	}
 
+	/** How many times an Origin screen drained its input queue (bench: input samples per second). Render thread. */
+	public static long inputPolls;
+
+	@Override
+	public void handleInput() throws IOException {
+		inputPolls++;
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_SCREEN_INPUT);
+		}
+		try {
+			super.handleInput();
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_SCREEN_INPUT);
+			}
+		}
+	}
+
 	@Override
 	public final void drawScreen(int mouseX, int mouseY, float partialTicks) {
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_SCREEN_RENDER);
+		}
 		Gfx g = new Gfx();
 		try {
 			render(g, mouseX, mouseY, partialTicks);
@@ -199,6 +220,9 @@ public abstract class OriginScreen extends GuiScreen {
 		} finally {
 			g.pose().popAll();
 			g.disableScissor();
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_SCREEN_RENDER);
+			}
 		}
 	}
 

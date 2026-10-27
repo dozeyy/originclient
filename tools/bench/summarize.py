@@ -286,6 +286,7 @@ def require_valid(agg):
         want = set(expected)
         if v["environment"].get("originActive") is False:
             want.discard("hud")   # the OptiFine-only probe skips hud on purpose (no Origin HUD to draw)
+            want.discard("hudedit")   # ... and the HUD editor scene (no Origin screens)
         missing = sorted(want - set(v["scenes"]))
         if missing:
             problems.append("%s has no valid run of: %s (left out as invalid: %s)"

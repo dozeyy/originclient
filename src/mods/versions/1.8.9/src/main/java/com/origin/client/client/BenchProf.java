@@ -114,6 +114,11 @@ public final class BenchProf {
 	public static final int S_MM_COLOUR = section("minimap: colour + upload (chunk changed)");
 	public static final int S_MM_DRAWMAP = section("minimap: drawMap (geometry)");
 	public static final int S_MM_INFO = section("minimap: info lines + box");
+	// Origin screens (bench scene hudedit): the whole drawScreen of any OriginScreen, the screen's input
+	// drain (GuiScreen.handleInput: every queued mouse/key event), and the settings file write.
+	public static final int S_SCREEN_RENDER = section("screen OriginScreen.drawScreen (Origin screens)");
+	public static final int S_SCREEN_INPUT = section("screen OriginScreen.handleInput (input drain)");
+	public static final int S_CONFIG_SAVE = section("ModsConfig.save (serialize + disk write)");
 
 	private static volatile boolean active = false;
 	private static com.sun.management.ThreadMXBean threads;
