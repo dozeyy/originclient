@@ -25,12 +25,12 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - 1.21.1 ships Sodium 0.8 by default (Will's own mods need it); Origin Render (experimental terrain culler, Sodium 0.6 only) stays removed (2026-10-26).
 
 ## Look
-- Vanilla screens (pause, options, world select, every other Minecraft menu) use Origin's own DARK buttons in the Default Dark Mode look, drawn by Origin (`tools/dark-widgets/make_widgets.py`; that pack is CC BY-NC-SA, never copied) and built into the jar, never a resource pack in the pack list. Origin's title buttons keep their own card look in the same charcoal. Origin's widget skin stays only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-10-26).
+- Vanilla screens (pause, options, world select, every other Minecraft menu) use Origin's own DARK buttons in the Default Dark Mode look, drawn by Origin (`tools/dark-widgets/make_widgets.py`; that pack is CC BY-NC-SA, never copied) and built into the jar, never a resource pack in the pack list. The title screen's buttons are those same dark Minecraft buttons with Minecraft's font, words only (2026-10-27). Origin's widget skin stays only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-10-26).
 - Title-screen panoramas: each version's own landscape showing that update's content, daytime, shaders on, rendered in CI and shipped in the jar (2026-10-26).
 - Sodium's translations (Translations for Sodium, CC0) ship built into the jar, never as a resource pack (2026-10-26).
 - In-game text is Minecraft's own font everywhere; no Inter/Space Grotesk/MSDF in game; no hand-rolled glyph rendering (2026-07-08, re-confirmed 2026-09-09).
-- Exception (2026-10-25, Will approved the Workbench mockup and asked to "fix the font on the middle"): Origin's own title-screen text (buttons, player name, footer) uses Inter via the MSDF font; every other in-game text stays Minecraft's font.
-- In-game title dock icons are not coloured: same Workbench card colours and states as the title buttons, parchment glyphs (2026-10-25).
+- Exception (2026-10-25, Will approved the Workbench mockup and asked to "fix the font on the middle"): Origin's own title-screen text (player name, footer) uses Inter via the MSDF font; every other in-game text stays Minecraft's font.
+- Title dock: 20 px dark Minecraft buttons with premade open-licence pixel icons in white (HackerNoon crown = Cosmetics, Teenyicons server rack = Realms, Kenney X = Quit; credits ship in the jar), centred like vanilla's icon buttons; Friends is vanilla's chat bubble, Language and Accessibility stay vanilla's own. Never hand-drawn icons (2026-10-27).
 - Ring/orbit/oval shapes exist ONLY inside the real logo PNG. Anywhere a drawn lookalike stood for the logo (title, loading, reload, connecting screens, any version), show `origin_logo.png` itself; loading progress is a plain capsule bar. No hover labels on the title dock icons (they look like extra buttons) (2026-10-25).
 - 26.2+ title dock keeps Mojang's own Friends button with the single-person glyph (Origin's Friends keeps the two-person glyph) (2026-10-25).
 - Workbench design system (`docs/overhaul/DESIGN-SYSTEM.md`): neutral base, small soft-hued accents, never big colour fills; Home version numeral stays neutral (2026-10-25).
@@ -67,4 +67,5 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - 2026-10-13 "website judge >= 9/10 before every publish" vs 2026-10-25 "judges only on overhaul/redesign work": small website fixes ship without a judge round.
 - CLAUDE.md "ask whatever clarifying questions" / "plain-English summary after every change" replaced 2026-10-25 by 1-3 clickable questions and the Field Report one-line done.
 - 2026-08-23 "vanilla screens use STOCK Minecraft buttons" vs 2026-10-26 "change all the UI buttons besides the main menu custom ones to the default dark mode ones": 2026-10-26 wins; vanilla screens get Origin's dark buttons.
+- 2026-10-25 Workbench card title buttons with Inter labels and parchment dock glyphs vs 2026-10-27 "the exact vanilla dark buttons", premade dock icons: 2026-10-27 wins.
 - Palette history (Aurora -> Slate -> Ion Jade -> Workbench, 2026-09-03 to 2026-09-09): Workbench is current.
