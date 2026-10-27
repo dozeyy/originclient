@@ -229,7 +229,7 @@ public class TitleScreenMixin {
 		if (line == null) {
 			// Built once: the game version never changes while the screen lives. 26.x: WorldVersion.name().
 			originclient$footerVersion = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().name();
-			line = originclient$footerVersion + " 00B7 Origin";   // middle dot, escaped: sources stay ASCII
+			line = originclient$footerVersion + " \u00B7 Origin";   // middle dot, escaped: sources stay ASCII
 			originclient$footerLine = line;
 		}
 		int top = ((Screen) (Object) this).height - TitleLayout.FOOTER_TOP;
