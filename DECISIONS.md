@@ -56,6 +56,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Never open Minecraft (runClient, boot-smoke) on Will's PC: in-game proof comes from CI dev-shots / boot-smoke on a pushed `claude/<name>` branch (2026-10-18).
 - The only local runs: launcher `OriginLauncher.App.exe --render-shots <scratch dir>` and installer `OriginSetup.exe --render-tour <scratch dir>` (made-up data, no clicks, exit by themselves). No session runs the launcher or installer interactively (2026-10-25).
 - Never touch `%LocalAppData%\OriginLauncher` (Will's live data) without his go — that includes an interactive launcher run (gate list).
+- Title panoramas are rendered on Will's PC in a separate dev copy (never his Origin folder): Complementary + Voxy/far terrain, camera on the ground, open view all round; for that job Minecraft may open and the mouse may be used (Will, 2026-10-27).
 - Never move Will's mouse cursor, not even onto a window Claude launched (SetCursorPos in a render-shots timing run; Will: "stop touching my mouse", 2026-10-26).
 - Never click or type into a window an agent didn't launch (an agent's clicks once landed in his FL Studio project, 2026-10-18).
 - CI trap: dev-shots can report success with 0 shots — count the PNGs (2026-10-18).
