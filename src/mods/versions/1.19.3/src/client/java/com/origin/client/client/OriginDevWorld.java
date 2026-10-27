@@ -727,6 +727,166 @@ final class OriginDevWorld {
 		return false;
 	}
 
+	// ---- In-world smoke step (boot-smoke + the dev-shots design set), ported from 1.21.1 ----
+	// The screen sets never enter a world, so a mod that boots to the title and then breaks the moment a
+	// world loads (HUD, mod menu over a world, Save and Quit) passed every gate. This is the one in-world
+	// route both gates share, turned on per module by "inworld": true in src/mods/live-modules.json:
+	//   boot-smoke.yml -> smoke.py --inworld DIR -> env ORIGIN_SMOKE_WORLD=DIR (OriginClientMod.onEndTick)
+	//   dev-shots.yml design set -> env ORIGIN_INWORLD=1 (OriginDevShots.finish hands over to it)
+	// Steps, each with a deadline: make (or reopen) a flat test world straight through this era's world API
+	// (no button pressing: the world set's label route stays its own), wait until Origin's HUD has really drawn
+	// (HudElements.passes climbing), shoot it, open the Mod Menu over the world, shoot it, Save and Quit
+	// back to the title. One verdict line, gated by smoke.py and check_shots.py:
+	//   [origin-smoke] in-world: PASS      or      [origin-smoke] in-world: FAIL <reason>
+	// A throw or a missed deadline is a FAIL, never a hang. It always ends with onEnd + mc.stop().
+	// Java 8 syntax on purpose: the same block compiles on 1.16.5.
+	static final String SMOKE_WORLD = "origin-smoke";
+	private static final long IW_LOAD_MS = 240_000, IW_QUIT_MS = 90_000;
+	private static int iw = 0;
+	private static long iwAt = 0, iwFrom = 0, iwHudFrom = -1, iwHudAt = 0;
+	private static Boolean iwLimitUnfocused;
+	private static boolean iwDone;
+
+	static void inWorldTick(Minecraft mc, String dir, Runnable onEnd) {
+		if (iwDone) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now < iwAt) {
+			return;
+		}
+		try {
+			switch (iw) {
+				case 0: {
+					log("[origin-smoke] in-world: starting (" + (mc.getLevelSource().levelExists(SMOKE_WORLD) ? "reopening" : "creating")
+							+ " flat world '" + SMOKE_WORLD + "')");
+					// Xvfb has no window manager, so the window is never "active": with Limit Unfocused FPS on,
+					// Origin's HUD skips itself (FrameWatch.idle). Off for the step, restored at the end.
+					iwLimitUnfocused = Mods.bool(Mods.PERFORMANCE_ID, "limitUnfocusedFps");
+					Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", false);
+					if (mc.getWindow().getWidth() < 1280) {
+						mc.getWindow().setWindowed(1280, 720);   // boot-smoke's 854x480 default is too small to read
+					}
+					net.minecraft.client.gui.screens.worldselection.WorldOpenFlows flows = mc.createWorldOpenFlows();
+					if (mc.getLevelSource().levelExists(SMOKE_WORLD)) {
+						flows.loadLevel(new TitleScreen(), SMOKE_WORLD);
+					} else {
+						net.minecraft.world.level.LevelSettings settings = new net.minecraft.world.level.LevelSettings("Origin Smoke",
+								net.minecraft.world.level.GameType.SURVIVAL, false, net.minecraft.world.Difficulty.PEACEFUL, true,
+								new net.minecraft.world.level.GameRules(), net.minecraft.world.level.WorldDataConfiguration.DEFAULT);
+						// javap (1.19.3/1.19.4): createFreshLevel(String, LevelSettings, WorldOptions, Function<RegistryAccess, WorldDimensions>)
+						flows.createFreshLevel(SMOKE_WORLD, settings, new net.minecraft.world.level.levelgen.WorldOptions(20261027L, false, false),
+								ra -> ra.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+										.getHolderOrThrow(net.minecraft.world.level.levelgen.presets.WorldPresets.FLAT)
+										.value().createWorldDimensions());
+					}
+					iw = 1;
+					iwFrom = now;
+					break;
+				}
+				case 1: {
+					if (now - iwFrom > IW_LOAD_MS) {
+						inWorldEnd(mc, false, "world not playable after " + IW_LOAD_MS / 1000 + " s (screen: "
+								+ (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName()) + ", player: "
+								+ (mc.player != null) + ", HUD passes: " + com.origin.client.client.hud.HudElements.passes + ")", onEnd);
+						return;
+					}
+					if (mc.screen instanceof PauseScreen) {
+						mc.setScreen(null);   // lost focus under Xvfb
+					}
+					if (mc.level == null || mc.player == null || mc.screen != null) {
+						iwAt = now + 250;
+						return;
+					}
+					if (iwHudFrom < 0) {
+						iwHudFrom = com.origin.client.client.hud.HudElements.passes;
+						iwHudAt = now;
+						log("[origin-smoke] in-world: world loaded after " + (now - iwFrom) / 1000 + " s");
+					}
+					long passes = com.origin.client.client.hud.HudElements.passes - iwHudFrom;
+					if (passes < 60 || now - iwHudAt < 8000) {
+						iwAt = now + 250;   // 60 real HUD frames, and 8 s for the spawn chunks to draw
+						return;
+					}
+					grab(mc, dir, "inworld_hud_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					log("[origin-smoke] in-world: HUD up (" + passes + " HUD passes)");
+					iw = 2;
+					iwAt = now + 1500;
+					break;
+				}
+				case 2: {
+					mc.setScreen(new com.origin.client.client.gui.OriginModMenuScreen());
+					iw = 3;
+					iwAt = now + 2500;
+					break;
+				}
+				case 3: {
+					if (!(mc.screen instanceof com.origin.client.client.gui.OriginModMenuScreen)) {
+						inWorldEnd(mc, false, "mod menu did not open over the world (screen: "
+								+ (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName()) + ")", onEnd);
+						return;
+					}
+					grab(mc, dir, "inworld_modmenu_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					log("[origin-smoke] in-world: mod menu open");
+					iw = 4;
+					iwAt = now + 1500;
+					break;
+				}
+				case 4: {
+					// Vanilla's Save and Quit (PauseScreen's disconnect path, javap: ClientLevel.disconnect, then
+					// Minecraft.clearLevel(Screen), which blocks until the integrated server has saved), then the title.
+					mc.setScreen(null);
+					if (mc.level != null) {
+						mc.level.disconnect();
+					}
+					mc.clearLevel(new net.minecraft.client.gui.screens.GenericDirtMessageScreen(net.minecraft.network.chat.Component.translatable("menu.savingLevel")));
+					mc.setScreen(new TitleScreen());
+					iw = 5;
+					iwFrom = now;
+					break;
+				}
+				case 5: {
+					if (mc.level == null && mc.getSingleplayerServer() == null && mc.screen instanceof TitleScreen) {
+						log("[origin-smoke] in-world: quit clean (saved, back on the title)");
+						inWorldEnd(mc, true, "", onEnd);
+						return;
+					}
+					if (now - iwFrom > IW_QUIT_MS) {
+						inWorldEnd(mc, false, "Save and Quit did not reach the title in " + IW_QUIT_MS / 1000 + " s", onEnd);
+						return;
+					}
+					iwAt = now + 250;
+					break;
+				}
+				default:
+					break;
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.error("[origin-smoke] in-world step {} threw", iw, t);
+			inWorldEnd(mc, false, "step " + iw + " threw " + t, onEnd);
+		}
+	}
+
+	private static void inWorldEnd(Minecraft mc, boolean pass, String reason, Runnable onEnd) {
+		iwDone = true;
+		try {
+			if (iwLimitUnfocused != null) {
+				Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", iwLimitUnfocused);
+			}
+		} catch (Throwable ignored) {
+		}
+		if (pass) {
+			log("[origin-smoke] in-world: PASS");
+		} else {
+			com.origin.client.OriginClient.LOGGER.error("[origin-smoke] in-world: FAIL {}", reason);
+		}
+		try {
+			onEnd.run();
+		} finally {
+			mc.stop();
+		}
+	}
+
 	private static void grab(Minecraft mc, String dir, String name) {
 		Screenshot.grab(new File(dir), name, mc.getMainRenderTarget(), c -> {
 		});

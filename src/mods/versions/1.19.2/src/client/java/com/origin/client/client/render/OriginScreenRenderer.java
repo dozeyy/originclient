@@ -200,12 +200,9 @@ public final class OriginScreenRenderer {
 			// loader's worth per frame now, so the title's first frames don't.
 			com.origin.client.client.OriginAssets.uploadSlice();
 		}
-		// The loading picture (LoadingLook, ported from 1.21.1): near-black with a soft
-		// centre lift, the real Origin logo, the plain capsule bar and the stage line
-		// with the reload's real percentage.
+		// The loading picture (LoadingLook, as 1.21.1): its opaque #0E1110 backdrop, the real
+		// Origin logo, the plain capsule bar and the stage line with the reload's real percentage.
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.CLEAN_BG));
-		drawCenterLift(guiGraphics, w, h, 0.05f);
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);   // the lift's shade() leaves the dissolve in the colour
 		LoadingLook.draw(guiGraphics, layerAlpha, loadFill, startupCaption(loadFill), true);
 	}
@@ -307,11 +304,8 @@ public final class OriginScreenRenderer {
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
 
-		// This version's own panorama, blurred and dimmed, behind the loading picture.
-		// Solid background if the panorama can't draw.
-		if (!backdrop(mc.screen, guiGraphics, mc.getDeltaFrameTime(), true, OriginTheme.CLEAN_DIM_LOADING)) {
-			guiGraphics.fill(0, 0, w, h, OriginTheme.CLEAN_BG);
-		}
+		// One look on every loading screen (Will, 2026-10-27): LoadingLook draws the opaque #0E1110
+		// backdrop itself, so no panorama shows behind the picture.
 
 		// The fill glides to each new count and only moves forward within one world
 		// load; it sweeps until the load's first measured stage (LoadBar.scene).
@@ -352,8 +346,7 @@ public final class OriginScreenRenderer {
 
 	/**
 	 * Connecting to a server: the same loading picture as the other screens, the
-	 * connection status as its caption, over this version's own menu backdrop
-	 * (ScreenBackgroundMixin). ConnectScreenMixin calls this in place of vanilla's
+	 * connection status as its caption, on the picture's own opaque backdrop. ConnectScreenMixin calls this in place of vanilla's
 	 * status line; the screen's own Cancel button draws after it, seated below the
 	 * picture ({@link #connectCancelTop}). The logo sits at exactly the spot every
 	 * other loading screen uses. False when Origin rendering is off or the draw
@@ -383,16 +376,17 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** The loading screens' Cancel (Connecting, Realms): one width everywhere, 120 GUI px (as 1.21.1). */
+	public static final int LOADING_CANCEL_W = 120;
+
 	/**
-	 * Where Connecting's Cancel button goes (GUI px, its top edge): at 62 % of the
-	 * height, and always at least 12 GUI px under the loading picture's caption, so
-	 * the picture never has to move for it; kept 8 GUI px clear of the bottom when
-	 * the window allows (1.21.1's rule).
+	 * Where a loading screen's Cancel goes (GUI px, its top edge): one picture step (LoadingLook.stepGui, the
+	 * logo-to-bar gap) under the caption, so the button reads as part of the picture; kept 8 GUI px clear of the
+	 * bottom when the window allows (1.21.1's rule). The picture never moves for it.
 	 */
 	public static int connectCancelTop(int screenH, int buttonH) {
-		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
-		int top = (int) Math.max(Math.round(screenH * 0.62) - buttonH / 2, Math.ceil(clearOfPicture));
-		return Math.max(0, Math.min(top, screenH - buttonH - 8));
+		double top = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + LoadingLook.stepGui();
+		return Math.max(0, Math.min((int) Math.ceil(top), screenH - buttonH - 8));
 	}
 
 	private static final Gfx CONNECT_GFX = new Gfx(null);
@@ -1138,6 +1132,9 @@ public final class OriginScreenRenderer {
 				}
 				widths[c] = w;
 			}
+			// The space has no ink, so the scan measures 0 and the words of the startup caption ran together
+			// ("Loadingresources"): give it vanilla's 4 px advance, in sheet px (1.21.1 LoadingPrep.bootWidths).
+			widths[' '] = 4 * cell / 8 - 1;
 			bootFontTexW = image.getWidth();
 			bootFontTexH = image.getHeight();
 			bootFontCell = cell;

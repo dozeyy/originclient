@@ -425,6 +425,9 @@ public class OriginClientMod implements ClientModInitializer {
 
 	/** Dev-only boot-smoke marker (env ORIGIN_SMOKE, set by tools/boot-smoke/smoke.py): pending until the title screen is first up. */
 	private static boolean smokeTitlePending = System.getenv("ORIGIN_SMOKE") != null;
+	/** Dev-only in-world smoke step (env ORIGIN_SMOKE_WORLD = shots dir, smoke.py --inworld): after the title marker,
+	 *  OriginDevWorld.inWorldTick enters a flat world, shoots the HUD and the Mod Menu, and Saves and Quits. */
+	private static final String SMOKE_WORLD_DIR = System.getenv("ORIGIN_SMOKE") != null ? System.getenv("ORIGIN_SMOKE_WORLD") : null;
 
 	private void onEndTick(Minecraft client) {
 		// boot-smoke's "ready" = the title screen really reached (not just GL up). Players never set ORIGIN_SMOKE.
@@ -435,6 +438,9 @@ public class OriginClientMod implements ClientModInitializer {
 		// Dev-only screenshot matrix (env ORIGIN_SHOTS) — see OriginDevShots.
 		if (OriginDevShots.enabled()) {
 			OriginDevShots.tick(client);
+		} else if (SMOKE_WORLD_DIR != null && !smokeTitlePending) {
+			OriginDevWorld.inWorldTick(client, SMOKE_WORLD_DIR, () -> {
+			});
 		}
 		// Right Shift opens the mod menu (the screen itself closes on the
 		// same key or Esc, with the reversed slide).

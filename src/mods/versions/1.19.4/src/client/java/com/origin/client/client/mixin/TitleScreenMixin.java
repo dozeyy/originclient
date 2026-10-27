@@ -58,8 +58,10 @@ import java.util.List;
 // version line left and the real copyright button right, both textMuted in
 // Inter (Minecraft's font when Inter is not live), 6 GUI px from the bottom. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
 // only REPOSITIONED (clicks and actions untouched) and draw as stock
-// Workbench panels (OriginButtonRenderer skin 2: titleControl, registered below
-// with setTitleButton); the dock is the same card with a glyph (setTitleDock).
+// Minecraft's dark buttons with Minecraft's font (OriginButtonRenderer skin 2: titleControl,
+// registered below with setTitleButton; Will, 2026-10-27); the dock is 20 x 20 dark buttons with
+// Origin's title_icons.png art, vanilla's social bubble for Friends, and Origin's glyph for Language /
+// Accessibility (no separable vanilla sprite before 1.20.2) (setTitleDock).
 // Both fall back to the stock vanilla button on a draw failure or when the
 // Main Menu Style is vanilla. Every dock glyph carries a one-line tooltip saying what it does, for narration only:
 // it is never drawn (AbstractWidgetTooltipMixin; a hover card beside the dock read as a second button, Will
@@ -493,10 +495,10 @@ public class TitleScreenMixin {
 			}
 			for (int i = 0; i < full.size(); i++) {
 				AbstractWidget w = full.get(i);
-				originclient$worded(w, w == single ? "@title-singleplayer" : w == multi ? "@title-multiplayer" : null);
+				originclient$worded(w, null);   // words only on the big buttons (Will, 2026-10-27)
 			}
-			originclient$worded(options, "@title-options");
-			originclient$worded(originclient$modsNav, "@title-mods");
+			originclient$worded(options, null);
+			originclient$worded(originclient$modsNav, null);
 			// Worded buttons say what they do already: no tooltip (Will, 2026-10-19:
 			// "dont have the hover tells what it dos for the worded ones only the icons").
 			if (options != null && originclient$modsNav != null) {
@@ -510,7 +512,7 @@ public class TitleScreenMixin {
 			List<AbstractWidget> dock = new ArrayList<>();
 			if (realms != null) {
 				if (originclient$REALMS_WORKS) {
-					originclient$iconOnly(realms, "@title-realms", "Play on Minecraft Realms");
+					originclient$iconOnly(realms, "realms", "Play on Minecraft Realms");
 					dock.add(realms);
 				} else {
 					// Realms only joins on the latest release (see REALMS_WORKS): hide the dead button, keep the slot out of the dock
@@ -519,11 +521,11 @@ public class TitleScreenMixin {
 				}
 			}
 			if (originclient$friendsNav != null) {
-				originclient$iconOnly(originclient$friendsNav, "@title-multiplayer", "Friends: see who is online and join them");
+				originclient$iconOnly(originclient$friendsNav, "friends", "Friends: see who is online and join them");
 				dock.add(originclient$friendsNav);
 			}
 			if (originclient$cosmeticsNav != null) {
-				originclient$iconOnly(originclient$cosmeticsNav, "@shirt", "Cosmetics: capes and more for your player");
+				originclient$iconOnly(originclient$cosmeticsNav, "cosmetics", "Cosmetics: capes and more for your player");
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : images) {
@@ -537,7 +539,7 @@ public class TitleScreenMixin {
 				dock.add(icon);
 			}
 			if (quit != null) {
-				originclient$iconOnly(quit, "@title-quit", "Quit the game");
+				originclient$iconOnly(quit, "quit", "Quit the game");
 				dock.add(quit);
 			}
 			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;

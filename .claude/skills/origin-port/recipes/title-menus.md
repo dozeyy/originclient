@@ -48,6 +48,16 @@ ScreenBackgroundMixin, ScreenInvoker. "Proven" means CI and review passed (clean
   46 + 20 * state)` (state 0 disabled, 1 normal, 2 hovered/focused), bound through `OriginDarkWidgets.texture(..., WIDGETS, BUTTON)`,
   the same dark sheet DarkButtonMixin uses. Friends = `TutorialToast.Icons.SOCIAL_INTERACTIONS.render(g, x, y)`: vanilla's own
   20 x 20 toasts.png icon (176 + 2*20, 1*20), the art 1.20.2 split into the sprite.
+## Dark title buttons + icon dock (2026-10-27) — pre-1.20 Gfx era (1.16.5-1.19.4)
+- Big buttons and dock both draw through `Gfx.vanillaButton`, bound to `OriginDarkWidgets.texture(WIDGETS, ...)` (1.16.5:
+  `getTextureManager().bind`), state `!active ? 0 : hover ? 2 : 1`. Hover: `isHoveredOrFocused()` 1.18.2-1.19.4,
+  `isHovered()` 1.16.5/1.17.1 (includes focus there). x/y: `getX/getY` 1.19.3+, the public fields below.
+- Friends: no toast sprite before 1.20.2 -> blit `textures/gui/toasts.png` u216 v20 20x20 (256x256 sheet; TutorialToast
+  SOCIAL_INTERACTIONS) at runtime, never copied. Cosmetics / Realms / Quit from `title_icons.png` (48x16, copied verbatim).
+  Language / Accessibility: no separable vanilla sprite -> Origin's flat glyph in white (0xFFA0A0A0 disabled).
+- Disabled tint: `RenderSystem.setShaderColor` 1.17+, `color4f` 1.16.5; reset in the catch too.
+- TitleScreenMixin text differs per module (`single/multi` 1.19.x vs `play/online` <=1.18.2; `iconOnly(w, icon)` with no
+  tip on 1.18.2/1.19.2): regex both spellings.
 
 ## Proof
 - Use `dev-shots set=design`. For the clean look also set `ORIGIN_SHOTS_SET=clean` with a `title_hover` shot on Quit.

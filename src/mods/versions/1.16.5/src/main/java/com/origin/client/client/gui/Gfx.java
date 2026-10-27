@@ -309,7 +309,8 @@ public final class Gfx {
 		int v = 46 + Math.max(0, Math.min(2, state)) * 20;
 		int lw = w / 2, rw = w - lw;
 		int th = h / 2, bh = h - th;
-		Minecraft.getInstance().getTextureManager().bind(WIDGETS);   // fixed-function: no setShaderTexture
+		// Origin's dark sheet (same UVs as widgets.png), as DarkButtonMixin binds for every vanilla button.
+		Minecraft.getInstance().getTextureManager().bind(OriginDarkWidgets.texture(WIDGETS, OriginDarkWidgets.WIDGETS, OriginDarkWidgets.BUTTON));   // fixed-function: no setShaderTexture
 		RenderSystem.color4f(1f, 1f, 1f, 1f);
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();

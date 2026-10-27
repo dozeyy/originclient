@@ -54,6 +54,17 @@ A run that already passed on the same commit is done. Don't run it again.
     1.21.10/1.21.11 (javap): `Minecraft.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE)` is PauseScreen's Save and
     Quit (saves behind a saving screen, opens the title); `GameRules(FeatureFlagSet)` lives in `net.minecraft.world.level`
     on 1.21.10 and moved to `net.minecraft.world.level.gamerules` on 1.21.11.
+  - Pre-1.20 table (javap, 2026-10-27): 1.19.3/1.19.4 `mc.createWorldOpenFlows().createFreshLevel(name, LevelSettings,
+    WorldOptions, Function<RegistryAccess, WorldDimensions>)` with `Registries.WORLD_PRESET` + `WorldPresets.FLAT` and
+    `WorldDataConfiguration.DEFAULT`; 1.19.2 `createFreshLevel(name, LevelSettings, RegistryAccess, WorldGenSettings)`
+    with `RegistryAccess.BUILTIN.get()` and `WORLD_PRESET_REGISTRY` holder `.createWorldGenSettings(seed,false,false)`;
+    1.18.2 `mc.createLevel(name, LevelSettings, RegistryAccess, WorldGenSettings)`; 1.17.1/1.16.5 the same with
+    `RegistryAccess.builtin()` (RegistryHolder). Reopen: `loadLevel(Screen,String)` 1.19.x, `mc.loadLevel(String)` below.
+    The client `WorldPreset.FLAT` is PRIVATE on 1.18.2 and older: find it by reflection over static WorldPreset fields
+    whose `description()` is the TranslatableComponent `generator.flat`. Save and Quit on all six:
+    `level.disconnect(); clearLevel(new GenericDirtMessageScreen(..savingLevel)); setScreen(new TitleScreen())`.
+    Window size: `Window.setWindowed(w,h)` 1.17.1+, `GLFW.glfwSetWindowSize` on 1.16.5. Keep the step Java 8 syntax so
+    one text compiles on all six.
 - **ref-189**: 1.8.9 API lookups (class / member / find / srg) and a compile that prints only the errors.
 - **Watching:**
   - `gh run watch` exits 0 whatever the result. Read `gh run view <id> --json conclusion`.
