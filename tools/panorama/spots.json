@@ -139,11 +139,11 @@
     },
     {
       "id": "26.2", "capture": "26.2", "targets": ["26.2"],
-      "about": "26.2: sulfur cubes on a sulfur and cinnabar outcrop, brought up into daylight (the sulfur caves themselves rendered near-black with the shader, run 40453214783)",
-      "locate": "biome minecraft:plains", "vista": 16, "up": 1.6, "yaw": 45, "time": 3000,
-      "commands": ["fill ^-4 ^-1 ^6 ^0 ^0 ^9 minecraft:sulfur",
-                   "fill ^-3 ^1 ^7 ^-2 ^1 ^8 minecraft:potent_sulfur",
-                   "fill ^2 ^-1 ^7 ^5 ^0 ^10 minecraft:cinnabar"],
+      "about": "26.2: sulfur cubes on a sulfur and cinnabar outcrop, brought up into daylight (the sulfur caves themselves rendered near-black with the shader, run 40453214783); the outcrop sits ON the surface (positioned over), a fixed-height fill was buried in the hillside (run 40456625183)",
+      "locate": "biome minecraft:plains", "vista": 16, "maxRise": 2, "up": 1.6, "yaw": 45, "time": 3000,
+      "commands": ["execute positioned ^-2 ^ ^7 positioned over motion_blocking_no_leaves run fill ^-2 ^-1 ^-1 ^2 ^0 ^2 minecraft:sulfur",
+                   "execute positioned ^-2 ^ ^7 positioned over motion_blocking_no_leaves run fill ^-1 ^0 ^0 ^0 ^0 ^1 minecraft:potent_sulfur",
+                   "execute positioned ^4 ^ ^8 positioned over motion_blocking_no_leaves run fill ^-2 ^-1 ^-1 ^1 ^0 ^2 minecraft:cinnabar"],
       "mobs": [
         {"id": "minecraft:sulfur_cube", "dist": 4, "angle": -10},
         {"id": "minecraft:sulfur_cube", "dist": 7.5, "angle": 14, "turn": -40}
