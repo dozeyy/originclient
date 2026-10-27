@@ -249,8 +249,8 @@ final class OriginDevPanorama {
 				server.getCommands().performPrefixedCommand(src, c);
 			}
 			ServerLevel level = level(server);
-			List<String> said = new ArrayList<>();
-			CommandSource rec = new CommandSource() {
+			List<String> said = SAID;
+			CommandSource rec = REC = new CommandSource() {
 				@Override
 				public void sendSystemMessage(Component message) {
 					said.add(message.getString());
@@ -299,6 +299,25 @@ final class OriginDevPanorama {
 			int z = Integer.parseInt(xyz[2]) + (int) arr("offset", 1, 0);
 			int locY = xyz[1].equals("~") ? level.getSeaLevel() : Integer.parseInt(xyz[1]);
 			boolean floor = "floor".equals(str("ground", "surface"));
+			// /locate biome answers a 3D biome cell, which can sit under a hill or in a ravine wall whose surface is
+			// another biome (1.19's mangrove swamp: a jungle hillside, run 40455429322). On the surface, walk out to
+			// the nearest column whose SURFACE is the biome, and keep the vista search inside it.
+			String biome = !floor && str("locate", "").startsWith("biome ") ? str("locate", "").substring(6).trim() : null;
+			if (biome != null && !surfaceIs(level, x, z, biome)) {
+				search:
+				for (int r = 8; r <= 128; r += 8) {
+					for (int dx = -r; dx <= r; dx += 8) {
+						for (int dz = -r; dz <= r; dz += 8) {
+							if (Math.max(Math.abs(dx), Math.abs(dz)) == r && surfaceIs(level, x + dx, z + dz, biome)) {
+								log("[panorama] surface " + biome + " found " + r + " blocks out");
+								x += dx;
+								z += dz;
+								break search;
+							}
+						}
+					}
+				}
+			}
 			int vista = num("vista", 0);
 			if (vista > 0 && !floor) {
 				// An overlook instead of a hollow: the highest open, level ground within `vista` blocks. Open = no
@@ -314,7 +333,7 @@ final class OriginDevPanorama {
 				for (int dx = -vista; dx <= vista; dx += 4) {
 					for (int dz = -vista; dz <= vista; dz += 4) {
 						int h = groundAt(level, x + dx, z + dz);
-						if (h > base + maxRise) {
+						if (h > base + maxRise || (biome != null && !surfaceIs(level, x + dx, z + dz, biome))) {
 							continue;
 						}
 						int drop = 0;
@@ -345,10 +364,14 @@ final class OriginDevPanorama {
 					"execute in %s run tp @a %.2f %.2f %.2f %.1f 0", dim, cx, cy, cz, yaw));
 			log(String.format(Locale.ROOT, "[panorama] camera at %.1f %.1f %.1f (ground %d) yaw %.0f in %s", cx, cy, cz, ground, yaw, dim));
 			// Extra commands run AT the camera's ground point facing the front face: ~ and ^ work.
-			CommandSourceStack here = src.withPosition(new Vec3(cx, ground, cz)).withRotation(new Vec2(0f, yaw));
+			// Their answers are logged: a failed fill was silent before (26.2's outcrop never showed, run 40455429322).
+			CommandSourceStack here = server.createCommandSourceStack().withSource(REC).withLevel(level)
+					.withPosition(new Vec3(cx, ground, cz)).withRotation(new Vec2(0f, yaw));
 			if (spot.has("commands")) {
 				for (JsonElement c : spot.getAsJsonArray("commands")) {
+					SAID.clear();
 					server.getCommands().performPrefixedCommand(here, c.getAsString());
+					log("[panorama] " + c.getAsString() + " -> " + String.join(" / ", SAID));
 				}
 			}
 			if (spot.has("mobs")) {
@@ -404,6 +427,15 @@ final class OriginDevPanorama {
 			p.move(0, -1, 0);
 		}
 		return p.getY() + 1;
+	}
+
+	/** Whether the biome at the ground surface of this column is `id` (e.g. "minecraft:mangrove_swamp"). */
+	/** What the commands run through REC answered (the locate result, fill counts, errors). */
+	private static final List<String> SAID = new ArrayList<>();
+	private static CommandSource REC;
+
+	private static boolean surfaceIs(ServerLevel level, int x, int z, String id) {
+		return id.equals(level.getBiome(new BlockPos(x, groundAt(level, x, z), z)).getRegisteredName());
 	}
 
 	/** No leaves, logs or solid block within 2 blocks of the camera's eye (2 to 5 above the ground; lower is terrain). */
