@@ -1,13 +1,16 @@
 package com.origin.client.client.mixin.menus;
 
 import com.origin.client.client.gui.OriginButtonRenderer;
+import com.origin.client.client.gui.OriginDarkWidgets;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Restyles every button in the Origin look, on every screen: cancels the vanilla
@@ -70,5 +73,31 @@ public abstract class GuiButtonMixin {
 		} catch (Throwable t) {
 			// vanilla draws the button
 		}
+	}
+
+	// Dark vanilla buttons (Will, 2026-10-26; OriginDarkWidgets): when vanilla draws the button (the
+	// HEAD takeover above did not cancel), its bindTexture(widgets.png) is pointed at Origin's dark
+	// page, so both box halves land on the dark rows. Knobs drawn in mouseDragged without a rebind
+	// (GuiSlider, the Sounds sliders) use the same bind; knobs that rebind widgets.png
+	// (GuiOptionSlider, OptiFine's) are caught by TextureManagerDarkWidgetsMixin while the window is
+	// open. The label draw (the only call after mouseDragged, javap-verified) closes the window.
+	// @ModifyArg: no CallbackInfo per frame, and it chains with other mods' ModifyArgs.
+	// If the first stops applying the button stays vanilla grey. The second is the end marker: the
+	// dark page is only used once it has run, and a window found still open latches the feature off,
+	// so a missing end marker can never turn a later widgets.png bind (the hotbar) dark.
+	// 1.8.9: bindTexture = func_110577_a, drawCenteredString = func_73732_a, owner GuiButton in both
+	// the MCP and SRG bytecode (javap on the loom named + srg jars, 2026-10-26).
+	@ModifyArg(method = "drawButton", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/texture/TextureManager;bindTexture(Lnet/minecraft/util/ResourceLocation;)V"))
+	private ResourceLocation originclient$darkPage(ResourceLocation texture) {
+		return OriginDarkWidgets.beginButton(texture);
+	}
+
+	@ModifyArg(method = "drawButton", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/GuiButton;drawCenteredString(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;III)V"),
+			index = 4)
+	private int originclient$darkPageEnd(int color) {
+		OriginDarkWidgets.endButton();
+		return color;
 	}
 }

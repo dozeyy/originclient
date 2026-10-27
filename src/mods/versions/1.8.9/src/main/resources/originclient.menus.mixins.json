@@ -21,6 +21,7 @@
 		"GuiSlotMixin",
 		"GuiTextFieldMixin",
 		"MinecraftServerProgressMixin",
-		"MinecraftWorldLoadMixin"
+		"MinecraftWorldLoadMixin",
+		"TextureManagerDarkWidgetsMixin"
 	]
 }
