@@ -54,8 +54,12 @@ public abstract class GuiTextFieldMixin {
 			if (!visible || !enableBackgroundDrawing) {
 				return;
 			}
+			// Origin's well inside Origin's own windows; everywhere else 1.21.1's dark field
+			// (OriginDarkWidgets, 2026-10-26). Neither drew -> vanilla's grey frame.
 			if (!OriginButtonRenderer.renderTextField(xPosition - 1, yPosition - 1, width + 2, height + 2,
-					isFocused, isEnabled)) {
+					isFocused, isEnabled)
+					&& !com.origin.client.client.gui.OriginDarkWidgets.textField(xPosition, yPosition, width, height,
+					isFocused)) {
 				return;
 			}
 			originclient$x = xPosition;

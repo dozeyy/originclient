@@ -1,13 +1,16 @@
 package com.origin.client.client.mixin.menus;
 
 import com.origin.client.client.gui.OriginButtonRenderer;
+import com.origin.client.client.gui.OriginDarkWidgets;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.client.config.GuiButtonExt;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // The Origin skin for Forge's own buttons: GuiButtonExt (Forge's config GUIs,
@@ -21,8 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // one, so in production (SRG names) it is called func_146112_a, not drawButton.
 // remap = false + both names binds it in dev (MCP) and production (SRG) without
 // relying on the annotation processor to map an inherited member.
-// SRG NEEDED: confirm GuiButton.drawButton = func_146112_a (1.8.9 NAME UNVERIFIED);
-// a wrong name only means Forge's buttons keep their vanilla look in production.
+// GuiButton.drawButton = func_146112_a (verified 2026-10-26: javap on the loom srg jar).
 // The mixin extends GuiButton so `hovered` / `mouseDragged` are reachable as
 // inherited members (no @Shadow across the hierarchy).
 // priority 2000: Origin's widget restyle wins over other UI mods.
@@ -65,5 +67,18 @@ public abstract class GuiButtonExtMixin extends GuiButton {
 		} catch (Throwable t) {
 			// Forge draws the button
 		}
+	}
+
+	// Dark vanilla buttons (OriginDarkWidgets): when Forge draws the button itself, its
+	// GuiUtils.drawContinuousTexturedBox(widgets.png, ...) box takes Origin's dark page instead
+	// (same 256 px page layout, so Forge's UVs land on the dark rows). Forge's GuiSlider draws its
+	// knob in mouseDragged without rebinding (javap-verified), so the knob is dark too. GuiUtils is
+	// Forge's own class (never obfuscated), so the INVOKE target needs no refmap. If it stops
+	// applying, Forge's buttons keep the vanilla grey look.
+	@ModifyArg(method = {"drawButton", "func_146112_a"}, at = @At(value = "INVOKE",
+			target = "Lnet/minecraftforge/fml/client/config/GuiUtils;drawContinuousTexturedBox(Lnet/minecraft/util/ResourceLocation;IIIIIIIIIIIIF)V",
+			remap = false), index = 0, remap = false)
+	private ResourceLocation originclient$darkPage(ResourceLocation texture) {
+		return OriginDarkWidgets.forgeButton(texture);
 	}
 }
