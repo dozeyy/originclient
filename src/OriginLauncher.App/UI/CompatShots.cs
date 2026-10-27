@@ -150,7 +150,11 @@ internal static class CompatShots
         public DependencyOffer? Find(string id, VersionPredicate range, CompatPlatform platform) =>
             id != "cloth-config" ? null
                 : new DependencyOffer(id, "15.0.140", "cloth-config-15.0.140-fabric.jar",
-                    new ModInfo { FileName = "cloth-config-15.0.140-fabric.jar", Loader = ModLoader.Fabric, Id = id, Version = "15.0.140" },
+                    new ModInfo
+                    {
+                        FileName = "cloth-config-15.0.140-fabric.jar", Loader = ModLoader.Fabric, Id = id, Version = "15.0.140",
+                        Name = "Cloth Config", // the project title ModrinthDependencyCatalog reads
+                    },
                     "https://cdn.modrinth.com/data/demo/cloth-config-15.0.140-fabric.jar", Sha512: new string('0', 128));
     }
 

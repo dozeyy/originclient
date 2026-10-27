@@ -36,6 +36,24 @@ public sealed class OriginDependencyCatalog : IDependencyCatalog
         };
     }
 
+    /// <summary>The name players know a pinned mod by (the prompt shows it); null for an id Origin doesn't pin.</summary>
+    public static string? NameOf(string id) => id switch
+    {
+        "fabric-api" or "fabric" => "Fabric API",
+        "voicechat" => "Simple Voice Chat",
+        "sodium" => "Sodium",
+        "iris" => "Iris",
+        "indium" => "Indium",
+        "lithium" => "Lithium",
+        "ferritecore" => "FerriteCore",
+        "krypton" => "Krypton",
+        "immediatelyfast" => "ImmediatelyFast",
+        "modernfix" => "ModernFix",
+        "modmenu" => "Mod Menu",
+        "entityculling" => "Entity Culling",
+        _ => null,
+    };
+
     public DependencyOffer? Find(string id, VersionPredicate range, CompatPlatform platform)
     {
         if (platform.Loader != LoaderFamily.Fabric) return null;
@@ -45,7 +63,7 @@ public sealed class OriginDependencyCatalog : IDependencyCatalog
         if (pin == null || ModrinthFileGuard.Check(pin.Url, pin.FileName, pin.Sha512) != ModrinthDownloadResult.Installed)
             return null;
         if (!range.MatchesAnything && !range.IsSatisfiedBy(pin.Version)) return null;
-        var info = new ModInfo { FileName = pin.FileName, Loader = ModLoader.Fabric, Id = id, Version = pin.Version, Name = id };
+        var info = new ModInfo { FileName = pin.FileName, Loader = ModLoader.Fabric, Id = id, Version = pin.Version, Name = NameOf(id) ?? id };
         return new DependencyOffer(id, pin.Version, pin.FileName, info, pin.Url, Sha512: pin.Sha512, FromOrigin: true);
     }
 }

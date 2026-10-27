@@ -113,6 +113,25 @@ public sealed class JavaArgsRepairTests
         Assert.Equal("-Xss2m", _settings.JvmArgsFor(Mc)!.Arguments);
     }
 
+    // ---- the "Yours were: ..." preview next to Undo ----
+
+    [Fact]
+    public void The_undo_preview_is_short_and_never_one_unbroken_run()
+    {
+        Assert.Equal("-XX:+UseZGCx -Xss2m", JvmArgLine.Preview("-XX:+UseZGCx\n  -Xss2m"));
+        Assert.Equal("", JvmArgLine.Preview("   "));
+
+        var path = "-Djava.library.path=C:\\Users\\Player\\Games\\Minecraft\\natives\\very\\deep\\folder";
+        var one = JvmArgLine.Preview(path);
+        Assert.Equal(28, one.Length);
+        Assert.EndsWith("...", one);
+
+        var many = JvmArgLine.Preview(string.Join(" ", Enumerable.Repeat(path, 6).Append("-Xss2m")));
+        Assert.True(many.Length <= 80, many);
+        Assert.EndsWith("...", many);
+        Assert.All(many.Split(' '), t => Assert.True(t.Length <= 28, t));
+    }
+
     // ---- the crash rule decides when the button is offered ----
 
     private static CrashVerdict Crash(string log, string? custom) =>

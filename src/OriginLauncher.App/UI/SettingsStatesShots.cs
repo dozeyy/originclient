@@ -75,6 +75,17 @@ internal static class SettingsStatesShots
         page.TourClickRail("SecJvm");
         RenderShots.Pump(500);
         RenderShots.Snap(window, dir, "14lb-settings-jvm-undo");
+
+        // The longest the line gets: many flags and a long path, which must wrap or trim beside Undo, never crowd it.
+        Core.SettingsStore.Update(s => s.JvmArgsBeforeReset[version] = new Core.Models.VersionJvmOptions
+        {
+            Arguments = "-XX:+UseZGCx -Xss2m -XX:MaxGCPauseMillis=37 -XX:+UnlockExperimentalVMOptions "
+                        + "-Djava.library.path=C:\\Users\\Player\\AppData\\Roaming\\natives\\very\\deep\\folder\\for\\testing "
+                        + "-XX:G1NewSizePercent=20 -XX:G1ReservePercent=20",
+        });
+        page.TourReloadJvm();
+        RenderShots.Pump(400);
+        RenderShots.Snap(window, dir, "14lc-settings-jvm-undo-long");
         Core.SettingsStore.Update(s => s.JvmArgsBeforeReset.Remove(version));
         page.TourReloadJvm();
         RenderShots.Pump(200);

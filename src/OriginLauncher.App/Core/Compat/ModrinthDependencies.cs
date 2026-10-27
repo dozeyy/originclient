@@ -10,7 +10,9 @@ namespace OriginLauncher.App.Core.Compat;
 /// Fix Compatibility's source for a missing dependency: a Modrinth release of that mod for this Minecraft version on
 /// Fabric, with a published SHA-512. What leaves the PC is ONLY the missing mod's id (Will's rule, 2026-10-25: mod ids
 /// and hashes only): one GET per id, https://api.modrinth.com/v2/project/&lt;id&gt;/version, no query, no body, no
-/// file names, no other mods, no account. Every filter (loader, Minecraft version, release, version range) runs here.
+/// file names, no other mods, no account. When that id has a usable release, one more GET of
+/// https://api.modrinth.com/v2/project/&lt;id&gt; (same rule: the id and nothing else) reads the project's title, so the
+/// prompt can say "Cloth Config" instead of "cloth-config". Every filter (loader, Minecraft version, release, version range) runs here.
 /// The answers are fetched once, before planning (<see cref="ResolveAsync"/>), so <see cref="Find"/> stays pure.
 /// A Modrinth project whose slug is the id but which is another mod is caught when its file arrives: the executor
 /// reads the jar and refuses one whose own id is not the one needed.
@@ -34,6 +36,7 @@ public sealed class ModrinthDependencyCatalog : IDependencyCatalog
     internal sealed record Candidate(string Version, string Url, string FileName, string Sha512, IReadOnlyList<string> GameVersions);
 
     private readonly Dictionary<string, List<Candidate>> _byId = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _titles = new(StringComparer.Ordinal);
 
     /// <summary>True when <paramref name="id"/> may be asked about at all.</summary>
     public static bool IsAskable(string? id) => id != null && ModId.IsMatch(id) && !NotMods.Contains(id);
@@ -66,7 +69,15 @@ public sealed class ModrinthDependencyCatalog : IDependencyCatalog
                 using var response = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode) continue;
                 var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                catalog._byId[id] = Parse(json, mcVersion);
+                var candidates = Parse(json, mcVersion);
+                catalog._byId[id] = candidates;
+                if (candidates.Count == 0) continue;
+                // The project's title, for the prompt only (the id stays what is checked and installed).
+                using var titleRequest = new HttpRequestMessage(HttpMethod.Get, ApiBase + id);
+                using var titleResponse = await http.SendAsync(titleRequest, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
+                if (!titleResponse.IsSuccessStatusCode) continue;
+                if (ParseTitle(await titleResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false)) is { } title)
+                    catalog._titles[id] = title;
             }
             catch (Exception ex) when (ex is HttpRequestException or JsonException or IOException
                                            || (ex is OperationCanceledException && !ct.IsCancellationRequested))
@@ -112,6 +123,15 @@ public sealed class ModrinthDependencyCatalog : IDependencyCatalog
         return list;
     }
 
+    /// <summary>A project's title from Modrinth's project answer: plain text up to 48 characters, else null.</summary>
+    internal static string? ParseTitle(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+        var title = Str(doc.RootElement, "title")?.Trim();
+        return title is { Length: > 0 and <= 48 } && !title.Any(char.IsControl) ? title : null;
+    }
+
     public DependencyOffer? Find(string id, VersionPredicate range, CompatPlatform platform)
     {
         if (platform.Loader != LoaderFamily.Fabric || !_byId.TryGetValue(id, out var candidates)) return null;
@@ -121,7 +141,11 @@ public sealed class ModrinthDependencyCatalog : IDependencyCatalog
             if (!range.MatchesAnything && !range.IsSatisfiedBy(c.Version)) continue;
             // What the file will say about itself, as far as Modrinth tells: the id and version. Its own needs are not
             // known until it is here; the check at the next Play reads the real file.
-            var info = new ModInfo { FileName = c.FileName, Loader = ModLoader.Fabric, Id = id, Version = c.Version, Name = id };
+            var info = new ModInfo
+            {
+                FileName = c.FileName, Loader = ModLoader.Fabric, Id = id, Version = c.Version,
+                Name = _titles.TryGetValue(id, out var title) ? title : id,
+            };
             return new DependencyOffer(id, c.Version, c.FileName, info, c.Url, Sha512: c.Sha512);
         }
         return null;

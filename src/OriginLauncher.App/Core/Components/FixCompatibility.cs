@@ -40,8 +40,8 @@ public sealed record FixProposal(
             {
                 lines.Add(step switch
                 {
-                    AddModStep { Offer.FromOrigin: true } a => $"Add {a.Offer.Id} {a.Offer.Version}, the copy Origin itself uses (its checksum is checked).",
-                    AddModStep a => $"Add {a.Offer.Id} {a.Offer.Version} from Modrinth (its checksum is checked).",
+                    AddModStep { Offer.FromOrigin: true } a => $"Add {Named(a.Offer)}, the copy Origin itself uses (its checksum is checked).",
+                    AddModStep a => $"Add {Named(a.Offer)} from Modrinth (its checksum is checked).",
                     DisableModStep d => $"Turn off {d.Mod.DisplayName}: {d.Why}",
                     _ => step.Why,
                 });
@@ -68,6 +68,17 @@ public sealed record FixProposal(
             return lines;
         }
     }
+
+    // "Cloth Config 15.0.140": the mod's own name (Origin's pin or Modrinth's title, else its id), plus the version only
+    // when it is a short plain number. Build strings like "fabric-1.21.1-2.6.22" or "0.116.17+1.21.1" are dropped.
+    internal static string Named(DependencyOffer offer)
+    {
+        var name = string.IsNullOrWhiteSpace(offer.Info.Name) ? offer.Id : offer.Info.Name;
+        return ShortVersion.IsMatch(offer.Version) ? $"{name} {offer.Version}" : name;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ShortVersion =
+        new(@"^\d+(\.\d+){0,3}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     private string VersionOf(string modId) =>
         Configuration.Files.FirstOrDefault(f => f.ModId == modId)?.ModVersion ?? "?";

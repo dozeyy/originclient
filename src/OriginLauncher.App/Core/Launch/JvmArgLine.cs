@@ -96,4 +96,16 @@ public static class JvmArgLine
 
         return null;
     }
+
+    /// <summary>
+    /// A short one-line preview of the arguments for a sentence (Settings' "Yours were: ..."): one space between flags,
+    /// each flag cut to <paramref name="maxFlag"/> characters (a long path can't run on unbroken), the whole to
+    /// <paramref name="maxTotal"/>, "..." marking every cut. Never longer than <paramref name="maxTotal"/>.
+    /// </summary>
+    public static string Preview(string? text, int maxTotal = 80, int maxFlag = 28)
+    {
+        static string Cut(string s, int max) => s.Length <= max ? s : s[..(max - 3)].TrimEnd() + "...";
+        var line = string.Join(" ", Split(text).Select(t => Cut(t, maxFlag)));
+        return Cut(line, maxTotal);
+    }
 }

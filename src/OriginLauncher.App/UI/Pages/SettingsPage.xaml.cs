@@ -390,8 +390,7 @@ public partial class SettingsPage : UserControl
         JvmUndoRow.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         if (!show) return;
         var before = _settings.JvmArgsBeforeReset[_jvmVersion!];
-        var args = string.Join(" ", JvmArgLine.Split(before.Arguments));
-        if (args.Length > 90) args = args[..87].TrimEnd() + "...";
+        var args = JvmArgLine.Preview(before.Arguments);
         JvmUndoText.Text = args.Length == 0
             ? "Java wouldn't start with your settings here, so Origin went back to its own."
             : $"Java wouldn't start with your arguments, so Origin went back to its own. Yours were: {args}";
