@@ -20,9 +20,9 @@ import com.origin.client.client.theme.OriginTheme;
  *   24 below the logo     the progress bar: 200 design px wide, 2 GUI px tall, capsule ends,
  *                         an emerald fill over a 1 GUI px hairline track with the real fraction,
  *                         or a segment sliding along it when there is no measure (Connecting)
- *   12 below the bar      the caption: Inter at CLEAN_CAPTION_EM (the same size as 1.21.1's),
- *                         CLEAN_CAPTION (textMuted), the real stage name (+ a percentage only
- *                         where Minecraft reports one)
+ *   12 below the bar      the caption: Minecraft's own font, one font px per GUI px (the same
+ *                         size and font as Connecting's Cancel label), textMuted with vanilla's
+ *                         shadow, the real stage name (+ a percentage only where Minecraft reports one)
  * </pre>
  *
  * <p>No rings, orbits or pills: the only ring shapes on these screens are inside origin_logo.png
@@ -40,15 +40,23 @@ import com.origin.client.client.theme.OriginTheme;
  * Colours ride each fill's own ARGB (never the shader colour), so the same code is right on
  * the immediate GUI (1.20-1.21.1) and the batched one (1.21.2-1.21.4).
  *
- * <p>Text: the startup load draws before any font exists (and on 1.21.2+ font text during the
- * initial reload wedges boot), so its caption uses the boot font (Minecraft's own ascii.png)
- * for the whole load; every later screen uses Inter (OriginSdfFont) and falls back to
- * Minecraft's font if that is not ready.
+ * <p>Text (Will, 2026-10-27: loading screens use Minecraft's font on every version, matching the
+ * title's Minecraft-font buttons): the startup load draws before Minecraft's font is loaded, and on
+ * 1.21.2+ font text during the initial reload wedges boot (ShaderManager era), so its caption reads
+ * ascii.png itself (OriginScreenRenderer.bootText, the boot font); every later screen uses
+ * Minecraft's Font. Both put the same glyphs on the same pixels, so nothing changes when one hands
+ * over to the other. No Inter/MSDF on any loading screen.
+ *
+ * <p>Backdrop rule (the parity spec, origin-port recipes/loading-screens.md): every loading screen
+ * is OPAQUE flat color.bg (OriginTheme.CLEAN_BG, #0E1110) over the whole window, never the world
+ * or a panorama showing through; the only translucency is the startup load's dissolve into the
+ * title (the {@code layer} argument). The progress fill is exactly its fraction wide: nothing at
+ * 0 %, no minimum width or radius-sized nub (pill() draws nothing for w <= 0).
  */
 final class LoadingLook {
 	// Colours: OriginTheme's loading tokens, never copied here: CLEAN_BG (color.bg),
 	// CLEAN_BAR_FILL (the emerald progress, #5FD09B), CLEAN_BAR_TRACK (the hairline track),
-	// CLEAN_CAPTION (caption).
+	// TITLE_TEXT_MUTED (caption, 1.21.1's token).
 
 	/** Logo box, design px. */
 	private static final double LOGO = 72.0;
@@ -60,8 +68,6 @@ final class LoadingLook {
 	private static final int BAR_GUI = 2, TRACK_GUI = 1;
 	/** The caption's line box, GUI px (an 8 GUI px em in a 10 px line, like a vanilla text line). */
 	private static final double CAPTION_LINE_GUI = 10.0;
-	/** Inter's cap height per em (what the boot-font caption matches before Inter exists). */
-	private static final double INTER_CAP_PER_EM = 0.727;
 	/** No measure: one slide of the segment across the bar, and the segment's share of the bar. */
 	private static final double SWEEP_MS = 1600.0, SWEEP_SEG = 0.26;
 
@@ -87,6 +93,11 @@ final class LoadingLook {
 		return (box / 2.0 + (GAP_BAR + GAP_CAPTION) * s) / g + BAR_GUI + CAPTION_LINE_GUI;
 	}
 
+	/** The picture's own step (logo to bar, 24 design px) in GUI px: the gap from the caption down to Cancel. */
+	static double stepGui() {
+		return GAP_BAR * scale() / Math.max(1, Math.round(Minecraft.getInstance().getWindow().getGuiScale()));
+	}
+
 	/** The logo centre's height, GUI px, on every loading screen at this window size (what draw() uses). */
 	static double logoCentreGui() {
 		Minecraft mc = Minecraft.getInstance();
@@ -110,7 +121,7 @@ final class LoadingLook {
 	 * @param layer    whole-picture opacity 0..1 (the loading -> title dissolve; 1 elsewhere)
 	 * @param fill     bar fill 0..1, or a negative number for the sweep (no real measure)
 	 * @param caption  the stage line, "" for none
-	 * @param boot     draw the caption in the boot font (the startup load) instead of Inter
+	 * @param boot     draw the caption from ascii.png itself (the startup load, before Minecraft's font is loaded)
 	 */
 	static void draw(GuiGraphics g, float layer, double fill, String caption, boolean boot) {
 		Minecraft mc = Minecraft.getInstance();
@@ -195,28 +206,35 @@ final class LoadingLook {
 
 	private static void caption(GuiGraphics g, float layer, String text, boolean boot, int gw) {
 		double cx = gw / 2.0;
-		float em = OriginTheme.CLEAN_CAPTION_EM;
+		// Minecraft's own font on every loading screen (Will, 2026-10-27), one font px = one GUI px (the
+		// 8 GUI px em the caption always had), with vanilla's shadow. Both paths below put the same glyphs
+		// on the same pixels: the caps' top row at `top`, the ink (no trailing advance pixel) centred.
+		int top = (int) Math.round(captionMid / gs - 4.0);
 		if (boot) {
-			// Before any font exists: Minecraft's ascii.png in whole physical pixels per font pixel, sized so its
-			// 7-pixel caps come closest to Inter's cap height at this em. bootText applies the dissolve's
-			// layer alpha itself, so the colour goes in unfaded.
-			double capPhys = em * INTER_CAP_PER_EM * gs;
-			int per = Math.max(1, (int) Math.round(capPhys / 7.0));
-			double scale = per / (double) gs;
-			OriginScreenRenderer.bootText(g, text, cx, captionMid / gs - 3.5 * scale, (float) scale, 0, OriginTheme.CLEAN_CAPTION, 0.5f);
+			// The startup load draws before Minecraft's font is loaded (and font text during the initial
+			// reload wedges boot on 1.21.2+), so it reads ascii.png itself (OriginScreenRenderer.bootText:
+			// the same advances and shadow as Font, centred on its ink). bootText applies the dissolve's
+			// layer alpha itself (per-blit ARGB), so the colour goes in unfaded.
+			OriginScreenRenderer.bootText(g, text, cx, top, 1f, 0, OriginTheme.TITLE_TEXT_MUTED, 0.5f);
 			return;
 		}
-		int argb = fade(OriginTheme.CLEAN_CAPTION, layer);
-		if (com.origin.client.client.gui.OriginSdfFont.active()) {
-			float w = com.origin.client.client.gui.OriginSdfFont.widthEm(text, em, 0f, false);
-			float cap = com.origin.client.client.gui.OriginSdfFont.capHeight(em, false);
-			com.origin.client.client.gui.OriginSdfFont.drawEm(g, text, (float) (cx - w / 2.0), (float) (captionMid / gs + cap / 2.0),
-					em, 0f, argb, false);
-			return;
+		int argb = fade(OriginTheme.TITLE_TEXT_MUTED, layer);
+		Minecraft mc = Minecraft.getInstance();
+		Font font = mc.font;
+		boolean unicode = mc.options.forceUnicodeFont().get();
+		if (text != inkText || unicode != inkUnicode) {
+			// Measured once per caption string (callers cache their strings), not per frame.
+			inkText = text;
+			inkUnicode = unicode;
+			inkWidth = Math.max(0, font.width(text) - 1);   // Font.width counts the last glyph's 1 px advance gap
 		}
-		Font font = Minecraft.getInstance().font;
-		g.drawString(font, text, (int) Math.round(cx - font.width(text) / 2.0), (int) Math.round(captionMid / gs - 4), argb, true);
+		g.drawString(font, text, (int) Math.round(cx - inkWidth / 2.0), top, argb, true);
 	}
+
+	// The last measured caption (render thread only): identity of the string, the font mode, its ink width.
+	private static String inkText;
+	private static boolean inkUnicode;
+	private static int inkWidth;
 
 	/** A colour with its alpha scaled by {@code k} (0..1). */
 	private static int fade(int argb, float k) {
