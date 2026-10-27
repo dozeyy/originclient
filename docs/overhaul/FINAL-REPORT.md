@@ -34,22 +34,21 @@ after the judge (update badge, ASCII text, toast position, import layout), the r
 - 1.8.9 bench on the real PC (`tools/bench/bench-189.ps1`).
 - Launcher cold start (< 3 s target) and frame time; sign-in card size on a real account.
 
-## Known issues / follow-ups
+## Known issues / follow-ups (status 2026-10-27, release v1.0.73)
 
-- In-game loading screens differ between eras: Inter text on 1.20+ but Minecraft font before; Workbench Cancel only on
-  1.21.1; backdrop opaque on some versions, see-through on others; the pre-1.20 world-loading bar shows a stub at 0%.
-- Menu frame time not measured; P6 multiplayer, baseline and cosmetics (+18.6%) checks not run.
-- Bench switches for picks 3-5 are on `claude/p6-judge-fix`, not merged and never run.
-- Covered versions boot only to the title, with newest Fabric API instead of the pinned one.
-- Compatibility repairs still missing: "reset Java arguments", "install a missing dependency".
-- Old remote branches to look over: dev-shots, fervent-feynman-u4xm34, friends-icon-fix-before/before2,
-  gracious-pascal-m8yp6n, main-menu-button-styling-2i6rfu, minecraft-client-startup-31680x,
-  origin-mod-menu-layout-1nrfhf, practical-lamport-2cn1ob, trusting-shannon-k4vzd2.
+| Item | Status | Where |
+|---|---|---|
+| In-game loading screens differ between eras | Done: one loading look (Minecraft font, opaque backdrop, real logo, capsule bar with no 0% stub, Workbench Cancel) on 1.21.1, ported to every live version in this round | loading-screens recipe "Parity spec"; CI dev-shots per era group |
+| Menu frame time; P6 multiplayer, baseline, cosmetics checks | Open: needs a real GPU (CI has no frame data for menus) | P4-15, P6-12 |
+| Bench switches for picks 3-5 unmerged, never run | Done: merged and run in CI; picks 3-5 kept (pick 3 HUD -0.9 ms p50, heap -21%) | p6-measurements.md |
+| Covered versions boot only to the title, newest Fabric API | Partly done: boot-smoke now enters a flat world (HUD + Mod Menu shots, Save and Quit); the pinned-API boot is still open | live-modules.json `inworld` |
+| Compatibility repairs missing | Done: "Reset Java arguments" and "Install missing dependency" (Modrinth, SHA-512 checked) | Fix Compatibility |
+| Old remote branches | Audited, nothing deleted: main-menu-button-styling-2i6rfu has extras worth saving; the other 8 are safe to delete (Will's call) | dev-shots, fervent-feynman-u4xm34, friends-icon-fix-before/before2, gracious-pascal-m8yp6n, minecraft-client-startup-31680x, origin-mod-menu-layout-1nrfhf, practical-lamport-2cn1ob, trusting-shannon-k4vzd2 |
 
-## Recommendations (not built)
+## Recommendations (status 2026-10-27)
 
-1. Make the in-game loading screens one look on every era (the four differences above) in one port round.
-2. Add an in-world step to boot-smoke so menus and HUD are proven past the title screen.
-3. Turn the JEI self-check into a signature check (it only checks method names and misses moved classes).
-4. Run the held 1.8.9 pick A/B once game runs are allowed; revert any pick that does not help.
-5. Measure launcher cold start on a clean Windows install once per release.
+1. One loading look on every era: done (this round).
+2. In-world step in boot-smoke: done (`smoke.py --inworld`, HUD and Mod Menu shots in a flat world).
+3. JEI self-check as a signature check: done (owner + name + descriptor rows in CompatGates, checked against the jars in CI).
+4. 1.8.9 pick A/B: done in CI, every kept pick measured faster; the real-GPU run (`tools/bench/bench-189.ps1`) is Will's.
+5. Launcher cold start on a clean Windows install per release: open, not worth automating yet (needs a clean VM).
