@@ -41,18 +41,20 @@ import java.util.List;
 //                            (logo)                 origin_logo.png
 //                           wordmark                origin_wordmark.png, never text
 //                 [        Singleplayer        ]   200 x 20 Workbench cards,
-//                 [        Multiplayer         ]   Inter 600 labels + 8 px glyphs
+//                 [        Multiplayer         ]   Minecraft's dark button + font, words only
 //                 [   Options    ][    Mods    ]
 //
-//     realms friends cosmetics (mc-friends) lang access quit   20 x 20 cards, parchment glyphs
+//     realms friends cosmetics (mc-friends) lang access quit   icons on 20 x 20 dark Minecraft buttons
 //   Minecraft 26.x . Origin                Copyright Mojang AB. Do not distribute!
 //
 // Background: THIS version's own Mojang panorama (vanilla draws it), blurred
 // by vanilla's blur and dimmed (right after vanilla's extractPanorama call).
 // No splash. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
 // only REPOSITIONED (clicks and actions untouched); the worded buttons draw as
-// Workbench cards (OriginButtonRenderer.setTitleButton) and the dock as the same
-// card with a glyph (setTitleDock). Every dock action carries a one-line tooltip
+// Minecraft's own dark button and font (OriginButtonRenderer.setTitleButton ->
+// vanillaTitleButton; Will 2026-10-27, "the same ones" as every other menu, as on
+// 1.21.1) and the dock as the same 20 x 20 button with a premade icon
+// (setTitleDock). Language and Accessibility are vanilla's own sprite buttons. Every dock action carries a one-line tooltip
 // for the narrator only: its hover card is never drawn (WidgetTooltipHolderMixin;
 // Will, 2026-10-25: the card read as a second button). Worded buttons get none.
 // Mods / Friends / Cosmetics are Origin's, added as real widgets through
@@ -352,7 +354,7 @@ public class TitleScreenMixin {
 		if (w == null) {
 			return;
 		}
-		OriginButtonRenderer.setTitleDock(w, icon);
+		OriginButtonRenderer.setTitleDock(w, icon);   // icon null (Language, Accessibility): vanilla's own sprite button draws it
 		net.minecraft.client.gui.components.Tooltip t;
 		if (tip != null) {
 			t = net.minecraft.client.gui.components.Tooltip.create(Component.literal(tip));
@@ -364,11 +366,11 @@ public class TitleScreenMixin {
 		OriginButtonRenderer.setDockTip(t);
 	}
 
-	/** Worded button on the Workbench card, with its optional 8 px leading glyph (null = none). */
+	/** Worded dark button: Minecraft's own button and font, words only (Will 2026-10-27, no lead icons). */
 	@Unique
-	private static void originclient$worded(AbstractWidget w, String icon) {
+	private static void originclient$worded(AbstractWidget w) {
 		if (w != null) {
-			OriginButtonRenderer.setTitleButton(w, icon);
+			OriginButtonRenderer.setTitleButton(w, null);
 		}
 	}
 
@@ -465,11 +467,10 @@ public class TitleScreenMixin {
 				options.setMessage(Component.translatable("options.title"));   // "Options", sentence case
 			}
 			for (int i = 0; i < full.size(); i++) {
-				AbstractWidget w = full.get(i);
-				originclient$worded(w, w == play ? "@title-singleplayer" : w == online ? "@title-multiplayer" : null);
+				originclient$worded(full.get(i));
 			}
-			originclient$worded(options, "@title-options");
-			originclient$worded(originclient$modsNav, "@title-mods");
+			originclient$worded(options);
+			originclient$worded(originclient$modsNav);
 			// Worded buttons say what they do already: no tooltip (Will, 2026-10-19:
 			// "dont have the hover tells what it dos for the worded ones only the icons").
 			if (options != null && originclient$modsNav != null) {
@@ -483,7 +484,7 @@ public class TitleScreenMixin {
 			List<AbstractWidget> dock = new ArrayList<>();
 			if (realms != null) {
 				if (originclient$REALMS_WORKS) {
-					originclient$iconOnly(realms, "@title-realms", "Play on Minecraft Realms");
+					originclient$iconOnly(realms, "realms", "Play on Minecraft Realms");
 					dock.add(realms);
 				} else {
 					// Realms only joins on the latest release (see REALMS_WORKS): hide the dead button, keep the slot out of the dock
@@ -492,11 +493,11 @@ public class TitleScreenMixin {
 				}
 			}
 			if (originclient$friendsNav != null) {
-				originclient$iconOnly(originclient$friendsNav, "@title-multiplayer", "Friends: see who is online and join them");
+				originclient$iconOnly(originclient$friendsNav, "friends", "Friends: see who is online and join them");
 				dock.add(originclient$friendsNav);
 			}
 			if (originclient$cosmeticsNav != null) {
-				originclient$iconOnly(originclient$cosmeticsNav, "@shirt", "Cosmetics: capes and more for your player");
+				originclient$iconOnly(originclient$cosmeticsNav, "cosmetics", "Cosmetics: capes and more for your player");
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : sprites) {
@@ -506,14 +507,14 @@ public class TitleScreenMixin {
 				Identifier sprite = bundle == null ? null : bundle.get(true, false);
 				String path = sprite == null ? "" : sprite.getPath();
 				if (path.endsWith("language")) {
-					originclient$iconOnly(icon, "@title-language", "Change the game's language");
+					originclient$iconOnly(icon, null, "Change the game's language");
 				} else if (path.endsWith("accessibility")) {
-					originclient$iconOnly(icon, "@title-accessibility", "Accessibility settings");
+					originclient$iconOnly(icon, null, "Accessibility settings");
 				}
 				dock.add(icon);
 			}
 			if (quit != null) {
-				originclient$iconOnly(quit, "@title-quit", "Quit the game");
+				originclient$iconOnly(quit, "quit", "Quit the game");
 				dock.add(quit);
 			}
 			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;

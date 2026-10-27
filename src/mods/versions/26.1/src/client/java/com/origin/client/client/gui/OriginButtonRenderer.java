@@ -113,8 +113,8 @@ public final class OriginButtonRenderer {
 	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
 	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
 
-	/** icon: an atlas id (null = none); iconOnly: a dock glyph card vs a worded card; small: a secondary
-	 *  button (label at TITLE_SMALL_EM, textMuted at rest, parchment on hover). */
+	/** icon: a dock icon id (ICON_RECTS key, "friends", or an "@" ModIcons glyph; null = none); iconOnly: a dock
+	 *  button vs a worded one; small: a loading screen's Cancel (the Workbench card, Minecraft-font parchment label). */
 	private record TitlePresentation(String icon, boolean iconOnly, boolean small) {
 	}
 
@@ -132,8 +132,15 @@ public final class OriginButtonRenderer {
 		}
 	}
 
-	/** A title dock action: the worded buttons' card (same fill, hairline, radius, hover and
-	 *  press) with the glyph centred in parchment instead of a label. */
+	/** A loading screen's Cancel (Connecting, Realms connecting): the Workbench card, its label in Minecraft's
+	 *  font in parchment like 1.21.1 (Will, 2026-10-27; muted read as disabled, judge 2026-10-27). */
+	public static void setLoadingButton(Object widget) {
+		if (widget != null) {
+			TITLE.put(widget, new TitlePresentation(null, false, true));
+		}
+	}
+
+	/** A title dock action: a 20 x 20 dark Minecraft button with its icon centred (vanillaTitleButton). */
 	public static void setTitleDock(Object widget, String icon) {
 		if (widget != null && icon != null) {
 			TITLE.put(widget, new TitlePresentation(icon, true, false));
@@ -166,6 +173,9 @@ public final class OriginButtonRenderer {
 		TitlePresentation tp = TITLE.get(button);
 		if (tp == null || titleBroken || com.origin.client.client.OriginStyle.vanillaTitle()) {
 			return false;
+		}
+		if (!tp.small()) {
+			return vanillaTitleButton(g, button, tp);   // the title's buttons and dock: Minecraft's own dark button
 		}
 		try {
 			boolean enabled = button.active;
@@ -200,14 +210,13 @@ public final class OriginButtonRenderer {
 	private static void drawPanelButton(GuiGraphicsExtractor g, AbstractButton button, TitlePresentation tp,
 										int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
 		drawCard(g, x, y, w, h, enabled, hv, pressed);
-		// The label: Inter 600 in parchment, centred on its cap height. Falls back to Minecraft's font
-		// when the SDF face is not live. Measured once per widget and again only when the widget's
-		// message Component is replaced, so an ordinary frame measures nothing.
+		// The label: a loading screen's Cancel (small, the only card left after 2026-10-27) is always
+		// Minecraft's font, like every loading-screen line, in parchment (1.21.1). Measured once per widget
+		// and again only when the widget's message Component is replaced, so an ordinary frame measures nothing.
 		float em = tp.small() ? OriginTheme.TITLE_SMALL_EM : OriginTheme.TITLE_LABEL_EM;
-		Label lab = label(button, OriginSdfFont.active(), em);
+		Label lab = label(button, !tp.small() && OriginSdfFont.active(), em);
 		int textColor = !enabled ? OriginTheme.TITLE_TEXT_MUTED
-				: tp.small() ? OriginTheme.lerpColor(OriginTheme.TITLE_TEXT_MUTED, OriginTheme.TITLE_TEXT, pressed ? 1.0 : hv)
-				: OriginTheme.TITLE_TEXT;
+				: OriginTheme.TITLE_TEXT;   // parchment at rest, the loading Cancel included: muted read as disabled (judge 2026-10-27)
 		boolean lead = tp.icon() != null;
 		float groupW = lead ? LEAD_ICON + LEAD_GAP + lab.width : lab.width;
 		float gx = x + (w - groupW) / 2f;
@@ -282,6 +291,74 @@ public final class OriginButtonRenderer {
 		drawCard(g, x, y, w, h, enabled, hv, pressed);
 		int color = enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED;
 		ModIcons.drawFlat(g, tp.icon(), x + (w - GLYPH) / 2, y + (h - GLYPH) / 2 + (pressed ? 1 : 0), GLYPH, color);
+	}
+
+	// The title dock's icons (Will, 2026-10-27, from 1.21.1: the title buttons are "the same ones" as every other
+	// menu -- Minecraft's dark button, Minecraft's font -- with premade icons, words only on the big buttons).
+	// Cosmetics, Realms and Quit come from free icon packs, rebuilt by tools/title-icons/make_icons.py into one
+	// sheet (credits shipped beside it as title_icons_CREDITS.txt). Origin's Friends is vanilla's own social-
+	// interactions sprite drawn from the game's atlas; Mojang's own Friends button (26.2+, FriendsButton) keeps its
+	// single-person "@user" glyph; Language / Accessibility stay vanilla's own sprite buttons (not registered).
+	private static final Identifier TITLE_ICONS = Identifier.fromNamespaceAndPath("originclient", "textures/gui/title_icons.png");
+	private static final int ICONS_W = 48, ICONS_H = 16;
+	private static final Map<String, int[]> ICON_RECTS = Map.of(
+			// {u, v, w, h} of the art with its 1 px shadow, then the white body's own w, h: the body is what is centred
+			"cosmetics", new int[]{0, 0, 15, 13, 14, 12},
+			"realms", new int[]{16, 0, 16, 14, 15, 13},
+			"quit", new int[]{32, 0, 13, 13, 12, 12});
+	// 20 x 20, its bubble centred in the frame: drawn whole, centred on the 20 x 20 dock button. 26.1.2 ships it
+	// as toast/social_interactions (26.2/26.3 moved the same 20 x 20 art to pause_menu/social_interactions; unzip of
+	// each client jar, 2026-10-27; 26.1 / 26.1.1 likely the same as 26.1.2, not unzipped).
+	private static final Identifier SOCIAL = Identifier.withDefaultNamespace("toast/social_interactions");
+	// Vanilla AbstractButton's three sprites; the jar's dark widget art overrides them, so these ARE the dark buttons.
+	private static final Identifier BTN = Identifier.withDefaultNamespace("widget/button");
+	private static final Identifier BTN_OFF = Identifier.withDefaultNamespace("widget/button_disabled");
+	private static final Identifier BTN_HOVER = Identifier.withDefaultNamespace("widget/button_highlighted");
+	/** Vanilla's disabled label colour; the same grey tints a disabled button's icon (1.21.1's setColor 0.63). */
+	private static final int GREY = 0xFFA0A0A0;
+
+	/**
+	 * A title button drawn exactly like vanilla's AbstractButton (26.x extractDefaultSprite: the same sprite set by
+	 * active / isHoveredOrFocused; a white / A0A0A0 label in Minecraft's font with its shadow; instant hover). A dock
+	 * button shows its icon centred (where SpriteIconButton puts its sprite) instead of its label; the icon carries its
+	 * own drop shadow in the art, and a disabled button greys it like a label (per-blit ARGB: no shader colour in 26.x).
+	 */
+	private static boolean vanillaTitleButton(GuiGraphicsExtractor g, AbstractButton button, TitlePresentation tp) {
+		try {
+			boolean enabled = button.active;
+			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, !enabled ? BTN_OFF : button.isHoveredOrFocused() ? BTN_HOVER : BTN, x, y, w, h, 0xFFFFFFFF);
+			int tint = enabled ? 0xFFFFFFFF : GREY;
+			if (tp.iconOnly()) {
+				String icon = tp.icon();
+				int[] r = icon == null ? null : ICON_RECTS.get(icon);
+				if ("friends".equals(icon)) {
+					g.blitSprite(RenderPipelines.GUI_TEXTURED, SOCIAL, x + w / 2 - 10, y + h / 2 - 10, 20, 20, tint);
+				} else if (r != null) {
+					// Vanilla SpriteIconButton's placement on the body (odd pixel left/top), so it sits like Language / Accessibility.
+					g.blit(RenderPipelines.GUI_TEXTURED, TITLE_ICONS, x + w / 2 - r[4] / 2, y + h / 2 - r[5] / 2,
+							r[0], r[1], r[2], r[3], ICONS_W, ICONS_H, tint);
+				} else if (icon != null && icon.startsWith("@")) {
+					// Mojang's own FriendsButton (26.2+): its single-person glyph, parchment, on the dark button.
+					ModIcons.drawFlat(g, icon, x + (w - GLYPH) / 2, y + (h - GLYPH) / 2, GLYPH,
+							enabled ? OriginTheme.TITLE_TEXT : OriginTheme.TITLE_TEXT_MUTED);
+				}
+			} else {
+				g.centeredText(Minecraft.getInstance().font, button.getMessage(), x + w / 2, y + (h - 8) / 2,
+						enabled ? 0xFFFFFFFF : GREY);
+			}
+			// The pointer vanilla's AbstractButton extract requests (handleCursor), which the cancelled draw no longer reaches.
+			if (button.isHovered()) {
+				g.requestCursor(enabled ? com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND
+						: com.mojang.blaze3d.platform.cursor.CursorTypes.NOT_ALLOWED);
+			}
+			return true;
+		} catch (Throwable t) {
+			titleBroken = true;
+			com.origin.client.OriginClient.LOGGER.error(
+					"Origin title controls failed; falling back to vanilla widgets on the title for this session", t);
+			return false;
+		}
 	}
 
 	// ---- the title's footer line and tooltip (Workbench 15.2 / 11.8) ----
