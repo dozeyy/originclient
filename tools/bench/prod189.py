@@ -112,7 +112,9 @@ JVM_AB = {
 }
 
 # Phase 6 picks the bench can switch back off (OriginBench env ORIGIN_BENCH_OFF -> BenchSwitches.java)
-PICKS_OFF = ("hud", "minimap", "particles")
+PICKS_OFF = ("hud", "minimap", "particles", "invblur")
+# Candidate speed-ups not shipped yet, switched ON for an A/B (ORIGIN_BENCH_TRY -> BenchSwitches.java)
+PICKS_TRY = ("bluronce",)
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OriginBench"
 VARIANTS = ("origin-default", "optifine-only")
@@ -825,6 +827,7 @@ def bench_env(args, variant, out_dir, build_label):
         "ORIGIN_BENCH_IGNORE_FOCUS": "1" if getattr(args, "ignore_focus", False) else "0",
         # judge fix 2026-10-25: Phase 6 picks switched back to their old code (BenchSwitches.java); "" = as shipped
         "ORIGIN_BENCH_OFF": ",".join(getattr(args, "off", None) or []),
+        "ORIGIN_BENCH_TRY": ",".join(getattr(args, "try_", None) or []),
     })
     return env
 
@@ -918,7 +921,10 @@ def build_parser():
     r.add_argument("--keep-game", action="store_true")
     r.add_argument("--no-betterfps", action="store_true", help="leave BetterFps out of the stack (U6.4 J A/B)")
     r.add_argument("--off", action="append", choices=PICKS_OFF,
-                   help="switch one kept Phase 6 pick off for an A/B (repeatable): hud = pick 3, minimap = 4, particles = 5")
+                   help="switch one kept Phase 6 pick off for an A/B (repeatable): hud = pick 3, minimap = 4, particles = 5,"
+                        " invblur = inventory Menu Blur off (the Competitive preset's setting)")
+    r.add_argument("--try", dest="try_", action="append", choices=PICKS_TRY,
+                   help="switch one candidate speed-up on for an A/B (repeatable): bluronce = inventories blur once on open")
     c = sub.add_parser("check-roundtrip", help="fail when the game saved back a different value than the preset wrote")
     c.add_argument("--preset", required=True)
     c.add_argument("--saved", nargs="+", required=True, help="run folder(s) holding the saved options.txt + optionsof.txt")

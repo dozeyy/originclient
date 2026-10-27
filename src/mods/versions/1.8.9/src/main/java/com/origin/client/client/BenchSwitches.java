@@ -16,7 +16,9 @@ import java.util.Locale;
  * Mods.on cache). Deliberately independent of OriginBench so loading it pulls in no game classes.
  */
 public final class BenchSwitches {
-	private static final List<String> OFF = parse();
+	private static final List<String> OFF = parse("origin.bench.off", "ORIGIN_BENCH_OFF");
+	/** Candidate speed-ups not shipped yet, switched ON for an A/B (-Dorigin.bench.try / ORIGIN_BENCH_TRY). */
+	private static final List<String> TRY = parse("origin.bench.try", "ORIGIN_BENCH_TRY");
 
 	/** Pick 3 off: Gfx.batchBegin/End do nothing (every fill is its own draw) and HUD strings are rebuilt per call. */
 	public static final boolean HUD_OFF = OFF.contains("hud");
@@ -24,21 +26,25 @@ public final class BenchSwitches {
 	public static final boolean MINIMAP_OFF = OFF.contains("minimap");
 	/** Pick 5 off: particle settings and Mods.on are resolved again on every call. */
 	public static final boolean PARTICLES_OFF = OFF.contains("particles");
+	/** Inventory blur off (what the Competitive preset sets: menublur.inventory = false). */
+	public static final boolean INV_BLUR_OFF = OFF.contains("invblur");
+	/** Candidate G: inventories blur the world once when they open and reuse that image (MenuBlur). */
+	public static final boolean BLUR_ONCE = TRY.contains("bluronce");
 
 	private BenchSwitches() {
 	}
 
 	/** The switched-off picks as written into bench.json ("" = every pick as shipped). */
 	public static String describe() {
-		return String.join(",", OFF);
+		return String.join(",", OFF) + (TRY.isEmpty() ? "" : ";try:" + String.join(",", TRY));
 	}
 
-	private static List<String> parse() {
+	private static List<String> parse(String prop, String env) {
 		String bench = read("origin.bench", "ORIGIN_BENCH");
 		if (bench == null || bench.trim().isEmpty()) {
 			return java.util.Collections.emptyList();   // a player's game: never switch anything
 		}
-		String off = read("origin.bench.off", "ORIGIN_BENCH_OFF");
+		String off = read(prop, env);
 		if (off == null || off.trim().isEmpty()) {
 			return java.util.Collections.emptyList();
 		}

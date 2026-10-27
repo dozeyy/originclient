@@ -18,7 +18,10 @@
 #
 # PICK A/B (judge fix 2026-10-25): extra=off-hud,off-minimap,off-particles adds one origin-default launch per
 # kept Phase 6 pick with that ONE pick switched back to its old code (BenchSwitches.java, bench-only env
-# ORIGIN_BENCH_OFF). tools/bench/ab189.py pairs each with the same round's origin-default (+ = the pick helps).
+# ORIGIN_BENCH_OFF). tools/bench/ab189.py pairs each with the same round's origin-default (+ = the variant is
+# faster, so for an off-* row a MINUS means the pick helps). try-bluronce (ORIGIN_BENCH_TRY) switches the
+# not-yet-shipped capture-once inventory blur ON; off-invblur is the Competitive preset's inventory blur off.
+# Scene pvp-ui opens the inventory for 1 s and closes it for 1 s, over and over (audit perf-189 s6 scenario 7).
 # Scenes that exercise them: hud (picks 3 + 4: all HUD elements, minimap included), particles (pick 5).
 # Every launch also records the time to the title screen (bench.json environment.startupMs); ab189.py reports
 # it as the `startup` row and summarize.py as its own table. Every launch also leaves a fresh
@@ -39,7 +42,7 @@ on:
         description: "Rounds (each: both variants once, order alternating)"
         default: "3"
       scenes:
-        description: "Scenes: idle,particles,menu,flythrough (hud needs Origin, so it is not in the A/B); also players,cosmetics,pause"
+        description: "Scenes: idle,particles,menu,flythrough (hud needs Origin, so it is not in the A/B); also players,cosmetics,pause,pvp-ui"
         default: "idle,particles,menu,flythrough"
       warmup:
         description: "Warm-up seconds per scene"
@@ -66,7 +69,7 @@ on:
         description: "Window WxH (default 1280x720; a small one lifts llvmpipe above 30 FPS to check frame caps)"
         default: "1280x720"
       extra:
-        description: "Extra variants (U6.4 A/B), comma list: optifine-only (the control, for preset mode), jvm-g1-pause40, jvm-g1-young15, jvm-parallel, jvm-cms, jvm-heap2g, jvm-heap6g, java-zulu8, no-betterfps, off-hud, off-minimap, off-particles (one Phase 6 pick switched off)"
+        description: "Extra variants (U6.4 A/B), comma list: optifine-only (the control, for preset mode), jvm-g1-pause40, jvm-g1-young15, jvm-parallel, jvm-cms, jvm-heap2g, jvm-heap6g, java-zulu8, no-betterfps, off-hud, off-minimap, off-particles, off-invblur (one Phase 6 pick switched off), try-bluronce (inventory blur captured once on open)"
         default: ""
 
 permissions:
@@ -138,8 +141,8 @@ jobs:
                       k, v = tok.split("=", 1)
                       if k in cfg and re.fullmatch(r"[A-Za-z0-9._,-]+", v):
                           cfg[k] = v
-          scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause)"
-          ab = r"(optifine-only|jvm-(g1-pause40|g1-young15|parallel|cms|heap2g|heap6g)|java-zulu8|no-betterfps|off-(hud|minimap|particles))"
+          scene = r"(idle|hud|particles|menu|flythrough|players|cosmetics|pause|pvp-ui)"
+          ab = r"(optifine-only|jvm-(g1-pause40|g1-young15|parallel|cms|heap2g|heap6g)|java-zulu8|no-betterfps|off-(hud|minimap|particles|invblur)|try-bluronce)"
           for k, pat in (("runs", r"\d{1,2}"), ("warmup", r"\d{1,3}"), ("duration", r"\d{1,3}"),
                          ("presets", r"|(competitive|balanced|quality)(,(competitive|balanced|quality))*"),
                          ("prof", r"[01]"), ("shots", r"[01]"), ("shader", r"[01]"), ("size", r"\d{3,4}x\d{3,4}"), ("scenes", scene + "(," + scene + ")*"),
@@ -254,6 +257,7 @@ jobs:
                 java-zulu8) pv="origin-default"; java="$ZULU8/bin/java" ;;
                 no-betterfps) pv="origin-default"; vargs="--no-betterfps" ;;
                 off-*) pv="origin-default"; vargs="--off ${v#off-}" ;;
+                try-*) pv="origin-default"; vargs="--try ${v#try-}" ;;
               esac
               for attempt in 1 2; do
                 echo "::group::round $r  $v  (attempt $attempt)"

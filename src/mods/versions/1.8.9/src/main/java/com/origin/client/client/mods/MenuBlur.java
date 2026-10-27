@@ -91,6 +91,9 @@ public final class MenuBlur {
 	private static long cachedAtMs;
 	private static long quietUntilMs;          // no reuse before this (see GRACE_MS)
 	private static long lastBlurFrame = -10;   // frame of the previous blur() call
+	// ---- capture-once for inventories (candidate G; bench A/B "try-bluronce" until measured) ----
+	private static boolean invCaptured;        // PYRAMID[0] holds the backdrop captured when this inventory opened
+	private static WeakReference<GuiScreen> invScreen;
 	/** After an input or the start of a blur sequence the world may still be changing. */
 	private static final long GRACE_MS = 1500L;
 	/** How old a reused backdrop may get while the world is frozen. */
@@ -124,9 +127,7 @@ public final class MenuBlur {
 		if (!cacheValid || !frameHookSeen || cachedFrame < frame - 1 || PYRAMID[0] == null) {
 			return false;
 		}
-		if (levels != cachedLevels || main.framebufferWidth != cachedW || main.framebufferHeight != cachedH
-				|| main.framebufferTexture != cachedTex || mc.gameSettings.guiScale != cachedGuiScale
-				|| reloadGen != cachedReload) {
+		if (!sameShape(mc, main, levels)) {
 			return false;
 		}
 		long now = Minecraft.getSystemTime();
@@ -140,7 +141,21 @@ public final class MenuBlur {
 		return true;
 	}
 
+	/** Same window size, framebuffer, GUI scale, blur depth and resources as the image in PYRAMID[0]. */
+	private static boolean sameShape(Minecraft mc, Framebuffer main, int levels) {
+		return levels == cachedLevels && main.framebufferWidth == cachedW && main.framebufferHeight == cachedH
+				&& main.framebufferTexture == cachedTex && mc.gameSettings.guiScale == cachedGuiScale
+				&& reloadGen == cachedReload;
+	}
+
 	private static void remember(Minecraft mc, Framebuffer main, int levels) {
+		// the image's shape is recorded on every build (the inventory capture checks it too)
+		cachedLevels = levels;
+		cachedW = main.framebufferWidth;
+		cachedH = main.framebufferHeight;
+		cachedTex = main.framebufferTexture;
+		cachedGuiScale = mc.gameSettings.guiScale;
+		cachedReload = reloadGen;
 		if (!frameHookSeen || !frozen(mc)) {
 			cacheValid = false;
 			return;
@@ -148,12 +163,6 @@ public final class MenuBlur {
 		cacheValid = true;
 		cachedFrame = frame;
 		cachedAtMs = Minecraft.getSystemTime();
-		cachedLevels = levels;
-		cachedW = main.framebufferWidth;
-		cachedH = main.framebufferHeight;
-		cachedTex = main.framebufferTexture;
-		cachedGuiScale = mc.gameSettings.guiScale;
-		cachedReload = reloadGen;
 		cachedWorld = new WeakReference<Object>(mc.theWorld);
 		cachedWorldTime = mc.theWorld.getTotalWorldTime();
 	}
@@ -196,6 +205,7 @@ public final class MenuBlur {
 		}
 		return screen != null && !com.origin.client.client.OriginStyle.vanillaMenusOn(screen) && !broken && Minecraft.getMinecraft().theWorld != null
 				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen))
+				&& !(com.origin.client.client.BenchSwitches.INV_BLUR_OFF && screen instanceof GuiContainer)
 				&& OpenGlHelper.isFramebufferEnabled() && !IrisBridge.shadersActive();
 	}
 
@@ -228,10 +238,28 @@ public final class MenuBlur {
 			return false;
 		}
 		ensureReloadListener(mc);
-		if (lastBlurFrame < frame - 1) {
+		boolean continuing = frameHookSeen && lastBlurFrame >= frame - 1;
+		if (!continuing) {
 			quietUntilMs = Minecraft.getSystemTime() + GRACE_MS;   // a new sequence: the pause just opened
 		}
 		lastBlurFrame = frame;
+		GuiScreen screen = mc.currentScreen;
+		boolean once = com.origin.client.client.BenchSwitches.BLUR_ONCE && screen instanceof GuiContainer;
+		if (once && continuing && invCaptured && invScreen != null && invScreen.get() == screen
+				&& sameShape(mc, main, levels)) {
+			// the inventory is still the one that opened: draw the image captured then
+			try {
+				OriginScreenRenderer.drawFullscreenTexture(PYRAMID[0]);
+			} catch (Throwable t) {
+				broken = true;   // vanilla's darkened backdrop from now on
+				com.origin.client.OriginClient.LOGGER.warn("Origin: Menu Blur failed; using vanilla's menu backdrop", t);
+				return false;
+			}
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.countBlur(true);
+			}
+			return true;
+		}
 		if (canReuse(mc, main, levels)) {
 			try {
 				cachedFrame = frame;
@@ -247,6 +275,7 @@ public final class MenuBlur {
 			}
 		}
 		cacheValid = false;
+		invCaptured = false;
 		int mainFilter = main.framebufferFilter;
 		try {
 			OriginScreenRenderer.ensurePyramid(PYRAMID, levels,
@@ -282,6 +311,10 @@ public final class MenuBlur {
 		}
 		OriginScreenRenderer.drawFullscreenTexture(PYRAMID[0]);
 		remember(mc, main, levels);
+		if (once) {
+			invCaptured = true;
+			invScreen = new WeakReference<GuiScreen>(screen);
+		}
 		if (com.origin.client.client.BenchProf.ON) {
 			com.origin.client.client.BenchProf.countBlur(false);
 		}
