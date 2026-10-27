@@ -879,6 +879,12 @@ final class OriginDevWorld {
 			return;
 		}
 		try {
+			// 26.x Screenshot.grab writes a timestamped PNG on a worker thread: no step moves on (or quits)
+			// until the last capture is on disk under its shot name (finishGrab), or smoke.py finds it missing.
+			if (pending != null && !finishGrab(dir)) {
+				iwAt = now + 100;
+				return;
+			}
 			var screen = mc.gui.screen();
 			switch (iw) {
 				case 0 -> {
@@ -1002,17 +1008,31 @@ final class OriginDevWorld {
 	}
 
 	private static void grab(Minecraft mc, String dir, String name) {
-		before = OriginDevShots.pngs();
+		before = pngsIn(dir);
 		renameTries = 0;
 		pending = name;
 		Screenshot.grab(new File(dir), mc.gameRenderer.mainRenderTarget(), c -> {
 		});
 	}
 
+	/** The PNGs in {@code dir}/screenshots (the world set passes OriginDevShots' DIR; boot-smoke's in-world step its own dir). */
+	private static Set<String> pngsIn(String dir) {
+		Set<String> out = new HashSet<>();
+		String[] names = new File(dir, "screenshots").list();
+		if (names != null) {
+			for (String n : names) {
+				if (n.endsWith(".png")) {
+					out.add(n);
+				}
+			}
+		}
+		return out;
+	}
+
 	/** Renames the pending capture's new PNG to its shot name; false while it isn't written yet. */
 	private static boolean finishGrab(String dir) throws java.io.IOException {
 		String fresh = null;
-		for (String n : OriginDevShots.pngs()) {
+		for (String n : pngsIn(dir)) {
 			if (!before.contains(n)) {
 				fresh = n;
 			}
