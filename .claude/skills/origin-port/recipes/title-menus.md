@@ -39,6 +39,15 @@ ScreenBackgroundMixin, ScreenInvoker. "Proven" means CI and review passed (clean
 - 26.3 dev-shots: opening a screen resyncs the cursor to the real Xvfb pointer; put it back after each setScreen or a stray hover lands in the shot.
 - Write the footer middle dot as `·` (sources stay ASCII). Normalize CRLF before diff3-merging a donor file.
 
+## Dark title buttons + icon dock (2026-10-27, G1/G2 1.20-1.21; javap-proven)
+- `ResourceLocation.fromNamespaceAndPath` / `withDefaultNamespace` are 1.21+; 1.20.x only has `new ResourceLocation(ns, path)`.
+- 1.20.2+: the big button is `blitSprite(widget/button[_highlighted|_disabled])` (the module's sprite overrides make it dark);
+  Friends = `toast/social_interactions` sprite, 20 x 20.
+- 1.20 (no atlas): the big button is AbstractButton.renderWidget's own call, `blitNineSliced(tex, x, y, w, h, 20, 4, 200, 20, 0,
+  46 + 20 * state)` (state 0 disabled, 1 normal, 2 hovered/focused), bound through `OriginDarkWidgets.texture(..., WIDGETS, BUTTON)`,
+  the same dark sheet DarkButtonMixin uses. Friends = `TutorialToast.Icons.SOCIAL_INTERACTIONS.render(g, x, y)`: vanilla's own
+  20 x 20 toasts.png icon (176 + 2*20, 1*20), the art 1.20.2 split into the sprite.
+
 ## Proof
 - Use `dev-shots set=design`. For the clean look also set `ORIGIN_SHOTS_SET=clean` with a `title_hover` shot on Quit.
 - Run `style=menu|buttons|vanilla` to prove that Main Menu Style and Button Style fall back to vanilla.

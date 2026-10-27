@@ -10,6 +10,7 @@
 		"ReceivingLevelScreenMixin",
 		"ProgressScreenMixin",
 		"ConnectScreenMixin",
+		"RealmsTaskScreenMixin",
 		"LoadingOverlayRevealMixin",
 		"TitleScreenFadeMixin",
 		"ReloadTaskBudgetMixin",

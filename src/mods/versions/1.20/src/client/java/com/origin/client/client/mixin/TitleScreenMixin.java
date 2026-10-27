@@ -50,16 +50,17 @@ import java.util.List;
 //                 [        Multiplayer         ]
 //                 [   Options    ][    Mods    ]
 //
-//     realms friends cosmetics lang access quit          12 px parchment glyphs on 20 x 20 Workbench cards
+//     realms friends cosmetics lang access quit          pixel icons on 20 x 20 dark Minecraft buttons
 //     Minecraft 1.21.1 . Origin (middle dot)     Copyright Mojang AB. Do not distribute!
 //
 // Background: THIS version's own Mojang panorama (vanilla draws it), blurred
 // by MenuBlur's chain and dimmed (the overlay-blit redirect). No splash. Footer: the
 // version line left and the real copyright button right, both textMuted in
 // Inter (Minecraft's font when Inter is not live), 6 GUI px from the bottom. GEOMETRY LIVES IN ONE PLACE: TitleLayout. Vanilla's own widgets are
-// only REPOSITIONED (clicks and actions untouched) and draw as stock
-// Workbench panels (OriginButtonRenderer skin 2: titleControl, registered below
-// with setTitleButton); the dock is the same card with a glyph (setTitleDock).
+// only REPOSITIONED (clicks and actions untouched) and draw as Minecraft's own
+// dark button with a pixel icon (OriginButtonRenderer skin 2: titleControl, registered
+// below with setTitleButton / setTitleDock; Will 2026-10-27, "the same ones" as every
+// other menu). Language and Accessibility are vanilla's own sprite buttons, untouched.
 // Both fall back to the stock vanilla button on a draw failure or when the
 // Main Menu Style is vanilla. Every dock glyph carries a one-line tooltip saying what it does, for narration only:
 // it is never drawn (WidgetTooltipHolderMixin; a hover card beside the dock read as a second button, Will
@@ -358,21 +359,21 @@ public class TitleScreenMixin {
 		return net.minecraft.client.resources.language.I18n.get(key).equals(w.getMessage().getString());
 	}
 
-	/** Dock action: the worded buttons' card with a parchment glyph; what it does is its (narrated, never drawn) tooltip. */
+	/** Dock action: a 20 x 20 dark button with its pixel icon; what it does is its (narrated, never drawn) tooltip. */
 	@Unique
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
-		OriginButtonRenderer.setTitleDock(w, icon);
+		OriginButtonRenderer.setTitleDock(w, icon);   // icon null (Language, Accessibility): vanilla's own sprite button draws it
 		originclient$tip(w, tip);
 		if (w != null) {
 			OriginButtonRenderer.setDockTip(w.getTooltip());   // narrated, never drawn (WidgetTooltipHolderMixin)
 		}
 	}
 
-	/** Worded button on the Workbench panel, with its optional 8 px leading glyph (null = none). */
+	/** Worded dark button: Minecraft's own button and font, words only (Will 2026-10-27, no lead icons). */
 	@Unique
-	private static void originclient$worded(AbstractWidget w, String icon) {
+	private static void originclient$worded(AbstractWidget w) {
 		if (w != null) {
-			OriginButtonRenderer.setTitleButton(w, icon);
+			OriginButtonRenderer.setTitleButton(w, null);
 		}
 	}
 
@@ -475,11 +476,10 @@ public class TitleScreenMixin {
 				options.setMessage(Component.translatable("options.title"));   // "Options", sentence case
 			}
 			for (int i = 0; i < full.size(); i++) {
-				AbstractWidget w = full.get(i);
-				originclient$worded(w, w == play ? "@title-singleplayer" : w == online ? "@title-multiplayer" : null);
+				originclient$worded(full.get(i));
 			}
-			originclient$worded(options, "@title-options");
-			originclient$worded(originclient$modsNav, "@title-mods");
+			originclient$worded(options);
+			originclient$worded(originclient$modsNav);
 			// Worded buttons say what they do already: no tooltip (Will, 2026-10-19:
 			// "dont have the hover tells what it dos for the worded ones only the icons").
 			if (options != null && originclient$modsNav != null) {
@@ -493,7 +493,7 @@ public class TitleScreenMixin {
 			List<AbstractWidget> dock = new ArrayList<>();
 			if (realms != null) {
 				if (originclient$REALMS_WORKS) {
-					originclient$iconOnly(realms, "@title-realms", "Play on Minecraft Realms");
+					originclient$iconOnly(realms, "realms", "Play on Minecraft Realms");
 					dock.add(realms);
 				} else {
 					// Realms only joins on the latest release (see REALMS_WORKS): hide the dead button, keep the slot out of the dock
@@ -502,25 +502,25 @@ public class TitleScreenMixin {
 				}
 			}
 			if (originclient$friendsNav != null) {
-				originclient$iconOnly(originclient$friendsNav, "@title-multiplayer", "Friends: see who is online and join them");
+				originclient$iconOnly(originclient$friendsNav, "friends", "Friends: see who is online and join them");
 				dock.add(originclient$friendsNav);
 			}
 			if (originclient$cosmeticsNav != null) {
-				originclient$iconOnly(originclient$cosmeticsNav, "@shirt", "Cosmetics: capes and more for your player");
+				originclient$iconOnly(originclient$cosmeticsNav, "cosmetics", "Cosmetics: capes and more for your player");
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : sprites) {
-				// narrator.button.language / narrator.button.accessibility
+				// narrator.button.language / narrator.button.accessibility: vanilla's own image buttons (icon null: never redrawn)
 				String key = originclient$translationKey(icon.getMessage());
 				if (key.endsWith(".language")) {
-					originclient$iconOnly(icon, "@title-language", "Change the game's language");
+					originclient$iconOnly(icon, null, "Change the game's language");
 				} else if (key.endsWith(".accessibility")) {
-					originclient$iconOnly(icon, "@title-accessibility", "Accessibility settings");
+					originclient$iconOnly(icon, null, "Accessibility settings");
 				}
 				dock.add(icon);
 			}
 			if (quit != null) {
-				originclient$iconOnly(quit, "@title-quit", "Quit the game");
+				originclient$iconOnly(quit, "quit", "Quit the game");
 				dock.add(quit);
 			}
 			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
