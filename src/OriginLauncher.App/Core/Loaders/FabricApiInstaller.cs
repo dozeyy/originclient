@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -28,7 +29,8 @@ public static class FabricApiInstaller
 
     private static HttpClient CreateClient()
     {
-        var http = new HttpClient();
+        // Stall-guarded (Core/Net/DownloadHttp): a download that goes quiet fails instead of freezing the install.
+        var http = DownloadHttp.Create();
         // Modrinth's API docs ask every client to send a descriptive
         // User-Agent — untagged traffic is more likely to get rate-limited.
         http.DefaultRequestHeaders.UserAgent.ParseAdd("OriginLauncher/1.0 (+will@willhenry.me)");

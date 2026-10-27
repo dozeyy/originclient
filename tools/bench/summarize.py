@@ -285,7 +285,7 @@ def require_valid(agg):
     for name, v in agg["variants"].items():
         want = set(expected)
         if v["environment"].get("originActive") is False:
-            want.discard("hud")   # the OptiFine-only probe skips hud on purpose (no Origin HUD to draw)
+            want -= ORIGIN_ONLY_SCENES   # the OptiFine-only probe skips these on purpose
         missing = sorted(want - set(v["scenes"]))
         if missing:
             problems.append("%s has no valid run of: %s (left out as invalid: %s)"
@@ -293,6 +293,10 @@ def require_valid(agg):
     if problems:
         raise SummaryError("no usable measurement: " + "; ".join(problems))
 
+
+# Scenes that need Origin (its HUD, its HUD editor): an Origin-inert variant (the OptiFine-only probe) never runs
+# them, so it has no figure to compare them against.
+ORIGIN_ONLY_SCENES = frozenset(("hud", "hudedit", "hudrobot"))
 
 REGRESSION_METRICS = ("avgFps", "low1Fps")   # the two numbers a player feels; higher is better for both
 
@@ -303,11 +307,15 @@ def check_regression(agg, max_pct):
     if max_pct < 0:
         raise SummaryError("--max-regression-pct must be >= 0, got %s" % max_pct)
     bad, uncompared = [], []
+    base = agg["variants"].get(agg["baseline"]) or {}
+    base_inert = (base.get("environment") or {}).get("originActive") is False
     for vname, v in agg["variants"].items():
         if vname == agg["baseline"]:
             continue
         row_by_scene = agg["deltaPctVsBaseline"].get(vname, {})
         for sc in v["scenes"]:
+            if base_inert and sc in ORIGIN_ONLY_SCENES and sc not in base.get("scenes", ()):
+                continue   # skipped by the Origin-inert baseline on purpose: nothing to compare, not a failure
             # A scene the baseline never measured has no delta; skipping it would let a regression pass unseen.
             for name in REGRESSION_METRICS:
                 d = (row_by_scene.get(sc) or {}).get(name)

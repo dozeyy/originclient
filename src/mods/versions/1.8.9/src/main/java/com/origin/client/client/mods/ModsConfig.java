@@ -178,8 +178,25 @@ public final class ModsConfig {
 		}
 	}
 
+	/** Completed save() calls this session (bench: settings-file writes per second). */
+	public static volatile long saveCount;
+
 	static synchronized void save() {
 		rev++;
+		saveCount++;
+		if (com.origin.client.client.BenchProf.ON) {
+			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_CONFIG_SAVE);
+		}
+		try {
+			saveNow();
+		} finally {
+			if (com.origin.client.client.BenchProf.ON) {
+				com.origin.client.client.BenchProf.end(com.origin.client.client.BenchProf.S_CONFIG_SAVE);
+			}
+		}
+	}
+
+	private static void saveNow() {
 		try {
 			JsonObject root = new JsonObject();
 			JsonObject mods = new JsonObject();

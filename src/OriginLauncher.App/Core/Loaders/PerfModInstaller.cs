@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Net;
 
 namespace OriginLauncher.App.Core.Loaders;
 
@@ -9,7 +10,8 @@ namespace OriginLauncher.App.Core.Loaders;
 // "no-op if already installed" version install.
 public static class PerfModInstaller
 {
-    private static readonly HttpClient Http = new();
+    // Stall-guarded (Core/Net/DownloadHttp): a download that goes quiet fails instead of freezing the install.
+    private static readonly HttpClient Http = DownloadHttp.Create();
 
     public static async Task InstallAsync(
         VersionPerfProfile profile, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default)

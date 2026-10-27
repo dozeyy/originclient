@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Net;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
@@ -21,10 +22,9 @@ public static class OptiFineInstaller
 
     private static HttpClient CreateClient()
     {
-        var client = new HttpClient();
-        // optifine.net serves 503 to clients with no UA.
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) OriginLauncher");
-        return client;
+        // optifine.net serves 503 to clients with no UA. Stall-guarded (Core/Net/DownloadHttp): a source that goes
+        // quiet (or never answers) fails within seconds and the chain moves to the next mirror instead of waiting.
+        return DownloadHttp.Create("Mozilla/5.0 (Windows NT 10.0; Win64; x64) OriginLauncher");
     }
 
     private sealed record OptiFineBuild(string FileName, string Sha1, string[] MirrorUrls);

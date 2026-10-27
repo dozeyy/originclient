@@ -176,6 +176,12 @@
     <Compile Include="..\OriginLauncher.App\UI\Controls\VersionSelectModel.cs" LinkBase="Cards" />
     <!-- The pinned legacy Forge table (pure data, no CmlLib), so a test can assert the real 1.8.9 layout. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\LegacyForgeBuilds.cs" LinkBase="Loaders" />
+    <!-- Install downloads that stall (DownloadStallTests): the stall-guarded client and CmlLib's file pass with
+         per-file retry, run against a real local socket server. -->
+    <Compile Include="..\OriginLauncher.App\Core\Net\DownloadHttp.cs" LinkBase="Net" />
+    <Compile Include="..\OriginLauncher.App\Core\Versions\RetryingGameInstaller.cs" LinkBase="Versions" />
+    <!-- The Modrinth install path (Fabric API, voice chat): a stalled live query must skip the mod, not fail the launch. -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\FabricApiInstaller.cs" LinkBase="Loaders" />
   </ItemGroup>
 
   <ItemGroup>
@@ -184,6 +190,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
     <!-- Compile-time only for AccountStore; the tests never call DPAPI. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
+    <!-- Same version as the app: DownloadStallTests drive CmlLib's real ParallelGameInstaller. -->
+    <PackageReference Include="CmlLib.Core" Version="4.0.6" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CrashCorpus\**\*" CopyToOutputDirectory="PreserveNewest" />

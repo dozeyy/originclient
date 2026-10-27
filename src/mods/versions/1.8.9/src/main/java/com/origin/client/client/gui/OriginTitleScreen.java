@@ -28,8 +28,8 @@ import java.util.List;
 //              [friends][cosmetics][lang][quit]     20 x 20 dark buttons, premade icons
 //   Minecraft 1.8.9 . Origin          Copyright Mojang AB. Do not distribute!
 //
-// Background: 1.8.9's own panorama, drawn and blurred by vanilla's renderer
-// (MenuPanorama), under the title dim and vignette. No splash.
+// Background: 1.8.9's own panorama, drawn sharp with a fixed pitch
+// like 1.21.1 (MenuPanorama), under the title dim and vignette. No splash.
 // GEOMETRY LIVES IN ONE PLACE: TitleLayout. Every control is a TitleButton:
 // Minecraft's own dark button (the dark-widget path) with a white Minecraft-font
 // label or a dock icon (TitleButton). No hover tooltips anywhere on the title

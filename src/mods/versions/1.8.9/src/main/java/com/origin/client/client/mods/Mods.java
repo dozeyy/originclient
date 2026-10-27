@@ -800,7 +800,10 @@ public final class Mods {
 		// mod menu is see-through on purpose so HUD changes preview live behind it.
 		add("menublur", "Menu Blur", "Blur the world behind menus.", true,
 				ModOption.slider("strength", "Blur Strength", 0, 20, 1, 4, "%.0f"),
-				ModOption.toggle("inventory", "Inventories", true).tip("Blur behind your inventory, chests and every other container."),
+				// Inventories default OFF on 1.8.9 (Will, 2026-10-27: "there is still inventory blur ...
+				// on my default in 1.8.9 so fix that"; also +11.9 % avg FPS with it off, p6-measurements).
+				// Only the default changed: a player who switched it on has a saved key, which wins.
+				ModOption.toggle("inventory", "Inventories", false).tip("Blur behind your inventory, chests and every other container."),
 				ModOption.color("inventoryBg", "Inventory Tint", 0x6F000000).under("inventory"),
 				ModOption.toggle("pause", "Pause & Game Menus", true).tip("Blur behind the pause menu and the in-game option screens."),
 				ModOption.color("pauseBg", "Pause Menu Tint", 0x6F000000).under("pause"),
@@ -1590,6 +1593,7 @@ public final class Mods {
 			return;
 		}
 		migrated = true;
+		upgradeOptions();
 		if (!ModsConfig.VALUES.isEmpty()) {
 			return; // already have real state
 		}
@@ -1604,6 +1608,57 @@ public final class Mods {
 		ModsConfig.VALUES.computeIfAbsent("zoom", k -> new java.util.HashMap<>())
 				.put("fov", new JsonPrimitive(legacy.zoomFov));
 		ModsConfig.touch();
+	}
+
+	// Option versions: when the meaning of a saved value changes (a default flipped
+	// that earlier builds or presets wrote into the file as if the player chose it),
+	// the option's version goes up. A file whose meta "optionVersion.<mod>.<key>" is
+	// below it has that ONE value dropped once, so it falls back to today's default;
+	// the new version is then recorded in meta, and anything the player (or a
+	// synced version) sets afterwards sticks. Settings Sync carries both the meta
+	// marker and the removal (originclient-mods.json is deletion-aware).
+	//   menublur.inventory v2 (2026-10-27): Inventories defaults OFF on 1.8.9 (Will:
+	//   "there is still inventory blur ... on my default in 1.8.9"); the old default
+	//   and the Balanced/Quality presets had written true.
+	private static final String[][] OPTION_VERSIONS = {
+			{"menublur", "inventory", "2"},
+	};
+
+	private static void upgradeOptions() {
+		boolean removed = false;
+		for (String[] o : OPTION_VERSIONS) {
+			String metaKey = "optionVersion." + o[0] + "." + o[1];
+			int want = Integer.parseInt(o[2]);
+			int have = 1;
+			com.google.gson.JsonElement v = ModsConfig.META.get(metaKey);
+			try {
+				if (v != null && v.isJsonPrimitive()) {
+					have = v.getAsInt();
+				}
+			} catch (RuntimeException ignored) {
+				// a hand-edited non-number counts as the first version
+			}
+			if (have >= want) {
+				continue;
+			}
+			// Only a saved "on" is dropped. A saved "off" already equals the new
+			// default, and dropping it would sync out as a DELETION to every other
+			// version (deletion-aware file), where the default is still on.
+			Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get(o[0]);
+			com.google.gson.JsonElement saved = m == null ? null : m.get(o[1]);
+			if (saved != null && saved.isJsonPrimitive() && "true".equals(saved.getAsString())) {
+				m.remove(o[1]);
+				removed = true;
+			}
+			ModsConfig.META.put(metaKey, new JsonPrimitive(want));
+		}
+		if (removed) {
+			ModsConfig.save();
+		} else {
+			// Only the marker changed: it goes to disk with the next save (every
+			// setting change saves). Until then a later load just finds nothing to drop.
+			ModsConfig.touch();
+		}
 	}
 
 	private static void seed(String id, boolean on) {

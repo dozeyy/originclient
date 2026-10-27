@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Net;
 using System.Threading;
 using CmlLib.Core;
 using CmlLib.Core.Installers;
@@ -470,8 +471,7 @@ public sealed class VersionManager
 
     private static readonly Lazy<ComponentStore> Components = new(() =>
     {
-        var http = new HttpClient();
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("OriginLauncher/1.0 (+will@willhenry.me)");
+        var http = DownloadHttp.Create("OriginLauncher/1.0 (+will@willhenry.me)");
         return new ComponentStore(OriginPaths.ComponentStore, http);
     });
 
@@ -832,11 +832,19 @@ public sealed class VersionManager
         SharedMods.Mirror(modsFolder, Path.Combine(path.BasePath, InstanceLayout.ModsFolder), include,
             profileMods: profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null);
 
+        // Run on a current Java 8 (Temurin) instead of Mojang's 2015 jre-legacy (8u51). Still
+        // Java 8, which Forge 11.15 / FML needs. Ready = a folder check; first time = one
+        // verified download, shown on the loading scene. Any failure returns null and the
+        // launch falls back to jre-legacy (Mandate 4: never break a launch).
+        // Resolved BEFORE the game-file pass: when Temurin is ready, Mojang's jre-legacy (192 files, 150 MB on a
+        // first 1.8.9 install, ~20% of its file counter) is never run, so it is no longer downloaded either.
+        var temurinJavaw = await LegacyJava.ResolveAsync(SharedHttp, progress, ct);
+
         // Same stamp policy as the Fabric path — the legacy instance carries
         // the same multi-hundred-MB asset + JRE rehash, so it gets the same
         // skip once it has proven clean under this launcher build.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
-        var launcher = BuildLauncher(path, forgeVersionName, decision.FullVerify);
+        var launcher = BuildLauncher(path, forgeVersionName, decision.FullVerify, skipJava: temurinJavaw != null);
 
         progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
         var fileProgress = new InstallProgressThrottle(
@@ -849,12 +857,7 @@ public sealed class VersionManager
         var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress, null, ct);
         if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
 
-        // Run on a current Java 8 (Temurin) instead of Mojang's 2015 jre-legacy (8u51). Still
-        // Java 8, which Forge 11.15 / FML needs. Ready = a folder check; first time = one
-        // verified download, shown on the loading scene. Any failure returns null and the
-        // process keeps the jre-legacy CmlLib already resolved (Mandate 4: never break a launch).
-        if (await LegacyJava.ResolveAsync(SharedHttp, progress, ct) is { } temurinJavaw)
-            built.StartInfo.FileName = temurinJavaw;
+        if (temurinJavaw != null) built.StartInfo.FileName = temurinJavaw;
         return built;
     }
 
@@ -911,7 +914,9 @@ public sealed class VersionManager
     // One client for the whole process. The Fabric installer used to get a
     // brand-new HttpClient per launch, which meant a fresh TLS handshake to
     // meta.fabricmc.net every time and a socket left in TIME_WAIT after.
-    private static readonly HttpClient SharedHttp = new();
+    // Stall-guarded (Core/Net/DownloadHttp): CmlLib reads every game file's body with no timeout and no cancel,
+    // so one connection that went quiet froze the install one file short until the launcher was restarted.
+    private static readonly HttpClient SharedHttp = DownloadHttp.Create();
 
     // Parallel game-file downloads (BuildLauncher). Measured in launch-time.yml.
     private const int MaxDownloads = 24;
@@ -928,7 +933,10 @@ public sealed class VersionManager
     ///                       is there, instead of Mojang's manifest
     ///                       (LocalFirstVersionLoader).
     /// </summary>
-    private static MinecraftLauncher BuildLauncher(MinecraftPath path, string versionName, bool fullVerify)
+    /// skipJava = true leaves the Java runtime out of the file pass entirely (the caller runs its own: 1.8.9's
+    /// Temurin), so a Java the launch never runs is not downloaded or checked.
+    private static MinecraftLauncher BuildLauncher(MinecraftPath path, string versionName, bool fullVerify,
+        bool skipJava = false)
     {
         // MUST pass the path INTO CreateDefault. The parameterless overload builds
         // its IVersionLoader bound to the DEFAULT Minecraft path, and assigning
@@ -946,7 +954,7 @@ public sealed class VersionManager
         var javaMeta = new HttpClient(new MojangMetaCache(
             Path.Combine(OriginPaths.Root, "cache", "mojang-meta"), new ForwardToClient(SharedHttp),
             diskFirst: !fullVerify));
-        InheritedJavaFileExtractor.Install(parameters, javaMeta);
+        InheritedJavaFileExtractor.Install(parameters, javaMeta, skipJava);
         // Offline: the version list from the copy CmlLib saved on its last fetch.
         if (parameters.VersionLoader is MojangJsonVersionLoaderV2 mojang) mojang.UseLocalManifestWhenError = true;
         if (!fullVerify && parameters.VersionLoader != null)
@@ -956,7 +964,9 @@ public sealed class VersionManager
         // downloaders. A first launch is ~3,900 asset files of a few KB each, so
         // the download is round-trip bound, not bandwidth bound: more requests in
         // flight finish it sooner. Checkers stay CmlLib's (disk/hash bound).
-        var installer = new ParallelGameInstaller(
+        // RetryingGameInstaller: CmlLib's installer, but a file that stalls or drops is retried (fresh connection)
+        // instead of hanging or failing the whole pass.
+        var installer = new RetryingGameInstaller(
             maxChecker: Math.Clamp(Environment.ProcessorCount, 1, 4),
             maxDownloader: Math.Max(MaxDownloads, Environment.ProcessorCount),
             boundedCapacity: 2048,

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Net;
 
 namespace OriginLauncher.App.Core.Loaders;
 
@@ -26,7 +27,8 @@ public static class SimpleVoiceChatInstaller
 
     private static HttpClient CreateClient()
     {
-        var http = new HttpClient();
+        // Stall-guarded (Core/Net/DownloadHttp): a download that goes quiet fails instead of freezing the install.
+        var http = DownloadHttp.Create();
         // Modrinth asks every client to send a descriptive User-Agent — untagged
         // traffic is more likely to be rate-limited.
         http.DefaultRequestHeaders.UserAgent.ParseAdd("OriginLauncher/1.0 (+will@willhenry.me)");

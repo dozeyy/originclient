@@ -93,9 +93,9 @@ public static class GamePresetOptions
         // Entity / Tile Entity Distance, percent of the render distance (100 = off): Mods.PERFORMANCE_SETTINGS.
         Row(GamePresetFile.Origin, "@performance.entityDistance",     "75",    "100",  "100",  "100"),
         Row(GamePresetFile.Origin, "@performance.tileEntityDistance", "50",    "100",  "100",  "100"),
-        // Menu Blur. Inventory blur is off in Competitive, on in Balanced and Quality (orchestrator decision,
-        // phase-6 U6.2); the pause menu follows it.
-        Row(GamePresetFile.Origin, "menublur.inventory",              "false", "true", "true", "true"),
+        // Menu Blur. Inventory blur is off in every preset and by default (Will, 2026-10-27, replacing the
+        // phase-6 "on in Balanced and Quality"); the pause menu blur stays on outside Competitive.
+        Row(GamePresetFile.Origin, "menublur.inventory",              "false", "false", "false", "false"),
         Row(GamePresetFile.Origin, "menublur.pause",                  "false", "true", "true", "true"),
         // Particle Changer. Its "Reduced" mode also drops crit particles, so no preset uses it (the vanilla
         // "decreased" above keeps crits); Competitive hides block-break particles instead, which carry no

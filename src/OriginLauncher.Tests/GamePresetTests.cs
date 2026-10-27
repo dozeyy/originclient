@@ -111,12 +111,16 @@ public class GamePresetOptionsTests
     }
 
     [Fact]
-    public void InventoryBlurIsOffInCompetitiveAndOnInTheOthers()
+    public void InventoryBlurIsOffInEveryPresetAndByDefault()
     {
-        string Blur(GamePresetKind k) => GamePresetOptions.For(k, "1.8.9").Single(e => e.Key == "menublur.inventory").Value;
-        Assert.Equal("false", Blur(GamePresetKind.Competitive));
-        Assert.Equal("true", Blur(GamePresetKind.Balanced));
-        Assert.Equal("true", Blur(GamePresetKind.Quality));
+        // Will, 2026-10-27: no inventory blur on the defaults. The pause blur stays on outside Competitive.
+        foreach (var kind in Enum.GetValues<GamePresetKind>())
+        {
+            var e = GamePresetOptions.For(kind, "1.8.9").Single(e => e.Key == "menublur.inventory");
+            Assert.Equal("false", e.Value);
+            Assert.Equal("false", e.Default);
+        }
+        Assert.Equal("true", GamePresetOptions.For(GamePresetKind.Balanced, "1.8.9").Single(e => e.Key == "menublur.pause").Value);
     }
 
     [Fact]

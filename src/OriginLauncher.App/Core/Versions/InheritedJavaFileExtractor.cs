@@ -28,13 +28,19 @@ namespace OriginLauncher.App.Core.Versions;
 public sealed class InheritedJavaFileExtractor : IFileExtractor
 {
     private readonly IFileExtractor _inner;
+    private readonly bool _skipAll;
 
-    public InheritedJavaFileExtractor(IFileExtractor inner) => _inner = inner;
+    /// <param name="skipAll">The launch runs a Java of its own (1.8.9's Temurin): no Java files at all.</param>
+    public InheritedJavaFileExtractor(IFileExtractor inner, bool skipAll = false)
+    {
+        _inner = inner;
+        _skipAll = skipAll;
+    }
 
     public ValueTask<IEnumerable<GameFile>> Extract(
         MinecraftPath path, IVersion version, RulesEvaluatorContext rulesContext, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(version.JavaVersion?.Component) && AncestorNamesJava(version))
+        if (_skipAll || (string.IsNullOrEmpty(version.JavaVersion?.Component) && AncestorNamesJava(version)))
             return ValueTask.FromResult(Enumerable.Empty<GameFile>());
         return _inner.Extract(path, version, rulesContext, cancellationToken);
     }
@@ -50,13 +56,13 @@ public sealed class InheritedJavaFileExtractor : IFileExtractor
     /// Swaps CmlLib's Java extractor in the launcher's list for this one, fetching
     /// Java's metadata through <paramref name="javaMetaHttp"/> (MojangMetaCache).
     /// </summary>
-    public static void Install(MinecraftLauncherParameters parameters, HttpClient javaMetaHttp)
+    public static void Install(MinecraftLauncherParameters parameters, HttpClient javaMetaHttp, bool skipAll = false)
     {
         var list = parameters.FileExtractors;
         if (list == null || parameters.JavaPathResolver == null) return;
         var java = list.FirstOrDefault(e => e is JavaFileExtractor);
         if (java == null) return;
         list.Remove(java);
-        list.Add(new InheritedJavaFileExtractor(new JavaFileExtractor(javaMetaHttp, parameters.JavaPathResolver)));
+        list.Add(new InheritedJavaFileExtractor(new JavaFileExtractor(javaMetaHttp, parameters.JavaPathResolver), skipAll));
     }
 }

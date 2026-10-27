@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Net;
 using CmlLib.Core;
 using OriginLauncher.App.Core.Versions;
 
@@ -13,7 +14,8 @@ namespace OriginLauncher.App.Core.Loaders;
 // vanilla jre-legacy declaration) exactly like any custom version.
 public static class LegacyForgeInstaller
 {
-    private static readonly HttpClient Http = new();
+    // Stall-guarded (Core/Net/DownloadHttp): a download that goes quiet fails instead of freezing the install.
+    private static readonly HttpClient Http = DownloadHttp.Create();
 
     private static IReadOnlyDictionary<string, LegacyForgeBuilds.ForgeBuild> Builds => LegacyForgeBuilds.Builds;
 

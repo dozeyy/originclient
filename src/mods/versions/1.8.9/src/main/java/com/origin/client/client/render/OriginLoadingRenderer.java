@@ -121,7 +121,7 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 			// These calls arrive from inside the client tick (world load / save),
 			// between frames. Drawn into the game's framebuffer and then shown, the
 			// way vanilla's LoadingScreenRenderer does with its own: the clean scene's
-			// panorama (MenuPanorama) only draws into the game's framebuffer.
+			// panorama (MenuPanorama) draws into whatever target is bound.
 			boolean fbo = OpenGlHelper.isFramebufferEnabled() && mc.getFramebuffer() != null;
 			if (fbo) {
 				mc.getFramebuffer().bindFramebuffer(true);

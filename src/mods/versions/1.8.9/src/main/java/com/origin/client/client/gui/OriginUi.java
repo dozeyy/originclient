@@ -63,9 +63,18 @@ public final class OriginUi {
 
 	/** Shared fast hover response for every hand-rendered Origin control. */
 	public static float hover(String id, boolean target) {
-		return anim("hover:" + id, target,
+		// "hover:" + id was a new String (plus its builder) for every control on every frame; the key is
+		// built once per id. Render thread only, like ANIM.
+		String key = HOVER_KEYS.get(id);
+		if (key == null) {
+			key = "hover:" + id;
+			HOVER_KEYS.put(id, key);
+		}
+		return anim(key, target,
 				target ? OriginTheme.HOVER_IN_MS : OriginTheme.HOVER_OUT_MS);
 	}
+
+	private static final Map<String, String> HOVER_KEYS = new HashMap<>();
 
 	/**
 	 * The single block-surface primitive for the whole client. Older screens may

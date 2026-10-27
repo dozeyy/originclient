@@ -134,7 +134,31 @@ public final class OriginBench {
 	 * "pause": the Esc menu over the world, i.e. Menu Blur's "pause" kind; "pvp-ui": the inventory opened
 	 * for 1 s and closed for 1 s, over and over, as in a PvP refill -- Menu Blur's open/close cost).
 	 */
-	private static final String[] EXTRA_SCENARIOS = {"players", "cosmetics", "pause", "pvp-ui"};
+	private static final String[] EXTRA_SCENARIOS = {"players", "cosmetics", "pause", "pvp-ui", "hudedit", "hudrobot"};
+	// "hudedit": every HUD element on, the HUD editor open over the world and reopened every 5 s, with one
+	// synthetic mouse event per rendered frame (no OS input): 2 s dragging Coords in a loop, then 2 s
+	// resizing Keystrokes by its handle. Positions/scales are put back at teardown.
+	private boolean editDrive = false;
+	private int editMode = 0;   // 0 idle, 1 moving, 2 resizing
+	private long editCycleStart = 0, editorEvents = 0, editorOpens = 0;
+	private double editGx, editGy, editFx, editFy, editLx, editLy;
+	private final Map<String, double[]> savedHud = new LinkedHashMap<>();
+	private long polls0, saves0, events0, drags0;
+	// "hudrobot": the same editor, but Coords is dragged by REAL OS input (java.awt.Robot -> X server ->
+	// LWJGL's event queue -> the screen), so it measures how often a drag reaches the screen and how far
+	// the element trails the cursor. CI only (IGNORE_FOCUS, Linux/Xvfb): it would move a real mouse.
+	private java.awt.Robot robot;
+	private int robotMode = 0;   // 0 idle, 1 pressed + moving
+	private long robotCycleStart = 0;
+	private double robotGx, robotGy, cmdX = Double.NaN, cmdY, cmdPrevX = Double.NaN, cmdPrevY;
+	private double lagSum, lagMax;
+	private long lagFrames, framesNewDrag, deliveriesSeen;
+	private boolean robotMoving;
+	// hudrobot input latency: Robot press/release/wheel -> the end of the frame in which the screen handled it
+	// (that frame shows the response). pend* = nanoTime of the pending Robot action, 0 = none pending.
+	private long pendPress, pendRelease, pendWheel, seenPress, seenRelease, seenWheel;
+	private final double[] latSum = new double[3], latMax = new double[3];
+	private final long[] latN = new long[3];
 	private static final int FAKE_PLAYERS = (int) num("origin.bench.players", 16);
 	private final List<net.minecraft.client.entity.EntityOtherPlayerMP> fakes = new ArrayList<>();
 	private Map<Object, Object> fakeInfoMap;
@@ -212,6 +236,13 @@ public final class OriginBench {
 		if (PROBE && scenarios.remove("hud")) {
 			warnings.add("probe run (Origin inert): the hud scene needs Origin's HUD and was skipped");
 		}
+		if (PROBE && scenarios.remove("hudedit")) {
+			warnings.add("probe run (Origin inert): the hudedit scene needs Origin's HUD editor and was skipped");
+		}
+		if ((PROBE || !IGNORE_FOCUS || !System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux"))
+				&& scenarios.remove("hudrobot")) {
+			warnings.add("hudrobot skipped: it drives the real mouse, so it only runs on CI's Xvfb with Origin active");
+		}
 	}
 
 	// ======================================================================
@@ -220,7 +251,48 @@ public final class OriginBench {
 
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent e) {
-		if (e.phase != TickEvent.Phase.START || !recording) {
+		if (e.phase == TickEvent.Phase.END) {
+			// hudrobot: after this frame's screen drew, how far is the dragged position from where the cursor
+			// was put one frame ago (that move has had a whole Display.update to reach LWJGL)?
+			long d = com.origin.client.client.gui.OriginScreen.dragDeliveries;
+			if (robot != null) {
+				scoreInputLatency(System.nanoTime());
+			}
+			if (robotMoving && recording && !Double.isNaN(cmdPrevX)) {
+				double lag = Math.hypot(com.origin.client.client.gui.OriginScreen.lastDeliveredX - cmdPrevX,
+						com.origin.client.client.gui.OriginScreen.lastDeliveredY - cmdPrevY);
+				lagSum += lag;
+				lagMax = Math.max(lagMax, lag);
+				lagFrames++;
+				if (d != deliveriesSeen) {
+					framesNewDrag++;   // this frame showed a drag position the previous frame did not
+				}
+			}
+			deliveriesSeen = d;
+			return;
+		}
+		if (e.phase != TickEvent.Phase.START) {
+			return;
+		}
+		if (editDrive) {
+			try {
+				driveEditorFrame(Minecraft.getMinecraft(), System.nanoTime());
+			} catch (Throwable t) {
+				editDrive = false;
+				warnings.add("hudedit driver stopped: " + t);
+				com.origin.client.OriginClient.LOGGER.error("[origin-bench] hudedit driver failed", t);
+			}
+		}
+		if (robot != null) {
+			try {
+				driveRobotFrame(Minecraft.getMinecraft(), System.nanoTime());
+			} catch (Throwable t) {
+				robot = null;
+				warnings.add("hudrobot driver stopped: " + t);
+				com.origin.client.OriginClient.LOGGER.error("[origin-bench] hudrobot driver failed", t);
+			}
+		}
+		if (!recording) {
 			return;
 		}
 		long now = System.nanoTime();
@@ -398,7 +470,25 @@ public final class OriginBench {
 
 	private void setupScenario(Minecraft mc, String sc) throws Exception {
 		mc.ingameGUI.getChatGUI().clearChatMessages();
-		if (sc.equals("hud")) {
+		if (sc.equals("hudedit") || sc.equals("hudrobot")) {
+			savedHud.clear();
+			for (HudElements.Element el : HudElements.ALL) {
+				double[] v = com.origin.client.client.mods.ModsConfigAccess.hud(el.id());
+				savedHud.put(el.id(), v == null ? null : v.clone());
+			}
+			editMode = 0;
+			if (sc.equals("hudedit")) {
+				editDrive = true;   // driveScenario opens the editor on its first tick
+			} else {
+				robotMode = 0;
+				cmdX = Double.NaN;
+				cmdPrevX = Double.NaN;
+				robot = new java.awt.Robot();
+				mc.displayGuiScreen(new com.origin.client.client.hud.HudEditorScreen());
+				robotCycleStart = System.nanoTime();
+			}
+		}
+		if (sc.equals("hud") || sc.equals("hudedit") || sc.equals("hudrobot")) {
 			// Every Origin HUD element's mod on, plus the FPS readout's frame-time extras.
 			for (HudElements.Element el : HudElements.ALL) {
 				String id = el.modId();
@@ -424,7 +514,24 @@ public final class OriginBench {
 	}
 
 	private void teardownScenario(Minecraft mc, String sc) {
-		if (sc.equals("hud")) {
+		if (sc.equals("hudedit") || sc.equals("hudrobot")) {
+			editDrive = false;
+			if (robot != null && robotMode == 1) {
+				robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_MASK);
+			}
+			robot = null;
+			robotMode = 0;
+			mc.displayGuiScreen(null);
+			for (Map.Entry<String, double[]> en : savedHud.entrySet()) {
+				if (en.getValue() == null) {
+					com.origin.client.client.mods.ModsConfigAccess.resetHud(en.getKey());
+				} else {
+					com.origin.client.client.mods.ModsConfigAccess.putHud(en.getKey(), en.getValue());
+				}
+			}
+			savedHud.clear();
+			restoreMods();
+		} else if (sc.equals("hud")) {
 			restoreMods();
 		} else if (sc.equals("menu") || sc.equals("pause") || sc.equals("pvp-ui")) {
 			mc.displayGuiScreen(null);
@@ -560,6 +667,19 @@ public final class OriginBench {
 			mc.displayGuiScreen(new GuiContainerCreative(mc.thePlayer));
 		} else if (sc.equals("pause") && !(mc.currentScreen instanceof GuiIngameMenu)) {
 			mc.displayGuiScreen(new GuiIngameMenu());
+		} else if (sc.equals("hudrobot") && !(mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen)) {
+			mc.displayGuiScreen(new com.origin.client.client.hud.HudEditorScreen());
+		} else if (sc.equals("hudedit")) {
+			// a fresh editor every 5 s (the open path is part of what the player feels)
+			if (scenarioTick % 100 == 1 || !(mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen)) {
+				if (editMode != 0 && mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen) {
+					((com.origin.client.client.hud.HudEditorScreen) mc.currentScreen).mouseReleased(editLx, editLy, 0);
+				}
+				editMode = 0;
+				mc.displayGuiScreen(new com.origin.client.client.hud.HudEditorScreen());
+				editCycleStart = System.nanoTime();
+				editorOpens++;
+			}
 		} else if (sc.equals("pvp-ui")) {
 			// 20 ticks open, 20 closed: a new inventory screen every 2 s (a refill), the world running throughout
 			boolean open = (scenarioTick / 20) % 2 == 0;
@@ -570,6 +690,209 @@ public final class OriginBench {
 				mc.displayGuiScreen(null);
 			}
 		}
+	}
+
+	/**
+	 * hudedit, once per rendered frame: one synthetic mouse event straight into the editor's handlers (what a
+	 * real mouse delivers once input is read every frame). 0.2-2.2 s of each 5 s cycle: Coords dragged round a
+	 * loop that ends where it started; 2.4-4.4 s: Keystrokes resized by its handle out to 1.4x and back.
+	 */
+	private void driveEditorFrame(Minecraft mc, long now) {
+		if (!(mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen)) {
+			return;
+		}
+		com.origin.client.client.hud.HudEditorScreen s = (com.origin.client.client.hud.HudEditorScreen) mc.currentScreen;
+		double t = (now - editCycleStart) / 1e9;
+		if (t >= 0.2 && t < 2.2) {
+			if (editMode != 1) {
+				double[] b = editorBox(mc, s, "coords");
+				if (b == null) {
+					return;
+				}
+				editGx = b[0] + b[2] / 2;
+				editGy = b[1] + b[3] / 2;
+				editLx = editGx;
+				editLy = editGy;
+				s.mouseClicked(editGx, editGy, 0);
+				editMode = 1;
+				editorEvents++;
+			}
+			double a = (t - 0.2) / 2.0 * 2 * Math.PI;
+			editorMove(s, editGx + 60 * Math.sin(a), editGy + 30 * (1 - Math.cos(a)));
+			return;
+		}
+		if (editMode == 1) {
+			s.mouseReleased(editGx, editGy, 0);
+			editorEvents++;
+			editMode = 0;
+		}
+		if (t >= 2.4 && t < 4.4) {
+			if (editMode != 2) {
+				HudElements.Element el = null;
+				for (HudElements.Element x : HudElements.ALL) {
+					if (x.id().equals("keystrokes")) {
+						el = x;
+					}
+				}
+				double[] b = editorBox(mc, s, "keystrokes");
+				if (b == null || el == null) {
+					return;
+				}
+				int anchor = el.pos().anchor;
+				boolean freeLeft = anchor % 3 == 2, freeTop = anchor / 3 == 2;
+				// the editor's handle: a 5 px square in the outline's free corner (outline = box + 4 px)
+				double hx = freeLeft ? b[0] - 4 + 2.5 : b[0] + b[2] + 4 - 2.5;
+				double hy = freeTop ? b[1] - 4 + 2.5 : b[1] + b[3] + 4 - 2.5;
+				editFx = freeLeft ? b[0] + b[2] : b[0];
+				editFy = freeTop ? b[1] + b[3] : b[1];
+				editGx = hx;
+				editGy = hy;
+				editLx = hx;
+				editLy = hy;
+				s.mouseClicked(hx, hy, 0);
+				editMode = 2;
+				editorEvents++;
+			}
+			double f = 1 + 0.4 * Math.sin(Math.PI * (t - 2.4) / 2.0);
+			editorMove(s, editFx + (editGx - editFx) * f, editFy + (editGy - editFy) * f);
+			return;
+		}
+		if (editMode == 2) {
+			s.mouseReleased(editLx, editLy, 0);
+			editorEvents++;
+			editMode = 0;
+		}
+	}
+
+	/**
+	 * hudrobot, once per rendered frame (START): a 3 s cycle. 0.2 s: cursor onto Coords' centre; 0.3 s: left
+	 * button down; 0.4-2.4 s: the cursor runs a loop (back to the start), one Robot move per frame; 2.5 s:
+	 * button up. Positions are GUI px; the Robot gets screen px (window position + GUI px x scale).
+	 */
+	private void driveRobotFrame(Minecraft mc, long now) {
+		if (!(mc.currentScreen instanceof com.origin.client.client.hud.HudEditorScreen)) {
+			return;
+		}
+		net.minecraft.client.gui.GuiScreen s = mc.currentScreen;
+		double t = ((now - robotCycleStart) / 1e9) % 3.0;
+		cmdPrevX = cmdX;
+		cmdPrevY = cmdY;
+		// lag is only scored once the loop has been running a moment (the first move follows the press)
+		robotMoving = robotMode == 1 && t >= 0.45 && t < 2.4;
+		if (t < 0.2) {
+			wheelStep = 0;
+			if (robotMode == 1) {
+				robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_MASK);
+				robotMode = 0;
+			}
+			cmdX = Double.NaN;
+			return;
+		}
+		if (t < 0.3) {
+			if (Double.isNaN(cmdX)) {
+				double[] b = editorBox(mc, s, "coords");
+				if (b == null) {
+					return;
+				}
+				robotGx = b[0] + b[2] / 2;
+				robotGy = b[1] + b[3] / 2;
+				robotTo(mc, s, robotGx, robotGy);
+			}
+			return;
+		}
+		if (t < 2.5) {
+			if (robotMode == 0) {
+				if (Double.isNaN(cmdX)) {
+					return;
+				}
+				seenPress = com.origin.client.client.gui.OriginScreen.pressEvents;
+				pendPress = System.nanoTime();
+				robot.mousePress(java.awt.event.InputEvent.BUTTON1_MASK);
+				robotMode = 1;
+				return;
+			}
+			if (t >= 0.4 && t < 2.4) {
+				double a = (t - 0.4) / 2.0 * 2 * Math.PI;
+				robotTo(mc, s, robotGx + 60 * Math.sin(a), robotGy + 30 * (1 - Math.cos(a)));
+			}
+			return;
+		}
+		if (robotMode == 1) {
+			seenRelease = com.origin.client.client.gui.OriginScreen.releaseEvents;
+			pendRelease = System.nanoTime();
+			robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_MASK);
+			robotMode = 0;
+			return;
+		}
+		// 2.6 s / 2.8 s: one wheel notch up, then one down, over Coords (the loop ended on its start point), so
+		// the wheel resize runs and the scale ends where it began
+		int step = t >= 2.8 ? 2 : t >= 2.6 ? 1 : 0;
+		if (step > wheelStep) {
+			seenWheel = com.origin.client.client.gui.OriginScreen.wheelEvents;
+			pendWheel = System.nanoTime();
+			robot.mouseWheel(step == 1 ? -1 : 1);
+		}
+		wheelStep = step;
+	}
+
+	private int wheelStep;
+
+	/** Render END: a pending Robot action the screen has now handled is scored (only while measuring). */
+	private void scoreInputLatency(long now) {
+		if (pendPress != 0 && com.origin.client.client.gui.OriginScreen.pressEvents != seenPress) {
+			addLatency(0, now - pendPress);
+			pendPress = 0;
+		}
+		if (pendRelease != 0 && com.origin.client.client.gui.OriginScreen.releaseEvents != seenRelease) {
+			addLatency(1, now - pendRelease);
+			pendRelease = 0;
+		}
+		if (pendWheel != 0 && com.origin.client.client.gui.OriginScreen.wheelEvents != seenWheel) {
+			addLatency(2, now - pendWheel);
+			pendWheel = 0;
+		}
+	}
+
+	private void addLatency(int i, long ns) {
+		if (!recording) {
+			return;
+		}
+		double ms = ns / 1e6;
+		latSum[i] += ms;
+		latMax[i] = Math.max(latMax[i], ms);
+		latN[i]++;
+	}
+
+	private void robotTo(Minecraft mc, net.minecraft.client.gui.GuiScreen s, double gx, double gy) {
+		double k = mc.displayWidth / (double) Math.max(1, s.width);
+		robot.mouseMove(org.lwjgl.opengl.Display.getX() + (int) Math.round(gx * k),
+				org.lwjgl.opengl.Display.getY() + (int) Math.round(gy * k));
+		cmdX = gx;
+		cmdY = gy;
+	}
+
+	private void editorMove(com.origin.client.client.hud.HudEditorScreen s, double x, double y) {
+		s.mouseDragged(x, y, 0, x - editLx, y - editLy);
+		editLx = x;
+		editLy = y;
+		editorEvents++;
+	}
+
+	/** {x, y, w, h} of an element's box in GUI px as the editor places it, or null when it has nothing to show. */
+	private static double[] editorBox(Minecraft mc, net.minecraft.client.gui.GuiScreen s, String id) {
+		for (HudElements.Element el : HudElements.ALL) {
+			if (!el.id().equals(id)) {
+				continue;
+			}
+			com.origin.client.client.hud.HudPos pos = el.pos();
+			int[] size = el.measure().apply(mc);
+			if (size[0] <= 0 || size[1] <= 0) {
+				return null;
+			}
+			double w = size[0] * pos.scale, h = size[1] * pos.scale;
+			return new double[]{pos.x(s.width, w), pos.y(s.height, h), w, h};
+		}
+		return null;
 	}
 
 	/** The fixed camera of the static scenes: above spawn, looking south-east and a little down. */
@@ -633,6 +956,17 @@ public final class OriginBench {
 		if (BenchProf.ON) {
 			BenchProf.start();   // calibrates its own timer first (a few ms), then opens its window
 		}
+		polls0 = com.origin.client.client.gui.OriginScreen.inputPolls;
+		saves0 = com.origin.client.client.mods.ModsConfig.saveCount;
+		events0 = editorEvents;
+		drags0 = com.origin.client.client.gui.OriginScreen.dragDeliveries;
+		lagSum = 0;
+		lagMax = 0;
+		Arrays.fill(latSum, 0);
+		Arrays.fill(latMax, 0);
+		Arrays.fill(latN, 0);
+		lagFrames = 0;
+		framesNewDrag = 0;
 		lastFrame = 0;
 		recordStart = System.nanoTime();
 		recordEndAt = recordStart + (long) (DURATION_S * 1e9);
@@ -697,6 +1031,29 @@ public final class OriginBench {
 			r.addProperty("gcPauseMaxMs", pauseMax);
 		}
 		r.addProperty("renderThreadAllocMbPerSec", alloc < 0 ? -1 : round(alloc / 1048576.0 / (wall / 1e9), 2));
+		// Origin screens only: how often the open screen read its input queue (vanilla 1.8.9 reads it in
+		// runTick, 20/s), synthetic editor events delivered, and settings-file writes, all per second.
+		double ws = wall / 1e9;
+		r.addProperty("screenInputPollsPerSec", round((com.origin.client.client.gui.OriginScreen.inputPolls - polls0) / ws, 1));
+		r.addProperty("editorEventsPerSec", round((editorEvents - events0) / ws, 1));
+		r.addProperty("configSavesPerSec", round((com.origin.client.client.mods.ModsConfig.saveCount - saves0) / ws, 1));
+		if (sc.equals("hudrobot")) {
+			// real input: drag positions that reached the screen, the share of moving frames that showed a new
+			// one (1.0 = every frame), and how far (GUI px) the element trailed the cursor of one frame ago
+			r.addProperty("dragDeliveriesPerSec", round((com.origin.client.client.gui.OriginScreen.dragDeliveries - drags0) / ws, 1));
+			r.addProperty("movingFrames", lagFrames);
+			r.addProperty("movingFramesWithNewDrag", lagFrames == 0 ? 0 : round(framesNewDrag / (double) lagFrames, 3));
+			r.addProperty("dragLagAvgGuiPx", lagFrames == 0 ? -1 : round(lagSum / lagFrames, 2));
+			r.addProperty("dragLagMaxGuiPx", round(lagMax, 2));
+			// real input -> the end of the frame that drew the screen's response, ms (Robot -> X -> LWJGL ->
+			// the screen's input drain -> that frame). Count, average, worst.
+			String[] names = {"press", "release", "wheel"};
+			for (int i = 0; i < 3; i++) {
+				r.addProperty(names[i] + "Count", latN[i]);
+				r.addProperty(names[i] + "LatencyAvgMs", latN[i] == 0 ? -1 : round(latSum[i] / latN[i], 2));
+				r.addProperty(names[i] + "LatencyMaxMs", round(latMax[i], 2));
+			}
+		}
 		r.addProperty("unfocusedTicks", unfocusedTicks);
 		r.addProperty("cameraOffTicks", cameraResets);
 		r.addProperty("truncated", truncated);

@@ -427,6 +427,12 @@ public final class Social {
 
 	/** Leaves the current world and connects to `server`. Client thread. */
 	public static void join(String server) {
+		// Leaving the world (loadWorld draws its own loading screen) must not happen in the middle of a frame
+		// (a click handled by the per-frame screen input drain): then it runs at the next client tick.
+		com.origin.client.client.gui.OriginScreen.outsideFrame(() -> joinNow(server));
+	}
+
+	private static void joinNow(String server) {
 		Minecraft mc = Minecraft.getMinecraft();
 		try {
 			if (mc.theWorld != null) {
