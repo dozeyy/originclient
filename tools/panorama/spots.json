@@ -22,7 +22,9 @@
     "file": "photon_v1.3b.zip",
     "url": "https://cdn.modrinth.com/data/lLqFfGNs/versions/gUv7fBPN/photon_v1.3b.zip",
     "sha512": "40bcbac9c656f2965f543e4b35cd0698723b2db8b67662f1b53c14223cfbef7d60d7fbf0176f73fcadd0d1e19ba60d951ed77e9eece8c8df7dca4d2be6315309",
-    "license": "Photon Shaders License Agreement (github.com/sixthsurge/photon/blob/main/LICENSE): 'Use Photon Shaders, including for commercially published screenshots and videos.' Origin never ships or redistributes the pack, only its own renders."
+    "license": "Photon Shaders License Agreement (github.com/sixthsurge/photon/blob/main/LICENSE): 'Use Photon Shaders, including for commercially published screenshots and videos.' Origin never ships or redistributes the pack, only its own renders.",
+    "options": {"SH_SKYLIGHT": "false"},
+    "optionsWhy": "Iris per-pack options (shaderpacks/<file>.txt). SH_SKYLIGHT's compute pass needs 36860 B of shared memory; CI's llvmpipe allows 32768, so with it on Iris drops the whole pack."
   },
   "faceSize": 768,
   "spots": [

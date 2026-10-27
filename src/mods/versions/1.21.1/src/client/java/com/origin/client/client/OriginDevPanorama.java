@@ -17,11 +17,13 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.WorldOptions;
@@ -310,7 +312,7 @@ final class OriginDevPanorama {
 				int bx = x, bz = z, by = Integer.MIN_VALUE;
 				for (int dx = -vista; dx <= vista; dx += 4) {
 					for (int dz = -vista; dz <= vista; dz += 4) {
-						int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x + dx, z + dz);
+						int h = groundAt(level, x + dx, z + dz);
 						if (h > by) {
 							by = h;
 							bx = x + dx;
@@ -321,7 +323,7 @@ final class OriginDevPanorama {
 				x = bx;
 				z = bz;
 			}
-			int ground = floor ? floorAt(level, x, locY, z) : level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
+			int ground = floor ? floorAt(level, x, locY, z, num("headroom", 6)) : groundAt(level, x, z);
 			double cy = ground + num("up", 2.0);
 			double cx = x + 0.5, cz = z + 0.5;
 			float yaw = (float) num("yaw", 45.0);
@@ -344,8 +346,8 @@ final class OriginDevPanorama {
 					double d = mob.get("dist").getAsDouble();
 					double mx = cx - Math.sin(a) * d, mz = cz + Math.cos(a) * d;
 					int bx = (int) Math.floor(mx), bz = (int) Math.floor(mz);
-					int my = floor ? floorAt(level, bx, ground - 8, bz)
-							: level.getHeight(mob.has("water") ? Heightmap.Types.MOTION_BLOCKING : Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+					int my = floor ? floorAt(level, bx, ground + 4, bz, 3)
+							: groundAt(level, bx, bz);
 					double up = mob.has("up") ? mob.get("up").getAsDouble() : 0;
 					// Facing back toward the camera, plus the spot's own turn for a 3/4 view.
 					float face = (float) (yaw + 180 + (mob.has("angle") ? mob.get("angle").getAsDouble() : 0)
@@ -365,15 +367,47 @@ final class OriginDevPanorama {
 		}
 	}
 
-	/** Cave / Nether floor: the first air block standing on a solid one, scanning down from just above `fromY`. */
-	private static int floorAt(ServerLevel level, int x, int fromY, int z) {
-		int top = Math.min(fromY + 12, level.getMaxBuildHeight() - 2);
+	/**
+	 * Heightmap of a column, generating its chunk first. Level.getHeight answers the build floor for a chunk
+	 * that isn't loaded (it never loads one), which put the first camera at y -62 under the mountains.
+	 */
+	private static int height(ServerLevel level, Heightmap.Types type, int x, int z) {
+		level.getChunk(x >> 4, z >> 4);
+		return level.getHeight(type, x, z);
+	}
+
+	/**
+	 * The ground a person would stand on: the no-leaves heightmap, then down through logs, leaves and mangrove roots
+	 * (the heightmap stops on a trunk, which put "the highest ground" on top of a tree). Water counts as ground.
+	 */
+	private static int groundAt(ServerLevel level, int x, int z) {
+		int y = height(level, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, y - 1, z);
+		while (p.getY() > level.getMinBuildHeight()) {
+			var state = level.getBlockState(p);
+			if (!(state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES) || state.is(Blocks.MANGROVE_ROOTS)
+					|| state.is(Blocks.MUDDY_MANGROVE_ROOTS) || state.is(Blocks.MOSS_CARPET) || state.is(Blocks.VINE))) {
+				break;
+			}
+			p.move(0, -1, 0);
+		}
+		return p.getY() + 1;
+	}
+
+	/**
+	 * Cave / Nether floor: scanning down from just above `fromY`, the first solid top with `headroom` air blocks over
+	 * it. Starts below the dimension's ceiling (the Nether's bedrock roof is a "floor" with open sky above it).
+	 */
+	private static int floorAt(ServerLevel level, int x, int fromY, int z, int headroom) {
+		int top = Math.min(fromY + 12, level.getMinBuildHeight() + level.getLogicalHeight() - 6);
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int airRun = 0;
 		for (int y = top; y > level.getMinBuildHeight() + 1; y--) {
 			p.set(x, y, z);
 			boolean air = level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty();
+			airRun = air ? airRun + 1 : 0;
 			p.set(x, y - 1, z);
-			if (air && level.getBlockState(p).isFaceSturdy(level, p, net.minecraft.core.Direction.UP)) {
+			if (airRun >= headroom && level.getBlockState(p).isFaceSturdy(level, p, net.minecraft.core.Direction.UP)) {
 				return y;
 			}
 		}

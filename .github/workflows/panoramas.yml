@@ -99,6 +99,9 @@ jobs:
           curl -fsSL --retry 5 --retry-delay 5 -o "run/shaderpacks/$name" "$url"
           echo "$sha  run/shaderpacks/$name" | sha512sum -c -
           printf 'enableShaders=true\nshaderPack=%s\n' "$name" > run/config/iris.properties
+          # The pack's own option overrides, in Iris's per-pack file (why: spots.json optionsWhy).
+          python3 tools/panorama/pack_options.py "$GITHUB_WORKSPACE/tools/panorama/spots.json" > "run/shaderpacks/$name.txt"
+          cat "run/shaderpacks/$name.txt"
           printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run/options.txt
 
       - name: Render ${{ matrix.id }}
@@ -152,6 +155,16 @@ jobs:
           python3 tools/ci/check_shots.py "${{ runner.temp }}/shots/screenshots" \
             "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.capture }}"
           test -f "${{ runner.temp }}/shots/final/panorama_5.png"
+
+      # Iris keeps the pack selected (and the harness's shader= line names it) even when its pipeline
+      # failed to compile and it fell back to vanilla, so the log line is the only honest check.
+      - name: The shader pack really rendered
+        run: |
+          log="${{ runner.temp }}/shots/screenshots/run.log"
+          if grep -n -A1 "Failed to create shader rendering pipeline" "$log"; then
+            echo "::error::the shader pack failed to compile; these faces are vanilla"
+            exit 1
+          fi
 
       - name: Mixin failures + Sodium/Iris loaded gate
         if: always()
