@@ -216,6 +216,12 @@ final class OriginDevWorld {
 			return;
 		}
 		try {
+			// This era's Screenshot.grab has no file-name overload: it writes a timestamped PNG on its own
+			// time, and finishGrab renames it. Wait for that before the next step (and before Save and Quit).
+			if (pending != null && !finishGrab(dir)) {
+				iwAt = now + 250;
+				return;
+			}
 			switch (iw) {
 				case 0 -> {
 					log("[origin-smoke] in-world: starting (" + (mc.getLevelSource().levelExists(SMOKE_WORLD) ? "reopening" : "creating")
@@ -1051,17 +1057,32 @@ final class OriginDevWorld {
 	}
 
 	private static void grab(Minecraft mc, String dir, String name) {
-		before = OriginDevShots.pngs();
+		before = pngs(dir);
 		renameTries = 0;
 		pending = name;
 		Screenshot.grab(new File(dir), mc.getMainRenderTarget(), c -> {
 		});
 	}
 
+	/** The PNGs in DIR/screenshots. Per call's own dir: boot-smoke's in-world step shoots into its own folder
+	 *  (ORIGIN_SMOKE_WORLD), where OriginDevShots.DIR is not set. */
+	private static java.util.Set<String> pngs(String dir) {
+		java.util.Set<String> out = new java.util.HashSet<>();
+		String[] names = new File(dir, "screenshots").list();
+		if (names != null) {
+			for (String n : names) {
+				if (n.endsWith(".png")) {
+					out.add(n);
+				}
+			}
+		}
+		return out;
+	}
+
 	/** Renames the pending capture's new PNG to its shot name; false while it isn't written yet. */
 	private static boolean finishGrab(String dir) throws java.io.IOException {
 		String fresh = null;
-		for (String n : OriginDevShots.pngs()) {
+		for (String n : pngs(dir)) {
 			if (!before.contains(n)) {
 				fresh = n;
 			}
