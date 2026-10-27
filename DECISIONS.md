@@ -28,6 +28,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 ## Look
 - Vanilla screens (pause, options, world select, every other Minecraft menu) use Origin's own DARK buttons in the Default Dark Mode look, drawn by Origin (`tools/dark-widgets/make_widgets.py`; that pack is CC BY-NC-SA, never copied) and built into the jar, never a resource pack in the pack list. The title screen's buttons are those same dark Minecraft buttons with Minecraft's font, words only (2026-10-27). Origin's widget skin stays only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-10-26).
 - Title-screen panoramas: each version's own landscape showing that update's content, daytime, shaders on, rendered in CI and shipped in the jar (2026-10-26).
+- Each title panorama shows its update's ONE main highlight where it really generates or spawns (real seed + coords); no placed blocks and no mobs summoned where they'd never be found (2026-10-27).
 - Sodium's translations (Translations for Sodium, CC0) ship built into the jar, never as a resource pack (2026-10-26).
 - In-game text is Minecraft's own font everywhere; no Inter/Space Grotesk/MSDF in game; no hand-rolled glyph rendering (2026-07-08, re-confirmed 2026-09-09).
 - Exception (2026-10-25, Will approved the Workbench mockup and asked to "fix the font on the middle"): Origin's own title-screen text (player name, footer) uses Inter via the MSDF font; every other in-game text stays Minecraft's font.
