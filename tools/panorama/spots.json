@@ -39,16 +39,7 @@
         {"id": "minecraft:hoglin", "dist": 10, "angle": 4, "nbt": "{IsImmuneToZombification:1b}"}
       ]
     },
-    {
-      "id": "1.17", "capture": "1.21.1", "targets": ["1.17.1"],
-      "about": "Caves & Cliffs part 1: goats on a snowy slope",
-      "locate": "biome minecraft:snowy_slopes", "vista": 24, "up": 1.5, "yaw": 60, "time": 2500,
-      "mobs": [
-        {"id": "minecraft:goat", "dist": 5, "angle": -15},
-        {"id": "minecraft:goat", "dist": 7, "angle": 18, "turn": -50, "nbt": "{IsScreamingGoat:1b}"},
-        {"id": "minecraft:goat", "dist": 9, "angle": 2, "nbt": "{Age:-24000}"}
-      ]
-    },
+    {"id": "1.17", "capture": "1.21.1", "targets": ["1.17.1"], "about": "Caves & Cliffs: a lush cave with axolotls, lit by invisible light blocks (underground is fine, Will 2026-10-26; the snowy-slope shot read as a flat white picture). Light fills replace air AND cave_air (carver caves use cave_air)", "locate": "biome minecraft:lush_caves", "ground": "floor", "headroom": 6, "up": 1.4, "yaw": 45, "time": 3000, "commands": ["fill ~-14 ~5 ~-14 ~14 ~5 ~14 minecraft:light[level=14] replace air", "fill ~-14 ~5 ~-14 ~14 ~5 ~14 minecraft:light[level=14] replace cave_air", "fill ~-14 ~1 ~-14 ~14 ~1 ~14 minecraft:light[level=9] replace air", "fill ~-14 ~1 ~-14 ~14 ~1 ~14 minecraft:light[level=9] replace cave_air"], "mobs": [{"id": "minecraft:axolotl", "dist": 4, "angle": -16, "nbt": "{Variant:0}"}, {"id": "minecraft:axolotl", "dist": 5, "angle": 8, "turn": -50, "nbt": "{Variant:2}"}, {"id": "minecraft:axolotl", "dist": 6, "angle": 24, "nbt": "{Variant:3}"}]},
     {
       "id": "1.18", "capture": "1.21.1", "targets": ["1.18.2"],
       "about": "Caves & Cliffs part 2: the new mountains",
@@ -114,15 +105,7 @@
         {"id": "minecraft:copper_golem", "dist": 6, "angle": 14, "turn": -50}
       ]
     },
-    {
-      "id": "1.21.11", "capture": "1.21.11", "targets": ["1.21.11"],
-      "about": "Mounts of Mayhem: a camel husk with a spear-carrying parched rider in the desert",
-      "locate": "biome minecraft:desert", "vista": 16, "up": 1.6, "yaw": 45, "time": 3000,
-      "mobs": [
-        {"id": "minecraft:camel_husk", "dist": 8, "angle": -10, "nbt": "{Passengers:[{id:\"minecraft:parched\",NoAI:1b,Silent:1b,Invulnerable:1b,equipment:{mainhand:{id:\"minecraft:iron_spear\",count:1}}}]}"},
-        {"id": "minecraft:husk", "dist": 5, "angle": 20, "turn": -40, "nbt": "{equipment:{mainhand:{id:\"minecraft:golden_spear\",count:1}}}"}
-      ]
-    },
+    {"id": "1.21.11", "capture": "1.21.11", "targets": ["1.21.11"], "about": "Mounts of Mayhem: a camel husk with a spear-carrying parched rider at a desert village (the open desert read as a plain beige picture)", "locate": "structure minecraft:village_desert", "up": 1.6, "yaw": 45, "time": 3000, "mobs": [{"id": "minecraft:camel_husk", "dist": 8, "angle": -10, "nbt": "{Passengers:[{id:\"minecraft:parched\",NoAI:1b,Silent:1b,Invulnerable:1b,equipment:{mainhand:{id:\"minecraft:iron_spear\",count:1}}}]}"}, {"id": "minecraft:husk", "dist": 5, "angle": 20, "turn": -40, "nbt": "{equipment:{mainhand:{id:\"minecraft:golden_spear\",count:1}}}"}], "offset": [4, 4]},
     {
       "id": "26.1", "capture": "26.1", "targets": ["26.1"],
       "about": "26.1: the redesigned baby animals among golden dandelions",
@@ -137,18 +120,7 @@
         {"id": "minecraft:wolf", "dist": 4.5, "angle": -6, "turn": 60, "nbt": "{Age:-24000}"}
       ]
     },
-    {
-      "id": "26.2", "capture": "26.2", "targets": ["26.2"],
-      "about": "26.2: sulfur cubes on a sulfur and cinnabar outcrop, brought up into daylight (the sulfur caves themselves rendered near-black with the shader, run 40453214783); the outcrop sits ON the surface (positioned over), a fixed-height fill was buried in the hillside (run 40456625183)",
-      "locate": "biome minecraft:plains", "vista": 16, "maxRise": 2, "up": 1.6, "yaw": 45, "time": 3000,
-      "commands": ["execute positioned ^-2 ^ ^7 positioned over motion_blocking_no_leaves run fill ^-2 ^-1 ^-1 ^2 ^0 ^2 minecraft:sulfur",
-                   "execute positioned ^-2 ^ ^7 positioned over motion_blocking_no_leaves run fill ^-1 ^0 ^0 ^0 ^0 ^1 minecraft:potent_sulfur",
-                   "execute positioned ^4 ^ ^8 positioned over motion_blocking_no_leaves run fill ^-2 ^-1 ^-1 ^1 ^0 ^2 minecraft:cinnabar"],
-      "mobs": [
-        {"id": "minecraft:sulfur_cube", "dist": 4, "angle": -10},
-        {"id": "minecraft:sulfur_cube", "dist": 7.5, "angle": 14, "turn": -40}
-      ]
-    },
+    {"id": "26.2", "capture": "26.2", "targets": ["26.2"], "about": "26.2: the sulfur caves and their sulfur cubes, underground (Will 2026-10-26), lit by invisible light blocks. The first try (run 40453214783) rendered near-black; its fills replaced only air and weren't logged then, so this one also replaces cave_air and logs the counts", "locate": "biome minecraft:sulfur_caves", "ground": "floor", "headroom": 6, "up": 1.4, "yaw": 45, "time": 3000, "commands": ["fill ~-14 ~5 ~-14 ~14 ~5 ~14 minecraft:light[level=14] replace air", "fill ~-14 ~5 ~-14 ~14 ~5 ~14 minecraft:light[level=14] replace cave_air", "fill ~-14 ~1 ~-14 ~14 ~1 ~14 minecraft:light[level=9] replace air", "fill ~-14 ~1 ~-14 ~14 ~1 ~14 minecraft:light[level=9] replace cave_air"], "mobs": [{"id": "minecraft:sulfur_cube", "dist": 4, "angle": -12}, {"id": "minecraft:sulfur_cube", "dist": 7, "angle": 16, "turn": -40}]},
     {
       "id": "26.3", "capture": "26.3", "targets": ["26.3"],
       "about": "26.3: the dappled forest's coloured poplars",
