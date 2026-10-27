@@ -116,6 +116,22 @@ internal static class CompatShots
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, "32-compat-fix-prompt");
 
+        // 3a. A missing dependency Origin itself pins (Simple Voice Chat for a voice add-on) comes from Origin's own
+        // tested files, the other from Modrinth: the real layered catalog, Origin's pins first.
+        var voiceEntries = new[]
+        {
+            Mod("voicemessages-1.4.jar", "voicemessages", "Voice Messages", ModRole.Profile, new ModDependency("voicechat", new[] { "*" })),
+            entries[1],
+        };
+        var layered = FixCompatibility.Choose(source, new[] { (shipped, CompatEngine.Check(voiceEntries, platform)) },
+            new LayeredDependencyCatalog(OriginDependencyCatalog.Instance, new DemoCatalog()), platform);
+        Call(home, "SetStatus", new[] { new IncompatibleModsException(version, new[] { "Voice Messages", "Some Lib" },
+            new[] { "Voice Messages: it needs Simple Voice Chat.", "Some Lib: it needs Cloth Config." }).Message, tone });
+        Call(home, "OpenFixPrompt", new object[] { new[] { "Voice Messages", "Some Lib" }, version });
+        Call(home, "ShowFixPlan", new object?[] { layered, profile });
+        RenderShots.Pump(500);
+        RenderShots.Snap(window, outDir, "32c-compat-fix-prompt-dependencies");
+
         // 3b. No plan could be made (Modrinth too slow, a jar unreadable): the prompt says so plainly and keeps
         // Launch anyway, with no Fix button.
         Call(home, "SetStatus", new[] { new IncompatibleModsException(version, new[] { "Old Mod" },

@@ -39,10 +39,11 @@ public sealed class ModrinthDependencyCatalog : IDependencyCatalog
     public static bool IsAskable(string? id) => id != null && ModId.IsMatch(id) && !NotMods.Contains(id);
 
     /// <summary>The ids a report is missing that Modrinth could supply (the first <see cref="MaxIds"/>, in order).</summary>
-    public static IReadOnlyList<string> MissingIds(IEnumerable<CompatReport> reports) =>
+    /// <param name="answered">A finding another source already answers (Origin's own pins): its id is not asked about.</param>
+    public static IReadOnlyList<string> MissingIds(IEnumerable<CompatReport> reports, Func<CompatFinding, bool>? answered = null) =>
         reports.SelectMany(r => r.Findings)
             .Where(f => f.Kind == FindingKind.MissingDependency && f.Severity == Severity.Blocking && !f.TargetIsOrigin
-                        && IsAskable(f.TargetId))
+                        && IsAskable(f.TargetId) && answered?.Invoke(f) != true)
             .Select(f => f.TargetId!)
             .Distinct(StringComparer.Ordinal)
             .Take(MaxIds)

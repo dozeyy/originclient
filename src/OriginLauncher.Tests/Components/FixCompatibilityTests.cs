@@ -423,4 +423,78 @@ public sealed class FixCompatibilityTests : IDisposable
         var ids = ModrinthDependencyCatalog.MissingIds(new[] { CompatEngine.Check(new[] { mod }, platform) });
         Assert.Equal(new[] { "cloth-config" }, ids);
     }
+
+    // ---- Origin's own pinned files come first ----
+
+    [Fact]
+    public void Origins_catalog_offers_its_own_pinned_file_with_the_pinned_checksum()
+    {
+        var platform = LaunchPreflight.PlatformFor(Mc);
+        var pin = OriginDependencyCatalog.PinFor("voicechat", Mc)!;
+
+        var offer = OriginDependencyCatalog.Instance.Find("voicechat", VersionPredicate.Parse("*"), platform);
+
+        Assert.NotNull(offer);
+        Assert.True(offer!.FromOrigin);
+        Assert.Equal(pin.Sha512, offer.Sha512);
+        Assert.Equal(pin.Url, offer.Source);
+        Assert.StartsWith("https://cdn.modrinth.com/", offer.Source);
+        Assert.Equal(128, offer.Sha512!.Length);
+        Assert.NotNull(OriginDependencyCatalog.Instance.Find("fabric-api", VersionPredicate.Parse("*"), platform));
+        Assert.Null(OriginDependencyCatalog.Instance.Find("cloth-config", VersionPredicate.Parse("*"), platform));
+        Assert.Null(OriginDependencyCatalog.Instance.Find("voicechat", VersionPredicate.Parse("*"),
+            platform with { Loader = LoaderFamily.LegacyForge }));
+    }
+
+    [Fact]
+    public void The_layered_catalog_takes_Origins_pin_before_Modrinth()
+    {
+        var platform = LaunchPreflight.PlatformFor(Mc);
+        var layered = new LayeredDependencyCatalog(OriginDependencyCatalog.Instance, new OneOffer("voicechat", new byte[] { 1 }),
+            new OneOffer("cloth-config", new byte[] { 2 }));
+
+        Assert.True(layered.Find("voicechat", VersionPredicate.Parse("*"), platform)!.FromOrigin);
+        var cloth = layered.Find("cloth-config", VersionPredicate.Parse("*"), platform)!;
+        Assert.False(cloth.FromOrigin);
+        Assert.Equal("15.0.140", cloth.Version);
+    }
+
+    [Fact]
+    public async Task A_missing_mod_Origin_pins_is_never_asked_about_on_Modrinth()
+    {
+        Put(ProfileMods, "voicemessages-1.4.jar", Kit.FabricJar("voicemessages", depends: new() { ["voicechat"] = "*" }, name: "Voice Messages"));
+        Put(ProfileMods, "somelib-2.1.jar", Kit.FabricJar("somelib", depends: new() { ["cloth-config"] = ">=15.0.0" }, name: "Some Lib"));
+        var handler = new Recording("[]");
+        using var http = new HttpClient(handler);
+
+        var proposal = await FixCompatibility.PlanAsync(Source(), null, http, default);
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal("https://api.modrinth.com/v2/project/cloth-config/version", request.Uri.AbsoluteUri);
+        var add = Assert.Single(proposal!.Plan.Steps.OfType<AddModStep>());
+        Assert.Equal("voicechat", add.Offer.Id);
+        Assert.True(add.Offer.FromOrigin);
+        Assert.Contains(proposal.Changes, c => c.StartsWith("Add voicechat ") && c.Contains("the copy Origin itself uses"));
+    }
+
+    [Fact]
+    public void An_Origin_pinned_file_with_the_wrong_bytes_is_refused_and_nothing_is_touched()
+    {
+        Put(ProfileMods, "voicemessages-1.4.jar", Kit.FabricJar("voicemessages", depends: new() { ["voicechat"] = "*" }, name: "Voice Messages"));
+        Put(_shared, "sodium-0.8.jar", Kit.FabricJar("sodium", "0.8.0", name: "Sodium"));
+        var profileBefore = Snapshot(ProfileMods);
+        var sharedBefore = Snapshot(_shared);
+        var proposal = Plan(new LayeredDependencyCatalog(OriginDependencyCatalog.Instance));
+        Assert.Single(proposal.Plan.Steps.OfType<AddModStep>(), a => a.Offer.FromOrigin);
+
+        var fetcher = new Serving(Kit.FabricJar("voicechat", "6.6.6", name: "Not the pinned file"));
+        var result = Apply(proposal, fetcher);
+
+        Assert.False(result.Ok);
+        Assert.Equal(1, fetcher.Calls);
+        Assert.Single(_settings.ModProfiles); // no fixed profile registered
+        Assert.Equal(new[] { _profile.Id }, Directory.GetDirectories(_profiles).Select(Path.GetFileName).ToArray());
+        Assert.Equal(profileBefore, Snapshot(ProfileMods));
+        Assert.Equal(sharedBefore, Snapshot(_shared));
+    }
 }

@@ -23,6 +23,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - When a player's mod does the same job as an Origin mod (freecam vs Freelook, EntityCulling vs entity distance, ...), Origin's turns off automatically, the Mod Menu says which mod replaced it, and the player can turn it back on (2026-10-26).
 - Origin's Sodium/Iris hooks check the version; on one they don't know, that feature switches off and the rest of Origin keeps working (2026-10-26).
 - 1.21.1 ships Sodium 0.8 by default (Will's own mods need it); Origin Render (experimental terrain culler, Sodium 0.6 only) stays removed (2026-10-26).
+- Fix Compatibility may look up a missing dependency on Modrinth and installs it only when the file matches Modrinth's SHA-512 (2026-10-27).
 
 ## Look
 - Vanilla screens (pause, options, world select, every other Minecraft menu) use Origin's own DARK buttons in the Default Dark Mode look, drawn by Origin (`tools/dark-widgets/make_widgets.py`; that pack is CC BY-NC-SA, never copied) and built into the jar, never a resource pack in the pack list. Origin's title buttons keep their own card look in the same charcoal. Origin's widget skin stays only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-10-26).
