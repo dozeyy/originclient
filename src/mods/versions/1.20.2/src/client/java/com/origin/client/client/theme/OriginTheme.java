@@ -125,17 +125,17 @@ public final class OriginTheme {
 	// Mod Menu family, which must not change by a pixel. Fixed (not theme-repainted), like the
 	// CLEAN_* set above. Colours are the spec's tokens as ARGB; radii and edges are GUI px.
 	public static final int TITLE_RADIUS = 4;                  // buttons 20 tall: the launcher's 40/8 ratio
-	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
-	// Hover: clearly lighter than rest (judge 2026-10-25: #232A26 at 90 % moved the composite by ~4 levels
-	// and could not be seen). #2E3631 at 92 % lifts it ~12 levels, like the target's hover card.
-	public static final int TITLE_BTN_FILL_HOVER = 0xEB2E3631;
-	// Press: surfacePress's hue pushed to near-black at 95 %. The spec value (#191E1B at 90 %) composited to
-	// about the resting fill and could not be seen (judge, title_press); the label also drops 1 GUI px.
-	public static final int TITLE_BTN_FILL_PRESS = 0xF20B0F0D;
-	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
-	public static final int TITLE_BTN_EDGE_HOVER = 0x40FFFFFF;    // white 25 %: the hairline firms with the fill
+	// Dark-button match (Will, 2026-10-26: "make the main menu ui ones be a better match for them keeping
+	// there custom look"): the cards keep their own shape (3 px corners, Inter 600, parchment, see-through
+	// over the panorama) but take the vanilla dark buttons' charcoal (tools/dark-widgets: face #303033) and
+	// their near-black ring; hover lifts to the dark buttons' hover face and the ring turns white like theirs.
+	public static final int TITLE_BTN_FILL = 0xDB303033;       // dark-button face at 86 %
+	public static final int TITLE_BTN_FILL_HOVER = 0xF23E3E42; // dark-button hover face at 95 %
+	public static final int TITLE_BTN_FILL_PRESS = 0xF51C1C1E; // disabled face, near-black: the press reads as sinking
+	public static final int TITLE_BTN_EDGE = 0xE60B0B0C;       // the dark buttons' outline ring, 1 GUI px
+	public static final int TITLE_BTN_EDGE_HOVER = 0xD9FFFFFF; // white ring on hover, like the dark buttons
 	public static final int TITLE_FOCUS = 0x995FD09B;          // accentLine, 1 GUI px ring
-	public static final int TITLE_TOOLTIP_FILL = 0xF51D2320;   // surfaceRaised at 96 %: tooltip over the panorama (11.8)
+	public static final int TITLE_TOOLTIP_FILL = 0xF5303033;   // dark-button face at 96 %: tooltip over the panorama (11.8)
 	public static final int TITLE_TEXT_MUTED =0x85F1E9D2;     // textMuted: disabled labels
 	// Workbench cards (A-Workbench-3, approved 2026-10-25): the worded title buttons (and Connecting's
 	// Cancel) are 3 GUI px corners with Inter 600 labels in parchment. TITLE_RADIUS above stays 4 for the

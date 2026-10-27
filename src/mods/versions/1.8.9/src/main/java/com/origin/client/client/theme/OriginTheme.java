@@ -116,11 +116,11 @@ public final class OriginTheme {
 	// OriginScreenRenderer / OriginTitleScreen). Separate from BOX_* / PANEL on purpose: those feed the Mod Menu
 	// family, which must not change. Fixed (never theme-repainted). Radii and edges are GUI px.
 	public static final int TITLE_RADIUS = 4;                  // focus ring / tooltip radius (1.21.1 keeps it)
-	public static final int TITLE_BTN_FILL = 0xD11D2320;       // surfaceRaised at 82 %
-	public static final int TITLE_BTN_FILL_HOVER = 0xEB2E3631; // clearly lighter than rest (judge 2026-10-25)
-	public static final int TITLE_BTN_FILL_PRESS = 0xF20B0F0D; // near-black press; the label also drops 1 GUI px
-	public static final int TITLE_BTN_EDGE = 0x1AFFFFFF;       // lineStrong, 1 GUI px
-	public static final int TITLE_BTN_EDGE_HOVER = 0x40FFFFFF; // white 25 %: the hairline firms with the fill
+	public static final int TITLE_BTN_FILL = 0xDB303033;       // surfaceRaised at 82 %
+	public static final int TITLE_BTN_FILL_HOVER = 0xF23E3E42; // clearly lighter than rest (judge 2026-10-25)
+	public static final int TITLE_BTN_FILL_PRESS = 0xF51C1C1E; // near-black press; the label also drops 1 GUI px
+	public static final int TITLE_BTN_EDGE = 0xE60B0B0C;       // lineStrong, 1 GUI px
+	public static final int TITLE_BTN_EDGE_HOVER = 0xD9FFFFFF; // white 25 %: the hairline firms with the fill
 	public static final int TITLE_TEXT_MUTED = 0x85F1E9D2;     // textMuted: disabled labels, the footer
 	public static final int TITLE_BTN_RADIUS = 3;              // Workbench cards (A-Workbench-3)
 	public static final int TITLE_TEXT = 0xFFF1E9D2;           // parchment
