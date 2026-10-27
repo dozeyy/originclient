@@ -207,11 +207,85 @@ public abstract class OriginScreen extends GuiScreen {
 		}
 	}
 
+	// ---- input every frame ----
+	//
+	// 1.8.9 reads a screen's input queue only in Minecraft.runTick (javap: runTick is GuiScreen.handleInput's
+	// only caller), i.e. 20 times a second: a click, wheel step or key waited up to 50 ms, and a drag moved in
+	// 50 ms steps, however high the frame rate. 1.16.5+ gets GLFW callbacks every frame. So while an Origin
+	// screen is open, HudHooks calls frameInput at Forge's RenderTickEvent START, which runGameLoop fires
+	// once per frame AFTER runTick and BEFORE the frame's updateCameraAndRender (javap 1.8.9 runGameLoop:
+	// runTick @177, onRenderTickStart @334, updateCameraAndRender @359; LWJGL fills the queue in the previous
+	// frame's Display.update). It runs the screen's own handleInput -- the same Mouse.next()/Keyboard.next()
+	// drain (and Forge's MouseInputEvent/KeyboardInputEvent) runTick runs -- so runTick then finds the queues
+	// empty: every event is handled exactly once. In-game keybinds are untouched: runTick's in-game loops only
+	// read the queues when no screen is open, and with a screen open vanilla's own drain empties them first.
+	// Vanilla screens keep vanilla's tick-time input.
+	//
+	// The frame is already under way here (matrix pushed, the main framebuffer bound), so the few actions
+	// that leave the world or reload everything (Social.join's disconnect + connect, the pack hub's resource
+	// reload, a shader pack switch) go through outsideFrame, which defers them to the next client tick.
+	private static boolean inFrameInput, frameInputOff;
+	private static final java.util.ArrayDeque<Runnable> OUTSIDE_FRAME = new java.util.ArrayDeque<>();
+
+	/** Render thread, RenderTickEvent START (HudHooks). Drains an open Origin screen's input this frame. */
+	public static void frameInput(Minecraft mc) {
+		if (frameInputOff || !(mc.currentScreen instanceof OriginScreen)) {
+			return;
+		}
+		inFrameInput = true;
+		try {
+			mc.currentScreen.handleInput();
+		} catch (Throwable t) {
+			// fall back to vanilla's tick-time input for the rest of the session
+			frameInputOff = true;
+			com.origin.client.OriginClient.LOGGER.error("[origin] per-frame screen input failed; back to tick input", t);
+		} finally {
+			inFrameInput = false;
+		}
+	}
+
+	/**
+	 * Runs `action` now, unless it was triggered from the per-frame input drain: then it runs at the start of
+	 * the next client tick, between frames, where vanilla runs every screen action. Render thread.
+	 */
+	public static void outsideFrame(Runnable action) {
+		if (inFrameInput) {
+			OUTSIDE_FRAME.add(action);
+		} else {
+			action.run();
+		}
+	}
+
+	// GuiScreen.handleKeyboardInput = keyTyped on key-down, then Minecraft.dispatchKeypresses, which toggles
+	// fullscreen on F11 (javap 1.8.9). A fullscreen toggle resizes and rebuilds the main framebuffer the frame
+	// is drawing into, so during the per-frame drain it waits for the next client tick, as it would in vanilla.
+	@Override
+	public void handleKeyboardInput() throws IOException {
+		if (inFrameInput && mc != null && Keyboard.getEventKeyState() && !Keyboard.isRepeatEvent()
+				&& Keyboard.getEventKey() != 0
+				&& Keyboard.getEventKey() == mc.gameSettings.keyBindFullscreen.getKeyCode()) {
+			keyTyped(Keyboard.getEventCharacter(), Keyboard.getEventKey());
+			final Minecraft m = mc;
+			OUTSIDE_FRAME.add(m::toggleFullscreen);
+			return;
+		}
+		super.handleKeyboardInput();
+	}
+
+	/** Render thread, ClientTickEvent START (HudHooks): runs the actions outsideFrame deferred. */
+	public static void runDeferred() {
+		Runnable r;
+		while ((r = OUTSIDE_FRAME.poll()) != null) {
+			try {
+				r.run();
+			} catch (Throwable t) {
+				com.origin.client.OriginClient.LOGGER.error("[origin] deferred screen action failed", t);
+			}
+		}
+	}
+
 	@Override
 	public final void drawScreen(int mouseX, int mouseY, float partialTicks) {
-		if (followDrag()) {
-			return;   // the drag handler left this screen: whatever replaced it draws from the next frame on
-		}
 		if (com.origin.client.client.BenchProf.ON) {
 			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_SCREEN_RENDER);
 		}
@@ -262,6 +336,7 @@ public abstract class OriginScreen extends GuiScreen {
 			// LWJGL2 reports 120 per notch on most systems, but some drivers send
 			// smaller steps: never round a real scroll to zero.
 			double notches = Math.abs(wheel) >= 120 ? wheel / 120.0 : Math.signum(wheel);
+			wheelEvents++;
 			try {
 				mouseScrolled(eventX(), eventY(), notches);
 			} catch (Throwable t) {
@@ -274,7 +349,7 @@ public abstract class OriginScreen extends GuiScreen {
 	protected final void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
 		double x = eventX(), y = eventY();
 		dragButton = button;
-		liveDrag = false;
+		pressEvents++;
 		lastDragX = x;
 		lastDragY = y;
 		boolean used;
@@ -292,7 +367,7 @@ public abstract class OriginScreen extends GuiScreen {
 	@Override
 	protected final void mouseReleased(int mouseX, int mouseY, int button) {
 		dragButton = -1;
-		liveDrag = false;
+		releaseEvents++;
 		boolean used;
 		try {
 			used = mouseReleased(eventX(), eventY(), button);
@@ -305,42 +380,15 @@ public abstract class OriginScreen extends GuiScreen {
 		}
 	}
 
+	/** Bench (hudrobot): presses, releases and wheel steps this bridge handed on. Render thread. */
+	public static long pressEvents, releaseEvents, wheelEvents;
+
 	/** Bench (hudrobot): drag positions handed to mouseDragged through this bridge, and the last one. Render thread. */
 	public static long dragDeliveries;
 	public static double lastDeliveredX, lastDeliveredY;
 
-	// Drags follow the cursor every FRAME. 1.8.9 reads a screen's input queue only in Minecraft.runTick
-	// (GuiScreen.handleInput, 20 times a second), so a dragged HUD element, slider or scrollbar moved in
-	// 50 ms steps however high the frame rate (javap: runTick is handleInput's only caller). 1.16.5+ gets
-	// GLFW callbacks every frame. So while a button is held, drawScreen reads the LIVE cursor
-	// (Mouse.getX/Y) and hands mouseDragged the new position before drawing; the queued move events that
-	// runTick replays later would only repeat older positions, so they are dropped for that press. Press,
-	// release, wheel and keys stay on the tick: they can open screens or worlds, which must not happen in
-	// the middle of a frame.
-	private boolean liveDrag;
-
-	/** Returns true when the drag handler closed or replaced this screen (skip drawing it this frame). */
-	private boolean followDrag() {
-		if (dragButton < 0 || mc == null || mc.currentScreen != this) {
-			return false;
-		}
-		try {
-			if (!Mouse.isCreated() || !Mouse.isButtonDown(dragButton)) {
-				return false;   // released between frames: the queued release event ends the drag on the next tick
-			}
-			liveDrag = true;
-			deliverDrag(mouseGuiX(), mouseGuiY(), dragButton);
-		} catch (Throwable t) {
-			fail("mouseDragged", t);
-		}
-		return mc.currentScreen != this;
-	}
-
 	@Override
 	protected final void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
-		if (liveDrag) {
-			return;   // drawScreen already delivered newer positions for this press
-		}
 		double x = eventX(), y = eventY();
 		deliverDrag(x, y, dragButton >= 0 ? dragButton : button);
 	}

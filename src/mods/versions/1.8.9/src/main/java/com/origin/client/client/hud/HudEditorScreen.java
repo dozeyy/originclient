@@ -102,7 +102,34 @@ public class HudEditorScreen extends OriginScreen {
 	public void removed() {
 		HudElements.editorPreview = false;
 		finishResize();   // closed mid-resize (Esc with the button held): keep what the player sees
+		flushWheel();
 		super.removed();
+	}
+
+	// Wheel resize: each notch updates the scale in memory; the settings file is written once the wheel has
+	// rested WHEEL_SAVE_MS, when another element is scrolled, or when the editor closes (it used to write
+	// the whole file on every notch).
+	private static final long WHEEL_SAVE_MS = 400;
+	private String wheelId = null;
+	private long wheelAt;
+
+	@Override
+	public void tick() {
+		super.tick();
+		if (wheelId != null && System.currentTimeMillis() - wheelAt >= WHEEL_SAVE_MS) {
+			flushWheel();
+		}
+	}
+
+	private void flushWheel() {
+		if (wheelId == null) {
+			return;
+		}
+		HudElements.Element e = byId(wheelId);
+		wheelId = null;
+		if (e != null) {
+			e.pos().save(e.id());
+		}
 	}
 
 	/** Ends a resize: the live scale goes to disk in ONE write (mouseDragged only updated it in memory). */
@@ -496,7 +523,12 @@ public class HudEditorScreen extends OriginScreen {
 			if (e != null) {
 				HudPos pos = e.pos();
 				pos.scale = Math.max(0.5, Math.min(2.5, pos.scale + sy * 0.05));
-				pos.save(e.id());
+				if (wheelId != null && !wheelId.equals(e.id())) {
+					flushWheel();
+				}
+				pos.saveLive(e.id());   // live now; written once the wheel rests (tick) or the editor closes
+				wheelId = e.id();
+				wheelAt = System.currentTimeMillis();
 				return true;
 			}
 		}

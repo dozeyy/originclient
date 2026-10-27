@@ -85,6 +85,9 @@ public final class HudHooks {
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent e) {
 		if (e.phase == TickEvent.Phase.START) {
+			// first: an open Origin screen's clicks/keys/wheel/drags are handled THIS frame, not at the next
+			// 20 Hz tick (OriginScreen.frameInput); everything below then sees the screen it left open
+			com.origin.client.client.gui.OriginScreen.frameInput(mc());
 			MinimapHud.partial = e.renderTickTime;
 			com.origin.client.client.mods.MenuBlur.onFrame();
 			com.origin.client.client.mods.PerfSettings.refresh();
@@ -318,6 +321,11 @@ public final class HudHooks {
 
 	@SubscribeEvent
 	public void onClientTick(TickEvent.ClientTickEvent e) {
+		if (e.phase == TickEvent.Phase.START) {
+			// between frames: screen actions the per-frame input drain deferred (OriginScreen.outsideFrame)
+			com.origin.client.client.gui.OriginScreen.runDeferred();
+			return;
+		}
 		if (e.phase != TickEvent.Phase.END) {
 			return;
 		}

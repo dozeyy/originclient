@@ -1028,6 +1028,12 @@ public class ResourcePackHubScreen extends OriginWindow {
 			return;
 		}
 		dirty = false;
+		// The resource reload must not start in the middle of a frame (closed by a click or Esc handled by the
+		// per-frame input drain): outsideFrame runs it at the next client tick then, else right now.
+		com.origin.client.client.gui.OriginScreen.outsideFrame(this::applyChanges);
+	}
+
+	private void applyChanges() {
 		Path dir = PackHub.packDir();
 		PackIndex idx = PackHub.index();
 		if (mode == Mode.ATTACHED) {
