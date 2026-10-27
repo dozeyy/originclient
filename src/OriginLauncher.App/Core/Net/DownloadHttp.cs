@@ -14,9 +14,9 @@ namespace OriginLauncher.App.Core.Net;
 /// restarting the launcher got past it (Will, 2026-10-27; reproduced in DownloadStallTests).
 ///
 /// Here every response body is read through <see cref="StallGuardStream"/>: no bytes for <see cref="StallTimeout"/>
-/// = the read fails with a <see cref="TimeoutException"/>, and the stuck connection is aborted. Headers that never
-/// come fail the same way after <see cref="HeaderTimeout"/>. The caller then retries, tries its next mirror, or shows
-/// the Play failure with a Retry — never a frozen counter.
+/// = the read fails with a <see cref="DownloadStalledException"/>, and the stuck connection is aborted. Headers that
+/// never come fail the same way after <see cref="HeaderTimeout"/>. The caller then retries, tries its next mirror, or
+/// shows the Play failure with a Retry — never a frozen counter.
 /// </summary>
 public static class DownloadHttp
 {
@@ -34,8 +34,8 @@ public static class DownloadHttp
             ConnectTimeout = TimeSpan.FromSeconds(15),
             // CDN edges move; a pooled connection is replaced now and then so a stale one is not reused forever.
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-            // CmlLib downloads ~900-3,900 small files 24 at a time: allow that many connections per host.
-            MaxConnectionsPerServer = 32,
+            // MaxConnectionsPerServer stays unlimited (the default): the header deadline would otherwise also count
+            // a request's wait for a free connection, and CmlLib runs max(24, cores) downloads at once.
         }, userAgent, StallTimeout, HeaderTimeout);
 
     /// <summary>Test seam: the same guard over any handler, with short timeouts.</summary>
@@ -45,6 +45,21 @@ public static class DownloadHttp
         if (userAgent != null) client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
         return client;
     }
+}
+
+/// <summary>
+/// A download that stalled (no data, or no headers, within the guard's window). Deliberately the exact shape of
+/// HttpClient's own timeout — a <see cref="TaskCanceledException"/> whose inner exception is a
+/// <see cref="TimeoutException"/> — so every fail-soft filter that already treated "HttpClient timed out" as a
+/// network failure (Temurin falls back to jre-legacy, Fabric API / voice chat skip the mod, the Fabric loader uses
+/// the installed one, MojangMetaCache serves its disk copy, OptiFine tries its next mirror) handles a stall the same
+/// way, and none mistakes it for the player's cancel (those filters all check the caller's token). PlayFailure reads
+/// it as "A download took too long".
+/// </summary>
+public sealed class DownloadStalledException : TaskCanceledException
+{
+    public DownloadStalledException(string message, Exception? cause)
+        : base(message, new TimeoutException(message, cause)) { }
 }
 
 /// <summary>Puts a header deadline on every request and a stall guard on every response body.</summary>
@@ -70,7 +85,7 @@ public sealed class StallGuardHandler : DelegatingHandler
         }
         catch (Exception e) when (deadline.IsCancellationRequested && !ct.IsCancellationRequested)
         {
-            throw new TimeoutException(
+            throw new DownloadStalledException(
                 $"{request.RequestUri?.Host} sent no response for {_headers.TotalSeconds:0} s.", e);
         }
         if (response.Content != null)
@@ -129,7 +144,7 @@ internal sealed class StallGuardContent : HttpContent
 
 /// <summary>
 /// A read-only body stream whose every read gets its own deadline: no bytes within the stall window throws
-/// <see cref="TimeoutException"/> (and cancelling the inner read aborts the stuck connection). Every read overload
+/// <see cref="DownloadStalledException"/> (and cancelling the inner read aborts the stuck connection). Every read overload
 /// funnels into the cancellable Memory overload, because callers (CmlLib) use the array overload with no token,
 /// whose Stream default would block a thread pool thread on a synchronous Read with no way out.
 /// </summary>
@@ -156,7 +171,7 @@ public sealed class StallGuardStream : Stream
         }
         catch (Exception e) when (deadline.IsCancellationRequested && !ct.IsCancellationRequested)
         {
-            throw new TimeoutException(
+            throw new DownloadStalledException(
                 $"Download from {_host ?? "the server"} stalled: no data for {_stall.TotalSeconds:0} s.", e);
         }
     }

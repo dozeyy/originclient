@@ -38,18 +38,29 @@ public sealed class RetryingGameInstaller : ParallelGameInstaller
                 await base.Download(file, progress, ct).ConfigureAwait(false);
                 return;
             }
-            catch (Exception e) when (attempt < Attempts && !ct.IsCancellationRequested && IsTransient(e))
+            catch (Exception e) when (!ct.IsCancellationRequested)
             {
-                // The half-written file is dropped so a retry (or the next launch's size check) starts clean.
+                // The half-written file is dropped on every failure (the last one too), so a retry or the next
+                // launch starts clean instead of finding a truncated file.
                 TryDelete(file.Path);
-                await Task.Delay(_backoff(attempt), ct).ConfigureAwait(false);
+                if (attempt < Attempts && IsTransient(e)) { /* retry below */ }
+                // TPL Dataflow (CmlLib's pipeline) silently DROPS a message whose delegate throws an
+                // OperationCanceledException: a timed-out or stalled file (both are TaskCanceledException) would
+                // just be missing while the install reports success. As a TimeoutException it fails the pass, and
+                // the player gets "A download took too long" with Retry (caught by DownloadStallTests).
+                else if (e is OperationCanceledException)
+                    throw new TimeoutException($"Downloading {file.Name} timed out after {attempt} tries.", e);
+                else throw;
             }
+            await Task.Delay(_backoff(attempt), ct).ConfigureAwait(false);
         }
     }
 
-    // Network trouble is worth another try; a full disk or a denied folder is not (it fails the same way again).
+    // Network trouble is worth another try; a full disk, a denied folder or a refused file (404, 403: the server's
+    // final answer) is not — it fails the same way again. 408 / 429 are the server asking to come back.
     private static bool IsTransient(Exception e) => e switch
     {
+        HttpRequestException { StatusCode: { } status } => (int)status >= 500 || (int)status is 408 or 429,
         TimeoutException or HttpRequestException or TaskCanceledException => true,
         UnauthorizedAccessException => false,
         IOException io => (io.HResult & 0xFFFF) is not (0x27 or 0x70), // ERROR_HANDLE_DISK_FULL, ERROR_DISK_FULL

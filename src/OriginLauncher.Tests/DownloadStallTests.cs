@@ -8,6 +8,7 @@ using CmlLib.Core.Installers;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Net;
+using OriginLauncher.App.Core.Runtime;
 using OriginLauncher.App.Core.Versions;
 using Xunit;
 
@@ -22,7 +23,8 @@ namespace OriginLauncher.Tests;
 /// </summary>
 public sealed class DownloadStallTests : IDisposable
 {
-    private static readonly TimeSpan Stall = TimeSpan.FromMilliseconds(400);
+    // Short enough to keep the suite fast, long enough that a loaded CI runner serving a healthy file never trips it.
+    private static readonly TimeSpan Stall = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan Headers = TimeSpan.FromSeconds(2);
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "origin-stall-" + Guid.NewGuid().ToString("N"));
 
@@ -84,7 +86,7 @@ public sealed class DownloadStallTests : IDisposable
         using var http = GuardedClient();
         var installer = new RetryingGameInstaller(2, 8, 2048, http, _ => TimeSpan.Zero);
 
-        var (install, last) = await RunAsync(installer, Files(server, 20), TimeSpan.FromSeconds(15));
+        var (install, last) = await RunAsync(installer, Files(server, 20), TimeSpan.FromSeconds(20));
 
         Assert.True(install.IsCompleted, "install still running: the stalled file froze the counter");
         await install; // no exception
@@ -102,7 +104,8 @@ public sealed class DownloadStallTests : IDisposable
         using var http = GuardedClient();
         var installer = new RetryingGameInstaller(2, 8, 2048, http, _ => TimeSpan.Zero);
 
-        var (install, _) = await RunAsync(installer, Files(server, 5), TimeSpan.FromSeconds(15));
+        var (install, _) = await RunAsync(installer, Files(server, 5), TimeSpan.FromSeconds(20));
+        Assert.False(File.Exists(Path.Combine(_dir, "f4.bin"))); // the last attempt's partial file is not left behind
 
         Assert.True(install.IsCompleted, "install still running instead of failing");
         var error = await Assert.ThrowsAnyAsync<Exception>(() => install);
@@ -141,7 +144,103 @@ public sealed class DownloadStallTests : IDisposable
         await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(10)));
 
         Assert.True(run.IsCompleted);
-        await Assert.ThrowsAsync<TimeoutException>(() => run);
+        // HttpClient's own timeout shape (TaskCanceledException), so every existing network-failure filter catches it.
+        var error = await Assert.ThrowsAnyAsync<TaskCanceledException>(() => run);
+        Assert.True(Chain(error).Any(e => e is DownloadStalledException), error.ToString());
+    }
+
+    private static IEnumerable<Exception> Chain(Exception? e)
+    {
+        for (; e != null; e = e.InnerException) yield return e;
+    }
+
+    // --- The fail-soft paths must treat a stall like any other network failure (code review of 613e57afe) ---
+
+    public enum StallKind { Body, Headers }
+
+    /// <summary>A guarded client whose every request stalls: in the body after 200 OK, or before any headers.</summary>
+    private static HttpClient StallingClient(StallKind kind) =>
+        DownloadHttp.Create(new StallHandler(kind), null, Stall, Headers);
+
+    [Theory]
+    [InlineData(StallKind.Body)]
+    [InlineData(StallKind.Headers)]
+    public async Task Temurin_stall_falls_back_to_the_existing_java_instead_of_failing_the_launch(StallKind kind)
+    {
+        using var http = StallingClient(kind);
+        var pin = new JavaRuntimePin("temurin-stall", "https://example.invalid/jdk-" + Guid.NewGuid().ToString("N"),
+            new string('0', 64), 1);
+        JavaDownload download = (url, dest, frac, token) => JavaRuntimeProvisioner.HttpDownload(http, url, dest, frac, token);
+
+        var run = JavaRuntimeProvisioner.EnsureAsync(pin, _dir, download, null, CancellationToken.None);
+        await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(10)));
+
+        Assert.True(run.IsCompleted, "Temurin still waiting on a stalled download");
+        Assert.Null(await run); // null = keep jre-legacy (Mandate 4), not an exception that fails the launch
+        Assert.Empty(Directory.EnumerateDirectories(_dir, ".tmp-*"));
+    }
+
+    [Theory]
+    [InlineData(StallKind.Body)]
+    [InlineData(StallKind.Headers)]
+    public async Task Fabric_api_live_query_stall_skips_the_mod_instead_of_failing_the_launch(StallKind kind)
+    {
+        // The unpinned path (no ManagedPins entry): the live Modrinth query is what stalls.
+        using var http = StallingClient(kind);
+        var mods = Path.Combine(_dir, "mods");
+
+        var run = FabricApiInstaller.InstallProjectAsync(http, "fabric-api", "fabric-api-", "[\"fabric\"]",
+            "Installing Fabric API...", pin: null, "0.0-stall-test", mods, null, CancellationToken.None);
+        await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(10)));
+
+        Assert.True(run.IsCompleted, "Fabric API install still waiting on a stalled query");
+        await run; // no exception: the instance is left without the jar, the launch goes on
+        Assert.Empty(Directory.EnumerateFiles(mods));
+    }
+
+    [Fact]
+    public async Task The_players_own_cancel_is_still_a_cancel_not_a_stall()
+    {
+        using var http = StallingClient(StallKind.Body);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => JavaRuntimeProvisioner.HttpDownload(http, "https://example.invalid/x", Path.Combine(_dir, "x"), null, cts.Token));
+        Assert.IsNotType<DownloadStalledException>(error);
+    }
+
+    private sealed class StallHandler : HttpMessageHandler
+    {
+        private readonly StallKind _kind;
+        public StallHandler(StallKind kind) => _kind = kind;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            if (_kind == StallKind.Headers) await Task.Delay(Timeout.Infinite, ct);
+            var content = new StreamContent(new NeverStream());
+            content.Headers.ContentLength = 1_000_000;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request };
+        }
+    }
+
+    /// <summary>A body that never yields a byte until its read is cancelled.</summary>
+    private sealed class NeverStream : Stream
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            return 0;
+        }
+        public override Task<int> ReadAsync(byte[] b, int o, int c, CancellationToken ct) => ReadAsync(b.AsMemory(o, c), ct).AsTask();
+        public override int Read(byte[] b, int o, int c) => throw new NotSupportedException();
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long o, SeekOrigin s) => throw new NotSupportedException();
+        public override void SetLength(long v) => throw new NotSupportedException();
+        public override void Write(byte[] b, int o, int c) => throw new NotSupportedException();
     }
 
     [Fact]
