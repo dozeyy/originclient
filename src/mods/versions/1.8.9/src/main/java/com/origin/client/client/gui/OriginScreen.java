@@ -223,7 +223,8 @@ public abstract class OriginScreen extends GuiScreen {
 	//
 	// The frame is already under way here (matrix pushed, the main framebuffer bound), so the few actions
 	// that leave the world or reload everything (Social.join's disconnect + connect, the pack hub's resource
-	// reload, a shader pack switch) go through outsideFrame, which defers them to the next client tick.
+	// reload, FPS Coach's Stop/Undo, which can switch OptiFine shaders) go through outsideFrame, which defers
+	// them to the next client tick.
 	private static boolean inFrameInput, frameInputOff;
 	private static final java.util.ArrayDeque<Runnable> OUTSIDE_FRAME = new java.util.ArrayDeque<>();
 

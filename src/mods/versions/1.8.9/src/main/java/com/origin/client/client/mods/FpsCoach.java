@@ -592,7 +592,9 @@ public final class FpsCoach {
 	/** Stops a running test and puts the setting back if it was already changed. */
 	public static void stopTest() {
 		if (testUndo != null) {
-			testUndo.run();
+			// Stop is a click in FpsCoachScreen, drained mid-frame; the undo can switch OptiFine shaders
+			// (setShaderPack + uninit) or reload chunks, so it runs at the next client tick instead.
+			com.origin.client.client.gui.OriginScreen.outsideFrame(testUndo);
 		}
 		phase = Phase.NONE;
 		testTip = null;
@@ -613,7 +615,7 @@ public final class FpsCoach {
 		Result r = result;
 		result = null;
 		if (r != null && r.undo() != null) {
-			r.undo().run();
+			com.origin.client.client.gui.OriginScreen.outsideFrame(r.undo());   // Undo click: see stopTest
 			size = 0;
 			notice(Minecraft.getMinecraft(), "FPS Coach: put back the way it was");
 		}
