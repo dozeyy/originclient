@@ -51,6 +51,9 @@ A run that already passed on the same commit is done. Don't run it again.
     (all 1.21.1), then set the flag. `test_ci_gates.py` fails a flagged module whose OriginDevWorld lacks the step.
   - Per-era: the world-creation call (`WorldOpenFlows` / `createFreshLevel` arity and `WorldPresets.FLAT` lookup) and
     the Save and Quit sequence differ by era; re-derive them with javap, never copy 1.21.1's.
+    1.21.10/1.21.11 (javap): `Minecraft.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE)` is PauseScreen's Save and
+    Quit (saves behind a saving screen, opens the title); `GameRules(FeatureFlagSet)` lives in `net.minecraft.world.level`
+    on 1.21.10 and moved to `net.minecraft.world.level.gamerules` on 1.21.11.
 - **ref-189**: 1.8.9 API lookups (class / member / find / srg) and a compile that prints only the errors.
 - **Watching:**
   - `gh run watch` exits 0 whatever the result. Read `gh run view <id> --json conclusion`.
