@@ -1,0 +1,88 @@
+{
+  "_comment": [
+    "THE spot table for the title-screen panoramas (.github/workflows/panoramas.yml, OriginDevPanorama).",
+    "One entry = one 6-face panorama, rendered in CI by the 'capture' module with a real shader pack,",
+    "then shipped as assets/minecraft/textures/gui/title/background/panorama_0..5.png in every module",
+    "listed in 'targets' (tools/panorama/install.py copies them there).",
+    "capture: the module that renders it. An update's content renders in its own module when that",
+    "  module can capture; older updates (1.16-1.21) render in 1.21.1, whose worlds still generate",
+    "  them unchanged and whose Iris/Sodium are the most proven in CI.",
+    "locate: the arguments after /locate (biome <id> | structure <id>); offset [dx, dz] from the result.",
+    "ground: surface (heightmap, default) or floor (first air over solid scanning down: Nether, caves).",
+    "vista: search radius for the highest ground (an overlook). up: camera feet above the ground.",
+    "yaw: face 0's direction (0 = south, 90 = west, 180 = north, -90 = east); faces 1-3 turn +90 each.",
+    "time: /time set value (daylight cycle frozen). renderDistance: chunks.",
+    "mobs: summoned NoAI in view of face 0 at dist blocks, angle degrees off face 0's centre,",
+    "  up blocks above their ground, turn = extra yaw for a 3/4 view, nbt merged into the summon.",
+    "commands: run at the camera's ground point facing face 0 (so ~ and ^ coordinates work)."
+  ],
+  "shaderpack": {
+    "name": "Photon",
+    "version": "v1.3b",
+    "file": "photon_v1.3b.zip",
+    "url": "https://cdn.modrinth.com/data/lLqFfGNs/versions/gUv7fBPN/photon_v1.3b.zip",
+    "sha512": "40bcbac9c656f2965f543e4b35cd0698723b2db8b67662f1b53c14223cfbef7d60d7fbf0176f73fcadd0d1e19ba60d951ed77e9eece8c8df7dca4d2be6315309",
+    "license": "Photon Shaders License Agreement (github.com/sixthsurge/photon/blob/main/LICENSE): 'Use Photon Shaders, including for commercially published screenshots and videos.' Origin never ships or redistributes the pack, only its own renders."
+  },
+  "faceSize": 768,
+  "spots": [
+    {
+      "id": "1.16", "capture": "1.21.1", "targets": ["1.16.5"],
+      "about": "Nether Update: crimson forest, piglins, a hoglin",
+      "dimension": "minecraft:the_nether", "locate": "biome minecraft:crimson_forest",
+      "ground": "floor", "up": 0.2, "yaw": 45, "renderDistance": 8,
+      "mobs": [
+        {"id": "minecraft:piglin", "dist": 5, "angle": -18, "nbt": "{IsImmuneToZombification:1b,HandItems:[{id:\"minecraft:golden_sword\",count:1},{}]}"},
+        {"id": "minecraft:piglin", "dist": 7, "angle": 20, "turn": -40, "nbt": "{IsImmuneToZombification:1b,HandItems:[{id:\"minecraft:crossbow\",count:1},{}]}"},
+        {"id": "minecraft:hoglin", "dist": 10, "angle": 4, "nbt": "{IsImmuneToZombification:1b}"}
+      ]
+    },
+    {
+      "id": "1.17", "capture": "1.21.1", "targets": ["1.17.1"],
+      "about": "Caves & Cliffs part 1: goats on a snowy slope",
+      "locate": "biome minecraft:snowy_slopes", "vista": 24, "up": 1.5, "yaw": 60, "time": 2500,
+      "mobs": [
+        {"id": "minecraft:goat", "dist": 5, "angle": -15},
+        {"id": "minecraft:goat", "dist": 7, "angle": 18, "turn": -50, "nbt": "{IsScreamingGoat:1b}"},
+        {"id": "minecraft:goat", "dist": 9, "angle": 2, "nbt": "{Age:-24000}"}
+      ]
+    },
+    {
+      "id": "1.18", "capture": "1.21.1", "targets": ["1.18.2"],
+      "about": "Caves & Cliffs part 2: the new mountains",
+      "locate": "biome minecraft:jagged_peaks", "vista": 48, "up": 2, "yaw": 60, "time": 3000
+    },
+    {
+      "id": "1.19", "capture": "1.21.1", "targets": ["1.19.2", "1.19.3", "1.19.4"],
+      "about": "The Wild Update: mangrove swamp, frogs, allays",
+      "locate": "biome minecraft:mangrove_swamp", "up": 2.5, "yaw": 45, "time": 3000,
+      "mobs": [
+        {"id": "minecraft:frog", "dist": 4, "angle": -20, "nbt": "{variant:\"minecraft:warm\"}"},
+        {"id": "minecraft:frog", "dist": 5, "angle": 10, "nbt": "{variant:\"minecraft:temperate\"}"},
+        {"id": "minecraft:frog", "dist": 6, "angle": 28, "nbt": "{variant:\"minecraft:cold\"}"},
+        {"id": "minecraft:allay", "dist": 6, "angle": -5, "up": 2.5},
+        {"id": "minecraft:allay", "dist": 8, "angle": 14, "up": 3.5}
+      ]
+    },
+    {
+      "id": "1.20", "capture": "1.21.1", "targets": ["1.20", "1.20.2", "1.20.4"],
+      "about": "Trails & Tales: cherry grove, a camel, a sniffer",
+      "locate": "biome minecraft:cherry_grove", "vista": 16, "up": 1.5, "yaw": 45, "time": 3000,
+      "mobs": [
+        {"id": "minecraft:camel", "dist": 7, "angle": -14},
+        {"id": "minecraft:sniffer", "dist": 9, "angle": 16, "turn": -50}
+      ]
+    },
+    {
+      "id": "1.21", "capture": "1.21.1", "targets": ["1.21", "1.21.1"],
+      "about": "Tricky Trials: armadillos, an armoured wolf, a breeze",
+      "locate": "biome minecraft:savanna_plateau", "vista": 16, "up": 1.5, "yaw": 45, "time": 3000,
+      "mobs": [
+        {"id": "minecraft:armadillo", "dist": 4, "angle": -22},
+        {"id": "minecraft:armadillo", "dist": 5, "angle": -6, "turn": -60},
+        {"id": "minecraft:wolf", "dist": 6, "angle": 18, "nbt": "{body_armor_item:{id:\"minecraft:wolf_armor\",count:1}}"},
+        {"id": "minecraft:breeze", "dist": 10, "angle": 6, "up": 1}
+      ]
+    }
+  ]
+}
