@@ -304,11 +304,19 @@ final class OriginDevPanorama {
 				// An overlook instead of a hollow: the highest open, level ground within `vista` blocks. Open = no
 				// tree within 2 blocks of the camera (a cherry crown beside the eye filled every face, run
 				// 40453214783); level = little drop 5 and 10 blocks out, so the mobs stand in view, not down a slope.
+				// Per spot: maxRise keeps the camera in the located biome (a mangrove swamp's highest open point
+				// was a jungle hill), flatWeight 0 lets a mountain spot stand on a peak.
+				int base = groundAt(level, x, z);
+				int maxRise = num("maxRise", 1000);
+				double flatWeight = num("flatWeight", 1.5);
 				int bx = x, bz = z;
 				double best = Double.NEGATIVE_INFINITY;
 				for (int dx = -vista; dx <= vista; dx += 4) {
 					for (int dz = -vista; dz <= vista; dz += 4) {
 						int h = groundAt(level, x + dx, z + dz);
+						if (h > base + maxRise) {
+							continue;
+						}
 						int drop = 0;
 						for (int i = 0; i < 16; i++) {
 							double a = Math.PI / 4 * i;
@@ -316,7 +324,7 @@ final class OriginDevPanorama {
 							int g = groundAt(level, x + dx + (int) Math.round(Math.cos(a) * r), z + dz + (int) Math.round(Math.sin(a) * r));
 							drop = Math.max(drop, h - g);
 						}
-						double score = h - 1.5 * drop - (open(level, x + dx, h, z + dz) ? 0 : 1000);
+						double score = h - flatWeight * drop - (open(level, x + dx, h, z + dz) ? 0 : 1000);
 						if (score > best) {
 							best = score;
 							bx = x + dx;

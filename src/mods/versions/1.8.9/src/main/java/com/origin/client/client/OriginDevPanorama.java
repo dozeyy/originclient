@@ -53,6 +53,8 @@ final class OriginDevPanorama {
 		long now = System.currentTimeMillis();
 		if (camera != null && mc.thePlayer != null) {
 			holdCamera(mc.thePlayer);
+			// hideGUI doesn't cover the achievement toast ("Press E to open your inventory" in a new world).
+			mc.guiAchievement.clearAchievements();
 		}
 		if (now < nextAt) {
 			return;
@@ -234,13 +236,29 @@ final class OriginDevPanorama {
 			int z = Integer.parseInt(xz[1]) + (int) arr("offset", 1, 0);
 			int vista = num("vista", 0);
 			if (vista > 0) {
-				// The highest ground within `vista` blocks: an overlook instead of a hollow.
-				int bx = x, bz = z, by = Integer.MIN_VALUE;
+				// As 1.21.1: the highest open, level ground within `vista` blocks, no higher than maxRise above the
+				// located point (a flower forest's highest point was the mountain next to it, run 40454298668).
+				int base = ground(world, x, z);
+				int maxRise = num("maxRise", 1000);
+				double flatWeight = dnum("flatWeight", 1.5);
+				int bx = x, bz = z;
+				double best = Double.NEGATIVE_INFINITY;
 				for (int dx = -vista; dx <= vista; dx += 4) {
 					for (int dz = -vista; dz <= vista; dz += 4) {
 						int h = ground(world, x + dx, z + dz);
-						if (h > by) {
-							by = h;
+						if (h > base + maxRise) {
+							continue;
+						}
+						int drop = 0;
+						for (int i = 0; i < 16; i++) {
+							double a = Math.PI / 4 * i;
+							int r = i < 8 ? 5 : 10;   // where the mobs stand
+							int g = ground(world, x + dx + (int) Math.round(Math.cos(a) * r), z + dz + (int) Math.round(Math.sin(a) * r));
+							drop = Math.max(drop, h - g);
+						}
+						double score = h - flatWeight * drop - (open(world, x + dx, h, z + dz) ? 0 : 1000);
+						if (score > best) {
+							best = score;
 							bx = x + dx;
 							bz = z + dz;
 						}
@@ -298,6 +316,22 @@ final class OriginDevPanorama {
 			}
 		}
 		return p.getY();
+	}
+
+	/** No leaves, logs or solid block within 2 blocks of the camera's eye (2 to 5 above the ground). */
+	private static boolean open(WorldServer world, int x, int ground, int z) {
+		for (int dx = -2; dx <= 2; dx++) {
+			for (int dz = -2; dz <= 2; dz++) {
+				for (int dy = 2; dy <= 5; dy++) {
+					net.minecraft.block.Block b = world.getBlockState(new BlockPos(x + dx, ground + dy, z + dz)).getBlock();
+					if (b == Blocks.leaves || b == Blocks.leaves2 || b == Blocks.log || b == Blocks.log2
+							|| b.getMaterial().blocksMovement()) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 	private static int num(String key, int def) {
