@@ -294,16 +294,54 @@ public final class OriginScreenRenderer {
 	// The world-loading scene's shown bar fill, gliding to each new count.
 	// sceneFill < 0 = the bar is sweeping.
 	private static double sceneFill = -1;
-	// Never backward within a world load, never full before the world is up (LoadBar.scene).
-	private static final LoadBar SCENE_BAR = new LoadBar();
+	// The rail's state for one world load (sceneRail): the frame count at the last
+	// scene frame, the highest number reported so far (-1 = none yet), and when the
+	// fill last moved.
+	private static long sceneFrame = -1;
+	private static double sceneTarget = -1, sceneAt;
+
+	/**
+	 * The world-loading scene's rail: exactly the number its caption shows, never a
+	 * made-up one (judge 2026-10-25: "Preparing spawn area: 0%" over a rail at about
+	 * 15%, from LoadBar's creep and its 75 % prep share, which suit the startup reload's
+	 * lying fraction, not a chunk count the caption prints). The rail sweeps until the
+	 * load's first reported number, then starts from empty and glides (FILL_TAU) to the
+	 * highest number so far: never backward within one load, held through a stage that
+	 * reports none ("Loading terrain"). A new world load is told apart by frames, as
+	 * LoadBar.scene does: more than LoadBar.NEW_LOAD_FRAMES frames drawn without the scene.
+	 * No allocation; render thread only.
+	 */
+	private static double sceneRail(long frame, float progress, double now) {
+		if (sceneFrame < 0 || frame < sceneFrame || frame - sceneFrame - 1 > LoadBar.NEW_LOAD_FRAMES) {
+			sceneTarget = -1;   // a new world load: sweep until it reports a number
+			sceneFill = -1;
+		}
+		sceneFrame = frame;
+		if (progress >= 0f) {   // false for NaN too: no number this frame
+			double p = Math.min(1.0, progress);
+			if (sceneTarget < 0) {
+				sceneTarget = p;
+				sceneFill = 0;      // the first number: glide up from an empty track
+				sceneAt = now;
+			} else {
+				sceneTarget = Math.max(sceneTarget, p);
+			}
+		}
+		if (sceneTarget < 0) {
+			return -1;
+		}
+		double k = Math.exp(-Math.max(0.0, now - sceneAt) / FILL_TAU);
+		sceneAt = now;
+		return Math.max(sceneFill, sceneTarget + (sceneFill - sceneTarget) * k);
+	}
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
 		// The fill glides to each new count and only moves forward within one world
-		// load; it sweeps until the load's first measured stage (LoadBar.scene).
+		// load; it sweeps until the load's first reported number (sceneRail).
 		double now = SceneClock.sceneMs();
-		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
+		sceneFill = sceneRail(com.origin.client.client.hud.FrameStats.frames(), progress, now);
 		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
 			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		}
