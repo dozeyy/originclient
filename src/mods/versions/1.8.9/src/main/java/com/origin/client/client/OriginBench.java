@@ -154,6 +154,11 @@ public final class OriginBench {
 	private double lagSum, lagMax;
 	private long lagFrames, framesNewDrag, deliveriesSeen;
 	private boolean robotMoving;
+	// hudrobot input latency: Robot press/release/wheel -> the end of the frame in which the screen handled it
+	// (that frame shows the response). pend* = nanoTime of the pending Robot action, 0 = none pending.
+	private long pendPress, pendRelease, pendWheel, seenPress, seenRelease, seenWheel;
+	private final double[] latSum = new double[3], latMax = new double[3];
+	private final long[] latN = new long[3];
 	private static final int FAKE_PLAYERS = (int) num("origin.bench.players", 16);
 	private final List<net.minecraft.client.entity.EntityOtherPlayerMP> fakes = new ArrayList<>();
 	private Map<Object, Object> fakeInfoMap;
@@ -250,6 +255,9 @@ public final class OriginBench {
 			// hudrobot: after this frame's screen drew, how far is the dragged position from where the cursor
 			// was put one frame ago (that move has had a whole Display.update to reach LWJGL)?
 			long d = com.origin.client.client.gui.OriginScreen.dragDeliveries;
+			if (robot != null) {
+				scoreInputLatency(System.nanoTime());
+			}
 			if (robotMoving && recording && !Double.isNaN(cmdPrevX)) {
 				double lag = Math.hypot(com.origin.client.client.gui.OriginScreen.lastDeliveredX - cmdPrevX,
 						com.origin.client.client.gui.OriginScreen.lastDeliveredY - cmdPrevY);
@@ -772,6 +780,7 @@ public final class OriginBench {
 		// lag is only scored once the loop has been running a moment (the first move follows the press)
 		robotMoving = robotMode == 1 && t >= 0.45 && t < 2.4;
 		if (t < 0.2) {
+			wheelStep = 0;
 			if (robotMode == 1) {
 				robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_MASK);
 				robotMode = 0;
@@ -796,6 +805,8 @@ public final class OriginBench {
 				if (Double.isNaN(cmdX)) {
 					return;
 				}
+				seenPress = com.origin.client.client.gui.OriginScreen.pressEvents;
+				pendPress = System.nanoTime();
 				robot.mousePress(java.awt.event.InputEvent.BUTTON1_MASK);
 				robotMode = 1;
 				return;
@@ -807,9 +818,49 @@ public final class OriginBench {
 			return;
 		}
 		if (robotMode == 1) {
+			seenRelease = com.origin.client.client.gui.OriginScreen.releaseEvents;
+			pendRelease = System.nanoTime();
 			robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_MASK);
 			robotMode = 0;
+			return;
 		}
+		// 2.6 s / 2.8 s: one wheel notch up, then one down, over Coords (the loop ended on its start point), so
+		// the wheel resize runs and the scale ends where it began
+		int step = t >= 2.8 ? 2 : t >= 2.6 ? 1 : 0;
+		if (step > wheelStep) {
+			seenWheel = com.origin.client.client.gui.OriginScreen.wheelEvents;
+			pendWheel = System.nanoTime();
+			robot.mouseWheel(step == 1 ? -1 : 1);
+		}
+		wheelStep = step;
+	}
+
+	private int wheelStep;
+
+	/** Render END: a pending Robot action the screen has now handled is scored (only while measuring). */
+	private void scoreInputLatency(long now) {
+		if (pendPress != 0 && com.origin.client.client.gui.OriginScreen.pressEvents != seenPress) {
+			addLatency(0, now - pendPress);
+			pendPress = 0;
+		}
+		if (pendRelease != 0 && com.origin.client.client.gui.OriginScreen.releaseEvents != seenRelease) {
+			addLatency(1, now - pendRelease);
+			pendRelease = 0;
+		}
+		if (pendWheel != 0 && com.origin.client.client.gui.OriginScreen.wheelEvents != seenWheel) {
+			addLatency(2, now - pendWheel);
+			pendWheel = 0;
+		}
+	}
+
+	private void addLatency(int i, long ns) {
+		if (!recording) {
+			return;
+		}
+		double ms = ns / 1e6;
+		latSum[i] += ms;
+		latMax[i] = Math.max(latMax[i], ms);
+		latN[i]++;
 	}
 
 	private void robotTo(Minecraft mc, net.minecraft.client.gui.GuiScreen s, double gx, double gy) {
@@ -911,6 +962,9 @@ public final class OriginBench {
 		drags0 = com.origin.client.client.gui.OriginScreen.dragDeliveries;
 		lagSum = 0;
 		lagMax = 0;
+		Arrays.fill(latSum, 0);
+		Arrays.fill(latMax, 0);
+		Arrays.fill(latN, 0);
 		lagFrames = 0;
 		framesNewDrag = 0;
 		lastFrame = 0;
@@ -991,6 +1045,14 @@ public final class OriginBench {
 			r.addProperty("movingFramesWithNewDrag", lagFrames == 0 ? 0 : round(framesNewDrag / (double) lagFrames, 3));
 			r.addProperty("dragLagAvgGuiPx", lagFrames == 0 ? -1 : round(lagSum / lagFrames, 2));
 			r.addProperty("dragLagMaxGuiPx", round(lagMax, 2));
+			// real input -> the end of the frame that drew the screen's response, ms (Robot -> X -> LWJGL ->
+			// the screen's input drain -> that frame). Count, average, worst.
+			String[] names = {"press", "release", "wheel"};
+			for (int i = 0; i < 3; i++) {
+				r.addProperty(names[i] + "Count", latN[i]);
+				r.addProperty(names[i] + "LatencyAvgMs", latN[i] == 0 ? -1 : round(latSum[i] / latN[i], 2));
+				r.addProperty(names[i] + "LatencyMaxMs", round(latMax[i], 2));
+			}
 		}
 		r.addProperty("unfocusedTicks", unfocusedTicks);
 		r.addProperty("cameraOffTicks", cameraResets);

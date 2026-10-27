@@ -404,6 +404,28 @@ class Aggregate(Tmp):
             self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only",
                                      "--max-regression-pct", "20"]), 2)
 
+    def test_max_regression_pct_skips_origin_only_scenes_the_inert_probe_never_runs(self):
+        for i in (1, 2, 3):
+            write_run(self.p("root", "optifine-only", "run-%d" % i), {"idle": ([10 * MS] * 400, {})},
+                      env={"originActive": False})
+            write_run(self.p("root", "origin-default", "run-%d" % i),
+                      {"idle": ([10 * MS] * 400, {}), "hud": ([11 * MS] * 400, {}),
+                       "hudedit": ([11 * MS] * 400, {}), "hudrobot": ([11 * MS] * 400, {})},
+                      env={"originActive": True})
+        S.check_regression(S.aggregate(self.p("root"), baseline="optifine-only"), 20)
+        with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(S.main(["aggregate", self.p("root"), "--baseline", "optifine-only",
+                                     "--max-regression-pct", "20"]), 0)
+        # a scene the probe could have run ("menu") still fails the gate when the baseline lacks it
+        for i in (1, 2, 3):
+            write_run(self.p("root", "origin-default", "run-%d" % i),
+                      {"idle": ([10 * MS] * 400, {}), "hud": ([11 * MS] * 400, {}), "menu": ([11 * MS] * 400, {})},
+                      env={"originActive": True})
+        with self.assertRaises(S.SummaryError) as c:
+            S.check_regression(S.aggregate(self.p("root"), baseline="optifine-only"), 20)
+        self.assertIn("origin-default menu avgFps", str(c.exception))
+        self.assertNotIn("hud ", str(c.exception))
+
     def test_max_regression_pct_rejects_a_negative_limit(self):
         self.build()
         with self.assertRaises(S.SummaryError):
