@@ -62,4 +62,9 @@ public final class HudPos {
 	public void save(String elementId) {
 		ModsConfigAccess.putHud(elementId, new double[]{anchor, dx, dy, scale, bg});
 	}
+
+	/** Mid-gesture: visible to every reader now, written to disk by the {@link #save} that ends the gesture. */
+	public void saveLive(String elementId) {
+		ModsConfigAccess.putHudLive(elementId, new double[]{anchor, dx, dy, scale, bg});
+	}
 }

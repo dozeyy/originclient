@@ -209,6 +209,9 @@ public abstract class OriginScreen extends GuiScreen {
 
 	@Override
 	public final void drawScreen(int mouseX, int mouseY, float partialTicks) {
+		if (followDrag()) {
+			return;   // the drag handler left this screen: whatever replaced it draws from the next frame on
+		}
 		if (com.origin.client.client.BenchProf.ON) {
 			com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_SCREEN_RENDER);
 		}
@@ -271,6 +274,7 @@ public abstract class OriginScreen extends GuiScreen {
 	protected final void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
 		double x = eventX(), y = eventY();
 		dragButton = button;
+		liveDrag = false;
 		lastDragX = x;
 		lastDragY = y;
 		boolean used;
@@ -288,6 +292,7 @@ public abstract class OriginScreen extends GuiScreen {
 	@Override
 	protected final void mouseReleased(int mouseX, int mouseY, int button) {
 		dragButton = -1;
+		liveDrag = false;
 		boolean used;
 		try {
 			used = mouseReleased(eventX(), eventY(), button);
@@ -304,8 +309,38 @@ public abstract class OriginScreen extends GuiScreen {
 	public static long dragDeliveries;
 	public static double lastDeliveredX, lastDeliveredY;
 
+	// Drags follow the cursor every FRAME. 1.8.9 reads a screen's input queue only in Minecraft.runTick
+	// (GuiScreen.handleInput, 20 times a second), so a dragged HUD element, slider or scrollbar moved in
+	// 50 ms steps however high the frame rate (javap: runTick is handleInput's only caller). 1.16.5+ gets
+	// GLFW callbacks every frame. So while a button is held, drawScreen reads the LIVE cursor
+	// (Mouse.getX/Y) and hands mouseDragged the new position before drawing; the queued move events that
+	// runTick replays later would only repeat older positions, so they are dropped for that press. Press,
+	// release, wheel and keys stay on the tick: they can open screens or worlds, which must not happen in
+	// the middle of a frame.
+	private boolean liveDrag;
+
+	/** Returns true when the drag handler closed or replaced this screen (skip drawing it this frame). */
+	private boolean followDrag() {
+		if (dragButton < 0 || mc == null || mc.currentScreen != this) {
+			return false;
+		}
+		try {
+			if (!Mouse.isCreated() || !Mouse.isButtonDown(dragButton)) {
+				return false;   // released between frames: the queued release event ends the drag on the next tick
+			}
+			liveDrag = true;
+			deliverDrag(mouseGuiX(), mouseGuiY(), dragButton);
+		} catch (Throwable t) {
+			fail("mouseDragged", t);
+		}
+		return mc.currentScreen != this;
+	}
+
 	@Override
 	protected final void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
+		if (liveDrag) {
+			return;   // drawScreen already delivered newer positions for this press
+		}
 		double x = eventX(), y = eventY();
 		deliverDrag(x, y, dragButton >= 0 ? dragButton : button);
 	}

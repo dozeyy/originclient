@@ -101,7 +101,20 @@ public class HudEditorScreen extends OriginScreen {
 	@Override
 	public void removed() {
 		HudElements.editorPreview = false;
+		finishResize();   // closed mid-resize (Esc with the button held): keep what the player sees
 		super.removed();
+	}
+
+	/** Ends a resize: the live scale goes to disk in ONE write (mouseDragged only updated it in memory). */
+	private void finishResize() {
+		if (resizingId == null) {
+			return;
+		}
+		HudElements.Element e = byId(resizingId);
+		resizingId = null;
+		if (e != null) {
+			e.pos().save(e.id());
+		}
 	}
 
 	// Nothing in a world: the game stays perfectly visible. Outside one (only
@@ -148,7 +161,8 @@ public class HudEditorScreen extends OriginScreen {
 		float in = (float) OriginTheme.easeOut(Math.min(1.0, (System.currentTimeMillis() - openedAt) / 110.0));
 		String hovered = null;
 
-		for (HudElements.Element e : HudElements.ALL) {
+		for (int ei = 0; ei < HudElements.ALL.size(); ei++) {
+			HudElements.Element e = HudElements.ALL.get(ei);
 			// only enabled mods appear here; positions/settings persist in the
 			// config regardless, so a disabled mod comes back exactly where it was
 			if (!Mods.on(e.modId())) {
@@ -172,72 +186,87 @@ public class HudEditorScreen extends OriginScreen {
 			}
 			boolean active = hover || e.id().equals(selectedId) || e.id().equals(draggingId) || e.id().equals(resizingId);
 
-			HudElements.drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
-			float hv = OriginUi.hover("hud:" + e.id(), active);
-			// The backing and the one-pixel selection edge share the same fast curve;
-			// there is no delayed second outline or line through the element.
-			if (hv > 0.001f) {
-				int shade = ((int) Math.round(0x40 * hv) << 24) | 0x303030;
-				g.fill((int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, shade);
+			// One element's fills go out as one draw, like the in-game HUD (HudElements.renderAll): the
+			// rounded backing alone is ~15 fills, and unbatched every fill was its own Tessellator draw plus
+			// a dozen GL state calls. Same quads, same order (text/pose changes flush first). The minimap
+			// flips raw GL state between its Gfx calls, so it stays unbatched.
+			boolean batch = !"minimap".equals(e.modId());
+			if (batch) {
+				Gfx.batchBegin();
 			}
-
-			// SQUARE outline on the backing bounds — thin (1px) always; hover
-			// state is communicated by brightness, not thickness
-			int edge = OriginTheme.lerpColor(OriginTheme.STROKE_STRONG, 0xF0FFFFFF, hv);
-			squareOutline(g, (int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 1, edge);
-
 			Pose p = g.pose();
-			p.pushPose();
-			p.translate(x, y, 0);
-			p.scale((float) pos.scale, (float) pos.scale, 1f);
+			int depth = p.depth();
 			try {
-				e.renderer().render(g, mc, size[0], size[1]);
-			} catch (Throwable ignored) {
-				// keep editing even if one element can't preview
-			}
-			p.popPose();
-
-			// small resize handle tucked neatly into the FREE outline corner
-			if (active) {
-				int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
-				int hx0 = freeLeft(pos.anchor) ? ox0 : ox1 - HANDLE_VIS;
-				int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
-				boolean hh = mouseX >= hx0 - HANDLE_HIT && mouseX <= hx0 + HANDLE_VIS + HANDLE_HIT
-						&& mouseY >= hy0 - HANDLE_HIT && mouseY <= hy0 + HANDLE_VIS + HANDLE_HIT;
-				g.fill(hx0 - 1, hy0 - 1, hx0 + HANDLE_VIS + 1, hy0 + HANDLE_VIS + 1, 0xC0000000);
-				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
-
-				// X toggle in the corner OPPOSITE the resize handle (the anchored
-				// corner). Placed just OUTSIDE the element's box so it never covers the
-				// content/text, and scaled with the element so it grows/shrinks as you
-				// resize. Clamped to stay on screen.
-				int xs = xBtn(Math.min(w, h));
-				int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
-				int xby = xBtnY(pos.anchor, oy0, oy1, xs);
-				boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
-				// Invisible until the element is hovered (we're inside `if (active)`);
-				// a soft 60% red ✕ with NO box, firming to full red when pointed at.
-				// Scaled to the box so it never crowds the letters. (1.8.9's
-				// FontRenderer draws it from its unicode glyph pages.)
-				int xcol = xh ? 0xFFF08A90 : 0x99F08A90;
-				float gs = xs / (float) XBTN;
-				Pose xp = g.pose();
-				xp.pushPose();
-				xp.translate(xbx + xs / 2f, xby + xs / 2f, 0);
-				xp.scale(gs, gs, 1f);
-				g.drawString(font, "✕", -font.getStringWidth("✕") / 2, -4, xcol, false);
-				xp.popPose();
-			}
-
-			// center guides while dragging: they light up exactly when the element
-			// is snapped to a center line (B1), so the guide doubles as snap feedback.
-			if (e.id().equals(draggingId)) {
-				double ccx = x + w / 2, ccy = y + h / 2;
-				if (Math.abs(ccx - width / 2.0) <= SNAP) {
-					g.fill(width / 2, 0, width / 2 + 1, height, 0x99FFFFFF);
+				HudElements.drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
+				float hv = OriginUi.hover(hoverKey(ei, e), active);
+				// The backing and the one-pixel selection edge share the same fast curve;
+				// there is no delayed second outline or line through the element.
+				if (hv > 0.001f) {
+					int shade = ((int) Math.round(0x40 * hv) << 24) | 0x303030;
+					g.fill((int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, shade);
 				}
-				if (Math.abs(ccy - height / 2.0) <= SNAP) {
-					g.fill(0, height / 2, width, height / 2 + 1, 0x99FFFFFF);
+
+				// SQUARE outline on the backing bounds — thin (1px) always; hover
+				// state is communicated by brightness, not thickness
+				int edge = OriginTheme.lerpColor(OriginTheme.STROKE_STRONG, 0xF0FFFFFF, hv);
+				squareOutline(g, (int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 1, edge);
+
+				p.pushPose();
+				p.translate(x, y, 0);
+				p.scale((float) pos.scale, (float) pos.scale, 1f);
+				try {
+					e.renderer().render(g, mc, size[0], size[1]);
+				} catch (Throwable ignored) {
+					// keep editing even if one element can't preview
+				}
+				HudElements.popTo(p, depth);   // also unwinds a push the element left behind when it threw
+
+				// small resize handle tucked neatly into the FREE outline corner
+				if (active) {
+					int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
+					int hx0 = freeLeft(pos.anchor) ? ox0 : ox1 - HANDLE_VIS;
+					int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
+					boolean hh = mouseX >= hx0 - HANDLE_HIT && mouseX <= hx0 + HANDLE_VIS + HANDLE_HIT
+							&& mouseY >= hy0 - HANDLE_HIT && mouseY <= hy0 + HANDLE_VIS + HANDLE_HIT;
+					g.fill(hx0 - 1, hy0 - 1, hx0 + HANDLE_VIS + 1, hy0 + HANDLE_VIS + 1, 0xC0000000);
+					g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
+
+					// X toggle in the corner OPPOSITE the resize handle (the anchored
+					// corner). Placed just OUTSIDE the element's box so it never covers the
+					// content/text, and scaled with the element so it grows/shrinks as you
+					// resize. Clamped to stay on screen.
+					int xs = xBtn(Math.min(w, h));
+					int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
+					int xby = xBtnY(pos.anchor, oy0, oy1, xs);
+					boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
+					// Invisible until the element is hovered (we're inside `if (active)`);
+					// a soft 60% red ✕ with NO box, firming to full red when pointed at.
+					// Scaled to the box so it never crowds the letters. (1.8.9's
+					// FontRenderer draws it from its unicode glyph pages.)
+					int xcol = xh ? 0xFFF08A90 : 0x99F08A90;
+					float gs = xs / (float) XBTN;
+					Pose xp = g.pose();
+					xp.pushPose();
+					xp.translate(xbx + xs / 2f, xby + xs / 2f, 0);
+					xp.scale(gs, gs, 1f);
+					g.drawString(font, "✕", -font.getStringWidth("✕") / 2, -4, xcol, false);
+					xp.popPose();
+				}
+
+				// center guides while dragging: they light up exactly when the element
+				// is snapped to a center line (B1), so the guide doubles as snap feedback.
+				if (e.id().equals(draggingId)) {
+					double ccx = x + w / 2, ccy = y + h / 2;
+					if (Math.abs(ccx - width / 2.0) <= SNAP) {
+						g.fill(width / 2, 0, width / 2 + 1, height, 0x99FFFFFF);
+					}
+					if (Math.abs(ccy - height / 2.0) <= SNAP) {
+						g.fill(0, height / 2, width, height / 2 + 1, 0x99FFFFFF);
+					}
+				}
+			} finally {
+				if (batch) {
+					Gfx.batchEnd();
 				}
 			}
 		}
@@ -409,7 +438,7 @@ public class HudEditorScreen extends OriginScreen {
 				double availH = freeTop(pos.anchor) ? resizeFixedY : (height - resizeFixedY);
 				double maxS = Math.min(2.5, Math.min(availW / resizeBaseW, availH / resizeBaseH));
 				pos.scale = Math.max(0.5, Math.min(maxS, raw));
-				pos.save(e.id());
+				pos.saveLive(e.id());   // the disk write happens once, on release
 			}
 			return true;
 		}
@@ -441,7 +470,7 @@ public class HudEditorScreen extends OriginScreen {
 	@Override
 	public boolean mouseReleased(double mx, double my, int button) {
 		if (resizingId != null) {
-			resizingId = null;
+			finishResize();
 			return true;
 		}
 		if (draggingId != null) {
@@ -486,6 +515,21 @@ public class HudEditorScreen extends OriginScreen {
 			return true;
 		}
 		return super.keyPressed(keyCode, scanCode, modifiers);
+	}
+
+	// "hud:<id>" per element, built once: the per-frame concatenation was garbage on every frame.
+	private static String[] hoverKeys = new String[0];
+
+	private static String hoverKey(int index, HudElements.Element e) {
+		if (index >= hoverKeys.length) {
+			hoverKeys = java.util.Arrays.copyOf(hoverKeys, HudElements.ALL.size());
+		}
+		String k = hoverKeys[index];
+		if (k == null) {
+			k = "hud:" + e.id();
+			hoverKeys[index] = k;
+		}
+		return k;
 	}
 
 	private static HudElements.Element byId(String id) {
