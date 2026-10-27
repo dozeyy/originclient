@@ -383,7 +383,7 @@ final class OriginDevPanorama {
 					log("[panorama] " + c.getAsString() + " -> " + String.join(" / ", SAID));
 				}
 			}
-			// "light": [[dy, level], ...] fills every air block of a 29x29 layer dy above the camera's ground with an
+			// "light": [[dy, level, radius], ...] fills every air block of a square layer (radius, default 14) dy above the camera's ground with an
 			// invisible light block, so a cave scene is lit under the shader. Placed here, not by /fill, which refused
 			// the not-yet-loaded chunks (run 40461789308).
 			if (spot.has("light")) {
@@ -391,10 +391,11 @@ final class OriginDevPanorama {
 				for (JsonElement e : spot.getAsJsonArray("light")) {
 					int dy = e.getAsJsonArray().get(0).getAsInt();
 					int lvl = e.getAsJsonArray().get(1).getAsInt();
+					int rad = e.getAsJsonArray().size() > 2 ? e.getAsJsonArray().get(2).getAsInt() : 14;
 					var lightState = Blocks.LIGHT.defaultBlockState().setValue(net.minecraft.world.level.block.LightBlock.LEVEL, lvl);
 					int placed = 0;
-					for (int dx = -14; dx <= 14; dx++) {
-						for (int dz = -14; dz <= 14; dz++) {
+					for (int dx = -rad; dx <= rad; dx++) {
+						for (int dz = -rad; dz <= rad; dz++) {
 							lp.set(x + dx, ground + dy, z + dz);
 							if (level.getBlockState(lp).isAir()) {
 								level.setBlock(lp, lightState, 2);
