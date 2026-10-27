@@ -1,0 +1,188 @@
+# Title-screen panoramas: render each update's 6-face title panorama in the real game with a
+# real shader pack, headless (Xvfb + llvmpipe, like dev-shots.yml), through each capture
+# module's OriginDevPanorama (ORIGIN_SHOTS_SET=panorama). Dev tool only: nothing here ships
+# by itself -- a session downloads the run's artifacts and installs the faces into the
+# modules with tools/panorama/install.py, then commits them.
+#
+# Which spots: a tag at the END of a line in the commit message on a claude/** branch --
+#   [panorama:1.20,1.21]   -> those spot ids from tools/panorama/spots.json
+#   [panorama:all]         -> every spot
+# The spot table, the pinned shader pack (Photon, sha512-checked, never redistributed) and
+# its license note live in tools/panorama/spots.json.
+name: panoramas
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["src/mods/versions/**", "tools/panorama/**", ".github/workflows/panoramas.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: panoramas-${{ github.ref }}-${{ contains(github.event.head_commit.message, '[panorama') }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    if: contains(github.event.head_commit.message, '[panorama')
+    runs-on: ubuntu-latest
+    outputs:
+      spots: ${{ steps.pick.outputs.spots }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: pick
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, re, sys
+          table = json.load(open("tools/panorama/spots.json"))
+          live = {m["module"]: m.get("java", "21") for m in json.load(open("src/mods/live-modules.json"))["modules"]}
+          tags = re.findall(r"\[panorama:([^\]]+)\][ \t\r]*$", os.environ.get("MSG", ""), re.M)
+          if not tags:
+              print("panoramas: no end-of-line [panorama:...] tag", file=sys.stderr)
+              print("spots=[]")
+              sys.exit(0)
+          want = [x.strip() for x in tags[-1].split(",") if x.strip()]
+          spots = {s["id"]: s for s in table["spots"]}
+          picked = list(spots) if want == ["all"] else want
+          unknown = [x for x in picked if x not in spots]
+          if unknown:
+              print(f"::error::panoramas: unknown spot id(s) {unknown}; see tools/panorama/spots.json", file=sys.stderr)
+              sys.exit(1)
+          out = []
+          for x in picked:
+              s = spots[x]
+              out.append({"id": x, "capture": s["capture"], "java": live.get(s["capture"], "21"),
+                          "shader": s.get("shader", True),
+                          "spot": json.dumps(s, separators=(",", ":"))})
+          print("spots=" + json.dumps(out))
+          EOF
+
+  capture:
+    needs: plan
+    if: needs.plan.outputs.spots != '[]'
+    name: Panorama ${{ matrix.id }} (in ${{ matrix.capture }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.plan.outputs.spots) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Headless GL deps (Xvfb + Mesa software rasterizer) + pngquant
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 python3-pil pngquant
+
+      - name: Fetch pinned Sodium + Iris into libs/
+        if: ${{ matrix.shader }}
+        run: python3 tools/ci/perf_libs.py "src/mods/versions/${{ matrix.capture }}"
+
+      - name: Download dependencies + assets (retried)
+        run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.capture }}"
+
+      # The shader pack: downloaded from Modrinth's CDN, sha512-checked against spots.json, put in
+      # the dev run's shaderpacks/ and selected through Iris's own config. Never committed, never shipped.
+      # A "shader": false spot (1.8.9: OptiFine is its only shader layer and isn't in the dev game)
+      # renders plain daytime vanilla: no pack, no Iris checks.
+      - name: No shader pack on this version
+        if: ${{ !matrix.shader }}
+        working-directory: src/mods/versions/${{ matrix.capture }}
+        run: |
+          mkdir -p run
+          printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run/options.txt
+
+      - name: Fetch + select the shader pack
+        if: ${{ matrix.shader }}
+        working-directory: src/mods/versions/${{ matrix.capture }}
+        run: |
+          read -r name url sha < <(python3 -c "import json; p=json.load(open('$GITHUB_WORKSPACE/tools/panorama/spots.json'))['shaderpack']; print(p['file'], p['url'], p['sha512'])")
+          mkdir -p run/shaderpacks run/config
+          curl -fsSL --retry 5 --retry-delay 5 -o "run/shaderpacks/$name" "$url"
+          echo "$sha  run/shaderpacks/$name" | sha512sum -c -
+          printf 'enableShaders=true\nshaderPack=%s\n' "$name" > run/config/iris.properties
+          # The pack's own option overrides, in Iris's per-pack file (why: spots.json optionsWhy).
+          python3 "$GITHUB_WORKSPACE/tools/panorama/pack_options.py" "$GITHUB_WORKSPACE/tools/panorama/spots.json" > "run/shaderpacks/$name.txt"
+          cat "run/shaderpacks/$name.txt"
+          printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run/options.txt
+
+      - name: Render ${{ matrix.id }}
+        working-directory: src/mods/versions/${{ matrix.capture }}
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+          MESA_GL_VERSION_OVERRIDE: "4.6"
+          MESA_GLSL_VERSION_OVERRIDE: "460"
+          SDL_VIDEO_X11_NODIRECTCOLOR: "1"
+          SDL_VIDEO_FORCE_EGL: "1"
+          ORIGIN_SHOTS: ${{ runner.temp }}/shots
+          ORIGIN_SHOTS_SET: panorama
+          ORIGIN_PANO_SPOT: ${{ matrix.spot }}
+        run: |
+          chmod +x gradlew
+          mkdir -p "$ORIGIN_SHOTS/screenshots"
+          # The harness quits the game itself after the 6th face; the whole tree is killed after 55 min.
+          setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon "-PbootJvmArgs=-Xmx6G" > run.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 3300); do kill -0 $pid 2>/dev/null || break; sleep 1; done
+          kill -- -$pid 2>/dev/null || true
+          sleep 3
+          kill -9 -- -$pid 2>/dev/null || true
+          echo "--- panorama lines ---"
+          grep -E "\[panorama\]|\[dev-shots\]" run.log || echo "none"
+          echo "--- shader pack ---"
+          grep -iE "shader ?pack|photon" run.log | grep -v "^\s*at " | head -n 30 || true
+          echo "--- mixin failures (should be none) ---"
+          grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" run.log || echo "none"
+          echo "--- last 60 log lines ---"
+          tail -n 60 run.log
+          cp run.log "$ORIGIN_SHOTS/screenshots/run.log" || true
+
+      - name: Shrink + preview
+        if: always()
+        run: |
+          size=$(python3 -c "import json; print(json.load(open('tools/panorama/spots.json'))['faceSize'])")
+          python3 tools/panorama/finish.py "${{ runner.temp }}/shots/screenshots" "${{ runner.temp }}/shots/final" --size "$size" || true
+          python3 tools/lean/contact_sheet.py "${{ runner.temp }}/shots/screenshots" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: panorama-${{ matrix.id }}
+          path: ${{ runner.temp }}/shots/
+          if-no-files-found: warn
+
+      - name: Every face captured
+        run: |
+          python3 tools/ci/check_shots.py "${{ runner.temp }}/shots/screenshots" \
+            "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.capture }}"
+          test -f "${{ runner.temp }}/shots/final/panorama_5.png"
+
+      # Iris keeps the pack selected (and the harness's shader= line names it) even when its pipeline
+      # failed to compile and it fell back to vanilla, so the log line is the only honest check.
+      - name: The shader pack really rendered
+        if: ${{ matrix.shader }}
+        run: |
+          log="${{ runner.temp }}/shots/screenshots/run.log"
+          if grep -n -A1 "Failed to create shader rendering pipeline" "$log"; then
+            echo "::error::the shader pack failed to compile; these faces are vanilla"
+            exit 1
+          fi
+
+      - name: Mixin failures + Sodium/Iris loaded gate
+        if: always()
+        run: |
+          m="src/mods/versions/${{ matrix.capture }}"
+          req=""
+          if [ "${{ matrix.shader }}" = "true" ]; then req="--require-loaded"; fi
+          python3 tools/ci/perf_log.py "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.capture }}" --module-dir "$m" $req
