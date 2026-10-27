@@ -60,7 +60,13 @@ public class ScreenBackgroundMixin {
 		// would stack two dims and two vignettes (and vanilla allows one blur per
 		// frame). Skip it while the takeover is live; when Origin rendering has
 		// failed (isActive false) vanilla's backdrop comes back with vanilla's draw.
-		if (self instanceof net.minecraft.client.gui.screens.ProgressScreen && OriginScreenRenderer.isActive()) {
+		// Connecting and Realms connecting draw the same opaque loading picture at their
+		// render HEAD (ConnectScreenMixin, RealmsTaskScreenMixin): a panorama + blur
+		// under it would be paid for and never seen.
+		if ((self instanceof net.minecraft.client.gui.screens.ProgressScreen
+				|| self instanceof net.minecraft.client.gui.screens.ConnectScreen
+				|| self instanceof com.mojang.realmsclient.gui.screens.RealmsLongRunningMcoTaskScreen)
+				&& OriginScreenRenderer.isActive()) {
 			ci.cancel();
 			return;
 		}

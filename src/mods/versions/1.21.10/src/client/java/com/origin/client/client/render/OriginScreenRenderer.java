@@ -195,12 +195,9 @@ public final class OriginScreenRenderer {
 			// loader's worth per frame now, so the title's first frames don't.
 			com.origin.client.client.OriginAssets.uploadSlice();
 		}
-		// The splash's own backdrop (solid near-black, a soft centre lift), then the one
-		// loading picture (LoadingLook): the real logo, the progress bar and the stage
-		// line with the reload's real percentage, in the boot font (no font text
-		// during the initial reload).
-		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.CLEAN_BG));
-		drawCenterLift(guiGraphics, w, h, 0.05f);
+		// The one loading picture (LoadingLook): the opaque flat backdrop, the real logo, the
+		// progress bar and the stage line with the reload's real percentage, in the boot font
+		// (no font text during the initial reload).
 		LoadingLook.draw(guiGraphics, layerAlpha, LoadingLook.LOGO_AT, loadFill, startupCaption(loadFill), true);
 	}
 
@@ -259,7 +256,7 @@ public final class OriginScreenRenderer {
 	/**
 	 * Full-screen loading/progress scene for the world-load screens
 	 * (LevelLoadingScreen, ReceivingLevelScreen, ProgressScreen, GenericMessageScreen):
-	 * this version's blurred panorama, then the one loading picture (LoadingLook)
+	 * the one loading picture (LoadingLook: opaque flat backdrop, logo, bar, caption)
 	 * with the screen's own title as the caption and the bar sweeping (no real
 	 * measure). Drawn as a HEAD-cancel takeover, so it replaces vanilla's chunk
 	 * map / progress clutter with one clean Origin scene.
@@ -287,28 +284,55 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	// The world-loading scene's shown bar fill, gliding to each new count.
-	// sceneFill < 0 = the bar is sweeping.
+	// The world-loading scene's shown rail fill, gliding to each new count.
+	// sceneFill < 0 = the rail is sweeping.
 	private static double sceneFill = -1;
-	// Never backward within a world load, never full before the world is up (LoadBar.scene).
-	private static final LoadBar SCENE_BAR = new LoadBar();
+	// The rail's state for one world load (sceneRail): the frame count at the last
+	// scene frame, the highest number reported so far (-1 = none yet), and when the
+	// fill last moved.
+	private static long sceneFrame = -1;
+	private static double sceneTarget = -1, sceneAt;
+
+	/**
+	 * The world-loading scene's rail: exactly the number its caption shows, never a
+	 * made-up one (1.21.1's rule, judge 2026-10-25: LoadBar's creep and prep share suit
+	 * the startup reload's lying fraction, not a chunk count the caption prints). The rail
+	 * sweeps until the load's first reported number, then starts from empty and glides
+	 * (FILL_TAU) to the highest number so far: never backward within one load. A new world
+	 * load is told apart by frames, as LoadBar.scene does. No allocation; render thread only.
+	 */
+	private static double sceneRail(long frame, float progress, double now) {
+		if (sceneFrame < 0 || frame < sceneFrame || frame - sceneFrame - 1 > LoadBar.NEW_LOAD_FRAMES) {
+			sceneTarget = -1;   // a new world load: sweep until it reports a number
+			sceneFill = -1;
+		}
+		sceneFrame = frame;
+		if (progress >= 0f) {   // false for NaN too: no number this frame
+			double p = Math.min(1.0, progress);
+			if (sceneTarget < 0) {
+				sceneTarget = p;
+				sceneFill = 0;      // the first number: glide up from an empty track
+				sceneAt = now;
+			} else {
+				sceneTarget = Math.max(sceneTarget, p);
+			}
+		}
+		if (sceneTarget < 0) {
+			return -1;
+		}
+		double k = Math.exp(-Math.max(0.0, now - sceneAt) / FILL_TAU);
+		sceneAt = now;
+		return Math.max(sceneFill, sceneTarget + (sceneFill - sceneTarget) * k);
+	}
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
-
-		// This version's own panorama, blurred and dimmed (Will's approved mockup,
-		// 2026-10-19). Solid background if the panorama can't draw.
-		if (!backdrop(mc.screen, guiGraphics, mc.getDeltaTracker().getRealtimeDeltaTicks(), true, OriginTheme.CLEAN_DIM_LOADING)) {
-			guiGraphics.fill(0, 0, w, h, OriginTheme.CLEAN_BG);
-		}
-
-		// The fill glides to each new count and only moves forward within one world
-		// load; it sweeps until the load's first measured stage (LoadBar.scene).
+		// The backdrop is LoadingLook's opaque flat colour (the parity spec: never the
+		// panorama or the world showing through). The rail shows the caption's own
+		// number (sceneRail): sweeping until the first.
 		double now = SceneClock.sceneMs();
-		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
+		sceneFill = sceneRail(com.origin.client.client.hud.FrameStats.frames(), progress, now);
 		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
 			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		}
@@ -341,12 +365,14 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Connecting to a server: the one loading picture with the connection status as
-	 * its caption and the bar sweeping. ConnectScreen keeps its own render (backdrop
-	 * from ScreenBackgroundMixin, the Cancel button, narration); ConnectScreenMixin
-	 * drops vanilla's status line (it is this caption) and seats Cancel under the
-	 * picture ({@link #connectCancelTop}). The logo sits where every loading screen
-	 * has it. False when Origin rendering is off or this draw fails.
+	 * Connecting to a server (and Realms connecting): the one loading picture with the
+	 * status as its caption and the bar sweeping, drawn at the screen's render HEAD so
+	 * the screen's own Cancel (submitted after it) draws on top. ConnectScreen keeps its
+	 * own render (Cancel, narration); ConnectScreenMixin drops vanilla's status line (it
+	 * is this caption) and seats Cancel under the picture ({@link #connectCancelTop}).
+	 * ScreenBackgroundMixin skips the menu backdrop under it (the picture is opaque).
+	 * The logo sits where every loading screen has it. False when Origin rendering is
+	 * off or this draw fails.
 	 */
 	public static boolean renderConnecting(GuiGraphics guiGraphics, net.minecraft.network.chat.Component status) {
 		if (broken) {
@@ -364,15 +390,18 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** A loading screen's Cancel width (GUI px): about the caption's own width, so the button sits with the
+	 *  picture instead of spanning past it (1.21.1, judge 2026-10-27). */
+	public static final int LOADING_CANCEL_W = 120;
+
 	/**
-	 * Where Connecting's Cancel button goes (GUI px, its top edge): at 62 % of the height, and
-	 * always at least 12 GUI px under the loading picture's caption, so the picture never has to
-	 * move for it; kept 8 GUI px clear of the bottom when the window allows (1.21.1's rule).
+	 * Where a loading screen's Cancel goes (GUI px, its top edge): one picture step (the logo-to-bar gap,
+	 * LoadingLook.stepGui) under the caption, so logo, bar, caption and Cancel share one rhythm and the
+	 * picture never moves for it; kept 8 GUI px clear of the bottom when the window allows (1.21.1's rule).
 	 */
 	public static int connectCancelTop(int screenH, int buttonH) {
-		double clearOfPicture = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + 12.0;
-		int top = (int) Math.max(Math.round(screenH * 0.62) - buttonH / 2, Math.ceil(clearOfPicture));
-		return Math.max(0, Math.min(top, screenH - buttonH - 8));
+		double top = LoadingLook.logoCentreGui() + LoadingLook.belowCentreGui() + LoadingLook.stepGui();
+		return Math.max(0, Math.min((int) Math.ceil(top), screenH - buttonH - 8));
 	}
 
 	private static net.minecraft.network.chat.Component connectStatus;
@@ -607,16 +636,6 @@ public final class OriginScreenRenderer {
 	 */
 	private static void drawWordmarkText(GuiGraphics g, double cx, double baseline, int argb) {
 		bootText(g, "ORIGIN", cx, baseline - 14, 2f, 3, argb, 0.5f);
-	}
-
-	/** A barely-there radial lift behind the centre (the splash's "soft centre lift"). */
-	private static void drawCenterLift(GuiGraphics g, int w, int h, float alpha) {
-		if (radialGlowId == null) {
-			return;
-		}
-		int d = (int) Math.round(Math.max(w, h) * 0.9);
-		g.blit(RenderPipelines.GUI_TEXTURED, radialGlowId, (w - d) / 2, (int) Math.round(h * 0.44 - d / 2.0), 0f, 0f, d, d,
-				RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, ARGB.white(alpha * layerAlpha));
 	}
 
 	/**
