@@ -38,7 +38,19 @@ A run that already passed on the same commit is done. Don't run it again.
     - `shaderpack=true` with `set=world` selects a shadow-pass pack. It proves IrisShadowDirectivesMixin applies.
   - Output: PNGs on the `claude/dev-shots` branch, folder `<module>[-world]-<label>/`.
   - Read `_sheet.jpg` first, then single shots. `tools/ci/check_shots.py` fails a job that captured fewer PNGs than planned.
-- **boot-smoke**: `gh workflow run boot-smoke -f modules=<list>` (workflow_dispatch only). Use it for boot-only changes.
+- **boot-smoke**: `gh workflow run boot-smoke -f modules=<list> --ref <branch>` (workflow_dispatch only). Use it for boot-only changes.
+- **In-world step (per module, data-driven):** a module with `"inworld": true` in `src/mods/live-modules.json` gets it in
+  both boot-smoke (input `inworld`, default true) and the dev-shots design set. After the title: a flat test world made
+  straight through `WorldOpenFlows.createFreshLevel` (reopened if it exists), wait until Origin's HUD has drawn 60 times
+  (`HudElements.passes`), shoot `inworld_hud_<w>x<h>.png`, open the Mod Menu over the world, shoot
+  `inworld_modmenu_<w>x<h>.png`, Save and Quit to the title. Verdict line `[origin-smoke] in-world: PASS` or
+  `... FAIL <reason>`; smoke.py and check_shots.py fail on FAIL, a crash, a missing shot or the deadline.
+  boot-smoke uploads the shots as artifact `inworld-<module>`; dev-shots puts them in the module's folder (`_sheet.jpg`).
+  - **Turning a module on:** port `OriginDevWorld.inWorldTick` + `inWorldEnd`, the `HudElements.passes` counter, the
+    `ORIGIN_SMOKE_WORLD` call in `OriginClientMod.onEndTick` and the `ORIGIN_INWORLD` hand-off in `OriginDevShots.finish`
+    (all 1.21.1), then set the flag. `test_ci_gates.py` fails a flagged module whose OriginDevWorld lacks the step.
+  - Per-era: the world-creation call (`WorldOpenFlows` / `createFreshLevel` arity and `WorldPresets.FLAT` lookup) and
+    the Save and Quit sequence differ by era; re-derive them with javap, never copy 1.21.1's.
 - **ref-189**: 1.8.9 API lookups (class / member / find / srg) and a compile that prints only the errors.
 - **Watching:**
   - `gh run watch` exits 0 whatever the result. Read `gh run view <id> --json conclusion`.

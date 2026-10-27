@@ -11,6 +11,9 @@ one line when it finishes:
     [dev-shots] done — world set in <dir>     (world set: count varies, >= 1)
 This script needs that line AND at least that many PNGs in the folder. No line =
 the harness never finished (the game didn't boot, wedged, or was killed).
+A module with "inworld": true (live-modules.json) ends the design set with the in-world
+step (OriginDevWorld.inWorldTick); its "[origin-smoke] in-world: FAIL <reason>" line fails
+the gate even when every PNG made it.
 
 Usage: check_shots.py <screenshots-dir> <run.log> [--module NAME]
 Exit 0 = every planned shot is on disk. 1 = not.
@@ -23,6 +26,7 @@ import sys
 DONE = re.compile(r"\[dev-shots\] done \S* (?:(\d+) shots|world set)")
 CAPTURED = re.compile(r"\[dev-shots\] captured (\S+?\.png)\b", re.I)
 STEP_FAILED = re.compile(r"\[dev-shots\] step (\d+) failed")
+INWORLD_FAIL = re.compile(r"\[origin-smoke\] in-world: FAIL\b ?(.*)")
 # What usually explains a run that never finished (shown in the failure message).
 HINTS = re.compile(r"\b429\b|Too Many Requests|Could not (GET|HEAD|download)|What went wrong|"
                    r"Mixin apply(ing)? .*failed|Exception in thread \"main\"|BUILD FAILED|timed out", re.I)
@@ -41,6 +45,9 @@ def check(shots_dir, log_text):
         if hints:
             msg += " First clues in run.log:\n  " + "\n  ".join(hints)
         return False, msg
+    world_fail = INWORLD_FAIL.search(log_text)
+    if world_fail:
+        return False, f"in-world step failed: {world_fail.group(1).strip()[:200] or 'no reason given'}"
     expected = int(done.group(1)) if done.group(1) else 1
     failed = sorted({int(s) for s in STEP_FAILED.findall(log_text)})
     if len(pngs) < expected or not pngs:

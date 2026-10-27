@@ -75,6 +75,13 @@ class CheckShots(unittest.TestCase):
         self.assertFalse(shots.check(self._dir(0), log)[0])
         self.assertTrue(shots.check(self._dir(1), log)[0])
 
+    def test_inworld_fail_fails_even_with_every_png(self):
+        # A design set that ended in the in-world step (live-modules "inworld": true) and failed it.
+        log = DONE3 + "[Render thread/ERROR]: [origin-smoke] in-world: FAIL mod menu did not open over the world\n"
+        ok, msg = shots.check(self._dir(3), log)
+        self.assertFalse(ok)
+        self.assertIn("mod menu did not open", msg)
+
     def test_done_line_matches_every_harness(self):
         # Every module's harness must still print the line this gate parses.
         versions = os.path.join(ROOT, "src", "mods", "versions")
@@ -148,6 +155,46 @@ class Smoke(unittest.TestCase):
                     text = _read(os.path.join(dirpath, "OriginClientMod.java"))
                     hits.append(bool(re.search(r'"\[origin-smoke\] title screen reached"', text)))
             self.assertIn(True, hits, f"{v}: OriginClientMod never prints the boot-smoke title marker")
+
+
+class SmokeInWorld(unittest.TestCase):
+    def _shots(self, *names):
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "screenshots"))
+        for n in names:
+            open(os.path.join(d, "screenshots", n), "wb").close()
+        return d
+
+    def test_pass_needs_both_shots(self):
+        line = "[Render thread/INFO]: [origin-smoke] in-world: PASS"
+        ok, msg = smoke.inworld_verdict(line, self._shots("inworld_hud_1280x720.png", "inworld_modmenu_1280x720.png"))
+        self.assertTrue(ok, msg)
+        ok, msg = smoke.inworld_verdict(line, self._shots("inworld_hud_1280x720.png"))
+        self.assertFalse(ok)
+        self.assertIn("inworld_modmenu_", msg)
+
+    def test_fail_line_fails_with_its_reason(self):
+        ok, msg = smoke.inworld_verdict("[Render thread/ERROR]: [origin-smoke] in-world: FAIL world not playable after 240 s",
+                                        self._shots())
+        self.assertFalse(ok)
+        self.assertIn("world not playable", msg)
+
+    def test_progress_lines_are_not_verdicts(self):
+        for l in ("[origin-smoke] in-world: starting (creating flat world 'origin-smoke')",
+                  "[origin-smoke] in-world: HUD up (61 HUD passes)", "[origin-smoke] in-world: quit clean (saved)"):
+            self.assertIsNone(smoke.inworld_verdict(l, self._shots()))
+
+    def test_flagged_modules_run_the_step(self):
+        # Every live module flagged "inworld" must actually carry the step (or the gate times out).
+        import json
+        for m in json.loads(_read(os.path.join(ROOT, "src", "mods", "live-modules.json")))["modules"]:
+            if not m.get("inworld"):
+                continue
+            found = False
+            for dirpath, _, files in os.walk(os.path.join(ROOT, "src", "mods", "versions", m["module"], "src")):
+                if "OriginDevWorld.java" in files and "[origin-smoke] in-world: PASS" in _read(os.path.join(dirpath, "OriginDevWorld.java")):
+                    found = True
+            self.assertTrue(found, f"{m['module']}: \"inworld\": true but its OriginDevWorld has no in-world step")
 
 
 class DevShotsFilm(unittest.TestCase):

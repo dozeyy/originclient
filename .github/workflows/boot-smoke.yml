@@ -11,9 +11,15 @@
 #    MESA_GL_VERSION_OVERRIDE spoofs the version. This is the fragile part -- if a
 #    Sodium/Iris version refuses to start under software GL, that's an environment
 #    limit, not an Origin bug. Tune per version before trusting a red result.
-#  - Coverage is BOOT + MAIN MENU. Mixins that only load on world join (JEI's
-#    runtime handlers, the hitbox entity mixin) are NOT exercised here without a
-#    seeded world -- dev-shots.yml's `set: world` covers those.
+#  - Coverage is BOOT + MAIN MENU, plus an IN-WORLD step on modules flagged "inworld": true in
+#    live-modules.json (input `inworld`, default on): after the title, smoke.py --inworld keeps the
+#    game running while OriginDevWorld.inWorldTick makes a flat test world, waits for Origin's HUD,
+#    shoots it, opens the Mod Menu over the world, shoots it, and Saves and Quits. The run fails on
+#    "[origin-smoke] in-world: FAIL <reason>", a crash, a missing shot or the step's own deadline;
+#    the shots upload as artifact inworld-<module>. Unflagged modules still stop at the title:
+#    world-join mixins there (JEI's runtime handlers, the hitbox entity mixin) are dev-shots.yml's
+#    `set: world`. Turning a module on: carry the step in its OriginDevWorld, then set the flag
+#    (.claude/skills/origin-port/reference/verify-loop.md).
 #  - READY = the title screen: every live module prints a dev-only
 #    "[origin-smoke] title screen reached" (OriginClientMod, env ORIGIN_SMOKE) the
 #    first tick the title is up with no loading overlay. It used to be "Backend
@@ -75,6 +81,9 @@ on:
       pairs:
         description: "Vetted older Sodium + Iris pairs to boot production-style, as <mc>:<pairId> comma list, e.g. 1.21.1:0.6.5+1.8.1 (ConfigurationCatalog). Use with modules='none' for a pairs-only run"
         default: ""
+      inworld:
+        description: "true = modules flagged \"inworld\" in live-modules.json also run the in-world step (flat world, HUD + Mod Menu shots, Save and Quit); false = stop at the title"
+        default: "true"
       players:
         description: "Player-profile boots: the player's own Sodium + Iris (Modrinth version numbers) win over Origin's, as <mc>:<sodium>/<iris> comma list, iris '-' = none, e.g. 1.21.1:mc1.21.1-0.6.9-fabric/1.8.7+1.21.1-fabric"
         default: ""
@@ -96,6 +105,7 @@ jobs:
           COVERS: ${{ github.event.inputs.covers }}
           PAIRS: ${{ github.event.inputs.pairs }}
           PLAYERS: ${{ github.event.inputs.players }}
+          INWORLD: ${{ github.event.inputs.inworld }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
           import json, os, re
@@ -120,6 +130,10 @@ jobs:
               row = {"version": m["module"], "label": m["module"], "cover": "", "java": m.get("java", "21")}
               if m["module"] in RUN_JAVA:
                   row["run_java"] = RUN_JAVA[m["module"]]
+              # The in-world step (primary rows only): live-modules.json "inworld": true, unless inworld=false.
+              if m.get("inworld") and (os.environ.get("INWORLD") or "true").strip() != "false":
+                  row["inworld"] = "1"
+                  row["label"] = m["module"] + " + in-world"
               picked.append(row)
           # covers rows: version = the covering module (built), cover = the Minecraft version booted.
           # The game JVM is the covering module's (players on 1.20.1 run Java 17 like 1.20).
@@ -271,9 +285,11 @@ jobs:
           COVER: ${{ matrix.cover }}
           PAIR: ${{ matrix.pair }}
           PLAYER: ${{ matrix.player }}
+          INWORLD_DIR: ${{ matrix.inworld == '1' && format('{0}/inworld', runner.temp) || '' }}
         run: |
           echo "Gradle JAVA_HOME=$JAVA_HOME"
           args=()
+          if [ -n "$INWORLD_DIR" ]; then mkdir -p "$INWORLD_DIR/screenshots"; args+=(--inworld "$INWORLD_DIR"); fi
           if [ -n "$RUN_JAVA" ]; then args+=(--run-java "$RUN_JAVA"); fi
           m="src/mods/versions/${{ matrix.version }}"
           if [ -n "$COVER" ]; then
@@ -289,3 +305,11 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x720x24" \
             python3 tools/boot-smoke/smoke.py "$m" \
               --timeout "${{ github.event.inputs.timeout || 600 }}" "${args[@]}"
+
+      - name: Upload the in-world shots
+        if: ${{ always() && matrix.inworld == '1' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: inworld-${{ matrix.version }}
+          path: ${{ runner.temp }}/inworld/screenshots
+          if-no-files-found: warn

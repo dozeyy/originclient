@@ -8,8 +8,37 @@ The 1.21.1 set is these mixins:
 - ProgressScreenMixin
 - GenericMessageScreenMixin
 - ConnectScreenMixin
+- RealmsTaskScreenMixin (Realms' long-running task screen: "Connecting to the realm...", create, reset)
 - ReloadTaskBudgetMixin, plus ReloadTaskTagMixin where it exists
 - ScreenBackgroundMixin
+
+## Parity spec: the one loading look (1.21.1 is the truth, Will 2026-10-27)
+Every port must match this on every loading surface: startup overlay, in-game reload, world loading,
+receiving/progress/message screens, Connecting to a server, Realms connecting. Code: `render/LoadingLook.java`,
+`OriginScreenRenderer.renderLoading` / `renderLoadingScene` / `renderConnecting` / `connectCancelTop`.
+- **Font: Minecraft's own font for every word.** Caption = `g.drawString(mc.font, text, x, y, colour, true)` (shadow on),
+  centred on its ink width (`font.width(text) - 1`). No Inter / MSDF / SDF text on any loading screen. Only the startup
+  overlay, where `mc.font` is not loaded yet, draws through `bootText` (reads `ascii.png` itself): same glyphs.
+- **Backdrop: OPAQUE.** One flat `OriginTheme.CLEAN_BG` #0E1110 over the whole window. Never the world, the panorama,
+  the dirt or a blur showing through. The only translucency is the startup overlay dissolving into the title.
+- **Logo:** `textures/ui/origin_logo.png` itself (never a drawn ring), 72 design px, centred horizontally, its centre at
+  0.44 of the window height on every loading screen. No wordmark.
+- **Bar:** 24 design px under the logo, 200 design px wide, a 1 GUI px hairline track `CLEAN_BAR_TRACK` 0x14FFFFFF, a 2 GUI px fill `CLEAN_BAR_FILL`
+  0xFF5FD09B with capsule (round) ends. Indeterminate screens (connect, Realms, message) sweep; others show real progress.
+- **No stub at 0 %:** the fill is exactly its fraction. 0 % draws nothing (`pill()` returns at w <= 0), and there is no
+  minimum width or nub. A sub-pixel tail is one partial-alpha column (only above 0.02 of a pixel).
+- **Caption:** 12 design px under the bar, colour `TITLE_TEXT_MUTED` 0x85F1E9D2. The status / task title as given
+  ("Connecting to the server...", "Loading terrain...").
+- **Cancel (every loading screen that has one): the Workbench card** (`OriginButtonRenderer.setLoadingButton`), label in
+  Minecraft's font, at most 200 x 20 GUI px, centred, top edge `connectCancelTop(screenH, 20)` (62 % of the height or
+  lower, always under the caption). 1.21.1 has two: ConnectScreen (init TAIL) and RealmsLongRunningMcoTaskScreen
+  (`repositionElements()V` TAIL; it declares no render(), so the mixin adds the override and calls `super.render` when
+  vanilla mode is on or the picture fails).
+- **Left vanilla on purpose:** RealmsDownloadLatestWorldScreen and RealmsUploadScreen (transfer screens with live
+  stats a player reads), GenericWaitingScreen (the chat-report sender). Not loading pictures; don't skin them.
+- **Main Menu Style = Vanilla** keeps every one of these stock (`OriginStyle.vanillaMenusOn`).
+- **Proof shots (design + clean sets):** `level_loading`, `level_loading_mid`, `connecting`, `connecting_realms`, and
+  the startup overlay (`loading_boot_*`, clean/style sets).
 
 ## Rules that hold everywhere
 - **Label caches must clear on reload or key on the language.** A cache keyed on identity goes stale after a resource reload
@@ -39,4 +68,6 @@ The 1.21.1 set is these mixins:
 - Use `dev-shots -f set=handoff -f framelog=true`. It writes `[OriginFrameLog]` lines and GC for the loading → main menu handoff.
 - Use `-f video=true` (loading.mp4) to check the visual sequence.
 - Also run `set=world` for level loading and the receiving screen.
+- Modules flagged `"inworld": true` (live-modules.json) also prove the flat-world load end to end: boot-smoke and the
+  design set end with `inworld_hud_*` / `inworld_modmenu_*` shots and Save and Quit (verify-loop.md section 2).
 - Use `boot-time` (workflow_dispatch, `module`, `base_ref`, `boots`) for boot-time regressions. It needs OriginBootLog, which only 1.21.1 has.

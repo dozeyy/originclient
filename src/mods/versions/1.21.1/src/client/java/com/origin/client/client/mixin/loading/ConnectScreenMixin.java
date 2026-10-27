@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // working. Cancel is registered at init (TAIL) as a Workbench title button
 // (OriginButtonRenderer.setLoadingButton, DESIGN-SYSTEM 15.2): the same card
 // as the title's buttons, at 200 x 20 GUI px (the title's main button size, TitleLayout
-// MAIN_W x BUTTON_H), its label the caption's size and muted (judge 2026-10-25), re-seated
+// MAIN_W x BUTTON_H), its label Minecraft's font like the caption, muted (Will 2026-10-27), re-seated
 // centred at 62 % of the height (A-Workbench-3) or lower: the picture's logo stays where
 // every loading screen has it, and Cancel moves below the caption instead
 // (OriginScreenRenderer.connectCancelTop). Without that registration it drew

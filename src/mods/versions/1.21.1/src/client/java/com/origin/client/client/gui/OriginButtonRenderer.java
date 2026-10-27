@@ -104,7 +104,7 @@ public final class OriginButtonRenderer {
 	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
 
 	/** icon: an atlas id (null = none); iconOnly: a dock glyph card vs a worded card; small: the loading
-	 *  screens' secondary button (label at TITLE_SMALL_EM, textMuted at rest, parchment on hover). */
+	 *  screens' Cancel (label in Minecraft's font, textMuted at rest, parchment on hover). */
 	private record TitlePresentation(String icon, boolean iconOnly, boolean small) {
 	}
 
@@ -122,8 +122,9 @@ public final class OriginButtonRenderer {
 		}
 	}
 
-	/** Connecting's Cancel: the same card, its label the loading caption's size (TITLE_SMALL_EM) and muted at
-	 *  rest, so the status line and the button read as one type size (judge 2026-10-25). */
+	/** A loading screen's Cancel (Connecting, Realms connecting): the same card, its label in Minecraft's font
+	 *  like the loading caption above it (Will, 2026-10-27) and muted at rest, so the status line and the
+	 *  button read as one type (judge 2026-10-25). */
 	public static void setLoadingButton(Object widget) {
 		if (widget != null) {
 			TITLE.put(widget, new TitlePresentation(null, false, true));
@@ -187,12 +188,13 @@ public final class OriginButtonRenderer {
 										int x, int y, int w, int h, boolean enabled, double hv, boolean pressed) {
 		drawCard(g, x, y, w, h, enabled, hv, pressed);
 
-		// The label: Inter 600 in parchment (A-Workbench-3, approved 2026-10-25; title buttons and
-		// Connecting's Cancel only), centred on its cap height. Falls back to Minecraft's font when
-		// the SDF face is not live. The width is measured once per widget and again only when the
-		// widget's message Component is replaced, so an ordinary frame measures nothing.
+		// The label: Inter 600 in parchment on the title buttons (A-Workbench-3), centred on its cap
+		// height, Minecraft's font when the SDF face is not live. A loading screen's Cancel (small)
+		// is always Minecraft's font, like every loading-screen line (Will, 2026-10-27). The width is
+		// measured once per widget and again only when the widget's message Component is replaced,
+		// so an ordinary frame measures nothing.
 		float em = tp.small() ? OriginTheme.TITLE_SMALL_EM : OriginTheme.TITLE_LABEL_EM;
-		Label lab = label(button, OriginSdfFont.active(), em);
+		Label lab = label(button, !tp.small() && OriginSdfFont.active(), em);
 		int textColor = !enabled ? OriginTheme.TITLE_TEXT_MUTED
 				: tp.small() ? OriginTheme.lerpColor(OriginTheme.TITLE_TEXT_MUTED, OriginTheme.TITLE_TEXT, pressed ? 1.0 : hv)
 				: OriginTheme.TITLE_TEXT;
