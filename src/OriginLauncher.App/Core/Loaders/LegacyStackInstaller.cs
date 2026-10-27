@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Net;
 
 namespace OriginLauncher.App.Core.Loaders;
 
@@ -20,7 +21,8 @@ namespace OriginLauncher.App.Core.Loaders;
 // is refused (PinnedDownload). 1.12.2 is pulled, so its rows were never measured and stay unpinned.
 public static class LegacyStackInstaller
 {
-    private static readonly HttpClient Http = new();
+    // Stall-guarded (Core/Net/DownloadHttp): a download that goes quiet fails instead of freezing the install.
+    private static readonly HttpClient Http = DownloadHttp.Create();
 
     private sealed record LegacyMod(string FileName, string Url, string? Sha256 = null);
 
