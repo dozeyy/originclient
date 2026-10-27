@@ -35,6 +35,8 @@
 # (the Origin config part is not applied in the bench).
 name: bench-189
 
+# Manual runs only (workflow_dispatch): there is no push trigger, so a "[bench-189 ...]" tag in a commit
+# message no longer starts a run; the head_commit checks below are dead and only kept harmless.
 on:
   workflow_dispatch:
     inputs:

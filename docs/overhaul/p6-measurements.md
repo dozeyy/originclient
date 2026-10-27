@@ -461,8 +461,8 @@ should count (P6-12).
 |---|---|---|---|---|---|
 | OptiFine alone | 37.31 | - | 36.57 | 46.47 | - |
 | Origin default (blur every frame) | 42.30 | +4.99 | 37.44 | 50.20 | (control) |
-| capture once on open (try-bluronce) | 40.88 | +3.57 | 38.21 | 46.95 | +3.2 [-1.3..+8.5] / +2.3 [+0.4..+3.8] |
-| inventory blur off (off-invblur = Competitive) | 38.41 | +1.10 | 37.26 | 46.24 | **+11.9 [+5.8..+13.0]** / +4.6 [+0.8..+6.6] |
+| capture once on open (try-bluronce) | 40.88 | +3.57 | 38.21 | 46.95 | +3.2 [-1.3..+8.5] / **+2.3 [+0.4..+3.8]** |
+| inventory blur off (off-invblur = Competitive) | 38.41 | +1.10 | 37.26 | 46.24 | **+11.9 [+5.8..+13.0]** / **+4.6 [+0.8..+6.6]** |
 
 Capture-once removes about a quarter of the open-inventory blur cost: the full-screen redraw of the captured image
 plus the tint still cost on llvmpipe. Turning the blur off removes almost all of it, with every round faster.
