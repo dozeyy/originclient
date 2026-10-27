@@ -234,12 +234,11 @@ public class OriginClientMod implements ClientModInitializer {
 		// sits behind the menu and live-previews toggles there. A second
 		// afterRender pass drew the whole HUD again ON TOP of the menu (Will's
 		// call: the HUD always stays behind menus, even hidden behind the card).
-		// Fragility guards for the bundled JEI: warn if a foreign JEI is overriding
-		// ours, and if the JEI internals the toggle mixins bind to have moved. Wrapped
-		// so a check can never fail client init.
+		// Warn if a player's own JEI overrides the bundled one. Whether the JEI methods
+		// Origin hooks still exist is checked earlier, at mixin load (compat/CompatGates,
+		// the sig jei lines). Wrapped so it can never fail client init.
 		try {
 			detectForeignJei();
-			selfCheckJeiMixins();
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
 		}
@@ -880,39 +879,5 @@ public class OriginClientMod implements ClientModInitializer {
 						BUNDLED_JEI, v);
 			}
 		});
-	}
-
-	// Mixin self-check (rec #2): make fail-soft non-silent. Origin's JEI toggle
-	// mixins bind to JEI INTERNAL method names; a JEI update renaming one makes the
-	// mixin silently not apply (required:false) and the toggle quietly break. Verify
-	// the targets still exist and log loudly if not. Reflection-based, so it needs
-	// no build-specific handler names.
-	private static void selfCheckJeiMixins() {
-		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler",
-				"onDrawScreenPost", "onDrawForeground", "renderCompactPotionIndicators");
-		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler",
-				"onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
-	}
-
-	private static void jeiMethodCheck(String className, String... methods) {
-		try {
-			Class<?> c = Class.forName(className);
-			java.util.Set<String> present = new java.util.HashSet<>();
-			for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
-				present.add(m.getName());
-			}
-			for (String m : methods) {
-				if (!present.contains(m)) {
-					com.origin.client.OriginClient.LOGGER.warn(
-							"Origin self-check: JEI method {}.{} is missing -- the JEI toggle mixin may "
-									+ "not have applied. JEI integration is likely broken with this JEI version; "
-									+ "re-verify the mixin targets.", className, m);
-				}
-			}
-		} catch (ClassNotFoundException e) {
-			// JEI not on the classpath at all -> nothing to integrate, not an error.
-		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn("Origin self-check for JEI mixins failed", t);
-		}
 	}
 }

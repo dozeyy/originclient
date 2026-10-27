@@ -101,12 +101,11 @@ public class OriginClientMod implements ClientModInitializer {
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
 		com.origin.client.client.mods.SaturationOverlay.registerTooltip();
 
-		// Fragility guards for the bundled JEI: warn if a foreign JEI overrides ours
-		// and if the JEI internals the toggle mixins bind to have moved. Wrapped so a
-		// check can never fail client init.
+		// Warn if a player's own JEI overrides the bundled one. Whether the JEI methods
+		// Origin hooks still exist is checked earlier, at mixin load (compat/CompatGates,
+		// the sig jei lines). Wrapped so it can never fail client init.
 		try {
 			detectForeignJei();
-			selfCheckJeiMixins();
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
 		}
@@ -832,30 +831,5 @@ public class OriginClientMod implements ClientModInitializer {
 								+ "the bundled one; JEI integration may not work until it is removed.", BUNDLED_JEI, v);
 			}
 		});
-	}
-
-	// JEI 26/27 renamed the render hooks (drawForScreen / drawForContainerScreen);
-	// the input names below are unchanged. Names only — no signatures — so this stays
-	// valid across the char-typed CharacterEvent change.
-	private static void selfCheckJeiMixins() {
-		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "drawForScreen", "drawForContainerScreen", "renderCompactPotionIndicators");
-		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler", "onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
-	}
-
-	private static void jeiMethodCheck(String className, String... methods) {
-		try {
-			Class<?> c = Class.forName(className);
-			java.util.Set<String> present = new java.util.HashSet<>();
-			for (java.lang.reflect.Method m : c.getDeclaredMethods()) { present.add(m.getName()); }
-			for (String m : methods) {
-				if (!present.contains(m)) {
-					com.origin.client.OriginClient.LOGGER.warn(
-							"Origin self-check: JEI method {}.{} is missing -- toggle mixin may not have applied.", className, m);
-				}
-			}
-		} catch (ClassNotFoundException e) {
-		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn("Origin self-check for JEI mixins failed", t);
-		}
 	}
 }

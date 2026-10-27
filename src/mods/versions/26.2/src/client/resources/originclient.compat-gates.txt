@@ -7,6 +7,18 @@
 group iris | Origin's Iris hooks | iris ~1.11.4 | IrisShadowDirectivesMixin IrisPipelineHalfRateMixin IrisShadowRendererHalfRateMixin IrisDebugEntryOriginMixin
 group sodium | Origin's Sodium hooks | sodium ~0.9.2 | SodiumViewportShadowMapMixin SodiumRenderSectionManagerHooksMixin SodiumChunkChangeMixin SodiumSortedRenderListsAccessor
 group jei | Origin's JEI show/hide switch | jei >=30.48.0.242 <31.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
+# JEI signature table: every JEI method the two Jei*Mixins inject into, owner + name + descriptor from
+# javap -s on the pinned JEI jar (dXcNHWfE). A miss turns the jei group off before its mixins apply.
+sig jei | mezz.jei.gui.events.GuiEventHandler | drawForScreenForeground(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | drawForScreenBackground(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | renderCompactPotionIndicators(Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPre(Lnet/minecraft/client/gui/screens/Screen;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPost(Lnet/minecraft/client/gui/screens/Screen;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPre(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/input/CharacterEvent;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPost(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/input/CharacterEvent;)V
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseClicked(Lnet/minecraft/client/gui/screens/Screen;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseReleased(Lnet/minecraft/client/gui/screens/Screen;Lmezz/jei/common/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseScroll(DDDD)Z
 feature shaderPerformanceMode | Shader Performance Mode | iris
 feature halfRateShadows | Half-Rate Shadows | iris sodium
 feature offMapShadows | Off-Map Shadows | iris sodium

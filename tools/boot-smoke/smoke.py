@@ -39,8 +39,9 @@ DIR/screenshots, Save and Quit. Passes only on "[origin-smoke] in-world: PASS" w
 PNGs on disk; "[origin-smoke] in-world: FAIL <reason>", a crash or the extra time budget
 running out fails the run with that reason.
 
-Exit code 0 = reached the title screen with zero mixin-apply failures (and, with --inworld,
-passed the in-world step).
+Exit code 0 = reached the title screen with zero mixin-apply failures (with --inworld, also passed the
+in-world step; for a module whose originclient.compat-gates.txt has `sig` lines, each such group logged
+that its signature check passed).
 1 = a failure signature appeared, or it never reached the title before the timeout.
 """
 import argparse
@@ -92,6 +93,47 @@ COMPILE_ERROR = re.compile(r"Compilation failed|\.java:\d+: error:|^\s*error:", 
 GAME_STARTED = re.compile(r"Loading Minecraft|Backend library|Setting user:|\[origin-smoke\]|Forge Mod Loader version", re.I)
 
 
+# A gate group with `sig` lines in the module's originclient.compat-gates.txt (JEI) must log this once its
+# signature check passed (src/mods/shared/.../compat/CompatGates.java). Without it the hooks were switched
+# off at mixin load -- e.g. a JEI pin bump changed a descriptor -- and the game still boots green, so every
+# player on that version would lose the feature with no CI failure.
+SIG_ON = "Origin compat gate: {label} is on (signature check"
+GATES_FILE = "originclient.compat-gates.txt"
+
+
+def sig_groups(module):
+    """{group id: label} for every gate group the module's data gives `sig` lines ({} when none / no data)."""
+    for sub in ("client", "main"):   # main: pre-1.18 merged source set
+        path = os.path.join(module, "src", sub, "resources", GATES_FILE)
+        if os.path.isfile(path):
+            break
+    else:
+        return {}
+    labels, sig = {}, set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("group "):
+                fields = line[len("group "):].split("|")
+                if len(fields) > 1:
+                    labels[fields[0].strip()] = fields[1].strip()
+            elif line.startswith("sig "):
+                sig.add(line[len("sig "):].split("|")[0].strip())
+    return {g: labels.get(g, g) for g in sorted(sig)}
+
+
+def sig_problems(text, groups):
+    """One problem per signature-checked group whose 'is on (signature check' line is missing from the log."""
+    problems = []
+    for label in groups.values():
+        if SIG_ON.format(label=label) in text:
+            continue
+        off = re.search(r"Origin compat gate: %s is off \(([^\n]*)\)" % re.escape(label), text)
+        problems.append(f"{label}: " + (f"switched off ({off.group(1)[:300]})" if off
+                                        else "no signature-check line in the log"))
+    return problems
+
+
 def classify(line):
     """'ignore' | 'fail' | 'ready' | None for one log line."""
     if IGNORE.search(line):
@@ -136,10 +178,11 @@ def inworld_verdict(line, shots_dir):
     return True, "in-world PASS (" + ", ".join(f for f in have if f.startswith(INWORLD_SHOTS)) + ")"
 
 
-def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expect_perf=None, inworld=""):
+def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expect_perf=None, inworld="", sig=None):
     """One runClient. Returns (ok, reason, retryable). companions = {mod id: catalog version} that
     must appear in the loaded mod list (--companions), else the run fails. inworld = shots dir for the
-    in-world step (blank = stop at the title)."""
+    in-world step (blank = stop at the title). sig = sig_groups(module): each group's 'is on (signature
+    check' line must be in the log, else the run fails."""
     env = dict(os.environ, ORIGIN_SMOKE="1")
     if inworld:
         env["ORIGIN_SMOKE_WORLD"] = inworld
@@ -180,7 +223,7 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
                     if not iv[0]:
                         print("::error title=in-world step failed::" + iv[1], flush=True)
                     break
-            if perf is not None or companions:
+            if perf is not None or companions or sig:
                 seen.append(line)
             if not started and GAME_STARTED.search(line):
                 started = True
@@ -205,6 +248,13 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
                     else:
                         print(f"boot-smoke: companions loaded at the catalog versions: {shown}", flush=True)
                         verdict = (True, verdict[1] + f"; companions loaded: {shown}", False)
+                if sig and verdict[0]:
+                    problems = sig_problems("".join(seen), sig)
+                    if problems:
+                        print("::error title=signature check did not pass::" + "; ".join(problems), flush=True)
+                        verdict = (False, "compat-gate signature check did not pass: " + "; ".join(problems), False)
+                    else:
+                        verdict = (True, verdict[1] + "; signature check on: " + ", ".join(sig.values()), False)
                 if perf is not None and verdict[0]:
                     # A player-profile row may require Iris NOT to load (covers.py --player with no Iris): then only the
                     # expectation below decides what must be in the mod list.
@@ -342,7 +392,8 @@ def main():
     for attempt in range(1, max(1, args.attempts) + 1):
         print(f"boot-smoke: {name} attempt {attempt} -> {' '.join(cmd)}", flush=True)
         ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java, True if args.perf else None, companions,
-                                         expect_perf, os.path.abspath(args.inworld) if args.inworld else "")
+                                         expect_perf, os.path.abspath(args.inworld) if args.inworld else "",
+                                         sig_groups(module))
         if ok or not retryable or attempt == args.attempts:
             if retryable and not ok:
                 reason += f" (network/download failure on all {attempt} attempts -- not an Origin bug; re-run)"

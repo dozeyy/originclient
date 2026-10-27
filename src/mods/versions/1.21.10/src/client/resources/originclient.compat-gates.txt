@@ -8,6 +8,19 @@ group iris | Origin's Iris hooks | iris ~1.9.7 | IrisShadowDirectivesMixin IrisP
 group sodium | Origin's Sodium hooks | sodium ~0.7.3 | SodiumRenderSectionManagerAccessor SodiumGraphReuseMixin SodiumWalkReplayMixin SodiumWalkEndMixin SodiumOcclusionStampMixin SodiumViewportShadowMapMixin SodiumWorldRendererReuseMixin
 group smartTerrainPair | Smart Terrain's Sodium + Iris pair | sodium 0.7.3; iris 1.9.7 |
 group jei | Origin's JEI show/hide switch | jei >=26.3.0.31 <27.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
+# JEI signature table: every JEI method the two Jei*Mixins inject into, owner + name + descriptor from
+# javap -s on the pinned JEI jar (26.3.0.31). A miss turns the jei group off before its mixins apply.
+# Intermediary (mapped at runtime): class_332 = GuiGraphics, class_437 = Screen, class_465 = AbstractContainerScreen, class_11905 = CharacterEvent.
+sig jei | mezz.jei.gui.events.GuiEventHandler | drawForScreen(Lnet/minecraft/class_437;Lnet/minecraft/class_332;II)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | drawForContainerScreen(Lnet/minecraft/class_465;Lnet/minecraft/class_332;II)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | renderCompactPotionIndicators()Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPre(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPost(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPre(Lnet/minecraft/class_437;Lnet/minecraft/class_11905;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPost(Lnet/minecraft/class_437;Lnet/minecraft/class_11905;)V
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseClicked(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseReleased(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseScroll(DDDD)Z
 feature shaderPerformanceMode | Shader Performance Mode | iris
 feature halfRateShadows | Half-Rate Shadows | iris sodium
 feature offMapShadows | Off-Map Shadows | iris sodium

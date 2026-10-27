@@ -7,6 +7,19 @@
 group iris | Origin's Iris hooks | iris ~1.6.11 | IrisShadowDirectivesMixin IrisWatermarkMixin IrisShadowRendererHalfRateMixin IrisPipelineHalfRateMixin
 group sodium | Origin's Sodium hooks | sodium ~0.4.10 | SodiumShadowWalkMixin SodiumChunkChangeMixin SodiumShadowWalkDevMixin SodiumSectionShadowMapMixin SodiumRegionShadowMapMixin
 group jei | Origin's JEI show/hide switch | jei >=13.1.0.19 <14.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
+# JEI signature table: every JEI method the two Jei*Mixins inject into, owner + name + descriptor from
+# javap -s on the pinned JEI jar (13.1.0.19). A miss turns the jei group off before its mixins apply.
+# Intermediary (mapped at runtime): class_437 = Screen, class_465 = AbstractContainerScreen, class_4587 = PoseStack.
+sig jei | mezz.jei.gui.events.GuiEventHandler | onDrawScreenPost(Lnet/minecraft/class_437;Lnet/minecraft/class_4587;II)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | onDrawForeground(Lnet/minecraft/class_465;Lnet/minecraft/class_4587;II)V
+sig jei | mezz.jei.gui.events.GuiEventHandler | renderCompactPotionIndicators()Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPre(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardKeyPressedPost(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPre(Lnet/minecraft/class_437;CI)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onKeyboardCharTypedPost(Lnet/minecraft/class_437;CI)V
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseClicked(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseReleased(Lnet/minecraft/class_437;Lmezz/jei/gui/input/UserInput;)Z
+sig jei | mezz.jei.gui.input.ClientInputHandler | onGuiMouseScroll(DDD)Z
 feature shaderPerformanceMode | Shader Performance Mode | iris
 feature halfRateShadows | Half-Rate Shadows | iris sodium
 feature offMapShadows | Off-Map Shadows | iris sodium

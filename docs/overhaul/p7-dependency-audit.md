@@ -425,7 +425,8 @@ Limits: like every boot-smoke row, coverage ends at the title screen (no world j
 the Loom-remapped shipped jar (`jei-d2c7c86f-11.8.1.1035.jar`, Mojang names, from the 1.19.2 module's `loom-cache`), the same
 version from Modrinth (`b6hpbBC6`, intermediary), and the newest release `11.68.0.1086` (`XqeAdX1b`, intermediary, SHA-512 checked).
 The Origin side is `src/mods/versions/1.19.2/.../mixin/JeiGuiEventHandlerMixin.java` (3 injectors) and
-`JeiClientInputHandlerMixin.java` (7 injectors), plus the reflective self-check in `OriginClientMod.selfCheckJeiMixins`.
+`JeiClientInputHandlerMixin.java` (7 injectors), plus the reflective self-check that was then in `OriginClientMod.selfCheckJeiMixins` (since replaced by the
+module's `sig jei` table in `originclient.compat-gates.txt`, checked by `compat/CompatGates` at mixin load).
 
 | Target | Origin injector expects | 11.8.1.1035 (shipped) | 11.68.0.1086 (newest release) |
 |---|---|---|---|
