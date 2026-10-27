@@ -1641,8 +1641,13 @@ public final class Mods {
 			if (have >= want) {
 				continue;
 			}
+			// Only a saved "on" is dropped. A saved "off" already equals the new
+			// default, and dropping it would sync out as a DELETION to every other
+			// version (deletion-aware file), where the default is still on.
 			Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get(o[0]);
-			if (m != null && m.remove(o[1]) != null) {
+			com.google.gson.JsonElement saved = m == null ? null : m.get(o[1]);
+			if (saved != null && saved.isJsonPrimitive() && "true".equals(saved.getAsString())) {
+				m.remove(o[1]);
 				removed = true;
 			}
 			ModsConfig.META.put(metaKey, new JsonPrimitive(want));

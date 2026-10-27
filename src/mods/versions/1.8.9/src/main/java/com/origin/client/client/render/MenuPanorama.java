@@ -88,6 +88,7 @@ public final class MenuPanorama {
 		Minecraft mc = Minecraft.getMinecraft();
 		boolean projPushed = false;
 		int viewPushes = 0;
+		WorldRenderer building = null;
 		try {
 			long now = Minecraft.getSystemTime();
 			if (startMs < 0) {
@@ -150,11 +151,13 @@ public final class MenuPanorama {
 				GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 				// drawPanorama's quad (javap): (-1,-1,1)(0,0) (1,-1,1)(1,0) (1,1,1)(1,1) (-1,1,1)(0,1).
 				wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+				building = wr;
 				wr.pos(-1.0, -1.0, 1.0).tex(0.0, 0.0).endVertex();
 				wr.pos(1.0, -1.0, 1.0).tex(1.0, 0.0).endVertex();
 				wr.pos(1.0, 1.0, 1.0).tex(1.0, 1.0).endVertex();
 				wr.pos(-1.0, 1.0, 1.0).tex(0.0, 1.0).endVertex();
 				tess.draw();
+				building = null;
 				GlStateManager.popMatrix();
 				viewPushes = 1;
 			}
@@ -183,6 +186,15 @@ public final class MenuPanorama {
 			return true;
 		} catch (Throwable t) {
 			broken = true;
+			try {
+				// A throw between begin and draw leaves the shared buffer mid-quad,
+				// and every later draw would fail with "Already building!".
+				if (building != null) {
+					building.finishDrawing();
+				}
+			} catch (Throwable ignored) {
+				// the buffer was not building after all
+			}
 			try {
 				GlStateManager.matrixMode(GL11.GL_MODELVIEW);
 				for (; viewPushes > 0; viewPushes--) {
