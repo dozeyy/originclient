@@ -62,7 +62,7 @@ def title_for(tag: str) -> str:
 # notes are the player's changelog; the full commit list is one click away
 # (the compare link in the footer).
 NOISE_TITLE = re.compile(
-    r"(?i)(^merge\b|^revert\b|\bdev[- ]?only\b|\bci[- ]?only\b|\btest[- ]?only\b"
+    r"(?i)(^merge\b|^revert\b|\bdev[- ]?only\b|\bdev[- ]tool\b|\bci[- ]?only\b|\btest[- ]?only\b"
     r"|\blauncher[- ]shots?\b|\bdev[- ]?shots?\b|\bframe[- ]log\b|\brender-shots\b"
     r"|\bboot-smoke\b|\bcheck_consistency\b|\bscale-checks\b"
     r"|^review\b|\breview fix(?:es)?\s*:|\breview round \d|\bfollow-?ups?\b|\bpolish from\b|\binterface skeleton\b"
