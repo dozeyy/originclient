@@ -73,9 +73,9 @@
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="-4" Duration="{StaticResource Motion.Hover}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="-4" Duration="{StaticResource Motion.HoverIn}"/>
                                             <ColorAnimation Storyboard.TargetName="Face" Storyboard.TargetProperty="Background.Color"
-                                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Hover}"/>
+                                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.HoverIn}"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
@@ -185,7 +185,7 @@
                                 MouseLeftButtonDown="Backdrop_MouseLeftButtonDown"/>
                         <!-- The clicked card, grown (Will, 2026-10-25): it scales and moves out of its own grid slot into
                              this centred panel (ExpandFrom), the other cards fade back. Back, the family's art, range and
-                             name, and ONE compact dropdown of its releases, newest first. Picking a release in it picks the
+                             name, and ONE compact dropdown of its releases, newest first, on "Choose a version" until one is picked. Picking a release in it picks the
                              version, and that is all; a click off the panel or Esc goes back to Home. -->
                         <Border x:Name="FamilyPanel" Visibility="Hidden" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
@@ -214,7 +214,7 @@
                                 <TextBlock Text="{Binding Range}" Style="{StaticResource Text.Caption}" Margin="0,12,0,0"/>
                                 <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Heading}" Margin="0,2,0,0"
                                            TextTrimming="CharacterEllipsis"/>
-                                <ComboBox x:Name="ReleaseBox" Style="{StaticResource Input.ComboBox}" Margin="0,16,0,0"
+                                <ComboBox x:Name="ReleaseBox" Style="{StaticResource Input.ComboBox}" Margin="0,16,0,0" Tag="Choose a version"
                                           ItemContainerStyle="{StaticResource Input.ComboBoxItem}" ItemTemplate="{StaticResource ReleaseItem}"
                                           SelectionChanged="ReleaseBox_SelectionChanged"
                                           AutomationProperties.Name="Version"/>

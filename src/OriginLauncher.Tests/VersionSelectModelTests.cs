@@ -75,8 +75,8 @@ public class VersionSelectModelTests
         var nav = Open("1.20.2");
         Assert.Equal(SelectorStep.Families, nav.Step);
         Assert.Equal("1.20", nav.Family.Key);
-        Assert.Equal(1, nav.ReleaseIndex); // 1.20.4, 1.20.2 ...: the saved one
-        Assert.Equal("1.20.2", nav.Release);
+        Assert.Equal(-1, nav.ReleaseIndex); // nothing chosen until a family is opened and a release picked
+        Assert.Null(nav.Release);
     }
 
     [Fact]
@@ -117,18 +117,20 @@ public class VersionSelectModelTests
     }
 
     [Fact]
-    public void Step1_Enter_OpensTheFamily_OnTheSavedVersionOrTheNewest()
+    public void Step1_Enter_OpensTheFamily_OnChooseAVersion()
     {
+        // Even the family holding the saved version opens with nothing chosen (Will, 2026-10-26): a preselected
+        // release could not be clicked, since picking what a dropdown already shows changes nothing.
         var nav = Open("1.21.1");
         var opened = nav.Press(NavKey.Enter);
         Assert.Equal(new NavResult(NavKind.OpenedFamily, 1), opened);
         Assert.Equal(SelectorStep.Releases, nav.Step);
-        Assert.Equal("1.21.1", nav.Release);
+        Assert.Null(nav.Release);
 
         var other = Open("1.21.1");
         Press(other, NavKey.Right);
-        other.Press(NavKey.Enter); // 1.20 does not hold the saved version: starts on its newest
-        Assert.Equal("1.20.4", other.Release);
+        other.Press(NavKey.Enter);
+        Assert.Null(other.Release);
         Assert.Equal("1.21.1", other.CurrentVersion); // opening a family picked nothing
     }
 
@@ -158,9 +160,11 @@ public class VersionSelectModelTests
     {
         var nav = Open("1.21.1");
         nav.Press(NavKey.Enter);
-        Assert.Equal(new NavResult(NavKind.Select, 1, "1.21"), nav.Press(NavKey.Down)); // newest first: 1.21.1 is followed by 1.21
-        Assert.Equal("1.21", nav.CurrentVersion);
-        Assert.Equal(new NavResult(NavKind.Select, 1, "1.21.1"), nav.Press(NavKey.Up));
+        Assert.Equal(NavKind.None, nav.Press(NavKey.Up).Kind); // nothing above "Choose a version"
+        Assert.Equal(new NavResult(NavKind.Select, 1, "1.21.11"), nav.Press(NavKey.Down)); // Down takes the newest
+        Assert.Equal(new NavResult(NavKind.Select, 1, "1.21.10"), nav.Press(NavKey.Down));
+        Assert.Equal("1.21.10", nav.CurrentVersion);
+        Assert.Equal(new NavResult(NavKind.Select, 1, "1.21.11"), nav.Press(NavKey.Up));
     }
 
     [Fact]
@@ -168,6 +172,7 @@ public class VersionSelectModelTests
     {
         var nav = Open("1.21.11");
         nav.Press(NavKey.Enter);
+        Assert.Equal(new NavResult(NavKind.Select, 1, "1.21.11"), nav.Press(NavKey.Down)); // the saved one, picked again
         Assert.Equal(NavKind.None, nav.Press(NavKey.Up).Kind); // already the newest
         Assert.Equal(new NavResult(NavKind.Select, 1, "1.21"), nav.Press(NavKey.End));
         Assert.Equal(NavKind.None, nav.Press(NavKey.Down).Kind);
@@ -179,7 +184,8 @@ public class VersionSelectModelTests
     {
         var nav = Open("1.21.1");
         nav.Press(NavKey.Enter);
-        nav.Press(NavKey.Up); // 1.21.2
+        Assert.Equal(new NavResult(NavKind.OpenList, 1), nav.Press(NavKey.Enter));
+        nav.Press(NavKey.Down); // 1.21.11
         Assert.Equal(new NavResult(NavKind.OpenList, 1), nav.Press(NavKey.Enter));
     }
 
@@ -212,7 +218,7 @@ public class VersionSelectModelTests
     {
         var nav = Open("26.3");
         Assert.Equal(NavKind.OpenedFamily, nav.ChooseFamily(2).Kind);
-        Assert.Equal("1.20.4", nav.Release);
+        Assert.Null(nav.Release);
         Assert.Equal(new NavResult(NavKind.Select, 2, "1.20"), nav.ChooseRelease(3));
         Assert.Equal(NavKind.None, nav.ChooseRelease(3).Kind); // clicking the pick again changes nothing
         Assert.Equal(NavKind.None, nav.ChooseRelease(99).Kind);
@@ -220,6 +226,19 @@ public class VersionSelectModelTests
         Assert.Equal(NavKind.None, nav.GoBack().Kind);
         Assert.Equal(NavKind.None, nav.ChooseFamily(-1).Kind);
         Assert.Equal(NavKind.None, nav.ChooseRelease(0).Kind); // not on step 2
+    }
+
+    [Fact]
+    public void ClickingTheSavedVersion_InItsOwnFamily_PicksIt()
+    {
+        // Will's bug (2026-10-26): the saved release showed preselected, so clicking it did nothing.
+        var nav = Open("1.20.2");
+        nav.ChooseFamily(2);
+        Assert.Equal(new NavResult(NavKind.Select, 2, "1.20.2"), nav.ChooseRelease(1));
+        // And a family that does not hold it: its newest is a real pick, not a silent highlight.
+        nav.GoBack();
+        nav.ChooseFamily(1);
+        Assert.Equal(new NavResult(NavKind.Select, 1, "1.21.11"), nav.ChooseRelease(0));
     }
 
     [Fact]
@@ -233,8 +252,8 @@ public class VersionSelectModelTests
             for (var i = 0; i < family; i++) nav.Press(NavKey.Right);
             var opened = nav.Press(NavKey.Enter);
             if (opened.Kind == NavKind.SelectAndClose) { reached.Add(opened.Version!); continue; }
-            reached.Add(nav.Release);
-            for (var r = 1; r < nav.Family.Versions.Count; r++) reached.Add(nav.Press(NavKey.Down).Version!);
+            Assert.Null(nav.Release);
+            for (var r = 0; r < nav.Family.Versions.Count; r++) reached.Add(nav.Press(NavKey.Down).Version!);
         }
         Assert.Equal(VersionCatalog.SupportedVersions, reached);
     }

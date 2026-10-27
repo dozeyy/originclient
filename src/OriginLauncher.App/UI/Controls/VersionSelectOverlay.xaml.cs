@@ -16,8 +16,9 @@ namespace OriginLauncher.App.UI.Controls;
 //   Step 1  the eight families as cards (art, the number set into it, a "2 of 10 installed" badge).
 //   Step 2  one family, expanded (Will, 2026-10-25): the clicked card grows out of its grid slot into a centred panel
 //           (scale + move, 220 ms, Motion.Emphasized) while the other cards fade back. The panel holds Back ("All
-//           versions"), the family's art, range and name, and ONE compact dropdown of its releases, newest first, with
-//           the current one preselected and a quiet emerald dot on the ones already on disk. Picking a release in it
+//           versions"), the family's art, range and name, and ONE compact dropdown of its releases, newest first, that
+//           says "Choose a version" until one is picked (nothing preselected: a preselected release could not be
+//           clicked into, Will 2026-10-26), with a quiet emerald dot on the ones already on disk. Picking a release in it
 //           picks the version and that is all: no Play, no Install, no "download" words (Play installs what it needs).
 //           A click off the panel or Esc closes the picker to Home; Back shrinks the panel into its card again.
 // A family with a single release has no step 2: choosing it picks it and closes.
@@ -214,7 +215,7 @@ public partial class VersionSelectOverlay : UserControl
         _syncing = false;
     }
 
-    // Step 2 shows a family: its art and words, and its releases in the dropdown with the current one chosen.
+    // Step 2 shows a family: its art and words, and its releases in the dropdown, none chosen ("Choose a version").
     private void BuildReleases(int familyIndex)
     {
         var tile = _tiles[familyIndex];

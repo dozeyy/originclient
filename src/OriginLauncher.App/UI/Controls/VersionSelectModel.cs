@@ -107,11 +107,14 @@ public readonly record struct NavResult(NavKind Kind, int FamilyIndex = -1, stri
 /// The two-step selector as a small state machine. Step 1 is a grid of families (<see cref="Columns"/> wide, reading
 /// order); step 2 is one family's panel with a dropdown of its releases, newest first. Keys:
 ///   step 1  arrows move over the cards, Home / End jump, Enter opens the family, Esc closes
-///   step 2  Up / Down move over the releases and pick as they go (a closed dropdown's arrows), Home / End jump,
+///   step 2  Up / Down move over the releases and pick as they go (a closed dropdown's arrows; Down from "Choose a
+///           version" picks the newest), Home / End jump,
 ///           Enter opens the dropdown, Left or Backspace goes back to step 1, Esc closes the picker
 /// Nothing in the picker launches or installs: a pick is the whole job (Will, 2026-10-25).
 /// Browsing step 1 picks nothing, and merely opening a family picks nothing: only a release does (so Esc after looking
-/// leaves the player's version exactly as it was).
+/// leaves the player's version exactly as it was). A family opens on "Choose a version" with no release chosen, even the
+/// one holding the saved version (Will, 2026-10-26): a preselected release could not be picked, since clicking what a
+/// dropdown already shows changes nothing.
 /// </summary>
 public sealed class VersionSelectNav
 {
@@ -128,13 +131,14 @@ public sealed class VersionSelectNav
     public int Columns { get; }
     public SelectorStep Step { get; private set; } = SelectorStep.Families;
     public int FamilyIndex { get; private set; }
-    public int ReleaseIndex { get; private set; }
+    /// <summary>The release chosen in the open family's dropdown; -1 while it says "Choose a version".</summary>
+    public int ReleaseIndex { get; private set; } = -1;
 
     /// <summary>The player's saved version as the sheet last knew it (a pick updates it).</summary>
     public string? CurrentVersion => _current;
 
     public VersionGroup Family => _groups[FamilyIndex];
-    public string Release => Family.Versions[ReleaseIndex];
+    public string? Release => ReleaseIndex < 0 ? null : Family.Versions[ReleaseIndex];
 
     /// <summary>Open on step 1 with the keyboard on the family that holds the saved version (the first family if it holds none).</summary>
     public void Open(string? currentVersion)
@@ -142,7 +146,7 @@ public sealed class VersionSelectNav
         _current = currentVersion;
         Step = SelectorStep.Families;
         FamilyIndex = Math.Max(0, IndexOfFamilyHolding(currentVersion));
-        ReleaseIndex = ReleaseIndexIn(FamilyIndex);
+        ReleaseIndex = -1;
     }
 
     private int IndexOfFamilyHolding(string? version)
@@ -150,13 +154,6 @@ public sealed class VersionSelectNav
         for (var i = 0; i < _groups.Count; i++)
             if (version != null && _groups[i].Versions.Contains(version)) return i;
         return -1;
-    }
-
-    // Where the highlight starts in a family: on the saved version if it is in there, else on the newest.
-    private int ReleaseIndexIn(int family)
-    {
-        var at = _current == null ? -1 : _groups[family].Versions.ToList().IndexOf(_current);
-        return Math.Max(0, at);
     }
 
     /// <summary>A click (or Enter) on a family card.</summary>
@@ -171,7 +168,7 @@ public sealed class VersionSelectNav
             return new(NavKind.SelectAndClose, index, _current);
         }
         Step = SelectorStep.Releases;
-        ReleaseIndex = ReleaseIndexIn(index);
+        ReleaseIndex = -1;
         return new(NavKind.OpenedFamily, index);
     }
 
@@ -180,7 +177,7 @@ public sealed class VersionSelectNav
     {
         var versions = Family.Versions;
         if (Step != SelectorStep.Releases || index < 0 || index >= versions.Count) return new(NavKind.None);
-        if (index == ReleaseIndex && versions[index] == _current) return new(NavKind.None);
+        if (index == ReleaseIndex) return new(NavKind.None);
         ReleaseIndex = index;
         _current = versions[index];
         return new(NavKind.Select, FamilyIndex, _current);
@@ -216,7 +213,6 @@ public sealed class VersionSelectNav
     {
         if (to < 0 || to >= _groups.Count || to == FamilyIndex) return new(NavKind.None);
         FamilyIndex = to;
-        ReleaseIndex = ReleaseIndexIn(to);
         return new(NavKind.FamilyFocused, to);
     }
 
@@ -225,7 +221,7 @@ public sealed class VersionSelectNav
         var last = Family.Versions.Count - 1;
         switch (key)
         {
-            case NavKey.Up: return ChooseRelease(ReleaseIndex - 1);
+            case NavKey.Up: return ReleaseIndex < 0 ? new(NavKind.None) : ChooseRelease(ReleaseIndex - 1);
             case NavKey.Down: return ChooseRelease(ReleaseIndex + 1);
             case NavKey.Home: return ChooseRelease(0);
             case NavKey.End: return ChooseRelease(last);

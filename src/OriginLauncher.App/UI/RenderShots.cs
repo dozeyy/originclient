@@ -23,6 +23,7 @@ namespace OriginLauncher.App.UI;
 /// </summary>
 public static class RenderShots
 {
+
     // Made-up rows for the Mods page shots (the scratch instance has no mods of its own).
     private static readonly Core.Mods.ModEntry[] DemoMods =
     {
@@ -89,6 +90,14 @@ public static class RenderShots
         };
         window.Show();
         Pump(2500); // first layout, fonts, the players pill's idle fetch
+
+        // `--hover-cost`: only how fast Home answers the mouse (hover-cost.txt), no pictures.
+        if (Environment.GetCommandLineArgs().Contains("--hover-cost"))
+        {
+            MeasureHoverCost(window, outDir);
+            window.Close();
+            return;
+        }
 
         // `--switch-cost`: only the tab-click and picker timings (switch-cost.txt), no pictures.
         if (Environment.GetCommandLineArgs().Contains("--switch-cost"))
@@ -521,6 +530,42 @@ public static class RenderShots
             + $"with surface:    median {Median(on):0.00}  best {on.Min():0.00}" + Environment.NewLine
             + $"without surface: median {Median(off):0.00}  best {off.Min():0.00}" + Environment.NewLine
             + $"difference of medians: {Median(on) - Median(off):0.00} ms" + Environment.NewLine);
+    }
+
+    /// <summary>
+    /// How fast Home answers the mouse (hover-cost.txt): the render tier, the frames the window really presents while
+    /// Home sits still, and how long a mouse-priority (Input) item waits on the UI thread. A hover can only start once
+    /// its mouse move is handled and shows on the next presented frame, so these two bound the hover delay.
+    /// </summary>
+    private static void MeasureHoverCost(MainWindow window, string dir)
+    {
+        static double Median(List<double> v) { var s = v.OrderBy(x => x).ToList(); return s[s.Count / 2]; }
+        window.TourGoTo(0);
+        Pump(1500);
+        var report = new StringBuilder($"render tier {RenderCapability.Tier >> 16}, window {window.ActualWidth:0}x{window.ActualHeight:0}" + Environment.NewLine);
+
+        // Alternating, so anything else that runs meanwhile hits both alike. No CompositionTarget.Rendering hook here:
+        // subscribing to it alone makes WPF draw every frame, which is the very cost being measured.
+        foreach (var drift in new[] { true, false, true, false })
+        {
+            window.Stage.TourDrift(drift);
+            Pump(500);
+            var waits = new List<double>();
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var poster = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(25) };
+            poster.Tick += (_, _) =>
+            {
+                var posted = clock.Elapsed.TotalMilliseconds;
+                window.Dispatcher.BeginInvoke(DispatcherPriority.Input, () => waits.Add(clock.Elapsed.TotalMilliseconds - posted));
+            };
+            poster.Start();
+            Pump(3000);
+            poster.Stop();
+            report.AppendLine($"art drift {(drift ? "on " : "off")}: mouse-priority wait ({waits.Count} items) median {Median(waits):0.0} ms, worst {waits.Max():0.0} ms");
+        }
+        window.Stage.TourDrift(true);
+
+        File.WriteAllText(Path.Combine(dir, "hover-cost.txt"), report.ToString());
     }
 
     /// <summary>

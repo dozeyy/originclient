@@ -102,7 +102,7 @@
                                 <BeginStoryboard>
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="BorderBrush.Color"
-                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.HoverIn}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
@@ -295,9 +295,9 @@
                                                 <BeginStoryboard>
                                                     <Storyboard>
                                                         <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Background.Color"
-                                                                        To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Hover}"/>
+                                                                        To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.HoverIn}"/>
                                                         <ColorAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="BorderBrush.Color"
-                                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.HoverIn}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
                                             </Trigger.EnterActions>
@@ -484,7 +484,7 @@
                                 <BeginStoryboard>
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="BorderBrush.Color"
-                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.HoverIn}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
@@ -626,7 +626,7 @@
                                 <BeginStoryboard>
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="BorderBrush.Color"
-                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                                        To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.HoverIn}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>

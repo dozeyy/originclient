@@ -39,7 +39,7 @@
                             <Storyboard>
                                 <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                                 To="{StaticResource Color.CardAlt}"
-                                                Duration="{StaticResource Motion.Hover}"/>
+                                                Duration="{StaticResource Motion.HoverIn}"/>
                             </Storyboard>
                         </BeginStoryboard>
                     </Trigger.EnterActions>

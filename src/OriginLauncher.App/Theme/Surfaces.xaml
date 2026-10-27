@@ -129,9 +129,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.HoverIn}"/>
                             <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.HoverIn}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>

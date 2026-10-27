@@ -183,6 +183,16 @@ public sealed class ArtStage : Grid
         _launchZoom.BeginAnimation(ScaleTransform.ScaleYProperty, Motion.To(1, 600));
     }
 
+    // Render shots' hover timing only: the drift on or off, so its cost can be told apart.
+    internal void TourDrift(bool on)
+    {
+        if (on) { StartDrift(); return; }
+        _drift.BeginAnimation(TranslateTransform.XProperty, null);
+        _drift.BeginAnimation(TranslateTransform.YProperty, null);
+        _driftScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        _driftScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+    }
+
     private void StartDrift()
     {
         if (Motion.Off) return;

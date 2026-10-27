@@ -145,6 +145,9 @@
          render; code paths use UI.Motion. ===== -->
     <Duration x:Key="Motion.Press">0:0:0.08</Duration>
     <Duration x:Key="Motion.Release">0:0:0.14</Duration>
+    <!-- Hover lands on the next frame (Will, 2026-10-26: hover "takes a second to register"; the mouse was handled in
+         2-5 ms, but a 120 ms linear fade from a low-contrast colour read as late). Only the way out fades. -->
+    <Duration x:Key="Motion.HoverIn">0:0:0</Duration>
     <Duration x:Key="Motion.Hover">0:0:0.12</Duration>
     <Duration x:Key="Motion.Base">0:0:0.16</Duration>
     <Duration x:Key="Motion.Enter">0:0:0.22</Duration>

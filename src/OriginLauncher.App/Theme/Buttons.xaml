@@ -167,9 +167,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.CardAlt}" Duration="{StaticResource Motion.HoverIn}"/>
                             <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.HoverIn}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -229,9 +229,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.GhostHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.GhostHover}" Duration="{StaticResource Motion.HoverIn}"/>
                             <ColorAnimation Storyboard.TargetProperty="Foreground.Color"
-                                            To="{StaticResource Color.Text}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.Text}" Duration="{StaticResource Motion.HoverIn}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -269,7 +269,7 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.HueChip.GoldHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.HueChip.GoldHover}" Duration="{StaticResource Motion.HoverIn}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -331,9 +331,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.HoverIn}"/>
                             <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.HoverIn}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -481,9 +481,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.Card}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.Card}" Duration="{StaticResource Motion.HoverIn}"/>
                             <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.StrokeHover}" Duration="{StaticResource Motion.HoverIn}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -572,7 +572,7 @@
                 <BeginStoryboard>
                     <Storyboard>
                         <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                        To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.Hover}"/>
+                                        To="{StaticResource Color.AccentHover}" Duration="{StaticResource Motion.HoverIn}"/>
                     </Storyboard>
                 </BeginStoryboard>
             </Trigger.EnterActions>
@@ -642,9 +642,9 @@
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.DangerSoftHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.DangerSoftHover}" Duration="{StaticResource Motion.HoverIn}"/>
                             <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                            To="{StaticResource Color.DangerSoftHover}" Duration="{StaticResource Motion.Hover}"/>
+                                            To="{StaticResource Color.DangerSoftHover}" Duration="{StaticResource Motion.HoverIn}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>

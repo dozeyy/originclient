@@ -220,6 +220,7 @@ public partial class App : Application
         Resources["Motion.Intro"] = none;
         Resources["Motion.Settle"] = none;
         Resources["Motion.Hover"] = none;
+        Resources["Motion.HoverIn"] = none;
         Resources["Motion.Drawer"] = none;
         Resources["Motion.Drag"] = none;
         UI.Motion.Off = true;
