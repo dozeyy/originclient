@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="color-scheme" content="dark">
+<title>Privacy Policy</title>
+<meta name="description" content="What Origin Client collects, why, who it goes to, how long it is kept and how to delete it.">
+<link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/nav.js"></script>
+</head>
+<body class="page-legal">
+<a class="skip" href="#main">Skip to content</a>
+<div class="backdrop" aria-hidden="true"></div>
+<header class="top is-solid" data-top>
+  <a class="brand" href="./" aria-label="Origin, home"><img class="brand__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-32.png 1x, assets/origin-logo-64.png 2x, assets/origin-logo-128.png 3x" width="32" height="32" alt="Origin" decoding="async"><img class="brand__word" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="107" height="22" alt="" decoding="async"></a>
+  <nav class="top__nav" aria-label="Pages">
+    <a href="./" class="nav-home">Home</a>
+    <a href="store" class="nav-store">Store</a>
+  </nav>
+</header>
+
+<main id="main">
+  <section class="legal">
+    <div class="legal__head">
+      <p class="eyebrow eyebrow--accent">Legal</p>
+      <h1>Privacy Policy</h1>
+      <p class="legal__updated">Last updated: October 27, 2026</p>
+    </div>
+
+    <article class="legal__body">
+      <p>
+        This page explains what Origin Client ("Origin", "we") collects when
+        you use the Origin launcher, the Origin mod in game, and this website,
+        why, who it goes to, how long it is kept, and how to have it deleted.
+        It is written from what our code actually does. Questions go to
+        <a href="mailto:will@willhenry.me">will@willhenry.me</a>.
+      </p>
+
+      <h2>1. The Short Version</h2>
+      <ul>
+        <li>Your Microsoft and Minecraft sign-in stays between you, Microsoft
+          and Mojang. It is stored encrypted on your PC and never reaches
+          Origin's servers.</li>
+        <li>Your worlds, settings, mods and logs stay on your PC.</li>
+        <li>If you are signed in, Origin's online service knows your Minecraft
+          name and UUID, whether you're online, which version you're playing
+          and on which server, your friends, and your messages.</li>
+        <li>If you buy something, Stripe handles the payment. We keep which
+          Minecraft account owns which cosmetic.</li>
+        <li>The website has no analytics, no ad trackers and no cookies of
+          its own.</li>
+      </ul>
+
+      <h2>2. Signing In With Microsoft</h2>
+      <p>
+        To play, you add a Microsoft account in the launcher. You sign in on
+        Microsoft's own sign-in page. The launcher then talks to Microsoft,
+        Xbox Live and Minecraft's services to prove you own Minecraft and to
+        get your Minecraft name, UUID and skin. The launcher only asks
+        Microsoft for permission to sign in to Xbox Live and to stay signed
+        in.
+      </p>
+      <p>
+        The launcher saves the sign-in key Microsoft gives it, plus your last
+        Minecraft session, in <code>accounts.json</code> inside
+        <code>%LocalAppData%\OriginLauncher</code>. Both are encrypted with
+        Windows' own protection for your Windows user, so the file is useless
+        if it is copied to another PC. None of these keys are ever sent to
+        Origin.
+      </p>
+
+      <h2>3. What Stays on Your PC</h2>
+      <p>Everything below lives in <code>%LocalAppData%\OriginLauncher</code> and is never uploaded by Origin:</p>
+      <ul>
+        <li>Your accounts (encrypted, see above) and launcher settings.</li>
+        <li>Your game folders: worlds, servers list, options, mods,
+          resource packs and shader settings.</li>
+        <li>Settings Sync. It copies your keybinds, video settings, HUD
+          layout, mod settings and server list between the Minecraft versions
+          on your PC. It does not upload them anywhere.</li>
+        <li>Logs, crash reports and caches (skins, the launcher's news feed).</li>
+        <li>The Hypixel API key you paste into Origin's Hypixel mod, if you
+          use it. It is only ever sent to Hypixel (see section 7).</li>
+      </ul>
+
+      <h2>4. Friends, Parties and Chat</h2>
+      <p>
+        When you're signed in, the launcher and the game connect to Origin's
+        online service, which runs on Cloudflare. To prove who you are without
+        handing us any sign-in key, your launcher or game asks Minecraft's
+        services for a certificate they issue to every player, signs a short
+        message with it, and sends us your UUID, your name and that signature.
+        We check it against Mojang's published keys.
+      </p>
+      <p>What the service stores:</p>
+      <ul>
+        <li><strong>Your Minecraft name and UUID</strong>, so friends can
+          find you by name.</li>
+        <li><strong>A sign-in session.</strong> We keep only a scrambled
+          (hashed) copy of its key, and it expires after 24 hours.</li>
+        <li><strong>Your status:</strong> whether the launcher or the game
+          is open, whether you're in the menus, in singleplayer or on a
+          server, the server's address (never a private home-network
+          address), your Minecraft version, and when you were last seen.</li>
+        <li><strong>Your "Appear offline" setting.</strong> When it is on,
+          friends see you as offline.</li>
+        <li><strong>Your friends list</strong>, friend requests and the
+          players you've blocked.</li>
+        <li><strong>Direct messages and party chat</strong> you send.</li>
+        <li><strong>Party details:</strong> who is in your party, invites,
+          pings and party warps. Your position, dimension and health are
+          shared with your party only inside a world hosted by a party
+          member's own game over a home network. On every other server they
+          are never sent.</li>
+      </ul>
+      <p>
+        Your friends see your status, the server you're on and your version.
+        Other Origin players can see a small Origin badge next to your name
+        while you've been in game on Origin in the last 10 minutes. The
+        "playing Origin" count on the launcher's Home screen is just a
+        number; it does not list anyone.
+      </p>
+
+      <h2>5. Cosmetics, the Store and Origin+</h2>
+      <p>
+        On the <a href="store">Store</a> you type the Minecraft name the
+        cosmetics are for. The page looks that name up with PlayerDB
+        (playerdb.co) to find the UUID and skin, and shows heads and skins
+        from Crafthead and mc-heads.net. Your bag and the name you typed are
+        saved in your browser's own storage, so they survive a refresh. They
+        stay in your browser.
+      </p>
+      <p>
+        At checkout, the page sends the UUID, the name and the items to
+        Origin's service, which opens a Stripe Checkout page with those three
+        things attached. You pay on Stripe's page; your card details go to
+        Stripe, not to us. Stripe's own privacy policy covers what it keeps.
+        Once Stripe tells us the payment went through, we store:
+      </p>
+      <ul>
+        <li>For each cosmetic: the Minecraft UUID, the item, the Stripe
+          payment ID and the time. A full refund or a dispute removes it.</li>
+        <li>For Origin+: the Stripe subscription ID, the Minecraft UUID, the
+          name typed at checkout, the Stripe customer ID, the membership
+          status and when the paid period ends. You can cancel, change your
+          card or get receipts on Stripe's billing page.</li>
+        <li>For a free store code: the code, the UUID and the name it was
+          used for, and when.</li>
+        <li>What you're wearing and any height tweaks, set from the game.</li>
+      </ul>
+      <p>
+        What a player owns and wears, and whether they have Origin+, is public:
+        every Origin player's game asks for it to draw cosmetics on the
+        players around them.
+      </p>
+
+      <h2>6. Discord</h2>
+      <p>
+        While the game runs, Origin tells the Discord app on your PC (if it's
+        open) what to show as your status: "Minecraft" plus the version, one
+        of "In the menus", "Singleplayer" or "Multiplayer", and how long
+        you've been playing. It never includes the server address. This goes
+        only to the Discord app on your PC; Discord then shows it according
+        to your Discord settings and Discord's own privacy policy.
+      </p>
+      <p>
+        The launcher's home banner also asks Discord's public invite page for
+        our server's name, icon and member count. That request carries
+        nothing about you.
+      </p>
+
+      <h2>7. Other Services the Launcher and Game Use</h2>
+      <ul>
+        <li><strong>Mojang:</strong> game files, versions and Java runtimes,
+          and players' heads and skins for your friends list.</li>
+        <li><strong>Fabric:</strong> the mod loader for each version.</li>
+        <li><strong>Modrinth:</strong> the mods Origin installs, and the
+          shader and resource pack browsers in game. When "Fix
+          Compatibility" looks for a missing mod, only that mod's ID is
+          sent.</li>
+        <li><strong>Forge, CurseForge's file server and OptiFine</strong>
+          (with backup mirrors on BMCLAPI and the Internet Archive): only for
+          1.8.9.</li>
+        <li><strong>GitHub:</strong> the website's download button, and the
+          launcher's update check, which asks GitHub for our newest release.
+          A copy of the launcher's news feed is also read from GitHub if
+          originclient.org can't be reached.</li>
+        <li><strong>originclient.org:</strong> the launcher reads its news
+          feed from this site. That request sends no cookies and no account
+          details.</li>
+        <li><strong>Hypixel:</strong> only if you paste your own Hypixel API
+          key into Origin's Hypixel mod. The game then sends that key and the
+          UUIDs of players it looks up to Hypixel, and nowhere else.</li>
+      </ul>
+      <p>
+        The launcher's home banner has an ad mode for an ad network. It is
+        switched off. If it is ever turned on, the ad page runs in its own
+        separate browser storage in the launcher, apart from your Microsoft
+        sign-in, and the launcher adds nothing about you to it. We will name
+        the ad network on this page before it goes live.
+      </p>
+
+      <h2>8. This Website</h2>
+      <p>
+        originclient.org is hosted by Vercel. The site loads no analytics, no
+        ad trackers and no outside scripts, and our code sets no cookies. The
+        only thing it saves in your browser is the Store's bag and typed name
+        (section 5). The Store also talks to the services listed in section
+        5. The download button downloads the installer from GitHub.
+      </p>
+
+      <h2>9. Crash Reports</h2>
+      <p>
+        When the game crashes, the launcher reads the crash report on your
+        PC to name the mod behind it. Nothing is uploaded. "Copy report"
+        puts a cleaned-up copy on your clipboard, with sign-in keys, email
+        addresses, server addresses and your Windows user name removed, so
+        you decide where to paste it.
+      </p>
+
+      <h2>10. How Long We Keep Things</h2>
+      <ul>
+        <li>Sign-in sessions: 24 hours.</li>
+        <li>Direct messages and party chat: 30 days, then deleted
+          automatically. When the last member leaves a party, that party's
+          chat is deleted right away.</li>
+        <li>Pings: 1 minute. Party warps: 2 minutes. Party invites: 10
+          minutes. Records used to stop spam: 1 hour. You leave a party
+          automatically after an hour with Origin closed.</li>
+        <li>Friends, requests and blocks: until you or the other player
+          remove them.</li>
+        <li>Your name and UUID, your status and last-seen time, your "Appear
+          offline" setting, cosmetics you own and wear, Origin+ records and
+          used store codes: kept until you ask us to delete them.</li>
+        <li>Everything on your PC: until you delete it.</li>
+      </ul>
+
+      <h2>11. Deleting Your Data</h2>
+      <ul>
+        <li><strong>On your PC:</strong> uninstall Origin and tick "Also
+          delete my worlds, settings and accounts". That deletes the whole
+          <code>%LocalAppData%\OriginLauncher</code> folder, including your
+          saved sign-ins.</li>
+        <li><strong>Friends:</strong> remove or block anyone yourself in the
+          Friends list.</li>
+        <li><strong>Everything else on Origin's service:</strong> there is no
+          delete button yet. Email
+          <a href="mailto:will@willhenry.me">will@willhenry.me</a> with your
+          Minecraft name and we'll delete it. Deleting your purchases also
+          removes those cosmetics from your account.</li>
+        <li><strong>Payments:</strong> Stripe keeps its own payment records
+          under its own privacy policy.</li>
+      </ul>
+
+      <h2>12. Changes</h2>
+      <p>
+        When Origin starts collecting something new, or stops, this page
+        changes and the date at the top moves.
+      </p>
+
+      <h2>13. Contact</h2>
+      <p>
+        Origin Client,
+        <a href="mailto:will@willhenry.me">will@willhenry.me</a>.
+      </p>
+    </article>
+  </section>
+</main>
+
+<footer class="foot">
+  <a class="brand" href="./" aria-label="Origin, home"><img class="brand__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-32.png 1x, assets/origin-logo-64.png 2x, assets/origin-logo-128.png 3x" width="32" height="32" alt="Origin" decoding="async"><img class="brand__word" loading="lazy" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="107" height="22" alt="" decoding="async"></a>
+  <p>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</p>
+  <nav><a href="./">Home</a><a href="store">Store</a><a href="terms">Terms</a><span>© 2026 Origin Client</span></nav>
+</footer>
+</body>
+</html>
