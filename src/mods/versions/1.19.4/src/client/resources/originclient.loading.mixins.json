@@ -17,7 +17,8 @@
 		"FrameLogTitleMixin",
 		"ReloadTaskTagMixin",
 		"FrameLogOverlayMixin",
-		"ShaderReloadMixin"
+		"ShaderReloadMixin",
+		"RealmsTaskScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

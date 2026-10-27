@@ -1,0 +1,50 @@
+Origin title-screen icons - third-party art and licences
+==========================================================
+
+textures/gui/title_icons.png (built by make_icons.py) contains pixels from these three packs,
+used as drawn. The only changes are a recolour to white (252) with alpha/luminance snapped at
+50 %, a 1 px dark (42) drop shadow at (+1,+1), and a 1:1 crop to each shape.
+
+Cosmetics - crown
+  Pixel Icon Library by HackerNoon (https://pixeliconlibrary.com)
+  Source:  https://github.com/hackernoon/pixel-icon-library
+           icons/PNG/for-dark-mode/16px/solid/crown-solid.png
+  Licence: the icon files are licensed under Creative Commons Attribution 4.0 International
+           (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/
+           (the repository's other files are MIT). Attribution is required.
+  Changes: recoloured to white with alpha snapped at 128, a drop shadow added, cropped.
+
+Realms - server rack
+  Teenyicons by Anja van Staden (https://teenyicons.com)
+  Source:  https://github.com/smhmd/teenyicons (npm teenyicons@0.4.1), outline/servers.svg,
+           rendered 1:1 on its 15 px grid (teenyicons-servers-outline-15px.png)
+  Licence: MIT License
+           Copyright (c) 2020, Anja van Staden
+
+           Permission is hereby granted, free of charge, to any person obtaining a copy of this
+           software and associated documentation files (the "Software"), to deal in the Software
+           without restriction, including without limitation the rights to use, copy, modify,
+           merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+           permit persons to whom the Software is furnished to do so, subject to the following
+           conditions:
+
+           The above copyright notice and this permission notice shall be included in all copies
+           or substantial portions of the Software.
+
+           THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+           INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+           PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+           HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+           CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+           OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Quit - X
+  Kenney 1-Bit Pack (version 1.2) by Kenney (www.kenney.nl)
+  Source:  https://kenney.nl/assets/1-bit-pack (kenney_1-bit-pack.zip),
+           Tilesheet/colored-transparent_packed.png, tile row 13, col 40
+  Licence: Creative Commons Zero (CC0 1.0), http://creativecommons.org/publicdomain/zero/1.0/
+           Credit is not required; given here anyway.
+
+Vanilla Minecraft sprites (Friends = toast/social_interactions, Language, Accessibility) are NOT
+in the sheet: the mod draws them at runtime from the game's own resources by ResourceLocation,
+so nothing of Mojang's is redistributed.

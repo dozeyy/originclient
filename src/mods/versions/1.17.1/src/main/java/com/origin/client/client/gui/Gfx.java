@@ -284,7 +284,8 @@ public final class Gfx {
 		int v = 46 + Math.max(0, Math.min(2, state)) * 20;
 		int lw = w / 2, rw = w - lw;
 		int th = h / 2, bh = h - th;
-		RenderSystem.setShaderTexture(0, WIDGETS);
+		// Origin's dark sheet (same UVs as widgets.png), as DarkButtonMixin binds for every vanilla button.
+		RenderSystem.setShaderTexture(0, OriginDarkWidgets.texture(WIDGETS, OriginDarkWidgets.WIDGETS, OriginDarkWidgets.BUTTON));
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.enableDepthTest();

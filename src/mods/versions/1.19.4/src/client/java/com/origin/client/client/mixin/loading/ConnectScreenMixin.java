@@ -29,9 +29,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    redirecting just that call puts the picture between the backdrop and the
 //    button, and vanilla's narration and state handling stay untouched. Vanilla
 //    mode, or a failed Origin draw, draws vanilla's status line instead.
-//  - ConnectScreen.init TAIL: Cancel is seated below the picture
-//    (OriginScreenRenderer.connectCancelTop: 62 % of the height, never on the
-//    caption), so the logo stays at the spot every loading screen uses.
+//  - ConnectScreen.init TAIL: Cancel is registered as the loading button and seated
+//    below the picture (OriginScreenRenderer.connectCancelTop: one picture step under
+//    the caption, LOADING_CANCEL_W wide), so the logo stays at the spot every loading
+//    screen uses.
 // If either stops applying (required:false config): vanilla's status line and
 // Cancel position come back; nothing breaks.
 @Mixin(ConnectScreen.class)
@@ -47,6 +48,12 @@ public class ConnectScreenMixin {
 			for (GuiEventListener child : self.children()) {
 				if (child instanceof AbstractWidget) {
 					AbstractWidget w = (AbstractWidget) child;
+					// The loading button (Workbench card, Minecraft-font parchment label), LOADING_CANCEL_W x its
+					// height, centred under the picture: the same seat as Realms' Cancel (RealmsTaskScreenMixin).
+					com.origin.client.client.gui.OriginButtonRenderer.setLoadingButton(w);
+					int bw = Math.min(OriginScreenRenderer.LOADING_CANCEL_W, Math.max(80, self.width - 24));
+					w.setWidth(bw);
+					w.setX((self.width - bw) / 2);
 					w.setY(OriginScreenRenderer.connectCancelTop(self.height, w.getHeight()));
 				}
 			}
