@@ -19,9 +19,19 @@ Eras:
            20 px, the order vanilla's widgets.png uses; the module's button mixin
            blits it, so Mojang's widgets.png is never redistributed)
 
+  legacy         every pre-1.20.2 module: originclient dark_widgets.png (Origin pixels at
+                 widgets.png's button + lock UVs, swapped in by the button mixins) and
+                 minecraft gui/checkbox.png (vanilla's 64 x 64 layout)
+  legacy-slider  pre-1.19.4: originclient dark_slider.png (track row 46, handle rows 66/86)
+  gui-1194       1.19.4 to 1.20.1: minecraft gui/slider.png + gui/tab_button.png
+  (Only sizes and UVs come from Mojang's files; no pixel is copied.)
+
 Usage:
-  python tools/dark-widgets/make_widgets.py sprites <module resources dir>
-  python tools/dark-widgets/make_widgets.py sheet   <module resources dir>
+  python tools/dark-widgets/make_widgets.py sprites       <module resources dir>
+  python tools/dark-widgets/make_widgets.py sheet         <module resources dir>
+  python tools/dark-widgets/make_widgets.py legacy        <module resources dir>
+  python tools/dark-widgets/make_widgets.py legacy-slider <module resources dir>
+  python tools/dark-widgets/make_widgets.py gui-1194      <module resources dir>
 """
 from __future__ import annotations
 
@@ -246,12 +256,104 @@ def sheet(res: Path) -> None:
     save(strip, d / "dark_button.png")
 
 
+def slider_handle_row(edge) -> Image.Image:
+    """A 200 x 20 row whose left 4 and right 4 columns are the two halves of an 8 px handle.
+    Vanilla draws the handle as u 0..4 + u 196..200 of one row (split blit before 1.19.4,
+    nine-slice with 20 px borders on 8 px from 1.19.4), so only those columns are ever seen;
+    the middle is filled with the same face so any slicing still reads as a handle."""
+    h = bevel_box(8, 20, edge, HANDLE, HANDLE_LIGHT, HANDLE_SHADE)
+    row = img(200, 20)
+    rect(row, 0, 0, 200, 20, HANDLE)
+    row.paste(h.crop((0, 0, 4, 20)), (0, 0))
+    row.paste(h.crop((4, 0, 8, 20)), (196, 0))
+    rect(row, 4, 0, 196, 1, edge)  # top/bottom outline across the middle too
+    rect(row, 4, 19, 196, 20, edge)
+    rect(row, 4, 1, 196, 2, HANDLE_LIGHT)
+    rect(row, 4, 17, 196, 19, HANDLE_SHADE)
+    return row
+
+
+def legacy(res: Path) -> None:
+    """Every pre-1.20.2 module. Two textures:
+
+    originclient:textures/gui/dark_widgets.png -- 256 x 256, Origin's own pixels placed at
+      the UVs vanilla's widgets.png uses for the button rows (y 46 disabled, 66 normal,
+      86 highlighted, 200 wide) and the lock buttons (u 0 locked / 20 unlocked, v 146 normal,
+      166 highlighted, 186 disabled). Everything else is transparent. The module's button
+      mixin swaps only the texture id inside vanilla's own button draw, so vanilla's own
+      blit calls (which assume a 256 x 256 sheet) sample it unchanged.
+    minecraft:textures/gui/checkbox.png -- vanilla's 64 x 64 layout (u 0 / 20 = normal /
+      focused, v 0 / 20 = empty / ticked). A whole file, so a jar resource override."""
+    d = res / "assets" / "originclient" / "textures" / "gui"
+    sheet256 = img(256, 256)
+    sheet256.paste(button("disabled"), (0, 46))
+    sheet256.paste(button("normal"), (0, 66))
+    sheet256.paste(button("highlighted"), (0, 86))
+    for u, shut in ((0, True), (20, False)):
+        sheet256.paste(lock_button("normal", shut), (u, 146))
+        sheet256.paste(lock_button("highlighted", shut), (u, 166))
+        sheet256.paste(lock_button("disabled", shut), (u, 186))
+    save(sheet256, d / "dark_widgets.png")
+
+    cb = img(64, 64)
+    for sel in (False, True):
+        for hi in (False, True):
+            im = well(20, 20, HOVER if hi else FIELD_EDGE)
+            if sel:
+                stamp(im, CHECK, 5, 6, GLYPH)
+            cb.paste(im, (20 if hi else 0, 20 if sel else 0))
+    save(cb, res / "assets" / "minecraft" / "textures" / "gui" / "checkbox.png")
+
+
+def legacy_slider(res: Path) -> None:
+    """Pre-1.19.4 sliders draw from widgets.png too: the track is AbstractWidget's button
+    draw at row 46 (getYImage is always 0 for a slider) and the handle is renderBg's split
+    blit from row 66 (normal) / 86 (hovered or focused). originclient:textures/gui/dark_slider.png
+    puts the dark track and handle at those rows; the module swaps it in for sliders only."""
+    d = res / "assets" / "originclient" / "textures" / "gui"
+    sheet256 = img(256, 256)
+    sheet256.paste(well(200, 20, OUTLINE, TRACK), (0, 46))
+    sheet256.paste(slider_handle_row(OUTLINE), (0, 66))
+    sheet256.paste(slider_handle_row(HOVER), (0, 86))
+    save(sheet256, d / "dark_slider.png")
+
+
+def gui_1194(res: Path) -> None:
+    """1.19.4 to 1.20.1: slider.png and tab_button.png are whole files (vanilla's 256 x 256
+    layouts), so Origin-drawn copies override them as jar resources.
+      slider.png: v 0 track, 20 track highlighted (focused, not adjusting), 40 handle,
+        60 handle highlighted (hovered or adjusting); nine-sliced 20/4 on 200 x 20.
+      tab_button.png: 130 x 24 rows, v 0 selected, 24 selected+highlighted, 48 unselected,
+        72 unselected+highlighted; nine-sliced 2/2/2/0."""
+    d = res / "assets" / "minecraft" / "textures" / "gui"
+    sl = img(256, 256)
+    sl.paste(well(200, 20, OUTLINE, TRACK), (0, 0))
+    sl.paste(well(200, 20, HOVER, TRACK), (0, 20))
+    sl.paste(slider_handle_row(OUTLINE), (0, 40))
+    sl.paste(slider_handle_row(HOVER), (0, 60))
+    save(sl, d / "slider.png")
+
+    tb = img(256, 256)
+    for i, (sel, hi) in enumerate(((True, False), (True, True), (False, False), (False, True))):
+        tb.paste(tab(sel, hi), (0, i * 24))
+    save(tb, d / "tab_button.png")
+
+
+COMMANDS = {
+    "sprites": sprites,
+    "sheet": sheet,
+    "legacy": legacy,
+    "legacy-slider": legacy_slider,
+    "gui-1194": gui_1194,
+}
+
+
 def main() -> int:
-    if len(sys.argv) != 3 or sys.argv[1] not in ("sprites", "sheet"):
+    if len(sys.argv) != 3 or sys.argv[1] not in COMMANDS:
         print(__doc__)
         return 2
     res = Path(sys.argv[2])
-    (sprites if sys.argv[1] == "sprites" else sheet)(res)
+    COMMANDS[sys.argv[1]](res)
     print(f"wrote {sys.argv[1]} set under {res}")
     return 0
 

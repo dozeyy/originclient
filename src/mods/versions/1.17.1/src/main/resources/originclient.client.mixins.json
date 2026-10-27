@@ -4,6 +4,10 @@
 	"plugin": "com.origin.client.client.compat.CompatMixinPlugin",
 	"compatibilityLevel": "JAVA_16",
 	"client": [
+		"DarkEditBoxMixin",
+		"DarkLockButtonMixin",
+		"DarkSliderHandleMixin",
+		"DarkButtonMixin",
 		"AbstractButtonMixin",
 		"SprintKeyMixin",
 		"AbstractSliderButtonMixin",
