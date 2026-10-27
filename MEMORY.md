@@ -215,3 +215,10 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Picker: each family's dropdown opened with a release preselected (the saved one, else the newest), and a ComboBox ignores a click on what it already shows, so that release could not be picked until another was. Now nothing is preselected (ReleaseIndex -1, Tag "Choose a version"); Down from it takes the newest. VersionSelectModelTests updated + a test for clicking the saved version.
 - Hover "takes a second": `--render-shots <dir> --hover-cost` showed the UI thread idle (Input-priority wait ~0.1 ms, drift on or off) and the mouse handled in 2-5 ms; the lag was the 120 ms linear fade from a low-contrast rest colour, starting a frame or two late. Every hover-in now uses Motion.HoverIn (0 ms, lands next frame); hover-out keeps the 120 ms fade.
 - Never move Will's cursor: the first timing run used SetCursorPos on the render-shots window; Will: "stop touching my mouse". Removed; rule in DECISIONS.md.
+
+## 2026-10-26 - Dropdown hover dead spots (launcher-v1.0.71)
+- Will after v1.0.70: hovering versions in the release dropdown "still is not registering". The 0 ms hover-in was not the cause.
+- Cause (proven): the ComboBoxItem template's Border had no Background, so WPF hit-tested only the painted text; and a ComboBox highlights a row only on MouseEnter (decompiled ComboBox.NotifyComboBoxItemEnter: needs IsDropDownOpen + capture + mouse moved). `--dropdown-cost`: 1 of 9 probe points per row took the mouse; fps 250 and hit-test 0.004 ms ruled out speed. The RAM slider had the same flaw (only the 4 px groove).
+- Fix: Inputs.xaml rows and slider grids are `Background="Transparent"`. Rule: every hover surface must be painted, Transparent at minimum.
+- Guard: `--render-shots <dir> --hover-audit` probes 9 points on every hoverable element across all screens and popups; launcher-shots CI fails unless hover-audit.txt starts "0 ". Local run: 0 dead spots; 2477 tests pass.
+- Unverified: Will's real mouse.
