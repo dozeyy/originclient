@@ -511,6 +511,8 @@ public final class OriginDevShots {
 	private static double savedBgOpacity = -1;
 	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
 	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
+	/** ORIGIN_SHOTS_SET=panorama: OriginDevPanorama renders one title panorama (.github/workflows/panoramas.yml). */
+	private static final boolean PANORAMA = "panorama".equals(System.getenv("ORIGIN_SHOTS_SET"));
 	/**
 	 * ORIGIN_SHOTS_SET=handoff: the startup hand-off film. 1.8.9 has no OriginFrameLog
 	 * to wait on, so the first resize waits out the title's startup intro instead
@@ -520,7 +522,7 @@ public final class OriginDevShots {
 	private static final boolean HANDOFF = "handoff".equals(System.getenv("ORIGIN_SHOTS_SET"));
 
 	static {
-		if (WORLD) {
+		if (WORLD || PANORAMA) {
 			// no screen matrix: OriginDevWorld takes over once the title is up
 		} else if ("style".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Button Style / Main Menu Style: the title, the Origin windows (which must stay Origin in every
@@ -696,6 +698,10 @@ public final class OriginDevShots {
 		}
 		if (WORLD) {
 			OriginDevWorld.tick(mc, DIR);
+			return;
+		}
+		if (PANORAMA) {
+			OriginDevPanorama.tick(mc, DIR);
 			return;
 		}
 		if (now < nextAt) {

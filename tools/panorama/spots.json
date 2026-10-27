@@ -57,7 +57,7 @@
     {
       "id": "1.19", "capture": "1.21.1", "targets": ["1.19.2", "1.19.3", "1.19.4"],
       "about": "The Wild Update: mangrove swamp, frogs, allays",
-      "locate": "biome minecraft:mangrove_swamp", "up": 2.5, "yaw": 45, "time": 3000,
+      "locate": "biome minecraft:mangrove_swamp", "vista": 16, "up": 2.5, "yaw": 45, "time": 3000,
       "mobs": [
         {"id": "minecraft:frog", "dist": 4, "angle": -20, "nbt": "{variant:\"minecraft:warm\"}"},
         {"id": "minecraft:frog", "dist": 5, "angle": 10, "nbt": "{variant:\"minecraft:temperate\"}"},
@@ -89,7 +89,7 @@
     {
       "id": "1.21.4", "capture": "1.21.4", "targets": ["1.21.4"],
       "about": "The Garden Awakens: the pale garden and its creakings",
-      "locate": "biome minecraft:pale_garden", "up": 1.6, "yaw": 45, "time": 3000,
+      "locate": "biome minecraft:pale_garden", "vista": 16, "up": 1.6, "yaw": 45, "time": 3000,
       "mobs": [
         {"id": "minecraft:creaking", "dist": 6, "angle": -12},
         {"id": "minecraft:creaking", "dist": 10, "angle": 16, "turn": -40}
@@ -139,10 +139,11 @@
     },
     {
       "id": "26.2", "capture": "26.2", "targets": ["26.2"],
-      "about": "26.2: the sulfur caves and their sulfur cubes, lit by invisible light blocks",
-      "locate": "biome minecraft:sulfur_caves", "ground": "floor", "headroom": 6, "up": 0.6, "yaw": 45, "time": 3000,
-      "commands": ["fill ~-12 ~4 ~-12 ~12 ~4 ~12 minecraft:light[level=15] replace air",
-                   "fill ~-12 ~1 ~-12 ~12 ~1 ~12 minecraft:light[level=12] replace air"],
+      "about": "26.2: sulfur cubes on a sulfur and cinnabar outcrop, brought up into daylight (the sulfur caves themselves rendered near-black with the shader, run 40453214783)",
+      "locate": "biome minecraft:badlands", "vista": 16, "up": 1.6, "yaw": 45, "time": 3000,
+      "commands": ["fill ^-6 ^-1 ^5 ^-2 ^0 ^9 minecraft:sulfur",
+                   "fill ^-5 ^1 ^6 ^-3 ^1 ^8 minecraft:potent_sulfur",
+                   "fill ^2 ^-1 ^6 ^5 ^0 ^10 minecraft:cinnabar"],
       "mobs": [
         {"id": "minecraft:sulfur_cube", "dist": 5, "angle": -12},
         {"id": "minecraft:sulfur_cube", "dist": 8, "angle": 16, "turn": -40}
@@ -151,7 +152,20 @@
     {
       "id": "26.3", "capture": "26.3", "targets": ["26.3"],
       "about": "26.3: the dappled forest's coloured poplars",
-      "locate": "biome minecraft:dappled_forest", "up": 1.6, "yaw": 45, "time": 3000
+      "locate": "biome minecraft:dappled_forest", "vista": 16, "up": 1.6, "yaw": 45, "time": 3000
+    },
+    {
+      "id": "1.8.9", "capture": "1.8.9", "targets": ["1.8.9"],
+      "about": "1.8 Bountiful Update: rabbits (and a horse) in a flower forest. No /locate for the ocean monument on 1.8.9, and underwater reads murky without shaders",
+      "shader": false,
+      "shaderWhy": "OptiFine is 1.8.9's only shader layer and it isn't in the CI dev game, so this one is daytime vanilla",
+      "biome": 132, "vista": 12, "up": 1.6, "yaw": 45, "time": 3000, "renderDistance": 12,
+      "mobs": [
+        {"id": "Rabbit", "dist": 4, "angle": -14, "nbt": "{RabbitType:0}"},
+        {"id": "Rabbit", "dist": 5, "angle": 12, "turn": -40, "nbt": "{RabbitType:3}"},
+        {"id": "Rabbit", "dist": 7, "angle": 0, "nbt": "{RabbitType:1}"},
+        {"id": "EntityHorse", "dist": 11, "angle": 24, "nbt": "{Type:0,Variant:513}"}
+      ]
     }
   ]
 }

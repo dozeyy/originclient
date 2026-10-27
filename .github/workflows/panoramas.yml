@@ -55,6 +55,7 @@ jobs:
           for x in picked:
               s = spots[x]
               out.append({"id": x, "capture": s["capture"], "java": live.get(s["capture"], "21"),
+                          "shader": s.get("shader", True),
                           "spot": json.dumps(s, separators=(",", ":"))})
           print("spots=" + json.dumps(out))
           EOF
@@ -84,6 +85,7 @@ jobs:
             x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 python3-pil pngquant
 
       - name: Fetch pinned Sodium + Iris into libs/
+        if: ${{ matrix.shader }}
         run: python3 tools/ci/perf_libs.py "src/mods/versions/${{ matrix.capture }}"
 
       - name: Download dependencies + assets (retried)
@@ -91,7 +93,17 @@ jobs:
 
       # The shader pack: downloaded from Modrinth's CDN, sha512-checked against spots.json, put in
       # the dev run's shaderpacks/ and selected through Iris's own config. Never committed, never shipped.
+      # A "shader": false spot (1.8.9: OptiFine is its only shader layer and isn't in the dev game)
+      # renders plain daytime vanilla: no pack, no Iris checks.
+      - name: No shader pack on this version
+        if: ${{ !matrix.shader }}
+        working-directory: src/mods/versions/${{ matrix.capture }}
+        run: |
+          mkdir -p run
+          printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run/options.txt
+
       - name: Fetch + select the shader pack
+        if: ${{ matrix.shader }}
         working-directory: src/mods/versions/${{ matrix.capture }}
         run: |
           read -r name url sha < <(python3 -c "import json; p=json.load(open('$GITHUB_WORKSPACE/tools/panorama/spots.json'))['shaderpack']; print(p['file'], p['url'], p['sha512'])")
@@ -159,6 +171,7 @@ jobs:
       # Iris keeps the pack selected (and the harness's shader= line names it) even when its pipeline
       # failed to compile and it fell back to vanilla, so the log line is the only honest check.
       - name: The shader pack really rendered
+        if: ${{ matrix.shader }}
         run: |
           log="${{ runner.temp }}/shots/screenshots/run.log"
           if grep -n -A1 "Failed to create shader rendering pipeline" "$log"; then
@@ -170,4 +183,6 @@ jobs:
         if: always()
         run: |
           m="src/mods/versions/${{ matrix.capture }}"
-          python3 tools/ci/perf_log.py "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.capture }}" --module-dir "$m" --require-loaded
+          req=""
+          if [ "${{ matrix.shader }}" = "true" ]; then req="--require-loaded"; fi
+          python3 tools/ci/perf_log.py "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.capture }}" --module-dir "$m" $req

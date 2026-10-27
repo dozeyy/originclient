@@ -302,13 +302,24 @@ final class OriginDevPanorama {
 			boolean floor = "floor".equals(str("ground", "surface"));
 			int vista = num("vista", 0);
 			if (vista > 0 && !floor) {
-				// The highest ground within `vista` blocks: an overlook instead of a hollow.
-				int bx = x, bz = z, by = Integer.MIN_VALUE;
+				// An overlook instead of a hollow: the highest open, level ground within `vista` blocks. Open = no
+				// tree within 2 blocks of the camera (a cherry crown beside the eye filled every face, run
+				// 40453214783); level = little drop 5 and 10 blocks out, so the mobs stand in view, not down a slope.
+				int bx = x, bz = z;
+				double best = Double.NEGATIVE_INFINITY;
 				for (int dx = -vista; dx <= vista; dx += 4) {
 					for (int dz = -vista; dz <= vista; dz += 4) {
 						int h = groundAt(level, x + dx, z + dz);
-						if (h > by) {
-							by = h;
+						int drop = 0;
+						for (int i = 0; i < 16; i++) {
+							double a = Math.PI / 4 * i;
+							int r = i < 8 ? 5 : 10;   // where the mobs stand (4-11 blocks out)
+							int g = groundAt(level, x + dx + (int) Math.round(Math.cos(a) * r), z + dz + (int) Math.round(Math.sin(a) * r));
+							drop = Math.max(drop, h - g);
+						}
+						double score = h - 1.5 * drop - (open(level, x + dx, h, z + dz) ? 0 : 1000);
+						if (score > best) {
+							best = score;
 							bx = x + dx;
 							bz = z + dz;
 						}
@@ -386,6 +397,23 @@ final class OriginDevPanorama {
 			p.move(0, -1, 0);
 		}
 		return p.getY() + 1;
+	}
+
+	/** No leaves, logs or solid block within 2 blocks of the camera's eye (2 to 5 above the ground; lower is terrain). */
+	private static boolean open(ServerLevel level, int x, int ground, int z) {
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int dx = -2; dx <= 2; dx++) {
+			for (int dz = -2; dz <= 2; dz++) {
+				for (int dy = 2; dy <= 5; dy++) {
+					p.set(x + dx, ground + dy, z + dz);
+					var state = level.getBlockState(p);
+					if (state.is(BlockTags.LEAVES) || state.is(BlockTags.LOGS) || !state.getCollisionShape(level, p).isEmpty()) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 	/**
