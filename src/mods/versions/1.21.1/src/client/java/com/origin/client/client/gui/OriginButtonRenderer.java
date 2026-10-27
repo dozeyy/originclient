@@ -196,8 +196,7 @@ public final class OriginButtonRenderer {
 		float em = tp.small() ? OriginTheme.TITLE_SMALL_EM : OriginTheme.TITLE_LABEL_EM;
 		Label lab = label(button, !tp.small() && OriginSdfFont.active(), em);
 		int textColor = !enabled ? OriginTheme.TITLE_TEXT_MUTED
-				: tp.small() ? OriginTheme.lerpColor(OriginTheme.TITLE_TEXT_MUTED, OriginTheme.TITLE_TEXT, pressed ? 1.0 : hv)
-				: OriginTheme.TITLE_TEXT;
+				: OriginTheme.TITLE_TEXT;   // parchment at rest, the loading Cancel included: muted read as disabled (judge 2026-10-27)
 		boolean lead = tp.icon() != null;
 		float groupW = lead ? LEAD_ICON + LEAD_GAP + lab.width : lab.width;
 		float gx = x + (w - groupW) / 2f;

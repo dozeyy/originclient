@@ -91,6 +91,11 @@ final class LoadingLook {
 	}
 
 	/** The logo centre's height, GUI px, on every loading screen at this window size (what draw() uses). */
+	/** The picture's own step (logo to bar, 24 design px) in GUI px: the gap from the caption down to Cancel. */
+	static double stepGui() {
+		return GAP_BAR * scale() / Math.max(1, Math.round(Minecraft.getInstance().getWindow().getGuiScale()));
+	}
+
 	static double logoCentreGui() {
 		Minecraft mc = Minecraft.getInstance();
 		return Math.round(mc.getWindow().getHeight() * LOGO_AT) / (double) Math.max(1, Math.round(mc.getWindow().getGuiScale()));

@@ -30,8 +30,10 @@ receiving/progress/message screens, Connecting to a server, Realms connecting. C
 - **Caption:** 12 design px under the bar, colour `TITLE_TEXT_MUTED` 0x85F1E9D2. The status / task title as given
   ("Connecting to the server...", "Loading terrain...").
 - **Cancel (every loading screen that has one): the Workbench card** (`OriginButtonRenderer.setLoadingButton`), label in
-  Minecraft's font, at most 200 x 20 GUI px, centred, top edge `connectCancelTop(screenH, 20)` (62 % of the height or
-  lower, always under the caption). 1.21.1 has two: ConnectScreen (init TAIL) and RealmsLongRunningMcoTaskScreen
+  Minecraft's font in parchment `TITLE_TEXT` #F1E9D2 (never muted: it reads as disabled), `LOADING_CANCEL_W` 120 x 20 GUI px
+  (narrower when the screen is), centred, top edge `connectCancelTop(screenH, 20)` = one picture step (the 24 design px
+  logo-to-bar gap) under the caption, 8 GUI px clear of the bottom. Same card fill as the title buttons (the decided
+  charcoal). 1.21.1 has two: ConnectScreen (init TAIL) and RealmsLongRunningMcoTaskScreen
   (`repositionElements()V` TAIL; it declares no render(), so the mixin adds the override and calls `super.render` when
   vanilla mode is on or the picture fails).
 - **Left vanilla on purpose:** RealmsDownloadLatestWorldScreen and RealmsUploadScreen (transfer screens with live

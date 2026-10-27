@@ -48,8 +48,8 @@ public abstract class RealmsTaskScreenMixin extends RealmsScreen {
 				if (child instanceof Button button) {
 					OriginButtonRenderer.setLoadingButton(button);
 					if (seat) {
-						// The same seat as Connecting's Cancel: at most 200 x 20 GUI px, under the picture.
-						int bw = Math.min(200, Math.max(80, this.width - 24));
+						// The same seat as Connecting's Cancel: LOADING_CANCEL_W x 20 GUI px, under the picture.
+						int bw = Math.min(OriginScreenRenderer.LOADING_CANCEL_W, Math.max(80, this.width - 24));
 						int bh = 20;
 						button.setWidth(bw);
 						button.setHeight(bh);
