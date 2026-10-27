@@ -64,6 +64,12 @@ receiving/progress/message screens, Connecting to a server, Realms connecting. C
 
 - **ConnectScreen status line (2026-10-25, rings-out port):** 1.16.5-1.21.11 call drawCenteredString(Font,Component,III) exactly once for the status - @WrapOperation/@Redirect it and draw the picture at render TAIL (keeps narration); 26.x calls `centeredText(Font,Component,III)V` once in extractRenderState - same pattern. 1.8.9 GuiConnecting.drawScreen (func_73863_a) is safe to HEAD-cancel (OptiFine doesn't replace it). Move Cancel: `setY` on 1.19.3+, the `y` field before; 1.20.2 has no setHeight.
 - **Dock tooltip cards:** WidgetTooltipHolder.refreshTooltipForNextRenderPass HEAD-cancel on 1.21.1-26.x (no AbstractWidget.getTooltip on 1.21.6+/26.x: register the Tooltip when created); 1.19.3/1.19.4 AbstractWidget.updateTooltip (private, HEAD); 1.19.2 and older have no Tooltip API.
+- **Realms connecting, pre-1.20 (2026-10-27, 1.16.5-1.19.4):** `RealmsLongRunningMcoTaskScreen` DECLARES `init()V` and
+  `render(PoseStack,IIF)V` (renderBackground, title, error or dots, RealmsScreen.render), so HEAD-cancel render when
+  `errorMessage == null` and draw only the Button children; @Shadow the private volatile `title` / `errorMessage`.
+  `LongRunningTask` has no `getTitle()` before 1.20: a dev-shots task calls `setTitle(Component)` first thing in run()
+  (the constructor calls `task.setScreen(this)` before it starts the thread). 1.16.5's `error()` clears the buttons.
+  1.16.5's startup picture used `fillLayer` + a `color4f` reset after drawCenterLift; drop both with the lift.
 - **No refmap on 1.16.5-1.21.11 Loom builds:** mixin targets are remapped in-class to intermediary; check javap names, not a refmap. Pre-1.20 reuse one Gfx via `rebind` (PoseStack is new each frame).
 
 ## Proof

@@ -1132,6 +1132,9 @@ public final class OriginScreenRenderer {
 				}
 				widths[c] = w;
 			}
+			// The space has no ink, so the scan measures 0 and the words of the startup caption ran together
+			// ("Loadingresources"): give it vanilla's 4 px advance, in sheet px (1.21.1 LoadingPrep.bootWidths).
+			widths[' '] = 4 * cell / 8 - 1;
 			bootFontTexW = image.getWidth();
 			bootFontTexH = image.getHeight();
 			bootFontCell = cell;
