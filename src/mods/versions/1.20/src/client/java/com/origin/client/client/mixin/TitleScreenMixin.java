@@ -362,7 +362,7 @@ public class TitleScreenMixin {
 	/** Dock action: a 20 x 20 dark button with its pixel icon; what it does is its (narrated, never drawn) tooltip. */
 	@Unique
 	private static void originclient$iconOnly(AbstractWidget w, String icon, String tip) {
-		OriginButtonRenderer.setTitleDock(w, icon);   // icon null (Language, Accessibility): vanilla's own sprite button draws it
+		OriginButtonRenderer.setTitleDock(w, icon);
 		originclient$tip(w, tip);
 		if (w != null) {
 			OriginButtonRenderer.setDockTip(w.getTooltip());   // narrated, never drawn (WidgetTooltipHolderMixin)
@@ -510,12 +510,14 @@ public class TitleScreenMixin {
 				dock.add(originclient$cosmeticsNav);
 			}
 			for (AbstractWidget icon : sprites) {
-				// narrator.button.language / narrator.button.accessibility: vanilla's own image buttons (icon null: never redrawn)
+				// narrator.button.language / narrator.button.accessibility: vanilla's own ImageButtons. 1.20's art for them
+				// (widgets.png / accessibility.png) has the stone button baked in, so they are redrawn as the dark button
+				// with Origin's own glyphs (the 1.8.9 dock's @title-language / @title-accessibility); never Mojang art.
 				String key = originclient$translationKey(icon.getMessage());
 				if (key.endsWith(".language")) {
-					originclient$iconOnly(icon, null, "Change the game's language");
+					originclient$iconOnly(icon, "@title-language", "Change the game's language");
 				} else if (key.endsWith(".accessibility")) {
-					originclient$iconOnly(icon, null, "Accessibility settings");
+					originclient$iconOnly(icon, "@title-accessibility", "Accessibility settings");
 				}
 				dock.add(icon);
 			}
