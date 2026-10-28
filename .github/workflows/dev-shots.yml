@@ -65,6 +65,10 @@ on:
         description: "Also load the pinned 'with mods' set (tools/frame-log/mods-<module>.json) on top of Origin's own"
         type: boolean
         default: false
+      inworld_loops:
+        description: "Stress the in-world step: enter the world, shoot, Save and Quit this many times in one run (ORIGIN_INWORLD_LOOPS; empty = once). For intermittent quit/load wedges"
+        type: string
+        default: ""
 
 # Read-only by default: the shots job runs the repo's Gradle build. Only the
 # publish job (which runs no repo code) gets a write token.
@@ -207,6 +211,7 @@ jobs:
           # Design set only, modules flagged "inworld" in live-modules.json: after the screens, a flat world's
           # HUD + Mod Menu (inworld_*.png) and Save and Quit; "[origin-smoke] in-world: FAIL" fails check_shots.
           ORIGIN_INWORLD: ${{ matrix.inworld }}
+          ORIGIN_INWORLD_LOOPS: ${{ github.event.inputs.inworld_loops || '' }}
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
           FRAMELOG: ${{ github.event.inputs.framelog || 'false' }}
           EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}
