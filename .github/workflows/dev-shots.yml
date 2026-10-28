@@ -339,7 +339,30 @@ jobs:
             setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew $task --no-daemon $gargs > run.log 2>&1 &
             pid=$!
           fi
-          for i in $(seq 1 900); do kill -0 $pid 2>/dev/null || break; sleep 1; done
+          # A wedge leaves evidence: once run.log has been silent for 3 minutes, a thread dump of
+          # the game JVM (tools/ci/thread_dump.sh); still silent at 7 minutes, a second dump (to
+          # tell a deadlock from a slow step) and the tree is killed; a dump at the 15-minute
+          # deadline too. No step of any module is silent that long (shots, in-world and FML/Fabric
+          # boot all log every few seconds). Dumps print here and land beside the shots as .txt.
+          quiet=0; size=-1; dumped=0
+          for i in $(seq 1 900); do
+            kill -0 $pid 2>/dev/null || break
+            now=$(stat -c %s run.log 2>/dev/null || echo 0)
+            if [ "$now" = "$size" ]; then quiet=$((quiet + 1)); else quiet=0; size=$now; fi
+            if [ $quiet -eq 180 ] && [ $dumped -eq 0 ]; then
+              echo "::warning title=game silent 180 s::run.log stopped growing; thread dump follows"
+              bash "$GITHUB_WORKSPACE/tools/ci/thread_dump.sh" $pid "stalled 180s"; dumped=1
+            fi
+            if [ $quiet -ge 420 ]; then
+              echo "::error title=game wedged::run.log silent for 420 s; second thread dump, then the run is killed"
+              bash "$GITHUB_WORKSPACE/tools/ci/thread_dump.sh" $pid "stalled 420s"; dumped=2
+              break
+            fi
+            sleep 1
+          done
+          if [ $dumped -lt 2 ] && kill -0 $pid 2>/dev/null; then
+            bash "$GITHUB_WORKSPACE/tools/ci/thread_dump.sh" $pid "deadline 900s"
+          fi
           kill -- -$pid 2>/dev/null || true
           sleep 3
           kill -9 -- -$pid 2>/dev/null || true
@@ -360,6 +383,10 @@ jobs:
             grep -F "[OriginFrameLog]" run.log | grep -v " trace " || echo "no frame-log lines"
             echo "--- mods loaded ---"
             grep -E "Loading [0-9]+ mods" run.log || true
+          fi
+          if grep -q "^Full thread dump" run.log; then
+            echo "--- thread dump(s) the game wrote on SIGQUIT (thread_dump.sh fallback) ---"
+            sed -n '/^Full thread dump/,/^JNI global/p' run.log
           fi
           echo "--- mixin failures (should be none) ---"
           grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" run.log || echo "none"
