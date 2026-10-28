@@ -286,6 +286,12 @@ final class OriginDevWorld {
 								false, false, WorldType.FLAT);
 						mc.launchIntegratedServer(SMOKE_WORLD, "Origin Smoke", settings);
 					}
+					// A reopened world keeps the difficulty saved in its level.dat, not gameSettings' (a reopen in
+					// the ORIGIN_INWORLD_LOOPS stress run was slain by slimes on loop 3): peaceful on the server too.
+					final net.minecraft.server.integrated.IntegratedServer server = mc.getIntegratedServer();
+					if (server != null) {
+						server.addScheduledTask(() -> server.setDifficultyForAllWorlds(net.minecraft.world.EnumDifficulty.PEACEFUL));
+					}
 					break;
 				}
 				case 1: {
