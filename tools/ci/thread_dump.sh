@@ -20,9 +20,16 @@ pg="$1"
 label="${2:-dump}"
 [ -n "$pg" ] || { echo "thread_dump: no process group given"; exit 0; }
 found=0
-for g in $(pgrep -g "$pg" java 2>/dev/null); do
+# The game JVM is NOT always in the group: Gradle's single-use daemon (--no-daemon with
+# custom JVM args) detaches into its own session and forks the game from there (run
+# 40618928636: "no game JVM in process group"). So: the group's JVMs plus every JVM on
+# the machine running a Minecraft dev launch main (CI runners run one game at a time).
+pids=$( { pgrep -g "$pg" java 2>/dev/null; pgrep -f 'devlaunchinjector|KnotClient|launchwrapper|GradleStart|net\.minecraft\.client\.main\.Main' 2>/dev/null; } | sort -un)
+for g in $pids; do
+  [ "$g" = "$$" ] && continue
   cmd=$(tr '\0' ' ' < "/proc/$g/cmdline" 2>/dev/null || true)
-  case "$cmd" in *org.gradle*) continue ;; esac
+  case "$cmd" in *org.gradle*|*thread_dump*|"") continue ;; esac
+  case "$(readlink -f "/proc/$g/exe" 2>/dev/null)" in */java) ;; *) continue ;; esac
   found=1
   out="${TMPDIR:-/tmp}/threaddump-$g-$(date +%s).txt"
   jbin=$(dirname "$(readlink -f "/proc/$g/exe" 2>/dev/null || echo /nonexistent/java)")
@@ -41,5 +48,8 @@ for g in $(pgrep -g "$pg" java 2>/dev/null); do
   fi
   echo "=== end thread dump: game pid $g ==="
 done
-[ "$found" = 1 ] || echo "thread_dump: no game JVM in process group $pg ($label)"
+if [ "$found" != 1 ]; then
+  echo "thread_dump: no game JVM found ($label); java processes:"
+  ps -eo pid,pgid,sid,args 2>/dev/null | grep -i '[j]ava' | cut -c 1-300
+fi
 exit 0
