@@ -56,8 +56,16 @@ final class OriginDevPanorama {
 	private OriginDevPanorama() {
 	}
 
-	/** The square window the faces are rendered in (CI shrinks them to the shipped size). */
+	/**
+	 * Each face renders at FOV 98 in a square WINDOW px window and finish.py crops the centre FACE px: 1024 *
+	 * tan(49 deg) = 1177.98, so the crop is exactly 90 degrees. Every screen-edge effect a shader pack draws
+	 * (vignette, SSAO and bloom fall-off, TAA edge clamping) lands outside the crop. A shader's vignette darkening
+	 * each face's border was the black vertical seam in the sky (seam_check.py measured the border at 0.72-0.84
+	 * of the brightness 24 px in, 2026-10-27). finish.py reads the numbers from panorama_meta.json.
+	 */
 	private static final int FACE = 1024;
+	private static final int FOV = 98;
+	private static final int WINDOW = 1178;
 	private static final String LEVEL = "origin-panorama";
 	private static final Pattern COORDS = Pattern.compile("\\[(-?\\d+), (~|-?\\d+), (-?\\d+)\\]");
 
@@ -89,7 +97,7 @@ final class OriginDevPanorama {
 					log("[panorama] spot " + spot.get("id").getAsString() + ": " + spot);
 					mc.options.renderDistance().set(num("renderDistance", 12));
 					mc.options.simulationDistance().set(Math.min(num("renderDistance", 12), 12));
-					mc.options.fov().set(90);
+					mc.options.fov().set(FOV);
 					mc.options.fovEffectScale().set(0.0);
 					mc.options.bobView().set(false);
 					mc.options.entityDistanceScaling().set(2.0);
@@ -144,6 +152,18 @@ final class OriginDevPanorama {
 						nextAt = now + 6000;
 						return;
 					}
+					// Local renders (tools/panorama/local_render.py) gate the capture on a file: it appears once the far-terrain
+					// mod (Distant Horizons) has generated every direction. No gate in CI.
+					String gate = System.getenv("ORIGIN_PANO_WAIT");
+					if (gate != null && !new File(gate).exists() && now - phaseAt < 40 * 60_000L) {
+						if (now - gateLogAt > 30_000) {
+							gateLogAt = now;
+							log("[panorama] waiting for far terrain (" + gate + ")");
+						}
+						nextAt = now + 1000;
+						return;
+					}
+					writeMeta(dir);
 					log("[panorama] warm-up done after " + (now - phaseAt) / 1000 + " s; window " + mc.getWindow().getWidth()
 							+ "x" + mc.getWindow().getHeight() + " shader=" + com.origin.client.client.shaders.IrisBridge.currentPack());
 					face = 0;
@@ -164,7 +184,7 @@ final class OriginDevPanorama {
 					if (!ready && waited < 240_000) {
 						return;
 					}
-					if (mc.getWindow().getWidth() != FACE || mc.getWindow().getHeight() != FACE) {
+					if (mc.getWindow().getWidth() != WINDOW || mc.getWindow().getHeight() != WINDOW) {
 						sizeWindow(mc);
 						startFace(mc, now);
 						return;
@@ -192,6 +212,21 @@ final class OriginDevPanorama {
 		}
 	}
 
+	private static long gateLogAt = 0;
+
+	/** screenshots/panorama_meta.json: how finish.py crops the faces, and where the camera stood. */
+	private static void writeMeta(String dir) {
+		try {
+			java.nio.file.Path p = java.nio.file.Path.of(dir, "screenshots", "panorama_meta.json");
+			java.nio.file.Files.createDirectories(p.getParent());
+			java.nio.file.Files.writeString(p, String.format(Locale.ROOT,
+					"{\"window\":%d,\"face\":%d,\"fov\":%d,\"camera\":[%.2f,%.2f,%.2f],\"yaw\":%.1f,\"spot\":\"%s\"}\n",
+					WINDOW, FACE, FOV, camera[0], camera[1], camera[2], yaw0, spot.get("id").getAsString()));
+		} catch (Exception e) {
+			com.origin.client.OriginClient.LOGGER.warn("[panorama] meta not written", e);
+		}
+	}
+
 	private static void startFace(Minecraft mc, long now) {
 		aim(mc, face);
 		phaseAt = now;
@@ -202,7 +237,7 @@ final class OriginDevPanorama {
 
 	/** Vanilla's face order (Minecraft.grabPanoramixScreenshot). */
 	private static float[] faceRot(int i) {
-		float f = (float) num("yaw", 45.0);
+		float f = yaw0;
 		return switch (i) {
 			case 1 -> new float[]{f + 90f, 0f};
 			case 2 -> new float[]{f + 180f, 0f};
@@ -214,6 +249,8 @@ final class OriginDevPanorama {
 	}
 
 	private static float[] aimRot = {0f, 0f};
+	/** Face 0's yaw: the spot's "yaw", or the one chooseOpen picked. Set on the server thread before `camera`. */
+	private static volatile float yaw0 = 45f;
 
 	private static void aim(Minecraft mc, int i) {
 		aimRot = faceRot(i);
@@ -250,34 +287,28 @@ final class OriginDevPanorama {
 				server.getCommands().performPrefixedCommand(src, c);
 			}
 			ServerLevel level = level(server);
-			List<String> said = SAID;
-			CommandSource rec = REC = new CommandSource() {
-				@Override
-				public void sendSystemMessage(Component message) {
-					said.add(message.getString());
-				}
-
-				@Override
-				public boolean acceptsSuccess() {
-					return true;
-				}
-
-				@Override
-				public boolean acceptsFailure() {
-					return true;
-				}
-
-				@Override
-				public boolean shouldInformAdmins() {
-					return false;
-				}
-			};
+			// "at": [x, z] or [x, y, z] -- a researched seed's coordinates. With a "biome" too, the nearest such biome
+			// is located FROM there (a seed page's coordinates were off by 100+ blocks for 1.21.1's cherry grove, so
+			// the point is a hint); without one, the point is used as is.
 			BlockPos origin = server.getPlayerList().getPlayers().get(0).blockPosition();   // near the world spawn (ServerLevel.getSharedSpawnPos is gone by 1.21.10)
+			String locate = str("locate", "");
+			if (spot.has("at")) {
+				JsonArray at = spot.getAsJsonArray("at");
+				String start = at.size() > 2 ? at.get(0).getAsInt() + " " + at.get(1).getAsInt() + " " + at.get(2).getAsInt()
+						: at.get(0).getAsInt() + " ~ " + at.get(1).getAsInt();
+				log("[panorama] start at " + start);
+				if (!spot.has("biome")) {
+					locateResult = start;
+					return;
+				}
+				origin = new BlockPos(at.get(0).getAsInt(), at.size() > 2 ? at.get(1).getAsInt() : level.getSeaLevel(), at.get(at.size() - 1).getAsInt());
+				locate = "biome " + str("biome", "").split(Pattern.quote("|"))[0];
+			}
+			CommandSource rec = REC;
 			CommandSourceStack locSrc = server.createCommandSourceStack().withSource(rec).withLevel(level)
 					.withPosition(Vec3.atCenterOf(origin));
-			String locate = spot.get("locate").getAsString();
 			server.getCommands().performPrefixedCommand(locSrc, "locate " + locate);
-			for (String s : said) {
+			for (String s : SAID) {
 				log("[panorama] locate " + locate + " -> " + s);
 				Matcher m = COORDS.matcher(s);
 				if (m.find()) {
@@ -285,7 +316,7 @@ final class OriginDevPanorama {
 					return;
 				}
 			}
-			locateResult = "FAIL " + said;
+			locateResult = "FAIL " + SAID;
 		} catch (Throwable t) {
 			locateResult = "FAIL " + t;
 			com.origin.client.OriginClient.LOGGER.warn("[panorama] world setup failed", t);
@@ -320,7 +351,44 @@ final class OriginDevPanorama {
 				}
 			}
 			int vista = num("vista", 0);
-			if (vista > 0 && !floor) {
+			float autoYaw = (float) num("yaw", 45.0);
+			// "near": a block id the world generates (a creaking heart in a pale oak, a dried ghast in a soul sand valley
+			// fossil). Will 2026-10-27: show the update's highlight where it really generates, never placed. The nearest
+			// one within "nearRadius" of the located point becomes the centre of the camera search and face 0 looks at it.
+			int[] nearPos = null;
+			if (spot.has("near")) {
+				nearPos = findNear(level, x, z, str("near", ""), num("nearRadius", 64), floor);
+				if (nearPos != null) {
+					log("[panorama] near " + str("near", "") + " at " + nearPos[0] + " " + nearPos[1] + " " + nearPos[2]);
+					x = nearPos[0];
+					z = nearPos[2];
+					locY = nearPos[1];
+					// "nearStandOff": stand this many blocks out on the side where the block shows (a creaking heart is one
+					// log of a pale oak trunk, visible only from the side its neighbour is not wood; 1.21.4, 2026-10-27).
+					int off = num("nearStandOff", 0);
+					if (off > 0) {
+						int[][] sides = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+						for (int[] sd : sides) {
+							var nb = level.getBlockState(new BlockPos(nearPos[0] + sd[0], nearPos[1], nearPos[2] + sd[1]));
+							if (!nb.is(BlockTags.LOGS) && !nb.is(BlockTags.LEAVES)) {
+								x = nearPos[0] + sd[0] * off;
+								z = nearPos[2] + sd[1] * off;
+								log("[panorama] near block shows on side " + sd[0] + "," + sd[1] + "; standing " + off + " out");
+								break;
+							}
+						}
+					}
+				} else {
+					log("[panorama] near " + str("near", "") + ": none within " + num("nearRadius", 64) + " blocks");
+				}
+			}
+			if (spot.has("open") && !floor) {
+				String want = spot.has("biome") ? str("biome", "") : biome;
+				double[] pick = chooseOpen(level, x, z, want, num("open", 48));
+				x = (int) pick[0];
+				z = (int) pick[1];
+				autoYaw = (float) pick[2];
+			} else if (vista > 0 && !floor) {
 				// An overlook instead of a hollow: the highest open, level ground within `vista` blocks. Open = no
 				// tree within 2 blocks of the camera (a cherry crown beside the eye filled every face, run
 				// 40453214783); level = little drop 5 and 10 blocks out, so the mobs stand in view, not down a slope.
@@ -355,10 +423,59 @@ final class OriginDevPanorama {
 				x = bx;
 				z = bz;
 			}
-			int ground = floor ? floorAt(level, x, locY, z, num("headroom", 6)) : groundAt(level, x, z);
-			double cy = ground + num("up", 2.0);
+			int caveGround = Integer.MIN_VALUE;
+			float caveYaw = Float.NaN;
+			if (floor && spot.has("cave")) {
+				int[] c = bestCave(level, x, locY, z, spot.getAsJsonObject("cave"));
+				if (c != null) {
+					x = c[0];
+					caveGround = c[1];
+					z = c[2];
+					caveYaw = c[3];
+				}
+			}
+			if (floor && caveGround == Integer.MIN_VALUE) {
+				// Underground the camera must not stand against a stem or a wall (1.16's crimson stems filled the corners of
+				// three faces, 2026-10-27): of the floor spots within "floorSearch" blocks, take the one with the widest
+				// clearing around the body and the eye (nothing solid within r blocks, r up to 6), nearest first on a tie.
+				int search = num("floorSearch", 16);
+				int bestR = -1, bestX = x, bestZ = z;
+				for (int r = 0; r <= search; r++) {
+					for (int dx = -r; dx <= r; dx++) {
+						for (int dz = -r; dz <= r; dz++) {
+							if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+								continue;
+							}
+							int fy = floorAt(level, x + dx, locY, z + dz, num("headroom", 6));
+							int c = clearance(level, x + dx, fy, z + dz, 6);
+							if (c > bestR) {
+								bestR = c;
+								bestX = x + dx;
+								bestZ = z + dz;
+							}
+						}
+					}
+				}
+				log("[panorama] floor clearing " + bestR + " blocks at " + bestX + " " + bestZ);
+				x = bestX;
+				z = bestZ;
+			}
+			int ground = caveGround != Integer.MIN_VALUE ? caveGround
+					: floor ? floorAt(level, x, locY, z, num("headroom", 6)) : groundAt(level, x, z);
+			// "up": feet above the ground. 0 = standing on it (eye at +1.62, the player's own view).
+			double cy = ground + num("up", 0.0);
 			double cx = x + 0.5, cz = z + 0.5;
-			float yaw = (float) num("yaw", 45.0);
+			float yaw = spot.has("yaw") ? (float) num("yaw", 45.0) : autoYaw;
+			if (!Float.isNaN(caveYaw) && !spot.has("yaw")) {
+				yaw = caveYaw;
+			}
+			if (nearPos != null && !spot.has("lookAt")) {
+				yaw = (float) Math.toDegrees(Math.atan2(-(nearPos[0] + 0.5 - (x + 0.5)), nearPos[2] + 0.5 - (z + 0.5)));
+			}
+			if (spot.has("lookAt")) {   // [x, z]: face 0 looks at this point (a temple, a village well)
+				yaw = (float) Math.toDegrees(Math.atan2(-(arr("lookAt", 0, 0) - (x + 0.5)), arr("lookAt", 1, 0) - (z + 0.5)));
+			}
+			yaw0 = yaw;
 			String dim = str("dimension", "minecraft:overworld");
 			CommandSourceStack src = server.createCommandSourceStack().withSuppressedOutput().withLevel(level);
 			server.getCommands().performPrefixedCommand(src, String.format(Locale.ROOT,
@@ -374,8 +491,33 @@ final class OriginDevPanorama {
 					level.getChunk(ccx, ccz);
 				}
 			}
+			// Tall grass, ferns and flowers right at the camera fill the lower half of a face at eye height (1.20's cherry
+			// meadow, 2026-10-27): clear plants within 3 blocks. Only replaceable non-fluid blocks (no trees, no terrain).
+			if (!floor) {
+				BlockPos.MutableBlockPos cp = new BlockPos.MutableBlockPos();
+				int cleared = 0;
+				for (int dx = -3; dx <= 3; dx++) {
+					for (int dz = -3; dz <= 3; dz++) {
+						for (int dy = -1; dy <= 2; dy++) {
+							cp.set(x + dx, ground + dy, z + dz);
+							var st = level.getBlockState(cp);
+							if (!st.isAir() && st.canBeReplaced() && level.getFluidState(cp).isEmpty()) {
+								level.setBlock(cp, Blocks.AIR.defaultBlockState(), 2);
+								cleared++;
+							}
+						}
+					}
+				}
+				log("[panorama] cleared " + cleared + " plants around the camera");
+			}
 			CommandSourceStack here = server.createCommandSourceStack().withSource(REC).withLevel(level)
 					.withPosition(new Vec3(cx, ground, cz)).withRotation(new Vec2(0f, yaw));
+			// Mobs the world generated (a village's villagers) walk between the six shots, so a face edge shows one
+			// twice or half (1.20, 2026-10-27): only the spot's own frozen mobs stay near the camera.
+			SAID.clear();
+			server.getCommands().performPrefixedCommand(here,
+					"kill @e[type=!minecraft:player,type=!minecraft:item_frame,type=!minecraft:painting,distance=..96]");
+			log("[panorama] cleared generated mobs -> " + String.join(" / ", SAID));
 			if (spot.has("commands")) {
 				for (JsonElement c : spot.getAsJsonArray("commands")) {
 					SAID.clear();
@@ -413,8 +555,11 @@ final class OriginDevPanorama {
 					double d = mob.get("dist").getAsDouble();
 					double mx = cx - Math.sin(a) * d, mz = cz + Math.cos(a) * d;
 					int bx = (int) Math.floor(mx), bz = (int) Math.floor(mz);
-					int my = floor ? floorAt(level, bx, ground + 4, bz, 3)
-							: groundAt(level, bx, bz);
+					int my = floor ? nearestFloor(level, bx, ground, bz) : groundAt(level, bx, bz);
+					if (my == Integer.MIN_VALUE) {
+						log("[panorama] " + mob.get("id").getAsString() + " left out: no floor within 2 of the camera's there");
+						continue;
+					}
 					double up = mob.has("up") ? mob.get("up").getAsDouble() : 0;
 					// Facing back toward the camera, plus the spot's own turn for a 3/4 view.
 					float face = (float) (yaw + 180 + (mob.has("angle") ? mob.get("angle").getAsDouble() : 0)
@@ -461,13 +606,180 @@ final class OriginDevPanorama {
 		return p.getY() + 1;
 	}
 
-	/** Whether the biome at the ground surface of this column is `id` (e.g. "minecraft:mangrove_swamp"). */
+	/** Top of whatever stands in a column (terrain, trunks, leaves, water): what a view ray hits. Cached per column. */
+	private static final java.util.Map<Long, Integer> TOPS = new java.util.HashMap<>();
+
+	private static int topAt(ServerLevel level, int x, int z) {
+		return TOPS.computeIfAbsent(((long) x << 32) ^ (z & 0xffffffffL), k -> height(level, Heightmap.Types.MOTION_BLOCKING, x, z));
+	}
+
+	/**
+	 * The ground spot with the clearest all-round view near (x0, z0), and face 0's yaw. Will 2026-10-27: no face
+	 * blocked by a nearby cliff, wall or trunk (1.21.1's old panorama had a cliff filling the back faces), camera on
+	 * the ground, the update's biome in view. Every column on a 4-block grid within `radius` with dry ground and
+	 * open sky over the head is scored:
+	 *   - obstruction: in 16 directions, the steepest angle above the eye of anything 2-40 blocks out (trees count);
+	 *     every degree over 6 costs 1 point (a cliff 10 blocks off, rising 20 blocks, costs ~57);
+	 *   - biome: the share of surface samples (8-48 blocks out, 16 directions) in `biome`, worth up to 150, and a
+ *     spot with at least a 25% share always beats one without;
+ *   - bump: 4 points per column within 2 blocks that rises to the feet or higher (a step filling a face);
+	 *   - height: half a point per block above the ground 32 blocks around (an overlook sees further).
+	 * Face 0 then looks where the biome shows most and the view is clearest (a 90-degree window of directions).
+	 * Returns {x, z, yaw}.
+	 */
+	private static double[] chooseOpen(ServerLevel level, int x0, int z0, String biome, int radius) {
+		double best = Double.NEGATIVE_INFINITY;
+		double[] pick = {x0, z0, num("yaw", 45.0)};
+		String bestWhy = "";
+		// "wet": the update's biome is mostly shallow water (mangrove swamp): the camera may stand on the water surface.
+		boolean wet = spot.has("wet") && spot.get("wet").getAsBoolean();
+		// "canopy": true lets the camera stand on the floor of a closed forest (26.3's dappled forest has no open
+		// ground inside it, so the search fell back to the beach beside it, 2026-10-27).
+		boolean canopy = spot.has("canopy") && spot.get("canopy").getAsBoolean();
+		// A spot where the biome fills at least a quarter of the view beats any spot where it doesn't (1.19 picked a 6%
+		// plains meadow next to the mangroves, 2026-10-27).
+		boolean bestInBiome = false;
+		double ow = num("obstructionWeight", 1.0);
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int dx = -radius; dx <= radius; dx += 4) {
+			for (int dz = -radius; dz <= radius; dz += 4) {
+				int cx = x0 + dx, cz = z0 + dz;
+				int g = groundAt(level, cx, cz);
+				p.set(cx, g - 1, cz);
+				if ((!wet && !level.getFluidState(p).isEmpty()) || !level.getFluidState(p.move(0, 1, 0)).isEmpty() || (!canopy && topAt(level, cx, cz) > g + 1)) {
+					continue;   // standing in water, or under a canopy
+				}
+				var under = level.getBlockState(p.set(cx, g - 1, cz));
+				if (under.is(BlockTags.PLANKS) || under.is(BlockTags.LOGS) || under.is(BlockTags.SLABS)
+						|| under.is(BlockTags.STAIRS) || under.is(BlockTags.LEAVES)) {
+					continue;   // a village roof or a tree top, not the ground (1.20 picked a roof, 2026-10-27)
+				}
+				if (canopy && biome != null && !surfaceIs(level, cx, cz, biome)) {
+					continue;   // a forest spot stands inside the forest: the open beach beside it always scored higher (26.3, 2026-10-27)
+				}
+				double eye = g + 1.62;
+				double[] obs = new double[16];
+				int[] hits = new int[16];
+				double penalty = 0, around = 0;
+				for (int i = 0; i < 16; i++) {
+					double a = Math.toRadians(i * 22.5);
+					double sx = -Math.sin(a), sz = Math.cos(a);   // Minecraft yaw: 0 = +z (south), 90 = -x (west)
+					double steep = -90, near = -90;
+					for (int d = 2; d <= 40; d += 2) {
+						int h = topAt(level, cx + (int) Math.round(sx * d), cz + (int) Math.round(sz * d));
+						double ang = Math.toDegrees(Math.atan2(h - eye, d));
+						steep = Math.max(steep, ang);
+						if (d <= 12) {
+							near = Math.max(near, ang);
+						}
+					}
+					obs[i] = steep;
+					// Close walls (snow steps, a trunk, a bank) fill a face: they cost three times as much.
+					// "obstructionWeight" < 1 for forest spots (mangrove, pale garden): trees all round are the point there;
+					// the 3-block bump check still keeps trunks off the camera.
+					penalty += ow * (Math.max(0, steep - 6) + 2 * Math.max(0, near - 3));
+					around += topAt(level, cx + (int) Math.round(sx * 32), cz + (int) Math.round(sz * 32));
+					if (biome != null) {
+						for (int d : new int[]{8, 16, 32, 48}) {
+							if (surfaceIs(level, cx + (int) Math.round(sx * d), cz + (int) Math.round(sz * d), biome)) {
+								hits[i]++;
+							}
+						}
+					}
+				}
+				int total = 0;
+				for (int h : hits) {
+					total += h;
+				}
+				double share = biome == null ? 1 : total / 64.0;
+				double rise = Math.max(-10, Math.min(6, g - around / 16));
+				// The mobs stand 4-11 blocks out: ground that falls away there hides them below the frame.
+				double slope = 0;
+				for (int i = 0; i < 16; i++) {
+					double a = Math.toRadians(i * 22.5);
+					slope += Math.abs(g - groundAt(level, cx + (int) Math.round(-Math.sin(a) * 7), cz + (int) Math.round(Math.cos(a) * 7)));
+				}
+				// A single block at feet height right beside the camera fills a face's lower half (1.20's dirt step,
+				// 2026-10-27): 4 each within 2 blocks. The 16 rays start 2 blocks out and miss both cases.
+				// Anything reaching eye height within 3 blocks (1.18's snow pillar filled two faces) is a wall: 30 each.
+				double bump = 0;
+				for (int bx = -3; bx <= 3; bx++) {
+					for (int bz = -3; bz <= 3; bz++) {
+						int t = topAt(level, cx + bx, cz + bz);
+						if ((bx != 0 || bz != 0) && t > g) {
+							bump += t > g + 1 ? 30 : (Math.abs(bx) <= 2 && Math.abs(bz) <= 2 ? 4 : 0);
+						}
+					}
+				}
+				// The update's biome must carry the view: 150 points for a full share (60 let a 3% cherry share win).
+				double score = 150 * share - penalty + 0.5 * rise - slope - bump;
+				boolean inBiome = share >= 0.25;
+				if (inBiome && !bestInBiome || inBiome == bestInBiome && score > best) {
+					best = score;
+					bestInBiome = inBiome;
+					// Face 0: the 90-degree window (5 directions) with the most biome and the least obstruction.
+					int bestDir = 0;
+					double dirBest = Double.NEGATIVE_INFINITY;
+					for (int i = 0; i < 16; i++) {
+						double s = 0;
+						for (int k = -2; k <= 2; k++) {
+							int j = (i + k + 16) % 16;
+							s += 3 * hits[j] - Math.max(0, obs[j] - 6);
+						}
+						if (s > dirBest) {
+							dirBest = s;
+							bestDir = i;
+						}
+					}
+					double worst = -90;
+					for (double o : obs) {
+						worst = Math.max(worst, o);
+					}
+					pick = new double[]{cx, cz, bestDir * 22.5};
+					bestWhy = String.format(Locale.ROOT, "score %.1f, steepest %.1f deg, obstruction %.1f, biome %.0f%%, rise %.1f, slope %.0f, bump %.0f",
+							score, worst, penalty, share * 100, rise, slope, bump);
+				}
+			}
+		}
+		log(String.format(Locale.ROOT, "[panorama] open view at %d %d yaw %.1f (%s)", (int) pick[0], (int) pick[1], pick[2], bestWhy));
+		return pick;
+	}
+
 	/** What the commands run through REC answered (the locate result, fill counts, errors). */
 	private static final List<String> SAID = new ArrayList<>();
-	private static CommandSource REC;
+	// Static, not built on the locate path: a spot with only `at` never ran locate, REC stayed null and the first failing
+	// command NPE'd in sendFailure ("scene failed", 26.2 unlit, 2026-10-27).
+	private static final CommandSource REC = new CommandSource() {
+		@Override
+		public void sendSystemMessage(Component message) {
+			SAID.add(message.getString());
+		}
 
+		@Override
+		public boolean acceptsSuccess() {
+			return true;
+		}
+
+		@Override
+		public boolean acceptsFailure() {
+			return true;
+		}
+
+		@Override
+		public boolean shouldInformAdmins() {
+			return false;
+		}
+	};
+
+	/** Whether the biome at the ground surface of this column is `id`, or one of "a|b|c". */
 	private static boolean surfaceIs(ServerLevel level, int x, int z, String id) {
-		return id.equals(level.getBiome(new BlockPos(x, groundAt(level, x, z), z)).getRegisteredName());
+		String name = level.getBiome(new BlockPos(x, groundAt(level, x, z), z)).getRegisteredName();
+		for (String b : id.split(Pattern.quote("|"))) {
+			if (b.equals(name)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** No leaves, logs or solid block within 2 blocks of the camera's eye (2 to 5 above the ground; lower is terrain). */
@@ -491,6 +803,195 @@ final class OriginDevPanorama {
 	 * Cave / Nether floor: scanning down from just above `fromY`, the first solid top with `headroom` air blocks over
 	 * it. Starts below the dimension's ceiling (the Nether's bedrock roof is a "floor" with open sky above it).
 	 */
+	/**
+	 * "cave": {"biome": id, "blocks": [words], "radius": 80, "depth": 40}. Will 2026-10-27: a cave update's panorama is
+	 * the whole cave, every face its walls, ceiling and floor (26.2's yellow and red sulfur cave), never a slice of it
+	 * beside plain stone or a tunnel out. Every floor spot in that biome (4 blocks of headroom, "clear" (2) all round) within
+	 * radius columns (every 4th) and depth blocks of y0 casts 46 rays from the eye out to 48 blocks: score = 100 x the
+	 * share of rays ending on a block whose id contains one of the words (a ray that ends in open air inside the biome
+	 * counts half) + the mean ray length, so the widest cave lined with the biome's own blocks wins.
+	 * Returns {x, floor y, z, yaw toward the longest level ray} or null.
+	 */
+	private static int[] bestCave(ServerLevel level, int x0, int y0, int z0, JsonObject cave) {
+		String biome = cave.get("biome").getAsString();
+		List<String> words = new ArrayList<>();
+		for (JsonElement w : cave.getAsJsonArray("blocks")) {
+			words.add(w.getAsString());
+		}
+		int radius = cave.has("radius") ? cave.get("radius").getAsInt() : 80;
+		int depth = cave.has("depth") ? cave.get("depth").getAsInt() : 40;
+		int clear = cave.has("clear") ? cave.get("clear").getAsInt() : 2;   // nothing solid within this many blocks
+		List<double[]> dirs = new ArrayList<>();
+		int[][] rings = {{0, 16}, {30, 12}, {60, 8}, {-30, 8}};
+		for (int[] ring : rings) {
+			double pitch = Math.toRadians(ring[0]);
+			for (int i = 0; i < ring[1]; i++) {
+				double a = 2 * Math.PI * i / ring[1];
+				dirs.add(new double[]{Math.cos(pitch) * Math.cos(a), Math.sin(pitch), Math.cos(pitch) * Math.sin(a)});
+			}
+		}
+		dirs.add(new double[]{0, 1, 0});
+		dirs.add(new double[]{0, -1, 0});
+		java.util.IdentityHashMap<Object, Boolean> isCave = new java.util.IdentityHashMap<>();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int lo = Math.max(minY(level) + 2, y0 - depth), hi = y0 + depth;
+		double best = Double.NEGATIVE_INFINITY;
+		int[] pick = null;
+		int tried = 0;
+		for (int dx = -radius; dx <= radius; dx += 4) {
+			for (int dz = -radius; dz <= radius; dz += 4) {
+				if (dx * dx + dz * dz > radius * radius) {
+					continue;
+				}
+				int x = x0 + dx, z = z0 + dz;
+				int airRun = 0;
+				for (int y = hi; y >= lo; y--) {
+					p.set(x, y, z);
+					boolean air = level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty();
+					airRun = air ? airRun + 1 : 0;
+					if (airRun < 4) {
+						continue;
+					}
+					p.set(x, y - 1, z);
+					if (!level.getBlockState(p).isFaceSturdy(level, p, net.minecraft.core.Direction.UP)
+							|| level.getBlockState(p).is(Blocks.BEDROCK)) {
+						continue;   // bedrock underfoot = on top of the nether roof (1.16 stood on it at y 128, 2026-10-27)
+					}
+					airRun = 0;   // this floor is taken; look for the next one below
+					if (!biome.equals(level.getBiome(new BlockPos(x, y + 1, z)).getRegisteredName()) || clearance(level, x, y, z, clear) < clear) {
+						continue;
+					}
+					tried++;
+					double ex = x + 0.5, ey = y + 1.62, ez = z + 0.5;
+					double match = 0, len = 0, longest = -1;
+					float yaw = 0;
+					for (double[] d : dirs) {
+						double t = 1;
+						boolean hit = false;
+						for (; t <= 48; t += 1) {
+							p.set((int) Math.floor(ex + d[0] * t), (int) Math.floor(ey + d[1] * t), (int) Math.floor(ez + d[2] * t));
+							var st = level.getBlockState(p);
+							if (st.isAir() || st.getCollisionShape(level, p).isEmpty()) {
+								continue;
+							}
+							hit = true;
+							if (isCave.computeIfAbsent(st.getBlock(), b -> {
+								String n = st.getBlock().builtInRegistryHolder().getRegisteredName();
+								for (String w : words) {
+									if (n.contains(w)) {
+										return true;
+									}
+								}
+								return false;
+							})) {
+								match += 1;
+							}
+							break;
+						}
+						if (!hit && biome.equals(level.getBiome(p).getRegisteredName())) {
+							match += 0.5;
+						}
+						len += Math.min(t, 48);
+						if (d[1] == 0 && t > longest) {
+							longest = t;
+							yaw = (float) Math.toDegrees(Math.atan2(-d[0], d[2]));
+						}
+					}
+					double score = 100 * match / dirs.size() + len / dirs.size();
+					if (score > best) {
+						best = score;
+						pick = new int[]{x, y, z, Math.round(yaw)};
+					}
+				}
+			}
+		}
+		if (pick != null) {
+			log(String.format(Locale.ROOT, "[panorama] cave: best of %d floor spots at %d %d %d, score %.1f", tried, pick[0], pick[1], pick[2], best));
+		} else {
+			log("[panorama] cave: no floor spot in " + biome + " within " + radius + " blocks");
+		}
+		return pick;
+	}
+
+	/**
+	 * The nearest generated block `id` to (x0, z0) within `radius` columns, nearest column first: {x, y, z} or null.
+	 * Surface spots search each column from its top (leaves count) down to 12 below the ground (a heart sits in a
+	 * trunk); floor spots search the whole height (fossils in the nether).
+	 */
+	private static int[] findNear(ServerLevel level, int x0, int z0, String id, int radius, boolean floor) {
+		java.util.IdentityHashMap<Object, Boolean> isIt = new java.util.IdentityHashMap<>();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int r = 0; r <= radius; r++) {
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					int cx = x0 + dx, cz = z0 + dz;
+					int hi = floor ? minY(level) + level.getLogicalHeight() - 2 : topAt(level, cx, cz);
+					int lo = floor ? minY(level) + 1 : groundAt(level, cx, cz) - 12;
+					for (int y = hi; y >= lo; y--) {
+						p.set(cx, y, cz);
+						var state = level.getBlockState(p);
+						if (state.isAir()) {
+							continue;
+						}
+						if (isIt.computeIfAbsent(state.getBlock(), b -> id.equals(state.getBlock().builtInRegistryHolder().getRegisteredName()))) {
+							return new int[]{cx, y, cz};
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/** How many blocks around (x, z) are free of anything with collision (stems, walls, pillars) from the feet to above the eye, standing at y: -1 when the spot itself is blocked. */
+	private static int clearance(ServerLevel level, int x, int y, int z, int max) {
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int r = 0; r <= max; r++) {
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					for (int dy = 0; dy <= 3; dy++) {
+						p.set(x + dx, y + dy, z + dz);
+						if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty() || !level.getFluidState(p).isEmpty()) {
+							return r - 1;
+						}
+					}
+				}
+			}
+		}
+		return max;
+	}
+
+	/**
+	 * The floor nearest in height to the camera's own floor (a mob stands where the camera can see it). floorAt took
+	 * the first floor from 16 above, a ledge high up the wall: the frozen piglins hung in the air (1.16, 2026-10-27).
+	 */
+	private static int nearestFloor(ServerLevel level, int x, int y0, int z) {
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int k = 0; k <= 2; k++) {
+			for (int y : new int[]{y0 - k, y0 + k}) {
+				p.set(x, y - 1, z);
+				if (!level.getBlockState(p).isFaceSturdy(level, p, net.minecraft.core.Direction.UP)) {
+					continue;
+				}
+				boolean clear = true;
+				for (int h = 0; h < 2 && clear; h++) {
+					p.set(x, y + h, z);
+					clear = level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty();
+				}
+				if (clear) {
+					return y;
+				}
+			}
+		}
+		return Integer.MIN_VALUE;   // no floor at the camera's level there (lava, a drop): that mob is left out
+	}
+
 	private static int floorAt(ServerLevel level, int x, int fromY, int z, int headroom) {
 		int top = Math.min(fromY + 12, minY(level) + level.getLogicalHeight() - 6);
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
@@ -520,7 +1021,7 @@ final class OriginDevPanorama {
 
 	/** Square window: FOV 90 both ways, exactly one cube face. */
 	private static void sizeWindow(Minecraft mc) {
-		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), FACE, FACE);
+		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), WINDOW, WINDOW);
 		mc.resizeDisplay();
 	}
 

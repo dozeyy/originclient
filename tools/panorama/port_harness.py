@@ -49,18 +49,18 @@ if ge_1216:
 		});""", """		Screenshot.grab(new File(dir), name, mc.getMainRenderTarget(), 1, c -> {
 		});""")
 if ge_12110:
-    rep("""		mc.getWindow().setWindowed(FACE, FACE);
-		mc.resizeDisplay();""", """		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), FACE, FACE);
+    rep("""		mc.getWindow().setWindowed(WINDOW, WINDOW);
+		mc.resizeDisplay();""", """		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), WINDOW, WINDOW);
 		mc.resizeDisplay();""")
 if era == "26.1":
-    rep("""		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), FACE, FACE);
-		mc.resizeDisplay();""", """		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), FACE, FACE);
+    rep("""		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), WINDOW, WINDOW);
+		mc.resizeDisplay();""", """		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), WINDOW, WINDOW);
 		mc.resizeGui();""")
 if era in ("26.2", "26.3"):
     # 26.2+: screens live on mc.gui, the HUD hides through Hud.toggle, the main target is on the GameRenderer.
-    rep("""		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), FACE, FACE);
-		mc.resizeDisplay();""", ("""		org.lwjgl.sdl.SDLVideo.SDL_SetWindowSize(mc.getWindow().handle(), FACE, FACE);
-		mc.framebufferSizeChanged();""" if era == "26.3" else """		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), FACE, FACE);
+    rep("""		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), WINDOW, WINDOW);
+		mc.resizeDisplay();""", ("""		org.lwjgl.sdl.SDLVideo.SDL_SetWindowSize(mc.getWindow().handle(), WINDOW, WINDOW);
+		mc.framebufferSizeChanged();""" if era == "26.3" else """		org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().handle(), WINDOW, WINDOW);
 		mc.framebufferSizeChanged();"""))
     rep("""		mc.options.hideGui = true;""", """		if (!mc.gui.hud.isHidden()) {
 			mc.gui.hud.toggle();
