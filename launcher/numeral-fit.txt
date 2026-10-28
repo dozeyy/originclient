@@ -1,0 +1,3 @@
+960x600: window=960x600 band=48..486 (middle 267) ink x=167.8 y=171 w=624.4 h=192 (middle x 480 y 267) airAbove=123 airBelow=123 inkShareOfWidth=0.650
+1180x740: window=1180x740 band=48..618 (middle 333) ink x=205 y=214.6 w=770.1 h=236.8 (middle x 590 y 333) airAbove=166.6 airBelow=166.6 inkShareOfWidth=0.653
+1920x1080: window=1920x1080 band=48..958 (middle 503) ink x=398.1 y=330.2 w=1123.9 h=345.6 (middle x 960 y 503) airAbove=282.2 airBelow=282.2 inkShareOfWidth=0.585

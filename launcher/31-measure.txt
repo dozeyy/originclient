@@ -1,0 +1,5 @@
+ok   31 (two short names): widest row 360 px of 400, box 32 px tall, text bottom gutter 32 px
+ok   31b (long names, 3 more): widest row 360 px of 400, box 32 px tall, text bottom gutter 32 px
+ok   one long name: widest row 338 px of 400, box 32 px tall, text bottom gutter 32 px
+ok   two long names: widest row 360 px of 400, box 32 px tall, text bottom gutter 32 px
+ok   wide capitals: widest row 376 px of 400, box 32 px tall, text bottom gutter 32 px

@@ -1,0 +1,284 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-8.7-bin.zip
+............10%.............20%.............30%.............40%............50%.............60%.............70%.............80%.............90%............100%
+
+Welcome to Gradle 8.7!
+
+Here are the highlights of this release:
+ - Compiling and testing with Java 22
+ - Cacheable Groovy script compilation
+ - New methods in lazy collection properties
+
+For more details see https://docs.gradle.org/8.7/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Essential Loom: 1.3.12
+:patching forge
+:patched forge in 13.85 s
+:patching jars
+:patched jars in 20.57 s
+:access transforming minecraft
+:access transformed minecraft in 14.67 s
+Could not find Forge run template with name 'client'
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :processResources
+> Task :classes
+> Task :generateDLIConfig
+> Task :generateLog4jConfig
+> Task :generateRemapClasspath
+> Task :configureLaunch
+> Task :downloadAssets
+> Task :extractNatives
+> Task :configureClientLaunch
+
+> Task :runClient
+[01:50:45] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[01:50:45] [main/INFO] (LaunchWrapper) Using primary tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[01:50:45] [main/INFO] (LaunchWrapper) Loading tweak class name org.spongepowered.asm.launch.MixinTweaker
+[01:50:45] [main/INFO] (mixin) SpongePowered MIXIN Subsystem Version=0.7.11 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/org.spongepowered/mixin/0.7.11-SNAPSHOT/7a670207bdb97db418118ad1e9bb42424ff3776d/mixin-0.7.11-SNAPSHOT.jar Service=LaunchWrapper Env=CLIENT
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLTweaker
+[01:50:46] [main/INFO] (FML) Forge Mod Loader version 11.15.1.2318 for Minecraft 1.8.9 loading
+[01:50:46] [main/INFO] (FML) Java is OpenJDK 64-Bit Server VM, version 1.8.0_504, running on Linux:amd64:6.17.0-1022-azure, installed at /usr/lib/jvm/temurin-8-jdk-amd64/jre
+[01:50:46] [main/INFO] (FML) Managed to load a deobfuscated Minecraft name- we are in a deobfuscated environment. Skipping runtime deobfuscation
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class org.spongepowered.asm.launch.MixinTweaker
+[01:50:46] [main/INFO] (mixin) Compatibility level set to JAVA_8
+[01:50:46] [main/INFO] (mixin) Initialised Mixin FML Remapper Adapter with net.minecraftforge.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper@7fb4f2a9
+[01:50:46] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[01:50:46] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[01:50:46] [main/INFO] (LaunchWrapper) Loading tweak class name org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[01:50:46] [main/ERROR] (FML) The binary patch set is missing. Either you are in a development environment, or things are not going to work!
+[01:50:46] [main/ERROR] (FML) FML appears to be missing any signature data. This is not a good thing
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[01:50:46] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[01:50:47] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.TerminalTweaker
+[01:50:47] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.TerminalTweaker
+[01:50:47] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[01:50:47] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[01:50:47] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[01:50:47] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[01:50:47] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[01:50:47] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[01:50:47] [main/INFO] (LaunchWrapper) Launching wrapped minecraft {net.minecraft.client.main.Main}
+[01:50:49] [main/INFO] (STDOUT) [net.minecraft.client.main.Main:main:57]: Completely ignored arguments: [originclient.hud.mixins.json, originclient.social.mixins.json, originclient.menus.mixins.json, , --mixin, originclient.server.mixins.json, originclient.core.mixins.json, ]
+[01:50:49] [main/INFO] (Minecraft) Setting user: Player752
+[01:50:51] [main/INFO] (Minecraft) LWJGL Version: 2.9.4
+[01:50:53] [main/INFO] (FML) Could not load splash.properties, will create a default one
+[01:50:53] [main/INFO] (STDOUT) [net.minecraftforge.fml.client.SplashProgress:start:246]: ---- Minecraft Crash Report ----
+// Hi. I'm Minecraft, and I'm a crashaholic.
+
+Time: 10/19/26 1:50 AM
+Description: Loading screen debug info
+
+This is just a prompt for computer specs to be printed. THIS IS NOT A ERROR
+
+
+A detailed walkthrough of the error, its code path and all known details is as follows:
+---------------------------------------------------------------------------------------
+
+-- System Details --
+Details:
+	Minecraft Version: 1.8.9
+	Operating System: Linux (amd64) version 6.17.0-1022-azure
+	Java Version: 1.8.0_504, Temurin
+	Java VM Version: OpenJDK 64-Bit Server VM (mixed mode), Temurin
+	Memory: 149082392 bytes (142 MB) / 646971392 bytes (617 MB) up to 3726639104 bytes (3554 MB)
+	JVM Flags: 0 total; 
+	IntCache: cache: 0, tcache: 0, allocated: 0, tallocated: 0
+	FML: 
+	Loaded coremods (and transformers): 
+	GL info: ' Vendor: 'Mesa' Version: '4.6 (Compatibility Profile) Mesa 25.2.8-0ubuntu0.24.04.4' Renderer: 'llvmpipe (LLVM 20.1.2, 256 bits)'
+[01:50:53] [main/INFO] (FML) MinecraftForge v11.15.1.2318 Initialized
+[01:50:53] [main/INFO] (FML) Replaced 229 ore recipies
+[01:50:54] [main/INFO] (FML) Found 0 mods from the command line. Injecting into mod discoverer
+[01:50:54] [main/INFO] (FML) Searching /home/runner/work/originclient/originclient/src/mods/versions/1.8.9/run/mods for mods
+[01:50:55] [main/INFO] (FML) Forge Mod Loader has identified 4 mods to load
+[01:50:55] [main/INFO] (FML) Attempting connection with missing mods [mcp, FML, Forge, originclient] at CLIENT
+[01:50:55] [main/INFO] (FML) Attempting connection with missing mods [mcp, FML, Forge, originclient] at SERVER
+[01:50:56] [main/INFO] (Minecraft) Reloading ResourceManager: Default, FMLFileResourcePack:Forge Mod Loader, FMLFileResourcePack:Minecraft Forge, FMLFileResourcePack:Origin Client
+[01:50:56] [main/INFO] (FML) Processing ObjectHolder annotations
+[01:50:56] [main/INFO] (FML) Found 384 ObjectHolder annotations
+[01:50:56] [main/INFO] (FML) Identifying ItemStackHolder annotations
+[01:50:56] [main/INFO] (FML) Found 0 ItemStackHolder annotations
+[01:50:56] [main/INFO] (FML) Configured a dormant chunk cache size of 0
+[01:50:56] [Forge Version Check/INFO] (ForgeVersionCheck) [Forge] Starting version check at http://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json
+[01:50:56] [main/INFO] (FML) Applying holder lookups
+[01:50:56] [main/INFO] (FML) Holder lookups applied
+[01:50:56] [main/INFO] (FML) Injecting itemstacks
+[01:50:56] [main/INFO] (FML) Itemstack injection complete
+[01:50:56] [main/INFO] (STDOUT) [tv.twitch.StandardCoreAPI:<init>:16]: If on Windows, make sure to provide all of the necessary dll's as specified in the twitchsdk README. Also, make sure to set the PATH environment variable to point to the directory containing the dll's.
+[01:50:56] [main/ERROR] (Minecraft) Couldn't initialize twitch stream
+[01:50:56] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[01:50:56] [Thread-5/INFO] (Minecraft) Initializing LWJGL OpenAL
+[01:50:56] [Thread-5/INFO] (Minecraft) (The LWJGL binding of OpenAL.  For more information, see http://www.lwjgl.org)
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+[01:50:56] [Thread-5/ERROR] (Minecraft) Error in class 'LibraryLWJGLOpenAL'
+[01:50:56] [Thread-5/ERROR] (Minecraft) Unable to initialize OpenAL.  Probable cause: OpenAL not supported.
+[01:50:56] [Thread-5/WARN] (Minecraft) ERROR MESSAGE:
+[01:50:56] [Thread-5/INFO] (Minecraft) Could not locate OpenAL library.
+[01:50:56] [Thread-5/WARN] (Minecraft) STACK TRACE:
+[01:50:56] [Thread-5/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:156)
+[01:50:56] [Thread-5/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:102)
+[01:50:56] [Thread-5/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:206)
+[01:50:56] [Thread-5/INFO] (Minecraft) paulscode.sound.libraries.LibraryLWJGLOpenAL.init(LibraryLWJGLOpenAL.java:164)
+[01:50:56] [Thread-5/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandNewLibrary(SoundSystem.java:1576)
+[01:50:56] [Thread-5/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandQueue(SoundSystem.java:2572)
+[01:50:56] [Thread-5/INFO] (Minecraft) paulscode.sound.CommandThread.run(CommandThread.java:121)
+[01:50:57] [Sound Library Loader/WARN] (Minecraft) ERROR MESSAGE:
+[01:50:57] [Sound Library Loader/INFO] (Minecraft) Could not locate OpenAL library.
+[01:50:57] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[01:50:57] [Thread-7/INFO] (Minecraft) Switching to No Sound
+[01:50:57] [Thread-7/INFO] (Minecraft) (Silent Mode)
+[01:50:57] [Sound Library Loader/INFO] (Minecraft) Sound engine started
+[01:50:59] [main/INFO] (FML) Max texture size: 16384
+[01:50:59] [main/INFO] (Minecraft) Created: 16x16 textures-atlas
+[01:51:00] [main/INFO] (originclient) Origin Client initializing
+[01:51:00] [main/INFO] (originclient) Origin hooks registered: MenuHooks
+[01:51:00] [main/INFO] (originclient) Origin hooks registered: ModMenuHooks
+[01:51:00] [main/INFO] (originclient) Origin hooks registered: HudHooks
+[01:51:00] [main/INFO] (originclient) Origin hooks registered: WorldHooks
+[01:51:00] [main/INFO] (originclient) Origin hooks registered: SocialHooks
+[01:51:00] [main/INFO] (originclient) Origin hooks registered: ServerHooks
+[01:51:00] [main/INFO] (FML) Injecting itemstacks
+[01:51:00] [main/INFO] (FML) Itemstack injection complete
+[01:51:00] [main/INFO] (FML) Forge Mod Loader has successfully loaded 4 mods
+[01:51:00] [main/INFO] (Minecraft) Reloading ResourceManager: Default, FMLFileResourcePack:Forge Mod Loader, FMLFileResourcePack:Minecraft Forge, FMLFileResourcePack:Origin Client
+[01:51:00] [main/INFO] (Minecraft) SoundSystem shutting down...
+[01:51:01] [main/WARN] (Minecraft) Author: Paul Lamb, www.paulscode.com
+[01:51:01] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[01:51:01] [Thread-9/INFO] (Minecraft) Initializing LWJGL OpenAL
+[01:51:01] [Thread-9/INFO] (Minecraft) (The LWJGL binding of OpenAL.  For more information, see http://www.lwjgl.org)
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+[01:51:01] [Thread-9/ERROR] (Minecraft) Error in class 'LibraryLWJGLOpenAL'
+[01:51:01] [Thread-9/ERROR] (Minecraft) Unable to initialize OpenAL.  Probable cause: OpenAL not supported.
+[01:51:01] [Thread-9/WARN] (Minecraft) ERROR MESSAGE:
+[01:51:01] [Thread-9/INFO] (Minecraft) Could not locate OpenAL library.
+[01:51:01] [Thread-9/WARN] (Minecraft) STACK TRACE:
+[01:51:01] [Thread-9/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:156)
+[01:51:01] [Thread-9/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:102)
+[01:51:01] [Thread-9/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:206)
+[01:51:01] [Thread-9/INFO] (Minecraft) paulscode.sound.libraries.LibraryLWJGLOpenAL.init(LibraryLWJGLOpenAL.java:164)
+[01:51:01] [Thread-9/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandNewLibrary(SoundSystem.java:1576)
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+[01:51:01] [Thread-9/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandQueue(SoundSystem.java:2572)
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+[01:51:01] [Thread-9/INFO] (Minecraft) paulscode.sound.CommandThread.run(CommandThread.java:121)
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+[01:51:01] [Sound Library Loader/WARN] (Minecraft) ERROR MESSAGE:
+[01:51:01] [Sound Library Loader/INFO] (Minecraft) Could not locate OpenAL library.
+[01:51:01] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[01:51:01] [Thread-11/INFO] (Minecraft) Switching to No Sound
+[01:51:01] [Thread-11/INFO] (Minecraft) (Silent Mode)
+[01:51:02] [Sound Library Loader/INFO] (Minecraft) Sound engine started
+[01:51:03] [main/INFO] (FML) Max texture size: 16384
+[01:51:03] [main/INFO] (Minecraft) Created: 512x512 textures-atlas
+[01:51:04] [main/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
+[01:51:06] [main/INFO] (originclient) [dev-shots] creating world OriginDevWorld-1792374666260
+[01:51:06] [Server thread/INFO] (Minecraft) Starting integrated minecraft server version 1.8.9
+[01:51:06] [Server thread/INFO] (Minecraft) Generating keypair
+[01:51:06] [Server thread/INFO] (Minecraft) Converting map!
+[01:51:06] [Server thread/INFO] (Minecraft) Scanning folders...
+[01:51:06] [Server thread/INFO] (Minecraft) Total conversion count is 0
+[01:51:06] [Server thread/INFO] (FML) Injecting existing block and item data into this server instance
+[01:51:07] [Server thread/INFO] (FML) Applying holder lookups
+[01:51:07] [Server thread/INFO] (FML) Holder lookups applied
+[01:51:07] [Server thread/INFO] (FML) Loading dimension 0 (Origin Dev World) (net.minecraft.server.integrated.IntegratedServer@666f05fe)
+[01:51:07] [Server thread/INFO] (FML) Loading dimension 1 (Origin Dev World) (net.minecraft.server.integrated.IntegratedServer@666f05fe)
+[01:51:07] [Server thread/INFO] (FML) Loading dimension -1 (Origin Dev World) (net.minecraft.server.integrated.IntegratedServer@666f05fe)
+[01:51:07] [Server thread/INFO] (Minecraft) Preparing start region for level 0
+[01:51:08] [Server thread/INFO] (Minecraft) Preparing spawn area: 7%
+[01:51:09] [Server thread/INFO] (Minecraft) Preparing spawn area: 20%
+[01:51:10] [Server thread/INFO] (Minecraft) Preparing spawn area: 35%
+[01:51:11] [Server thread/INFO] (Minecraft) Preparing spawn area: 52%
+[01:51:12] [Server thread/INFO] (Minecraft) Preparing spawn area: 74%
+[01:51:13] [Server thread/INFO] (Minecraft) Preparing spawn area: 90%
+[01:51:13] [Server thread/INFO] (Minecraft) Changing view distance to 12, from 10
+[01:51:16] [Netty Local Client IO #0/INFO] (FML) Server protocol version 2
+[01:51:16] [Netty Server IO #1/INFO] (FML) Client protocol version 2
+[01:51:16] [Netty Server IO #1/INFO] (FML) Client attempting to join with 4 mods : originclient@1.8.9,FML@8.0.99.99,Forge@11.15.1.2318,mcp@9.19
+[01:51:16] [Netty Local Client IO #0/INFO] (FML) [Netty Local Client IO #0] Client side modded connection established
+[01:51:16] [Server thread/INFO] (FML) [Server thread] Server side modded connection established
+[01:51:16] [Server thread/INFO] (Minecraft) Player752[local:E:bbe97046] logged in with entity id 726 at (-171.5, 64.0, 206.5)
+[01:51:16] [Server thread/INFO] (Minecraft) Player752 joined the game
+[01:51:19] [Server thread/WARN] (Minecraft) Can't keep up! Did the system time change, or is the server overloaded? Running 2871ms behind, skipping 57 tick(s)
+[01:51:39] [main/INFO] (originclient) [dev-shots] captured world_off_1920x1080.png
+[01:51:42] [main/INFO] (originclient) [dev-shots] captured world_sat_1920x1080.png
+[01:51:44] [main/INFO] (originclient) [dev-shots] captured world_bright_1920x1080.png
+[01:51:47] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_back_1920x1080.png
+[01:51:49] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_side90_1920x1080.png
+[01:51:50] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_side270_1920x1080.png
+[01:51:52] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_front_1920x1080.png
+[01:51:54] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_back35_1920x1080.png
+[01:51:55] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_back_1920x1080.png
+[01:51:57] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_side90_1920x1080.png
+[01:51:59] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_side270_1920x1080.png
+[01:52:00] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_front_1920x1080.png
+[01:52:02] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_back35_1920x1080.png
+[01:52:05] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_side90-nolayer_1920x1080.png
+[01:52:05] [main/INFO] (originclient) [dev-shots] fit shots done
+[01:52:06] [Server thread/INFO] (Minecraft) Saving and pausing game...
+[01:52:06] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Overworld
+[01:52:06] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Nether
+[01:52:06] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/The End
+[01:52:07] [main/INFO] (originclient) [dev-shots] captured pause_1920x1080.png
+[01:52:10] [main/INFO] (originclient) [dev-shots] captured cosmetics_world_1920x1080.png
+[01:52:12] [main/INFO] (originclient) [dev-shots] captured party_world_1920x1080.png
+[01:52:12] [main/INFO] (originclient) [dev-shots] done — world set in /home/runner/work/_temp/shots
+[01:52:12] [main/INFO] (Minecraft) Stopping!
+[01:52:12] [Server thread/INFO] (Minecraft) Stopping server
+[01:52:12] [Server thread/INFO] (Minecraft) Saving players
+[01:52:12] [Server thread/INFO] (Minecraft) Saving worlds
+[01:52:12] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Overworld
+[01:52:12] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Nether
+[01:52:12] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/The End
+[01:52:13] [Server thread/INFO] (FML) Unloading dimension 0
+[01:52:13] [Server thread/INFO] (FML) Unloading dimension -1
+[01:52:13] [Server thread/INFO] (FML) Unloading dimension 1
+[01:52:13] [Server thread/INFO] (FML) Applying holder lookups
+[01:52:13] [Server thread/INFO] (FML) Holder lookups applied
+[01:52:14] [main/INFO] (Minecraft) SoundSystem shutting down...
+[01:52:14] [main/WARN] (Minecraft) Author: Paul Lamb, www.paulscode.com
+
+BUILD SUCCESSFUL in 4m 25s
+8 actionable tasks: 8 executed

@@ -1,0 +1,2 @@
+[1.20.1]
+  Modrinth: Settings=on  Mods=on  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Modrinth App)  Worlds=on  Servers=on  

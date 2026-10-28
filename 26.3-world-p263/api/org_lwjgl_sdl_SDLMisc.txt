@@ -1,0 +1,13 @@
+Compiled from "SDLMisc.java"
+public class org.lwjgl.sdl.SDLMisc {
+  protected org.lwjgl.sdl.SDLMisc();
+  public static boolean nSDL_OpenURL(long);
+  public static boolean SDL_OpenURL(java.nio.ByteBuffer);
+  public static boolean SDL_OpenURL(java.lang.CharSequence);
+}
+Compiled from "SDLMisc.java"
+public final class org.lwjgl.sdl.SDLMisc$Functions {
+  public static final long OpenURL;
+  private org.lwjgl.sdl.SDLMisc$Functions();
+  static {};
+}

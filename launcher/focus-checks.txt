@@ -1,0 +1,10 @@
+tick: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+footer primary: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+mods: Open folder: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+mods: first row's button: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+profiles: a card's Use button: target not found (focused: ContentControl)
+profiles: New profile card: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+mods: Open folder: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+mods: first row's button: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+profiles: a card's Use button: target not found (focused: ContentControl)
+profiles: New profile card: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
