@@ -62,8 +62,7 @@ def dh_toml(far):
 \t[client.advanced.graphics.quality]
 \t\tlodChunkRenderDistanceRadius = {far}
 \t[client.advanced.graphics.fog]
-\t\tenableDhFog = false
-[common]
+\t\tenableDhFog = false[common]
 \t[common.multiThreading]
 \t\tnumberOfThreads = 14
 \t\tthreadRunTimeRatio = "1.0"

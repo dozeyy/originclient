@@ -54,7 +54,7 @@ def main():
         inner = float(np.abs(x[sky, -2] - x[sky, -1]).mean())
         edge = (lum(x[sky, -3:]) + lum(y[sky, :3])) / 2
         mid = (lum(x[sky, -27:-24]) + lum(y[sky, 24:27])) / 2
-        dark = edge / mid if mid > 1 else 1.0
+        dark = edge / mid if mid > 25 else 1.0   # night and cave skies: too dim for a ratio to mean anything
         # Busy skies (clouds, stars) differ column to column anyway: judge the edge against that noise floor.
         limit = max(a.max, 1.5 * inner)
         worst = max(worst, seam_sky / limit * a.max)
