@@ -9,6 +9,7 @@
 	},
 	"client": [
 		"GuiNewChatMixin",
+		"IntegratedServerShutdownMixin",
 		"KeyBindingMixin"
 	]
 }

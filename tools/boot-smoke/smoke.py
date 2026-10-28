@@ -204,6 +204,7 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
 
     def _expire():
         timed_out.set()
+        _thread_dump(proc, f"boot-smoke deadline ({timeout}s / in-world budget)")
         _kill_tree(proc)
     timer = threading.Timer(timeout, _expire)
     timer.start()
@@ -453,6 +454,20 @@ def _check_game_jvm(expected, verdict):
         return (False, f"game JVM is Java {major}, expected {expected} ({exe})")
     ok, reason = verdict
     return (ok, f"{reason} [game JVM = Java {major}: {exe}]")
+
+
+def _thread_dump(proc, label):
+    """A wedged game prints nothing: dump its JVM threads before the deadline kill, so the log says which
+    thread waits on what (tools/ci/thread_dump.sh; CI/POSIX only, never fails the run)."""
+    if os.name == "nt" or proc.poll() is not None:
+        return
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ci", "thread_dump.sh")
+    try:
+        sys.stdout.flush()
+        subprocess.run(["bash", script, str(os.getpgid(proc.pid)), label], timeout=90)
+        sys.stdout.flush()
+    except Exception as e:
+        print(f"boot-smoke: thread dump failed: {e}", flush=True)
 
 
 def _kill_tree(proc):

@@ -236,6 +236,19 @@ final class OriginDevWorld {
 	private static Boolean iwPauseOnLostFocus;
 	private static net.minecraft.world.EnumDifficulty iwDifficulty;
 	private static boolean iwDone;
+	// Dev tool: env ORIGIN_INWORLD_LOOPS=N (dev-shots input inworld_loops) repeats enter -> shoot -> Save and
+	// Quit N times in one run, so an intermittent quit/load wedge shows up in one CI run, not one in ten.
+	private static final int IW_LOOPS = loops();
+	private static int iwLoop = 1;
+
+	private static int loops() {
+		try {
+			String v = System.getenv("ORIGIN_INWORLD_LOOPS");
+			return v == null || v.trim().isEmpty() ? 1 : Math.max(1, Integer.parseInt(v.trim()));
+		} catch (NumberFormatException e) {
+			return 1;
+		}
+	}
 
 	static void inWorldTick(Minecraft mc, String dir, Runnable onEnd) {
 		if (iwDone) {
@@ -255,11 +268,11 @@ final class OriginDevWorld {
 					// Origin's HUD skips itself (FrameWatch.idle), and 1.8.9 re-opens the pause menu every tick
 					// the window lacks focus. Both off for the step, restored at the end. Peaceful: a flat world's
 					// slime chunks would otherwise spawn slimes onto the player (y 4 is under slime height).
-					iwLimitUnfocused = Mods.bool(Mods.PERFORMANCE_ID, "limitUnfocusedFps");
+					if (iwLimitUnfocused == null) iwLimitUnfocused = Mods.bool(Mods.PERFORMANCE_ID, "limitUnfocusedFps");
 					Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", false);
-					iwPauseOnLostFocus = mc.gameSettings.pauseOnLostFocus;
+					if (iwPauseOnLostFocus == null) iwPauseOnLostFocus = mc.gameSettings.pauseOnLostFocus;
 					mc.gameSettings.pauseOnLostFocus = false;
-					iwDifficulty = mc.gameSettings.difficulty;
+					if (iwDifficulty == null) iwDifficulty = mc.gameSettings.difficulty;   // first loop's value
 					mc.gameSettings.difficulty = net.minecraft.world.EnumDifficulty.PEACEFUL;
 					if (mc.displayWidth < 1280) {
 						OriginDevShots.resizeWindow(mc, 1280, 720);   // boot-smoke's 854x480 default is too small to read
@@ -272,6 +285,12 @@ final class OriginDevWorld {
 						WorldSettings settings = new WorldSettings(20261027L, WorldSettings.GameType.SURVIVAL,
 								false, false, WorldType.FLAT);
 						mc.launchIntegratedServer(SMOKE_WORLD, "Origin Smoke", settings);
+					}
+					// A reopened world keeps the difficulty saved in its level.dat, not gameSettings' (a reopen in
+					// the ORIGIN_INWORLD_LOOPS stress run was slain by slimes on loop 3): peaceful on the server too.
+					final net.minecraft.server.integrated.IntegratedServer server = mc.getIntegratedServer();
+					if (server != null) {
+						server.addScheduledTask(() -> server.setDifficultyForAllWorlds(net.minecraft.world.EnumDifficulty.PEACEFUL));
 					}
 					break;
 				}
@@ -337,7 +356,15 @@ final class OriginDevWorld {
 				}
 				case 5: {
 					if (mc.theWorld == null && mc.getIntegratedServer() == null && OriginDevShots.isTitle(mc.currentScreen)) {
-						log("[origin-smoke] in-world: quit clean (saved, back on the title)");
+						log("[origin-smoke] in-world: quit clean (saved, back on the title)"
+								+ (IW_LOOPS > 1 ? " [loop " + iwLoop + "/" + IW_LOOPS + "]" : ""));
+						if (iwLoop < IW_LOOPS) {
+							iwLoop++;
+							iw = 0;
+							iwHudFrom = -1;
+							iwAt = now + 500;
+							return;
+						}
 						inWorldEnd(mc, true, "", onEnd);
 						return;
 					}
