@@ -55,6 +55,12 @@ class FilterRules(unittest.TestCase):
                   "1.19.2: settle hold + OriginAssets; reload apply steps no longer run inline inside the buffer swap"):
             self.assertNotEqual(notes.classify(t)[0], "skip", t)
 
+    def test_ci_tags_never_reach_players(self):
+        self.assertEqual(notes.tidy("Save and Quit can no longer freeze [shots:1.8.9]"), "Save and Quit can no longer freeze")
+        self.assertEqual(notes.tidy("Older loading bar starts empty [shots:all]"), "Older loading bar starts empty")
+        self.assertEqual(notes.tidy("Sharper title (1.17.1, 1.16.5) [shots:1.18.2,1.17.1]"), "Sharper title")
+        self.assertEqual(notes.classify("CI: thread dump on a wedge (dev tool) [shots:1.8.9]")[0], "skip")
+
     def test_noise_only_diff_is_dropped_even_with_a_nice_title(self):
         got = lines(("Make the thing faster", ["tools/x.py", "docs/a.md", ".github/workflows/a.yml"]),
                     ("Nicer Play button", ["src/OriginLauncher.App/Play.xaml.cs"]))

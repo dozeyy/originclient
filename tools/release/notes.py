@@ -82,6 +82,8 @@ NOISE_PATH = re.compile(
 VERSION_LABEL = re.compile(r"^(?:\d+(?:\.\d+)+(?:\s*[-,]\s*|\s+and\s+)?)+:\s+")
 # Trailing "(1.17.1, 1.16.5)", "(8f5c7ff3 port)", "(WIP pending review)".
 TRAIL_PAREN = re.compile(r"\s*\((?:[\d.,\s/-]+|[0-9a-f]{7,8}\b[^)]*|WIP\b[^)]*)\)\s*$")
+# Trailing CI tags on a title: "[shots:1.8.9]", "[shots:all]", "[video]", "[bench-189]".
+CI_TAG = re.compile(r"\s*\[(?:shots|video|bench-189)\b[^\]]*\]\s*$")
 SCOPE_LABELS = {"launcher", "setup", "installer"}
 
 
@@ -96,10 +98,10 @@ def touches_only_noise(files: list[str]) -> bool:
 
 
 def tidy(text: str) -> str:
-    """One commit title -> a plain sentence: no WIP/hash/version tails, capitalised."""
+    """One commit title -> a plain sentence: no WIP/hash/version/CI-tag tails, capitalised."""
     prev = None
     while prev != text:
-        prev, text = text, TRAIL_PAREN.sub("", text).strip()
+        prev, text = text, TRAIL_PAREN.sub("", CI_TAG.sub("", text)).strip()
     text = text.rstrip(".").strip()
     return text[:1].upper() + text[1:]
 

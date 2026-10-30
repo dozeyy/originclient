@@ -349,11 +349,15 @@ jobs:
           # tell a deadlock from a slow step) and the tree is killed; a dump at the 15-minute
           # deadline too. No step of any module is silent that long (shots, in-world and FML/Fabric
           # boot all log every few seconds). Dumps print here and land beside the shots as .txt.
-          quiet=0; size=-1; dumped=0
+          # The silence clock starts when the game's window opens (same per-era line as the film
+          # step above): Gradle's own quiet work (cold Loom cache, MC remap) is not a wedge, and
+          # a game that never starts still ends at the 15-minute deadline.
+          quiet=0; size=-1; dumped=0; started=0
           for i in $(seq 1 900); do
             kill -0 $pid 2>/dev/null || break
+            if [ $started -eq 0 ] && grep -qE "Backend library|LWJGL Version:" run.log 2>/dev/null; then started=1; fi
             now=$(stat -c %s run.log 2>/dev/null || echo 0)
-            if [ "$now" = "$size" ]; then quiet=$((quiet + 1)); else quiet=0; size=$now; fi
+            if [ "$now" = "$size" ] && [ $started -eq 1 ]; then quiet=$((quiet + 1)); else quiet=0; size=$now; fi
             if [ $quiet -eq 180 ] && [ $dumped -eq 0 ]; then
               echo "::warning title=game silent 180 s::run.log stopped growing; thread dump follows"
               bash "$GITHUB_WORKSPACE/tools/ci/thread_dump.sh" $pid "stalled 180s"; dumped=1
