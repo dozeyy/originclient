@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 // THE ONE SWITCH: flip `live` to true on release day.
 const DOWNLOAD = {
-  live: false,
+  live: true,
   url: 'https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-Setup.exe',
 };
 

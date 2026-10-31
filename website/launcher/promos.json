@@ -13,7 +13,7 @@
     },
     { "id": "tips", "kind": "tips", "label": "TIP" }
   ],
-  "discord": { "inviteCode": "REPLACE_ME", "refreshSeconds": 300 },
+  "discord": { "inviteCode": "z3SbasGCKR", "refreshSeconds": 300 },
   "network": {
     "enabled": false,
     "url": "https://originclient.org/ad/banner.html",
