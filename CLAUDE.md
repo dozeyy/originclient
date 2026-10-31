@@ -212,7 +212,7 @@ floating corner controls. In-game menus match this exactly.
 - On main since v1.0.65: imported mods can't stop the game starting, launcher self-updates refuse a
   missing or wrong SHA-256, the website's AI helper is removed (GitHub card back, phone nav fixed), and the
   overhaul docs.
-- Auth: Minecraft `login_with_xbox` 403 (app approval pending); `OfflineTestMode` is the test path.
+- Auth: real Microsoft sign-in works on v1.0.75 (Will, 2026-10-31); `OfflineTestMode` is dev builds only.
 - History: `MEMORY.md` (short, indexed) and `docs/memory-archive/` (grep it; never read it whole).
 
 ## Roadmap (open items)

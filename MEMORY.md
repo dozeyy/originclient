@@ -249,3 +249,9 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - 1.8.9 Origin screens read input only in runTick (20 Hz): drags updated on 37% of frames. Now handleInput() runs at RenderTickEvent START (after runTick, before render; javap), mid-frame-unsafe actions deferred to ClientTick START; editor draws 260 -> 39 per frame.
 - Open: 1.8.9 sometimes wedges after Save and Quit right after "Holder lookups applied" (seen twice in CI, also on main-based code); being root-caused on claude/fix-189-quit-freeze.
 - 2026-10-28 1.8.9 Save and Quit freeze = vanilla race: the server stops on the closed connection before running the log-out task IntegratedServer.initiateShutdown waits on with no timeout (dump: client parked in initiateShutdown -> Futures.getUnchecked, no server thread). Fixed by IntegratedServerShutdownMixin (stop waiting once the server has stopped). Stress it with dev-shots input inworld_loops=12; wedges get thread dumps from tools/ci/thread_dump.sh. Shipped in v1.0.75.
+
+## 2026-10-31 - Pre-publish check on v1.0.75
+- Tests pass locally (launcher 2514, installer 63). Will confirms real Microsoft sign-in works on v1.0.75; the 403 note in CLAUDE.md was stale and is corrected.
+- Left before going public: website `DOWNLOAD.live` is false; Discord `inviteCode` is still REPLACE_ME; the v1.0.75 installer has 0 GitHub downloads; real-PC checks (FINAL-REPORT "Not verified") not done.
+- Mods vs Modrinth on 26.3, 1.21.11, 1.21.1: only 26.3 Lithium is behind (0.26.2, newest 0.26.3). 26.3 ships Sodium 0.9.3-beta.1 while stable 0.9.2 exists; its catalog comment still describes 0.9.2.
+- `sync.py --check` fails on Will's PC for local reasons only: the untracked `staged/26.2` leftover (141 files), and 3 OriginForeignWidgets copies differ in the 26.x modules, likely CRLF working copies (one confirmed w/crlf, comparison not finished); CI's drift gate is green on the release commit.
