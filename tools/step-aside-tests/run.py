@@ -32,7 +32,15 @@ def main():
     r = subprocess.run(["javac", "-d", out, SHARED, os.path.join(HERE, "StepAsideTests.java")])
     if r.returncode:
         sys.exit("compile failed")
-    sys.exit(subprocess.run(["java", "-cp", out, "StepAsideTests"]).returncode)
+    if subprocess.run(["java", "-cp", out, "StepAsideTests"]).returncode:
+        sys.exit(1)
+    # 1.8.9 is .no-shared-sync: its hand copy (Forge mod ids) is tested on its own.
+    out189 = tempfile.mkdtemp(prefix="stepaside189-")
+    r = subprocess.run(["javac", "-d", out189, os.path.join(ROOT, "src/mods/versions/1.8.9/src/main/java", REL),
+                        os.path.join(HERE, "StepAside189Tests.java")])
+    if r.returncode:
+        sys.exit("1.8.9 compile failed")
+    sys.exit(subprocess.run(["java", "-cp", out189, "StepAside189Tests"]).returncode)
 
 
 if __name__ == "__main__":

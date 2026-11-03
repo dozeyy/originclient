@@ -85,14 +85,35 @@ public final class StepAside {
 	 *    mod_id), sk1er_old_animations (Sk1er Old Animations, mcmod.info modid): both bring
 	 *    back 1.7 held-item, block-hit and armor-flash looks on 1.8.9 Forge, the same job.
 	 *    Older Animations (Modrinth older-animations) left out: its Forge modid was not checked.
+	 * Added 2026-11-03, each id read from the mod's own 1.8.9 Forge source on GitHub:
+	 *  - freelook also <- djperspectivemod ("Perspective Mod v4", DJtheRedstoner, mcmod.info):
+	 *    orbits the camera on a held key, the same camera job as Origin's Freelook.
+	 *  - togglesprint <- bettersprinting ("Better Sprinting", chylex, 1.8.9 branch mcmod.info
+	 *    + @Mod modId): its own toggle sprint/sneak on the sprint and sneak keys; two toggles
+	 *    on one key flip each other back.
+	 *  - menublur <- blur ("Blur", tterrag, 1.8.9 branch mcmod.info): blurs the world behind
+	 *    every menu; two blurs stack.
+	 *  - motionblur <- motionblurmod ("Motion Blur", Sk1er LLC, Forge 1.8.9 build mcmod.info):
+	 *    the same frame-trail shader; two stack into a smear.
+	 * Forge's Loader.isModLoaded is case-sensitive, so ids are copied exactly (all lowercase).
 	 * Not here, on purpose: AppleSkin has no 1.8.9 Forge build to check; WorldEditCUI's
 	 * 1.8.9 Forge id could not be verified (WorldEditCui keeps its own isModLoaded +
 	 * channel-owner check); OptiFine's zoom is part of Origin's own 1.8.9 stack; no JEI here.
+	 * Patcher ("patcher") never gets a row: it is a bundle of opt-in fixes, none of which does
+	 * one Origin feature's job by default. Keystrokes, CPS, armour and potion HUD mods are
+	 * separate HUD pieces that sit side by side, so Origin's stay on (Will, 2026-11-03).
+	 * Left out because the 1.8.9 Forge modid could not be confirmed from source: ItemPhysic
+	 * (its 1.12 build says "itemphysic"; no 1.8.9 source found), Perspective Mod v3 (canelex),
+	 * standalone 1.8.9 zoom mods, toggle-sprint mods other than Better Sprinting (PolySprint's
+	 * 1.8.9 build is Ornithe/Fabric, not Forge), and Sk1er AutoGG.
 	 */
 	public static final List<Row> TABLE = Collections.unmodifiableList(Arrays.asList(
-			new Row("freelook", false, false, ids("freelook", "pmr", "omnilook", "freecam")),
+			new Row("freelook", false, false, ids("freelook", "pmr", "omnilook", "freecam", "djperspectivemod")),
 			new Row("zoom", false, false, ids("epiczoomer")),
-			new Row("oldanimations", false, false, ids("overflowanimations", "sk1er_old_animations"))));
+			new Row("oldanimations", false, false, ids("overflowanimations", "sk1er_old_animations")),
+			new Row("togglesprint", false, false, ids("bettersprinting")),
+			new Row("menublur", false, false, ids("blur")),
+			new Row("motionblur", false, false, ids("motionblurmod"))));
 
 
 	/** A resolved overlap: the row and the display name of the mod that replaced it. */
