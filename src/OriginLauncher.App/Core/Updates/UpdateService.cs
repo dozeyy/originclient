@@ -82,11 +82,20 @@ public static class UpdateService
     public static event EventHandler? AvailableChanged;
 
     /// <summary>
+    /// False in a screenshot run (`--render-shots`, and any other run on a scratch data root): made-up data only, so
+    /// the release feed is never asked, nothing is downloaded and nothing is applied. A live check there once put the
+    /// real "UPDATING ORIGIN LAUNCHER" screen into the shots. Every check and apply path below starts with this.
+    /// </summary>
+    public static bool Enabled => !OriginPaths.IsScratchRoot;
+
+    /// <summary>
     /// Polls the release feed once. Never throws: an unreachable feed fails
     /// open (see policy note above).
     /// </summary>
     public static async Task CheckAsync()
     {
+        if (!Enabled) return;
+
         // Once per process, off the UI thread, before any download of this run can start.
         if (Interlocked.Exchange(ref _startupCleaned, 1) == 0)
             await Task.Run(() => CleanStaleDownloads(null)).ConfigureAwait(false);
@@ -180,6 +189,7 @@ public static class UpdateService
     // Any failure just extends the back-off; nothing is shown and Play is never touched.
     private static async Task QuietRetryAsync(AvailableUpdate update)
     {
+        if (!Enabled) return;
         try
         {
             var zipPath = ZipPathFor(update.Version);
@@ -215,6 +225,7 @@ public static class UpdateService
     /// </summary>
     public static async Task DownloadAndRestartAsync(IProgress<UpdateProgress>? progress = null)
     {
+        if (!Enabled) throw new InvalidOperationException("Updates are off in a screenshot run.");
         var update = Available ?? throw new InvalidOperationException("No update is available.");
 
         // From here until the process is gone no import may open or apply (Core/Import/Launcher/UpdateRunState):
