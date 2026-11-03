@@ -153,7 +153,7 @@ internal static class SelfTest
             }
             Require(LinuxKeyStore.TryReadKey(LinuxKeyStore.KeyringKind) == null, "throwaway item already exists");
             var blob = AccountStore.ProtectBytes(Plain);
-            Require(blob[0] == LinuxKeyStore.KeyringKind, "keyring answered but the blob was sealed with the key file");
+            Require(blob[0] == LinuxKeyStore.KeyringKind, "keyring answered but the blob was sealed with the key file: " + LinuxKeyStore.LastKeyringError);
             Require(blob.AsSpan().IndexOf("self-test-not"u8) < 0, "plaintext visible in the sealed blob");
             LinuxKeyStore.ForgetCached();
             Require(AccountStore.UnprotectBytes(blob).AsSpan().SequenceEqual(Plain), "round trip changed the bytes");

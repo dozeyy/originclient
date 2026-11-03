@@ -86,12 +86,14 @@ jobs:
 
       # Exit 0 only when no check printed FAIL. Runs inside its own D-Bus session with an unlocked
       # gnome-keyring, so --require-keyring makes a missing Secret Service a failure, not a skip.
+      # --unlock reads a password from stdin and creates the "login" keyring with it (the default
+      # collection secret-tool stores into). With an empty password the store was refused (run 41578348787).
       # --network adds the Java 8 download (hash-checked, unpacked, run) and Mojang's real file lists.
       - name: Self-test
         run: |
           file "$RUNNER_TEMP/publish/OriginLauncher"
           dbus-run-session -- sh -c '
-            echo -n "" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+            printf "origin-ci-throwaway" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
             "$RUNNER_TEMP/publish/OriginLauncher" --self-test --network --require-keyring
           '
 
