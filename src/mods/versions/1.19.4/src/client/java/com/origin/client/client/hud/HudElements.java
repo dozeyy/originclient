@@ -409,7 +409,8 @@ public final class HudElements {
 		}, HudElements::renderKeystrokes);
 
 		// ---- Potion Effects ----
-		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 6, 1.0), mc -> {
+		// default stack, top-right (C3): Server IP 6, Minimap 34, Potions 160, Item Counter 244
+		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 160, 1.0), mc -> {
 			// width grows to the widest FULL name+time so nothing is ellipsised;
 			// right-anchored, so it just extends further left to fit.
 			var rows = potionRows(mc);
