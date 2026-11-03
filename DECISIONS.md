@@ -25,6 +25,10 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - 1.21.1 ships Sodium 0.8 by default (Will's own mods need it); Origin Render (experimental terrain culler, Sodium 0.6 only) stays removed (2026-10-26).
 - Fix Compatibility may look up a missing dependency on Modrinth and installs it only when the file matches Modrinth's SHA-512 (2026-10-27).
 
+- Mac launcher: every screen and feature of the Windows launcher; no Apple Developer account for now (the site shows the Open Anyway steps); the site calls it Mac Beta until real players confirm it works (2026-11-02).
+- A version that plays on Mac but whose shaders fail stays in the Mac picker and says shaders aren't available on Mac yet (2026-11-02).
+- The Mac launcher builds and screenshots on GitHub only: nothing new gets installed on Will's PC for it (2026-11-02).
+
 ## Look
 - Vanilla screens (pause, options, world select, every other Minecraft menu) use Origin's own DARK buttons in the Default Dark Mode look, drawn by Origin (`tools/dark-widgets/make_widgets.py`; that pack is CC BY-NC-SA, never copied) and built into the jar, never a resource pack in the pack list. The title screen's buttons are those same dark Minecraft buttons with Minecraft's font, words only (2026-10-27). Origin's widget skin stays only inside Origin's own screens: mod menu, HUD editor, shader browser, waypoints, item size (2026-10-26).
 - Title-screen panoramas: each version's own landscape showing that update's content, daytime, shaders on, rendered in CI and shipped in the jar (2026-10-26).
