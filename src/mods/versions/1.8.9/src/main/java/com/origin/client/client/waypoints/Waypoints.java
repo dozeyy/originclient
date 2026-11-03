@@ -109,7 +109,7 @@ public final class Waypoints {
 			if (sp != null) {
 				// 1.8.9: the save's folder name (MinecraftServer.getFolderName) -- the same
 				// name the other versions take from the world path's last segment.
-				return WaypointScope.singleplayer(sp.getFolderName());
+				return WaypointScope.singleplayer(sp.getFolderName(), mcVersion());
 			}
 			ServerData sd = mc.getCurrentServerData();
 			if (sd != null && sd.serverIP != null) {
@@ -119,6 +119,11 @@ public final class Waypoints {
 			// fall through to the shared bucket
 		}
 		return "other:unknown";
+	}
+
+	/** This game's Minecraft version (this module only ever runs 1.8.9). */
+	private static String mcVersion() {
+		return "1.8.9";
 	}
 
 	// Leaving a world: its list is flushed (cheap insurance for an in-place edit that
@@ -132,6 +137,15 @@ public final class Waypoints {
 		List<Waypoint> next = new ArrayList<>();
 		if (key != null) {
 			Path f = fileFor(key);
+			try {
+				// singleplayer keys gained the version: start from the world's old list
+				String previous = WaypointScope.unversioned(key, mcVersion());
+				if (previous != null) {
+					WaypointScope.adoptPrevious(fileFor(previous), f);
+				}
+			} catch (Exception e) {
+				com.origin.client.OriginClient.LOGGER.warn("Could not copy this world's earlier Origin waypoints", e);
+			}
 			try {
 				WaypointScope.adoptLegacy(configDir(), f);
 			} catch (Exception e) {
@@ -249,11 +263,19 @@ public final class Waypoints {
 		}
 	}
 
-	/** Death waypoint: a red, beam-on waypoint at the death spot. */
+	/** Death waypoint: a red, beam-on waypoint at the death spot. Only the LATEST death
+	 *  is kept: the previous "Death" waypoint is replaced, so they never pile up. The
+	 *  "Death N" ones earlier builds numbered up are cleared with it. */
 	public static synchronized void onDeath(int x, int y, int z, String dim) {
-		Waypoint w = create(nextName("Death"), x, y, z, dim, 0xFFE05555);
+		ensureLoaded();
+		ALL.removeIf(old -> isDeathName(old.name));
+		Waypoint w = create("Death", x, y, z, dim, 0xFFE05555);
 		w.showBeam = true;
 		w.showText = true;
 		save();
+	}
+
+	private static boolean isDeathName(String name) {
+		return name != null && name.matches("Death( \\d+)?");
 	}
 }

@@ -22,6 +22,7 @@
 		"GameRendererMixin",
 		"GuiHudMixin",
 		"MouseHandlerMixin",
+		"KeyClickMixin",
 		"ClientLevelTimeMixin",
 		"CameraMixin",
 		"LoadingOverlayMixin",

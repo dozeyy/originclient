@@ -363,6 +363,12 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to keep the mod menu's last edit on exit", t);
 		}
 		try {
+			// a "Try it" still running (or unanswered) must not stay applied after quitting
+			com.origin.client.client.mods.FpsCoach.restoreHeld();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to put back an FPS Coach try on exit", t);
+		}
+		try {
 			Mods.flush();                     // mod settings + HUD positions -> originclient-mods.json
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save mod settings on exit", t);
@@ -615,6 +621,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 		LocalPlayer player = client.player;
 		if (player == null) {
+			releaseCameraMods(client);   // left the world: Zoom / Freelook end, settings come back
 			return;
 		}
 
@@ -633,7 +640,14 @@ public class OriginClientMod implements ClientModInitializer {
 		// Full Bright toggle keybind flips the mod's own sub-toggle
 		boolean fbDown = client.screen == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
 		if (fbDown && !fullbrightKeyWasDown) {
-			Mods.set("fullbright", "fullBright", !Mods.bool("fullbright", "fullBright"));
+			// With the Lighting mod off the key used to flip a hidden setting and nothing
+			// changed on screen: now it switches Lighting on with Full Bright.
+			boolean on = !Mods.on("fullbright") || !Mods.bool("fullbright", "fullBright");
+			if (on && !Mods.on("fullbright")) {
+				Mods.setOn("fullbright", true);
+			}
+			Mods.set("fullbright", "fullBright", on);
+			player.displayClientMessage(new net.minecraft.network.chat.TextComponent(on ? "Full Bright on" : "Full Bright off"), true);
 		}
 		fullbrightKeyWasDown = fbDown;
 
@@ -725,9 +739,8 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		zoomKeyWasDown = zDown;
 		zoomActive = Mods.on("zoom") && (Mods.bool("zoom", "toggleZoom") ? zoomToggled : zDown);
-		if (!zoomActive) {
-			zoomScrollFactor = 1.0;   // reset scroll-zoom depth when not zooming
-		}
+		// The scroll-zoom depth resets once the zoom-out ease has finished (the FOV hook),
+		// not here on the release tick: resetting here made the FOV jump mid-ease.
 
 		// Zoomed Sensitivity: temporarily scale mouse sensitivity while zoomed so
 		// aiming is steadier, restoring the player's own value the instant zoom ends.
@@ -831,6 +844,11 @@ public class OriginClientMod implements ClientModInitializer {
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
+		// Freelook switched off (or stepped aside for the player's own mod) mid-look: end
+		// it and put the camera back, as Snaplook does. A toggled-on look used to stay on.
+		if (!Mods.on("freelook")) {
+			freelookDown = false;
+		}
 		// Hypixel bans freelook: there the key does nothing (an action-bar line on each
 		// press says why) and a toggled-on freelook from before the join ends at once.
 		// Gated here, where the camera detach starts, so every camera hook stays inert.
@@ -848,13 +866,19 @@ public class OriginClientMod implements ClientModInitializer {
 			// Third Person mode = Lunar-style orbit: jump to third person for
 			// the hold and restore whatever perspective the player was in.
 			if (Mods.mode("freelook", "listMode").equals("Third Person")) {
-				savedPerspective = client.options.getCameraType();
+				// Snaplook engaged: take over the view IT would put back, so whichever is
+				// released last restores the view from before either one started
+				net.minecraft.client.CameraType before = com.origin.client.client.mods.Snaplook.handOver();
+				savedPerspective = before != null ? before : client.options.getCameraType();
 				client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
 			}
 		} else if (!freelookDown && OriginFreelookState.active) {
 			OriginFreelookState.active = false;
 			if (savedPerspective != null) {
-				client.options.setCameraType(savedPerspective);
+				// Snaplook still engaged (Toggle Mode): it shows its view again and restores this later
+				if (!com.origin.client.client.mods.Snaplook.takeBack(client, savedPerspective)) {
+					client.options.setCameraType(savedPerspective);
+				}
 				savedPerspective = null;
 			}
 		}
@@ -877,6 +901,31 @@ public class OriginClientMod implements ClientModInitializer {
 		// Zoom's sensitivity and smooth camera are not the player's settings:
 		// options.txt waits until they are put back.
 		OptionsAutosave.held = zoomSensApplied || smoothCamApplied;
+	}
+
+	/** No player (left the world, title screen): ends Toggle Zoom / Toggle Freelook and puts
+	 *  back what they swapped in -- the player's own sensitivity, smooth camera and view.
+	 *  Each step only acts while something is applied, so ticking it costs a few checks. */
+	private void releaseCameraMods(Minecraft client) {
+		zoomToggled = false;
+		zoomActive = false;
+		zoomScrollFactor = 1.0;
+		if (zoomSensApplied) {
+			client.options.sensitivity = savedSensitivity;
+			zoomSensApplied = false;
+		}
+		if (OriginFreelookState.active) {
+			OriginFreelookState.active = false;
+			if (savedPerspective != null) {
+				client.options.setCameraType(savedPerspective);
+				savedPerspective = null;
+			}
+		}
+		if (smoothCamApplied) {
+			client.options.smoothCamera = savedSmoothCam;
+			smoothCamApplied = false;
+		}
+		OptionsAutosave.held = false;
 	}
 
 	// Weather Changer: forces client-side rain/thunder levels per the mode.
@@ -927,6 +976,11 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		boolean inc = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
 		boolean dec = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
+		if (((inc && !timeIncWasDown) || (dec && !timeDecWasDown)) && Mods.bool("timechanger", "useRealTime")) {
+			// [ / ] with Use Real Time on: the real clock rewrote the time every tick, so the
+			// keys did nothing. Switch it off (saved) and step from the time shown right now.
+			Mods.set("timechanger", "useRealTime", false);
+		}
 		if (inc && !timeIncWasDown) {
 			base = (base + 500) % 24000;
 			Mods.set("timechanger", "time", base);

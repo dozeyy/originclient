@@ -99,6 +99,11 @@ public final class WorldHooks {
 		} else {
 			zoomAnim = target;
 		}
+		// The scroll-zoom depth stays until the zoom-out ease is over (it was reset on the
+		// release tick, so the FOV jumped mid-ease); a fresh zoom starts at the normal depth.
+		if (!active && zoomAnim <= 0.001) {
+			OriginClientMod.zoomScrollFactor = 1.0;
+		}
 	}
 
 	/**

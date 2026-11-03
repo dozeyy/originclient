@@ -539,6 +539,10 @@ public class CosmeticsScreen extends OriginWindow {
 		} catch (Throwable ex) {
 			drew = false;
 		} finally {
+			// The model sits far forward in depth; wipe the depth it left in this tile
+			// (the scissor bounds the clear) so the WORN tag drawn after it stays on top.
+			com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+			com.mojang.blaze3d.systems.RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
 			d.unclip();
 		}
 		return drew;

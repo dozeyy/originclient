@@ -97,7 +97,7 @@ public final class Quickplay {
 		boolean again = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "requeueKey"));
 		if (open && !openWasDown) {
 			mc.setScreen(new com.origin.client.client.gui.QuickplayScreen());
-		} else if (again && !againWasDown) {
+		} else if (again && !againWasDown && onHypixel(mc)) {   // Play Again is Hypixel-only
 			if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);
 			} else if (mc.player != null) {
@@ -124,6 +124,9 @@ public final class Quickplay {
 	}
 
 	private static void run(Minecraft mc, String command, String label) {
+		if (!onHypixel(mc)) {
+			return;   // never send Hypixel's /play or /lobby to another server
+		}
 		ClientPacketListener conn = mc.getConnection();
 		if (conn == null) {
 			return;

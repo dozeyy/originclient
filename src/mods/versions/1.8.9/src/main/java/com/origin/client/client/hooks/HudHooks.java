@@ -8,7 +8,6 @@ import com.origin.client.client.hud.HudElements;
 import com.origin.client.client.hud.OriginTabList;
 import com.origin.client.client.minimap.MinimapHud;
 import com.origin.client.client.mixin.hud.GuiPlayerTabOverlayAccessor;
-import com.origin.client.client.mods.ClickStats;
 import com.origin.client.client.mods.CombatStats;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.mods.PingSampler;
@@ -22,7 +21,6 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.client.GuiIngameForge;
 import net.minecraftforge.client.event.GuiScreenEvent;
-import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
@@ -51,8 +49,8 @@ import org.lwjgl.input.Mouse;
  *    in survival/adventure, Post(HOTBAR) when there's no XP bar.
  *  - Potion "Show In Inventory" (a Fabric ScreenEvents.afterRender) ->
  *    GuiScreenEvent.DrawScreenEvent.Post over any GuiContainer.
- *  - CPS / Keystrokes clicks (MouseHandlerMixin.onPress) -> MouseEvent (no screen)
- *    + GuiScreenEvent.MouseInputEvent.Pre (a screen owns the mouse).
+ *  - CPS / Keystrokes clicks: KeyBindingMixin's KeyBinding.onTick hook (the Attack
+ *    / Use keybinds, like the Fabric modules' KeyMapping.click hook), not an event.
  *  - Combat highlight / Combo / Reach (MultiPlayerGameModeMixin.attack) ->
  *    AttackEntityEvent for the local player.
  *  - Food tooltip (Fabric ItemTooltipCallback) -> ItemTooltipEvent.
@@ -242,34 +240,12 @@ public final class HudHooks {
 		}
 	}
 
-	// ---- clicks (CPS + Keystrokes) ----
+	// ---- screen mouse input ----
 
-	// No screen open: Minecraft.runTick posts MouseEvent for every LWJGL mouse event
-	// before it routes the click. receiveCanceled: a click another mod swallows was
-	// still physically made (1.16.5 recorded at onPress HEAD, before any routing).
-	@SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
-	public void onMouse(MouseEvent e) {
-		if (e.button < 0) {
-			return;   // movement / wheel only
-		}
-		try {
-			ClickStats.onButton(e.button, e.buttonstate, mc().currentScreen == null);
-		} catch (Throwable ignored) {
-		}
-	}
-
-	// A screen open: GuiScreen.handleInput drains the mouse queue itself (MouseEvent
-	// never fires), posting MouseInputEvent.Pre per event with LWJGL's event state
-	// current. Held-state only -- a click in a menu never counts toward CPS.
+	// A screen open: GuiScreen.handleInput drains the mouse queue itself, posting
+	// MouseInputEvent.Pre per event with LWJGL's event state current.
 	@SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
 	public void onScreenMouse(GuiScreenEvent.MouseInputEvent.Pre e) {
-		try {
-			int button = Mouse.getEventButton();
-			if (button >= 0) {
-				ClickStats.onButton(button, Mouse.getEventButtonState(), false);
-			}
-		} catch (Throwable ignored) {
-		}
 		// Menu Blur reuses its blurred backdrop while a single-player pause freezes the world; any click,
 		// wheel turn or drag can change what the world looks like (a slider, a toggle), so it re-blurs.
 		try {

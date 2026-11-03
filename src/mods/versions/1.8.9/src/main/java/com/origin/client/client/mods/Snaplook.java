@@ -57,6 +57,30 @@ public final class Snaplook {
 		keyWasDown = keyDown;
 	}
 
+	/** Freelook (Third Person) starting while Snaplook is engaged: Freelook takes over the
+	 *  view Snaplook would put back (returned; -1 = Snaplook isn't engaged), so whichever
+	 *  is released last restores the view from before the first one started. Snaplook then
+	 *  Freelook used to leave the front F5 view. */
+	public static int handOver() {
+		if (!active) {
+			return -1;
+		}
+		int view = saved;
+		saved = -1;
+		return view;
+	}
+
+	/** Freelook ending while Snaplook is still engaged (Toggle Mode): Snaplook shows its
+	 *  front view again and restores {@code original} when released. False = not engaged. */
+	public static boolean takeBack(Minecraft client, int original) {
+		if (!active || original < 0) {
+			return false;
+		}
+		saved = original;
+		client.gameSettings.thirdPersonView = THIRD_PERSON_FRONT;
+		return true;
+	}
+
 	public static boolean wantsSmoothCamera() {
 		return active && Mods.bool(MOD, "smoothCamera");
 	}

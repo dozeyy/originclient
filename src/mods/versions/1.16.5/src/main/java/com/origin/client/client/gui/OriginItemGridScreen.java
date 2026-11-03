@@ -399,6 +399,18 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 		}
 	}
 
+	/** Esc / back chevron: a non-empty search is cleared first (like the mod menu and
+	 *  the shader browser); the next Esc leaves the screen. */
+	@Override
+	protected void back() {
+		if (!search.isEmpty()) {
+			search = "";
+			scrollTarget = scroll = 0;
+			return;
+		}
+		super.back();
+	}
+
 	// ---- toolbar: category chips | search ----
 
 	private void drawToolbar(OriginDeck d) {

@@ -29,6 +29,7 @@ public final class ItemSizes {
 	private static final Map<String, Float> SIZES = new HashMap<>();
 	private static volatile boolean loaded = false;
 	private static Path file;
+	private static boolean dirty = false;   // slider changes not yet on disk
 
 	public static final float MIN = 0.25f, MAX = 3.0f, DEFAULT = 1.0f;
 
@@ -52,6 +53,13 @@ public final class ItemSizes {
 
 	/** Set (and persist) a scale; storing ~1.0 removes the entry (back to default). */
 	public static void set(ResourceLocation id, float scale) {
+		setLive(id, scale);
+		flush();
+	}
+
+	/** Slider drags: the new scale shows at once (get() reads it) but reaches disk only
+	 *  through {@link #flush}, on release or screen close -- not on every mouse move. */
+	public static void setLive(ResourceLocation id, float scale) {
 		if (id == null) {
 			return;
 		}
@@ -62,7 +70,15 @@ public final class ItemSizes {
 		} else {
 			SIZES.put(id.toString(), scale);
 		}
-		save();
+		dirty = true;
+	}
+
+	/** Writes pending slider changes, once. */
+	public static void flush() {
+		if (dirty) {
+			dirty = false;
+			save();
+		}
 	}
 
 	public static void reset(ResourceLocation id) {

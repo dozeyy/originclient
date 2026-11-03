@@ -34,8 +34,36 @@ public final class SocialSkins {
 	}
 
 	private static final Map<UUID, ResourceLocation> CACHE = new ConcurrentHashMap<>();
-	private static final Map<UUID, Boolean> ASKED = new ConcurrentHashMap<>();
+	// When each uuid was last looked up. A lookup that never produced a skin (network
+	// error, Mojang rate limit, no textures) is tried again after RETRY_MS; a found skin
+	// sits in CACHE and is never looked up again.
+	private static final Map<UUID, Long> ASKED = new ConcurrentHashMap<>();
+	private static final long RETRY_MS = 60_000L;
+	// The lookup budget is a RATE (MAX_LOOKUPS per minute, refilled), not a lifetime cap:
+	// a once-spent budget used to leave every later friend on Steve/Alex all session.
 	private static final int MAX_LOOKUPS = 64;
+	private static final long BUDGET_WINDOW_MS = 60_000L;
+	private static long budgetStart = 0L;
+	private static int budgetUsed = 0;
+
+	/** True when `id` may be looked up now (not asked within RETRY_MS, budget left); records the ask. */
+	private static synchronized boolean takeLookup(UUID id) {
+		long now = System.currentTimeMillis();
+		Long last = ASKED.get(id);
+		if (last != null && now - last < RETRY_MS) {
+			return false;
+		}
+		if (now - budgetStart >= BUDGET_WINDOW_MS) {
+			budgetStart = now;
+			budgetUsed = 0;
+		}
+		if (budgetUsed >= MAX_LOOKUPS) {
+			return false;
+		}
+		budgetUsed++;
+		ASKED.put(id, now);
+		return true;
+	}
 
 	public static ResourceLocation skin(String undashed) {
 		UUID id = SocialClient.toUuid(undashed);
@@ -54,7 +82,7 @@ public final class SocialSkins {
 			if (s != null) {
 				return s;
 			}
-			if (!SocialClient.DEMO && ASKED.size() < MAX_LOOKUPS && ASKED.putIfAbsent(id, Boolean.TRUE) == null) {
+			if (!SocialClient.DEMO && takeLookup(id)) {
 				CompletableFuture.supplyAsync(() -> mc.getMinecraftSessionService().fillProfileProperties(new GameProfile(id, null), false))
 						.thenAccept(profile -> {
 							if (profile == null || profile.getProperties().isEmpty()) {

@@ -105,6 +105,10 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	private String search = "";
 	private boolean searchFocused = false;
+	// E2: Right Shift closes the menu on release, and only when it was tapped on its
+	// own with no search box in use -- held for a capital letter, it never closes.
+	// (1.8.9: keyTyped only sees key-downs, so the release is read in handleKeyboardInput.)
+	private boolean rshiftTap = false;
 	private String optSearch = "";                    // mod page / settings tab filter
 	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
 	private float maxScroll, maxPageScroll;
@@ -193,6 +197,7 @@ public class OriginModMenuScreen extends OriginScreen {
 	public void removed() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 		HudElements.editorPreview = false;
 		HudElements.suppressScoreboard = false;
 		Keyboard.enableRepeatEvents(false);
@@ -298,6 +303,7 @@ public class OriginModMenuScreen extends OriginScreen {
 	public void commitPendingEdits() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 	}
 
 	private void flushSlider() {
@@ -1591,6 +1597,9 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (keyCode != Keyboard.KEY_RSHIFT) {
+			rshiftTap = false;
+		}
 		if (OriginMultiSelect.isOpen()) {
 			return OriginMultiSelect.keyPressed(keyCode);
 		}
@@ -1640,7 +1649,7 @@ public class OriginModMenuScreen extends OriginScreen {
 			return true;
 		}
 		if (keyCode == Keyboard.KEY_RSHIFT) {
-			beginClose();
+			rshiftTap = !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
 		if (keyCode == Keyboard.KEY_F && hasControlDown() && page == null && tab == Tab.MODS) {
@@ -1663,7 +1672,17 @@ public class OriginModMenuScreen extends OriginScreen {
 	}
 
 	@Override
+	public void handleKeyboardInput() throws java.io.IOException {
+		super.handleKeyboardInput();
+		if (rshiftTap && Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+			rshiftTap = false;
+			beginClose();
+		}
+	}
+
+	@Override
 	public boolean charTyped(char chr, int modifiers) {
+		rshiftTap = false;
 		if (capMod != null) {
 			return true;
 		}
