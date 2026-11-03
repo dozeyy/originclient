@@ -12,7 +12,7 @@ namespace OriginLauncher.App.Core.Sync;
 // root isn't an object (originclient-waypoints.json is a list) is one value
 // under the key "".
 //
-// Parsed as a loose JsonNode tree, like OriginClientConfigBridge: every field
+// Parsed as a loose JsonNode tree: every field
 // we don't touch is written back exactly as it was.
 //
 // Two modes:

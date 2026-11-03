@@ -372,7 +372,7 @@ internal static class AreaAShots
         page.TourScrollToTop();
         if (!tour) return;
 
-        foreach (var (section, name) in new[] { ("SecClient", "14f-settings-click-client"), ("SecStartup", "14g-settings-click-startup") })
+        foreach (var (section, name) in new[] { ("SecStartup", "14g-settings-click-startup") })
         {
             page.TourClickRail(section);
             RenderShots.Snap(window, name);

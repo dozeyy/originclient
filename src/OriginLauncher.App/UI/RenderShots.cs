@@ -309,12 +309,11 @@ public static class RenderShots
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
-        // The lower sections (JVM arguments, Origin Client, Startup, Developer) are below the fold.
+        // The lower sections (JVM arguments, Startup, Developer) are below the fold.
         SnapSettingsScrolled(window, outDir, "14b-settings-middle", "14c-settings-bottom");
         SnapSettingsSync(window, outDir, "14d-settings-sync");
-        // The rail bug (2026-10-25): the first click on "Origin Client" lit "Developer". Press the short
-        // last sections the way a player does; each shot must show its own item lit and its section in view.
-        SnapSettingsRailClick(window, outDir, "SecClient", "14f-settings-click-client");
+        // The rail bug (2026-10-25): the first click on a short last section lit "Developer". Press it the way a
+        // player does; the shot must show its own item lit and its section in view.
         SnapSettingsRailClick(window, outDir, "SecStartup", "14g-settings-click-startup");
         // Click an item, then press End by hand: the click stops deciding and the first section in view is lit.
         SnapSettingsKeyEnd(window, outDir, "SecStartup", "14h-settings-key-end");

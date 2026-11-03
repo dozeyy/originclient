@@ -78,7 +78,6 @@ public static class SettingsShots
             yield return Make($"{n}d-{name}-sync", At(p => p.ScrollToSync()), w, h);
         }
 
-        yield return Make("14f-settings-click-client", At(p => Rail(p, "SecClient")));
         yield return Make("14g-settings-click-startup", At(p => Rail(p, "SecStartup")));
         yield return Make("14h-settings-key-end", At(p => { Rail(p, "SecStartup"); p.PressEnd(); }));
         yield return Make("14i-settings-sec-sync", At(p => Rail(p, "SecSync")));
