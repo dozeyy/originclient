@@ -103,14 +103,33 @@ public final class GeneralSettings {
 		}
 	}
 
+	// Raw Mouse Input is one setting shown in two places: Origin's General
+	// settings and Minecraft's own Mouse Settings. It used to force Origin's value
+	// onto the window every tick, so Minecraft's switch did nothing. Now each side
+	// copies the other's change across (edge-triggered) and Minecraft applies it
+	// to the window itself. On the first tick Origin's value wins -- it is the one
+	// that was really in effect before.
+	private static Boolean lastRawOrigin = null, lastRawVanilla = null;
+
 	private static void applyRawMouseInput(Minecraft mc) {
 		try {
-			if (!GLFW.glfwRawMouseMotionSupported() || !mc.mouseHandler.isMouseGrabbed()) {
+			if (mc.options == null) {
 				return;
 			}
-			boolean on = Mods.bool(Mods.GENERAL_ID, "rawMouseInput");
-			GLFW.glfwSetInputMode(mc.getWindow().getWindow(), GLFW.GLFW_RAW_MOUSE_MOTION,
-					on ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
+			boolean origin = Mods.bool(Mods.GENERAL_ID, "rawMouseInput");
+			boolean vanilla = mc.options.rawMouseInput().get();
+			if (lastRawOrigin == null || (origin != lastRawOrigin && origin != vanilla)) {
+				if (origin != vanilla) {
+					mc.options.rawMouseInput().set(origin);     // applies it to the window; OptionsAutosave writes it
+					mc.getWindow().updateRawMouseInput(origin);
+				}
+				vanilla = origin;
+			} else if (vanilla != lastRawVanilla && vanilla != origin) {
+				Mods.set(Mods.GENERAL_ID, "rawMouseInput", vanilla);
+				origin = vanilla;
+			}
+			lastRawOrigin = origin;
+			lastRawVanilla = vanilla;
 		} catch (Throwable t) {
 			// fail-soft
 		}
