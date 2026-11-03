@@ -383,11 +383,14 @@ def download_assets(cache, vanilla, get=http_get, workers=16):
     ensure_file(idx_path, [idx["url"]], idx.get("sha1"), get)
     with open(idx_path, encoding="utf-8") as f:
         objects = json.load(f)["objects"]
-    todo = []
+    # One download per HASH: several names share an object, and two threads writing the same dest.part raced
+    # (FileNotFoundError on os.replace, first cold-cache run on a Mac runner, mac-boot-probe.yml).
+    todo, queued = [], set()
     for name, o in objects.items():
         h = o["hash"]
         dest = os.path.join(cache, "assets", "objects", h[:2], h)
-        if not (os.path.isfile(dest) and os.path.getsize(dest) == o["size"]):
+        if h not in queued and not (os.path.isfile(dest) and os.path.getsize(dest) == o["size"]):
+            queued.add(h)
             todo.append((dest, ASSET_URL + h[:2] + "/" + h, h))
     log("assets: %d objects, %d to download" % (len(objects), len(todo)))
     if not todo:
