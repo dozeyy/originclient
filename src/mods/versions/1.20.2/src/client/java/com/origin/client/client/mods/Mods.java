@@ -704,11 +704,11 @@ public final class Mods {
 		add("oldanimations", "1.7 Animations", "Bring back how swords, items and sneaking looked in 1.7.", false,
 				ModOption.header("Combat"),
 				ModOption.toggle("swordBlock", "Sword Blocking", true)
-						.tip("Hold right-click with a sword and a shield in your off hand (servers like Hypixel give you one) to block the 1.7 way. The shield stays hidden."),
+						.tip("Hold right-click with a sword to hold it the 1.7 blocking way. Looks only: a shield still blocks and looks exactly like normal."),
 				ModOption.toggle("blockHit", "Block Hitting", true)
-						.tip("Your sword still swings while you block, so block-hitting looks like 1.7."),
+						.tip("Your sword still swings while you hold it to block, so block-hitting looks like 1.7."),
 				ModOption.toggle("swingWhileUsing", "Swing While Using", true)
-						.tip("Clicking while eating, drawing a bow or blocking swings your arm, like 1.7."),
+						.tip("Clicking while eating or drawing a bow swings your arm, like 1.7. A raised shield is left alone."),
 				ModOption.toggle("noHitDip", "No Hit Dip", true)
 						.tip("Your held item stays put after each hit instead of dipping and rising."),
 				ModOption.header("Held Items"),
@@ -723,7 +723,7 @@ public final class Mods {
 						.tip("Worn armor flashes red with the player when hurt. Hit Color's own armor colour wins when it is on."),
 				ModOption.header("Third Person"),
 				ModOption.toggle("thirdPersonBlock", "Third Person Blocking", true)
-						.tip("Other players (and you in F5) hold the sword across the body when blocking, with the shield hidden."));
+						.tip("In F5 you hold the sword across your body while sword blocking. Shields look normal."));
 
 		// Two colours per target, like Lunar: one used with Lunar Blending on, one
 		// with it off (vanilla's additive glint, which can only brighten).

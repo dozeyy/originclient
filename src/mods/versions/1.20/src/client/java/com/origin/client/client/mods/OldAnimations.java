@@ -13,6 +13,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.FoodOnAStickItem;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -37,9 +38,11 @@ import net.minecraft.world.item.UseAnim;
  * Left arm = the right-arm chain mirrored in X (translate x and Y/Z rotations times i),
  * exactly what vanilla does for the off hand.
  *
- * Sword blocking needs a shield in the off hand (how servers like Hypixel let 1.9+ players
- * block): using it shows the 1.7 sword block instead, and the shield is never drawn while
- * a sword is held. Everything here is visual only; nothing is sent to the server.
+ * Shields are never touched (Will, 2026-11-02: "the 1.7 animations shouldn't stop shields from
+ * working normally"): a raised shield keeps vanilla's pose, blocking and look in both views.
+ * Sword blocking is the 1.7 pose while right-click is held with a sword and nothing is being
+ * used (1.9+ swords don't block), so it is looks only and the local player's own. Everything
+ * here is visual only; nothing is sent to the server.
  */
 public final class OldAnimations {
 	public static final String MOD = "oldanimations";
@@ -76,10 +79,20 @@ public final class OldAnimations {
 		return !s.isEmpty() && s.getUseAnimation() == UseAnim.BLOCK;
 	}
 
-	/** Sword in the main hand, shield in the off hand, shield raised right now. */
+	/**
+	 * The local player holds right-click with a sword in the main hand while nothing is being
+	 * used: 1.7's sword block, looks only. Never while a shield could rise (a shield in the off
+	 * hand raises on that same click and stays vanilla), and not with an off-hand block, which
+	 * that click places. Other players' right-click can't be seen, so only the local player.
+	 */
 	public static boolean swordBlocking(LivingEntity e) {
-		return isSword(e.getMainHandItem()) && isShield(e.getOffhandItem()) && e.isUsingItem()
-				&& e.getUseItemRemainingTicks() > 0 && e.getUsedItemHand() == InteractionHand.OFF_HAND;
+		Minecraft mc = Minecraft.getInstance();
+		if (e != mc.player || mc.screen != null || !mc.options.keyUse.isDown() || e.isUsingItem()
+				|| !isSword(e.getMainHandItem())) {
+			return false;
+		}
+		ItemStack off = e.getOffhandItem();
+		return !isShield(off) && !(off.getItem() instanceof BlockItem);
 	}
 
 	// ---- first person (ItemInHandRenderer.renderArmWithItem, OldAnimationsHandMixin) ----
@@ -98,9 +111,6 @@ public final class OldAnimations {
 		}
 		boolean main = hand == InteractionHand.MAIN_HAND;
 		boolean swordBlock = Mods.bool(MOD, "swordBlock");
-		if (!main && swordBlock && isShield(stack) && isSword(p.getMainHandItem())) {
-			return true; // 1.7 had no shield: never drawn while a sword is held
-		}
 		boolean right = (main ? p.getMainArm() : p.getMainArm().getOpposite()) == HumanoidArm.RIGHT;
 		boolean positions = Mods.bool(MOD, "itemPositions") && isFlat(stack, p);
 		boolean usingThis = p.isUsingItem() && p.getUseItemRemainingTicks() > 0 && p.getUsedItemHand() == hand;
@@ -262,21 +272,12 @@ public final class OldAnimations {
 
 	// ---- third person (OldAnimationsThirdPersonMixin) ----
 
-	/** The arm pose to force for this hand, or null for vanilla's. */
+	/** The arm pose to force for this hand, or null for vanilla's (always null with a raised shield). */
 	public static HumanoidModel.ArmPose armPose(AbstractClientPlayer p, InteractionHand hand) {
-		if (!on("thirdPersonBlock") || !isSword(p.getMainHandItem()) || !isShield(p.getOffhandItem())) {
+		if (hand != InteractionHand.MAIN_HAND || !on("thirdPersonBlock") || !on("swordBlock")) {
 			return null;
 		}
-		if (hand == InteractionHand.OFF_HAND) {
-			return HumanoidModel.ArmPose.EMPTY; // the shield isn't drawn, so the arm hangs free
-		}
 		return swordBlocking(p) ? HumanoidModel.ArmPose.BLOCK : null;
-	}
-
-	/** True when this third-person item is the off-hand shield next to a sword: not drawn. */
-	public static boolean hideThirdPerson(LivingEntity e, ItemStack stack) {
-		return e instanceof net.minecraft.world.entity.player.Player && stack == e.getOffhandItem()
-				&& isShield(stack) && isSword(e.getMainHandItem()) && on("thirdPersonBlock");
 	}
 
 	/**
@@ -286,7 +287,7 @@ public final class OldAnimations {
 	 */
 	public static void thirdPersonBlock(LivingEntity e, ItemStack stack, HumanoidArm arm, PoseStack ps) {
 		if (!(e instanceof net.minecraft.world.entity.player.Player) || stack != e.getMainHandItem()
-				|| !swordBlocking(e) || !on("thirdPersonBlock")) {
+				|| !swordBlocking(e) || !on("thirdPersonBlock") || !on("swordBlock")) {
 			return;
 		}
 		int i = arm == HumanoidArm.RIGHT ? 1 : -1;
@@ -310,7 +311,6 @@ public final class OldAnimations {
 			{"net.minecraft.client.Minecraft", "originclient$swingWhileUsing"},
 			{"net.minecraft.client.Minecraft", "originclient$holdSwingWhileUsing"},
 			{"net.minecraft.client.renderer.entity.player.PlayerRenderer", "originclient$oldArmPose"},
-			{"net.minecraft.client.renderer.entity.layers.ItemInHandLayer", "originclient$hideShield"},
 			{"net.minecraft.client.renderer.entity.layers.ItemInHandLayer", "originclient$blockTurn"},
 	};
 
