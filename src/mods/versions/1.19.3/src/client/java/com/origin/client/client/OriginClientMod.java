@@ -810,6 +810,16 @@ public class OriginClientMod implements ClientModInitializer {
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
+		// Hypixel bans freelook: there the key does nothing (an action-bar line on each
+		// press says why) and a toggled-on freelook from before the join ends at once.
+		// Gated here, where the camera detach starts, so every camera hook stays inert.
+		if ((freelookDown || OriginFreelookState.active)
+				&& com.origin.client.client.mods.Hypixel.bansFreelook(client)) {
+			if ((keyDown && !freelookWasDown) || OriginFreelookState.active) {
+				com.origin.client.client.mods.Hypixel.sayFreelookOff(client);
+			}
+			freelookDown = false;
+		}
 		if (freelookDown && !OriginFreelookState.active) {
 			OriginFreelookState.cameraYaw = player.getViewYRot(1f);
 			OriginFreelookState.cameraPitch = player.getViewXRot(1f);
