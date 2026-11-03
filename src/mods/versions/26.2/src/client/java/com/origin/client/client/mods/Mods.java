@@ -486,8 +486,10 @@ public final class Mods {
 				ModOption.toggle("monsters", "Monsters", true),
 				ModOption.toggle("other", "Other Entities", true));
 
+		// No "Text Shadow" row on 26.2 only: its NameTagFeatureRenderer.Submit carries
+		// no shadow flag (NametagStyleMixin), so the switch would do nothing. 26.1 and
+		// 26.3 have the flag and keep the row.
 		add("nametags", "Nametags", "Customize name tag rendering.", false,
-				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("thirdPerson", "Third Person Nametag", true),
 				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
 				ModOption.slider("opacity", "Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
