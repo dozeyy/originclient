@@ -32,7 +32,7 @@ public final class TitlesHud {
 
 	/** Default = vanilla's spot: origin on the screen centre (box centre is 6px lower). */
 	public static HudPos defaultPos() {
-		return new HudPos(4, 0, -6, 1.0);
+		return HudPos.ofDefault("titles");
 	}
 
 	public static HudPos pos() {

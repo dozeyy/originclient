@@ -141,7 +141,7 @@ public final class WaypointHud {
 		} else {
 			// Separate/movable: draw at the element's saved HUD position + scale.
 			var pos = com.origin.client.client.hud.HudPos.load("locatorbar",
-					new com.origin.client.client.hud.HudPos(7, 0, -22, 1.0));
+					com.origin.client.client.hud.HudPos.ofDefault("locatorbar"));
 			int sw = g.guiWidth(), sh = g.guiHeight();
 			double w = BAR_W * pos.scale, h = BAR_H * pos.scale;
 			double x = pos.x(sw, w), y = pos.y(sh, h);

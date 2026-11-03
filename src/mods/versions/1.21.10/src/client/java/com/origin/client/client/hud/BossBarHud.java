@@ -41,7 +41,7 @@ public final class BossBarHud {
 
 	/** Default = exactly vanilla's spot: top centre, name at y=3. */
 	public static HudPos defaultPos() {
-		return new HudPos(1, 0, 3, 1.0);
+		return HudPos.ofDefault("bossbar");
 	}
 
 	public static HudPos pos() {

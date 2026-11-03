@@ -51,19 +51,16 @@ final class Readouts {
 	}
 
 	static void register() {
-		// Default placements: a column under the existing top-left readouts,
-		// combat readouts at the left edge middle, Pack Display bottom-right,
-		// Item Counter top-right under the potion list, Direction HUD top-centre
-		// (where Lunar puts it), and the Saturation readout beside the hunger bar.
-		textElement("clock", "Clock", new HudPos(0, 6, 100, 1.0), Readouts::clockText);
-		textElement("stopwatch", "Stopwatch", new HudPos(0, 6, 114, 1.0), Readouts::stopwatchText);
-		textElement("daycounter", "Day Counter", new HudPos(0, 6, 128, 1.0), Readouts::dayText);
-		textElement("ping", "Ping", new HudPos(0, 6, 142, 1.0), Readouts::pingText);
-		textElement("memory", "Memory", new HudPos(0, 6, 156, 1.0), Readouts::memoryText);
-		textElement("combo", "Combo", new HudPos(3, 6, 20, 1.0), Readouts::comboText);
-		textElement("reach", "Reach", new HudPos(3, 6, 34, 1.0), Readouts::reachText);
+		// Default spots: hud/HudLayout (the one layout table for every version).
+		textElement("clock", "Clock", HudPos.ofDefault("clock"), Readouts::clockText);
+		textElement("stopwatch", "Stopwatch", HudPos.ofDefault("stopwatch"), Readouts::stopwatchText);
+		textElement("daycounter", "Day Counter", HudPos.ofDefault("daycounter"), Readouts::dayText);
+		textElement("ping", "Ping", HudPos.ofDefault("ping"), Readouts::pingText);
+		textElement("memory", "Memory", HudPos.ofDefault("memory"), Readouts::memoryText);
+		textElement("combo", "Combo", HudPos.ofDefault("combo"), Readouts::comboText);
+		textElement("reach", "Reach", HudPos.ofDefault("reach"), Readouts::reachText);
 
-		HudElements.add("saturationhud", "saturation", "Saturation", new HudPos(7, 140, -36, 1.0),
+		HudElements.add("saturationhud", "saturation", "Saturation", HudPos.ofDefault("saturationhud"),
 				mc -> Mods.bool("saturation", "showHud") ? textSize(mc, "saturation", saturationText(mc)) : new int[]{0, 0},
 				(g, mc, w, h) -> {
 					if (Mods.bool("saturation", "showHud")) {
@@ -71,14 +68,14 @@ final class Readouts {
 					}
 				});
 
-		HudElements.add("packdisplay", "packdisplay", "Pack Display", new HudPos(8, -6, -6, 1.0),
+		HudElements.add("packdisplay", "packdisplay", "Pack Display", HudPos.ofDefault("packdisplay"),
 				Readouts::packSize, Readouts::renderPacks);
 
-		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 244, 1.0) /* under Potions (C3) */,
+		HudElements.add("itemcounter", "itemcounter", "Item Counter", HudPos.ofDefault("itemcounter"),
 				Readouts::itemCounterSize, Readouts::renderItemCounter);
 
 		// Default just below one boss bar (Boss Bar: y 3, 14 tall), never on top of it.
-		HudElements.add("directionhud", "directionhud", "Direction", new HudPos(1, 0, 22, 1.0),
+		HudElements.add("directionhud", "directionhud", "Direction", HudPos.ofDefault("directionhud"),
 				mc -> new int[]{dirWidth(), DIR_H}, Readouts::renderDirection);
 	}
 

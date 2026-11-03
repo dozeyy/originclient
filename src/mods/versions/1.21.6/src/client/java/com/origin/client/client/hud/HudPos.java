@@ -26,25 +26,14 @@ public final class HudPos {
 	 *  off-screen after a GUI scale / window size change or a synced layout from
 	 *  a bigger monitor; with no clamp the piece was unreachable even in the
 	 *  editor. The saved value is left alone (it comes back if the screen grows);
-	 *  the game, the editor and hit-testing all read through here. */
+	 *  the game, the editor and hit-testing all read through here (the anchor
+	 *  maths lives in HudLayout, which the layout test runs without the game). */
 	public double x(int screenW, double w) {
-		int col = anchor % 3;
-		double base = col == 0 ? 0 : col == 1 ? (screenW - w) / 2.0 : screenW - w;
-		return onScreen(base + dx, screenW - w);
+		return HudLayout.left(anchor, dx, screenW, w);
 	}
 
 	public double y(int screenH, double h) {
-		int row = anchor / 3;
-		double base = row == 0 ? 0 : row == 1 ? (screenH - h) / 2.0 : screenH - h;
-		return onScreen(base + dy, screenH - h);
-	}
-
-	// [0, max]; an element bigger than the screen pins to 0; NaN (bad config) -> 0
-	private static double onScreen(double v, double max) {
-		if (Double.isNaN(v)) {
-			return 0;
-		}
-		return Math.max(0, Math.min(v, max));
+		return HudLayout.top(anchor, dy, screenH, h);
 	}
 
 	/** Re-derives anchor+offset from an absolute top-left drop position, so
@@ -60,15 +49,19 @@ public final class HudPos {
 		dy = absY - baseY;
 	}
 
+	/** The piece's default spot from HudLayout (THE default layout, the same on every version). */
+	public static HudPos ofDefault(String elementId) {
+		double[] d = HudLayout.spot(elementId);
+		return new HudPos((int) d[0], d[1], d[2], d[3]);
+	}
+
+	/** Where the piece is now: the player's stored spot, else `def` (callers pass {@link #ofDefault}). A stored
+	 *  spot equal to a default Origin shipped before reads as `def` too (HudLayout.resolve); nothing is written. */
 	public static HudPos load(String elementId, HudPos def) {
-		double[] v = ModsConfigAccess.hud(elementId);
-		if (v == null) {
-			return def;
-		}
+		double[] v = HudLayout.resolve(elementId, ModsConfigAccess.hud(elementId),
+				new double[]{def.anchor, def.dx, def.dy, def.scale});
 		HudPos p = new HudPos((int) v[0], v[1], v[2], v[3]);
-		if (v.length >= 5) {
-			p.bg = v[4];
-		}
+		p.bg = v[4];
 		return p;
 	}
 

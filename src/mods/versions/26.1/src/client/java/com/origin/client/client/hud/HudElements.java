@@ -382,7 +382,7 @@ public final class HudElements {
 
 	static {
 		// ---- FPS ----
-		add("fps", "fps", "FPS", new HudPos(0, 6, 6, 1.0), mc -> {
+		add("fps", "fps", "FPS", HudPos.ofDefault("fps"), mc -> {
 			float s = ms("fps");
 			boolean graph = Mods.bool("fps", "showGraph");
 			int tw = mc.font.width(fpsText(mc)) + 2;
@@ -402,7 +402,7 @@ public final class HudElements {
 		});
 
 		// ---- CPS ----
-		add("cps", "cps", "CPS", new HudPos(0, 6, 22, 1.0), mc -> {
+		add("cps", "cps", "CPS", HudPos.ofDefault("cps"), mc -> {
 			float s = ms("cps");
 			return new int[]{(int) ((mc.font.width(cpsText()) + 2) * s), (int) (11 * s)};
 		}, (g, mc, w, h) -> {
@@ -416,7 +416,7 @@ public final class HudElements {
 		});
 
 		// ---- Coordinates ----
-		add("coords", "coords", "Coords", new HudPos(0, 6, 38, 1.0), mc -> {
+		add("coords", "coords", "Coords", HudPos.ofDefault("coords"), mc -> {
 			float s = ms("coords");
 			var lines = coordsLines(mc);
 			int wMax = 1;
@@ -449,15 +449,14 @@ public final class HudElements {
 		});
 
 		// ---- Key Strokes ----
-		add("keystrokes", "keystrokes", "Keystrokes", new HudPos(3, 6, -40, 1.0), mc -> {
+		add("keystrokes", "keystrokes", "Keystrokes", HudPos.ofDefault("keystrokes"), mc -> {
 			float s = ks();
 			int[] b = ksBounds();
 			return new int[]{(int) (70 * s), (int) ((b[1] - b[0]) * s)};
 		}, HudElements::renderKeystrokes);
 
 		// ---- Potion Effects ----
-		// default stack, top-right (C3): Server IP 6, Minimap 34, Potions 160, Item Counter 244
-		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 160, 1.0), mc -> {
+		add("potionhud", "potionhud", "Potions", HudPos.ofDefault("potionhud"), mc -> {
 			// width grows to the widest FULL name+time so nothing is ellipsised;
 			// right-anchored, so it just extends further left to fit.
 			var rows = potionRows(mc);
@@ -495,7 +494,7 @@ public final class HudElements {
 		});
 
 		// ---- Armor Status ----
-		add("armorhud", "armorhud", "Armor", new HudPos(6, 6, -24, 1.0), mc -> {
+		add("armorhud", "armorhud", "Armor", HudPos.ofDefault("armorhud"), mc -> {
 			var items = armorItems(mc);
 			int n = Math.max(1, items.size());
 			boolean vertical = Mods.mode("armorhud", "listMode").equals("Vertical");
@@ -504,7 +503,7 @@ public final class HudElements {
 		}, HudElements::renderArmor);
 
 		// ---- Server Address ----
-		add("serveraddress", "serveraddress", "Server IP", new HudPos(2, -6, 6, 1.0), mc -> {
+		add("serveraddress", "serveraddress", "Server IP", HudPos.ofDefault("serveraddress"), mc -> {
 			float s = ms("serveraddress");
 			int iconW = Mods.bool("serveraddress", "serverIcon") ? 15 : 0;
 			return new int[]{(int) ((iconW + mc.font.width(serverText(mc)) + 2) * s), (int) (13 * s)};
@@ -526,7 +525,7 @@ public final class HudElements {
 		});
 
 		// ---- Sprint/Sneak state ----
-		add("sprintstate", "togglesprint", "Sprint state", new HudPos(6, 6, -6, 1.0), mc -> text("Sprint (Toggled)"),
+		add("sprintstate", "togglesprint", "Sprint state", HudPos.ofDefault("sprintstate"), mc -> text("Sprint (Toggled)"),
 				(g, mc, w, h) -> {
 					if (!Mods.bool("togglesprint", "hud")) {
 						return;
@@ -545,7 +544,7 @@ public final class HudElements {
 		// A real draggable element: default at the right edge, centred (id "scoreboard",
 		// HudPos loaded by scoreboardPos()). In the editor it shows the sample; in-game
 		// it draws nothing here (the vanilla sidebar draws, repositioned by the mixin).
-		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
+		add("scoreboard", "scoreboard", "Scoreboard", HudPos.ofDefault("scoreboard"),
 				mc -> scoreboardSize(),
 				(g, mc, w, h) -> {
 					if (editorPreview && !suppressScoreboard) {
@@ -560,7 +559,7 @@ public final class HudElements {
 		// on top of the sprite); this element only draws the PREVIEW in the HUD
 		// editor / mod menu, and provides the drag target. Measuring 0×0 while off
 		// keeps it out of the editor until separate mode is enabled.
-		add("locatorbar", "waypoints", "Locator Bar", new HudPos(7, 0, -22, 1.0),
+		add("locatorbar", "waypoints", "Locator Bar", HudPos.ofDefault("locatorbar"),
 				mc -> locatorBarActive() ? new int[]{182, 5} : new int[]{0, 0},
 				(g, mc, w, h) -> {
 					if (locatorBarActive() && (editorPreview || mc.screen instanceof HudEditorScreen)) {
@@ -596,7 +595,7 @@ public final class HudElements {
 						TitlesHud.renderSample(g);
 					}
 				});
-		add("cooldowns", "cooldowns", "Cooldowns", new HudPos(7, 0, -62, 1.0),
+		add("cooldowns", "cooldowns", "Cooldowns", HudPos.ofDefault("cooldowns"),
 				CooldownsHud::size, CooldownsHud::render);
 	}
 
@@ -622,9 +621,9 @@ public final class HudElements {
 	// ---- Origin originals: Friends & Party (2026-10-12) ----
 	// The Party HUD (docs/SOCIAL.md C): name, health, distance, direction per
 	// member in a LAN world, names + online status elsewhere. Left edge under
-	// Combo / Reach; shown in the editor only while you're in a party.
+	// the top-left stack (HudLayout); shown in the editor only while you're in a party.
 	static {
-		add("party", com.origin.client.client.social.Social.MOD, "Party", new HudPos(3, 6, 56, 1.0),
+		add("party", com.origin.client.client.social.Social.MOD, "Party", HudPos.ofDefault("party"),
 				com.origin.client.client.social.PartyWorld::hudSize, com.origin.client.client.social.PartyWorld::hudRender);
 	}
 
@@ -943,7 +942,7 @@ public final class HudElements {
 	/** The scoreboard element's placement — shared by the editor element AND the
 	 *  mixin that draws the real sidebar. Default: right edge (inset 3), centred. */
 	public static HudPos scoreboardPos() {
-		return HudPos.load("scoreboard", new HudPos(5, -3, 0, 1.0));
+		return HudPos.load("scoreboard", HudPos.ofDefault("scoreboard"));
 	}
 
 	/** GuiScoreboardMixin, in place of vanilla's sidebar (mod on, not hidden). Draws the
