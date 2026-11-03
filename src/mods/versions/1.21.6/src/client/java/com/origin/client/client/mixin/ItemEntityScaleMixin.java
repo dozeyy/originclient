@@ -7,7 +7,6 @@ import com.origin.client.client.mods.Mods;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.ItemEntityRenderer;
 import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -37,7 +36,7 @@ public class ItemEntityScaleMixin {
 										  CallbackInfo ci) {
 		float s = 1.0f;
 		if (Mods.on("itemsize")) {
-			s = ItemSizes.get(BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()));
+			s = ItemSizes.get(entity.getItem().getItem());
 		}
 		((ItemScaleState) state).originclient$setItemScale(s);
 	}

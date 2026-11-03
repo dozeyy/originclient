@@ -4,7 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 
 import java.io.Reader;
 import java.io.Writer;
@@ -12,14 +14,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
  * Persistent per-item dropped-item render scales for the Item Size Customizer.
  * A plain id→scale map (only NON-default entries are stored, so the file stays
  * small), saved to {@code config/originclient-itemsizes.json}. The dropped-item
- * render hook (ItemEntityScaleMixin) reads {@link #get} every frame, so lookups
- * are a cheap HashMap hit; edits from the grid screen write through immediately.
+ * render hook (ItemEntityScaleMixin) asks {@link #get(Item)} for every dropped
+ * item every frame, so that path is an identity-map hit by Item: no id string, no
+ * lock. Edits from the grid screen write through immediately.
  */
 public final class ItemSizes {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -29,7 +33,22 @@ public final class ItemSizes {
 
 	public static final float MIN = 0.25f, MAX = 3.0f, DEFAULT = 1.0f;
 
+	// Render-path cache by Item identity, filled on the first ask per item and
+	// emptied whenever a size changes. Only touched on the client thread (the
+	// render hook and the Item Size screen), so it needs no lock.
+	private static final Map<Item, Float> BY_ITEM = new IdentityHashMap<>();
+
 	private ItemSizes() {
+	}
+
+	/** Scale for a dropped item's Item (the per-frame render path). */
+	public static float get(Item item) {
+		Float v = BY_ITEM.get(item);
+		if (v == null) {
+			v = get(BuiltInRegistries.ITEM.getKey(item));
+			BY_ITEM.put(item, v);
+		}
+		return v;
 	}
 
 	/** Scale for `id`, or 1.0 if the player never customised it. */
@@ -53,6 +72,7 @@ public final class ItemSizes {
 		} else {
 			SIZES.put(id.toString(), scale);
 		}
+		BY_ITEM.clear();
 		save();
 	}
 
@@ -69,6 +89,7 @@ public final class ItemSizes {
 		} else {
 			SIZES.put(id.toString(), scale);
 		}
+		BY_ITEM.clear();
 		dirty = true;
 	}
 
@@ -83,11 +104,19 @@ public final class ItemSizes {
 		set(id, DEFAULT);
 	}
 
-	private static synchronized void ensureLoaded() {
+	// The volatile check keeps every lookup off the lock once the file is loaded.
+	private static void ensureLoaded() {
+		if (!loaded) {
+			load();
+		}
+	}
+
+	private static synchronized void load() {
 		if (loaded) {
 			return;
 		}
 		loaded = true;
+		BY_ITEM.clear();
 		try {
 			file = FabricLoader.getInstance().getConfigDir().resolve("originclient-itemsizes.json");
 			if (Files.exists(file)) {

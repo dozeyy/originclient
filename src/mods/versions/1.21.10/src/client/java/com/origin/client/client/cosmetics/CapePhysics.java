@@ -98,6 +98,9 @@ public final class CapePhysics {
 		final float[] pitch = new float[N], pitchV = new float[N], pitchPrev = new float[N];
 		final float[] roll = new float[N], rollV = new float[N], rollPrev = new float[N];
 		final float[] tPitch = new float[N], tRoll = new float[N];
+		// Draw scratch (the chain's per-band bends), reused every frame instead of
+		// three new arrays per player per frame. Only read while this draw runs.
+		final float[] relP = new float[N], relR = new float[N], cumR = new float[N];
 		float calm, calmPrev;   // 1 = standing still (idle sway), 0 = moving
 
 		State(AbstractClientPlayer p) {
@@ -163,9 +166,9 @@ public final class CapePhysics {
 
 		float t = state.ageInTicks / 20f;
 		float calm = Mth.lerp(partialTick, s.calmPrev, s.calm);
-		float[] relP = new float[N];
-		float[] relR = new float[N];
-		float[] cumR = new float[N];
+		float[] relP = s.relP;
+		float[] relR = s.relR;
+		float[] cumR = s.cumR;
 		float prevP = 0f;
 		float prevR = 0f;
 		for (int i = 0; i < N; i++) {

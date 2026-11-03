@@ -5,6 +5,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvents;
@@ -14,6 +15,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -54,6 +56,69 @@ public final class ParticleFilter {
 	private ParticleFilter() {
 	}
 
+	/**
+	 * One particle type's config keys, built once, plus its row toggles as of
+	 * config revision {@code rev}. Every spawn used to build ~8 key strings
+	 * ("p_" + path + "_self", ...) and re-read every row; now it is one identity
+	 * lookup by ParticleType. Toggles go through Mods.set -> save, which moves
+	 * ModsConfig.rev, so a stale row refreshes on its next spawn. The sliders
+	 * (multiplier, scale) are still read live with the cached keys, so a drag
+	 * previews before it is saved.
+	 */
+	private static final class TypeRow {
+		final String path;   // null = unregistered type: no rows, passes through
+		final String row, hide, self, players, entities, multiplier, scale, sound;
+		int rev = Integer.MIN_VALUE;
+		boolean rowHidden;        // master toggle off, its Hide flag, or Hide Block Break
+		boolean showAll;          // Show on Self + Players + Entities all on
+		boolean showSelf, showPlayers, showEntities, playSound;
+
+		TypeRow(String path) {
+			this.path = path;
+			String p = "p_" + path;
+			row = p;
+			hide = p + "_hide";
+			self = p + "_self";
+			players = p + "_players";
+			entities = p + "_entities";
+			multiplier = p + "_multiplier";
+			scale = p + "_scale";
+			sound = p + "_sound";
+		}
+
+		void refresh() {
+			int now = ModsConfig.rev;
+			if (rev == now) {
+				return;
+			}
+			rev = now;
+			rowHidden = (Mods.hasOption("particles", row) && !Mods.bool("particles", row))
+					|| Mods.bool("particles", hide)
+					|| (path.equals("block") && Mods.bool("particles", "hideBlockBreak"));
+			showSelf = flag(self, true);
+			showPlayers = flag(players, true);
+			showEntities = flag(entities, true);
+			showAll = showSelf && showPlayers && showEntities;
+			playSound = flag(sound, false);
+		}
+	}
+
+	// Client thread only (ParticleEngine.createParticle), like LAST_SOUND.
+	private static final Map<ParticleType<?>, TypeRow> ROWS = new IdentityHashMap<>();
+
+	private static TypeRow row(ParticleOptions options) {
+		ParticleType<?> type = options.getType();
+		TypeRow r = ROWS.get(type);
+		if (r == null) {
+			r = new TypeRow(typePath(options));
+			ROWS.put(type, r);
+		}
+		if (r.path != null) {
+			r.refresh();
+		}
+		return r;
+	}
+
 	// ---- schema-safe reads: unknown (modded) particle types have no rows, and
 	// must fall back to "show, unchanged" rather than to Mods' zero defaults ----
 
@@ -91,20 +156,14 @@ public final class ParticleFilter {
 				return true;
 			}
 		}
-		String path = typePath(options);
-		if (path != null) {
+		TypeRow row = row(options);
+		if (row.path != null) {
 			// per-particle-type controls: master row toggle off, or its Hide flag
 			// (only for types that actually have a row — unknown types pass through)
-			if (Mods.hasOption("particles", "p_" + path) && !Mods.bool("particles", "p_" + path)) {
+			if (row.rowHidden) {
 				return true;
 			}
-			if (Mods.bool("particles", "p_" + path + "_hide")) {
-				return true;
-			}
-			if (path.equals("block") && Mods.bool("particles", "hideBlockBreak")) {
-				return true;
-			}
-			if (hiddenByContext(path, x, y, z)) {
+			if (hiddenByContext(row, x, y, z)) {
 				return true;
 			}
 		}
@@ -123,8 +182,8 @@ public final class ParticleFilter {
 			}
 		}
 		// Multiplier < 1 thins the stream. Extra copies never re-roll this.
-		if (path != null && !spawningExtra) {
-			double m = multiplier(path);
+		if (row.path != null && !spawningExtra) {
+			double m = multiplier(row);
 			if (m < 1.0 && random() >= m) {
 				return true;
 			}
@@ -138,13 +197,13 @@ public final class ParticleFilter {
 	 * ON, and the entity sweep only runs when a row actually turns one OFF — with
 	 * default settings this costs three config reads and nothing else.
 	 */
-	private static boolean hiddenByContext(String path, double x, double y, double z) {
-		boolean self = flag("p_" + path + "_self", true);
-		boolean players = flag("p_" + path + "_players", true);
-		boolean entities = flag("p_" + path + "_entities", true);
-		if (self && players && entities) {
+	private static boolean hiddenByContext(TypeRow row, double x, double y, double z) {
+		if (row.showAll) {
 			return false;
 		}
+		boolean self = row.showSelf;
+		boolean players = row.showPlayers;
+		boolean entities = row.showEntities;
 		Minecraft mc = Minecraft.getInstance();
 		ClientLevel level = mc.level;
 		if (level == null) {
@@ -177,8 +236,8 @@ public final class ParticleFilter {
 		return entity.getBoundingBox().inflate(CONTEXT_RADIUS).contains(x, y, z);
 	}
 
-	private static double multiplier(String path) {
-		return slider("multiplier", 1.0) * slider("p_" + path + "_multiplier", 1.0);
+	private static double multiplier(TypeRow row) {
+		return slider("multiplier", 1.0) * slider(row.multiplier, 1.0);
 	}
 
 	// ThreadLocalRandom, not Level.random: the level's RandomSource is protected
@@ -198,21 +257,23 @@ public final class ParticleFilter {
 		if (!Mods.on("particles") || spawningExtra) {
 			return;
 		}
-		String path = typePath(options);
-		if (path == null) {
+		TypeRow row = row(options);
+		if (row.path == null) {
 			return;
 		}
 		if (particle != null) {
-			double s = slider("p_" + path + "_scale", 1.0);
+			double s = slider(row.scale, 1.0);
 			if (Math.abs(s - 1.0) > 0.001) {
 				particle.scale((float) s);
 			}
 		}
-		playSound(path, x, y, z);
+		if (row.playSound) {
+			playSound(row.path, x, y, z);
+		}
 
 		// Multiplier > 1: one extra copy, jittered so it reads as "more particles"
 		// instead of a second particle hiding exactly behind the first.
-		double m = multiplier(path);
+		double m = multiplier(row);
 		if (m > 1.0 && random() < m - 1.0) {
 			spawningExtra = true;
 			try {
@@ -228,9 +289,6 @@ public final class ParticleFilter {
 	}
 
 	private static void playSound(String path, double x, double y, double z) {
-		if (!flag("p_" + path + "_sound", false)) {
-			return;
-		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null) {
 			return;

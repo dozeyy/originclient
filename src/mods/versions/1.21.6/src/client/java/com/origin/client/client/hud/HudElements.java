@@ -317,14 +317,22 @@ public final class HudElements {
 		return new int[]{top, bottom};
 	}
 
+	// Reused every frame: the HUD asks for this list twice per frame (size, then
+	// draw). Render thread only; each caller is done with it before the next call
+	// refills it.
+	private static final List<ItemStack> ARMOR_SCRATCH = new ArrayList<>(5);
+	private static List<ItemStack> armorPreview;
+	private static final net.minecraft.world.entity.EquipmentSlot[] ARMOR_SLOTS = {
+			net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.LEGS,
+			net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.HEAD};
+
 	private static List<ItemStack> armorItems(Minecraft mc) {
-		List<ItemStack> items = new ArrayList<>();
+		List<ItemStack> items = ARMOR_SCRATCH;
+		items.clear();
 		if (mc.player != null) {
 			// 1.21.6-1.21.8: armor moved from an Inventory list to EntityEquipment
 			// slots (1.21.5); read the four humanoid slots feet->head like the old list.
-			for (var slot : new net.minecraft.world.entity.EquipmentSlot[]{
-					net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.LEGS,
-					net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.HEAD}) {
+			for (var slot : ARMOR_SLOTS) {
 				ItemStack s = mc.player.getItemBySlot(slot);
 				if (!s.isEmpty()) {
 					items.add(s);
@@ -336,8 +344,11 @@ public final class HudElements {
 			}
 		}
 		if (items.isEmpty() && editorPreview) {
-			items = new ArrayList<>(List.of(new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE),
-					new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS), new ItemStack(Items.DIAMOND_SWORD)));
+			if (armorPreview == null) {
+				armorPreview = List.of(new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE),
+					new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS), new ItemStack(Items.DIAMOND_SWORD));
+			}
+			return armorPreview;
 		}
 		return items;
 	}

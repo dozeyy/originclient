@@ -52,12 +52,16 @@ public final class TeamView {
 	}
 
 	// Written by the world pass, read by the HUD pass -- both on the render thread.
-	private static List<Marker> markers = new ArrayList<>();
+	// One list, cleared and refilled each frame (it used to be a new list every
+	// frame, even with Team View off); the matrices below are reused the same way.
+	private static final List<Marker> markers = new ArrayList<>();
+	private static final Vector4f V = new Vector4f();
+	private static final Matrix4f VIEW_PROJ = new Matrix4f();
 
 	/** World pass (LevelRenderEvents.END_MAIN): project each marked player's head. */
 	static void capture(LevelRenderContext ctx) {
-		List<Marker> out = new ArrayList<>();
-		markers = out;
+		List<Marker> out = markers;
+		out.clear();
 		Minecraft mc = Minecraft.getInstance();
 		if (!Mods.on(MOD) || mc.player == null || mc.level == null) {
 			return;
@@ -75,7 +79,7 @@ public final class TeamView {
 
 		// Same view-projection WaypointHud uses (see the class note).
 		var camState = ctx.levelState().cameraRenderState;
-		Matrix4f viewProj = mc.gameRenderer.mainCamera().getViewRotationProjectionMatrix(new Matrix4f());
+		Matrix4f viewProj = mc.gameRenderer.mainCamera().getViewRotationProjectionMatrix(VIEW_PROJ);
 		Vec3 cam = camState.pos;
 		float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
@@ -96,7 +100,7 @@ public final class TeamView {
 			}
 			Vec3 pos = p.getPosition(pt);
 			double wx = pos.x - cam.x, wy = pos.y + p.getBbHeight() + 0.75 - cam.y, wz = pos.z - cam.z;
-			Vector4f v = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
+			Vector4f v = V.set((float) wx, (float) wy, (float) wz, 1f);
 			viewProj.transform(v);
 			if (v.w <= 0.05f) {
 				continue;   // behind the camera

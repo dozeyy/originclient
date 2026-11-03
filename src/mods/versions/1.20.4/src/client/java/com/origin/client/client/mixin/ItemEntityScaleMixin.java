@@ -5,7 +5,6 @@ import com.origin.client.client.mods.ItemSizes;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.ItemEntityRenderer;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -28,7 +27,7 @@ public class ItemEntityScaleMixin {
 			return;
 		}
 		poseStack.pushPose();
-		float s = ItemSizes.get(BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()));
+		float s = ItemSizes.get(entity.getItem().getItem());
 		if (s != ItemSizes.DEFAULT) {
 			poseStack.scale(s, s, s);
 		}
