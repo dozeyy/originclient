@@ -58,7 +58,7 @@ public static class AccountFolders
     /// <summary>
     /// The version whose game is open in one of this account's folders without
     /// this launcher having started it (the launcher was restarted while
-    /// playing), or null. A running Minecraft holds its logs/latest.log open.
+    /// playing), or null (GameRunningProbe: the latest.log lock on Windows, the process list on macOS/Linux).
     /// </summary>
     public static string? VersionPlayingOutsideLauncher(string accountKey) =>
         VersionManager.OriginSupportedVersions.FirstOrDefault(version =>

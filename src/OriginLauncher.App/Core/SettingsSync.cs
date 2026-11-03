@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Sync;
 using OriginLauncher.App.Core.Versions;
@@ -138,24 +139,10 @@ public static class SettingsSync
             RunningGames.TryRemove(instanceDirectory, out _);
         }
 
-        // A running game keeps logs/latest.log open; asking for it with no
-        // sharing fails while any other process holds it. Catches a game the
-        // launcher didn't start this session (e.g. the launcher was restarted).
-        var latestLog = Path.Combine(instanceDirectory, "logs", "latest.log");
-        if (!File.Exists(latestLog)) return false;
-        try
-        {
-            using var probe = new FileStream(latestLog, FileMode.Open, FileAccess.Read, FileShare.None);
-            return false;
-        }
-        catch (IOException)
-        {
-            return true;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
+        // Catches a game the launcher didn't start this session (e.g. the
+        // launcher was restarted): the latest.log lock on Windows, the process
+        // list on macOS/Linux (GameRunningProbe says why).
+        return GameRunningProbe.IsRunningIn(instanceDirectory);
     }
 
     private static void Run(string what, Action action)

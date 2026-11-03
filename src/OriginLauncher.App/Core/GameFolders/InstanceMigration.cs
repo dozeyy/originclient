@@ -132,27 +132,10 @@ public static class InstanceMigration
         Directory.EnumerateFileSystemEntries(versionRoot).Select(Path.GetFileName).OfType<string>().ToList();
 
     /// <summary>
-    /// A running Minecraft keeps logs/latest.log open; asking for it with no
-    /// sharing fails while it does. Same probe Settings Sync uses.
+    /// Is a Minecraft open in this folder (Windows: it holds logs/latest.log;
+    /// macOS/Linux: a process names the folder). Same probe Settings Sync uses.
     /// </summary>
-    public static bool IsGameRunningIn(string gameDir)
-    {
-        var latestLog = Path.Combine(gameDir, "logs", "latest.log");
-        if (!File.Exists(latestLog)) return false;
-        try
-        {
-            using var probe = new FileStream(latestLog, FileMode.Open, FileAccess.Read, FileShare.None);
-            return false;
-        }
-        catch (IOException)
-        {
-            return true;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
+    public static bool IsGameRunningIn(string gameDir) => GameRunningProbe.IsRunningIn(gameDir);
 
     private static bool IsOldLayoutGameRunning(string versionRoot) => IsGameRunningIn(versionRoot);
 
