@@ -97,6 +97,8 @@
     <Compile Include="..\OriginLauncher.App\UI\Controls\HeadFit.cs" LinkBase="UI" />
     <!-- The tab switch: newest click wins, its page refreshes after the frame (pure). -->
     <Compile Include="..\OriginLauncher.App\UI\PageSwitch.cs" LinkBase="UI" />
+    <!-- Where the window opens: the designed size shrunk into the monitor's work area, centred (pure). -->
+    <Compile Include="..\OriginLauncher.App\UI\WindowFit.cs" LinkBase="UI" />
     <!-- Only the top folder: Core/GameFolders/Launcher is the account/settings glue. -->
     <Compile Include="..\OriginLauncher.App\Core\GameFolders\*.cs" LinkBase="GameFolders" />
     <!-- When the launcher signs in to Minecraft: per-account session reuse, expiry,

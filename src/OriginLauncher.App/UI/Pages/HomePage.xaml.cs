@@ -153,6 +153,12 @@ public partial class HomePage : UserControl
 
     /// <summary>MainWindow: Play (or any launch) was refused because an update is required; it asks to update.</summary>
     public event Action? UpdateRequiredRefused;
+    /// <summary>
+    /// MainWindow: a launch is starting, bring Home on screen first. The launch cover lives on Home, so a launch
+    /// started while another tab shows (the crash window's Fix and relaunch after a mid-game crash) would otherwise
+    /// hide the top bar over a page with no cover and no progress. Every launch passes here, so no caller can forget it.
+    /// </summary>
+    public event Action? ShowHomeRequested;
 
     // ---- The strip's width rule ----
     // Every strip item keeps its full size while the row fits. When the window is too narrow for all of it (a long
@@ -701,6 +707,10 @@ public partial class HomePage : UserControl
         SettingsStore.Update(s => s.SelectedVersion = version);
         SetVersionButtonText(version);
         SocialHub.PresenceVersion = version;
+        // The active profile only applies to its own version (ProfileRules.Active), so the Join card must follow the
+        // pick: a server profile on 1.21.1 must not offer "Join" (and start 1.21.1) once 1.20.1 is picked, and must
+        // come back when 1.21.1 is picked again. A fresh read: profiles change on the Profiles page.
+        ApplyProfile(SettingsStore.Load());
         UpdatePlayState();
     }
 
@@ -711,8 +721,8 @@ public partial class HomePage : UserControl
     public void ShowVersion(string version)
     {
         if (!VersionCatalog.IsSupported(version)) return;
-        if (version != _selectedVersion) OnVersionSelected(version);
-        ApplyProfile(SettingsStore.Load());
+        if (version != _selectedVersion) OnVersionSelected(version); // applies the profile itself
+        else ApplyProfile(SettingsStore.Load());
     }
 
     /// <summary>
@@ -800,6 +810,7 @@ public partial class HomePage : UserControl
             SetStatus(ImportRunningText, StatusTone.Warning);
             return;
         }
+        ShowHomeRequested?.Invoke();
         // The disk belongs to this launch now (a background warm-up of the version would only compete).
         LaunchPrewarm.Stop();
 

@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Models;
@@ -54,12 +53,19 @@ public partial class AccountSwitcherPanel : UserControl
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private void AccountRow_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void AccountRow_Click(object sender, RoutedEventArgs e)
     {
         if (((FrameworkElement)sender).DataContext is not MinecraftAccount account) return;
         if (account.IsPending)
         {
             FinishPendingSignIn(account.Id);
+            return;
+        }
+        // Already the active account: nothing changes, so just close. Raising AccountsChanged here would sign
+        // Friends in again (closing an open chat), re-run the import scan and refresh Mods for no reason.
+        if (account.IsSelected)
+        {
+            AccountSelected?.Invoke(this, EventArgs.Empty);
             return;
         }
 
@@ -79,6 +85,51 @@ public partial class AccountSwitcherPanel : UserControl
             ShowSignInError("Couldn't switch accounts.");
         }
     }
+
+    // The trash button on a row: asks first (Cancel holds the focus), then deletes the account and the tokens stored
+    // with it (MinecraftSessionBroker.Remove). Its worlds and settings stay on this computer, which the question says,
+    // so adding it again later finds them. The drawer stays open on the shorter list with a "removed" note.
+    private async void RemoveButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not MinecraftAccount account) return;
+        var name = account.DisplayName;
+        if (!await AskRemove(name)) return;
+
+        var selectedBefore = AccountStore.GetSelected(_accounts)?.Id;
+        try
+        {
+            _accounts = MinecraftSessionBroker.Remove(account.Id);
+        }
+        catch (Exception)
+        {
+            ShowSignInError("Couldn't remove this account. Please try again.");
+            return;
+        }
+        RefreshList();
+        ShowSignInNote($"{name} was removed.");
+        // Only a change of active account matters to Home, the top bar and Friends.
+        if (AccountStore.GetSelected(_accounts)?.Id != selectedBefore)
+            AccountsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private Task<bool> AskRemove(string name) => Confirm.ShowAsync($"Remove {name}?",
+        "Its sign-in is deleted from this launcher. Its worlds and settings stay on this computer, " +
+        "and you can add it again later.",
+        "Remove", "Cancel", destructive: true);
+
+    /// <summary>Render mode only (UI/AccountShots.cs): the Remove question as a player sees it; nothing is removed.</summary>
+    internal void TourAskRemove(string name) => _ = AskRemove(name);
+
+    /// <summary>Esc while the drawer is open: closes the Remove question first. False = nothing open, close the drawer.</summary>
+    public bool HandleEscape()
+    {
+        if (Confirm.Visibility != Visibility.Visible) return false;
+        Confirm.Dismiss();
+        return true;
+    }
+
+    /// <summary>The drawer closed: an unanswered Remove question counts as Cancel.</summary>
+    public void DismissConfirm() => Confirm.Dismiss();
 
     private void AddAccountButton_Click(object sender, RoutedEventArgs e)
     {

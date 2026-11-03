@@ -17,12 +17,30 @@
         <Style x:Key="AccountRow" TargetType="Border" BasedOn="{StaticResource Surface.Row}">
             <Setter Property="Padding" Value="{StaticResource Padding.AccountRow}"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
-            <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                     <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+        <!-- The row's choose action: a real Button (Tab reaches it, Enter/Space picks it, a screen reader names it), drawn
+             bare so the row's own surface (AccountRow, which lifts on hover) is the look. The keyboard ring is the
+             Radius.Md control ring, sitting just outside the 3 px row inset. -->
+        <Style x:Key="AccountChoose" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="KeepLine" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
@@ -66,32 +84,51 @@
             <ItemsControl x:Name="AccountList" Visibility="Collapsed">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type models:MinecraftAccount}">
-                        <Border Style="{StaticResource AccountRow}" MouseLeftButtonDown="AccountRow_MouseLeftButtonDown">
+                        <!-- Choose (the whole row but the trash) and Remove are sibling buttons, never nested, so a click on
+                             the trash can't also switch to the account. -->
+                        <Border Style="{StaticResource AccountRow}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <controls:PlayerHead Grid.Column="0" Width="{StaticResource Size.RowHead}" Height="{StaticResource Size.RowHead}" Margin="0,0,12,0"
-                                                     Crisp="True" CornerRadius="{StaticResource Radius.Xs}"
-                                                     Uuid="{Binding Id}"/>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <DockPanel>
-                                        <!-- Only a half-added account carries a badge; signed-in accounts show just the name. -->
-                                        <controls:TrackedText DockPanel.Dock="Right" Tracking="0.12" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold"
-                                                              VerticalAlignment="Center" Margin="8,0,0,0"
-                                                              Text="PENDING" Foreground="{StaticResource Brush.Hue.Gold}"
-                                                              Visibility="{Binding IsPending, Converter={StaticResource BoolToVisibility}}"/>
-                                        <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.BodyStrong}"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </DockPanel>
-                                    <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}"/>
-                                </StackPanel>
-                                <controls:TrackedText Grid.Column="2" Text="ACTIVE" Tracking="0.16"
-                                                      FontSize="{StaticResource FontSize.Label}" FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
-                                                      VerticalAlignment="Center" Margin="12,0,2,0"
-                                                      Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}"/>
+                                <Button Grid.Column="0" Style="{StaticResource AccountChoose}" Click="AccountRow_Click"
+                                        AutomationProperties.Name="{Binding ChooseLabel}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <controls:PlayerHead Grid.Column="0" Width="{StaticResource Size.RowHead}" Height="{StaticResource Size.RowHead}" Margin="0,0,12,0"
+                                                             Crisp="True" CornerRadius="{StaticResource Radius.Xs}"
+                                                             Uuid="{Binding Id}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <DockPanel>
+                                                <!-- Only a half-added account carries a badge; signed-in accounts show just the name. -->
+                                                <controls:TrackedText DockPanel.Dock="Right" Tracking="0.12" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold"
+                                                                      VerticalAlignment="Center" Margin="8,0,0,0"
+                                                                      Text="PENDING" Foreground="{StaticResource Brush.Hue.Gold}"
+                                                                      Visibility="{Binding IsPending, Converter={StaticResource BoolToVisibility}}"/>
+                                                <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.BodyStrong}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}"/>
+                                        </StackPanel>
+                                        <controls:TrackedText Grid.Column="2" Text="ACTIVE" Tracking="0.16"
+                                                              FontSize="{StaticResource FontSize.Label}" FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
+                                                              VerticalAlignment="Center" Margin="12,0,2,0"
+                                                              Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}"/>
+                                    </Grid>
+                                </Button>
+                                <!-- Remove (same trash button as a Mods page row): asks first, then deletes this account's
+                                     sign-in from the launcher; its worlds and settings stay on disk. -->
+                                <Button Grid.Column="1" Style="{StaticResource Social.Icon}" Margin="8,0,4,0"
+                                        Click="RemoveButton_Click" ToolTip="Remove account"
+                                        AutomationProperties.Name="{Binding RemoveLabel}">
+                                    <Path Data="{StaticResource Icon.Trash}" Style="{StaticResource Icon.Small}"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -139,6 +176,9 @@
         <TextBlock Grid.Row="2" x:Name="ErrorText" Style="{StaticResource Text.Body}"
                    Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap"
                    Margin="16,12,16,16" Visibility="Collapsed"/>
+
+        <!-- Remove's "are you sure" (the Friends drawer's confirm, over this drawer only). -->
+        <controls:ConfirmOverlay x:Name="Confirm" Grid.RowSpan="4"/>
 
     </Grid>
 </UserControl>

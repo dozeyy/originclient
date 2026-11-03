@@ -126,6 +126,21 @@ public static partial class AccountStore
             a.IsSelected = a.Id == accountId;
     }
 
+    // Removing an account from this launcher (the trash button in Accounts, Windows and Linux): its row goes, and
+    // with it the only copies of its tokens (the refresh token and the cached Minecraft session live inside the
+    // row). Its game folders (worlds, settings, servers under instances/<version>/accounts/<uuid>/) are left on
+    // disk on purpose, so adding the account again picks them back up. If it was the active account, the most
+    // recently used account that can play takes over (a pending one never may: GetSelected).
+    public static List<StoredAccount> Remove(List<StoredAccount> accounts, string accountId)
+    {
+        var wasSelected = accounts.Any(a => a.Id == accountId && a.IsSelected);
+        accounts.RemoveAll(a => a.Id == accountId);
+        if (wasSelected && accounts.Where(a => !a.PendingMinecraftSignIn)
+                .OrderByDescending(a => a.LastUsedUtc).FirstOrDefault() is { } next)
+            SetSelected(accounts, next.Id);
+        return accounts;
+    }
+
     // A pending account (still finishing its Minecraft sign-in) is never the
     // selected one: nothing may play, migrate folders or sign in to friends
     // as a placeholder id.

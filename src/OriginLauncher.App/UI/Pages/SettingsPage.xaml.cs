@@ -71,7 +71,7 @@ public partial class SettingsPage : UserControl
         // Pages stay attached and are hidden on a tab switch (MainWindow.ShowPage), so leaving Settings is a hide.
         IsVisibleChanged += (_, e) =>
         {
-            if (!(bool)e.NewValue) PersistPendingRam();
+            if (!(bool)e.NewValue) FlushEdits();
             else
             {
                 // The crash window may have changed settings meanwhile: raised Memory (now Manual), reset (or Undo
@@ -520,7 +520,26 @@ public partial class SettingsPage : UserControl
             : $"Custom: {string.Join(", ", customized)}";
     }
 
-    private void ResolutionTextBox_LostFocus(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Saves what is typed but not yet saved: the Java arguments and resolution boxes persist on LostFocus, which
+    /// never fires when the player leaves with Ctrl+1..4 (the box only hides) or closes the window with Alt+F4. Runs
+    /// when the page hides and from MainWindow's Closing, so the next Play uses what the boxes show.
+    /// </summary>
+    public void FlushEdits()
+    {
+        PersistPendingRam();
+        if (!_jvmLoading && _jvmDirty)
+        {
+            SaveJvmOptions();
+            UpdateJvmCustomizedList();
+            UpdateJvmUndo();
+        }
+        SaveResolution();
+    }
+
+    private void ResolutionTextBox_LostFocus(object sender, RoutedEventArgs e) => SaveResolution();
+
+    private void SaveResolution()
     {
         if (_isLoading) return;
 
@@ -538,6 +557,7 @@ public partial class SettingsPage : UserControl
         ResolutionErrorText.Visibility = Visibility.Collapsed;
         var width = int.Parse(ResolutionWidthTextBox.Text.Trim());
         var height = int.Parse(ResolutionHeightTextBox.Text.Trim());
+        if (width == _settings.ResolutionWidth && height == _settings.ResolutionHeight) return; // nothing new to save
 
         _settings.ResolutionWidth = width;
         _settings.ResolutionHeight = height;

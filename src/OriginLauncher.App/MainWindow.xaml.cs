@@ -62,6 +62,14 @@ public partial class MainWindow : Window
         Core.StartupTrace.Mark("MainWindow ctor: fields (HomePage etc.) built");
         InitializeComponent();
         Core.StartupTrace.Mark("MainWindow.InitializeComponent");
+        // Opens inside the screen's work area, never partly off it (MainWindow.Placement.cs).
+        SourceInitialized += (_, _) => FitToWorkArea();
+        // Alt+F4 / the taskbar's Close never moves focus out of a Settings box: save what it holds first.
+        Closing += (_, _) => _settingsPage?.FlushEdits();
+        // The backdrop drift holds while the window is in the background or minimised (ArtStage.SetWindowAway).
+        Activated += (_, _) => Stage.SetWindowAway(WindowState == WindowState.Minimized);
+        Deactivated += (_, _) => Stage.SetWindowAway(true);
+        StateChanged += (_, _) => Stage.SetWindowAway(WindowState == WindowState.Minimized || !IsActive);
         PageHost.Content = _pages;
         ShowPage(_homePage);
         Core.StartupTrace.Mark("Home placed");
@@ -69,7 +77,13 @@ public partial class MainWindow : Window
         Intro.Play(this);
 
         // Home's profile chip opens Profiles; its launch screen covers the bar too.
-        _homePage.LaunchSceneChanged += SetTopBarHidden;
+        // Only Home carries the cover, so only Home may hide the bar (a bar hidden over another page is a dead window).
+        _homePage.LaunchSceneChanged += hidden => SetTopBarHidden(hidden && _currentPage == LauncherPage.Home);
+        // A launch started from anywhere (the crash window's relaunch) shows its cover on Home: go there first.
+        _homePage.ShowHomeRequested += () =>
+        {
+            if (_currentPage != LauncherPage.Home || _importPanelOpen) NavigateTo(LauncherPage.Home);
+        };
         _homePage.StripHeightChanged += height =>
         {
             if (Math.Abs(height - _stripHeight) < 0.5) return;
@@ -329,6 +343,9 @@ public partial class MainWindow : Window
 
     private void OnToastOpened(SocialToast toast)
     {
+        // A Notice (an import undone, an update refused, ...) has nothing in the Friends drawer: the click only
+        // dismisses it (the host already removed the card).
+        if (toast.Kind == SocialToastKind.Notice) return;
         SetFriendsOpen(true);
         if (toast.Kind == SocialToastKind.Message && toast.Uuid != null)
             _friendsPanel.OpenConversation(toast.Uuid);
@@ -502,6 +519,14 @@ public partial class MainWindow : Window
         _accountPanel.TourShowRows(rows);
     }
 
+    /// <summary>Render mode: the account drawer's Remove question over the made-up rows (nothing is removed).</summary>
+    internal void TourAskRemoveAccount(string name, bool show)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        if (show) _accountPanel.TourAskRemove(name);
+        else _accountPanel.DismissConfirm();
+    }
+
     /// <summary>Render mode: the pill's measured geometry for the shot log (the head's inset in the pill, the name cut or not).</summary>
     internal string TourAccountFit()
     {
@@ -651,6 +676,8 @@ public partial class MainWindow : Window
         };
         signIn.SignInFailed += (_, message) =>
         {
+            // A card that was already closed (Cancel while its browser started) has nothing to report.
+            if (!ReferenceEquals(SignInPanelHost.Content, signIn)) return;
             _accountPanel.ShowSignInError(message);
             signIn.ShowMessage("Couldn't add this account", message);
         };
@@ -1054,6 +1081,7 @@ public partial class MainWindow : Window
             Scrim.Visibility = Visibility.Visible;
             AccountPanel.Visibility = Visibility.Visible;
         }
+        else _accountPanel.DismissConfirm(); // closing the drawer answers an open Remove question with Cancel
         AccountPanel.IsHitTestVisible = open;
 
         var panelAnimation = new DoubleAnimation(open ? 0 : AccountPanel.Width, duration)
@@ -1295,12 +1323,18 @@ public partial class MainWindow : Window
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // The opening intro owns the keyboard until it leaves: its own handler (which runs after this one) skips it,
+        // and no key may Play, switch tabs or open anything on a screen the player can't see yet.
+        if (Intro.IsCovering) return;
         if (e.Key == Key.Escape)
         {
             if (UpdatePrompt.IsVisible) UpdatePrompt.Dismiss();
             else if (_importPanelOpen) _importPanel?.HandleEscape();
             else if (_signInPanelOpen) CloseSignInPanel();
-            else if (_accountPanelOpen) SetAccountPanelOpen(false);
+            else if (_accountPanelOpen)
+            {
+                if (!_accountPanel.HandleEscape()) SetAccountPanelOpen(false);
+            }
             else if (_friendsOpen)
             {
                 if (!_friendsPanel.HandleEscape()) SetFriendsOpen(false);

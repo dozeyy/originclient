@@ -262,6 +262,24 @@ public class MinecraftSessionsTests
         Assert.Equal(0, _signIn.Calls);
     }
 
+    // --- removing an account (Accounts drawer) ----------------------------------
+
+    [Fact]
+    public async Task A_removed_account_keeps_no_session_or_back_off_in_memory()
+    {
+        var added = SessionFor(Steve, Start.AddHours(24), token: "from-add");
+        _vault.Add(Steve, "rt-0", added);
+        _sessions.Adopt(added);
+        _sessions.NoteRateLimited(Steve, null);
+
+        _vault.Accounts.Remove(Steve); // AccountStore.Remove deleted its row (and the tokens in it)
+        _sessions.Evict(Steve);
+
+        Assert.Null(await _sessions.GetAsync(Steve)); // no cached token survives the row
+        Assert.Null(_sessions.BlockedUntil(Steve));
+        Assert.Equal(0, _signIn.Calls);
+    }
+
     [Fact]
     public async Task A_pending_account_finishes_later_and_takes_its_real_id()
     {
