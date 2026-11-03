@@ -6,9 +6,10 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWVidMode;
 
 // Applies the SETTINGS > General options that need to run against the live
-// window every tick: Borderless Fullscreen (GLFW window mode) and Raw Mouse
-// Input (GLFW raw motion). Both are edge-/state-driven and fully fail-soft —
-// any GLFW hiccup is swallowed so a bad window state can never crash the game.
+// window every tick: Borderless Fullscreen (GLFW window mode). Edge-triggered and
+// fully fail-soft — any GLFW hiccup is swallowed so a bad window state can never
+// crash the game. Raw mouse input is NOT Origin's here: Minecraft's own Mouse
+// Settings option rules it on every version but 1.8.9 (Will, 2026-11-03).
 public final class GeneralSettings {
 	// Borderless is edge-triggered so we never fight the user's own window
 	// dragging: we only act when the toggle's value actually changes.
@@ -22,7 +23,6 @@ public final class GeneralSettings {
 	static void tick(Minecraft mc) {
 		applyBorderless(mc);
 		applyTransparentMenus();
-		applyRawMouseInput(mc);
 	}
 
 	// Transparent Menus (Settings > General). The vanilla backdrops are cleared by MenuBlur
@@ -100,38 +100,6 @@ public final class GeneralSettings {
 			} catch (Throwable t) {
 				// fail-soft
 			}
-		}
-	}
-
-	// Raw Mouse Input is one setting shown in two places: Origin's General
-	// settings and Minecraft's own Mouse Settings. It used to force Origin's value
-	// onto the window every tick, so Minecraft's switch did nothing. Now each side
-	// copies the other's change across (edge-triggered) and Minecraft applies it
-	// to the window itself. On the first tick Origin's value wins -- it is the one
-	// that was really in effect before.
-	private static Boolean lastRawOrigin = null, lastRawVanilla = null;
-
-	private static void applyRawMouseInput(Minecraft mc) {
-		try {
-			if (mc.options == null) {
-				return;
-			}
-			boolean origin = Mods.bool(Mods.GENERAL_ID, "rawMouseInput");
-			boolean vanilla = mc.options.rawMouseInput;
-			if (lastRawOrigin == null || (origin != lastRawOrigin && origin != vanilla)) {
-				if (origin != vanilla) {
-					mc.options.rawMouseInput = origin;          // OptionsAutosave writes it
-					mc.getWindow().updateRawMouseInput(origin);
-				}
-				vanilla = origin;
-			} else if (vanilla != lastRawVanilla && vanilla != origin) {
-				Mods.set(Mods.GENERAL_ID, "rawMouseInput", vanilla);
-				origin = vanilla;
-			}
-			lastRawOrigin = origin;
-			lastRawVanilla = vanilla;
-		} catch (Throwable t) {
-			// fail-soft
 		}
 	}
 }

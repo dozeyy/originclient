@@ -10,6 +10,7 @@
 	"client": [
 		"GuiNewChatMixin",
 		"IntegratedServerShutdownMixin",
+		"EntityLivingBaseLookMixin",
 		"KeyBindingMixin",
 		"MouseHelperRawMixin"
 	]

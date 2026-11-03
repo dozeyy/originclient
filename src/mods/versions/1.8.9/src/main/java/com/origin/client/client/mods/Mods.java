@@ -69,7 +69,9 @@ public final class Mods {
 	public static final List<ModOption> GENERAL_SETTINGS = java.util.Arrays.asList(
 			ModOption.toggle("borderlessFullscreen", "Borderless Fullscreen", false),
 			ModOption.toggle("transparentMenus", "Transparent Menus", false).tip("Menus you open in a world (pause, options, inventory, the Origin menu) show the game behind them: no blur, no dimming, no panel. Off keeps the normal styled menus."),
-			ModOption.toggle("rawMouseInput", "Raw Mouse Input", true),
+			// 1.8.9 only (Will, 2026-11-03): newer versions leave raw input to Minecraft's own option.
+			// Default on: every version since 1.15 reads the mouse raw with no look delay by default.
+			ModOption.toggle("modernMouse", "Modern Mouse", true).tip("The mouse feels like newer Minecraft: raw mouse movement (no Windows pointer speed or acceleration) and the crosshair follows your aim the same frame (no 1.8.9 mouse delay). Off is the original 1.8.9 mouse."),
 			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
 			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla")

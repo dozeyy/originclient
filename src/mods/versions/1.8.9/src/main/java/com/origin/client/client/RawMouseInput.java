@@ -10,7 +10,8 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
-// General > Raw Mouse Input on 1.8.9. LWJGL 2 has no raw-motion switch: its
+// General > Modern Mouse on 1.8.9 (with mixin/core/EntityLivingBaseLookMixin, the
+// look-delay half). LWJGL 2 has no raw-motion switch: its
 // Windows mouse turns cursor positions (WM_MOUSEMOVE) into deltas, so Windows'
 // pointer speed and Enhance Pointer Precision acceleration land on the camera.
 // 1.21.1 avoids both with GLFW raw motion. Here the same counts come from
@@ -72,7 +73,7 @@ public final class RawMouseInput {
 	}
 
 	private static boolean enabled() {
-		if (failed || !Mods.bool(Mods.GENERAL_ID, "rawMouseInput")) return false;
+		if (failed || !Mods.bool(Mods.GENERAL_ID, "modernMouse")) return false;
 		if (!loadStarted) load();
 		return mice != null && !failed;
 	}

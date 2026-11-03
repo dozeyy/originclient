@@ -2,7 +2,6 @@ package com.origin.client.client;
 
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.sdl.SDLHints;
 import org.lwjgl.sdl.SDLVideo;
 import org.lwjgl.sdl.SDL_Rect;
 import org.lwjgl.system.MemoryStack;
@@ -10,16 +9,15 @@ import org.lwjgl.system.MemoryStack;
 import java.nio.IntBuffer;
 
 // Applies the SETTINGS > General options that need to run against the live
-// window every tick: Borderless Fullscreen (window mode) and Raw Mouse Input.
-// Both are edge-/state-driven and fully fail-soft — any window-system hiccup is
-// swallowed so a bad window state can never crash the game.
+// window every tick: Borderless Fullscreen (window mode). Edge-triggered and fully
+// fail-soft — any window-system hiccup is swallowed so a bad window state can
+// never crash the game.
 //
 // PER-VERSION DELTA (26.3): Minecraft moved from GLFW to SDL3, so Window.handle()
-// is an SDL_Window* and the window calls are SDLVideo's. Raw input: SDL3's
-// relative mouse mode (what Minecraft uses while the mouse is grabbed) already
-// reads unaccelerated device motion unless SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE
-// asks for the OS pointer scaling -- so the toggle maps onto that hint (on = raw,
-// the SDL default; off = OS scaling, the old "raw input off" feel).
+// is an SDL_Window* and the window calls are SDLVideo's. Raw mouse input is left
+// to Minecraft on every version but 1.8.9 (Will, 2026-11-03): SDL3's relative
+// mouse mode (what Minecraft uses while the mouse is grabbed) already reads
+// unaccelerated device motion, so Origin no longer touches its hint.
 public final class GeneralSettings {
 	// Borderless is edge-triggered so we never fight the user's own window
 	// dragging: we only act when the toggle's value actually changes.
@@ -33,7 +31,6 @@ public final class GeneralSettings {
 	static void tick(Minecraft mc) {
 		applyBorderless(mc);
 		applyTransparentMenus();
-		applyRawMouseInput(mc);
 	}
 
 	// Transparent Menus (Settings > General). The vanilla backdrops are cleared by MenuBlur
@@ -113,21 +110,6 @@ public final class GeneralSettings {
 			} catch (Throwable t) {
 				// fail-soft
 			}
-		}
-	}
-
-	private static Boolean lastRaw = null;
-
-	private static void applyRawMouseInput(Minecraft mc) {
-		try {
-			boolean on = Mods.bool(Mods.GENERAL_ID, "rawMouseInput");
-			if (lastRaw != null && lastRaw == on) {
-				return; // a hint only needs setting when the toggle changes
-			}
-			lastRaw = on;
-			SDLHints.SDL_SetHint("SDL_MOUSE_RELATIVE_SYSTEM_SCALE", on ? "0" : "1");
-		} catch (Throwable t) {
-			// fail-soft
 		}
 	}
 }

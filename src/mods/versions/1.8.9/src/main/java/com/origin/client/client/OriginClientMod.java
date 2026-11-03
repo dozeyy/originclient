@@ -73,10 +73,11 @@ public class OriginClientMod {
 	// Zoom / Freelook: the mod-menu key and its Controls entry are ONE key (syncedKeyDown).
 	private final KeyLink zoomLink = new KeyLink(), freelookLink = new KeyLink();
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
-	private boolean zoomSensApplied = false;
-	private float savedSensitivity = 0.5f;
-	private boolean smoothCamApplied = false;
-	private boolean savedSmoothCam = false;
+	private static boolean zoomSensApplied = false;
+	private static float savedSensitivity = 0.5f;
+	private static float zoomedSensitivity = 0.5f;
+	private static boolean smoothCamApplied = false;
+	private static boolean savedSmoothCam = false;
 	// Fly Boost restore latch + thunder-sound cadence counter.
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
@@ -437,13 +438,16 @@ public class OriginClientMod {
 
 		// Zoomed Sensitivity: temporarily scale mouse sensitivity while zoomed so
 		// aiming is steadier, restoring the player's own value the instant zoom ends.
-		if (zoomActive) {
+		// Not while a menu is open: Options then shows (and saves) the player's own
+		// sensitivity, and a change made there is what zoom scales once it closes.
+		if (zoomActive && client.currentScreen == null) {
 			if (!zoomSensApplied) {
 				savedSensitivity = client.gameSettings.mouseSensitivity;
 				zoomSensApplied = true;
 			}
 			double f = Mods.num("zoom", "sensitivity");
-			client.gameSettings.mouseSensitivity = (float) Math.max(0.0, Math.min(1.0, savedSensitivity * (f <= 0 ? 1.0 : f)));
+			zoomedSensitivity = (float) Math.max(0.0, Math.min(1.0, savedSensitivity * (f <= 0 ? 1.0 : f)));
+			client.gameSettings.mouseSensitivity = zoomedSensitivity;
 		} else if (zoomSensApplied) {
 			client.gameSettings.mouseSensitivity = savedSensitivity;
 			zoomSensApplied = false;
@@ -845,7 +849,23 @@ public class OriginClientMod {
 	 * autosave used to write the mod's scale every time it saved. No re-wrap:
 	 * the value is only swapped for the length of the write.
 	 */
+	// Zoom's lowered sensitivity and the smooth camera are Origin's values, never the
+	// player's: every options.txt write (vanilla's screens, F11, the key sync) gets the
+	// player's own for the length of the write, so a crash or a killed game mid-zoom
+	// can't leave them in options.txt for Settings Sync to spread.
+	private static void cameraOptionsForSave(net.minecraft.client.settings.GameSettings options, boolean playerValues) {
+		if (zoomSensApplied) {
+			options.mouseSensitivity = playerValues ? savedSensitivity : zoomedSensitivity;
+		}
+		if (smoothCamApplied) {
+			options.smoothCamera = playerValues ? savedSmoothCam : true;
+		}
+	}
+
 	public static void chatOptionsForSave(net.minecraft.client.settings.GameSettings options, boolean playerValues) {
+		if (options != null) {
+			cameraOptionsForSave(options, playerValues);   // the same save hooks (GameSettingsZoomMixin)
+		}
 		if (!chatApplied || options == null) {
 			return;
 		}

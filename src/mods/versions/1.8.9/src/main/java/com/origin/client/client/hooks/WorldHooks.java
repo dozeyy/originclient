@@ -506,7 +506,10 @@ public final class WorldHooks {
 			return;
 		}
 		try {
-			if (Mods.on("zoom") && OriginClientMod.zoomActive && Mods.bool("zoom", "scrollZoom")) {
+			// Never inside a screen: Toggle Zoom stays latched while one is open, and chat,
+			// inventories and scroll lists keep their own wheel (MouseEvent fires for those too).
+			if (Mods.on("zoom") && OriginClientMod.zoomActive && Mods.bool("zoom", "scrollZoom")
+					&& Minecraft.getMinecraft().currentScreen == null) {
 				double notches = Math.abs(event.dwheel) >= 120 ? event.dwheel / 120.0 : Math.signum(event.dwheel);
 				double speed = Math.max(0.1, Mods.num("zoom", "scrollSpeed"));
 				double f = OriginClientMod.zoomScrollFactor * Math.pow(1.15, -notches * speed);
