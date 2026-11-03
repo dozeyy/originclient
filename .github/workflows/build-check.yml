@@ -22,6 +22,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
+      - "tools/ingame-guard-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -38,6 +39,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
+      - "tools/ingame-guard-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -81,6 +83,13 @@ jobs:
       # unchanged; forcing on then off leaves the file as it was).
       - name: Test step-aside logic
         run: python3 tools/step-aside-tests/run.py
+
+      # In-game guards (bug run 3): a server can't freeze the game over WorldEdit CUI
+      # (CuiNumbers), a damaged config is kept as .corrupt and never half-loaded
+      # (ConfigFiles + the shared ModsConfig), profiles keep the Hypixel API key, Hypixel
+      # is known by address or brand; every live module carries the same helper copies.
+      - name: Test in-game guards
+        run: python3 tools/ingame-guard-tests/run.py
 
       # The starter config new players are seeded from (default-mods-config.json in every live
       # module): every slider value inside its Mods.java range, and none of the known values
