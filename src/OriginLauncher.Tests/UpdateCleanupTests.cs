@@ -124,6 +124,25 @@ public sealed class UpdateCleanupTests : IDisposable
         Assert.False(File.Exists(free));
     }
 
+    // The small update (UpdateService.DeltaPathFor: <prefix>-<version>.delta.zip) of the version being fetched stays;
+    // a delta left behind by a kill mid-update, for any other version, goes like its zip would.
+    [Fact]
+    public void Small_update_downloads_of_other_versions_are_removed_and_the_fetched_one_kept()
+    {
+        var keep = Touch($"{Prefix}-1.0.58.delta.zip");
+        var keepPart = Touch($"{Prefix}-1.0.58.delta.zip.part");
+        var stale = Touch($"{Prefix}-1.0.57.delta.zip");
+        var stalePart = Touch($"{Prefix}-1.0.57.delta.zip.part");
+
+        var n = UpdateVerifier.DeleteStaleDownloads(_dir, Prefix, new Version(1, 0, 58));
+
+        Assert.Equal(2, n);
+        Assert.True(File.Exists(keep));
+        Assert.True(File.Exists(keepPart));
+        Assert.False(File.Exists(stale));
+        Assert.False(File.Exists(stalePart));
+    }
+
     [Fact]
     public void A_missing_folder_is_not_an_error()
     {

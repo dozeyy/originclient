@@ -61,6 +61,10 @@ public static partial class UpdateService
 
     internal const string AppImageStageName = "OriginLauncher.AppImage";
 
+    // No small update (UpdateDelta) on Linux: the downloads are an AppImage or a tar.gz, not the zip deltas are built
+    // from. Every Linux update downloads the full file.
+    private static readonly bool DeltaUpdates = false;
+
     /// <summary>How the app quits for the swap. The UI start replaces this with its own lifetime's shutdown.</summary>
     public static Action Shutdown { get; set; } = () => Environment.Exit(0);
 

@@ -105,12 +105,54 @@ publishing the asset the launcher looks for. Tests:
 `src/OriginLauncher.Tests/UpdateVerifierTests.cs`. Never rename the `.sha256`
 asset (installed launchers key on it; an absent one is accepted, see above).
 
+## Small updates (deltas, Windows)
+
+So a player doesn't re-download the whole ~265 MB zip when only a few files
+changed, the release also carries, for each of the last 3 published releases,
+`OriginLauncher-win-x64.delta-from-<old version>.zip` plus its own `.sha256`
+(built by `tools/release/delta.py` in the "Build the small self-updates" step,
+uploaded right after the release is created, hashes first). A delta holds a
+manifest (`origin-delta.json`: every file of the new release with size and
+SHA-256, the two versions, the paths the new release dropped) and only the files
+that were added or changed (`files/<path>`).
+
+A Windows launcher of exactly that old version (`Core/Updates/UpdateDelta.cs`,
+`UpdateService.TryStageFromDeltaAsync`):
+1. downloads the delta and checks it against its `.sha256` with the same rules
+   as the full zip (no hash = not used);
+2. stages the new release into an empty stage folder: changed files from the
+   delta, unchanged ones copied from the installed folder (which it never edits);
+3. reads every staged file back and checks size + SHA-256 against the manifest,
+   and that nothing else is there. Local drift, antivirus edits, partial copies,
+   or a delta made for another version all fail here;
+4. on any failure empties the stage and downloads the full zip exactly as
+   before. A delta's failure never reaches the update gate and never blocks Play.
+
+The swap script is unchanged: it sees the same stage the full zip would give.
+Neither path deletes files the new release dropped (robocopy without /PURGE).
+A delta is not published when it can't be built or is over half the full zip;
+the full zip is always published and always the fallback. A zip already
+verified by the quiet retry is reused before a delta is tried. Mac and Linux
+always download the full file (a Mac update swaps the whole signed .app; Linux
+ships AppImage/tar.gz). `check_consistency.py` keeps the names in `delta.py`,
+`UpdateDelta.cs` and the workflow agreeing. Tests:
+`src/OriginLauncher.Tests/UpdateDeltaTests.cs`, `tools/release/test_delta.py`.
+
+How much it saves depends on what changed: the launcher exe is one ~89 MB
+single-file (it carries the .NET runtime) and changes every release, and a
+change under `src/mods/shared/` rebuilds every mod jar. Measured on the real
+release zips' file lists (CRC-32 + size per file, 2026-11-03): 1.0.83 -> 1.0.84
+changed only the exe + pdb (~90 MB of 266 MB compressed: a delta would be
+published); 1.0.78 -> 1.0.80, 1.0.80 -> 1.0.81 and 1.0.82 -> 1.0.83 changed
+all 22 files including every jar (~266 MB: no delta, full zip as before).
+
 ## Rehearse first (optional, publishes nothing)
 
 Actions → **launcher-release** → Run workflow. It runs every step above
 against the latest published release — plan, reuse, parallel builds, notes,
-installer, zip — but skips publishing. The setup.exe, zip and the notes it
-would have posted are attached to the run as a "rehearsal-release" download
+installer, zip, the small-update deltas — but skips publishing. The setup.exe,
+zip, deltas (`deltas/`) and the notes it would have posted are attached to the
+run as a "rehearsal-release" download
 (an unstamped dev build, so installing it never triggers or blocks updates).
 
 ## Release notes

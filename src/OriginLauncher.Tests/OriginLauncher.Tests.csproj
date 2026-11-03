@@ -156,6 +156,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateGate.cs" LinkBase="Updates" />
     <!-- "Quit to swap in X" remembered across the restart, so a swap that failed after the quit never gates Play forever. -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\SwapAttempt.cs" LinkBase="Updates" />
+    <!-- The small self-update: the new release rebuilt from the installed folder + only the changed files, every staged file verified (pure: paths are parameters). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateDelta.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- Settings: which rail item is lit, and who may see the Developer switch (both pure). -->
@@ -257,5 +259,6 @@
   <ItemGroup>
     <None Include="CrashCorpus\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\Delta\*.zip" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

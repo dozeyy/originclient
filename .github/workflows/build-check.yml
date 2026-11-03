@@ -132,6 +132,9 @@ jobs:
       - name: Release-notes filter tests
         run: python3 tools/release/test_notes.py
 
+      - name: Self-update delta builder tests
+        run: python3 tools/release/test_delta.py
+
       # Linux runners come with whatever .NET they come with: global.json chooses.
       - name: Set up .NET
         uses: actions/setup-dotnet@v6

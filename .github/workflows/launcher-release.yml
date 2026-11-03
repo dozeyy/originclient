@@ -254,6 +254,21 @@ jobs:
           [IO.File]::WriteAllText("OriginLauncher-win-x64.zip.sha256", "$h  OriginLauncher-win-x64.zip`n")
           Write-Host "OriginLauncher-win-x64.zip.sha256: $h"
 
+      # The small self-updates (tools/release/delta.py; docs/RELEASING.md -> Small updates): one delta from each of
+      # the last 3 published releases, carrying only the files that changed, each with its own .sha256 written after
+      # the delta is final. Best effort by design: a delta that can't be built, or would be over half the full zip,
+      # is simply not made, and a launcher with no delta (or whose delta fails its checks) downloads the full zip as
+      # always. So this step can never stop the release (continue-on-error). A rehearsal builds them too, against
+      # the newest published releases, and keeps them in its artifact; only a tag run publishes them (below).
+      - name: Build the small self-updates (deltas)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          python tools/release/delta.py release --new-zip OriginLauncher-win-x64.zip --tag "$env:RELEASE_TAG" --out deltas
+          exit $LASTEXITCODE
+
       # The Linux downloads land next to the Windows files, so the publish step lists them by bare
       # name. When the Linux job succeeded, they are attached only if all four and their .sha256 are
       # here and agree (the Linux self-update trusts nothing else); a mismatch still refuses the release.
@@ -302,6 +317,7 @@ jobs:
             OriginLauncher-win-x64.zip.sha256
             OriginLauncher-Setup.exe
             notes/release-notes.md
+            deltas/
           if-no-files-found: error
           retention-days: 7
 
@@ -367,6 +383,31 @@ jobs:
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md
           ${{ steps.latest.outputs.flag }}
+
+      # ADDS the small self-updates built above to the release just created (never creates or edits it). Every delta
+      # is re-checked against its .sha256 first, and one that doesn't match is left out. Hashes are uploaded before any
+      # delta, so a launcher never sees a delta without its .sha256 (it would still check GitHub's own digest). Until
+      # this finishes, launchers simply see no delta and take the full zip. continue-on-error: the release is already
+      # out, and a failure here must not fail the job (the Mac jobs only run after a successful one).
+      - name: Add the small self-updates to the release
+        if: env.REHEARSAL != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $ok = @()
+          foreach ($d in @(Get-ChildItem deltas -Filter 'OriginLauncher-win-x64.delta-from-*.zip' -ErrorAction SilentlyContinue)) {
+            $side = "$($d.FullName).sha256"
+            $want = if (Test-Path $side) { ((Get-Content $side -Raw).Trim() -split '\s+')[0] } else { '' }
+            $h = (Get-FileHash $d.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($h -eq $want) { $ok += $d.FullName } else { Write-Host "::warning::$($d.Name) does not match its .sha256; not published" }
+          }
+          if ($ok.Count -eq 0) { Write-Host "No small self-updates for this release (every launcher downloads the full zip)"; exit 0 }
+          gh release upload "$env:RELEASE_TAG" @($ok | ForEach-Object { "$_.sha256" })
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload "$env:RELEASE_TAG" @ok
+          exit $LASTEXITCODE
 
   # ---- Mac (after the Windows job, never in its way) ----
   # needs: release + "release succeeded": by the time this starts the Windows release is published

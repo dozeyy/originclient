@@ -11,9 +11,13 @@ public static partial class UpdateService
     private const string ReleaseAssetName = AssetName;
     private const string ReleaseZipPrefix = "OriginLauncher-win-x64";
 
+    // Windows takes the small update (UpdateDelta): the install folder is a plain folder of files, so the stage can be
+    // rebuilt from it file by file. tools/release/delta.py builds these deltas for the win-x64 zip only.
+    private static readonly bool DeltaUpdates = true;
+
     private static void StartApplyScript(string stageDir, string updatesRoot)
     {
-        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        var appDir = InstalledAppDir;
         var exePath = Environment.ProcessPath
                       ?? Path.Combine(appDir, "OriginLauncher.App.exe");
         var pid = Environment.ProcessId;

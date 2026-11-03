@@ -176,7 +176,8 @@ public static partial class UpdateService
                 AvailableChanged?.Invoke(null, EventArgs.Empty);
             }
 
-            var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
+            var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest,
+                FindDelta(release.Assets));
             if (decision == UpdateGate.Decision.Quiet)
             {
                 // An earlier download of this release failed its check: never put it in front of the player
@@ -206,9 +207,36 @@ public static partial class UpdateService
         return true;
     }
 
+    // The small update (Core/Updates/UpdateDelta.cs) for exactly this installed version, when this OS takes deltas
+    // (DeltaUpdates, per OS file) and the release has one with a hash (its .sha256 sidecar, or GitHub's digest). A
+    // delta without a hash is simply ignored, never refused: the full zip is still there and is used instead.
+    // Dev builds (1.0.0.0) never match a published delta.
+    private static ReleaseFile? FindDelta(List<ReleaseAsset>? assets)
+    {
+        if (!DeltaUpdates || assets == null || IsDevBuild) return null;
+        var delta = assets.FirstOrDefault(a => UpdateDelta.IsDeltaFor(a.Name, ReleaseZipPrefix, CurrentVersion));
+        if (delta?.Name == null || delta.DownloadUrl == null) return null;
+        var hash = assets.FirstOrDefault(a => string.Equals(a.Name, delta.Name + ".sha256", StringComparison.OrdinalIgnoreCase));
+        if (hash?.DownloadUrl == null && UpdateVerifier.ParseDigest(delta.Digest) == null) return null;
+        return new ReleaseFile(delta.Name, delta.DownloadUrl, hash?.DownloadUrl, delta.Digest);
+    }
+
+    // The full release zip of an offered update, in the same shape as a delta so one download path serves both.
+    private static ReleaseFile FullZip(AvailableUpdate update) =>
+        new(ReleaseAssetName, update.DownloadUrl, update.Sha256Url, update.DigestSha256);
+
     // One zip (and one .part) per version, so two downloads of different releases never share a file.
     private static string ZipPathFor(Version version) =>
         Path.Combine(OriginPaths.Updates, $"{ReleaseZipPrefix}-{version}.zip");
+
+    // The small update's download (UpdateVerifier.DeleteStaleDownloads knows this name too). It only lives while
+    // TryStageFromDeltaAsync runs; a kill mid-way leaves it for the stale-download cleanup.
+    private static string DeltaPathFor(Version version) =>
+        Path.Combine(OriginPaths.Updates, $"{ReleaseZipPrefix}-{version}.delta.zip");
+
+    // The installed launcher folder the swap script copies the stage over (UpdateService.Windows.cs), and the folder a
+    // delta copies the unchanged files from.
+    private static string InstalledAppDir => AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
 
     // Removes zips/.part files of versions nobody is fetching or offering (quit before applying, killed
     // mid-download). Never throws; a locked file is skipped. Keeps the version being fetched, the one offered
@@ -260,7 +288,9 @@ public static partial class UpdateService
             var zipPath = ZipPathFor(update.Version);
             Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
             CleanStaleDownloads(update.Version);
-            var sha256 = await DownloadVerifiedAsync(update, zipPath, null).ConfigureAwait(false);
+            // The full zip only: this quiet path runs after a failed verification, and the zip it verifies is reused
+            // by the badge click below without any download. (A click with nothing verified on disk tries the delta.)
+            var sha256 = await DownloadVerifiedAsync(update.Version, FullZip(update), zipPath, null).ConfigureAwait(false);
             lock (Gate) Gate.Verified(update.Version);
             if (TryPublish(update))
             {
@@ -337,27 +367,37 @@ public static partial class UpdateService
 
         progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
         var zipPath = ZipPathFor(update.Version);
-        // A quiet retry may already have fetched and verified this very zip, possibly hours ago: hash it again
-        // before it is extracted. A swapped or damaged file is deleted and fails like any bad download.
+        // Three ways to fill the stage, in this order:
+        //  1. A quiet retry already fetched and verified this very zip, possibly hours ago: hash it again before it is
+        //     extracted. A swapped or damaged file is deleted and fails like any bad download.
+        //  2. The small update (delta) for this installed version, when the release has one. It either stages a fully
+        //     verified copy of the new release or answers false with the stage emptied; it never throws.
+        //  3. The full zip, downloaded and verified exactly as before. Only this path's failures reach the gate.
         VerifiedZip? verifiedEarlier;
         lock (Gate) { verifiedEarlier = _verifiedZip; _verifiedZip = null; }
+        var stagedFromDelta = false;
         if (verifiedEarlier?.Version == update.Version && File.Exists(zipPath))
             await UpdateVerifier.EnsureFileMatchesAsync(zipPath, verifiedEarlier.Sha256, CancellationToken.None).ConfigureAwait(false);
+        else if (await TryStageFromDeltaAsync(update, stageDir, progress))
+            stagedFromDelta = true;
         else
-            await DownloadVerifiedAsync(update, zipPath, progress);
+            await DownloadVerifiedAsync(update.Version, FullZip(update), zipPath, progress);
 
         progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
-        // Off the UI thread so the loading scene keeps animating while ~126 MB
+        // Off the UI thread so the loading scene keeps animating while ~250 MB
         // unpacks; the continuation returns here (UI thread) for Shutdown().
-        await Task.Run(() =>
+        if (!stagedFromDelta)
         {
-            // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
-            // (a Mac .app needs its symlinks and exec bits kept).
-            var staged = false;
-            StageReleaseOverride(zipPath, stageDir, ref staged);
-            if (!staged) ExtractUpdate(zipPath, stageDir);
-            File.Delete(zipPath);
-        });
+            await Task.Run(() =>
+            {
+                // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
+                // (a Mac .app needs its symlinks and exec bits kept).
+                var staged = false;
+                StageReleaseOverride(zipPath, stageDir, ref staged);
+                if (!staged) ExtractUpdate(zipPath, stageDir);
+                File.Delete(zipPath);
+            });
+        }
 
         // An import may have been started while this downloaded (or still be running from before): the restart
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
@@ -386,22 +426,61 @@ public static partial class UpdateService
     // Windows and the Mac don't implement it, so for them the call compiles away and the zip is extracted.
     static partial void StageReleaseOverride(string download, string stageDir, ref bool staged);
 
-    // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
-    // mismatch, a short file or a release that published no hash). Returns the SHA-256 it verified against. The zip only ever appears at
-    // zipPath once verified: it is written as zipPath.part and every failure path deletes that. Any
-    // failure throws; MainWindow shows "Update failed ... click to retry", and nothing was extracted
-    // or applied.
-    // The byte loop runs off the UI thread (ConfigureAwait(false)); progress still lands on the UI
-    // thread because Progress<T> captured it. Reports are capped at ~10/s (each is a dispatcher hop).
-    private static async Task<string> DownloadVerifiedAsync(AvailableUpdate update, string zipPath, IProgress<UpdateProgress>? progress)
+    // The small update (Core/Updates/UpdateDelta.cs). True when stageDir now holds the new release with every file
+    // checked against the delta's manifest. Every failure on the way (no delta in this release, the download, its
+    // SHA-256, a file that drifted in the installed folder, a delta made for another version) is logged and answers
+    // false with the stage emptied, and the caller downloads the full zip exactly as it always did. So a delta can
+    // make an update faster, never make it fail, and never counts against the update gate.
+    private static async Task<bool> TryStageFromDeltaAsync(AvailableUpdate update, string stageDir, IProgress<UpdateProgress>? progress)
     {
-        var partPath = zipPath + ".part";
+        if (update.Delta is not { } delta) return false;
+        var deltaPath = DeltaPathFor(update.Version);
         try
         {
-            var expected = await ResolveExpectedHashAsync(update).ConfigureAwait(false);
+            try
+            {
+                await DownloadVerifiedAsync(update.Version, delta, deltaPath, progress).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // DownloadVerifiedAsync logged why and deleted its .part; nothing was staged yet.
+                Log($"update {update.Version}: downloading the full update instead");
+                return false;
+            }
+
+            progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
+            var installedDir = InstalledAppDir;
+            var from = CurrentVersion;
+            var failure = "";
+            var staged = await Task.Run(() =>
+                UpdateDelta.TryStage(deltaPath, installedDir, stageDir, from, update.Version, out failure)).ConfigureAwait(false);
+            Log(staged
+                ? $"update {update.Version}: staged from {delta.AssetName}, every file verified"
+                : $"update {update.Version}: {delta.AssetName} not used ({failure}); downloading the full update instead");
+            return staged;
+        }
+        finally
+        {
+            try { File.Delete(deltaPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    // Fetches the expected SHA-256, downloads the file (the full zip or a delta) and checks it (UpdateVerifier policy:
+    // refuse a mismatch, a short file or a release that published no hash). Returns the SHA-256 it verified against.
+    // The file only ever appears at path once verified: it is written as path.part and every failure path deletes
+    // that. Any failure throws; for the full zip MainWindow shows "Update failed ... click to retry", and nothing was
+    // extracted or applied (a delta's failure is caught by TryStageFromDeltaAsync).
+    // The byte loop runs off the UI thread (ConfigureAwait(false)); progress still lands on the UI
+    // thread because Progress<T> captured it. Reports are capped at ~10/s (each is a dispatcher hop).
+    private static async Task<string> DownloadVerifiedAsync(Version version, ReleaseFile file, string path, IProgress<UpdateProgress>? progress)
+    {
+        var partPath = path + ".part";
+        try
+        {
+            var expected = await ResolveExpectedHashAsync(file).ConfigureAwait(false);
 
             using var stall = new CancellationTokenSource(StallTimeout);
-            using var response = await Http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, stall.Token).ConfigureAwait(false);
+            using var response = await Http.GetAsync(file.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, stall.Token).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var total = response.Content.Headers.ContentLength;
             await using var source = await response.Content.ReadAsStreamAsync(stall.Token).ConfigureAwait(false);
@@ -426,32 +505,32 @@ public static partial class UpdateService
             }
 
             UpdateVerifier.ThrowIfRefused(verdict);
-            File.Move(partPath, zipPath, overwrite: true);
+            File.Move(partPath, path, overwrite: true);
             progress?.Report(new UpdateProgress(UpdateStage.Downloading, total ?? 0, total ?? 0));
             return expected;
         }
         catch (Exception ex)
         {
             try { File.Delete(partPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-            Log($"update {update.Version}: not applied, will retry later: {ex.GetType().Name}: {ex.Message}");
+            Log($"update {version}: {file.AssetName} not applied: {ex.GetType().Name}: {ex.Message}");
             throw;
         }
     }
 
     // The sidecar .sha256 asset first, then the release API's own asset digest. No hash at all, or a SIDECAR that is
-    // listed but unreadable or malformed, is a verification failure: an update we cannot verify is not applied
+    // listed but unreadable or malformed, is a verification failure: a file we cannot verify is not applied
     // (and, like any verification failure, never blocks play).
-    private static async Task<string> ResolveExpectedHashAsync(AvailableUpdate update)
+    private static async Task<string> ResolveExpectedHashAsync(ReleaseFile file)
     {
-        if (update.Sha256Url != null)
+        if (file.Sha256Url != null)
         {
             // 404/403, a timeout, a reset or a garbled body all surface as UpdateVerificationException.
             return await UpdateVerifier.FetchSidecarAsync(
-                ct => Http.GetStringAsync(update.Sha256Url, ct), ReleaseAssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+                ct => Http.GetStringAsync(file.Sha256Url, ct), file.AssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
         }
         // GitHub's own digest is the fallback: anything but a clean "sha256:<64 hex>" (another algorithm, empty,
         // missing, a format change) is "no hash", which is refused before the download starts.
-        return UpdateVerifier.RequireHash(UpdateVerifier.ParseDigest(update.DigestSha256));
+        return UpdateVerifier.RequireHash(UpdateVerifier.ParseDigest(file.DigestSha256));
     }
 
     private static readonly object LogGate = new();
@@ -476,7 +555,15 @@ public static partial class UpdateService
 
     public sealed record BlockedUpdate(Version Version, string Reason);
 
-    public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null);
+    /// <summary>
+    /// An offered release: its full zip (DownloadUrl + hash) and, when the release has one for this installed version,
+    /// the small update that carries only the changed files (<see cref="Delta"/>; tried first, the full zip is the fallback).
+    /// </summary>
+    public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null,
+        ReleaseFile? Delta = null);
+
+    /// <summary>One downloadable release asset with the ways to check it: its .sha256 sidecar and/or GitHub's digest.</summary>
+    public sealed record ReleaseFile(string AssetName, string DownloadUrl, string? Sha256Url, string? DigestSha256);
 
     public enum UpdateStage { Downloading, Installing, Restarting, FinishingImport }
 

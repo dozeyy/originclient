@@ -33,6 +33,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    and assert them; the deb/rpm
    per-user copy (OriginPaths.UserAppCopy) and the /usr/bin wrapper must name the same folder.
 
+8. The small self-update (delta) — tools/release/delta.py builds it and the launcher's Core/Updates/UpdateDelta.cs
+   applies it: the asset name (<win zip prefix>.delta-from-<version>.zip), its source zip, and the manifest and
+   payload names inside must agree, and launcher-release.yml must build, keep (rehearsal) and upload the deltas.
+
 7. The Mac release files — the Mac launcher's self-update zip per arch (Core/Updates/MacReleaseAssets.cs, used by
    UpdateService.Mac.cs) must be the zip launcher-release.yml builds for that arch, and every Mac file (both zips,
    their .sha256, both disk images) must be in the Mac upload and the Mac rehearsal artifact.
@@ -180,6 +184,51 @@ def check_update_hash() -> list[str]:
     return [] if n >= 2 else [f"launcher-release.yml must list {hash_name} in the release and the rehearsal artifact (found {n}x)"]
 
 
+def check_update_delta() -> list[str]:
+    """The small self-update: tools/release/delta.py builds it, Core/Updates/UpdateDelta.cs applies it. The asset
+    name (<win zip prefix>.delta-from-<version>.zip), the zip it is built from, and the manifest/payload names inside
+    must agree, and launcher-release.yml must build the deltas, keep them in the rehearsal artifact and upload them
+    with their .sha256."""
+    py = (REPO / "tools/release/delta.py").read_text(encoding="utf-8")
+    cs = (LAUNCHER / "Core/Updates/UpdateDelta.cs").read_text(encoding="utf-8")
+    svc = (LAUNCHER / "Core/Updates/UpdateService.cs").read_text(encoding="utf-8")
+    win = (LAUNCHER / "Core/Updates/UpdateService.Windows.cs").read_text(encoding="utf-8")
+    wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
+
+    def py_const(name: str) -> str | None:
+        m = re.search(r'^' + name + r'\s*=\s*"([^"]*)"', py, re.M)
+        return m.group(1) if m else None
+
+    def cs_const(text: str, name: str) -> str | None:
+        m = re.search(r'const string ' + name + r'\s*=\s*"([^"]*)"', text)
+        return m.group(1) if m else None
+
+    problems: list[str] = []
+    pairs = [
+        ("full zip", py_const("ASSET"), cs_const(svc, "AssetName")),
+        ("zip prefix", py_const("ZIP_PREFIX"), cs_const(win, "ReleaseZipPrefix")),
+        ("manifest entry", py_const("MANIFEST"), cs_const(cs, "ManifestEntry")),
+        ("payload folder", py_const("FILES_PREFIX"), cs_const(cs, "FilesPrefix")),
+    ]
+    for what, a, b in pairs:
+        if a is None or b is None:
+            problems.append(f"delta {what}: constant not found (delta.py {a!r}, launcher {b!r}; update check_update_delta)")
+        elif a != b:
+            problems.append(f"delta {what}: delta.py {a!r} vs launcher {b!r}")
+    if 'f"{ZIP_PREFIX}.delta-from-{from_version}.zip"' not in py or 'zipPrefix + ".delta-from-"' not in cs:
+        problems.append("delta asset name: delta.py delta_name and UpdateDelta.IsDeltaFor must both be <prefix>.delta-from-<version>.zip")
+    if not re.search(r'UpdateDelta\.IsDeltaFor\(a\.Name,\s*ReleaseZipPrefix,', svc) \
+            or not re.search(r'a\.Name,\s*delta\.Name\s*\+\s*"\.sha256"', svc):
+        problems.append("UpdateService.FindDelta no longer matches deltas by ReleaseZipPrefix with a <delta>.sha256 sidecar")
+    if "tools/release/delta.py release" not in wf:
+        problems.append("launcher-release.yml must build the deltas with tools/release/delta.py release")
+    if not re.search(r"^\s+deltas/\s*$", wf, re.M):
+        problems.append("launcher-release.yml must keep deltas/ in the rehearsal artifact")
+    if "'OriginLauncher-win-x64.delta-from-*.zip'" not in wf or not re.search(r'gh release upload[^\n]*\.sha256', wf):
+        problems.append("launcher-release.yml must upload each delta and its .sha256 to the release")
+    return problems
+
+
 # The Mac disk images are downloads only (the launcher never looks them up), but the website links them by
 # these exact names, so the workflow must keep publishing them under these names.
 MAC_DMGS = {"osx-arm64": "Origin-Mac-AppleSilicon.dmg", "osx-x64": "Origin-Mac-Intel.dmg"}
@@ -320,12 +369,13 @@ def check_linux_assets() -> list[str]:
 
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
-                + check_update_hash() + check_mac_release() + check_picker() + check_linux_assets())
+                + check_update_hash() + check_update_delta() + check_mac_release() + check_picker()
+                + check_linux_assets())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
-        print("OK: version list, version picker, hand-off file name, theme tokens, release feed, update hash, Mac "
-              "release files and Linux downloads agree across launcher, installer and release.")
+        print("OK: version list, version picker, hand-off file name, theme tokens, release feed, update hash, small "
+              "updates, Mac release files and Linux downloads agree across launcher, installer and release.")
     return 1 if problems else 0
 
 

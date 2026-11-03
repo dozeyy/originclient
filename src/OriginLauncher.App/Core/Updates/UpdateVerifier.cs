@@ -184,7 +184,7 @@ public static class UpdateVerifier
     }
 
     /// <summary>
-    /// Deletes every OriginLauncher-win-x64-*.zip and *.zip.part in <paramref name="updatesDir"/> that does not
+    /// Deletes every OriginLauncher-win-x64-*.zip and *.zip.part (the full zips and the *.delta.zip small updates) in <paramref name="updatesDir"/> that does not
     /// belong to one of the <paramref name="keep"/> versions (a quit before applying, or a kill mid-download,
     /// leaves ~126 MB behind per release), plus the old fixed-name OriginLauncher-win-x64.zip / .zip.part an
     /// older launcher used (never a version to keep). A locked or undeletable file is skipped, never an error. Returns how
@@ -199,6 +199,9 @@ public static class UpdateVerifier
             if (v == null) continue;
             kept.Add($"{zipPrefix}-{v}.zip");
             kept.Add($"{zipPrefix}-{v}.zip.part");
+            // The small update (delta) of a version being fetched; any other version's delta is stale like its zip.
+            kept.Add($"{zipPrefix}-{v}.delta.zip");
+            kept.Add($"{zipPrefix}-{v}.delta.zip.part");
         }
         var legacy = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { $"{zipPrefix}.zip", $"{zipPrefix}.zip.part" };
         var removed = 0;

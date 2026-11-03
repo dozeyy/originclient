@@ -23,6 +23,11 @@ public static partial class UpdateService
 
     internal static readonly string ReleaseAssetName = ReleaseZipPrefix + ".zip";
 
+    // No small update (UpdateDelta) on the Mac: the update replaces the whole signed .app bundle, whose symlinks and
+    // exec bits a file-by-file .NET copy would not keep (see ExtractUpdate), and the release builds no Mac deltas.
+    // Every Mac update downloads the full zip.
+    private static readonly bool DeltaUpdates = false;
+
     /// <summary>How the app quits for the swap. The UI start replaces this with its own lifetime's shutdown.</summary>
     public static Action Shutdown { get; set; } = () => Environment.Exit(0);
 
