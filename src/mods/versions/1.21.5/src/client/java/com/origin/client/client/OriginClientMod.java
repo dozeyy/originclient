@@ -20,7 +20,6 @@ public class OriginClientMod implements ClientModInitializer {
 
 	private boolean freelookWasDown = false;
 	private net.minecraft.client.CameraType savedPerspective = null;
-	private boolean sneakForced = false;
 	private boolean chatApplied = false;
 	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
 	private boolean hitboxesApplied = false;
@@ -178,19 +177,34 @@ public class OriginClientMod implements ClientModInitializer {
 	 * never needs re-toggling; only an un-toggle turns it off. Every vanilla
 	 * rule stays in force too: no sprinting inside a screen, at low hunger, or
 	 * while eating/blocking.
+	 *
+	 * Toggle Sneak works the same way on the Sneak key (keyShift). It used to call
+	 * player.setShiftKeyDown(true), but LocalPlayer.isShiftKeyDown() reads the tick's
+	 * Input, which KeyboardInput builds from keyShift.isDown() -- so the server never
+	 * saw a sneak: edges weren't safe and shift-placing against a chest opened it.
+	 * Now the Sneak key reads as held and vanilla sneaks (client and server) itself.
 	 */
-	public static boolean sprintKeyHeldByToggle(net.minecraft.client.KeyMapping key) {
-		if (!FEATURES.sprintToggledOn) {
+	public static boolean keyHeldByToggle(net.minecraft.client.KeyMapping key) {
+		if (!FEATURES.sprintToggledOn && !FEATURES.sneakToggledOn) {
 			return false;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc == null || mc.options == null || key != mc.options.keySprint) {
+		if (mc == null || mc.options == null) {
 			return false;
 		}
 		if (mc.screen != null) {
 			return false;   // vanilla releases every key in a screen; don't lie to it
 		}
-		return Mods.on("togglesprint") && Mods.bool("togglesprint", "sprint");
+		if (!Mods.on("togglesprint")) {
+			return false;
+		}
+		if (key == mc.options.keySprint) {
+			return FEATURES.sprintToggledOn && Mods.bool("togglesprint", "sprint");
+		}
+		if (key == mc.options.keyShift) {
+			return FEATURES.sneakToggledOn && Mods.bool("togglesprint", "sneak");
+		}
+		return false;
 	}
 
 	private void onEndTick(Minecraft client) {
@@ -316,9 +330,9 @@ public class OriginClientMod implements ClientModInitializer {
 		// consume the vanilla sprint/sneak keys, so double-tap-W sprinting and
 		// hold-Ctrl / hold-Shift keep working normally. We also never force the
 		// state OFF: while sprint is toggled the vanilla sprint key simply reads as
-		// held (SprintKeyMixin) so the game drives the sprint itself, and sneak is
-		// released once on un-toggle -- vanilla stays in control the rest of the
-		// time.
+		// held (SprintKeyMixin) so the game drives the sprint itself; the Sneak key reads as held the
+		// same way while sneak is toggled -- vanilla stays in control the rest of
+		// the time.
 		boolean toggleMod = Mods.on("togglesprint");
 		// Mode: "Toggle" = press once, stays on. "Hold" = active only while the
 		// mod's key is held (a hands-free key that isn't the vanilla one). The
@@ -336,7 +350,7 @@ public class OriginClientMod implements ClientModInitializer {
 			// The sprint itself is NOT forced from here any more. While the
 			// toggle is on, SprintKeyMixin makes the vanilla sprint key read as
 			// held, so the game starts (and re-starts) the sprint on its own at
-			// the right point in the tick -- see sprintKeyHeldByToggle().
+			// the right point in the tick -- see keyHeldByToggle().
 		} else {
 			FEATURES.sprintToggledOn = false;
 		}
@@ -350,18 +364,10 @@ public class OriginClientMod implements ClientModInitializer {
 			} else if (edge) {
 				FEATURES.sneakToggledOn = !FEATURES.sneakToggledOn;
 			}
-			if (FEATURES.sneakToggledOn) {
-				player.setShiftKeyDown(true);
-				sneakForced = true;
-			} else if (sneakForced) {
-				player.setShiftKeyDown(false);   // one-shot release; hold-Shift then works normally
-				sneakForced = false;
-			}
+			// The crouch is NOT forced from here: while the toggle is on, SprintKeyMixin
+			// makes the vanilla Sneak key read as held, so the game's own input sneaks
+			// and the server sees it -- see keyHeldByToggle().
 		} else {
-			if (sneakForced) {
-				player.setShiftKeyDown(false);
-				sneakForced = false;
-			}
 			FEATURES.sneakToggledOn = false;
 		}
 
