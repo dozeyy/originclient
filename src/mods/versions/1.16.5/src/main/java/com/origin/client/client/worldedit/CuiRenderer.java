@@ -72,6 +72,8 @@ final class CuiRenderer {
 	// (WorldEditCUI's CULL_RANGE), so a 2000-block selection costs no more than a
 	// 256-block one.
 	private static final double GRID_CULL_CELLS = 128;
+	/** Hard cap on grid lines per axis (the cull window holds 2 x GRID_CULL_CELLS + 1 at most). */
+	private static final int GRID_MAX_LINES = (int) (2 * GRID_CULL_CELLS) + 2;
 	// A grid band closer than this to the far face is dropped (it would sit on the
 	// edge itself). WorldEditCUI's SKIP_THRESHOLD.
 	private static final double GRID_SKIP = 0.25;
@@ -273,7 +275,8 @@ final class CuiRenderer {
 		}
 		double reach = GRID_CULL_CELLS * spacing;
 		double yEnd = Math.min(y2 + OFF, camY + reach);
-		for (double y = gridStart(y1, camY - reach, spacing) + OFF; y <= yEnd; y += spacing) {
+		int n = 0;
+		for (double y = gridStart(y1, camY - reach, spacing) + OFF; y <= yEnd && n++ < GRID_MAX_LINES; y += spacing) {
 			if (yEnd - y < GRID_SKIP) {
 				continue;
 			}
@@ -283,7 +286,8 @@ final class CuiRenderer {
 			seg(x2, y, z1, x2, y, z2);
 		}
 		double xEnd = Math.min(x2, camX + reach);
-		for (double x = gridStart(x1, camX - reach, spacing); x <= xEnd; x += spacing) {
+		n = 0;
+		for (double x = gridStart(x1, camX - reach, spacing); x <= xEnd && n++ < GRID_MAX_LINES; x += spacing) {
 			if (xEnd - x < GRID_SKIP) {
 				continue;
 			}
@@ -293,7 +297,8 @@ final class CuiRenderer {
 			seg(x, y1, z1, x, y1, z2);
 		}
 		double zEnd = Math.min(z2, camZ + reach);
-		for (double z = gridStart(z1, camZ - reach, spacing); z <= zEnd; z += spacing) {
+		n = 0;
+		for (double z = gridStart(z1, camZ - reach, spacing); z <= zEnd && n++ < GRID_MAX_LINES; z += spacing) {
 			if (zEnd - z < GRID_SKIP) {
 				continue;
 			}
@@ -340,8 +345,8 @@ final class CuiRenderer {
 			polyLoop(pts, hi);
 		}
 		if (showGrid && use(r, CuiRegion.GRID)) {
-			int step = ringStep(r.maxY - r.minY);
-			for (int h = r.minY + 1; h <= r.maxY; h += step) {
+			int step = ringStep((long) r.maxY - r.minY);
+			for (long h = r.minY + 1L; h <= r.maxY; h += step) {
 				polyLoop(pts, h + LIFT);
 			}
 		}
@@ -388,24 +393,24 @@ final class CuiRenderer {
 		}
 		// Latitude rings: the ellipse's cross-section at each whole block offset
 		// along the plane's normal axis (WorldEditCUI's RenderEllipsoid).
-		int yr = (int) Math.floor(ry), step = ringStep(2 * yr);
-		for (int k = -yr; k < yr; k += step) {
+		int yr = (int) Math.floor(ry), step = ringStep(2L * yr);
+		for (long k = -(long) yr; k < yr; k += step) {
 			if (k != 0) {
 				double s = Math.cos(Math.asin(k / ry));
 				ellipse(cx, cy, cz, 0, rx * s, rz * s, k);
 			}
 		}
 		int xr = (int) Math.floor(rx);
-		step = ringStep(2 * xr);
-		for (int k = -xr; k < xr; k += step) {
+		step = ringStep(2L * xr);
+		for (long k = -(long) xr; k < xr; k += step) {
 			if (k != 0) {
 				double s = Math.sin(Math.acos(k / rx));
 				ellipse(cx, cy, cz, 1, ry * s, rz * s, k);
 			}
 		}
 		int zr = (int) Math.floor(rz);
-		step = ringStep(2 * zr);
-		for (int k = -zr; k < zr; k += step) {
+		step = ringStep(2L * zr);
+		for (long k = -(long) zr; k < zr; k += step) {
 			if (k != 0) {
 				double s = Math.sin(Math.acos(k / rz));
 				ellipse(cx, cy, cz, 2, rx * s, ry * s, k);
@@ -478,8 +483,8 @@ final class CuiRenderer {
 		if (!showGrid || !use(r, CuiRegion.GRID)) {
 			return;
 		}
-		int step = ringStep(hi - lo);
-		for (int y = lo + 1; y <= hi; y += step) {
+		int step = ringStep((long) hi - lo);
+		for (long y = lo + 1L; y <= hi; y += step) {
 			circle(cx, y, cz, rx, rz);
 		}
 		if (!(rx > 0) || !(rz > 0)) {
@@ -488,16 +493,16 @@ final class CuiRenderer {
 		// Vertical slices: a rectangle through the cylinder at every whole block
 		// along X and along Z (WorldEditCUI's RenderCylinderGrid).
 		double top = hi + 1, bottom = lo;
-		int nx = (int) Math.ceil(rx), xs = ringStep(2 * nx);
-		for (int k = -nx; k <= nx; k += xs) {
+		int nx = (int) Math.ceil(rx), xs = ringStep(2L * nx);
+		for (long k = -(long) nx; k <= nx; k += xs) {
 			double h = rz * Math.cos(Math.asin(k / rx));
 			if (Double.isNaN(h)) {
 				continue;
 			}
 			rect(cx + k, top, cz + h, cx + k, top, cz - h, cx + k, bottom, cz - h, cx + k, bottom, cz + h);
 		}
-		int nz = (int) Math.ceil(rz), zs = ringStep(2 * nz);
-		for (int k = -nz; k <= nz; k += zs) {
+		int nz = (int) Math.ceil(rz), zs = ringStep(2L * nz);
+		for (long k = -(long) nz; k <= nz; k += zs) {
 			double h = rx * Math.sin(Math.acos(k / rz));
 			if (Double.isNaN(h)) {
 				continue;
@@ -550,9 +555,13 @@ final class CuiRenderer {
 		}
 	}
 
-	/** Thins rings out so no shape draws more than MAX_RINGS of them per axis. */
-	private static int ringStep(int count) {
-		return Math.max(1, (int) Math.ceil(count / (double) MAX_RINGS));
+	/**
+	 * Thins rings out so no shape draws more than MAX_RINGS of them per axis. Spans and
+	 * loop counters are longs: with ints, a server-sent height range near Integer.MAX_VALUE
+	 * (or twice a 2e9 radius) overflowed and the ring loop never ended (froze the game).
+	 */
+	private static int ringStep(long count) {
+		return CuiNumbers.ringStep(count, MAX_RINGS);
 	}
 
 	// ---- primitives ----

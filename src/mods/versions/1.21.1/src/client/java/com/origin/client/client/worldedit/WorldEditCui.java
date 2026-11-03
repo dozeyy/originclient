@@ -329,7 +329,9 @@ public final class WorldEditCui {
 							return;   // face names a vertex we never got; WorldEditCUI drops it too
 						}
 					}
-					r.faces.add(ids);
+					if (r.faces.size() < CuiNumbers.MAX_FACES) {
+						r.faces.add(ids);
+					}
 				}
 			}
 			case "col" -> {
@@ -375,6 +377,9 @@ public final class WorldEditCui {
 			multi.remove(id);
 			activeMulti = null;
 		} else {
+			if (!multi.containsKey(id) && multi.size() >= CuiNumbers.MAX_MULTI_REGIONS) {
+				return;   // a server piling up regions must not grow memory and draw time without end
+			}
 			multi.put(id, r);
 			activeMulti = r;
 		}
@@ -409,13 +414,15 @@ public final class WorldEditCui {
 		}
 	}
 
-	// WorldEditCUI parses ints through a float ("12.0" is a valid int there).
+	// WorldEditCUI parses ints through a float ("12.0" is a valid int there). Every number
+	// is clamped to the world and NaN drops the line (CuiNumbers): any server can send
+	// these, and none may be able to freeze the game with them.
 	private static int i(String s) {
-		return (int) Float.parseFloat(s);
+		return CuiNumbers.parseInt(s);
 	}
 
 	private static double d(String s) {
-		return Double.parseDouble(s);
+		return CuiNumbers.parseDouble(s);
 	}
 
 	/** `#RRGGBBAA` / `RRGGBB` (the `+col` format) -> ARGB; unparseable -> null = "use the player's colour". */
