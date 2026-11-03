@@ -186,9 +186,13 @@ jobs:
               New-Item -ItemType Directory -Force -Path $libs | Out-Null
               Copy-Item "jars/jar-$v-$ver/*.jar" $libs
             }
-            dotnet publish "$v/src/OriginLauncher.App/OriginLauncher.App.csproj" -c Release -r win-x64 --self-contained true `
-              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "pub-$v" | Select-Object -Last 3
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            # From inside the checkout: dotnet finds global.json from the current folder, not the project's.
+            Push-Location $v
+            dotnet publish src/OriginLauncher.App/OriginLauncher.App.csproj -c Release -r win-x64 --self-contained true `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "../pub-$v" | Select-Object -Last 3
+            $code = $LASTEXITCODE
+            Pop-Location
+            if ($code -ne 0) { exit $code }
             foreach ($ver in $env:VERSIONS.Split(',')) {
               if (-not (Test-Path "pub-$v/Bundled/OriginClient/originclient-$ver.jar")) { Write-Error "no bundled $ver jar ($v)"; exit 1 }
             }

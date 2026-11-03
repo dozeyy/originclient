@@ -264,3 +264,10 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Will: 1.8.9 mouse feels accelerated, 1.21.1 doesn't. Cause: LWJGL 2.9.4 WindowsMouse.handleMouseMoved builds deltas from cursor positions (no DirectInput classes in the jar; the old Mods.java comment was wrong), so Windows Enhance Pointer Precision applies (Will's registry: MouseSpeed=1, on); 1.21.1 uses GLFW raw motion.
 - Fix: RawMouseInput (JInput raw plugin from MC's own libs, polled per frame on the render thread) + MouseHelperRawMixin, General > Raw Mouse Input row, default on. Falls back to LWJGL deltas for the session on load failure, no device, or 30 frames of cursor motion with no raw counts.
 - Proof: build + refmap (func_74374_c, func_74372_a); plugin loads and lists 5 mice on Will's PC outside the game. Real camera feel not proven: CI is Linux, so raw input is Windows-only there. Gated deploy left.
+
+## 2026-11-02 - Launcher moved to .NET 10 LTS
+- Why: .NET 8 support ends 2026-11-10 (Microsoft support-policy page, read 2026-11-02); .NET 10 LTS runs to 2028-11-14. App, Tests, UiTests and OriginSetup.Tests now target net10.0; OriginSetup stays net472.
+- Root `global.json` (10.0.100, latestFeature) is the one SDK pin; every CI dotnet job uses setup-dotnet `global-json-file`. dotnet finds global.json from the CURRENT folder, not the project path (launch-time.yml now publishes from inside each checkout).
+- Breaking-change scan (.NET 9 + 10): only system-DLL P/Invokes (single-file native search change is harmless), no empty Row/ColumnDefinitions, all 30 DynamicResource uses type-correct, no BinaryFormatter.
+- Proof, commit ed1c14ba5: build-check green (Setup tests 63/63, launcher tests 2507 + 7 skipped, UiTests 3/3, 20 jars bundled, installer smoke); launcher-shots 300 + 165 shots, 452 clip checks clean; release rehearsal 41565482913 green, same asset names; cold-start.yml (new) on one runner: v1.0.77 first run 3615 ms / median 739 ms, .NET 10 first run 1258 ms / median 847 ms, same file set, exe 200.0 -> 178.7 MB.
+- Not done locally: Will's PC has only SDK 8.0.422, so local `dotnet build` of the launcher needs the .NET 10 SDK installed first.
