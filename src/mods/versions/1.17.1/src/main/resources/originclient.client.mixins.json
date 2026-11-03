@@ -43,6 +43,8 @@
 		"ItemEntityScaleMixin",
 		"LevelWeatherMixin",
 		"ChatTimestampMixin",
+		"ChatCopyLinesMixin",
+		"ChatCopyClickMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
 		"GameRendererAccessor",
