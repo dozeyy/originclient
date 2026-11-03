@@ -20,33 +20,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //       ItemStack, used for the spear's STAB pose; 1.21.10 had no stack here)
 //     body: if !item.isEmpty(): pushPose; getParentModel().translateToHand(state, arm, ps)
 //           [ArmedModel.translateToHand(EntityRenderState, HumanoidArm, PoseStack)]; RX-90 RY180 ...
-//     -> HEAD: the off-hand shield next to a sword isn't drawn (1.7 had no shield).
-//     -> right after translateToHand: 1.7's block turn so the sword lies across the body.
-// The submit pass has no entity (and the stack alone can't tell blocking), so both answers come from the flags
-// AvatarRenderer.extractRenderState stored on the state (OldAnimationsState; only player
-// states carry them). PlayerItemInHandLayer overrides this only for the spyglass-to-eye pose
-// and calls super otherwise. If either stops applying: the shield shows and the sword is held
-// like vanilla.
+//     -> right after translateToHand: 1.7's block turn so the sword lies across the body
+//        (only during the looks-only sword block; a shield is never touched).
+// The submit pass has no entity, so the answer comes from the flag AvatarRenderer.extractRenderState
+// stored on the state (OldAnimationsState; only player states carry it). PlayerItemInHandLayer
+// overrides this only for the spyglass-to-eye pose and calls super otherwise. If it stops
+// applying: the sword is held like vanilla in F5.
 @Mixin(ItemInHandLayer.class)
 public class OldAnimationsHandLayerMixin {
-
-	@Inject(method = "submitArmWithItem", at = @At("HEAD"), cancellable = true)
-	private void originclient$hideShield(ArmedEntityRenderState state, ItemStackRenderState item, ItemStack stack, HumanoidArm arm,
-										 PoseStack ps, SubmitNodeCollector collector, int light, CallbackInfo ci) {
-		try {
-			if (arm != state.mainArm && state instanceof OldAnimationsState s && s.originclient$hideOffhand()) {
-				ci.cancel();
-			}
-		} catch (Throwable t) {
-			OldAnimations.fail("third-person shield", t);
-		}
-	}
 
 	@Inject(method = "submitArmWithItem", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/model/ArmedModel;translateToHand(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lnet/minecraft/world/entity/HumanoidArm;Lcom/mojang/blaze3d/vertex/PoseStack;)V",
 			shift = At.Shift.AFTER))
-	private void originclient$blockTurn(ArmedEntityRenderState state, ItemStackRenderState item, ItemStack stack, HumanoidArm arm,
-										PoseStack ps, SubmitNodeCollector collector, int light, CallbackInfo ci) {
+	private void originclient$blockTurn(ArmedEntityRenderState state, ItemStackRenderState item, ItemStack stack,
+										HumanoidArm arm, PoseStack ps, SubmitNodeCollector collector, int light,
+										CallbackInfo ci) {
 		try {
 			if (arm == state.mainArm && state instanceof OldAnimationsState s && s.originclient$blockTurn()) {
 				OldAnimations.thirdPersonBlock(arm, ps);

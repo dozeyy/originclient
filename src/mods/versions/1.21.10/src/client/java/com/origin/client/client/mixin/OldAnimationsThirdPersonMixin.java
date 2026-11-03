@@ -18,14 +18,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // decompiled client; 1.21.9 renamed PlayerRenderer to AvatarRenderer, players and mannequins):
 //   private static ArmPose getArmPose(Avatar, ItemStack, InteractionHand)   (the per-hand overload;
 //       getArmPose(Avatar, HumanoidArm) calls it for both hands, then the two-handed check)
-//     -> HEAD: sword hand gets BLOCK while the off-hand shield is raised (HumanoidModel's BLOCK
-//        angles are 1.7's sword-block arm), the shield hand hangs EMPTY (the shield isn't drawn).
-//        BLOCK/EMPTY aren't two-handed, so the follow-up check leaves them alone.
+//     -> HEAD: the sword hand gets BLOCK during the looks-only sword block (HumanoidModel's
+//        BLOCK angles are 1.7's sword-block arm). A raised shield keeps vanilla's pose.
+//        BLOCK isn't two-handed, so the follow-up check leaves it alone.
 //   public void extractRenderState(Avatar, AvatarRenderState, float)  (descriptor pinned: the class
 //       also has the bridge overloads (LivingEntity, LivingEntityRenderState, F) / (Entity, ...))
-//     -> TAIL: the two flags the submit pass needs (OldAnimationsState), because ItemInHandLayer
+//     -> TAIL: the flag the submit pass needs (OldAnimationsState), because ItemInHandLayer
 //        only gets the render state in this era.
-// The item half is OldAnimationsHandLayerMixin. If this stops applying: vanilla shield pose.
+// The item half is OldAnimationsHandLayerMixin. If this stops applying: vanilla arm in F5.
 @Mixin(AvatarRenderer.class)
 public class OldAnimationsThirdPersonMixin {
 	@Inject(method = "getArmPose(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/client/model/HumanoidModel$ArmPose;",
@@ -47,8 +47,7 @@ public class OldAnimationsThirdPersonMixin {
 	private void originclient$oldAnimState(Avatar avatar, AvatarRenderState state, float partial, CallbackInfo ci) {
 		try {
 			// Always written (the renderer reuses one state object), so a stale flag never survives.
-			((OldAnimationsState) state).originclient$setOldAnim(OldAnimations.hideThirdPerson(avatar),
-					OldAnimations.blockTurnThirdPerson(avatar));
+			((OldAnimationsState) state).originclient$setOldBlock(OldAnimations.blockTurnThirdPerson(avatar));
 		} catch (Throwable t) {
 			OldAnimations.fail("third-person state", t);
 		}
