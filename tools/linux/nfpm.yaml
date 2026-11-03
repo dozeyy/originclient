@@ -80,7 +80,9 @@ overrides:
       - libgcc
       - libstdc++
       - libicu
-      - openssl-libs
+      # OpenSSL 3 by soname, not package: Fedora 45's openssl-libs is OpenSSL 4 (libssl.so.4), which
+      # .NET 10 cannot use; there openssl3-libs provides it, elsewhere openssl-libs 3.x does.
+      - libssl.so.3()(64bit)
       - fontconfig
       - libX11
       - libICE

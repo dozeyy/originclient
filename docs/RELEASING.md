@@ -218,7 +218,9 @@ wrong SHA-256, never blocks Play; `Core/Updates/UpdateService.Linux.cs`):
 
 **Tools** (`tools/linux/pins.sh`, each pinned by SHA-256): appimagetool 1.9.1, the
 type2 AppImage runtime 20251108, nfpm 2.48.0. Package dependencies are in
-`tools/linux/nfpm.yaml`.
+`tools/linux/nfpm.yaml`. .NET 10 needs OpenSSL 3 (`libssl.so.3`); Fedora 45 moved to
+OpenSSL 4, so the rpm asks for `libssl.so.3` by name (dnf pulls `openssl3-libs` there).
+The AppImage and tar.gz on such a distro need that package installed by hand.
 
 **Proof** (`.github/workflows/linux-launcher.yml`, every push that touches it): the
 self-test on x64 and arm64, the tar.gz and AppImage self-tested as a player unpacks them,
