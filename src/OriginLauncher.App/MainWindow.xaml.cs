@@ -69,7 +69,13 @@ public partial class MainWindow : Window
         Intro.Play(this);
 
         // Home's profile chip opens Profiles; its launch screen covers the bar too.
-        _homePage.LaunchSceneChanged += SetTopBarHidden;
+        // Only Home carries the cover, so only Home may hide the bar (a bar hidden over another page is a dead window).
+        _homePage.LaunchSceneChanged += hidden => SetTopBarHidden(hidden && _currentPage == LauncherPage.Home);
+        // A launch started from anywhere (the crash window's relaunch) shows its cover on Home: go there first.
+        _homePage.ShowHomeRequested += () =>
+        {
+            if (_currentPage != LauncherPage.Home || _importPanelOpen) NavigateTo(LauncherPage.Home);
+        };
         _homePage.StripHeightChanged += height =>
         {
             if (Math.Abs(height - _stripHeight) < 0.5) return;
@@ -481,6 +487,14 @@ public partial class MainWindow : Window
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
         _accountPanel.TourShowRows(rows);
+    }
+
+    /// <summary>Render mode: the account drawer's Remove question over the made-up rows (nothing is removed).</summary>
+    internal void TourAskRemoveAccount(string name, bool show)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        if (show) _accountPanel.TourAskRemove(name);
+        else _accountPanel.DismissConfirm();
     }
 
     /// <summary>Render mode: the pill's measured geometry for the shot log (the head's inset in the pill, the name cut or not).</summary>
@@ -1035,6 +1049,7 @@ public partial class MainWindow : Window
             Scrim.Visibility = Visibility.Visible;
             AccountPanel.Visibility = Visibility.Visible;
         }
+        else _accountPanel.DismissConfirm(); // closing the drawer answers an open Remove question with Cancel
         AccountPanel.IsHitTestVisible = open;
 
         var panelAnimation = new DoubleAnimation(open ? 0 : AccountPanel.Width, duration)
@@ -1280,7 +1295,10 @@ public partial class MainWindow : Window
         {
             if (_importPanelOpen) _importPanel?.HandleEscape();
             else if (_signInPanelOpen) CloseSignInPanel();
-            else if (_accountPanelOpen) SetAccountPanelOpen(false);
+            else if (_accountPanelOpen)
+            {
+                if (!_accountPanel.HandleEscape()) SetAccountPanelOpen(false);
+            }
             else if (_friendsOpen)
             {
                 if (!_friendsPanel.HandleEscape()) SetFriendsOpen(false);

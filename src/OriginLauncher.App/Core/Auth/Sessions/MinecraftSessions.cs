@@ -133,6 +133,21 @@ public sealed class MinecraftSessions
         }
     }
 
+    /// <summary>
+    /// The account was removed from the launcher: drop what this process still holds for it in memory (its
+    /// session, back-off and renew clocks), so a removed account's token never lingers after its row is gone.
+    /// The vault row itself is the caller's to delete (AccountStore.Remove).
+    /// </summary>
+    public void Evict(string accountId)
+    {
+        lock (_lock)
+        {
+            _cache.Remove(accountId);
+            _blockedUntil.Remove(accountId);
+            _lastSignIn.Remove(accountId);
+        }
+    }
+
     /// <summary>Microsoft answered 429 for this account: hold its sign-ins off.</summary>
     public void NoteRateLimited(string accountId, TimeSpan? retryAfter)
     {

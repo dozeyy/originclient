@@ -14,7 +14,7 @@ namespace OriginLauncher.App.UI;
 ///
 ///   16a short Microsoft name   16b a 16-letter name (the widest a real name gets) cut with "..."   16c a 23-letter name
 ///   16d offline test mode (warning dot)   16e signed out   16f the pill hovered   16g Store hovered   16h Store with
-///   keyboard focus   16i the pill with keyboard focus   16j the account drawer   16k the narrowest window (960) with
+///   keyboard focus   16i the pill with keyboard focus   16j the account drawer   16j2 its Remove question   16k the narrowest window (960) with
 ///   a long name, so Store is icon-only   16l the same with an update waiting   16m the pill at 150 % scale.
 /// account-fit.txt lists, per shot, the numbers the layout produced (pill size, head size, name cut or not).
 /// </summary>
@@ -104,6 +104,12 @@ internal static class AccountShots
         RenderShots.Pump(300);
         window.TourLayoutAt(at);
         RenderShots.Snap(window, dir, "16j-drawer-accounts", size: at, laidOut: true);
+        // The trash button's question (Cancel holds the focus; nothing is removed in a render).
+        window.TourAskRemoveAccount("Alex", true);
+        RenderShots.Pump(200);
+        window.TourLayoutAt(at);
+        RenderShots.Snap(window, dir, "16j2-drawer-remove-confirm", size: at, laidOut: true);
+        window.TourAskRemoveAccount("Alex", false);
         window.TourSetAccountOpen(false);
         RenderShots.Pump(400);
 

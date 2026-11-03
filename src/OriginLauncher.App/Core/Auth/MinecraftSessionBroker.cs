@@ -128,6 +128,18 @@ public static class MinecraftSessionBroker
         return ToMSession(session);
     }
 
+    /// <summary>
+    /// The player removed this account (Accounts drawer, after a confirm): its row and the tokens inside it are
+    /// deleted, the in-memory session is forgotten, and another account becomes active if it was the active one.
+    /// Its worlds and settings stay on disk (AccountStore.Remove). Returns the list as saved.
+    /// </summary>
+    public static List<StoredAccount> Remove(string accountId)
+    {
+        var accounts = AccountStore.Update(list => AccountStore.Remove(list, accountId));
+        Sessions.Evict(accountId);
+        return accounts;
+    }
+
     /// <summary>Drop an account that can never finish (its Microsoft sign-in is gone).</summary>
     public static void RemovePending(string pendingId) =>
         AccountStore.Update(accounts =>
