@@ -40,9 +40,9 @@ import org.joml.Matrix4fStack;
  *
  * FAIL-SOFT. Banking happens only while ALL of these hold: an Iris pack is in use
  * (IrisState, and Iris inside this module's compat-gates "iris" range), the post
- * hook has been seen to run (postHookAlive), and this pass's own COLLECT_SUBMITS
- * listener (registered right after OriginRenderTypes::beginFrame, so before every
- * overlay) ran this frame before END_MAIN. Any failure leaves the overlays in the
+ * hook has been seen to run (postHookAlive) -- the same mixin
+ * starts the frame (beginFrame) and draws the bank (run), so if it does not apply
+ * nothing is ever banked. Any failure leaves the overlays in the
  * level pass -- under the pack's clouds, the old behaviour -- and one log line says
  * why. A bank that was filled but never drawn is emptied at the next frame start.
  */
@@ -55,7 +55,6 @@ public final class AfterShadersPass {
 	// ---- per-frame state (render thread only) ----
 	private static boolean postHookAlive;
 	private static boolean deferring;
-	private static boolean frameStarted;
 	private static boolean banked;
 	private static boolean recorded;
 	private static final Matrix4f REC_VIEW = new Matrix4f();
@@ -65,23 +64,14 @@ public final class AfterShadersPass {
 	private static SubmitNodeStorage storage;
 
 	private static int hookMissingFrames;
-	private static boolean warnedHookMissing, warnedNoStart, warnedSetup, warnedDraw;
+	private static boolean warnedHookMissing, warnedSetup, warnedDraw, loggedFirst;
 
-	/** Registers the frame listeners. Call once at client init, right AFTER
-	 *  OriginRenderTypes::beginFrame's COLLECT_SUBMITS registration. */
+	/** Registers the END_MAIN recorder. Call once at client init. */
 	public static void init() {
 		if (initialized) {
 			return;
 		}
 		initialized = true;
-		LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
-			try {
-				beginFrame();
-			} catch (Throwable t) {
-				deferring = false;   // a failed check means "submit to the level", never "draw nowhere"
-				warnSetupOnce("frame start", t);
-			}
-		});
 		LevelRenderEvents.END_MAIN.register(ctx -> {
 			try {
 				record();
@@ -120,8 +110,12 @@ public final class AfterShadersPass {
 		}
 	}
 
-	private static void beginFrame() {
-		frameStarted = true;
+	/**
+	 * Called from GameRendererPostShadersMixin right BEFORE the level render call,
+	 * every frame: decides once whether this frame's overlays are banked, so every
+	 * overlay listener sees the same answer whatever order it registered in.
+	 */
+	public static void beginFrame() {
 		OriginRenderTypes.banking = false;
 		if (banked) {
 			OriginRenderTypes.discardBank();   // filled but never drawn: the frame died before the hook
@@ -132,15 +126,6 @@ public final class AfterShadersPass {
 	}
 
 	private static void record() {
-		if (!frameStarted) {
-			deferring = false;
-			if (!warnedNoStart) {
-				warnedNoStart = true;
-				OriginClient.LOGGER.warn("Origin: COLLECT_SUBMITS did not run before END_MAIN;"
-						+ " overlays stay in the level pass, under a shader pack's clouds");
-			}
-		}
-		frameStarted = false;
 		if (!postHookAlive && !warnedHookMissing && packInUse() && ++hookMissingFrames > 60) {
 			warnedHookMissing = true;
 			OriginClient.LOGGER.warn("Origin: GameRendererPostShadersMixin never ran with a shader pack on;"
@@ -184,6 +169,10 @@ public final class AfterShadersPass {
 			mv.set(REC_VIEW);
 			RenderSystem.setProjectionMatrix(recProj, recProjType);
 			drawBank();
+			if (!loggedFirst) {
+				loggedFirst = true;   // one breadcrumb for CI logs: the deferred path really drew
+				OriginClient.LOGGER.info("Origin: overlays drawn after the shader pack (after-shaders pass active)");
+			}
 		} catch (Throwable t) {
 			OriginRenderTypes.discardBank();
 			if (!warnedDraw) {

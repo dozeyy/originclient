@@ -25,6 +25,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // old behaviour; one log line says the hook is missing). CallbackInfo-only handler.
 @Mixin(GameRenderer.class)
 public class GameRendererPostShadersMixin {
+	// Same call, BEFORE it: start the frame (decide whether to bank this frame).
+	@Inject(method = "renderLevel", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/LevelRenderer;renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;Z)V"))
+	private void originclient$overlaysFrameStart(CallbackInfo ci) {
+		try {
+			AfterShadersPass.beginFrame();
+		} catch (Throwable t) {
+			AfterShadersPass.warnSetupOnce("frame start", t);
+		}
+	}
+
 	@Inject(method = "renderLevel", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/LevelRenderer;renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;Z)V",
 			shift = At.Shift.AFTER))

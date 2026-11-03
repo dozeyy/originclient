@@ -40,8 +40,9 @@ import org.joml.Matrix4fStack;
  *
  * FAIL-SOFT. Banking happens only while ALL of these hold: an Iris pack is in
  * use (IrisState; Iris absent or its API changed = "no pack"), the post hook
- * has been seen to run (postHookAlive), and END_EXTRACTION fired this frame
- * before END_MAIN. Any failure leaves the overlays at END_MAIN -- under the
+ * has been seen to run (postHookAlive) -- the same mixin
+ * starts the frame (beginFrame) and draws the bank (run), so if it does not apply
+ * nothing is ever banked. Any failure leaves the overlays at END_MAIN -- under the
  * pack's clouds, the old behaviour, nothing worse -- and one log line says why.
  * A bank that was filled but never drawn (renderLevel threw after END_MAIN) is
  * thrown away at the next frame start, never drawn under a later frame's matrices.
@@ -56,8 +57,7 @@ public final class AfterShadersPass {
 
 	// ---- per-frame state (render thread only) ----
 	private static boolean postHookAlive;   // GameRendererPostShadersMixin has run at least once
-	private static boolean deferring;       // decided once per frame at END_EXTRACTION
-	private static boolean frameStarted;    // END_EXTRACTION ran since the last END_MAIN
+	private static boolean deferring;       // decided once per frame in beginFrame()
 	private static boolean banked;          // something went into the bank this frame
 	private static boolean recorded;        // END_MAIN recorded this frame's matrices
 	private static final Matrix4f REC_VIEW = new Matrix4f();
@@ -65,25 +65,14 @@ public final class AfterShadersPass {
 	private static ProjectionType recProjType;
 
 	private static int hookMissingFrames;
-	private static boolean warnedHookMissing, warnedNoStart, warnedSetup, warnedDraw;
+	private static boolean warnedHookMissing, warnedSetup, warnedDraw, loggedFirst;
 
-	/** Registers the frame listeners. Call once at client init. */
+	/** Registers the END_MAIN recorder. Call once at client init. */
 	public static void init() {
 		if (initialized) {
 			return;
 		}
 		initialized = true;
-		// END_EXTRACTION runs inside renderLevel before the main pass, so every
-		// END_MAIN overlay of the frame sees the same answer whatever order its
-		// listener registered in.
-		WorldRenderEvents.END_EXTRACTION.register(ctx -> {
-			try {
-				beginFrame();
-			} catch (Throwable t) {
-				deferring = false;   // a failed check means "draw at END_MAIN", never "draw nowhere"
-				warnSetupOnce("frame start", t);
-			}
-		});
 		WorldRenderEvents.END_MAIN.register(ctx -> {
 			try {
 				record();
@@ -122,8 +111,12 @@ public final class AfterShadersPass {
 		}
 	}
 
-	private static void beginFrame() {
-		frameStarted = true;
+	/**
+	 * Called from GameRendererPostShadersMixin right BEFORE the level render call,
+	 * every frame: decides once whether this frame's overlays are banked, so every
+	 * overlay listener sees the same answer whatever order it registered in.
+	 */
+	public static void beginFrame() {
 		OriginRenderTypes.banking = false;
 		if (banked) {
 			// Filled but never drawn: the frame died between END_MAIN and the hook.
@@ -136,15 +129,6 @@ public final class AfterShadersPass {
 	}
 
 	private static void record() {
-		if (!frameStarted) {
-			deferring = false;
-			if (!warnedNoStart) {
-				warnedNoStart = true;
-				OriginClient.LOGGER.warn("Origin: WorldRenderEvents.END_EXTRACTION did not fire before END_MAIN;"
-						+ " overlays are drawn at END_MAIN, under a shader pack's clouds");
-			}
-		}
-		frameStarted = false;
 		// Hook-missing watchdog: only until the hook has been seen once.
 		if (!postHookAlive && !warnedHookMissing && packInUse() && ++hookMissingFrames > 60) {
 			warnedHookMissing = true;
@@ -189,6 +173,10 @@ public final class AfterShadersPass {
 			mv.set(REC_VIEW);
 			RenderSystem.setProjectionMatrix(recProj, recProjType);
 			OriginRenderTypes.drawBank();
+			if (!loggedFirst) {
+				loggedFirst = true;   // one breadcrumb for CI logs: the deferred path really drew
+				OriginClient.LOGGER.info("Origin: overlays drawn after the shader pack (after-shaders pass active)");
+			}
 		} catch (Throwable t) {
 			OriginRenderTypes.discardBank();
 			if (!warnedDraw) {

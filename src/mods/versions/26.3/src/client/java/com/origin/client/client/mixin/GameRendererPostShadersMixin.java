@@ -25,6 +25,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // CallbackInfo-only handler.
 @Mixin(GameRenderer.class)
 public class GameRendererPostShadersMixin {
+	// Same call, BEFORE it: start the frame (decide whether to bank this frame).
+	@Inject(method = "renderLevel", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/LevelRenderer;render(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZZ)V"))
+	private void originclient$overlaysFrameStart(CallbackInfo ci) {
+		try {
+			AfterShadersPass.beginFrame();
+		} catch (Throwable t) {
+			AfterShadersPass.warnSetupOnce("frame start", t);
+		}
+	}
+
 	@Inject(method = "renderLevel", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/LevelRenderer;render(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZZ)V",
 			shift = At.Shift.AFTER))
