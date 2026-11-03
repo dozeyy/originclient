@@ -1,20 +1,18 @@
 package com.origin.client.client.mods;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.mixin.PostChainAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.renderer.GameRenderer;
-import org.lwjgl.opengl.GL11;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.resources.ResourceLocation;
+
+import java.util.List;
 
 /**
  * Menu Blur (Lunar parity): blurs the world behind in-game menus at the mod's
@@ -23,11 +21,17 @@ import org.lwjgl.opengl.GL11;
  * 1.17.1 best fit: vanilla has no menu blur before 1.20.5 -- every in-world
  * screen (pause, options, inventories alike) just darkens the world with a flat
  * gradient in Screen.renderBackground(PoseStack, int). So MenuBlurMixin swaps
- * that gradient for blur + tint, and the blur is the same box-filter pyramid
- * Origin's menus already use for the panorama (OriginScreenRenderer): the frame
- * so far (world + HUD) is halved through LINEAR-filtered targets and stretched
- * back. Strength picks the depth: each halving roughly doubles the radius, so
- * 1 / 2-3 / 4-7 / 8-15 / 16-20 map to 1..5 levels (default 4 = 3 levels).
+ * that gradient for blur + tint. The blur is Origin's own post chain,
+ * originclient:shaders/post/menu_blur.json, built only from vanilla's "blur"
+ * program (shaders/program/blur.json, shipped in this version too): three
+ * horizontal + vertical box-blur rounds at radius R, R/2 and R/4, all at FULL
+ * resolution -- stacked box blurs converge on 1.21.1's soft gaussian, the same
+ * chain 1.18.2-1.20.4 run. Strength is R (default 4). Each pass's "Radius" is
+ * set through PostChainAccessor (MotionBlur's technique here).
+ *
+ * Why not the old halving pyramid: it shrank the frame to 1/8 size and
+ * bilinear-stretched it straight back, so every edge in the world showed an
+ * 8 px grid -- the "pixelated Esc menu" (Will, 2026-11-02, found on 1.8.9).
  * Three kinds of screen:
  *   inventory   -- every AbstractContainerScreen (inventory, chests, furnaces...)
  *   originMenus -- Origin's own screens (the mod menu draws no vanilla backdrop,
@@ -38,7 +42,12 @@ import org.lwjgl.opengl.GL11;
  */
 public final class MenuBlur {
 	private static final String MOD = "menublur";
-	private static final TextureTarget[] PYRAMID = new TextureTarget[5];
+	private static final ResourceLocation CHAIN = new ResourceLocation("originclient", "shaders/post/menu_blur.json");
+	// Radius multiplier per pass, in menu_blur.json's pass order (= 1.21.1's
+	// blur.json RadiusMultiplier values).
+	private static final float[] PASS_SCALE = {1f, 1f, 0.5f, 0.5f, 0.25f, 0.25f};
+	private static PostChain chain;
+	private static int chainW = -1, chainH = -1;
 	private static boolean broken = false;
 
 	private MenuBlur() {
@@ -105,63 +114,38 @@ public final class MenuBlur {
 		if (radius < 1) {
 			return;
 		}
-		int levels = Math.min(PYRAMID.length, 1 + (31 - Integer.numberOfLeadingZeros(radius)));
 		RenderTarget main = mc.getMainRenderTarget();
 		try {
-			int fullW = Math.max(1, main.width), fullH = Math.max(1, main.height);
-			for (int i = 0; i < levels; i++) {
-				int pw = Math.max(1, fullW >> (i + 1)), ph = Math.max(1, fullH >> (i + 1));
-				TextureTarget t = PYRAMID[i];
-				if (t == null || t.width != pw || t.height != ph) {
-					if (t != null) {
-						t.destroyBuffers();
-					}
-					t = new TextureTarget(pw, ph, false, Minecraft.ON_OSX);
-					t.setFilterMode(GL11.GL_LINEAR);
-					PYRAMID[i] = t;
-				}
+			if (chain == null) {
+				chain = new PostChain(mc.getTextureManager(), mc.getResourceManager(), main, CHAIN);
+				chainW = chainH = -1;
 			}
-			main.setFilterMode(GL11.GL_LINEAR);
-			PYRAMID[0].bindWrite(true);
-			drawFullscreenTexture(main.getColorTextureId());
-			for (int i = 1; i < levels; i++) {
-				PYRAMID[i].bindWrite(true);
-				drawFullscreenTexture(PYRAMID[i - 1].getColorTextureId());
+			if (chainW != main.width || chainH != main.height) {
+				chain.resize(main.width, main.height);
+				chainW = main.width;
+				chainH = main.height;
 			}
-			main.bindWrite(true);
-			drawFullscreenTexture(PYRAMID[levels - 1].getColorTextureId());
+			List<PostPass> passes = ((PostChainAccessor) chain).originclient$passes();
+			for (int i = 0; i < passes.size(); i++) {
+				float scale = PASS_SCALE[Math.min(i, PASS_SCALE.length - 1)];
+				passes.get(i).getEffect().safeGetUniform("Radius").set((float) Math.max(1, Math.round(radius * scale)));
+			}
+			RenderSystem.disableBlend();
+			RenderSystem.disableDepthTest();
+			RenderSystem.resetTextureMatrix();
+			chain.process(partialTick);
 		} catch (Throwable t) {
 			broken = true;   // vanilla's darkened backdrop from the next frame on
 			com.origin.client.OriginClient.LOGGER.warn("Origin: Menu Blur failed; using vanilla's menu backdrop", t);
 		} finally {
-			main.setFilterMode(GL11.GL_NEAREST);
+			// The chain leaves its own target bound; the GUI state goes back on.
 			main.bindWrite(true);
+			RenderSystem.enableDepthTest();
+			RenderSystem.depthMask(true);
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
-	}
-
-	/** One quad over the whole bound target, in GUI space under the GUI's own
-	 *  orthographic projection (OriginScreenRenderer's pyramid helper, same maths:
-	 *  render-target textures are bottom-up, hence v = 1 at the top edge). */
-	private static void drawFullscreenTexture(int texture) {
-		RenderSystem.disableBlend();
-		RenderSystem.disableDepthTest();
-		RenderSystem.depthMask(false);
-		RenderSystem.setShader(GameRenderer::getPositionTexShader);
-		RenderSystem.setShaderTexture(0, texture);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-		com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
-		double gw = window.getWidth() / window.getGuiScale();
-		double gh = window.getHeight() / window.getGuiScale();
-		BufferBuilder bb = Tesselator.getInstance().getBuilder();
-		bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-		bb.vertex(0.0, gh, 0.0).uv(0f, 0f).endVertex();
-		bb.vertex(gw, gh, 0.0).uv(1f, 0f).endVertex();
-		bb.vertex(gw, 0.0, 0.0).uv(1f, 1f).endVertex();
-		bb.vertex(0.0, 0.0, 0.0).uv(0f, 1f).endVertex();
-		bb.end();
-		BufferUploader.end(bb);
-		RenderSystem.depthMask(true);
-		RenderSystem.enableDepthTest();
 	}
 
 	/** The kind's tint over the whole screen (transparent = none). */

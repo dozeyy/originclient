@@ -563,33 +563,11 @@ public final class OriginScreenRenderer {
 		Gfx.resetColor();
 	}
 
-	// ---- Blur pyramid helpers (MenuBlur's "Menu Blur" option) ----
-	// Fixed-function box-filter pyramid, 1.16.5's method: a frame is halved
-	// through LINEAR-filtered targets (each step an exact 2x2 box average) and the
-	// small result is stretched back over the screen through bilinear filtering.
-	// The title backdrop no longer uses them.
+	// ---- Off-screen helpers (MenuBlur's "Menu Blur" option) ----
+	// MenuBlur runs its blur as a post chain into its own target, then draws that
+	// target back over the frame with drawFullscreenTexture (same size: 1:1).
 	// 1.8.9: the off-screen target is net.minecraft.client.shader.Framebuffer
-	// (bindFramebuffer(true) also sets the viewport; bindFramebufferTexture binds
-	// its colour texture for reading).
-
-	/** Builds (or resizes) the first {@code levels} targets of a halving pyramid
-	 *  for a {@code fullW} x {@code fullH} frame: level i is 1/2^(i+1) size.
-	 *  1.8.9: creating a Framebuffer binds framebuffer 0 when it is done, so this
-	 *  only runs inside a caller's restoreTarget bracket. Shared with MenuBlur. */
-	public static void ensurePyramid(Framebuffer[] pyramid, int levels, int fullW, int fullH) {
-		for (int i = 0; i < levels; i++) {
-			int pw = Math.max(1, fullW >> (i + 1)), ph = Math.max(1, fullH >> (i + 1));
-			Framebuffer t = pyramid[i];
-			if (t == null || t.framebufferWidth != pw || t.framebufferHeight != ph) {
-				if (t != null) {
-					t.deleteFramebuffer();
-				}
-				t = new Framebuffer(pw, ph, false);
-				t.setFramebufferFilter(GL11.GL_LINEAR);
-				pyramid[i] = t;
-			}
-		}
-	}
+	// (bindFramebufferTexture binds its colour texture for reading).
 
 	/** Re-binds the framebuffer that was bound before an off-screen pass, and the
 	 *  full-window viewport every GUI draw assumes. Shared with MenuBlur. */
@@ -603,7 +581,7 @@ public final class OriginScreenRenderer {
 	 *  as one quad, laid out in GUI space under the GUI's own orthographic
 	 *  projection (EntityRenderer.setupOverlayRendering), which maps the GUI
 	 *  rectangle onto whatever viewport bindFramebuffer(true) set -- so the same
-	 *  quad fills every pyramid level. Fixed-function: texture via
+	 *  quad fills any full-window target. Fixed-function: texture via
 	 *  bindFramebufferTexture(), colour via GlStateManager.color, a GL_QUADS
 	 *  POSITION_TEX batch. Framebuffer textures are stored bottom-up, hence v = 1
 	 *  at the top edge. Shared with MenuBlur. */
