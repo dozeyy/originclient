@@ -124,7 +124,7 @@
                                 <!-- Remove (same trash button as a Mods page row): asks first, then deletes this account's
                                      sign-in from the launcher; its worlds and settings stay on disk. -->
                                 <Button Grid.Column="1" Style="{StaticResource Social.Icon}" Margin="8,0,4,0"
-                                        Click="RemoveButton_Click" ToolTip="Remove from this launcher"
+                                        Click="RemoveButton_Click" ToolTip="Remove account"
                                         AutomationProperties.Name="{Binding RemoveLabel}">
                                     <Path Data="{StaticResource Icon.Trash}" Style="{StaticResource Icon.Small}"
                                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
