@@ -318,14 +318,30 @@ def check_linux_assets() -> list[str]:
     return problems
 
 
+def check_site_downloads() -> list[str]:
+    """Every file the website's download buttons link (website/js/site.js: releases/latest/download/<name>
+    and the Linux `file:` names) must be one launcher-release.yml publishes, on its own line in a gh release
+    create/upload list, or the button is a 404 on every release (site.js pinMissingDownloads only covers a
+    file that is late or missing from ONE release, by falling back to an older one)."""
+    site = (REPO / "website/js/site.js").read_text(encoding="utf-8")
+    wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
+    linked = set(re.findall(r"releases/latest/download/([\w.+-]+)'", site)) | set(re.findall(r"\bfile:\s*'([^']+)'", site))
+    if len(linked) < 3:
+        return [f"website/js/site.js: expected the Windows, Mac and Linux download names, found {sorted(linked)} "
+                "(update check_site_downloads)"]
+    return [f"website/js/site.js links {n}, which launcher-release.yml never publishes"
+            for n in sorted(linked) if not re.search(r"^\s+" + re.escape(n) + r"\s*$", wf, re.M)]
+
+
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
-                + check_update_hash() + check_mac_release() + check_picker() + check_linux_assets())
+                + check_update_hash() + check_mac_release() + check_picker() + check_linux_assets()
+                + check_site_downloads())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
         print("OK: version list, version picker, hand-off file name, theme tokens, release feed, update hash, Mac "
-              "release files and Linux downloads agree across launcher, installer and release.")
+              "release files, Linux downloads and the website's download links agree across launcher, installer and release.")
     return 1 if problems else 0
 
 

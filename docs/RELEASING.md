@@ -32,7 +32,7 @@ end to end):
    table: each Minecraft version, built or reused, and why.
 2. **Mods** (Linux, ~1-2 min) — `build-mods.yml` builds every changed
    version **at the same time**, one job each ("Mods / Minecraft 1.21.1").
-3. **Build launcher + publish release** (Windows, ~4 min) — bundles all 16
+3. **Build launcher** (Windows, ~4 min) — bundles all 16
    jars into the launcher (`.github/actions/publish-launcher`), **asserts
    every live jar is really in it**, zips it (`OriginLauncher-win-x64.zip`),
    builds the small Origin installer `OriginLauncher-Setup.exe`
@@ -41,9 +41,18 @@ end to end):
    silent install of this build's zip over it (every file checked
    byte-for-byte plus shortcuts, Add/Remove Programs entry and
    Start-with-Windows), then a silent uninstall checked to remove all of it.
-   Only then does it hash the zip and publish the GitHub release with the
-   setup.exe, `OriginLauncher-win-x64.zip` and
-   `OriginLauncher-win-x64.zip.sha256`, titled "Origin Launcher 1.0.N".
+   Only then does it hash the zip and hand the files on. This job (like
+   every job that runs build tools) has a read-only token.
+4. **Release gates** (Linux, alongside the builds) — build-check's cheap
+   checks on exactly the tagged commit: shared-core sync,
+   `check_consistency.py`, the release-notes tests and both .NET test suites.
+   Before anything is built, the plan job also refuses a tag whose commit is
+   not on `main` or on which build-check failed.
+5. **Publish release** (Linux, ~1 min) — the ONLY job that can write to the
+   repo; it checks nothing out and runs no build code. Once the gates passed
+   it publishes the GitHub release with the setup.exe,
+   `OriginLauncher-win-x64.zip`, `OriginLauncher-win-x64.zip.sha256` and the
+   Linux files, titled "Origin Launcher 1.0.N".
 
 Before this pipeline (≤ v1.0.39) the same work ran one version after
 another on a single Windows machine and took 12-40 minutes.
@@ -157,7 +166,10 @@ Add/Remove Programs.
 - **Finding the newest release** (`Engine/ReleaseFeed.cs`): the GitHub
   releases API (gives size + SHA-256), falling back to the
   `github.com/…/releases/latest` redirect when the API is rate-limited — no
-  API call, and still pinned to one version. Owner/repo/tag prefix/zip name
+  API call, and still pinned to one version; the SHA-256 then comes from that
+  release's `OriginLauncher-win-x64.zip.sha256`. No hash at all = the
+  server-trouble screen with Try again, never an unchecked install. The
+  uninstaller is only ever downloaded with the API's SHA-256 for it. Owner/repo/tag prefix/zip name
   must match the launcher's `UpdateService` (`check_consistency.py` checks).
 - **Network trouble** (`Engine/Download.cs`): TLS 1.2 forced on; a dropped
   or stalled (30 s) connection resumes where it stopped, up to 4 tries; then
@@ -171,6 +183,18 @@ Add/Remove Programs.
   place (same Add/Remove Programs entry). The installed `uninstall.exe` is a
   copy of the setup app, staged with the launcher; a Setup that can't read its
   own file (run from a shared folder) downloads the release's Setup instead.
+- **Where it may go, and what uninstall removes**: never Program Files or
+  Windows, never the data folder (`%LocalAppData%\OriginLauncher`) or a folder
+  around or inside it, never a folder that already holds other files (a busy
+  pick gets its own `OriginLauncher` subfolder; a folder's name proves
+  nothing). Every install writes `origin-install.json` (`Engine/InstallManifest.cs`):
+  the files it placed, and whether Setup created the folder. Uninstall
+  (`UninstallPlan` in `Engine/Uninstaller.cs`) removes the whole folder only
+  when Setup created it, otherwise only the listed files; an install from
+  before the record is removed only from a folder named `OriginLauncher`
+  holding the launcher. The data folder goes only when the player ticks
+  "Also delete my worlds". The move into place puts the old files back if
+  any file can't be written.
 - `--source <zip>` installs from a local zip instead of downloading — CI's
   smoke test uses it for the build it just made (not published yet).
 - Customize choices reach the launcher through a small hand-off file it
@@ -182,7 +206,7 @@ Add/Remove Programs.
 
 ## Mac (added to the same release)
 
-After the Windows job has published (or, in a rehearsal, kept) its files,
+After the Publish job has published (or, in a rehearsal, kept) its files,
 two Mac jobs build the Mac launcher (`src/OriginLauncher.Mac`) on GitHub's
 Macs: Apple Silicon on `macos-15`, Intel on `macos-15-intel` (real Intel
 hardware; Rosetta results proved nothing). Each bundles the same mod jars as
@@ -313,7 +337,14 @@ files touch. Issue forms (`.github/ISSUE_TEMPLATE/`) add `bug` /
   launchers key on them.
 - Never commit built artifacts to the repo — releases live on GitHub
   Releases, built from clean CI runners.
-- Only tag commits that are on `main` and green in build-check.
+- Only tag commits that are on `main` and green in build-check (the release
+  refuses a tag off `main` or on a build-check failure, and re-runs the cheap
+  gates itself).
+- One tag at a time: wait for a release's Publish job before pushing the next
+  tag. GitHub holds one running and one waiting publish; a third tag pushed
+  meanwhile replaces the waiting one, which then gets no release.
+- Run workflow is always a rehearsal, even with a tag picked in its list:
+  only a pushed tag publishes.
 - Rolling back = pushing a fix-forward release. The mandatory-update gate
   compares against the *latest* release, so publishing a new (fixed) release
   immediately supersedes a bad one.

@@ -28,18 +28,28 @@
 #                                with a .sha256 (linux-launcher.yml proves
 #                                them on every push; here the tar.gz is
 #                                self-tested before it can ship).
+#   G. Gates      (Linux, parallel with everything, ~3 min) the cheap checks
+#                                build-check runs: shared-core sync, launcher/
+#                                installer consistency, release-notes tests and
+#                                both .NET test suites. Nothing is published
+#                                unless they pass, whatever commit was tagged.
 #   4. Release    (Windows, ~4 min) bundle every jar into the WPF launcher,
 #                                zip it, build the small Origin installer
 #                                (src/OriginSetup, which downloads that zip)
-#                                and smoke-test both, then publish the release
-#                                with the four Linux downloads attached (only
-#                                when step 3 passed: a Linux failure publishes
-#                                the Windows files alone, with a loud warning).
-#   5. Mac        (macOS, both archs at once, after 4 succeeded) bundle the
+#                                and smoke-test both. Read-only: hands its files
+#                                to step P as a run artifact.
+#   P. Publish    (Linux, ~1 min) the ONLY job that can write to the repo. It
+#                                checks nothing out and runs no build code: it
+#                                takes the finished files from steps 3 and 4 and
+#                                publishes the release with the four Linux
+#                                downloads attached (only when step 3 passed: a
+#                                Linux failure publishes the Windows files alone,
+#                                with a loud warning).
+#   5. Mac        (macOS, both archs at once, after P succeeded) bundle the
 #                                SAME jars into Origin.app (Apple Silicon on
 #                                macos-15, Intel on macos-15-intel), ad-hoc
 #                                sign, zip + disk image, prove both, then ADD
-#                                the 6 Mac files to the release Windows already
+#                                the 6 Mac files to the release step P already
 #                                published (gh release upload). Nothing here can
 #                                delete, change or hold up the Windows files; a
 #                                release with no Mac zip just offers Mac
@@ -53,7 +63,23 @@
 # land as a downloadable "rehearsal-release" artifact on the run instead (the
 # Mac files as "rehearsal-release-mac"). The
 # rehearsal exe is an unstamped dev build (1.0.0.0), so it never blocks or
-# triggers updates. Any run not started by a launcher-v* tag is a rehearsal.
+# triggers updates. Only a PUSH of a launcher-v* tag is a release: every other
+# run is a rehearsal, including Run workflow with a tag picked in its branch/tag
+# list (that once could publish a tag whose own release run had failed).
+#
+# TOKENS: the workflow's token is read-only. Every job that runs third-party build
+# code (Gradle plugins from the mod mavens, NuGet build targets, package.sh's tools)
+# checks out with persist-credentials: false and can't write anything. Only
+# `publish` and `mac-publish` get contents: write, and they check nothing out and run
+# no build code: they upload files the build jobs finished.
+#
+# ONE TAG AT A TIME: wait for a release's publish job to finish before pushing the next
+# tag. Concurrency lives on the `publish` job (below), not the whole run: a run-wide group
+# was held until the Mac jobs finished (up to ~55 min plus the macos-15-intel queue), so a
+# hotfix tag waited behind Mac packaging. GitHub keeps at most one RUNNING and one PENDING
+# job per group, so a third tag that queues while one publishes and one waits replaces the
+# waiting one: that tag gets no release (its run shows "cancelled"). Players still get the
+# newest tag; re-push the dropped one's fix as the next number if it mattered.
 name: launcher-release
 
 on:
@@ -62,22 +88,21 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
-  REHEARSAL: ${{ !startsWith(github.ref, 'refs/tags/launcher-v') }}
+  REHEARSAL: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/launcher-v')) }}
   # "next" tells plan.py to plan against the latest published release.
-  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && github.ref_name || 'next' }}
-
-# Concurrency lives on the `release` job (below), not the whole run: a run-wide group was held
-# until the Mac jobs finished (up to ~55 min plus the macos-15-intel queue), so a hotfix tag
-# waited behind Mac packaging, and a third tag pushed meanwhile cancelled the waiting one
-# (a tag with no release).
+  RELEASE_TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/launcher-v') && github.ref_name || 'next' }}
 
 jobs:
   plan:
     name: Plan release
     runs-on: ubuntu-latest
+    # actions: read only to look up build-check's result for the tagged commit.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       build: ${{ steps.plan.outputs.build }}
       prev_tag: ${{ steps.plan.outputs.prev_tag }}
@@ -88,6 +113,32 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      # docs/RELEASING.md: "Only tag commits that are on main and green in build-check". Updates are
+      # mandatory, so a tag on a claude/* branch or on a red commit would reach every player. Refused
+      # here, before anything is built: the tagged commit must be on main, and build-check must not
+      # have failed on it. (A commit build-check never ran on, e.g. a website-only one, is covered by
+      # the gates job, which re-runs build-check's cheap checks; the mods and the launcher are built
+      # and smoke-tested by this run itself.)
+      - name: Release only from main, never from a red commit
+        if: env.REHEARSAL != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git rev-parse --verify -q refs/remotes/origin/main >/dev/null \
+            || git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error::$RELEASE_TAG points at $GITHUB_SHA, which is not on main. Tag a commit on main (docs/RELEASING.md)."
+            exit 1
+          fi
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-check.yml/runs?head_sha=$GITHUB_SHA&per_page=20" \
+                 --jq '[.workflow_runs[] | select(.status == "completed") | .conclusion]')
+          echo "build-check on $GITHUB_SHA: $runs"
+          if echo "$runs" | grep -q '"failure"' && ! echo "$runs" | grep -q '"success"'; then
+            echo "::error::build-check failed on $GITHUB_SHA. Fix main, then tag a green commit."
+            exit 1
+          fi
 
       - name: Decide which Minecraft versions to rebuild
         id: plan
@@ -97,11 +148,12 @@ jobs:
 
       # A tag run describes the tag; a rehearsal describes this commit.
       - name: Write release notes
-        run: >
-          python3 tools/release/notes.py
-          --head "${{ startsWith(github.ref, 'refs/tags/launcher-v') && github.ref_name || github.sha }}"
-          --prev "${{ steps.plan.outputs.prev_tag }}"
-          --out "$RUNNER_TEMP/release-notes.md"
+        env:
+          PREV_TAG: ${{ steps.plan.outputs.prev_tag }}
+        run: |
+          head="$RELEASE_TAG"
+          if [ "$REHEARSAL" = "true" ]; then head="$GITHUB_SHA"; fi
+          python3 tools/release/notes.py --head "$head" --prev "$PREV_TAG" --out "$RUNNER_TEMP/release-notes.md"
 
       # Reused jars travel the same way built ones do (<module>/<jar>), so the
       # release job can't tell them apart and needs no special case.
@@ -119,6 +171,41 @@ jobs:
           name: release-notes
           path: ${{ runner.temp }}/release-notes.md
           retention-days: 3
+
+  # build-check's cheap checks, re-run on exactly the tagged commit (build-check itself skips commits
+  # that touch none of its paths, and a tag can point anywhere). Parallel with the builds; publish
+  # needs it, so a failure here publishes nothing.
+  gates:
+    name: Release gates (build-check's checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check shared-core sync
+        run: python3 tools/shared-sync/sync.py --check
+
+      - name: Check launcher/installer consistency
+        run: python3 tools/release/check_consistency.py
+
+      - name: Release-notes filter tests
+        run: python3 tools/release/test_notes.py
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Test installer engine
+        run: |
+          dotnet build src/OriginSetup.Tests -f net472
+          dotnet test src/OriginSetup.Tests -f net10.0
+
+      - name: Test launcher logic
+        run: dotnet test src/OriginLauncher.Tests
 
   mods:
     name: Mods
@@ -150,6 +237,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -187,24 +276,20 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # Builds and proves the Windows files; publishes nothing (read-only token, no credentials in .git).
   release:
-    name: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'Build launcher + publish release' || 'Build launcher (rehearsal, publishes nothing)' }}
-    needs: [plan, mods, linux]
-    # Runs when the mod builds succeeded OR were skipped (nothing changed). The Linux job's result is
-    # deliberately NOT a condition: a Linux-only failure must never stop the Windows release (the
-    # Windows launchers' mandatory updates ride on it). The Linux files are attached only when that job
-    # succeeded; otherwise the job summary says loudly that this release has no Linux downloads.
+    name: Build launcher (Windows)
+    needs: [plan, mods]
+    # Runs when the mod builds succeeded OR were skipped (nothing changed). Not waiting for Linux: the
+    # two build side by side, and publish decides what to attach.
     if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.mods.result == 'success' || needs.mods.result == 'skipped') }}
-    # Real releases publish one at a time; rehearsals never hold one up. Only this job holds the
-    # group, so the Mac jobs after it never delay or cancel the next tag's Windows release.
-    concurrency:
-      group: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'launcher-release' || format('launcher-rehearsal-{0}', github.ref) }}
-      cancel-in-progress: false
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Download mod jars
         uses: actions/download-artifact@v8
@@ -212,12 +297,6 @@ jobs:
           pattern: mod-*
           path: modjars
           merge-multiple: true
-
-      - name: Download release notes
-        uses: actions/download-artifact@v8
-        with:
-          name: release-notes
-          path: notes
 
       # The release a player sees is exactly the version Will typed — no run#.
       # A rehearsal stays unstamped (empty -> dev build 1.0.0.0).
@@ -253,6 +332,64 @@ jobs:
           $h = (Get-FileHash OriginLauncher-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
           [IO.File]::WriteAllText("OriginLauncher-win-x64.zip.sha256", "$h  OriginLauncher-win-x64.zip`n")
           Write-Host "OriginLauncher-win-x64.zip.sha256: $h"
+
+      # Handed to publish (and the Mac jobs, which prove they bundle byte-identical jars).
+      - name: Keep the Windows files for publish
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-release
+          path: |
+            OriginLauncher-win-x64.zip
+            OriginLauncher-win-x64.zip.sha256
+            OriginLauncher-Setup.exe
+          if-no-files-found: error
+          retention-days: 3
+
+  # The only job that writes a release. No checkout, no build tools, no repo code: it downloads the
+  # files the read-only jobs finished, checks them, and runs gh. Needs the gates job, so nothing is
+  # published from a commit that fails build-check's checks.
+  publish:
+    name: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/launcher-v') && 'Publish release' || 'Keep the release files (rehearsal, publishes nothing)' }}
+    needs: [plan, gates, linux, release]
+    # The Linux job's result is deliberately NOT a condition: a Linux-only failure must never stop the
+    # Windows release (the Windows launchers' mandatory updates ride on it). The Linux files are attached
+    # only when that job succeeded; otherwise the job summary says loudly that this release has none.
+    if: ${{ !cancelled() && needs.release.result == 'success' && needs.gates.result == 'success' }}
+    # Real releases publish one at a time (see ONE TAG AT A TIME above); rehearsals never hold one up.
+    # Only this job holds the group, so the Mac jobs after it never delay the next tag's release.
+    concurrency:
+      group: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/launcher-v') && 'launcher-release' || format('launcher-rehearsal-{0}', github.ref) }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download the Windows files
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-release
+          path: .
+
+      - name: Download release notes
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: notes
+
+      # The artifact hop must not change a byte: the zip still matches the hash the Windows job wrote.
+      - name: Check the Windows zip against its .sha256
+        run: sha256sum -c OriginLauncher-win-x64.zip.sha256
+
+      # Same rule as the build jobs: exactly the tag's version (empty in a rehearsal, which publishes nothing).
+      - name: Read version from tag
+        id: ver
+        run: |
+          v=""
+          if [ "$REHEARSAL" != "true" ]; then v="${RELEASE_TAG#launcher-v}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
 
       # The Linux downloads land next to the Windows files, so the publish step lists them by bare
       # name. When the Linux job succeeded, they are attached only if all four and their .sha256 are
@@ -351,7 +488,7 @@ jobs:
           OriginLauncher-linux-x64.tar.gz
           OriginLauncher-linux-x64.tar.gz.sha256
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
-          --notes-file notes\release-notes.md
+          --notes-file notes/release-notes.md
           ${{ steps.latest.outputs.flag }}
 
       - name: Publish GitHub release (Windows only, the Linux job failed)
@@ -365,17 +502,19 @@ jobs:
           OriginLauncher-win-x64.zip.sha256
           OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
-          --notes-file notes\release-notes.md
+          --notes-file notes/release-notes.md
           ${{ steps.latest.outputs.flag }}
 
-  # ---- Mac (after the Windows job, never in its way) ----
-  # needs: release + "release succeeded": by the time this starts the Windows release is published
+  # ---- Mac (after publish, never in its way) ----
+  # needs: publish + "publish succeeded": by the time this starts the Windows release is published
   # (or the rehearsal artifact kept), and these jobs only ever ADD files. A failure here leaves the
   # Windows release exactly as it is; Mac launchers find no zip for their arch and offer nothing.
+  # The website's Mac buttons fall back to the newest release that has the disk images until this
+  # finishes (website/js/site.js pinMissingDownloads).
   mac:
     name: Mac app (${{ matrix.rid }})
-    needs: [plan, mods, release]
-    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    needs: [plan, mods, publish]
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     # Read-only: dotnet publish runs third-party NuGet build code here, so this job's token must not
     # be able to touch any release (it could otherwise swap the Windows zip and its .sha256 together).
     # Only mac-publish, which checks nothing out and runs no third-party code, can write.
@@ -413,18 +552,13 @@ jobs:
           path: modjars
           merge-multiple: true
 
-      # The Windows zip this release ships, to prove the Mac app bundles byte-identical jars.
-      - name: Download the Windows launcher zip (rehearsal artifact)
-        if: env.REHEARSAL == 'true'
+      # The Windows zip this release ships (publish checked these exact bytes against the published
+      # .sha256), to prove the Mac app bundles byte-identical jars.
+      - name: Download the Windows launcher zip
         uses: actions/download-artifact@v8
         with:
-          name: rehearsal-release
+          name: windows-release
           path: windows
-      - name: Download the Windows launcher zip (published release)
-        if: env.REHEARSAL != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download "$RELEASE_TAG" --pattern OriginLauncher-win-x64.zip --dir windows
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -498,7 +632,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      # Adds to the release the Windows job created; never creates, edits or deletes it. Two
+      # Adds to the release the publish job created; never creates, edits or deletes it. Two
       # uploads: the hashes finish before any zip starts, so a Mac launcher polling mid-upload never
       # sees a zip without its .sha256 (one upload call may send its files in any order).
       # --clobber only so a re-run of a failed Mac upload can replace its own half-uploaded files.
