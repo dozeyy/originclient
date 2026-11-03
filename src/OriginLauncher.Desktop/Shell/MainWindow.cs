@@ -114,6 +114,18 @@ public sealed class MainWindow : Window
         Opened += (_, _) =>
         {
             if (Shots.ShotRunner.Active) return;
+            ImportView.CheckFirstRun(this); // the one-time import prompt card over Home
+            ProfilesPage.IsProfileInUse = Home.Launches.IsProfileInUse;
+            // The import report's "Fix Compatibility" on a profile that can't start (WPF MainWindow does the same):
+            // Import closes, Home selects that profile and the same prompt Play opens shows what the fix would change.
+            OriginLauncher.App.UI.Controls.ImportHooks.FixCompatibility = (version, profileId) =>
+            {
+                CloseSheet();
+                LauncherState.Write(s => OriginLauncher.App.Core.Import.Launcher.ImportSettingsRules.SelectImported(s, profileId, version));
+                Navigate(PageKey.Home);
+                Home.Refresh();
+                return FixCompatibility.Open(this, version, profileId);
+            };
             UpdatePrompt.StartChecks(this);
             FriendsDrawer.StartSocial(this);
         };

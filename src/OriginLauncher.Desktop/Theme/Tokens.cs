@@ -198,7 +198,7 @@ public static class Sizes
     public const double SheetMin = 912, SheetMax = 1600, SheetShare = 0.8;
     public const double FamilyPanelMin = 320, FamilyPanelMax = 520, FamilyPanelShare = 0.44;
     // The launch cover: the logo, the progress track and the stage column (Size.Logo.Hero, LaunchLoadingOverlay).
-    public const double LogoHero = 48, CoverTrack = 420, CoverStage = 520;
+    public const double CoverTrack = 420, CoverStage = 520;
     // Crash windows (CrashReportWindow 720 wide, CrashWindow 660 x 560) and their details well.
     public const double CrashReportW = 720, CrashW = 660, CrashH = 560, CrashDetailsH = 200;
     /// <summary>A large hue tile (Size.TileLg): the crash windows' alert tile.</summary>

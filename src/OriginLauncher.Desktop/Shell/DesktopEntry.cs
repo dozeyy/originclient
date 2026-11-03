@@ -62,6 +62,19 @@ public static class DesktopEntry
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
 
         DesktopApp.CreateWindow = () => new MainWindow();
+        // Crashes in the launcher itself (Windows/CrashReporter): a UI-thread exception is recoverable (reported,
+        // the launcher keeps running); an unhandled one anywhere else is fatal. Unobserved task faults are swallowed.
+        Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            Windows.CrashReporter.Report(e.Exception, fatal: false);
+            e.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex) Windows.CrashReporter.Report(ex, fatal: true);
+        };
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
+
         return Builder().UsePlatformDetect().StartWithClassicDesktopLifetime(args);
     }
 }

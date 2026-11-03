@@ -92,6 +92,10 @@ public sealed class LaunchController
 
     public AccountLaunchBook Book { get; } = new();
 
+    /// <summary>Profiles page: a profile can't be deleted or edited while a game of it is starting or running.</summary>
+    public bool IsProfileInUse(string profileId) =>
+        _profileByKey.Any(entry => entry.Value == profileId && Book.PhaseOf(entry.Key) != GamePhase.Idle);
+
     /// <summary>Play is held off (an import or a compatibility fix is running).</summary>
     public bool Blocked { get; set; }
 
