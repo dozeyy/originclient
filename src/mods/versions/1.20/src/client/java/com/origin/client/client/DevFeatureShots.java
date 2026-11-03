@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * DEV-ONLY (dev-shots world set, ORIGIN_SHOTS_SET=world): the Origin features that only show inside a
- * real world, shot in a real survival/creative world instead of the design set's screens:
+ * real world, shot in the world set's fresh world instead of the design set's screens:
  *   hud_readouts  every HUD readout on together, with armour on and two effects running
  *   hitboxes      Hitbox on, three mobs a few blocks ahead
  *   weather_rain  Weather Changer on Rain
@@ -22,7 +22,8 @@ import java.util.Map;
  * sync) carries a verbatim copy of this file; keep the two the same.
  *
  * Everything apply() changes is put back by restore(), and cleanupCommands() removes the mobs, armour and
- * effects, so the shots that follow (cosmetics fit, pause, party) look exactly as before.
+ * effects, so the shots that follow (cosmetics fit, pause, party) show the same player and settings as
+ * before; they are taken on the stage sceneCommands built (a grass floor with open sky).
  */
 public final class DevFeatureShots {
 	private DevFeatureShots() {
@@ -30,7 +31,7 @@ public final class DevFeatureShots {
 
 	/** One shot of the sequence, in order. */
 	public enum Shot {
-		HUD_READOUTS("hud_readouts", false, 4000),
+		HUD_READOUTS("hud_readouts", false, 6000),
 		HITBOXES("hitboxes", false, 2000),
 		WEATHER_RAIN("weather_rain", false, 4000),
 		WEATHER_SNOW("weather_snow", false, 4000),
@@ -133,26 +134,33 @@ public final class DevFeatureShots {
 		saved = false;
 	}
 
-	/** Ground height at a block column (the first free block above the surface), asked on the server thread. */
-	public interface Ground {
-		int y(int x, int z);
-	}
+	/** Half the stage's width: 10 blocks each way holds the mobs 6 ahead and the F5 camera 4 behind. */
+	private static final int STAGE = 10;
 
 	/**
-	 * Server commands that set the scene: diamond armour and two particle-free effects on the player (so
-	 * Armor Status and Potion Effects have something to show), and a cow, a villager and a pig standing
-	 * 6 blocks ahead facing the camera, still and silent. The cow and the villager are named with their
-	 * tags always shown (the "other entity nametags"); the pig stays unnamed. Run on the server thread.
+	 * Server commands that set the scene, the same on every world whatever the spawn looks like (the first
+	 * runs spawned facing a wall, on a jungle canopy, by a lava lake that burned the mobs, in a snowy biome
+	 * where Rain falls as snow):
+	 *   a stage around the player: invisible barrier walls (they hold back water and lava), air inside, an open
+	 *   sky and a grass floor; on 1.20+ its biome set to plains, so Rain is rain (1.8.9 has no fillbiome);
+	 *   diamond armour and two particle-free effects on the player (Armor Status and Potion Effects);
+	 *   a cow, a villager and a pig 6 blocks ahead facing the camera -- still, silent and invulnerable. The cow
+	 *   and the villager are named with their tags always shown (other entities' nametags); the pig is unnamed.
+	 * Run on the server thread, in order.
 	 */
-	public static List<String> sceneCommands(double px, double pz, float yawDeg, Ground ground, Dialect d) {
-		double yaw = Math.toRadians(yawDeg);
-		double fx = -Math.sin(yaw), fz = Math.cos(yaw);   // horizontal view direction
-		double sx = -fz, sz = fx;                          // to the side
-		String[][] mobs = d == Dialect.LEGACY_189
-				? new String[][]{{"Cow", "Bessie"}, {"Villager", "Origin Tester"}, {"Pig", null}}
-				: new String[][]{{"minecraft:cow", "Bessie"}, {"minecraft:villager", "Origin Tester"}, {"minecraft:pig", null}};
+	public static List<String> sceneCommands(double px, double py, double pz, float yawDeg, Dialect d) {
+		boolean legacy = d == Dialect.LEGACY_189;
+		int bx = (int) Math.floor(px), by = (int) Math.floor(py), bz = (int) Math.floor(pz);
+		int x1 = bx - STAGE, x2 = bx + STAGE, z1 = bz - STAGE, z2 = bz + STAGE;
 		List<String> cmds = new ArrayList<String>();
-		if (d == Dialect.LEGACY_189) {
+		// hollow = the shell in barrier, everything inside it air (21 x 12 x 21 = 5292 blocks, under fill's 32768)
+		cmds.add(box("fill", x1, by - 1, z1, x2, by + 10, z2) + " minecraft:barrier hollow");
+		cmds.add(box("fill", x1 + 1, by + 10, z1 + 1, x2 - 1, by + 10, z2 - 1) + " minecraft:air");   // open sky: rain falls in
+		cmds.add(box("fill", x1 + 1, by - 1, z1 + 1, x2 - 1, by - 1, z2 - 1) + (legacy ? " minecraft:grass" : " minecraft:grass_block"));
+		if (!legacy) {
+			cmds.add(box("fillbiome", x1, by - 8, z1, x2, by + 16, z2) + " minecraft:plains");
+		}
+		if (legacy) {
 			cmds.add("replaceitem entity @a slot.armor.head minecraft:diamond_helmet");
 			cmds.add("replaceitem entity @a slot.armor.chest minecraft:diamond_chestplate");
 			cmds.add("replaceitem entity @a slot.armor.legs minecraft:diamond_leggings");
@@ -167,15 +175,20 @@ public final class DevFeatureShots {
 			cmds.add("effect give @a minecraft:resistance 600 0 true");
 			cmds.add("effect give @a minecraft:fire_resistance 600 0 true");
 		}
+		double yaw = Math.toRadians(yawDeg);
+		double fx = -Math.sin(yaw), fz = Math.cos(yaw);   // horizontal view direction
+		double sx = -fz, sz = fx;                          // to the side
+		String[][] mobs = legacy
+				? new String[][]{{"Cow", "Bessie"}, {"Villager", "Origin Tester"}, {"Pig", null}}
+				: new String[][]{{"minecraft:cow", "Bessie"}, {"minecraft:villager", "Origin Tester"}, {"minecraft:pig", null}};
 		float face = yawDeg + 180f;   // turned toward the player
 		for (int i = 0; i < mobs.length; i++) {
 			double side = (i - 1) * 3.0;
 			int x = (int) Math.floor(px + fx * 6 + sx * side);
 			int z = (int) Math.floor(pz + fz * 6 + sz * side);
-			int y = ground.y(x, z);
-			StringBuilder nbt = new StringBuilder("{NoAI:1b,Silent:1b,PersistenceRequired:1b,Rotation:[")
+			StringBuilder nbt = new StringBuilder("{NoAI:1b,Silent:1b,Invulnerable:1b,PersistenceRequired:1b,Rotation:[")
 					.append(face).append("f,0f]");
-			if (d != Dialect.LEGACY_189) {
+			if (!legacy) {
 				nbt.append(",Tags:[\"").append(TAG).append("\"]");
 			}
 			String name = mobs[i][1];
@@ -184,9 +197,13 @@ public final class DevFeatureShots {
 				nbt.append(d == Dialect.JSON_NAMES ? "'\"" + name + "\"'" : "\"" + name + "\"");
 			}
 			nbt.append('}');
-			cmds.add("summon " + mobs[i][0] + " " + (x + 0.5) + " " + y + " " + (z + 0.5) + " " + nbt);
+			cmds.add("summon " + mobs[i][0] + " " + (x + 0.5) + " " + by + " " + (z + 0.5) + " " + nbt);
 		}
 		return cmds;
+	}
+
+	private static String box(String cmd, int x1, int y1, int z1, int x2, int y2, int z2) {
+		return cmd + " " + x1 + " " + y1 + " " + z1 + " " + x2 + " " + y2 + " " + z2;
 	}
 
 	/** Removes the scene: the three mobs, the armour and the effects. Run on the server thread.

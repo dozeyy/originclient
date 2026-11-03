@@ -795,12 +795,8 @@ final class OriginDevWorld {
 		if (featIdx == -1) {
 			mc.player.setXRot(10f);   // a little down: the mobs 6 blocks ahead sit mid-frame, sky still in view
 			float yaw = mc.player.getYRot();
-			double px = mc.player.getX(), pz = mc.player.getZ();
-			featServer(mc, server -> {
-				var level = server.overworld();
-				return DevFeatureShots.sceneCommands(px, pz, yaw, (x, z) -> level.getHeight(
-						net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z), DevFeatureShots.Dialect.SNBT_NAMES);
-			});
+			double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
+			featServer(mc, server -> DevFeatureShots.sceneCommands(px, py, pz, yaw, DevFeatureShots.Dialect.SNBT_NAMES));
 		} else {
 			grab(mc, dir, shots[featIdx].file);
 		}
