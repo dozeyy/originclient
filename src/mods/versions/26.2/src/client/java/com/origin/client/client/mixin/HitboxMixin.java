@@ -74,6 +74,12 @@ public class HitboxMixin {
 		boolean showLook = Mods.bool("hitboxes", "showLookVector");
 
 		for (Entity entity : mc.level.entitiesForRendering()) {
+			// Vanilla's own loop skips invisible entities (players under Invisibility,
+			// the invisible armor stands servers use for holograms). Replacing that loop
+			// must keep the rule, or the box gives an invisible player away.
+			if (entity.isInvisible()) {
+				continue;
+			}
 			if (max > 0 && entity.distanceToSqr(camX, camY, camZ) > max * max) {
 				continue;
 			}
