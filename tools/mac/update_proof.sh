@@ -12,6 +12,8 @@
 #              (checked here, after the launcher is gone) the new app is in place, no .previous/.incoming is left,
 #              no apply-failed marker, the reopen command was issued for the app's own path, the swapped app's
 #              signature verifies and it still starts (--self-test)
+#   leftover   (before swap) an Origin.app.incoming from an earlier try that can't be deleted: the swap script stops
+#              before moving anything, marks the update failed and reopens the old app untouched
 #
 # The reopen is stubbed: the swap script calls `open "$app"` through PATH, so a fake `open` first on PATH records
 # its arguments instead of opening a window on the runner. The shipped script is not changed for the test.
@@ -105,22 +107,45 @@ if proof "$locked" good refuse "$work/data-locked" && grep -q "RESULT PASS" "$wo
 else row "refuse (folder can't be written)" FAIL; fail "unwritable-folder refusal failed (log above)"; fi
 chmod u+w "$work/Locked"
 
-# ---- 5. swap: the real thing, with `open` stubbed ----
-failures_before_swap=$failures
+# The reopen stub: records its arguments in $OPEN_LOG (inherited by the launcher and its swap script).
 stub="$work/stub"
 mkdir -p "$stub"
-open_log="$work/open.log"
-printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s"\n' "$open_log" > "$stub/open"
+printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "$OPEN_LOG"\n' > "$stub/open"
 chmod +x "$stub/open"
+check() { if eval "$1"; then echo "PASS $2"; else echo "FAIL $2"; fail "${3:-swap}: $2"; fi; }
+
+# ---- 5. leftover: a .incoming from an earlier try that can't be deleted. The swap must stop before it moves
+# anything (no app nested inside the leftover), mark the update failed, and reopen the old app untouched. ----
+failures_before=$failures
+mkdir -p "$installed.incoming"
+echo stuck > "$installed.incoming/stuck"
+chmod a-w "$installed.incoming"
+open_log="$work/open-leftover.log"
 set +e
-PATH="$stub:$PATH" proof "$installed" good swap "$work/data-swap"
+OPEN_LOG="$open_log" PATH="$stub:$PATH" proof "$installed" good swap "$work/data-leftover"
+set -e
+grep -q "RESULT PASS" "$work/data-leftover.log" || fail "leftover case: the launcher side failed (log above)"
+for _ in $(seq 1 60); do [ -s "$open_log" ] && break; sleep 1; done
+check '[ "$(head -n 1 "$open_log" 2>/dev/null)" = "$installed" ]' "the old app is reopened" leftover
+check '[ ! -e "$installed/Contents/Resources/update-proof.txt" ] && [ -x "$installed/Contents/MacOS/OriginLauncher" ]' "the old app is in place, untouched" leftover
+check '[ -z "$(find "$installed.incoming" -name "*.app" 2>/dev/null)" ]' "nothing was moved into the leftover" leftover
+check 'ls "$work/data-leftover/updates"/apply-failed-* > /dev/null 2>&1' "the update is marked failed (not retried in a loop)" leftover
+check 'codesign --verify --deep --strict "$installed"' "the old app's signature still verifies" leftover
+[ "$failures" = "$failures_before" ] && row "leftover .incoming that can't be deleted: stops, reopens the old app" PASS || row "leftover .incoming that can't be deleted" FAIL
+chmod u+w "$installed.incoming"
+rm -rf "$installed.incoming"
+
+# ---- 6. swap: the real thing, with `open` stubbed ----
+failures_before_swap=$failures
+open_log="$work/open.log"
+set +e
+OPEN_LOG="$open_log" PATH="$stub:$PATH" proof "$installed" good swap "$work/data-swap"
 swap_code=$?
 set -e
 grep -q "RESULT PASS" "$work/data-swap.log" && [ "$swap_code" = "0" ] || fail "swap case: the launcher side failed (exit $swap_code, log above)"
 
 # The script waits for the launcher to be gone, swaps, then reopens: give it up to 60 s.
 for _ in $(seq 1 60); do [ -s "$open_log" ] && break; sleep 1; done
-check() { if eval "$1"; then echo "PASS $2"; else echo "FAIL $2"; fail "swap: $2"; fi; }
 check '[ -s "$open_log" ]' "the reopen command was issued"
 check '[ "$(head -n 1 "$open_log" 2>/dev/null)" = "$installed" ]' "it reopens the app's own path ($(head -n 1 "$open_log" 2>/dev/null || echo none))"
 check '[ -f "$installed/Contents/Resources/update-proof.txt" ]' "the new app is in place"
@@ -133,4 +158,4 @@ grep "^FAIL" "$work/after-swap-selftest.log" 2>/dev/null || true
 row "swap (download, hash, unpack, swap, reopen, app starts)" "$swap_ok"
 
 [ "$failures" = "0" ] || die "$failures update-proof check(s) failed"
-echo "OK: $rid self-update proven against a fake release: no-hash and bad-hash refused, translocated and unwritable refused, swap done and reopened."
+echo "OK: $rid self-update proven against a fake release: no-hash and bad-hash refused, translocated and unwritable refused, an undeletable leftover stops the swap safely, swap done and reopened."

@@ -49,7 +49,7 @@ endlocal
     private static void ShutdownApp() => Application.Current.Shutdown();
 
     // Nothing refuses an update up front on Windows: the swap script copies into the install folder after the exit.
-    private static string? InstallBlockedHere() => null;
+    private static Task<string?> InstallBlockedHereAsync() => Task.FromResult<string?>(null);
 
     private static void ExtractUpdate(string zipPath, string stageDir) =>
         System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);

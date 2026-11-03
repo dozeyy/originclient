@@ -72,13 +72,24 @@ public sealed partial class MainWindow
         {
             // An earlier note (a failure) stays until the next click, like the WPF badge.
             UpdateBadge.IsVisible = true;
-            if (UpdateNote.Text == BlockedNote) HideUpdateNote();
+            if (UpdateNote.Text == BlockedNote)
+            {
+                HideUpdateNote();
+                AutomationProperties.SetName(UpdateBadge, ReadyName);
+            }
         }
         else if (UpdateService.Blocked != null)
         {
             UpdateBadge.IsVisible = true;
             ShowUpdateNote(BlockedNote, "Brush.Warning");
             AutomationProperties.SetName(UpdateBadge, "Update can't install here: move Origin to Applications");
+        }
+        else if (UpdateNote.Text == BlockedNote)
+        {
+            // No longer blocked and nothing offered yet: the move-to-Applications chip goes away.
+            HideUpdateNote();
+            AutomationProperties.SetName(UpdateBadge, ReadyName);
+            UpdateBadge.IsVisible = false;
         }
         Home.RefreshUpdateGate();
     }

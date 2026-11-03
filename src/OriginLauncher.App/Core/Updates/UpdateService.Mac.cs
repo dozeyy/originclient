@@ -58,6 +58,9 @@ while kill -0 "$pid" 2>/dev/null; do sleep 1; done
 new=$(find "$stage" -maxdepth 1 -type d -name '*.app' | head -n 1)
 [ -n "$new" ] || fail
 rm -rf "$old" "$incoming"
+# A leftover that couldn't be deleted would make the mv below nest the bundle inside it (an app that won't open):
+# stop here instead, and the trap reopens the old app untouched.
+[ ! -e "$incoming" ] && [ ! -e "$old" ] || fail
 # Next to the app first: across volumes mv is a copy, and a half-done copy must never sit in the
 # app's place. The two renames after it stay on one volume.
 mv "$new" "$incoming" || fail
@@ -90,21 +93,36 @@ fail
 
     // CheckAsync asks this before it offers an update: the reason this copy can't swap itself where it sits (the same
     // EnsureCanReplace the swap runs before quitting), or null. A translocated or unwritable app is told to move to
-    // Applications instead of being offered something no click could install. One tiny probe file, created and gone.
-    private static string? InstallBlockedHere()
+    // Applications instead of being offered something no click could install. One tiny probe file, created and gone, on
+    // the pool (a sleeping or network disk must never stall the UI thread). A copy that isn't a bundle or is translocated
+    // stays that way for the whole run, so that answer is kept and the folder is never probed again.
+    private static string? _blockedForTheRun;
+
+    private static Task<string?> InstallBlockedHereAsync()
     {
+        if (_blockedForTheRun != null) return Task.FromResult<string?>(_blockedForTheRun);
         if (CurrentBundle() is not { } bundle)
-            return "This copy of Origin Launcher isn't an app bundle, so it can't update itself. Install it from originclient.org.";
-        try
+            return Task.FromResult<string?>(_blockedForTheRun = "This copy of Origin Launcher isn't an app bundle, so it can't update itself. Install it from originclient.org.");
+        if (IsTranslocated(bundle))
+            return Task.FromResult<string?>(_blockedForTheRun = TranslocatedMessage);
+        return Task.Run(() =>
         {
-            EnsureCanReplace(bundle);
-            return null;
-        }
-        catch (IOException e)
-        {
-            return e.Message;
-        }
+            try
+            {
+                EnsureCanReplace(bundle);
+                return (string?)null;
+            }
+            catch (IOException e)
+            {
+                return e.Message;
+            }
+        });
     }
+
+    private const string TranslocatedMessage =
+        "Origin Launcher is running from a temporary copy macOS made. Move it to Applications, open it from there, and the update installs.";
+
+    private static bool IsTranslocated(string bundle) => bundle.Contains("/AppTranslocation/", StringComparison.Ordinal);
 
     // One marker per version (the stage folder is named after it), so the next release tries afresh.
     internal static string FailedMarker(string stageDir, string updatesRoot) =>
@@ -118,8 +136,8 @@ fail
     /// </summary>
     internal static void EnsureCanReplace(string bundle)
     {
-        if (bundle.Contains("/AppTranslocation/", StringComparison.Ordinal))
-            throw new IOException("Origin Launcher is running from a temporary copy macOS made. Move it to Applications, open it from there, and the update installs.");
+        if (IsTranslocated(bundle))
+            throw new IOException(TranslocatedMessage);
         var parent = Path.GetDirectoryName(bundle.TrimEnd('/'))
                      ?? throw new IOException("The app has no folder to update in.");
         var probe = Path.Combine(parent, ".origin-update-probe-" + Guid.NewGuid().ToString("N"));

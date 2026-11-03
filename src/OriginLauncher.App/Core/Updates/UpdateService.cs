@@ -138,8 +138,9 @@ public static partial class UpdateService
             // This copy can't replace itself where it sits (a Mac app run from a translocated copy, or from a folder this
             // user can't write to): it is never offered and never gates Play, because no click could install it. The player
             // is told instead (Blocked: move Origin to Applications) and nothing is downloaded. Every poll checks again, so a
-            // start from the right folder offers it normally. Windows always answers null.
-            if (InstallBlockedHere() is { } blockedBecause)
+            // start from the right folder offers it normally. Windows always answers null at once (no thread hop); the
+            // Mac's write probe runs on the pool, never the UI thread, and resumes here on the caller's context.
+            if (await InstallBlockedHereAsync() is { } blockedBecause)
             {
                 // A Quiet decision holds the gate's one quiet slot; this ends it with the usual back-off.
                 if (decision == UpdateGate.Decision.Quiet) lock (Gate) Gate.VerifyFailed(remote, DateTime.UtcNow);
@@ -150,6 +151,13 @@ public static partial class UpdateService
                     AvailableChanged?.Invoke(null, EventArgs.Empty);
                 }
                 return;
+            }
+            if (Blocked != null)
+            {
+                // It can install here now (the folder became writable): the move-to-Applications chip goes away.
+                Blocked = null;
+                Log($"update {remote}: can be installed here again");
+                AvailableChanged?.Invoke(null, EventArgs.Empty);
             }
 
             var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);

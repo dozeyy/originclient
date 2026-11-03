@@ -6,7 +6,7 @@ namespace OriginLauncher.Mac;
 /// <summary>
 /// `--update-proof &lt;feed url&gt; --root &lt;dir&gt; --expect swap|bad-hash|no-hash|refuse` (CI only, no window): the
 /// launcher's real self-update path, the same UpdateService calls the top bar's chip makes, against a FAKE release that CI
-/// serves from a scratch folder on this machine. The feed must be http on a loopback address (anything else is refused),
+/// serves from a scratch folder on this machine. The feed must be http on a loopback IP literal (anything else is refused),
 /// all data goes to the scratch root, and the app that gets swapped is the one this binary runs from (CI runs it from a
 /// throwaway copy of Origin.app). Prints PASS/FAIL lines; exits 0 only when the expected outcome happened.
 ///   swap      offered, gates Play, downloads, hash matches, unpacks, writes and starts the swap script, quits. CI then
@@ -27,9 +27,12 @@ internal static class UpdateProof
             Console.Error.WriteLine("Usage: OriginLauncher --update-proof <http://127.0.0.1:port/latest.json> --root <dir> --expect swap|bad-hash|no-hash|refuse");
             return 2;
         }
-        if (!Uri.TryCreate(feedUrl, UriKind.Absolute, out var feed) || feed.Scheme != Uri.UriSchemeHttp || !feed.IsLoopback)
+        // An IP literal only (127.0.0.1 or ::1): a name like "localhost" goes through the resolver, which could be pointed elsewhere.
+        if (!Uri.TryCreate(feedUrl, UriKind.Absolute, out var feed) || feed.Scheme != Uri.UriSchemeHttp
+            || feed.HostNameType is not (UriHostNameType.IPv4 or UriHostNameType.IPv6)
+            || !System.Net.IPAddress.TryParse(feed.DnsSafeHost, out var ip) || !System.Net.IPAddress.IsLoopback(ip))
         {
-            Console.Error.WriteLine("update-proof: the feed must be http on this machine (loopback); refusing " + feedUrl);
+            Console.Error.WriteLine("update-proof: the feed must be http on a loopback IP (127.0.0.1 or [::1]); refusing " + feedUrl);
             return 2;
         }
         OriginPaths.UseScratchRoot(root);
