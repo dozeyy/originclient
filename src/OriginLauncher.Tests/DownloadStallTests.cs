@@ -116,6 +116,76 @@ public sealed class DownloadStallTests : IDisposable
         Assert.Contains("Retry", failure.Message);
     }
 
+    // Mac CI 2026-11-02 (osx-x64, 1.21.1): one "304 Not Modified" to a plain GET failed the whole Play on try 1.
+    [Fact]
+    public async Task A_stray_304_is_retried_and_the_install_finishes()
+    {
+        var handler = new StatusHandler(path => path == "/f2" ? HttpStatusCode.NotModified : null);
+        using var http = new HttpClient(handler);
+        var files = StatusFiles(4);
+
+        IGameInstaller installer = new RetryingGameInstaller(2, 8, 2048, http, _ => TimeSpan.Zero);
+        await installer.Install(files, null, null, CancellationToken.None);
+
+        Assert.Equal(2, handler.Requests("/f2"));
+        Assert.All(files, f => Assert.Equal(StatusHandler.Body, File.ReadAllBytes(f.Path!)));
+    }
+
+    // A refused file is the server's final answer: one try, and the error names the file and the host that refused it.
+    [Fact]
+    public async Task A_refused_file_fails_once_and_names_the_file_and_host()
+    {
+        var handler = new StatusHandler(path => path == "/f1" ? HttpStatusCode.NotFound : null, everyTime: true);
+        using var http = new HttpClient(handler);
+
+        IGameInstaller installer = new RetryingGameInstaller(2, 8, 2048, http, _ => TimeSpan.Zero);
+        var thrown = await Assert.ThrowsAnyAsync<Exception>(() =>
+            installer.Install(StatusFiles(3), null, null, CancellationToken.None).AsTask());
+        // CmlLib's pipeline may hand it back wrapped (AggregateException); PlayFailure walks inner exceptions the same way.
+        var error = Assert.IsType<HttpRequestException>(Unwrap(thrown));
+
+        Assert.Equal(1, handler.Requests("/f1"));
+        Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
+        Assert.Contains("f1", error.Message);
+        Assert.Contains("files.test", error.Message);
+        Assert.Contains("The download server refused a file (404).", PlayFailure.From(thrown, "1.21.1").Message);
+    }
+
+    private static Exception Unwrap(Exception e)
+    {
+        while (e is AggregateException { InnerException: { } inner }) e = inner;
+        return e;
+    }
+
+    private List<GameFile> StatusFiles(int count) =>
+        Enumerable.Range(0, count).Select(i => new GameFile($"f{i}")
+        {
+            Url = $"http://files.test/f{i}",
+            Path = Path.Combine(_dir, $"f{i}.bin"),
+            Size = StatusHandler.Body.Length,
+        }).ToList();
+
+    /// <summary>Answers 200 with <see cref="Body"/>, except the status <c>refuse</c> picks: the first time per path, or every time.</summary>
+    private sealed class StatusHandler(Func<string, HttpStatusCode?> refuse, bool everyTime = false) : HttpMessageHandler
+    {
+        public static readonly byte[] Body = Encoding.ASCII.GetBytes("origin game file");
+        private readonly ConcurrentDictionary<string, int> _hits = new();
+
+        public int Requests(string path) => _hits.TryGetValue(path, out var n) ? n : 0;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            var hit = _hits.AddOrUpdate(path, 1, (_, n) => n + 1);
+            var status = (everyTime || hit == 1) && refuse(path) is { } s ? s : HttpStatusCode.OK;
+            return Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = new ByteArrayContent(status == HttpStatusCode.OK ? Body : Array.Empty<byte>()),
+                RequestMessage = request,
+            });
+        }
+    }
+
     [Fact]
     public async Task Pinned_downloads_give_up_on_a_stalled_body_instead_of_waiting()
     {

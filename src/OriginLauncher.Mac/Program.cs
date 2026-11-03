@@ -9,6 +9,7 @@ internal static class Program
     //   --self-test [--network]              checks the Mac seams; exit 0 (all passed) or 1.
     //   --render-shots <dir>                 draws every built screen to PNGs headless (made-up data, exits by itself).
     //   --launch-plan <version> [--root dir] prepares a launch without starting the game (LaunchPlan).
+    //       [--start-game]                   CI only: then starts it until Minecraft's own code logs, and stops it.
     //   --play-plan <version> [--root dir]   presses the Home Play button headless, stops before the game starts (PlayPlan).
     //   --list-versions                      the versions the picker offers, one per line.
     //   --update-proof <loopback feed> --root dir --expect <outcome>   CI: the self-update against a local fake release (UpdateProof).
@@ -21,7 +22,7 @@ internal static class Program
         if (args.Contains("--list-versions"))
             return LaunchPlan.ListVersions();
         if (ValueOf(args, "--launch-plan") is { } version)
-            return LaunchPlan.RunAsync(version, ValueOf(args, "--root")).GetAwaiter().GetResult();
+            return LaunchPlan.RunAsync(version, ValueOf(args, "--root"), args.Contains("--start-game")).GetAwaiter().GetResult();
         if (ValueOf(args, "--play-plan") is { } playVersion)
             return PlayPlan.Run(playVersion, ValueOf(args, "--root"));
         if (ValueOf(args, "--update-proof") is { } feedUrl)

@@ -145,7 +145,67 @@ public sealed class MacLaunchPolicyTests : IDisposable
         Assert.Contains(MacLaunchPolicy.StartOnFirstThread, await ArgsFor("1.21.1", option => { }));
     }
 
+    // -- Where java reads the main class (JavaArgv, used by the Mac --launch-plan proof). v1.0.84 on a Mac: CmlLib's
+    //    DockName came out as "-Xdock:name" "Minecraft", java ran "Minecraft" as the main class and no version started,
+    //    while the old check only asked whether the real main class appeared ANYWHERE in the line.
+
+    private const string Knot = "net.fabricmc.loader.impl.launch.knot.KnotClient";
+    private static readonly string[] VanillaMain = ["net.minecraft.client.main.Main"];
+
+    private static string[] Line(params string[] dock) =>
+        ["-XstartOnFirstThread", "-Djava.library.path=/n", "-cp", "/a.jar:/b.jar", "-DFabricMcEmu= net.minecraft.client.main.Main ",
+         "-Xmx4096m", "-Xms4096m", .. dock, "-Dlog4j.configurationFile=/c.xml", Knot, "--username", "Tester"];
+
+    [Fact]
+    public void Main_class_check_fails_the_split_dock_name_and_passes_the_whole_one()
+    {
+        // The 1.21.1 shape CI built on 2026-11-02 (paths shortened).
+        var split = JavaArgv.MainClassProblem(Line("-Xdock:name", "Minecraft"), [Knot]);
+        Assert.NotNull(split);
+        Assert.Contains("-Xdock:name", split);
+        Assert.Null(JavaArgv.MainClassProblem(Line(MacLaunchPolicy.DockNameArgument), [Knot]));
+
+        // A value option's own value is not the main class; a stray word before the main class is, wherever it sits.
+        Assert.Null(JavaArgv.MainClassProblem(["--add-opens", "java.base/java.lang=ALL-UNNAMED", "-classpath", "x", Knot], [Knot]));
+        Assert.NotNull(JavaArgv.MainClassProblem(["-cp", "x", "Minecraft", Knot], [Knot]));
+        Assert.NotNull(JavaArgv.MainClassProblem(["-cp", "x", "-Xmx1G"], [Knot]));
+    }
+
+    [Fact]
+    public async Task Cmllib_splits_dock_name_but_the_mac_argument_reaches_java_whole()
+    {
+        Write("1.21.1", """
+        { "id": "1.21.1", "type": "release", "mainClass": "net.minecraft.client.main.Main",
+          "arguments": { "game": [ "--username", "${auth_player_name}" ], "jvm": [ "-cp", "${classpath}" ] },
+          "libraries": [ { "name": "org.lwjgl:lwjgl:3.3.3" } ] }
+        """);
+        // Pins CmlLib 4.0.6's behaviour: if a CmlLib update writes "-Xdock:name=..." itself, this says so.
+        Assert.NotNull(JavaArgv.MainClassProblem(await ArgsFor("1.21.1", o => o.DockName = "Minecraft"), VanillaMain));
+
+        var whole = await ArgsFor("1.21.1", o =>
+            o.ExtraJvmArguments = (o.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).Append(new MArgument(MacLaunchPolicy.DockNameArgument)).ToList());
+        Assert.Contains(MacLaunchPolicy.DockNameArgument, whole);
+        Assert.Null(JavaArgv.MainClassProblem(whole, VanillaMain));
+    }
+
 #if ORIGIN_MAC
+    // The real Mac seam on the macos CI job: one whole -Xdock:name argument, and java reads the real main class.
+    [Fact]
+    public async Task Mac_seam_names_the_dock_without_moving_the_main_class()
+    {
+        Write("1.8.9", """
+        { "id": "1.8.9", "type": "release", "mainClass": "net.minecraft.client.main.Main",
+          "minecraftArguments": "--username ${auth_player_name}", "libraries": [] }
+        """);
+        foreach (var version in new[] { "1.8.9", "1.21.1" })
+        {
+            var args = await ArgsFor("1.8.9", o => PlatformLaunch.AdjustOption(version, o));
+            Assert.Contains(MacLaunchPolicy.DockNameArgument, args);
+            Assert.DoesNotContain("-Xdock:name", args);
+            Assert.Null(JavaArgv.MainClassProblem(args, VanillaMain));
+        }
+    }
+
     // The real Mac seam (PlatformLaunch.Mac.cs) on the macos CI job: drops the flag for LWJGL 2 only.
     [Fact]
     public async Task Mac_seam_drops_first_thread_for_lwjgl2_only()
