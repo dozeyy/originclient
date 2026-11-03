@@ -27,8 +27,21 @@ public sealed record PlayFailure(string Title, string Message)
     public static bool IsUserCancel(Exception error, CancellationToken token) =>
         error is OperationCanceledException && token.IsCancellationRequested;
 
+    /// <summary>
+    /// True when the launch screen shows an "Install Rosetta" button under the message (Apple Silicon Mac, a
+    /// version that runs through Rosetta 2, Rosetta missing). The click runs MacRosetta.InstallAsync, then Play.
+    /// </summary>
+    public bool OffersRosettaInstall { get; init; }
+
     public static PlayFailure From(Exception error, string version)
     {
+        // Not a download failure, and Retry alone would hit it again: the fix is one click.
+        if (error is RosettaRequiredException)
+            return new PlayFailure($"Minecraft {version} needs Rosetta",
+                "This version runs through Rosetta, Apple's free translator for apps made for Intel Macs. "
+                + "Install it once, then press Play.")
+            { OffersRosettaInstall = true };
+
         var title = $"Couldn't get Minecraft {version} ready";
         return new PlayFailure(title, Cause(error, version) + " " + RetryLine);
     }

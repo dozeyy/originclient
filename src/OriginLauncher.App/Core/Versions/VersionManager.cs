@@ -350,6 +350,10 @@ public sealed class VersionManager
         // by an id this launcher made (it becomes a folder name).
         if (!externalMods || !ProfileRules.IsValidId(profileId)) profileId = null;
 
+        // Before any download: a version this computer can't run yet (an Apple Silicon Mac without Rosetta
+        // for a version that needs it) stops here with the reason, and nothing is half-installed.
+        PlatformLaunch.EnsureCanRun(version);
+
         var gate = GateFor(version);
         await gate.WaitAsync(ct);
         try
@@ -559,7 +563,7 @@ public sealed class VersionManager
             throw new InvalidOperationException(
                 $"{versionName} is too old to load the shared mods folder (needs Fabric Loader {SharedMods.FirstLoaderWithModsFolder}+).");
 
-        var launcher = BuildLauncher(path, versionName, decision.FullVerify);
+        var launcher = BuildLauncher(path, version, versionName, decision.FullVerify);
 
         // Every Fabric mod in play here (Origin Client, and any
         // third-party jar a player drops in) depends on this, so it's
@@ -763,6 +767,7 @@ public sealed class VersionManager
         LaunchTimeline.Mark("version");
         await launcher.InstallAsync(resolved, fileProgress, null, ct);
         LaunchTimeline.Mark("files");
+        PlatformLaunch.AdjustOption(version, option);
         var built = launcher.BuildProcess(resolved, option);
         LaunchTimeline.Mark("process-built");
 
@@ -844,7 +849,7 @@ public sealed class VersionManager
         // the same multi-hundred-MB asset + JRE rehash, so it gets the same
         // skip once it has proven clean under this launcher build.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
-        var launcher = BuildLauncher(path, forgeVersionName, decision.FullVerify, skipJava: temurinJavaw != null);
+        var launcher = BuildLauncher(path, version, forgeVersionName, decision.FullVerify, skipJava: temurinJavaw != null);
 
         progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
         var fileProgress = new InstallProgressThrottle(
@@ -854,6 +859,7 @@ public sealed class VersionManager
         // 1.8.9 (libraries, LWJGL 2 natives, Mojang's jre-legacy Java 8) and
         // its legacy "minecraftArguments" string, plus option's extra game
         // arguments (a friend's server: --server/--port, JoinArguments).
+        PlatformLaunch.AdjustOption(version, option);
         var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress, null, ct);
         if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
 
@@ -935,7 +941,8 @@ public sealed class VersionManager
     /// </summary>
     /// skipJava = true leaves the Java runtime out of the file pass entirely (the caller runs its own: 1.8.9's
     /// Temurin), so a Java the launch never runs is not downloaded or checked.
-    private static MinecraftLauncher BuildLauncher(MinecraftPath path, string versionName, bool fullVerify,
+    /// mcVersion is the Minecraft version (PlatformLaunch's per-OS rules key on it); versionName is the loader profile.
+    private static MinecraftLauncher BuildLauncher(MinecraftPath path, string mcVersion, string versionName, bool fullVerify,
         bool skipJava = false)
     {
         // MUST pass the path INTO CreateDefault. The parameterless overload builds
@@ -975,7 +982,10 @@ public sealed class VersionManager
         installer.CheckFileChecksum = fullVerify;
         parameters.GameInstaller = installer;
 
-        return new MinecraftLauncher(parameters);
+        var launcher = new MinecraftLauncher(parameters);
+        // The OS/arch CmlLib resolves rules, natives and Java as (Windows: unchanged; Mac: MacLaunchPolicy).
+        PlatformLaunch.Configure(launcher, mcVersion);
+        return launcher;
     }
 
     // The newest installed Fabric profile for this version (offline fallback), or null.

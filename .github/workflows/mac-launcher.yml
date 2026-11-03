@@ -74,8 +74,72 @@ jobs:
           "$RUNNER_TEMP/publish/OriginLauncher" --self-test --network
 
       # The Core tests that mean something on a Mac: the Mac seams, the skin decoder that
-      # replaces WPF's, and the library rules (1.8.9 LWJGL 2.9.2 on osx, 2.9.4 elsewhere).
+      # replaces WPF's, the library rules (1.8.9 LWJGL 2.9.2 on osx, 2.9.4 elsewhere) and the
+      # Mac launch rules (arch per version, Rosetta, no -XstartOnFirstThread on LWJGL 2).
       - name: Core tests (Mac mode)
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Mac
-          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests"
+          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~MacLaunchPolicyTests"
+
+  # --launch-plan for every version the picker offers, on both Mac CPUs: the launcher's own launch
+  # path in a scratch folder (Fabric/Forge, Origin's mods, Mojang's libraries, natives, assets and
+  # Java for this Mac), then checks of the process it built: Java exists, is the right arch and
+  # starts (-version only), every classpath file and argument path exists, liblwjgl is there for
+  # the right CPU, -XstartOnFirstThread exactly on LWJGL 3, every asset object is on disk. The game
+  # itself never starts (runners have no GPU). 4 shards per arch keep each job short. x64 runs on
+  # an Intel runner, never under Rosetta (see the header).
+  launch-plan:
+    name: launch plan (${{ matrix.rid }}, shard ${{ matrix.shard }}/4)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+        shard: [0, 1, 2, 3]
+        include:
+          - os: macos-15
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # 1.8.9 / 1.16.5 / 1.17.1 / 1.18.2 run x64 Java on Apple Silicon. A player without Rosetta gets
+      # the "Install Rosetta" offer instead (unit-tested); the runner needs it to prove those launches.
+      - name: Rosetta (Apple Silicon only)
+        if: matrix.rid == 'osx-arm64'
+        run: |
+          if /usr/bin/arch -x86_64 /usr/bin/true; then echo "Rosetta already installed"; else
+            sudo softwareupdate --install-rosetta --agree-to-license; fi
+
+      - name: Publish (${{ matrix.rid }})
+        run: dotnet publish src/OriginLauncher.Mac/OriginLauncher.Mac.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o "$RUNNER_TEMP/publish"
+
+      - name: Launch plans
+        run: |
+          app="$RUNNER_TEMP/publish/OriginLauncher"
+          "$app" --list-versions > "$RUNNER_TEMP/versions.txt"
+          echo "$(wc -l < "$RUNNER_TEMP/versions.txt") live versions"
+          echo "| version (${{ matrix.rid }}) | plan |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          failed=""; passed=0
+          for v in $(awk -v s=${{ matrix.shard }} '(NR - 1) % 4 == s' "$RUNNER_TEMP/versions.txt"); do
+            echo "::group::$v"
+            root="$RUNNER_TEMP/plan-$v"
+            if "$app" --launch-plan "$v" --root "$root"; then
+              passed=$((passed + 1)); echo "| $v | pass |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed="$failed $v"; echo "| $v | FAIL |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            rm -rf "$root"
+            echo "::endgroup::"
+          done
+          echo "passed: $passed, failed:${failed:- none}"
+          test -z "$failed"
