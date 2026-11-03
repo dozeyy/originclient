@@ -37,7 +37,7 @@ internal static class LaunchPlan
         return 0;
     }
 
-    public static async Task<int> RunAsync(string version, string? root)
+    public static async Task<int> RunAsync(string version, string? root, bool startGame = false)
     {
         if (!VersionCatalog.IsSupported(version))
         {
@@ -82,7 +82,71 @@ internal static class LaunchPlan
             return 1;
         }
         Console.WriteLine($"  prepared in      {watch.Elapsed.TotalSeconds:0.0} s");
-        return Inspect(process, version, root);
+        var planned = Inspect(process, version, root);
+        return planned == 0 && startGame ? StartGame(process, version, root) : planned;
+    }
+
+    // Lines the game logs, in order, while it starts. "Setting user:" is net.minecraft.client.main.Main itself
+    // (every version; Fabric's Knot and Forge's launchwrapper both hand over to it): java found the real main
+    // class and the loader got the game running. The rest only say how far it got on a GPU-less runner.
+    private static readonly (string Marker, string Meaning)[] StartMarkers =
+    [
+        ("Setting user:", "Minecraft's main class is running"),
+        ("Backend library:", "LWJGL loaded its native library"),
+        ("Sound engine started", "the game finished starting"),
+    ];
+
+    /// <summary>
+    /// `--start-game` (CI only): starts the process the plan built, the way Play does, and passes once Minecraft's
+    /// own main class logs (StartMarkers[0]); then it is stopped. That is the proof the argument line really
+    /// starts the game, which reading the line (CheckArguments) can only predict. Exit 0 = the game started.
+    /// </summary>
+    private static int StartGame(Process process, string version, string root)
+    {
+        var info = process.StartInfo;
+        info.UseShellExecute = false;
+        info.RedirectStandardOutput = true;
+        info.RedirectStandardError = true;
+        var lines = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var started = new ManualResetEventSlim();
+        void OnLine(object? sender, DataReceivedEventArgs e)
+        {
+            if (e.Data == null) return;
+            lines.Enqueue(e.Data);
+            while (lines.Count > 400) lines.TryDequeue(out _);
+            if (e.Data.Contains(StartMarkers[0].Marker, StringComparison.Ordinal)) started.Set();
+        }
+        process.OutputDataReceived += OnLine;
+        process.ErrorDataReceived += OnLine;
+
+        var watch = Stopwatch.StartNew();
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        // Fabric + Origin's mods load before Main runs; a cold CI runner needs well under 4 minutes.
+        while (!started.IsSet && !process.HasExited && watch.Elapsed < TimeSpan.FromMinutes(4)) started.Wait(500);
+        // A little longer, so the log shows how far a GPU-less runner gets (informational only).
+        if (started.IsSet) process.WaitForExit(20_000);
+        var exited = process.HasExited;
+        if (!exited)
+        {
+            try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+            process.WaitForExit(10_000);
+        }
+
+        var log = lines.ToArray();
+        foreach (var (marker, meaning) in StartMarkers)
+            Console.WriteLine($"  game start       {(log.Any(l => l.Contains(marker, StringComparison.Ordinal)) ? "yes" : "no ")}  {meaning}");
+        Console.WriteLine($"  game ran         {watch.Elapsed.TotalSeconds:0} s, {(exited ? "exited " + process.ExitCode : "stopped by the plan")}");
+        if (started.IsSet)
+        {
+            Console.WriteLine($"PASS  {version}: the game started");
+            return 0;
+        }
+        Console.WriteLine("  last game output:");
+        foreach (var l in log.TakeLast(40)) Console.WriteLine("    " + Redact(l, root));
+        Console.WriteLine($"FAIL  {version}: Minecraft's main class never ran ({(exited ? "java exited " + process.ExitCode : "timed out")})");
+        return 1;
     }
 
     /// <summary>
@@ -154,6 +218,8 @@ internal static class LaunchPlan
         }
     }
 
+    private static readonly string[] GameMainClasses = ["net.fabricmc.loader.impl.launch.knot.KnotClient", "net.minecraft.launchwrapper.Launch"];
+
     private static void CheckArguments(List<string> args, MacLaunchShape shape, string root)
     {
         // -XstartOnFirstThread: LWJGL 3 needs it on macOS, LWJGL 2 must not get it (MacLaunchPolicy).
@@ -165,8 +231,9 @@ internal static class LaunchPlan
             Fail("unreplaced placeholder in the argument line: " + placeholder);
         foreach (var flag in new[] { "--username", "--version", "--gameDir", "--assetsDir", "--assetIndex", "--accessToken" })
             if (!args.Contains(flag)) Fail("game argument missing: " + flag);
-        if (!args.Any(a => a is "net.fabricmc.loader.impl.launch.knot.KnotClient" or "net.minecraft.launchwrapper.Launch"))
-            Fail("no Fabric or Forge main class in the argument line");
+        // The main class must sit exactly where java reads it (the first argument that is not an option or an
+        // option's value), not merely appear somewhere in the line: a stray value before it is what java runs.
+        if (JavaArgv.MainClassProblem(args, GameMainClasses) is { } mainClass) Fail(mainClass);
         if (!args.Any(a => a.StartsWith("-Xmx", StringComparison.Ordinal))) Fail("no -Xmx");
 
         var cp = args.IndexOf("-cp");

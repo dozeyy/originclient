@@ -222,6 +222,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Launch\PlayFailure.cs" LinkBase="Launch" />
     <!-- The Mac launch rules (arch, Rosetta, LWJGL 2) and the per-version Mac record (pure; PlayFailure names the Rosetta exception). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\MacLaunchPolicy.cs" LinkBase="Launch" />
+    <!-- Where java will read the main class in a built argument line (the Mac launch-plan proof uses it too). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\JavaArgv.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Versions\MacVersionCapabilities.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameLogMarks.cs" LinkBase="Launch" />
     <!-- The version selector's keys and wording (U3.2): no WPF in either file. -->

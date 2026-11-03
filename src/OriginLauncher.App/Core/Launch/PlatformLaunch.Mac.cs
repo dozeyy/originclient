@@ -39,8 +39,12 @@ public static partial class PlatformLaunch
 
     public static partial void AdjustOption(string version, MLaunchOption option)
     {
-        // The Dock and the app switcher show "Minecraft", not "java".
-        option.DockName ??= "Minecraft";
+        // The Dock and the app switcher show "Minecraft", not "java". Never via CmlLib's DockName/DockIcon: CmlLib
+        // 4.0.6 writes them as TWO arguments ("-Xdock:name" "Minecraft"), and java takes the second one as the main
+        // class, so no version started. One "-Xdock:name=Minecraft" argument is what the JDK reads.
+        if (option.ExtraJvmArguments?.Any(a => a.Values?.Contains(MacLaunchPolicy.DockNameArgument) == true) != true)
+            option.ExtraJvmArguments = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>())
+                .Append(new MArgument(MacLaunchPolicy.DockNameArgument)).ToList();
 
         // LWJGL 2 (1.8.9): its legacy JSON has no jvm arguments, so CmlLib would add its
         // DefaultJvmArguments, whose only macOS entry is -XstartOnFirstThread (LWJGL 3 only, see
