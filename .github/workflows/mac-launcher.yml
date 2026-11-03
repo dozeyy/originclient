@@ -17,6 +17,8 @@ on:
       - "src/OriginLauncher.Mac/**"
       - "src/OriginLauncher.Tests/**"
       - "global.json"
+      - "tools/mac/**"
+      - "tools/lean/contact_sheet.py"
       - ".github/workflows/mac-launcher.yml"
   pull_request:
     paths:
@@ -24,11 +26,14 @@ on:
       - "src/OriginLauncher.Mac/**"
       - "src/OriginLauncher.Tests/**"
       - "global.json"
+      - "tools/mac/**"
+      - "tools/lean/contact_sheet.py"
       - ".github/workflows/mac-launcher.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read   # the screenshot step downloads the latest Windows launcher-shots artifact to compare names
 
 concurrency:
   group: mac-launcher-${{ github.ref }}
@@ -79,3 +84,56 @@ jobs:
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Mac
           --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests"
+
+      # ---- Screenshots (Apple Silicon leg only; informational, never fails the run) ----
+      # The Mac twin of launcher-shots: every Mac screen drawn headless (no window, made-up data, exits by
+      # itself) under the same file names as the Windows run, a contact sheet, and two parity lists in the job
+      # summary: the Windows shots with no Mac twin yet, and the Windows theme keys with no Mac twin yet.
+      - name: Render screens
+        if: matrix.rid == 'osx-arm64'
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/publish/OriginLauncher" --render-shots mac-shots
+          echo "PNGs: $(ls mac-shots/*.png | wc -l | tr -d ' ')"
+
+      - name: Contact sheet
+        if: matrix.rid == 'osx-arm64'
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet --break-system-packages pillow || python3 -m pip install --quiet pillow
+          python3 tools/lean/contact_sheet.py mac-shots
+
+      - uses: actions/upload-artifact@v7
+        if: matrix.rid == 'osx-arm64' && always()
+        continue-on-error: true
+        with:
+          name: mac-launcher-shots
+          path: mac-shots
+          if-no-files-found: warn
+
+      - name: Windows shots with no Mac twin
+        if: matrix.rid == 'osx-arm64' && always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list -R "$GITHUB_REPOSITORY" --workflow launcher-shots.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          {
+            echo "## Mac screens vs Windows"
+            if [ -z "$run_id" ] || ! gh run download "$run_id" -R "$GITHUB_REPOSITORY" -n launcher-shots -D win-shots; then
+              echo "No Windows launcher-shots artifact to compare against (none recent, or expired)."
+            else
+              echo "Compared with Windows launcher-shots run $run_id."
+              ls win-shots/*.png | xargs -n1 basename | sort > win.txt
+              ls mac-shots/*.png 2>/dev/null | xargs -n1 basename | sort > mac.txt
+              echo ""
+              echo "Mac has $(comm -12 win.txt mac.txt | wc -l | tr -d ' ') of $(wc -l < win.txt | tr -d ' ') Windows screens. Not on the Mac yet:"
+              echo ""
+              comm -23 win.txt mac.txt | sed 's/^/- /'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Theme tokens with no Mac twin
+        if: matrix.rid == 'osx-arm64' && always()
+        continue-on-error: true
+        run: python3 tools/mac/check_theme_parity.py --markdown | tee -a "$GITHUB_STEP_SUMMARY"

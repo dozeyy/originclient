@@ -1,0 +1,153 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:OriginLauncher.Mac.UI">
+
+    <!-- Avalonia twin of src/OriginLauncher.App/Theme/Surfaces.xaml (same keys, same tokens). Page.Column waits for
+         the first page that uses it (Mods / Profiles / Settings); the parity check lists it until then. -->
+
+    <!-- Card: a panel with 16 px inside and 8 px below it; it lifts to Card on hover. -->
+    <ControlTheme x:Key="Surface.Card" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Lg}"/>
+        <Setter Property="Padding" Value="16"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Row: the same surface for a list line (a mod, an account): 12,10 inside and 4 px below. -->
+    <ControlTheme x:Key="Surface.Row" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="Margin" Value="0,0,0,4"/>
+    </ControlTheme>
+
+    <!-- Dialog: 24 inside, a 1 px soft edge, the card shadow, the dialog corner. -->
+    <ControlTheme x:Key="Surface.Dialog" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Dialog}"/>
+        <Setter Property="Padding" Value="24"/>
+        <Setter Property="BoxShadow" Value="{StaticResource Shadow.Overlay}"/>
+    </ControlTheme>
+
+    <!-- Dialog on the Surface step (spec 11.10): the Panel fill with the strong line. -->
+    <ControlTheme x:Key="Surface.DialogSheet" TargetType="Border" BasedOn="{StaticResource Surface.Dialog}">
+        <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+    </ControlTheme>
+
+    <!-- Capsule: every pill, chip and badge. A true capsule, radius = height / 2 (ui:Capsule.On), one padding token. -->
+    <ControlTheme x:Key="Surface.Capsule" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+        <Setter Property="ui:Capsule.On" Value="True"/>
+        <Setter Property="Padding" Value="{StaticResource Padding.Capsule}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Surface.Capsule.Sm" TargetType="Border" BasedOn="{StaticResource Surface.Capsule}">
+        <Setter Property="Padding" Value="{StaticResource Padding.Capsule.Sm}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Surface.Chip" TargetType="Border" BasedOn="{StaticResource Surface.Capsule.Sm}"/>
+    <ControlTheme x:Key="Surface.ChipText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+    </ControlTheme>
+
+    <!-- Soft-hue tile (DESIGN-SYSTEM 2.3): a small square with a 16 % hue wash and the glyph in the full hue. -->
+    <ControlTheme x:Key="Surface.Tile" TargetType="Border">
+        <Setter Property="Width" Value="{StaticResource Size.TileLg}"/>
+        <Setter Property="Height" Value="{StaticResource Size.TileLg}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.HueTile.Sky}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Surface.Tile.Sm" TargetType="Border" BasedOn="{StaticResource Surface.Tile}">
+        <Setter Property="Width" Value="{StaticResource Size.TileSm}"/>
+        <Setter Property="Height" Value="{StaticResource Size.TileSm}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+    </ControlTheme>
+
+    <!-- A dialog's section eyebrow: type.label in textDim, caps authored. -->
+    <ControlTheme x:Key="Dialog.Eyebrow" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+    </ControlTheme>
+
+    <!-- Account pill (top bar, DESIGN-SYSTEM 11.5): md 32 tall, Radius.Sm, white 4 % fill and a 1 px edge; hover is
+         CardAlt with the hovered edge. -->
+    <ControlTheme x:Key="Button.AccountPill" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.PillRest}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="{StaticResource Padding.AccountPill}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button.Sm}"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Signed out: the same bar control as the other ghost buttons ("Sign in" with the account icon), no pill. -->
+    <ControlTheme x:Key="Button.AccountPill.SignedOut" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="Padding" Value="10,0"/>
+    </ControlTheme>
+
+    <!-- The brand lockup in the top bar (logo + wordmark) is the Website link: a ghost control resting on TextMuted.
+         The hover ink is repeated here because this theme's rest Foreground would otherwise beat Button.Chrome's. -->
+    <ControlTheme x:Key="Button.Brand" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="Padding" Value="{StaticResource Padding.Brand}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- A drawer's header (Accounts, Friends, Import): a 16 px gutter, the title in H1 and one Caption line under it. -->
+    <ControlTheme x:Key="Drawer.Header" TargetType="Grid">
+        <Setter Property="Margin" Value="16,16,16,10"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Drawer.Title" TargetType="TextBlock" BasedOn="{StaticResource Text.Heading}"/>
+    <ControlTheme x:Key="Drawer.Subtitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="Margin" Value="0,4,0,0"/>
+    </ControlTheme>
+
+    <!-- Hover labels: the launcher's own raised surface (Card fill, 1 px strong line, Radius.Sm, 8 x 6 padding, caption
+         type, at most 240 wide), flat. Twin of Theme/ToolTips.xaml's implicit style. -->
+    <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="MaxWidth" Value="240"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToolTip">
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  Padding="{TemplateBinding Padding}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}">
+                    <ContentPresenter.Styles>
+                        <Style Selector="TextBlock">
+                            <Setter Property="TextWrapping" Value="Wrap"/>
+                        </Style>
+                    </ContentPresenter.Styles>
+                </ContentPresenter>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+</ResourceDictionary>

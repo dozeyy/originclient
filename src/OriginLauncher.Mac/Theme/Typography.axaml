@@ -1,0 +1,129 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Avalonia twin of src/OriginLauncher.App/Theme/Typography.xaml: the same keys and values
+        (tools/mac/check_theme_parity.py compares them in CI). Inter (OFL, the bundled static TTFs 400-800) is the only
+        UI face; the Mac's own SF Pro is only the fail-soft fallback. Technical text is Menlo (the Mac's Consolas).
+
+        A WPF Style with a key is an Avalonia ControlTheme with the same key: Theme="{StaticResource Text.Caption}".
+        Every style fixes its line height (Avalonia's LineHeight is always a block line height). Sentence case
+        everywhere; Text.Label is authored in caps.
+    -->
+    <FontFamily x:Key="Font.Primary">avares://OriginLauncher/Assets/Fonts#Inter, $Default</FontFamily>
+    <FontFamily x:Key="Font.Mono">Menlo, Consolas, Courier New</FontFamily>
+
+    <x:Double x:Key="FontSize.Label">11</x:Double>
+    <x:Double x:Key="FontSize.Caption">12</x:Double>
+    <x:Double x:Key="FontSize.Body">13.5</x:Double>
+    <x:Double x:Key="FontSize.Title">16</x:Double>
+    <x:Double x:Key="FontSize.Action">20</x:Double>
+    <x:Double x:Key="FontSize.Heading">22</x:Double>
+    <x:Double x:Key="FontSize.Display">32</x:Double>
+    <x:Double x:Key="LineHeight.Label">14</x:Double>
+    <x:Double x:Key="LineHeight.Caption">16</x:Double>
+    <x:Double x:Key="LineHeight.Body">20</x:Double>
+    <x:Double x:Key="LineHeight.Title">22</x:Double>
+    <x:Double x:Key="LineHeight.Action">24</x:Double>
+    <x:Double x:Key="LineHeight.Heading">28</x:Double>
+    <x:Double x:Key="LineHeight.Display">36</x:Double>
+    <!-- Home's status line: one fixed line slot while idle; an error wraps to two rows at the status width. -->
+    <x:Double x:Key="Size.StatusLine">16</x:Double>
+    <x:Double x:Key="Size.StatusLinesMax">32</x:Double>
+    <x:Double x:Key="Size.StatusWidth">400</x:Double>
+
+    <!-- type.label: nav tabs, eyebrows, badges and section labels. Author the text in caps. -->
+    <ControlTheme x:Key="Text.Label" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Label}"/>
+    </ControlTheme>
+
+    <!-- type.capsule: the caps inside a capsule. Never trims. -->
+    <ControlTheme x:Key="Text.Capsule" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+        <Setter Property="TextTrimming" Value="None"/>
+    </ControlTheme>
+
+    <!-- type.caption: status lines, meta, helper text. -->
+    <ControlTheme x:Key="Text.Caption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </ControlTheme>
+
+    <ControlTheme x:Key="Text.CaptionDim" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+    </ControlTheme>
+
+    <!-- type.body: default text and descriptions. -->
+    <ControlTheme x:Key="Text.Body" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Body}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </ControlTheme>
+
+    <ControlTheme x:Key="Text.BodyDim" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+    </ControlTheme>
+
+    <!-- type.bodyStrong: button labels, names, row titles. -->
+    <ControlTheme x:Key="Text.BodyStrong" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </ControlTheme>
+
+    <!-- type.title: card titles, dialog titles. -->
+    <ControlTheme x:Key="Text.Title" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Title}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Title}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </ControlTheme>
+
+    <!-- type.action: the Play label only. -->
+    <ControlTheme x:Key="Text.Action" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Action}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Action}"/>
+    </ControlTheme>
+
+    <!-- type.heading: page and sheet titles. -->
+    <ControlTheme x:Key="Text.Heading" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Heading}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Heading}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </ControlTheme>
+
+    <!-- type.display: an empty-state or hero headline. -->
+    <ControlTheme x:Key="Text.Display" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Display}"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Display}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </ControlTheme>
+
+    <!-- A form field's label, 8 px above its box. -->
+    <ControlTheme x:Key="Text.FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Margin" Value="{StaticResource Margin.Below.2}"/>
+    </ControlTheme>
+
+</ResourceDictionary>

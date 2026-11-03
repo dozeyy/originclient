@@ -1,0 +1,372 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:OriginLauncher.Mac.UI">
+
+    <!--
+        Avalonia twin of src/OriginLauncher.App/Theme/Buttons.xaml: the same keys (a WPF Style is a ControlTheme here,
+        used as Theme="{StaticResource Button.Secondary}") and the same tokens. tools/mac/check_theme_parity.py checks
+        the keys match in CI.
+
+        What changes with the framework, and why:
+        - WPF's storyboards (one per state, Background.Color animated on a local brush) are Avalonia transitions on the
+          button itself (the Transitions setter in Button.Base and Button.PlayHero). Avalonia 12 transitions are sealed to user code (ITransition can't be
+          implemented), so two WPF timings are approximated: a hover colour fades both ways in Motion.Hover (WPF:
+          in at once, out in Motion.Hover), and the press-scale runs Motion.Press both ways (WPF: back in
+          Motion.Release). With motion off (render-shots, UI/Motion.cs) every state lands at once.
+        - ui:Chrome.Corner is TemplatedControl.CornerRadius.
+        - The FocusVisualStyle frames are FocusAdornerTemplates: shown for keyboard focus only, as in WPF.
+        - A ControlTheme's plain setters beat the nested ":pointerover" setters of the theme it is BasedOn, so a
+          derived theme that changes a rest colour repeats the hover colour (Button.Brand).
+    -->
+
+
+    <!-- Keyboard focus: a 2 px frame in the accent line, 2 px outside the control. Ring corner = control corner + 2. -->
+    <FocusAdornerTemplate x:Key="Focus.Button">
+        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Md}" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.AccentBorder}"/>
+    </FocusAdornerTemplate>
+
+    <!-- The same frame for the 28 and 32 tall controls (Radius.Sm corners). -->
+    <FocusAdornerTemplate x:Key="Focus.Button.Sm">
+        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Sm}" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.AccentBorder}"/>
+    </FocusAdornerTemplate>
+
+    <!-- The same frame around a pill (the switch track): a fully rounded ring. -->
+    <FocusAdornerTemplate x:Key="Focus.Pill">
+        <Border Margin="-4" ui:Capsule.On="True" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.AccentBorder}"/>
+    </FocusAdornerTemplate>
+
+    <!-- The same frame for controls with card corners (the home banner, version and profile cards). -->
+    <FocusAdornerTemplate x:Key="Focus.Card">
+        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.AccentBorder}"/>
+    </FocusAdornerTemplate>
+
+    <!-- Card-corner focus in parchment: for a tile that sits where the selected (emerald) ring sits. -->
+    <FocusAdornerTemplate x:Key="Focus.Card.Neutral">
+        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.Text}"/>
+    </FocusAdornerTemplate>
+
+    <ControlTemplate x:Key="Template.Button" TargetType="Button">
+        <ContentPresenter Name="PART_ContentPresenter"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{TemplateBinding CornerRadius}"
+                          Padding="{TemplateBinding Padding}"
+                          Content="{TemplateBinding Content}"
+                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                          VerticalContentAlignment="Center"
+                          RecognizesAccessKey="True"/>
+    </ControlTemplate>
+
+    <ControlTheme x:Key="Button.Base" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+        <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+        <Setter Property="Template" Value="{StaticResource Template.Button}"/>
+        <!-- One transition set for every button: press-scale, then the three colours that change on hover. Written
+             inline: the XAML compiler resolves a transition's Property against the setter's TargetType. -->
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="{StaticResource Motion.Press}" Easing="QuadraticEaseOut"/>
+                <BrushTransition Property="Background" Duration="{StaticResource Motion.Hover}"/>
+                <BrushTransition Property="BorderBrush" Duration="{StaticResource Motion.Hover}"/>
+                <BrushTransition Property="Foreground" Duration="{StaticResource Motion.Hover}"/>
+            </Transitions>
+        </Setter>
+        <Style Selector="^:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.97)"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Secondary: raised fill, strong edge (most actions). lg 36. -->
+    <ControlTheme x:Key="Button.Secondary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Background" Value="{StaticResource Brush.SurfacePress}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Secondary at lg (36), the height of Primary.Medium beside it. -->
+    <ControlTheme x:Key="Button.Secondary.Medium" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="16,0"/>
+    </ControlTheme>
+
+    <!-- Secondary at md (32): Profiles Import/Cancel, a row's Change, the drawers' footers. -->
+    <ControlTheme x:Key="Button.Secondary.Small" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button.Sm}"/>
+    </ControlTheme>
+
+    <!-- Ghost / icon: no fill or edge at rest, a soft wash on hover; the ink brightens with it. md 32. -->
+    <ControlTheme x:Key="Button.Chrome" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.GhostRest}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button.Sm}"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.GhostHover}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- The update chip (DESIGN-SYSTEM 11.4): a ghost md 32 with a gold wash. -->
+    <ControlTheme x:Key="Button.UpdateChip" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.HueChip.Gold}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Hue.Gold}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button.Sm}"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.HueChip.GoldHover}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Primary: the one emerald fill per decision area. lg 36 (dialogs). Flat: no sheen, no shadow. -->
+    <ControlTheme x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentHover}"/>
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentPress}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentPress}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Top-bar page tab: the label dim at rest (type.label 11, TextDim), full text on hover and when current, with a
+         4 px accent dot under the label that grows from its centre on the current page. md 32. -->
+    <ControlTheme x:Key="Button.NavItem" TargetType="ToggleButton">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button.Sm}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Panel Background="Transparent">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Margin="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    <Border Name="Indicator" Width="{StaticResource Size.NavDot}" Height="{StaticResource Size.NavDot}"
+                            Margin="0,0,0,2" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                            ui:Capsule.On="True" Background="{StaticResource Brush.Accent}"
+                            RenderTransformOrigin="50%,50%" RenderTransform="scale(0)">
+                        <Border.Transitions>
+                            <Transitions>
+                                <TransformOperationsTransition Property="RenderTransform"
+                                                               Duration="{StaticResource Motion.Scene}" Easing="QuinticEaseOut"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="^:checked">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Style Selector="^ /template/ Border#Indicator">
+                <Setter Property="RenderTransform" Value="scale(1)"/>
+            </Style>
+        </Style>
+    </ControlTheme>
+
+    <!--
+        Home strip card (Workbench mockup .vbtn / .pbtn / .store): a 64 tall glass card (the bar's own fill) with a 1 px
+        hairline and Radius.Lg corners. Hover brightens the edge and lifts the fill to the card colour; press is the
+        shared press-scale and the surface-press fill.
+    -->
+    <ControlTheme x:Key="Button.StripCard" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.PanelGlass}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.StripControl}"/>
+        <Setter Property="Padding" Value="8,0,16,0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Lg}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Card}"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Background" Value="{StaticResource Brush.SurfacePress}"/>
+        </Style>
+    </ControlTheme>
+
+    <!--
+        Play (Workbench mockup .play): a solid emerald card, 64 tall with Radius.Lg corners, dark text on emerald, a play
+        triangle and the label in the content. Hover lifts to AccentHover, press to AccentPress and scales to .97.
+        Can't play yet: a quiet neutral card with dim text (the accent is for what you can act on). Tag "busy"
+        (running or launching): the same card a step softer.
+    -->
+    <ControlTheme x:Key="Button.PlayHero" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.StripControl}"/>
+        <Setter Property="MinWidth" Value="{StaticResource Size.PlayWidth}"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Card}"/>
+        <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+        <!-- One transition set for every button: press-scale, then the three colours that change on hover. Written
+             inline: the XAML compiler resolves a transition's Property against the setter's TargetType. -->
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="{StaticResource Motion.Press}" Easing="QuadraticEaseOut"/>
+                <BrushTransition Property="Background" Duration="{StaticResource Motion.Hover}"/>
+                <BrushTransition Property="BorderBrush" Duration="{StaticResource Motion.Hover}"/>
+                <BrushTransition Property="Foreground" Duration="{StaticResource Motion.Hover}"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+                <Border Name="Bg" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Lg}">
+                    <ContentPresenter Name="PART_ContentPresenter" Margin="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentPress}"/>
+            <Setter Property="RenderTransform" Value="scale(0.97)"/>
+        </Style>
+        <Style Selector="^[Tag=busy] /template/ Border#Bg">
+            <Setter Property="Opacity" Value="0.72"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Primary on the size steps: Medium is lg 36 (the usual button), Small is md 32 (row and header actions). -->
+    <ControlTheme x:Key="Button.Primary.Medium" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="16,0"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Button.Primary.Small" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button.Sm}"/>
+    </ControlTheme>
+
+    <!-- Icon-only primary (chat send): a lg-sized square that grows with its glyph (Min*, never fixed). -->
+    <ControlTheme x:Key="Button.Primary.Icon" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="MinWidth" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="10"/>
+    </ControlTheme>
+
+    <!-- Home strip pill (version / profile / Join): Secondary at xl 40, content stretched. -->
+    <ControlTheme x:Key="Button.Pill" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="16,0,12,0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlXl}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+    </ControlTheme>
+
+    <!-- Danger: a soft red fill with red text, never a filled red primary (Remove, Block, Kick, Uninstall). lg 36. -->
+    <ControlTheme x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.DangerSoft}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.DangerSoft}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.DangerText}"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.DangerSoftHover}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.DangerSoftHover}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- The same destructive confirm at md 32, beside Button.Secondary.Small (inline "Delete? / Cancel"). -->
+    <ControlTheme x:Key="Button.Danger.Small" TargetType="Button" BasedOn="{StaticResource Button.Danger}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button.Sm}"/>
+    </ControlTheme>
+
+    <!-- sm 28 (spec 5, "inline actions"): the button INSIDE a row or card, 12 / 600 label, Radius.Sm. -->
+    <ControlTheme x:Key="Button.Secondary.Inline" TargetType="Button" BasedOn="{StaticResource Button.Secondary.Small}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Button.Primary.Inline" TargetType="Button" BasedOn="{StaticResource Button.Primary.Small}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Button.Danger.Inline" TargetType="Button" BasedOn="{StaticResource Button.Danger.Small}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+    </ControlTheme>
+
+    <!-- Ghost at lg 36 (spec 11.1): "Cancel" beside a dialog's primary, no fill or edge, label TextDim. -->
+    <ControlTheme x:Key="Button.Ghost" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+    </ControlTheme>
+
+</ResourceDictionary>

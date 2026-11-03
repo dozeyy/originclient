@@ -1,0 +1,134 @@
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.Threading;
+using OriginLauncher.App.Core.Versions;
+
+namespace OriginLauncher.Mac.UI;
+
+/// <summary>
+/// `--render-shots &lt;dir&gt;`: every screen the Mac launcher has, drawn headless to PNGs under the SAME file names as the
+/// WPF UI/RenderShots.cs, so CI can put each Mac shot next to its Windows twin and list the Windows shots that have no
+/// Mac twin yet. No window opens (Avalonia's headless platform with the real Skia renderer), motion is off, the data
+/// is made up (version 26.3, signed out, My mods on, a friend's dot lit, like the Windows fixture), nothing is read
+/// from or written to the player's data folder, and it exits by itself: 0 when every shot was written, 1 otherwise.
+/// Mac differences in the pictures: the traffic lights are drawn by macOS and so are not in a headless frame (the
+/// bar's brand starts after their space), and the WPF bar's Minimize / Close are not on the Mac.
+/// </summary>
+internal static class RenderShots
+{
+    // The fixture: the Windows run's own default (VersionCatalog.DefaultVersion, 26.3 today).
+    private static readonly string Version = VersionCatalog.DefaultVersion;
+
+    public static int Run(string outDir)
+    {
+        Directory.CreateDirectory(outDir);
+        Motion.Off = true;
+        AppBuilder.Configure<App>()
+            .UseSkia()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
+            .SetupWithoutStarting();
+
+        var written = 0;
+        var failed = new List<string>();
+        void Snap(MainWindow w, string name)
+        {
+            try
+            {
+                Pump();
+                using var frame = w.CaptureRenderedFrame();
+                if (frame == null) { failed.Add(name + " (no frame)"); return; }
+                frame.Save(Path.Combine(outDir, name + ".png"));
+                written++;
+            }
+            catch (Exception ex)
+            {
+                failed.Add($"{name} ({ex.GetType().Name}: {ex.Message})");
+            }
+        }
+
+        WriteFontReport(outDir);
+        var window = new MainWindow { Width = 1044, Height = 740 };
+        window.Show();
+        window.SetFriendsBadge(true);
+        window.Home.MyMods = true;
+        window.Home.SetReady(false, "Sign in to play");
+        Pump();
+
+        // 01: Home as the Windows CI run shows it (its desktop caps a real window at 1044 wide).
+        Snap(window, "01-home");
+        window.Home.SetReady(true, "Ready to play");
+        Snap(window, "01b-home-ready");
+        var play = window.Home.Play;
+        var centre = play.TranslatePoint(new Point(play.Bounds.Width / 2, play.Bounds.Height / 2), window) ?? default;
+        window.MouseMove(centre);
+        Snap(window, "01c-home-play-hover");
+        window.MouseMove(new Point(4, 400));
+        window.Home.SetReady(false, "Sign in to play");
+        window.Home.MyMods = false;
+        Snap(window, "01d-home-my-mods-off");
+        window.Home.MyMods = true;
+        Snap(window, "01e-home-my-mods-on");
+
+        // From here on the Windows run has 1.21.1 picked (its tour selects it before the launch shots), so the 15e/15f
+        // twins show the same numeral and art; a different version would make the ink widths incomparable.
+        window.SelectVersion("1.21.1");
+
+        // 15e: the top bar's fit rule at three window sizes (the Windows run adds "-update" twins; the Mac has no
+        // update chip yet).
+        foreach (var (w, h) in new[] { (1440, 900), (1280, 800), (1180, 740) })
+        {
+            Resize(window, w, h);
+            var shot = $"15e-topbar-{w}x{h}";
+            File.AppendAllText(Path.Combine(outDir, "topbar-fit.txt"), $"{shot}: {window.TopBarFit()}{Environment.NewLine}");
+            Snap(window, shot);
+        }
+
+        // 15f: the numeral in its band at the three reference sizes, with the measured ink against the band.
+        foreach (var (w, h) in new[] { (960, 600), (1180, 740), (1920, 1080) })
+        {
+            Resize(window, w, h);
+            File.AppendAllText(Path.Combine(outDir, "numeral-fit.txt"), $"{w}x{h}: {window.NumeralFit()}{Environment.NewLine}");
+            Snap(window, $"15f-home-numeral-{w}x{h}");
+        }
+
+        window.Close();
+        Console.WriteLine($"render-shots: {written} PNGs in {outDir}");
+        foreach (var f in failed) Console.Error.WriteLine("render-shots: FAILED " + f);
+        return failed.Count == 0 && written > 0 ? 0 : 1;
+    }
+
+    // fonts.txt: the face each Inter weight the theme uses really resolves to. A weight that falls back to another face
+    // gets drawn synthetically (wrong widths, the numeral off-size), and nothing else would say so.
+    private static void WriteFontReport(string outDir)
+    {
+        var lines = new List<string>();
+        var family = Application.Current!.TryGetResource("Font.Primary", null, out var f) && f is Avalonia.Media.FontFamily ff
+            ? ff : Avalonia.Media.FontFamily.Default;
+        foreach (var weight in new[] { 400, 500, 600, 700, 800 })
+        {
+            var typeface = new Avalonia.Media.Typeface(family, Avalonia.Media.FontStyle.Normal, (Avalonia.Media.FontWeight)weight);
+            lines.Add(Avalonia.Media.FontManager.Current.TryGetGlyphTypeface(typeface, out var face)
+                ? $"Inter {weight}: {face.FamilyName} weight={(int)face.Weight} simulations={face.FontSimulations}"
+                : $"Inter {weight}: NOT FOUND");
+        }
+        File.WriteAllLines(Path.Combine(outDir, "fonts.txt"), lines);
+    }
+
+    private static void Resize(MainWindow window, int w, int h)
+    {
+        window.Width = w;
+        window.Height = h;
+        Pump();
+    }
+
+    // Layout, the size-driven follow-ups (fit rule, strip top, art tier) and a render, a few rounds so a change that
+    // causes another layout settles before the frame is taken.
+    private static void Pump()
+    {
+        for (var i = 0; i < 6; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+    }
+}

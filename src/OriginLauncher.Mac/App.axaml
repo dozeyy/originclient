@@ -1,0 +1,35 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="OriginLauncher.Mac.App"
+             Name="Origin Launcher"
+             RequestedThemeVariant="Dark">
+
+    <!-- The Mac launcher's theme: Fluent supplies only the controls nothing here restyles; every Origin look comes from
+         Theme/*.axaml, the Avalonia twins of the WPF Theme/*.xaml (same keys, same values; tools/mac/check_theme_parity.py
+         lists any key the Mac is still missing). Order matters: a file may only use keys from the files above it. -->
+    <Application.Styles>
+        <FluentTheme/>
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Colors.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Spacing.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Typography.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Icons.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Buttons.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Inputs.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Surfaces.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <!-- The app menu (the bold "Origin Launcher" menu). macOS adds Services, Hide, Hide Others, Show All and
+         Quit (Cmd+Q) after these items on its own; this replaces the framework's default "About Avalonia". -->
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="About Origin Launcher" Click="About_Click"/>
+        </NativeMenu>
+    </NativeMenu.Menu>
+</Application>

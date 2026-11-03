@@ -6,11 +6,16 @@
     (X.Windows.cs), plus the Mac half (X.Mac.cs) that sits next to it. The Windows launcher's csproj
     does the reverse, so a Core fix lands on both at once.
 
-    No UI yet: today the program only has a self-test switch, self-test with two leading dashes (prints the data paths, runs each Mac seam
-    once, exits 0/1, opens no window). The Avalonia UI comes in later steps of the Mac port.
+    The UI is Avalonia: the same look as the WPF launcher, screen by screen. Theme/*.axaml are the
+    Avalonia twins of src/OriginLauncher.App/Theme/*.xaml (same keys, same values); the art, logo,
+    wordmark and fonts are the Windows launcher's own files, linked, never copied.
 
-    Built on GitHub's macOS runners (.github/workflows/mac-launcher.yml); it is never built or run
-    on Will's PC. global.json next to this file pins the .NET 10 SDK.
+    Switches (Program.cs):
+      self-test [network]  data paths + each Mac seam, exits 0/1, no window
+      render-shots <dir>   every ported screen as PNGs, headless (no window), made-up data, exits by itself
+    (both with two leading dashes; written without them here because XML comments can't hold a double dash).
+
+    Built on GitHub's macOS runners (.github/workflows/mac-launcher.yml). global.json pins the .NET 10 SDK.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -24,20 +29,49 @@
     <!-- Same choice as the Windows launcher: no tiered PGO instrumentation in the first seconds. -->
     <TieredPGO>false</TieredPGO>
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <!-- Compiled bindings by default: no reflection binding on the UI thread. -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\OriginLauncher.App\Core\**\*.cs" Exclude="..\OriginLauncher.App\Core\**\*.Windows.cs" LinkBase="Core" />
+    <!-- Pure UI logic shared with the WPF launcher (no WPF types): the version family and the numeral's band maths. -->
+    <Compile Include="..\OriginLauncher.App\UI\FamilyTheme.cs" Link="Shared\FamilyTheme.cs" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\NumeralBand.cs" Link="Shared\NumeralBand.cs" />
     <!-- The self-test's skin: the same independently encoded PNG the Core tests decode. -->
     <None Include="..\OriginLauncher.Tests\Fixtures\skin-all-filters.png" Link="skin-all-filters.png"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The Windows launcher's own assets, linked: the family art (colour tiers + thumbnails, like the WPF csproj),
+         the ONLY two logo files (Theme/Brand in DESIGN-SYSTEM 1.5), and the bundled fonts. Each file gets an explicit
+         Link: Avalonia ignores LinkBase and would publish a linked file under its "..\" path instead
+         (avares://OriginLauncher/OriginLauncher.App/Assets/Art/..., found by render-shots' fonts.txt). -->
+    <AvaloniaResource Include="..\OriginLauncher.App\Assets\Art\*-c1280.jpg;..\OriginLauncher.App\Assets\Art\*-c2560.jpg;..\OriginLauncher.App\Assets\Art\*-c3840.jpg;..\OriginLauncher.App\Assets\Art\*-tc.jpg"
+                      Link="Assets\Art\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\mods\versions\1.21.1\src\client\resources\assets\originclient\textures\ui\origin_logo.png" Link="Assets\Brand\origin_logo.png" />
+    <AvaloniaResource Include="..\OriginLauncher.App\Assets\Brand\wordmark.png" Link="Assets\Brand\wordmark.png" />
+    <AvaloniaResource Include="..\..\tools\font-atlas\fonts\Inter-400.ttf;..\..\tools\font-atlas\fonts\Inter-500.ttf;..\..\tools\font-atlas\fonts\Inter-600.ttf;..\..\tools\font-atlas\fonts\Inter-700.ttf;..\..\tools\font-atlas\fonts\Inter-800.ttf"
+                      Link="Assets\Fonts\%(Filename)%(Extension)" />
+    <!-- Monocraft: the promo banner's pixel face (Core/Promos/BannerCard), as in the WPF csproj. -->
+    <AvaloniaResource Include="..\..\tools\font-atlas\fonts\Monocraft.ttf" Link="Assets\Pixel\Monocraft.ttf" />
+    <Content Include="..\..\tools\font-atlas\fonts\Monocraft-LICENSE.txt" Link="ThirdParty\Monocraft-LICENSE.txt"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\tools\font-atlas\fonts\OFL-LICENSE.txt" Link="ThirdParty\Inter-OFL-LICENSE.txt"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Same CmlLib as the Windows launcher: one resolver for versions, rules and the classpath. -->
     <PackageReference Include="CmlLib.Core" Version="4.0.6" />
-    <!-- Core's player heads are Avalonia bitmaps on the Mac (Core/Skins/PlayerHeads.Mac.cs). -->
     <PackageReference Include="Avalonia" Version="12.1.5" />
+    <!-- Avalonia.Native on a Mac (the real window, traffic lights, the app menu). -->
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+    <!-- The base templates under Origin's own control themes (scroll viewers, popups); every Origin control sets its own Theme. -->
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+    <!-- render-shots: Skia drawing with no window and no screen. -->
+    <PackageReference Include="Avalonia.Headless" Version="12.1.5" />
   </ItemGroup>
 
 </Project>

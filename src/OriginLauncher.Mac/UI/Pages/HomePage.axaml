@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Pages.HomePage">
+
+    <!-- Home (twin of the WPF UI/Pages/HomePage.xaml): the family art and the giant version numeral fill the window
+         (ArtStage, behind every page). Everything here sits in one bottom strip: on the left the version card (family
+         art thumbnail, version, family name, chevron) with the status line under it; on the right, bottom-aligned,
+         the My mods switch and the solid emerald Play button. Cards and Play are 64 tall, the thumbnail 48.
+         Not on the Mac yet: the version picker, Join (profile servers), the launch screen and Fix Compatibility. -->
+    <Panel x:Name="HomeRoot">
+        <Grid x:Name="HomeCard" VerticalAlignment="Bottom" Margin="32,0,32,32" ColumnDefinitions="*,Auto">
+
+            <!-- Left: the version card, then the status line under it. -->
+            <StackPanel Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,24,0">
+                <Button x:Name="VersionButton" Theme="{StaticResource Button.StripCard}" HorizontalAlignment="Left"
+                        AutomationProperties.Name="Choose Minecraft version">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="{StaticResource Size.StripTile}" Height="{StaticResource Size.StripTile}"
+                                CornerRadius="{StaticResource Radius.Md}" ClipToBounds="True"
+                                Background="{StaticResource Brush.CardAlt}" Margin="0,0,12,0">
+                            <!-- The 16:9 thumbnail at the tile's height from its LEFT edge, the rest clipped: the crop the
+                                 WPF tile shows (its UniformToFill image sits left-aligned), so the family's mascot is
+                                 in the tile on both. -->
+                            <Canvas>
+                                <Image x:Name="VersionThumb" Height="{StaticResource Size.StripTile}" Stretch="Uniform"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                            </Canvas>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <c:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0" TabularDigits="False"
+                                           FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Heading}"
+                                           FontWeight="Bold" Foreground="{StaticResource Brush.Text}" HorizontalAlignment="Left"/>
+                            <TextBlock x:Name="VersionTagline" Text="" Theme="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.TextDim}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <c:IconPath Data="{StaticResource Icon.ChevronDown}" Theme="{StaticResource Icon.Small}"
+                              VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- The status line: an 8 px round dot (the accent while ready) and one line. -->
+                <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="4,10,0,0">
+                    <Ellipse x:Name="StatusDot" Width="{StaticResource Size.StatusDot}" Height="{StaticResource Size.StatusDot}"
+                             Fill="{StaticResource Brush.TextDim}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="StatusText" Text="Sign in to play" Theme="{StaticResource Text.Caption}"
+                               Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
+                               LineHeight="{StaticResource Size.StatusLine}"
+                               TextTrimming="CharacterEllipsis" MaxWidth="{StaticResource Size.StatusWidth}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Right, bottom-aligned with the status line: My mods, Play. -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <!-- My mods: a tracked caps label and the iOS-style switch (Toggle.HomeSwitch). -->
+                <ToggleButton x:Name="MyModsSwitch" Theme="{StaticResource Toggle.HomeSwitch}" Margin="0,0,12,0"
+                              VerticalAlignment="Center" AutomationProperties.Name="My mods">
+                    <c:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Primary}"
+                                   FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
+                                   Foreground="{Binding $parent[ToggleButton].Foreground}"/>
+                </ToggleButton>
+
+                <!-- Play: the solid emerald card with a play triangle and the word. Disabled until signed in. -->
+                <Button x:Name="PlayButton" Theme="{StaticResource Button.PlayHero}" VerticalAlignment="Center"
+                        IsEnabled="False" AutomationProperties.Name="Play Minecraft">
+                    <StackPanel x:Name="PlayFace" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <c:IconPath Data="{StaticResource Icon.Play}" Theme="{StaticResource Icon.Base}"
+                              Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                              StrokeJoin="Round" VerticalAlignment="Center" Margin="0,0,12,0"
+                              Fill="{Binding $parent[Button].Foreground}" Stroke="{Binding $parent[Button].Foreground}"/>
+                        <c:TrackedText x:Name="PlayLabel" Text="Play" Tracking="0.02"
+                                       FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Action}"
+                                       FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Panel>
+</UserControl>

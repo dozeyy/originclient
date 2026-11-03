@@ -1,16 +1,36 @@
+using Avalonia;
+using OriginLauncher.Mac.UI;
+
 namespace OriginLauncher.Mac;
 
 internal static class Program
 {
-    // No UI yet. `--self-test [--network]` checks the Mac seams and exits 0 (all passed) or 1;
-    // anything else prints the usage and exits 2. It never opens a window.
-    private static async Task<int> Main(string[] args)
+    // `--self-test [--network]` checks the Mac seams and exits 0 (all passed) or 1, without a window.
+    // `--render-shots <dir>` draws every built screen to PNGs headless (made-up data, no window, exits by itself).
+    // Anything else opens the launcher window.
+    [STAThread]
+    private static int Main(string[] args)
     {
         if (args.Contains("--self-test"))
-            return await SelfTest.RunAsync(network: args.Contains("--network")).ConfigureAwait(false);
+            return SelfTest.RunAsync(network: args.Contains("--network")).GetAwaiter().GetResult();
 
-        Console.Error.WriteLine("Origin Launcher for macOS: the window is not built yet.");
-        Console.Error.WriteLine("Usage: OriginLauncher --self-test [--network]");
-        return 2;
+        var shots = Array.IndexOf(args, "--render-shots");
+        if (shots >= 0)
+        {
+            if (shots + 1 >= args.Length)
+            {
+                Console.Error.WriteLine("Usage: OriginLauncher --render-shots <dir>");
+                return 2;
+            }
+            return RenderShots.Run(args[shots + 1]);
+        }
+
+        return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
+
+    // The real app. Also what the Avalonia previewer calls.
+    public static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .LogToTrace();
 }
