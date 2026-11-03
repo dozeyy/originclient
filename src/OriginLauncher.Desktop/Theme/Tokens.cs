@@ -208,6 +208,13 @@ public static class Sizes
     /// <summary>Home's status line: at most this wide, 16 px lines (Size.StatusWidth / Size.StatusLine).</summary>
     public const double StatusWidth = 400, StatusLine = 16;
     public const double TileSm = 28;   // mod squares / emblem picker tiles; mod icon wells / profile emblems
+    public const double PageTop = 48;                 // page title 96 below the window top (48 under the bar)
+    public const double Row = 64;                     // a settings card's least height
+    public const double SettingsRail = 200;           // the Settings section rail's column
+    public const double SliderTrack = 4, SliderKnob = 16, SliderBox = 20;
+    public const double FieldNarrow = 96;             // number boxes (resolution)
+    public const double FieldTall = 88;               // the multi-line Java arguments box
+    public const double LogoIntro = 64;               // the startup intro's logo
 }
 
 /// <summary>Motion (section 9). Reduced motion (and render runs) set Off: every duration is 0.</summary>

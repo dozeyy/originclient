@@ -103,6 +103,8 @@ public sealed class MainWindow : Window
         Art.Show(LauncherState.SelectedVersion);
         Navigate(PageKey.Home);
 
+        StartupIntro.Play(this); // Overlays/StartupIntro.cs: the opening animation over the built Home (none when Motion.Off)
+
         // The bar's right group: each opens its own overlay (Overlays/).
         Bar.AccountRequested += () => OpenDrawer(new AccountDrawer(this));
         Bar.FriendsRequested += () => OpenDrawer(new FriendsDrawer(this));
