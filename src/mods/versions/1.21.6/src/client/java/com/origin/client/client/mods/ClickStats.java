@@ -41,9 +41,11 @@ public final class ClickStats {
 		long now = System.currentTimeMillis();
 		if (attack) {
 			LEFT.addLast(now);
+			trim(LEFT, now);
 		}
 		if (use) {
 			RIGHT.addLast(now);
+			trim(RIGHT, now);
 		}
 	}
 
@@ -79,10 +81,17 @@ public final class ClickStats {
 	}
 
 	private static int count(ArrayDeque<Long> q) {
-		long cutoff = System.currentTimeMillis() - 1000;
-		while (!q.isEmpty() && q.peekFirst() < cutoff) {
+		trim(q, System.currentTimeMillis());
+		return q.size();
+	}
+
+	// Trimmed on every press too, not only when the CPS readout asks: with that
+	// readout off nothing else drains the queue, and it grew one boxed Long per
+	// click for the whole session. The cap is a backstop if the clock jumps back.
+	private static void trim(ArrayDeque<Long> q, long now) {
+		long cutoff = now - 1000;
+		while (!q.isEmpty() && (q.peekFirst() < cutoff || q.size() > 128)) {
 			q.removeFirst();
 		}
-		return q.size();
 	}
 }

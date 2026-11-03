@@ -9,22 +9,37 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import javax.imageio.spi.IIORegistry;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 // Lazy per-pack preview thumbnails from Modrinth (featured gallery image, else
-// the project icon). Fetched + decoded on a daemon thread, uploaded to GL on
-// the render thread, then cached. Only visible rows call get(), so at most a
-// handful load at once. Fully guarded — a missing/undecodable image just shows
-// the fallback tile.
+// the project icon). Fetched + decoded on a small worker pool, uploaded to GL on
+// the render thread, then cached. Only visible rows call get(). Same limits as
+// PackPreviews: gallery images are often 1920x1080 to 4K and are drawn at 100x56,
+// so each is downscaled to <= 320 px before upload (it held 8-33 MB of texture
+// per pack before, 35+ packs, for the whole session); 3 threads with a short
+// queue instead of one thread per pack; at most 48 textures, the least recently
+// drawn released; a failed load (offline, bad image) is tried again after a
+// minute instead of never. Fully guarded -- a missing/undecodable image just
+// shows the fallback tile.
 //
 // Decoding goes through ImageIO, not NativeImage/STB: Modrinth serves covers as
 // lossless WebP, which STB can't read. TwelveMonkeys' WebP reader is registered
@@ -51,8 +66,35 @@ public final class ShaderPreviews {
 		public int h() { return h; }
 	}
 
-	private static final Map<String, Preview> READY = new ConcurrentHashMap<>();
+	private static final int MAX_EDGE = 320, MAX_TEXTURES = 48;
+	private static final int MAX_IMAGE_BYTES = 8 << 20;
+	private static final int MAX_DECODE_EDGE = 16384, MAX_DECODE_PIXELS = 4 << 20;
+	/** A failed preview is not asked for again for this long (offline: it comes back on its own). */
+	private static final long RETRY_MS = 60_000;
+
+	// render thread only (get() and the upload task)
+	private static final Map<String, Preview> READY = new LinkedHashMap<String, Preview>(64, 0.75f, true) {
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<String, Preview> e) {
+			if (size() > MAX_TEXTURES) {
+				Minecraft.getInstance().getTextureManager().release(e.getValue().id());
+				return true;
+			}
+			return false;
+		}
+	};
 	private static final Set<String> INFLIGHT = ConcurrentHashMap.newKeySet();
+	private static final Map<String, Long> FAILED = new ConcurrentHashMap<>();
+	private static final ThreadPoolExecutor POOL = new ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS,
+			new ArrayBlockingQueue<Runnable>(12), r -> {
+				Thread t = new Thread(r, "origin-shader-preview");
+				t.setDaemon(true);
+				return t;
+			});
+
+	static {
+		POOL.allowCoreThreadTimeOut(true);
+	}
 	// Loads not finished yet (fetch + decode + the render-thread upload). Only the dev
 	// shots read it: they wait on it so a capture never races a run's first fetch.
 	private static final java.util.concurrent.atomic.AtomicInteger LOADING = new java.util.concurrent.atomic.AtomicInteger();
@@ -64,24 +106,32 @@ public final class ShaderPreviews {
 	private static final Gson GSON = new Gson();
 	private static final String UA = "OriginClient (will@willhenry.me)";
 
-	/** The cached preview, kicking off a one-time async load on first miss. */
+	/** The cached preview, else null while an async load runs (a failed one is retried after RETRY_MS). */
 	public static Preview get(String slug) {
 		Preview p = READY.get(slug);
 		if (p != null) {
 			return p;
 		}
+		Long failedAt = FAILED.get(slug);
+		if (failedAt != null && System.currentTimeMillis() - failedAt < RETRY_MS) {
+			return null;
+		}
 		if (INFLIGHT.add(slug)) {
 			LOADING.incrementAndGet();
-			Thread t = new Thread(() -> {
-				try {
-					load(slug);
-				} finally {
-					// Queued behind load()'s own upload task (same FIFO queue), so it counts the upload too.
-					Minecraft.getInstance().execute(LOADING::decrementAndGet);
-				}
-			}, "origin-shader-preview-" + slug);
-			t.setDaemon(true);
-			t.start();
+			try {
+				POOL.execute(() -> {
+					try {
+						load(slug);
+					} finally {
+						// Queued behind load()'s own upload task (same FIFO queue), so it counts the upload too.
+						Minecraft.getInstance().execute(LOADING::decrementAndGet);
+					}
+				});
+			} catch (RejectedExecutionException full) {
+				// queue full: dropped; the row asks again next frame while it is on screen
+				INFLIGHT.remove(slug);
+				LOADING.decrementAndGet();
+			}
 		}
 		return null;
 	}
@@ -107,14 +157,16 @@ public final class ShaderPreviews {
 				url = proj.get("icon_url").getAsString();
 			}
 			if (url == null) {
+				fail(slug);
 				return;
 			}
 			byte[] bytes = getBytes(url);
-			BufferedImage bi = ImageIO.read(new ByteArrayInputStream(bytes));
+			BufferedImage bi = bytes == null ? null : decode(bytes);
 			if (bi == null) {
+				fail(slug);
 				return;
 			}
-			NativeImage img = toNativeImage(bi);
+			NativeImage img = toNativeImage(downscale(bi));
 			int w = img.getWidth(), h = img.getHeight();
 			Minecraft.getInstance().execute(() -> {
 				try {
@@ -126,12 +178,85 @@ public final class ShaderPreviews {
 					READY.put(slug, new Preview(id, w, h));
 				} catch (Throwable t) {
 					img.close();
+				} finally {
+					INFLIGHT.remove(slug);   // READY has it now; after an LRU release it loads again
 				}
 			});
 		} catch (Throwable t) {
-			// leave unavailable; INFLIGHT keeps it from retrying in a tight loop
+			// offline or a bad image: the fallback tile, and one more try after RETRY_MS
+			fail(slug);
 			com.origin.client.OriginClient.LOGGER.debug("preview load failed for {}", slug, t);
 		}
+	}
+
+	private static void fail(String slug) {
+		FAILED.put(slug, System.currentTimeMillis());
+		INFLIGHT.remove(slug);
+	}
+
+	/**
+	 * Reads the header size first. A big gallery image is decoded subsampled (every
+	 * n-th pixel, still at least twice the final 320 px) so a 4K upload never sits in
+	 * memory at full size; a header claiming an absurd size (a few KB of PNG/WebP can
+	 * claim 50000x50000 px) is not decoded at all.
+	 */
+	private static BufferedImage decode(byte[] bytes) throws java.io.IOException {
+		try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+			if (in == null) {
+				return null;
+			}
+			Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+			if (!readers.hasNext()) {
+				return null;
+			}
+			ImageReader r = readers.next();
+			try {
+				r.setInput(in, true, true);
+				long w = r.getWidth(0), h = r.getHeight(0);
+				if (w <= 0 || h <= 0 || w > MAX_DECODE_EDGE || h > MAX_DECODE_EDGE) {
+					return null;
+				}
+				int step = (int) Math.max(1, Math.max(w, h) / (MAX_EDGE * 2));
+				if ((w / step) * (h / step) > MAX_DECODE_PIXELS) {
+					return null;
+				}
+				javax.imageio.ImageReadParam param = r.getDefaultReadParam();
+				param.setSourceSubsampling(step, step, 0, 0);
+				return r.read(0, param);
+			} finally {
+				r.dispose();
+			}
+		}
+	}
+
+	// The tile is 100x56 GUI px; 320 px keeps it sharp at any GUI scale for a fraction of the memory.
+	private static BufferedImage downscale(BufferedImage bi) {
+		int w = bi.getWidth(), h = bi.getHeight();
+		if (Math.max(w, h) <= MAX_EDGE) {
+			return bi;
+		}
+		float k = MAX_EDGE / (float) Math.max(w, h);
+		int nw = Math.max(1, Math.round(w * k)), nh = Math.max(1, Math.round(h * k));
+		BufferedImage out = new BufferedImage(nw, nh, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = out.createGraphics();
+		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		g.drawImage(bi, 0, 0, nw, nh, null);
+		g.dispose();
+		return out;
+	}
+
+	/** The whole stream, or null past MAX_IMAGE_BYTES (a preview is never that big). */
+	private static byte[] readCapped(InputStream in) throws java.io.IOException {
+		java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+		byte[] buf = new byte[16384];
+		int n;
+		while ((n = in.read(buf)) != -1) {
+			out.write(buf, 0, n);
+			if (out.size() > MAX_IMAGE_BYTES) {
+				return null;
+			}
+		}
+		return out.toByteArray();
 	}
 
 	// Copies an ImageIO BufferedImage into a fresh NativeImage. getRGB gives
@@ -158,7 +283,7 @@ public final class ShaderPreviews {
 
 	private static byte[] getBytes(String url) throws Exception {
 		try (InputStream in = open(url).getInputStream()) {
-			return com.origin.client.client.IoCompat.readAllBytes(in);
+			return readCapped(in);
 		}
 	}
 

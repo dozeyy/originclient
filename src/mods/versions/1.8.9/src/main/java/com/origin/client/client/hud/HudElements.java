@@ -76,7 +76,7 @@ public final class HudElements {
 			this.modId = modId;
 			this.label = label;
 			this.defaults = defaults;
-			this.measure = measure;
+			this.measure = failSoft(id, measure);
 			this.renderer = renderer;
 		}
 
@@ -128,6 +128,31 @@ public final class HudElements {
 
 		public HudPos pos() {
 			return HudPos.load(id, new HudPos(defaults.anchor, defaults.dx, defaults.dy, defaults.scale));
+		}
+	}
+
+	// One element whose measure throws (a malformed stored value, a minimap, party or
+	// cooldown list that breaks) must not take the HUD pass, the HUD editor or the Mod
+	// Menu down with it: every caller goes through this wrapper, so the element measures
+	// 0x0 (nothing drawn, nothing to place) until it recovers. Wrapped once per element at
+	// construction, so the per-frame cost is one try block.
+	private static java.util.function.Function<Minecraft, int[]> failSoft(String id, java.util.function.Function<Minecraft, int[]> measure) {
+		return mc -> {
+			try {
+				return measure.apply(mc);
+			} catch (Throwable t) {
+				logOnce(id, "measure", t);
+				return new int[]{0, 0};
+			}
+		};
+	}
+
+	// First failure per element and stage goes to the log; repeating it every frame would flood it.
+	private static final java.util.Set<String> LOGGED_FAILURES = java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
+
+	private static void logOnce(String id, String stage, Throwable t) {
+		if (LOGGED_FAILURES.add(id + "/" + stage)) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: HUD element '{}' failed to {}; it stays hidden while it fails", id, stage, t);
 		}
 	}
 
@@ -802,7 +827,7 @@ public final class HudElements {
 		int secs = row.duration / 20;
 		String time = row.infinite ? "∞"
 				: Mods.bool("potionhud", "formattedDurations")
-				? secs / 60 + ":" + String.format("%02d", secs % 60)
+				? secs / 60 + ":" + Readouts.pad2(secs % 60)
 				: secs + "s";
 		if (!Mods.bool("potionhud", "effectName") || Mods.bool("potionhud", "minimal")) {
 			return new String[]{null, time};
@@ -1237,6 +1262,7 @@ public final class HudElements {
 					e.renderer().render(g, mc, size[0], size[1]);
 				} catch (Throwable t) {
 					// One bad element must never take the HUD down.
+					logOnce(e.id(), "draw", t);
 				}
 				popTo(p, depth);
 			} finally {

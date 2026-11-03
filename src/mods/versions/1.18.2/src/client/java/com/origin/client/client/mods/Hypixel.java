@@ -462,8 +462,12 @@ public final class Hypixel {
 		return new TextComponent("[" + stars + "✫]").withStyle(c);
 	}
 
+	// Two decimals by hand: the tab list calls this twice per row every frame in
+	// Bed Wars, and String.format builds a Formatter each call. Stats are never negative.
 	private static String ratio(int a, int b) {
-		return String.format(Locale.ROOT, "%.2f", a / (double) Math.max(1, b));
+		long n = Math.round(Math.max(0, a) * 100.0 / Math.max(1, b));
+		long frac = n % 100;
+		return (n / 100) + (frac < 10 ? ".0" : ".") + frac;
 	}
 
 	private static ChatFormatting fkdrColor(int fk, int fd) {
