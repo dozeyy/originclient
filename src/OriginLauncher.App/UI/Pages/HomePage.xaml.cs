@@ -567,7 +567,7 @@ public partial class HomePage : UserControl
     {
         if (SelectedPhase() != GamePhase.Idle) return;
         // Also the way back out: an update that failed its check is ungated, so the plain status line returns.
-        if (UpdateService.UpdateRequired) SetStatus("Update required", StatusTone.Warning);
+        if (UpdateService.UpdateRequired) SetStatus(UpdateRequiredText, StatusTone.Warning);
         else UpdatePlayState();
     }
 
@@ -584,6 +584,8 @@ public partial class HomePage : UserControl
         SelectedKey() is { } key ? _launches.PhaseOf(key) : GamePhase.Idle;
 
     private const string ImportRunningText = "Importing - Play is back when it finishes";
+    // Says what to do, not only why Play is off: the top bar's Update chip (an icon below 1100 px wide) installs it.
+    private const string UpdateRequiredText = "Update required - press Update at the top";
 
     // The Play button AND the status pill for the selected account: its own
     // game state ("Running · Steve" while its game is open), or the plain
@@ -600,7 +602,7 @@ public partial class HomePage : UserControl
         else if (key != null && _selectedVersion == null)
             SetStatus("Select a version to play", StatusTone.Neutral);
         else if (UpdateService.UpdateRequired)
-            SetStatus("Update required", StatusTone.Warning);
+            SetStatus(UpdateRequiredText, StatusTone.Warning);
         else if (_selectedAccount != null)
             SetStatus("Ready to play", StatusTone.Success);
         else if (key != null)
@@ -864,7 +866,7 @@ public partial class HomePage : UserControl
         // enforced, just not with a network wait in front of it.
         if (UpdateService.UpdateRequired)
         {
-            Note(key, "Update required", LaunchTone.Warning);
+            Note(key, UpdateRequiredText, LaunchTone.Warning);
             return;
         }
 
@@ -1499,7 +1501,7 @@ public partial class HomePage : UserControl
     {
         await UpdateService.CheckAsync();
         return UpdateService.UpdateRequired
-            ? "Launch failed - please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version."
+            ? "Launch failed - please update the launcher (press Update at the top). This is very likely already fixed in the newest version."
             : upToDateMessage;
     }
 
