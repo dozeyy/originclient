@@ -15,6 +15,18 @@ public static class RamAdvice
     public static int MaximumMb(int totalPhysicalMb) =>
         Math.Max(FloorMb, (totalPhysicalMb - OsHeadroomMb) / StepMb * StepMb);
 
+    /// <summary>
+    /// A Manual (player-chosen) amount as this PC can give it: on the 256 MB grid, within the Settings slider's range
+    /// (SliderMinimumMb .. MaximumMb). The ONE rule for what Settings shows and what the launch passes as -Xmx, so a
+    /// number saved on a bigger PC (Settings Sync, an old install, the Manual migration) never launches above this
+    /// PC's maximum while Settings shows less. The stored number itself is never rewritten.
+    /// </summary>
+    public static int ManualMb(int ramMb, int totalPhysicalMb)
+    {
+        int onGrid = (int)Math.Round(ramMb / (double)StepMb) * StepMb;
+        return Math.Min(MaximumMb(totalPhysicalMb), Math.Max(SliderMinimumMb, onGrid));
+    }
+
     // Auto sizing per version family (see AutoMb). 1.8.9-era Minecraft needs ~2-4 GB and, on
     // Java 8's G1, a 12 GB heap only made a 3.6 GB+ young generation (Will's 2026-10-20 log).
     // Modern versions keep the suggestion but stop at 8 GB: more buys nothing for the game.

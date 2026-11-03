@@ -84,6 +84,40 @@ public class LegacyJavaHeapTests : IDisposable
         Assert.Equal(legacy, p.Warning != null);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Manual_heap_above_this_pcs_maximum_launches_with_what_settings_shows(bool legacy)
+    {
+        // A 4 GB PC: Settings' slider stops at 2 GB (RamAdvice.MaximumMb). A stored 8 GB (an old install, Settings
+        // Sync, the Manual migration) used to reach -Xmx/-Xms as 8 GB while Settings showed 2 GB.
+        const int pc4Gb = 3900;
+        var p = HeapPlan.For(manualMb: 8192, manual: true, pc4Gb, legacy, heavyPack: false);
+        Assert.Equal(RamAdvice.MaximumMb(pc4Gb), p.MaxMb);
+        Assert.Equal(2048, p.MaxMb);
+        Assert.Equal(p.MaxMb, p.StartMb);
+        Assert.Null(p.Warning); // the warning speaks about the heap that is really used
+        Assert.Equal(RamAdvice.ManualMb(8192, pc4Gb), p.MaxMb); // the one rule Settings shows
+    }
+
+    [Fact]
+    public void Migration_to_manual_on_a_small_pc_still_launches_within_its_maximum()
+    {
+        const int pc4Gb = 3900;
+        var s = new LauncherSettings { RamMb = 4096, RamManual = null };
+        Assert.True(RamPolicy.Migrate(s, pc4Gb)); // 4096 != the 2 GB suggestion: Manual 4096
+        Assert.True(RamPolicy.IsManual(s));
+        Assert.Equal(2048, HeapPlan.For(s, pc4Gb, legacy: false, heavyPack: false).MaxMb);
+        Assert.Equal(4096, s.RamMb); // the stored choice is never rewritten
+    }
+
+    [Theory]
+    [InlineData(5000, 5120)]   // onto the 256 MB grid, like the slider
+    [InlineData(512, 1024)]    // never below the slider's minimum
+    [InlineData(99999, 29952)] // never above this PC's maximum (32000 - 2048, on the grid)
+    public void ManualMb_is_the_slider_value(int stored, int shown) =>
+        Assert.Equal(shown, RamAdvice.ManualMb(stored, Pc32Gb));
+
     [Fact]
     public void Manual_4gb_on_legacy_has_no_warning()
     {

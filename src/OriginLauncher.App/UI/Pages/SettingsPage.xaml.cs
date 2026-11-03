@@ -177,9 +177,9 @@ public partial class SettingsPage : UserControl
         _isLoading = true; // moving the slider here is not the player's choice
         try
         {
+            // Manual: the same number the launch uses (RamAdvice.ManualMb), so what this shows is what the game gets.
             var shown = manual ? _settings.RamMb : RamAdvice.AutoMb(_totalRamMb, legacy: false, heavyPack: false);
-            RamSlider.Value = Math.Clamp((int)Math.Round(shown / (double)RamAdvice.StepMb) * RamAdvice.StepMb,
-                RamAdvice.SliderMinimumMb, (int)RamSlider.Maximum);
+            RamSlider.Value = RamAdvice.ManualMb(shown, _totalRamMb);
             RamValueText.Text = manual ? FormatRam((int)RamSlider.Value) : "Auto";
             RamWhyText.Text = manual ? RamManualText : RamAutoText;
             RamAutoButton.Visibility = manual ? Visibility.Visible : Visibility.Collapsed;
