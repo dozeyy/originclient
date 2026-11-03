@@ -209,15 +209,32 @@ public final class Hypixel {
 			return true;
 		}
 		plain = plain.trim();
-		trackParty(plain);   // Team View reads the roster even with the Hypixel mod off
+		// Hypixel sends friend requests and the /party list as ONE boxed message:
+		// "-----" rule lines around several lines of text. Each line is matched on
+		// its own; matching the whole box never fired (the ^ anchors met the rule).
+		List<String> lines = new ArrayList<>();
+		for (String l : plain.split("\n")) {
+			String t = l.trim();
+			if (!t.isEmpty() && !t.replace("-", "").isEmpty()) {
+				lines.add(t);
+			}
+		}
+		for (String t : lines) {
+			trackParty(t);   // Team View reads the roster even with the Hypixel mod off
+		}
 		if (!Mods.on(MOD)) {
 			return true;
 		}
 		Minecraft mc = Minecraft.getInstance();
 
-		Matcher fr = FRIEND_REQUEST.matcher(plain);
-		if (fr.find() && Mods.bool(MOD, "autoFriend")) {
-			command(mc, "friend accept " + fr.group(1));
+		if (Mods.bool(MOD, "autoFriend")) {
+			for (String t : lines) {
+				Matcher fr = FRIEND_REQUEST.matcher(t);
+				if (fr.find()) {
+					command(mc, "friend accept " + fr.group(1));
+					break;
+				}
+			}
 		}
 		if (plain.equals("The game starts in 1 second!") && Mods.bool(MOD, "autoWho")) {
 			whoInTicks = 30;   // once everyone has been teleported in
@@ -244,7 +261,8 @@ public final class Hypixel {
 			return false;
 		}
 		if (Mods.bool(MOD, "removeLobbyStatuses")
-				&& (plain.endsWith("joined the lobby!") || plain.contains(" into the lobby!"))) {
+				// contains, not endsWith: MVP++ lines end in " <<<"
+				&& (plain.contains("joined the lobby!") || plain.contains(" into the lobby!"))) {
 			return false;
 		}
 		if (Mods.bool(MOD, "hideJoinMessages") && FRIEND_GUILD_JOIN.matcher(plain).matches()) {
