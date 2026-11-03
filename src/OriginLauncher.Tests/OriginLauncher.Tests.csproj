@@ -54,6 +54,7 @@
     <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Linux.cs" LinkBase="Linux" />
     <Compile Include="..\OriginLauncher.App\Core\GpuPreference.Linux.cs" LinkBase="Linux" />
     <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.Linux.cs" LinkBase="Linux" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\LinuxInstall.Linux.cs" LinkBase="Linux" />
     <Compile Include="..\OriginLauncher.App\Core\Performance\HardwareProbe.cs" LinkBase="Linux" />
     <Compile Include="..\OriginLauncher.App\Core\Performance\HardwareProbe.Linux.cs" LinkBase="Linux" />
   </ItemGroup>

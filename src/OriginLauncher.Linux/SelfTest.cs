@@ -348,9 +348,9 @@ internal static class SelfTest
         var marker = Path.Combine(root, "started");
         var package = Path.Combine(root, "opt", "origin-launcher");
         FakeLauncher(Path.Combine(package, "OriginLauncher"), "package", marker);
-        File.WriteAllText(Path.Combine(package, UpdateService.PackageMarkerName), "deb\n");
-        Require(UpdateService.IsPackageFolder(package), "the package-install marker is not recognised");
-        var target = UpdateService.FolderSwapTarget(UpdateService.IsPackageFolder(package), package);
+        File.WriteAllText(Path.Combine(package, LinuxInstall.PackageMarkerName), "deb\n");
+        Require(LinuxInstall.IsPackageFolder(package), "the package-install marker is not recognised");
+        var target = UpdateService.FolderSwapTarget(LinuxInstall.IsPackageFolder(package), package);
         Require(target == OriginPaths.UserAppCopy && target.StartsWith(OriginPaths.Root, StringComparison.Ordinal),
             $"a package install swaps {target}, not the per-user copy");
         Require(!Directory.Exists(target), "per-user copy exists before the first update");

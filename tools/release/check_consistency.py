@@ -241,9 +241,22 @@ def check_linux_assets() -> list[str]:
     elif f'user="$data/{root.group(1)}/{copy.group(1)}"' not in wrapper:
         problems.append(f"tools/linux/files/origin-launcher must look for the per-user copy in "
                         f"$data/{root.group(1)}/{copy.group(1)} (OriginPaths.UserAppCopy)")
-    marker = re.search(r'PackageMarkerName\s*=\s*"([^"]+)"', svc)
-    if not marker or f'"$pkgroot/{marker.group(1)}"' not in (REPO / "tools/linux/package.sh").read_text(encoding="utf-8"):
-        problems.append("the deb/rpm marker file: UpdateService.Linux.cs PackageMarkerName and package.sh must name the same file")
+    # Which install this is (Core/Install/LinuxInstall.Linux.cs) must match how package.sh lays each one out.
+    kind = (LAUNCHER / "Core/Install/LinuxInstall.Linux.cs").read_text(encoding="utf-8")
+    sh = (REPO / "tools/linux/package.sh").read_text(encoding="utf-8")
+    marker = re.search(r'PackageMarkerName\s*=\s*"([^"]+)"', kind)
+    if not marker or f'"$pkgroot/{marker.group(1)}"' not in sh:
+        problems.append("the deb/rpm marker file: LinuxInstall.Linux.cs PackageMarkerName and package.sh must name the same file")
+    # An AppImage run is trusted only from $APPDIR/<this folder>: package.sh must copy the app there and AppRun start it.
+    inner = re.search(r'AppImageAppFolder\s*=\s*"([^"]+)"', kind)
+    apprun = (REPO / "tools/linux/files/AppRun").read_text(encoding="utf-8")
+    if not inner or f'"$appdir/{inner.group(1)}"' not in sh or f'"$here/{inner.group(1)}/OriginLauncher"' not in apprun:
+        problems.append("the AppImage app folder: LinuxInstall.Linux.cs AppImageAppFolder, package.sh and AppRun must agree")
+    # The login entry of a deb/rpm starts the PATH wrapper: nfpm must install it at exactly that path.
+    launcher = re.search(r'PackageLauncher\s*=\s*"([^"]+)"', kind)
+    nfpm = (REPO / "tools/linux/nfpm.yaml").read_text(encoding="utf-8")
+    if not launcher or not re.search(r'dst:\s*' + re.escape(launcher.group(1)) + r'\s*$', nfpm, re.M):
+        problems.append("the deb/rpm PATH launcher: LinuxInstall.Linux.cs PackageLauncher must be where nfpm.yaml installs it")
     return problems
 
 

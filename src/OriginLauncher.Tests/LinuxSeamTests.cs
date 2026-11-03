@@ -154,6 +154,47 @@ public sealed class LinuxSeamTests : IDisposable
         }
     }
 
+    [Fact]
+    public void An_appimage_counts_only_when_this_process_runs_from_its_own_mount()
+    {
+        var image = Path.Combine(_dir, "Origin.AppImage");
+        File.WriteAllText(image, "");
+        var mount = Path.Combine(_dir, ".mount_ab12");
+        var ours = Path.Combine(mount, "usr", "lib", "origin-launcher") + "/";
+
+        Assert.Equal(image, LinuxInstall.ResolveAppImage(image, mount, ours));
+        Assert.Equal(image, LinuxInstall.ResolveAppImage(image, mount + "/", ours.TrimEnd('/')));
+        // A tar.gz or package build started from a terminal inside another AppImage (Cursor, VS Code)
+        // inherits that app's APPIMAGE and APPDIR: never ours, so never swapped over or put in the login entry.
+        Assert.Null(LinuxInstall.ResolveAppImage(image, Path.Combine(_dir, ".mount_cursor"), ours));
+        Assert.Null(LinuxInstall.ResolveAppImage(image, mount, "/opt/origin-launcher/"));
+        Assert.Null(LinuxInstall.ResolveAppImage(image, null, ours));
+        Assert.Null(LinuxInstall.ResolveAppImage(image, "relative/mount", ours));
+        Assert.Null(LinuxInstall.ResolveAppImage(Path.Combine(_dir, "gone.AppImage"), mount, ours));
+        Assert.Null(LinuxInstall.ResolveAppImage(null, mount, ours));
+    }
+
+    [Fact]
+    public void Login_starts_the_package_launcher_for_a_package_or_its_updated_copy()
+    {
+        var package = Path.Combine(_dir, "opt", "origin-launcher");
+        Directory.CreateDirectory(package);
+        File.WriteAllText(Path.Combine(package, LinuxInstall.PackageMarkerName), "deb\n");
+        var userCopy = Path.Combine(_dir, "data", "OriginLauncher", "app");
+        var tarFolder = Path.Combine(_dir, "Origin Launcher");
+        static bool Present(string _) => true;
+        static bool Missing(string _) => false;
+
+        // A package build, or the per-user copy its self-update installed: /usr/bin/origin-launcher picks the newer one.
+        Assert.Equal(LinuxInstall.PackageLauncher, LinuxInstall.LoginTarget(Path.Combine(package, "OriginLauncher"), null, userCopy, Present));
+        Assert.Equal(LinuxInstall.PackageLauncher, LinuxInstall.LoginTarget(Path.Combine(userCopy, "OriginLauncher"), null, userCopy + "/", Present));
+        // The package was removed but its copy stayed: start the copy itself.
+        Assert.Equal(Path.Combine(userCopy, "OriginLauncher"), LinuxInstall.LoginTarget(Path.Combine(userCopy, "OriginLauncher"), null, userCopy, Missing));
+        // A tar.gz folder starts itself; an AppImage starts the image file.
+        Assert.Equal(Path.Combine(tarFolder, "OriginLauncher"), LinuxInstall.LoginTarget(Path.Combine(tarFolder, "OriginLauncher"), null, userCopy, Present));
+        Assert.Equal("/home/p/Origin.AppImage", LinuxInstall.LoginTarget(Path.Combine(package, "OriginLauncher"), "/home/p/Origin.AppImage", userCopy, Present));
+    }
+
     [Theory]
     [InlineData("/opt/origin/OriginLauncher", "\"/opt/origin/OriginLauncher\"")]
     [InlineData("/home/a b/100%/x", "\"/home/a b/100%%/x\"")]

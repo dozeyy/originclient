@@ -10,7 +10,9 @@ namespace OriginLauncher.App.Core.Install;
 //    entry there at login, so writing or deleting the file is the whole switch (no admin, nothing
 //    starts right now).
 //  - Run from an AppImage, the executable lives in a mount that gets a new random path every run
-//    (/tmp/.mount_XXXX), so the entry points at the .AppImage file itself ($APPIMAGE).
+//    (/tmp/.mount_XXXX), so the entry points at the .AppImage file itself. A .deb/.rpm, or the
+//    per-user copy its self-update installed, points at /usr/bin/origin-launcher, which starts the
+//    newer of the two. Both rules: LinuxInstall.LoginTarget (Core/Install/LinuxInstall.Linux.cs).
 //  - No Add/Remove Programs: the display-version refresh is a no-op.
 public static class InstallRegistry
 {
@@ -39,8 +41,7 @@ public static class InstallRegistry
             return;
         }
         Directory.CreateDirectory(AutostartDir);
-        var appImage = Environment.GetEnvironmentVariable("APPIMAGE");
-        var target = !string.IsNullOrEmpty(appImage) && File.Exists(appImage) ? appImage : exePath;
+        var target = LinuxInstall.LoginTarget(exePath, LinuxInstall.AppImage, OriginPaths.UserAppCopy, File.Exists);
         var entry = $"""
 [Desktop Entry]
 Type=Application

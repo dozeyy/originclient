@@ -3,11 +3,13 @@ using System.Formats.Tar;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using OriginLauncher.App.Core.Install;
 
 namespace OriginLauncher.App.Core.Updates;
 
 // Linux: three ways Origin is installed (tools/linux/package.sh builds all of them), and each updates itself:
-//  - AppImage ($APPIMAGE is set by the AppImage runtime): the release asset is
+//  - AppImage ($APPIMAGE, trusted only when $APPDIR is this process's own image: Core/Install/LinuxInstall.Linux.cs):
+//    the release asset is
 //    OriginLauncher-linux-<x86_64|aarch64>.AppImage, one file. It is staged as
 //    <stage>/OriginLauncher.AppImage; the swap copies it next to the old image and renames it over
 //    that (one rename in one folder), then starts it.
@@ -36,15 +38,10 @@ public static partial class UpdateService
     internal static readonly string AppImageAssetName = Arm64 ? "OriginLauncher-linux-aarch64.AppImage" : "OriginLauncher-linux-x86_64.AppImage";
 
     /// <summary>The running .AppImage file, or null when this is not an AppImage run.</summary>
-    internal static readonly string? AppImagePath = RunningAppImage();
-
-    /// <summary>The marker file a .deb/.rpm puts next to the executable (tools/linux/package.sh).</summary>
-    internal const string PackageMarkerName = "package-install";
+    internal static readonly string? AppImagePath = LinuxInstall.AppImage;
 
     /// <summary>True for a .deb/.rpm install: updates go to the per-user copy, never the package folder.</summary>
-    internal static readonly bool PackageInstall = AppImagePath == null && IsPackageFolder(AppFolder);
-
-    internal static bool IsPackageFolder(string folder) => File.Exists(Path.Combine(folder, PackageMarkerName));
+    internal static readonly bool PackageInstall = AppImagePath == null && LinuxInstall.IsPackageFolder(AppFolder);
 
     /// <summary>The folder a tar.gz swap replaces: the running app folder, or a package install's per-user copy.</summary>
     internal static string FolderSwapTarget(bool packageInstall, string appFolder) =>
@@ -155,12 +152,6 @@ start
     }
 
     private static string AppFolder => AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-
-    private static string? RunningAppImage()
-    {
-        var path = Environment.GetEnvironmentVariable("APPIMAGE");
-        return !string.IsNullOrEmpty(path) && Path.IsPathRooted(path) && File.Exists(path) ? path : null;
-    }
 
     private static string? FindNotUpdatableReason()
     {
