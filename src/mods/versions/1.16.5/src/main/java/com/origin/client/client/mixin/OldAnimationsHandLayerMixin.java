@@ -17,25 +17,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //   private void renderArmWithItem(LivingEntity, ItemStack, ItemTransforms.TransformType, HumanoidArm,
 //       PoseStack, MultiBufferSource, int light)
 //     body: pushPose; ((ArmedModel) getParentModel()).translateToHand(arm, ps); RX-90 RY180 ...
-//     -> HEAD: the off-hand shield next to a sword isn't drawn (1.7 had no shield).
-//     -> right after translateToHand: 1.7's block turn so the sword lies across the body.
+//     -> right after translateToHand: 1.7's block turn so the sword lies across the body
+//        (only during the looks-only sword block; a shield is never touched).
 // 1.16.5 has no PlayerItemInHandLayer (the spyglass override came in 1.17); players use this layer directly.
-// If either stops applying: the shield shows and the sword is held like vanilla.
+// If it stops applying: the sword is held like vanilla in F5.
 @Mixin(ItemInHandLayer.class)
 public class OldAnimationsHandLayerMixin {
-
-	@Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
-	private void originclient$hideShield(LivingEntity entity, ItemStack stack, ItemTransforms.TransformType ctx,
-										 HumanoidArm arm, PoseStack ps, MultiBufferSource buffers, int light,
-										 CallbackInfo ci) {
-		try {
-			if (OldAnimations.hideThirdPerson(entity, stack)) {
-				ci.cancel();
-			}
-		} catch (Throwable t) {
-			OldAnimations.fail("third-person shield", t);
-		}
-	}
 
 	@Inject(method = "renderArmWithItem", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/model/ArmedModel;translateToHand(Lnet/minecraft/world/entity/HumanoidArm;Lcom/mojang/blaze3d/vertex/PoseStack;)V",
