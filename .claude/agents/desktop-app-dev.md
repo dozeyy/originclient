@@ -1,6 +1,6 @@
 ---
 name: desktop-app-dev
-description: Builds the Origin Launcher (WPF/.NET 8, src/OriginLauncher.App) and Origin Setup (src/OriginSetup) — screens, install/launch flow, accounts, settings, self-update.
+description: Builds the Origin Launcher (WPF/.NET 10, src/OriginLauncher.App) and Origin Setup (src/OriginSetup) — screens, install/launch flow, accounts, settings, self-update.
 model: opus
 effort: high
 ---

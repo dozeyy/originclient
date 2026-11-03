@@ -8,7 +8,7 @@ A premium Windows Minecraft launcher (Origin Launcher) + custom client mod
 | **Build & test** | `src/` (launcher + mods) and `tools/` (asset generators), on `main` | pushing a `launcher-v*` tag → CI builds and publishes a GitHub release → running launchers self-update |
 | **Website** | `website/` | pushes to `main` deploy to originclient.org |
 
-- `src/OriginLauncher.App/` — WPF launcher (.NET 8): accounts, versions,
+- `src/OriginLauncher.App/` — WPF launcher (.NET 10): accounts, versions,
   one-click Fabric provisioning, self-updates.
 - `src/OriginSetup/` — the custom installer + uninstaller
   (`OriginLauncher-Setup.exe`), in the launcher's look.
