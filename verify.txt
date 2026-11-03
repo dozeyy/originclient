@@ -1,0 +1,89 @@
+  bombies-180k           link 200 https://pvprp.com/pack?p=9566 title=b'Bombies [180k] - Default 16x Texture Pack - Free Download | PVPRP'
+  bombies-80k            link 200 https://pvprp.com/pack?p=345 title=b'Bombies 80k - teal 16x Cyan Texture Pack - Free Download | PVPRP'
+  atlas-purple           link 200 https://pvprp.com/pack?p=237 title=b'Atlas (Purple Original) 16x Purple Texture Pack - Free Download | PVPRP'
+  looshy                 modrinth pbipt9Sm 'looshy' shown-as='looshy' owners=['looshy'] team=['looshy', 'Zuxt'] org='' dl=1602794 lic=LicenseRef-All-Rights-Reserved
+      live=['26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.8.9']
+      extra-not-claimed=[]
+  prism-original         modrinth o5FS3VdX 'prism - original' shown-as='looshy' owners=['looshy'] team=['looshy'] org='' dl=97567 lic=LicenseRef-All-Rights-Reserved
+      live=['1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.8.9']
+      extra-not-claimed=[]
+  defrosted              modrinth NPzwNDRa 'defrosted' shown-as='looshy' owners=['looshy'] team=['looshy'] org='' dl=1294090 lic=LicenseRef-All-Rights-Reserved
+      live=['26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.8.9']
+      extra-not-claimed=[]
+  better-bedwars         modrinth 2v0hBlZE 'Better Bedwars.' shown-as='ColinMcCloud' owners=['ColinMcCloud'] team=['ColinMcCloud'] org='' dl=146986 lic=LicenseRef-All-Rights-Reserved
+      live=['1.8.9']
+      extra-not-claimed=[]
+  simple-bedwars         modrinth U3iw4v7n 'Simple Bedwars' shown-as='Cat_125' owners=['Cat_125'] team=['Cat_125'] org='' dl=191818 lic=GPL-3.0-or-later
+      live=['1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.8.9']
+      extra-not-claimed=[]
+  bedwars-plus           modrinth aAtMYuHh 'BedWars+ (Hypixel)' shown-as='DMgaming' owners=['DMgaming'] team=['DMgaming'] org='' dl=31147 lic=LicenseRef-All-Rights-Reserved
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.8.9']
+      extra-not-claimed=[]
+  bedwars-tp             modrinth Wylp0efr 'Bedwars TP' shown-as='LostGPU' owners=['LostGPU'] team=['LostGPU'] org='' dl=17978 lic=LicenseRef-All-Rights-Reserved
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5', '1.8.9']
+      extra-not-claimed=[]
+  ez-bedwars             modrinth 6DvvPRlC 'EZ Bedwars' shown-as='Polr' owners=['Polr'] team=['Polr'] org='' dl=91570 lic=LicenseRef-All-Rights-Reserved
+      live=['26.1', '26.1.1', '26.1.2', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11']
+      extra-not-claimed=[]
+  aerox                  modrinth Or7JWpp6 'AEROX PVP 16x' shown-as='swarties' owners=['swarties'] team=['swarties'] org='' dl=75256 lic=MIT
+      live=['1.8.9']
+      extra-not-claimed=[]
+  spunky-pvp             modrinth I1HDemew 'Spunky PVP Texture Pack' shown-as='spunkyinsaan' owners=['spunkyinsaan'] team=['spunkyinsaan'] org='' dl=2246631 lic=LicenseRef-All-Rights-Reserved
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5']
+      extra-not-claimed=[]
+  apex-pvp               modrinth BrYURyEb 'Apex PvP' shown-as='sniffercraft34' owners=['sniffercraft34'] team=['sniffercraft34'] org='' dl=44930 lic=MIT
+      live=['26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.8.9']
+      extra-not-claimed=[]
+  huh-8x                 modrinth gQguz52y 'Huh 8x' shown-as='HuhResourcePacks' owners=['HuhResourcePacks'] team=['HuhResourcePacks'] org='' dl=4128 lic=MIT
+      live=['1.8.9']
+      extra-not-claimed=[]
+  bare-bones             modrinth rox3U8B6 'Bare Bones' shown-as='RobotPants' owners=['RobotPants'] team=['RobotPants'] org='' dl=8142214 lic=LicenseRef-All-Rights-Reserved
+      live=['1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5', '1.8.9']
+      extra-not-claimed=[]
+    org vFa9n1mn: HTTP Error 404: Not Found
+  faithful-32x           modrinth w0TnApzs 'Faithful 32x' shown-as='Faithful-Resource-Pack' owners=[] team=['Banjoei', 'Jamiscus'] org='' dl=5440348 lic=LicenseRef-Faithful-License
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5', '1.8.9']
+      extra-not-claimed=[]
+    org vFa9n1mn: HTTP Error 404: Not Found
+  faithful-64x           modrinth r4GILswZ 'Faithful 64x' shown-as='Faithful-Resource-Pack' owners=[] team=['HARYA301'] org='' dl=7892671 lic=LicenseRef-Faithful-Resource-Pack-License
+      live=['26.3', '26.2', '26.1', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2']
+      extra-not-claimed=[]
+  low-on-fire            modrinth RRxvWKNC 'Low On Fire' shown-as='Haikis' owners=['Haikis'] team=['Haikis'] org='' dl=18195760 lic=LicenseRef-All-Rights-Reserved
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.2', '1.18.2', '1.17.1', '1.16.5', '1.8.9']
+      extra-not-claimed=[]
+  simple-short-swords    modrinth J5FbJC7Z 'Simple Short Swords' shown-as='sniffercraft34' owners=['sniffercraft34'] team=['sniffercraft34'] org='' dl=17242 lic=MIT
+      live=['26.2', '26.1', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.8.9']
+      extra-not-claimed=[]
+  low-shield             modrinth CZrLuVQo 'Low Shield' shown-as='Oculie' owners=['Oculie'] team=['Oculie'] org='' dl=6014913 lic=LicenseRef-All-Rights-Reserved
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4']
+      extra-not-claimed=[]
+  short-swords           modrinth GExZOLXP 'Short Swords' shown-as='Oculie' owners=['Oculie'] team=['Oculie'] org='' dl=200817 lic=CC-BY-4.0
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4']
+      extra-not-claimed=[]
+  small-shield-totem     modrinth LSBNL0rO 'Small Shield & Totem' shown-as='blobh' owners=['blobh'] team=['blobh'] org='' dl=1912789 lic=CC-BY-NC-ND-4.0
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5']
+      extra-not-claimed=[]
+  dripped-pvp            modrinth r1IbSpu7 'Dripped PvP' shown-as='CapTommy' owners=['CapTommy'] team=['CapTommy'] org='' dl=106586 lic=MIT
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1']
+      extra-not-claimed=[]
+  vertexvirtual          modrinth SW9oThlk 'VertexVirtual' shown-as='CarbonO2' owners=['CarbonO2'] team=['CarbonO2'] org='' dl=21195 lic=LicenseRef-All-Rights-Reserved
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11']
+      extra-not-claimed=[]
+  cpvp-essentials        modrinth ih5VCK3n 'CPVP Essentials ( Crystal PvP )' shown-as='agent-drl3x2015' owners=['agent-drl3x2015'] team=['agent-drl3x2015'] org='' dl=1588163 lic=LicenseRef-All-Rights-Reserved
+      live=['26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5']
+      extra-not-claimed=[]
+  crystal-pvp-tweaks     modrinth 3UNyeKHE 'Crystal PvP Tweaks' shown-as='Gamdev4' owners=['Gamdev4'] team=['Gamdev4'] org='' dl=149068 lic=CC-BY-NC-SA-4.0
+      live=['1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.2', '1.18.2', '1.17.1', '1.16.5']
+      extra-not-claimed=[]
+  bluxy-crystal          modrinth gL7bDgo2 'Bluxy-Crystal (Crystal PvP)' shown-as='Bluxy' owners=['Bluxy'] team=['Bluxy'] org='' dl=117757 lic=LicenseRef-All-Rights-Reserved
+      live=['1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20.2', '1.20.4']
+      extra-not-claimed=[]
+  default-dark-mode      modrinth 6SLU7tS5 'Default Dark Mode' shown-as='nebulr' owners=['nebulr'] team=['nebulr'] org='' dl=8571528 lic=CC-BY-NC-SA-4.0
+      live=['26.3', '26.2', '26.1', '26.1.1', '26.1.2', '1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5', '1.8.9']
+      extra-not-claimed=[]
+  mandala-dark           modrinth h6zxsNVF 'Mandala's GUI - Dark mode' shown-as='CesarZorak' owners=['CesarZorak'] team=['CesarZorak'] org='' dl=7579020 lic=LicenseRef-All-Rights-Reserved
+      live=['1.21.1', '1.21', '1.21.2', '1.21.3', '1.21.4', '1.21.6', '1.21.7', '1.21.8', '1.21.10', '1.21.11', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.19.4', '1.19.3', '1.19.2', '1.18.2', '1.17.1', '1.16.5']
+      extra-not-claimed=[]
+  vanilla-tweaks         link 200 https://vanillatweaks.net/picker/resource-packs/ title=b'Vanilla Tweaks - Resource Packs'
+picks per live version: 26.3=12, 26.2=17, 26.1=18, 26.1.1=16, 26.1.2=16, 1.21.1=23, 1.21=23, 1.21.2=24, 1.21.3=24, 1.21.4=24, 1.21.6=23, 1.21.7=24, 1.21.8=24, 1.21.10=24, 1.21.11=23, 1.20=17, 1.20.1=18, 1.20.2=18, 1.20.4=18, 1.19.4=14, 1.19.3=12, 1.19.2=14, 1.18.2=13, 1.17.1=11, 1.16.5=11, 1.8.9=18
+31 picks, 0 failures
