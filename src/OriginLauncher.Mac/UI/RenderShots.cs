@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
+using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.Mac.UI;
@@ -28,25 +30,14 @@ internal static class RenderShots
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
             .SetupWithoutStarting();
 
-        var written = 0;
-        var failed = new List<string>();
-        void Snap(MainWindow w, string name)
-        {
-            try
-            {
-                Pump();
-                using var frame = w.CaptureRenderedFrame();
-                if (frame == null) { failed.Add(name + " (no frame)"); return; }
-                frame.Save(Path.Combine(outDir, name + ".png"));
-                written++;
-            }
-            catch (Exception ex)
-            {
-                failed.Add($"{name} ({ex.GetType().Name}: {ex.Message})");
-            }
-        }
+        _outDir = outDir;
 
         WriteFontReport(outDir);
+        // Home reads settings, accounts and installs as it is built: all of it from a throwaway folder, never the
+        // player's data (OriginPaths stays the one path authority; a scratch root also arms the play-plan probe).
+        OriginPaths.UseScratchRoot(Path.Combine(Path.GetTempPath(), "origin-render-shots-" + Guid.NewGuid().ToString("N")));
+        // Made-up players' heads stay on the drawn fallback: a shot run never goes online.
+        OriginLauncher.App.Core.Skins.PlayerHeads.NetworkEnabled = false;
         var window = new MainWindow { Width = 1044, Height = 740 };
         window.Show();
         window.SetFriendsBadge(true);
@@ -91,10 +82,55 @@ internal static class RenderShots
             Snap(window, $"15f-home-numeral-{w}x{h}");
         }
 
+        // Mods, Profiles, the account pill and drawer, and the sign-in card (UI/Shots/AreaBShots.cs).
+        Shots.AreaBShots.Run(window, outDir);
+
         window.Close();
-        Console.WriteLine($"render-shots: {written} PNGs in {outDir}");
-        foreach (var f in failed) Console.Error.WriteLine("render-shots: FAILED " + f);
-        return failed.Count == 0 && written > 0 ? 0 : 1;
+        Console.WriteLine($"render-shots: {_written} PNGs in {outDir}");
+        foreach (var f in _failed) Console.Error.WriteLine("render-shots: FAILED " + f);
+        return _failed.Count == 0 && _written > 0 ? 0 : 1;
+    }
+
+    private static string _outDir = "";
+    private static int _written;
+    private static readonly List<string> _failed = new();
+
+    /// <summary>Saves what <paramref name="w"/> (a window, or a popup's own top level) last drew as name.png.</summary>
+    internal static void Snap(TopLevel w, string name)
+    {
+        try
+        {
+            Pump();
+            using var frame = w.CaptureRenderedFrame();
+            if (frame == null) { _failed.Add(name + " (no frame)"); return; }
+            frame.Save(Path.Combine(_outDir, name + ".png"));
+            _written++;
+        }
+        catch (Exception ex)
+        {
+            _failed.Add($"{name} ({ex.GetType().Name}: {ex.Message})");
+        }
+    }
+
+    /// <summary>A picture saved by a shot file itself (a composite).</summary>
+    internal static void Count() => _written++;
+
+    /// <summary>A step that could not be pictured: listed as a failure, so the run exits 1.</summary>
+    internal static void Fail(string what) => _failed.Add(what);
+
+    /// <summary>
+    /// Pump for real time: lets work started off the UI thread (art decodes, a fix plan) finish and post back. Motion
+    /// is off, so nothing is ever caught mid-move; this only waits for results.
+    /// </summary>
+    internal static void PumpFor(int ms)
+    {
+        var until = DateTime.UtcNow.AddMilliseconds(ms);
+        do
+        {
+            Pump();
+            Thread.Sleep(15);
+        } while (DateTime.UtcNow < until);
+        Pump();
     }
 
     // fonts.txt: the face each Inter weight the theme uses really resolves to. A weight that falls back to another face
@@ -114,7 +150,7 @@ internal static class RenderShots
         File.WriteAllLines(Path.Combine(outDir, "fonts.txt"), lines);
     }
 
-    private static void Resize(MainWindow window, int w, int h)
+    internal static void Resize(Window window, int w, int h)
     {
         window.Width = w;
         window.Height = h;
@@ -123,7 +159,7 @@ internal static class RenderShots
 
     // Layout, the size-driven follow-ups (fit rule, strip top, art tier) and a render, a few rounds so a change that
     // causes another layout settles before the frame is taken.
-    private static void Pump()
+    internal static void Pump()
     {
         for (var i = 0; i < 6; i++)
         {

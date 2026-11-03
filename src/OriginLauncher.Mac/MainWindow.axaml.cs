@@ -36,10 +36,11 @@ public sealed partial class MainWindow : Window
         // other tabs fall back to Home until their pages are ported).
         foreach (var tab in new[] { NavHome, NavMods, NavProfiles, NavSettings })
             tab.IsCheckedChanged += (s, _) => { if (s is ToggleButton { IsChecked: false }) KeepOneTab(); };
-        NavHome.Click += (_, _) => SelectTab(NavHome);
-        NavMods.Click += (_, _) => SelectTab(NavHome);
-        NavProfiles.Click += (_, _) => SelectTab(NavHome);
+        NavHome.Click += (_, _) => ShowPage(LauncherPage.Home);
+        NavMods.Click += (_, _) => ShowPage(LauncherPage.Mods);
+        NavProfiles.Click += (_, _) => ShowPage(LauncherPage.Profiles);
         NavSettings.Click += (_, _) => SelectTab(NavHome);
+        InitAccounts();
     }
 
     private void SelectTab(ToggleButton tab)

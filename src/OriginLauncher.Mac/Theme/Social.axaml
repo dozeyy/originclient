@@ -1,0 +1,18 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:c="using:OriginLauncher.Mac.UI.Controls">
+
+    <!-- Avalonia twin of the part of src/OriginLauncher.App/Theme/Social.xaml the ported screens use (same keys, same
+         values). The friends drawer's own keys come with the friends drawer; the parity check lists them until then. -->
+
+    <!-- Icon-only button (always has an automation name). Its glyph is Icon.Small: 14 px + 9 px padding each side =
+         Size.ControlMd (32). Min, not fixed, size: a bigger glyph makes the button bigger instead of being cut off. -->
+    <ControlTheme x:Key="Social.Icon" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="9"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+
+</ResourceDictionary>

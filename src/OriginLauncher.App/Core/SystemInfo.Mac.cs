@@ -13,7 +13,10 @@ public static class SystemInfo
 
     public static int GetTotalPhysicalMemoryMb()
     {
-        var bytes = SysctlInt64("hw.memsize");
+        long? bytes;
+        // No libc = not a Mac (the Mac project's headless --render-shots run on a Windows dev PC): the fallback.
+        try { bytes = SysctlInt64("hw.memsize"); }
+        catch (DllNotFoundException) { bytes = null; }
         return bytes is > 0 ? (int)(bytes.Value / 1024 / 1024) : 8192; // same conservative fallback as Windows
     }
 

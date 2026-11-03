@@ -18,7 +18,7 @@ namespace OriginLauncher.App.Core.Auth;
 //
 // No external OAuth/HTTP library needed — HttpListener, HttpClient, and
 // System.Text.Json are all in the .NET base class library.
-public sealed class MicrosoftAuthenticator
+public sealed partial class MicrosoftAuthenticator
 {
     // TEMPORARY — single switch for the whole test setup. Flip to false (and
     // revert ClientId below) once Origin's own Azure app registration is
