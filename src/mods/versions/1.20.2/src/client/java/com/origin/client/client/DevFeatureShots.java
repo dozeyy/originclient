@@ -31,7 +31,9 @@ public final class DevFeatureShots {
 
 	/** One shot of the sequence, in order. */
 	public enum Shot {
-		HUD_READOUTS("hud_readouts", false, 6000),
+		// the first shot also waits for the stage's chunks to re-mesh: 26.3 under CI's software GL still showed
+		// the old terrain after 6 s
+		HUD_READOUTS("hud_readouts", false, 12000),
 		HITBOXES("hitboxes", false, 2000),
 		WEATHER_RAIN("weather_rain", false, 4000),
 		WEATHER_SNOW("weather_snow", false, 4000),
@@ -154,7 +156,8 @@ public final class DevFeatureShots {
 		int x1 = bx - STAGE, x2 = bx + STAGE, z1 = bz - STAGE, z2 = bz + STAGE;
 		List<String> cmds = new ArrayList<String>();
 		// hollow = the shell in barrier, everything inside it air (21 x 12 x 21 = 5292 blocks, under fill's 32768)
-		cmds.add(box("fill", x1, by - 1, z1, x2, by + 10, z2) + " minecraft:barrier hollow");
+		// (1.8.9's fill takes the block's data value before the mode: without the 0, "hollow" is "not a valid number")
+		cmds.add(box("fill", x1, by - 1, z1, x2, by + 10, z2) + (legacy ? " minecraft:barrier 0 hollow" : " minecraft:barrier hollow"));
 		cmds.add(box("fill", x1 + 1, by + 10, z1 + 1, x2 - 1, by + 10, z2 - 1) + " minecraft:air");   // open sky: rain falls in
 		cmds.add(box("fill", x1 + 1, by - 1, z1 + 1, x2 - 1, by - 1, z2 - 1) + (legacy ? " minecraft:grass" : " minecraft:grass_block"));
 		if (!legacy) {
