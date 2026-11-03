@@ -46,7 +46,8 @@
 #    mod PerformanceModCatalog lists for that version, all production jars loaded through
 #    fabric.addMods by a source-less Loom project (tools/boot-smoke/covers.py). Same smoke.py gates:
 #    title reached, zero mixin-apply failures, Sodium + Iris loaded, Mod Menu + ImmediatelyFast at
-#    the catalog versions, the game JVM players use.
+#    the catalog versions, the game JVM players use. A covers row of an "inworld" module also runs the
+#    in-world step (the world-join crash class: 1.21.2/1.21.3 on the 1.21.4 jar, v1.0.84).
 #  - VETTED PAIRS (input `pairs`, U5.2b): the same production-style boot with Sodium + Iris swapped for an
 #    older pair a profile may be pinned to (ManagedPins AlternatePins; covers.py --pair), and FAIL unless the
 #    mod list names exactly that pair. A pair stays on ConfigurationCatalog's allow-list only with a green row.
@@ -130,7 +131,7 @@ jobs:
               row = {"version": m["module"], "label": m["module"], "cover": "", "java": m.get("java", "21")}
               if m["module"] in RUN_JAVA:
                   row["run_java"] = RUN_JAVA[m["module"]]
-              # The in-world step (primary rows only): live-modules.json "inworld": true, unless inworld=false.
+              # The in-world step (primary and covers rows): live-modules.json "inworld": true, unless inworld=false.
               if m.get("inworld") and (os.environ.get("INWORLD") or "true").strip() != "false":
                   row["inworld"] = "1"
                   row["label"] = m["module"] + " + in-world"
@@ -157,6 +158,11 @@ jobs:
                          "java": m.get("java", "21")}
                   if m["module"] in RUN_JAVA:
                       row["run_java"] = RUN_JAVA[m["module"]]
+                  # The in-world step too: a covered version runs the jar on a different Minecraft, and
+                  # world-join is where that breaks (1.21.2/1.21.3 crashed on the first world tick, v1.0.84).
+                  if m.get("inworld") and (os.environ.get("INWORLD") or "true").strip() != "false":
+                      row["inworld"] = "1"
+                      row["label"] += " + in-world"
                   picked.append(row)
           # pairs rows: a covers row for <mc> with Sodium + Iris swapped for the vetted pair (covers.py --pair).
           for item in [x.strip() for x in (os.environ.get("PAIRS") or "").split(",") if x.strip()]:
@@ -310,6 +316,6 @@ jobs:
         if: ${{ always() && matrix.inworld == '1' }}
         uses: actions/upload-artifact@v7
         with:
-          name: inworld-${{ matrix.version }}
+          name: inworld-${{ matrix.cover || matrix.version }}
           path: ${{ runner.temp }}/inworld/screenshots
           if-no-files-found: warn
