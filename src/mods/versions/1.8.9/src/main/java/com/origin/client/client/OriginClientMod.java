@@ -99,6 +99,8 @@ public class OriginClientMod {
 			return;
 		}
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
+		// Music starts off on 1.8.9, once per game folder (before the title music can start).
+		com.origin.client.client.mods.MusicDefault.applyOnce(Minecraft.getMinecraft());
 		OriginKeyBindings.register();
 		instance = new OriginClientMod();
 		OriginHooks.registerObject(instance);
