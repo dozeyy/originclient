@@ -24,6 +24,7 @@ import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.FoodOnAStickItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.item.ItemUseAnimation;
 
 /**
@@ -144,7 +145,7 @@ public final class OldAnimations {
 		boolean swordBlock = Mods.bool(MOD, "swordBlock");
 		boolean right = (main ? p.getMainArm() : p.getMainArm().getOpposite()) == HumanoidArm.RIGHT;
 		ItemStackRenderState none = main ? MAIN_NONE : OFF_NONE;
-		boolean positions = Mods.bool(MOD, "itemPositions") && isFlat(stack, p, none, right);
+		boolean positions = Mods.bool(MOD, "itemPositions") && isFlat(stack, p, none, right, main);
 		boolean usingThis = p.isUsingItem() && p.getUseItemRemainingTicks() > 0 && p.getUsedItemHand() == hand;
 
 		Pose pose;
@@ -220,10 +221,12 @@ public final class OldAnimations {
 	 * trident), maps and items with a use pose 1.7 never had (crossbow, spyglass, horn,
 	 * brush, trident, and 26.x's bundle and spear poses) stay vanilla.
 	 * 26.2: BakedModel.isGui3d/isCustomRenderer are gone; the resolved item state answers the
-	 * same two questions (usesBlockLight = gui_light "side", a special renderer = custom model).
+	 * same two questions (usesBlockLight = gui_light "side", a special renderer = custom model),
+	 * plus a one-pixel depth test so element (3D) models stay vanilla like isGui3d (thinModel).
 	 * 26.3: resolves into this hand's NONE state, which drawHand then submits when flat.
 	 */
-	private static boolean isFlat(ItemStack stack, LivingEntity e, ItemStackRenderState probe, boolean right) {
+	private static boolean isFlat(ItemStack stack, LivingEntity e, ItemStackRenderState probe, boolean right,
+								  boolean main) {
 		if (stack.has(DataComponents.MAP_ID)) {
 			return false;
 		}
@@ -246,7 +249,37 @@ public final class OldAnimations {
 				return false;
 			}
 		}
-		return true;
+		return thinModel(probe, stack, main);
+	}
+
+	// Depth-test cache, per hand. getModelBoundingBox() builds a new AABB on every resolve
+	// (updateForTopItem clears its cache), so the answer is kept against the held ItemStack
+	// instance (vanilla keeps the same instance in the hand until the slot changes).
+	private static ItemStack depthMainStack = null;
+	private static ItemStack depthOffStack = null;
+	private static boolean depthMainThin = false;
+	private static boolean depthOffThin = false;
+
+	/**
+	 * 1.21.1's isGui3d() is true for every model with elements; only item/generated is not.
+	 * usesBlockLight alone is wider: a resource-pack 3D sword (elements, parent item/handheld,
+	 * so gui_light front) would count as flat. So also require the resolved model to be one
+	 * pixel deep (item/generated's 7.5..8.5 px slab); element models are deeper and stay vanilla.
+	 */
+	private static boolean thinModel(ItemStackRenderState probe, ItemStack stack, boolean main) {
+		if (main ? stack == depthMainStack : stack == depthOffStack) {
+			return main ? depthMainThin : depthOffThin;
+		}
+		AABB box = probe.getModelBoundingBox();
+		boolean thin = box.maxZ - box.minZ <= 0.0625 + 1.0E-3;
+		if (main) {
+			depthMainStack = stack;
+			depthMainThin = thin;
+		} else {
+			depthOffStack = stack;
+			depthOffThin = thin;
+		}
+		return thin;
 	}
 
 	/** 1.7's flat-item tail: T(0,-0.3,0) S1.5 RY50 RZ335 T(-15/16,-1/16,0), moved onto vanilla's
