@@ -68,6 +68,9 @@ final class OriginDevWorld {
 				}
 				if (loadedAt == 0) {
 					loadedAt = now;
+					// The feature shots' stage goes up now, so its chunks re-mesh during the 20 s spawn wait and
+					// the shots before them (26.3 under CI's software GL took ~30 s to redraw a stage built later).
+					featureScene(mc);
 					return;
 				}
 				if (now - loadedAt < 20000) {
@@ -169,7 +172,13 @@ final class OriginDevWorld {
 	// through the server's own command manager on its thread, as OriginDevPanorama does.
 	private static int featIdx = -1;
 
-	/** One step of the feature shots (scene, then per shot: switch on + wait, grab); false once all are taken. */
+	/** Builds the feature shots' stage and scene (DevFeatureShots.sceneCommands) around the player. */
+	private static void featureScene(Minecraft mc) {
+		featServer(mc, DevFeatureShots.sceneCommands(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ,
+				mc.thePlayer.rotationYaw, DevFeatureShots.Dialect.LEGACY_189));
+	}
+
+	/** One step of the feature shots (per shot: switch on + wait, grab); false once all are taken. */
 	private static boolean featureStep(Minecraft mc, String dir) {
 		if (mc.currentScreen instanceof GuiIngameMenu) {
 			mc.displayGuiScreen(null);
@@ -177,8 +186,6 @@ final class OriginDevWorld {
 		DevFeatureShots.Shot[] shots = DevFeatureShots.Shot.values();
 		if (featIdx == -1) {
 			mc.thePlayer.rotationPitch = 10f;   // a little down: the mobs 6 blocks ahead sit mid-frame, sky still in view
-			featServer(mc, DevFeatureShots.sceneCommands(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ,
-					mc.thePlayer.rotationYaw, DevFeatureShots.Dialect.LEGACY_189));
 		} else {
 			OriginDevShots.grab(mc, dir, shots[featIdx].file);
 		}

@@ -31,9 +31,7 @@ public final class DevFeatureShots {
 
 	/** One shot of the sequence, in order. */
 	public enum Shot {
-		// the first shot also waits for the stage's chunks to re-mesh: 26.3 under CI's software GL still showed
-		// the old terrain after 6 s
-		HUD_READOUTS("hud_readouts", false, 12000),
+		HUD_READOUTS("hud_readouts", false, 5000),
 		HITBOXES("hitboxes", false, 2000),
 		WEATHER_RAIN("weather_rain", false, 4000),
 		WEATHER_SNOW("weather_snow", false, 4000),
@@ -148,7 +146,9 @@ public final class DevFeatureShots {
 	 *   diamond armour and two particle-free effects on the player (Armor Status and Potion Effects);
 	 *   a cow, a villager and a pig 6 blocks ahead facing the camera -- still, silent and invulnerable. The cow
 	 *   and the villager are named with their tags always shown (other entities' nametags); the pig is unnamed.
-	 * Run on the server thread, in order.
+	 * Run on the server thread, in order, as soon as the world loads: a stage built at the feature step was
+	 * still drawn as the old terrain 25 s later on 26.3 under CI's software GL (chunk re-meshing is that slow
+	 * there), so it goes up before the 20 s spawn wait and the world_* shots, which then show it too.
 	 */
 	public static List<String> sceneCommands(double px, double py, double pz, float yawDeg, Dialect d) {
 		boolean legacy = d == Dialect.LEGACY_189;
