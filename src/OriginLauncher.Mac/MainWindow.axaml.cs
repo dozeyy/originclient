@@ -60,6 +60,7 @@ public sealed partial class MainWindow : Window
         NavProfiles.Click += (_, _) => ShowPage(LauncherPage.Profiles);
         NavSettings.Click += (_, _) => ShowPage(LauncherPage.Settings);
         InitAccounts();
+        HookImport(); // MainWindow.Import.cs: the Import page, its button, the first-run card, closing mid-import
     }
 
     // ---- Toasts and the confirm dialog ----
@@ -100,6 +101,7 @@ public sealed partial class MainWindow : Window
 
     private void KeepOneTab()
     {
+        if (_importOpen) return; // the Import page lights no tab (MainWindow.Import.cs)
         if (NavHome.IsChecked != true && NavMods.IsChecked != true && NavProfiles.IsChecked != true && NavSettings.IsChecked != true)
             NavHome.IsChecked = true;
     }

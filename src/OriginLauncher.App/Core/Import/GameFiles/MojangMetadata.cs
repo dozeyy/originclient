@@ -109,7 +109,7 @@ public sealed partial class MojangMetadata
                 Str(client, "sha1")!, Long(client, "size"), mcVersion));
 
         if (root.TryGetProperty("libraries", out var libraries))
-            foreach (var library in libraries.EnumerateArray()) AddLibrary(set, library);
+            foreach (var library in libraries.EnumerateArray()) AddLibrary(set, library, mcVersion);
 
         if (!root.TryGetProperty("assetIndex", out var assetIndex)) return false;
         var indexId = Str(assetIndex, "id");
@@ -122,14 +122,14 @@ public sealed partial class MojangMetadata
 
         var component = DefaultComponent;
         if (root.TryGetProperty("javaVersion", out var java) && Str(java, "component") is { Length: > 0 } named) component = named;
-        await AddRuntimeAsync(set, component, ct).ConfigureAwait(false);
+        await AddRuntimeAsync(set, component, RuntimePlatformFor(mcVersion), ct).ConfigureAwait(false);
         return true;
     }
 
     // This OS's libraries only: rules decide (default: allowed; the last rule that applies wins); arch-only entries per ArchApplies.
-    private static void AddLibrary(RequiredSet set, JsonElement library)
+    private static void AddLibrary(RequiredSet set, JsonElement library, string mcVersion)
     {
-        if (!Allowed(library)) return;
+        if (!Allowed(library, mcVersion)) return;
         if (!library.TryGetProperty("downloads", out var downloads)) return;
         if (downloads.TryGetProperty("artifact", out var artifact) && Str(artifact, "path") is { } path && Str(artifact, "sha1") is { } sha1
             && IsSafeRelative(path) && IsSha1(sha1))
@@ -149,7 +149,7 @@ public sealed partial class MojangMetadata
         if (!set.Files.Any(f => f.RelPath == file.RelPath)) set.Files.Add(file);
     }
 
-    private static bool Allowed(JsonElement library)
+    private static bool Allowed(JsonElement library, string mcVersion)
     {
         if (!library.TryGetProperty("rules", out var rules) || rules.ValueKind != JsonValueKind.Array) return true;
         var allowed = false;
@@ -159,7 +159,7 @@ public sealed partial class MojangMetadata
             if (rule.TryGetProperty("os", out var os))
             {
                 var name = Str(os, "name");
-                applies = (name == null || name == RuleOsName) && ArchApplies(os);
+                applies = (name == null || name == RuleOsName) && ArchApplies(os, mcVersion);
             }
             if (applies) allowed = Str(rule, "action") == "allow";
         }
@@ -179,7 +179,8 @@ public sealed partial class MojangMetadata
         }
     }
 
-    private async Task AddRuntimeAsync(RequiredSet set, string component, CancellationToken ct)
+    // runtimePlatform: Mojang's runtime list key for this version on this machine (RuntimePlatformFor).
+    private async Task AddRuntimeAsync(RequiredSet set, string component, string runtimePlatform, CancellationToken ct)
     {
         set.RuntimeComponent = component;
         if (!ComponentPattern.IsMatch(component)) { set.JavaSkipped = true; return; } // it names a folder: plain words only
@@ -190,7 +191,7 @@ public sealed partial class MojangMetadata
             try
             {
                 using var list = JsonDocument.Parse(listBytes);
-                if (list.RootElement.TryGetProperty(RuntimePlatform, out var platform)
+                if (list.RootElement.TryGetProperty(runtimePlatform, out var platform)
                     && platform.TryGetProperty(component, out var entries)
                     && entries.ValueKind == JsonValueKind.Array && entries.GetArrayLength() > 0
                     && entries[0].TryGetProperty("manifest", out var manifest))
@@ -216,7 +217,7 @@ public sealed partial class MojangMetadata
             if (!file.Value.TryGetProperty("downloads", out var d) || !d.TryGetProperty("raw", out var raw)) continue;
             if (Str(raw, "sha1") is not { } fileSha1 || !IsSha1(fileSha1)) continue;
             if (!IsSafeRelative(file.Name) || Path.IsPathRooted(file.Name)) continue; // a path that climbs out is never ours to write
-            set.Files.Add(new RequiredFile(RequiredKind.Runtime, $"runtime/{RuntimePlatform}/{component}/{file.Name}",
+            set.Files.Add(new RequiredFile(RequiredKind.Runtime, $"runtime/{runtimePlatform}/{component}/{file.Name}",
                 fileSha1, Long(raw, "size"), null, component, file.Name));
         }
     }

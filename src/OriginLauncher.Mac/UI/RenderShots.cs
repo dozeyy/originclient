@@ -89,6 +89,8 @@ internal static class RenderShots
         Shots.AreaAShots.Run(window, outDir);
         // Mods, Profiles, the account pill and drawer, and the sign-in card (UI/Shots/AreaBShots.cs).
         Shots.AreaBShots.Run(window, outDir);
+        // Import from other launchers: the Home welcome card and every Import page screen (UI/Shots/AreaDShots.cs).
+        Shots.AreaDShots.Run(window, outDir);
 
         window.Close();
         Console.WriteLine($"render-shots: {_written} PNGs in {outDir}");

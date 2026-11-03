@@ -1,0 +1,299 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+                    xmlns:ui="using:OriginLauncher.Mac.UI">
+
+    <!--
+        The Import page's shared keys: Avalonia twins of the part of src/OriginLauncher.App/Theme/Social.xaml the Import
+        page uses (rows, ticks, chips, captions), ScrollBar.Minimal (Theme/Inputs.xaml) and Page.Column
+        (Theme/Surfaces.xaml). Same keys, same values. The Mac's other ported screens bring their own Social keys in
+        Theme/Social.axaml; a key both files carry has the same value in both (the later merged file wins, harmlessly).
+    -->
+
+    <!-- The Done page's "Nothing was changed in your other launchers" line (the WPF ImportPanel.xaml's own resource). -->
+    <StreamGeometry x:Key="Import.Icon.Shield">M12,3 L5,6 L5,11 C5,15.5 8,19 12,21 C16,19 19,15.5 19,11 L19,6 Z M9,12 L11,14 L15,10</StreamGeometry>
+
+    <x:Double x:Key="Social.AvatarSize">32</x:Double>
+    <c:CardCornersConverter x:Key="Social.CardCorners"/>
+
+    <!-- An inner page's content column: at most 1000 wide, its left edge under the logo (x = 32); PageColumn owns the
+         top inset (96, or 80 in a short window). -->
+    <ControlTheme x:Key="Page.Column" TargetType="c:PageColumn">
+        <Setter Property="ColumnMaxWidth" Value="1000"/>
+        <Setter Property="Margin" Value="32,0,32,32"/>
+    </ControlTheme>
+
+    <!-- The focus frame of a drawer row: 3 px outside the row, 2 px of accent, the card's ring corner. -->
+    <FocusAdornerTemplate x:Key="Social.RowFocus">
+        <Border Margin="-3" AdornerLayer.IsClipEnabled="False" BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2"
+                CornerRadius="{StaticResource Radius.Ring.Lg}" IsHitTestVisible="False"/>
+    </FocusAdornerTemplate>
+
+    <!-- ===== text ===== -->
+
+    <ControlTheme x:Key="Social.Initial" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Social.Name" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="LineHeight" Value="18"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Social.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
+        <Setter Property="LineHeight" Value="16"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Social.Quiet" TargetType="TextBlock" BasedOn="{StaticResource Social.Caption}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Social.Section" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Import.Warning" TargetType="TextBlock" BasedOn="{StaticResource Social.Caption}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Warning}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="TextTrimming" Value="None"/>
+        <Setter Property="Margin" Value="0,2,0,0"/>
+    </ControlTheme>
+
+    <!-- ===== surfaces ===== -->
+
+    <ControlTheme x:Key="Social.DrawerRowStatic" TargetType="Border">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="Padding" Value="8,6"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Social.Avatar" TargetType="Border">
+        <Setter Property="Width" Value="{StaticResource Social.AvatarSize}"/>
+        <Setter Property="Height" Value="{StaticResource Social.AvatarSize}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Xs}"/>
+    </ControlTheme>
+    <ControlTheme x:Key="Social.Strip" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="Margin" Value="16,0,16,10"/>
+    </ControlTheme>
+
+    <!-- ===== buttons ===== -->
+
+    <!-- A whole row that is one press: transparent, the card on hover, CardAlt pressed. -->
+    <ControlTheme x:Key="Social.DrawerRow" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Social.RowFocus}"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Sm}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- A heading that folds (Done: "SKIPPED - 2"). -->
+    <ControlTheme x:Key="Social.SectionButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="2,0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Social.RowFocus}"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Md}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="Social.Action" TargetType="Button" BasedOn="{StaticResource Button.Secondary.Small}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="Margin" Value="8,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+
+    <!-- Icon-only button: Icon.Small (14) + 9 padding each side = Size.ControlMd. -->
+    <ControlTheme x:Key="Social.Icon" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="9"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+
+    <!-- ===== ticks and switches ===== -->
+
+    <!-- The drawer's tick box: a Size.Checkbox box in a Size.ControlMd hit square; accent when on, a dash when mixed. -->
+    <ControlTheme x:Key="Social.Check" TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Width" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Height" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Margin" Value="6,-4,-6,-4"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="Transparent">
+                    <Border Name="Box" Width="{StaticResource Size.Checkbox}" Height="{StaticResource Size.Checkbox}"
+                            CornerRadius="{StaticResource Radius.Xs}" Background="{StaticResource Brush.CardAlt}"
+                            BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <c:IconPath Name="Tick" Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Base}"
+                                    Width="12" Height="12" StrokeThickness="2.2"
+                                    Stroke="{StaticResource Brush.TextOnAccent}" IsVisible="False"/>
+                    </Border>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#Box">
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#Box">
+            <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+        </Style>
+        <Style Selector="^:checked /template/ c|IconPath#Tick">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ Border#Box">
+            <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ c|IconPath#Tick">
+            <Setter Property="Data" Value="{StaticResource Icon.Minus}"/>
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- "What to bring": one switch per thing (Worlds, Mods, ...), a capsule with a small tick when on, a dash when only
+         some versions bring it. -->
+    <ControlTheme x:Key="Import.Chip" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="Margin" Value="0,0,6,6"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                        BorderThickness="1" ui:Capsule.On="True" Padding="{TemplateBinding Padding}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <c:IconPath Name="Mark" Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Base}"
+                                    Width="10" Height="10" StrokeThickness="2.6" Stroke="{StaticResource Brush.Accent}"
+                                    Margin="0,0,6,0" VerticalAlignment="Center" IsVisible="False"/>
+                        <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                          VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+        </Style>
+        <Style Selector="^:checked">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+        </Style>
+        <Style Selector="^:checked /template/ c|IconPath#Mark">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:indeterminate">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ c|IconPath#Mark">
+            <Setter Property="Data" Value="{StaticResource Icon.Minus}"/>
+            <Setter Property="Stroke" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Bd">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- ===== scroll bar ===== -->
+
+    <!-- The thin scroll bar of the import lists: 8 wide, no arrows, no track, a Stroke capsule thumb 2 in from each side
+         that lifts to ProgressTrack on hover. Applied to a page's ScrollViewers, never app-wide. -->
+    <ControlTheme x:Key="ScrollBar.Minimal" TargetType="ScrollBar">
+        <Setter Property="Width" Value="8"/>
+        <Setter Property="MinWidth" Value="8"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="AllowAutoHide" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="Transparent">
+                    <Track Name="PART_Track" Orientation="{TemplateBinding Orientation}"
+                           Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                           Value="{TemplateBinding Value, Mode=TwoWay}" ViewportSize="{TemplateBinding ViewportSize}"
+                           IsDirectionReversed="True">
+                        <Thumb Name="thumb">
+                            <Thumb.Template>
+                                <ControlTemplate>
+                                    <Border Name="Bar" Background="{TemplateBinding Background}" ui:Capsule.On="True"
+                                            Margin="2,0"/>
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Track>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <!-- The thumb's colour is its own Background (one template level: Avalonia selectors can't reach two deep). -->
+        <Style Selector="^ /template/ Thumb#thumb">
+            <Setter Property="Background" Value="{StaticResource Brush.Stroke}"/>
+        </Style>
+        <Style Selector="^ /template/ Thumb#thumb:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.ProgressTrack}"/>
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>

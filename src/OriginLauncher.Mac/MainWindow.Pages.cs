@@ -27,7 +27,12 @@ public sealed partial class MainWindow
 
     // Home says whether a running game uses a profile, so the Profiles page refuses to delete it
     // (WPF: new ProfilesPage(_homePage.IsProfileInUse)).
-    private ProfilesPage CreateProfilesPage() => new(Home.IsProfileInUse);
+    private ProfilesPage CreateProfilesPage()
+    {
+        var page = new ProfilesPage(Home.IsProfileInUse);
+        page.ImportRequested += (_, _) => OpenImportPanel(); // MainWindow.Import.cs
+        return page;
+    }
 
     // The version Home shows (the card's number), the one the Mods and Profiles pages follow.
     private string? HomeVersion => Home.CurrentVersion;
@@ -39,6 +44,9 @@ public sealed partial class MainWindow
     /// </summary>
     internal void ShowPage(LauncherPage page)
     {
+        // The Import page is open (the tabs stay live): a running import asks "Stop importing?" first; otherwise the
+        // page closes and the tab's page shows.
+        if (!LeaveImportForTab()) return;
         var onHome = _currentPage == LauncherPage.Home;
         if (page != _currentPage && onHome && Home.HasLaunchCover)
         {

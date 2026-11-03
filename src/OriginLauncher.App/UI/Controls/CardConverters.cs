@@ -4,8 +4,7 @@ using System.Windows.Data;
 
 namespace OriginLauncher.App.UI.Controls;
 
-/// <summary>Where a row sits in its card group (Theme/Social.xaml: Social.DrawerRow, and the Import drawer rows).</summary>
-public enum CardPos { Only, First, Middle, Last }
+// CardPos (where a row sits in its card group) lives in RowModels.cs, shared with the Mac launcher.
 
 /// <summary>Round only the corners a row owns: the card's radius token on the first row's top and the last row's bottom.</summary>
 public sealed class CardCornersConverter : IMultiValueConverter

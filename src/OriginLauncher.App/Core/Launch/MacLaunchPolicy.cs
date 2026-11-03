@@ -59,6 +59,17 @@ public static class MacLaunchPolicy
     public static LauncherOSRule RulesOs(MacLaunchShape shape, string osVersion) =>
         new(LauncherOSRule.OSX, shape.JavaArch == MacJavaArch.Arm64 ? LauncherOSRule.Arm64 : LauncherOSRule.X64, osVersion);
 
+    /// <summary>
+    /// Mojang's Java runtime list key for this launch: the one CmlLib downloads into and the import copies
+    /// into (same rule as RulesOs, so an imported Java is the one Play uses). 1.18.2 on Apple Silicon is
+    /// "mac-os" (x64 under Rosetta), never "mac-os-arm64".
+    /// </summary>
+    public static string JavaRuntimePlatform(MacLaunchShape shape) =>
+        shape.JavaArch == MacJavaArch.Arm64 ? "mac-os-arm64" : "mac-os";
+
+    /// <summary>The arch name an arch-specific Mojang library rule must carry to apply to this launch.</summary>
+    public static string RuleArch(MacLaunchShape shape) => shape.JavaArch == MacJavaArch.Arm64 ? "arm64" : "x86_64";
+
     // "1.21.11" -> (1, 21), "26.3" -> (26, 3); anything else (a snapshot name) -> (0, 0), which counts as old:
     // x64 under Rosetta is the choice that runs everywhere a Mac can run anything.
     private static (int Major, int Minor) Parse(string version)

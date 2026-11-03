@@ -88,4 +88,16 @@
     <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Import from another launcher: the WPF Import page's own flow, grid and wording models (framework-free), linked so
+         both launchers walk the same steps; the render's made-up import; and the launchers' real logos (as on Windows). -->
+    <Compile Include="..\OriginLauncher.App\UI\Controls\RowModels.cs" Link="Shared\RowModels.cs" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\ImportFlowModel.cs" Link="Shared\ImportFlowModel.cs" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\ImportGridModel.cs" Link="Shared\ImportGridModel.cs" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\ImportLogic.cs" Link="Shared\ImportLogic.cs" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\ImportHooks.cs" Link="Shared\ImportHooks.cs" />
+    <Compile Include="..\OriginLauncher.App\UI\ImportDemo.cs" Link="Shared\ImportDemo.cs" />
+    <AvaloniaResource Include="..\OriginLauncher.App\Assets\Logos\*.png" Link="Assets\Logos\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

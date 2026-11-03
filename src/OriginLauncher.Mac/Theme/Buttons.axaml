@@ -20,33 +20,35 @@
     -->
 
 
-    <!-- Keyboard focus: a 2 px frame in the accent line, 2 px outside the control. Ring corner = control corner + 2. -->
+    <!-- Keyboard focus: a 2 px frame in the accent line, 2 px outside the control. Ring corner = control corner + 2.
+         AdornerLayer.IsClipEnabled="False" on every frame: Avalonia clips an adorner to its control's own bounds by
+         default, and a frame drawn outside the control would be clipped away entirely (no focus ring at all). The same goes for Social.RowFocus in Theme/Import.axaml. -->
     <FocusAdornerTemplate x:Key="Focus.Button">
-        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Md}" BorderThickness="2"
+        <Border Margin="-4" AdornerLayer.IsClipEnabled="False" CornerRadius="{StaticResource Radius.Ring.Md}" BorderThickness="2"
                 BorderBrush="{StaticResource Brush.AccentBorder}"/>
     </FocusAdornerTemplate>
 
     <!-- The same frame for the 28 and 32 tall controls (Radius.Sm corners). -->
     <FocusAdornerTemplate x:Key="Focus.Button.Sm">
-        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Sm}" BorderThickness="2"
+        <Border Margin="-4" AdornerLayer.IsClipEnabled="False" CornerRadius="{StaticResource Radius.Ring.Sm}" BorderThickness="2"
                 BorderBrush="{StaticResource Brush.AccentBorder}"/>
     </FocusAdornerTemplate>
 
     <!-- The same frame around a pill (the switch track): a fully rounded ring. -->
     <FocusAdornerTemplate x:Key="Focus.Pill">
-        <Border Margin="-4" ui:Capsule.On="True" BorderThickness="2"
+        <Border Margin="-4" AdornerLayer.IsClipEnabled="False" ui:Capsule.On="True" BorderThickness="2"
                 BorderBrush="{StaticResource Brush.AccentBorder}"/>
     </FocusAdornerTemplate>
 
     <!-- The same frame for controls with card corners (the home banner, version and profile cards). -->
     <FocusAdornerTemplate x:Key="Focus.Card">
-        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+        <Border Margin="-4" AdornerLayer.IsClipEnabled="False" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
                 BorderBrush="{StaticResource Brush.AccentBorder}"/>
     </FocusAdornerTemplate>
 
     <!-- Card-corner focus in parchment: for a tile that sits where the selected (emerald) ring sits. -->
     <FocusAdornerTemplate x:Key="Focus.Card.Neutral">
-        <Border Margin="-4" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+        <Border Margin="-4" AdornerLayer.IsClipEnabled="False" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
                 BorderBrush="{StaticResource Brush.Text}"/>
     </FocusAdornerTemplate>
 
