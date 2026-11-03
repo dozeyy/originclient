@@ -661,7 +661,14 @@ public class OriginClientMod implements ClientModInitializer {
 		// Full Bright toggle keybind flips the mod's own sub-toggle
 		boolean fbDown = client.screen == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
 		if (fbDown && !fullbrightKeyWasDown) {
-			Mods.set("fullbright", "fullBright", !Mods.bool("fullbright", "fullBright"));
+			// With the Lighting mod off the key used to flip a hidden setting and nothing
+			// changed on screen: now it switches Lighting on with Full Bright.
+			boolean on = !Mods.on("fullbright") || !Mods.bool("fullbright", "fullBright");
+			if (on && !Mods.on("fullbright")) {
+				Mods.setOn("fullbright", true);
+			}
+			Mods.set("fullbright", "fullBright", on);
+			player.displayClientMessage(net.minecraft.network.chat.Component.literal(on ? "Full Bright on" : "Full Bright off"), true);
 		}
 		fullbrightKeyWasDown = fbDown;
 
