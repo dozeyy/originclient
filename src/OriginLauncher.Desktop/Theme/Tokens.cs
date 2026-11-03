@@ -185,7 +185,7 @@ public static class Sizes
     public const double HomeSwitchW = 36, HomeSwitchH = 20, HomeSwitchKnob = 14;
     public const double Checkbox = 16, Progress = 3, Dot = 6, Badge = 20;
     public const double PillHead = 24, Drawer = 380, Dialog = 440;
-    public const double LogoBar = 24, WordmarkBar = 16;
+    public const double LogoBar = 24, WordmarkBar = 16, LogoHero = 48;
     public const double Strip = 64, PlayWidth = 208, StripThumb = 48;
     public const double WindowW = 1180, WindowH = 740, WindowMinW = 960, WindowMinH = 600;
     public const double AccountNameMax = 160, ProfileNameMax = 180;

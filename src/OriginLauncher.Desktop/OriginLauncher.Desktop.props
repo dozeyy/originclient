@@ -32,6 +32,10 @@
     <Compile Include="$(OriginAppDir)UI\Controls\ToastQueue.cs" Link="Shared\UI\Controls\ToastQueue.cs" />
     <Compile Include="$(OriginAppDir)UI\Controls\KeyedDiff.cs" Link="Shared\UI\Controls\KeyedDiff.cs" />
     <Compile Include="$(OriginAppDir)UI\Controls\HeadFit.cs" Link="Shared\UI\Controls\HeadFit.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportFlowModel.cs" Link="Shared\UI\Controls\ImportFlowModel.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportGridModel.cs" Link="Shared\UI\Controls\ImportGridModel.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportLogic.cs" Link="Shared\UI\Controls\ImportLogic.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportHooks.cs" Link="Shared\UI\Controls\ImportHooks.cs" />
     <Compile Include="$(OriginAppDir)UI\Pages\SettingsRailSpy.cs" Link="Shared\UI\Pages\SettingsRailSpy.cs" />
 
     <!-- The one token source (read by Theme/Tokens.cs and Theme/Icons.cs). -->
