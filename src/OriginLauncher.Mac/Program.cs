@@ -1,5 +1,7 @@
 using Avalonia;
+using OriginLauncher.App.Core;
 using OriginLauncher.Mac.UI;
+using OriginLauncher.Mac.UI.Windows;
 
 namespace OriginLauncher.Mac;
 
@@ -48,6 +50,48 @@ internal static class Program
             SignInProbe.Dir = probeDir;
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, Avalonia.Controls.ShutdownMode.OnExplicitShutdown);
         }
+
+        return StartApp(args);
+    }
+
+    private static FileStream? _instanceLock;
+
+    // The real launcher window, with the startup steps the Windows (App.xaml.cs) and Linux (DesktopEntry.RunWindow)
+    // launchers take first: one launcher at a time, a leftover dev-only test switch cleared, and crash reporting.
+    private static int StartApp(string[] args)
+    {
+        OriginPaths.EnsureScaffold();
+        // One launcher at a time (the Windows launcher's single-instance mutex): an exclusive lock on a file in the data
+        // folder, released by the OS when this process ends (a crash included). Finder already brings an open app to the
+        // front; this covers a second start from the terminal or an update's relaunch racing the old process.
+        try
+        {
+            _instanceLock = new FileStream(Path.Combine(OriginPaths.Root, ".launcher.lock"), FileMode.OpenOrCreate,
+                FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (IOException)
+        {
+            Console.Error.WriteLine("Origin is already open.");
+            return 0;
+        }
+
+        // A release build never keeps the dev-only offline test switch on (DeveloperAccess).
+        if (DeveloperAccess.NeedsReset(OriginLauncher.App.Core.Updates.UpdateService.IsDevBuild, SettingsStore.Load()))
+            SettingsStore.Update(DeveloperAccess.ClearOfflineTest);
+
+        // Crashes in the launcher itself: a UI-thread exception is recoverable (reported, the launcher keeps running);
+        // an unhandled one on any other thread is fatal (reported, then the runtime ends the app). Unobserved task faults
+        // are swallowed, as on Windows and Linux.
+        Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            MacCrashReporter.Report(e.Exception, fatal: false);
+            e.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex) MacCrashReporter.Report(ex, fatal: true);
+        };
+        TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
 
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
