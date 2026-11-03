@@ -297,6 +297,44 @@ public final class OldAnimations {
 		ps.translate(i * 0.0625F, -0.4375F, -0.0625F);
 	}
 
+	// ---- proof the hooks landed (CI in-world smoke, OriginDevWorld) ----
+
+	/** {target class, handler method name} for every hook. Mixin keeps the handler's name as the
+	 *  suffix of the merged method ("handler$zbc000$originclient$oldHand"), so a class without
+	 *  it means the mixin silently didn't apply (defaultRequire 0). */
+	public static final String[][] HOOKS = {
+			{"net.minecraft.client.renderer.ItemInHandRenderer", "originclient$oldHand"},
+			{"net.minecraft.client.renderer.ItemInHandRenderer", "originclient$noHitDip"},
+			{"net.minecraft.client.Camera", "originclient$instantSneak"},
+			{"net.minecraft.client.Minecraft", "originclient$swingWhileUsing"},
+			{"net.minecraft.client.Minecraft", "originclient$holdSwingWhileUsing"},
+			{"net.minecraft.client.renderer.entity.player.PlayerRenderer", "originclient$oldArmPose"},
+			{"net.minecraft.client.renderer.entity.layers.ItemInHandLayer", "originclient$hideShield"},
+			{"net.minecraft.client.renderer.entity.layers.ItemInHandLayer", "originclient$blockTurn"},
+	};
+
+	/** Names of the hooks missing from their (already loaded) target classes; "" when all applied. */
+	public static String missingHooks() {
+		StringBuilder missing = new StringBuilder();
+		for (String[] h : HOOKS) {
+			boolean found = false;
+			try {
+				for (java.lang.reflect.Method m : Class.forName(h[0]).getDeclaredMethods()) {
+					if (m.getName().equals(h[1]) || m.getName().endsWith("$" + h[1])) {
+						found = true;
+						break;
+					}
+				}
+			} catch (Throwable ignored) {
+				// class not found counts as missing
+			}
+			if (!found) {
+				missing.append(missing.length() == 0 ? "" : ", ").append(h[1]);
+			}
+		}
+		return missing.toString();
+	}
+
 	// ---- extras ----
 
 	/** Red Armor Flash: 1.7 tinted hurt armor red at 40% (RendererLivingEntity's overlay). */
