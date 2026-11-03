@@ -310,6 +310,13 @@ public final class MenuBlur {
 		} catch (Throwable t) {
 			broken = true;   // vanilla's darkened backdrop from now on
 			result = null;
+			try {
+				if (chain != null) {
+					chain.deleteShaderGroup();   // free its two full-window targets
+				}
+			} catch (Throwable ignored) {
+			}
+			chain = null;
 			com.origin.client.OriginClient.LOGGER.warn("Origin: Menu Blur failed; using vanilla's menu backdrop", t);
 			OriginScreenRenderer.restoreTarget(previous);
 			restoreGuiState();
