@@ -44,7 +44,7 @@ public sealed class PromoFeedLoader
             {
               "id": "website", "kind": "link", "label": "Origin",
               "title": "originclient.org",
-              "subtitle": "News, changelogs and every bundled mod",
+              "subtitle": "Versions, downloads and the Store",
               "clickUrl": "https://originclient.org/"
             },
             { "id": "tips", "kind": "tips", "label": "Tip" }

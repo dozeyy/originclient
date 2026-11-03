@@ -88,6 +88,8 @@ h2 span, h1 span { color: var(--muted); }
 }
 .top.is-solid { background: rgba(10, 10, 11, .72); backdrop-filter: blur(16px); box-shadow: inset 0 -1px 0 var(--soft); }
 .top.is-hidden { transform: translateY(-100%); }
+/* Keyboard focus inside the slid-away header (Shift+Tab back into it) brings it back into view. */
+.top.is-hidden:focus-within { transform: none; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; justify-self: start; min-height: 44px; min-width: 44px; justify-content: center; }
 .brand__mark { width: 32px; height: 32px; flex: none; }
 /* The real wordmark file (glow baked in, so it needs no filter). */
@@ -222,7 +224,7 @@ h2 span, h1 span { color: var(--muted); }
 .foot nav a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; color: var(--dim); }
 
 /* ---------- why origin: the bento ---------- */
-/* Six cards, six small loops. Every animation rests on its finished picture
+/* Five cards, five small loops. Every animation rests on its finished picture
    (so reduced motion and no-JS show a complete card) and pauses once its card
    scrolls off screen (site.js adds .is-off). */
 .bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
@@ -288,10 +290,12 @@ h2 span, h1 span { color: var(--muted); }
 .legal__head h1 { font-size: clamp(38px, 6vw, 68px); line-height: 1; margin-bottom: 14px; }
 .legal__updated { color: var(--muted); font: 600 13px/1 var(--sans); letter-spacing: .02em; margin: 0 0 40px; }
 .legal__body { padding: clamp(22px, 4vw, 40px); background: var(--glass); border: 1px solid var(--soft); border-radius: 28px; backdrop-filter: blur(10px); }
-.legal__body h2 { font-size: 20px; letter-spacing: -.02em; margin: 32px 0 10px; }
+.legal__body h2 { font-size: 20px; letter-spacing: -.02em; margin: 32px 0 10px; scroll-margin-top: 96px; }   /* linked sections (terms#purchases) clear the fixed header */
 .legal__body h2:first-of-type { margin-top: 24px; }
 .legal__body p, .legal__body li { color: var(--dim); }
 .legal__body p { margin: 0 0 12px; }
+/* Long folder paths break anywhere rather than push a 320px phone sideways. */
+.legal__body code { overflow-wrap: anywhere; }
 
 /* ---------- legibility over the island ---------- */
 /* Soft dark pools behind the text. Each must fade to nothing well inside its
@@ -327,6 +331,9 @@ h2 span, h1 span { color: var(--muted); }
   .bcard--a { grid-column: 1 / -1; grid-row: auto; }
   .bcard--b, .bcard--c, .bcard--d, .bcard--e { grid-column: auto; }
   .bcard--a .viz { min-height: 240px; }
+  /* No blur behind the cards here: they are 93% opaque, so it barely showed, and blurring the
+     live island under every card each frame is what makes phones stutter while scrolling. */
+  .vcard, .bcard { backdrop-filter: none; }
 }
 @media (max-width: 560px) {
   .bento { grid-template-columns: minmax(0, 1fr); }

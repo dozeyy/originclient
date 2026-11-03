@@ -7,6 +7,11 @@
 <meta name="color-scheme" content="dark">
 <title>Privacy Policy</title>
 <meta name="description" content="What Origin Client collects, why, who it goes to, how long it is kept and how to delete it.">
+<meta property="og:title" content="Origin Client: Privacy Policy">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://originclient.org/privacy">
+<meta property="og:image" content="https://originclient.org/assets/og-image.png">
+<link rel="canonical" href="https://originclient.org/privacy">
 <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="icon" href="assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -29,7 +34,7 @@
     <div class="legal__head">
       <p class="eyebrow eyebrow--accent">Legal</p>
       <h1>Privacy Policy</h1>
-      <p class="legal__updated">Last updated: October 27, 2026</p>
+      <p class="legal__updated">Last updated: November 3, 2026</p>
     </div>
 
     <article class="legal__body">
@@ -80,7 +85,11 @@
       </p>
 
       <h2>3. What Stays on Your PC</h2>
-      <p>Everything below lives in <code>%LocalAppData%\OriginLauncher</code> and is never uploaded by Origin:</p>
+      <p>Everything below lives in Origin's own folder on your computer
+        (<code>%LocalAppData%\OriginLauncher</code> on Windows,
+        <code>~/.local/share/OriginLauncher</code> on Linux,
+        <code>~/Library/Application Support/OriginLauncher</code> on a Mac)
+        and is never uploaded by Origin:</p>
       <ul>
         <li>Your accounts (encrypted, see above) and launcher settings.</li>
         <li>Your game folders: worlds, servers list, options, mods,
@@ -136,7 +145,8 @@
         On the <a href="store">Store</a> you type the Minecraft name the
         cosmetics are for. The page looks that name up with PlayerDB
         (playerdb.co) to find the UUID and skin, and shows heads and skins
-        from Crafthead and mc-heads.net. Your bag and the name you typed are
+        from Mojang's own skin server (textures.minecraft.net), Crafthead
+        and mc-heads.net. Your bag and the name you typed are
         saved in your browser's own storage, so they survive a refresh. They
         stay in your browser.
       </p>
@@ -250,7 +260,8 @@
         <li><strong>On your PC:</strong> uninstall Origin and tick "Also
           delete my worlds, settings and accounts". That deletes the whole
           <code>%LocalAppData%\OriginLauncher</code> folder, including your
-          saved sign-ins.</li>
+          saved sign-ins. On Linux or a Mac, delete the folder named in
+          section 3.</li>
         <li><strong>Friends:</strong> remove or block anyone yourself in the
           Friends list.</li>
         <li><strong>Everything else on Origin's service:</strong> there is no

@@ -36,7 +36,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 REPO = Path(__file__).resolve().parents[2]
 SITE = REPO / "website"
@@ -196,13 +196,50 @@ def build_logo() -> None:
         mark = logo.resize((round(big * 0.96),) * 2, Image.LANCZOS)
         tile.alpha_composite(mark, ((big - mark.width) // 2, (big - mark.height) // 2))
         tile.resize((size, size), Image.LANCZOS).save(out / f"{name}.png", optimize=True)
+    build_og_image()
+
+
+def build_og_image() -> None:
+    """The link-preview picture (og:image, 1200x630) for Discord, X and the like: the real logo
+    and wordmark files at their own size (never scaled up, never redrawn) on the site's dark
+    backdrop, with the hero's one line under them in Inter."""
+
+    W, H = 1200, 630
+    img = Image.new("RGBA", (W, H), (10, 10, 11, 255))
+    # The site's --backdrop: a soft lighter pool towards the upper middle, fading to near black.
+    glow = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(glow).ellipse((W * 0.18, -H * 0.25, W * 0.82, H * 0.9), fill=255)
+    glow = glow.filter(ImageFilter.GaussianBlur(140))
+    img.alpha_composite(Image.merge("RGBA", (*(Image.new("L", (W, H), 30),) * 3, glow.point(lambda v: v * 0.55))))
+    logo, word = Image.open(LOGO).convert("RGBA"), Image.open(WORDMARK).convert("RGBA")
+    mark = logo.resize((200, 200), Image.LANCZOS)
+    # The wordmark's baked glow is cut off square at the file's edges, which shows as a faint box
+    # on a large plain background; fade only the outer 8 px of its alpha (the letters start 11 px in and are untouched).
+    edge = Image.new("L", word.size, 0)
+    ImageDraw.Draw(edge).rectangle((6, 6, word.width - 7, word.height - 7), fill=255)
+    edge = edge.filter(ImageFilter.GaussianBlur(2))
+    word.putalpha(Image.composite(word.getchannel("A"), Image.new("L", word.size, 0), edge))
+    font = ImageFont.truetype(str(FONTS / "Inter-400.ttf"), 34)
+    line = "The free Minecraft client. Shaders built in."
+    draw = ImageDraw.Draw(img)
+    lw = draw.textlength(line, font=font)
+    top = (H - (mark.height + 18 + word.height + 40 + 34)) // 2
+    img.alpha_composite(mark, ((W - mark.width) // 2, top))
+    img.alpha_composite(word, ((W - word.width) // 2, top + mark.height + 18))
+    draw.text(((W - lw) / 2, top + mark.height + 18 + word.height + 40), line, font=font, fill=(188, 188, 194, 255))
+    img.convert("RGB").save(SITE / "assets" / "og-image.png", optimize=True)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--logo-only", action="store_true", help="only (re)build the logo files; needs no network")
+    ap.add_argument("--og-only", action="store_true", help="only (re)build the link-preview picture (assets/og-image.png)")
     ap.add_argument("--client-jar", type=Path, help=f"official Minecraft {MC_VERSION} client jar to read textures from")
     args = ap.parse_args()
+    if args.og_only:
+        build_og_image()
+        print("website link-preview picture rebuilt")
+        return
     if args.logo_only:
         build_logo()
         print("website logo files rebuilt")
