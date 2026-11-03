@@ -1,0 +1,89 @@
+name: mac-hello
+
+# Throwaway probe for the Mac launcher (tools/mac-hello/README.md): packaging, the embedded web view's
+# sign-in catch, keychain survival and what Gatekeeper says. Never reaches players.
+on:
+  push:
+    branches: [claude/mac-hello]
+    paths:
+      - tools/mac-hello/**
+      - .github/workflows/mac-hello.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            tools/mac-hello
+            .github/workflows
+          fetch-depth: 1
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build (arm64 and x64, self-contained)
+        working-directory: tools/mac-hello
+        run: |
+          dotnet --version
+          for rid in osx-arm64 osx-x64; do
+            dotnet publish MacHello.csproj -c Release -r "$rid" --self-contained true -o "$RUNNER_TEMP/publish/$rid" -v q
+          done
+
+      - name: Package (.app, ad-hoc signature, DMG, zip)
+        run: |
+          for rid in osx-arm64 osx-x64; do
+            bash tools/mac-hello/ci/package.sh "$rid" "$RUNNER_TEMP/publish/$rid" "$RUNNER_TEMP/dist"
+          done
+          mkdir -p "$RUNNER_TEMP/proof"
+          cp "$RUNNER_TEMP"/dist/package-*.log "$RUNNER_TEMP/proof/"
+
+      - name: Launch from the mounted DMG, catch the redirect (arm64)
+        run: bash tools/mac-hello/ci/run-probe.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/arm64"
+
+      - name: Keychain across a re-signed replacement
+        if: always()
+        run: bash tools/mac-hello/ci/keychain-test.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/keychain"
+
+      - name: Quarantine record
+        if: always()
+        run: bash tools/mac-hello/ci/quarantine-test.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/quarantine"
+
+      # The runner is Apple Silicon, so x64 only runs if Rosetta is already there. Not worth a red job.
+      - name: Launch x64 under Rosetta, if present
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/proof/x64"
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            bash tools/mac-hello/ci/run-probe.sh "$RUNNER_TEMP/dist/OriginHello-osx-x64.dmg" "$RUNNER_TEMP/proof/x64"
+          else
+            echo "Rosetta not installed on this runner: x64 build was packaged and verified, not launched" | tee "$RUNNER_TEMP/proof/x64/not-run.txt"
+          fi
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mac-hello-dmg
+          path: |
+            ${{ runner.temp }}/dist/*.dmg
+            ${{ runner.temp }}/dist/*.zip
+          retention-days: 14
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mac-hello-proof
+          path: ${{ runner.temp }}/proof
+          retention-days: 14
