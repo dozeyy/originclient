@@ -319,7 +319,7 @@ public final class Hypixel {
 		List<String> out = new ArrayList<>();
 		for (String line : plain.split("\n")) {
 			line = line.trim();
-			if (!line.isEmpty() && !line.matches("[-\u25AC\s]+")) {
+			if (!line.isEmpty() && !line.matches("[-\u25AC\\s]+")) {
 				out.add(line);
 			}
 		}
