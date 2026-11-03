@@ -231,7 +231,7 @@ class Fetch(Tmp):
             self.assertEqual(f.read(), good)
 
     def test_temurin_pin_matches_the_launcher(self):
-        cs = os.path.join(HERE, "..", "..", "src", "OriginLauncher.App", "Core", "Runtime", "TemurinJava8.cs")
+        cs = os.path.join(HERE, "..", "..", "src", "OriginLauncher.App", "Core", "Runtime", "TemurinJava8.Windows.cs")
         with open(cs, encoding="utf-8") as f:
             text = f.read()
         self.assertIn(P.TEMURIN8_WIN["sha256"], text)

@@ -6,7 +6,7 @@
     (X.Windows.cs), plus the Mac half (X.Mac.cs) that sits next to it. The Windows launcher's csproj
     does the reverse, so a Core fix lands on both at once.
 
-    No UI yet: today the program only has `--self-test` (prints the data paths, runs each Mac seam
+    No UI yet: today the program only has a self-test switch, self-test with two leading dashes (prints the data paths, runs each Mac seam
     once, exits 0/1, opens no window). The Avalonia UI comes in later steps of the Mac port.
 
     Built on GitHub's macOS runners (.github/workflows/mac-launcher.yml); it is never built or run

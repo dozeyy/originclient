@@ -80,7 +80,7 @@ STACK_SHA256 = {
 # own .sha1 file for that URL.
 FORGE_UNIVERSAL_SHA256 = "596512ad5f12f95d8a3170321543d4455d23b8fe649c68580c5f828fe74f6668"
 
-# TemurinJava8.cs Pin (Windows x64 JRE, SHA-256 verified): what the launcher gives a 1.8.9 player on Windows.
+# TemurinJava8.Windows.cs Pin (Windows x64 JRE, SHA-256 verified): what the launcher gives a 1.8.9 player on Windows.
 TEMURIN8_WIN = {
     "folder": "temurin-8u504-b01",
     "url": "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u504-b01/"
