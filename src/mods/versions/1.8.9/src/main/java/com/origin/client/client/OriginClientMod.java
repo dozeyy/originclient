@@ -70,6 +70,8 @@ public class OriginClientMod {
 	private long tabPressAt = 0;
 	private boolean tabSyncInit = false;
 	private int lastOurTabKey = -1, lastMcTabKey = -1;
+	// Zoom / Freelook: the mod-menu key and its Controls entry are ONE key (syncedKeyDown).
+	private final KeyLink zoomLink = new KeyLink(), freelookLink = new KeyLink();
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private float savedSensitivity = 0.5f;
@@ -404,7 +406,7 @@ public class OriginClientMod {
 		// FOV easing itself lives in the world area's FOV hook (frame-side); here
 		// we only resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.currentScreen == null
-				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isKeyDown());
+				&& syncedKeyDown(client, zoomLink, OriginKeyBindings.zoom, "zoom", "key");
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
 			if (zDown && !zoomKeyWasDown) {
 				zoomToggled = !zoomToggled;
@@ -487,12 +489,12 @@ public class OriginClientMod {
 			flyBoostApplied = false;
 		}
 
-		// Freelook: custom bind (default Left Alt) with the vanilla-controls
-		// binding as a fallback. Hold = look around; release = snap back (the
+		// Freelook: one key (default Left Alt), the same in the mod menu and in
+		// Controls (syncedKeyDown). Hold = look around; release = snap back (the
 		// player's real rotation is never touched — the world area's camera hook
 		// renders OriginFreelookState instead). "Toggle Freelook" latches.
 		boolean keyDown = Mods.on("freelook") && client.currentScreen == null
-				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isKeyDown());
+				&& syncedKeyDown(client, freelookLink, OriginKeyBindings.freelook, "freelook", "key");
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
@@ -605,6 +607,54 @@ public class OriginClientMod {
 
 	private static int tabCode(int lwjgl) {
 		return lwjgl == 0 ? -1 : lwjgl;
+	}
+
+	/** Bookkeeping for one key that lives both in the mod menu and in Controls. */
+	private static final class KeyLink {
+		boolean init;
+		int lastOurs = -1, lastMc = -1;
+	}
+
+	/**
+	 * Zoom and Freelook each have ONE key, shown in two places: the mod menu's
+	 * key row and Minecraft's Controls. They used to be two separate keys that
+	 * both worked (Zoom was C twice), so rebinding one left the old key still
+	 * zooming. Same rules as the Tab key sync (tickTabList): a rebind on either
+	 * side is copied to the other. On the first tick Controls wins, unless
+	 * Controls has no key there (Freelook's Controls entry started unbound) --
+	 * then the mod menu's key is copied into Controls. 1.8.9: both sides are
+	 * LWJGL2 codes with mouse buttons as -100 + button, compared via tabCode().
+	 */
+	private boolean syncedKeyDown(Minecraft client, KeyLink link, KeyBinding mapping, String modId, String option) {
+		if (mapping == null) {
+			return isRawKeyDown(Mods.keyCode(modId, option));
+		}
+		int mc = tabCode(mapping.getKeyCode());
+		int ours = tabCode(Mods.keyCode(modId, option));
+		if (!link.init) {
+			link.init = true;
+			if (mc == -1 && ours != -1) {
+				mc = pushKey(client, mapping, ours);
+			} else if (ours != mc) {
+				Mods.set(modId, option, mc);
+				ours = mc;
+			}
+		} else if (ours != link.lastOurs && ours != mc) {
+			mc = pushKey(client, mapping, ours);          // rebound in the mod menu
+		} else if (mc != link.lastMc && mc != ours) {
+			Mods.set(modId, option, mc);                  // rebound in Controls
+			ours = mc;
+		}
+		link.lastOurs = ours;
+		link.lastMc = mc;
+		return isRawKeyDown(ours);
+	}
+
+	private static int pushKey(Minecraft client, KeyBinding mapping, int key) {
+		client.gameSettings.setOptionKeyBinding(mapping, key < 0 && key > -100 ? 0 : key);
+		KeyBinding.resetKeyBindingArrayAndHash();
+		client.gameSettings.saveOptions();
+		return key;
 	}
 
 	// 1.16.5's displayClientMessage(text, true): the action bar

@@ -57,6 +57,8 @@ public class OriginClientMod implements ClientModInitializer {
 	private long tabPressAt = 0;
 	private boolean tabSyncInit = false;
 	private int lastOurTabKey = -1, lastMcTabKey = -1;
+	// Zoom / Freelook: the mod-menu key and its Controls entry are ONE key (syncedKey).
+	private final KeyLink zoomLink = new KeyLink(), freelookLink = new KeyLink();
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private double savedSensitivity = 0.5;
@@ -394,6 +396,56 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 	}
 
+	/** Bookkeeping for one key that lives both in the mod menu and in Controls. */
+	private static final class KeyLink {
+		boolean init;
+		int lastOurs = -1, lastMc = -1;
+	}
+
+	/**
+	 * Zoom and Freelook each have ONE key, shown in two places: the mod menu's
+	 * key row and Minecraft's Controls. They used to be two separate keys that
+	 * both worked (Zoom was C twice), so rebinding one left the old key still
+	 * zooming. Same rules as the Tab key sync above: a rebind on either side is
+	 * copied to the other. On the first tick Controls wins, unless Controls has
+	 * no key there (Freelook's Controls entry started unbound) -- then the mod
+	 * menu's key is copied into Controls. A mouse button set in Controls works
+	 * through the Controls entry (the mod menu only holds keyboard keys).
+	 */
+	private boolean syncedKeyDown(Minecraft client, KeyLink link, net.minecraft.client.KeyMapping mapping,
+			String modId, String option) {
+		InputConstants.Key bound = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mapping);
+		if (bound.getType() == InputConstants.Type.MOUSE) {
+			return mapping.isDown();
+		}
+		int mc = bound.getValue();
+		int ours = Mods.keyCode(modId, option);
+		if (!link.init) {
+			link.init = true;
+			if (mc <= 0 && ours > 0) {
+				mc = pushKey(client, mapping, ours);
+			} else if (ours != mc) {
+				Mods.set(modId, option, mc);
+				ours = mc;
+			}
+		} else if (ours != link.lastOurs && ours != mc) {
+			mc = pushKey(client, mapping, ours);          // rebound in the mod menu
+		} else if (mc != link.lastMc && mc != ours) {
+			Mods.set(modId, option, mc);                  // rebound in Controls
+			ours = mc;
+		}
+		link.lastOurs = ours;
+		link.lastMc = mc;
+		return isRawKeyDown(ours);
+	}
+
+	private static int pushKey(Minecraft client, net.minecraft.client.KeyMapping mapping, int key) {
+		mapping.setKey(key <= 0 ? InputConstants.UNKNOWN : InputConstants.Type.KEYSYM.getOrCreate(key));
+		net.minecraft.client.KeyMapping.resetMapping();
+		client.options.save();
+		return key <= 0 ? -1 : key;
+	}
+
 	/** Raw GLFW key state for the mod-menu's rebindable keys. */
 	public static boolean isRawKeyDown(int glfwKey) {
 		if (glfwKey <= 0) {
@@ -637,7 +689,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
 		// resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.screen == null
-				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
+				&& syncedKeyDown(client, zoomLink, OriginKeyBindings.zoom, "zoom", "key");
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
 			if (zDown && !zoomKeyWasDown) {
 				zoomToggled = !zoomToggled;
@@ -743,12 +795,12 @@ public class OriginClientMod implements ClientModInitializer {
 			flyBoostApplied = false;
 		}
 
-		// Freelook: custom bind (default Left Alt) with the vanilla-controls
-		// binding as a fallback. Hold = look around; release = snap back (the
+		// Freelook: one key (default Left Alt), the same in the mod menu and in
+		// Controls (syncedKeyDown). Hold = look around; release = snap back (the
 		// player's real rotation is never touched — see MouseHandlerMixin).
 		// "Toggle Freelook" turns the hold into a press-on/press-off latch.
 		boolean keyDown = Mods.on("freelook") && client.screen == null
-				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isDown());
+				&& syncedKeyDown(client, freelookLink, OriginKeyBindings.freelook, "freelook", "key");
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;

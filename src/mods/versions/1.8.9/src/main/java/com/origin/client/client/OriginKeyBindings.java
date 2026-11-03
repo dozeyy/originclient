@@ -27,7 +27,9 @@ public final class OriginKeyBindings {
 		// Right Shift: the Origin menu. Consumed by ModMenuHooks.
 		openModMenu = reg("key.originclient.open_mod_menu", Keyboard.KEY_RSHIFT);
 		zoom = reg("key.originclient.zoom", Keyboard.KEY_C);
-		freelook = reg("key.originclient.freelook", Keyboard.KEY_NONE);
+		// Left Alt, the same key as Freelook's mod-menu row: they are one key
+		// (OriginClientMod.syncedKeyDown), so Reset in Controls gives Left Alt.
+		freelook = reg("key.originclient.freelook", Keyboard.KEY_LMENU);
 		copyCoords = reg("key.originclient.copy_coords", Keyboard.KEY_NONE);
 		// Waypoints — unbound by default (set in Controls). Menu opens the manager;
 		// Create opens it on a fresh form; Toggle flips the whole system on/off.
