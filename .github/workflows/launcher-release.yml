@@ -107,13 +107,22 @@ jobs:
       build: ${{ steps.plan.outputs.build }}
       prev_tag: ${{ steps.plan.outputs.prev_tag }}
     steps:
-      # Full history + tags: plan.py and notes.py diff against the previous
-      # release tag, not just the last commit.
-      - name: Check out code (full history)
+      # plan.py and notes.py diff against the previous release tag, so they need this commit's whole history and
+      # the release tags - but NOT every branch: fetch-depth 0 also pulled claude/dev-shots (thousands of CI
+      # screenshots), which made this step take 50-90 minutes per release (v1.0.85/v1.0.86). So: a one-commit
+      # checkout, then this commit's full history, main, and the tags only.
+      - name: Check out code
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
+
+      - name: Fetch this commit's history, main and the release tags (no other branches)
+        run: |
+          git fetch --no-recurse-submodules --unshallow --tags origin \
+            +refs/heads/main:refs/remotes/origin/main
+          git log --oneline -1
+          git tag -l 'launcher-v*' | tail -3
 
       # docs/RELEASING.md: "Only tag commits that are on main and green in build-check". Updates are
       # mandatory, so a tag on a claude/* branch or on a red commit would reach every player. Refused
