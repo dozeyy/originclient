@@ -363,6 +363,12 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to keep the mod menu's last edit on exit", t);
 		}
 		try {
+			// a "Try it" still running (or unanswered) must not stay applied after quitting
+			com.origin.client.client.mods.FpsCoach.restoreHeld();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to put back an FPS Coach try on exit", t);
+		}
+		try {
 			Mods.flush();                     // mod settings + HUD positions -> originclient-mods.json
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save mod settings on exit", t);
