@@ -1,0 +1,280 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Pages.SettingsPage">
+
+    <!-- Settings (twin of the WPF UI/Pages/SettingsPage.xaml): the section rail on the left (it stays put while the
+         column scrolls), one setting per card on the right. Mac differences: Startup reads "Open Origin when you log
+         in" (a LaunchAgent, Core/Install/InstallRegistry.Mac.cs), the folder picker is Finder's, and there is no
+         Shader cache card (its switches are NVIDIA / AMD driver variables; macOS's own OpenGL keeps its shader cache
+         and has no such switch, so the card would be a control that does nothing). -->
+    <UserControl.Resources>
+        <!-- One setting per card (Poster): the shared card with title + one-line why on the left, the control on the
+             right. Sections are plain eyebrow headings above their cards. -->
+        <ControlTheme x:Key="SettingCard" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
+            <Setter Property="MinHeight" Value="{StaticResource Size.Row}"/>
+        </ControlTheme>
+        <ControlTheme x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="Margin" Value="0,32,0,10"/>
+        </ControlTheme>
+        <ControlTheme x:Key="SettingTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.BodyStrong}"/>
+        <ControlTheme x:Key="SettingWhy" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="TextTrimming" Value="None"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+        </ControlTheme>
+
+        <!-- The section rail: tracked caps; the current section gets a 2 px accent bar and full-strength text. -->
+        <ControlTheme x:Key="RailItem" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="SettingsRail"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="RadioButton">
+                    <Panel Background="Transparent">
+                        <Border Name="Hover" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}" Opacity="0"/>
+                        <Rectangle Name="Bar" Width="2" HorizontalAlignment="Left" Margin="0,9" Opacity="0"
+                                   Fill="{DynamicResource Brush.Accent}"/>
+                        <ContentPresenter Name="PART_ContentPresenter" Margin="12,0,0,0" VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"/>
+                    </Panel>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Hover">
+                <Setter Property="Opacity" Value="1"/>
+            </Style>
+            <Style Selector="^:checked">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+            <Style Selector="^:checked /template/ Rectangle#Bar">
+                <Setter Property="Opacity" Value="1"/>
+            </Style>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <!-- The page sits on the dimmed art; PageColumn clears the bar. The scrollbar is hidden, wheel scrolling still works. -->
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <c:PageColumn x:Name="Column" Theme="{StaticResource Page.Column}">
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="200,*">
+
+                <!-- The title spans the rail's column too, so it starts at the page's left edge like every page. -->
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Settings" Theme="{StaticResource Text.Heading}"
+                           HorizontalAlignment="Left"/>
+
+                <!-- The rail stays put while the column scrolls (moved in code). -->
+                <StackPanel x:Name="Rail" Grid.Row="1" Grid.Column="0" VerticalAlignment="Top" Margin="0,24,0,0">
+                    <RadioButton Theme="{StaticResource RailItem}" Tag="SecSync" IsChecked="True">
+                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Sync}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Sky}"/><c:TrackedText Text="SETTINGS SYNC" Tracking="0.16"/></StackPanel>
+                    </RadioButton>
+                    <RadioButton Theme="{StaticResource RailItem}" Tag="SecPerformance">
+                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Settings}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Emerald}"/><c:TrackedText Text="PERFORMANCE" Tracking="0.16"/></StackPanel>
+                    </RadioButton>
+                    <RadioButton Theme="{StaticResource RailItem}" Tag="SecGame">
+                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Folder}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Sky}"/><c:TrackedText Text="GAME" Tracking="0.16"/></StackPanel>
+                    </RadioButton>
+                    <RadioButton Theme="{StaticResource RailItem}" Tag="SecJvm">
+                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Server}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Lilac}"/><c:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/></StackPanel>
+                    </RadioButton>
+                    <RadioButton Theme="{StaticResource RailItem}" Tag="SecClient">
+                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Mods}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{DynamicResource Brush.Accent}"/><c:TrackedText Text="ORIGIN CLIENT" Tracking="0.16"/></StackPanel>
+                    </RadioButton>
+                    <RadioButton Theme="{StaticResource RailItem}" Tag="SecStartup">
+                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Home}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Gold}"/><c:TrackedText Text="STARTUP" Tracking="0.16"/></StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="RailDeveloper" Theme="{StaticResource RailItem}" Tag="SecDeveloper">
+                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Edit}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Coral}"/><c:TrackedText Text="DEVELOPER" Tracking="0.16"/></StackPanel>
+                    </RadioButton>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Grid.Column="1" x:Name="Sections">
+                    <!-- Settings Sync (Core/SettingsSync.cs): on by default, the first section. The ON / OFF word reads the
+                         switch beside it (state only), so it can never disagree. -->
+                    <TextBlock x:Name="SecSync" Text="SETTINGS SYNC" Theme="{StaticResource SectionTitle}" Margin="0,24,0,10"/>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Sync settings across versions" Theme="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="Your keybinds, video settings, mod settings, HUD positions and server list follow you to every version."
+                                           Theme="{StaticResource SettingWhy}"/>
+                            </StackPanel>
+                            <!-- The ON / OFF readout: a Sm capsule; ON washes it in the accent. -->
+                            <Border Grid.Column="1" x:Name="SyncStateCapsule" Theme="{StaticResource Surface.Capsule.Sm}" Margin="0,0,12,0"
+                                    VerticalAlignment="Center" AutomationProperties.Name="Settings Sync state">
+                                <TextBlock x:Name="SyncStateText" Text="OFF" Theme="{StaticResource Text.Label}"
+                                           LineHeight="{StaticResource LineHeight.Caption}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ToggleButton Grid.Column="2" x:Name="SettingsSyncToggle" Theme="{StaticResource Toggle.Slider}"
+                                          AutomationProperties.Name="Sync settings across versions" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Performance -->
+                    <TextBlock x:Name="SecPerformance" Text="PERFORMANCE" Theme="{StaticResource SectionTitle}"/>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <StackPanel>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Text="RAM allocation" Theme="{StaticResource SettingTitle}"/>
+                                    <TextBlock x:Name="RamWhyText" Text="Auto: Origin picks the right amount for each version." Theme="{StaticResource SettingWhy}"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" x:Name="RamAutoButton" Content="Back to Auto" Theme="{StaticResource Button.Secondary}"
+                                        VerticalAlignment="Center" IsVisible="False"/>
+                            </Grid>
+                            <Grid Margin="0,14,0,0" ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="1" x:Name="RamValueText" Text="4096 MB" MinWidth="80" TextAlignment="Right"
+                                           FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Title}" FontWeight="ExtraBold"
+                                           Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="24,0,0,0"/>
+                                <Slider x:Name="RamSlider" Theme="{StaticResource Input.Slider}" Minimum="1024" SmallChange="256"
+                                        VerticalAlignment="Center" LargeChange="1024" TickFrequency="256" IsSnapToTickEnabled="True"
+                                        AutomationProperties.Name="RAM allocation"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Theme="{StaticResource SettingCard}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="Recommended for this Mac" Theme="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="Picks render distance, particles, clouds and graphics to match your Mac. Changes video settings in every version you have played."
+                                           Theme="{StaticResource SettingWhy}"/>
+                                <!-- Hidden while empty: an empty line still took its margin plus a line of dead space. -->
+                                <TextBlock x:Name="PresetStatusText" Theme="{StaticResource SettingWhy}" Margin="0,6,0,0" IsVisible="False"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" x:Name="PresetButton" Content="Apply" Theme="{StaticResource Button.Secondary}"
+                                    VerticalAlignment="Center" AutomationProperties.Name="Apply recommended video settings"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Game -->
+                    <TextBlock x:Name="SecGame" Text="GAME" Theme="{StaticResource SectionTitle}"/>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <StackPanel>
+                            <TextBlock Text="Install folder" Theme="{StaticResource SettingTitle}"/>
+                            <TextBlock Text="Where Minecraft's game files are kept." Theme="{StaticResource SettingWhy}"/>
+                            <Grid Margin="0,12,0,0" ColumnDefinitions="*,8,Auto">
+                                <TextBox Grid.Column="0" x:Name="InstallPathTextBox" Theme="{StaticResource Input.TextBox}"
+                                         AutomationProperties.Name="Install folder"/>
+                                <Button Grid.Column="2" x:Name="BrowseButton" Content="Browse" Theme="{StaticResource Button.Secondary}"/>
+                            </Grid>
+                            <TextBlock x:Name="InstallPathErrorText" Theme="{StaticResource Input.ErrorText}" IsVisible="False"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Resolution" Theme="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="Window size when the game opens." Theme="{StaticResource SettingWhy}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBox x:Name="ResolutionWidthTextBox" Theme="{StaticResource Input.TextBox}" Width="96"
+                                         TextAlignment="Center" AutomationProperties.Name="Width"/>
+                                <TextBlock Text="x" Theme="{StaticResource Text.BodyDim}" Margin="10,0" VerticalAlignment="Center"/>
+                                <TextBox x:Name="ResolutionHeightTextBox" Theme="{StaticResource Input.TextBox}" Width="96"
+                                         TextAlignment="Center" AutomationProperties.Name="Height"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" x:Name="ResolutionErrorText" Theme="{StaticResource Input.ErrorText}"
+                                       IsVisible="False"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- JVM arguments (per version: the lineup spans Java 8 to 25, so a flag that is valid on one version
+                         aborts startup on another) -->
+                    <TextBlock x:Name="SecJvm" Text="JVM ARGUMENTS" Theme="{StaticResource SectionTitle}"/>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <StackPanel>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Arguments for" Theme="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Each version keeps its own: a flag one Java accepts can stop another from starting."
+                                               Theme="{StaticResource SettingWhy}"/>
+                                </StackPanel>
+                                <ComboBox Grid.Column="1" x:Name="JvmVersionComboBox" Theme="{StaticResource Input.ComboBox}"
+                                          ItemContainerTheme="{StaticResource Input.ComboBoxItem}" MinWidth="140"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Version"/>
+                            </Grid>
+                            <TextBox x:Name="JvmArgsTextBox" Theme="{StaticResource Input.TextBox}" Height="88" Margin="0,14,0,0"
+                                     AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                                     AutomationProperties.Name="Arguments"/>
+                            <TextBlock x:Name="JvmArgsStatusText" Theme="{StaticResource SettingWhy}" Margin="0,6,0,0"/>
+                            <!-- Shown only after the crash window reset this version's arguments (RepairExecutor.Settings):
+                                 Undo puts the old ones back. Hidden again once the player types arguments of their own. -->
+                            <Grid x:Name="JvmUndoRow" Margin="0,14,0,0" IsVisible="False" ColumnDefinitions="*,Auto">
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Reset after a crash" Theme="{StaticResource SettingTitle}"/>
+                                    <TextBlock x:Name="JvmUndoText" Theme="{StaticResource SettingWhy}"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" x:Name="JvmUndoButton" Content="Undo" Theme="{StaticResource Button.Secondary}"
+                                        AutomationProperties.Name="Undo Java arguments reset" VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <StackPanel>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Replace defaults" Theme="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Use only your arguments, without Origin's tuned ones." Theme="{StaticResource SettingWhy}"/>
+                                </StackPanel>
+                                <ToggleButton Grid.Column="1" x:Name="JvmReplacePresetsToggle" Theme="{StaticResource Toggle.Slider}"
+                                              AutomationProperties.Name="Replace defaults" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock x:Name="JvmCustomizedVersionsText" Theme="{StaticResource SettingWhy}" Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Origin Client -->
+                    <TextBlock x:Name="SecClient" Text="ORIGIN CLIENT" Theme="{StaticResource SectionTitle}"/>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Origin UI" Theme="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="Origin's menus and loading screens in game." Theme="{StaticResource SettingWhy}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Theme="{StaticResource Toggle.Slider}"
+                                          AutomationProperties.Name="Origin UI" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Startup: the one LaunchAgent file (InstallRegistry.Mac). -->
+                    <TextBlock x:Name="SecStartup" Text="STARTUP" Theme="{StaticResource SectionTitle}"/>
+                    <Border Theme="{StaticResource SettingCard}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Open Origin when you log in" Theme="{StaticResource SettingTitle}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" x:Name="StartAtLoginToggle" Theme="{StaticResource Toggle.Slider}"
+                                          AutomationProperties.Name="Open Origin when you log in" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Developer: the internal test switch. Dev builds only (UpdateService.IsDevBuild): on a release build
+                         the constructor removes this title, its card and the rail entry. -->
+                    <TextBlock x:Name="SecDeveloper" Text="DEVELOPER" Theme="{StaticResource SectionTitle}"/>
+                    <Border x:Name="DeveloperCard" Theme="{StaticResource SettingCard}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Offline test mode" Theme="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="Play without a Microsoft sign-in, for testing." Theme="{StaticResource SettingWhy}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" x:Name="OfflineTestToggle" Theme="{StaticResource Toggle.Slider}"
+                                          AutomationProperties.Name="Offline test mode" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Which build this is: what a bug report needs, and the one place the launcher states it. -->
+                    <TextBlock x:Name="LauncherVersionText" Theme="{StaticResource Text.Caption}"
+                               HorizontalAlignment="Center" Margin="0,32,0,8"/>
+                </StackPanel>
+            </Grid>
+        </c:PageColumn>
+    </ScrollViewer>
+</UserControl>

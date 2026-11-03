@@ -16,10 +16,15 @@ public sealed partial class MojangMetadata
 
     internal static readonly string RuntimePlatform = Arm64 ? "linux-arm64" : "linux";
 
+    // The same runtime for every version on Linux (the per-version choice is a Mac thing: Rosetta for old LWJGL).
+    internal static string RuntimePlatformFor(string mcVersion) => RuntimePlatform;
+
     private const string RuleOsName = "linux";
 
     // An arch-named rule applies only to that arch: Mojang has used "x86" (32-bit, never this
     // launcher) and "arm64"; "x86_64"/"amd64"/"aarch64" are accepted as their usual synonyms.
+    private static bool ArchApplies(JsonElement os, string mcVersion) => ArchApplies(os);
+
     private static bool ArchApplies(JsonElement os)
     {
         if (!os.TryGetProperty("arch", out var arch) || arch.ValueKind != JsonValueKind.String) return true;

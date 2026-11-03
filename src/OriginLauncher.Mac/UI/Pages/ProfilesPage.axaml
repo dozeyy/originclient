@@ -1,0 +1,166 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:OriginLauncher.Mac.UI"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Pages.ProfilesPage">
+
+    <UserControl.Resources>
+        <!-- The dashed "New profile" card at the end of the grid: a thin dashed edge at the card's own radius
+             (twin of the WPF page's local Card.New style). -->
+        <ControlTheme x:Key="Card.New" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FocusAdorner" Value="{StaticResource Focus.Card.Neutral}"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Body" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Lg}">
+                        <Panel>
+                            <Rectangle x:Name="Dash" Stroke="{StaticResource Brush.Stroke}" StrokeThickness="1" StrokeDashArray="4,4"
+                                       RadiusX="{StaticResource Radius.Lg.Value}" RadiusY="{StaticResource Radius.Lg.Value}"/>
+                            <ContentPresenter x:Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16"/>
+                        </Panel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+                <Style Selector="^ /template/ Rectangle#Dash">
+                    <Setter Property="Stroke" Value="{StaticResource Brush.TextMuted}"/>
+                </Style>
+            </Style>
+            <Style Selector="^:pressed">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            </Style>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <!-- Twin of the WPF UI/Pages/ProfilesPage.xaml: mod profiles as cards, three across; the create / edit form is a
+         centred dialog over the page (FormPanel), never a panel that pushes the cards. -->
+    <Panel>
+        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <c:PageColumn x:Name="Column" Theme="{StaticResource Page.Column}">
+            <StackPanel>
+
+                <!-- Header -->
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,24">
+                    <StackPanel>
+                        <TextBlock Text="Profiles" Theme="{StaticResource Text.Heading}" HorizontalAlignment="Left"/>
+                        <TextBlock Text="Your setups. Each one keeps its own mods for one version, and can remember a server to join."
+                                   Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"
+                                   Margin="0,8,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="24,8,0,0">
+                        <Button x:Name="ImportButton" Theme="{StaticResource Button.Secondary.Small}" Margin="0,0,8,0"
+                                AutomationProperties.Name="Import from another launcher">
+                            <StackPanel Orientation="Horizontal">
+                                <c:IconPath Data="{StaticResource Icon.Import}" Theme="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                            Stroke="{Binding $parent[Button].Foreground}"/>
+                                <TextBlock Text="Import" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="NewButton" Theme="{StaticResource Button.Primary.Small}" AutomationProperties.Name="New profile">
+                            <StackPanel Orientation="Horizontal">
+                                <c:IconPath Data="{StaticResource Icon.Plus}" Theme="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                            Stroke="{Binding $parent[Button].Foreground}"/>
+                                <TextBlock Text="New profile" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Status strip: a dot says the tone, danger for a failure, accent for a note. -->
+                <Border x:Name="StatusBox" IsVisible="False" Margin="0,0,0,16" Padding="12,8"
+                        CornerRadius="{StaticResource Radius.Md}" Background="{StaticResource Brush.Card}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border x:Name="StatusDot" Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
+                                ui:Capsule.On="True" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
+                                Background="{StaticResource Brush.Accent}"/>
+                        <TextBlock Grid.Column="1" x:Name="StatusText" Theme="{StaticResource Text.Body}" TextWrapping="Wrap"
+                                   TextTrimming="None"/>
+                    </Grid>
+                </Border>
+
+                <!-- "No profile", one card per profile, then the dashed "New profile" card (built in code). Each cell
+                     is a card plus its 4 px ring space; the -4 lines the cards up with the page column. -->
+                <UniformGrid x:Name="RowsPanel" Columns="3" Margin="-4"/>
+
+            </StackPanel>
+            </c:PageColumn>
+        </ScrollViewer>
+
+        <!-- Create / edit: a dialog over the dimmed page. Escape or the X cancels; a click on the dim does nothing. -->
+        <Panel x:Name="FormPanel" IsVisible="False" Background="{StaticResource Brush.Scrim}">
+            <Border Theme="{StaticResource Surface.Dialog}" Width="{StaticResource Size.Dialog}" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Margin="{StaticResource Margin.Dialog}">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,20">
+                        <Border x:Name="FormEmblem" Width="{StaticResource Size.TileLg}" Height="{StaticResource Size.TileLg}"
+                                CornerRadius="{StaticResource Radius.Sm}" Background="{StaticResource Tint.Slate}" VerticalAlignment="Center">
+                            <Panel>
+                                <TextBlock x:Name="FormInitial" Text="P" Theme="{StaticResource Text.Title}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border x:Name="FormIcon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Panel>
+                        </Border>
+                        <TextBlock x:Name="FormTitle" Grid.Column="1" Text="New profile" Theme="{StaticResource Text.Heading}"
+                                   FontSize="{StaticResource FontSize.Heading}" LineHeight="{StaticResource FontSize.Heading}"
+                                   VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        <Button x:Name="CloseButton" Grid.Column="2" Theme="{StaticResource Social.Icon}" Margin="0,0,-8,0"
+                                AutomationProperties.Name="Close">
+                            <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <StackPanel>
+                            <TextBlock Text="Name" Theme="{StaticResource Text.FieldLabel}"/>
+                            <StackPanel Margin="0,0,0,16">
+                                <TextBox x:Name="NameBox" Theme="{StaticResource Input.TextBox}" MaxLength="32"
+                                         AutomationProperties.Name="Profile name"/>
+                                <TextBlock x:Name="NameError" Foreground="{StaticResource Brush.DangerText}"
+                                           Theme="{StaticResource Text.Caption}" TextWrapping="Wrap" IsVisible="False" Margin="0,8,0,0"/>
+                            </StackPanel>
+
+                            <TextBlock Text="Emblem" Theme="{StaticResource Text.FieldLabel}"/>
+                            <WrapPanel x:Name="IconRow" Orientation="Horizontal" Margin="0,0,0,12"/>
+
+                            <TextBlock Text="Colour" Theme="{StaticResource Text.FieldLabel}"/>
+                            <StackPanel x:Name="TintRow" Orientation="Horizontal" Margin="0,0,0,16"/>
+
+                            <Grid ColumnDefinitions="*,12,*" Margin="0,0,0,16">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Version" Theme="{StaticResource Text.FieldLabel}"/>
+                                    <ComboBox x:Name="VersionBox" Theme="{StaticResource Input.ComboBox}" HorizontalAlignment="Stretch"
+                                              AutomationProperties.Name="Minecraft version"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Server name (optional)" Theme="{StaticResource Text.FieldLabel}"/>
+                                    <TextBox x:Name="ServerNameBox" Theme="{StaticResource Input.TextBox}" MaxLength="32"
+                                             AutomationProperties.Name="Server name"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Server to join (optional)" Theme="{StaticResource Text.FieldLabel}"/>
+                            <TextBox x:Name="ServerAddressBox" Theme="{StaticResource Input.TextBox}" MaxLength="255"
+                                     AutomationProperties.Name="Server address"/>
+                            <TextBlock x:Name="VersionHint" Theme="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                       Text="A profile belongs to one version. With a server, Home shows Join next to Play."/>
+
+                            <TextBlock x:Name="FormError" Foreground="{StaticResource Brush.DangerText}"
+                                       Theme="{StaticResource Text.Caption}" TextWrapping="Wrap" IsVisible="False" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                        <Button x:Name="CancelButton" Content="Cancel" Theme="{StaticResource Button.Ghost}" Margin="0,0,8,0"/>
+                        <Button x:Name="SaveButton" Content="Create profile" Theme="{StaticResource Button.Primary.Medium}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Panel>
+    </Panel>
+</UserControl>

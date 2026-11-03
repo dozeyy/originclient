@@ -1,0 +1,182 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+
+    <!-- Avalonia twin of src/OriginLauncher.App/Theme/Spacing.xaml (same keys and values; Duration is a TimeSpan,
+         KeySpline a SplineEasing, the drop shadow a BoxShadows). App.DisableMotion zeroes the Motion.* keys. -->
+
+    <!--
+        Origin launcher space, size, radius, motion and elevation tokens: the Workbench design system
+        (docs/overhaul/DESIGN-SYSTEM.md sections 4 to 9, key map in 17.1). Same names and values as the installer's
+        Theme/Tokens.xaml where the two overlap (tools/release/check_consistency.py compares them). No other file
+        writes a spacing, size, radius or duration literal.
+    -->
+
+    <!-- ===== Space (spec 4): 4 px base, 8 px rhythm ===== -->
+    <x:Double x:Key="Space.1">4</x:Double>
+    <x:Double x:Key="Space.2">8</x:Double>
+    <x:Double x:Key="Space.3">12</x:Double>
+    <x:Double x:Key="Space.4">16</x:Double>
+    <x:Double x:Key="Space.5">20</x:Double>
+    <x:Double x:Key="Space.6">24</x:Double>
+    <x:Double x:Key="Space.8">32</x:Double>
+    <x:Double x:Key="Space.10">40</x:Double>
+    <x:Double x:Key="Space.12">48</x:Double>
+
+    <!-- Capsule padding (a pill, chip or badge, radius = height / 2): the 12 px caption chip is 24 tall (8 x 4 around a
+         16 px line, so the ink sits about 8 from every edge); the 11 px label badge is 20 tall (6 x 3). One token per size,
+         used by every capsule. -->
+    <Thickness x:Key="Padding.Capsule">8,4</Thickness>
+    <Thickness x:Key="Padding.Capsule.Sm">6,3</Thickness>
+
+    <!-- Layout margins that more than one style needs, as tokens. -->
+    <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
+    <Thickness x:Key="Margin.DropZone">24,20</Thickness>
+    <!-- The status strip's 6 px dot: 8 down puts it on the first text line's centre, 12 to the text. -->
+    <Thickness x:Key="Margin.StatusDot">0,8,12,0</Thickness>
+    <!-- A dialog over a page: 24 at the sides and foot, and the top clears the 48 top bar plus 24 (Size.Bar + Space.6),
+         so a tall dialog never slides under the bar. -->
+    <Thickness x:Key="Margin.Dialog">24,72,24,24</Thickness>
+
+    <!-- A popup (menu, dropdown list) is a transparent window, so Shadow.Overlay needs empty room around the panel to
+         draw into. Popup.Bleed is that room (left, top, right, bottom); Popup.OffsetX shifts the window left by the
+         same amount so the PANEL still lines up with its anchor. Top is 4 so the panel opens 4 px below the anchor. -->
+    <Thickness x:Key="Popup.Bleed">16,4,16,28</Thickness>
+    <x:Double x:Key="Popup.OffsetX">-16</x:Double>
+
+    <!-- ===== Control sizes (spec 5): one height per step, on every screen ===== -->
+    <x:Double x:Key="Size.ControlSm">28</x:Double>
+    <x:Double x:Key="Size.ControlMd">32</x:Double>
+    <x:Double x:Key="Size.ControlLg">36</x:Double>
+    <x:Double x:Key="Size.ControlXl">40</x:Double>
+    <!-- The Home strip (Workbench mockup): the version card, Join and Play are one 64 tall row of cards (Radius.Lg);
+         the thumbnail is 48 (8 in from the card's edge); Play is 208 wide. The status dot is 8; the nav's active dot 4. -->
+    <x:Double x:Key="Size.StripControl">64</x:Double>
+    <x:Double x:Key="Size.StripTile">48</x:Double>
+    <x:Double x:Key="Size.PlayWidth">208</x:Double>
+    <x:Double x:Key="Size.StatusDot">8</x:Double>
+    <x:Double x:Key="Size.NavDot">4</x:Double>
+    <!-- The My mods switch on Home (mockup .sw2): 36 x 20 track, 14 knob inset 3, so the travel is 36 - 14 - 6 = 16. -->
+    <x:Double x:Key="Size.HomeSwitchWidth">36</x:Double>
+    <x:Double x:Key="Size.HomeSwitchHeight">20</x:Double>
+    <x:Double x:Key="Size.HomeSwitchKnob">14</x:Double>
+    <x:Double x:Key="Size.HomeSwitchTravel">16</x:Double>
+    <!-- The top bar holds 32 tall controls with 8 above and below. List rows are 64 tall. Drawers (Accounts,
+         Friends, Import) are 380 wide. -->
+    <x:Double x:Key="Size.Bar">48</x:Double>
+    <x:Double x:Key="Size.Row">64</x:Double>
+    <x:Double x:Key="Size.Drawer">380</x:Double>
+    <x:Double x:Key="Size.Checkbox">16</x:Double>
+    <x:Double x:Key="Size.Progress">3</x:Double>
+    <x:Double x:Key="Size.Dot">6</x:Double>
+    <x:Double x:Key="Size.Badge">20</x:Double>
+    <!-- Version selector (11.3, 11.6): the sheet takes Share of the window width, never narrower than Min (the old fixed
+         sheet) and never wider than Max. Step 2's panel (the family card grown) takes FamilyPanel.Share of the sheet,
+         between FamilyPanel.Min and FamilyPanel.Max. -->
+    <x:Double x:Key="Size.Sheet.Min">912</x:Double>
+    <x:Double x:Key="Size.Sheet.Max">1600</x:Double>
+    <x:Double x:Key="Size.Sheet.Share">0.8</x:Double>
+    <x:Double x:Key="Size.FamilyPanel.Min">320</x:Double>
+    <x:Double x:Key="Size.FamilyPanel.Max">520</x:Double>
+    <x:Double x:Key="Size.FamilyPanel.Share">0.44</x:Double>
+    <!-- Slider (spec 11): 4 track, 16 round thumb, a 20 hit box. -->
+    <x:Double x:Key="Size.SliderBox">20</x:Double>
+    <x:Double x:Key="Size.SliderTrack">4</x:Double>
+    <x:Double x:Key="Size.SliderThumb">16</x:Double>
+    <!-- Switch (spec 5): 32 x 18, knob 14. -->
+    <x:Double x:Key="Size.SwitchWidth">32</x:Double>
+    <x:Double x:Key="Size.SwitchHeight">18</x:Double>
+    <x:Double x:Key="Size.SwitchKnob">14</x:Double>
+    <x:Double x:Key="Size.SwitchTravel">14</x:Double>
+    <!-- Tiles (spec 2.3 / 10): the icon square that labels a list row or a card. 40 (Lg) on a list row, a card or a
+         dialog header; 28 (Sm) for the small squares inside them (mod squares, emblem and colour pickers). Hue only inside a tile, never as a box around a bare icon. -->
+    <x:Double x:Key="Size.TileSm">28</x:Double>
+    <x:Double x:Key="Size.TileLg">40</x:Double>
+    <!-- A dialog's width (spec 11.10: max 440) and the swatch / emblem pickers inside the profile form. -->
+    <x:Double x:Key="Size.Dialog">440</x:Double>
+    <!-- The Microsoft sign-in card: 460 wide; the page well is 564 tall once Microsoft's page shows (card 640 with its
+         60 header and 16 bottom gutter). Until then, and for an outcome message, the card fits its content. -->
+    <x:Double x:Key="Size.SignInCard">460</x:Double>
+    <x:Double x:Key="Size.SignInPage">564</x:Double>
+    <!-- Brand sizes (spec 1.3): the top bar mark 24 with a 16 tall wordmark. -->
+    <x:Double x:Key="Size.Emblem">24</x:Double>
+    <x:Double x:Key="Size.Logo.Bar">24</x:Double>
+    <x:Double x:Key="Size.Wordmark.Bar">16</x:Double>
+    <x:Double x:Key="Size.Logo.Hero">48</x:Double>
+    <x:Double x:Key="Size.Logo.Intro">64</x:Double>
+    <x:Double x:Key="Size.Wordmark.Hero">24</x:Double>
+    <!-- Account pill and rows (U3.5): a head is its container's height minus 8 (4 inset all round, concentric with
+         the container corner: the head's radius is the container's minus 4). 24 = 3 x 8 and 40 = 5 x 8, whole
+         multiples of the 8 x 8 face. The name stops at 160. A 10 px dot with a 2 px ring is the 6 px status dot
+         (Size.Dot) plus its ring. -->
+    <x:Double x:Key="Size.PillHead">24</x:Double>
+    <x:Double x:Key="Size.RowHead">40</x:Double>
+    <x:Double x:Key="Size.AccountName">160</x:Double>
+    <x:Double x:Key="Size.DotRinged">10</x:Double>
+    <x:Double x:Key="Size.DotRing">2</x:Double>
+    <CornerRadius x:Key="Radius.Head.Sm">2</CornerRadius>
+    <!-- Pill: 1 px edge + 3 = the 4 inset on the left; 9 + 1 = the 10 on the right. Row: 1 px edge + 3 = 4 all round.
+         Brand lockup: 6 to its left (the logo stays at the bar's 24), 14 to its right (the hover arrow's room). -->
+    <Thickness x:Key="Padding.AccountPill">3,0,9,0</Thickness>
+    <Thickness x:Key="Padding.AccountRow">3</Thickness>
+    <Thickness x:Key="Padding.Brand">6,4,14,4</Thickness>
+    <Thickness x:Key="Margin.OfflineDot">0,0,-2,-2</Thickness>
+
+    <!-- ===== Corner radii (spec 6) ===== -->
+    <CornerRadius x:Key="Radius.Xs">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Sm">6</CornerRadius>
+    <CornerRadius x:Key="Radius.Md">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Lg">12</CornerRadius>
+    <!-- No "full" radius token: a 999 radius renders an ellipse in WPF. Capsules use ui:Capsule.On (UI/Capsule.cs). -->
+    <!-- Dialogs (the approved Workbench mockup, A-Workbench-2 "Shape and motion": card 12, control 8, dialog 16): every
+         dialog, sheet-over-scrim and the crash windows' main card. One step rounder than a card so a dialog never reads
+         as another card on the page. -->
+    <CornerRadius x:Key="Radius.Dialog">16</CornerRadius>
+    <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
+    <x:Double x:Key="Radius.Lg.Value">12</x:Double>
+    <!-- A card's picture: the card's corner on its top two corners only. -->
+    <CornerRadius x:Key="Radius.Lg.Top">12,12,0,0</CornerRadius>
+    <!-- Rails (progress 3, slider 4): half their height. A 999 radius on a thin wide bar draws a pointed lens in WPF. -->
+    <CornerRadius x:Key="Radius.Track">2</CornerRadius>
+    <!-- Focus ring corner = control corner + 2 (spec 8). -->
+    <CornerRadius x:Key="Radius.Ring.Xs">6</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Sm">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Md">10</CornerRadius>
+    <CornerRadius x:Key="Radius.Ring.Lg">14</CornerRadius>
+
+    <!-- ===== Motion (spec 9). App.DisableMotion zeroes every one of these for reduced motion and the CI shot
+         render; code paths use UI.Motion. ===== -->
+    <sys:TimeSpan x:Key="Motion.Press">0:0:0.08</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Release">0:0:0.14</sys:TimeSpan>
+    <!-- Hover lands on the next frame (Will, 2026-10-26: hover "takes a second to register"; the mouse was handled in
+         2-5 ms, but a 120 ms linear fade from a low-contrast colour read as late). Only the way out fades. -->
+    <sys:TimeSpan x:Key="Motion.HoverIn">0:0:0</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Hover">0:0:0.12</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Base">0:0:0.16</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Enter">0:0:0.22</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Exit">0:0:0.14</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Scene">0:0:0.26</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Drawer">0:0:0.32</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Drag">0:0:0.18</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Intro">0:0:0.56</sys:TimeSpan>
+    <sys:TimeSpan x:Key="Motion.Settle">0:0:0.32</sys:TimeSpan>
+
+    <!-- Easings as KeySplines: Out is the spec's (.2,.8,.2,1). -->
+    <SplineEasing x:Key="Ease.Out" X1="0.2" Y1="0.8" X2="0.2" Y2="1"/>
+    <SplineEasing x:Key="Ease.In" X1="0.55" Y1="0" X2="0.75" Y2="0.2"/>
+    <SplineEasing x:Key="Ease.Expo" X1="0.16" Y1="1" X2="0.3" Y2="1"/>
+
+    <!-- ===== Elevation (spec 7): the one shadow, for menus, dialogs, sheets and toasts. Put it on a static parent
+         border, never on an animating element (effects re-rasterise in software). ===== -->
+    <BoxShadows x:Key="Shadow.Overlay">0 12 32 0 #66000000</BoxShadows>
+
+    <!-- ===== Mac only (no WPF twin) ===== -->
+    <!-- The top bar's insets on the Mac. Left: the native traffic lights own the bar's first 72 px (three 12 px
+         buttons from x 20, plus the system's gap), so the brand lockup starts after them; the WPF bar starts at 18
+         because Windows draws its window controls at the right. Right: 16, the WPF bar's 18 less the account pill's
+         own breathing room, since the Mac bar ends on the pill instead of Minimize / Close. The bar itself spans the
+         whole window so the page tabs stay centred on the window, as they are on Windows. -->
+    <Thickness x:Key="Margin.TopBarBrand">72,0,0,0</Thickness>
+    <Thickness x:Key="Margin.TopBarActions">0,0,16,0</Thickness>
+
+</ResourceDictionary>

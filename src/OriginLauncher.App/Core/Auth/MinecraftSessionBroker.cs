@@ -60,10 +60,10 @@ public static class MinecraftSessionBroker
                 "Microsoft didn't return a Minecraft profile for this account. Please try again.",
                 "interactive sign-in returned a session without uuid or access token");
 
-        var protectedRefresh = AccountStore.ProtectRefreshToken(result.MsaRefreshToken);
+        var protectedRefresh = MicrosoftAuthException.Sealed(() => AccountStore.ProtectRefreshToken(result.MsaRefreshToken));
         if (FromMSession(result.Session, result.ExpiresAt) is { } session)
         {
-            var protectedSession = AccountStore.ProtectSession(session);
+            var protectedSession = MicrosoftAuthException.Sealed(() => AccountStore.ProtectSession(session));
             var alreadyAdded = false;
             AccountStore.Update(accounts =>
             {

@@ -1,0 +1,204 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+
+    <!-- Avalonia twin of src/OriginLauncher.App/Theme/Colors.xaml: same keys, same values (tools/mac/check_theme_parity.py compares them in CI). Edit both together. -->
+
+    <!--
+        Origin launcher colour tokens: the Workbench design system (docs/overhaul/DESIGN-SYSTEM.md section 2, key
+        map in section 17.1), dark set. Deepslate surfaces, parchment text, one emerald accent, five soft hues for
+        small things. This is the ONLY place a colour is written down; every other launcher file refers to a key
+        (tools/design/check_tokens.py fails the build on a hex colour anywhere else).
+
+        The names and values of the keys the installer also defines (src/OriginSetup/Theme/Tokens.xaml) are the
+        same; tools/release/check_consistency.py compares them. Rules that never change:
+          - A neutral base with small soft-hued accents: hue lives on glyphs, 28 px tiles at 16 %, dots, badges and
+            progress fills, never on a large fill or a numeral.
+          - No gradient except a scrim over art, no glow, no sheen, no per-family colour.
+          - Every colour has its Brush.X twin below; XAML uses the brush, animations use the Color.
+    -->
+
+    <!-- Surfaces (spec 2.1): bg < surface < raised < hover, stepped, separated by hairlines rather than shadow. -->
+    <Color x:Key="Color.Bg">#FF0E1110</Color>
+    <Color x:Key="Color.BgAlt">#FF0B0D0C</Color>
+    <Color x:Key="Color.Panel">#FF171C19</Color>
+    <Color x:Key="Color.PanelGlass">#E0141816</Color>
+    <Color x:Key="Color.Card">#FF1D2320</Color>
+    <Color x:Key="Color.CardAlt">#FF232A26</Color>
+    <Color x:Key="Color.SurfacePress">#FF191E1B</Color>
+    <!-- Sunken field (inputs, dropdown boxes): black at 28 %, so it reads one step below whatever it sits on. -->
+    <Color x:Key="Color.Field">#47000000</Color>
+
+    <!-- Lines: white at 6 % (hairline), 10 % (controls) and 14 % (hovered control). -->
+    <Color x:Key="Color.SoftStroke">#0FFFFFFF</Color>
+    <Color x:Key="Color.Stroke">#1AFFFFFF</Color>
+    <Color x:Key="Color.StrokeHover">#24FFFFFF</Color>
+
+    <!-- Text: parchment at 100 / 68 / 56 % (muted is 4.86:1 on the lightest card, CardAlt). On a photo the same colour, over a scrim. -->
+    <Color x:Key="Color.Text">#FFF1E9D2</Color>
+    <Color x:Key="Color.TextDim">#ADF1E9D2</Color>
+    <Color x:Key="Color.TextMuted">#8FF1E9D2</Color>
+    <Color x:Key="Color.OnPhoto">#FFF1E9D2</Color>
+
+    <!-- The one accent: emerald. AccentSoft is a wash behind a selected row or chip, AccentBorder the quiet outline
+         and the keyboard focus ring. -->
+    <Color x:Key="Color.Accent">#FF5FD09B</Color>
+    <Color x:Key="Color.AccentHover">#FF83E2B5</Color>
+    <Color x:Key="Color.AccentPress">#FF4CB985</Color>
+    <Color x:Key="Color.AccentSoft">#245FD09B</Color>
+    <Color x:Key="Color.AccentBorder">#995FD09B</Color>
+    <Color x:Key="Color.TextOnAccent">#FF0A1710</Color>
+
+    <!-- Status colours: information only, never decoration. -->
+    <Color x:Key="Color.Success">#FF68C490</Color>
+    <Color x:Key="Color.Warning">#FFE9C46A</Color>
+    <Color x:Key="Color.Info">#FF6FAEE8</Color>
+    <Color x:Key="Color.Danger">#FFD9675A</Color>
+    <Color x:Key="Color.DangerText">#FFF98E80</Color>
+    <Color x:Key="Color.DangerSoft">#24D9675A</Color>
+    <Color x:Key="Color.DangerSoftHover">#38D9675A</Color>
+
+    <!-- Ghost / icon washes: white at 6 % (hover) and 4 % (press). -->
+    <Color x:Key="Color.GhostHover">#0FFFFFFF</Color>
+    <Color x:Key="Color.GhostPress">#0AFFFFFF</Color>
+    <!-- Alpha-0 twin of GhostHover: same RGB, so a fade from rest only animates alpha and never drifts. -->
+    <Color x:Key="Color.GhostRest">#00FFFFFF</Color>
+    <!-- The account pill's fill at rest: white at 4 % (hover is CardAlt with the hovered edge). -->
+    <Color x:Key="Color.PillRest">#0AFFFFFF</Color>
+    <Color x:Key="Color.ProgressTrack">#14FFFFFF</Color>
+    <Color x:Key="Color.Scrim">#A30A0D0C</Color>
+    <!-- The version selector sheet: the panel colour at 98 % (DESIGN-SYSTEM.md 11.3). -->
+    <Color x:Key="Color.Sheet">#FA171C19</Color>
+    <Color x:Key="Color.PageDim">#EB0E1110</Color>
+    <Color x:Key="Color.LaunchScrim">#990E1110</Color>
+    <!-- The giant version numeral on art: parchment (Color.Text) at 94 %, from the approved Workbench Home mockup. -->
+    <Color x:Key="Color.NumeralInk">#F0F1E9D2</Color>
+    <!-- Beside a numeral on art (the range on a version card): the numeral's parchment at 82 % (spec color.onArt). -->
+    <Color x:Key="Color.OnArt">#D1F1E9D2</Color>
+    <!-- The 1 px legibility shadow under a numeral on art: drawn, never an effect (spec 11.6): black at 40 %. -->
+    <Color x:Key="Color.NumeralShadow">#66000000</Color>
+    <!-- Scrim ends over art (the only gradients): the bg colour at the strong and the clear end. -->
+    <Color x:Key="Color.ScrimStrong">#EB0E1110</Color>
+    <Color x:Key="Color.ScrimMid">#D60E1110</Color>
+    <Color x:Key="Color.ScrimClear">#000E1110</Color>
+    <Color x:Key="Color.ScrimSoft">#7A0E1110</Color>
+    <!-- The Home art's one darkening (mockup .shade): clear to 38 %, then up to the strong end at the bottom edge. -->
+    <Color x:Key="Color.ScrimArt">#610E1110</Color>
+    <Color x:Key="Color.SheetShade">#730E1110</Color>
+    <!-- A switch: off = dark track with a muted knob, on = emerald track with a parchment knob. -->
+    <Color x:Key="Color.SwitchKnobOff">#85F1E9D2</Color>
+
+    <!-- Hues (spec 2.3): fixed meaning, the same on every surface. Tiles are the hue at 16 %. -->
+    <Color x:Key="Color.Hue.Emerald">#FF5FD09B</Color>
+    <Color x:Key="Color.Hue.Sky">#FF6FAEE8</Color>
+    <Color x:Key="Color.Hue.Gold">#FFE9C46A</Color>
+    <Color x:Key="Color.Hue.Lilac">#FFB49CE8</Color>
+    <Color x:Key="Color.Hue.Coral">#FFE08A6B</Color>
+    <Color x:Key="Color.HueTile.Emerald">#295FD09B</Color>
+    <Color x:Key="Color.HueTile.Sky">#296FAEE8</Color>
+    <Color x:Key="Color.HueTile.Gold">#29E9C46A</Color>
+    <Color x:Key="Color.HueTile.Lilac">#29B49CE8</Color>
+    <Color x:Key="Color.HueTile.Coral">#29E08A6B</Color>
+    <!-- The update chip: the gold hue at 12 % (20 % on hover). -->
+    <Color x:Key="Color.HueChip.Gold">#1FE9C46A</Color>
+    <Color x:Key="Color.HueChip.GoldHover">#33E9C46A</Color>
+
+    <!-- ===== Brushes ===== -->
+    <SolidColorBrush x:Key="Brush.Bg" Color="{StaticResource Color.Bg}"/>
+    <SolidColorBrush x:Key="Brush.BgAlt" Color="{StaticResource Color.BgAlt}"/>
+    <SolidColorBrush x:Key="Brush.Panel" Color="{StaticResource Color.Panel}"/>
+    <SolidColorBrush x:Key="Brush.PanelGlass" Color="{StaticResource Color.PanelGlass}"/>
+    <SolidColorBrush x:Key="Brush.Card" Color="{StaticResource Color.Card}"/>
+    <SolidColorBrush x:Key="Brush.CardAlt" Color="{StaticResource Color.CardAlt}"/>
+    <SolidColorBrush x:Key="Brush.SurfacePress" Color="{StaticResource Color.SurfacePress}"/>
+    <SolidColorBrush x:Key="Brush.Field" Color="{StaticResource Color.Field}"/>
+    <SolidColorBrush x:Key="Brush.SoftStroke" Color="{StaticResource Color.SoftStroke}"/>
+    <SolidColorBrush x:Key="Brush.Stroke" Color="{StaticResource Color.Stroke}"/>
+    <SolidColorBrush x:Key="Brush.StrokeHover" Color="{StaticResource Color.StrokeHover}"/>
+    <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource Color.Text}"/>
+    <SolidColorBrush x:Key="Brush.TextDim" Color="{StaticResource Color.TextDim}"/>
+    <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}"/>
+    <SolidColorBrush x:Key="Brush.OnPhoto" Color="{StaticResource Color.OnPhoto}"/>
+    <SolidColorBrush x:Key="Brush.NumeralInk" Color="{StaticResource Color.NumeralInk}"/>
+    <SolidColorBrush x:Key="Brush.OnArt" Color="{StaticResource Color.OnArt}"/>
+    <SolidColorBrush x:Key="Brush.NumeralShadow" Color="{StaticResource Color.NumeralShadow}"/>
+    <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>
+    <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}"/>
+    <SolidColorBrush x:Key="Brush.AccentPress" Color="{StaticResource Color.AccentPress}"/>
+    <SolidColorBrush x:Key="Brush.AccentSoft" Color="{StaticResource Color.AccentSoft}"/>
+    <SolidColorBrush x:Key="Brush.AccentBorder" Color="{StaticResource Color.AccentBorder}"/>
+    <SolidColorBrush x:Key="Brush.TextOnAccent" Color="{StaticResource Color.TextOnAccent}"/>
+    <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}"/>
+    <SolidColorBrush x:Key="Brush.Warning" Color="{StaticResource Color.Warning}"/>
+    <SolidColorBrush x:Key="Brush.Info" Color="{StaticResource Color.Info}"/>
+    <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}"/>
+    <SolidColorBrush x:Key="Brush.DangerText" Color="{StaticResource Color.DangerText}"/>
+    <SolidColorBrush x:Key="Brush.DangerSoft" Color="{StaticResource Color.DangerSoft}"/>
+    <SolidColorBrush x:Key="Brush.DangerSoftHover" Color="{StaticResource Color.DangerSoftHover}"/>
+    <SolidColorBrush x:Key="Brush.GhostHover" Color="{StaticResource Color.GhostHover}"/>
+    <SolidColorBrush x:Key="Brush.GhostPress" Color="{StaticResource Color.GhostPress}"/>
+    <!-- Mac only: WPF animates Color.GhostRest on a local brush; Avalonia transitions need it as a brush. -->
+    <SolidColorBrush x:Key="Brush.GhostRest" Color="{StaticResource Color.GhostRest}"/>
+    <SolidColorBrush x:Key="Brush.PillRest" Color="{StaticResource Color.PillRest}"/>
+    <SolidColorBrush x:Key="Brush.ProgressTrack" Color="{StaticResource Color.ProgressTrack}"/>
+    <SolidColorBrush x:Key="Brush.Scrim" Color="{StaticResource Color.Scrim}"/>
+    <SolidColorBrush x:Key="Brush.ScrimMid" Color="{StaticResource Color.ScrimMid}"/>
+    <SolidColorBrush x:Key="Brush.Sheet" Color="{StaticResource Color.Sheet}"/>
+    <SolidColorBrush x:Key="Brush.PageDim" Color="{StaticResource Color.PageDim}"/>
+    <SolidColorBrush x:Key="Brush.LaunchScrim" Color="{StaticResource Color.LaunchScrim}"/>
+    <SolidColorBrush x:Key="Brush.SwitchKnobOff" Color="{StaticResource Color.SwitchKnobOff}"/>
+
+    <SolidColorBrush x:Key="Brush.Hue.Emerald" Color="{StaticResource Color.Hue.Emerald}"/>
+    <SolidColorBrush x:Key="Brush.Hue.Sky" Color="{StaticResource Color.Hue.Sky}"/>
+    <SolidColorBrush x:Key="Brush.Hue.Gold" Color="{StaticResource Color.Hue.Gold}"/>
+    <SolidColorBrush x:Key="Brush.Hue.Lilac" Color="{StaticResource Color.Hue.Lilac}"/>
+    <SolidColorBrush x:Key="Brush.Hue.Coral" Color="{StaticResource Color.Hue.Coral}"/>
+    <SolidColorBrush x:Key="Brush.HueTile.Emerald" Color="{StaticResource Color.HueTile.Emerald}"/>
+    <SolidColorBrush x:Key="Brush.HueTile.Sky" Color="{StaticResource Color.HueTile.Sky}"/>
+    <SolidColorBrush x:Key="Brush.HueTile.Gold" Color="{StaticResource Color.HueTile.Gold}"/>
+    <SolidColorBrush x:Key="Brush.HueTile.Lilac" Color="{StaticResource Color.HueTile.Lilac}"/>
+    <SolidColorBrush x:Key="Brush.HueTile.Coral" Color="{StaticResource Color.HueTile.Coral}"/>
+    <SolidColorBrush x:Key="Brush.HueChip.Gold" Color="{StaticResource Color.HueChip.Gold}"/>
+    <SolidColorBrush x:Key="Brush.HueChip.GoldHover" Color="{StaticResource Color.HueChip.GoldHover}"/>
+
+    <!-- Profile colours. A profile stores a NAME (ProfileLook looks up "Tint.<name>" and "TintInk.<name>"), so the
+         names saved by older builds keep resolving; each now points at one of the five hues (a tile at 16 % and the
+         hue as the glyph on it) and Graphite is the neutral step. New code uses Brush.HueTile.* / Brush.Hue.*. -->
+    <SolidColorBrush x:Key="Tint.Slate" Color="{StaticResource Color.HueTile.Sky}"/>
+    <SolidColorBrush x:Key="Tint.Plum" Color="{StaticResource Color.HueTile.Lilac}"/>
+    <SolidColorBrush x:Key="Tint.Umber" Color="{StaticResource Color.HueTile.Gold}"/>
+    <SolidColorBrush x:Key="Tint.Moss" Color="{StaticResource Color.HueTile.Emerald}"/>
+    <SolidColorBrush x:Key="Tint.Wine" Color="{StaticResource Color.HueTile.Coral}"/>
+    <SolidColorBrush x:Key="Tint.Graphite" Color="{StaticResource Color.CardAlt}"/>
+    <SolidColorBrush x:Key="TintInk.Slate" Color="{StaticResource Color.Hue.Sky}"/>
+    <SolidColorBrush x:Key="TintInk.Plum" Color="{StaticResource Color.Hue.Lilac}"/>
+    <SolidColorBrush x:Key="TintInk.Umber" Color="{StaticResource Color.Hue.Gold}"/>
+    <SolidColorBrush x:Key="TintInk.Moss" Color="{StaticResource Color.Hue.Emerald}"/>
+    <SolidColorBrush x:Key="TintInk.Wine" Color="{StaticResource Color.Hue.Coral}"/>
+    <SolidColorBrush x:Key="TintInk.Graphite" Color="{StaticResource Color.TextDim}"/>
+
+    <!-- Scrims over art: the only gradients (spec 1: text never sits on art without one). The strong end keeps
+         text over the art at 7:1. -->
+    <LinearGradientBrush x:Key="Brush.ScrimTop" StartPoint="0%,0%" EndPoint="0%,100%">
+        <GradientStop Color="{StaticResource Color.ScrimStrong}" Offset="0"/>
+        <GradientStop Color="{StaticResource Color.ScrimMid}" Offset="0.4"/>
+        <GradientStop Color="{StaticResource Color.ScrimClear}" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="Brush.ScrimBottom" StartPoint="0%,100%" EndPoint="0%,0%">
+        <GradientStop Color="{StaticResource Color.ScrimStrong}" Offset="0"/>
+        <GradientStop Color="{StaticResource Color.ScrimMid}" Offset="0.515"/>
+        <GradientStop Color="{StaticResource Color.ScrimClear}" Offset="1"/>
+    </LinearGradientBrush>
+    <!-- Home's art shade: colour art all the way, darkening only from 40 % down so the bottom row reads. -->
+    <LinearGradientBrush x:Key="Fill.ArtShade" StartPoint="0%,0%" EndPoint="0%,100%">
+        <GradientStop Color="{StaticResource Color.ScrimClear}" Offset="0.4"/>
+        <GradientStop Color="{StaticResource Color.ScrimArt}" Offset="0.66"/>
+        <GradientStop Color="{StaticResource Color.ScrimStrong}" Offset="1"/>
+    </LinearGradientBrush>
+    <!-- The shade a bottom sheet casts up onto the art. -->
+    <LinearGradientBrush x:Key="Fill.SheetShade" StartPoint="0%,0%" EndPoint="0%,100%">
+        <GradientStop Color="{StaticResource Color.ScrimClear}" Offset="0"/>
+        <GradientStop Color="{StaticResource Color.SheetShade}" Offset="1"/>
+    </LinearGradientBrush>
+
+</ResourceDictionary>

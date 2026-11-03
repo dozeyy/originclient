@@ -67,6 +67,13 @@ public static partial class UpdateService
     private static void ShutdownApp() => Shutdown();
 
     // The download is not a zip on Linux: unpack the tar.gz, or stage the AppImage as one file.
+    // Nothing refuses an update up front on Linux: a read-only package install updates into the per-user copy.
+    private static Task<string?> InstallBlockedHereAsync() => Task.FromResult<string?>(null);
+
+    // Never reached (StageReleaseOverride always stages); kept so UpdateService.cs has one extract call for every OS.
+    private static void ExtractUpdate(string zipPath, string stageDir) =>
+        ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+
     static partial void StageReleaseOverride(string download, string stageDir, ref bool staged)
     {
         StageRelease(download, stageDir, appImage: AppImagePath != null);

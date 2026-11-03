@@ -35,13 +35,23 @@
 #                                with the four Linux downloads attached (only
 #                                when step 3 passed: a Linux failure publishes
 #                                the Windows files alone, with a loud warning).
+#   5. Mac        (macOS, both archs at once, after 4 succeeded) bundle the
+#                                SAME jars into Origin.app (Apple Silicon on
+#                                macos-15, Intel on macos-15-intel), ad-hoc
+#                                sign, zip + disk image, prove both, then ADD
+#                                the 6 Mac files to the release Windows already
+#                                published (gh release upload). Nothing here can
+#                                delete, change or hold up the Windows files; a
+#                                release with no Mac zip just offers Mac
+#                                launchers nothing (tools/release/mac/package.sh).
 # The old single-job pipeline compiled every module back to back on one
 # Windows runner.
 #
 # REHEARSAL: run it from the Actions tab (Run workflow) to do every step
 # against the latest published release — plan, reuse, build, notes,
 # installer, zip — WITHOUT publishing anything. The setup.exe, zip and notes
-# land as a downloadable "rehearsal-release" artifact on the run instead. The
+# land as a downloadable "rehearsal-release" artifact on the run instead (the
+# Mac files as "rehearsal-release-mac"). The
 # rehearsal exe is an unstamped dev build (1.0.0.0), so it never blocks or
 # triggers updates. Any run not started by a launcher-v* tag is a rehearsal.
 name: launcher-release
@@ -59,10 +69,10 @@ env:
   # "next" tells plan.py to plan against the latest published release.
   RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && github.ref_name || 'next' }}
 
-# Real releases queue one at a time; rehearsals never hold one up.
-concurrency:
-  group: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'launcher-release' || format('launcher-rehearsal-{0}', github.ref) }}
-  cancel-in-progress: false
+# Concurrency lives on the `release` job (below), not the whole run: a run-wide group was held
+# until the Mac jobs finished (up to ~55 min plus the macos-15-intel queue), so a hotfix tag
+# waited behind Mac packaging, and a third tag pushed meanwhile cancelled the waiting one
+# (a tag with no release).
 
 jobs:
   plan:
@@ -185,6 +195,11 @@ jobs:
     # Windows launchers' mandatory updates ride on it). The Linux files are attached only when that job
     # succeeded; otherwise the job summary says loudly that this release has no Linux downloads.
     if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.mods.result == 'success' || needs.mods.result == 'skipped') }}
+    # Real releases publish one at a time; rehearsals never hold one up. Only this job holds the
+    # group, so the Mac jobs after it never delay or cancel the next tag's Windows release.
+    concurrency:
+      group: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'launcher-release' || format('launcher-rehearsal-{0}', github.ref) }}
+      cancel-in-progress: false
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -290,6 +305,31 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # Only this job holds the concurrency group, so two quick tags can reach the publish step out
+      # of order (the later tag rebuilt fewer mods). GitHub makes the newest-created release
+      # "latest", and launchers read only "latest": an older tag publishing after a newer one must
+      # not take it (newer launchers would see nothing, older ones would update backwards). Empty
+      # flag = gh's default, exactly as before.
+      - name: Keep Latest on the newest release
+        id: latest
+        if: env.REHEARSAL != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          THIS_VERSION: ${{ steps.ver.outputs.version }}
+        shell: pwsh
+        run: |
+          $latest = gh release view --json tagName --jq .tagName 2>$null
+          $found = $LASTEXITCODE -eq 0
+          $newest = $null
+          if ($found -and "$latest".StartsWith("launcher-v") -and [version]::TryParse("$latest".Substring(10), [ref]$newest) `
+              -and $newest -gt [version]$env:THIS_VERSION) {
+            Write-Host "$latest is newer than $($env:THIS_VERSION), so this release is published without taking Latest"
+            echo "flag=--latest=false" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "flag=" >> $env:GITHUB_OUTPUT
+          }
+          exit 0
+
       # Two publish steps, exactly one runs: one `gh release create` call either way, so the release
       # appears with all of its files at once (never Windows first and Linux a moment later).
       - name: Publish GitHub release
@@ -312,6 +352,7 @@ jobs:
           OriginLauncher-linux-x64.tar.gz.sha256
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md
+          ${{ steps.latest.outputs.flag }}
 
       - name: Publish GitHub release (Windows only, the Linux job failed)
         if: env.REHEARSAL != 'true' && needs.linux.result != 'success'
@@ -325,3 +366,162 @@ jobs:
           OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md
+          ${{ steps.latest.outputs.flag }}
+
+  # ---- Mac (after the Windows job, never in its way) ----
+  # needs: release + "release succeeded": by the time this starts the Windows release is published
+  # (or the rehearsal artifact kept), and these jobs only ever ADD files. A failure here leaves the
+  # Windows release exactly as it is; Mac launchers find no zip for their arch and offer nothing.
+  mac:
+    name: Mac app (${{ matrix.rid }})
+    needs: [plan, mods, release]
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    # Read-only: dotnet publish runs third-party NuGet build code here, so this job's token must not
+    # be able to touch any release (it could otherwise swap the Windows zip and its .sha256 together).
+    # Only mac-publish, which checks nothing out and runs no third-party code, can write.
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each arch on its own hardware: an x64 build under Rosetta crashed at web view creation,
+        # so Rosetta proves nothing about Intel Macs. The names are the published asset names
+        # (check_consistency.py check_mac_release holds them equal to MacReleaseAssets.cs).
+        include:
+          - os: macos-15
+            rid: osx-arm64
+            zip: OriginLauncher-osx-arm64.zip
+            dmg: Origin-Mac-AppleSilicon.dmg
+          - os: macos-15-intel
+            rid: osx-x64
+            zip: OriginLauncher-osx-x64.zip
+            dmg: Origin-Mac-Intel.dmg
+    steps:
+      # No token left in .git/config for the build steps to find.
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The same artifacts the Windows job bundled (built + reused jars).
+      - name: Download mod jars
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mod-*
+          path: modjars
+          merge-multiple: true
+
+      # The Windows zip this release ships, to prove the Mac app bundles byte-identical jars.
+      - name: Download the Windows launcher zip (rehearsal artifact)
+        if: env.REHEARSAL == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: rehearsal-release
+          path: windows
+      - name: Download the Windows launcher zip (published release)
+        if: env.REHEARSAL != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$RELEASE_TAG" --pattern OriginLauncher-win-x64.zip --dir windows
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # Same rule as the Windows job: exactly the tag's version; a rehearsal stays unstamped. The tag
+      # name only ever travels as an environment variable, and must be a plain 1.2.3 version.
+      - name: Read version from tag
+        id: ver
+        run: |
+          if [ "$REHEARSAL" = "true" ]; then v=""; else v="${RELEASE_TAG#launcher-v}"; fi
+          if [ -n "$v" ] && ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag $RELEASE_TAG is not launcher-v<major>.<minor>.<patch>; the Mac build needs a plain version"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      # Publish, bundle, sign, zip, hash, disk image; then verify the zip the way the self-update
+      # unpacks it and run --self-test from the mounted disk image.
+      - name: Build, sign and prove the Mac app
+        env:
+          MAC_VERSION: ${{ steps.ver.outputs.version }}
+          MAC_RID: ${{ matrix.rid }}
+          MAC_ZIP: ${{ matrix.zip }}
+          MAC_DMG: ${{ matrix.dmg }}
+        run: >
+          bash tools/release/mac/package.sh "$MAC_RID" "$MAC_VERSION"
+          modjars mac-out "$MAC_ZIP" "$MAC_DMG" windows/OriginLauncher-win-x64.zip
+
+      - name: Keep this arch's files for the publish job
+        uses: actions/upload-artifact@v7
+        with:
+          name: mac-${{ matrix.rid }}
+          path: |
+            mac-out/${{ matrix.zip }}
+            mac-out/${{ matrix.zip }}.sha256
+            mac-out/${{ matrix.dmg }}
+          if-no-files-found: error
+          retention-days: 3
+
+  mac-publish:
+    name: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'Add the Mac files to the release' || 'Keep the Mac files (rehearsal, publishes nothing)' }}
+    needs: mac
+    # Both arches or neither: the website links both disk images.
+    if: ${{ !cancelled() && needs.mac.result == 'success' }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download both archs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mac-osx-*
+          path: mac
+          merge-multiple: true
+
+      - name: Keep rehearsal output as a run artifact
+        if: env.REHEARSAL == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: rehearsal-release-mac
+          path: |
+            mac/OriginLauncher-osx-arm64.zip.sha256
+            mac/OriginLauncher-osx-x64.zip.sha256
+            mac/OriginLauncher-osx-arm64.zip
+            mac/OriginLauncher-osx-x64.zip
+            mac/Origin-Mac-AppleSilicon.dmg
+            mac/Origin-Mac-Intel.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+      # Adds to the release the Windows job created; never creates, edits or deletes it. Two
+      # uploads: the hashes finish before any zip starts, so a Mac launcher polling mid-upload never
+      # sees a zip without its .sha256 (one upload call may send its files in any order).
+      # --clobber only so a re-run of a failed Mac upload can replace its own half-uploaded files.
+      - name: Add the Mac hashes to the release
+        if: env.REHEARSAL != 'true'
+        working-directory: mac
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: >
+          gh release upload "$RELEASE_TAG" --repo "$REPO" --clobber
+          OriginLauncher-osx-arm64.zip.sha256
+          OriginLauncher-osx-x64.zip.sha256
+
+      - name: Add the Mac downloads to the release
+        if: env.REHEARSAL != 'true'
+        working-directory: mac
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: >
+          gh release upload "$RELEASE_TAG" --repo "$REPO" --clobber
+          OriginLauncher-osx-arm64.zip
+          OriginLauncher-osx-x64.zip
+          Origin-Mac-AppleSilicon.dmg
+          Origin-Mac-Intel.dmg

@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:OriginLauncher.Mac.UI"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Pages.ModsPage">
+
+    <!-- Twin of the WPF UI/Pages/ModsPage.xaml: the same header, drop zone, status strip, your mods as rows and the
+         built-in mods as cards. The page sits on the dimmed art (ArtStage.SetPage); PageColumn clears the bar; the
+         scroll bar stays hidden and the wheel / trackpad still scrolls. -->
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <c:PageColumn x:Name="Column" Theme="{StaticResource Page.Column}">
+        <StackPanel>
+
+            <!-- Header: the title + version chip, the intro, and the MY MODS switch. -->
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Mods" Theme="{StaticResource Text.Heading}"/>
+                        <Border x:Name="VersionChip" Theme="{StaticResource Surface.Chip}" Margin="12,0,0,4" VerticalAlignment="Bottom">
+                            <TextBlock x:Name="VersionChipText" Text="1.21.1" Theme="{StaticResource Surface.ChipText}"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock x:Name="IntroText" Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="500"
+                               HorizontalAlignment="Left" Margin="0,8,0,0"
+                               Text="Your own .jar mods for this version, shared by all your accounts. Origin's built&#x2011;in mods stay up to date on their own."/>
+                </StackPanel>
+                <ToggleButton Grid.Column="1" x:Name="YourModsSwitch" Theme="{StaticResource Toggle.Slider}"
+                              Margin="24,6,0,0" VerticalAlignment="Top" AutomationProperties.Name="Load your mods">
+                    <c:TrackedText Text="MY MODS" Tracking="0.10" FontFamily="{StaticResource Font.Primary}"
+                                   FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
+                                   Foreground="{Binding $parent[ToggleButton].Foreground}"/>
+                </ToggleButton>
+            </Grid>
+
+            <!-- The drop zone. Real drag and drop: jars over it light the dashes in the accent, lift the arrow and swap
+                 the line to "Release to add 2 mod jars". Click / Enter / Space browses (the Mac file picker). -->
+            <Border x:Name="DropZone" Margin="0,24,0,16" CornerRadius="{StaticResource Radius.Lg}" Cursor="Hand"
+                    DragDrop.AllowDrop="True" Focusable="True" FocusAdorner="{StaticResource Focus.Card}"
+                    Background="{StaticResource Brush.Panel}"
+                    AutomationProperties.Name="Add mods: drag and drop mod jars here, or browse">
+                <Panel>
+                    <Rectangle x:Name="DropDash" Stroke="{StaticResource Brush.Stroke}" StrokeThickness="1" StrokeDashArray="4,4"
+                               RadiusX="{StaticResource Radius.Lg.Value}" RadiusY="{StaticResource Radius.Lg.Value}"
+                               IsHitTestVisible="False"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="{StaticResource Margin.DropZone}">
+                        <c:IconPath x:Name="JarIcon" Data="{StaticResource Icon.Drop}" Theme="{StaticResource Icon.Base}"
+                                    Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                                    Stroke="{StaticResource Brush.TextDim}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                        <Panel VerticalAlignment="Center">
+                            <StackPanel x:Name="IdleText">
+                                <TextBlock x:Name="DropTitle" Text="Drag and drop mod jars here" Theme="{StaticResource Text.BodyStrong}"/>
+                                <TextBlock Theme="{StaticResource Text.Caption}" Margin="0,4,0,0">
+                                    <Run Text="or"/>
+                                    <Run Text="browse" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
+                                </TextBlock>
+                            </StackPanel>
+                            <TextBlock x:Name="OverText" Text="Release to add" Theme="{StaticResource Text.BodyStrong}" Opacity="0"
+                                       VerticalAlignment="Center"/>
+                        </Panel>
+                    </StackPanel>
+                </Panel>
+            </Border>
+
+            <!-- Status line: what an add did, or why it could not. The dot says the tone (set in code). -->
+            <Border x:Name="StatusBox" IsVisible="False" Margin="0,0,0,16" Padding="12,8"
+                    CornerRadius="{StaticResource Radius.Md}" Background="{StaticResource Brush.Card}">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border x:Name="StatusDot" Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
+                            ui:Capsule.On="True" VerticalAlignment="Top" Margin="{StaticResource Margin.StatusDot}"
+                            Background="{StaticResource Brush.Accent}"/>
+                    <TextBlock Grid.Column="1" x:Name="StatusText" Theme="{StaticResource Text.Body}" TextWrapping="Wrap"/>
+                </Grid>
+            </Border>
+
+            <!-- Your mods -->
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <c:TrackedText x:Name="UserHeader" Text="YOUR MODS" Tracking="0.10" FontFamily="{StaticResource Font.Primary}"
+                                   FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
+                    <TextBlock x:Name="UserCount" Text="0" FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Label}"
+                               FontWeight="Bold" Margin="8,0,0,0" Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" x:Name="UserHint" Text="Switch one off to keep it without loading it"
+                           Theme="{StaticResource Text.Caption}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0"/>
+                <Button Grid.Column="2" x:Name="OpenFolderButton" Theme="{StaticResource Button.Secondary.Small}"
+                        AutomationProperties.Name="Open this mods folder">
+                    <StackPanel Orientation="Horizontal">
+                        <c:IconPath Data="{StaticResource Icon.Folder}" Theme="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                    Stroke="{Binding $parent[Button].Foreground}"/>
+                        <TextBlock Text="Open folder" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+            <StackPanel x:Name="UserModsPanel"/>
+            <!-- Empty (or "choose a version first"): one quiet line in the row's own surface. -->
+            <Border x:Name="UserEmptyState" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}"
+                    Padding="16,14">
+                <TextBlock x:Name="UserEmptyText" Text="No mods yet. Drop a jar above to add one."
+                           Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- Built in (Origin-managed, read-only) -->
+            <StackPanel x:Name="BuiltInSection" IsVisible="False" Margin="0,32,0,0">
+                <Grid Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <c:TrackedText Text="BUILT IN" Tracking="0.10" FontFamily="{StaticResource Font.Primary}"
+                                       FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBlock x:Name="BuiltInCount" Text="0" FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Label}"
+                                   FontWeight="Bold" Margin="8,0,0,0" Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="Kept up to date by Origin" Theme="{StaticResource Text.Caption}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <UniformGrid x:Name="BuiltInPanel" Columns="3" Margin="0,0,-4,0"/>
+            </StackPanel>
+
+        </StackPanel>
+        </c:PageColumn>
+    </ScrollViewer>
+</UserControl>

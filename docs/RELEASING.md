@@ -180,6 +180,69 @@ Add/Remove Programs.
 - Engine tests: `dotnet test src/OriginSetup.Tests -f net10.0` (no network:
   downloads run against an in-memory fake server).
 
+## Mac (added to the same release)
+
+After the Windows job has published (or, in a rehearsal, kept) its files,
+two Mac jobs build the Mac launcher (`src/OriginLauncher.Mac`) on GitHub's
+Macs: Apple Silicon on `macos-15`, Intel on `macos-15-intel` (real Intel
+hardware; Rosetta results proved nothing). Each bundles the same mod jars as
+the Windows zip (same one-jar-per-live-module rule, then a byte-for-byte
+compare against the Windows zip), and `tools/release/mac/package.sh` makes
+and proves its files. Then one job adds all six to the release with
+`gh release upload`:
+
+| File | What it is |
+|------|-----|
+| `OriginLauncher-osx-arm64.zip` / `OriginLauncher-osx-x64.zip` | `Origin.app` zipped with `ditto`: the Mac self-update, one per architecture |
+| `….zip.sha256` | its SHA-256, same format and same refusal rules as Windows |
+| `Origin-Mac-AppleSilicon.dmg` / `Origin-Mac-Intel.dmg` | the downloads: `Origin.app` + an Applications link |
+
+- **Never in Windows' way.** The Mac jobs start only after the Windows job
+  succeeded and only ever add files; a Mac failure leaves the Windows release
+  as it is (the run goes red). A release with no zip for a Mac's architecture
+  simply offers that Mac nothing, so it never blocks Play. Both archs or
+  neither are uploaded. Re-running a failed Mac job is safe (`--clobber` on
+  the Mac files only).
+- **Version:** stamped from the tag exactly like Windows (`-p:Version`, and
+  `CFBundleShortVersionString`/`CFBundleVersion` in
+  `src/OriginLauncher.Mac/Packaging/Info.plist`); a rehearsal is the
+  unstamped dev build. Bundle id `org.originclient.launcher`, minimum macOS
+  15.0 (.NET 10's floor; sources in the plist).
+- **Icon:** made at build time from `textures/ui/origin_logo.png` (scaled
+  down only; the file is 256 px, so the icon stops at 256).
+- **Signing:** ad hoc (`codesign --force --deep -s -`; no Apple Developer
+  account), verified with `codesign --verify --deep --strict` on the built
+  app, the unzipped self-update and the mounted disk image. Gatekeeper
+  therefore warns on first open: the player opens it once with
+  right-click → Open (macOS 15: System Settings → Privacy & Security → Open
+  Anyway). Self-updates are downloaded by the launcher itself, which sets no
+  quarantine flag, so they should open without the prompt (not yet seen on a
+  real Mac).
+- **Proof in every run:** each disk image is mounted on its own runner and
+  the app's `--self-test` runs from it (it must name its own arch's zip and
+  the stamped version); the zip is unpacked the way the self-update unpacks
+  it and verified again.
+- **In the app:** the same top-bar Update chip and timing as Windows (check
+  on start, every 2 minutes, and on focus at most every 30 s; below 1100 px
+  wide it shrinks to the icon with a dot), the same click flow and
+  "Update failed - retry". A copy that can't replace itself where it sits
+  (opened from Downloads or the disk image, so macOS runs a translocated
+  copy, or a folder this Mac user can't write to) is never offered the
+  update and never gates Play: the chip says "Move to Applications" and a
+  click says why (`UpdateService.Blocked`).
+- **Self-update proof (mac-launcher.yml `update-proof`, both archs, every
+  Mac push):** a stamped build is offered a fake release served on the
+  runner's 127.0.0.1 (`tools/mac/update_proof.sh` + the app's
+  `--update-proof`): no SHA-256 and a wrong SHA-256 are refused,
+  translocated and unwritable copies are refused, and the good release
+  downloads, verifies, unpacks, swaps the bundle and issues the reopen
+  (stubbed), after which the swapped app's signature verifies and it starts.
+- **Rehearsal:** the six files land as a "rehearsal-release-mac" run
+  artifact; nothing is published.
+- `check_consistency.py` fails CI if the zip names the Mac launcher looks for
+  (`Core/Updates/MacReleaseAssets.cs`) and the ones the workflow publishes
+  drift apart. Tests: `src/OriginLauncher.Tests/MacReleaseAssetsTests.cs`.
+
 ## Linux downloads
 
 Every release also carries four Linux files (x64), each with a `.sha256` beside it (the
@@ -271,6 +334,7 @@ files touch. Issue forms (`.github/ISSUE_TEMPLATE/`) add `bug` /
 | `.github/actions/publish-launcher/` | bundle jars → `dotnet publish` → assert all jars present |
 | `.github/actions/build-installer/` | zip the launcher, build OriginSetup, smoke-test download install + install of this build + uninstall (+ screen renders) |
 | `src/OriginSetup/` | the installer app (downloads the launcher zip from the newest release) |
+| `tools/release/mac/package.sh` | one Mac arch: bundle jars → `Origin.app` → sign → zip + `.sha256` + disk image, all proven |
 | `tools/release/check_consistency.py` | fails CI when launcher/installer copies of a fact drift apart |
 | `.github/workflows/build-check.yml` | every push: drift gate + all mods + launcher publish, ships nothing |
 | `.github/workflows/launcher-release.yml` | every `launcher-v*` tag: the release (Run workflow = rehearsal) |

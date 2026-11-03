@@ -1,0 +1,515 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:OriginLauncher.Mac.UI"
+                    xmlns:c="using:OriginLauncher.Mac.UI.Controls">
+
+    <!--
+        Avalonia twin of src/OriginLauncher.App/Theme/Inputs.xaml: the text field, the slider, the select and its rows,
+        the two switches (Home's My mods switch and the Settings switch), the field error line and ScrollBar.Minimal,
+        which App.axaml puts on every ScrollViewer (the WPF pages each opt in; nothing on the Mac should wear Fluent's bar).
+
+        The knob's transform strings carry the travel token's value (Size.SwitchTravel 14, Size.HomeSwitchTravel 16):
+        an Avalonia transform is a string, so it can't read a resource. The parity check compares the tokens.
+    -->
+
+    <!-- The reason a field is invalid: caption type in the danger text colour, 4 px under the box. -->
+    <ControlTheme x:Key="Input.ErrorText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.DangerText}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="2,4,0,0"/>
+    </ControlTheme>
+
+
+    <!-- Text field (spec 5): 36 tall, the sunken Field fill, a 1 px strong line, Radius.Md.
+         hover     the line steps to StrokeHover
+         focus     the line turns to the accent line (AccentBorder)
+         error     a Danger edge (Classes "invalid", the WPF ui:Chrome.Invalid); the reason goes under the box in Input.ErrorText
+         disabled  45 %, no hover or focus change
+         Built on Fluent's TextBox template (its caret, selection and scrolling); only its border and colours are Origin's. -->
+    <ControlTheme x:Key="Input.TextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource Brush.ProgressTrack}"/>
+        <Setter Property="SelectionForegroundBrush" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        <Style Selector="^ /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="{StaticResource Motion.Base}"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Style Selector="^ /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+            </Style>
+        </Style>
+        <Style Selector="^:focus">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Style Selector="^ /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+            </Style>
+        </Style>
+        <Style Selector="^.invalid /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Style Selector="^ /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+            </Style>
+        </Style>
+    </ControlTheme>
+
+    <!-- Slider: progress-track groove, the filled part in the accent, a round accent knob (hover AccentHover, drag
+         AccentPress and a 1.12 press scale). Painted Transparent so the whole Size.SliderBox height takes the mouse. -->
+    <ControlTheme x:Key="Input.Slider" TargetType="Slider">
+        <Setter Property="Height" Value="{StaticResource Size.SliderBox}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Slider">
+                <Grid Background="Transparent" VerticalAlignment="Stretch">
+                    <Border Height="{StaticResource Size.SliderTrack}" VerticalAlignment="Center"
+                            Background="{StaticResource Brush.ProgressTrack}" CornerRadius="{StaticResource Radius.Track}"/>
+                    <Track Name="PART_Track" Orientation="Horizontal"
+                           Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                           Value="{TemplateBinding Value, Mode=TwoWay}" IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+                        <Track.DecreaseButton>
+                            <!-- Stretch: Fluent's RepeatButton theme aligns Left/Center, which shrank the fill to 0 wide. -->
+                            <RepeatButton Name="PART_DecreaseButton" Focusable="False" Background="Transparent"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                <RepeatButton.Template>
+                                    <ControlTemplate TargetType="RepeatButton">
+                                        <Grid Background="Transparent">
+                                            <Border Height="{StaticResource Size.SliderTrack}" VerticalAlignment="Center"
+                                                    Background="{StaticResource Brush.Accent}" CornerRadius="{StaticResource Radius.Track}"/>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </RepeatButton.Template>
+                            </RepeatButton>
+                        </Track.DecreaseButton>
+                        <Track.IncreaseButton>
+                            <RepeatButton Name="PART_IncreaseButton" Focusable="False" Background="Transparent"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                <RepeatButton.Template>
+                                    <ControlTemplate TargetType="RepeatButton">
+                                        <Border Background="Transparent"/>
+                                    </ControlTemplate>
+                                </RepeatButton.Template>
+                            </RepeatButton>
+                        </Track.IncreaseButton>
+                        <!-- The press scale sits on the Thumb itself: a style can't reach into a template inside a
+                             template (Avalonia allows one /template/ step per selector). -->
+                        <Thumb Name="thumb" Background="{StaticResource Brush.Accent}"
+                               RenderTransformOrigin="50%,50%" RenderTransform="scale(1)">
+                            <Thumb.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="{StaticResource Motion.Release}" Easing="CubicEaseOut"/>
+                                </Transitions>
+                            </Thumb.Transitions>
+                            <Thumb.Template>
+                                <ControlTemplate TargetType="Thumb">
+                                    <Border Name="Knob" Width="{StaticResource Size.SliderThumb}" Height="{StaticResource Size.SliderThumb}"
+                                            ui:Capsule.On="True" Background="{TemplateBinding Background}"/>
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Track>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^ /template/ Thumb#thumb:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
+        </Style>
+        <Style Selector="^ /template/ Thumb#thumb:pressed">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentPress}"/>
+        </Style>
+        <Style Selector="^ /template/ Thumb#thumb:pressed">
+            <Setter Property="RenderTransform" Value="scale(1.12)"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Select: the same ghost outline as Button.Secondary (the card fill, a 1 px tonal edge that brightens on hover, a
+         brighter edge while open), the chevron 12 from the right, the placeholder (PlaceholderText, the WPF Tag) in the
+         muted text colour. The list: a menu panel (Card, strong line, Radius.Md, Shadow.Overlay), 4 px under the box,
+         at most 240 tall. Built on Fluent's ComboBox template (its keyboard and popup logic). The list is drawn in the
+         window's own overlay layer: it never needs to leave the window, and a headless render-shots frame then holds it. -->
+    <ControlTheme x:Key="Input.ComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+        <Setter Property="Padding" Value="14,0,34,0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlLg}"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="MaxDropDownHeight" Value="240"/>
+        <Setter Property="PlaceholderForeground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+        <!-- The list's panel reads Fluent's own keys: a /template/ style doesn't reach into the popup's child (it was
+             drawn in Fluent's grey #2B2B2B with no line), so the keys are pointed at the Origin tokens here. -->
+        <ControlTheme.Resources>
+            <StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="Brush.Card"/>
+            <StaticResource x:Key="ComboBoxDropDownBorderBrush" ResourceKey="Brush.Stroke"/>
+            <Thickness x:Key="ComboBoxDropdownBorderThickness">1</Thickness>
+            <Thickness x:Key="ComboBoxDropdownBorderPadding">4</Thickness>
+            <StaticResource x:Key="OverlayCornerRadius" ResourceKey="Radius.Md"/>
+        </ControlTheme.Resources>
+        <Style Selector="^ /template/ Border#Background">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="{StaticResource Motion.Hover}"/>
+                    <BrushTransition Property="BorderBrush" Duration="{StaticResource Motion.Hover}"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="^ /template/ Border#HighlightBackground">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="^ /template/ PathIcon#DropDownGlyph">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Margin" Value="0,0,14,0"/>
+        </Style>
+        <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        </Style>
+        <Style Selector="^ /template/ Popup#PART_Popup">
+            <Setter Property="ShouldUseOverlayLayer" Value="True"/>
+            <Setter Property="VerticalOffset" Value="4"/>
+        </Style>
+        <Style Selector="^ /template/ Border#PopupBorder">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Md}"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="BoxShadow" Value="{StaticResource Shadow.Overlay}"/>
+        </Style>
+        <Style Selector="^:pointerover">
+            <Style Selector="^ /template/ Border#Background">
+                <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+            </Style>
+            <Style Selector="^ /template/ ContentControl#ContentPresenter">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+            <Style Selector="^ /template/ PathIcon#DropDownGlyph">
+                <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            </Style>
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Background">
+            <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+        </Style>
+        <Style Selector="^:dropdownopen /template/ Border#Background">
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+            <Style Selector="^ /template/ Border#Background">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+            </Style>
+            <Style Selector="^ /template/ ContentControl#ContentPresenter">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+        </Style>
+    </ControlTheme>
+
+    <!-- A list row (spec 11.2): 32 tall (Size.ControlMd), Radius.Sm, pad X 10. Hover is the white 6 % wash. The chosen
+         row has no fill of its own: its label goes semibold in full-strength text and a 14 px check in the accent sits on
+         the right. Every row keeps the check's slot, so the labels never move when the selection changes. -->
+    <ControlTheme x:Key="Input.ComboBoxItem" TargetType="ComboBoxItem">
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ComboBoxItem">
+                <Border Name="Bg" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Sm}"
+                        MinHeight="{TemplateBinding MinHeight}" Padding="{TemplateBinding Padding}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ContentPresenter Name="PART_ContentPresenter" VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        <c:IconPath Name="Check" Grid.Column="1" Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Small}"
+                                    Stroke="{StaticResource Brush.Accent}" Margin="8,0,0,0" VerticalAlignment="Center" Opacity="0"/>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.GhostHover}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="^:focus">
+            <Setter Property="Background" Value="{StaticResource Brush.GhostHover}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="^:selected">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Style Selector="^ /template/ c|IconPath#Check">
+                <Setter Property="Opacity" Value="1"/>
+            </Style>
+        </Style>
+        <Style Selector="^:disabled /template/ Border#Bg">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Settings switch: 32 x 18 track, 14 knob inset 2, the label 12 to its left. Off: progress-track fill, a 1 px
+         stroke, the muted knob. On: the emerald track with a parchment knob. Press squashes the knob. -->
+    <ControlTheme x:Key="Toggle.Slider" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Pill}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Grid Background="Transparent" ColumnDefinitions="Auto,Auto">
+                    <ContentPresenter Name="PART_ContentPresenter" VerticalAlignment="Center" Margin="0,0,12,0"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                    <Panel Grid.Column="1" Width="{StaticResource Size.SwitchWidth}" Height="{StaticResource Size.SwitchHeight}"
+                           VerticalAlignment="Center">
+                        <Border Name="Track" ui:Capsule.On="True" BorderThickness="1"
+                                Background="{StaticResource Brush.ProgressTrack}" BorderBrush="{StaticResource Brush.Stroke}">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="BorderBrush" Duration="{StaticResource Motion.Hover}"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        <Border Name="TrackOn" ui:Capsule.On="True" Background="{StaticResource Brush.Accent}" Opacity="0">
+                            <!-- The track lights in Motion.Release. -->
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="{StaticResource Motion.Release}"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        <Border Name="Knob" Width="{StaticResource Size.SwitchKnob}" Height="{StaticResource Size.SwitchKnob}"
+                                ui:Capsule.On="True" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0"
+                                Background="{StaticResource Brush.SwitchKnobOff}"
+                                RenderTransformOrigin="50%,50%" RenderTransform="translateX(0px) scale(1,1)">
+                            <!-- The knob slides and changes colour in Motion.Release. -->
+                            <Border.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="{StaticResource Motion.Release}" Easing="CubicEaseOut"/>
+                                    <BrushTransition Property="Background" Duration="{StaticResource Motion.Release}"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                    </Panel>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^[Content={x:Null}] /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Style Selector="^ /template/ Border#Track">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+            </Style>
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Knob">
+            <Setter Property="RenderTransform" Value="translateX(0px) scale(1.18,0.86)"/>
+        </Style>
+        <Style Selector="^:checked">
+            <Style Selector="^ /template/ Border#TrackOn">
+                <Setter Property="Opacity" Value="1"/>
+            </Style>
+            <Style Selector="^ /template/ Border#Knob">
+                <Setter Property="Background" Value="{StaticResource Brush.Text}"/>
+                <Setter Property="RenderTransform" Value="translateX(14px) scale(1,1)"/>
+            </Style>
+        </Style>
+        <Style Selector="^:checked:pressed /template/ Border#Knob">
+            <Setter Property="RenderTransform" Value="translateX(14px) scale(1.18,0.86)"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- The Home My mods switch (Workbench Home mockup .sw2): 36 x 20 with a 14 knob inset 3, the caps label 8 to its
+         left in the muted text colour. On: the emerald track with a DARK knob (TextOnAccent) on the right. -->
+    <ControlTheme x:Key="Toggle.HomeSwitch" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="FocusAdorner" Value="{StaticResource Focus.Pill}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Grid Background="Transparent" ColumnDefinitions="Auto,Auto">
+                    <ContentPresenter Name="PART_ContentPresenter" VerticalAlignment="Center" Margin="0,0,8,0"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                    <Panel Grid.Column="1" Width="{StaticResource Size.HomeSwitchWidth}" Height="{StaticResource Size.HomeSwitchHeight}"
+                           VerticalAlignment="Center">
+                        <Border Name="Track" ui:Capsule.On="True" BorderThickness="1"
+                                Background="{StaticResource Brush.ProgressTrack}" BorderBrush="{StaticResource Brush.Stroke}">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="BorderBrush" Duration="{StaticResource Motion.Hover}"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        <Border Name="TrackOn" ui:Capsule.On="True" Background="{StaticResource Brush.Accent}" Opacity="0">
+                            <!-- The track lights in Motion.Release. -->
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="{StaticResource Motion.Release}"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        <Border Name="Knob" Width="{StaticResource Size.HomeSwitchKnob}" Height="{StaticResource Size.HomeSwitchKnob}"
+                                ui:Capsule.On="True" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"
+                                Background="{StaticResource Brush.SwitchKnobOff}"
+                                RenderTransformOrigin="50%,50%" RenderTransform="translateX(0px) scale(1,1)">
+                            <!-- The knob slides and changes colour in Motion.Release. -->
+                            <Border.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="{StaticResource Motion.Release}" Easing="CubicEaseOut"/>
+                                    <BrushTransition Property="Background" Duration="{StaticResource Motion.Release}"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                    </Panel>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^[Content={x:Null}] /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Style Selector="^ /template/ Border#Track">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.StrokeHover}"/>
+            </Style>
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Knob">
+            <Setter Property="RenderTransform" Value="translateX(0px) scale(1.18,0.86)"/>
+        </Style>
+        <Style Selector="^:checked">
+            <Style Selector="^ /template/ Border#TrackOn">
+                <Setter Property="Opacity" Value="1"/>
+            </Style>
+            <Style Selector="^ /template/ Border#Knob">
+                <Setter Property="Background" Value="{StaticResource Brush.TextOnAccent}"/>
+                <Setter Property="RenderTransform" Value="translateX(16px) scale(1,1)"/>
+            </Style>
+        </Style>
+        <Style Selector="^:checked:pressed /template/ Border#Knob">
+            <Setter Property="RenderTransform" Value="translateX(16px) scale(1.18,0.86)"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- ===== scroll bar ===== -->
+
+    <!-- The WPF ScrollBar.Minimal: 8 wide, no arrows, no visible track, a Stroke capsule thumb 2 in from each side that
+         lifts to ProgressTrack on hover; a click on the empty track pages (the WPF PageUp/PageDown buttons). Always shown
+         while the content overflows (no Fluent auto-hide or expand-on-hover). A horizontal bar is the same, turned. -->
+    <ControlTheme x:Key="ScrollBar.Minimal" TargetType="ScrollBar">
+        <Setter Property="Width" Value="8"/>
+        <Setter Property="MinWidth" Value="8"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="AllowAutoHide" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="Transparent">
+                    <Track Name="PART_Track" Orientation="{TemplateBinding Orientation}"
+                           Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                           Value="{TemplateBinding Value, Mode=TwoWay}" ViewportSize="{TemplateBinding ViewportSize}"
+                           IsDirectionReversed="True">
+                        <Track.DecreaseButton>
+                            <RepeatButton Name="PART_PageUpButton" Focusable="False">
+                                <RepeatButton.Template>
+                                    <ControlTemplate><Border Background="Transparent"/></ControlTemplate>
+                                </RepeatButton.Template>
+                            </RepeatButton>
+                        </Track.DecreaseButton>
+                        <Track.IncreaseButton>
+                            <RepeatButton Name="PART_PageDownButton" Focusable="False">
+                                <RepeatButton.Template>
+                                    <ControlTemplate><Border Background="Transparent"/></ControlTemplate>
+                                </RepeatButton.Template>
+                            </RepeatButton>
+                        </Track.IncreaseButton>
+                        <Thumb Name="thumb">
+                            <Thumb.Template>
+                                <ControlTemplate>
+                                    <Border Name="Bar" Background="{TemplateBinding Background}" ui:Capsule.On="True"/>
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Track>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <!-- The thumb's colour and inset are its own (one template level: Avalonia selectors can't reach two deep). -->
+        <Style Selector="^ /template/ Thumb#thumb">
+            <Setter Property="Background" Value="{StaticResource Brush.Stroke}"/>
+            <Setter Property="Margin" Value="2,0"/>
+        </Style>
+        <Style Selector="^ /template/ Thumb#thumb:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.ProgressTrack}"/>
+        </Style>
+        <Style Selector="^:horizontal">
+            <Setter Property="Width" Value="NaN"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="MinHeight" Value="8"/>
+        </Style>
+        <Style Selector="^:horizontal /template/ Track#PART_Track">
+            <Setter Property="IsDirectionReversed" Value="False"/>
+        </Style>
+        <Style Selector="^:horizontal /template/ Thumb#thumb">
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>

@@ -15,6 +15,16 @@ public sealed record PlayFailure(string Title, string Message)
     // Win32 ERROR_HANDLE_DISK_FULL / ERROR_DISK_FULL, as the low 16 bits of an IOException HResult.
     private const int HandleDiskFull = 39;
     private const int DiskFull = 112;
+    // On macOS .NET puts the raw errno in the HResult: ENOSPC (no space left) and EDQUOT (quota exceeded) are the same
+    // sentence. Only checked off Windows, where 28 and 69 mean other things.
+    private const int Enospc = 28;
+    private const int Edquot = 69;
+
+    // The Win32 form (HResult 0x8007xxxx) can't be mistaken for a raw errno, so it counts on every OS (the tests make
+    // it on Linux CI too); the raw errno form counts only off Windows.
+    private static bool IsDiskFull(IOException io) =>
+        ((io.HResult >>> 16) == 0x8007 && (io.HResult & 0xFFFF) is HandleDiskFull or DiskFull)
+        || (!OperatingSystem.IsWindows() && io.HResult is Enospc or Edquot);
 
     /// <summary>The nudge every message ends on.</summary>
     public const string RetryLine = "Your files are safe. Retry picks up where it stopped.";
@@ -27,8 +37,21 @@ public sealed record PlayFailure(string Title, string Message)
     public static bool IsUserCancel(Exception error, CancellationToken token) =>
         error is OperationCanceledException && token.IsCancellationRequested;
 
+    /// <summary>
+    /// True when the launch screen shows an "Install Rosetta" button under the message (Apple Silicon Mac, a
+    /// version that runs through Rosetta 2, Rosetta missing). The click runs MacRosetta.InstallAsync, then Play.
+    /// </summary>
+    public bool OffersRosettaInstall { get; init; }
+
     public static PlayFailure From(Exception error, string version)
     {
+        // Not a download failure, and Retry alone would hit it again: the fix is one click.
+        if (error is RosettaRequiredException)
+            return new PlayFailure($"Minecraft {version} needs Rosetta",
+                "This version runs through Rosetta, Apple's free translator for apps made for Intel Macs. "
+                + "Install it once, then press Play.")
+            { OffersRosettaInstall = true };
+
         var title = $"Couldn't get Minecraft {version} ready";
         return new PlayFailure(title, Cause(error, version) + " " + RetryLine);
     }
@@ -41,7 +64,7 @@ public sealed record PlayFailure(string Title, string Message)
         {
             switch (e)
             {
-                case IOException io when (io.HResult & 0xFFFF) is HandleDiskFull or DiskFull:
+                case IOException io when IsDiskFull(io):
                     return "Your disk is full. Free up some space.";
                 case UnauthorizedAccessException:
                     return "Origin can't write to its game folder. Close anything using it.";

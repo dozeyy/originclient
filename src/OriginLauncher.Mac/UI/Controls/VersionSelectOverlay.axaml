@@ -1,0 +1,200 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:OriginLauncher.Mac.UI"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Controls.VersionSelectOverlay"
+             IsVisible="False" Focusable="True">
+
+    <!-- Twin of the WPF UI/Controls/VersionSelectOverlay.xaml: the version picker, a sheet over Home's art in two steps.
+         Step 1 is the families as cards; step 2 is one family's panel, grown out of its card, with ONE dropdown of its
+         releases. The keys, the steps and what counts as a pick are the shared VersionSelectModel.cs. -->
+    <UserControl.Resources>
+        <!-- A family card (Workbench "Choosing a version"): the family's art in full colour on top, then the range in
+             bold, the family name and a quiet status line (a dot and words). Hover lifts it 4 px and warms the face to
+             CardAlt. The pick (the family holding the player's version) wears the emerald ring at a 2 px gap and a
+             SELECTED capsule on the art; keyboard focus draws the same ring in the softer accent line (Focus.Card). -->
+        <ControlTheme x:Key="Picker.FamilyCard" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="RenderTransform" Value="translateY(0px)"/>
+            <!-- Focus is the template's own Ring; Fluent's default adorner would draw a square white frame over it. -->
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="{StaticResource Motion.HoverIn}"/>
+                    <BrushTransition Property="Background" Duration="{StaticResource Motion.HoverIn}"/>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="Button">
+                    <!-- The ring fills the button and the face sits 4 in from it: a negative margin on the ring was
+                         collapsed to the button's own rect (only a corner sliver showed). The card's -4 outer margin and
+                         the content's own width keep the face exactly where it was. -->
+                    <Panel>
+                        <Border Name="Ring" CornerRadius="{StaticResource Radius.Ring.Lg}" BorderThickness="2"
+                                BorderBrush="{StaticResource Brush.Accent}" IsVisible="False" IsHitTestVisible="False"/>
+                        <Border Name="Face" Margin="4" Background="{TemplateBinding Background}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Lg}">
+                            <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        </Border>
+                    </Panel>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="RenderTransform" Value="translateY(-4px)"/>
+                <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+            </Style>
+            <Style Selector="^:focus-visible /template/ Border#Ring">
+                <Setter Property="IsVisible" Value="True"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+            </Style>
+            <Style Selector="^.pick /template/ Border#Ring">
+                <Setter Property="IsVisible" Value="True"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+            </Style>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <!-- A whole-window view over Home's art: the page dims to the scrim and the sheet sits under the 56 px top bar (which
+         stays on top). The sheet's width follows the window (SizeCards); its cards keep their 16:9 art. -->
+    <Panel x:Name="Scene">
+        <!-- Clicking outside the sheet closes it. -->
+        <Border x:Name="Backdrop" Background="{StaticResource Brush.Scrim}"/>
+
+        <Panel x:Name="Stage" Margin="0,56,0,0">
+            <ScrollViewer x:Name="Body" VerticalAlignment="Center" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <Border x:Name="Sheet" Theme="{StaticResource Surface.Dialog}" Background="{StaticResource Brush.Sheet}"
+                        HorizontalAlignment="Center" Margin="24,8,24,16" MaxWidth="{StaticResource Size.Sheet.Max}">
+                    <Panel x:Name="SheetContent">
+                        <!-- ===== Step 1: the families ===== -->
+                        <Grid x:Name="FamiliesPane" RowDefinitions="Auto,Auto">
+                            <Grid.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" Easing="CubicEaseOut"/>
+                                </Transitions>
+                            </Grid.Transitions>
+                            <Grid Margin="0,0,0,16" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Choose a version" Theme="{StaticResource Text.Heading}"/>
+                                    <TextBlock x:Name="FamiliesCaption" Theme="{StaticResource Text.Caption}"/>
+                                </StackPanel>
+                                <Button x:Name="CloseButton" Grid.Column="1" Theme="{StaticResource Button.Chrome}"
+                                        Padding="0" Width="{StaticResource Size.ControlMd}" Height="{StaticResource Size.ControlMd}"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top" AutomationProperties.Name="Close">
+                                    <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                                                Stroke="{Binding $parent[Button].Foreground}"/>
+                                </Button>
+                            </Grid>
+                            <!-- Four across, two down, 12 between: each card keeps 12 on its right and below, and the list's
+                                 negative right and bottom margins give the last column's and row's back. -->
+                            <!-- The 4 of Padding top and left is the pick ring's room (it sits 4 outside the card, and the
+                                 list clips what leaves it); the matching -4 margin keeps the cards in place. -->
+                            <ItemsControl x:Name="FamilyList" Grid.Row="1" Margin="-4,-4,-12,-12" Padding="4,4,0,0"
+                                          AutomationProperties.Name="Version families">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="4"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="c:FamilyTile">
+                                        <Button Theme="{StaticResource Picker.FamilyCard}" Margin="-4,-4,8,8" HorizontalAlignment="Left"
+                                                Classes.pick="{Binding IsPick}" Tag="{Binding}" Click="FamilyCard_Click"
+                                                AutomationProperties.Name="{Binding Range}">
+                                            <StackPanel Width="{Binding InnerWidth}">
+                                                <!-- The art: clipped to the card's top corners. -->
+                                                <Border Height="{Binding ThumbHeight}" CornerRadius="{StaticResource Radius.Lg.Top}" ClipToBounds="True"
+                                                        Background="{StaticResource Brush.CardAlt}">
+                                                    <Panel>
+                                                        <Image Source="{Binding Colour}" Stretch="UniformToFill"
+                                                               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                                                        <!-- SELECTED: an even capsule, caps centred in it. -->
+                                                        <Border IsVisible="{Binding IsPick}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
+                                                                Padding="{StaticResource Padding.Capsule.Sm}" ui:Capsule.On="True"
+                                                                Background="{StaticResource Brush.ScrimMid}">
+                                                            <TextBlock Text="SELECTED" Theme="{StaticResource Text.Capsule}" Foreground="{StaticResource Brush.Text}"/>
+                                                        </Border>
+                                                    </Panel>
+                                                </Border>
+                                                <StackPanel Margin="12,10,12,12">
+                                                    <TextBlock Text="{Binding Range}" FontFamily="{StaticResource Font.Primary}"
+                                                               FontSize="{StaticResource FontSize.Title}" FontWeight="Bold"
+                                                               Foreground="{StaticResource Brush.Text}" TextTrimming="CharacterEllipsis"
+                                                               LineHeight="{StaticResource LineHeight.Title}"/>
+                                                    <TextBlock Text="{Binding Name}" Margin="0,2,0,0" Theme="{StaticResource Text.Caption}"/>
+                                                    <!-- "2 of 10 installed": a dot and quiet words. Nothing until every release of the family
+                                                         has been read (the line keeps its height meanwhile, so the cards never jump). -->
+                                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Opacity="{Binding BadgeOpacity}">
+                                                        <Ellipse Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}" Fill="{Binding BadgeDot}"
+                                                                 Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding BadgeText}" Theme="{StaticResource Text.CaptionDim}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+
+                        <!-- ===== Step 2: one family, expanded ===== -->
+                        <!-- Under the panel, over the faded cards: a click anywhere off the panel closes the picker. -->
+                        <Border x:Name="PanelCatcher" Background="Transparent" IsVisible="False"/>
+                        <!-- The clicked card, grown: it scales and moves out of its own grid slot into this centred panel
+                             (Expand). Back, the family's art, range and name, and ONE compact dropdown of its releases,
+                             newest first, on "Choose a version" until one is picked. -->
+                        <Border x:Name="FamilyPanel" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius.Lg}" Padding="16" RenderTransformOrigin="0%,0%"
+                                RenderTransform="translate(0px,0px) scale(1,1)">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut"/>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.11" Easing="CubicEaseOut"/>
+                                </Transitions>
+                            </Border.Transitions>
+                            <StackPanel x:Name="FamilySide">
+                                <Button x:Name="BackButton" Theme="{StaticResource Button.Chrome}" HorizontalAlignment="Left" Margin="-8,-4,0,8"
+                                        Padding="8,0,12,0" AutomationProperties.Name="All versions">
+                                    <StackPanel Orientation="Horizontal">
+                                        <c:IconPath Data="{StaticResource Icon.Back}" Theme="{StaticResource Icon.Small}"
+                                                    Stroke="{Binding $parent[Button].Foreground}" Margin="0,0,8,0"/>
+                                        <TextBlock Text="All versions" VerticalAlignment="Center" Foreground="{Binding $parent[Button].Foreground}"
+                                                   Theme="{StaticResource Text.Body}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Border x:Name="PanelArt" Height="200" CornerRadius="{StaticResource Radius.Md}" ClipToBounds="True"
+                                        Background="{StaticResource Brush.CardAlt}">
+                                    <Image x:Name="PanelImage" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                                </Border>
+                                <TextBlock x:Name="PanelRange" Theme="{StaticResource Text.Caption}" Margin="0,12,0,0"/>
+                                <TextBlock x:Name="PanelName" Theme="{StaticResource Text.Heading}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                                <ComboBox x:Name="ReleaseBox" Theme="{StaticResource Input.ComboBox}" Margin="0,16,0,0"
+                                          PlaceholderText="Choose a version" ItemContainerTheme="{StaticResource Input.ComboBoxItem}"
+                                          AutomationProperties.Name="Version">
+                                    <ComboBox.ItemTemplate>
+                                        <!-- The version, and a quiet emerald dot when it is already on disk. No words about
+                                             downloading: the launcher installs whatever Play needs on its own. -->
+                                        <DataTemplate x:DataType="c:ReleaseItem">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Version}" VerticalAlignment="Center"/>
+                                                <Ellipse Width="{StaticResource Size.Dot}" Height="{StaticResource Size.Dot}"
+                                                         Fill="{StaticResource Brush.Hue.Emerald}" Margin="8,0,0,0"
+                                                         VerticalAlignment="Center" IsVisible="{Binding Dot}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+                    </Panel>
+                </Border>
+            </ScrollViewer>
+        </Panel>
+    </Panel>
+</UserControl>

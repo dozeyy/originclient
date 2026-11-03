@@ -99,7 +99,7 @@ public class GameFileTests : IDisposable
         Assert.Equal(2, stats.ToDownloadCount);
         Assert.Equal(_mojang.Files[corruptAsset].Length + _mojang.Files[truncated].Length, stats.ToDownloadBytes);
         Assert.Equal(_mojang.Files.Count - 2, stats.ReusedCount);
-        Assert.Contains("2 game files not found on this PC", result.SummaryText);
+        Assert.Contains("2 game files not found on " + OriginLauncher.App.Core.Import.Bulk.BulkSummary.ThisComputer, result.SummaryText);
         Assert.Contains($"about {ImportSummary.Megabytes(stats.ToDownloadBytes)} will download the first time you press Play", result.SummaryText);
         // copied through a temp file and renamed: no temp left anywhere in the version folder
         Assert.DoesNotContain(Directory.EnumerateFiles(VersionRoot, "*", SearchOption.AllDirectories), f => Path.GetFileName(f).StartsWith("tmp-"));

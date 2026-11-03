@@ -1,0 +1,1129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             xmlns:s="using:OriginLauncher.App.UI.Controls"
+             xmlns:ui="using:OriginLauncher.Mac.UI"
+             x:Class="OriginLauncher.Mac.UI.Controls.ImportPanel"
+             x:DataType="c:ImportPanel">
+
+    <!-- The Import page: the Avalonia twin of src/OriginLauncher.App/UI/Controls/ImportPanel.xaml, element for element
+         (same names, sizes, tokens and wording). WPF's DataTemplate triggers are IsVisible bindings and class switches
+         here (the Styles block below). The rows are the page's own view models (ImportViewModels.cs); the flow is the
+         shared ImportFlowModel / ImportGridModel. -->
+
+    <UserControl.Resources>
+        <!-- The scrolled list's top edge fades 12 px into the page (List_ScrollChanged sets it as the list's mask). -->
+        <LinearGradientBrush x:Key="Import.TopFade" StartPoint="0,0" EndPoint="0,12">
+            <GradientStop Color="Transparent" Offset="0"/>
+            <GradientStop Color="{StaticResource Color.Bg}" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- A page's list: its own scroller (the minimal bar, 8 px clear of the rows), 3 px inset so a focus ring is never
+             cut, 9 px under the last row so its shadow-free edge isn't flush with the footer. -->
+        <ControlTheme x:Key="Import.List" TargetType="ItemsControl">
+            <Setter Property="Margin" Value="-3,-3,-3,0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel/>
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer Padding="0,0,8,9" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  AllowAutoHide="False" Focusable="False">
+                        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" Margin="3"/>
+                    </ScrollViewer>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+
+        <!-- The row's "go" chevron (the chevron icon turned to point right). -->
+        <ControlTheme x:Key="Import.Go" TargetType="c:IconPath" BasedOn="{StaticResource Icon.Base}">
+            <Setter Property="Data" Value="{StaticResource Icon.Chevron}"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Margin" Value="10,0,2,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Stroke" Value="{StaticResource Brush.TextMuted}"/>
+            <Setter Property="RenderTransform" Value="rotate(-90deg)"/>
+        </ControlTheme>
+
+        <!-- The page's big tick box: a 22 px box in a 32 px hit area. Ticked: accent with a tick; some ticked: a dash. -->
+        <ControlTheme x:Key="Import.Tick" TargetType="CheckBox">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Border Name="Box" Width="22" Height="22" CornerRadius="{StaticResource Radius.Sm}"
+                                Background="{StaticResource Brush.Bg}" BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <c:IconPath Name="Mark" Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Base}"
+                                        Width="14" Height="14" StrokeThickness="2.4" Stroke="{StaticResource Brush.TextOnAccent}"
+                                        IsVisible="False"/>
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover /template/ Border#Box">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+            </Style>
+            <Style Selector="^:checked /template/ Border#Box">
+                <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+            </Style>
+            <Style Selector="^:checked /template/ c|IconPath#Mark">
+                <Setter Property="IsVisible" Value="True"/>
+            </Style>
+            <Style Selector="^:indeterminate /template/ Border#Box">
+                <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+            </Style>
+            <Style Selector="^:indeterminate /template/ c|IconPath#Mark">
+                <Setter Property="IsVisible" Value="True"/>
+                <Setter Property="Data" Value="{StaticResource Icon.Minus}"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.45"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Style>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Import.Tile" TargetType="Border" BasedOn="{StaticResource Surface.Card}">
+            <Setter Property="Margin" Value="0,0,16,16"/>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Import.StatNumber" TargetType="TextBlock" BasedOn="{StaticResource Text.Title}">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="LineHeight" Value="28"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </ControlTheme>
+
+        <!-- The four steps: a capsule ring with the number (or the emerald tick once done), the step's name, a hairline. -->
+        <ControlTheme x:Key="Import.StepDot" TargetType="Border">
+            <Setter Property="Width" Value="{StaticResource Size.Badge}"/>
+            <Setter Property="Height" Value="{StaticResource Size.Badge}"/>
+            <Setter Property="ui:Capsule.On" Value="True"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </ControlTheme>
+        <ControlTheme x:Key="Import.StepNum" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        </ControlTheme>
+        <ControlTheme x:Key="Import.StepTick" TargetType="c:IconPath" BasedOn="{StaticResource Icon.Base}">
+            <Setter Property="Width" Value="{StaticResource Icon.SizeLinkHint}"/>
+            <Setter Property="Height" Value="{StaticResource Icon.SizeLinkHint}"/>
+            <Setter Property="StrokeThickness" Value="2.6"/>
+            <Setter Property="Stroke" Value="{StaticResource Brush.Hue.Emerald}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="IsVisible" Value="False"/>
+        </ControlTheme>
+        <ControlTheme x:Key="Import.StepText" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="None"/>
+        </ControlTheme>
+        <ControlTheme x:Key="Import.StepLine" TargetType="Border">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="12,0"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Stroke}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Import.HeaderButton" TargetType="Button" BasedOn="{StaticResource Button.Secondary.Small}">
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </ControlTheme>
+
+        <!-- A whole card that is one button (a launcher tile, a step-2 choice). -->
+        <ControlTheme x:Key="Import.CardButton" TargetType="Button" BasedOn="{StaticResource Button.StripCard}">
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,16,16"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </ControlTheme>
+        <!-- Template.Button with the content's vertical alignment kept (the button template centres it). -->
+        <ControlTemplate x:Key="Import.TopCardTemplate" TargetType="Button">
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Background="{TemplateBinding Background}"
+                              BorderBrush="{TemplateBinding BorderBrush}"
+                              BorderThickness="{TemplateBinding BorderThickness}"
+                              CornerRadius="{TemplateBinding CornerRadius}"
+                              Padding="{TemplateBinding Padding}"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+        </ControlTemplate>
+        <ControlTheme x:Key="Import.ScopeCard" TargetType="Button" BasedOn="{StaticResource Import.CardButton}">
+            <Setter Property="Template" Value="{StaticResource Import.TopCardTemplate}"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </ControlTheme>
+        <ControlTheme x:Key="Import.ScopeRow" TargetType="Button" BasedOn="{StaticResource Import.ScopeCard}">
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Import.Skeleton" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </ControlTheme>
+
+        <!-- A version tab over the grid. -->
+        <ControlTheme x:Key="Import.Tab" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FocusAdorner" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Name="Bd" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Sm}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"
+                                          Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Bd">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+            </Style>
+            <Style Selector="^:checked">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+            <Style Selector="^:checked /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Done: one figure and its label. -->
+        <DataTemplate x:Key="Import.StatBox" x:DataType="c:ImportStatVm">
+            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}" Padding="14,12" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="{Binding Value}" Theme="{StaticResource Import.StatNumber}"
+                               FontSize="{StaticResource FontSize.Display}" LineHeight="{StaticResource LineHeight.Display}"/>
+                    <TextBlock Text="{Binding Label}" Theme="{StaticResource Text.Label}" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Done: a version that is ready to play (or the "+N more" card). -->
+        <DataTemplate x:Key="Import.VersionCard" x:DataType="c:VersionCardVm">
+            <Border Theme="{StaticResource Import.Tile}" Padding="12,12" Margin="0,0,8,8" MinHeight="60">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Width="36" Height="36" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,12,0"
+                            VerticalAlignment="Center" IsVisible="{Binding !IsMore}">
+                        <Grid>
+                            <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}" IsVisible="{Binding !HasLogo}"/>
+                            <Image Source="{Binding Logo}" Width="22" Height="22" IsVisible="{Binding HasLogo}"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" IsVisible="{Binding !IsMore}">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <TextBlock Grid.ColumnSpan="2" Text="{Binding Name}" Theme="{StaticResource Text.BodyStrong}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsMore}"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- The WPF templates' triggers, as classes the rows switch on. -->
+        <Style Selector="c|IconPath.collapsed">
+            <Setter Property="RenderTransform" Value="rotate(-90deg)"/>
+        </Style>
+        <Style Selector="TextBlock.gold">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Warning}"/>
+        </Style>
+        <Style Selector=":is(Control).dimmed">
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector=":is(Control).dimmedPick">
+            <Setter Property="Opacity" Value="0.6"/>
+        </Style>
+        <Style Selector="Border.pickInner.last">
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <Style Selector="Border.progressCard.waiting">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TextBlock.progressStatus.waiting">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        </Style>
+        <Style Selector="Border.cellTick.off">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <!-- A section heading; a collapsible one is a button with a chevron. -->
+        <DataTemplate DataType="c:ImportSectionVm">
+            <Grid Margin="0,14,0,6" MinHeight="24">
+                <Button Theme="{StaticResource Social.SectionButton}" Padding="2,2" Click="Section_Click"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        IsHitTestVisible="{Binding Collapsible}" Focusable="{Binding Collapsible}"
+                        AutomationProperties.Name="{Binding Heading}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Heading}" Theme="{StaticResource Social.Section}" Classes.gold="{Binding Gold}"/>
+                        <c:IconPath Grid.Column="1" Data="{StaticResource Icon.Chevron}" Theme="{StaticResource Icon.Base}"
+                                    Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"
+                                    Stroke="{StaticResource Brush.TextMuted}" IsVisible="{Binding Collapsible}"
+                                    Classes.collapsed="{Binding Collapsed}"/>
+                    </Grid>
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:ImportTitleVm">
+            <StackPanel Margin="2,12,0,12">
+                <TextBlock Text="{Binding Title}" Theme="{StaticResource Text.Title}" TextWrapping="Wrap" TextTrimming="None"
+                           Margin="0,0,0,4" IsVisible="{Binding HasTitle}"/>
+                <TextBlock Text="{Binding Sub}" Theme="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"
+                           IsVisible="{Binding HasSub}"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="s:HintVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <TextBlock Text="{Binding Text}" Theme="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"/>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:ImportNoteVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <TextBlock Text="{Binding Text}" Theme="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"/>
+            </Border>
+        </DataTemplate>
+
+        <!-- Step 1: a launcher that was found, as one card: logo, name and folder, then three figures. -->
+        <DataTemplate DataType="c:LauncherTileVm">
+            <Button Theme="{StaticResource Import.CardButton}" ToolTip.Tip="{Binding Tip}" Click="Tile_Click"
+                    IsEnabled="{Binding CanTick}" AutomationProperties.Name="{Binding TickName}">
+                <StackPanel>
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Width="44" Height="44" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <Grid>
+                                <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}" IsVisible="{Binding !HasLogo}"/>
+                                <Image Source="{Binding Logo}" Width="28" Height="28" IsVisible="{Binding HasLogo}"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" Theme="{StaticResource Social.Name}" FontWeight="Bold"
+                                       FontSize="{StaticResource FontSize.Title}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding PathText}" Theme="{StaticResource Social.Caption}" ToolTip.Tip="{Binding PathText}"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <c:IconPath Grid.Column="2" Theme="{StaticResource Import.Go}" Margin="8,0,0,0"/>
+                    </Grid>
+                    <UniformGrid Columns="3" Margin="0,14,0,0">
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}" Padding="8,10" Margin="0,0,4,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding SetupsText}" Theme="{StaticResource Import.StatNumber}"/>
+                                <TextBlock Text="{Binding SetupsLabel}" Theme="{StaticResource Text.Label}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}" Padding="8,10" Margin="0,0,4,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding WorldsText}" Theme="{StaticResource Import.StatNumber}"/>
+                                <TextBlock Text="WORLDS" Theme="{StaticResource Text.Label}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}" Padding="8,10">
+                            <StackPanel>
+                                <TextBlock Text="{Binding ModsText}" Theme="{StaticResource Import.StatNumber}"/>
+                                <TextBlock Text="MODS" Theme="{StaticResource Text.Label}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+
+        <!-- Step 1: a launcher that wasn't found: its logo in the slim row. -->
+        <DataTemplate DataType="c:MissingLauncherVm">
+            <Border Width="28" Height="28" Margin="0,0,6,0" Background="{StaticResource Brush.Bg}"
+                    CornerRadius="{StaticResource Radius.Sm}" ToolTip.Tip="{Binding Title}"
+                    AutomationProperties.Name="{Binding AutomationName}">
+                <Grid>
+                    <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}" IsVisible="{Binding !HasLogo}"/>
+                    <Image Source="{Binding Logo}" Width="18" Height="18" IsVisible="{Binding HasLogo}"
+                           RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Pick single setups: a launcher's heading row, ticking it ticks every setup under it. -->
+        <DataTemplate DataType="c:PickGroupVm">
+            <Border Margin="{Binding Gap}" Background="{StaticResource Brush.Card}" Padding="16,14,16,6">
+                <Border.CornerRadius>
+                    <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                        <Binding Path="Pos"/>
+                        <Binding Source="{StaticResource Radius.Lg}"/>
+                    </MultiBinding>
+                </Border.CornerRadius>
+                <Grid ColumnDefinitions="Auto,Auto,*">
+                    <CheckBox Theme="{StaticResource Import.Tick}" IsThreeState="False" IsChecked="{Binding State, Mode=OneWay}"
+                              IsEnabled="{Binding CanTick}" Margin="-6,0,6,0" Click="GroupTick_Click"
+                              ToolTip.Tip="Tick or untick every setup" AutomationProperties.Name="{Binding TickName}"/>
+                    <Border Grid.Column="1" Width="36" Height="36" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Grid>
+                            <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}" IsVisible="{Binding !HasLogo}"/>
+                            <Image Source="{Binding Logo}" Width="24" Height="24" IsVisible="{Binding HasLogo}"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" Theme="{StaticResource Social.Name}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Pick single setups: one setup, inside its launcher's card. -->
+        <DataTemplate DataType="c:PickRowVm">
+            <Border Background="{StaticResource Brush.Card}" Padding="8,0,8,0">
+                <Border.CornerRadius>
+                    <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                        <Binding Path="Pos"/>
+                        <Binding Source="{StaticResource Radius.Lg}"/>
+                    </MultiBinding>
+                </Border.CornerRadius>
+                <Border Classes="pickInner" Classes.last="{Binding Pos, Converter={x:Static c:CardEndsConverter.Instance}}"
+                        Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}" Padding="12,8,8,8"
+                        Margin="0,0,0,4" Cursor="Hand" ToolTip.Tip="{Binding RowTip}" PointerReleased="PickRow_MouseUp"
+                        AutomationProperties.Name="{Binding AutomationName}">
+                    <Grid MinHeight="36" ColumnDefinitions="Auto,*,Auto,Auto">
+                        <CheckBox Theme="{StaticResource Import.Tick}" IsThreeState="False" IsChecked="{Binding Ticked, Mode=OneWay}"
+                                  IsEnabled="{Binding CanTick}" Margin="-6,0,6,0" Click="PickTick_Click"
+                                  ToolTip.Tip="Include in import" AutomationProperties.Name="{Binding TickName}"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Classes.dimmedPick="{Binding Dimmed}">
+                            <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}" TextWrapping="Wrap"
+                                       TextTrimming="None"/>
+                        </StackPanel>
+                        <Border Grid.Column="2" Theme="{StaticResource Surface.Capsule}" Background="{StaticResource Brush.Card}"
+                                Margin="12,0,0,0" VerticalAlignment="Center" Classes.dimmedPick="{Binding Dimmed}">
+                            <TextBlock Text="{Binding Badge}" Theme="{StaticResource Surface.ChipText}"/>
+                        </Border>
+                        <Button Grid.Column="3" Theme="{StaticResource Social.Icon}" Margin="6,0,0,0" Click="PickReview_Click"
+                                VerticalAlignment="Center" ToolTip.Tip="Review this setup on its own"
+                                AutomationProperties.Name="{Binding ReviewName}">
+                            <c:IconPath Theme="{StaticResource Import.Go}" Margin="0"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+            </Border>
+        </DataTemplate>
+
+        <!-- Importing: one setup's row (waiting, the live bar, or done). -->
+        <DataTemplate DataType="c:ProgressRowVm">
+            <Border Classes="progressCard" Classes.waiting="{Binding IsWaiting}" Background="{StaticResource Brush.Card}"
+                    CornerRadius="{StaticResource Radius.Lg}" Padding="14,10" Margin="0,0,0,4">
+                <Grid MinHeight="40" ColumnDefinitions="Auto,*,Auto,170">
+                    <Border Width="32" Height="32" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Sm}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Grid>
+                            <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}" IsVisible="{Binding !HasLogo}"/>
+                            <Image Source="{Binding Logo}" Width="20" Height="20" IsVisible="{Binding HasLogo}"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Launcher}" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <Border Grid.Column="2" Width="22" Height="22" CornerRadius="{StaticResource Radius.Sm}"
+                            Background="{StaticResource Brush.Success}" Margin="0,0,16,0" VerticalAlignment="Center"
+                            IsVisible="{Binding IsDone}">
+                        <c:IconPath Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Base}" Width="14" Height="14"
+                                    StrokeThickness="2.4" Stroke="{StaticResource Brush.TextOnAccent}"/>
+                    </Border>
+                    <Border Grid.Column="2" Width="160" Height="4" Background="{StaticResource Brush.ProgressTrack}"
+                            CornerRadius="{StaticResource Radius.Track}" Margin="0,0,16,0" VerticalAlignment="Center"
+                            IsVisible="{Binding IsActive}">
+                        <Border Width="{Binding BarWidth}" HorizontalAlignment="Left" Background="{StaticResource Brush.Accent}"
+                                CornerRadius="{StaticResource Radius.Track}"/>
+                    </Border>
+                    <TextBlock Grid.Column="3" Text="{Binding Status}" Classes="progressStatus" Classes.waiting="{Binding IsWaiting}"
+                               Theme="{StaticResource Text.BodyStrong}" FontSize="{StaticResource FontSize.Caption}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Right"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Choose what to import, the grid: one launcher's row of ticks (a dash where it has nothing). -->
+        <DataTemplate DataType="c:GridRowVm">
+            <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}" Padding="12,6" Margin="0,0,0,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="172"/>
+                        <ColumnDefinition Width="504"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                        <Border Width="28" Height="28" Background="{StaticResource Brush.Bg}" BorderBrush="{Binding TintEdge}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,10,0" VerticalAlignment="Center">
+                            <Grid>
+                                <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}" IsVisible="{Binding !HasLogo}"/>
+                                <Image Source="{Binding Logo}" Width="18" Height="18" IsVisible="{Binding HasLogo}"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" Theme="{StaticResource Social.Name}" FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+                            <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}" ToolTip.Tip="{Binding Caption}"/>
+                        </StackPanel>
+                    </Grid>
+                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="c:GridCellVm">
+                                <Grid Width="28" Height="28" Background="Transparent" ToolTip.Tip="{Binding Tip}">
+                                    <Border Classes="cellTick" Classes.off="{Binding !Enabled}">
+                                        <CheckBox Theme="{StaticResource Import.Tick}" IsThreeState="False"
+                                                  IsChecked="{Binding On, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                                                  Click="GridCell_Click" AutomationProperties.Name="{Binding Name}"
+                                                  AutomationProperties.HelpText="{Binding Tip}"/>
+                                    </Border>
+                                    <c:IconPath Data="{StaticResource Icon.Minus}" Theme="{StaticResource Icon.Base}" Width="12" Height="12"
+                                                StrokeThickness="2" Stroke="{StaticResource Brush.TextDim}"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !Enabled}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- The older pages' rows. -->
+        <DataTemplate DataType="c:SelectAllVm">
+            <Button Theme="{StaticResource Social.DrawerRow}" Click="SelectAll_Click" IsEnabled="{Binding Enabled}"
+                    AutomationProperties.Name="Import from all versions" ToolTip.Tip="Tick or untick every version">
+                <Grid MinHeight="38" ColumnDefinitions="*,Auto">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Import from all versions" Theme="{StaticResource Social.Name}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" Theme="{StaticResource Social.Check}" IsThreeState="False"
+                              IsChecked="{Binding State, Mode=OneWay}" IsEnabled="{Binding $parent[c:ImportPanel].Allowed}"
+                              Click="SelectAllTick_Click" AutomationProperties.Name="Import from all versions"/>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:VersionRowVm">
+            <Button Theme="{StaticResource Social.DrawerRow}" Click="VersionRow_Click"
+                    AutomationProperties.Name="{Binding AutomationName}" ToolTip.Tip="{Binding RowTip}">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <StackPanel VerticalAlignment="Center" Classes.dimmed="{Binding Dimmed}">
+                        <TextBlock Text="{Binding Title}" Theme="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
+                        <TextBlock Text="{Binding Contents}" Theme="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"
+                                   IsVisible="{Binding HasContents}"/>
+                        <TextBlock Text="{Binding Warning}" Theme="{StaticResource Import.Warning}" IsVisible="{Binding HasWarning}"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" Theme="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=OneWay}"
+                              IsVisible="{Binding CanTick}" IsEnabled="{Binding $parent[c:ImportPanel].Allowed}"
+                              Click="VersionTick_Click" ToolTip.Tip="Include in import"
+                              AutomationProperties.Name="{Binding TickName}"/>
+                    <c:IconPath Grid.Column="2" Theme="{StaticResource Import.Go}"/>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:CategoryBarVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}" Padding="10,10,4,4">
+                <ItemsControl ItemsSource="{Binding Chips}" Focusable="False" IsEnabled="{Binding $parent[c:ImportPanel].Allowed}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="c:CategoryChipVm">
+                            <ToggleButton Theme="{StaticResource Import.Chip}" Content="{Binding Text}" IsThreeState="True"
+                                          IsChecked="{Binding IsOn, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                                          ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding AutomationName}"
+                                          Click="Chip_Click"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:SetupRowVm">
+            <Button Theme="{StaticResource Social.DrawerRow}" Click="SetupRow_Click"
+                    AutomationProperties.Name="{Binding AutomationName}" ToolTip.Tip="{Binding RowTip}">
+                <Grid MinHeight="38" ColumnDefinitions="Auto,*,Auto" Classes.dimmed="{Binding Dimmed}">
+                    <Border Theme="{StaticResource Social.Avatar}" Margin="0,0,10,0" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
+                        <TextBlock Text="{Binding Warning}" Theme="{StaticResource Import.Warning}" IsVisible="{Binding HasWarning}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Button Theme="{StaticResource Social.Action}" Content="Change" IsVisible="{Binding HasChoice}"
+                                IsEnabled="{Binding $parent[c:ImportPanel].Allowed}" Click="SetupChange_Click"
+                                AutomationProperties.Name="{Binding ChangeName}"/>
+                        <CheckBox Theme="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=TwoWay}"
+                                  IsVisible="{Binding ShowTick}" IsEnabled="{Binding $parent[c:ImportPanel].Allowed}"
+                                  Click="SetupTick_Click" AutomationProperties.Name="{Binding TickName}"/>
+                    </StackPanel>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:ChooseRowVm">
+            <Button Theme="{StaticResource Social.DrawerRow}" Click="ChooseRow_Click" AutomationProperties.Name="{Binding Name}">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Grid.ColumnSpan="2" Margin="-10,-8" BorderBrush="{StaticResource Brush.Accent}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Md}" IsVisible="{Binding Selected}" IsHitTestVisible="False"/>
+                    <Border Theme="{StaticResource Social.Avatar}" Margin="0,0,10,0" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding Initial}" Theme="{StaticResource Social.Initial}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
+                    </StackPanel>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:ImportOptionVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}" Padding="10,6">
+                <Grid MinHeight="40" ColumnDefinitions="*,Auto">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="{Binding Label}" Theme="{StaticResource Social.Name}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"/>
+                    </StackPanel>
+                    <ToggleButton Grid.Column="1" Theme="{StaticResource Toggle.Slider}" IsChecked="{Binding IsOn, Mode=TwoWay}"
+                                  Click="Option_Click" VerticalAlignment="Center" AutomationProperties.Name="{Binding Label}"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:ImportStatVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Label}" Theme="{StaticResource Text.Body}" TextWrapping="Wrap" TextTrimming="None"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Value}" Theme="{StaticResource Text.Body}" FontWeight="SemiBold"
+                               Margin="12,0,0,0" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="c:ImportLineVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" Theme="{StaticResource Social.Name}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding Caption}" Theme="{StaticResource Social.Caption}" TextWrapping="Wrap" TextTrimming="None"
+                                   IsVisible="{Binding HasCaption}"/>
+                        <TextBlock Text="{Binding Warning}" Theme="{StaticResource Import.Warning}" IsVisible="{Binding HasWarning}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding Status}" Theme="{StaticResource Social.Caption}"
+                               Foreground="{Binding StatusBrush}" Margin="12,0,0,0" VerticalAlignment="Top"
+                               IsVisible="{Binding HasStatus}"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <Grid>
+        <!-- The page column: the shared one (Page.Column: left-aligned under the logo, 1000 px, clears the 56 px bar). -->
+        <c:PageColumn x:Name="Column" Theme="{StaticResource Page.Column}">
+        <!-- Content-sized, not stretched: the footer's buttons sit 16 under the page's content instead of at the
+             bottom of a tall empty area. -->
+        <Grid VerticalAlignment="Top" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+            <!-- Header: the poster title, a line under it, a status line with a dot, and the page's small actions. -->
+            <Grid x:Name="HeaderBlock" Grid.Row="0" Margin="0,0,0,16" ColumnDefinitions="*,Auto">
+                <StackPanel>
+                    <TextBlock Text="IMPORT" Theme="{StaticResource Dialog.Eyebrow}" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="HeaderTitle" Text="Bring it all over" Theme="{StaticResource Text.Heading}"
+                               HorizontalAlignment="Left" TextTrimming="None" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="HeaderSubtitle" Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
+                               TextTrimming="None" MaxWidth="600" HorizontalAlignment="Left" Margin="0,10,0,0"
+                               IsVisible="False"/>
+                    <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="0,14,0,0" IsVisible="False">
+                        <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{StaticResource Brush.Accent}"
+                                 VerticalAlignment="Center" Margin="0,1,10,0"/>
+                        <c:IconPath x:Name="ScanSpinner" Data="{StaticResource Icon.Loading}" Theme="{StaticResource Icon.Base}"
+                                    Width="14" Height="14" Margin="-3,0,7,0" Stroke="{StaticResource Brush.TextDim}"
+                                    RenderTransformOrigin="50%,50%" IsVisible="False" VerticalAlignment="Center">
+                            <c:IconPath.RenderTransform>
+                                <RotateTransform/>
+                            </c:IconPath.RenderTransform>
+                        </c:IconPath>
+                        <TextBlock x:Name="StatusText" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                   TextTrimming="None" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="24,8,0,0">
+                    <Button x:Name="BringButton" Theme="{StaticResource Import.HeaderButton}" Content="What to bring"
+                            Click="Bring_Click" IsVisible="False" ToolTip.Tip="Pick what each version brings over"
+                            AutomationProperties.Name="What to bring"/>
+                    <Button x:Name="BrowseButton" Theme="{StaticResource Import.HeaderButton}" Click="Browse_Click"
+                            IsVisible="False" ToolTip.Tip="Point Origin at a setup's folder" AutomationProperties.Name="Add a folder">
+                        <StackPanel Orientation="Horizontal">
+                            <c:IconPath Data="{StaticResource Icon.Folder}" Theme="{StaticResource Icon.Small}"
+                                        Margin="0,0,8,0" Stroke="{Binding $parent[Button].Foreground}"/>
+                            <TextBlock Text="Add a folder" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BackButton" Theme="{StaticResource Import.HeaderButton}" Content="Back"
+                            Click="Back_Click" IsVisible="False" ToolTip.Tip="Back (Esc)" AutomationProperties.Name="Back"/>
+                    <Button x:Name="CancelButton" Theme="{StaticResource Import.HeaderButton}" Content="Cancel"
+                            Click="Cancel_Click" IsVisible="False" ToolTip.Tip="Stop importing" AutomationProperties.Name="Cancel import"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- The four steps: Source, What to bring, Confirm, Report (SetStep marks done / current / to come). -->
+            <Grid x:Name="StepRow" Grid.Row="1" Margin="0,0,0,20" Width="560" HorizontalAlignment="Left">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Border x:Name="StepDot1" Theme="{StaticResource Import.StepDot}">
+                        <Grid>
+                            <TextBlock x:Name="StepNum1" Text="1" Theme="{StaticResource Import.StepNum}"/>
+                            <c:IconPath x:Name="StepTick1" Data="{StaticResource Icon.Check}" Theme="{StaticResource Import.StepTick}"/>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="StepText1" Text="Source" Theme="{StaticResource Import.StepText}"/>
+                </StackPanel>
+                <Border Grid.Column="1" Theme="{StaticResource Import.StepLine}"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Border x:Name="StepDot2" Theme="{StaticResource Import.StepDot}">
+                        <Grid>
+                            <TextBlock x:Name="StepNum2" Text="2" Theme="{StaticResource Import.StepNum}"/>
+                            <c:IconPath x:Name="StepTick2" Data="{StaticResource Icon.Check}" Theme="{StaticResource Import.StepTick}"/>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="StepText2" Text="What to bring" Theme="{StaticResource Import.StepText}"/>
+                </StackPanel>
+                <Border Grid.Column="3" Theme="{StaticResource Import.StepLine}"/>
+                <StackPanel Grid.Column="4" Orientation="Horizontal">
+                    <Border x:Name="StepDot3" Theme="{StaticResource Import.StepDot}">
+                        <Grid>
+                            <TextBlock x:Name="StepNum3" Text="3" Theme="{StaticResource Import.StepNum}"/>
+                            <c:IconPath x:Name="StepTick3" Data="{StaticResource Icon.Check}" Theme="{StaticResource Import.StepTick}"/>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="StepText3" Text="Confirm" Theme="{StaticResource Import.StepText}"/>
+                </StackPanel>
+                <Border Grid.Column="5" Theme="{StaticResource Import.StepLine}"/>
+                <StackPanel Grid.Column="6" Orientation="Horizontal">
+                    <Border x:Name="StepDot4" Theme="{StaticResource Import.StepDot}">
+                        <Grid>
+                            <TextBlock x:Name="StepNum4" Text="4" Theme="{StaticResource Import.StepNum}"/>
+                            <c:IconPath x:Name="StepTick4" Data="{StaticResource Icon.Check}" Theme="{StaticResource Import.StepTick}"/>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="StepText4" Text="Report" Theme="{StaticResource Import.StepText}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- One status line: why Import is off, or what went wrong with a folder. -->
+            <Border x:Name="NoticeStrip" Grid.Row="2" Theme="{StaticResource Social.Strip}" Margin="0,0,0,12" IsVisible="False">
+                <Grid ColumnDefinitions="Auto,*">
+                    <c:IconPath x:Name="NoticeIcon" Data="{StaticResource Icon.Alert}" Theme="{StaticResource Icon.Base}"
+                                Width="14" Height="14" Margin="0,2,8,0" VerticalAlignment="Top" Stroke="{StaticResource Brush.Warning}"/>
+                    <TextBlock x:Name="NoticeText" Grid.Column="1" Theme="{StaticResource Text.Caption}"
+                               Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap" TextTrimming="None"/>
+                </Grid>
+            </Border>
+
+            <!-- ============ the page (one pane at a time) ============ -->
+            <Grid Grid.Row="3">
+
+                <!-- Detect -->
+                <ScrollViewer x:Name="DetectPane" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AllowAutoHide="False" Focusable="False" Padding="0,0,8,0" Margin="-3,-3,-3,0">
+                    <StackPanel Margin="3">
+                        <TextBlock x:Name="ScanNote" Text="Looking through your other launchers..." Theme="{StaticResource Text.BodyDim}"
+                                   Margin="0,6,0,0" IsVisible="False"/>
+                        <!-- While the scan runs: three grey tiles in the shape of the launcher tiles. -->
+                        <UniformGrid x:Name="SkeletonTiles" Columns="3" Margin="0,0,-16,0" IsVisible="False"
+                                     IsHitTestVisible="False" AutomationProperties.Name="Looking for launchers">
+                            <Border Theme="{StaticResource Import.Tile}" Background="{StaticResource Brush.Panel}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Theme="{StaticResource Import.Skeleton}" Width="44" Height="44" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Border Theme="{StaticResource Import.Skeleton}" Width="120" Height="14"/>
+                                            <Border Theme="{StaticResource Import.Skeleton}" Width="160" Height="10" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Theme="{StaticResource Import.Skeleton}" Height="64" HorizontalAlignment="Stretch"
+                                            CornerRadius="{StaticResource Radius.Md}" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Theme="{StaticResource Import.Tile}" Background="{StaticResource Brush.Panel}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Theme="{StaticResource Import.Skeleton}" Width="44" Height="44" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Border Theme="{StaticResource Import.Skeleton}" Width="96" Height="14"/>
+                                            <Border Theme="{StaticResource Import.Skeleton}" Width="140" Height="10" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Theme="{StaticResource Import.Skeleton}" Height="64" HorizontalAlignment="Stretch"
+                                            CornerRadius="{StaticResource Radius.Md}" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Theme="{StaticResource Import.Tile}" Background="{StaticResource Brush.Panel}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Theme="{StaticResource Import.Skeleton}" Width="44" Height="44" CornerRadius="{StaticResource Radius.Md}" Margin="0,0,14,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Border Theme="{StaticResource Import.Skeleton}" Width="132" Height="14"/>
+                                            <Border Theme="{StaticResource Import.Skeleton}" Width="120" Height="10" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Theme="{StaticResource Import.Skeleton}" Height="64" HorizontalAlignment="Stretch"
+                                            CornerRadius="{StaticResource Radius.Md}" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        <ItemsControl x:Name="TilesList" Focusable="False" Margin="0,0,-16,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="3"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <!-- The launchers that weren't found: one slim row, and the way to point at a folder. -->
+                        <Border x:Name="MissingBar" Theme="{StaticResource Surface.Row}" Margin="0" IsVisible="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <ItemsControl x:Name="MissingLogos" Focusable="False" VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <TextBlock x:Name="MissingText" Grid.Column="1" Theme="{StaticResource Text.BodyDim}"
+                                           TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center"/>
+                                <Button x:Name="LocateButton" Grid.Column="2" Theme="{StaticResource Button.Secondary.Small}" Click="Browse_Click"
+                                        Margin="12,0,0,0" ToolTip.Tip="Point Origin at a launcher's folder"
+                                        AutomationProperties.Name="Locate folder">
+                                    <StackPanel Orientation="Horizontal">
+                                        <c:IconPath Data="{StaticResource Icon.Folder}" Theme="{StaticResource Icon.Small}"
+                                                    Margin="0,0,8,0" Stroke="{Binding $parent[Button].Foreground}"/>
+                                        <TextBlock Text="Locate folder" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <!-- Named, never implied: the launchers Origin can't read at all. -->
+                        <TextBlock x:Name="UnsupportedNote" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
+                                   TextWrapping="Wrap" TextTrimming="None" Margin="2,8,0,0" IsVisible="False"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Step 2: how much of the picked launcher comes over. -->
+                <StackPanel x:Name="ScopePane" IsVisible="False">
+                    <Button x:Name="ScopeAllButton" Theme="{StaticResource Import.ScopeRow}" Click="ScopeAll_Click"
+                            AutomationProperties.Name="Import everything">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Theme="{StaticResource Surface.Tile.Sm}" Background="{StaticResource Brush.HueTile.Emerald}"
+                                    VerticalAlignment="Top" Margin="0,0,12,0">
+                                <c:IconPath Data="{StaticResource Icon.Import}" Theme="{StaticResource Icon.Small}" Stroke="{StaticResource Brush.Hue.Emerald}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Import everything" Theme="{StaticResource Text.BodyStrong}"/>
+                                <TextBlock x:Name="ScopeAllText" Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"/>
+                                <TextBlock x:Name="ScopeAllCounts" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                           Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                            </StackPanel>
+                            <c:IconPath Grid.Column="2" Theme="{StaticResource Import.Go}" Margin="16,0,2,0"/>
+                        </Grid>
+                    </Button>
+                    <Button x:Name="ScopeChooseButton" Theme="{StaticResource Import.ScopeRow}" Click="ScopeChoose_Click"
+                            AutomationProperties.Name="Choose what to import">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Theme="{StaticResource Surface.Tile.Sm}" Background="{StaticResource Brush.HueTile.Sky}"
+                                    VerticalAlignment="Top" Margin="0,0,12,0">
+                                <c:IconPath Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Small}" Stroke="{StaticResource Brush.Hue.Sky}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Choose what to import" Theme="{StaticResource Text.BodyStrong}"/>
+                                <TextBlock x:Name="ScopeChooseText" Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"/>
+                                <TextBlock x:Name="ScopeChooseCounts" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                           Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                            </StackPanel>
+                            <c:IconPath Grid.Column="2" Theme="{StaticResource Import.Go}" Margin="16,0,2,0"/>
+                        </Grid>
+                    </Button>
+                    <TextBlock x:Name="ScopeNote" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
+                               TextWrapping="Wrap" TextTrimming="None" Margin="2,4,0,0"/>
+                </StackPanel>
+
+                <!-- Choose what to import -->
+                <ItemsControl x:Name="PickList" Theme="{StaticResource Import.List}" IsVisible="False"/>
+
+                <!-- Choose what to import, the grid: version tabs, the column heads, a row per launcher. -->
+                <Grid x:Name="GridPane" IsVisible="False" RowDefinitions="Auto,Auto,*">
+                    <ItemsControl x:Name="GridTabs" Focusable="False" Margin="0,0,0,6">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="c:GridTabVm">
+                                <ToggleButton Theme="{StaticResource Import.Tab}" Content="{Binding Title}"
+                                              IsChecked="{Binding Selected, Mode=OneWay}" Click="GridTab_Click"
+                                              AutomationProperties.Name="{Binding AutomationName}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- The heads sit over the ticks: the row's 12 px inset and its 504 px tick block, plus the scrollbar column. -->
+                    <Grid Grid.Row="1" Margin="12,0,24,4" ColumnDefinitions="*,504">
+                        <TextBlock Text="LAUNCHER" Theme="{StaticResource Text.Label}" VerticalAlignment="Bottom"/>
+                        <ItemsControl x:Name="GridHeads" Grid.Column="1" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Text="{Binding}" Theme="{StaticResource Text.Label}" TextAlignment="Center"
+                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" TextWrapping="Wrap"
+                                               TextTrimming="None"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                    <!-- The rows, then "Pick single setups" right under the last one. -->
+                    <DockPanel Grid.Row="2" VerticalAlignment="Top" LastChildFill="True">
+                        <Button x:Name="GridSetupsButton" DockPanel.Dock="Bottom" Theme="{StaticResource Import.HeaderButton}"
+                                HorizontalAlignment="Right" Margin="0,6,0,0"
+                                Content="Pick single setups" Click="GridSetups_Click"
+                                ToolTip.Tip="Tick setups one by one instead" AutomationProperties.Name="Pick single setups"/>
+                        <ItemsControl x:Name="GridRows" Theme="{StaticResource Import.List}"/>
+                    </DockPanel>
+                </Grid>
+
+                <!-- The older pages, in a narrower column: what to bring + versions, one version, review, whose settings,
+                     one setup, details. -->
+                <Grid x:Name="Legacy" MaxWidth="720" HorizontalAlignment="Left" IsVisible="False">
+                    <ItemsControl x:Name="VersionsList" Theme="{StaticResource Import.List}" IsVisible="False"/>
+                    <ItemsControl x:Name="VersionList" Theme="{StaticResource Import.List}" IsVisible="False"/>
+
+                    <Grid x:Name="ReviewPane" IsVisible="False">
+                        <ItemsControl x:Name="ReviewList" Theme="{StaticResource Import.List}"/>
+                        <StackPanel x:Name="ReviewPlanning" Orientation="Horizontal" Margin="2,12,16,0"
+                                    VerticalAlignment="Top" IsVisible="False">
+                            <c:IconPath x:Name="ReviewSpinner" Data="{StaticResource Icon.Loading}" Theme="{StaticResource Icon.Base}"
+                                        Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" RenderTransformOrigin="50%,50%">
+                                <c:IconPath.RenderTransform>
+                                    <RotateTransform/>
+                                </c:IconPath.RenderTransform>
+                            </c:IconPath>
+                            <TextBlock Text="Checking what can come over..." Theme="{StaticResource Social.Quiet}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Behind a back arrow: whose settings, one setup, the details. -->
+                    <Grid x:Name="PageGrid" IsVisible="False" RowDefinitions="Auto,*">
+                        <StackPanel x:Name="SingleTop" Margin="0,0,0,14" IsVisible="False">
+                            <TextBlock Text="VERSION" Theme="{StaticResource Social.Section}" Margin="2,0,0,6"/>
+                            <ComboBox x:Name="TargetBox" Theme="{StaticResource Input.ComboBox}"
+                                      ItemContainerTheme="{StaticResource Input.ComboBoxItem}"
+                                      PlaceholderText="Pick a version" MinHeight="36" Padding="12,6,30,6"
+                                      HorizontalAlignment="Stretch"
+                                      SelectionChanged="TargetBox_SelectionChanged" AutomationProperties.Name="Origin version"/>
+                            <TextBlock x:Name="TargetNote" Theme="{StaticResource Import.Warning}" Margin="2,8,0,0"
+                                       IsVisible="False"/>
+                            <!-- What this setup brings: the same switches as its version's page. -->
+                            <TextBlock Text="WHAT TO BRING" Theme="{StaticResource Social.Section}" Margin="2,14,0,6"/>
+                            <ContentControl x:Name="SingleBring" Focusable="False" IsTabStop="False"/>
+                        </StackPanel>
+                        <ItemsControl x:Name="PageList" Grid.Row="1" Theme="{StaticResource Import.List}"/>
+                        <StackPanel x:Name="PlanningRow" Grid.Row="1" Orientation="Horizontal" Margin="2,6,16,0"
+                                    VerticalAlignment="Top" IsVisible="False">
+                            <c:IconPath x:Name="PlanSpinner" Data="{StaticResource Icon.Loading}" Theme="{StaticResource Icon.Base}"
+                                        Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" RenderTransformOrigin="50%,50%">
+                                <c:IconPath.RenderTransform>
+                                    <RotateTransform/>
+                                </c:IconPath.RenderTransform>
+                            </c:IconPath>
+                            <TextBlock Text="Checking what can come over..." Theme="{StaticResource Social.Quiet}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- Importing: the big percentage and bar, then a row per setup. -->
+                <Grid x:Name="ProgressPane" IsVisible="False" RowDefinitions="Auto,*">
+                    <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}"
+                            Padding="20,18,20,20" Margin="0,0,0,8">
+                        <StackPanel>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <TextBlock x:Name="ProgressPercent" Text="0" Theme="{StaticResource Text.Heading}"
+                                               FontSize="{StaticResource FontSize.Display}" LineHeight="{StaticResource LineHeight.Display}"/>
+                                    <TextBlock Text="%" Theme="{StaticResource Text.Heading}"
+                                               VerticalAlignment="Bottom" Margin="2,0,0,5"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24,0,0,0">
+                                    <TextBlock x:Name="ProgressSetup" Theme="{StaticResource Text.Body}" TextAlignment="Right"
+                                               HorizontalAlignment="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="ProgressDetail" Theme="{StaticResource Text.Caption}" TextAlignment="Right"
+                                               HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Grid>
+                            <Border x:Name="ProgressTrack" Height="{StaticResource Size.Progress}" Margin="0,16,0,0" Background="{StaticResource Brush.ProgressTrack}"
+                                    CornerRadius="{StaticResource Radius.Track}" SizeChanged="ProgressTrack_SizeChanged">
+                                <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" Background="{StaticResource Brush.Accent}"
+                                        CornerRadius="{StaticResource Radius.Track}"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <ItemsControl x:Name="ProgressList" Grid.Row="1" Theme="{StaticResource Import.List}"/>
+                </Grid>
+
+                <!-- Done -->
+                <ScrollViewer x:Name="DonePane" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AllowAutoHide="False" Focusable="False" Padding="0,0,8,0" Margin="-3,-3,-3,0" IsVisible="False">
+                    <StackPanel Margin="3">
+                        <Border Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}" Padding="32,28"
+                                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <!-- The mark alone, with its clear space kept: the "it worked" tick lives beside the label. -->
+                                <c:BrandLogo Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}"
+                                             Margin="0,0,32,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Theme="{StaticResource Surface.Tile.Sm}" Background="{StaticResource Brush.HueTile.Emerald}"
+                                                Margin="0,0,10,0" VerticalAlignment="Center">
+                                            <c:IconPath Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Small}"
+                                                        StrokeThickness="2.4" Stroke="{StaticResource Brush.Hue.Emerald}"/>
+                                        </Border>
+                                        <TextBlock x:Name="DoneLabel" Text="IMPORT FINISHED" Theme="{StaticResource Text.Label}"
+                                                   Foreground="{StaticResource Brush.Success}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="DoneTitle" Text="You're all set" Theme="{StaticResource Text.Heading}"
+                                               Margin="0,6,0,14" TextTrimming="None" TextWrapping="Wrap"/>
+                                    <ItemsControl x:Name="DoneStats" Focusable="False" Margin="0,0,-8,0"
+                                                  ItemTemplate="{StaticResource Import.StatBox}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Rows="1"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <TextBlock x:Name="DoneVersionsTitle" Text="READY TO PLAY" Theme="{StaticResource Text.Label}"
+                                   Margin="0,24,0,10"/>
+                        <ItemsControl x:Name="DoneVersions" Focusable="False" Margin="0,0,-8,0"
+                                      ItemTemplate="{StaticResource Import.VersionCard}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="4"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <!-- Step 4's report: each profile made, then what came over, what was skipped and why. -->
+                        <StackPanel x:Name="DoneReport"/>
+                        <StackPanel x:Name="DoneNotes" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Nothing changed: the reason is the page, a neutral card with the soft danger tile. -->
+                <Border x:Name="FailedPane" Background="{StaticResource Brush.Card}" CornerRadius="{StaticResource Radius.Lg}"
+                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                        Padding="24,20" VerticalAlignment="Top" IsVisible="False">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border x:Name="FailedBadge" Theme="{StaticResource Surface.Tile}" Background="{StaticResource Brush.DangerSoft}"
+                                Margin="0,0,16,0" VerticalAlignment="Top">
+                            <c:IconPath x:Name="FailedGlyph" Data="{StaticResource Icon.Alert}" Theme="{StaticResource Icon.Base}"
+                                        Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                                        Stroke="{StaticResource Brush.DangerText}"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="FailedTitle" Text="Import failed" Theme="{StaticResource Text.Title}" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="FailedReason" Theme="{StaticResource Text.BodyDim}"
+                                       TextWrapping="Wrap" TextTrimming="None"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Footer: what is ready on the left, the page's buttons on the right. -->
+            <Grid x:Name="Footer" Grid.Row="4" Margin="0,16,0,0" MinHeight="{StaticResource Size.ControlMd}" ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="FooterNote" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                           TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="FooterSecondary" Theme="{StaticResource Button.Secondary}"
+                            Margin="0,0,8,0" Click="FooterSecondary_Click"/>
+                    <Button x:Name="FooterPrimary" Theme="{StaticResource Button.Primary.Medium}"
+                            MinWidth="120" Click="FooterPrimary_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <c:IconPath x:Name="PrimaryIcon" Data="{StaticResource Icon.Import}" Theme="{StaticResource Icon.Small}"
+                                        Margin="0,0,8,0" IsVisible="False"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                            <TextBlock x:Name="PrimaryText" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+        </c:PageColumn>
+
+        <c:ConfirmOverlay x:Name="Confirm"/>
+    </Grid>
+</UserControl>

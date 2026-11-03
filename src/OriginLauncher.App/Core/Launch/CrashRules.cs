@@ -88,7 +88,7 @@ public static class CrashRules
                 "Java stopped before Minecraft started: it couldn't reserve the memory Minecraft is set to use.",
                 ownHeap
                     ? "Your Java arguments for this version set a memory size Java couldn't use."
-                    : $"The memory setting ({Gb(f.RamMb)}) is more than Windows could give Java right now.",
+                    : $"The memory setting ({Gb(f.RamMb)}) is more than {PlatformLaunch.SystemName} could give Java right now.",
                 ownHeap ? resetText : "Lower Memory in Settings, or close other programs, then press Play.",
                 ownHeap ? reset : null, Lines(f.JvmStartLine));
         }
@@ -125,9 +125,9 @@ public static class CrashRules
     {
         if (f.NativeOomLine != null)
             return new("out-of-memory", CrashCause.OutOfMemory, CrashConfidence.Confirmed, [],
-                "OUT OF MEMORY", "Your PC ran out of memory",
-                "Windows couldn't give Java the memory it asked for, so Minecraft stopped.",
-                "The whole PC was out of memory (not just Minecraft's share).",
+                "OUT OF MEMORY", $"Your {PlatformLaunch.MachineName} ran out of memory",
+                $"{PlatformLaunch.SystemName} couldn't give Java the memory it asked for, so Minecraft stopped.",
+                $"The whole {PlatformLaunch.MachineName} was out of memory (not just Minecraft's share).",
                 "Close other programs. If it keeps happening, lower Memory in Settings a little.",
                 null, Lines(f.NativeOomLine, f.ProblematicFrameLine));
         if (f.HeapOomLine == null) return null;
@@ -381,6 +381,8 @@ public static class CrashRules
     private static readonly string[] DriverModules =
     [
         "nvoglv64", "nvwgf2um", "nvlddmkm", "atio6axx", "atioglxx", "aticfx64", "amdxx64", "amdvlk64", "ig", "libnvidia", "dri",
+        // macOS: Apple's OpenGL over Metal, the GL engine, and the Intel / AMD GL drivers of Intel Macs.
+        "applemetalopenglrenderer", "glengine", "libglprogrammability", "appleintel", "amdradeonx",
     ];
 
     private static CrashFinding? GraphicsDriver(CrashFacts f)
@@ -391,7 +393,7 @@ public static class CrashRules
             "GRAPHICS DRIVER", "Your graphics driver may have stopped the game",
             driverFrame ? $"Minecraft crashed inside {f.ProblematicModule}, part of your graphics driver." : "The game couldn't draw with your graphics card.",
             "The graphics driver, or overlay software (screen recorders, RGB tools) hooked into it.",
-            "Update your graphics driver (NVIDIA, AMD or Intel, or Windows Update), close overlay apps, then press Play.",
+            $"{PlatformLaunch.DriverUpdateAdvice}, close overlay apps, then press Play.",
             null, Lines(f.GraphicsLine, f.ProblematicFrameLine));
     }
 
@@ -407,8 +409,8 @@ public static class CrashRules
     {
         if (!f.HasHsErr && !f.NativeExitCode) return null;
         return new("native-crash", CrashCause.NativeCrash, CrashConfidence.Possible, [],
-            "WINDOWS CLOSED IT", "Minecraft crashed below Java",
-            f.HasHsErr ? "Java itself crashed and wrote a crash dump." : $"Windows ended Minecraft (exit code 0x{f.ExitCode:X8}).",
+            $"{PlatformLaunch.SystemName.ToUpperInvariant()} CLOSED IT", "Minecraft crashed below Java",
+            f.HasHsErr ? "Java itself crashed and wrote a crash dump." : $"{PlatformLaunch.SystemName} ended Minecraft (exit code 0x{f.ExitCode:X8}).",
             f.ProblematicModule != null ? $"It stopped inside {f.ProblematicModule}." : "Usually a graphics driver, overlay software or a mod with native code.",
             "Update your graphics driver and close overlay apps, then press Play. If it repeats, use Copy report when you ask for help.",
             null, Lines(f.ProblematicFrameLine));

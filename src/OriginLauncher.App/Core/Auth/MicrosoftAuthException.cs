@@ -16,6 +16,30 @@ public sealed class MicrosoftAuthException : Exception
     /// </summary>
     public const string AccountMismatchStage = "account_mismatch";
 
+    /// <summary>
+    /// Saving the sign-in failed: on a Mac the account key lives in the Keychain, which can be locked,
+    /// refuse, or not answer in time (Windows DPAPI does not fail there). Nothing was saved; trying
+    /// again after unlocking works. See <see cref="Sealed"/>.
+    /// </summary>
+    public const string KeychainStage = "keychain";
+
+    public const string KeychainMessage =
+        "Origin couldn't save your sign-in safely: your Keychain is locked or didn't answer. Unlock it and try again.";
+
+    /// <summary>
+    /// Runs one AccountStore.Protect* call, turning its CryptographicException into a sign-in failure
+    /// every surface already shows (Home, the add-account card, Friends). Callers seal BEFORE they
+    /// write anything, so a refusal leaves accounts.json exactly as it was.
+    /// </summary>
+    public static string Sealed(Func<string> protect)
+    {
+        try { return protect(); }
+        catch (System.Security.Cryptography.CryptographicException e)
+        {
+            throw new MicrosoftAuthException(KeychainStage, KeychainMessage, e.Message);
+        }
+    }
+
     public string Stage { get; }
 
     /// <summary>Raw diagnostics (HTTP status + body). Never shown to the player.</summary>

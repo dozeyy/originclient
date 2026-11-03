@@ -41,8 +41,8 @@ internal sealed class AccountSessionVault : ISessionVault
     public void Save(string accountId, SilentSignIn signIn)
     {
         var session = signIn.Session;
-        var protectedRefresh = AccountStore.ProtectRefreshToken(signIn.RefreshToken);
-        var protectedSession = AccountStore.ProtectSession(session);
+        var protectedRefresh = MicrosoftAuthException.Sealed(() => AccountStore.ProtectRefreshToken(signIn.RefreshToken));
+        var protectedSession = MicrosoftAuthException.Sealed(() => AccountStore.ProtectSession(session));
         AccountStore.Update(accounts =>
         {
             var stored = Find(accounts, accountId);

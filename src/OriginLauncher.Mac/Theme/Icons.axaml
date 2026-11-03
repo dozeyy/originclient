@@ -1,0 +1,143 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System"
+                    xmlns:c="using:OriginLauncher.Mac.UI.Controls">
+
+    <!-- Avalonia twin of src/OriginLauncher.App/Theme/Icons.xaml: the same glyph data under the same keys. -->
+
+    <!-- Origin Line (DESIGN-SYSTEM section 10): 24 px masters, round caps and joins, one 1.7 px stroke at every size. -->
+    <!-- Glyph sizes. An icon button sizes ITSELF from its glyph plus its padding (MinWidth/MinHeight,
+         never a fixed Width/Height smaller than that sum): a glyph bigger than its slot is cut off
+         at the slot's edge, which is how the Friends drawer's "..." lost a dot (2026-10-18). -->
+    <!-- icon.sm 14 (28 tall controls), icon.md 16 (32 and 36 tall), icon.lg 18 (40 tall). Icon.Size is the default md. -->
+    <x:Double x:Key="Icon.SizeSmall">14</x:Double>
+    <x:Double x:Key="Icon.Size">16</x:Double>
+    <x:Double x:Key="Icon.SizeLarge">18</x:Double>
+    <x:Double x:Key="Icon.Stroke">1.7</x:Double>
+    <!-- A 10 px glyph (the Import page's small inline arrows). -->
+    <x:Double x:Key="Icon.SizeLinkHint">10</x:Double>
+    <!-- The glyph inside a status capsule (Padding.Capsule.Sm): 10 px, a 1.7 line, 6 before the caps. -->
+    <x:Double x:Key="Icon.SizeCapsule">10</x:Double>
+    <Thickness x:Key="Margin.CapsuleIcon">0,0,6,0</Thickness>
+
+    <!-- Mac: the icon themes target c:IconPath, which fits glyph + stroke into the box like WPF's Path Stretch="Uniform"
+         (Avalonia's own Path lets the stroke hang outside, about 2 px bigger). -->
+    <ControlTheme x:Key="Icon.Base" TargetType="c:IconPath">
+        <Setter Property="Width" Value="{StaticResource Icon.Size}"/>
+        <Setter Property="Height" Value="{StaticResource Icon.Size}"/>
+        <Setter Property="StrokeThickness" Value="{StaticResource Icon.Stroke}"/>
+        <Setter Property="StrokeLineCap" Value="Round"/>
+        <Setter Property="StrokeJoin" Value="Round"/>
+        <Setter Property="Fill" Value="Transparent"/>
+    </ControlTheme>
+
+    <!-- The glyph inside a small icon button (a 14 px glyph, icon.sm). -->
+    <ControlTheme x:Key="Icon.Small" TargetType="c:IconPath" BasedOn="{StaticResource Icon.Base}">
+        <Setter Property="Width" Value="{StaticResource Icon.SizeSmall}"/>
+        <Setter Property="Height" Value="{StaticResource Icon.SizeSmall}"/>
+    </ControlTheme>
+
+    <!-- Converted from design/icon-proposals/origin-icon-system-v2/svg/launcher.*.svg
+         (Will's 2.2 px set, Feather-based, MIT): each SVG's lines/polylines/
+         circles/rects become path figures, path data is kept as written.
+         Icon.External isn't in the set; it's Feather's external-link to match. -->
+    <StreamGeometry x:Key="Icon.Mods">M3,3 H10 V10 H3 Z M14,3 H21 V10 H14 Z M14,14 H21 V21 H14 Z M3,14 H10 V21 H3 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Home">M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9,22 L9,12 15,12 15,22</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Settings">M9,12 A3,3 0 1 0 15,12 A3,3 0 1 0 9,12 Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Account">M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M8,7 A4,4 0 1 0 16,7 A4,4 0 1 0 8,7 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Download">M8,17 L12,21 16,17 M12,12 L12,21 M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Folder">M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Trash">M3,6 L5,6 21,6 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10,11 L10,17 M14,11 L14,17</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Back">M19,12 L5,12 M12,19 L5,12 12,5</StreamGeometry>
+    <StreamGeometry x:Key="Icon.ArrowUpRight">M7,17 L17,7 M8,7 L17,7 L17,16</StreamGeometry>
+    <StreamGeometry x:Key="Icon.External">M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15,3 L21,3 21,9 M10,14 L21,3</StreamGeometry>
+
+    <StreamGeometry x:Key="Icon.Minimize">M5,12 L19,12</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Close">M18,6 L6,18 M6,6 L18,18</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Loading">M12,2 L12,6 M12,18 L12,22 M4.93,4.93 L7.76,7.76 M16.24,16.24 L19.07,19.07 M2,12 L6,12 M18,12 L22,12 M4.93,19.07 L7.76,16.24 M16.24,7.76 L19.07,4.93</StreamGeometry>
+
+    <!-- Origin social (Friends drawer, toasts). Feather's users / user-plus /
+         send / message-square; the crown isn't in Feather, it's drawn on the
+         same 24 px grid and stroke. -->
+    <StreamGeometry x:Key="Icon.Friends">M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M5,7 A4,4 0 1 0 13,7 A4,4 0 1 0 5,7 Z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75</StreamGeometry>
+    <StreamGeometry x:Key="Icon.UserPlus">M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M4.5,7 A4,4 0 1 0 12.5,7 A4,4 0 1 0 4.5,7 Z M20,8 L20,14 M23,11 L17,11</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Send">M22,2 L11,13 M22,2 L15,22 11,13 2,9 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Chat">M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Crown">M2,6 L5,18 19,18 22,6 16,12 12,5 8,12 Z</StreamGeometry>
+
+    <!-- ================= Social drawer additions (Friends redesign) =================
+         Same 24 px grid and stroke as the set above. Feather's plus, check,
+         user-x, more-horizontal and bell. ============================================ -->
+    <StreamGeometry x:Key="Icon.Chevron">M6,9 L12,15 18,9</StreamGeometry>
+    <!-- The drop-down arrow (a combo box). Same shape as Icon.Chevron; the name says what it is for. -->
+    <StreamGeometry x:Key="Icon.ChevronDown">M6,9 L12,15 18,9</StreamGeometry>
+    <!-- Bring something in: an arrow into a tray (the Profiles page's Import button). Not the cloud of Icon.Download. -->
+    <StreamGeometry x:Key="Icon.Import">M12,3 L12,15 M7,10 L12,15 17,10 M4,16 L4,20 L20,20 L20,16</StreamGeometry>
+    <!-- Bring settings over: a folder with an arrow going in through its left wall (the top bar's Import: "bring a
+         setup in"). Not a tray with a down arrow (Icon.Import above, reads as "download") and not an arrow into a
+         bracket (that is the standard log-in icon, right beside the Sign in avatar). -->
+    <StreamGeometry x:Key="Icon.ImportIn">M2 9V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2 M2,13 H12 M9,10 L12,13 L9,16</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Plus">M12,5 L12,19 M5,12 L19,12</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Check">M20,6 L9,17 L4,12</StreamGeometry>
+    <!-- "Some of them": a tick box or chip in its mixed state (Import: some versions ticked, not all). -->
+    <StreamGeometry x:Key="Icon.Minus">M6,12 L18,12</StreamGeometry>
+    <StreamGeometry x:Key="Icon.UserMinus">M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M4.5,7 A4,4 0 1 0 12.5,7 A4,4 0 1 0 4.5,7 Z M18,8 L23,13 M23,8 L18,13</StreamGeometry>
+    <StreamGeometry x:Key="Icon.More">M4,12 A1.4,1.4 0 1 0 6.8,12 A1.4,1.4 0 1 0 4,12 Z M10.6,12 A1.4,1.4 0 1 0 13.4,12 A1.4,1.4 0 1 0 10.6,12 Z M17.2,12 A1.4,1.4 0 1 0 20,12 A1.4,1.4 0 1 0 17.2,12 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Alert">M12,8 L12,12 M12,16 L12.01,16 M3,12 A9,9 0 1 0 21,12 A9,9 0 1 0 3,12 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Block">M3,12 A9,9 0 1 0 21,12 A9,9 0 1 0 3,12 Z M5.6,5.6 L18.4,18.4</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Arrow.Down">M12,5 L12,19 M19,12 L12,19 L5,12</StreamGeometry>
+    <!-- Downloads when you press Play: an arrow onto a line (the Workbench mockup's release-row capsule). Not the cloud
+         of Icon.Download, which is too busy at a capsule's 10 px. -->
+    <StreamGeometry x:Key="Icon.DownloadArrow">M12,4 L12,15 M7.5,10.5 L12,15 L16.5,10.5 M5,19.5 L19,19.5</StreamGeometry>
+
+    <!-- Mod profiles (Feather layers / edit-2 / copy, MIT; plus and check are above). -->
+    <StreamGeometry x:Key="Icon.Profiles">M12,2 L2,7 12,12 22,7 Z M2,17 L12,22 22,17 M2,12 L12,17 22,12</StreamGeometry>
+    <!-- Play: a solid rounded triangle (the Play button's glyph; filled, so its Path sets Fill). -->
+    <StreamGeometry x:Key="Icon.Play">M7,4.5 L19,12 L7,19.5 Z</StreamGeometry>
+    <!-- Origin Store (Feather shopping-bag, MIT). -->
+    <StreamGeometry x:Key="Icon.Store">M6,2 L3,6 V20 A2,2 0 0 0 5,22 H19 A2,2 0 0 0 21,20 V6 L18,2 Z M3,6 H21 M16,10 A4,4 0 0 1 8,10</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Edit">M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Server">M5.5,4 H18.5 A1.5,1.5 0 0 1 20,5.5 V9.5 A1.5,1.5 0 0 1 18.5,11 H5.5 A1.5,1.5 0 0 1 4,9.5 V5.5 A1.5,1.5 0 0 1 5.5,4 Z M5.5,13 H18.5 A1.5,1.5 0 0 1 20,14.5 V18.5 A1.5,1.5 0 0 1 18.5,20 H5.5 A1.5,1.5 0 0 1 4,18.5 V14.5 A1.5,1.5 0 0 1 5.5,13 Z M8,7.5 L8.01,7.5 M8,16.5 L8.01,16.5</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Jar">M14,3 H7 A2,2 0 0 0 5,5 V19 A2,2 0 0 0 7,21 H17 A2,2 0 0 0 19,19 V8 Z M14,3 V8 H19 M9,13 H15 M9,17 H13</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Drop">M12,3 V15 M7,10 L12,15 17,10 M4,15 V18 A2,2 0 0 0 6,20 H18 A2,2 0 0 0 20,18 V15</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Copy">M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1</StreamGeometry>
+    <!-- Singleplayer (a world): globe, lucide-style. -->
+    <!-- Profile emblems (ProfileLook.EmblemGlyph). One set, drawn for Origin on a 24 px grid and
+         always shown at 24 px (the Origin mark's size), so a whole pixel is a whole grid unit:
+         2 px round stroke, axis-aligned edges on whole pixels (crisp at 100% and 200%), a tint
+         fill at ProfileLook.ToneOpacity inside every outline, and a solid layer (".Solid") for
+         details and small parts. F0 = even-odd, so a lens or ring reads as a hole. The name
+         after "Icon.Emblem." is what ModProfile.Icon stores, so never rename one. -->
+    <StreamGeometry x:Key="Icon.Emblem.Star">M12,2.7 L14.65,9.26 21.7,9.75 16.28,14.29 18,21.15 12,17.4 6,21.15 7.72,14.29 2.3,9.75 9.35,9.26 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Zap">M14,2 L5,13 11,13 10,22 19,11 13,11 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Map">M3,6 L9,4 L15,6 L21,4 L21,18 L15,20 L9,18 L3,20 Z M9,4 L9,18 M15,6 L15,20</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Camera">F0 M3,7 L7,7 9,4 15,4 17,7 21,7 21,19 3,19 Z M8.5,13 A3.5,3.5 0 0 1 12,9.5 A3.5,3.5 0 0 1 15.5,13 A3.5,3.5 0 0 1 12,16.5 A3.5,3.5 0 0 1 8.5,13 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Target">F0 M3,12 A9,9 0 0 1 12,3 A9,9 0 0 1 21,12 A9,9 0 0 1 12,21 A9,9 0 0 1 3,12 Z M7,12 A5,5 0 0 1 12,7 A5,5 0 0 1 17,12 A5,5 0 0 1 12,17 A5,5 0 0 1 7,12 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Target.Solid">M10.2,12 A1.8,1.8 0 0 1 12,10.2 A1.8,1.8 0 0 1 13.8,12 A1.8,1.8 0 0 1 12,13.8 A1.8,1.8 0 0 1 10.2,12 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Sun">M8,12 A4,4 0 0 1 12,8 A4,4 0 0 1 16,12 A4,4 0 0 1 12,16 A4,4 0 0 1 8,12 Z M19.5,12 L22,12 M17.09,17.09 L18.65,18.65 M12,19.5 L12,22 M6.91,17.09 L5.35,18.65 M4.5,12 L2,12 M6.91,6.91 L5.35,5.35 M12,4.5 L12,2 M17.09,6.91 L18.65,5.35</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Pen">M16.6,3.16 L20.84,7.4 9.53,18.72 3.16,20.84 5.28,14.47 Z M13.77,5.99 L18.01,10.23 M5.28,14.47 L9.53,18.72</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.User">M4,21 C4,16.5 7.5,14 12,14 C16.5,14 20,16.5 20,21 Z M8,8 A4,4 0 0 1 12,4 A4,4 0 0 1 16,8 A4,4 0 0 1 12,12 A4,4 0 0 1 8,8 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Box">M12,2 L21,7 L21,17 L12,22 L3,17 L3,7 Z M3,7 L12,12 L21,7 M12,12 L12,22</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Crown">M3,19 L3,8 L8,12 L12,5 L16,12 L21,8 L21,19 Z M3,16 L21,16</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Globe">M3,12 A9,9 0 0 1 12,3 A9,9 0 0 1 21,12 A9,9 0 0 1 12,21 A9,9 0 0 1 3,12 Z M3,12 L21,12 M12,3 A4,9 0 0 1 12,21 A4,9 0 0 1 12,3 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Server">M3,2 H21 V10 H3 Z M3,14 H21 V22 H3 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Server.Solid">M5.8,6 A1.2,1.2 0 0 1 7,4.8 A1.2,1.2 0 0 1 8.2,6 A1.2,1.2 0 0 1 7,7.2 A1.2,1.2 0 0 1 5.8,6 Z M5.8,18 A1.2,1.2 0 0 1 7,16.8 A1.2,1.2 0 0 1 8.2,18 A1.2,1.2 0 0 1 7,19.2 A1.2,1.2 0 0 1 5.8,18 Z M12,5 H18 V7 H12 Z M12,17 H18 V19 H12 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Sword">M7.05,12.42 L15.89,3.59 21.55,2.45 20.41,8.11 11.58,16.95</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Sword.Solid">M4.72,9.38 L14.62,19.28 12.35,21.55 2.45,11.65 Z M6.34,15.25 L8.75,17.66 5.92,20.49 3.51,18.08 Z M2.2,20.2 A1.6,1.6 0 0 1 3.8,18.6 A1.6,1.6 0 0 1 5.4,20.2 A1.6,1.6 0 0 1 3.8,21.8 A1.6,1.6 0 0 1 2.2,20.2 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Pickaxe">M4.57,3.88 Q23.66,0.34 20.12,19.43 L16.94,19.79 Q16.94,7.06 4.21,7.06 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Pickaxe.Solid">M13.05,8.54 L15.46,10.95 5.77,20.63 3.37,18.23 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Diamond">M6,3 H18 L22,9 L12,22 L2,9 Z M2,9 H22 M11,3 L8,9 L12,22 L16,9 L13,3</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Heart">M12,20.5 L4.4,12.9 A5.4,5.4 0 0 1 12,5.3 A5.4,5.4 0 0 1 19.6,12.9 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Creeper">M3,3 H21 V21 H3 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Creeper.Solid">M6,7 H10 V11 H6 Z M14,7 H18 V11 H14 Z M10,12 H14 V15 H16 V18 H13 V15 H11 V18 H8 V15 H10 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Potion">M14,3 V9 A6.5,6.5 0 1 1 10,9 V3 M8.5,3 H15.5</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Potion.Solid">M7.05,14.5 H16.95 A5,5 0 1 1 7.05,14.5 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Torch">M16.6,1.6 L18.81,8.15 A3.6,3.6 0 1 1 12.5,7.17 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Torch.Solid">M11.29,10.31 L13.69,12.71 4.15,22.26 1.74,19.85 Z M16,6.2 L16.86,9.64 A1.5,1.5 0 1 1 14.13,9.21 Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Chest">M3,5 H21 V20 H3 Z M3,10 H21</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Emblem.Chest.Solid">M10,9 H14 V14 H10 Z</StreamGeometry>
+    <!-- Two arrows chasing each other: Settings Sync (U3.7b). -->
+    <StreamGeometry x:Key="Icon.Sync">M23,4 L23,10 L17,10 M1,20 L1,14 L7,14 M3.51,9 A9,9 0 0 1 18.36,5.64 L23,10 M1,14 L5.64,18.36 A9,9 0 0 0 20.49,15</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Globe">M12,3 A9,9 0 1 0 12.001,3 Z M3,12 H21 M12,3 A14,14 0 0 1 12,21 A14,14 0 0 1 12,3 Z</StreamGeometry>
+
+</ResourceDictionary>

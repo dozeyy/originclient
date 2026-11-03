@@ -194,7 +194,12 @@ h2 span, h1 span { color: var(--muted); }
 .get { min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 11svh; text-align: center; }
 .get h2 { font-size: clamp(40px, 7vw, 92px); margin-bottom: 20px; }
 .get .lede { margin: 0 auto 36px; }
-/* Other downloads under the big button: Windows + each Linux package, as capsules. */
+/* The big button is the visitor's own system; the line under it says what it's for. */
+.get__sub { margin: 14px 0 0; font: 500 13px/1.4 var(--sans); color: var(--dim); }
+.get__sub[hidden], .get__steps[hidden], [data-mac][hidden] { display: none; }
+.badge { --h: 21px; display: inline-flex; align-items: center; height: var(--h); padding: 0 9px; border-radius: calc(var(--h) / 2); background: rgba(255, 255, 255, .14); font: 700 11px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; }
+.btn--primary .badge { background: rgba(0, 0, 0, .12); }
+/* Every other download under the big button (Windows, Mac Beta, each Linux package), as capsules. */
 .others { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 28px auto 0; max-width: 760px; }
 .others[hidden] { display: none; }
 .others a { --h: 44px; display: inline-flex; align-items: center; gap: 8px; height: var(--h); padding: 0 18px; border-radius: calc(var(--h) / 2); background: var(--glass); border: 1px solid var(--soft); color: var(--text); text-decoration: none; font: 600 14px/1 var(--sans); transition: background .15s var(--ease), border-color .15s var(--ease); }
@@ -202,6 +207,14 @@ h2 span, h1 span { color: var(--muted); }
 .others a:hover { background: var(--card-alt); border-color: var(--stroke); }
 .others a:active { transform: translateY(1px); }
 .others a:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.others a .badge { --h: 18px; padding: 0 7px; font-size: 10px; }
+/* The Mac's one-time Open Anyway steps; open by itself for Mac visitors. */
+.get__steps { width: min(560px, 100%); margin: 28px auto 0; padding: 16px 22px; border: 1px solid var(--soft); border-radius: 20px; background: rgba(10, 10, 12, .55); backdrop-filter: blur(10px); text-align: left; color: var(--dim); font: 500 14px/1.55 var(--sans); text-shadow: none; }
+.get__steps summary { cursor: pointer; color: var(--text); font-weight: 600; list-style-position: inside; }
+.get__steps p { margin: 12px 0 0; }
+.get__steps ol { margin: 12px 0 0; padding-left: 22px; }
+.get__steps li + li { margin-top: 6px; }
+.get__steps b { color: var(--text); font-weight: 600; }
 .specs { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 28px; margin: 32px 0 0; padding: 0; list-style: none; font: 600 13px/1 var(--sans); letter-spacing: .02em; color: var(--dim); }
 .foot { position: relative; display: grid; gap: 14px; padding: 48px var(--pad) 64px; border-top: 1px solid var(--soft); background: rgba(7, 7, 8, .94); color: var(--muted); font-size: 13px; }
 .foot p { margin: 0; max-width: 780px; }

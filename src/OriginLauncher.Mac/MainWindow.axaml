@@ -1,0 +1,173 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+        x:Class="OriginLauncher.Mac.MainWindow"
+        Title="Origin Launcher"
+        Width="1180" Height="740" MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Brush.Bg}"
+        TextOptions.TextRenderingMode="Antialias"
+        FontFamily="{StaticResource Font.Primary}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="{StaticResource Size.Bar}">
+
+    <!-- The Mac twin of the WPF MainWindow: the same chromeless Origin window, except that macOS keeps its own
+         traffic lights at the top left (the bar's brand starts after them, Margin.TopBarBrand) and the WPF corner
+         controls (Minimize / Close) are not drawn. Cmd+M and Cmd+W live in the Window menu below; Cmd+Q is the app
+         menu's own Quit. -->
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="Window">
+                <NativeMenu>
+                    <NativeMenuItem Header="Minimize" Gesture="Meta+M" Click="Minimize_Click"/>
+                    <NativeMenuItem Header="Close" Gesture="Meta+W" Click="Close_Click"/>
+                </NativeMenu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
+
+    <Panel>
+        <!-- Poster backdrop behind every page: the family art, the giant version numeral, the shade and the page dim. -->
+        <c:ArtStage x:Name="Stage"/>
+
+        <!-- Chromeless content layer. Background Transparent so empty space is hit-testable for the drag-anywhere
+             handler; buttons take the press first, so a drag only starts on genuinely empty background. -->
+        <Panel x:Name="Root" Background="Transparent" PointerPressed="Root_PointerPressed">
+
+            <!-- Pages fill the window; each page clears the bar itself. -->
+            <ContentControl x:Name="PageHost"/>
+
+            <!-- The bar's surfaces: BarSurface (opaque) on inner pages, BarGlass (the nav colour at 88 %) on Home. -->
+            <Border x:Name="BarSurface" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" IsHitTestVisible="False"
+                    Background="{StaticResource Brush.Panel}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                    BorderThickness="0,0,0,1" Opacity="0"/>
+            <Border x:Name="BarGlass" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" IsHitTestVisible="False"
+                    Background="{StaticResource Brush.PanelGlass}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                    BorderThickness="0,0,0,1"/>
+
+            <!-- The top bar: brand left (after the traffic lights), page tabs centred on the window, actions right. -->
+            <Panel x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top">
+                <!-- The brand lockup is the Website link. Below 1000 px the wordmark hides and the logo stays the link. -->
+                <Button x:Name="WebsiteButton" Theme="{StaticResource Button.Brand}" Margin="{StaticResource Margin.TopBarBrand}"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        AutomationProperties.Name="Open originclient.org">
+                    <StackPanel Orientation="Horizontal">
+                        <c:BrandLogo Width="{StaticResource Size.Logo.Bar}" Height="{StaticResource Size.Logo.Bar}" VerticalAlignment="Center"/>
+                        <Image x:Name="BarWordmark" Source="{StaticResource Brand.Wordmark}" Height="{StaticResource Size.Wordmark.Bar}"
+                               Margin="8,0,0,0" VerticalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Centred on the window; the fit rule slides it left only when the actions would come within Space.5
+                     of SETTINGS (narrow windows). -->
+                <StackPanel x:Name="NavTabs" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ToggleButton x:Name="NavHome" Theme="{StaticResource Button.NavItem}" IsChecked="True" AutomationProperties.Name="Home">
+                        <c:TrackedText Text="HOME" Tracking="0.14"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="NavMods" Theme="{StaticResource Button.NavItem}" AutomationProperties.Name="Mods">
+                        <c:TrackedText Text="MODS" Tracking="0.14"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="NavProfiles" Theme="{StaticResource Button.NavItem}" AutomationProperties.Name="Profiles">
+                        <c:TrackedText Text="PROFILES" Tracking="0.14"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="NavSettings" Theme="{StaticResource Button.NavItem}" AutomationProperties.Name="Settings">
+                        <c:TrackedText Text="SETTINGS" Tracking="0.14"/>
+                    </ToggleButton>
+                </StackPanel>
+
+                <StackPanel x:Name="BarActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="{StaticResource Margin.TopBarActions}">
+                    <!-- Update chip (DESIGN-SYSTEM 11.4, the WPF UpdateBadge): hidden until UpdateService finds a newer release;
+                         a click downloads it, swaps the app and reopens it (MainWindow.Update.cs). 1100 and wider: gold wash,
+                         gold download glyph + "Update". Below 1100: an icon button 32, the glyph in textDim with a gold dot at
+                         its top-right. It never hides at any width; a note (Updating..., Update failed - retry, Move to
+                         Applications) takes the label's place at every width. No hover label. -->
+                    <Button x:Name="UpdateBadge" Theme="{StaticResource Button.UpdateChip}"
+                            Margin="0,0,4,0" MinWidth="{StaticResource Size.ControlMd}" MinHeight="{StaticResource Size.ControlMd}"
+                            IsVisible="False"
+                            AutomationProperties.Name="Update ready: restart to install">
+                        <Panel>
+                            <StackPanel Orientation="Horizontal">
+                                <c:IconPath x:Name="UpdateGlyph" Data="{StaticResource Icon.Download}" Theme="{StaticResource Icon.Base}"
+                                            Stroke="{StaticResource Brush.Hue.Gold}"/>
+                                <TextBlock x:Name="UpdateLabel" Text="Update" Theme="{StaticResource Text.BodyStrong}"
+                                           VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{StaticResource Brush.Hue.Gold}"/>
+                                <TextBlock x:Name="UpdateNote" Theme="{StaticResource Text.Caption}" IsVisible="False"
+                                           VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{StaticResource Brush.Warning}"/>
+                            </StackPanel>
+                            <!-- Compact form only: the gold dot with a bg ring at the glyph's top-right. -->
+                            <Ellipse x:Name="UpdateDot" Width="{StaticResource Size.DotRinged}" Height="{StaticResource Size.DotRinged}"
+                                     Fill="{StaticResource Brush.Hue.Gold}" Stroke="{StaticResource Brush.Bg}"
+                                     StrokeThickness="{StaticResource Size.DotRing}"
+                                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="9,-5,0,0"
+                                     IsHitTestVisible="False" IsVisible="False"/>
+                        </Panel>
+                    </Button>
+                    <!-- Store: a ghost control, gold bag and "Store". Under the fit rule the label goes. -->
+                    <Button x:Name="StoreButton" Theme="{StaticResource Button.Chrome}"
+                            Padding="8" Margin="0,0,4,0" MinHeight="{StaticResource Size.ControlMd}"
+                            AutomationProperties.Name="Open the Origin store, originclient.org/store">
+                        <StackPanel Orientation="Horizontal">
+                            <c:IconPath Data="{StaticResource Icon.Store}" Theme="{StaticResource Icon.Base}" Stroke="{StaticResource Brush.Hue.Gold}"/>
+                            <TextBlock x:Name="StoreLabel" Text="Store" Theme="{StaticResource Text.BodyStrong}" VerticalAlignment="Center"
+                                       Margin="8,0,0,0" Foreground="{Binding $parent[Button].Foreground}"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- Import from another launcher. -->
+                    <Button x:Name="ImportButton" Theme="{StaticResource Button.Chrome}"
+                            Padding="8" Margin="0,0,4,0" MinWidth="{StaticResource Size.ControlMd}" MinHeight="{StaticResource Size.ControlMd}"
+                            ToolTip.Tip="Import" AutomationProperties.Name="Import from another launcher">
+                        <c:IconPath Data="{StaticResource Icon.ImportIn}" Theme="{StaticResource Icon.Base}" Stroke="{Binding $parent[Button].Foreground}"/>
+                    </Button>
+                    <!-- Friends: the dot lights for unread messages, requests and party invites. -->
+                    <Panel Margin="0,0,6,0">
+                        <Button x:Name="FriendsButton" Theme="{StaticResource Button.Chrome}"
+                                Padding="8" MinWidth="{StaticResource Size.ControlMd}" MinHeight="{StaticResource Size.ControlMd}"
+                                ToolTip.Tip="Friends" AutomationProperties.Name="Friends">
+                            <c:IconPath Data="{StaticResource Icon.Friends}" Theme="{StaticResource Icon.Base}" Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                        <Ellipse x:Name="FriendsBadge" Width="7" Height="7" Fill="{StaticResource Brush.Accent}"
+                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,7,7,0"
+                                 IsHitTestVisible="False" IsVisible="False"/>
+                    </Panel>
+                    <!-- The account pill: the selected account's head and name; signed out, "Sign in" with the account
+                         icon, a ghost control (MainWindow.Accounts.cs). -->
+                    <Button x:Name="AccountButton" Theme="{StaticResource Button.AccountPill.SignedOut}" AutomationProperties.Name="Accounts">
+                        <StackPanel Orientation="Horizontal">
+                            <c:PlayerHead x:Name="AccountFace" Width="{StaticResource Size.PillHead}" Height="{StaticResource Size.PillHead}"
+                                          Crisp="True" CornerRadius="{StaticResource Radius.Head.Sm}" IsVisible="False"/>
+                            <c:IconPath x:Name="SignInIcon" Data="{StaticResource Icon.Account}" Theme="{StaticResource Icon.Base}"
+                                  Stroke="{Binding $parent[Button].Foreground}"/>
+                            <TextBlock x:Name="AccountName" Text="Sign in" Margin="8,0,6,0" VerticalAlignment="Center"
+                                       Theme="{StaticResource Text.BodyStrong}" MaxWidth="{StaticResource Size.AccountName}"
+                                       TextTrimming="CharacterEllipsis" Foreground="{Binding $parent[Button].Foreground}"/>
+                            <c:IconPath Data="{StaticResource Icon.ChevronDown}" Theme="{StaticResource Icon.Base}"
+                                  Width="12" Height="12" VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Panel>
+
+            <!-- Over everything: the dim, the Accounts drawer (slides in from the right) and the sign-in card (fades and
+                 scales in, centred). Built by MainWindow.Accounts.cs; hidden until opened. -->
+            <Border x:Name="Scrim" Background="{StaticResource Brush.Scrim}" Opacity="0" IsVisible="False"/>
+            <Border x:Name="AccountPanel" Width="{StaticResource Size.Drawer}" HorizontalAlignment="Right"
+                    Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
+                    IsVisible="False">
+                <ContentControl x:Name="AccountPanelHost"/>
+            </Border>
+            <!-- The Friends drawer (MainWindow.Social.cs): the same slide from the right, the same width. -->
+            <Border x:Name="FriendsDrawer" Width="{StaticResource Size.Drawer}" HorizontalAlignment="Right"
+                    Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
+                    IsVisible="False" IsHitTestVisible="False">
+                <ContentControl x:Name="FriendsPanelHost"/>
+            </Border>
+            <Border x:Name="SignInPanel" Width="{StaticResource Size.SignInCard}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Dialog}" BoxShadow="{StaticResource Shadow.Overlay}"
+                    Opacity="0" IsVisible="False">
+                <ContentControl x:Name="SignInPanelHost"/>
+            </Border>
+        </Panel>
+    </Panel>
+</Window>

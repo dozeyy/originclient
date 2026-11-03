@@ -46,8 +46,8 @@ public static partial class UpdateService
     // The Windows asset. It stays named here because the installer's ReleaseFeed must agree with it
     // (tools/release/check_consistency.py reads both); each OS file says which asset that OS takes (ReleaseAssetName).
     private const string AssetName = "OriginLauncher-win-x64.zip";
-    // The release pipeline publishes the zip's SHA-256 next to it (sha256sum format); see UpdateVerifier.
-    private const string HashAssetName = AssetName + ".sha256";
+    // The release pipeline publishes each zip's SHA-256 next to it as ReleaseAssetName + ".sha256"
+    // (sha256sum format); see UpdateVerifier and FindRelease below.
     // A stalled connection (no bytes for this long) aborts the download so the player can retry.
     private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(60);
 
@@ -82,7 +82,17 @@ public static partial class UpdateService
     private sealed record VerifiedZip(Version Version, string Sha256);
     private static VerifiedZip? _verifiedZip; // always under lock (Gate)
 
-    /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen.</summary>
+    /// <summary>
+    /// A newer release this copy can't install where it sits (Mac: a translocated copy, or a folder it can't write to),
+    /// with the player-facing reason. It never gates Play. Always null on Windows.
+    /// </summary>
+    public static BlockedUpdate? Blocked { get; private set; }
+
+    // The release feed: GitHub's latest release. Only the Mac's --update-proof switch points it elsewhere (a loopback
+    // fake release in CI; UpdateProof refuses any other host). Nothing a player can reach changes it.
+    internal static string FeedUrl { get; set; } = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
+
+    /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen, or found uninstallable here.</summary>
     public static event EventHandler? AvailableChanged;
 
     /// <summary>
@@ -90,7 +100,13 @@ public static partial class UpdateService
     /// the release feed is never asked, nothing is downloaded and nothing is applied. A live check there once put the
     /// real "UPDATING ORIGIN LAUNCHER" screen into the shots. Every check and apply path below starts with this.
     /// </summary>
-    public static bool Enabled => !OriginPaths.IsScratchRoot;
+    public static bool Enabled => !OriginPaths.IsScratchRoot || ProofFeed;
+
+    /// <summary>
+    /// Set only by the Mac's `--update-proof` (UpdateProof.cs), after it checked the feed is a loopback IP: that run
+    /// sits on a scratch root on purpose and must still check, download and swap against its fake local release.
+    /// </summary>
+    internal static bool ProofFeed { get; set; }
 
     /// <summary>
     /// Polls the release feed once. Never throws: an unreachable feed fails
@@ -107,8 +123,7 @@ public static partial class UpdateService
 
         try
         {
-            var release = await Http.GetFromJsonAsync<Release>(
-                $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest");
+            var release = await Http.GetFromJsonAsync<Release>(FeedUrl);
 
             var tag = release?.TagName;
             if (tag == null || !tag.StartsWith(TagPrefix, StringComparison.OrdinalIgnoreCase))
@@ -135,6 +150,31 @@ public static partial class UpdateService
             }
             if (decision is UpdateGate.Decision.Skip or UpdateGate.Decision.Wait)
                 return;
+
+            // This copy can't replace itself where it sits (a Mac app run from a translocated copy, or from a folder this
+            // user can't write to): it is never offered and never gates Play, because no click could install it. The player
+            // is told instead (Blocked: move Origin to Applications) and nothing is downloaded. Every poll checks again, so a
+            // start from the right folder offers it normally. Windows always answers null at once (no thread hop); the
+            // Mac's write probe runs on the pool, never the UI thread, and resumes here on the caller's context.
+            if (await InstallBlockedHereAsync() is { } blockedBecause)
+            {
+                // A Quiet decision holds the gate's one quiet slot; this ends it with the usual back-off.
+                if (decision == UpdateGate.Decision.Quiet) lock (Gate) Gate.VerifyFailed(remote, DateTime.UtcNow);
+                if (Blocked?.Version != remote)
+                {
+                    Blocked = new BlockedUpdate(remote, blockedBecause);
+                    Log($"update {remote}: can't be installed here, not offered: {blockedBecause}");
+                    AvailableChanged?.Invoke(null, EventArgs.Empty);
+                }
+                return;
+            }
+            if (Blocked != null)
+            {
+                // It can install here now (the folder became writable): the move-to-Applications chip goes away.
+                Blocked = null;
+                Log($"update {remote}: can be installed here again");
+                AvailableChanged?.Invoke(null, EventArgs.Empty);
+            }
 
             var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
             if (decision == UpdateGate.Decision.Quiet)
@@ -311,9 +351,11 @@ public static partial class UpdateService
         // unpacks; the continuation returns here (UI thread) for Shutdown().
         await Task.Run(() =>
         {
+            // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
+            // (a Mac .app needs its symlinks and exec bits kept).
             var staged = false;
             StageReleaseOverride(zipPath, stageDir, ref staged);
-            if (!staged) ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+            if (!staged) ExtractUpdate(zipPath, stageDir);
             File.Delete(zipPath);
         });
 
@@ -431,6 +473,8 @@ public static partial class UpdateService
             // a courtesy
         }
     }
+
+    public sealed record BlockedUpdate(Version Version, string Reason);
 
     public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null);
 
