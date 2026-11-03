@@ -62,8 +62,8 @@ public partial class MainWindow : Window
         Core.StartupTrace.Mark("MainWindow ctor: fields (HomePage etc.) built");
         InitializeComponent();
         Core.StartupTrace.Mark("MainWindow.InitializeComponent");
-        // Opens inside the screen's work area, never partly off it (MainWindow.Placement.cs).
-        SourceInitialized += (_, _) => FitToWorkArea();
+        // Opens inside the screen's work area and maximises to it, never over the taskbar (MainWindow.Placement.cs).
+        SourceInitialized += (_, _) => { FitToWorkArea(); HookMaximisedBounds(); };
         // Alt+F4 / the taskbar's Close never moves focus out of a Settings box: save what it holds first.
         Closing += (_, _) => _settingsPage?.FlushEdits();
         // The backdrop drift holds while the window is in the background or minimised (ArtStage.SetWindowAway).

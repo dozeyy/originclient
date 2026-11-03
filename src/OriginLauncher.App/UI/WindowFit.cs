@@ -30,4 +30,19 @@ internal static class WindowFit
         var top = Math.Floor(work.Top + (work.Height - h) / 2);
         return new Result(new Box(left, top, w, h), minW, minH);
     }
+
+    /// <summary>
+    /// Where the window goes when maximised (Aero snap to the top edge, Win+Up): the work area of the monitor it is
+    /// on. The window is chromeless (WindowStyle None + WindowChrome), so Windows' default maximised box is the whole
+    /// monitor plus the resize border: it covered the taskbar and spilled a few pixels past every edge. Answers
+    /// WM_GETMINMAXINFO, whose ptMaxPosition is relative to the monitor's own top-left (not the desktop) and whose
+    /// values are device pixels, so <paramref name="monitor"/> and <paramref name="work"/> are the raw GetMonitorInfo
+    /// rectangles. Null when they're unusable (Windows' own default stands).
+    /// </summary>
+    internal static Box? Maximised(Box monitor, Box work)
+    {
+        if (!(monitor.Width > 0) || !(monitor.Height > 0) || !(work.Width > 0) || !(work.Height > 0))
+            return null;
+        return new Box(work.Left - monitor.Left, work.Top - monitor.Top, work.Width, work.Height);
+    }
 }

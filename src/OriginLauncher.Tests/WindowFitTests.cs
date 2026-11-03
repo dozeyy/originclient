@@ -60,6 +60,31 @@ public class WindowFitTests
     }
 
     [Fact]
+    public void Maximised_fills_the_work_area_not_the_taskbar()
+    {
+        // 1920 x 1080 primary, taskbar along the bottom: the maximised box stops above it.
+        var max = WindowFit.Maximised(new WindowFit.Box(0, 0, 1920, 1080), new WindowFit.Box(0, 0, 1920, 1032))!.Value;
+        Assert.Equal(new WindowFit.Box(0, 0, 1920, 1032), max);
+    }
+
+    [Fact]
+    public void Maximised_position_is_relative_to_its_own_monitor()
+    {
+        // A monitor left of the primary with its taskbar on top: WM_GETMINMAXINFO wants the offset inside
+        // that monitor (0, 40), not the desktop position (-2560, 40).
+        var monitor = new WindowFit.Box(-2560, 0, 2560, 1440);
+        var work = new WindowFit.Box(-2560, 40, 2560, 1400);
+        Assert.Equal(new WindowFit.Box(0, 40, 2560, 1400), WindowFit.Maximised(monitor, work));
+    }
+
+    [Fact]
+    public void Maximised_with_an_unusable_monitor_keeps_Windows_default()
+    {
+        Assert.Null(WindowFit.Maximised(new WindowFit.Box(0, 0, 0, 0), new WindowFit.Box(0, 0, 1920, 1040)));
+        Assert.Null(WindowFit.Maximised(new WindowFit.Box(0, 0, 1920, 1080), new WindowFit.Box(0, 0, 1920, 0)));
+    }
+
+    [Fact]
     public void An_unusable_work_area_leaves_the_placement_to_WPF()
     {
         Assert.Null(WindowFit.Centre(new WindowFit.Box(0, 0, 0, 0), W, H, MinW, MinH));
