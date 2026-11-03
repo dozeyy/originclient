@@ -11,7 +11,12 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.resources.IReloadableResourceManager;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.client.resources.IResourceManagerReloadListener;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.shader.Framebuffer;
+import net.minecraft.client.shader.Shader;
+import net.minecraft.client.shader.ShaderGroup;
+import net.minecraft.client.shader.ShaderUniform;
+import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 import java.lang.ref.WeakReference;
@@ -23,24 +28,33 @@ import java.lang.ref.WeakReference;
  * Pre-1.20.5 best fit: vanilla has no menu blur -- every in-world screen (pause,
  * options, inventories alike) just darkens the world with a flat gradient. On
  * 1.8.9 that gradient is GuiScreen.drawWorldBackground(int), which
- * GuiScreenBackgroundMixin swaps for blur + tint. The blur is the same
- * box-filter pyramid Origin's menus use for the panorama (OriginScreenRenderer):
- * the frame so far (world + HUD) is halved through LINEAR-filtered targets and
- * stretched back. Strength picks the depth: each halving roughly doubles the
- * radius, so 1 / 2-3 / 4-7 / 8-15 / 16-20 map to 1..5 levels (default 4 = 3).
+ * GuiScreenBackgroundMixin swaps for blur + tint. The blur is the one every
+ * version from 1.16.5 up runs: Origin's own post chain
+ * (shaders/post/origin_menu_blur.json) built only from vanilla's "blur" program
+ * (shaders/program/blur.json, shipped in 1.8.9 too): three horizontal + vertical
+ * box-blur rounds at radius R, R/2 and R/4, all at FULL resolution -- stacked
+ * box blurs converge on 1.21.1's soft gaussian. Strength is R (default 4).
+ * The chain writes its own "result" target, never the main framebuffer, so the
+ * finished backdrop is drawn back 1:1 and kept for the frozen-world reuse.
  *
- * 1.8.9: the pyramid rather than vanilla's shaders/post/blur.json through a
- * ShaderGroup -- a post chain has to live on EntityRenderer, which OptiFine
- * replaces and its shader packs drive, while the pyramid is plain framebuffer
- * draws the GUI pass owns. It reads mc.getFramebuffer(), so it runs only while
- * that framebuffer is the one being drawn to (OptiFine's Fast Render can draw
- * the frame without it), and never while an OptiFine shader pack is active.
- * Any of those -> vanilla's darkened backdrop.
+ * Why not the old halving pyramid: it shrank the frame to 1/8 size and
+ * bilinear-stretched it back. A bilinear stretch of a 1/8 image is piecewise
+ * linear between samples 8 screen px apart -- climbing back in 2x steps
+ * composes to the same thing -- so every edge in the world showed an 8 px
+ * grid: the "pixelated Esc menu" (Will, 2026-10-20 and again 2026-11-02).
+ *
+ * The chain is a standalone ShaderGroup, never EntityRenderer's single effect
+ * slot (OptiFine replaces EntityRenderer and its shader packs drive that slot);
+ * Color Saturation's ColorGrade runs the same way. It reads mc.getFramebuffer(),
+ * so it runs only while that framebuffer is the one being drawn to and post
+ * chains are usable (WorldHooks.postChainsUsable: no OptiFine shader pack, no
+ * Fast Render, framebuffers on). Otherwise -> vanilla's darkened backdrop, which
+ * has nothing to pixelate.
  *
  * Frozen-world reuse (Phase 6 U6.3 pick 2): in single-player a pausing screen
  * (Minecraft.isGamePaused) stops the world, so every frame of the backdrop would
- * be the same image -- the pyramid is built once and only its final level is
- * stretched over the screen after that. The reuse is allowed only while all of
+ * be the same image -- the chain runs once and its "result" target is drawn
+ * over the screen after that. The reuse is allowed only while all of
  * these hold, otherwise the old per-frame blur runs (so the cost is never worse
  * than before, and a stale image is never shown):
  *   - the game is paused AND the world and its total time are the ones captured
@@ -50,7 +64,7 @@ import java.lang.ref.WeakReference;
  *     screen closed, other screen, shaders on -- ends the reuse);
  *   - no click, key, wheel or drag happened since (a slider or toggle in a menu
  *     can change the world image; HudHooks calls invalidate());
- *   - same framebuffer size and texture (window resize), GUI scale, blur depth
+ *   - same framebuffer size and texture (window resize), GUI scale, blur radius
  *     and resource generation (a resource reload);
  *   - GRACE_MS have passed since the last input and since the blur started (a
  *     pause just opened): a setting changed in a menu (render distance, graphics,
@@ -75,7 +89,13 @@ import java.lang.ref.WeakReference;
  */
 public final class MenuBlur {
 	private static final String MOD = "menublur";
-	private static final Framebuffer[] PYRAMID = new Framebuffer[5];
+	private static final ResourceLocation CHAIN = new ResourceLocation("shaders/post/origin_menu_blur.json");
+	// Radius multiplier per pass, in origin_menu_blur.json's pass order (= 1.21.1's
+	// blur.json RadiusMultiplier values, and 1.18.2-1.20.4's PASS_SCALE).
+	private static final float[] PASS_SCALE = {1f, 1f, 0.5f, 0.5f, 0.25f, 0.25f};
+	private static ShaderGroup chain;
+	private static Framebuffer result;         // the chain's last target: the finished backdrop
+	private static int chainW = -1, chainH = -1;
 	private static boolean broken = false;
 
 	// ---- frozen-world reuse state (render thread only) ----
@@ -121,7 +141,7 @@ public final class MenuBlur {
 	}
 
 	private static boolean canReuse(Minecraft mc, Framebuffer main, int levels) {
-		if (!cacheValid || !frameHookSeen || cachedFrame < frame - 1 || PYRAMID[0] == null) {
+		if (!cacheValid || !frameHookSeen || cachedFrame < frame - 1 || result == null) {
 			return false;
 		}
 		if (levels != cachedLevels || main.framebufferWidth != cachedW || main.framebufferHeight != cachedH
@@ -197,7 +217,8 @@ public final class MenuBlur {
 		return screen != null && !com.origin.client.client.OriginStyle.vanillaMenusOn(screen) && !broken && Minecraft.getMinecraft().theWorld != null
 				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen))
 				&& !(com.origin.client.client.BenchSwitches.INV_BLUR_OFF && screen instanceof GuiContainer)
-				&& OpenGlHelper.isFramebufferEnabled() && !IrisBridge.shadersActive();
+				&& OpenGlHelper.isFramebufferEnabled() && !IrisBridge.shadersActive()
+				&& com.origin.client.client.hooks.WorldHooks.postChainsUsable();
 	}
 
 	/** Settings > General > Transparent Menus, while in a world. */
@@ -222,7 +243,7 @@ public final class MenuBlur {
 		if (radius < 1) {
 			return true;
 		}
-		int levels = Math.min(PYRAMID.length, 1 + (31 - Integer.numberOfLeadingZeros(radius)));
+		int levels = radius;   // the reuse key: a different radius is a different image
 		Framebuffer main = mc.getFramebuffer();
 		int previous = GL11.glGetInteger(OriginScreenRenderer.GL_FRAMEBUFFER_BINDING);
 		if (main == null || previous != main.framebufferObject) {
@@ -236,7 +257,7 @@ public final class MenuBlur {
 		if (canReuse(mc, main, levels)) {
 			try {
 				cachedFrame = frame;
-				OriginScreenRenderer.drawFullscreenTexture(PYRAMID[0]);
+				OriginScreenRenderer.drawFullscreenTexture(result);
 				if (com.origin.client.client.BenchProf.ON) {
 					com.origin.client.client.BenchProf.countBlur(true);
 				}
@@ -248,45 +269,81 @@ public final class MenuBlur {
 			}
 		}
 		cacheValid = false;
-		int mainFilter = main.framebufferFilter;
 		try {
-			OriginScreenRenderer.ensurePyramid(PYRAMID, levels,
-					Math.max(1, main.framebufferWidth), Math.max(1, main.framebufferHeight));
-			main.setFramebufferFilter(GL11.GL_LINEAR);
-			PYRAMID[0].bindFramebuffer(true);
-			OriginScreenRenderer.drawFullscreenTexture(main);
-			for (int i = 1; i < levels; i++) {
-				PYRAMID[i].bindFramebuffer(true);
-				OriginScreenRenderer.drawFullscreenTexture(PYRAMID[i - 1]);
+			if (chain == null) {
+				chain = new ShaderGroup(mc.getTextureManager(), mc.getResourceManager(), main, CHAIN);
+				chainW = chainH = -1;
 			}
-			// Climb back up one halving at a time. Stretching the smallest level
-			// straight to full size (up to 8x) shows its pixel grid -- the
-			// "pixelated Esc menu" of Will's 2026-10-20 playtest; 2x bilinear steps
-			// compound into a smooth falloff. The levels are rebuilt on every full
-			// blur, so overwriting them here is free; PYRAMID[0] ends up holding the
-			// finished backdrop, which is what the frozen-world reuse draws.
-			for (int i = levels - 1; i >= 1; i--) {
-				PYRAMID[i - 1].bindFramebuffer(true);
-				OriginScreenRenderer.drawFullscreenTexture(PYRAMID[i]);
+			if (chainW != main.framebufferWidth || chainH != main.framebufferHeight) {
+				chain.createBindFramebuffers(main.framebufferWidth, main.framebufferHeight);
+				chainW = main.framebufferWidth;
+				chainH = main.framebufferHeight;
+			}
+			// createBindFramebuffers rebuilds the targets: look "result" up every time.
+			result = chain.getFramebufferRaw("result");
+			if (result == null) {
+				throw new IllegalStateException("menu blur chain has no result target");
+			}
+			java.util.List<Shader> passes = ((com.origin.client.client.mixin.world.ShaderGroupAccessor) chain).origin$listShaders();
+			for (int i = 0; i < passes.size(); i++) {
+				float scale = PASS_SCALE[Math.min(i, PASS_SCALE.length - 1)];
+				ShaderUniform u = passes.get(i).getShaderManager().getShaderUniform("Radius");
+				if (u != null) {
+					u.set((float) Math.max(1, Math.round(radius * scale)));
+				}
+			}
+			// EntityRenderer.updateCameraAndRender's own post-effect sequence (as ColorGrade).
+			GlStateManager.disableBlend();
+			GlStateManager.disableDepth();
+			GlStateManager.disableAlpha();
+			GlStateManager.enableTexture2D();
+			GlStateManager.matrixMode(GL11.GL_TEXTURE);
+			GlStateManager.pushMatrix();
+			GlStateManager.loadIdentity();
+			try {
+				chain.loadShaderGroup(partialTick);
+			} finally {
+				GlStateManager.matrixMode(GL11.GL_TEXTURE);
+				GlStateManager.popMatrix();
+				GlStateManager.matrixMode(GL11.GL_MODELVIEW);
 			}
 		} catch (Throwable t) {
 			broken = true;   // vanilla's darkened backdrop from now on
-			com.origin.client.OriginClient.LOGGER.warn("Origin: Menu Blur failed; using vanilla's menu backdrop", t);
-			return false;
-		} finally {
+			result = null;
 			try {
-				main.setFramebufferFilter(mainFilter);
+				if (chain != null) {
+					chain.deleteShaderGroup();   // free its two full-window targets
+				}
 			} catch (Throwable ignored) {
-				// filter restore is cosmetic
 			}
+			chain = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin: Menu Blur failed; using vanilla's menu backdrop", t);
 			OriginScreenRenderer.restoreTarget(previous);
+			restoreGuiState();
+			return false;
 		}
-		OriginScreenRenderer.drawFullscreenTexture(PYRAMID[0]);
+		OriginScreenRenderer.restoreTarget(previous);
+		OriginScreenRenderer.drawFullscreenTexture(result);   // same size as main: one texel per pixel
+		restoreGuiState();
 		remember(mc, main, levels);
 		if (com.origin.client.client.BenchProf.ON) {
 			com.origin.client.client.BenchProf.countBlur(false);
 		}
 		return true;
+	}
+
+	// The state the GUI pass draws under, after the chain's shader passes (they
+	// turn off blend, depth, alpha, fog and lighting, and leave texture 0 bound).
+	private static void restoreGuiState() {
+		GlStateManager.enableTexture2D();
+		GlStateManager.enableDepth();
+		GlStateManager.depthFunc(GL11.GL_LEQUAL);
+		GlStateManager.depthMask(true);
+		GlStateManager.enableAlpha();
+		GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
+		GlStateManager.disableBlend();
+		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+		GlStateManager.color(1f, 1f, 1f, 1f);
 	}
 
 	/** The kind's tint over the whole screen (transparent = none). */

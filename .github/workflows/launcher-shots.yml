@@ -16,7 +16,7 @@ name: launcher-shots
 on:
   push:
     branches: ["claude/**"]
-    paths: ["src/OriginLauncher.App/**", ".github/workflows/launcher-shots.yml"]
+    paths: ["src/OriginLauncher.App/**", "global.json", ".github/workflows/launcher-shots.yml"]
   workflow_dispatch:
     inputs:
       label:
@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: "8.0.x"
+          global-json-file: global.json
 
       - name: Build launcher
         shell: pwsh

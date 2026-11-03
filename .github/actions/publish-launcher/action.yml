@@ -19,10 +19,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up .NET 8
+    # global.json at the repo root is the one place the SDK is chosen.
+    - name: Set up .NET
       uses: actions/setup-dotnet@v6
       with:
-        dotnet-version: "8.0.x"
+        global-json-file: global.json
 
     # Put each jar where the csproj's <Content> glob for its module looks:
     # src/mods/versions/<module>/build/libs/. Exactly one jar per live module —

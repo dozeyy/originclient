@@ -47,7 +47,8 @@ public final class StepAside {
 	 * THE table. Add a row only when the other mod really does the same job (its own
 	 * description/behaviour), never just because both touch the same game code.
 	 *  - freelook <- freecam: both let you look around without turning your player.
-	 *  - zoom <- zoomify: a zoom mod, also on the C key by default.
+	 *  - zoom <- zoomify / ok_zoomer / logical_zoom / wi_zoom: zoom mods, all on the C key
+	 *    by default; two zooms on one key would both fire.
 	 *  - saturation <- appleskin: Origin's Saturation IS a built-in AppleSkin (hunger
 	 *    overlay, held-food preview, food tooltip).
 	 *  - worldeditcui <- worldeditcui: the WorldEdit selection overlay; two would fight
@@ -61,7 +62,7 @@ public final class StepAside {
 	 */
 	public static final List<Row> TABLE = List.of(
 			new Row("freelook", false, false, List.of("freecam")),
-			new Row("zoom", false, false, List.of("zoomify")),
+			new Row("zoom", false, false, List.of("zoomify", "ok_zoomer", "logical_zoom", "wi_zoom")),
 			new Row("saturation", false, false, List.of("appleskin")),
 			new Row("worldeditcui", false, false, List.of("worldeditcui")),
 			new Row("jei", true, true, List.of("jei")),

@@ -24,7 +24,7 @@
 //                          cosmetics (Will, 2026-10-17: test first). Comma-
 //                          separated Minecraft names or UUIDs; a name is checked
 //                          against Mojang at checkout, so nobody can borrow it.
-import { json, fail, normUuid, slotOf, NAME_RE } from './common.js';
+import { json, fail, normUuid, slotOf, NAME_RE, rowsIn } from './common.js';
 import { CATALOG } from './catalog.gen.js';
 
 const STRIPE = 'https://api.stripe.com/v1';
@@ -79,9 +79,9 @@ export async function isMember(env, uuid, now = Date.now()) {
 // Which of these players are members, in one query (the /equipped batch).
 export async function membersAmong(env, uuids, now = Date.now()) {
   if (!uuids.length) return new Set();
-  const rows = await env.DB.prepare(`SELECT DISTINCT uuid FROM plus WHERE uuid IN (${uuids.map(() => '?').join(',')}) AND ${memberSql}`)
-    .bind(...uuids, now).all();
-  return new Set(rows.results.map(r => r.uuid));
+  const rows = await rowsIn(uuids, part => env.DB.prepare(`SELECT DISTINCT uuid FROM plus WHERE uuid IN (${part.map(() => '?').join(',')}) AND ${memberSql}`)
+    .bind(...part, now).all());
+  return new Set(rows.map(r => r.uuid));
 }
 const memberCents = cents => Math.round(cents * (100 - MEMBER_PERCENT_OFF) / 100);
 

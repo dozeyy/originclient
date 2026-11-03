@@ -5,11 +5,11 @@
     verification, failures — against a fake in-memory server, no network),
     the launcher zip, staging, folder rules. Built for net472 too (never run
     there): that compile is what proves the engine only uses APIs .NET
-    Framework 4.7.2 has, on any OS. The tests run on net8.0
-    (dotnet test -f net8.0).
+    Framework 4.7.2 has, on any OS. The tests run on net10.0
+    (dotnet test -f net10.0).
   -->
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net472</TargetFrameworks>
+    <TargetFrameworks>net10.0;net472</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <!-- net472 compiles ONLY the linked engine files (the API check); the
-       tests themselves use modern APIs and run on net8.0. -->
+       tests themselves use modern APIs and run on net10.0. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
     <Compile Remove="*.cs" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />

@@ -281,6 +281,23 @@ test('equipped: players in game on Origin lately are listed (for the name badge)
   assert.deepEqual(batch.players, { [other]: { ...BARE, plus: false, origin: true } });
 });
 
+// The mod asks about up to 100 players at once (a busy server's tab list). D1 caps
+// a statement at 100 bound values, so one 100-player IN-list plus its time value
+// failed the whole lookup and nobody saw anyone's cosmetics (2026-11-02).
+test('equipped: a full 100-player lookup answers, the last player included', async () => {
+  await own('cape-orbit');
+  const token = await signIn();
+  await api('POST', '/v1/equip', { cape: 'cape-orbit' }, token);
+  const late = 'e'.repeat(32);
+  env.DB.raw.prepare('INSERT INTO presence (uuid, client, activity, server, version, at) VALUES (?, ?, ?, NULL, NULL, ?)').run(late, 'game', 'menu', Date.now());
+  const others = Array.from({ length: 98 }, (_, i) => (i + 1).toString(16).padStart(32, '0'));
+  const r = await api('POST', '/v1/players/equipped', { uuids: [...others, UUID, late] });
+  assert.equal(r.status, 200);
+  const { players } = await r.json();
+  assert.equal(players[UUID].cape, 'cape-orbit');
+  assert.equal(players[late].origin, true);   // 100th in the list, past the first slice
+});
+
 test('equip: a slot the request leaves out stays on (older mods only know some slots); null takes it off', async () => {
   await own('cape-orbit', 'halo-gold');
   const token = await signIn();

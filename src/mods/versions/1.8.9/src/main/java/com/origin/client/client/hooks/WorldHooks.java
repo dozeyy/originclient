@@ -170,14 +170,18 @@ public final class WorldHooks {
 		return ofIsFastRender == null || !Boolean.TRUE.equals(Reflect.call(ofIsFastRender, null, Boolean.FALSE));
 	}
 
-	// OptiFine's own zoom key (GameSettings.ofKeyBindZoom, default C) zooms inside
-	// getFOVModifier and switches on smooth camera. With Origin's zoom enabled on
-	// the same key both would fire, so while that is the case OptiFine's binding is
-	// parked on "none" (0) -- and put back the moment Origin's zoom is off or moves
-	// to another key. GameSettingsZoomMixin swaps the real key back in around every
-	// options save, so options.txt always keeps the player's own OptiFine binding.
+	// OptiFine's own zoom key (GameSettings.ofKeyBindZoom, default C) is a second zoom
+	// next to Origin's: it zooms inside getFOVModifier, switches on smooth camera, and
+	// shows a second "Zoom" row in Controls. While Origin's zoom is on, OptiFine's is
+	// switched off whatever key either uses: its binding is parked on "none" (0) and
+	// taken out of gameSettings.keyBindings (the array the Controls list is built
+	// from). Turn Origin's zoom off and OptiFine's comes back on its own key.
+	// GameSettingsZoomMixin puts the real key and the row back around every options
+	// save, so options.txt always keeps the player's own OptiFine binding -- removing
+	// Origin leaves OptiFine's zoom exactly as the player set it.
 	private static Field ofZoomField;
 	private static boolean ofZoomLooked = false;
+	private static boolean ofZoomParked = false;
 	private static int parkedOfZoomKey = 0;
 
 	private static KeyBinding ofZoomKey(GameSettings gs) {
@@ -192,46 +196,59 @@ public final class WorldHooks {
 	}
 
 	private static void guardOptiFineZoom(Minecraft mc) {
-		KeyBinding of = ofZoomKey(mc.gameSettings);
+		GameSettings gs = mc.gameSettings;
+		KeyBinding of = ofZoomKey(gs);
 		if (of == null) {
 			return;
 		}
-		int ours = Mods.keyCode("zoom", "key");
-		int ourBind = OriginKeyBindings.zoom != null ? OriginKeyBindings.zoom.getKeyCode() : 0;
-		if (parkedOfZoomKey == 0) {
-			int code = of.getKeyCode();
-			if (Mods.on("zoom") && code != 0 && (code == ours || code == ourBind)) {
-				parkedOfZoomKey = code;
-				of.setKeyCode(0);
-				KeyBinding.resetKeyBindingArrayAndHash();
-			}
-		} else {
-			boolean stillClash = Mods.on("zoom") && (parkedOfZoomKey == ours || parkedOfZoomKey == ourBind);
-			if (!stillClash || of.getKeyCode() != 0) {
-				// mod off / key moved: give OptiFine its key back (unless the player
-				// rebound OptiFine's zoom meanwhile -- then theirs stands)
-				if (of.getKeyCode() == 0) {
-					of.setKeyCode(parkedOfZoomKey);
-					KeyBinding.resetKeyBindingArrayAndHash();
-				}
-				parkedOfZoomKey = 0;
-			}
+		boolean want = Mods.on("zoom");
+		if (want && !ofZoomParked) {
+			parkedOfZoomKey = of.getKeyCode();
+			ofZoomParked = true;
+			hideOfZoom(gs, of);
+			KeyBinding.resetKeyBindingArrayAndHash();
+		} else if (!want && ofZoomParked) {
+			ofZoomParked = false;
+			showOfZoom(gs, of, parkedOfZoomKey);
+			KeyBinding.resetKeyBindingArrayAndHash();
 		}
 	}
 
-	/** GameSettingsZoomMixin, saveOptions HEAD: the player's real OptiFine zoom key goes into the file. */
+	private static void hideOfZoom(GameSettings gs, KeyBinding of) {
+		of.setKeyCode(0);
+		KeyBinding[] all = gs.keyBindings;
+		int at = java.util.Arrays.asList(all).indexOf(of);
+		if (at >= 0) {
+			KeyBinding[] out = new KeyBinding[all.length - 1];
+			System.arraycopy(all, 0, out, 0, at);
+			System.arraycopy(all, at + 1, out, at, all.length - at - 1);
+			gs.keyBindings = out;
+		}
+	}
+
+	private static void showOfZoom(GameSettings gs, KeyBinding of, int key) {
+		of.setKeyCode(key);
+		KeyBinding[] all = gs.keyBindings;
+		if (!java.util.Arrays.asList(all).contains(of)) {
+			KeyBinding[] out = java.util.Arrays.copyOf(all, all.length + 1);
+			out[all.length] = of;
+			gs.keyBindings = out;
+		}
+	}
+
+	/** GameSettingsZoomMixin, saveOptions HEAD: the player's real OptiFine zoom key (and its row) go into the file. */
 	public static void beforeOptionsSave(GameSettings gs) {
-		KeyBinding of = parkedOfZoomKey == 0 ? null : ofZoomKey(gs);
-		if (of != null && of.getKeyCode() == 0) {
-			of.setKeyCode(parkedOfZoomKey);
+		KeyBinding of = ofZoomParked ? ofZoomKey(gs) : null;
+		if (of != null) {
+			showOfZoom(gs, of, parkedOfZoomKey);
 		}
 	}
 
-	/** GameSettingsZoomMixin, saveOptions RETURN: park it again while the clash lasts. */
+	/** GameSettingsZoomMixin, saveOptions RETURN: switched off again while Origin's zoom is on. */
 	public static void afterOptionsSave(GameSettings gs) {
-		KeyBinding of = parkedOfZoomKey == 0 ? null : ofZoomKey(gs);
-		if (of != null && of.getKeyCode() == parkedOfZoomKey) {
-			of.setKeyCode(0);
+		KeyBinding of = ofZoomParked ? ofZoomKey(gs) : null;
+		if (of != null) {
+			hideOfZoom(gs, of);
 		}
 	}
 
