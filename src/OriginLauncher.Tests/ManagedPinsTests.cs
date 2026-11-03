@@ -334,4 +334,44 @@ public sealed class ManagedPinsTests : IDisposable
         await PerfModInstaller.InstallAsync(Serves(), SodiumOnly(NewSodiumPin(BodySha512)), mods, null, default);
         Assert.Equal(Body, File.ReadAllBytes(Path.Combine(mods, "sodium-fabric-0.6.13+mc1.21.11.jar")));
     }
+
+    [Fact]
+    public async Task A_fabric_api_pin_reaches_an_install_that_has_an_older_origin_copy()
+    {
+        var old = Jar("mods", "fabric-api-0.90.0+1.21.1.jar", Kit.FabricJar("fabric-api", "0.90.0+1.21.1"));
+        OriginInstallRecord.AddFile(old);
+        var mods = Path.GetDirectoryName(old)!;
+        var pin = new PerfMod("0.116.0+1.21.1", Cdn + "fabric-api-0.116.0+1.21.1.jar", "fabric-api-0.116.0+1.21.1.jar", BodySha512);
+
+        await FabricApiInstaller.InstallProjectAsync(Serves(), "fabric-api", "fabric-api-", "[\"fabric\"]",
+            "Installing Fabric API...", pin, "1.21.1", mods, null, default);
+        Assert.True(File.Exists(Path.Combine(mods, pin.FileName)));
+
+        // VersionManager names the pin to the dedupe, which retires Origin's older copy (not the pin).
+        SharedFolderCleanup.DedupeOriginFamilies(mods, new HashSet<string> { pin.FileName }, ModManager.OwnerOf);
+        Assert.False(File.Exists(old));
+        Assert.True(File.Exists(Path.Combine(mods, pin.FileName)));
+
+        // Next launch: the exact pin is there, so nothing is fetched.
+        var handler = new Counting(() => throw new InvalidOperationException("no request expected"));
+        await FabricApiInstaller.InstallProjectAsync(new HttpClient(handler), "fabric-api", "fabric-api-", "[\"fabric\"]",
+            "Installing Fabric API...", pin, "1.21.1", mods, null, default);
+        Assert.Equal(0, handler.Requests);
+    }
+
+    [Fact]
+    public async Task Voice_chat_keeps_any_origin_copy_so_a_switched_off_one_stays_off()
+    {
+        var off = Jar("mods", "voicechat-fabric-1.21.1-2.6.0.jar.disabled", Kit.FabricJar("voicechat", "1.21.1-2.6.0"));
+        OriginInstallRecord.AddFile(off);
+        var mods = Path.GetDirectoryName(off)!;
+        var pin = new PerfMod("1.21.1-2.6.22", Cdn + "voicechat-fabric-1.21.1-2.6.22.jar", "voicechat-fabric-1.21.1-2.6.22.jar", BodySha512);
+        var handler = new Counting(() => throw new InvalidOperationException("no request expected"));
+
+        await FabricApiInstaller.InstallProjectAsync(new HttpClient(handler), "simple-voice-chat", "voicechat-", "[\"fabric\"]",
+            "Installing Simple Voice Chat...", pin, "1.21.1", mods, null, default);
+
+        Assert.Equal(0, handler.Requests);
+        Assert.False(File.Exists(Path.Combine(mods, pin.FileName)));
+    }
 }
