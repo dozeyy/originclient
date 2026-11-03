@@ -262,6 +262,9 @@ jobs:
       # the newest published releases, and keeps them in its artifact; only a tag run publishes them (below).
       - name: Build the small self-updates (deltas)
         continue-on-error: true
+        # Its own limit: continue-on-error does not catch the JOB's 30-minute timeout, and a slow delta build
+        # (a runtime bump changes most bytes) must time out here, as a failed best-effort step, not cancel the release.
+        timeout-minutes: 10
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
@@ -392,6 +395,7 @@ jobs:
       - name: Add the small self-updates to the release
         if: env.REHEARSAL != 'true'
         continue-on-error: true
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
