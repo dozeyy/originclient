@@ -43,6 +43,8 @@ import org.joml.Matrix4fStack;
  * nothing is ever banked. Any failure leaves the overlays in the
  * level pass -- under the pack's clouds, the old behaviour -- and one log line says
  * why. A bank that was filled but never drawn is emptied at the next frame start.
+ * If END_MAIN fails to record, or the late draw throws, the pass gives up for the
+ * session (gaveUp): one frame without the overlays, then the old path.
  */
 public final class AfterShadersPass {
 	private AfterShadersPass() {
@@ -51,6 +53,7 @@ public final class AfterShadersPass {
 	private static boolean initialized;
 
 	// ---- per-frame state (render thread only) ----
+	private static boolean gaveUp;          // record or draw failed once: stop deferring for the session
 	private static boolean postHookAlive;
 	private static boolean deferring;
 	private static boolean banked;
@@ -118,7 +121,7 @@ public final class AfterShadersPass {
 			banked = false;
 		}
 		recorded = false;
-		deferring = postHookAlive && packInUse();
+		deferring = postHookAlive && !gaveUp && packInUse();
 	}
 
 	private static void record() {
@@ -152,8 +155,21 @@ public final class AfterShadersPass {
 		}
 		banked = false;
 		OriginRenderTypes.banking = false;
-		if (!recorded || !OriginRenderTypes.bankHasVertices()) {
+		if (!recorded) {
+			// Banked but END_MAIN never recorded the matrices: nothing to draw the bank
+			// with. Give up deferring for the session (back to the in-pass draw, under
+			// the pack's clouds) rather than lose the overlays every frame.
 			OriginRenderTypes.discardBank();
+			if (!gaveUp) {
+				gaveUp = true;
+				OriginClient.LOGGER.warn("Origin: END_MAIN did not record the frame; overlays go back to the"
+						+ " level pass, under a shader pack's clouds");
+			}
+			return;
+		}
+		if (!OriginRenderTypes.bankHasVertices()) {
+			OriginRenderTypes.discardBank();
+			recorded = false;
 			return;
 		}
 		recorded = false;
@@ -171,6 +187,7 @@ public final class AfterShadersPass {
 			}
 		} catch (Throwable t) {
 			OriginRenderTypes.discardBank();
+			gaveUp = true;   // a draw that fails once will fail again: stop banking
 			if (!warnedDraw) {
 				warnedDraw = true;
 				OriginClient.LOGGER.warn("Origin: after-shaders overlay draw failed; bank reset (logged once)", t);
