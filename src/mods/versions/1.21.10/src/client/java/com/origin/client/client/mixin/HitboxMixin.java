@@ -26,8 +26,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // We own the whole pass: at render() HEAD, when the mod is on, walk the same
 // submit list vanilla would, apply the Origin filters/styling, draw, cancel.
 // Mod off = vanilla untouched. Like 1.21.5's state-based hook, the state has
-// no live Entity, so Show Damaged / Show Hittable / Look Vector can't apply;
-// type filter, distance, color, width and pattern all do.
+// no live Entity, so HitboxFactsMixin records the live-entity facts (category,
+// hurt, under the crosshair, is-it-you) at extraction and HitboxFacts hands them
+// back here: Passive / Monsters / Projectiles, Show Damaged, Show Hittable and
+// Show Look Vector work as on 1.21.1. Without facts (that mixin not applied)
+// it falls back to the entity type alone.
 @Mixin(HitboxFeatureRenderer.class)
 public class HitboxMixin {
 
@@ -59,9 +62,33 @@ public class HitboxMixin {
 			if (max > 0 && state.distanceToCameraSq > max * max) {
 				continue;
 			}
-			if (!Mods.bool("hitboxes", categoryKey(state.entityType))) {
+			com.origin.client.client.render.HitboxFacts facts = com.origin.client.client.render.HitboxFacts.of(state);
+			String category = facts != null ? facts.category : categoryKey(state.entityType);
+			if (!Mods.bool("hitboxes", category)) {
 				continue;
 			}
+			// Tints, as on 1.21.1: item entities are immune (you can't attack a
+			// dropped item); the crosshair tint wins over the damage tint.
+			float er = fr, eg = fg, eb = fb, ea = fa;
+			if (facts != null && !"items".equals(category)) {
+				int tint = 0;
+				if (facts.damaged && Mods.bool("hitboxes", "showDamaged")) {
+					tint = OriginColorPicker.liveColor("hitboxes", "damagedColor");
+				}
+				if (facts.hittable && Mods.bool("hitboxes", "showHittable")) {
+					tint = OriginColorPicker.liveColor("hitboxes", "hittableColor");
+				}
+				if (tint != 0) {
+					er = ((tint >> 16) & 0xFF) / 255f;
+					eg = ((tint >> 8) & 0xFF) / 255f;
+					eb = (tint & 0xFF) / 255f;
+					ea = ((tint >>> 24) & 0xFF) / 255f;
+					if (ea <= 0f) {
+						ea = 1f;
+					}
+				}
+			}
+			float cr = er, cg = eg, cb = eb, ca = ea;
 			// The submit carries a baked Matrix4f, not a PoseStack -- rebuild one
 			// so the shared drawing helpers (and ThickLine) keep their Pose shape.
 			PoseStack ps = new PoseStack();
@@ -84,13 +111,22 @@ public class HitboxMixin {
 							patternSegments(ax, ay, az, bx, by, bz, pattern,
 									(sx, sy, sz, ex, ey, ez) ->
 											com.origin.client.client.render.ThickLine.edge(q, pose,
-													sx, sy, sz, ex, ey, ez, ccx, ccy, ccz, t, fr, fg, fb, fa)));
+													sx, sy, sz, ex, ey, ez, ccx, ccy, ccz, t, cr, cg, cb, ca)));
 				} else {
 					forEachEdge(box, (ax, ay, az, bx, by, bz) ->
 							patternSegments(ax, ay, az, bx, by, bz, pattern,
 									(sx, sy, sz, ex, ey, ez) ->
-											seg(lines, pose, sx, sy, sz, ex, ey, ez, fr, fg, fb, fa)));
+											seg(lines, pose, sx, sy, sz, ex, ey, ez, cr, cg, cb, ca)));
 				}
+			}
+			// Look line, as on 1.21.1: from the eyes, 2 blocks along the view
+			// vector vanilla stored in the state, box colour and pattern. Never
+			// your own (it only ever shows as an Iris shadow).
+			if (facts != null && !facts.self && Mods.bool("hitboxes", "showLookVector")) {
+				var hs = submit.hitboxesRenderState();
+				double eye = state.eyeHeight;
+				patternSegments(0, eye, 0, hs.viewX() * 2, eye + hs.viewY() * 2, hs.viewZ() * 2, pattern,
+						(sx, sy, sz, ex, ey, ez) -> seg(lines, pose, sx, sy, sz, ex, ey, ez, cr, cg, cb, ca));
 			}
 		}
 		ci.cancel();

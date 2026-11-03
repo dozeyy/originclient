@@ -36,6 +36,7 @@
 		"SingleQuadParticleMixin",
 		"LevelTimeMixin",
 		"HitboxMixin",
+		"HitboxFactsMixin",
 		"EntityNametagMixin",
 		"NametagStyleMixin",
 		"ItemEntityScaleMixin",
