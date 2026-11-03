@@ -242,7 +242,10 @@ public abstract class OriginWindow extends OriginScreen {
 		}
 		boolean empty = text == null || text.isEmpty();
 		String shown = empty ? placeholder : d.fit(text, w - (tx - x) - 16, 13, false, 0);
-		float end = tx + d.textMid(shown, tx, y + h / 2, 13, false, 0, empty ? MUTE : TEXT);
+		// The placeholder starts a caret's width in, so a focused empty field's
+		// blinking caret sits in front of it, not over its first letter ("|earch").
+		float textX = empty ? tx + 5 : tx;
+		float end = textX + d.textMid(shown, textX, y + h / 2, 13, false, 0, empty ? MUTE : TEXT);
 		if (focused && (System.currentTimeMillis() / 530) % 2 == 0) {
 			d.fill(empty ? tx : end + 1, y + h / 2 - 8, 1.5f, 16, TEXT);
 		}

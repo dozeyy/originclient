@@ -15,6 +15,7 @@
 		"AbstractSliderButtonMixin",
 		"AbstractSliderButtonAccessor",
 		"SprintKeyMixin",
+		"OptionsSaveMixin",
 		"CheckboxMixin",
 		"ImageButtonMixin",
 		"AbstractWidgetAccessor",

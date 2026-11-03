@@ -227,7 +227,7 @@ public final class Mods {
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
 				ModOption.toggle("sprint", "Toggle Sprint", true).tip("Sprint stays on after one press of the toggle key."),
-				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of the toggle key."),
+				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of your Sneak key (Controls)."),
 				ModOption.toggle("flyBoost", "Fly Boost", false).tip("Multiplies your creative/spectator flight speed."),
 				ModOption.slider("flyBoostAmount", "Fly Boost Amount", 1, 5, 0.1, 2, "%.1fx").under("flyBoost"),
 				ModOption.keybind("key", "Sprint key", -1),
@@ -290,8 +290,8 @@ public final class Mods {
 				ModOption.color("bgColor", "Background Color", 0x00000000),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
+		// 1.8.9 has no top-right effects display, so no "Vanilla Display" row here.
 		add("potionhud", "Potion Effects", "Active status effects.", false,
-				ModOption.toggle("vanillaDisplay", "Vanilla Display (top-right)", false),
 				ModOption.toggle("showInInventory", "Show In Inventory", true),
 				ModOption.toggle("showWhileTyping", "Show While Typing", true),
 				ModOption.toggle("effectName", "Effect Name", true),
@@ -477,8 +477,8 @@ public final class Mods {
 				ModOption.color("color", "Block Outline Color", 0xFFFFFFFF).under("outline"),
 				ModOption.toggle("overlay", "Block Overlay", false),
 				ModOption.color("overlayColor", "Block Overlay Color", 0x55FFFFFF).under("overlay"),
-				ModOption.toggle("side", "Side", false),
-				ModOption.toggle("showHiddenFoliage", "Show Hidden Foliage", false));
+				// no "Show Hidden Foliage" on 1.8.9: nothing could ever read it
+				ModOption.toggle("side", "Side", false));
 
 		// Crosshair replaces vanilla's crosshair sprite (GuiCrosshairMixin). Sizes
 		// are in real screen pixels, so it looks the same at every GUI scale.

@@ -33,8 +33,9 @@ public class OriginClientMod {
 
 	private boolean freelookWasDown = false;
 	private int savedPerspective = -1;
-	private boolean chatApplied = false;
-	private float savedChatScale = 1.0f;
+	// static: GameSettingsZoomMixin reads them around every options.txt write (chatOptionsForSave)
+	private static boolean chatApplied = false;
+	private static float savedChatScale = 1.0f;
 	private float appliedChatScale = -1f;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
@@ -69,6 +70,8 @@ public class OriginClientMod {
 	private long tabPressAt = 0;
 	private boolean tabSyncInit = false;
 	private int lastOurTabKey = -1, lastMcTabKey = -1;
+	// Zoom / Freelook: the mod-menu key and its Controls entry are ONE key (syncedKeyDown).
+	private final KeyLink zoomLink = new KeyLink(), freelookLink = new KeyLink();
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private float savedSensitivity = 0.5f;
@@ -311,10 +314,13 @@ public class OriginClientMod {
 		// modmenu area's ModMenuHooks, which opens the HUD editor screen.
 
 		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
-		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
+		// your XYZ on the clipboard, in any world. It used to need the Coordinates
+		// HUD switched on too, so the key silently did nothing for most players;
+		// only the Coordinates card's own "Copy Coords To Clipboard" switch (on by
+		// default) can turn it off.
 		while (OriginKeyBindings.copyCoords.isPressed()) {
 			EntityPlayerSP p = client.thePlayer;
-			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
+			if (p != null && Mods.bool("coords", "copyClipboard")) {
 				String c = MathHelper.floor_double(p.posX) + ", " + MathHelper.floor_double(p.posY) + ", "
 						+ MathHelper.floor_double(p.posZ);
 				GuiScreen.setClipboardString(c);
@@ -403,7 +409,7 @@ public class OriginClientMod {
 		// FOV easing itself lives in the world area's FOV hook (frame-side); here
 		// we only resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.currentScreen == null
-				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isKeyDown());
+				&& syncedKeyDown(client, zoomLink, OriginKeyBindings.zoom, "zoom", "key");
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
 			if (zDown && !zoomKeyWasDown) {
 				zoomToggled = !zoomToggled;
@@ -461,7 +467,11 @@ public class OriginClientMod {
 		}
 
 		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
-			boolean custom = client.currentScreen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Toggle Sneak rides the player's own Sneak key (Controls), not the
+			// Sprint key: sharing that one key made one press start sprint AND
+			// crouch, and the crouch then ended the sprint. Read raw, so the
+			// toggle's own "held" answer (KeyBindingMixin) never feeds back in.
+			boolean custom = client.currentScreen == null && isRawKeyDown(client.gameSettings.keyBindSneak.getKeyCode());
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
 			if (holdMode) {
@@ -486,12 +496,12 @@ public class OriginClientMod {
 			flyBoostApplied = false;
 		}
 
-		// Freelook: custom bind (default Left Alt) with the vanilla-controls
-		// binding as a fallback. Hold = look around; release = snap back (the
+		// Freelook: one key (default Left Alt), the same in the mod menu and in
+		// Controls (syncedKeyDown). Hold = look around; release = snap back (the
 		// player's real rotation is never touched — the world area's camera hook
 		// renders OriginFreelookState instead). "Toggle Freelook" latches.
 		boolean keyDown = Mods.on("freelook") && client.currentScreen == null
-				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isKeyDown());
+				&& syncedKeyDown(client, freelookLink, OriginKeyBindings.freelook, "freelook", "key");
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
@@ -606,6 +616,54 @@ public class OriginClientMod {
 		return lwjgl == 0 ? -1 : lwjgl;
 	}
 
+	/** Bookkeeping for one key that lives both in the mod menu and in Controls. */
+	private static final class KeyLink {
+		boolean init;
+		int lastOurs = -1, lastMc = -1;
+	}
+
+	/**
+	 * Zoom and Freelook each have ONE key, shown in two places: the mod menu's
+	 * key row and Minecraft's Controls. They used to be two separate keys that
+	 * both worked (Zoom was C twice), so rebinding one left the old key still
+	 * zooming. Same rules as the Tab key sync (tickTabList): a rebind on either
+	 * side is copied to the other. On the first tick Controls wins, unless
+	 * Controls has no key there (Freelook's Controls entry started unbound) --
+	 * then the mod menu's key is copied into Controls. 1.8.9: both sides are
+	 * LWJGL2 codes with mouse buttons as -100 + button, compared via tabCode().
+	 */
+	private boolean syncedKeyDown(Minecraft client, KeyLink link, KeyBinding mapping, String modId, String option) {
+		if (mapping == null) {
+			return isRawKeyDown(Mods.keyCode(modId, option));
+		}
+		int mc = tabCode(mapping.getKeyCode());
+		int ours = tabCode(Mods.keyCode(modId, option));
+		if (!link.init) {
+			link.init = true;
+			if (mc == -1 && ours != -1) {
+				mc = pushKey(client, mapping, ours);
+			} else if (ours != mc) {
+				Mods.set(modId, option, mc);
+				ours = mc;
+			}
+		} else if (ours != link.lastOurs && ours != mc) {
+			mc = pushKey(client, mapping, ours);          // rebound in the mod menu
+		} else if (mc != link.lastMc && mc != ours) {
+			Mods.set(modId, option, mc);                  // rebound in Controls
+			ours = mc;
+		}
+		link.lastOurs = ours;
+		link.lastMc = mc;
+		return isRawKeyDown(ours);
+	}
+
+	private static int pushKey(Minecraft client, KeyBinding mapping, int key) {
+		client.gameSettings.setOptionKeyBinding(mapping, key < 0 && key > -100 ? 0 : key);
+		KeyBinding.resetKeyBindingArrayAndHash();
+		client.gameSettings.saveOptions();
+		return key;
+	}
+
 	// 1.16.5's displayClientMessage(text, true): the action bar
 	// (GuiIngame.setRecordPlaying with isPlaying=false, what S02 type 2 uses).
 	private static void actionBar(Minecraft client, String text) {
@@ -709,6 +767,20 @@ public class OriginClientMod {
 			appliedChatScale = -1f;
 			refreshChat(client);
 		}
+	}
+
+	/**
+	 * GameSettingsZoomMixin, around every GameSettings.saveOptions(): true = the
+	 * player's own chat scale in for the write (HEAD), false = the Chat mod's back
+	 * after it (RETURN). options.txt only ever holds the player's own value -- the
+	 * autosave used to write the mod's scale every time it saved. No re-wrap:
+	 * the value is only swapped for the length of the write.
+	 */
+	public static void chatOptionsForSave(net.minecraft.client.settings.GameSettings options, boolean playerValues) {
+		if (!chatApplied || options == null) {
+			return;
+		}
+		options.chatScale = playerValues ? savedChatScale : (float) Mods.num("chat", "scale");
 	}
 
 	private static void refreshChat(Minecraft client) {

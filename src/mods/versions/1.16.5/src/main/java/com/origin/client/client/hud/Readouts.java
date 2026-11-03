@@ -77,7 +77,8 @@ final class Readouts {
 		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 60, 1.0),
 				Readouts::itemCounterSize, Readouts::renderItemCounter);
 
-		HudElements.add("directionhud", "directionhud", "Direction", new HudPos(1, 0, 4, 1.0),
+		// Default just below one boss bar (Boss Bar: y 3, 14 tall), never on top of it.
+		HudElements.add("directionhud", "directionhud", "Direction", new HudPos(1, 0, 22, 1.0),
 				mc -> new int[]{dirWidth(), DIR_H}, Readouts::renderDirection);
 	}
 

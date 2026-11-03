@@ -21,8 +21,9 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean freelookWasDown = false;
 	private net.minecraft.client.CameraType savedPerspective = null;
 	private boolean sneakForced = false;
-	private boolean chatApplied = false;
-	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
+	// static: OptionsSaveMixin reads them around every options.txt write (chatOptionsForSave)
+	private static boolean chatApplied = false;
+	private static double savedChatOpacity = 1.0, savedChatScale = 1.0, savedChatTextOpacity = 1.0;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
@@ -56,6 +57,8 @@ public class OriginClientMod implements ClientModInitializer {
 	private long tabPressAt = 0;
 	private boolean tabSyncInit = false;
 	private int lastOurTabKey = -1, lastMcTabKey = -1;
+	// Zoom / Freelook: the mod-menu key and its Controls entry are ONE key (syncedKey).
+	private final KeyLink zoomLink = new KeyLink(), freelookLink = new KeyLink();
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private double savedSensitivity = 0.5;
@@ -373,6 +376,56 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 	}
 
+	/** Bookkeeping for one key that lives both in the mod menu and in Controls. */
+	private static final class KeyLink {
+		boolean init;
+		int lastOurs = -1, lastMc = -1;
+	}
+
+	/**
+	 * Zoom and Freelook each have ONE key, shown in two places: the mod menu's
+	 * key row and Minecraft's Controls. They used to be two separate keys that
+	 * both worked (Zoom was C twice), so rebinding one left the old key still
+	 * zooming. Same rules as the Tab key sync above: a rebind on either side is
+	 * copied to the other. On the first tick Controls wins, unless Controls has
+	 * no key there (Freelook's Controls entry started unbound) -- then the mod
+	 * menu's key is copied into Controls. A mouse button set in Controls works
+	 * through the Controls entry (the mod menu only holds keyboard keys).
+	 */
+	private boolean syncedKeyDown(Minecraft client, KeyLink link, net.minecraft.client.KeyMapping mapping,
+			String modId, String option) {
+		InputConstants.Key bound = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mapping);
+		if (bound.getType() == InputConstants.Type.MOUSE) {
+			return mapping.isDown();
+		}
+		int mc = bound.getValue();
+		int ours = Mods.keyCode(modId, option);
+		if (!link.init) {
+			link.init = true;
+			if (mc <= 0 && ours > 0) {
+				mc = pushKey(client, mapping, ours);
+			} else if (ours != mc) {
+				Mods.set(modId, option, mc);
+				ours = mc;
+			}
+		} else if (ours != link.lastOurs && ours != mc) {
+			mc = pushKey(client, mapping, ours);          // rebound in the mod menu
+		} else if (mc != link.lastMc && mc != ours) {
+			Mods.set(modId, option, mc);                  // rebound in Controls
+			ours = mc;
+		}
+		link.lastOurs = ours;
+		link.lastMc = mc;
+		return isRawKeyDown(ours);
+	}
+
+	private static int pushKey(Minecraft client, net.minecraft.client.KeyMapping mapping, int key) {
+		mapping.setKey(key <= 0 ? InputConstants.UNKNOWN : InputConstants.Type.KEYSYM.getOrCreate(key));
+		net.minecraft.client.KeyMapping.resetMapping();
+		client.options.save();
+		return key <= 0 ? -1 : key;
+	}
+
 	/** Raw GLFW key state for the mod-menu's rebindable keys. */
 	public static boolean isRawKeyDown(int glfwKey) {
 		if (glfwKey <= 0) {
@@ -441,10 +494,13 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
-		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
+		// your XYZ on the clipboard, in any world. It used to need the Coordinates
+		// HUD switched on too, so the key silently did nothing for most players;
+		// only the Coordinates card's own "Copy Coords To Clipboard" switch (on by
+		// default) can turn it off.
 		while (OriginKeyBindings.copyCoords.consumeClick()) {
 			LocalPlayer p = client.player;
-			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
+			if (p != null && Mods.bool("coords", "copyClipboard")) {
 				String c = p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " + p.blockPosition().getZ();
 				client.keyboardHandler.setClipboard(c);
 				p.displayClientMessage(new net.minecraft.network.chat.TextComponent("Copied coordinates: " + c), true);
@@ -602,7 +658,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
 		// resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.screen == null
-				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
+				&& syncedKeyDown(client, zoomLink, OriginKeyBindings.zoom, "zoom", "key");
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
 			if (zDown && !zoomKeyWasDown) {
 				zoomToggled = !zoomToggled;
@@ -672,7 +728,11 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
-			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Toggle Sneak rides the player's own Sneak key (Controls), not the
+			// Sprint key: sharing that one key made one press start sprint AND
+			// crouch, and the crouch then ended the sprint.
+			boolean custom = client.screen == null && isRawKeyDown(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+					.getBoundKeyOf(client.options.keyShift).getValue());
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
 			if (holdMode) {
@@ -708,12 +768,12 @@ public class OriginClientMod implements ClientModInitializer {
 			flyBoostApplied = false;
 		}
 
-		// Freelook: custom bind (default Left Alt) with the vanilla-controls
-		// binding as a fallback. Hold = look around; release = snap back (the
+		// Freelook: one key (default Left Alt), the same in the mod menu and in
+		// Controls (syncedKeyDown). Hold = look around; release = snap back (the
 		// player's real rotation is never touched — see MouseHandlerMixin).
 		// "Toggle Freelook" turns the hold into a press-on/press-off latch.
 		boolean keyDown = Mods.on("freelook") && client.screen == null
-				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isDown());
+				&& syncedKeyDown(client, freelookLink, OriginKeyBindings.freelook, "freelook", "key");
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
@@ -840,14 +900,18 @@ public class OriginClientMod implements ClientModInitializer {
 	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
 	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
 	// slider there made messages unreadable). Text stays fully visible at
-	// background 0. chatOpacity is pinned to 1.0 while the mod is on, which
-	// also heals any options.txt damage the old wiring left behind.
+	// background 0. chatOpacity is pinned to 1.0 while the mod is on.
+	//
+	// These are the PLAYER's Minecraft chat settings, borrowed while the mod is
+	// on: all three are put back when it turns off, and options.txt never sees
+	// Origin's values (chatOptionsForSave, called around every Options.save()).
 	private void applyChat(Minecraft client) {
 		boolean on = Mods.on("chat");
 		if (on) {
 			if (!chatApplied) {
 				savedChatOpacity = client.options.textBackgroundOpacity;
 				savedChatScale = client.options.chatScale;
+				savedChatTextOpacity = client.options.chatOpacity;
 				chatApplied = true;
 			}
 			client.options.textBackgroundOpacity = Mods.num("chat", "opacity");
@@ -856,7 +920,28 @@ public class OriginClientMod implements ClientModInitializer {
 		} else if (chatApplied) {
 			client.options.textBackgroundOpacity = savedChatOpacity;
 			client.options.chatScale = savedChatScale;
+			client.options.chatOpacity = savedChatTextOpacity;
 			chatApplied = false;
+		}
+	}
+
+	/**
+	 * OptionsSaveMixin: true = put the player's own chat values in for the write
+	 * (Options.save() HEAD), false = Origin's back after it (RETURN). A no-op
+	 * while the Chat mod isn't overriding anything.
+	 */
+	public static void chatOptionsForSave(net.minecraft.client.Options options, boolean playerValues) {
+		if (!chatApplied || options == null) {
+			return;
+		}
+		if (playerValues) {
+			options.textBackgroundOpacity = savedChatOpacity;
+			options.chatScale = savedChatScale;
+			options.chatOpacity = savedChatTextOpacity;
+		} else {
+			options.textBackgroundOpacity = Mods.num("chat", "opacity");
+			options.chatOpacity = 1.0;
+			options.chatScale = Mods.num("chat", "scale");
 		}
 	}
 

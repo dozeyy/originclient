@@ -12,6 +12,7 @@
 		"CosmeticsPauseMixin",
 		"AbstractButtonMixin",
 		"SprintKeyMixin",
+		"OptionsSaveMixin",
 		"AbstractSliderButtonMixin",
 		"CheckboxMixin",
 		"TabButtonMixin",
