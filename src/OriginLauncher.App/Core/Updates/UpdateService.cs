@@ -100,7 +100,13 @@ public static partial class UpdateService
     /// the release feed is never asked, nothing is downloaded and nothing is applied. A live check there once put the
     /// real "UPDATING ORIGIN LAUNCHER" screen into the shots. Every check and apply path below starts with this.
     /// </summary>
-    public static bool Enabled => !OriginPaths.IsScratchRoot;
+    public static bool Enabled => !OriginPaths.IsScratchRoot || ProofFeed;
+
+    /// <summary>
+    /// Set only by the Mac's `--update-proof` (UpdateProof.cs), after it checked the feed is a loopback IP: that run
+    /// sits on a scratch root on purpose and must still check, download and swap against its fake local release.
+    /// </summary>
+    internal static bool ProofFeed { get; set; }
 
     /// <summary>
     /// Polls the release feed once. Never throws: an unreachable feed fails

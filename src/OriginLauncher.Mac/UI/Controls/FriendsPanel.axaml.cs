@@ -127,6 +127,8 @@ public sealed partial class FriendsPanel : UserControl
         if (_menu is { IsOpen: true })
         {
             CloseMenu();
+            // CloseMenu clears _menu first, so the menu's Closed handler skips its redraw: draw what arrived meanwhile.
+            if (_renderDirty) Render();
             return true;
         }
         if (Confirm.IsVisible)
