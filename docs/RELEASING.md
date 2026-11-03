@@ -180,6 +180,58 @@ Add/Remove Programs.
 - Engine tests: `dotnet test src/OriginSetup.Tests -f net10.0` (no network:
   downloads run against an in-memory fake server).
 
+## Linux downloads
+
+Every release also carries four Linux files (x64), each with a `.sha256` beside it (the
+release job's `linux` job runs `tools/linux/package.sh` on GitHub's x64 Ubuntu runner
+with the same mod jars the Windows launcher bundles; nothing Linux is
+ever built on Will's PC):
+
+| | x64 |
+|---|---|
+| AppImage | `OriginLauncher-linux-x86_64.AppImage` |
+| deb | `origin-launcher_amd64.deb` |
+| rpm | `origin-launcher.x86_64.rpm` |
+| tar.gz | `OriginLauncher-linux-x64.tar.gz` |
+
+**No arm64 downloads yet** (mandate 4, never broken): Mojang ships no linux-arm64 Java
+runtime and 1.21.1 lists no arm64 natives (1.8.9's LWJGL 2 is x64-only), so an arm64
+launcher would install but never start a game. `package.sh --rid linux-arm64` works and
+the arm64 names are reserved (`aarch64` AppImage/rpm, `arm64` deb/tar.gz); they join the
+release only once the boot test passes on `ubuntu-24.04-arm`.
+
+These names are fixed like the Windows ones: the website links to
+`releases/latest/download/<name>` and installed launchers update from them.
+`tools/release/check_consistency.py` (check 7) fails CI if package.sh, the Linux
+self-update and this workflow stop agreeing. When the Linux job succeeded, the release
+refuses to publish if any of the four or its `.sha256` is missing or wrong. When the
+Linux job itself fails, the tag still publishes the Windows release exactly as before,
+with no Linux files and a loud warning at the top of the run's summary (Linux launchers
+then see no update, and the site's Linux links break until the next release carries them).
+
+**Self-update on Linux** follows the Windows rules (mandatory, refuses a missing or
+wrong SHA-256, never blocks Play; `Core/Updates/UpdateService.Linux.cs`):
+- **AppImage:** downloads the new AppImage and swaps the file in place.
+- **tar.gz:** downloads the new tar.gz and swaps the `OriginLauncher/` folder in place.
+- **deb/rpm:** `/opt/origin-launcher` belongs to the package manager (read-only, marked
+  by a `package-install` file), so updates unpack the tar.gz into a per-user copy,
+  `~/.local/share/OriginLauncher/app` (`OriginPaths.UserAppCopy`).
+  `/usr/bin/origin-launcher` starts whichever of the two has the higher `VERSION`, so
+  a later `apt`/`dnf` upgrade wins again by the same rule. No repository, no root needed.
+
+**Tools** (`tools/linux/pins.sh`, each pinned by SHA-256): appimagetool 1.9.1, the
+type2 AppImage runtime 20251108, nfpm 2.48.0. Package dependencies are in
+`tools/linux/nfpm.yaml`. .NET 10 needs OpenSSL 3 (`libssl.so.3`); Fedora 45 moved to
+OpenSSL 4, so the rpm asks for `libssl.so.3` by name (dnf pulls `openssl3-libs` there).
+The AppImage and tar.gz on such a distro need that package installed by hand.
+
+**Proof** (`.github/workflows/linux-launcher.yml`, every push that touches it): the
+self-test on x64 and arm64, the tar.gz and AppImage self-tested as a player unpacks them,
+the deb/rpm installed in fresh Ubuntu 22.04/24.04, Debian 12, Fedora and AlmaLinux 9
+containers, and real Minecraft booted to the title screen through the AppImage on Xvfb
+(`--boot-test <version>`, judged by `tools/linux/check_boot.py` with boot-smoke's rules;
+x64).
+
 ## Labels
 
 `tools/github/labels.py` is the label set (type, area, status, priority,

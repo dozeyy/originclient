@@ -7,7 +7,19 @@
 const DOWNLOAD = {
   live: true,
   url: 'https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-Setup.exe',
+  // Linux (64-bit PCs only: Mojang ships no Java or game libraries for ARM Linux).
+  // Names are fixed by tools/linux/package.sh and checked by check_consistency.py.
+  linux: [
+    { label: 'AppImage', file: 'OriginLauncher-linux-x86_64.AppImage', note: 'any distro' },
+    { label: '.deb', file: 'origin-launcher_amd64.deb', note: 'Ubuntu, Debian, Mint' },
+    { label: '.rpm', file: 'origin-launcher.x86_64.rpm', note: 'Fedora, openSUSE, Alma' },
+    { label: '.tar.gz', file: 'OriginLauncher-linux-x64.tar.gz', note: 'unpack and run' },
+  ],
 };
+const RELEASE_FILE = f => 'https://github.com/dozeyy/originclient/releases/latest/download/' + f;
+// Desktop Linux, not Android (whose user agent also says Linux).
+const ON_LINUX = /linux/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent)
+  && !/android/i.test(navigator.userAgent);
 
 // Player screenshots for the "Straight from the game" section. The section
 // stays hidden while this is empty. Put images in website/assets/screens/.
@@ -46,7 +58,7 @@ let world = null;
 function initDownload() {
   for (const a of $$('[data-download]')) {
     if (DOWNLOAD.live) {
-      a.href = DOWNLOAD.url;
+      a.href = ON_LINUX ? RELEASE_FILE(DOWNLOAD.linux[0].file) : DOWNLOAD.url;
       a.removeAttribute('data-soon');
       a.removeAttribute('aria-disabled');
     } else {
@@ -58,7 +70,16 @@ function initDownload() {
       if (a.closest('#get')) a.addEventListener('click', e => e.preventDefault());
     }
   }
-  if (DOWNLOAD.live) $('[data-get-note]').textContent = 'Free for Windows 10 and 11. Setup takes about a minute, and Origin keeps itself up to date.';
+  if (!DOWNLOAD.live) return;
+  $('[data-get-note]').textContent = ON_LINUX
+    ? 'Free for Linux on 64-bit PCs. Make the AppImage executable and open it, and Origin keeps itself up to date.'
+    : 'Free for Windows 10 and 11. Setup takes about a minute, and Origin keeps itself up to date.';
+  // Every other download, under the big button: Windows plus each Linux package.
+  const others = [{ label: 'Windows', href: DOWNLOAD.url, note: 'Windows 10 & 11' }]
+    .concat(DOWNLOAD.linux.map(d => ({ label: 'Linux ' + d.label, href: RELEASE_FILE(d.file), note: d.note })));
+  const row = $('[data-other-downloads]');
+  row.innerHTML = others.map(o => `<a href="${o.href}"><span>${o.label}</span><small>${o.note}</small></a>`).join('');
+  row.hidden = false;
 }
 
 function initVersions() {

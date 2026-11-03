@@ -252,6 +252,7 @@ def render(head: str, prev: str) -> str:
     out += [
         "---",
         "**New to Origin?** Download `OriginLauncher-Setup.exe` below and run it.",
+        "**On Linux?** Take the AppImage, `.deb`, `.rpm` or `.tar.gz` below (64-bit Intel/AMD PCs).",
         "**Already installed?** Your launcher updates itself — click the download "
         "badge in the corner when it appears.",
         "",

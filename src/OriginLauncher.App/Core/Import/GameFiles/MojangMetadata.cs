@@ -36,9 +36,13 @@ public sealed class RequiredSet
 //        manifest (checked against all.json's SHA-1) -> every file in it.
 // Fabric loader libraries and profile jsons are NOT in Mojang's metadata (no hash to verify
 // them by), so they are never in this list and never copied.
-public sealed class MojangMetadata
+// Which OS the lists are for is the per-OS part (MojangMetadata.Windows.cs / .Mac.cs, picked by
+// each csproj): the Java runtime platform, the rule/natives OS name and which arch rules apply.
+// Rules are always applied to each library BEFORE anything is merged or de-duplicated (Add keeps
+// the first file per path): 1.8.9 lists LWJGL 2.9.4 for every OS but osx and then 2.9.2 for osx
+// only, so merging by name first would leave a Mac with no LWJGL at all.
+public sealed partial class MojangMetadata
 {
-    private const string RuntimePlatform = "windows-x64";
     private const string DefaultComponent = "jre-legacy"; // versions older than 1.17 name no Java component
 
     private readonly MetadataClient _client;
@@ -122,7 +126,7 @@ public sealed class MojangMetadata
         return true;
     }
 
-    // Windows libraries only: rules decide (default: allowed; the last rule that applies wins), x86/arm64-only entries don't apply to x64.
+    // This OS's libraries only: rules decide (default: allowed; the last rule that applies wins); arch-only entries per ArchApplies.
     private static void AddLibrary(RequiredSet set, JsonElement library)
     {
         if (!Allowed(library)) return;
@@ -131,8 +135,8 @@ public sealed class MojangMetadata
             && IsSafeRelative(path) && IsSha1(sha1))
             Add(set, new RequiredFile(RequiredKind.Library, "libraries/" + path, sha1, Long(artifact, "size"), path));
 
-        // Older versions keep natives as classifiers: natives.windows names the key ("natives-windows", "natives-windows-${arch}").
-        if (library.TryGetProperty("natives", out var natives) && Str(natives, "windows") is { } key
+        // Older versions keep natives as classifiers: natives.<os> names the key ("natives-windows", "natives-windows-${arch}", "natives-osx").
+        if (library.TryGetProperty("natives", out var natives) && Str(natives, RuleOsName) is { } key
             && downloads.TryGetProperty("classifiers", out var classifiers)
             && classifiers.TryGetProperty(key.Replace("${arch}", "64"), out var native)
             && Str(native, "path") is { } nativePath && Str(native, "sha1") is { } nativeSha1
@@ -155,8 +159,7 @@ public sealed class MojangMetadata
             if (rule.TryGetProperty("os", out var os))
             {
                 var name = Str(os, "name");
-                // Mojang only names x86 / arm64 for the non-default builds; this launcher runs x64.
-                applies = (name == null || name == "windows") && !os.TryGetProperty("arch", out _);
+                applies = (name == null || name == RuleOsName) && ArchApplies(os);
             }
             if (applies) allowed = Str(rule, "action") == "allow";
         }

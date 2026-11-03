@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Origin Launcher for Linux (x64 and arm64). The launcher's Core is SHARED, not copied: every
+    Core file is linked from src/OriginLauncher.App, minus the Windows and Mac halves of each per-OS
+    seam (X.Windows.cs, X.Mac.cs), plus the Linux half (X.Linux.cs) that sits next to it. The
+    Windows and Mac projects do the same with their own half, so a Core fix lands on all three.
+
+    The UI is the shared Avalonia launcher in src/OriginLauncher.Desktop (imported below as source, like
+    the Core); Program.cs opens it. The self-test flag still checks the Linux seams without opening a window.
+
+    Built on GitHub's Ubuntu runners (.github/workflows/linux-launcher.yml); it is never built or run
+    on Will's PC. global.json next to this file pins the same .NET 10 SDK as the Mac project.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <AssemblyName>OriginLauncher</AssemblyName>
+    <RootNamespace>OriginLauncher.Linux</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Same choice as the Windows launcher: no tiered PGO instrumentation in the first seconds. -->
+    <TieredPGO>false</TieredPGO>
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\OriginLauncher.App\Core\**\*.cs"
+             Exclude="..\OriginLauncher.App\Core\**\*.Windows.cs;..\OriginLauncher.App\Core\**\*.Mac.cs" LinkBase="Core" />
+    <!-- Two Mac files are plain managed/Avalonia code Linux needs unchanged, so they are linked, not copied:
+         the managed skin PNG decoder, and player heads as Avalonia bitmaps (which also sets HeadImage). -->
+    <Compile Include="..\OriginLauncher.App\Core\Skins\SkinPng.Mac.cs" Link="Core\Skins\SkinPng.Mac.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\Skins\PlayerHeads.Mac.cs" Link="Core\Skins\PlayerHeads.Mac.cs" />
+    <!-- The self-test's skin: the same independently encoded PNG the Core tests decode. -->
+    <None Include="..\OriginLauncher.Tests\Fixtures\skin-all-filters.png" Link="skin-all-filters.png"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Same CmlLib as the Windows launcher: one resolver for versions, rules and the classpath. -->
+    <PackageReference Include="CmlLib.Core" Version="4.0.6" />
+    <!-- Core's player heads are Avalonia bitmaps on Linux, as on the Mac (Core/Skins/PlayerHeads.Mac.cs). -->
+    <PackageReference Include="Avalonia" Version="12.1.5" />
+  </ItemGroup>
+
+  <!-- The launcher UI (Avalonia, code-only): views, tokens read from the WPF theme files, art, fonts. -->
+  <Import Project="..\OriginLauncher.Desktop\OriginLauncher.Desktop.props" />
+
+</Project>

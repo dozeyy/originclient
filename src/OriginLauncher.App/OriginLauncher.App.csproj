@@ -18,6 +18,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Per-OS seams: Core keeps one file per OS for each Windows-only part (X.Windows.cs / X.Mac.cs / X.Linux.cs).
+         This project builds the Windows side; src/OriginLauncher.Mac and src/OriginLauncher.Linux link Core
+         with their own side instead. -->
+    <Compile Remove="**\*.Mac.cs" />
+    <Compile Remove="**\*.Linux.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The WPF tests (src/OriginLauncher.UiTests) read the crash windows' generated named fields. -->
     <InternalsVisibleTo Include="OriginLauncher.UiTests" />
     <PackageReference Include="CmlLib.Core" Version="4.0.6" />

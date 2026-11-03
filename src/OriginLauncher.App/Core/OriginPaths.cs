@@ -3,17 +3,20 @@ using OriginLauncher.App.Core.GameFolders;
 
 namespace OriginLauncher.App.Core;
 
-public static class OriginPaths
+// The two per-OS answers live in one file per OS, picked by each csproj: where the data root is
+// (OriginPaths.Windows.cs: %LocalAppData%\OriginLauncher; OriginPaths.Mac.cs:
+// ~/Library/Application Support/OriginLauncher) and where the files shipped with the app sit
+// (BundledBase). Every other path below is built from those two, the same on every OS.
+public static partial class OriginPaths
 {
     private static string? _root;
 
     /// <summary>
-    /// Every launcher file lives under this folder. Normally %LocalAppData%\OriginLauncher;
+    /// Every launcher file lives under this folder. Normally the OS's DefaultRoot;
     /// a render-shots run (UI/RenderShots.cs) points it at a scratch folder first, so the
     /// harness can never read or write the player's own settings, accounts or instances.
     /// </summary>
-    public static string Root => _root ??= Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OriginLauncher");
+    public static string Root => _root ??= DefaultRoot;
 
     /// <summary>True only after <see cref="UseScratchRoot"/> (render-shots mode).</summary>
     public static bool IsScratchRoot { get; private set; }
@@ -102,6 +105,10 @@ public static class OriginPaths
     // extracted release and apply-update.cmd.
     public static string Updates => Path.Combine(Root, "updates");
 
+    // "This launcher quit to swap in version X" (Core/Updates/SwapAttempt): read by the next start, so a swap that
+    // failed after the quit can never gate Play again and again.
+    public static string UpdateSwapMarker => Path.Combine(Updates, "swap-attempted.txt");
+
     // Java runtimes Origin provisions itself (Core/Runtime): one folder per pinned
     // build, e.g. runtimes/temurin-8u504-b01/bin/javaw.exe. Per-user, no admin.
     public static string Runtimes => Path.Combine(Root, "runtimes");
@@ -174,7 +181,7 @@ public static class OriginPaths
     // originclient-1.21.1.jar, ...). VersionManager's Origin-build registry
     // maps each offered MC version to the matching filename here.
     public static string BundledOriginClientDir => Path.Combine(
-        AppContext.BaseDirectory, "Bundled", "OriginClient");
+        BundledBase, "Bundled", "OriginClient");
 
     public static string BundledOriginClientJar(string jarFileName) =>
         Path.Combine(BundledOriginClientDir, jarFileName);

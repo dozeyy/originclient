@@ -11,21 +11,10 @@ namespace OriginLauncher.App.Core.Runtime;
 /// <summary>One pinned Java build: where it comes from and the SHA-256 the file must have.</summary>
 public sealed record JavaRuntimePin(string Folder, string Url, string Sha256, long SizeBytes);
 
-/// <summary>
-/// Eclipse Temurin 8 for 1.8.9-era versions, instead of Mojang's 2015 jre-legacy (8u51).
-/// Pinned, never "latest": a new build is a code change with a new URL + hash.
-/// Source (2026-10-20): Adoptium API
-///   api.adoptium.net/v3/assets/latest/8/hotspot?architecture=x64&amp;image_type=jre&amp;os=windows&amp;vendor=eclipse
-/// and the release's own .sha256.txt asset; both gave the same hash.
-/// </summary>
-public static class TemurinJava8
-{
-    public static readonly JavaRuntimePin Pin = new(
-        Folder: "temurin-8u504-b01",
-        Url: "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u504-b01/OpenJDK8U-jre_x64_windows_hotspot_8u504b01.zip",
-        Sha256: "82e2cdc6693737c5998445b31f69668fa0da77c7705121053f6508ac84961123",
-        SizeBytes: 40104826);
-}
+// The per-OS parts live in one file per OS, picked by each csproj: the pin itself (TemurinJava8,
+// a different archive per OS), where the java executable sits inside it (JavaIn) and how the
+// archive unpacks (ExtractArchive). TemurinJava8.Windows.cs: zip, bin\javaw.exe.
+// TemurinJava8.Mac.cs: tar.gz, Contents/Home/bin/java.
 
 /// <summary>Streams one URL to a file. Replaceable so tests never touch the network.</summary>
 public delegate Task JavaDownload(string url, string destinationFile, IProgress<double>? fraction, CancellationToken ct);
@@ -39,7 +28,7 @@ public delegate Task JavaDownload(string url, string destinationFile, IProgress<
 /// to a temp folder, then rename the finished folder into place (atomic on one volume), so a
 /// half-done install is never mistaken for a good one.
 /// </summary>
-public static class JavaRuntimeProvisioner
+public static partial class JavaRuntimeProvisioner
 {
     private const string ReadyMarker = ".origin-verified";
 
@@ -51,7 +40,7 @@ public static class JavaRuntimeProvisioner
     public static string? InstalledJavaw(JavaRuntimePin pin, string runtimesRoot)
     {
         var dir = Path.Combine(runtimesRoot, pin.Folder);
-        var javaw = Path.Combine(dir, "bin", "javaw.exe");
+        var javaw = JavaIn(dir);
         return File.Exists(javaw) && File.Exists(Path.Combine(dir, ReadyMarker)) ? javaw : null;
     }
 
@@ -68,7 +57,7 @@ public static class JavaRuntimeProvisioner
             SweepStaleTemp(runtimesRoot);
             temp = Path.Combine(runtimesRoot, ".tmp-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(temp);
-            var zip = Path.Combine(temp, "java.zip");
+            var zip = Path.Combine(temp, ArchiveFileName);
 
             progress?.Report("Updating Java for this version...");
             var last = -1;
@@ -85,8 +74,7 @@ public static class JavaRuntimeProvisioner
                 return Fail(pin); // never unzip a file whose hash is wrong
 
             var extracted = Path.Combine(temp, "x");
-            // .NET's ExtractToDirectory refuses entries that would land outside the folder.
-            ZipFile.ExtractToDirectory(zip, extracted);
+            ExtractArchive(zip, extracted);
 
             var root = FindRuntimeRoot(extracted);
             if (root == null) return Fail(pin);
@@ -131,12 +119,12 @@ public static class JavaRuntimeProvisioner
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* best effort */ }
     }
 
-    /// <summary>The folder holding bin\javaw.exe: the extract root itself or its single sub-folder.</summary>
+    /// <summary>The folder holding the java executable (JavaIn): the extract root itself or its single sub-folder.</summary>
     public static string? FindRuntimeRoot(string extractedDir)
     {
-        if (File.Exists(Path.Combine(extractedDir, "bin", "javaw.exe"))) return extractedDir;
+        if (File.Exists(JavaIn(extractedDir))) return extractedDir;
         foreach (var sub in Directory.EnumerateDirectories(extractedDir))
-            if (File.Exists(Path.Combine(sub, "bin", "javaw.exe"))) return sub;
+            if (File.Exists(JavaIn(sub))) return sub;
         return null;
     }
 

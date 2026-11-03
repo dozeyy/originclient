@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Origin Launcher for macOS (Apple Silicon and Intel). The launcher's Core is SHARED, not copied:
+    every Core file is linked from src/OriginLauncher.App, minus the Windows half of each per-OS seam
+    (X.Windows.cs), plus the Mac half (X.Mac.cs) that sits next to it. The Windows launcher's csproj
+    does the reverse, so a Core fix lands on both at once.
+
+    No UI yet: today the program only has a self-test switch, self-test with two leading dashes (prints the data paths, runs each Mac seam
+    once, exits 0/1, opens no window). The Avalonia UI comes in later steps of the Mac port.
+
+    Built on GitHub's macOS runners (.github/workflows/mac-launcher.yml); it is never built or run
+    on Will's PC. global.json next to this file pins the .NET 10 SDK.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
+    <AssemblyName>OriginLauncher</AssemblyName>
+    <RootNamespace>OriginLauncher.Mac</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Same choice as the Windows launcher: no tiered PGO instrumentation in the first seconds. -->
+    <TieredPGO>false</TieredPGO>
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\OriginLauncher.App\Core\**\*.cs" Exclude="..\OriginLauncher.App\Core\**\*.Windows.cs;..\OriginLauncher.App\Core\**\*.Linux.cs" LinkBase="Core" />
+    <!-- The self-test's skin: the same independently encoded PNG the Core tests decode. -->
+    <None Include="..\OriginLauncher.Tests\Fixtures\skin-all-filters.png" Link="skin-all-filters.png"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Same CmlLib as the Windows launcher: one resolver for versions, rules and the classpath. -->
+    <PackageReference Include="CmlLib.Core" Version="4.0.6" />
+    <!-- Core's player heads are Avalonia bitmaps on the Mac (Core/Skins/PlayerHeads.Mac.cs). -->
+    <PackageReference Include="Avalonia" Version="12.1.5" />
+  </ItemGroup>
+
+</Project>

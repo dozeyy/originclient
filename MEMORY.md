@@ -308,3 +308,17 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Hypixel: boxed messages split per line before matching (auto-accept, Team View); lobby statuses matched by an anchored pattern (player chat stays).
 - Left by choice: starter config keeps Zoom/Freelook/Coordinates off (Will's 2026-07-10 seed); block outline alpha 0 -> opaque (RGB-only colours); F1 hides capes. Unsourced: whether Hypixel bans Snaplook/auto text/waypoints (not blocked).
 - Unverified: feel in game (Will's pass), OptiFine + Snow on 1.8.9, Mods page with real jars after a fresh launcher start.
+
+## 2026-11-02 - One zoom only (1.8.9 OptiFine + player zoom mods)
+- 1.8.9: OptiFine's own Zoom key (C) ran beside Origin's Zoom. While Origin Zoom is on, WorldHooks parks `ofKeyBindZoom` (key 0, row hidden from Controls) and restores the player's key around every saveOptions (GameSettingsZoomMixin HEAD/RETURN), so options.txt keeps their binding. Commit 237fcc958.
+- Every other version: StepAside gains `zoom` -> zoomify, ok_zoomer, logical_zoom, wi_zoom (shared + the 6 pre-1.20 copies), so a player's zoom mod turns Origin's off.
+- Unverified: no CI shot shows OptiFine's Controls screen; proven by compile + boot only.
+
+## 2026-11-02 - Linux launcher (AppImage, .deb, .rpm, tar.gz; x64; launcher-v1.0.82)
+- src/OriginLauncher.Linux (net10.0) hosts the cross-platform Avalonia UI in src/OriginLauncher.Desktop (code-only, meant for the Mac port too) over Core's `.Linux.cs` seams. Data `~/.local/share/OriginLauncher`; accounts sealed AES-256-GCM with the key in the Secret Service (secret-tool), else a 0600 key file bound to /etc/machine-id. Sign-in: NativeWebView (WebKitGTK, recommended by the deb/rpm) with a paste fallback.
+- Self-update: AppImage and tar.gz folder swap in place after SHA-256; deb/rpm update a per-user copy in `~/.local/share/OriginLauncher/app`, and `/usr/bin/origin-launcher` runs whichever VERSION is higher.
+- arm64 not shipped: Mojang has no linux-arm64 Java or natives.
+- Review fixes (8deca56b8, 904426095, b547c0008): `$APPIMAGE` trusted only when our own files live inside that AppImage's `$APPDIR` (a parent AppImage leaks the variable); deb/rpm start-at-login uses `/usr/bin/origin-launcher`; a swap that failed after restart counts once as DownloadFailed (marker per version) instead of locking Play; launcher-release still publishes Windows when the Linux job fails.
+- Trap: the packaged tar.gz/AppImage self-test piped through `tee`, which drops the exit code, so 2 test-side FAILs stayed green (locked keyring outside the unlocked D-Bus session; Exec expectation hard-coded where an AppImage writes `$APPIMAGE`). Fixed db4d80bd1 with pipefail + the same unlocked session.
+- Proof: Linux CI self-test PASSED on x64 + arm64 builds; install self-test on ubuntu 22.04/24.04, debian 12, fedora latest, almalinux 9; BOOT-TEST zero mixin-apply failures for 1.21.1, 1.8.9, 1.20.1, 1.21.11, 26.3; 195 Linux launcher shots match Windows; Windows build + 2535/2535 tests + check_consistency OK; release rehearsal attached 4 files + .sha256.
+- Unverified: a real Linux desktop (sign-in, keyring in a real session, start at login, drag-and-drop, a real self-update). Fedora 45 AppImage/tar.gz need openssl3-libs. Some Windows wording still shows on Linux screens (C:\Games example, backslash import paths).

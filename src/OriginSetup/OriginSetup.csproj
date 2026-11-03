@@ -68,8 +68,8 @@
   <!-- Launcher code shared with the installer (written to compile on both). -->
   <ItemGroup>
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" Link="Shared\RamAdvice.cs" />
-    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.cs" Link="Shared\SystemInfo.cs" />
-    <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.cs" Link="Shared\InstallRegistry.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Windows.cs" Link="Shared\SystemInfo.Windows.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.Windows.cs" Link="Shared\InstallRegistry.Windows.cs" />
     <!-- Button press-scale (lui:Press), used by Theme/Controls.xaml. -->
     <Compile Include="..\OriginLauncher.App\UI\Press.cs" Link="Shared\Press.cs" />
   </ItemGroup>

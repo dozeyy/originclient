@@ -1,5 +1,4 @@
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace OriginLauncher.App.Core.Profiles;
 
@@ -9,8 +8,10 @@ namespace OriginLauncher.App.Core.Profiles;
 /// "mods-origin-only" (Origin's own jars) or "mods-profile" (Origin's jars plus
 /// one profile's mods). Rebuilt each launch from a name -> source map.
 /// Pure file work on the paths it is given, so it is unit tested on Linux.
+/// The hard link (TryHardLink) is the one per-OS call: LaunchModFolder.Windows.cs /
+/// LaunchModFolder.Mac.cs, picked by each csproj.
 /// </summary>
-public static class LaunchModFolder
+public static partial class LaunchModFolder
 {
     /// <summary>The launch folder name for a profile launch, inside the account's game folder.</summary>
     public const string ProfileFolderName = "mods-profile";
@@ -177,13 +178,6 @@ public static class LaunchModFolder
             }
         }
     }
-
-    // A second name for the same file (NTFS hard link, same volume). False when it can't be made: copy instead.
-    private static bool TryHardLink(string link, string existing) =>
-        OperatingSystem.IsWindows() && CreateHardLinkW(link, existing, IntPtr.Zero);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool CreateHardLinkW(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
     // Same length and last-write time: the copy is current (Sync stamps each
     // copy with its source's time; a hard link is the source).

@@ -5,7 +5,6 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
-using System.Windows;
 using OriginLauncher.App.Core.Import.Launcher;
 
 namespace OriginLauncher.App.Core.Updates;
@@ -15,8 +14,11 @@ namespace OriginLauncher.App.Core.Updates;
 // OriginLauncher-win-x64.zip asset whenever a launcher-v* tag is pushed to
 // main (see docs/RELEASING.md).
 // This service polls that feed, exposes the newest release, and applies it:
-// download -> stage -> swap-and-restart via a tiny cmd script (a running exe
-// can't overwrite itself on Windows).
+// download -> stage -> swap-and-restart via a tiny script (a running exe
+// can't overwrite itself on Windows; a Mac swaps the whole app bundle).
+// The per-OS parts live in one file per OS, picked by each csproj (UpdateService.Windows.cs /
+// UpdateService.Mac.cs / UpdateService.Linux.cs): which release asset this OS downloads, the swap script, and how the
+// app quits (the UI toolkit's own shutdown). Checking, gating, downloading and verifying are shared.
 //
 // Update policy (Will): updates are MANDATORY — a launcher older than the
 // latest published release must update before it can launch the game.
@@ -36,11 +38,13 @@ namespace OriginLauncher.App.Core.Updates;
 // NOTE: the unauthenticated releases API only works on a PUBLIC repository —
 // on a private repo it 404s and every check fails open (no updates ever
 // surface). Keep the repo public or move the release feed somewhere public.
-public static class UpdateService
+public static partial class UpdateService
 {
     private const string Owner = "dozeyy";
     private const string Repo = "originclient";
     private const string TagPrefix = "launcher-v";
+    // The Windows asset. It stays named here because the installer's ReleaseFeed must agree with it
+    // (tools/release/check_consistency.py reads both); each OS file says which asset that OS takes (ReleaseAssetName).
     private const string AssetName = "OriginLauncher-win-x64.zip";
     // The release pipeline publishes the zip's SHA-256 next to it (sha256sum format); see UpdateVerifier.
     private const string HashAssetName = AssetName + ".sha256";
@@ -96,9 +100,10 @@ public static class UpdateService
     {
         if (!Enabled) return;
 
-        // Once per process, off the UI thread, before any download of this run can start.
+        // Once per process, off the UI thread, before any download of this run can start and before the
+        // feed is first evaluated (so a failed swap is counted before anything can be offered again).
         if (Interlocked.Exchange(ref _startupCleaned, 1) == 0)
-            await Task.Run(() => CleanStaleDownloads(null)).ConfigureAwait(false);
+            await Task.Run(() => { CheckLastSwap(); CleanStaleDownloads(null); }).ConfigureAwait(false);
 
         try
         {
@@ -112,12 +117,12 @@ public static class UpdateService
                 return;
 
             var asset = release!.Assets?.FirstOrDefault(a =>
-                string.Equals(a.Name, AssetName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(a.Name, ReleaseAssetName, StringComparison.OrdinalIgnoreCase));
             if (asset?.DownloadUrl == null)
                 return;
 
             var hashAsset = release.Assets?.FirstOrDefault(a =>
-                string.Equals(a.Name, HashAssetName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(a.Name, ReleaseAssetName + ".sha256", StringComparison.OrdinalIgnoreCase));
             // No sidecar and no usable digest: the download could only be refused, so never offer or gate on it.
             var hasHash = hashAsset?.DownloadUrl != null || UpdateVerifier.ParseDigest(asset.Digest) != null;
 
@@ -162,9 +167,8 @@ public static class UpdateService
     }
 
     // One zip (and one .part) per version, so two downloads of different releases never share a file.
-    private const string ZipPrefix = "OriginLauncher-win-x64";
     private static string ZipPathFor(Version version) =>
-        Path.Combine(OriginPaths.Updates, $"{ZipPrefix}-{version}.zip");
+        Path.Combine(OriginPaths.Updates, $"{ReleaseZipPrefix}-{version}.zip");
 
     // Removes zips/.part files of versions nobody is fetching or offering (quit before applying, killed
     // mid-download). Never throws; a locked file is skipped. Keeps the version being fetched, the one offered
@@ -177,13 +181,34 @@ public static class UpdateService
             VerifiedZip? verified;
             lock (Gate) { offered = Available?.Version; verified = _verifiedZip; }
             var n = UpdateVerifier.DeleteStaleDownloads(
-                OriginPaths.Updates, ZipPrefix, fetching, offered, verified?.Version);
+                OriginPaths.Updates, ReleaseZipPrefix, fetching, offered, verified?.Version);
             if (n > 0) Log($"removed {n} stale update download file(s)");
         }
         catch (Exception) { /* housekeeping only */ }
     }
 
     private static int _startupCleaned;
+
+    // Did the swap the last start quit for take effect (Core/Updates/SwapAttempt)? Still older = it failed after
+    // the quit: release Play now, retry quietly later.
+    private static void CheckLastSwap()
+    {
+        var outcome = SwapAttempt.Check(OriginPaths.UpdateSwapMarker, CurrentVersion, out var attempted);
+        if (outcome == SwapAttempt.Outcome.Failed && attempted != null)
+        {
+            lock (Gate)
+            {
+                Gate.SwapFailed(attempted, DateTime.UtcNow);
+                // A check that raced ahead of this one may already have offered it: take that offer back too.
+                if (Available != null && UpdateGate.Normalize(Available.Version) <= UpdateGate.Normalize(attempted)) Available = null;
+            }
+            Log($"update {attempted}: the swap after the last restart did not take effect (still {CurrentVersion}); Play stays open, retrying quietly later");
+        }
+        else if (outcome == SwapAttempt.Outcome.Applied)
+        {
+            Log($"update: now running {CurrentVersion}");
+        }
+    }
 
     // Quiet retry after a failed check (see UpdateGate): download + verify with no UI, publish only on success.
     // Any failure just extends the back-off; nothing is shown and Play is never touched.
@@ -286,7 +311,9 @@ public static class UpdateService
         // unpacks; the continuation returns here (UI thread) for Shutdown().
         await Task.Run(() =>
         {
-            ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+            var staged = false;
+            StageReleaseOverride(zipPath, stageDir, ref staged);
+            if (!staged) ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
             File.Delete(zipPath);
         });
 
@@ -294,41 +321,28 @@ public static class UpdateService
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
         await UpdateRunState.PrepareToRestartAsync(() => progress?.Report(new UpdateProgress(UpdateStage.FinishingImport, 0, null)));
 
-        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var exePath = Environment.ProcessPath
-                      ?? Path.Combine(appDir, "OriginLauncher.App.exe");
-        var pid = Environment.ProcessId;
-
-        // robocopy instead of xcopy: copies new + changed files including
-        // ones that appeared in this release, and its success exit codes
-        // (0-7) don't abort the script. Paths are pre-trimmed of trailing
-        // backslashes so the quoted arguments can't swallow a quote.
-        var script = Path.Combine(updatesRoot, "apply-update.cmd");
-        File.WriteAllText(script, $"""
-@echo off
-setlocal
-:wait
-tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul
-if not errorlevel 1 (
-  timeout /t 1 /nobreak >nul
-  goto wait
-)
-robocopy "{stageDir}" "{appDir}" /E /IS /IT >nul
-start "" "{exePath}"
-endlocal
-""");
-
-        Process.Start(new ProcessStartInfo
+        // Remembered before the swap can start: if it fails after this process is gone, the next start knows
+        // (SwapAttempt) and opens Play instead of gating it on the same update again.
+        var marker = OriginPaths.UpdateSwapMarker;
+        SwapAttempt.Record(marker, update.Version);
+        // The OS file writes and starts the swap script, which waits for this process to exit.
+        try
         {
-            FileName = script,
-            UseShellExecute = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
-            CreateNoWindow = true
-        });
+            StartApplyScript(stageDir, updatesRoot);
+        }
+        catch
+        {
+            SwapAttempt.Clear(marker); // no swap was started: this is an ordinary failure of this run
+            throw;
+        }
         progress?.Report(new UpdateProgress(UpdateStage.Restarting, 0, null));
         markRestarting();
-        Application.Current.Shutdown();
+        ShutdownApp();
     }
+
+    // A release that is not a zip stages itself here (Linux: the tar.gz or the AppImage, UpdateService.Linux.cs).
+    // Windows and the Mac don't implement it, so for them the call compiles away and the zip is extracted.
+    static partial void StageReleaseOverride(string download, string stageDir, ref bool staged);
 
     // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
     // mismatch, a short file or a release that published no hash). Returns the SHA-256 it verified against. The zip only ever appears at
@@ -391,7 +405,7 @@ endlocal
         {
             // 404/403, a timeout, a reset or a garbled body all surface as UpdateVerificationException.
             return await UpdateVerifier.FetchSidecarAsync(
-                ct => Http.GetStringAsync(update.Sha256Url, ct), AssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+                ct => Http.GetStringAsync(update.Sha256Url, ct), ReleaseAssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
         }
         // GitHub's own digest is the fallback: anything but a clean "sha256:<64 hex>" (another algorithm, empty,
         // missing, a format change) is "no hash", which is refused before the download starts.

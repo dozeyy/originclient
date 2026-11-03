@@ -75,7 +75,7 @@ public sealed class GameFileSource
             case RequiredKind.Runtime:
                 var sub = file.SubPath!.Replace('/', Path.DirectorySeparatorChar);
                 foreach (var root in OfficialRuntimeRoots)
-                    yield return Path.Combine(root, file.Component!, "windows-x64", file.Component!, sub);
+                    yield return Path.Combine(root, file.Component!, MojangMetadata.RuntimePlatform, file.Component!, sub);
                 if (OriginRuntimeDir != null) yield return Path.Combine(OriginRuntimeDir, file.Component!, sub);
                 break;
         }
@@ -133,7 +133,7 @@ public sealed class GameFileSource
                 {
                     Name = "Origin " + Path.GetFileName(versionRoot), VersionsDir = Path.Combine(versionRoot, "versions"),
                     LibrariesDir = Path.Combine(versionRoot, "libraries"), AssetsDir = Path.Combine(versionRoot, "assets"),
-                    OriginRuntimeDir = Path.Combine(versionRoot, "runtime", "windows-x64"),
+                    OriginRuntimeDir = Path.Combine(versionRoot, "runtime", MojangMetadata.RuntimePlatform),
                 });
             }
         }
