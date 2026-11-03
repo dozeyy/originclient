@@ -72,7 +72,14 @@ public partial class SettingsPage : UserControl
         IsVisibleChanged += (_, e) =>
         {
             if (!(bool)e.NewValue) PersistPendingRam();
-            else ReloadJvmFromStore(); // the crash window may have reset (or Undo restored) a version's arguments meanwhile
+            else
+            {
+                // The crash window may have changed settings meanwhile: raised Memory (now Manual), reset (or Undo
+                // restored) a version's Java arguments, or Home picked another version.
+                var fresh = SettingsStore.Load();
+                ReloadRamFromStore(fresh);
+                ReloadJvmFromStore(fresh);
+            }
         };
 
         // Memory is Auto until the player moves the slider (RamPolicy). The slider is only DISPLAYED
@@ -149,7 +156,17 @@ public partial class SettingsPage : UserControl
         ShowRam(manual: false);
     }
 
-    private const string RamAutoText = "Auto: Origin picks the right amount for each version.";
+    // Shows Memory as saved now (the crash window's "Raise memory" sets Manual, and its text promises it can be
+    // changed back here). Never over a slider move still waiting to be saved: the player's own value stays.
+    private void ReloadRamFromStore(LauncherSettings fresh)
+    {
+        if (_pendingRamMb != null) return;
+        _settings.RamMb = fresh.RamMb;
+        _settings.RamManual = fresh.RamManual;
+        ShowRam(RamPolicy.IsManual(_settings));
+    }
+
+    private const string RamAutoText ="Auto: Origin picks the right amount for each version.";
     private const string RamManualText = "Fixed at your choice for every version.";
     private int _totalRamMb;
 
@@ -334,10 +351,10 @@ public partial class SettingsPage : UserControl
     // Picks up Java-argument changes made outside this page (the crash window's reset) and points the editor at the
     // version Home has selected now: the page is built once, so without this it stayed on the first version ever
     // picked. Never while the player has an unsaved edit in the box: theirs stays, on its version.
-    private void ReloadJvmFromStore()
+    private void ReloadJvmFromStore(LauncherSettings? fresh = null)
     {
         if (_jvmDirty || _jvmLoading) return;
-        var fresh = SettingsStore.Load();
+        fresh ??= SettingsStore.Load();
         _settings.JvmArgsByVersion = fresh.JvmArgsByVersion;
         _settings.JvmArgsBeforeReset = fresh.JvmArgsBeforeReset;
         _settings.SelectedVersion = fresh.SelectedVersion;
