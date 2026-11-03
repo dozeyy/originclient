@@ -331,14 +331,24 @@ public partial class SettingsPage : UserControl
         _jvmLoading = false;
     }
 
-    // Picks up Java-argument changes made outside this page (the crash window's reset). Never while the player has
-    // an unsaved edit in the box: theirs stays.
+    // Picks up Java-argument changes made outside this page (the crash window's reset) and points the editor at the
+    // version Home has selected now: the page is built once, so without this it stayed on the first version ever
+    // picked. Never while the player has an unsaved edit in the box: theirs stays, on its version.
     private void ReloadJvmFromStore()
     {
         if (_jvmDirty || _jvmLoading) return;
         var fresh = SettingsStore.Load();
         _settings.JvmArgsByVersion = fresh.JvmArgsByVersion;
         _settings.JvmArgsBeforeReset = fresh.JvmArgsBeforeReset;
+        _settings.SelectedVersion = fresh.SelectedVersion;
+        if (VersionCatalog.IsSupported(fresh.SelectedVersion)
+            && !Equals(JvmVersionComboBox.SelectedItem, fresh.SelectedVersion))
+        {
+            // Under _jvmLoading so SelectionChanged neither saves nor reloads (nothing is pending: _jvmDirty is false).
+            _jvmLoading = true;
+            try { JvmVersionComboBox.SelectedItem = fresh.SelectedVersion; }
+            finally { _jvmLoading = false; }
+        }
         LoadJvmOptionsForSelectedVersion();
     }
 
