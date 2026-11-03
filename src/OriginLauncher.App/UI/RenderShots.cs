@@ -466,6 +466,8 @@ public static class RenderShots
                 SocialHub.Service.ShowDemo(new SocialSnapshot { Status = SocialStatus.NotSignedIn, StatusMessage = "Sign in with Microsoft to use friends." });
             }),
             ("versions-grid", () => { window.TourGoTo(0); window.TourShowVersions(-1); }, null, () => window.TourHideVersions()),
+            // Play refused for a mandatory update: the prompt it opens.
+            ("update-required", () => { window.TourGoTo(0); window.TourShowUpdatePrompt(); }, null, () => window.TourHideUpdatePrompt()),
             ("mods-list", () => { window.TourGoTo(1); window.TourShowModsDemo(DemoMods, 0); }, null, () => { }),
             ("settings", () => window.TourGoTo(2), null, () => { }),
             ("profiles", () => window.TourShowProfiles(demoProfiles, demoCount, openForm: false), null, () => { }),

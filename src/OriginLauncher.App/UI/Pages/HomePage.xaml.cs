@@ -151,6 +151,9 @@ public partial class HomePage : UserControl
     /// <summary>MainWindow: the launch screen came up or went down (the top bar hides under it).</summary>
     public event Action<bool>? LaunchSceneChanged;
 
+    /// <summary>MainWindow: Play (or any launch) was refused because an update is required; it asks to update.</summary>
+    public event Action? UpdateRequiredRefused;
+
     // ---- The strip's width rule ----
     // Every strip item keeps its full size while the row fits. When the window is too narrow for all of it (a long
     // server name at 960 wide), Join folds to its server icon (a 64 square, "Join <server>" moves to a tooltip). The
@@ -866,6 +869,9 @@ public partial class HomePage : UserControl
         if (UpdateService.UpdateRequired)
         {
             Note(key, UpdateRequiredText, LaunchTone.Warning);
+            // The status line alone was easy to miss (Will, 2026-11-03: "it just won't let you launch"): the click
+            // also opens the Update required prompt, whose Update button installs it.
+            UpdateRequiredRefused?.Invoke();
             return;
         }
 

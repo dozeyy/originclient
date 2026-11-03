@@ -278,6 +278,10 @@
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
 
+        <!-- Update required: opened when Play is refused for a mandatory update (HomePage.UpdateRequiredRefused);
+             its Update button runs the same install as the top bar's Update chip. -->
+        <controls:ConfirmOverlay x:Name="UpdatePrompt"/>
+
         <!-- Social toasts, above everything, bottom-centre. Their bottom edge sits 8 px above the top of Home's strip
              (version card, Play, Join server, the status line), measured at every size (MainWindow.xaml.cs: PlaceToasts),
              so a toast never covers them. Centres in the space left of the Friends drawer while it's open. -->

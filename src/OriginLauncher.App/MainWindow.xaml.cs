@@ -117,6 +117,7 @@ public partial class MainWindow : Window
             UpdateBadge.Visibility = Visibility.Visible;
             _homePage.RefreshUpdateGate();
         });
+        _homePage.UpdateRequiredRefused += () => _ = AskToUpdateAsync();
         // A screenshot run never checks (UpdateService.Enabled): no poll loop, no focus re-check.
         if (UpdateService.Enabled) _ = PollForUpdatesAsync();
 
@@ -205,6 +206,20 @@ public partial class MainWindow : Window
         UpdateDot.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         if (UpdateRetryText.Visibility != Visibility.Visible)
             UpdateLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private const string UpdatePromptTitle = "Update required";
+    private const string UpdatePromptText =
+        "A new version of Origin is out. Update to keep playing - it only takes a moment, and the launcher reopens by itself.";
+
+    // Play was refused for a mandatory update: ask once, and Update runs the chip's own install. Not while that
+    // install is already running (the chip is disabled then) or when nothing is on offer any more.
+    private async Task AskToUpdateAsync()
+    {
+        if (UpdateService.Available == null || !UpdateBadge.IsEnabled) return;
+        if (await UpdatePrompt.ShowAsync(UpdatePromptTitle, UpdatePromptText, "Update", "Not now")
+            && UpdateService.Available != null && UpdateBadge.IsEnabled)
+            UpdateBadge_Click(UpdateBadge, new RoutedEventArgs());
     }
 
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
@@ -436,6 +451,10 @@ public partial class MainWindow : Window
     internal void TourShowToast(SocialToast toast) => Toasts.Show(toast);
 
     internal void TourClearToasts() => Toasts.Clear();
+
+    internal void TourShowUpdatePrompt() => _ = UpdatePrompt.ShowAsync(UpdatePromptTitle, UpdatePromptText, "Update", "Not now");
+
+    internal void TourHideUpdatePrompt() => UpdatePrompt.Dismiss();
 
     internal void TourShowRunning(string playerName) => _homePage.TourShowRunning(playerName);
 
@@ -1278,7 +1297,8 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            if (_importPanelOpen) _importPanel?.HandleEscape();
+            if (UpdatePrompt.IsVisible) UpdatePrompt.Dismiss();
+            else if (_importPanelOpen) _importPanel?.HandleEscape();
             else if (_signInPanelOpen) CloseSignInPanel();
             else if (_accountPanelOpen) SetAccountPanelOpen(false);
             else if (_friendsOpen)
@@ -1289,6 +1309,9 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+
+        // The Update required prompt owns the keyboard while it is open (no Ctrl+1/2/3/4 page switch under it).
+        if (UpdatePrompt.IsVisible) return;
 
         // The launch cover owns the keyboard while it is open. (The version picker closes
         // itself in NavigateTo, so Ctrl+1/2/3/4 never leave it invisibly open.)
