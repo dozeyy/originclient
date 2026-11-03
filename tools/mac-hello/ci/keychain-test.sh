@@ -63,8 +63,6 @@ say "SecurityAgent running: $(pgrep -x SecurityAgent >/dev/null && echo yes || e
 screencapture -x "$OUT/keychain-prompt.png"
 wait "$PROMPT"
 pkill -x MacHello 2>/dev/null
-# The password dialog outlives the killed app and would cover the next step's Gatekeeper picture.
-pkill -x SecurityAgent 2>/dev/null
 say "prompt run finished (a line 'api find' above means it did not hang)"
 
 security default-keychain -d user -s "$OLD_DEFAULT"

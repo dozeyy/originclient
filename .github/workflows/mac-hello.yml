@@ -52,15 +52,17 @@ jobs:
         timeout-minutes: 8
         run: bash tools/mac-hello/ci/run-probe.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/arm64"
 
-      - name: Keychain across a re-signed replacement
-        timeout-minutes: 4
-        if: always()
-        run: bash tools/mac-hello/ci/keychain-test.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/keychain"
-
+      # Before the keychain step: its password dialog can't be dismissed without a click and
+      # covered the Gatekeeper dialog in this step's screen picture.
       - name: Quarantine record
         timeout-minutes: 6
         if: always()
         run: bash tools/mac-hello/ci/quarantine-test.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/quarantine"
+
+      - name: Keychain across a re-signed replacement
+        timeout-minutes: 4
+        if: always()
+        run: bash tools/mac-hello/ci/keychain-test.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/keychain"
 
       # The runner is Apple Silicon, so x64 only runs if Rosetta is already there. Not worth a red job.
       - name: Launch x64 under Rosetta, if present
