@@ -24,16 +24,17 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <!-- Per-OS seams (X.Windows.cs / X.Mac.cs next to each Core file that has a Windows-only part).
+  <!-- Per-OS seams (X.Windows.cs / X.Mac.cs / X.Linux.cs next to each Core file that has a Windows-only part).
        Default: the Windows side, what the shipped launcher runs (CI's Linux job and Will's PC test it).
        dotnet test -p:OriginPlatform=Mac links the Mac side instead and adds MacSeamTests (the macos-15
-       CI job: Keychain round-trip, hard links, paths, LaunchAgent, sysctl); the rest of the suite
-       carries Windows-shaped data, so that job filters to the tests that apply. -->
+       CI job: Keychain round-trip, hard links, paths, LaunchAgent, sysctl); -p:OriginPlatform=Linux links
+       the Linux side and adds LinuxSeamTests (linux-launcher.yml: key file + keyring, hard links, XDG paths,
+       autostart, procfs, sysfs GPU pick). The rest of the suite carries Windows-shaped data, so those jobs
+       filter to the tests that apply. -->
   <PropertyGroup>
     <OriginPlatform Condition="'$(OriginPlatform)' == ''">Windows</OriginPlatform>
-    <OtherPlatform Condition="'$(OriginPlatform)' == 'Mac'">Windows</OtherPlatform>
-    <OtherPlatform Condition="'$(OriginPlatform)' != 'Mac'">Mac</OtherPlatform>
     <DefineConstants Condition="'$(OriginPlatform)' == 'Mac'">$(DefineConstants);ORIGIN_MAC</DefineConstants>
+    <DefineConstants Condition="'$(OriginPlatform)' == 'Linux'">$(DefineConstants);ORIGIN_LINUX</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -47,6 +48,14 @@
     <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Mac.cs" LinkBase="Mac" />
     <Compile Include="..\OriginLauncher.App\Core\GpuPreference.Mac.cs" LinkBase="Mac" />
     <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.Mac.cs" LinkBase="Mac" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(OriginPlatform)' == 'Linux'">
+    <Compile Include="..\OriginLauncher.App\Core\Accounts\LinuxKeyStore.Linux.cs" LinkBase="Accounts" />
+    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Linux.cs" LinkBase="Linux" />
+    <Compile Include="..\OriginLauncher.App\Core\GpuPreference.Linux.cs" LinkBase="Linux" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.Linux.cs" LinkBase="Linux" />
+    <Compile Include="..\OriginLauncher.App\Core\Performance\HardwareProbe.cs" LinkBase="Linux" />
+    <Compile Include="..\OriginLauncher.App\Core\Performance\HardwareProbe.Linux.cs" LinkBase="Linux" />
   </ItemGroup>
 
   <ItemGroup>
@@ -207,8 +216,10 @@
     <Compile Include="..\OriginLauncher.App\Core\Versions\RetryingGameInstaller.cs" LinkBase="Versions" />
     <!-- The Modrinth install path (Fabric API, voice chat): a stalled live query must skip the mod, not fail the launch. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\FabricApiInstaller.cs" LinkBase="Loaders" />
-    <!-- The wildcards above (Profiles, Import) also match the other OS's seam files: drop those. -->
-    <Compile Remove="..\OriginLauncher.App\**\*.$(OtherPlatform).cs" />
+    <!-- The wildcards above (Profiles, Import) also match the other OSes' seam files: drop those. -->
+    <Compile Remove="..\OriginLauncher.App\**\*.Windows.cs" Condition="'$(OriginPlatform)' != 'Windows'" />
+    <Compile Remove="..\OriginLauncher.App\**\*.Mac.cs" Condition="'$(OriginPlatform)' != 'Mac'" />
+    <Compile Remove="..\OriginLauncher.App\**\*.Linux.cs" Condition="'$(OriginPlatform)' != 'Linux'" />
   </ItemGroup>
   <ItemGroup>
     <!-- After the Remove on purpose: the managed skin decoder the Mac uses is pure, so it is tested on every OS. -->

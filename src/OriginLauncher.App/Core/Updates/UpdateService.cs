@@ -17,7 +17,7 @@ namespace OriginLauncher.App.Core.Updates;
 // download -> stage -> swap-and-restart via a tiny script (a running exe
 // can't overwrite itself on Windows; a Mac swaps the whole app bundle).
 // The per-OS parts live in one file per OS, picked by each csproj (UpdateService.Windows.cs /
-// UpdateService.Mac.cs): which release asset this OS downloads, the swap script, and how the
+// UpdateService.Mac.cs / UpdateService.Linux.cs): which release asset this OS downloads, the swap script, and how the
 // app quits (the UI toolkit's own shutdown). Checking, gating, downloading and verifying are shared.
 //
 // Update policy (Will): updates are MANDATORY — a launcher older than the
@@ -278,7 +278,9 @@ public static partial class UpdateService
         // unpacks; the continuation returns here (UI thread) for Shutdown().
         await Task.Run(() =>
         {
-            ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+            var staged = false;
+            StageReleaseOverride(zipPath, stageDir, ref staged);
+            if (!staged) ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
             File.Delete(zipPath);
         });
 
@@ -292,6 +294,10 @@ public static partial class UpdateService
         markRestarting();
         ShutdownApp();
     }
+
+    // A release that is not a zip stages itself here (Linux: the tar.gz or the AppImage, UpdateService.Linux.cs).
+    // Windows and the Mac don't implement it, so for them the call compiles away and the zip is extracted.
+    static partial void StageReleaseOverride(string download, string stageDir, ref bool staged);
 
     // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
     // mismatch, a short file or a release that published no hash). Returns the SHA-256 it verified against. The zip only ever appears at

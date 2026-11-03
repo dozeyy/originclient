@@ -27,7 +27,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\OriginLauncher.App\Core\**\*.cs" Exclude="..\OriginLauncher.App\Core\**\*.Windows.cs" LinkBase="Core" />
+    <Compile Include="..\OriginLauncher.App\Core\**\*.cs" Exclude="..\OriginLauncher.App\Core\**\*.Windows.cs;..\OriginLauncher.App\Core\**\*.Linux.cs" LinkBase="Core" />
     <!-- The self-test's skin: the same independently encoded PNG the Core tests decode. -->
     <None Include="..\OriginLauncher.Tests\Fixtures\skin-all-filters.png" Link="skin-all-filters.png"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

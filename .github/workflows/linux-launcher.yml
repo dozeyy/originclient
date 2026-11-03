@@ -1,0 +1,91 @@
+# The Linux launcher (src/OriginLauncher.Linux): builds it for x64 and arm64, runs its
+# --self-test (data paths + every Linux seam of the shared Core: libsecret keyring and the
+# machine-bound key file, hard links, /proc + sysfs, XDG autostart, prewarm with the idle I/O
+# class, skin decode, Java 8 layout and download, Mojang's 1.8.9 + 1.21.1 rules, the self-update
+# swap for both the tar.gz folder and the AppImage) and the Core tests in Linux mode. This is the
+# Linux project's only compiler: it is never built on Will's PC.
+#
+# Each arch runs on its own real hardware (GitHub's x64 and arm64 Ubuntu runners), no emulation.
+name: Linux launcher
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "src/OriginLauncher.App/Core/**"
+      - "src/OriginLauncher.Linux/**"
+      - "src/OriginLauncher.Tests/**"
+      - "global.json"
+      - ".github/workflows/linux-launcher.yml"
+  pull_request:
+    paths:
+      - "src/OriginLauncher.App/Core/**"
+      - "src/OriginLauncher.Linux/**"
+      - "src/OriginLauncher.Tests/**"
+      - "global.json"
+      - ".github/workflows/linux-launcher.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-launcher-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: linux (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # secret-tool + a real Secret Service (gnome-keyring) so the keyring path is tested for real,
+      # and desktop-file-validate for the autostart entry.
+      - name: Install keyring tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libsecret-tools gnome-keyring dbus-x11 desktop-file-utils
+
+      - name: Runner
+        run: |
+          cat /etc/os-release | head -n 2
+          uname -m
+          grep -m1 -E "model name|Hardware" /proc/cpuinfo || true
+          dotnet --version
+
+      - name: Publish (${{ matrix.rid }})
+        run: dotnet publish src/OriginLauncher.Linux/OriginLauncher.Linux.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o "$RUNNER_TEMP/publish"
+
+      # Exit 0 only when no check printed FAIL. Runs inside its own D-Bus session with an unlocked
+      # gnome-keyring, so --require-keyring makes a missing Secret Service a failure, not a skip.
+      # --network adds the Java 8 download (hash-checked, unpacked, run) and Mojang's real file lists.
+      - name: Self-test
+        run: |
+          file "$RUNNER_TEMP/publish/OriginLauncher"
+          dbus-run-session -- sh -c '
+            echo -n "" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+            "$RUNNER_TEMP/publish/OriginLauncher" --self-test --network --require-keyring
+          '
+
+      # The Core tests that mean something on Linux: the Linux seams, the managed skin decoder,
+      # and the library rules (1.8.9 LWJGL 2.9.4 and LWJGL 3 natives-linux on Linux).
+      - name: Core tests (Linux mode)
+        run: >
+          dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Linux
+          --filter "FullyQualifiedName~LinuxSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests"
