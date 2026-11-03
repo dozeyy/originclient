@@ -88,6 +88,25 @@ public final class Hypixel {
 		return host.equals("hypixel.net") || host.endsWith(".hypixel.net");
 	}
 
+	// ---- what Hypixel doesn't allow ----
+
+	private static final String FREELOOK_OFF = "Freelook is off on Hypixel (not allowed there)";
+
+	/** Hypixel's rules ban freelook (looking around without turning), so Origin's
+	 *  Freelook stays off while connected here -- whether or not the Hypixel mod is
+	 *  on. Reads the server address itself, not the per-tick onHypixel cache, so it
+	 *  holds from the very first tick after joining whatever order the end-of-tick
+	 *  listeners run in. Only called while freelook would be on, so it costs nothing
+	 *  the rest of the time. */
+	public static boolean bansFreelook(Minecraft mc) {
+		return mc.player != null && isHypixelHost(mc.getCurrentServer());
+	}
+
+	/** The one action-bar line when the Freelook key does nothing here. */
+	public static void sayFreelookOff(Minecraft mc) {
+		mc.player.displayClientMessage(new TextComponent(FREELOOK_OFF), true);
+	}
+
 	// ---- per tick ----
 
 	private static final long TIP_EVERY_MS = 15L * 60L * 1000L;

@@ -237,7 +237,7 @@ public final class Mods {
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
 		// ---- gameplay / camera ----
-		add("freelook", "Freelook", "Look around without turning.", true,
+		add("freelook", "Freelook", "Look around without turning. Off on Hypixel (not allowed there).", true,
 				ModOption.dropdown("listMode", "List Mode", "Third Person", "First Person"),
 				ModOption.toggle("invertPitch", "Invert Pitch", false),
 				ModOption.toggle("invertYaw", "Invert Yaw", false),
