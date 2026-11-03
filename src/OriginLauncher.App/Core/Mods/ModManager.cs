@@ -11,8 +11,12 @@ namespace OriginLauncher.App.Core.Mods;
 /// <paramref name="FileName"/> is the on-disk name WITHOUT the trailing
 /// <c>.disabled</c> (i.e. the enabled form, "foo.jar") — it's the stable
 /// identity used for toggle/remove regardless of current enabled state.
+/// <paramref name="Checking"/>: a jar named like one of Origin's whose owner is not known yet (its bytes have not been
+/// checked in this launcher session). It is shown read-only (<paramref name="IsManaged"/> true) until
+/// <see cref="ModManager.WarmOwnership"/> has checked it off the UI thread, so Origin's own Fabric API / Sodium never
+/// gets an on/off switch or a Remove button just because nothing was launched yet.
 /// </summary>
-public sealed record ModEntry(string FileName, string DisplayName, bool Enabled, bool IsManaged);
+public sealed record ModEntry(string FileName, string DisplayName, bool Enabled, bool IsManaged, bool Checking = false);
 
 /// <summary>Result of a file operation. <c>Ok</c> false carries a user-facing
 /// <c>Error</c> (e.g. "close Minecraft first") — nothing here ever throws to
@@ -60,9 +64,19 @@ public static class ModManager
     /// <summary>Every mod in the version's folder, enabled and disabled, sorted
     /// by display name. User (unmanaged) entries first so they lead the list.
     /// Never throws — an unreadable folder yields an empty list.</summary>
-    public static IReadOnlyList<ModEntry> Enumerate(string version, string? profileId = null)
+    public static IReadOnlyList<ModEntry> Enumerate(string version, string? profileId = null) =>
+        EnumerateIn(ModsFolder(version, profileId), isProfile: profileId != null);
+
+    /// <summary>
+    /// <see cref="Enumerate"/> over a given folder (the unit-tested core). Built-in (read-only) rows are ENABLED jars
+    /// with one of Origin's names whose bytes are Origin's; a jar not checked yet is built-in and
+    /// <see cref="ModEntry.Checking"/>. A turned-off jar is never built-in: it is not loaded, Origin's installers put
+    /// its own copy back (<see cref="TryRestoreOriginsJar"/>), and the player keeps the switch to turn a set-aside
+    /// one back on. A profile folder holds only the player's own mods (Origin's come from the shared folder), so
+    /// nothing in it is built-in, whatever its bytes.
+    /// </summary>
+    public static IReadOnlyList<ModEntry> EnumerateIn(string folder, bool isProfile)
     {
-        var folder = ModsFolder(version, profileId);
         if (!Directory.Exists(folder))
             return Array.Empty<ModEntry>();
 
@@ -102,13 +116,17 @@ public static class ModManager
                 continue; // not a mod file
             }
 
-            entries.Add(new ModEntry(
-                jarName,
-                PrettyName(jarName),
-                enabled,
-                // No hashing: this runs on the UI thread. The last launch hashed these jars, so the answer
-                // normally comes from memory; one not known yet shows as the player's (IsOriginsCopy).
-                IsManaged(jarName) && IsOriginsCopy(path, allowHash: false)));
+            // No hashing: this runs on the UI thread. The answer comes from memory (a launch or WarmOwnership hashed
+            // the jar) or a cheap mod-id check; a jar not known yet is Checking until WarmOwnership has hashed it.
+            var managed = false;
+            var checking = false;
+            if (enabled && !isProfile && IsManaged(jarName))
+            {
+                var known = KnownOriginsCopy(path);
+                managed = known ?? true;
+                checking = known == null;
+            }
+            entries.Add(new ModEntry(jarName, PrettyName(jarName), enabled, managed, checking));
         }
 
         return entries
@@ -398,10 +416,86 @@ public static class ModManager
         Directory.Exists(modsFolder) && Directory.EnumerateFiles(modsFolder).Any(f =>
         {
             var n = Path.GetFileName(f);
-            return n.StartsWith(filePrefix, StringComparison.OrdinalIgnoreCase)
-                && (n.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase) || n.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase))
-                && IsOriginsCopy(f);
+            if (!n.StartsWith(filePrefix, StringComparison.OrdinalIgnoreCase)) return false;
+            var on = n.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase);
+            // A turned-off copy counts only for a family the player may switch off (Simple Voice Chat). A built-in
+            // family's turned-off jar (Fabric API) is never a working copy: the Mods page offered a switch on Origin's
+            // own Fabric API before it knew whose it was, and counting the ".disabled" left it off for good.
+            var off = n.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase) && !IsManaged(JarNameOf(n));
+            return (on || off) && IsOriginsCopy(f);
         });
+
+    /// <summary>
+    /// Turns Origin's own built-in <paramref name="fileName"/> back on when only its ".jar.disabled" form is in the folder and
+    /// those bytes are Origin's (<paramref name="isPinnedBytes"/>, and not claimed by the player in the install
+    /// record). A rename, never a rewrite. Returns true when the jar is on now. Any other turned-off file of that name
+    /// is the player's and is left alone. Never throws.
+    /// </summary>
+    public static bool TryRestoreOriginsJar(string modsFolder, string fileName, Func<string, bool> isPinnedBytes)
+    {
+        var jar = Path.Combine(modsFolder, fileName);
+        var off = jar + ".disabled";
+        try
+        {
+            if (!IsManaged(fileName)) return false; // a family the player may switch off (Voice Chat) stays off
+            if (File.Exists(jar) || !File.Exists(off)) return false;
+            if (!isPinnedBytes(off) || OwnerOf(off) == JarOwner.Player) return false;
+            File.Move(off, jar, overwrite: false);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false; // a running game holds it, or the name was taken meanwhile: left as it is
+        }
+    }
+
+    /// <summary>
+    /// Checks, by their bytes, every enabled jar in <paramref name="modsFolder"/> named like one of Origin's that is
+    /// not known yet, so the Mods page can show Origin's own as built-in without a launch first. Hashes about ten
+    /// files, so it runs OFF the UI thread (the page calls it through Task.Run). Records the old unpinned Fabric API /
+    /// Voice Chat as Origin's first, exactly as the next launch would (<see cref="OriginInstallRecord.AdoptLegacy"/>).
+    /// Returns how many jars it decided (0 = nothing new, the page need not rebuild). Never throws.
+    /// </summary>
+    public static int WarmOwnership(string modsFolder)
+    {
+        var decided = 0;
+        try
+        {
+            if (!Directory.Exists(modsFolder)) return 0;
+            OriginInstallRecord.AdoptLegacy(modsFolder);
+            foreach (var path in Directory.EnumerateFiles(modsFolder).ToList())
+            {
+                var name = Path.GetFileName(path);
+                if (!name.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase) || !IsManaged(name)) continue;
+                if (KnownOriginsCopy(path) != null) continue;
+                IsOriginsCopy(path, allowHash: true); // hashes and remembers (unless the jar can't be read right now)
+                if (KnownOriginsCopy(path) != null) decided++;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* best-effort: rows stay Checking */ }
+        return decided;
+    }
+
+    // The owner without hashing: remembered, by name (originclient, OptiFine, legacy stack) or by a cheap mod-id
+    // mismatch (certainly the player's). Null = only the bytes can say (WarmOwnership). A missing file is not Origin's.
+    internal static bool? KnownOriginsCopy(string path)
+    {
+        FileInfo file;
+        try
+        {
+            file = new FileInfo(path);
+            if (!file.Exists) return false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+        var stamp = (file.Length, file.LastWriteTimeUtc.Ticks);
+        if (Ownership.TryGetValue(file.FullName, out var hit) && hit.Stamp == stamp) return hit.Owner != JarOwner.Player;
+        if (Decide(file.FullName, JarNameOf(file.Name), allowHash: false) is not { } owner) return null;
+        Remember(file.FullName, stamp, owner);
+        return owner != JarOwner.Player;
+    }
 
     /// <summary>
     /// True only when the file is there and is certainly Origin's (step 1 above). A missing, locked or unreadable jar

@@ -35,6 +35,7 @@ public partial class ModsPage : UserControl
     private bool _suppressToggle;      // guards programmatic IsChecked changes
     private bool _dragOver;
     private bool _adding;              // an import is copying (off the UI thread)
+    private bool _warming;             // Origin's jars are being checked by their bytes (off the UI thread)
     private IReadOnlyList<ModEntry>? _demo; // render shots only: made-up rows instead of the disk
     // What the rows on screen were last built from (plain rows only, no confirm/replace/landing): a re-show with the
     // same version, profile and jars keeps them instead of rebuilding every card (a tab switch back to Mods).
@@ -120,6 +121,9 @@ public partial class ModsPage : UserControl
         }
 
         var mods = _demo ?? ModManager.Enumerate(_version, _profile?.Id);
+        // A jar named like one of Origin's that this launcher session has not checked yet shows as built-in (no
+        // switch, no Remove) until its bytes say whose it is; that check hashes, so it runs off the UI thread.
+        if (_demo == null && !_warming && mods.Any(m => m.Checking)) WarmOwnership(_version);
         var plain = landed == null && _pendingRemove == null && _pendingReplace.Count == 0 && _demo == null;
         var key = $"{_version}|{_profile?.Id}|{_profile?.Name}";
         if (plain && key == _builtKey && _builtFrom != null && mods.SequenceEqual(_builtFrom)) return; // same rows
@@ -553,6 +557,25 @@ public partial class ModsPage : UserControl
         button.Content = path;
         System.Windows.Automation.AutomationProperties.SetName(button, automationName);
         return button;
+    }
+
+    // Checks Origin's jars in the version's folder off the UI thread, then rebuilds the rows with the answer.
+    private async void WarmOwnership(string version)
+    {
+        _warming = true;
+        var folder = ModManager.ModsFolder(version);
+        var decided = 0;
+        try
+        {
+            decided = await Task.Run(() => ModManager.WarmOwnership(folder));
+        }
+        finally
+        {
+            _warming = false;
+        }
+        // Rebuild when something was decided, or when the page moved to another version meanwhile (its rows may be
+        // waiting for a check of their own). Nothing decided (a jar a running game holds): the rows stay as they are.
+        if (decided > 0 || _version != version) Refresh();
     }
 
     // ---- actions ----------------------------------------------------------
