@@ -1199,7 +1199,8 @@ public partial class HomePage : UserControl
                     }
                     // Crash or not is decided from the evidence first (ShowCrashReportAsync): a killed or
                     // closed boot is not a crash and gets no window. Neutral until then.
-                    Note(game.Key, $"Minecraft closed while starting (exit code {exitCode}).", LaunchTone.Neutral);
+                    // The exit code is in this launch's log (StartWithLifecycleCapture), not on the status line.
+                    Note(game.Key, "Minecraft closed while starting.", LaunchTone.Neutral);
                     // Queued (not awaited) so this watch finishes (button
                     // restored) first — the crash window's "retry" path
                     // launches the account again.
@@ -1599,6 +1600,19 @@ public partial class HomePage : UserControl
             {
                 int exitCode;
                 try { exitCode = process.ExitCode; } catch { exitCode = -1; }
+
+                // The exit code goes in this launch's log (the status line only says the game closed). Under the
+                // writer's gate: through the writer while a stream is still open, appended once both have closed.
+                try
+                {
+                    var line = $"[Origin] Minecraft exited with code {exitCode}";
+                    lock (gate)
+                    {
+                        if (logWriter != null) logWriter.WriteLine(line);
+                        else File.AppendAllText(logPath, line + Environment.NewLine);
+                    }
+                }
+                catch { /* best-effort logging */ }
 
                 Dispatcher.BeginInvoke(() => OnGameExited(game, exitCode));
 
