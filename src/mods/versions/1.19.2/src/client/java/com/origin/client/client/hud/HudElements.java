@@ -770,8 +770,8 @@ public final class HudElements {
 			key(g, mc, 48, 24, 22, 22, arrows ? "→" : "D", o.keyRight.isDown());
 		}
 		if (Mods.bool("keystrokes", "showClicks")) {
-			key(g, mc, 0, 48, 34, 14, "LMB", ClickStats.leftDown);
-			key(g, mc, 36, 48, 34, 14, "RMB", ClickStats.rightDown);
+			key(g, mc, 0, 48, 34, 14, "LMB", ClickStats.leftDown());
+			key(g, mc, 36, 48, 34, 14, "RMB", ClickStats.rightDown());
 		}
 		if (Mods.bool("keystrokes", "showSpace")) {
 			int thick = (int) Math.max(1, Math.min(10, Mods.num("keystrokes", "spacebarThickness"))) + 4;

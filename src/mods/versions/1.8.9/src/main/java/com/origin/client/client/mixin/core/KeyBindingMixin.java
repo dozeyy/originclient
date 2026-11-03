@@ -5,6 +5,7 @@ import net.minecraft.client.settings.KeyBinding;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -25,5 +26,16 @@ public abstract class KeyBindingMixin {
 		} catch (Throwable t) {
 			// vanilla key state
 		}
+	}
+
+	/**
+	 * CPS counter + Keystrokes: every press Minecraft.runTick turns into a keybind
+	 * click (mouse buttons as button - 100, keys by code; in the world only).
+	 * ClickStats keeps the ones bound to Attack / Use, whatever they are bound to.
+	 * If this stops applying, CPS reads 0; nothing else breaks.
+	 */
+	@Inject(method = "onTick", at = @At("HEAD"))
+	private static void originclient$countClick(int keyCode, CallbackInfo ci) {
+		com.origin.client.client.mods.ClickStats.onClick(keyCode);
 	}
 }
