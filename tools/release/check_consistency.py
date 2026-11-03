@@ -27,9 +27,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
 6. The self-update hash — the launcher's UpdateService looks for the zip's
    AssetName + ".sha256" release asset and the release workflow must publish
    exactly that (both in the `gh release create` list and the rehearsal artifact).
-7. The Linux downloads — the eight names tools/linux/package.sh builds must include the AppImage
+7. The Linux downloads — the names tools/linux/package.sh builds must include the AppImage
    and tar.gz names the Linux self-update reads (Core/Updates/UpdateService.Linux.cs), and
-   launcher-release.yml must attach all eight plus their .sha256 and assert them; the deb/rpm
+   launcher-release.yml must attach the x64 four (and any arm64 one it lists) plus their .sha256
+   and assert them; the deb/rpm
    per-user copy (OriginPaths.UserAppCopy) and the /usr/bin wrapper must name the same folder.
 
 Run from anywhere: python3 tools/release/check_consistency.py
@@ -217,11 +218,16 @@ def check_linux_assets() -> list[str]:
         problems.append(f"UpdateService.Linux.cs: expected 4 update asset names, found {updates}")
     problems += [f"UpdateService.Linux.cs updates from {n}, which tools/linux/package.sh does not build"
                  for n in updates if n not in names]
-    # The release publishes all eight with their .sha256 (the Linux self-update refuses an asset without one),
-    # and refuses to publish when one is missing.
-    for n in names:
+    # The release publishes the x64 four (arm64 joins only once a game boots there: launcher-release.yml),
+    # each with its .sha256 (the Linux self-update refuses an asset without one), and its assert step refuses
+    # to publish when one is missing. An arm64 name, once released, gets the same checks.
+    def attached(asset: str) -> bool:
+        return bool(re.search(r"^\s+" + re.escape(asset) + r"\s*$", wf, re.M))
+    released = [n for n in names if attached(n) or attached(n + ".sha256") or f"'{n}'" in wf]
+    problems += [f"launcher-release.yml: the x64 download {n} is not released" for n in names[:4] if n not in released]
+    for n in released:
         for asset in (n, n + ".sha256"):
-            if not re.search(r"^\s+" + re.escape(asset) + r"\s*$", wf, re.M):
+            if not attached(asset):
                 problems.append(f"launcher-release.yml: `gh release create` does not attach {asset}")
         if f"'{n}'" not in wf:
             problems.append(f"launcher-release.yml: the Linux assert step does not check {n}")

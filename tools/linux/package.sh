@@ -87,6 +87,9 @@ publish=(publish "$REPO/src/OriginLauncher.Linux/OriginLauncher.Linux.csproj" -c
 [ -n "$version" ] && publish+=("-p:Version=$version")
 dotnet "${publish[@]}"
 rm -f "$app"/*.pdb
+# .NET's LTTng trace provider links liblttng-ust.so.0, which no distro ships by default (every install
+# container's ldd check flagged it, run 41582275097); the runtime only loads it when present, so drop it.
+rm -f "$app/libcoreclrtraceptprovider.so"
 [ -x "$app/OriginLauncher" ] || { echo "::error::publish produced no OriginLauncher executable" >&2; exit 1; }
 
 python3 - "$REPO" "$app" "${jars}" "${bundled_zip}" <<'PY'

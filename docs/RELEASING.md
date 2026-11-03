@@ -182,23 +182,29 @@ Add/Remove Programs.
 
 ## Linux downloads
 
-Every release also carries eight Linux files, each with a `.sha256` beside it (the
-release job's `linux` matrix runs `tools/linux/package.sh` on GitHub's x64 and arm64
-Ubuntu runners with the same mod jars the Windows launcher bundles; nothing Linux is
+Every release also carries four Linux files (x64), each with a `.sha256` beside it (the
+release job's `linux` job runs `tools/linux/package.sh` on GitHub's x64 Ubuntu runner
+with the same mod jars the Windows launcher bundles; nothing Linux is
 ever built on Will's PC):
 
-| | x64 | arm64 |
-|---|---|---|
-| AppImage | `OriginLauncher-linux-x86_64.AppImage` | `OriginLauncher-linux-aarch64.AppImage` |
-| deb | `origin-launcher_amd64.deb` | `origin-launcher_arm64.deb` |
-| rpm | `origin-launcher.x86_64.rpm` | `origin-launcher.aarch64.rpm` |
-| tar.gz | `OriginLauncher-linux-x64.tar.gz` | `OriginLauncher-linux-arm64.tar.gz` |
+| | x64 |
+|---|---|
+| AppImage | `OriginLauncher-linux-x86_64.AppImage` |
+| deb | `origin-launcher_amd64.deb` |
+| rpm | `origin-launcher.x86_64.rpm` |
+| tar.gz | `OriginLauncher-linux-x64.tar.gz` |
+
+**No arm64 downloads yet** (mandate 4, never broken): Mojang ships no linux-arm64 Java
+runtime and 1.21.1 lists no arm64 natives (1.8.9's LWJGL 2 is x64-only), so an arm64
+launcher would install but never start a game. `package.sh --rid linux-arm64` works and
+the arm64 names are reserved (`aarch64` AppImage/rpm, `arm64` deb/tar.gz); they join the
+release only once the boot test passes on `ubuntu-24.04-arm`.
 
 These names are fixed like the Windows ones: the website links to
 `releases/latest/download/<name>` and installed launchers update from them.
 `tools/release/check_consistency.py` (check 7) fails CI if package.sh, the Linux
 self-update and this workflow stop agreeing, and the release refuses to publish if
-any file or its `.sha256` is missing or wrong.
+any of the four or its `.sha256` is missing or wrong.
 
 **Self-update on Linux** follows the Windows rules (mandatory, refuses a missing or
 wrong SHA-256, never blocks Play; `Core/Updates/UpdateService.Linux.cs`):
@@ -215,11 +221,11 @@ type2 AppImage runtime 20251108, nfpm 2.48.0. Package dependencies are in
 `tools/linux/nfpm.yaml`.
 
 **Proof** (`.github/workflows/linux-launcher.yml`, every push that touches it): the
-self-test on both arches, the tar.gz and AppImage self-tested as a player unpacks them,
+self-test on x64 and arm64, the tar.gz and AppImage self-tested as a player unpacks them,
 the deb/rpm installed in fresh Ubuntu 22.04/24.04, Debian 12, Fedora and AlmaLinux 9
 containers, and real Minecraft booted to the title screen through the AppImage on Xvfb
 (`--boot-test <version>`, judged by `tools/linux/check_boot.py` with boot-smoke's rules;
-x64 only: Mojang ships no linux-arm64 Java runtime, and 1.8.9's LWJGL 2 natives are x64-only).
+x64).
 
 ## Labels
 

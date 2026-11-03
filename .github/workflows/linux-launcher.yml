@@ -5,12 +5,13 @@
 # swap for both the tar.gz folder and the AppImage) and the Core tests in Linux mode. This is the
 # Linux project's only compiler: it is never built on Will's PC.
 #
-# It then builds the eight Linux downloads (tools/linux/package.sh: AppImage, .deb, .rpm, tar.gz for
-# x64 and arm64), self-tests the tar.gz and the AppImage as a player would unpack them, installs the
+# On x64 it then builds the four Linux downloads (tools/linux/package.sh: AppImage, .deb, .rpm,
+# tar.gz), self-tests the tar.gz and the AppImage as a player would unpack them, installs the
 # .deb/.rpm in fresh distro containers (install job), and boots real Minecraft through the AppImage
 # on Xvfb (boot job: OriginLauncher --boot-test, judged by tools/linux/check_boot.py with
 # boot-smoke's own rules). Branch builds bundle the latest release's mod jars (no Gradle here);
-# launcher-release.yml packages the release's own jars with the same script.
+# launcher-release.yml packages the release's own jars with the same script. arm64 runs the
+# self-test and Core tests only: no arm64 downloads ship until a game boots there (boot job note).
 #
 # Each arch runs on its own real hardware (GitHub's x64 and arm64 Ubuntu runners), no emulation.
 name: Linux launcher
@@ -110,12 +111,14 @@ jobs:
       # The mod jars the packages bundle: the latest release's (Bundled/OriginClient in its Windows
       # zip), so branch CI needs no Gradle build. The release workflow passes its own fresh jars.
       - name: Mod jars of the latest release
+        if: ${{ matrix.rid == 'linux-x64' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download --repo "$GITHUB_REPOSITORY" --pattern OriginLauncher-win-x64.zip --dir "$RUNNER_TEMP/rel"
 
       # --version "": an unstamped dev build (packages say 0.0.0), which never self-updates.
       - name: Package (${{ matrix.rid }})
+        if: ${{ matrix.rid == 'linux-x64' }}
         run: |
           bash tools/linux/package.sh --rid ${{ matrix.rid }} --version "" --out "$RUNNER_TEMP/dist" \
             --bundled-zip "$RUNNER_TEMP/rel/OriginLauncher-win-x64.zip"
@@ -126,6 +129,7 @@ jobs:
 
       # As a player gets them: the tar.gz unpacked into a fresh folder, the AppImage run as one file.
       - name: Self-test the tar.gz and the AppImage
+        if: ${{ matrix.rid == 'linux-x64' }}
         run: |
           d="$RUNNER_TEMP/fresh"; mkdir -p "$d/tar" "$d/appimage"
           tar -xzf "$RUNNER_TEMP"/dist/OriginLauncher-linux-*.tar.gz -C "$d/tar"
@@ -145,6 +149,7 @@ jobs:
           done
 
       - name: Upload the packages
+        if: ${{ matrix.rid == 'linux-x64' }}
         uses: actions/upload-artifact@v7
         with:
           name: linux-packages-${{ matrix.rid }}
@@ -159,12 +164,12 @@ jobs:
   install:
     name: install (${{ matrix.image }}, ${{ matrix.rid }})
     needs: linux
-    runs-on: ${{ matrix.rid == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        rid: [linux-x64, linux-arm64]
+        rid: [linux-x64]
         image: ["ubuntu:22.04", "ubuntu:24.04", "debian:12", "fedora:latest", "almalinux:9"]
     steps:
       - name: Download the packages
@@ -222,8 +227,8 @@ jobs:
   # the launcher's own Core install the loader, the Origin Client jar and Java and start the game
   # (offline test account, temp data root) on Xvfb + Mesa llvmpipe. Pass = the title screen with zero
   # mixin/injection failures (tools/linux/check_boot.py, boot-smoke's rules). x64 only: Mojang ships
-  # no linux-arm64 Java runtime (and 1.8.9's LWJGL 2 natives are x64-only), so the launcher can't
-  # start the game on arm64 yet.
+  # no linux-arm64 Java runtime and 1.21.1 lists no arm64 natives (1.8.9's LWJGL 2 is x64-only), so
+  # the launcher can't start a game on arm64 yet, and no arm64 download ships (launcher-release.yml).
   boot:
     name: boot (${{ matrix.version }})
     needs: linux

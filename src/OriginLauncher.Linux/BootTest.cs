@@ -58,7 +58,7 @@ internal static class BootTest
             var session = MSession.CreateOfflineSession("OriginTester");
             var option = LaunchProfileBuilder.Build(settings, session, version);
             var key = InstanceLayout.OfflineKey;
-            AccountFolders.PrepareGameDir(version, key);
+            var gameDir = AccountFolders.PrepareGameDir(version, key);
 
             // Stage lines only (byte counters carry "(n/m)" and would flood the CI log).
             var seen = new HashSet<string>();
@@ -71,6 +71,7 @@ internal static class BootTest
                 .InstallAndBuildProcessAsync(version, key, option, settings.PlayWithExternalMods, null, progress)
                 .GetAwaiter().GetResult();
             if (settings.SyncSettingsAcrossVersions) SettingsSync.BeforeLaunch(key, version);
+            SkipAccessibilityOnboarding(gameDir);
             Console.WriteLine($"  [{clock.Elapsed.TotalSeconds,6:0.0}s] installed; java {process.StartInfo.FileName}");
             PrintMods(version);
 
@@ -132,6 +133,21 @@ internal static class BootTest
     }
 
     // What Core put in the version's shared mods folder: the proof the loader's mods and Origin's jar were installed.
+    /// <summary>A brand-new game folder opens vanilla's one-time accessibility onboarding screen (1.19.4+)
+    /// instead of the title, so the title marker never comes (run 41582275097: 1.8.9 passed, every newer
+    /// version sat on that screen for 1200 s). Seeds the answer a returning player already has, exactly like
+    /// tools/boot-smoke/smoke.py does for boot-smoke; the test's own temp game folder only.</summary>
+    private static void SkipAccessibilityOnboarding(string gameDir)
+    {
+        var path = Path.Combine(gameDir, "options.txt");
+        var lines = File.Exists(path)
+            ? File.ReadAllLines(path).Where(l => !l.StartsWith("onboardAccessibility:", StringComparison.Ordinal)).ToList()
+            : new List<string> { "pauseOnLostFocus:false" };
+        lines.Add("onboardAccessibility:false");
+        File.WriteAllText(path, string.Join('\n', lines) + "\n");
+        Console.WriteLine($"  seeded {path} (onboardAccessibility:false)");
+    }
+
     private static void PrintMods(string version)
     {
         var mods = OriginPaths.ModsDir(version);
