@@ -69,6 +69,21 @@ public final class ShaderDownloader {
 	 */
 	public static void syncWithDisk() {
 		Path dir = IrisBridge.shaderpacksDir();
+		// Packs installed in an earlier session: every allowlisted pack has a pinned file
+		// name, so a pack whose file is in shaderpacks/ shows Installed again.
+		for (ShaderCompat.Pack p : ShaderCompat.ALLOWED) {
+			if (state(p.id).status() != Status.IDLE) {
+				continue;
+			}
+			try {
+				String fileName = java.nio.file.Paths.get(p.fileName).getFileName().toString();
+				if (!fileName.trim().isEmpty() && Files.exists(dir.resolve(fileName))) {
+					STATES.put(p.id, new State(Status.DONE, 1, fileName));
+				}
+			} catch (Throwable ignored) {
+				// unparseable name -- the row just shows Download
+			}
+		}
 		for (Map.Entry<String, State> e : STATES.entrySet()) {
 			if (e.getValue().status() != Status.DONE) {
 				continue;
