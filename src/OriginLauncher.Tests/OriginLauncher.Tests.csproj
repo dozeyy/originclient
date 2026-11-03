@@ -41,12 +41,16 @@
     <Compile Include="..\OriginLauncher.App\Core\OriginPaths.$(OriginPlatform).cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\Runtime\TemurinJava8.$(OriginPlatform).cs" LinkBase="Runtime" />
     <Compile Include="..\OriginLauncher.App\Core\Versions\LaunchPrewarm.$(OriginPlatform).cs" LinkBase="Versions" />
+    <!-- The per-OS launch seam (Windows: no-ops; Mac: MacLaunchPolicy applied to CmlLib). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\PlatformLaunch.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\PlatformLaunch.$(OriginPlatform).cs" LinkBase="Launch" />
   </ItemGroup>
   <ItemGroup Condition="'$(OriginPlatform)' == 'Mac'">
     <Compile Include="..\OriginLauncher.App\Core\Accounts\MacKeychain.Mac.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Mac.cs" LinkBase="Mac" />
     <Compile Include="..\OriginLauncher.App\Core\GpuPreference.Mac.cs" LinkBase="Mac" />
     <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.Mac.cs" LinkBase="Mac" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\MacRosetta.Mac.cs" LinkBase="Mac" />
   </ItemGroup>
 
   <ItemGroup>
@@ -195,6 +199,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Versions\InstallJournal.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\Versions\InstallSession.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\PlayFailure.cs" LinkBase="Launch" />
+    <!-- The Mac launch rules (arch, Rosetta, LWJGL 2) and the per-version Mac record (pure; PlayFailure names the Rosetta exception). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\MacLaunchPolicy.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Versions\MacVersionCapabilities.cs" LinkBase="Versions" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameLogMarks.cs" LinkBase="Launch" />
     <!-- The version selector's keys and wording (U3.2): no WPF in either file. -->
     <Compile Include="..\OriginLauncher.App\Core\Versions\VersionCatalog.cs" LinkBase="Versions" />

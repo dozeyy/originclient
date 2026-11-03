@@ -5,24 +5,30 @@ namespace OriginLauncher.Mac;
 
 internal static class Program
 {
-    // `--self-test [--network]` checks the Mac seams and exits 0 (all passed) or 1, without a window.
-    // `--render-shots <dir>` draws every built screen to PNGs headless (made-up data, no window, exits by itself).
+    // None of these switches opens a window:
+    //   --self-test [--network]              checks the Mac seams; exit 0 (all passed) or 1.
+    //   --render-shots <dir>                 draws every built screen to PNGs headless (made-up data, exits by itself).
+    //   --launch-plan <version> [--root dir] prepares a launch without starting the game (LaunchPlan).
+    //   --list-versions                      the versions the picker offers, one per line.
     // Anything else opens the launcher window.
     [STAThread]
     private static int Main(string[] args)
     {
         if (args.Contains("--self-test"))
             return SelfTest.RunAsync(network: args.Contains("--network")).GetAwaiter().GetResult();
+        if (args.Contains("--list-versions"))
+            return LaunchPlan.ListVersions();
+        if (ValueOf(args, "--launch-plan") is { } version)
+            return LaunchPlan.RunAsync(version, ValueOf(args, "--root")).GetAwaiter().GetResult();
 
-        var shots = Array.IndexOf(args, "--render-shots");
-        if (shots >= 0)
+        if (args.Contains("--render-shots"))
         {
-            if (shots + 1 >= args.Length)
+            if (ValueOf(args, "--render-shots") is not { } dir)
             {
                 Console.Error.WriteLine("Usage: OriginLauncher --render-shots <dir>");
                 return 2;
             }
-            return RenderShots.Run(args[shots + 1]);
+            return RenderShots.Run(dir);
         }
 
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
@@ -33,4 +39,10 @@ internal static class Program
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .LogToTrace();
+
+    private static string? ValueOf(string[] args, string flag)
+    {
+        var i = Array.IndexOf(args, flag);
+        return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+    }
 }
