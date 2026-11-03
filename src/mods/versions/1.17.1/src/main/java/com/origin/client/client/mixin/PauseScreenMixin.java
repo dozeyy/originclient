@@ -20,7 +20,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // action is preserved verbatim (we just gate it behind a yes/no screen).
 @Mixin(PauseScreen.class)
 public abstract class PauseScreenMixin extends Screen {
+	// The button's label is the only way to find it: "Save and Quit to Title" in singleplayer,
+	// "Disconnect" (menu.disconnect) on a server or Realm. Matching only the first meant the
+	// prompt never showed on a server, the case it exists for (bug sweep 2, E-4).
 	private static final Component RETURN_TO_MENU = new TranslatableComponent("menu.returnToMenu");
+	private static final Component DISCONNECT = new TranslatableComponent("menu.disconnect");
 
 	protected PauseScreenMixin(Component title) {
 		super(title);
@@ -33,7 +37,7 @@ public abstract class PauseScreenMixin extends Screen {
 		}
 		Button target = null;
 		for (GuiEventListener r : this.children()) {
-			if (r instanceof Button b && RETURN_TO_MENU.equals(b.getMessage())) {
+			if (r instanceof Button b && (RETURN_TO_MENU.equals(b.getMessage()) || DISCONNECT.equals(b.getMessage()))) {
 				target = b;
 				break;
 			}

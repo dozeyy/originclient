@@ -30,8 +30,10 @@ import java.util.concurrent.Executors;
 // the buttons; vanilla prints the decorated line as usual. (Forge 1.8.9 has no
 // ScreenshotEvent -- that is 1.11+.)
 //
-// Clicking: each button's style carries an ACTION_PREFIX insertion naming its
-// action, and its click event holds the file's path. ServerHooks reads the chat
+// Clicking: each button's style carries a ScreenshotLinks token as its insertion
+// (the file and action stay in memory, so chat text a server sends can never name
+// one -- bug sweep 2, F-1), and its click event holds the file's path.
+// ServerHooks reads the chat
 // component under the mouse on GuiChat's mouse input (Forge MouseInputEvent.Pre)
 // and runs the action first. If that hook ever failed, vanilla would just handle
 // the click event itself: 1.8.9's ClickEvent has no COPY_TO_CLIPBOARD, so every
@@ -41,7 +43,6 @@ public final class ScreenshotChat {
 	}
 
 	private static final String ID = "screenshot";
-	private static final String ACTION_PREFIX = "originclient:screenshot:";
 
 	private static volatile File last = null;
 	private static boolean copyKeyWasDown = false;
@@ -79,27 +80,36 @@ public final class ScreenshotChat {
 		if (Mods.bool(ID, "copyAutomatically")) {
 			copyImage(file);
 		}
+		// Buttons only for a picture inside this game's own screenshots folder (where vanilla
+		// writes them); anything else keeps vanilla's plain line.
+		File shots = new File(Minecraft.getMinecraft().mcDataDir, "screenshots");
+		if (!ScreenshotLinks.isShot(file, shots)) {
+			return msg;
+		}
 		IChatComponent line = msg.createCopy();
 		if (Mods.bool(ID, "copyImageButton")) {
-			line.appendSibling(button("Copy Image", "image", file.getAbsolutePath(),
+			line.appendSibling(button("Copy Image", ScreenshotLinks.register(ScreenshotLinks.IMAGE, file, shots),
+					file.getAbsolutePath(),
 					"Copy the picture -- paste it straight into Discord"));
 		}
 		if (Mods.bool(ID, "copyFileButton")) {
-			line.appendSibling(button("Copy File", "file", file.getAbsolutePath(),
+			line.appendSibling(button("Copy File", ScreenshotLinks.register(ScreenshotLinks.FILE, file, shots),
+					file.getAbsolutePath(),
 					"Copy the file, like Ctrl+C in File Explorer"));
 		}
 		if (Mods.bool(ID, "openFolderButton") && file.getParentFile() != null) {
-			line.appendSibling(button("Open Folder", "folder", file.getParentFile().getAbsolutePath(),
+			line.appendSibling(button("Open Folder", ScreenshotLinks.register(ScreenshotLinks.FOLDER, shots, shots),
+					file.getParentFile().getAbsolutePath(),
 					"Open your screenshots folder"));
 		}
 		return line;
 	}
 
-	private static IChatComponent button(String label, String action, String path, String hover) {
+	private static IChatComponent button(String label, String link, String path, String hover) {
 		ChatStyle style = new ChatStyle()
 				.setColor(EnumChatFormatting.WHITE)
 				.setUnderlined(Boolean.TRUE)
-				.setInsertion(ACTION_PREFIX + action)
+				.setInsertion(link)
 				.setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path))
 				.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(hover)));
 		IChatComponent out = new ChatComponentText(" ");
@@ -145,12 +155,12 @@ public final class ScreenshotChat {
 			return false;
 		}
 		ChatStyle style = c.getChatStyle();
-		String insertion = style.getInsertion();
-		if (insertion == null || !insertion.startsWith(ACTION_PREFIX) || style.getChatClickEvent() == null) {
-			return false;
+		ScreenshotLinks.Link link = style == null ? null : ScreenshotLinks.resolve(style.getInsertion());
+		if (link == null) {
+			return false;   // not a button Origin made this session: vanilla handles the click as usual
 		}
-		File target = new File(style.getChatClickEvent().getValue());
-		switch (insertion.substring(ACTION_PREFIX.length())) {
+		File target = link.target;
+		switch (link.action) {
 			case "image":
 				copyImage(target);
 				break;

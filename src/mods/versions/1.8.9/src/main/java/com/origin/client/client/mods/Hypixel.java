@@ -280,6 +280,8 @@ public final class Hypixel {
 		return true;
 	}
 
+	// Each short form is the word's first letter + the same " > ": dropVisible keeps that
+	// letter and drops the rest of the word.
 	private static final String[][] CHANNELS = {
 			{"Party > ", "P > "}, {"Guild > ", "G > "}, {"Officer > ", "O > "}};
 
@@ -288,13 +290,11 @@ public final class Hypixel {
 		if (overlay || !active() || !Mods.bool(MOD, "shortChannelNames")) {
 			return message;
 		}
-		String raw = message.getUnformattedText();
-		if (raw.indexOf('§') >= 0) {
-			return message;   // legacy colour codes in the text: character offsets wouldn't line up
-		}
+		// Matched on the stripped line: Hypixel's channel prefix comes as "§9Party §8> ".
+		String plain = strip(message.getUnformattedText());
 		for (String[] ch : CHANNELS) {
-			if (raw.startsWith(ch[0])) {
-				return replaceLeading(message, ch[0].length(), ch[1]);
+			if (plain.startsWith(ch[0])) {
+				return dropVisible(message, 1, 1 + ch[0].length() - ch[1].length());
 			}
 		}
 		return message;
@@ -304,11 +304,17 @@ public final class Hypixel {
 
 	private static final Set<String> PARTY = new HashSet<>();
 	private static final Pattern RANK = Pattern.compile("\\[[^\\]]*\\]");
-	private static final Pattern P_JOINED_THEIRS = Pattern.compile("^You have joined (.+?)'s? party!$");
-	private static final Pattern P_JOINED = Pattern.compile("^(.+?) joined the party\\.$");
-	private static final Pattern P_LEFT = Pattern.compile(
-			"^(.+?) (?:has left the party|has been removed from the party|was removed from your party because they disconnected)\\.?$");
-	private static final Pattern P_KICKED_OFFLINE = Pattern.compile("^Kicked (.+?) because they were offline\\.?$");
+	// ONE player as Hypixel's own party lines print them: an optional rank tag, then the name.
+	// The patterns that open on a name use it instead of ".+?", so player chat never matches:
+	// "[VIP] Bob: x Steve joined the party." has "Bob:" before the words, which no single name
+	// does, and a ranked or unranked chat line always starts with its sender (bug sweep 2, F-7:
+	// any player could add names to your roster, and Team View marked them in lobbies).
+	private static final String ONE = "((?:\\[[^\\]]+\\] )?\\w{1,16})";
+	private static final Pattern P_JOINED_THEIRS = Pattern.compile("^You have joined " + ONE + "'s? party!$");
+	private static final Pattern P_JOINED = Pattern.compile("^" + ONE + " joined the party\\.$");
+	private static final Pattern P_LEFT = Pattern.compile("^" + ONE
+			+ " (?:has left the party|has been removed from the party|was removed from your party because they disconnected)\\.?$");
+	private static final Pattern P_KICKED_OFFLINE = Pattern.compile("^Kicked " + ONE + " because they were offline\\.?$");
 	private static final Pattern P_WITH = Pattern.compile("^You'll be partying with: (.+)$");
 	private static final Pattern P_LIST = Pattern.compile("^Party (?:Leader|Moderators|Members): (.+)$");
 
@@ -618,24 +624,39 @@ public final class Hypixel {
 		return out;
 	}
 
-	/** c with its first n characters replaced by `with` (in the first segment's style). */
-	private static IChatComponent replaceLeading(IChatComponent c, int n, String with) {
-		List<Seg> segs = segments(c);
-		if (segs.isEmpty()) {
-			return c;
-		}
+	/**
+	 * c without its visible characters [from, to), every style and § code kept in place. Short
+	 * Channel Names drops "arty" from "Party > ", so "P" keeps the word's colour and " > " its own.
+	 * Hypixel's lines carry § codes inside the text, so a code is stepped over, never counted or
+	 * dropped (bug sweep 2, F-3: the old prefix swap gave up on any line holding a §, which is
+	 * every Hypixel channel line).
+	 */
+	private static IChatComponent dropVisible(IChatComponent c, int from, int to) {
 		IChatComponent out = new ChatComponentText("");
-		out.appendSibling(new ChatComponentText(with).setChatStyle(segs.get(0).style()));
-		int skip = n;
-		for (Seg s : segs) {
+		int seen = 0;
+		for (Seg s : segments(c)) {
 			String t = s.text();
-			if (skip >= t.length()) {
-				skip -= t.length();
-				continue;
+			StringBuilder kept = new StringBuilder(t.length());
+			for (int i = 0; i < t.length(); i++) {
+				if (isCode(t, i)) {
+					kept.append(t, i, i + 2);
+					i++;
+					continue;
+				}
+				if (seen < from || seen >= to) {
+					kept.append(t.charAt(i));
+				}
+				seen++;
 			}
-			out.appendSibling(new ChatComponentText(t.substring(skip)).setChatStyle(s.style()));
-			skip = 0;
+			if (kept.length() > 0) {
+				out.appendSibling(new ChatComponentText(kept.toString()).setChatStyle(s.style()));
+			}
 		}
 		return out;
+	}
+
+	/** A § colour/format code starts at t[i]: exactly what stripFormatting removes. */
+	private static boolean isCode(String t, int i) {
+		return t.charAt(i) == '§' && i + 1 < t.length() && "0123456789abcdefklmnorABCDEFKLMNOR".indexOf(t.charAt(i + 1)) >= 0;
 	}
 }

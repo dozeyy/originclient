@@ -29,8 +29,10 @@ import java.util.function.Consumer;
 // holding the absolute path. We hand vanilla the same message with the buttons
 // appended, and vanilla posts it to chat as usual.
 //
-// Clicking: each button's style carries an ACTION_PREFIX insertion naming its
-// action, and its click event holds the file's path. A ScreenMouseEvents hook on
+// Clicking: each button's style carries a ScreenshotLinks token as its insertion
+// (the file and action stay in memory, so chat text a server sends can never name
+// one -- bug sweep 2, F-1), and its click event holds the file's path.
+// A ScreenMouseEvents hook on
 // the ChatScreen reads the style under the mouse first and runs the action; if
 // that hook ever failed, vanilla would just handle the click event itself
 // (Copy Image / Copy File copy the path, Open Folder opens the folder).
@@ -46,7 +48,6 @@ public final class ScreenshotChat {
 	}
 
 	private static final String ID = "screenshot";
-	private static final String ACTION_PREFIX = "originclient:screenshot:";
 
 	private static volatile File last = null;
 	private static boolean copyKeyWasDown = false;
@@ -77,27 +78,33 @@ public final class ScreenshotChat {
 		if (Mods.bool(ID, "copyAutomatically")) {
 			copyImage(file);
 		}
+		// Buttons only for a picture inside this game's own screenshots folder (where vanilla
+		// writes them); anything else keeps vanilla's plain line.
+		File shots = new File(Minecraft.getInstance().gameDirectory, "screenshots");
+		if (!ScreenshotLinks.isShot(file, shots)) {
+			return msg;
+		}
 		MutableComponent line = msg.copy();
 		if (Mods.bool(ID, "copyImageButton")) {
-			line.append(button("Copy Image", "image",
+			line.append(button("Copy Image", ScreenshotLinks.register(ScreenshotLinks.IMAGE, file, shots),
 					new ClickEvent.CopyToClipboard(file.getAbsolutePath()), "Copy the picture -- paste it straight into Discord"));
 		}
 		if (Mods.bool(ID, "copyFileButton")) {
-			line.append(button("Copy File", "file",
+			line.append(button("Copy File", ScreenshotLinks.register(ScreenshotLinks.FILE, file, shots),
 					new ClickEvent.CopyToClipboard(file.getAbsolutePath()), "Copy the file, like Ctrl+C in File Explorer"));
 		}
 		if (Mods.bool(ID, "openFolderButton") && file.getParentFile() != null) {
-			line.append(button("Open Folder", "folder",
+			line.append(button("Open Folder", ScreenshotLinks.register(ScreenshotLinks.FOLDER, shots, shots),
 					new ClickEvent.OpenFile(file.getParentFile().getAbsolutePath()), "Open your screenshots folder"));
 		}
 		return line;
 	}
 
-	private static Component button(String label, String action, ClickEvent fallback, String hover) {
+	private static Component button(String label, String link, ClickEvent fallback, String hover) {
 		Style style = Style.EMPTY
 				.withColor(ChatFormatting.WHITE)
 				.withUnderlined(true)
-				.withInsertion(ACTION_PREFIX + action)
+				.withInsertion(link)
 				.withClickEvent(fallback)
 				.withHoverEvent(new HoverEvent.ShowText(Component.literal(hover)));
 		return Component.literal(" ")
@@ -138,19 +145,12 @@ public final class ScreenshotChat {
 	// Runs the button under the mouse, if it's one of ours. True = handled.
 	private static boolean clicked(Minecraft mc, double mx, double my) {
 		Style style = mc.gui.getChat().getClickedComponentStyleAt(mx, my);
-		if (style == null || style.getInsertion() == null || !style.getInsertion().startsWith(ACTION_PREFIX)
-				|| style.getClickEvent() == null) {
-			return false;
+		ScreenshotLinks.Link link = style == null ? null : ScreenshotLinks.resolve(style.getInsertion());
+		if (link == null) {
+			return false;   // not a button Origin made this session: vanilla handles the click as usual
 		}
-		File target;
-		if (style.getClickEvent() instanceof ClickEvent.CopyToClipboard copy) {
-			target = new File(copy.value());
-		} else if (style.getClickEvent() instanceof ClickEvent.OpenFile open) {
-			target = open.file();
-		} else {
-			return false;
-		}
-		switch (style.getInsertion().substring(ACTION_PREFIX.length())) {
+		File target = link.target;
+		switch (link.action) {
 			case "image" -> copyImage(target);
 			case "file" -> copyFile(target);
 			case "folder" -> Util.getPlatform().openFile(target);
