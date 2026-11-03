@@ -30,8 +30,34 @@ public final class SocialSkins {
 	}
 
 	private static final Map<UUID, com.mojang.authlib.GameProfile> CACHE = new ConcurrentHashMap<>();
-	private static final Map<UUID, Boolean> ASKED = new ConcurrentHashMap<>();
+	// When each lookup last started. A failed lookup (or one that came back with no
+	// skin) is retried after RETRY_MS; before, one failure meant Steve/Alex all session.
+	private static final Map<UUID, Long> ASKED = new ConcurrentHashMap<>();
+	private static final long RETRY_MS = 60_000L;
+	// The lookup budget is a RATE: at most MAX_LOOKUPS starts per minute. It used to
+	// be 64 per session, so a long session ran dry and new friends never got a face.
 	private static final int MAX_LOOKUPS = 64;
+	private static long windowStart;
+	private static int windowCount;
+
+	/** True (and the start is recorded) if a lookup for `id` may start now. */
+	private static synchronized boolean mayLookUp(UUID id) {
+		long now = System.currentTimeMillis();
+		Long last = ASKED.get(id);
+		if (last != null && now - last < RETRY_MS) {
+			return false;
+		}
+		if (now - windowStart >= 60_000L) {
+			windowStart = now;
+			windowCount = 0;
+		}
+		if (windowCount >= MAX_LOOKUPS) {
+			return false;
+		}
+		windowCount++;
+		ASKED.put(id, now);
+		return true;
+	}
 
 	public static PlayerSkin skin(String undashed) {
 		UUID id = SocialClient.toUuid(undashed);
@@ -50,7 +76,7 @@ public final class SocialSkins {
 			if (known != null) {
 				return mc.getSkinManager().getInsecureSkin(known);
 			}
-			if (!SocialClient.DEMO && ASKED.size() < MAX_LOOKUPS && ASKED.putIfAbsent(id, Boolean.TRUE) == null) {
+			if (!SocialClient.DEMO && mayLookUp(id)) {
 				CompletableFuture.supplyAsync(() -> mc.getMinecraftSessionService().fetchProfile(id, false))
 						.thenAccept(r -> {
 							if (r != null && r.profile() != null) {
