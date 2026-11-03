@@ -38,6 +38,9 @@ internal static class UpdateProof
         OriginPaths.UseScratchRoot(root);
         UpdateService.FeedUrl = feed.AbsoluteUri;
         UpdateService.ProofFeed = true; // the scratch root turns updates off; this run proves them against the local feed
+        // No background download here: the first check would start one that races this run's own click (a bad-hash
+        // release could be withdrawn before the click). The click path below runs the same download and verify code.
+        UpdateService.Prefetch = false;
         Console.WriteLine($"update-proof: expect {expect}, feed {feed.AbsoluteUri}, running {UpdateService.CurrentVersion} from {AppContext.BaseDirectory}");
         try
         {

@@ -112,9 +112,12 @@ public partial class MainWindow : Window
 
         // Push-to-update: light the corner badge whenever a newer release
         // appears, and start the poll loop (startup + every 10 minutes).
+        // The release downloads in the background as soon as it appears; if that download fails its check the offer is
+        // withdrawn (Available null) and the badge goes, unless a click is already running it (the click handles that).
         UpdateService.AvailableChanged += (_, _) => Dispatcher.Invoke(() =>
         {
-            UpdateBadge.Visibility = Visibility.Visible;
+            if (UpdateService.Available != null) UpdateBadge.Visibility = Visibility.Visible;
+            else if (UpdateBadge.IsEnabled) UpdateBadge.Visibility = Visibility.Collapsed;
             _homePage.RefreshUpdateGate();
         });
         // A screenshot run never checks (UpdateService.Enabled): no poll loop, no focus re-check.

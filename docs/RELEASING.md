@@ -42,16 +42,19 @@ end to end):
    byte-for-byte plus shortcuts, Add/Remove Programs entry and
    Start-with-Windows), then a silent uninstall checked to remove all of it.
    Only then does it hash the zip and publish the GitHub release with the
-   setup.exe, `OriginLauncher-win-x64.zip` and
-   `OriginLauncher-win-x64.zip.sha256`, titled "Origin Launcher 1.0.N".
+   setup.exe, `OriginLauncher-win-x64.zip`,
+   `OriginLauncher-win-x64.zip.sha256` and the changed-files list
+   `OriginLauncher-win-x64.files.json` (+ `.sha256`, see "Faster updates"),
+   titled "Origin Launcher 1.0.N".
 
 Before this pipeline (≤ v1.0.39) the same work ran one version after
 another on a single Windows machine and took 12-40 minutes.
 
 Within ~2 minutes (or instantly on window focus), every running launcher
-sees the new release and lights the download badge. Updates are mandatory:
-Play refuses until the player clicks the badge, which shows the download as
-a full-screen progress bar and restarts into the new build.
+sees the new release, lights the download badge and starts downloading it in
+the background. Updates are mandatory: Play refuses until the player clicks
+the badge, which installs and restarts in seconds when the background
+download has finished (or shows the rest of it as a full-screen progress bar).
 
 ## Self-update integrity (the .sha256 asset)
 
@@ -104,6 +107,51 @@ separate step. `check_consistency.py` fails CI if the workflow stops
 publishing the asset the launcher looks for. Tests:
 `src/OriginLauncher.Tests/UpdateVerifierTests.cs`. Never rename the `.sha256`
 asset (installed launchers key on it; an absent one is accepted, see above).
+
+## Faster updates (background download + changed files only)
+
+Will, 2026-11-03. Both live in `Core/Updates/UpdateService.cs`; nothing about the
+badge, the Play gate or the rules above changes.
+
+- **Background download.** The moment a release is first seen it is offered (badge,
+  Play gate, exactly as before) and downloaded + verified quietly. One download at a
+  time; a newer release cancels an older one's background download. Clicking Update
+  while it runs joins it (the progress bar starts where it is); clicking after it
+  finished only installs and restarts. A ready update is checked again right before
+  it installs (zip re-hashed, or every staged file re-hashed). A background download
+  that fails its integrity check withdraws the offer at once (same rule as a failed
+  check on click: badge hides, Play opens, quiet retry later); one that fails for an
+  ordinary reason (offline, disk, stall) tries again on a later poll (2 min, doubling
+  to 30 min) and the click still works meanwhile. Dev builds (1.0.0.0) never download
+  in the background. Mac and Linux get this too.
+- **Changed files only (Windows).** `tools/release/zip_manifest.py` writes
+  `OriginLauncher-win-x64.files.json` from the final zip (build-installer action):
+  every file's path, size, SHA-256 and where its compressed bytes sit in the zip,
+  plus the zip's own size and SHA-256. It reads every entry back from its offset and
+  fails the run if one doesn't decode to the zip's own file. The release publishes it
+  with a `.sha256` sidecar (same trust model as the zip's), and the "Hash the
+  self-update zip" step asserts it describes exactly the published zip. The launcher
+  (`Core/Updates/DeltaManifest.cs` + `DeltaStager.cs`) fetches the list and its
+  sidecar, refuses a list for another zip hash, copies every installed file that
+  still matches, and fetches the rest out of the release zip with HTTP Range requests
+  (GitHub's asset host answers 206; neighbouring entries share one request). Every
+  staged file is checked against the list's SHA-256, so the stage is a complete,
+  verified copy of the release and the swap script is unchanged. A typical release
+  that rebuilt no mod jar fetches the ~90 MB exe instead of the ~266 MB zip.
+- **Anything odd falls back silently to the full verified download:** no list or no
+  sidecar, a list that fails its hash or names another zip, an unsafe path, a server
+  that ignores Range (200), a wrong Content-Range, an encoded or short body, a file
+  that doesn't match, a stall, or more than 75% of the zip changed. The reason goes to
+  `update.log`.
+- **Mac and Linux stay on the full download**: the Mac zip is a signed .app whose
+  symlinks and exec bits only `ditto` restores, and Linux downloads a tar.gz or
+  AppImage, not a zip of loose files.
+- **Proof:** `src/OriginLauncher.Tests/DeltaUpdateTests.cs` (fixture written by the
+  script, loopback server with a redirect like GitHub's, misbehaving servers), and
+  build-check's Windows job runs `DeltaRealZipProof` on every push's real zip: an
+  older install plus Range requests must stage byte-for-byte what a full unzip gives,
+  and a Range-ignoring server must fall back. `check_consistency.py` fails CI if the
+  workflow stops publishing the list under the name the launcher reads.
 
 ## Rehearse first (optional, publishes nothing)
 

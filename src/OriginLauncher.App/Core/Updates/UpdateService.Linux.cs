@@ -61,6 +61,10 @@ public static partial class UpdateService
 
     internal const string AppImageStageName = "OriginLauncher.AppImage";
 
+    // No changed-files updates on Linux: the download is a tar.gz or an AppImage (not a zip of loose files) and is staged
+    // its own way. It still gets the background download (UpdateService.cs).
+    private static readonly string? DeltaManifestName = null;
+
     /// <summary>How the app quits for the swap. The UI start replaces this with its own lifetime's shutdown.</summary>
     public static Action Shutdown { get; set; } = () => Environment.Exit(0);
 

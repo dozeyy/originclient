@@ -14,6 +14,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Video Settings mod rail is removed; don't bring it back without asking (2026-10-12).
 - Updates are mandatory for players (2026-07-08). Releases are deliberate `launcher-v*` tags, never every main push (2026-07-12/13, `docs/RELEASING.md`).
 - A launcher self-update with no valid SHA-256 is refused, and never blocks Play (2026-10-25).
+- Launcher updates download in the background the moment they appear and fetch only the files that changed; anything odd falls back to the full verified download (2026-11-03).
 - Closing or crashing the game never closes the launcher; Play works again every time (2026-07-09).
 - Settings Sync is on by default and carries mod settings + HUD positions; every change hits disk instantly (2026-10-18).
 - Opening any screen must feel instant: no blocking entrance animations, no per-open loads (2026-10-18).

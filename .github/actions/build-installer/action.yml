@@ -19,7 +19,8 @@
 #
 # Shared by build-check.yml and launcher-release.yml, so a broken installer
 # can never reach players. Expects publish/ from .github/actions/publish-launcher.
-# Output at the repo root: OriginLauncher-Setup.exe + OriginLauncher-win-x64.zip.
+# Output at the repo root: OriginLauncher-Setup.exe + OriginLauncher-win-x64.zip (+ its changed-files list,
+# OriginLauncher-win-x64.files.json and .sha256).
 name: Build installer
 description: Build OriginSetup and the launcher zip, smoke-test download, install, update and uninstall.
 
@@ -54,6 +55,15 @@ runs:
         Remove-Item OriginLauncher-win-x64.zip -ErrorAction SilentlyContinue
         Compress-Archive -Path publish\* -DestinationPath OriginLauncher-win-x64.zip
         Write-Host "OriginLauncher-win-x64.zip: $([math]::Round((Get-Item OriginLauncher-win-x64.zip).Length / 1MB, 1)) MB"
+
+    # Changed-files updates: the file list installed launchers use to download only what changed
+    # (Core/Updates/DeltaStager.cs). Written from the final zip and checked against it entry by entry (it fails the run
+    # if any entry can't be read back from its offset); launcher-release.yml publishes it with its .sha256.
+    - name: Write the changed-files list
+      shell: pwsh
+      run: |
+        python tools/release/zip_manifest.py OriginLauncher-win-x64.zip
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
     # Pictures of every screen (nothing is installed or downloaded) — the UI review.
     - name: Render installer screens

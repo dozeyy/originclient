@@ -246,13 +246,22 @@ jobs:
 
       # Installed launchers verify the self-update zip against this before they unpack it
       # (UpdateVerifier; docs/RELEASING.md -> Self-update integrity). sha256sum format, written
-      # AFTER the zip is final: nothing below touches the zip again.
+      # AFTER the zip is final: nothing below touches the zip again. The changed-files list next to it
+      # (OriginLauncher-win-x64.files.json + .sha256, docs/RELEASING.md -> Faster updates) is checked against it here.
       - name: Hash the self-update zip
         shell: pwsh
         run: |
           $h = (Get-FileHash OriginLauncher-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
           [IO.File]::WriteAllText("OriginLauncher-win-x64.zip.sha256", "$h  OriginLauncher-win-x64.zip`n")
           Write-Host "OriginLauncher-win-x64.zip.sha256: $h"
+          # The changed-files list (written by build-installer from this same zip) must describe exactly this zip:
+          # launchers refuse a list whose zip hash differs, so a mismatch here would only waste the feature.
+          $list = Get-Content OriginLauncher-win-x64.files.json -Raw | ConvertFrom-Json
+          if ($list.zipSha256 -ne $h) { throw "OriginLauncher-win-x64.files.json describes another zip ($($list.zipSha256))" }
+          $lh = (Get-FileHash OriginLauncher-win-x64.files.json -Algorithm SHA256).Hash.ToLowerInvariant()
+          $want = ((Get-Content OriginLauncher-win-x64.files.json.sha256 -Raw).Trim() -split '\s+')[0]
+          if ($lh -ne $want) { throw "OriginLauncher-win-x64.files.json does not match its .sha256" }
+          Write-Host "OriginLauncher-win-x64.files.json: $($list.files.Count) files, sha256 $lh"
 
       # The Linux downloads land next to the Windows files, so the publish step lists them by bare
       # name. When the Linux job succeeded, they are attached only if all four and their .sha256 are
@@ -300,6 +309,8 @@ jobs:
           path: |
             OriginLauncher-win-x64.zip
             OriginLauncher-win-x64.zip.sha256
+            OriginLauncher-win-x64.files.json
+            OriginLauncher-win-x64.files.json.sha256
             OriginLauncher-Setup.exe
             notes/release-notes.md
           if-no-files-found: error
@@ -341,6 +352,8 @@ jobs:
           gh release create "${{ env.RELEASE_TAG }}"
           OriginLauncher-win-x64.zip
           OriginLauncher-win-x64.zip.sha256
+          OriginLauncher-win-x64.files.json
+          OriginLauncher-win-x64.files.json.sha256
           OriginLauncher-Setup.exe
           OriginLauncher-linux-x86_64.AppImage
           OriginLauncher-linux-x86_64.AppImage.sha256
@@ -363,6 +376,8 @@ jobs:
           gh release create "${{ env.RELEASE_TAG }}"
           OriginLauncher-win-x64.zip
           OriginLauncher-win-x64.zip.sha256
+          OriginLauncher-win-x64.files.json
+          OriginLauncher-win-x64.files.json.sha256
           OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md

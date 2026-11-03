@@ -11,6 +11,11 @@ public static partial class UpdateService
     private const string ReleaseAssetName = AssetName;
     private const string ReleaseZipPrefix = "OriginLauncher-win-x64";
 
+    // The changed-files list (tools/release/zip_manifest.py writes it from the final zip; launcher-release.yml publishes
+    // it with its .sha256). Only Windows updates file by file: its zip unpacks to plain files the install folder holds
+    // one for one. tools/release/check_consistency.py checks the workflow publishes exactly this name.
+    private static readonly string? DeltaManifestName = "OriginLauncher-win-x64.files.json";
+
     private static void StartApplyScript(string stageDir, string updatesRoot)
     {
         var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);

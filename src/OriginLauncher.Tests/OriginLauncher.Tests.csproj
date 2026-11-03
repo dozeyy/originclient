@@ -150,6 +150,10 @@
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\Deferred.cs" LinkBase="Import" />
     <!-- The self-update zip's integrity check (pure: streams + files; UpdateService, the WPF/HTTP glue, stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateVerifier.cs" LinkBase="Updates" />
+    <!-- Changed-files-only updates: the release's file list and the stage built from it with Range requests (pure:
+         an HttpClient, a URL and folders; DeltaUpdateTests runs them against a loopback server). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\DeltaManifest.cs" LinkBase="Updates" />
+    <Compile Include="..\OriginLauncher.App\Core\Updates\DeltaStager.cs" LinkBase="Updates" />
     <!-- Which self-update zip each Mac architecture takes (pure name choice; UpdateService.Mac.cs uses it). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\MacReleaseAssets.cs" LinkBase="Updates" />
     <!-- The mandatory-update gate's state machine: a failed check never blocks play, retries quietly (pure; the clock is a parameter). -->
@@ -257,5 +261,7 @@
   <ItemGroup>
     <None Include="CrashCorpus\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The delta-update fixture: a small zip and the file list tools/release/zip_manifest.py wrote for it. -->
+    <None Include="Fixtures\delta-release.*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

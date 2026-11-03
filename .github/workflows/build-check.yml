@@ -132,6 +132,10 @@ jobs:
       - name: Release-notes filter tests
         run: python3 tools/release/test_notes.py
 
+      # The changed-files list writer for launcher updates (the launcher's DeltaUpdateTests read its fixture output).
+      - name: Changed-files list tests
+        run: python3 tools/release/test_zip_manifest.py
+
       # Linux runners come with whatever .NET they come with: global.json chooses.
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -196,3 +200,13 @@ jobs:
         uses: ./.github/actions/build-installer
         with:
           screenshots: "true"
+
+      # Changed-files launcher updates on this push's REAL zip and file list (Core/Updates/DeltaStager): an older install
+      # (exe changed, a mod jar missing, an extra file) plus Range requests through a redirect must stage exactly what a
+      # full unzip gives, and a server that ignores Range must fall back to the full download.
+      - name: Changed-files update proof (real zip)
+        shell: pwsh
+        env:
+          ORIGIN_DELTA_ZIP: ${{ github.workspace }}\OriginLauncher-win-x64.zip
+          ORIGIN_DELTA_LIST: ${{ github.workspace }}\OriginLauncher-win-x64.files.json
+        run: dotnet test src/OriginLauncher.Tests --filter "FullyQualifiedName~DeltaRealZipProof" --logger "console;verbosity=detailed"

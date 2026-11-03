@@ -37,6 +37,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    UpdateService.Mac.cs) must be the zip launcher-release.yml builds for that arch, and every Mac file (both zips,
    their .sha256, both disk images) must be in the Mac upload and the Mac rehearsal artifact.
 
+8. The changed-files list — the Windows launcher's DeltaManifestName (UpdateService.Windows.cs) is the name
+   tools/release/zip_manifest.py writes for the Windows zip, and launcher-release.yml publishes it and its .sha256 in
+   both `gh release create` lists and the rehearsal artifact (an absent list only means full downloads, silently).
+
 Run from anywhere: python3 tools/release/check_consistency.py
 """
 from __future__ import annotations
@@ -318,14 +322,36 @@ def check_linux_assets() -> list[str]:
     return problems
 
 
+def check_delta_list() -> list[str]:
+    win = (LAUNCHER / "Core/Updates/UpdateService.Windows.cs").read_text(encoding="utf-8")
+    svc = (LAUNCHER / "Core/Updates/UpdateService.cs").read_text(encoding="utf-8")
+    wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
+    m = re.search(r'DeltaManifestName\s*=\s*"([^"]+)"', win)
+    zip_name = re.search(r'const string AssetName\s*=\s*"([^"]*)"', svc)
+    if not m or not zip_name:
+        return ["UpdateService.Windows.cs no longer names DeltaManifestName (update check_delta_list)"]
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import zip_manifest  # noqa: E402  (the writer's own naming rule)
+    want = zip_manifest.manifest_name(zip_name.group(1))
+    if m.group(1) != want:
+        return [f"launcher DeltaManifestName {m.group(1)!r} vs zip_manifest.py's {want!r}"]
+    problems = []
+    for asset in (want, want + ".sha256"):
+        n = len(re.findall(r"^\s+" + re.escape(asset) + r"\s*$", wf, re.M))
+        if n < 3:
+            problems.append(f"launcher-release.yml must list {asset} in both releases and the rehearsal artifact (found {n}x)")
+    return problems
+
+
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
-                + check_update_hash() + check_mac_release() + check_picker() + check_linux_assets())
+                + check_update_hash() + check_mac_release() + check_picker() + check_linux_assets()
+                + check_delta_list())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
         print("OK: version list, version picker, hand-off file name, theme tokens, release feed, update hash, Mac "
-              "release files and Linux downloads agree across launcher, installer and release.")
+              "release files, Linux downloads and the changed-files list agree across launcher, installer and release.")
     return 1 if problems else 0
 
 

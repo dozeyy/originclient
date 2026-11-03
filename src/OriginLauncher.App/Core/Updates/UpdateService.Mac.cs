@@ -23,6 +23,10 @@ public static partial class UpdateService
 
     internal static readonly string ReleaseAssetName = ReleaseZipPrefix + ".zip";
 
+    // No changed-files updates on the Mac: the zip holds a signed .app whose symlinks and exec bits only ditto restores,
+    // and the swap replaces the whole bundle. It still gets the background download (UpdateService.cs).
+    private static readonly string? DeltaManifestName = null;
+
     /// <summary>How the app quits for the swap. The UI start replaces this with its own lifetime's shutdown.</summary>
     public static Action Shutdown { get; set; } = () => Environment.Exit(0);
 

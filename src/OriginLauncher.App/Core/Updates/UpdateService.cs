@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using OriginLauncher.App.Core.Import.Launcher;
 
@@ -16,6 +17,15 @@ namespace OriginLauncher.App.Core.Updates;
 // This service polls that feed, exposes the newest release, and applies it:
 // download -> stage -> swap-and-restart via a tiny script (a running exe
 // can't overwrite itself on Windows; a Mac swaps the whole app bundle).
+//
+// Fast updates (Will, 2026-11-03):
+//  - Background download: the moment a release is first seen it is downloaded and verified quietly (one fetch at a
+//    time, a newer release supersedes an older one's fetch). Clicking Update while that runs joins it and shows its
+//    progress; clicking after it finished only installs and restarts. Nothing about the badge or the Play gate changes.
+//  - Changed files only (Windows): the release also publishes a file list (DeltaManifest, with its own .sha256); the
+//    files that differ from this install are fetched out of the release zip with Range requests (DeltaStager) and the
+//    rest is copied from the install folder, each file checked against the list's SHA-256. Any problem there falls
+//    back silently to the full verified zip download below; integrity is never weaker than the full download.
 // The per-OS parts live in one file per OS, picked by each csproj (UpdateService.Windows.cs /
 // UpdateService.Mac.cs / UpdateService.Linux.cs): which release asset this OS downloads, the swap script, and how the
 // app quits (the UI toolkit's own shutdown). Checking, gating, downloading and verifying are shared.
@@ -77,10 +87,44 @@ public static partial class UpdateService
     // The gate's state machine (Core/Updates/UpdateGate.cs). Always touched under lock (Gate): the poll loop,
     // the focus check, Play and the badge click all reach it from different continuations.
     private static readonly UpdateGate Gate = new();
-    // The zip that sits verified on disk from a quiet retry (the badge click then skips the download), with the
-    // hash it was verified against: it is hashed again right before it is extracted (it may sit there for hours).
-    private sealed record VerifiedZip(Version Version, string Sha256);
-    private static VerifiedZip? _verifiedZip; // always under lock (Gate)
+    // A release that is downloaded and verified, ready to install: either the full zip (with the hash it was verified
+    // against) or a complete stage folder built from changed files (with the file list it was checked against). One
+    // that sat on disk (a background fetch can finish hours before the click) is checked again right before install.
+    private sealed record Prepared(Version Version, string? ZipPath, string? ZipSha256, string? StageDir, DeltaManifest? Manifest);
+    private static Prepared? _prepared; // always under lock (Gate)
+
+    // The one download in flight (background or clicked), so a click joins it instead of starting a second one.
+    // Joined = the badge click is waiting on it: the click then owns its outcome (the gate counts the failure the same
+    // way as before), and nothing may cancel it. Quiet = the gate's back-off retry of a release whose check failed:
+    // it is published only once this fetch has verified.
+    private sealed class Fetch(AvailableUpdate update, bool quiet, bool joined)
+    {
+        public AvailableUpdate Update { get; } = update;
+        public bool Quiet { get; } = quiet;
+        public bool Joined { get; set; } = joined;
+        public ProgressRelay Relay { get; } = new();
+        public CancellationTokenSource Cancel { get; } = new();
+        public TaskCompletionSource<Prepared> Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+    private static Fetch? _fetch; // always under lock (Gate)
+
+    // A background fetch that failed for an ordinary reason (offline, disk, a stall) is tried again on a later poll:
+    // 2 min, doubling to 30 min. The player can always click Update meanwhile (a normal, counted download).
+    private static Version? _backgroundFailedVersion;
+    private static int _backgroundFailures;
+    private static DateTime _backgroundRetryAtUtc;
+    private static readonly TimeSpan BackgroundFirstRetry = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan BackgroundMaxRetry = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Background downloads on (the default). The Mac's `--update-proof` turns it off so its run proves the click path
+    /// deterministically (a background fetch racing the proof's own click would make "bad-hash" flaky).
+    /// </summary>
+    internal static bool Prefetch { get; set; } = true;
+
+    // Dev builds (1.0.0.0, a local build Will opens himself) see the badge but never download in the background: every
+    // local start would otherwise pull a whole release it will never install.
+    private static bool PrefetchAllowed => Enabled && Prefetch && (!IsDevBuild || ProofFeed);
 
     /// <summary>
     /// A newer release this copy can't install where it sits (Mac: a translocated copy, or a folder it can't write to),
@@ -92,7 +136,8 @@ public static partial class UpdateService
     // fake release in CI; UpdateProof refuses any other host). Nothing a player can reach changes it.
     internal static string FeedUrl { get; set; } = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
 
-    /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen, or found uninstallable here.</summary>
+    /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen, or found uninstallable here,
+    /// or when a background download that failed its check withdraws the offer (Available is null then).</summary>
     public static event EventHandler? AvailableChanged;
 
     /// <summary>
@@ -140,6 +185,15 @@ public static partial class UpdateService
                 string.Equals(a.Name, ReleaseAssetName + ".sha256", StringComparison.OrdinalIgnoreCase));
             // No sidecar and no usable digest: the download could only be refused, so never offer or gate on it.
             var hasHash = hashAsset?.DownloadUrl != null || UpdateVerifier.ParseDigest(asset.Digest) != null;
+            // The changed-files list and its sidecar (Windows only; DeltaManifestName is null elsewhere). Both or neither:
+            // a list without its hash is never used.
+            string? listUrl = null, listHashUrl = null;
+            if (DeltaManifestName is { } listName)
+            {
+                listUrl = release.Assets?.FirstOrDefault(a => string.Equals(a.Name, listName, StringComparison.OrdinalIgnoreCase))?.DownloadUrl;
+                listHashUrl = release.Assets?.FirstOrDefault(a => string.Equals(a.Name, listName + ".sha256", StringComparison.OrdinalIgnoreCase))?.DownloadUrl;
+                if (listUrl == null || listHashUrl == null) listUrl = listHashUrl = null;
+            }
 
             UpdateGate.Decision decision;
             lock (Gate) decision = Gate.EvaluateRelease(remote, CurrentVersion, hasHash, DateTime.UtcNow);
@@ -148,7 +202,14 @@ public static partial class UpdateService
                 Log($"update {remote}: release published no SHA-256, not offered; retrying quietly later");
                 return;
             }
-            if (decision is UpdateGate.Decision.Skip or UpdateGate.Decision.Wait)
+            if (decision == UpdateGate.Decision.Skip)
+            {
+                // Already offered: make sure its background download is done or under way (a failed one retries here).
+                if (Available is { } offered && UpdateGate.Normalize(offered.Version) == UpdateGate.Normalize(remote))
+                    StartFetch(offered, quiet: false);
+                return;
+            }
+            if (decision == UpdateGate.Decision.Wait)
                 return;
 
             // This copy can't replace itself where it sits (a Mac app run from a translocated copy, or from a folder this
@@ -176,15 +237,17 @@ public static partial class UpdateService
                 AvailableChanged?.Invoke(null, EventArgs.Empty);
             }
 
-            var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
+            var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest, listUrl, listHashUrl);
             if (decision == UpdateGate.Decision.Quiet)
             {
                 // An earlier download of this release failed its check: never put it in front of the player
-                // (or gate Play on it) again until it has been fetched and verified in the background.
-                _ = QuietRetryAsync(update);
+                // (or gate Play on it) again until it has been fetched and verified in the background. A fetch that
+                // can't start now (a click is installing another release) ends the gate's quiet slot with the usual back-off.
+                if (!StartFetch(update, quiet: true)) lock (Gate) Gate.VerifyFailed(remote, DateTime.UtcNow);
                 return;
             }
-            TryPublish(update);
+            // First sighting: offered at once (badge, Play gate) and downloaded in the background straight away.
+            if (TryPublish(update)) StartFetch(update, quiet: false);
         }
         catch
         {
@@ -210,19 +273,18 @@ public static partial class UpdateService
     private static string ZipPathFor(Version version) =>
         Path.Combine(OriginPaths.Updates, $"{ReleaseZipPrefix}-{version}.zip");
 
-    // Removes zips/.part files of versions nobody is fetching or offering (quit before applying, killed
-    // mid-download). Never throws; a locked file is skipped. Keeps the version being fetched, the one offered
-    // and the one verified on disk.
+    // Removes zips/.part files and stage folders of versions nobody is fetching, offering or holding ready (quit
+    // before applying, killed mid-download, superseded, or the stage of the update this launcher already runs).
+    // Never throws; a locked file is skipped.
     private static void CleanStaleDownloads(Version? fetching)
     {
         try
         {
-            Version? offered;
-            VerifiedZip? verified;
-            lock (Gate) { offered = Available?.Version; verified = _verifiedZip; }
-            var n = UpdateVerifier.DeleteStaleDownloads(
-                OriginPaths.Updates, ReleaseZipPrefix, fetching, offered, verified?.Version);
-            if (n > 0) Log($"removed {n} stale update download file(s)");
+            Version?[] keep;
+            lock (Gate) keep = [fetching, _fetch?.Update.Version, Available?.Version, _prepared?.Version];
+            var n = UpdateVerifier.DeleteStaleDownloads(OriginPaths.Updates, ReleaseZipPrefix, keep)
+                    + UpdateVerifier.DeleteStaleStages(OriginPaths.Updates, keep);
+            if (n > 0) Log($"removed {n} stale update download(s)");
         }
         catch (Exception) { /* housekeeping only */ }
     }
@@ -250,43 +312,264 @@ public static partial class UpdateService
         }
     }
 
-    // Quiet retry after a failed check (see UpdateGate): download + verify with no UI, publish only on success.
-    // Any failure just extends the back-off; nothing is shown and Play is never touched.
-    private static async Task QuietRetryAsync(AvailableUpdate update)
+    private static bool Same(Version? a, Version? b) =>
+        a != null && b != null && UpdateGate.Normalize(a) == UpdateGate.Normalize(b);
+
+    // Starts the background download of this release unless it is already ready or on its way. One fetch at a time:
+    // an older background fetch is cancelled for a newer release; a fetch the badge click is waiting on is never
+    // cancelled (the newer one starts on a later poll). Returns false when nothing was started for it.
+    private static bool StartFetch(AvailableUpdate update, bool quiet)
     {
-        if (!Enabled) return;
+        // The quiet retry after a failed check ran on every build before background downloads existed: it still does.
+        if (!Enabled || (!quiet && !PrefetchAllowed)) return false;
+        Fetch fetch;
+        Fetch? superseded = null;
+        Prepared? stale = null;
+        lock (Gate)
+        {
+            if (_prepared != null && Same(_prepared.Version, update.Version)) return true;
+            if (_fetch is { } running)
+            {
+                if (Same(running.Update.Version, update.Version)) return true;
+                if (running.Joined || UpdateGate.Normalize(running.Update.Version) > UpdateGate.Normalize(update.Version)) return false;
+                superseded = running;
+            }
+            // An ordinary background failure backs off (the quiet path has the gate's own back-off).
+            if (!quiet && Same(_backgroundFailedVersion, update.Version) && DateTime.UtcNow < _backgroundRetryAtUtc) return false;
+            if (_prepared != null) { stale = _prepared; _prepared = null; }
+            fetch = _fetch = new Fetch(update, quiet, joined: false);
+        }
+        superseded?.Cancel.Cancel();
+        if (stale != null) Discard(stale);
+        _ = Task.Run(() => RunFetchAsync(fetch));
+        return true;
+    }
+
+    // Runs one fetch to the end and settles what it means, under the lock, BEFORE its task completes: a click that
+    // awaits it, or the next poll, always sees the outcome already recorded.
+    private static async Task RunFetchAsync(Fetch fetch)
+    {
+        Prepared? result = null;
+        Exception? error = null;
         try
         {
-            var zipPath = ZipPathFor(update.Version);
-            Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
-            CleanStaleDownloads(update.Version);
-            var sha256 = await DownloadVerifiedAsync(update, zipPath, null).ConfigureAwait(false);
-            lock (Gate) Gate.Verified(update.Version);
-            if (TryPublish(update))
+            result = await FetchAsync(fetch.Update, fetch.Relay, fetch.Cancel.Token).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            error = e;
+        }
+
+        var version = fetch.Update.Version;
+        var raise = false;
+        Prepared? unused = null;
+        lock (Gate)
+        {
+            if (_fetch == fetch) _fetch = null;
+            if (error == null)
             {
-                lock (Gate) _verifiedZip = new VerifiedZip(update.Version, sha256);
-                Log($"update {update.Version}: quiet retry verified, offering it now");
+                if (fetch.Joined)
+                {
+                    // The click takes it straight from the task.
+                }
+                else if (fetch.Quiet)
+                {
+                    Gate.Verified(version);
+                    if (Gate.TryPublish(version))
+                    {
+                        Available = fetch.Update;
+                        _prepared = result;
+                        raise = true;
+                        Log($"update {version}: quiet retry verified, offering it now (ready to install)");
+                    }
+                    else
+                    {
+                        unused = result;
+                        Log($"update {version}: quiet retry verified but a newer release is already offered; dropped");
+                    }
+                }
+                else if (Available != null && Same(Available.Version, version))
+                {
+                    _prepared = result;
+                    _backgroundFailedVersion = null;
+                    _backgroundFailures = 0;
+                    Log($"update {version}: downloaded and verified in the background, ready to install");
+                }
+                else
+                {
+                    unused = result; // superseded or withdrawn while it downloaded
+                }
             }
-            else
+            else if (!fetch.Joined)
             {
-                // A newer release was offered while this one downloaded: drop the now-useless zip.
-                Log($"update {update.Version}: quiet retry verified but a newer release is already offered; dropped");
-                try { File.Delete(zipPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                var now = DateTime.UtcNow;
+                if (fetch.Quiet)
+                {
+                    // The quiet retry's rule (unchanged): any failure, even a cancel, ends its slot with the back-off.
+                    Gate.VerifyFailed(version, now);
+                }
+                else if (fetch.Cancel.IsCancellationRequested)
+                {
+                    // Superseded by a newer release: nothing failed.
+                }
+                else if (error is UpdateVerificationException)
+                {
+                    // The release itself is bad (or unverifiable): the same rule as a failed check on click, applied
+                    // before the player even clicks. Out of the gate at once, retried quietly with back-off.
+                    Gate.VerifyFailed(version, now);
+                    if (Available != null && Same(Available.Version, version))
+                    {
+                        Available = null;
+                        raise = true;
+                    }
+                    Log($"update {version}: background download failed its check; gate released, retrying quietly later");
+                }
+                else
+                {
+                    // Offline, disk, a stall: nothing about the release. Try again later; the click still works now.
+                    _backgroundFailures = Same(_backgroundFailedVersion, version) ? _backgroundFailures + 1 : 1;
+                    _backgroundFailedVersion = version;
+                    var wait = Math.Min(BackgroundFirstRetry.TotalMinutes * Math.Pow(2, _backgroundFailures - 1), BackgroundMaxRetry.TotalMinutes);
+                    _backgroundRetryAtUtc = now + TimeSpan.FromMinutes(wait);
+                    Log($"update {version}: background download failed, trying again in {wait:0} min (Update still works)");
+                }
             }
         }
-        catch (Exception)
+        if (unused != null) Discard(unused);
+        if (raise) AvailableChanged?.Invoke(null, EventArgs.Empty);
+        if (error == null)
         {
-            // DownloadVerifiedAsync already logged why.
-            lock (Gate) Gate.VerifyFailed(update.Version, DateTime.UtcNow);
+            fetch.Done.SetResult(result!);
+        }
+        else
+        {
+            fetch.Done.SetException(error);
+            _ = fetch.Done.Task.Exception; // observed: only a joined click awaits it
+        }
+        // Cancel is never disposed: a superseding StartFetch may still call Cancel() on it after this returns.
+    }
+
+    // One release, downloaded and verified: changed files only when the release has a file list (Windows), else (or
+    // when that path can't be used) the full zip. Throws like the full download always did: an
+    // UpdateVerificationException for a bad or unverifiable release, anything else for an ordinary failure.
+    private static async Task<Prepared> FetchAsync(AvailableUpdate update, IProgress<UpdateProgress> progress, CancellationToken ct)
+    {
+        Directory.CreateDirectory(OriginPaths.Updates);
+        CleanStaleDownloads(update.Version);
+        progress.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
+
+        string expected;
+        try
+        {
+            expected = await ResolveExpectedHashAsync(update).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log($"update {update.Version}: not applied, will retry later: {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
+
+        if (update.FileListUrl != null && update.FileListSha256Url != null)
+        {
+            var staged = await TryChangedFilesAsync(update, expected, progress, ct).ConfigureAwait(false);
+            if (staged != null) return staged;
+        }
+
+        var zipPath = ZipPathFor(update.Version);
+        await DownloadVerifiedAsync(update, expected, zipPath, progress, ct).ConfigureAwait(false);
+        return new Prepared(update.Version, zipPath, expected, null, null);
+    }
+
+    // The changed-files path (DeltaStager). Null = not usable this time (logged), so the caller downloads the full
+    // zip; only a cancel escapes. The stage is built in "<version>.delta-part" and renamed to "<version>" only once
+    // every file in it has verified, so a half-built stage is never mistaken for a ready one.
+    private static async Task<Prepared?> TryChangedFilesAsync(AvailableUpdate update, string zipSha256, IProgress<UpdateProgress> progress, CancellationToken ct)
+    {
+        var stageDir = StageDirFor(update.Version);
+        var partDir = stageDir + UpdateVerifier.StagePartSuffix;
+        try
+        {
+            DeleteFolder(partDir);
+            var listSha = await UpdateVerifier.FetchSidecarAsync(
+                c => Http.GetStringAsync(update.FileListSha256Url, c), DeltaManifestName!, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+            var json = await GetSmallFileAsync(update.FileListUrl!, DeltaManifest.MaxBytes, ct).ConfigureAwait(false);
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(json)), listSha, StringComparison.OrdinalIgnoreCase))
+                throw new DeltaUnavailableException("the file list failed its SHA-256");
+            var manifest = DeltaManifest.Parse(json, ReleaseAssetName, zipSha256);
+
+            var reportGate = new object();
+            var lastReport = Stopwatch.StartNew();
+            var result = await DeltaStager.StageAsync(Http, update.DownloadUrl, manifest, AppContext.BaseDirectory, partDir,
+                (received, total) =>
+                {
+                    lock (reportGate)
+                    {
+                        if (received != 0 && received != total && lastReport.ElapsedMilliseconds < 100) return;
+                        lastReport.Restart();
+                    }
+                    progress.Report(new UpdateProgress(UpdateStage.Downloading, received, total));
+                }, StallTimeout, ct).ConfigureAwait(false);
+
+            DeleteFolder(stageDir);
+            Directory.Move(partDir, stageDir);
+            Log($"update {update.Version}: changed files only: fetched {result.FetchedFiles} file(s), {result.FetchedBytes / 1_048_576d:0.0} MB " +
+                $"in {result.Requests} request(s), reused {result.ReusedFiles} (the full download is {manifest.ZipSize / 1_048_576d:0} MB)");
+            return new Prepared(update.Version, null, null, stageDir, manifest);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            DeleteFolder(partDir);
+            throw;
+        }
+        catch (Exception e)
+        {
+            DeleteFolder(partDir);
+            Log($"update {update.Version}: changed-files download not used ({e.GetType().Name}: {e.Message}); downloading the whole update");
+            return null;
         }
     }
 
+    // The file list: small, so read whole, but never more than `max` bytes whatever the server says.
+    private static async Task<byte[]> GetSmallFileAsync(string url, int max, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        if (response.Content.Headers.ContentLength > max) throw new DeltaUnavailableException("the file list is too big");
+        await using var body = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
+        using var copy = new MemoryStream();
+        var buffer = new byte[1 << 16];
+        int read;
+        while ((read = await body.ReadAsync(buffer, timeout.Token).ConfigureAwait(false)) > 0)
+        {
+            copy.Write(buffer, 0, read);
+            if (copy.Length > max) throw new DeltaUnavailableException("the file list is too big");
+        }
+        return copy.ToArray();
+    }
+
+    private static string StageDirFor(Version version) => Path.Combine(OriginPaths.Updates, version.ToString());
+
+    private static void DeleteFolder(string dir)
+    {
+        try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    // A ready release nobody will install (superseded, or a newer one was offered): its files go.
+    private static void Discard(Prepared prepared)
+    {
+        if (prepared.ZipPath != null)
+            try { File.Delete(prepared.ZipPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        if (prepared.StageDir != null) DeleteFolder(prepared.StageDir);
+    }
+
     /// <summary>
-    /// Downloads the available update, stages it, spawns the swap script, and
-    /// shuts the app down; the script waits for this process to exit, copies
-    /// the staged files over the install directory, and relaunches.
-    /// Progress is reported in bytes so the player sees a real fill, not a
-    /// spinner, through the ~126 MB download.
+    /// Installs the available update and restarts: straight to install when the background download already has it,
+    /// joining that download (and showing its progress) while it still runs, or downloading it now. Then it stages it,
+    /// spawns the swap script, and shuts the app down; the script waits for this process to exit, copies the staged
+    /// files over the install directory, and relaunches. Progress is reported in bytes so the player sees a real fill.
     /// </summary>
     public static async Task DownloadAndRestartAsync(IProgress<UpdateProgress>? progress = null)
     {
@@ -299,7 +582,8 @@ public static partial class UpdateService
         var restarting = false;
         try
         {
-            await DownloadStageAndRestartAsync(update, progress, () => restarting = true);
+            var (prepared, satOnDisk) = await TakeOrFetchAsync(update, progress);
+            await InstallAndRestartAsync(prepared, satOnDisk, progress, () => restarting = true);
         }
         catch (Exception ex)
         {
@@ -325,39 +609,78 @@ public static partial class UpdateService
         }
     }
 
-    private static async Task DownloadStageAndRestartAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress, Action markRestarting)
+    // The click's way to the release: the ready one (it sat on disk, so it is re-checked before install), the running
+    // download (joined: its progress is shown from where it is), or a new download the click waits on.
+    private static async Task<(Prepared Prepared, bool SatOnDisk)> TakeOrFetchAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress)
+    {
+        Fetch fetch;
+        var start = false;
+        Fetch? superseded = null;
+        Prepared? stale = null;
+        lock (Gate)
+        {
+            if (_prepared != null && Same(_prepared.Version, update.Version))
+            {
+                var ready = _prepared;
+                _prepared = null;
+                return (ready, true);
+            }
+            if (_fetch is { } running && Same(running.Update.Version, update.Version))
+            {
+                running.Joined = true;
+                fetch = running;
+            }
+            else
+            {
+                if (_fetch is { Joined: false } other) superseded = other;
+                if (_prepared != null) { stale = _prepared; _prepared = null; }
+                fetch = _fetch = new Fetch(update, quiet: false, joined: true);
+                start = true;
+            }
+        }
+        superseded?.Cancel.Cancel();
+        if (stale != null) Discard(stale);
+        if (progress != null) fetch.Relay.Attach(progress);
+        if (start) _ = Task.Run(() => RunFetchAsync(fetch));
+        return (await fetch.Done.Task, false);
+    }
+
+    private static async Task InstallAndRestartAsync(Prepared prepared, bool satOnDisk, IProgress<UpdateProgress>? progress, Action markRestarting)
     {
         var updatesRoot = OriginPaths.Updates;
-        Directory.CreateDirectory(updatesRoot);
-        CleanStaleDownloads(update.Version);
-        var stageDir = Path.Combine(updatesRoot, update.Version.ToString());
-        if (Directory.Exists(stageDir))
-            Directory.Delete(stageDir, recursive: true);
-        Directory.CreateDirectory(stageDir);
+        var stageDir = StageDirFor(prepared.Version);
 
-        progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
-        var zipPath = ZipPathFor(update.Version);
-        // A quiet retry may already have fetched and verified this very zip, possibly hours ago: hash it again
-        // before it is extracted. A swapped or damaged file is deleted and fails like any bad download.
-        VerifiedZip? verifiedEarlier;
-        lock (Gate) { verifiedEarlier = _verifiedZip; _verifiedZip = null; }
-        if (verifiedEarlier?.Version == update.Version && File.Exists(zipPath))
-            await UpdateVerifier.EnsureFileMatchesAsync(zipPath, verifiedEarlier.Sha256, CancellationToken.None).ConfigureAwait(false);
-        else
-            await DownloadVerifiedAsync(update, zipPath, progress);
-
-        progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
-        // Off the UI thread so the loading scene keeps animating while ~126 MB
-        // unpacks; the continuation returns here (UI thread) for Shutdown().
-        await Task.Run(() =>
+        if (prepared.Manifest != null)
         {
-            // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
-            // (a Mac .app needs its symlinks and exec bits kept).
-            var staged = false;
-            StageReleaseOverride(zipPath, stageDir, ref staged);
-            if (!staged) ExtractUpdate(zipPath, stageDir);
-            File.Delete(zipPath);
-        });
+            // Changed-files stage: already complete. One that waited on disk is checked file by file first.
+            progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
+            if (satOnDisk)
+                await Task.Run(() => DeltaStager.VerifyStagedAsync(prepared.Manifest, stageDir, CancellationToken.None));
+        }
+        else
+        {
+            var zipPath = prepared.ZipPath!;
+            // A zip that waited on disk (possibly for hours) is hashed again before it is extracted. A swapped or
+            // damaged file is deleted and fails like any bad download.
+            if (satOnDisk)
+                await UpdateVerifier.EnsureFileMatchesAsync(zipPath, prepared.ZipSha256!, CancellationToken.None).ConfigureAwait(false);
+
+            progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
+            // Off the UI thread so the loading scene keeps animating while the zip unpacks; the continuation returns
+            // here (UI thread) for Shutdown().
+            await Task.Run(() =>
+            {
+                if (Directory.Exists(stageDir))
+                    Directory.Delete(stageDir, recursive: true);
+                Directory.CreateDirectory(stageDir);
+                // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
+                // (a Mac .app needs its symlinks and exec bits kept).
+                var staged = false;
+                StageReleaseOverride(zipPath, stageDir, ref staged);
+                if (!staged) ExtractUpdate(zipPath, stageDir);
+                File.Delete(zipPath);
+            });
+        }
 
         // An import may have been started while this downloaded (or still be running from before): the restart
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
@@ -366,7 +689,7 @@ public static partial class UpdateService
         // Remembered before the swap can start: if it fails after this process is gone, the next start knows
         // (SwapAttempt) and opens Play instead of gating it on the same update again.
         var marker = OriginPaths.UpdateSwapMarker;
-        SwapAttempt.Record(marker, update.Version);
+        SwapAttempt.Record(marker, prepared.Version);
         // The OS file writes and starts the swap script, which waits for this process to exit.
         try
         {
@@ -386,21 +709,18 @@ public static partial class UpdateService
     // Windows and the Mac don't implement it, so for them the call compiles away and the zip is extracted.
     static partial void StageReleaseOverride(string download, string stageDir, ref bool staged);
 
-    // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
-    // mismatch, a short file or a release that published no hash). Returns the SHA-256 it verified against. The zip only ever appears at
-    // zipPath once verified: it is written as zipPath.part and every failure path deletes that. Any
-    // failure throws; MainWindow shows "Update failed ... click to retry", and nothing was extracted
-    // or applied.
+    // Downloads the zip and checks it against `expected` (UpdateVerifier policy: refuse a mismatch or a short file).
+    // The zip only ever appears at zipPath once verified: it is written as zipPath.part and every failure path deletes
+    // that. Any failure throws; nothing was extracted or applied.
     // The byte loop runs off the UI thread (ConfigureAwait(false)); progress still lands on the UI
     // thread because Progress<T> captured it. Reports are capped at ~10/s (each is a dispatcher hop).
-    private static async Task<string> DownloadVerifiedAsync(AvailableUpdate update, string zipPath, IProgress<UpdateProgress>? progress)
+    private static async Task DownloadVerifiedAsync(AvailableUpdate update, string expected, string zipPath, IProgress<UpdateProgress> progress, CancellationToken ct)
     {
         var partPath = zipPath + ".part";
         try
         {
-            var expected = await ResolveExpectedHashAsync(update).ConfigureAwait(false);
-
-            using var stall = new CancellationTokenSource(StallTimeout);
+            using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            stall.CancelAfter(StallTimeout);
             using var response = await Http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, stall.Token).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var total = response.Content.Headers.ContentLength;
@@ -416,25 +736,48 @@ public static partial class UpdateService
                     if (lastReport.ElapsedMilliseconds >= 100)
                     {
                         lastReport.Restart();
-                        progress?.Report(new UpdateProgress(UpdateStage.Downloading, received, total));
+                        progress.Report(new UpdateProgress(UpdateStage.Downloading, received, total));
                     }
                 }, stall.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
                 throw new IOException("the connection stalled");
             }
 
             UpdateVerifier.ThrowIfRefused(verdict);
             File.Move(partPath, zipPath, overwrite: true);
-            progress?.Report(new UpdateProgress(UpdateStage.Downloading, total ?? 0, total ?? 0));
-            return expected;
+            progress.Report(new UpdateProgress(UpdateStage.Downloading, total ?? 0, total ?? 0));
         }
         catch (Exception ex)
         {
             try { File.Delete(partPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-            Log($"update {update.Version}: not applied, will retry later: {ex.GetType().Name}: {ex.Message}");
+            if (!ct.IsCancellationRequested)
+                Log($"update {update.Version}: not applied, will retry later: {ex.GetType().Name}: {ex.Message}");
             throw;
+        }
+    }
+
+    // Hands one fetch's progress to whoever watches it: nobody while it runs in the background, the badge click's
+    // progress once it joins (starting with the latest report, so a joined download shows where it already is).
+    private sealed class ProgressRelay : IProgress<UpdateProgress>
+    {
+        private readonly object _lock = new();
+        private IProgress<UpdateProgress>? _target;
+        private UpdateProgress? _last;
+
+        public void Attach(IProgress<UpdateProgress> target)
+        {
+            UpdateProgress? last;
+            lock (_lock) { _target = target; last = _last; }
+            if (last != null) target.Report(last);
+        }
+
+        public void Report(UpdateProgress value)
+        {
+            IProgress<UpdateProgress>? target;
+            lock (_lock) { _last = value; target = _target; }
+            target?.Report(value);
         }
     }
 
@@ -476,7 +819,8 @@ public static partial class UpdateService
 
     public sealed record BlockedUpdate(Version Version, string Reason);
 
-    public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null);
+    public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null,
+        string? FileListUrl = null, string? FileListSha256Url = null);
 
     public enum UpdateStage { Downloading, Installing, Restarting, FinishingImport }
 
@@ -489,19 +833,21 @@ public static partial class UpdateService
             ? Math.Clamp((double)ReceivedBytes / TotalBytes.Value, 0, 1)
             : null;
 
-        /// <summary>Player-facing line, e.g. "Downloading — 42% · 53 of 126 MB".</summary>
+        /// <summary>Player-facing line, e.g. "Downloading - 42% - 53 of 126 MB" (a changed-files update shows its own,
+        /// smaller size: "Downloading - 40% - 36 of 90 MB", or "2.4 of 6.1 MB" under 10 MB).</summary>
         public string Describe() => Stage switch
         {
             UpdateStage.Downloading when Fraction is { } f =>
-                $"Downloading - {f * 100:0}% - {Mb(ReceivedBytes)} of {Mb(TotalBytes!.Value)} MB",
-            UpdateStage.Downloading when ReceivedBytes > 0 => $"Downloading - {Mb(ReceivedBytes)} MB",
+                $"Downloading - {f * 100:0}% - {Mb(ReceivedBytes, TotalBytes!.Value)} of {Mb(TotalBytes!.Value, TotalBytes.Value)} MB",
+            UpdateStage.Downloading when ReceivedBytes > 0 => $"Downloading - {Mb(ReceivedBytes, ReceivedBytes)} MB",
             UpdateStage.Downloading => "Downloading",
             UpdateStage.Installing => "Installing",
             UpdateStage.FinishingImport => "Finishing your import first...",
             _ => "Restarting"
         };
 
-        private static string Mb(long bytes) => (bytes / 1_048_576d).ToString("0");
+        // Whole MB, or one decimal when the total is under 10 MB (a small changed-files update would read "0 of 2 MB").
+        private static string Mb(long bytes, long scale) => (bytes / 1_048_576d).ToString(scale < 10 * 1_048_576L ? "0.0" : "0");
     }
 
     private sealed record Release(

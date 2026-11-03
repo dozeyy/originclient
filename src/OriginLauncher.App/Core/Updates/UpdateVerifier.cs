@@ -222,6 +222,38 @@ public static class UpdateVerifier
         return removed;
     }
 
+    /// <summary>A changed-files stage still being built: "&lt;version&gt;" + this, renamed to "&lt;version&gt;" once verified.</summary>
+    public const string StagePartSuffix = ".delta-part";
+
+    /// <summary>
+    /// Deletes the stage folders in <paramref name="updatesDir"/> ("&lt;version&gt;" and "&lt;version&gt;.delta-part") that do not
+    /// belong to one of the <paramref name="keep"/> versions: a superseded background download, a half-built stage, or
+    /// the stage the running launcher was installed from (~200 MB each). Only folders whose whole name is a version
+    /// (at least major.minor.build) are touched, nothing else in the folder. A locked folder is skipped, never an
+    /// error. Returns how many folders were removed.
+    /// </summary>
+    public static int DeleteStaleStages(string updatesDir, params Version?[] keep)
+    {
+        if (!Directory.Exists(updatesDir)) return 0;
+        var kept = new HashSet<Version>(keep.Where(v => v != null).Select(v => UpdateGate.Normalize(v!)));
+        var removed = 0;
+        try
+        {
+            foreach (var dir in Directory.EnumerateDirectories(updatesDir))
+            {
+                var name = Path.GetFileName(dir);
+                if (name.EndsWith(StagePartSuffix, StringComparison.OrdinalIgnoreCase)) name = name[..^StagePartSuffix.Length];
+                if (!Version.TryParse(name, out var v) || v.Build < 0 || kept.Contains(UpdateGate.Normalize(v))) continue;
+                try { Directory.Delete(dir, recursive: true); removed++; }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return removed;
+    }
+
     private static void TryDelete(string path)
     {
         try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
