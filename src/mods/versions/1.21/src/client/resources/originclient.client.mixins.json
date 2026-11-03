@@ -68,6 +68,7 @@
 		"TitlesMixin",
 		"GameRendererBlurAccessor",
 		"MenuBlurMixin",
+		"SelectionListTransparentMixin",
 		"ShinyPotsMixin",
 		"TntCountdownMixin",
 		"ItemCooldownsMixin",

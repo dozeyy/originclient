@@ -66,6 +66,7 @@
 		"TitlesMixin",
 		"GameRendererFrameMixin",
 		"MenuBlurMixin",
+		"SelectionListTransparentMixin",
 		"MenuBlurRadiusMixin",
 		"GlintColorizerMixin",
 		"HumanoidArmorLayerMixin",
