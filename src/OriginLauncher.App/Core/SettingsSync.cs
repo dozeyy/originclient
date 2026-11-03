@@ -44,7 +44,8 @@ public static class SettingsSync
             Run($"seed {account}", () =>
             {
                 var engine = new SettingsSyncEngine(new SyncStoreData(), Log);
-                engine.Seed(Instances(account, skipRunning: true));
+                var running = new List<string>();
+                engine.Seed(Instances(account, skipRunning: true, running), running);
                 SyncStoreFile.Save(OriginPaths.SettingsSyncStoreFor(account), engine.Store);
                 Log($"{account}: seeded the store from every instance");
             });
@@ -60,12 +61,13 @@ public static class SettingsSync
         var storePath = OriginPaths.SettingsSyncStoreFor(account);
         var store = SyncStoreFile.Load(storePath);
         var engine = new SettingsSyncEngine(store ?? new SyncStoreData(), Log);
-        var instances = Instances(account, skipRunning: true);
+        var running = new List<string>();
+        var instances = Instances(account, skipRunning: true, running);
         if (store == null)
         {
             // No store (first launch after the switch went on raced the seed,
             // or the file was lost): seed now — loses nothing.
-            engine.Seed(instances);
+            engine.Seed(instances, running);
         }
         else
         {
@@ -101,8 +103,9 @@ public static class SettingsSync
         SyncStoreFile.Save(storePath, engine.Store);
     });
 
-    // Every Origin-supported version for which this account has a game folder.
-    private static List<SyncInstance> Instances(string account, bool skipRunning)
+    // Every Origin-supported version for which this account has a game folder. When given, running collects the
+    // versions left out because their game is running (a seed takes each in when its game exits).
+    private static List<SyncInstance> Instances(string account, bool skipRunning, List<string>? running = null)
     {
         var instances = new List<SyncInstance>();
         foreach (var version in VersionManager.OriginSupportedVersions)
@@ -112,6 +115,7 @@ public static class SettingsSync
             if (skipRunning && IsGameRunning(directory))
             {
                 Log($"{account} {version}: game is running - left alone");
+                running?.Add(version);
                 continue;
             }
             instances.Add(new SyncInstance(version, directory));

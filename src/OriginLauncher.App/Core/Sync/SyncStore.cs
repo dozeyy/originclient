@@ -28,6 +28,11 @@ public sealed class SyncStoreData
 
     public Dictionary<string, Dictionary<string, Dictionary<string, string>>> Baselines { get; set; } = new();
 
+    // Versions whose game was running when the store was seeded (seeding never reads a running instance). Each one
+    // is harvested like a seed the next time it is read (its game exited): per key the newest file wins, so that
+    // session's settings are collected instead of being treated as never-synced defaults that only fill gaps.
+    public List<string> SeedPending { get; set; } = new();
+
     public Dictionary<string, SyncValue> FileValues(string fileId)
     {
         if (!Files.TryGetValue(fileId, out var values))
@@ -87,6 +92,7 @@ public static class SyncStoreFile
             if (store == null || store.Format != 1) return null;
             store.Files ??= new();
             store.Baselines ??= new();
+            store.SeedPending ??= new();
             return store;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
