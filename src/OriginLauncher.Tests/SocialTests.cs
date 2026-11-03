@@ -698,6 +698,8 @@ public class SocialClientTests
 
         Assert.Equal(SocialAuthState.SignInFailed, outcome.State);
         Assert.Equal(1, net.Count("/v1/auth"));
+    }
+
     // The player switches account while Friends is signing in: the sign-in that read the OLD account must not leave
     // its token behind (Friends then showed, and sent everything as, the previous account until a restart).
     [Fact]
