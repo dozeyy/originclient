@@ -438,17 +438,16 @@ final class OriginDevWorld {
 			OriginDevShots.callStatic("com.origin.client.client.social.SocialDemo", "clear");
 			remote = new net.minecraft.client.entity.EntityOtherPlayerMP(mc.theWorld, new com.mojang.authlib.GameProfile(REMOTE_ID, "dozeyy"));
 			remote.getDataWatcher().updateObject(10, (byte) 0x7F);
-			// Up in open air, so no wall or tree stands between the camera and the other player.
-			mc.thePlayer.capabilities.isFlying = true;
-			mc.thePlayer.setPosition(mc.thePlayer.posX, mc.thePlayer.posY + 12, mc.thePlayer.posZ);
+			// Floating 4 blocks up with the camera tilted up at it, so sky (not a hill
+			// or tree) is behind it; moving the local player gets snapped back.
 			float yaw = mc.thePlayer.rotationYaw;
 			double rad = Math.toRadians(yaw);
-			double x = mc.thePlayer.posX - Math.sin(rad) * 3.0, z = mc.thePlayer.posZ + Math.cos(rad) * 3.0;
-			remote.setPositionAndRotation(x, mc.thePlayer.posY, z, yaw + 180f, 0f);
+			double x = mc.thePlayer.posX - Math.sin(rad) * 4.0, z = mc.thePlayer.posZ + Math.cos(rad) * 4.0;
+			remote.setPositionAndRotation(x, mc.thePlayer.posY + 4.0, z, yaw + 180f, 0f);
 			remote.rotationYawHead = yaw + 180f;
 			remote.renderYawOffset = yaw + 180f;
 			mc.theWorld.addEntityToWorld(-4243001, remote);
-			mc.thePlayer.rotationPitch = 5f;
+			mc.thePlayer.rotationPitch = -42f;
 			mc.gameSettings.thirdPersonView = 0;
 			remoteAt = System.currentTimeMillis();
 			log("[dev-shots] remote: spawned " + REMOTE_ID + " (status " + com.origin.client.client.cosmetics.CosmeticsService.status() + ")");
