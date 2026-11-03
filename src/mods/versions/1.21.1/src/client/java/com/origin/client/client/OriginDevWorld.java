@@ -169,6 +169,8 @@ final class OriginDevWorld {
 	private static long iwAt = 0, iwFrom = 0, iwHudFrom = -1, iwHudAt = 0;
 	private static Boolean iwLimitUnfocused;
 	private static boolean iwDone;
+	private static boolean iwParticlesWasOn;   // the firework step restores the Particles settings it changed
+	private static String iwParticlesMode = "";
 
 	static void inWorldTick(Minecraft mc, String dir, Runnable onEnd) {
 		if (iwDone) {
@@ -292,6 +294,42 @@ final class OriginDevWorld {
 					grab(mc, dir, "inworld_oldanim_page_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
 					Mods.setOn(com.origin.client.client.mods.OldAnimations.MOD, false);
 					mc.setScreen(null);
+					iw = 30;
+					iwAt = now + 1000;
+				}
+				case 30 -> {
+					// Firework crash guard (FireworkStarterMixin): with Particles on Reduced every firework
+					// spark is filtered, and vanilla's FireworkParticles$Starter dereferences the spark it
+					// asked for, so without the guard the next tick dies with "Ticking Particle" NPE.
+					// A real burst in front of the player; a crash here fails the boot.
+					iwParticlesWasOn = Mods.on("particles");
+					iwParticlesMode = Mods.mode("particles", "mode");
+					Mods.setOn("particles", true);
+					Mods.set("particles", "mode", "Reduced");
+					var eye = mc.player.getEyePosition();
+					var look = mc.player.getLookAngle();
+					double fx = eye.x + look.x * 4, fy = eye.y + look.y * 4 + 1, fz = eye.z + look.z * 4;
+					boolean filtered = com.origin.client.client.mods.ParticleFilter.hidden(
+							net.minecraft.core.particles.ParticleTypes.FIREWORK, fx, fy, fz);
+					mc.level.createFireworks(fx, fy, fz, 0, 0, 0, java.util.List.of(
+							new net.minecraft.world.item.component.FireworkExplosion(
+									net.minecraft.world.item.component.FireworkExplosion.Shape.LARGE_BALL,
+									it.unimi.dsi.fastutil.ints.IntList.of(0xFF5555), it.unimi.dsi.fastutil.ints.IntList.of(),
+									true, true)));
+					log("[origin-smoke] in-world: firework burst spawned with Particles on Reduced (spark filtered: "
+							+ filtered + ")");
+					if (!filtered) {
+						inWorldEnd(mc, false, "firework test: Reduced particles did not filter the spark", onEnd);
+						return;
+					}
+					iw = 31;
+					iwAt = now + 2500;   // the starter spawns sparks over its first ticks; ~50 ticks covers the burst
+				}
+				case 31 -> {
+					grab(mc, dir, "inworld_firework_reduced_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					log("[origin-smoke] in-world: firework burst with Reduced particles ticked, no crash");
+					Mods.set("particles", "mode", iwParticlesMode);
+					Mods.setOn("particles", iwParticlesWasOn);
 					iw = 2;
 					iwAt = now + 1000;
 				}

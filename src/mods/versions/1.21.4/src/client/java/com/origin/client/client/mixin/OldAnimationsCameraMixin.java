@@ -22,9 +22,13 @@ public class OldAnimationsCameraMixin {
 
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void originclient$instantSneak(CallbackInfo ci) {
-		if (entity != null && OldAnimations.on("instantSneak")) {
-			eyeHeight = entity.getEyeHeight();
-			eyeHeightOld = eyeHeight;
+		try {
+			if (entity != null && OldAnimations.on("instantSneak")) {
+				eyeHeight = entity.getEyeHeight();
+				eyeHeightOld = eyeHeight;
+			}
+		} catch (Throwable t) {
+			OldAnimations.fail("instant sneak", t);   // runs every tick inside Minecraft.tick: never throw
 		}
 	}
 }
