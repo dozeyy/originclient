@@ -215,6 +215,9 @@ public static class Sizes
     public const double FieldNarrow = 96;             // number boxes (resolution)
     public const double FieldTall = 88;               // the multi-line Java arguments box
     public const double LogoIntro = 64;               // the startup intro's logo
+    // Accounts and friends (WPF Spacing.xaml Size.SignInCard / Size.SignInPage; Social.xaml avatar and presence dot).
+    public const double Avatar = 32, AccountHead = 40, PresenceDot = 10, UnreadDot = 18, SocialToast = 360;
+    public const double SignInCard = 460, SignInPage = 564;
 }
 
 /// <summary>Motion (section 9). Reduced motion (and render runs) set Off: every duration is 0.</summary>
