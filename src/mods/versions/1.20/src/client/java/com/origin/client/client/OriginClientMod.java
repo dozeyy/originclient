@@ -23,7 +23,7 @@ public class OriginClientMod implements ClientModInitializer {
 	private net.minecraft.client.CameraType savedPerspective = null;
 	private boolean sneakForced = false;
 	private boolean chatApplied = false;
-	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
+	private double savedChatOpacity = 1.0, savedChatTextOpacity = 1.0, savedChatScale = 1.0;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
@@ -103,6 +103,23 @@ public class OriginClientMod implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);
 		// Vanilla options save the moment they change (Settings Sync needs it).
 		OptionsAutosave.register();
+		// The Chat mod's values are never written to options.txt: every save swaps the
+		// player's own chat settings in for the write (OptionsSaveMixin).
+		OptionsAutosave.addSwap(new OptionsAutosave.Swap() {
+			@Override
+			public void playerValues(net.minecraft.client.Options options) {
+				if (chatApplied) {
+					putPlayerChatValues(options);
+				}
+			}
+
+			@Override
+			public void originValues(net.minecraft.client.Options options) {
+				if (chatApplied) {
+					putChatValues(options);
+				}
+			}
+		});
 		// Team View, Discord presence (always on) and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
@@ -431,11 +448,11 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 
-		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
-		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
+		// Copy Coordinates: press the (unbound-by-default) key to drop your XYZ on
+		// the clipboard -- any time you're in a world, Coordinates HUD on or off.
 		while (OriginKeyBindings.copyCoords.consumeClick()) {
 			LocalPlayer p = client.player;
-			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
+			if (p != null) {
 				String c = p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " + p.blockPosition().getZ();
 				client.keyboardHandler.setClipboard(c);
 				p.displayClientMessage(net.minecraft.network.chat.Component.literal("Copied coordinates: " + c), true);
@@ -490,6 +507,10 @@ public class OriginClientMod implements ClientModInitializer {
 			// keep ticking; the readouts just hold their last value
 		}
 		tickLunarBatch3a(client);
+
+		// Zoom and Freelook: one key each, the Origin menu's and Controls' kept equal.
+		zoomKeyCode = syncKey(client, OriginKeyBindings.zoom, "zoom", "key", zoomKeySync);
+		freelookKeyCode = syncKey(client, OriginKeyBindings.freelook, "freelook", "key", freelookKeySync);
 
 		LocalPlayer player = client.player;
 		if (player == null) {
@@ -607,7 +628,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
 		// resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.screen == null
-				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
+				&& (isRawKeyDown(zoomKeyCode) || OriginKeyBindings.zoom.isDown());
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
 			if (zDown && !zoomKeyWasDown) {
 				zoomToggled = !zoomToggled;
@@ -647,9 +668,11 @@ public class OriginClientMod implements ClientModInitializer {
 		// nothing); "Toggle" flips on the vanilla key or the custom bind.
 		// Toggle Sneak/Sprint is one mod now (spec §5): the "sprint"/"sneak"
 		// sub-toggles pick which the hands-free behavior applies to.
-		// Toggle happens ONLY on the mod's assigned toggle key — we no longer
-		// consume the vanilla sprint/sneak keys, so double-tap-W sprinting and
-		// hold-Ctrl / hold-Shift keep working normally. We also never force the
+		// Toggle Sprint flips on the mod's own Sprint key; Toggle Sneak flips on
+		// the player's Sneak key (Controls' "Sneak"). They used to share the
+		// Sprint key, so one press started a sprint AND a crouch, and the crouch
+		// ended the sprint. Neither key is consumed, so double-tap-W sprinting
+		// keeps working. We also never force the
 		// state OFF: while sprint is toggled the vanilla sprint key simply reads as
 		// held (SprintKeyMixin) so the game drives the sprint itself, and sneak is
 		// released once on un-toggle -- vanilla stays in control the rest of the
@@ -677,7 +700,7 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
-			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean custom = client.screen == null && sneakKeyDown(client);
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
 			if (holdMode) {
@@ -713,12 +736,12 @@ public class OriginClientMod implements ClientModInitializer {
 			flyBoostApplied = false;
 		}
 
-		// Freelook: custom bind (default Left Alt) with the vanilla-controls
-		// binding as a fallback. Hold = look around; release = snap back (the
+		// Freelook: one key (default Left Alt), the Origin menu's and Controls'
+		// kept equal by syncKey. Hold = look around; release = snap back (the
 		// player's real rotation is never touched — see MouseHandlerMixin).
 		// "Toggle Freelook" turns the hold into a press-on/press-off latch.
 		boolean keyDown = Mods.on("freelook") && client.screen == null
-				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isDown());
+				&& (isRawKeyDown(freelookKeyCode) || OriginKeyBindings.freelook.isDown());
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
@@ -855,23 +878,106 @@ public class OriginClientMod implements ClientModInitializer {
 	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
 	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
 	// slider there made messages unreadable). Text stays fully visible at
-	// background 0. chatOpacity is pinned to 1.0 while the mod is on, which
-	// also heals any options.txt damage the old wiring left behind.
+	// background 0: chatOpacity is pinned to 1.0 while the mod is on.
+	// These are Origin's values, never the player's: all three of the player's
+	// own values come back when the mod turns off, and every options.txt write
+	// swaps them in for the write (OptionsAutosave.Swap, registered in
+	// onInitializeClient), so the file never stores the Chat mod's values.
 	private void applyChat(Minecraft client) {
 		boolean on = Mods.on("chat");
 		if (on) {
 			if (!chatApplied) {
 				savedChatOpacity = client.options.textBackgroundOpacity().get();
+				savedChatTextOpacity = client.options.chatOpacity().get();
 				savedChatScale = client.options.chatScale().get();
 				chatApplied = true;
 			}
-			client.options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
-			client.options.chatOpacity().set(1.0);
-			client.options.chatScale().set(Mods.num("chat", "scale"));
+			putChatValues(client.options);
 		} else if (chatApplied) {
-			client.options.textBackgroundOpacity().set(savedChatOpacity);
-			client.options.chatScale().set(savedChatScale);
+			putPlayerChatValues(client.options);
 			chatApplied = false;
+		}
+	}
+
+	private void putChatValues(net.minecraft.client.Options options) {
+		options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
+		options.chatOpacity().set(1.0);
+		options.chatScale().set(Mods.num("chat", "scale"));
+	}
+
+	private void putPlayerChatValues(net.minecraft.client.Options options) {
+		options.textBackgroundOpacity().set(savedChatOpacity);
+		options.chatOpacity().set(savedChatTextOpacity);
+		options.chatScale().set(savedChatScale);
+	}
+
+	// One key per action (Zoom, Freelook). The Origin menu's key option and the
+	// Controls entry are ONE binding, kept equal both ways like the Tab key:
+	// whichever side the player rebinds is copied to the other, so only one key
+	// ever fires the action (two separate keys used to: rebinding one left the
+	// other, C or Left Alt, still zooming / freelooking). On the first sync the
+	// Origin menu's key wins when it is set (it is what always fired). The Origin
+	// menu holds keyboard keys only: a Controls binding on a mouse button shows
+	// there as None and fires through the Controls entry alone.
+	private static final class KeySync {
+		int ours = Integer.MIN_VALUE;   // the Origin menu's key at the last sync
+		String controls;                // the Controls entry's key name at the last sync; null = never synced
+	}
+
+	private static final KeySync zoomKeySync = new KeySync(), freelookKeySync = new KeySync();
+	private static int zoomKeyCode = -1, freelookKeyCode = -1;
+
+	/** Syncs one Origin-menu key with its Controls entry; returns the keyboard key to read (-1 = none). */
+	private static int syncKey(Minecraft client, net.minecraft.client.KeyMapping mapping, String modId, String opt, KeySync s) {
+		int ours = Mods.keyCode(modId, opt);
+		try {
+			InputConstants.Key bound = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mapping);
+			boolean mouse = bound.getType() == InputConstants.Type.MOUSE;
+			int controls = mouse ? -1 : bound.getValue();
+			boolean first = s.controls == null;
+			boolean push = false;
+			if (first) {
+				if (mouse) {
+					if (ours > 0) {
+						Mods.set(modId, opt, -1);
+					}
+					ours = -1;
+				} else if (ours > 0 && ours != controls) {
+					push = true;
+				} else if (ours <= 0 && controls > 0) {
+					Mods.set(modId, opt, controls);
+					ours = controls;
+				}
+			} else if (ours != s.ours) {
+				push = mouse || ours != controls;   // rebound in the Origin menu
+			} else if (!bound.getName().equals(s.controls) && ours != controls) {
+				Mods.set(modId, opt, controls);     // rebound in Controls
+				ours = controls;
+			}
+			if (push) {
+				mapping.setKey(InputConstants.Type.KEYSYM.getOrCreate(ours > 0 ? ours : -1));
+				net.minecraft.client.KeyMapping.resetMapping();
+				client.options.save();
+			}
+			s.ours = ours;
+			s.controls = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mapping).getName();
+		} catch (Throwable t) {
+			// fail-soft: the Origin menu's key still works on its own
+		}
+		return ours;
+	}
+
+	/** Physical state of the player's Sneak key (Controls' "Sneak"), read raw so
+	 *  vanilla's own Sneak: Toggle option and key clashes can't hide a press. */
+	private static boolean sneakKeyDown(Minecraft client) {
+		try {
+			InputConstants.Key bound = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(client.options.keyShift);
+			if (bound.getType() == InputConstants.Type.MOUSE) {
+				return client.options.keyShift.isDown();
+			}
+			return isRawKeyDown(bound.getValue());
+		} catch (Throwable t) {
+			return false;
 		}
 	}
 

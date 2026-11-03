@@ -165,8 +165,8 @@ public final class Mods {
 
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
-				ModOption.toggle("sprint", "Toggle Sprint", true).tip("Sprint stays on after one press of the toggle key."),
-				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of the toggle key."),
+				ModOption.toggle("sprint", "Toggle Sprint", true).tip("Sprint stays on after one press of the Sprint key below."),
+				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of your Sneak key (set in Controls)."),
 				ModOption.toggle("flyBoost", "Fly Boost", false).tip("Multiplies your creative/spectator flight speed."),
 				ModOption.slider("flyBoostAmount", "Fly Boost Amount", 1, 5, 0.1, 2, "%.1fx").under("flyBoost"),
 				ModOption.keybind("key", "Sprint key", -1),
@@ -223,7 +223,6 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showWhileTyping", "Show While Typing", true),
 				ModOption.toggle("showBackground", "Show Background", true),
-				ModOption.toggle("copyClipboard", "Copy Coords To Clipboard", true),
 				ModOption.toggle("decimal", "Decimal Coordinates", false),
 				ModOption.header("Color"),
 				ModOption.color("bgColor", "Background Color", 0x00000000),

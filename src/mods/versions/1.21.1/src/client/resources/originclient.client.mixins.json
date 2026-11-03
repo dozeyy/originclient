@@ -86,6 +86,7 @@
 		"HypixelBedwarsSoundMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"ShadowCasterEntityMixin",
 		"ShadowCasterBlockEntityMixin",

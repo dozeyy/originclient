@@ -82,6 +82,12 @@ jobs:
       - name: Test step-aside logic
         run: python3 tools/step-aside-tests/run.py
 
+      # The starter config new players are seeded from (default-mods-config.json in every live
+      # module): every slider value inside its Mods.java range, and none of the known values
+      # that make a mod do nothing (Motion Blur strength 0, Time Changer real time on).
+      - name: Check starter mod config
+        run: python3 tools/mod-menu/check_default_config.py
+
       # Every Origin mixin into another mod (Sodium, Iris, JEI) is gated to the versions it was proven
       # on (compat/CompatGates + originclient.compat-gates.txt, DECISIONS 2026-10-26): fails on an
       # ungated third-party mixin, stale gate data, an unknown CompatGates id, or a pre-1.20 copy of

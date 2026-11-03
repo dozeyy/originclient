@@ -89,6 +89,7 @@
 		"SodiumChunkRendererMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"ShadowCasterEntityMixin",
 		"EntityRendererCullingBoxInvoker",
