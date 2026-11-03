@@ -150,7 +150,12 @@ jobs:
           chmod +x "$d"/appimage/*.AppImage
           for exe in "$d/tar/OriginLauncher/OriginLauncher" "$(ls "$d"/appimage/*.AppImage)"; do
             echo "::group::$exe"
-            "$exe" --self-test | tee "$d/out.txt"
+            # Same unlocked keyring as the Self-test step; pipefail so a FAIL fails this step.
+            EXE="$exe" OUT="$d/out.txt" dbus-run-session -- bash -c '
+              set -o pipefail
+              printf "origin-ci-throwaway" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+              "$EXE" --self-test --require-keyring | tee "$OUT"
+            '
             echo "::endgroup::"
             case "$exe" in
               *.AppImage) grep -qE "install kind +appimage" "$d/out.txt" ;;

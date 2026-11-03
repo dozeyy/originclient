@@ -214,7 +214,10 @@ internal static class SelfTest
             InstallRegistry.SetStartWithWindows(true, "/home/player/Origin Launcher/OriginLauncher");
             Require(InstallRegistry.IsStartWithWindows(), "turning it on wrote nothing");
             var entry = File.ReadAllText(InstallRegistry.DesktopFilePath);
-            Require(entry.Contains("\nExec=\"/home/player/Origin Launcher/OriginLauncher\"\n", StringComparison.Ordinal), "Exec line is wrong:\n" + entry);
+            // As an AppImage the entry points at the AppImage file itself, so the expected line comes
+            // from the same rule the launcher uses.
+            var target = LinuxInstall.LoginTarget("/home/player/Origin Launcher/OriginLauncher", LinuxInstall.AppImage, OriginPaths.UserAppCopy, File.Exists);
+            Require(entry.Contains("\nExec=" + InstallRegistry.ExecQuote(target) + "\n", StringComparison.Ordinal), "Exec line is wrong:\n" + entry);
             var validated = "desktop-file-validate not installed";
             if (File.Exists("/usr/bin/desktop-file-validate"))
             {
