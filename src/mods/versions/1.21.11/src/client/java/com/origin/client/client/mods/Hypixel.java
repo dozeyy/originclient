@@ -195,6 +195,11 @@ public final class Hypixel {
 	private static final Pattern FRIEND_REQUEST = Pattern.compile("^Friend request from (?:\\[[^\\]]+\\] )?(\\w{1,16})");
 	private static final Pattern GG = Pattern.compile(
 			"^(?:\\[[^\\]]+\\] )*\\w{1,16}: (?:gg|good game|gg wp|ggwp|gf|ggs)[!. ]*$", Pattern.CASE_INSENSITIVE);
+	// Hypixel's own lobby-join line, whole line only: "[MVP+] Name joined the lobby!",
+	// " >>> [MVP++] Name joined the lobby! <<<", seasonal "[MVP+] Name slid into the lobby!".
+	// Anchored so a player typing those words in chat is never hidden.
+	private static final Pattern LOBBY_JOIN = Pattern.compile(
+			"^(?:>>> )?\\[[^\\]]+\\] \\w{1,16} (?:joined|[a-z]+ into) the lobby!(?: <<<)?$");
 	private static final Pattern FRIEND_GUILD_JOIN = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} joined\\.$");
 	private static final Pattern FRIEND_GUILD_LEAVE = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} left\\.$");
 
@@ -260,9 +265,7 @@ public final class Hypixel {
 		if (Mods.bool(MOD, "hideSpectatorChat") && plain.startsWith("[SPECTATOR] ")) {
 			return false;
 		}
-		if (Mods.bool(MOD, "removeLobbyStatuses")
-				// contains, not endsWith: MVP++ lines end in " <<<"
-				&& (plain.contains("joined the lobby!") || plain.contains(" into the lobby!"))) {
+		if (Mods.bool(MOD, "removeLobbyStatuses") && LOBBY_JOIN.matcher(plain.strip()).matches()) {
 			return false;
 		}
 		if (Mods.bool(MOD, "hideJoinMessages") && FRIEND_GUILD_JOIN.matcher(plain).matches()) {
