@@ -34,6 +34,8 @@ internal static class SelfTest
         Console.WriteLine($"  data folder      {OriginPaths.DefaultRoot}");
         Console.WriteLine($"  bundled files    {OriginPaths.MacBundleResources ?? "(not running from an .app: next to the executable)"}");
         Console.WriteLine($"  update asset     {UpdateService.ReleaseAssetName}");
+        // launcher-release.yml's Mac job reads this line: a tag build must carry the tag's version, a rehearsal the dev 1.0.0.0.
+        Console.WriteLine($"  launcher version {UpdateService.CurrentVersion}{(UpdateService.IsDevBuild ? " (dev build)" : "")}");
         Console.WriteLine($"  Mojang runtime   {MojangMetadata.RuntimePlatform}");
 
         var scratch = Path.Combine(Path.GetTempPath(), "origin-selftest-" + Guid.NewGuid().ToString("N"));

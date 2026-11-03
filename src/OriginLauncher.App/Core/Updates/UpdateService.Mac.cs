@@ -5,10 +5,11 @@ using System.Runtime.InteropServices;
 namespace OriginLauncher.App.Core.Updates;
 
 // Mac: the release asset for this build's architecture (an Apple Silicon build updates to the next
-// Apple Silicon build), a zip holding one .app bundle. A running bundle can't be replaced file by
-// file without breaking its code signature halfway, so a small sh script waits for this process to
-// exit and swaps the whole bundle. No release publishes these assets yet: until one does,
-// CheckAsync finds no asset and nothing is offered.
+// Apple Silicon build), a zip holding one .app bundle; names in MacReleaseAssets. A running bundle
+// can't be replaced file by file without breaking its code signature halfway, so a small sh script
+// waits for this process to exit and swaps the whole bundle. launcher-release.yml's Mac jobs add
+// these zips to a release after the Windows files; a release without this arch's zip (older ones,
+// or one whose Mac upload failed) has no asset for CheckAsync, so nothing is offered or gated.
 //
 // Never broken (mandate 4): updates are mandatory, so a launcher that quits for an update and
 // doesn't come back would block Play for good, and anything that fails after this process exits is
@@ -18,8 +19,7 @@ namespace OriginLauncher.App.Core.Updates;
 // failed anyway leaves a marker, so the next attempt at that version refuses before quitting too.
 public static partial class UpdateService
 {
-    private static readonly string ReleaseZipPrefix =
-        RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "OriginLauncher-mac-arm64" : "OriginLauncher-mac-x64";
+    private static readonly string ReleaseZipPrefix = MacReleaseAssets.ZipPrefixFor(RuntimeInformation.ProcessArchitecture);
 
     internal static readonly string ReleaseAssetName = ReleaseZipPrefix + ".zip";
 

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Origin.app's Info.plist. tools/release/mac/package.sh copies it into Origin.app/Contents and
+  replaces __VERSION__ with the release tag's version (launcher-v1.0.80 -> 1.0.80), the same number
+  the Windows build gets as -p:Version. A rehearsal build stays unstamped: 1.0.0 here and assembly
+  version 1.0.0.0, the dev build that never triggers or blocks updates (UpdateService.IsDevBuild).
+
+  LSMinimumSystemVersion 15.0: the higher of the two real support floors, as of 2026-11-02:
+  - .NET 10: macOS 27, 26, 15 (Arm64, x64)
+    https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md
+  - Avalonia: macOS 14 Sonoma is the oldest version listed (Tier 2)
+    https://docs.avaloniaui.net/docs/supported-platforms
+  Raise it when either floor moves up.
+-->
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>org.originclient.launcher</string>
+  <key>CFBundleName</key>
+  <string>Origin</string>
+  <key>CFBundleDisplayName</key>
+  <string>Origin</string>
+  <key>CFBundleExecutable</key>
+  <string>OriginLauncher</string>
+  <key>CFBundleIconFile</key>
+  <string>Origin.icns</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleSignature</key>
+  <string>????</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleShortVersionString</key>
+  <string>__VERSION__</string>
+  <key>CFBundleVersion</key>
+  <string>__VERSION__</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>15.0</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.games</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
+</dict>
+</plist>

@@ -130,6 +130,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\Deferred.cs" LinkBase="Import" />
     <!-- The self-update zip's integrity check (pure: streams + files; UpdateService, the WPF/HTTP glue, stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateVerifier.cs" LinkBase="Updates" />
+    <!-- Which self-update zip each Mac architecture takes (pure name choice; UpdateService.Mac.cs uses it). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\MacReleaseAssets.cs" LinkBase="Updates" />
     <!-- The mandatory-update gate's state machine: a failed check never blocks play, retries quietly (pure; the clock is a parameter). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateGate.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />

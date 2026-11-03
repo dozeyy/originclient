@@ -25,13 +25,23 @@
 #                                zip it, build the small Origin installer
 #                                (src/OriginSetup, which downloads that zip)
 #                                and smoke-test both, publish the release.
+#   4. Mac        (macOS, both archs at once, after 3 succeeded) bundle the
+#                                SAME jars into Origin.app (Apple Silicon on
+#                                macos-15, Intel on macos-15-intel), ad-hoc
+#                                sign, zip + disk image, prove both, then ADD
+#                                the 6 Mac files to the release Windows already
+#                                published (gh release upload). Nothing here can
+#                                delete, change or hold up the Windows files; a
+#                                release with no Mac zip just offers Mac
+#                                launchers nothing (tools/release/mac/package.sh).
 # The old single-job pipeline compiled every module back to back on one
 # Windows runner.
 #
 # REHEARSAL: run it from the Actions tab (Run workflow) to do every step
 # against the latest published release — plan, reuse, build, notes,
 # installer, zip — WITHOUT publishing anything. The setup.exe, zip and notes
-# land as a downloadable "rehearsal-release" artifact on the run instead. The
+# land as a downloadable "rehearsal-release" artifact on the run instead (the
+# Mac files as "rehearsal-release-mac"). The
 # rehearsal exe is an unstamped dev build (1.0.0.0), so it never blocks or
 # triggers updates. Any run not started by a launcher-v* tag is a rehearsal.
 name: launcher-release
@@ -193,3 +203,130 @@ jobs:
           OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md
+
+  # ---- Mac (after the Windows job, never in its way) ----
+  # needs: release + "release succeeded": by the time this starts the Windows release is published
+  # (or the rehearsal artifact kept), and these jobs only ever ADD files. A failure here leaves the
+  # Windows release exactly as it is; Mac launchers find no zip for their arch and offer nothing.
+  mac:
+    name: Mac app (${{ matrix.rid }})
+    needs: [plan, mods, release]
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each arch on its own hardware: an x64 build under Rosetta crashed at web view creation,
+        # so Rosetta proves nothing about Intel Macs. The names are the published asset names
+        # (check_consistency.py check_mac_release holds them equal to MacReleaseAssets.cs).
+        include:
+          - os: macos-15
+            rid: osx-arm64
+            zip: OriginLauncher-osx-arm64.zip
+            dmg: Origin-Mac-AppleSilicon.dmg
+          - os: macos-15-intel
+            rid: osx-x64
+            zip: OriginLauncher-osx-x64.zip
+            dmg: Origin-Mac-Intel.dmg
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      # The same artifacts the Windows job bundled (built + reused jars).
+      - name: Download mod jars
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mod-*
+          path: modjars
+          merge-multiple: true
+
+      # The Windows zip this release ships, to prove the Mac app bundles byte-identical jars.
+      - name: Download the Windows launcher zip (rehearsal artifact)
+        if: env.REHEARSAL == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: rehearsal-release
+          path: windows
+      - name: Download the Windows launcher zip (published release)
+        if: env.REHEARSAL != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$RELEASE_TAG" --pattern OriginLauncher-win-x64.zip --dir windows
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # Same rule as the Windows job: exactly the tag's version; a rehearsal stays unstamped.
+      - name: Read version from tag
+        id: ver
+        run: |
+          if [ "$REHEARSAL" = "true" ]; then v=""; else v="${RELEASE_TAG#launcher-v}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      # Publish, bundle, sign, zip, hash, disk image; then verify the zip the way the self-update
+      # unpacks it and run --self-test from the mounted disk image.
+      - name: Build, sign and prove the Mac app
+        run: >
+          bash tools/release/mac/package.sh "${{ matrix.rid }}" "${{ steps.ver.outputs.version }}"
+          modjars mac-out "${{ matrix.zip }}" "${{ matrix.dmg }}" windows/OriginLauncher-win-x64.zip
+
+      - name: Keep this arch's files for the publish job
+        uses: actions/upload-artifact@v7
+        with:
+          name: mac-${{ matrix.rid }}
+          path: |
+            mac-out/${{ matrix.zip }}
+            mac-out/${{ matrix.zip }}.sha256
+            mac-out/${{ matrix.dmg }}
+          if-no-files-found: error
+          retention-days: 3
+
+  mac-publish:
+    name: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'Add the Mac files to the release' || 'Keep the Mac files (rehearsal, publishes nothing)' }}
+    needs: mac
+    # Both arches or neither: the website links both disk images.
+    if: ${{ !cancelled() && needs.mac.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download both archs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mac-osx-*
+          path: mac
+          merge-multiple: true
+
+      - name: Keep rehearsal output as a run artifact
+        if: env.REHEARSAL == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: rehearsal-release-mac
+          path: |
+            mac/OriginLauncher-osx-arm64.zip.sha256
+            mac/OriginLauncher-osx-x64.zip.sha256
+            mac/OriginLauncher-osx-arm64.zip
+            mac/OriginLauncher-osx-x64.zip
+            mac/Origin-Mac-AppleSilicon.dmg
+            mac/Origin-Mac-Intel.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+      # Adds to the release the Windows job created; never creates, edits or deletes it. Hashes
+      # first, so a Mac launcher polling mid-upload never sees a zip without its .sha256.
+      # --clobber only so a re-run of a failed Mac upload can replace its own half-uploaded files.
+      - name: Add the Mac files to the release
+        if: env.REHEARSAL != 'true'
+        working-directory: mac
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release upload "$RELEASE_TAG" --repo "${{ github.repository }}" --clobber
+          OriginLauncher-osx-arm64.zip.sha256
+          OriginLauncher-osx-x64.zip.sha256
+          OriginLauncher-osx-arm64.zip
+          OriginLauncher-osx-x64.zip
+          Origin-Mac-AppleSilicon.dmg
+          Origin-Mac-Intel.dmg

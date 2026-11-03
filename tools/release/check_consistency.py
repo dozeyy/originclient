@@ -28,6 +28,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    ReleaseAssetName + ".sha256" release asset (on Windows ReleaseAssetName is AssetName) and the release workflow must publish
    exactly that (both in the `gh release create` list and the rehearsal artifact).
 
+7. The Mac release files — the Mac launcher's self-update zip per arch (Core/Updates/MacReleaseAssets.cs, used by
+   UpdateService.Mac.cs) must be the zip launcher-release.yml builds for that arch, and every Mac file (both zips,
+   their .sha256, both disk images) must be in the Mac upload and the Mac rehearsal artifact.
+
 Run from anywhere: python3 tools/release/check_consistency.py
 """
 from __future__ import annotations
@@ -171,6 +175,54 @@ def check_update_hash() -> list[str]:
     return [] if n >= 2 else [f"launcher-release.yml must list {hash_name} in the release and the rehearsal artifact (found {n}x)"]
 
 
+# The Mac disk images are downloads only (the launcher never looks them up), but the website links them by
+# these exact names, so the workflow must keep publishing them under these names.
+MAC_DMGS = {"osx-arm64": "Origin-Mac-AppleSilicon.dmg", "osx-x64": "Origin-Mac-Intel.dmg"}
+
+
+def check_mac_release() -> list[str]:
+    """The Mac self-update zips the launcher looks for (Core/Updates/MacReleaseAssets.cs, used by
+    UpdateService.Mac.cs) must be exactly the ones launcher-release.yml builds per arch and publishes,
+    each with its .sha256, plus the two disk images."""
+    assets = (LAUNCHER / "Core/Updates/MacReleaseAssets.cs").read_text(encoding="utf-8")
+    mac_svc = (LAUNCHER / "Core/Updates/UpdateService.Mac.cs").read_text(encoding="utf-8")
+    wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
+    prefixes = dict(re.findall(r'const string (AppleSiliconZipPrefix|IntelZipPrefix)\s*=\s*"([^"]*)"', assets))
+    if set(prefixes) != {"AppleSiliconZipPrefix", "IntelZipPrefix"}:
+        return ["MacReleaseAssets.cs: AppleSiliconZipPrefix / IntelZipPrefix constants not found (update check_mac_release)"]
+    want_zip = {"osx-arm64": prefixes["AppleSiliconZipPrefix"] + ".zip", "osx-x64": prefixes["IntelZipPrefix"] + ".zip"}
+    if not re.search(r'Architecture\.Arm64\s*=>\s*AppleSiliconZipPrefix', assets) \
+            or not re.search(r'Architecture\.X64\s*=>\s*IntelZipPrefix', assets):
+        return ["MacReleaseAssets.ZipPrefixFor no longer maps Arm64 -> AppleSiliconZipPrefix and X64 -> IntelZipPrefix"]
+    if not re.search(r'ReleaseZipPrefix\s*=\s*MacReleaseAssets\.ZipPrefixFor\(RuntimeInformation\.ProcessArchitecture\)', mac_svc) \
+            or not re.search(r'ReleaseAssetName\s*=\s*ReleaseZipPrefix\s*\+\s*"\.zip"', mac_svc):
+        return ["UpdateService.Mac.cs no longer takes its zip name from MacReleaseAssets.ZipPrefixFor (update check_mac_release)"]
+
+    problems: list[str] = []
+    # The build matrix: each rid builds exactly the zip and disk image named for it.
+    matrix = {m.group(1): (m.group(2), m.group(3)) for m in re.finditer(
+        r'rid:\s*(osx-[\w]+)\s*\n\s*zip:\s*(\S+)\s*\n\s*dmg:\s*(\S+)', wf)}
+    for rid in ("osx-arm64", "osx-x64"):
+        if rid not in matrix:
+            problems.append(f"launcher-release.yml: no Mac matrix entry for {rid} (rid/zip/dmg lines)")
+            continue
+        zip_name, dmg = matrix[rid]
+        if zip_name != want_zip[rid]:
+            problems.append(f"launcher-release.yml builds {zip_name} for {rid}, but the launcher looks for {want_zip[rid]}")
+        if dmg != MAC_DMGS[rid]:
+            problems.append(f"launcher-release.yml builds {dmg} for {rid}, expected {MAC_DMGS[rid]}")
+    # Published AND kept in the rehearsal artifact: each file on its own line at least twice.
+    for name in [*want_zip.values(), *(z + ".sha256" for z in want_zip.values()), *MAC_DMGS.values()]:
+        n = len(re.findall(r"^\s+(?:mac/)?" + re.escape(name) + r"\s*$", wf, re.M))
+        if n < 2:
+            problems.append(f"launcher-release.yml must list {name} in the Mac release upload and the rehearsal artifact (found {n}x)")
+    if not re.search(r"gh release upload\b", wf):
+        problems.append("launcher-release.yml: the Mac files must be ADDED with gh release upload (never a second gh release create)")
+    if len(re.findall(r"gh release create\b", wf)) != 1:
+        problems.append("launcher-release.yml must create the release exactly once (the Windows job)")
+    return problems
+
+
 def check_picker() -> list[str]:
     # Each card is Group("key", "title", "tagline", "description", "ver", "ver", ...):
     # the versions are every string literal after the first four.
@@ -193,12 +245,12 @@ def check_picker() -> list[str]:
 
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
-                + check_update_hash() + check_picker())
+                + check_update_hash() + check_mac_release() + check_picker())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
-        print("OK: version list, version picker, hand-off file name, theme tokens, release feed and update hash agree "
-              "across launcher and installer.")
+        print("OK: version list, version picker, hand-off file name, theme tokens, release feed, update hash and "
+              "Mac release files agree across launcher, installer and release workflow.")
     return 1 if problems else 0
 
 
