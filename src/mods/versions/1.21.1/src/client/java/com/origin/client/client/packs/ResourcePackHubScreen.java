@@ -30,7 +30,11 @@ import static com.origin.client.client.gui.OriginDeck.*;
 // Minecraft's own Resource Packs screen (OriginClientMod). Same OriginWindow
 // frame and row style as the shader browser.
 //
-//   Browse     live Modrinth search for THIS game version: search, sort,
+//   Picks      the first view: hand-picked PvP / Bedwars packs in different
+//              styles for THIS game version (PackPicks, built into the jar),
+//              style chips; each installs from the creator's own source or
+//              opens the creator's page (see PackPicks for which and why).
+//   Browse     live Modrinth search (re-uploaded copies collapsed: PackDedupe) for THIS game version: search, sort,
 //              resolution, categories, infinite scroll, install with progress +
 //              cancel, then Enable.
 //   Installed  everything in resourcepacks/: on/off, order (top wins), updates,
@@ -43,7 +47,7 @@ import static com.origin.client.client.gui.OriginDeck.*;
 // accessor didn't apply, the hub still installs/updates/uninstalls and tells the
 // player to switch packs on in vanilla's list (Mode.INSTALL_ONLY).
 public class ResourcePackHubScreen extends OriginWindow {
-	private enum Tab { BROWSE, INSTALLED }
+	private enum Tab { PICKS, BROWSE, INSTALLED }
 
 	private enum Mode { ATTACHED, INSTALL_ONLY }
 
@@ -65,7 +69,11 @@ public class ResourcePackHubScreen extends OriginWindow {
 
 	private final Mode mode;
 	private final PackSelectionModel model;
-	private Tab tab = Tab.BROWSE;
+	private Tab tab = Tab.PICKS;
+
+	// Picks (this game version's, fixed for the jar's life); null style = All
+	private final List<PackPicks.Pick> picks = PackPicks.forVersion(PackHub.gameVersion());
+	private PackPicks.Style pickStyle = null;
 
 	// Browse
 	private String typed = "";
@@ -151,6 +159,9 @@ public class ResourcePackHubScreen extends OriginWindow {
 
 	@Override
 	protected String subheading() {
+		if (tab == Tab.PICKS) {
+			return "Hand-picked PvP and Bedwars packs for Minecraft " + PackHub.gameVersion();
+		}
 		return "Modrinth packs for Minecraft " + PackHub.gameVersion();
 	}
 
@@ -165,12 +176,14 @@ public class ResourcePackHubScreen extends OriginWindow {
 		long updates = libraryPacks().stream().filter(l -> l.update() != null).count();
 		String inst = updates > 0 ? "Installed · " + updates + (updates == 1 ? " update" : " updates")
 				: "Installed (" + n + ")";
-		float wi = buttonW(d, inst, null), wb = buttonW(d, "Browse", "@find");
+		float wi = buttonW(d, inst, null), wb = buttonW(d, "Browse", "@find"), wp = buttonW(d, "Picks", null);
 		float x = right - wi;
 		button(d, inst, null, x, 16, wi, 32, tab == Tab.INSTALLED ? Style.PRIMARY : Style.GHOST, true,
 				() -> switchTab(Tab.INSTALLED));
 		button(d, "Browse", "@find", x - 8 - wb, 16, wb, 32, tab == Tab.BROWSE ? Style.PRIMARY : Style.GHOST, true,
 				() -> switchTab(Tab.BROWSE));
+		button(d, "Picks", null, x - 16 - wb - wp, 16, wp, 32, tab == Tab.PICKS ? Style.PRIMARY : Style.GHOST, true,
+				() -> switchTab(Tab.PICKS));
 	}
 
 	private void switchTab(Tab t) {
@@ -196,7 +209,9 @@ public class ResourcePackHubScreen extends OriginWindow {
 					&& System.currentTimeMillis() - typedAt >= DEBOUNCE_MS) {
 				pushQuery();
 			}
-			if (tab == Tab.BROWSE) {
+			if (tab == Tab.PICKS) {
+				drawPicks(d);
+			} else if (tab == Tab.BROWSE) {
 				drawBrowse(d);
 			} else {
 				drawInstalled(d);
@@ -292,20 +307,14 @@ public class ResourcePackHubScreen extends OriginWindow {
 		// category chips
 		float cx = BODY_X, cy = BODY_Y + 36 + 10;
 		for (ModrinthPacks.Category c : ModrinthPacks.Category.values()) {
-			String t = c.label.toUpperCase(Locale.ROOT);
-			float w = d.textW(t, 10.5f, true, CAPS_TRACK) + 24;
-			if (cx + w > BODY_X + BODY_W) {
-				break;
-			}
-			boolean on = c == category, hov = d.over(cx, cy, w, 28);
-			d.rect(cx, cy, w, 28, 14, on ? ACC_SOFT : hov ? 0x1AFFFFFF : 0x0FFFFFFF);
-			d.textCenter(t, cx + w / 2, cy + 14, 10.5f, true, CAPS_TRACK, on ? ACC : hov ? TEXT : DIM);
-			d.hit(cx, cy, w, 28, () -> {
+			cx = chip(d, c.label, c == category, cx, cy, () -> {
 				category = c;
 				resetScroll();
 				pushQuery();
 			});
-			cx += w + 6;
+			if (cx < 0) {
+				break;
+			}
 		}
 
 		PackCatalog.Snapshot snap = PackHub.catalog().snapshot();
@@ -342,6 +351,9 @@ public class ResourcePackHubScreen extends OriginWindow {
 		String foot = "Results from Modrinth";
 		if (snap.total() >= 0) {
 			foot += " · " + snap.total() + (snap.total() == 1 ? " pack" : " packs") + " for " + PackHub.gameVersion();
+		}
+		if (snap.hidden() > 0) {
+			foot += " · " + snap.hidden() + (snap.hidden() == 1 ? " copy" : " copies") + " of other packs hidden";
 		}
 		if (snap.cached()) {
 			foot += " · offline copy";
@@ -472,27 +484,41 @@ public class ResourcePackHubScreen extends OriginWindow {
 	}
 
 	private void drawHitControl(OriginDeck d, ModrinthPacks.Hit h, float bx, float by) {
-		PackInstaller.State st = PackHub.installer().state(h.projectId());
+		drawInstallControl(d, h.projectId(), null, () -> startInstall(h.projectId(), h.title(), h.slug(), null), bx, by);
+	}
+
+	/**
+	 * Install / progress / Enable for one installer key (a Modrinth project id, or a
+	 * direct pick's "pick:<id>"). changedPage != null: a direct pick whose file no
+	 * longer matches its pinned hash offers that page instead of a retry.
+	 */
+	private void drawInstallControl(OriginDeck d, String key, String changedPage, Runnable start, float bx, float by) {
+		PackInstaller.State st = PackHub.installer().state(key);
 		String file = st.status() == PackInstaller.Status.DONE && st.fileName() != null && !removals.contains(st.fileName())
-				? st.fileName() : installedFile(h.projectId());
+				? st.fileName() : installedFile(key);
 		switch (st.status()) {
-			case WORKING -> drawProgress(d, h.projectId(), st, bx, by, CTRL_W);
+			case WORKING -> drawProgress(d, key, st, bx, by, CTRL_W);
 			case ERROR -> {
+				boolean changed = changedPage != null && PackInstaller.CHANGED.equals(st.message());
 				boolean hov = d.over(bx, by, CTRL_W, CTRL_H);
 				d.rect(bx, by, CTRL_W, CTRL_H, 6, RED_SOFT);
-				String t = hov ? "TRY AGAIN" : d.fit(st.message().toUpperCase(Locale.ROOT), CTRL_W - 16, 10, true, 1.2f);
+				String t = hov ? (changed ? "OPEN PAGE" : "TRY AGAIN")
+						: d.fit(st.message().toUpperCase(Locale.ROOT), CTRL_W - 16, 10, true, 1.2f);
 				d.textCenter(t, bx + CTRL_W / 2, by + CTRL_H / 2, 10, true, hov ? CAPS_TRACK : 1.2f, RED);
 				d.hit(bx, by, CTRL_W, CTRL_H, () -> {
-					PackHub.installer().clear(h.projectId());
-					startInstall(h.projectId(), h.title(), h.slug(), null);
+					if (changed) {
+						openLink(changedPage);
+					} else {
+						PackHub.installer().clear(key);
+						start.run();
+					}
 				});
 			}
 			default -> {
 				if (file != null) {
 					drawEnableControl(d, file, bx, by, CTRL_W);
 				} else {
-					button(d, "Install", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true,
-							() -> startInstall(h.projectId(), h.title(), h.slug(), null));
+					button(d, "Install", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true, start);
 				}
 			}
 		}
@@ -574,6 +600,136 @@ public class ResourcePackHubScreen extends OriginWindow {
 		} catch (Throwable ignored) {
 			// no browser: nothing to do
 		}
+	}
+
+	// ================= Picks =================
+
+	private List<PackPicks.Pick> shownPicks() {
+		if (pickStyle == null) {
+			return picks;
+		}
+		List<PackPicks.Pick> out = new ArrayList<>();
+		for (PackPicks.Pick p : picks) {
+			if (p.styles.contains(pickStyle)) {
+				out.add(p);
+			}
+		}
+		return out;
+	}
+
+	private void drawPicks(OriginDeck d) {
+		float cx = chip(d, "All", pickStyle == null, BODY_X, BODY_Y, () -> {
+			pickStyle = null;
+			resetScroll();
+		});
+		for (PackPicks.Style st : PackPicks.styles(picks)) {
+			if (cx < 0) {
+				break;
+			}
+			cx = chip(d, st.label, st == pickStyle, cx, BODY_Y, () -> {
+				pickStyle = st;
+				resetScroll();
+			});
+		}
+
+		float top = BODY_Y + 28 + 12, bottom = listBottom();
+		List<PackPicks.Pick> list = shownPicks();
+		float contentH = list.size() * (B_ROW_H + ROW_GAP);
+		maxScroll = Math.max(0, contentH - (bottom - top));
+		scrollTarget = Math.min(scrollTarget, maxScroll);
+		scroll = Math.min(scroll, maxScroll);
+		if (list.isEmpty()) {
+			d.textCenter("No hand-picked packs for " + PackHub.gameVersion() + " yet - Browse searches every Modrinth pack",
+					W / 2, top + 48, 14, false, 0, MUTE);
+		} else {
+			d.clip(0, top, W, bottom - top);
+			for (int i = 0; i < list.size(); i++) {
+				float y = top + i * (B_ROW_H + ROW_GAP) - (float) scroll;
+				if (y + B_ROW_H >= top && y <= bottom) {
+					drawPickRow(d, list.get(i), y);
+				}
+			}
+			d.unclip();
+			scrollbar(d, top, bottom);
+		}
+		drawFooter(d, "Hand-picked by Origin · " + picks.size() + " for " + PackHub.gameVersion()
+				+ " · installed from each creator's own source, or opened on their page");
+	}
+
+	private void drawPickRow(OriginDeck d, PackPicks.Pick p, float y) {
+		float x = BODY_X, w = BODY_W;
+		card(d, x, y, w, B_ROW_H, d.over(x, y, w, B_ROW_H));
+
+		// previews come from Modrinth's CDN only (PackPreviews); other sources show the mark
+		float ix = x + 12, iy = y + (B_ROW_H - PREV_H) / 2;
+		d.rect(ix, iy, PREV_W, PREV_H, 4, 0xFF0B0E0C, LINE);
+		PackPreviews.Preview gallery = p.imageUrl.isEmpty() ? null : PackPreviews.remote(p.imageUrl);
+		PackPreviews.Preview icon = gallery == null && !p.iconUrl.isEmpty() ? PackPreviews.remote(p.iconUrl) : null;
+		if (gallery != null) {
+			blit(d, gallery, ix, iy, PREV_W, PREV_H, true);
+		} else if (icon != null) {
+			blit(d, icon, ix + (PREV_W - PREV_H) / 2 + 2, iy + 2, PREV_H - 4, PREV_H - 4, true);
+		} else {
+			d.logoFaint(ix + PREV_W / 2, iy + PREV_H / 2, 24, 0.25f);
+		}
+
+		float bx = x + w - 16 - CTRL_W, by = y + (B_ROW_H - CTRL_H) / 2;
+		float px = bx;
+		if (p.source == PackPicks.Source.LINK) {
+			// the creator's terms (or an ad / subscribe gate) rule out downloading in game
+			button(d, "Open page", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true, () -> openLink(p.pageUrl));
+		} else {
+			if (p.source == PackPicks.Source.MODRINTH) {
+				drawInstallControl(d, p.key(), null, () -> startInstall(p.projectId, p.title, p.slug, null), bx, by);
+			} else {
+				drawInstallControl(d, p.key(), p.pageUrl, () -> startDirect(p), bx, by);
+			}
+			float pw = 64;
+			px = bx - 8 - pw;
+			button(d, "Page", null, px, by, pw, CTRL_H, Style.GHOST, true, () -> openLink(p.pageUrl));
+		}
+
+		float tx = ix + PREV_W + 20, tw = px - 16 - tx;
+		String title = d.fit(p.title, tw, 15, true, 0);
+		float titleW = d.text(title, tx, y + 26, 15, true, 0, TEXT);
+		if (titleW + 40 < tw) {
+			d.text(d.fit("by " + p.author, tw - titleW - 8, 12, false, 0), tx + titleW + 8, y + 26, 12, false, 0, MUTE);
+		}
+		d.text(d.fit(p.about, tw, 13, false, 0), tx, y + 45, 13, false, 0, DIM);
+		d.text(d.fit(pickMeta(p), tw, 11.5f, false, 0), tx, y + 63, 11.5f, false, 0, MUTE);
+	}
+
+	/** Source · resolution · styles · the creator's credit line (licence terms ask for it). */
+	private static String pickMeta(PackPicks.Pick p) {
+		StringBuilder sb = new StringBuilder(p.source == PackPicks.Source.LINK ? "Opens " + p.sourceName : "From " + p.sourceName);
+		if (!p.res.isEmpty()) {
+			sb.append(" · ").append(p.res);
+		}
+		List<String> st = new ArrayList<>();
+		for (PackPicks.Style x : p.styles) {
+			st.add(x.label);
+		}
+		sb.append(" · ").append(String.join(", ", st));
+		if (!p.credit.isEmpty()) {
+			sb.append(" · ").append(p.credit);
+		}
+		return sb.toString();
+	}
+
+	private void startDirect(PackPicks.Pick p) {
+		STARTED.add(p.key());
+		// reinstalling a pack staged for removal keeps the file (see startInstall)
+		for (String f : PackHub.index().filesOfProject(p.key())) {
+			removals.remove(f);
+			PackHub.index().cancelDelete(f);
+		}
+		PackHub.installer().startDirect(p, PackHub.gameFormat(), PackHub.packDir());
+	}
+
+	/** Dev-shots (OriginDevShots): open on a given tab. */
+	public ResourcePackHubScreen devTab(String name) {
+		tab = "browse".equals(name) ? Tab.BROWSE : "installed".equals(name) ? Tab.INSTALLED : Tab.PICKS;
+		return this;
 	}
 
 	// ================= Installed =================
@@ -903,6 +1059,20 @@ public class ResourcePackHubScreen extends OriginWindow {
 
 	// ---- shared drawing ----
 
+	/** One filter chip at (x, y); returns the next chip's x, or -1 when it no longer fits the row. */
+	private float chip(OriginDeck d, String label, boolean on, float x, float y, Runnable action) {
+		String t = label.toUpperCase(Locale.ROOT);
+		float w = d.textW(t, 10.5f, true, CAPS_TRACK) + 24;
+		if (x + w > BODY_X + BODY_W) {
+			return -1;
+		}
+		boolean hov = d.over(x, y, w, 28);
+		d.rect(x, y, w, 28, 14, on ? ACC_SOFT : hov ? 0x1AFFFFFF : 0x0FFFFFFF);
+		d.textCenter(t, x + w / 2, y + 14, 10.5f, true, CAPS_TRACK, on ? ACC : hov ? TEXT : DIM);
+		d.hit(x, y, w, 28, action);
+		return x + w + 6;
+	}
+
 	private void drawFooter(OriginDeck d, String text) {
 		d.text(d.fit(text, BODY_W, 11.5f, false, 0), BODY_X, BODY_Y + BODY_H - 4, 11.5f, false, 0, MUTE);
 	}
@@ -960,6 +1130,9 @@ public class ResourcePackHubScreen extends OriginWindow {
 				presetName += c;
 			}
 			return true;
+		}
+		if (tab == Tab.PICKS) {
+			switchTab(Tab.BROWSE); // typing on Picks starts a search
 		}
 		if (tab == Tab.BROWSE && OriginTextInput.room(typed, c, 64)) {
 			typed += c;

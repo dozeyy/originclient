@@ -67,8 +67,8 @@ PAGES = [
     "https://www.curseforge.com/minecraft/texture-packs/bedwars",
     "https://www.curseforge.com/minecraft/texture-packs/better-bedwars",
     "https://github.com/Faithful-Resource-Pack/Faithful-32x-Java/releases",
-    "https://api.github.com/repos/Faithful-Resource-Pack/Faithful-32x-Java/releases?per_page=100",
-    "https://api.github.com/repos/Faithful-Resource-Pack/Faithful-32x-Java/branches?per_page=100",
+    "https://api.github.com/repos/Faithful-Resource-Pack/Faithful-32x-Java/releases?per_page=1",
+    "https://api.github.com/repos/Faithful-Resource-Pack/Faithful-64x-Java/releases?per_page=3",
 ]
 
 

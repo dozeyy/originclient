@@ -1,11 +1,13 @@
 import com.origin.client.client.hud.FrameStats;
 import com.origin.client.client.hud.FrameStatsProbe;
 import com.origin.client.client.packs.ModrinthPacks;
+import com.origin.client.client.packs.PackDedupe;
 import com.origin.client.client.packs.PackFiles;
 import com.origin.client.client.packs.PackIndex;
 import com.origin.client.client.packs.PackInstallerProbe;
 import com.origin.client.client.packs.PackLibrary;
 import com.origin.client.client.packs.PackOrder;
+import com.origin.client.client.packs.PackPicks;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.ByteArrayOutputStream;
@@ -20,7 +22,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 // Unit tests for the Resource Pack Hub's Minecraft-free logic (packs/ModrinthPacks,
-// PackFiles, PackIndex, PackInstaller, PackOrder). Run: python tools/packhub-tests/run.py
+// PackFiles, PackIndex, PackInstaller, PackOrder, PackDedupe, PackPicks). Run: python tools/packhub-tests/run.py
 // Plain main() + checks so it needs nothing but a JDK and Gson.
 public final class PackHubTests {
 	private static int passed = 0, failed = 0;
@@ -49,6 +51,8 @@ public final class PackHubTests {
 		installer();
 		library();
 		frameStats();
+		dedupe();
+		picks();
 		System.out.println(passed + " passed, " + failed + " failed");
 		if (failed > 0) {
 			System.exit(1);
@@ -262,6 +266,27 @@ public final class PackHubTests {
 			try (var ds = Files.list(dir)) {
 				eq(2L, ds.count(), "failed installs leave nothing behind");
 			}
+
+			// a hand-picked DIRECT pick: the creator's URL, the SHA-256 pinned in the jar
+			Path dd = Files.createTempDirectory("phd3");
+			PackIndex di = new PackIndex(dd.resolveSibling(dd.getFileName() + "-hub.json"));
+			String sha256 = hex("SHA-256", pack);
+			var ok = PackInstallerProbe.installDirect(di, base + "/pack.zip", sha256, pack.length, "Creator Pack.zip", dd, true);
+			eq("DONE", ok.status().name(), "direct pick installs when the pinned hash matches: " + ok.message());
+			eq("Creator Pack.zip", ok.fileName(), "direct pick keeps the creator's file name");
+			eq(List.of("Creator Pack.zip"), di.filesOfProject("pick:test"), "indexed under pick:<id>");
+			var twice = PackInstallerProbe.installDirect(di, base + "/pack.zip", sha256, pack.length, "Creator Pack.zip", dd, true);
+			eq("Creator Pack.zip", twice.fileName(), "direct pick already installed: recognised, not duplicated");
+			Path dd2 = Files.createTempDirectory("phd4");
+			var changed = PackInstallerProbe.installDirect(new PackIndex(dd2.resolveSibling(dd2.getFileName() + "-hub.json")),
+					base + "/pack.zip", "ab".repeat(32), pack.length, "Creator Pack.zip", dd2, true);
+			eq("ERROR", changed.status().name(), "different file than the pinned one refused");
+			eq(com.origin.client.client.packs.PackInstaller.CHANGED, changed.message(), "refusal offers the creator's page");
+			try (var ds = Files.list(dd2)) {
+				eq(0L, ds.count(), "refused direct download leaves nothing behind");
+			}
+			var offHost = PackInstallerProbe.installDirect(di, base + "/pack.zip", sha256, pack.length, "x.zip", dd2, false);
+			eq("ERROR", offHost.status().name(), "direct pick from a host it doesn't pin refused");
 		} finally {
 			srv.stop(0);
 		}
@@ -324,4 +349,117 @@ public final class PackHubTests {
 		eq(0, FrameStats.onePercentLow(), "no data -> 0 (HUD shows --)");
 	}
 
+	// ---- Browse's copy filter (PackDedupe) + the built-in picks (PackPicks) ----
+
+	private static ModrinthPacks.Hit hit(String id, String title, String author, long downloads, String desc) {
+		return new ModrinthPacks.Hit(id, id, title, desc, author, downloads, 0, "", "", List.of(), List.of(), "", "");
+	}
+
+	private static List<String> ids(PackDedupe.Result r) {
+		List<String> out = new java.util.ArrayList<>();
+		r.hits.forEach(h -> out.add(h.projectId()));
+		return out;
+	}
+
+	static void dedupe() {
+		// title keys
+		eq("bombies 180k", PackDedupe.looseKey("Bombies 180k [16x]"), "resolution tag stripped");
+		eq("bombies 180k", PackDedupe.looseKey("Bombies 180K Pack (1.8.9) - Reupload"), "version + filler stripped");
+		eq("bombies 180k", PackDedupe.looseKey("bombies-180k by Tory"), "'by <uploader>' stripped");
+		eq("bombies 80k", PackDedupe.looseKey("Bombies 80k"), "80k is not 180k");
+		eq("", PackDedupe.looseKey("Bedwars Pack 16x"), "generic-only title has no key");
+		eq("", PackDedupe.looseKey("PvP Texture Pack v2"), "filler-only title has no key");
+		eq("faithful 32x", PackDedupe.strictKey("Faithful 32 x"), "strict key keeps resolution");
+		eq("faithful", PackDedupe.looseKey("Faithful 64x"), "loose key drops resolution");
+		eq("prism purple", PackDedupe.looseKey("Prism Purple"), "two-word title kept whole");
+		eq("cafe", PackDedupe.looseKey("Café"), "accents folded");
+
+		// copies collapse into the most-downloaded upload, at the first member's place
+		PackDedupe.Result r = PackDedupe.collapse(List.of(
+				hit("copyA", "Bombies 180k [16x]", "kid1", 900, "my edit"),
+				hit("other", "Prism", "looshy", 5000, "blue pack"),
+				hit("orig", "Bombies 180k", "Tory", 50000, "the real one"),
+				hit("copyB", "bombies 180k 1.21 reupload", "kid2", 10, "x")));
+		eq(List.of("orig", "other"), ids(r), "copies collapse onto the original");
+		eq(2, r.hidden, "two copies hidden");
+
+		// distinct packs that share a word stay
+		r = PackDedupe.collapse(List.of(hit("a", "Prism", "looshy", 10, ""), hit("b", "Prism Purple", "zed", 5, ""),
+				hit("c", "Bedwars Pack", "u1", 9, ""), hit("d", "Bedwars Pack 16x", "u2", 8, ""),
+				hit("e", "Low Fire", "u3", 7, ""), hit("f", "Low Fire", "u4", 6, "")));
+		eq(6, r.hits.size(), "shared words / generic titles never merge");
+
+		// one uploader's distinct packs stay apart; others' copies join the right one
+		r = PackDedupe.collapse(List.of(hit("f32", "Faithful 32x", "Faithful", 900, "a"),
+				hit("f64", "Faithful 64x", "Faithful", 800, "b"), hit("cp", "Faithful 32x reupload", "thief", 5, "c")));
+		eq(List.of("f32", "f64"), ids(r), "same uploader never merged; copy joins its own resolution");
+
+		// same uploader, near-identical titles: kept (copies are by other people)
+		r = PackDedupe.collapse(List.of(hit("x1", "Bombies 180k", "Tory", 9, ""), hit("x2", "Bombies 180k v2", "Tory", 8, "")));
+		eq(2, r.hits.size(), "one uploader's own versions are not copies");
+
+		// pasted description = copy, even under another title
+		String desc = "A clean default edit with short swords and low fire made for Bedwars and Skywars on Hypixel";
+		r = PackDedupe.collapse(List.of(hit("o", "Azure Edit", "keno", 100, desc), hit("c", "Blue Sky", "kid", 3, desc),
+				hit("n", "Night Sky", "zz", 2, "short")));
+		eq(List.of("o", "n"), ids(r), "same long description collapses");
+
+		// curated original wins even with fewer downloads; known copies always hidden
+		r = PackDedupe.collapse(List.of(hit("big", "Looshy", "farmer", 999, ""), hit("real", "looshy [16x]", "looshy", 10, ""),
+				hit("bl", "Totally Different", "copier", 50, "")),
+				java.util.Set.of("real"), java.util.Set.of("bl"), java.util.Map.of());
+		eq(List.of("real"), ids(r), "curated original represents its group; blocklisted copy hidden");
+
+		// someone else's upload under a pick's own name is hidden even without the original in the list
+		r = PackDedupe.collapse(List.of(hit("c1", "Bombies 180k", "kid", 99, ""), hit("t", "Bombies 180k", "tory", 5, ""),
+				hit("u", "Unrelated", "kid", 1, "")),
+				java.util.Set.of(), java.util.Set.of(), java.util.Map.of("bombies 180k", "tory"));
+		eq(List.of("t", "u"), ids(r), "re-upload of a pick's title hidden, the creator's own kept");
+
+		// nothing to merge: order and size unchanged
+		r = PackDedupe.collapse(List.of(hit("1", "Alpha", "a", 1, ""), hit("2", "Beta", "b", 2, ""), hit("3", "Gamma", "c", 3, "")));
+		eq(List.of("1", "2", "3"), ids(r), "distinct packs keep the player's sort");
+		eq(0, r.hidden, "nothing hidden");
+	}
+
+	static void picks() {
+		List<PackPicks.Pick> all = PackPicks.ALL;
+		check(!all.isEmpty(), "picks list is built in");
+		java.util.Set<String> keys = new java.util.HashSet<>();
+		for (PackPicks.Pick p : all) {
+			check(keys.add(p.id), "pick id unique: " + p.id);
+			check(!p.versions.isEmpty(), p.id + " names its game versions");
+			check(!p.styles.isEmpty(), p.id + " has a style");
+			check(!p.author.isEmpty() && p.pageUrl.startsWith("https://"), p.id + " credits author + https source page");
+			switch (p.source) {
+				case MODRINTH -> check(p.projectId.matches("[A-Za-z0-9]{8}") && !p.owner.isEmpty(), p.id + " pins a Modrinth project + owner");
+				case DIRECT -> {
+					check(p.sha256.matches("[0-9a-f]{64}") && p.size > 0, p.id + " pins SHA-256 + size");
+					check(p.trustedFileUrl(p.fileUrl), p.id + " file url on a pinned https host");
+					check(!p.trustedFileUrl(p.fileUrl.replaceFirst("https://", "http://")), p.id + " plain http refused");
+					check(!p.trustedFileUrl("https://evil.example/x.zip"), p.id + " other hosts refused");
+					check(!p.pageUrl.contains("mediafire") && !p.pageUrl.contains("pvprp"), p.id + " never downloads from a gated site");
+				}
+				case LINK -> check(p.fileUrl.isEmpty(), p.id + " link-out has no file");
+			}
+		}
+		// 1.8.9 gets 1.8.9 packs only; modern versions never see a 1.8.9-only pick
+		for (PackPicks.Pick p : PackPicks.forVersion("1.8.9")) {
+			check(p.versions.contains("1.8.9"), p.id + " shown on 1.8.9 really supports it");
+		}
+		for (PackPicks.Pick p : PackPicks.forVersion("1.21.1")) {
+			check(p.versions.contains("1.21.1"), p.id + " shown on 1.21.1 really supports it");
+		}
+		check(PackPicks.forVersion("26.1.2").size() == PackPicks.forVersion("26.1").size(), "26.1 family shares picks");
+		check(PackPicks.forVersion("1.12.2").isEmpty(), "a pulled version gets no picks");
+		check(PackPicks.styles(PackPicks.forVersion("1.8.9")).contains(PackPicks.Style.BEDWARS), "1.8.9 has Bedwars picks");
+		// the copy filter never hides a pick's own original
+		for (PackPicks.Pick p : all) {
+			if (p.source == PackPicks.Source.MODRINTH) {
+				PackDedupe.Result r = PackDedupe.collapse(List.of(hit(p.projectId, p.title, p.owner, 1, "")),
+						PackPicks.originals(), PackPicks.copies(), PackPicks.titleOwners());
+				eq(1, r.hits.size(), p.id + " original survives the copy filter");
+			}
+		}
+	}
 }
