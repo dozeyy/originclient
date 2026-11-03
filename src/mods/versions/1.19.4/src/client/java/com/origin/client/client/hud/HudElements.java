@@ -705,12 +705,15 @@ public final class HudElements {
 			// background hugs however many pieces are actually worn, growing
 			// piece by piece — never the full-loadout gray slab
 			boolean dur = !durPos.equals("Hidden");
-			int wAct = vertical ? 19 + (dur ? 30 : 0) : items.size() * 19;
+			int wAct = vertical ? 19 + (dur ? 34 : 0) : items.size() * 19;   // = the measured box
 			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
 			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
-		int x = 0, y = 0;
+		// Durability "Left" (vertical list): the numbers take the box's left 34 px and the
+		// items sit to their right, so nothing draws left of the element (it used to run
+		// off-screen at the default bottom-left spot).
+		int x = vertical && durPos.equals("Left") ? 34 : 0, y = 0;
 		for (ItemStack stack : items) {
 			g.renderItem(stack, x, y);
 			if (Mods.bool("armorhud", "itemCount")) {
