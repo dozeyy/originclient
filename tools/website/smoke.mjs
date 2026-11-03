@@ -111,12 +111,13 @@ for (const p of PAGES) {
     const covered = await rafIn(page, 1500);
     if (covered > 2) fail(where, `still drawing under the Why cards (${covered} frames in 1.5s)`);
     await page.evaluate(() => document.getElementById('get').scrollIntoView({ behavior: 'instant' }));
-    await page.waitForTimeout(800);
-    const back = await rafIn(page, 1500);
-    console.log(`island frames: hero ${top}/s, covered ${covered}/1.5s, download ${back}/1.5s`);
-    // A stopped loop draws 0 frames; CI's software renderer can be slow (3-12 frames/s seen
-    // here at this pose), so any steady drawing counts as resumed.
-    if (back < 3) fail(where, `didn't resume drawing at the download section (${back} frames in 1.5s)`);
+    await page.waitForTimeout(1000);
+    const back = await rafIn(page, 3000);
+    console.log(`island frames: hero ${top}/s, covered ${covered}/1.5s, download ${back}/3s`);
+    // A resting island asks for no frames at all (0). CI's software renderer can crawl while the
+    // camera glides close past the island to this pose (1-2 frames/s seen there), so any drawing
+    // counts as resumed.
+    if (back < 2) fail(where, `didn't resume drawing at the download section (${back} frames in 3s)`);
   }
   await ctx.close();
   const rm = await open('/', { width: 390, height: 844, reducedMotion: true, where: 'island reduced motion' });
