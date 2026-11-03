@@ -6,7 +6,7 @@
 //   POST /v1/plus/checkout   { uuid, name, plan: 'month'|'year' } -> { url } of a
 //                            Stripe Checkout page that starts an Origin+ membership
 //   POST /v1/stripe/webhook  Stripe tells us a payment went through (grant), was
-//                            fully refunded / disputed (revoke), or an Origin+
+//                            fully refunded / disputed (revoke, disputed), or an Origin+
 //                            membership started, renewed or ended (plusChanged)
 //
 // The cosmetic goes to the Minecraft UUID typed on the store page (gifts are
@@ -14,16 +14,18 @@
 // gets what: nothing is stored until Stripe says the money arrived.
 //
 // Secrets (Cloudflare dashboard, never the repo):
-//   STRIPE_SECRET_KEY      creates Checkout pages (a restricted key with
-//                          Checkout Sessions: Write is enough)
+//   STRIPE_SECRET_KEY      creates Checkout pages (a restricted key: Write on
+//                          Checkout Sessions, Products, Prices, Subscriptions;
+//                          Read on PaymentIntents for chargebacks; docs/STORE.md)
 //   STRIPE_WEBHOOK_SECRET  proves a webhook call really came from Stripe (whsec_...)
 // Var (wrangler.toml, not secret):
 //   STRIPE_TEST_PLAYERS    while the key is a TEST key (sk_test_/rk_test_), only
 //                          these players may check out or be granted anything,
 //                          so Stripe's fake test cards can never hand out real
 //                          cosmetics (Will, 2026-10-17: test first). Comma-
-//                          separated Minecraft names or UUIDs; a name is checked
-//                          against Mojang at checkout, so nobody can borrow it.
+//                          separated Minecraft names or UUIDs; a name counts only
+//                          for the account Origin last verified with it (mayTest),
+//                          so nobody can borrow it.
 import { json, fail, normUuid, slotOf, NAME_RE, rowsIn } from './common.js';
 import { CATALOG } from './catalog.gen.js';
 
@@ -90,20 +92,20 @@ const testKey = env => /^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY || '');
 const testList = env => String(env.STRIPE_TEST_PLAYERS || '').split(',').map(s => s.trim()).filter(Boolean);
 const testUuids = env => new Set(testList(env).map(normUuid).filter(Boolean));
 const testNames = env => new Set(testList(env).filter(s => !normUuid(s)).map(s => s.toLowerCase()));
-// Mojang is the authority on which UUID a name belongs to; any failure says no.
-async function mojangUuid(name) {
-  try {
-    const r = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(name)}`);
-    return r.ok ? normUuid((await r.json())?.id) : null;
-  } catch { return null; }
-}
+// A name counts only as the account Origin itself last verified with that name:
+// the `names` table, written by every Origin sign-in from a Mojang-signed
+// profile (social.js). The Worker can't ask Mojang (Mojang answers Cloudflare
+// Workers with 403), so a tester listed by name signs in to Origin once (the
+// launcher's Friends does it) before checking out; a UUID entry needs nothing.
 async function mayTest(env, uuid, name) {
   if (testUuids(env).has(uuid)) return true;
-  return testNames(env).has(name.toLowerCase()) && (await mojangUuid(name)) === uuid;
+  if (!testNames(env).has(name.toLowerCase())) return false;
+  const verified = await env.DB.prepare('SELECT uuid FROM names WHERE name_lower = ? ORDER BY updated DESC LIMIT 1')
+    .bind(name.toLowerCase()).first('uuid');
+  return verified === uuid;
 }
 // For webhooks: a test session or subscription only exists if checkout let it
-// through (only our key makes them), so its name was already checked against
-// Mojang there.
+// through (only our key makes them), so its name was already checked there.
 const isTester = (env, uuid, name) => testUuids(env).has(uuid) || testNames(env).has(String(name || '').toLowerCase());
 
 export function catalog(env) {
@@ -272,8 +274,9 @@ async function grant(env, session, livemode) {
 // Everything bought in that payment goes away, and comes off if worn. The
 // payment is remembered, so a late or repeated "paid" event can't undo this.
 // A won dispute doesn't give items back by itself: re-grant by hand.
+// Returns how many items it took back.
 async function revoke(env, paymentIntent) {
-  if (!paymentIntent) return;
+  if (!paymentIntent) return 0;
   const rows = (await env.DB.prepare('SELECT uuid, item FROM owned WHERE payment = ?').bind(String(paymentIntent)).all()).results;
   const stmts = [
     env.DB.prepare('INSERT OR IGNORE INTO revoked (payment, at) VALUES (?, ?)').bind(String(paymentIntent), Date.now()),
@@ -284,6 +287,41 @@ async function revoke(env, paymentIntent) {
     stmts.push(env.DB.prepare(`UPDATE equipped SET ${slot} = NULL WHERE uuid = ? AND ${slot} = ?`).bind(uuid, item));
   }
   await env.DB.batch(stmts);
+  return rows.length;
+}
+
+// A chargeback: the money is gone, so whatever it paid for ends now. Cosmetics
+// come back through revoke(). An Origin+ payment wrote no `owned` rows (its
+// invoice's payment carries none of our metadata, and the dispute names no
+// customer), so the payment is looked up to find the customer, whose live
+// memberships end here (perks off at once) and are cancelled at Stripe too
+// (no more renewals after a chargeback). The key needs Read on PaymentIntents
+// and Write on Subscriptions (docs/STORE.md); without them, or on any other
+// failure, a REVIEW line says what to do by hand. Every outcome is logged.
+async function disputed(env, dispute) {
+  const pi = dispute.payment_intent;
+  const say = msg => console.error(`origin-cosmetics: DISPUTE ${dispute.id || '?'} on ${pi || dispute.charge || '?'}: ${msg}`);
+  if (!pi) return say('REVIEW: no payment intent; check it in the Stripe dashboard');
+  const taken = await revoke(env, pi);
+  if (taken) return say(`${taken} cosmetic item(s) taken back`);
+
+  const auth = { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` };
+  const r = await fetch(`${STRIPE}/payment_intents/${encodeURIComponent(pi)}`, { headers: auth }).catch(() => null);
+  const payment = r?.ok ? await r.json().catch(() => null) : null;
+  if (!payment) return say(`REVIEW: couldn't read the payment (Stripe ${r?.status ?? 'unreachable'}); if it paid for Origin+, cancel that subscription in the dashboard`);
+  if (payment.metadata?.items) return say('a cosmetics payment with nothing left to take back');
+  const customer = typeof payment.customer === 'string' ? payment.customer : payment.customer?.id;
+  const subs = customer ? (await env.DB.prepare(`SELECT subscription, uuid FROM plus WHERE customer = ? AND subscription NOT LIKE 'code:%'
+      AND status NOT IN ('canceled', 'incomplete_expired')`).bind(customer).all()).results : [];
+  if (!subs.length) return say(`REVIEW: no live Origin+ membership for customer ${customer || '(none)'}; check what this payment was for`);
+
+  await env.DB.batch(subs.map(({ subscription }) =>
+    env.DB.prepare("UPDATE plus SET status = 'canceled' WHERE subscription = ?").bind(subscription)));
+  for (const { subscription, uuid } of subs) {
+    const c = await fetch(`${STRIPE}/subscriptions/${encodeURIComponent(subscription)}`, { method: 'DELETE', headers: auth }).catch(() => null);
+    say(c?.ok ? `Origin+ ended for ${uuid} (${subscription} cancelled at Stripe)`
+      : `Origin+ ended for ${uuid}; REVIEW: cancel ${subscription} in the Stripe dashboard, it is still billing (Stripe ${c?.status ?? 'unreachable'})`);
+  }
 }
 
 // A membership started, renewed, changed or ended. Rows are only ever updated
@@ -343,7 +381,7 @@ export async function webhook(request, env) {
       if (obj.refunded) await revoke(env, obj.payment_intent);
       break;
     case 'charge.dispute.created':
-      await revoke(env, obj.payment_intent);
+      await disputed(env, obj);
       break;
     case 'customer.subscription.created':
     case 'customer.subscription.updated':

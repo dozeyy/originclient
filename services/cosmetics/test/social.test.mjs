@@ -1112,3 +1112,45 @@ test('held sync: one hold per account; a newer hold ends the older one at once',
   assert.equal(second.r.held, 20_000);
   assert.equal(clock - t0, 20_000);
 });
+
+// The 200-friend cap holds for BOTH people: a full player's old requests can't
+// keep adding friends when the other side says yes.
+test('friends: the friend cap holds for the asker too, on accept and on an opposite request', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex'), sam = await signIn('Sam');
+  await call(will.token, '/v1/friends/request', { name: 'Alex' });
+  await call(sam.token, '/v1/friends/request', { name: 'Will' });
+  const fill = env.DB.raw.prepare('INSERT INTO friends (a, b, at) VALUES (?, ?, 0)');
+  for (let i = 0; i < 200; i++) fill.run(will.uuid, i.toString(16).padStart(32, '0'));
+
+  const accept = await call(alex.token, '/v1/friends/respond', { uuid: will.uuid, accept: true });
+  assert.equal(accept.status, 400);
+  assert.match(accept.body.error, /They already have 200 friends/);
+  const opposite = await call(sam.token, '/v1/friends/request', { name: 'Will' });   // Sam asked; Will is full
+  assert.equal(opposite.status, 200);
+  const back = await call(alex.token, '/v1/friends/request', { name: 'Will' });      // Will asked Alex earlier
+  assert.equal(back.status, 400);
+  assert.match(back.body.error, /Will already has 200 friends/);
+  assert.equal(rows(`SELECT * FROM friends WHERE a = '${will.uuid}'`).length, 200);
+  assert.equal(rows(`SELECT * FROM friends WHERE a = '${alex.uuid}'`).length, 0);
+});
+
+// Two accepts at once: the party fills between the size check and the join.
+test('party: an accept that loses the race for the last place keeps you in your own party', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex');
+  await befriend(will, alex);
+  const willParty = (await call(will.token, '/v1/party/invite', { uuid: alex.uuid })).body.party.id;
+  const own = (await call(alex.token, '/v1/party/create', {})).body.party.id;
+  const realBatch = env.DB.batch.bind(env.DB);
+  env.DB.batch = async stmts => {                 // the other accepts land first
+    env.DB.batch = realBatch;
+    const put = env.DB.raw.prepare('INSERT INTO party_members (uuid, party_id, joined, chat_from) VALUES (?, ?, 0, 0)');
+    for (let i = 0; i < 7; i++) put.run(`f${i}`.padEnd(32, '0'), willParty);
+    return realBatch(stmts);
+  };
+  const r = await call(alex.token, '/v1/party/accept', { partyId: willParty });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /full/);
+  assert.equal((await sync(alex)).party.id, own);                // still in her own party
+  assert.equal(rows(`SELECT leader FROM parties WHERE id = '${own}'`)[0].leader, alex.uuid);
+  assert.equal(rows(`SELECT * FROM party_members WHERE party_id = '${willParty}'`).length, 8);
+});

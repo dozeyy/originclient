@@ -53,20 +53,40 @@ async function createParty(env, uuid, now) {
 export async function leaveParty(env, uuid) {
   const m = await env.DB.prepare('SELECT party_id FROM party_members WHERE uuid = ?').bind(uuid).first();
   if (!m) return false;
-  const gone = 'NOT EXISTS (SELECT 1 FROM party_members WHERE party_id = ?1)';
   await env.DB.batch([
     env.DB.prepare('DELETE FROM party_members WHERE uuid = ?').bind(uuid),
-    env.DB.prepare(`UPDATE parties SET leader =
-        (SELECT uuid FROM party_members WHERE party_id = ?1 ORDER BY joined, uuid LIMIT 1)
-      WHERE id = ?1 AND leader = ?2 AND EXISTS (SELECT 1 FROM party_members WHERE party_id = ?1)`).bind(m.party_id, uuid),
-    env.DB.prepare(`DELETE FROM parties WHERE id = ?1 AND ${gone}`).bind(m.party_id),
-    env.DB.prepare(`DELETE FROM party_invites WHERE party_id = ?1 AND ${gone}`).bind(m.party_id),
-    env.DB.prepare(`DELETE FROM pings WHERE party_id = ?1 AND ${gone}`).bind(m.party_id),
-    env.DB.prepare(`DELETE FROM warps WHERE party_id = ?1 AND ${gone}`).bind(m.party_id),
-    env.DB.prepare(`DELETE FROM chat WHERE party_id = ?1 AND ${gone}`).bind(m.party_id),
+    ...afterLeaving(env, m.party_id, uuid),
   ]);
   return true;
 }
+
+// The upkeep after `uuid` stops being a member of `partyId`, as statements for
+// the same batch as the removal. Each one checks that the removal really
+// happened, so a batch whose move was refused (accept, party full) changes
+// nothing here either.
+function afterLeaving(env, partyId, uuid) {
+  const gone = 'NOT EXISTS (SELECT 1 FROM party_members WHERE party_id = ?1)';
+  return [
+    env.DB.prepare(`UPDATE parties SET leader =
+        (SELECT uuid FROM party_members WHERE party_id = ?1 ORDER BY joined, uuid LIMIT 1)
+      WHERE id = ?1 AND leader = ?2 AND EXISTS (SELECT 1 FROM party_members WHERE party_id = ?1)
+        AND NOT EXISTS (SELECT 1 FROM party_members WHERE party_id = ?1 AND uuid = ?2)`).bind(partyId, uuid),
+    env.DB.prepare(`DELETE FROM parties WHERE id = ?1 AND ${gone}`).bind(partyId),
+    env.DB.prepare(`DELETE FROM party_invites WHERE party_id = ?1 AND ${gone}`).bind(partyId),
+    env.DB.prepare(`DELETE FROM pings WHERE party_id = ?1 AND ${gone}`).bind(partyId),
+    env.DB.prepare(`DELETE FROM warps WHERE party_id = ?1 AND ${gone}`).bind(partyId),
+    env.DB.prepare(`DELETE FROM chat WHERE party_id = ?1 AND ${gone}`).bind(partyId),
+  ];
+}
+
+// Moves a member from their party to `partyId` in one transaction, only if
+// that party still has room when it runs (another accept may have filled it
+// since the check): either both happen or neither, so "That party is full"
+// never also costs you the party you were in. The newcomer only sees party
+// chat from now on, and their position belongs to the old party.
+const moveMember = (env, uuid, partyId, now) => env.DB.prepare(`UPDATE party_members SET party_id = ?2, joined = ?3,
+      chat_from = COALESCE((SELECT MAX(id) FROM chat), 0), state = NULL, state_server = NULL, state_at = NULL
+    WHERE uuid = ?1 AND (SELECT COUNT(*) FROM party_members WHERE party_id = ?2) < ${L.PARTY_MAX}`).bind(uuid, partyId, now);
 
 // ----------------------------------------------------------------- actions
 // Each takes (env, me = { uuid, name, client }, body, now) and returns a Response.
@@ -105,7 +125,8 @@ async function invite(env, me, body, now) {
   return json({ ok: true, party: await partyView(env, m.party_id, now) });
 }
 
-// Joining leaves your old party first (after every check has passed).
+// Joining leaves your old party (after every check has passed, in the same
+// transaction as the join).
 async function accept(env, me, body, now) {
   const partyId = String(body.partyId || '');
   if (!PARTY_ID_RE.test(partyId)) return fail(400, 'That party invite is not valid.');
@@ -121,8 +142,9 @@ async function accept(env, me, body, now) {
   if (current?.party_id === partyId) { await dropInvite.run(); return json({ ok: true, party: await partyView(env, partyId, now) }); }
   if (size.count >= L.PARTY_MAX) return fail(400, `That party is full (${L.PARTY_MAX} players).`);
 
-  if (current) await leaveParty(env, me.uuid);
-  const [joined] = await env.DB.batch([joinMember(env, me.uuid, partyId, now), dropInvite]);
+  const [joined] = await env.DB.batch(current
+    ? [moveMember(env, me.uuid, partyId, now), ...afterLeaving(env, current.party_id, me.uuid), dropInvite]
+    : [joinMember(env, me.uuid, partyId, now), dropInvite]);
   if (!joined.meta?.changes) return fail(400, `That party is full (${L.PARTY_MAX} players).`);
   return json({ ok: true, party: await partyView(env, partyId, now) });
 }

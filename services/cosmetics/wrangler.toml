@@ -9,6 +9,25 @@ compatibility_date = "2025-09-01"
 [triggers]
 crons = ["* * * * *"]
 
+# Rate limits on the routes anyone can call without signing in, per caller IP
+# (src/index.js LIMITED; docs/SOCIAL.md "Rate limits"). Cloudflare's own
+# limiter: counted per Cloudflare location, no database writes. A period is 10
+# or 60 seconds. namespace_id is any number unique within the account.
+[[ratelimits]]
+name = "LIMIT_STORE"
+namespace_id = "7101"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "LIMIT_LOOKUP"
+namespace_id = "7102"
+simple = { limit = 120, period = 60 }
+
+[[ratelimits]]
+name = "LIMIT_AUTH"
+namespace_id = "7103"
+simple = { limit = 20, period = 60 }
+
 [[d1_databases]]
 binding = "DB"
 database_name = "origin-cosmetics"
@@ -18,8 +37,10 @@ migrations_dir = "migrations"
 
 # Not secret. While the Stripe key is a TEST key, only these players can buy,
 # so fake test cards never hand out real cosmetics. Comma-separated Minecraft
-# names or UUIDs (names are checked with Mojang). With a LIVE key everyone can
-# buy and this list does nothing. Edit it HERE: a deploy resets dashboard vars.
+# names or UUIDs. A name counts only for the account that last signed in to
+# Origin with it (Friends in the launcher signs in), since the Worker can't ask
+# Mojang; a UUID needs no sign-in. With a LIVE key everyone can buy and this
+# list does nothing. Edit it HERE: a deploy resets dashboard vars.
 [vars]
 STRIPE_TEST_PLAYERS = "dozeyy,bxlt,lozeyy,silo5"
 

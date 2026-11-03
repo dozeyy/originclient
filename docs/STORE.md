@@ -28,7 +28,11 @@ Stripe webhook ──▶ POST /v1/stripe/webhook (signature checked)
   charge.refunded (FULL refund only) / charge.dispute.created → rows for that
   payment removed and taken off (owned.payment = the Stripe payment intent)
   and remembered in `revoked`, so a retried "paid" event can't give them back.
-  A WON dispute does not re-grant: give the items back by hand. Two paid
+  A WON dispute does not re-grant: give the items back by hand. A dispute on
+  an Origin+ payment ends that membership at once and cancels the
+  subscription at Stripe (stripe.js disputed(); needs the key permissions in
+  step 5); every dispute logs a "DISPUTE" line, "REVIEW" when it needs a
+  hand (Cloudflare Worker logs). Two paid
   checkouts for one item log "REFUND NEEDED" (Cloudflare Worker logs).
         │
 Origin mod ── reads website/cosmetics/service.json for the service address ──
@@ -92,6 +96,9 @@ member = a row with status active/trialing/past_due and period_end + 2 days > no
   Cancel the subscription in the dashboard too (Customers → the customer →
   Cancel subscription); the cancel event ends the perks. Two memberships for
   one player log "REFUND NEEDED" (Worker logs).
+- **Chargebacks:** a dispute on an Origin+ payment ends the membership by
+  itself and cancels the subscription at Stripe (logged "DISPUTE ... Origin+
+  ended"); a "REVIEW" line means do that cancel by hand.
 - **Test mode:** same lock as the store (`STRIPE_TEST_PLAYERS`); a test key
   also needs a product with id `origin-plus` made in test mode.
 - Prices: `PLUS` and `MEMBER_PERCENT_OFF` in stripe.js; the page reads them
@@ -152,8 +159,10 @@ The account holder must be an adult (ID + bank account for payouts).
    `charge.refunded`, `charge.dispute.created`, and for Origin+
    `customer.subscription.created`, `.updated`, `.deleted`. Copy its **signing secret** (`whsec_...`).
 5. **API key:** Developers → API keys → **Create restricted key** with
-   Write on **Checkout Sessions**, **Products** and **Prices** (everything else
-   None). Copy it (`rk_live_...`).
+   Write on **Checkout Sessions**, **Products**, **Prices** and **Subscriptions**,
+   Read on **PaymentIntents** (everything else None). The last two let a
+   chargeback on Origin+ end the membership by itself; without them the Worker
+   logs "REVIEW: cancel ... in the Stripe dashboard" instead. Copy it (`rk_live_...`).
 6. **Into Cloudflare, never chat or the repo:** Workers & Pages →
    `origin-cosmetics` → Settings → Variables and Secrets → add **Secret**
    `STRIPE_SECRET_KEY` (step 5) and **Secret** `STRIPE_WEBHOOK_SECRET` (step 4).
@@ -169,8 +178,10 @@ The account holder must be an adult (ID + bank account for payouts).
 Optional: do steps 2–6 on a Stripe **sandbox / test mode** first (keys start
 `rk_test_`, secrets `whsec_` from the test webhook). While the service holds a
 test key, only the players in `STRIPE_TEST_PLAYERS` (services/cosmetics/
-wrangler.toml: comma-separated Minecraft names or UUIDs, not secret; a name is
-checked against Mojang so nobody can borrow it) can check out or be granted
+wrangler.toml: comma-separated Minecraft names or UUIDs, not secret; a name
+counts only for the account that last signed in to Origin with it, so nobody
+can borrow it: sign in once with the launcher's Friends before testing, since
+the Worker can't ask Mojang) can check out or be granted
 anything, so Stripe's fake cards can't hand out real cosmetics. Current list:
 dozeyy, bxlt, lozeyy, silo5. Open `originclient.org/store`, pay with
 `4242 4242 4242 4242` (any future date, any CVC), see the item in game, refund

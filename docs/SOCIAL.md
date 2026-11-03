@@ -201,6 +201,23 @@ Errors: `{ error: "<player-facing sentence>" }` with 400/401/403/404/429. Client
 
 Retention: DMs and party chat kept 30 days, pings 60 s, joins/sessions pruned by the existing cron.
 
+## Rate limits (2026-11-03)
+Signed-in calls: one DM / party line / ping / invite / friend request a second per account (`allow()`).
+The routes anyone can call without signing in are limited per caller IP by Cloudflare's own rate limiter
+(wrangler.toml `[[ratelimits]]`, services/cosmetics/src/index.js `LIMITED`), answering 429 "Too many tries
+from your network. Wait a minute and try again." with `Retry-After: 60`:
+- 10 a minute: `/v1/store/checkout`, `/v1/plus/checkout`, `/v1/store/redeem`, `/v1/admin/codes`;
+- 120 a minute: `GET /v1/players/<uuid>`, `POST /v1/players/equipped` (a game asks in batches of ≤100, cached 5 min;
+  a refused batch is retried after 60 s with the old looks kept);
+- 20 a minute: `/v1/auth` (a client signs in about once a day).
+Never limited: the Stripe webhook, `/v1/stats/online` (cached), `/v1/store/catalog`. The limiter counts per
+Cloudflare location and lets a call through if it fails, so it stops floods, not single extra calls. A limited
+call still counts as a Worker request; what it saves is D1 reads and Stripe's API limit.
+
+Public `origin` flag (`POST /v1/players/equipped`, the Origin name badge): a player with appearOffline on is never
+reported as in game, so nobody can poll it to see when an invisible player plays. Blocks can't apply there (the
+caller is anonymous); appearOffline is the way to hide from everyone.
+
 ## Request budget (Cloudflare free plan, per day: 100,000 Worker requests, D1 5,000,000 rows read, 100,000 rows written)
 Clients poll `/v1/sync` adaptively:
 - every 4 s while: a chat/friends window is open, the last sync said `wantState: true`, or a DM/invite arrived
