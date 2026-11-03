@@ -79,15 +79,17 @@ public abstract class ChatTimestampMixin {
 	 *  Lines go in newest-first: a message's LAST wrapped line (endOfEntry) is at
 	 *  index 0 and its earlier lines follow up to the next endOfEntry. */
 	private void originclient$dropNewestLines(GuiMessage previous) {
-		if (trimmedMessages.isEmpty() || trimmedMessages.get(0).addedTime() != previous.addedTime()) {
-			refreshTrimmedMessages();   // the newest line isn't that message's (hidden or filtered): rebuild
+		// Each line knows its message: only `previous`'s own lines are taken. If the newest
+		// line isn't one (it was hidden or filtered), rebuild instead.
+		if (trimmedMessages.isEmpty() || trimmedMessages.get(0).parent() != previous) {
+			refreshTrimmedMessages();
 			return;
 		}
 		int removed = 0;
 		do {
 			trimmedMessages.remove(0);
 			removed++;
-		} while (!trimmedMessages.isEmpty() && !trimmedMessages.get(0).endOfEntry());
+		} while (!trimmedMessages.isEmpty() && trimmedMessages.get(0).parent() == previous);
 		if (chatScrollbarPos > 0) {
 			// keep the same lines in view: the ones above moved down by `removed`
 			chatScrollbarPos = Math.max(0, chatScrollbarPos - removed);

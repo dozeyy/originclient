@@ -9,6 +9,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.StringDecomposer;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -79,19 +80,56 @@ public abstract class ChatTimestampMixin {
 	 *  Lines go in newest-first: a message's LAST wrapped line (endOfEntry) is at
 	 *  index 0 and its earlier lines follow up to the next endOfEntry. */
 	private void originclient$dropNewestLines(GuiMessage previous) {
-		if (trimmedMessages.isEmpty() || trimmedMessages.get(0).addedTime() != previous.addedTime()) {
-			refreshTrimmedMessages();   // the newest line isn't that message's (hidden or filtered): rebuild
+		// Lines don't know their message here, so the newest block must match `previous`
+		// by tick AND by text; another message from the same tick (when the repeat was
+		// hidden or filtered) never loses its lines. No match: rebuild instead.
+		int n = originclient$newestBlockSize();
+		if (n == 0 || trimmedMessages.get(0).addedTime() != previous.addedTime()
+				|| !originclient$blockText(n).equals(originclient$squash(StringDecomposer.getPlainText(previous.content())))) {
+			refreshTrimmedMessages();
 			return;
 		}
-		int removed = 0;
-		do {
+		int removed = n;
+		for (int i = 0; i < n; i++) {
 			trimmedMessages.remove(0);
-			removed++;
-		} while (!trimmedMessages.isEmpty() && !trimmedMessages.get(0).endOfEntry());
+		}
 		if (chatScrollbarPos > 0) {
 			// keep the same lines in view: the ones above moved down by `removed`
 			chatScrollbarPos = Math.max(0, chatScrollbarPos - removed);
 		}
+	}
+
+	/** Lines in the newest message block: index 0 (its last wrapped line) plus the
+	 *  following lines up to the next message's endOfEntry. */
+	private int originclient$newestBlockSize() {
+		if (trimmedMessages.isEmpty()) {
+			return 0;
+		}
+		int n = 1;
+		while (n < trimmedMessages.size() && !trimmedMessages.get(n).endOfEntry()) {
+			n++;
+		}
+		return n;
+	}
+
+	/** The newest block's text in reading order (lines are stored newest-first), no whitespace. */
+	private String originclient$blockText(int n) {
+		StringBuilder sb = new StringBuilder();
+		for (int i = n - 1; i >= 0; i--) {
+			trimmedMessages.get(i).content().accept((index, style, cp) -> {
+				if (!Character.isWhitespace(cp)) {
+					sb.appendCodePoint(cp);
+				}
+				return true;
+			});
+		}
+		return sb.toString();
+	}
+
+	private static String originclient$squash(String s) {
+		StringBuilder sb = new StringBuilder(s.length());
+		s.codePoints().filter(cp -> !Character.isWhitespace(cp)).forEach(sb::appendCodePoint);
+		return sb.toString();
 	}
 
 	private static boolean originclient$opt(String key) {
