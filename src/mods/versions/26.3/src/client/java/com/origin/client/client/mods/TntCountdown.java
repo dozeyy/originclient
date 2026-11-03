@@ -50,6 +50,9 @@ public final class TntCountdown {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
+		if (mc.gui.hud.isHidden()) {
+			return;   // F1 hides in-world labels, like vanilla name tags
+		}
 		float ticks = Math.max(0f, tnt.fuseRemainingInTicks - 1f + (float) Mods.num(MOD, "fuseOffset"));
 		int numColor = OriginColorPicker.liveColor(MOD, "color");
 		if (!Mods.bool(MOD, "staticColor")) {
