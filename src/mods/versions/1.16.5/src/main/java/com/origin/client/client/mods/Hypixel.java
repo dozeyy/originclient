@@ -210,15 +210,25 @@ public final class Hypixel {
 			return true;
 		}
 		plain = plain.trim();
-		trackParty(plain);   // Team View reads the roster even with the Hypixel mod off
+		// Hypixel sends friend requests and /party lists as ONE boxed message ("-----" rule,
+		// lines, "-----" rule): every line is matched on its own, the rules dropped.
+		List<String> lines = lines(plain);
+		for (String line : lines) {
+			trackParty(line);   // Team View reads the roster even with the Hypixel mod off
+		}
 		if (!Mods.on(MOD)) {
 			return true;
 		}
 		Minecraft mc = Minecraft.getInstance();
 
-		Matcher fr = FRIEND_REQUEST.matcher(plain);
-		if (fr.find() && Mods.bool(MOD, "autoFriend")) {
-			command(mc, "friend accept " + fr.group(1));
+		if (Mods.bool(MOD, "autoFriend")) {
+			for (String line : lines) {
+				Matcher fr = FRIEND_REQUEST.matcher(line);
+				if (fr.find()) {
+					command(mc, "friend accept " + fr.group(1));
+					break;
+				}
+			}
 		}
 		if (plain.equals("The game starts in 1 second!") && Mods.bool(MOD, "autoWho")) {
 			whoInTicks = 30;   // once everyone has been teleported in
@@ -245,7 +255,7 @@ public final class Hypixel {
 			return false;
 		}
 		if (Mods.bool(MOD, "removeLobbyStatuses")
-				&& (plain.endsWith("joined the lobby!") || plain.contains(" into the lobby!"))) {
+				&& (plain.contains("joined the lobby!") || plain.contains(" into the lobby!"))) {
 			return false;
 		}
 		if (Mods.bool(MOD, "hideJoinMessages") && FRIEND_GUILD_JOIN.matcher(plain).matches()) {
@@ -303,6 +313,18 @@ public final class Hypixel {
 		synchronized (PARTY) {
 			return new HashSet<>(PARTY);
 		}
+	}
+
+	/** The message's lines, trimmed, without blank lines or Hypixel's "-----" box rules. */
+	private static List<String> lines(String plain) {
+		List<String> out = new ArrayList<>();
+		for (String line : plain.split("\n")) {
+			line = line.trim();
+			if (!line.isEmpty() && !line.matches("[-\u25AC\s]+")) {
+				out.add(line);
+			}
+		}
+		return out;
 	}
 
 	private static void trackParty(String line) {
