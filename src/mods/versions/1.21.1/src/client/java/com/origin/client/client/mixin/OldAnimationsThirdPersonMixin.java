@@ -12,9 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // 1.7 Animations -> Third Person Block, arm half. 1.21.1 PlayerRenderer (source-verified):
 //   private static HumanoidModel.ArmPose getArmPose(AbstractClientPlayer, InteractionHand)
-//     -> HEAD: sword hand gets BLOCK while the off-hand shield is raised (HumanoidModel's BLOCK
-//        angles are 1.7's sword-block arm), the shield hand hangs EMPTY (the shield isn't drawn).
-// The item half is OldAnimationsHandLayerMixin. If this stops applying: vanilla shield pose.
+//     -> HEAD: the sword hand gets BLOCK during the looks-only sword block (HumanoidModel's
+//        BLOCK angles are 1.7's sword-block arm). A raised shield keeps vanilla's pose.
+// The item half is OldAnimationsHandLayerMixin. If this stops applying: vanilla arm in F5.
 @Mixin(PlayerRenderer.class)
 public class OldAnimationsThirdPersonMixin {
 	@Inject(method = "getArmPose", at = @At("HEAD"), cancellable = true)
