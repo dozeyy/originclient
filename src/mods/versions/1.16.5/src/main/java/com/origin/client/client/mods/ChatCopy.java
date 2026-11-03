@@ -41,7 +41,7 @@ public final class ChatCopy {
 	/** Right-click on the open chat. True = copied (the click is used up). */
 	public static boolean copyAt(double mouseX, double mouseY) {
 		try {
-			if (!Mods.on("chat") || !Mods.bool("chat", "copyOnRightClick")) {
+			if (!Mods.bool("chat", "copyOnRightClick")) { // works with the Chat card off too (it is off by default)
 				return false;
 			}
 			Minecraft mc = Minecraft.getInstance();
@@ -90,10 +90,10 @@ public final class ChatCopy {
 			return true;
 		});
 		String text = sb.toString();
-		if (Mods.bool("chat", "timestamps")) {
+		if (Mods.on("chat") && Mods.bool("chat", "timestamps")) {
 			text = STAMP_PREFIX.matcher(text).replaceFirst("");
 		}
-		if (Mods.bool("chat", "stackSpam")) {
+		if (Mods.on("chat") && Mods.bool("chat", "stackSpam")) {
 			text = COUNTER_SUFFIX.matcher(text).replaceFirst("");
 		}
 		return clean(text);
