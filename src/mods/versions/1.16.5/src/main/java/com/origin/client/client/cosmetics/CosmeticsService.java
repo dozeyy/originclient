@@ -712,9 +712,29 @@ public final class CosmeticsService {
 			if (status == Status.READY && !WANTED.isEmpty()) {
 				lookupBatch();
 			}
+			sweepLooks();
 		} catch (Throwable t) {
 			// the worker must survive anything a single round throws
 		}
+	}
+
+	private static final long EVICT_MS = 10L * 60L * 1000L;
+	private static long sweptAt = 0L;
+
+	/**
+	 * Forgets players nobody has asked about for ~10 minutes (left the server, out of
+	 * sight) so LOOKS no longer only grows. Anyone still being drawn re-queues the moment
+	 * their entry goes stale (lookOf / isPlus / usesOrigin) and gets a fresh one, so an
+	 * entry stale for EVICT_MS has not been asked for since. Worker thread, once a minute,
+	 * never per frame.
+	 */
+	private static void sweepLooks() {
+		long now = System.currentTimeMillis();
+		if (now - sweptAt < 60_000L) {
+			return;
+		}
+		sweptAt = now;
+		LOOKS.values().removeIf(e -> e.freshUntil() + EVICT_MS < now);
 	}
 
 	private static void discover() {
