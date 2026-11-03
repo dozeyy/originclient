@@ -19,6 +19,8 @@ public final class PingSampler {
 
 	private static final ArrayDeque<Integer> SAMPLES = new ArrayDeque<>();
 	private static long lastSampleAt = 0;
+	private static long zeroSince = 0;   // when the server's "not measured yet" 0 began
+	private static final long ZERO_GRACE_MS = 45_000L;
 	private static volatile int average = -1;   // -1 = no connection / no sample yet
 	private static volatile int spike = 0;      // newest sample minus the prior average (ms)
 
@@ -36,6 +38,7 @@ public final class PingSampler {
 			average = -1;
 			spike = 0;
 			lastSampleAt = 0;
+			zeroSince = 0;
 			return;
 		}
 		long now = System.currentTimeMillis();
@@ -47,8 +50,28 @@ public final class PingSampler {
 		if (info == null) {
 			return;
 		}
+		int sample = info.getResponseTime();
+		// A server reports 0 until it has measured you -- right after joining (and,
+		// behind a proxy like Hypixel, likely after each lobby/game switch) -- for up to 30 s (vanilla sends
+		// the player-list latency every 600 ticks). That 0 means "not measured yet",
+		// not 0 ms: counting it showed 0ms, then dragged the average down for the
+		// whole sample window and flagged the first real reading as a spike. So a 0
+		// is skipped (re-checked every second) until a real number comes in. A server
+		// that still says 0 after 45 s really reports 0, and single player is local,
+		// so those zeros count.
+		if (sample <= 0 && !mc.isSingleplayer()) {
+			if (zeroSince == 0) {
+				zeroSince = now;
+			}
+			if (now - zeroSince < ZERO_GRACE_MS) {
+				lastSampleAt = now - interval + 1000L;
+				return;
+			}
+		} else {
+			zeroSince = 0;
+		}
+		sample = Math.max(0, sample);
 		lastSampleAt = now;
-		int sample = Math.max(0, info.getResponseTime());
 		int prior = average;
 		int keep = (int) Math.max(2, Math.min(20, Mods.num("ping", "samples")));
 		SAMPLES.addLast(sample);
