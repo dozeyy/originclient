@@ -737,7 +737,11 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
-			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Toggle Sneak rides the player's own Sneak key (Controls), not the
+			// Sprint key: sharing that one key made one press start sprint AND
+			// crouch, and the crouch then ended the sprint.
+			boolean custom = client.screen == null && isRawKeyDown(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+					.getBoundKeyOf(client.options.keyShift).getValue());
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
 			if (holdMode) {

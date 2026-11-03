@@ -464,7 +464,11 @@ public class OriginClientMod {
 		}
 
 		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
-			boolean custom = client.currentScreen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Toggle Sneak rides the player's own Sneak key (Controls), not the
+			// Sprint key: sharing that one key made one press start sprint AND
+			// crouch, and the crouch then ended the sprint. Read raw, so the
+			// toggle's own "held" answer (KeyBindingMixin) never feeds back in.
+			boolean custom = client.currentScreen == null && isRawKeyDown(client.gameSettings.keyBindSneak.getKeyCode());
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
 			if (holdMode) {
