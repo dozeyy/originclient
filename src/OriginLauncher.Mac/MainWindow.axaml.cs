@@ -52,37 +52,14 @@ public sealed partial class MainWindow : Window
         NavTabs.SizeChanged += (_, _) => FitTopBar();
         BarActions.SizeChanged += (_, _) => FitTopBar();
 
-        // One page at a time: the bar's tabs behave as a radio group (Mods and Profiles fall back to Home until their
-        // pages are ported).
+        // One page at a time: the bar's tabs behave as a radio group (MainWindow.Pages.cs ShowPage).
         foreach (var tab in new[] { NavHome, NavMods, NavProfiles, NavSettings })
             tab.IsCheckedChanged += (s, _) => { if (s is ToggleButton { IsChecked: false }) KeepOneTab(); };
-        NavHome.Click += (_, _) => ShowPage(NavHome, Home);
-        NavMods.Click += (_, _) => ShowPage(NavHome, Home);
-        NavProfiles.Click += (_, _) => ShowPage(NavHome, Home);
-        NavSettings.Click += (_, _) => ShowPage(NavSettings, Settings);
-    }
-
-    // The WPF MainWindow.NavigateTo rules: the launch cover is modal within Home (no navigating behind a starting
-    // game); the version picker is not (a tab click closes it and navigates). Settings always opens on its first
-    // section. Home shows the art; every other page sits on it dimmed, under the opaque bar.
-    private void ShowPage(ToggleButton tab, Control page)
-    {
-        var onHome = ReferenceEquals(PageHost.Content, Home);
-        if (!ReferenceEquals(page, Home) && onHome && Home.HasLaunchCover)
-        {
-            SelectTab(NavHome);
-            return;
-        }
-        if (onHome) Home.CloseVersionPicker();
-        SelectTab(tab);
-        if (ReferenceEquals(PageHost.Content, page)) return;
-        if (page is SettingsPage settings) settings.ShowFromTop();
-        PageHost.Content = page;
-        var home = ReferenceEquals(page, Home);
-        Stage.SetPage(home);
-        BarSurface.Opacity = home ? 0 : 1;
-        BarGlass.Opacity = home ? 1 : 0;
-        PlaceToasts();
+        NavHome.Click += (_, _) => ShowPage(LauncherPage.Home);
+        NavMods.Click += (_, _) => ShowPage(LauncherPage.Mods);
+        NavProfiles.Click += (_, _) => ShowPage(LauncherPage.Profiles);
+        NavSettings.Click += (_, _) => ShowPage(LauncherPage.Settings);
+        InitAccounts();
     }
 
     // ---- Toasts and the confirm dialog ----
@@ -110,12 +87,8 @@ public sealed partial class MainWindow : Window
 
     internal void TourClearToasts() => Toasts.Clear();
 
-    /// <summary>Render shots: open a page the way its tab does (0 Home, 3 Settings).</summary>
-    internal void TourNavigate(int page)
-    {
-        if (page == 3) ShowPage(NavSettings, Settings);
-        else ShowPage(NavHome, Home);
-    }
+    /// <summary>Render shots: open a page the way its tab does (0 Home, 1 Mods, 2 Profiles, 3 Settings).</summary>
+    internal void TourNavigate(int page) => ShowPage((LauncherPage)page);
 
     // The new tab is checked first: unchecking Home while nothing else is checked would make KeepOneTab check it again,
     // leaving two tabs lit (Home stayed bold on Settings).

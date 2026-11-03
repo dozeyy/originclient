@@ -11,7 +11,7 @@ internal static class Program
     //   --launch-plan <version> [--root dir] prepares a launch without starting the game (LaunchPlan).
     //   --play-plan <version> [--root dir]   presses the Home Play button headless, stops before the game starts (PlayPlan).
     //   --list-versions                      the versions the picker offers, one per line.
-    // Anything else opens the launcher window.
+    // Anything else opens the launcher window (--signin-probe <dir>, CI only, opens just the sign-in card's window).
     [STAThread]
     private static int Main(string[] args)
     {
@@ -32,6 +32,18 @@ internal static class Program
                 return 2;
             }
             return RenderShots.Run(dir);
+        }
+
+        // CI only: a small window with the real sign-in card, no account, no launcher (SignInProbe.cs).
+        if (args.Contains("--signin-probe"))
+        {
+            if (ValueOf(args, "--signin-probe") is not { } probeDir)
+            {
+                Console.Error.WriteLine("Usage: OriginLauncher --signin-probe <dir>");
+                return 2;
+            }
+            SignInProbe.Dir = probeDir;
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, Avalonia.Controls.ShutdownMode.OnExplicitShutdown);
         }
 
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

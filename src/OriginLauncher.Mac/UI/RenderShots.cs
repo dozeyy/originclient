@@ -39,6 +39,8 @@ internal static class RenderShots
         // Home reads settings, accounts and installs as it is built: all of it from a throwaway folder, never the
         // player's data (OriginPaths stays the one path authority; a scratch root also arms the play-plan probe).
         OriginPaths.UseScratchRoot(Path.Combine(Path.GetTempPath(), "origin-render-shots-" + Guid.NewGuid().ToString("N")));
+        // Made-up players' heads stay on the drawn fallback: a shot run never goes online.
+        OriginLauncher.App.Core.Skins.PlayerHeads.NetworkEnabled = false;
         var window = new MainWindow { Width = 1044, Height = 740 };
         window.Show();
         window.SetFriendsBadge(true);
@@ -85,6 +87,8 @@ internal static class RenderShots
 
         // The version picker, Settings, the launch flow, the overlays and the crash windows (UI/Shots/AreaAShots.cs).
         Shots.AreaAShots.Run(window, outDir);
+        // Mods, Profiles, the account pill and drawer, and the sign-in card (UI/Shots/AreaBShots.cs).
+        Shots.AreaBShots.Run(window, outDir);
 
         window.Close();
         Console.WriteLine($"render-shots: {_written} PNGs in {outDir}");

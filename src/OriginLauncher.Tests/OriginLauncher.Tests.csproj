@@ -85,6 +85,8 @@
          429 back-off (Core/Auth/Sessions is pure; the broker glue stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Auth\Sessions\*.cs" LinkBase="Auth" />
     <Compile Include="..\OriginLauncher.App\Core\Auth\MicrosoftAuthException.cs" LinkBase="Auth" />
+    <!-- Sign in with a code (device code start + polls) and the sign-in redirect's state rules: pure, no network. -->
+    <Compile Include="..\OriginLauncher.App\Core\Auth\DeviceCodeFlow.cs" LinkBase="Auth" />
     <!-- The real accounts.json vault, run against a temporary file with DPAPI
          swapped for a pass-through (AccountVaultTests): never the real file. -->
     <Compile Include="..\OriginLauncher.App\Core\Auth\AccountSessionVault.cs" LinkBase="Auth" />

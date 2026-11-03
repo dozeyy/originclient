@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Controls.AccountSwitcherPanel">
+
+    <!-- Twin of the WPF UI/Controls/AccountSwitcherPanel.xaml: the Accounts drawer. Rows are built in code (one per
+         stored account, newest first); the active one is framed in the accent, a half-added one carries PENDING. -->
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <Grid Grid.Row="0" Theme="{StaticResource Drawer.Header}" ColumnDefinitions="*,Auto">
+            <StackPanel>
+                <TextBlock Text="Accounts" Theme="{StaticResource Drawer.Title}"/>
+                <TextBlock Text="One game window per account" Theme="{StaticResource Drawer.Subtitle}"/>
+            </StackPanel>
+            <Button x:Name="CloseButton" Grid.Column="1" Theme="{StaticResource Social.Icon}" VerticalAlignment="Top"
+                    ToolTip.Tip="Close" AutomationProperties.Name="Close">
+                <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                            Stroke="{Binding $parent[Button].Foreground}"/>
+            </Button>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Margin="16,0">
+            <TextBlock x:Name="EmptyStateText" Text="No accounts added yet. Add a Microsoft account to sign in."
+                       Theme="{StaticResource Text.BodyDim}" Margin="4,0,4,12" TextWrapping="Wrap" VerticalAlignment="Top"/>
+            <StackPanel x:Name="AccountList" IsVisible="False"/>
+
+            <Button x:Name="AddAccountButton" Theme="{StaticResource Button.Primary.Medium}" Margin="0,8,0,0"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    AutomationProperties.Name="Add Microsoft account">
+                <StackPanel Orientation="Horizontal">
+                    <c:IconPath Data="{StaticResource Icon.Plus}" Theme="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                Stroke="{Binding $parent[Button].Foreground}"/>
+                    <TextBlock Text="Add Microsoft account" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <!-- What an account keeps (settings, worlds and servers per account; mods per version). -->
+            <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Lg}" Padding="16" Margin="0,16,0,0">
+                <StackPanel>
+                    <c:TrackedText Text="EACH ACCOUNT KEEPS ITS OWN" Tracking="0.16" FontSize="{StaticResource FontSize.Label}"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"
+                                   HorizontalAlignment="Left" Margin="0,0,0,10"/>
+                    <DockPanel Margin="0,0,0,12">
+                        <c:IconPath Data="{StaticResource Icon.Globe}" Theme="{StaticResource Icon.Small}" Margin="0,0,12,0"
+                                    Stroke="{StaticResource Brush.Text}"/>
+                        <TextBlock Text="Worlds, servers and settings" Theme="{StaticResource Text.Body}"
+                                   Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </DockPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <c:IconPath Data="{StaticResource Icon.Account}" Theme="{StaticResource Icon.Small}" Margin="0,0,12,0"
+                                    Stroke="{StaticResource Brush.Text}"/>
+                        <TextBlock Text="Game window, so several can play at once" Theme="{StaticResource Text.Body}"
+                                   Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </DockPanel>
+                    <DockPanel>
+                        <c:IconPath Data="{StaticResource Icon.Jar}" Theme="{StaticResource Icon.Small}" Margin="0,0,12,0"
+                                    Stroke="{StaticResource Brush.Text}"/>
+                        <TextBlock Text="Mods stay shared per version" Theme="{StaticResource Text.Body}"
+                                   Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- A failed switch or sign-in (danger), or a note such as "already added" (info). -->
+        <TextBlock Grid.Row="2" x:Name="ErrorText" Theme="{StaticResource Text.Body}" Foreground="{StaticResource Brush.Danger}"
+                   TextWrapping="Wrap" Margin="16,12,16,16" IsVisible="False"/>
+    </Grid>
+</UserControl>

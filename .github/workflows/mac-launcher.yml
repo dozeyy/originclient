@@ -84,7 +84,26 @@ jobs:
       - name: Core tests (Mac mode)
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Mac
-          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests|FullyQualifiedName~MacReleaseAssetsTests"
+          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests|FullyQualifiedName~MacReleaseAssetsTests|FullyQualifiedName~DeviceCodeFlowTests"
+
+      # The real Microsoft sign-in card in a small window of its own (never the launcher, a throwaway data root,
+      # no account): the web view (WKWebView, non-persistent store) draws Microsoft's real authorize page and
+      # catches a simulated redirect and Microsoft's own 302; "sign in with a code" gets a live code and then
+      # cancels. Nobody is signed in; the code is logged by length only. perl's alarm stops a hung window.
+      - name: Sign-in probe
+        run: |
+          perl -e 'alarm 240; exec @ARGV' "$RUNNER_TEMP/publish/OriginLauncher" --signin-probe "$RUNNER_TEMP/signin-probe"
+          grep -q "RESULT PASS" "$RUNNER_TEMP/signin-probe/probe.log"
+
+      # A finished sign-in reaches the account store one way only: MinecraftSessionBroker.AddSignedIn (the Mac
+      # code never writes accounts or tokens itself).
+      - name: Sign-in storage path
+        run: |
+          writes=$(grep -rnE "AccountStore\.(Save|Upsert|ProtectRefreshToken|ProtectSession)\(" src/OriginLauncher.Mac --include=*.cs || true)
+          adds=$(grep -rn "MinecraftSessionBroker.AddSignedIn(" src/OriginLauncher.Mac --include=*.cs | wc -l | tr -d ' ')
+          echo "direct account writes: ${writes:-none}"
+          echo "AddSignedIn call sites: $adds"
+          [ -z "$writes" ] && [ "$adds" = "1" ]
 
       # ---- Screenshots (Apple Silicon leg only; informational, never fails the run) ----
       # The Mac twin of launcher-shots: every Mac screen drawn headless (no window, made-up data, exits by

@@ -19,6 +19,7 @@
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Typography.axaml"/>
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Icons.axaml"/>
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Buttons.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Social.axaml"/>
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Inputs.axaml"/>
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Surfaces.axaml"/>
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Social.axaml"/>

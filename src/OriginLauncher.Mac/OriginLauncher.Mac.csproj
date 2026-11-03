@@ -44,6 +44,8 @@
     <Compile Include="..\OriginLauncher.App\UI\Pages\SettingsRailSpy.cs" Link="Shared\SettingsRailSpy.cs" />
     <Compile Include="..\OriginLauncher.App\UI\Controls\ToastQueue.cs" Link="Shared\ToastQueue.cs" />
     <Compile Include="..\OriginLauncher.App\UI\SelectorFakeInstalls.cs" Link="Shared\SelectorFakeInstalls.cs" />
+    <!-- The player head's whole-pixel fit (unit-tested with the WPF control). -->
+    <Compile Include="..\OriginLauncher.App\UI\Controls\HeadFit.cs" Link="Shared\HeadFit.cs" />
     <!-- The self-test's skin: the same independently encoded PNG the Core tests decode. -->
     <None Include="..\OriginLauncher.Tests\Fixtures\skin-all-filters.png" Link="skin-all-filters.png"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -82,6 +84,8 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
     <!-- render-shots: Skia drawing with no window and no screen. -->
     <PackageReference Include="Avalonia.Headless" Version="12.1.5" />
+    <!-- Microsoft sign-in's embedded page: WKWebView on the Mac, with a non-persistent data store (UI/Controls/MicrosoftSignInPanel). -->
+    <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.1" />
   </ItemGroup>
 
 </Project>

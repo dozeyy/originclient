@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Controls.MicrosoftSignInPanel">
+
+    <!-- Twin of the WPF UI/Controls/MicrosoftSignInPanel.xaml: "Sign in with Microsoft", Microsoft's own page in a
+         well inside the card (a WKWebView on the Mac, made in code), a cover while it loads or finishes, and an outcome
+         the player must read. Mac addition: "Sign in with a code instead" under the page, for when the page can't
+         open here (offered by itself then) or the player would rather use another device. -->
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Grid Grid.Row="0" Margin="16,16,16,12" ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="HeaderTitle" Text="Sign in with Microsoft" Theme="{StaticResource Text.Title}" VerticalAlignment="Center"/>
+            <Button x:Name="CloseButton" Grid.Column="1" Theme="{StaticResource Social.Icon}"
+                    ToolTip.Tip="Cancel sign-in" AutomationProperties.Name="Cancel sign-in">
+                <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                            Stroke="{Binding $parent[Button].Foreground}"/>
+            </Button>
+        </Grid>
+
+        <!-- No height of its own until Microsoft's page shows (ShowPage): the card fits the loading line or an outcome. -->
+        <Panel x:Name="PageArea" Grid.Row="1" Margin="16,0,16,16" ClipToBounds="True">
+            <ContentControl x:Name="WebHost"/>
+            <Border x:Name="LoadingOverlay" Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Md}" Padding="24">
+                <Panel>
+                    <TextBlock x:Name="LoadingText" Text="Loading sign-in..." Theme="{StaticResource Text.BodyDim}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+
+                    <!-- Sign in with a code: the short code to type on Microsoft's page, on this Mac or any other device. -->
+                    <StackPanel x:Name="CodePanel" IsVisible="False" MaxWidth="380" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="Enter this code" Theme="{StaticResource Text.Title}" TextAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="CodeHint" Theme="{StaticResource Text.BodyDim}" TextAlignment="Center" TextWrapping="Wrap"
+                                   Margin="0,0,0,16"/>
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}" Padding="20,12"
+                                HorizontalAlignment="Center" Margin="0,0,0,20">
+                            <c:TrackedText x:Name="UserCodeText" Tracking="0.12" TabularDigits="True" FontWeight="Bold"
+                                           FontSize="{StaticResource FontSize.Display}" Foreground="{StaticResource Brush.Text}"
+                                           HorizontalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8" Margin="0,0,0,16">
+                            <Button x:Name="CopyCodeButton" Theme="{StaticResource Button.Secondary.Medium}"
+                                    AutomationProperties.Name="Copy the code">
+                                <StackPanel Orientation="Horizontal">
+                                    <c:IconPath Data="{StaticResource Icon.Copy}" Theme="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                                Stroke="{Binding $parent[Button].Foreground}"/>
+                                    <TextBlock x:Name="CopyCodeLabel" Text="Copy code" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="OpenPageButton" Theme="{StaticResource Button.Primary.Medium}"
+                                    AutomationProperties.Name="Open Microsoft's page">
+                                <StackPanel Orientation="Horizontal">
+                                    <c:IconPath Data="{StaticResource Icon.External}" Theme="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                                Stroke="{Binding $parent[Button].Foreground}"/>
+                                    <TextBlock Text="Open Microsoft's page" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock Text="Waiting for you to finish on Microsoft's page..." Theme="{StaticResource Text.Caption}"
+                                   TextAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <!-- The card's outcome when sign-in can't finish here (ShowMessage): it stays open with a plain
+                         sentence instead of vanishing. -->
+                    <StackPanel x:Name="MessagePanel" IsVisible="False" MaxWidth="380" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock x:Name="MessageTitle" Theme="{StaticResource Text.Title}" TextAlignment="Center" TextWrapping="Wrap"
+                                   Margin="0,0,0,8"/>
+                        <TextBlock x:Name="MessageText" Theme="{StaticResource Text.BodyDim}" TextAlignment="Center" TextWrapping="Wrap"
+                                   Margin="0,0,0,24"/>
+                        <Button x:Name="OkButton" Content="OK" Theme="{StaticResource Button.Primary.Medium}" MinWidth="140"
+                                HorizontalAlignment="Center" HorizontalContentAlignment="Center"/>
+                    </StackPanel>
+                </Panel>
+            </Border>
+        </Panel>
+
+        <!-- The fallback, small under the page; it turns into the main button when the page can't open here. -->
+        <Button x:Name="UseCodeButton" Grid.Row="2" Theme="{StaticResource Button.Ghost}" HorizontalAlignment="Center"
+                Margin="16,-8,16,12" AutomationProperties.Name="Sign in with a code instead">
+            <TextBlock Text="Sign in with a code instead" Theme="{StaticResource Text.Caption}"
+                       Foreground="{Binding $parent[Button].Foreground}" VerticalAlignment="Center"/>
+        </Button>
+    </Grid>
+</UserControl>

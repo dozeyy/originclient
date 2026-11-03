@@ -33,7 +33,7 @@ public sealed class App : Application
     {
         // The headless render-shots run builds its own windows (UI/RenderShots.cs); only a real start opens one here.
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.MainWindow = new MainWindow();
+            desktop.MainWindow = SignInProbe.Dir != null ? SignInProbe.Start(desktop) : new MainWindow();
         base.OnFrameworkInitializationCompleted();
     }
 
