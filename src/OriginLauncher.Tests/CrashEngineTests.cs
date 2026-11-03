@@ -90,6 +90,32 @@ public class CrashEngineTests
         Assert.Contains("most this PC", v.Finding.RecommendedFix);
     }
 
+    // The bug: a 32 GB PC on Auto stores the slider's 16 GB suggestion while 1.8.9 really gets 4 GB. The crash
+    // check used the stored 16 GB ("needed more than 16 GB", offered 18 GB) and the fix wrote only RamMb, which Auto
+    // ignores, so the relaunch got the same 4 GB again. HomePage now feeds the check HeapPlan.MaxMb (the heap the
+    // launch used) and applies the fix with RamPolicy.SetManual.
+    [Fact]
+    public void Raise_memory_on_auto_judges_the_heap_used_and_the_relaunch_really_gets_more()
+    {
+        const int pc32Gb = 32768;
+        var settings = RamPolicy.Fresh(pc32Gb);
+        Assert.False(RamPolicy.IsManual(settings));
+        Assert.Equal(16384, settings.RamMb); // the stored suggestion, not what 1.8.9 runs on
+
+        var used = HeapPlan.For(settings, pc32Gb, legacy: true, heavyPack: false);
+        Assert.Equal(4096, used.MaxMb);
+
+        var v = V("java.lang.OutOfMemoryError: Java heap space", ram: used.MaxMb, total: pc32Gb);
+        Assert.Contains("the 4 GB it was given", v.Finding.LikelyCause);
+        Assert.Equal(CrashFixKind.RaiseMemory, v.SafeFix?.Kind);
+        Assert.Equal(6144, v.SafeFix?.NewRamMb);
+
+        RamPolicy.SetManual(settings, v.SafeFix!.NewRamMb!.Value);
+        var relaunch = HeapPlan.For(settings, pc32Gb, legacy: true, heavyPack: false);
+        Assert.Equal(6144, relaunch.MaxMb);
+        Assert.False(relaunch.Auto);
+    }
+
     [Fact]
     public void An_unrecognised_java_option_is_named()
     {
