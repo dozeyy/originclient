@@ -79,6 +79,11 @@ dependencies {
 
 	// Runtime: the last Mixin that runs on Java 8 + LaunchWrapper (1.8.9).
 	shadowImpl('org.spongepowered:mixin:0.7.11-SNAPSHOT') { transitive = false }
+	// WebP thumbnails (pack hub, shader browser): Modrinth serves most images as WebP and
+	// Java 8's ImageIO reads only PNG/JPEG, so those rows showed a blank tile. TwelveMonkeys'
+	// pure-Java reader (Java 8 bytecode, the same version 1.21.1 ships) is shadowed in and
+	// registered by gui/WebPImages. Transitive: imageio-core/-metadata + common-lang/-io/-image.
+	shadowImpl 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
 	// Build time only: the newer annotation processor writes the refmap that
 	// maps Origin's MCP names to the SRG names production Forge runs with.
 	annotationProcessor 'org.spongepowered:mixin:0.8.5-SNAPSHOT'
@@ -133,6 +138,12 @@ shadowJar {
 	configurations = [project.configurations.shadowImpl]
 	// Mixin's own copies of these ship with Minecraft 1.8.9 already.
 	exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+	// TwelveMonkeys moves under Origin's package so another mod's (other-version) copy on
+	// the shared LaunchClassLoader can't clash. Its ImageIO service file stays out: a
+	// mod-classloader service entry can break ImageIO's own classpath scan, and the reader
+	// is registered explicitly (gui/WebPImages) only when an Origin thumbnail loads.
+	relocate 'com.twelvemonkeys', 'com.origin.client.shadow.twelvemonkeys'
+	exclude 'META-INF/services/javax.imageio.spi.*'
 }
 
 remapJar {

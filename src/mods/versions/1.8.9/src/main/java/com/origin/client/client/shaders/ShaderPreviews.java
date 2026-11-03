@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.origin.client.client.gui.Gfx;
+import com.origin.client.client.gui.WebPImages;
 import com.origin.client.client.net.OriginHttp;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
@@ -39,15 +40,16 @@ import java.util.concurrent.TimeUnit;
 // a minute instead of never. Only visible rows call get(). Fully guarded -- a
 // missing/undecodable image just shows the fallback tile.
 //
-// 1.8.9: Modrinth serves its gallery `url`s and icons as lossless WebP, which
-// 1.16.5 decodes with TwelveMonkeys' ImageIO plugin; that plugin is not on
-// 1.8.9's classpath (no build.gradle change in this port). Every gallery image
-// also carries a `raw_url` -- the original upload, PNG or JPEG -- which plain
-// ImageIO reads, so previews use that and are scaled down to thumbnail size
-// before the upload (raw uploads can be 4K). A pack whose only image is a WebP
-// icon keeps the fallback tile.
+// 1.8.9: Modrinth serves its gallery `url`s and icons as lossless WebP; WebPImages
+// registers the bundled TwelveMonkeys reader so those decode. Gallery images still
+// prefer `raw_url` (the original upload, usually PNG or JPEG) and are scaled down to
+// thumbnail size before the upload (raw uploads can be 4K).
 public final class ShaderPreviews {
 	private ShaderPreviews() {
+	}
+
+	static {
+		WebPImages.install();
 	}
 
 	// a decoded preview image (Java-8 final class, was a record).
@@ -151,7 +153,7 @@ public final class ShaderPreviews {
 			byte[] bytes = getBytes(url);
 			BufferedImage bi = bytes == null ? null : decode(bytes);
 			if (bi == null) {
-				fail(slug);   // e.g. a WebP-only icon: the fallback tile stays
+				fail(slug);   // undecodable image: the fallback tile stays
 				return;
 			}
 			final BufferedImage img = downscale(bi);

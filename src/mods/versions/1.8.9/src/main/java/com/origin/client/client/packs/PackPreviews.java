@@ -1,6 +1,7 @@
 package com.origin.client.client.packs;
 
 import com.origin.client.client.gui.Gfx;
+import com.origin.client.client.gui.WebPImages;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
 
@@ -41,20 +42,14 @@ import java.util.zip.ZipFile;
 // and are decoded as images, nothing else.
 // 1.8.9 port: a BufferedImage goes straight into a DynamicTexture through
 // Gfx.registerTexture (no NativeImage), uploads run via addScheduledTask, and
-// release is TextureManager.deleteTexture. 1.8.9 bundles no WebP decoder (the
-// shader browser has the same limit), so a WebP-only image keeps the Origin-mark
-// tile -- the reader is registered only if some other mod ships TwelveMonkeys.
+// release is TextureManager.deleteTexture. Modrinth serves most thumbnails as WebP,
+// which Java 8's ImageIO can't read; WebPImages registers the bundled decoder.
 public final class PackPreviews {
 	private PackPreviews() {
 	}
 
 	static {
-		try {
-			Class<?> spi = Class.forName("com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi");
-			javax.imageio.spi.IIORegistry.getDefaultInstance().registerServiceProvider(spi.newInstance());
-		} catch (Throwable t) {
-			// expected on 1.8.9: PNG / JPEG previews only
-		}
+		WebPImages.install();
 	}
 
 	/** A decoded preview (1.8.9: Java 8 final class, was a record). */
