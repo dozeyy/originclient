@@ -85,7 +85,8 @@ public final class MojangProof {
 			// The service compares `name` with the name inside Mojang's signed value,
 			// exactly; take it from there so a fresh rename can't make them differ.
 			String profileName = profileName(textures.get("value").getAsString());
-			long at = System.currentTimeMillis();
+			// The service checks `at` against ITS clock: the real time, never the PC's (ServerClock).
+			long at = ServerClock.now();
 			Signature s = Signature.getInstance("SHA256withRSA");
 			s.initSign(privateKey);
 			s.update(("origin-auth|" + id + "|" + client + "|" + at).getBytes(StandardCharsets.UTF_8));
@@ -122,12 +123,14 @@ public final class MojangProof {
 
 	private static void certificate(String accessToken, String id)
 			throws NoOnlinePlay, IOException, GeneralSecurityException {
-		long now = System.currentTimeMillis();
+		// Mojang's expiry times are real time: compare them with ServerClock, never the PC clock.
+		long now = ServerClock.now();
 		if (privateKey != null && id.equals(certUuid) && now < refreshAt) {
 			return;
 		}
 		forget();
 		Answer a = request("POST", CERT_URL, accessToken);
+		now = ServerClock.now();   // request() just read Mojang's Date
 		if (a.code == 401 || a.code == 403) {
 			throw new NoOnlinePlay();
 		}
@@ -237,6 +240,10 @@ public final class MojangProof {
 				}
 			}
 			int code = c.getResponseCode();
+			if ("POST".equals(method)) {
+				// the certificate call (never cached) says what time it really is: the proof uses it
+				ServerClock.observeDate(c.getHeaderField("Date"));
+			}
 			JsonObject json = null;
 			try {
 				json = GSON.fromJson(body(c, code), JsonObject.class);

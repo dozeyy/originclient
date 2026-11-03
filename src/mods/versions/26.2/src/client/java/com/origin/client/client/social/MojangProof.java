@@ -32,7 +32,7 @@ import java.util.UUID;
  *     Minecraft access token. Mojang signs its public key + expiry for this uuid.
  *  2. the SIGNED PROFILE: sessionserver's textures property, which Mojang signs
  *     and which carries the uuid + exact name.
- * Then it signs "origin-auth|uuid|game|now" with the certificate's private key
+ * Then it signs "origin-auth|uuid|game|now" (now = ServerClock, the real time) with the certificate's private key
  * (proof we hold it) and builds the /v1/auth body. Byte-exact formats: docs/SOCIAL.md
  * "Identity v2: exact formats" (reference encoder: services/cosmetics/test/mojang.mjs
  * authBody()) - keys and Mojang's signatures go out as the exact bytes Mojang sent.
@@ -118,7 +118,8 @@ public final class MojangProof {
 			mojangName = str(profile, "name");
 		}
 
-		long at = System.currentTimeMillis();
+		// The service checks `at` against ITS clock: use the real time, never the PC's (ServerClock).
+		long at = ServerClock.now();
 		String signed = "origin-auth|" + uuid + "|" + CLIENT + "|" + at;
 		String sig;
 		try {
@@ -148,7 +149,8 @@ public final class MojangProof {
 	}
 
 	private static Certificate certificate(String uuid, String accessToken) throws Refused, IOException {
-		long now = System.currentTimeMillis();
+		// Mojang's expiry times are real time: compare them with ServerClock, never the PC clock.
+		long now = ServerClock.now();
 		Certificate c = cached;
 		if (c != null && c.uuid().equals(uuid) && now < c.refreshAt()) {
 			return c;
@@ -160,6 +162,9 @@ public final class MojangProof {
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.noBody())
 				.build());
+		// Mojang's answer says what time it really is: the proof signed next uses it.
+		ServerClock.observeDate(r.headers().firstValue("date").orElse(null));
+		now = ServerClock.now();
 		if (r.statusCode() == 401 || r.statusCode() == 403) {
 			// Mojang won't issue a certificate: multiplayer is disabled on this
 			// Microsoft account (child account / Xbox privacy settings).

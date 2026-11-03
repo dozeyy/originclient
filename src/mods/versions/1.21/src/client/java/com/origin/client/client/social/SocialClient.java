@@ -569,7 +569,7 @@ public final class SocialClient {
 
 	/** Sends a held /v1/sync without blocking the worker; its answer comes back through {@link #heldDone}. */
 	private static void startHeld(String api, long wait, long now) throws Exception {
-		if (token == null || System.currentTimeMillis() > tokenUntil) {
+		if (token == null || ServerClock.now() > tokenUntil) {
 			signIn(api);
 		}
 		String sent = token;
@@ -732,7 +732,7 @@ public final class SocialClient {
 		for (JsonElement e : arr(o, "friends")) {
 			JsonObject f = e.getAsJsonObject();
 			friends.add(new Friend(uid(str(f, "uuid")), str(f, "name"), bool(f, "online"), str(f, "client"),
-					str(f, "activity"), str(f, "server"), str(f, "version"), lng(f, "lastSeen")));
+					str(f, "activity"), str(f, "server"), str(f, "version"), ServerClock.toLocal(lng(f, "lastSeen"))));
 		}
 		friends.sort((a, b) -> a.online() != b.online() ? (a.online() ? -1 : 1)
 				: String.CASE_INSENSITIVE_ORDER.compare(nz(a.name()), nz(b.name())));
@@ -804,10 +804,12 @@ public final class SocialClient {
 		SocialState next = new SocialState(me, List.copyOf(friends), List.copyOf(incoming), List.copyOf(outgoing),
 				List.copyOf(blocked), party, List.copyOf(pings), List.copyOf(invites), warp);
 
-		// DMs, merged per conversation (pending copies replaced by the real ones)
+		// DMs, merged per conversation (pending copies replaced by the real ones). Chat times are
+		// moved onto the PC clock's timeline (ServerClock.toLocal) so they sort with the pending
+		// copies and read right next to the player's own clock.
 		for (JsonElement e : arr(o, "messages")) {
 			JsonObject m = e.getAsJsonObject();
-			Message msg = new Message(str(m, "id"), uid(str(m, "from")), uid(str(m, "to")), nz(str(m, "text")), lng(m, "at"), false);
+			Message msg = new Message(str(m, "id"), uid(str(m, "from")), uid(str(m, "to")), nz(str(m, "text")), ServerClock.toLocal(lng(m, "at")), false);
 			boolean mine = msg.from().equals(self);
 			String other = mine ? msg.to() : msg.from();
 			List<Message> list = chatList(other);
@@ -838,7 +840,7 @@ public final class SocialClient {
 		// party chat
 		for (JsonElement e : arr(o, "partyMessages")) {
 			JsonObject m = e.getAsJsonObject();
-			PartyMessage pm = new PartyMessage(str(m, "id"), uid(str(m, "from")), str(m, "name"), nz(str(m, "text")), lng(m, "at"), false);
+			PartyMessage pm = new PartyMessage(str(m, "id"), uid(str(m, "from")), str(m, "name"), nz(str(m, "text")), ServerClock.toLocal(lng(m, "at")), false);
 			if (pm.id() != null && PARTY_CHAT.stream().anyMatch(x -> pm.id().equals(x.id()))) {
 				continue;
 			}
@@ -1002,7 +1004,7 @@ public final class SocialClient {
 
 	/** POST with the bearer token; a 401 signs in again once and retries. */
 	private static Reply authed(String api, String path, JsonObject body) throws Exception {
-		if (token == null || System.currentTimeMillis() > tokenUntil) {
+		if (token == null || ServerClock.now() > tokenUntil) {
 			signIn(api);
 		}
 		Reply r = post(api + path, body, token);
@@ -1055,8 +1057,9 @@ public final class SocialClient {
 		}
 		token = t;
 		long exp = lng(r.body(), "expiresAt");
-		// a few minutes' margin; a bad/absent expiresAt still re-auths daily
-		long now = System.currentTimeMillis();
+		// a few minutes' margin; a bad/absent expiresAt still re-auths daily. expiresAt is the
+		// service's time, so it is compared with ServerClock (the real time), never the PC clock.
+		long now = ServerClock.now();
 		tokenUntil = exp > now ? exp - 5 * 60_000 : now + 23L * 3600_000;
 	}
 
@@ -1098,7 +1101,7 @@ public final class SocialClient {
 				if (rejected != null && rejected.equals(token)) {
 					token = null;
 				}
-				if (token == null || System.currentTimeMillis() > tokenUntil) {
+				if (token == null || ServerClock.now() > tokenUntil) {
 					signIn(api);
 				}
 				return new SignIn(token, null, null);
@@ -1137,6 +1140,8 @@ public final class SocialClient {
 	}
 
 	private static Reply reply(HttpResponse<String> r) {
+		// every answer says what time it really is (a wrong PC clock must not break sign-in)
+		ServerClock.observeDate(r.headers().firstValue("date").orElse(null));
 		JsonObject o = null;
 		try {
 			JsonElement e = JsonParser.parseString(r.body());

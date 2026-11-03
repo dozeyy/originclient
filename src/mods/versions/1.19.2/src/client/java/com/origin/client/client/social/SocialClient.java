@@ -743,7 +743,7 @@ public final class SocialClient {
 		for (JsonElement e : arr(o, "friends")) {
 			JsonObject f = e.getAsJsonObject();
 			friends.add(new Friend(uid(str(f, "uuid")), str(f, "name"), bool(f, "online"), str(f, "client"),
-					str(f, "activity"), str(f, "server"), str(f, "version"), lng(f, "lastSeen")));
+					str(f, "activity"), str(f, "server"), str(f, "version"), ServerClock.toLocal(lng(f, "lastSeen"))));
 		}
 		friends.sort((a, b) -> a.online() != b.online() ? (a.online() ? -1 : 1)
 				: String.CASE_INSENSITIVE_ORDER.compare(nz(a.name()), nz(b.name())));
@@ -818,7 +818,7 @@ public final class SocialClient {
 		// DMs, merged per conversation (pending copies replaced by the real ones)
 		for (JsonElement e : arr(o, "messages")) {
 			JsonObject m = e.getAsJsonObject();
-			Message msg = new Message(str(m, "id"), uid(str(m, "from")), uid(str(m, "to")), nz(str(m, "text")), lng(m, "at"), false);
+			Message msg = new Message(str(m, "id"), uid(str(m, "from")), uid(str(m, "to")), nz(str(m, "text")), ServerClock.toLocal(lng(m, "at")), false);
 			boolean mine = msg.from().equals(self);
 			String other = mine ? msg.to() : msg.from();
 			List<Message> list = chatList(other);
@@ -849,7 +849,7 @@ public final class SocialClient {
 		// party chat
 		for (JsonElement e : arr(o, "partyMessages")) {
 			JsonObject m = e.getAsJsonObject();
-			PartyMessage pm = new PartyMessage(str(m, "id"), uid(str(m, "from")), str(m, "name"), nz(str(m, "text")), lng(m, "at"), false);
+			PartyMessage pm = new PartyMessage(str(m, "id"), uid(str(m, "from")), str(m, "name"), nz(str(m, "text")), ServerClock.toLocal(lng(m, "at")), false);
 			if (pm.id() != null && PARTY_CHAT.stream().anyMatch(x -> pm.id().equals(x.id()))) {
 				continue;
 			}
@@ -1060,7 +1060,7 @@ public final class SocialClient {
 	 */
 	private static String token(String api, String refused) throws Exception {
 		synchronized (AUTH_LOCK) {
-			if (token == null || System.currentTimeMillis() > tokenUntil || token.equals(refused)) {
+			if (token == null || ServerClock.now() > tokenUntil || token.equals(refused)) {
 				token = null;
 				signIn(api);
 			}
@@ -1144,7 +1144,8 @@ public final class SocialClient {
 		token = t;
 		long exp = lng(r.body(), "expiresAt");
 		// a few minutes' margin; a bad/absent expiresAt still re-auths daily
-		long now = System.currentTimeMillis();
+		// expiresAt is the service's time: compare it with ServerClock (the real time), never the PC clock.
+		long now = ServerClock.now();
 		tokenUntil = exp > now ? exp - 5 * 60_000 : now + 23L * 3600_000;
 	}
 
@@ -1166,6 +1167,8 @@ public final class SocialClient {
 	}
 
 	private static Reply reply(HttpResponse<String> r) {
+		// every answer says what time it really is (a wrong PC clock must not break sign-in)
+		ServerClock.observeDate(r.headers().firstValue("date").orElse(null));
 		JsonObject o = null;
 		try {
 			JsonElement e = JsonParser.parseString(r.body());
