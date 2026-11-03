@@ -545,9 +545,8 @@ public sealed class LaunchController
         var logPath = Path.Combine(OriginPaths.Logs, $"{version}_{SafeFileName(game.AccountName)}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
         game.LogPath = logPath;
 
-        StreamWriter? logWriter = null;
-        try { logWriter = new StreamWriter(logPath, append: false) { AutoFlush = true }; }
-        catch (Exception) { /* best-effort: a failed log file never blocks a launch */ }
+        // Best-effort and capped at 50 MB (GameLogFile): a mod spamming errors can no longer fill the disk.
+        var logWriter = GameLogFile.TryOpen(logPath);
         var gate = new object();
         var openStreams = 2;
 

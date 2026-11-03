@@ -112,6 +112,7 @@
     <Compile Include="..\OriginLauncher.App\Core\Auth\AccountSessionVault.cs" LinkBase="Auth" />
     <Compile Include="..\OriginLauncher.App\Core\Accounts\AccountStore.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\Accounts\StoredAccount.cs" LinkBase="Accounts" />
+    <Compile Include="..\OriginLauncher.App\Core\Accounts\KeyStoreLockedException.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\OriginPaths.cs" LinkBase="Accounts" />
     <!-- The installer -> launcher hand-off: the launcher's reader/apply rules and the installer's
          own writer, round-tripped in SetupHandoffTests (never the real settings.json). The settings
@@ -169,6 +170,8 @@
     <Compile Include="..\OriginLauncher.App\Core\SettingsStore.cs" LinkBase="Settings" />
     <!-- The logs folder's pruning at start (LogRetentionTests). -->
     <Compile Include="..\OriginLauncher.App\Core\LogRetention.cs" LinkBase="Settings" />
+    <!-- The per-launch game log stops at 50 MB with one cut-off line (GameLogFileTests). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\GameLogFile.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- Settings: which rail item is lit, and who may see the Developer switch (both pure). -->
     <Compile Include="..\OriginLauncher.App\UI\Pages\SettingsRailSpy.cs" LinkBase="Settings" />
