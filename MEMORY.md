@@ -353,3 +353,13 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Pack hub: 31 picks built into the jar (27 Modrinth, 4 open-page tiles: PvPRP terms forbid automated downloads), copies hidden in Browse (330 tests).
 - Traps: the cloud proxy refuses tag pushes (403) - Will pushes tags from a PC chat; never `git fetch` claude/dev-shots (31 GB); release plan now fetches only main + tags (fetch-depth 0 pulled dev-shots: 50-90 min per release).
 - Open: E-5 shader-pass overlays on 1.21.11/26.x; 1.8.9 pack thumbnails blank; no CI shots for HUD readouts/hitboxes/weather/nametags; 1.8.9 Forge ids for step-aside; Stripe key needs PaymentIntents Read + Subscriptions Write for chargebacks to end Origin+.
+
+## 2026-11-03 - v1.0.88 candidate: post-v1.0.87 follow-ups (cloud session)
+- Launcher: per-game log copy stops at 50 MB (Core/Launch/GameLogFile, all 3 launchers); chromeless window answers WM_GETMINMAXINFO with the monitor work area (snap-maximise keeps the taskbar); locked keyring/Keychain -> KeyStoreLockedException -> Play says "unlock it and press Play again".
+- 1.8.9: Modrinth pack/shader thumbnails were WebP (Java 8 ImageIO has none) -> relocated TwelveMonkeys 3.12.0 shaded + gui/WebPImages registration. Step-aside Forge ids: djperspectivemod, bettersprinting, blur, motionblurmod (others unconfirmed, left out). The 1.21.1 HUD-editor "0.6/1.5" sample is the Cooldowns HUD (impossible on 1.8.9). Named mobs show no tag unless under the crosshair: vanilla 1.8.9 (EntityLivingBase.getAlwaysRenderNameTagForRender() = false), not Origin.
+- E-5 after-shaders overlay pass ported to 1.21.10, 1.21.11, 26.1, 26.2, 26.3 (hooks before/after GameRenderer.renderLevel's level call; Iris composites there). Deferred: 1.21.6, 1.21.8 (older world events). 26.3's extra dock icon = Mojang's Realms button.
+- HUD: hud/HudLayout is the single default table (shared + no-sync copies + 1.8.9); stored old defaults resolve to the new spot, nothing written back; tools/hud-layout-tests guards overlaps (29 pieces, 5 sizes). Party/Portal Calc/Bed Wars Teammates may reach into chat at default GUI scale; Minimap shares the scoreboard spot.
+- Dev-shots world set has DevFeatureShots (hud_readouts, hitboxes, rain, snow, nametags_f5) on a cleared stage; 1.21 pack hub existed, only its shots were missing. ref-189 gained `code <Class>#<method>` (javap -c).
+- Proof: boot-smoke all 20 in-world; dev-shots rel088w/rel088sh ('after-shaders pass active' on 1.21.10/26.1/26.2), hudlay/hudlay2, 1.8.9 rel088 (111 PNGs, thumbnails shown).
+- Open: real-cloud shader check (Complementary) by Will; pre-1.20 modules have no feature shots; 13 modules lack pack-hub shots.
+

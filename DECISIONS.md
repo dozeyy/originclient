@@ -54,6 +54,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Launcher Home: Store lives in the top bar; no profile button on Home, the profile is put on in the Profiles page only (2026-10-25).
 - Launcher Home has no orbit rings around the numeral: they read as a fake Origin logo (2026-10-25).
 - Version picker: click a family card, it expands (animated) into a panel with one compact release dropdown; picking is the selection, Esc/click-out returns Home, Back returns to the grid; no "Download" wording (2026-10-25).
+- HUD defaults: every HUD piece has its own default spot (one table, hud/HudLayout), the same on every version; with every piece on nothing overlaps; a piece the player moved stays where they put it (2026-11-03).
 
 ## Website (originclient.org — served by Vercel, not GitHub Pages, 2026-10-18)
 - Never claim "every version" (2026-10-13).
