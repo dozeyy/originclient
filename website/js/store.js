@@ -269,25 +269,29 @@ async function checkout() {
 // A free code Will made (services/cosmetics/src/codes.js): everything in the
 // bag, or Origin+ for good. No Stripe, so it works whether or not checkout is
 // open; the service checks the code and gives the items in the same step.
-async function redeemCode() {
+// Two boxes run this (up top and above Checkout, both [data-code]); `box` is the
+// one used, and only its note speaks.
+async function redeemCode(box) {
   if (state.codeBusy) return;
-  const input = $('#store-code');
+  const input = $('[data-code-input]', box);
   const code = input.value.trim();
   const say = (text, kind = '') => {
-    const note = $('[data-code-note]');
-    note.textContent = text;
-    note.classList.toggle('is-error', kind === 'error');
-    note.classList.toggle('is-done', kind === 'done');
+    for (const note of $$('[data-code-note]')) {
+      const here = box.contains(note);
+      note.textContent = here ? text : '';
+      note.classList.toggle('is-error', here && kind === 'error');
+      note.classList.toggle('is-done', here && kind === 'done');
+    }
   };
+  const busy = on => { state.codeBusy = on; for (const b of $$('[data-code-go]')) b.disabled = on; };
   if (!canCheckout()) {
-    say('Enter the Minecraft name first.', 'error');
+    say('Enter your Minecraft name first.', 'error');
     $('#mc-name').focus();
     return;
   }
   if (!code) { say('Type your code.', 'error'); input.focus(); return; }
   if (!state.api) { say('The store can\u2019t be reached right now. Please try again in a minute.', 'error'); return; }
-  state.codeBusy = true;
-  $('[data-code-go]').disabled = true;
+  busy(true);
   say('Checking your code\u2026');
   const player = state.player;
   try {
@@ -298,7 +302,7 @@ async function redeemCode() {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'That code can\u2019t be used right now. Please try again in a minute.');
-    input.value = '';
+    for (const i of $$('[data-code-input]')) i.value = '';
     if (j.plus) {
       state.member = true;
       say(`Origin+ is on ${player.name}.${j.paying ? ' You still have a paid membership: cancel it under \u201cManage or cancel\u201d so it stops billing.' : ''}`, 'done');
@@ -315,8 +319,7 @@ async function redeemCode() {
   } catch (err) {
     say(err instanceof TypeError ? 'Couldn\u2019t reach the store. Please try again.' : err.message, 'error');
   } finally {
-    state.codeBusy = false;
-    $('[data-code-go]').disabled = false;
+    busy(false);
   }
 }
 
@@ -855,8 +858,14 @@ async function boot() {
     if (b) toggleBag(b.dataset.remove);
   });
   $('[data-checkout]').addEventListener('click', checkout);
-  $('[data-code-go]').addEventListener('click', redeemCode);
-  $('#store-code').addEventListener('keydown', e => { if (e.key === 'Enter') redeemCode(); });
+  // One code, two boxes: typing in either fills the other, so a code typed up top
+  // is still there by Checkout after the name step.
+  for (const box of $$('[data-code]')) {
+    const field = $('[data-code-input]', box);
+    $('[data-code-go]', box).addEventListener('click', () => redeemCode(box));
+    field.addEventListener('keydown', e => { if (e.key === 'Enter') redeemCode(box); });
+    field.addEventListener('input', () => { for (const i of $$('[data-code-input]')) if (i !== field) i.value = field.value; });
+  }
   $('[data-bagbar] button').addEventListener('click', () => {
     $('#checkout').scrollIntoView({ behavior: smoothScroll(), block: 'start' });
     if (!state.name) setTimeout(() => input.focus({ preventScroll: true }), 400);

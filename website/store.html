@@ -39,10 +39,23 @@
   <main id="main" class="store">
     <div class="notice" data-notice role="status" hidden></div>
 
-    <section class="store__intro">
-      <h1>Capes, wings &amp; more</h1>
-      <p class="lede">Cosmetics for Origin Client.</p>
-    </section>
+    <div class="store__head">
+      <section class="store__intro">
+        <h1>Capes, wings &amp; more</h1>
+        <p class="lede">Cosmetics for Origin Client.</p>
+      </section>
+
+      <!-- Code box #1, up top so it's found straight away. Same handler as the one by
+           Checkout (js/store.js redeemCode); the two inputs mirror each other. -->
+      <div class="code code--top" data-code>
+        <label class="field__label" for="store-code-top">Have a code? Redeem it</label>
+        <div class="code__row">
+          <input id="store-code-top" data-code-input type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="ORIGIN-XXXX-XXXX-XXXX" aria-describedby="code-note-top">
+          <button class="btn btn--ghost code__go" type="button" data-code-go>Redeem</button>
+        </div>
+        <p class="code__note" id="code-note-top" data-code-note aria-live="polite"></p>
+      </div>
+    </div>
 
     <div class="store__layout">
       <!-- Fitting room + bag. Sticky beside the shop on wide screens. -->
@@ -109,16 +122,17 @@
           <ul class="bag" data-bag></ul>
           <div class="bag__total"><span>Total</span><b data-total></b></div>
           <p class="bag__member" data-bag-member hidden>Member prices applied.</p>
-          <button class="btn btn--primary btn--lg bag__go" type="button" data-checkout>Checkout</button>
-          <p class="bag__note" data-checkout-note aria-live="polite"></p>
-          <details class="code" data-code>
-            <summary>Have a code?</summary>
+          <!-- Code box #2, open right above Checkout. A code is a free redeem, not a discount. -->
+          <div class="code code--bag" data-code>
+            <label class="field__label" for="store-code">Have a code? Redeem it</label>
             <div class="code__row">
-              <input id="store-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="ORIGIN-XXXX-XXXX-XXXX" aria-label="Your code" aria-describedby="code-note">
-              <button class="btn btn--ghost code__go" type="button" data-code-go>Use code</button>
+              <input id="store-code" data-code-input type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="ORIGIN-XXXX-XXXX-XXXX" aria-describedby="code-note">
+              <button class="btn btn--ghost code__go" type="button" data-code-go>Redeem</button>
             </div>
             <p class="code__note" id="code-note" data-code-note aria-live="polite"></p>
-          </details>
+          </div>
+          <button class="btn btn--primary btn--lg bag__go" type="button" data-checkout>Checkout</button>
+          <p class="bag__note" data-checkout-note aria-live="polite"></p>
         </div>
       </aside>
 
