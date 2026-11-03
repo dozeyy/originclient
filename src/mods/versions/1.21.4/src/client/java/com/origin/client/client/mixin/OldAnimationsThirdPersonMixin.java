@@ -20,13 +20,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 //   private static ArmPose getArmPose(Player, ItemStack, InteractionHand)   <- per hand, hooked
 //   private static ArmPose getArmPose(AbstractClientPlayer, HumanoidArm)     <- per arm, calls the above
 //   public void extractRenderState(AbstractClientPlayer, PlayerRenderState, float)
-//     -> getArmPose HEAD: sword hand gets BLOCK while the off-hand shield is raised (HumanoidModel's
-//        BLOCK angles are 1.7's sword-block arm), the shield hand hangs EMPTY (shield not drawn).
+//     -> getArmPose HEAD: the sword hand gets BLOCK during the looks-only sword block (HumanoidModel's
+//        BLOCK angles are 1.7's sword-block arm). A raised shield keeps vanilla's pose.
 //        1.21.1 hooked the (AbstractClientPlayer, InteractionHand) shape, which is gone.
-//     -> extractRenderState TAIL: the hide/turn arms go on the state (OldAnimationsState) for
+//     -> extractRenderState TAIL: the sword-block arm goes on the state (OldAnimationsState) for
 //        OldAnimationsHandLayerMixin, which no longer sees the player.
 // Full descriptors keep the injectors off the other getArmPose and the synthetic bridges.
-// If this stops applying: vanilla shield pose, shield drawn, sword held like vanilla.
+// If this stops applying: vanilla arm and sword in F5.
 @Mixin(PlayerRenderer.class)
 public class OldAnimationsThirdPersonMixin {
 	@Inject(method = "getArmPose(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/client/model/HumanoidModel$ArmPose;",
