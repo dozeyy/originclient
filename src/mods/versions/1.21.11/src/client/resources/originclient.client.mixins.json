@@ -66,6 +66,7 @@
 		"BossBarMixin",
 		"TitlesMixin",
 		"GameRendererFrameMixin",
+		"GameRendererPostShadersMixin",
 		"MenuBlurMixin",
 		"SelectionListTransparentMixin",
 		"MenuBlurRadiusMixin",

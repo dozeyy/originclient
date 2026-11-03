@@ -87,20 +87,69 @@ public final class OriginRenderTypes {
 	private static final MultiBufferSource.BufferSource LINES_IMMEDIATE =
 			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
 
+	// The after-shaders BANK (render/AfterShadersPass). While an Iris shader pack
+	// is in use, the overlays that must stay above the pack's clouds (waypoints,
+	// party pings, WorldEdit CUI, Chunk Borders) are wrapped in
+	// AfterShadersPass.bankBegin()/bankEnd(), which sets `banking`: their vertices
+	// go into these three sources instead, draw() leaves them alone, and
+	// AfterShadersPass.run() draws them with drawBank() once Iris has composited.
+	// Separate from IMMEDIATE / LINES_IMMEDIATE, so an unwrapped caller's draw()
+	// (block outline, cosmetics) can never flush banked vertices early.
+	// Render thread only.
+	static boolean banking;
+	private static MultiBufferSource.BufferSource bankQuads, bankLines, bankExtra;
+	static {
+		newBank();
+	}
+
+	private static void newBank() {
+		bankQuads = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
+		bankLines = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
+		bankExtra = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
+	}
+
+	/** True while the current overlay's vertices go to the after-shaders bank. */
+	public static boolean banking() {
+		return banking;
+	}
+
+	/** The bank source for a caller's own extra render type (the WorldEdit CUI's
+	 *  see-through pass); drawn first by drawBank(). Use only while banking(). */
+	public static MultiBufferSource.BufferSource bankExtra() {
+		return bankExtra;
+	}
+
+	/** Draws the bank NOW under the current matrices (AfterShadersPass.run()). */
+	static void drawBank() {
+		bankExtra.endBatch();
+		bankQuads.endBatch();
+		bankLines.endBatch();
+	}
+
+	/** Drops what the bank holds without drawing it (a frame that never reached
+	 *  the post hook, or a failed draw). Rare path: fresh sources, so a
+	 *  half-written vertex can never leak into a later frame. */
+	static void discardBank() {
+		newBank();
+	}
+
 	/** The consumer to emit OVERLAY_QUADS vertices into (addVertex + setColor). */
 	public static VertexConsumer begin() {
-		return IMMEDIATE.getBuffer(OVERLAY_QUADS);
+		return (banking ? bankQuads : IMMEDIATE).getBuffer(OVERLAY_QUADS);
 	}
 
 	/** The consumer to emit RenderType.lines() vertices into
 	 *  (addVertex + setColor + setNormal). Drawn by draw(). */
 	public static VertexConsumer beginLines() {
-		return LINES_IMMEDIATE.getBuffer(RenderType.lines());
+		return (banking ? bankLines : LINES_IMMEDIATE).getBuffer(RenderType.lines());
 	}
 
 	/** Draws everything emitted since begin()/beginLines(), NOW, with the current
 	 *  matrices and depth buffer. Call once at the end of each world-render callback. */
 	public static void draw() {
+		if (banking) {
+			return;   // banked: AfterShadersPass.run() draws it after the pack's composite
+		}
 		IMMEDIATE.endBatch();
 		LINES_IMMEDIATE.endBatch();
 	}
