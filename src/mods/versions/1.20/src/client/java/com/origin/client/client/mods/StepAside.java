@@ -54,13 +54,19 @@ public final class StepAside {
 	 *    over the worldedit:cui channel.
 	 *  - jei <- jei: a player's own JEI jar (Origin bundles JEI, so only a copy outside
 	 *    Origin's jar counts); Origin's switch stops hiding it.
+	 *  - oldanimations <- the old-animation / sword-blocking mods (OverflowAnimations,
+	 *    Animatium, Sword Blocking, Combat Control, Old Combat Mod, Ancient Animations,
+	 *    Bring Blocking Back, Sword Block): each redraws the held sword/items the old way,
+	 *    and two would fight over the same first-person hand draw.
 	 */
 	public static final List<Row> TABLE = List.of(
 			new Row("freelook", false, false, List.of("freecam")),
 			new Row("zoom", false, false, List.of("zoomify")),
 			new Row("saturation", false, false, List.of("appleskin")),
 			new Row("worldeditcui", false, false, List.of("worldeditcui")),
-			new Row("jei", true, true, List.of("jei")));
+			new Row("jei", true, true, List.of("jei")),
+			new Row("oldanimations", false, false, List.of("overflowanimations", "animatium", "swordblocking",
+					"combat-control", "oldcombatmod", "ancientanimations", "bring-blocking-back", "swordblock")));
 
 	/** A resolved overlap: the row and the display name of the mod that replaced it. */
 	public record Replaced(Row row, String by) {
