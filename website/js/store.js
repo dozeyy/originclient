@@ -6,6 +6,7 @@
 // for the bag and the typed player's UUID, and sends the buyer to Stripe's own
 // checkout page. Stripe tells the service when the money arrives, and the
 // service gives that player the items. Setup: docs/STORE.md.
+import { nameResult } from './names.mjs';
 import { createFittingRoom, createThumbnailer, loadSkin, loadCatalog, prepare, getSource, resolvedSource, loopOf, STILL_T } from './cosmetics.js';
 
 // ---------------------------------------------------------------------------
@@ -363,31 +364,11 @@ function onName(value) {
 async function lookupName(name) {
   try {
     const r = await fetch(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(name)}`);
-    const j = await r.json();
-    const p = j?.data?.player;
-    if (j?.success && p) {
-      const uuid = (p.raw_id || p.id || '').replace(/-/g, '');
-      return { state: 'ok', player: { name: p.username, uuid, avatar: p.avatar, ...skinOf(p) } };
-    }
-    return { state: 'missing' };
+    const j = await r.json().catch(() => null);
+    return nameResult(r.status, j);
   } catch {
     return { state: 'unknown' };
   }
-}
-
-// The skin file and arm model straight from the Mojang profile, when the
-// lookup includes it (either as skin_texture or the raw textures property).
-function skinOf(p) {
-  const out = { skinUrl: p.skin_texture || null, slim: undefined };
-  const prop = (p.properties || []).find(x => x.name === 'textures');
-  if (prop) {
-    try {
-      const skin = JSON.parse(atob(prop.value)).textures?.SKIN;
-      if (skin?.url) out.skinUrl = skin.url;
-      if (skin) out.slim = skin.metadata?.model === 'slim';
-    } catch { /* keep what we have */ }
-  }
-  return out;
 }
 
 const canCheckout = () => state.nameState === 'ok' && !!state.player?.uuid;
@@ -410,7 +391,7 @@ function renderName() {
     checking: 'Checking that name…',
     ok: `Found ${state.player?.name}.`,
     missing: 'No Minecraft account has that name.',
-    unknown: 'Couldn’t check that name right now. Try again in a moment.',
+    unknown: 'Couldn’t check that name right now. Check the spelling, or try again in a moment.',
   }[state.nameState];
 }
 

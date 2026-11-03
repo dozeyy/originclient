@@ -20,6 +20,15 @@
 
 /* ---------- fitting room ---------- */
 .fit { position: sticky; top: 88px; background: var(--glass); border: 1px solid var(--soft); border-radius: 24px; overflow: hidden; scroll-margin-top: 88px; backdrop-filter: blur(12px); }
+/* A laptop window must always show Checkout: the sidebar is never taller than the window (it
+   scrolls inside itself when the bag is long or Adjust is open), Checkout stays pinned to its
+   bottom edge, and short windows get a shorter stage. The ring around the pinned button is the
+   panel's own colour, so bag rows scrolling under it disappear behind it cleanly. */
+@media (min-width: 901px) {
+  .fit { max-height: calc(100svh - 104px); overflow-y: auto; scrollbar-width: thin; }
+  .fit .bag__go { position: sticky; bottom: 14px; z-index: 1; box-shadow: 0 0 0 14px var(--panel); }
+  .fit .bag__go:hover { box-shadow: 0 0 0 6px rgba(255, 255, 255, .08), 0 0 0 14px var(--panel); }
+}
 .fit__stage { position: relative; height: clamp(260px, 38vh, 400px); background: radial-gradient(ellipse 60% 55% at 50% 58%, rgba(255, 255, 255, .1), rgba(255, 255, 255, 0) 70%), #141416; border-bottom: 1px solid var(--soft); }
 .fit__stage canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
 .fit__stage canvas:active { cursor: grabbing; }
@@ -46,6 +55,11 @@ body.no-webgl .fit__hint { display: none; }
 /* Adjust the fit: opens under the player when a hat or face item is worn. Kept compact
    (one row of three steppers) so the sticky sidebar still fits a laptop screen. */
 .fit:has(.adjust:not([hidden])) .fit__stage { height: clamp(240px, 34vh, 380px); }
+/* Short laptop windows: a shorter stage so the name, bag and Checkout fit beside it. */
+@media (min-width: 901px) and (max-height: 820px) {
+  .fit__stage { height: clamp(200px, 30vh, 400px); }
+  .fit:has(.adjust:not([hidden])) .fit__stage { height: clamp(190px, 26vh, 380px); }
+}
 .adjust { padding: 14px 18px 12px; border-bottom: 1px solid var(--soft); }
 .adjust[hidden] { display: none; }
 .adjust__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
@@ -98,6 +112,10 @@ body.no-webgl .fit__hint { display: none; }
 .bag__go:disabled:active { transform: none; }
 .bag__note { min-height: 1.4em; margin: 12px 0 0; color: var(--dim); font-size: 13px; line-height: 1.4; text-align: center; }
 .bag__note.is-error { color: #f0a195; }
+/* "By buying you agree to the Terms" under both checkout buttons (Will, 2026-11-03). */
+.terms-line { margin: 6px 0 0; color: var(--dim); font-size: 13px; line-height: 1.4; text-align: center; }
+.terms-line--start { text-align: left; }
+.terms-line a { color: var(--text); text-underline-offset: 3px; }
 /* "Have a code?": free codes Will hands out (services/cosmetics/src/codes.js) */
 .code { margin: 8px 0 0; }
 .code summary { display: flex; align-items: center; justify-content: center; min-height: 44px; margin: 0 auto; padding: 0 8px; color: var(--dim); font: 600 14px/1.2 var(--sans); cursor: pointer; list-style: none; }

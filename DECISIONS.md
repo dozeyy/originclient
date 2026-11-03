@@ -24,6 +24,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Origin's Sodium/Iris hooks check the version; on one they don't know, that feature switches off and the rest of Origin keeps working (2026-10-26).
 - 1.21.1 ships Sodium 0.8 by default (Will's own mods need it); Origin Render (experimental terrain culler, Sodium 0.6 only) stays removed (2026-10-26).
 - Fix Compatibility may look up a missing dependency on Modrinth and installs it only when the file matches Modrinth's SHA-512 (2026-10-27).
+- Store purchases are final except where the law requires a refund; Origin+ renews automatically, cancels any time and keeps working until the paid period ends (2026-11-03).
 
 - Mac launcher: every screen and feature of the Windows launcher; no Apple Developer account for now (the site shows the Open Anyway steps); the site calls it Mac Beta until real players confirm it works (2026-11-02).
 - A version that plays on Mac but whose shaders fail stays in the Mac picker and says shaders aren't available on Mac yet (2026-11-02).
