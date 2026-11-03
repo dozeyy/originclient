@@ -9,8 +9,9 @@
 # game until updated.
 #
 # COMPATIBILITY: installed launchers key on the launcher-v tag prefix and the
-# exact asset names (OriginLauncher-win-x64.zip / OriginLauncher-Setup.exe).
-# Never change those. New tags must be strictly greater than the last release.
+# exact asset names (OriginLauncher-win-x64.zip / OriginLauncher-Setup.exe,
+# and the eight Linux names below, which the website links to and Linux
+# launchers self-update from). Never change those. New tags must be strictly greater than the last release.
 # The launcher polls this feed UNAUTHENTICATED, so the repository (or at least
 # its releases) must stay public.
 #
@@ -21,10 +22,17 @@
 #                                that release's zip; writes the release notes.
 #   2. Mods       (Linux, parallel, ~2 min) build-mods.yml — one job per
 #                                changed module, all at once.
-#   3. Release    (Windows, ~4 min) bundle every jar into the WPF launcher,
+#   3. Linux      (Linux x64 + arm64, parallel with 4's start, ~4 min)
+#                                tools/linux/package.sh with the same jars:
+#                                AppImage, .deb, .rpm, tar.gz per arch, each
+#                                with a .sha256 (linux-launcher.yml proves
+#                                them on every push; here the tar.gz is
+#                                self-tested before it can ship).
+#   4. Release    (Windows, ~4 min) bundle every jar into the WPF launcher,
 #                                zip it, build the small Origin installer
 #                                (src/OriginSetup, which downloads that zip)
-#                                and smoke-test both, publish the release.
+#                                and smoke-test both, then publish the release
+#                                with the eight Linux downloads attached.
 # The old single-job pipeline compiled every module back to back on one
 # Windows runner.
 #
@@ -109,9 +117,66 @@ jobs:
       modules: ${{ needs.plan.outputs.build }}
       fail-fast: true
 
+  # The eight Linux downloads, built natively on each architecture's own runner from the same
+  # jars the Windows launcher bundles. tools/release/check_consistency.py keeps these names, the
+  # Linux self-update (UpdateService.Linux.cs) and package.sh in agreement.
+  linux:
+    name: Linux packages (${{ matrix.rid }})
+    needs: [plan, mods]
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download mod jars
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mod-*
+          path: modjars
+          merge-multiple: true
+
+      # Same rule as the Windows job: the tag's version, or unstamped for a rehearsal.
+      - name: Package (${{ matrix.rid }})
+        run: |
+          v=""
+          if [ "$REHEARSAL" != "true" ]; then v="${RELEASE_TAG#launcher-v}"; fi
+          bash tools/linux/package.sh --rid ${{ matrix.rid }} --version "$v" --out "$RUNNER_TEMP/dist" --jars modjars
+          cd "$RUNNER_TEMP/dist"
+          ls -l
+          sha256sum -c ./*.sha256
+
+      - name: Self-test the tar.gz
+        run: |
+          mkdir -p "$RUNNER_TEMP/fresh"
+          tar -xzf "$RUNNER_TEMP"/dist/OriginLauncher-linux-*.tar.gz -C "$RUNNER_TEMP/fresh"
+          "$RUNNER_TEMP/fresh/OriginLauncher/OriginLauncher" --self-test
+
+      - name: Upload the Linux packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-release-${{ matrix.rid }}
+          path: ${{ runner.temp }}/dist
+          if-no-files-found: error
+          retention-days: 7
+
   release:
     name: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'Build launcher + publish release' || 'Build launcher (rehearsal, publishes nothing)' }}
-    needs: [plan, mods]
+    needs: [plan, mods, linux]
     # Runs when the mod builds succeeded OR were skipped (nothing changed).
     if: ${{ !cancelled() && !failure() }}
     runs-on: windows-latest
@@ -168,6 +233,32 @@ jobs:
           [IO.File]::WriteAllText("OriginLauncher-win-x64.zip.sha256", "$h  OriginLauncher-win-x64.zip`n")
           Write-Host "OriginLauncher-win-x64.zip.sha256: $h"
 
+      # The Linux downloads land next to the Windows files, so the publish step lists them by bare
+      # name. A release is refused unless all eight and their .sha256 are here and agree (the Linux
+      # self-update trusts nothing else).
+      - name: Download the Linux packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: linux-release-*
+          path: .
+          merge-multiple: true
+
+      - name: Assert every Linux download is present
+        shell: pwsh
+        run: |
+          $names = @(
+            'OriginLauncher-linux-x86_64.AppImage', 'OriginLauncher-linux-aarch64.AppImage',
+            'origin-launcher_amd64.deb', 'origin-launcher_arm64.deb',
+            'origin-launcher.x86_64.rpm', 'origin-launcher.aarch64.rpm',
+            'OriginLauncher-linux-x64.tar.gz', 'OriginLauncher-linux-arm64.tar.gz')
+          foreach ($n in $names) {
+            if (-not (Test-Path $n) -or -not (Test-Path "$n.sha256")) { throw "missing Linux download: $n (or its .sha256)" }
+            $h = (Get-FileHash $n -Algorithm SHA256).Hash.ToLowerInvariant()
+            $want = ((Get-Content "$n.sha256" -Raw).Trim() -split '\s+')[0]
+            if ($h -ne $want) { throw "$n does not match its .sha256" }
+            Write-Host "$n  $h"
+          }
+
       - name: Keep rehearsal output as a run artifact
         if: env.REHEARSAL == 'true'
         uses: actions/upload-artifact@v7
@@ -191,5 +282,21 @@ jobs:
           OriginLauncher-win-x64.zip
           OriginLauncher-win-x64.zip.sha256
           OriginLauncher-Setup.exe
+          OriginLauncher-linux-x86_64.AppImage
+          OriginLauncher-linux-x86_64.AppImage.sha256
+          OriginLauncher-linux-aarch64.AppImage
+          OriginLauncher-linux-aarch64.AppImage.sha256
+          origin-launcher_amd64.deb
+          origin-launcher_amd64.deb.sha256
+          origin-launcher_arm64.deb
+          origin-launcher_arm64.deb.sha256
+          origin-launcher.x86_64.rpm
+          origin-launcher.x86_64.rpm.sha256
+          origin-launcher.aarch64.rpm
+          origin-launcher.aarch64.rpm.sha256
+          OriginLauncher-linux-x64.tar.gz
+          OriginLauncher-linux-x64.tar.gz.sha256
+          OriginLauncher-linux-arm64.tar.gz
+          OriginLauncher-linux-arm64.tar.gz.sha256
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md

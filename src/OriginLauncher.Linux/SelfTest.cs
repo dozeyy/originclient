@@ -37,6 +37,8 @@ internal static class SelfTest
         Console.WriteLine($"  data folder      {OriginPaths.DefaultRoot}");
         Console.WriteLine($"  bundled files    {AppContext.BaseDirectory}");
         Console.WriteLine($"  update asset     {UpdateService.ReleaseAssetName}");
+        // CI's package-install jobs read this line: "package" from /opt via the deb/rpm, "appimage", or "folder".
+        Console.WriteLine($"  install kind     {(UpdateService.AppImagePath != null ? "appimage" : UpdateService.PackageInstall ? "package" : "folder")}");
         Console.WriteLine($"  Mojang runtime   {MojangMetadata.RuntimePlatform}");
 
         var scratch = Path.Combine(Path.GetTempPath(), "origin-selftest-" + Guid.NewGuid().ToString("N"));
@@ -55,6 +57,7 @@ internal static class SelfTest
             Check("java 8 layout", JavaLayout);
             Check("update swap (tar.gz folder)", UpdateSwapFolder);
             Check("update swap (AppImage)", UpdateSwapAppImage);
+            Check("update swap (deb/rpm, per-user copy)", UpdateSwapPackage);
             if (network)
             {
                 await CheckAsync("java 8 download", JavaDownload).ConfigureAwait(false);
@@ -337,13 +340,46 @@ internal static class SelfTest
         return "AppImage replaced after the launcher quit; started: " + WaitForMarker(marker);
     }
 
-    private static (int Code, string Output) RunSwap(string stage, string target, string mode)
+    // The self-update of a .deb/.rpm install: the package folder (marker inside) is left alone and the
+    // release tar becomes the per-user copy (OriginPaths.UserAppCopy), created on the first update.
+    private static string UpdateSwapPackage()
+    {
+        var root = Path.Combine(OriginPaths.Root, "update-package");
+        var marker = Path.Combine(root, "started");
+        var package = Path.Combine(root, "opt", "origin-launcher");
+        FakeLauncher(Path.Combine(package, "OriginLauncher"), "package", marker);
+        File.WriteAllText(Path.Combine(package, UpdateService.PackageMarkerName), "deb\n");
+        Require(UpdateService.IsPackageFolder(package), "the package-install marker is not recognised");
+        var target = UpdateService.FolderSwapTarget(UpdateService.IsPackageFolder(package), package);
+        Require(target == OriginPaths.UserAppCopy && target.StartsWith(OriginPaths.Root, StringComparison.Ordinal),
+            $"a package install swaps {target}, not the per-user copy");
+        Require(!Directory.Exists(target), "per-user copy exists before the first update");
+
+        var release = Path.Combine(root, "release", "OriginLauncher-linux-x64");
+        FakeLauncher(Path.Combine(release, "OriginLauncher"), "new", marker);
+        var tar = Path.Combine(root, "download.zip");
+        using (var file = File.Create(tar))
+        using (var gzip = new GZipStream(file, CompressionLevel.Fastest))
+            TarFile.CreateFromDirectory(release, gzip, includeBaseDirectory: true);
+        var stage = Path.Combine(root, "stage");
+        UpdateService.StageRelease(tar, stage, appImage: false);
+
+        var (code, output) = RunSwap(stage, target, "folder", Path.Combine(package, "OriginLauncher"));
+        Require(File.Exists(Path.Combine(target, "OriginLauncher"))
+                && File.ReadAllText(Path.Combine(target, "OriginLauncher")).Contains("echo new", StringComparison.Ordinal),
+            $"per-user copy not created (exit {code}): {output.Trim()}");
+        Require(File.ReadAllText(Path.Combine(package, "OriginLauncher")).Contains("echo package", StringComparison.Ordinal), "the package folder was changed");
+        Require(!Directory.Exists(target + ".new") && !Directory.Exists(target + ".previous"), "half copy left behind");
+        return "package folder untouched, per-user copy created; started: " + WaitForMarker(marker);
+    }
+
+    private static (int Code, string Output) RunSwap(string stage, string target, string mode, string fallback = "")
     {
         var script = Path.Combine(Path.GetDirectoryName(stage)!, "apply-update.sh");
         File.WriteAllText(script, UpdateService.ApplyScript.ReplaceLineEndings("\n"));
         using var launcher = Process.Start(new ProcessStartInfo("/bin/sleep", "2") { UseShellExecute = false })!; // stands in for the running launcher
         var clock = Stopwatch.StartNew();
-        var result = Run("/bin/sh", script, launcher.Id.ToString(), stage, target, mode);
+        var result = Run("/bin/sh", script, launcher.Id.ToString(), stage, target, mode, fallback);
         Require(clock.Elapsed >= TimeSpan.FromSeconds(1.5), "the swap did not wait for the launcher to quit");
         return result;
     }

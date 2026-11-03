@@ -1,0 +1,5 @@
+#!/bin/sh
+# AppImage entry point: the AppImage runtime mounts the image and runs this. $APPIMAGE (set by the
+# runtime) is how the launcher knows to self-update the .AppImage file (UpdateService.Linux.cs).
+here="$(dirname "$(readlink -f "$0")")"
+exec "$here/usr/lib/origin-launcher/OriginLauncher" "$@"

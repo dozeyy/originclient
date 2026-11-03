@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata (software centres). package.sh fills in @VERSION@ and @DATE@. -->
+<component type="desktop-application">
+  <id>org.originclient.Launcher</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Origin Launcher</name>
+  <summary>Minecraft launcher with Origin Client built in</summary>
+  <description>
+    <p>Pick a Minecraft version and press Play. Origin installs the right game files, Java and the
+    Origin Client mod for that version by itself, with shaders and performance mods included.</p>
+  </description>
+  <launchable type="desktop-id">org.originclient.Launcher.desktop</launchable>
+  <url type="homepage">https://originclient.org</url>
+  <categories>
+    <category>Game</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>

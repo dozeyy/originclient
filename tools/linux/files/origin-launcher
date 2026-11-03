@@ -1,0 +1,19 @@
+#!/bin/sh
+# /usr/bin/origin-launcher (the .deb and .rpm). Starts the newest Origin Launcher this user has:
+# the package's own copy in /opt/origin-launcher, or the per-user copy a self-update installed into
+# $XDG_DATA_HOME/OriginLauncher/app (OriginPaths.UserAppCopy, Core/Updates/UpdateService.Linux.cs),
+# whichever VERSION is higher. A package upgrade from apt/dnf that is newer wins again by the same rule.
+pkg=/opt/origin-launcher
+case "$XDG_DATA_HOME" in
+  /*) data="$XDG_DATA_HOME" ;;
+  *) data="$HOME/.local/share" ;; # the XDG spec: unset, empty or relative means ~/.local/share
+esac
+user="$data/OriginLauncher/app"
+if [ -x "$user/OriginLauncher" ] && [ -r "$user/VERSION" ]; then
+  pv="$(cat "$pkg/VERSION" 2>/dev/null || echo 0)"
+  uv="$(cat "$user/VERSION")"
+  if [ "$uv" != "$pv" ] && [ "$(printf '%s\n%s\n' "$pv" "$uv" | sort -V | tail -n 1)" = "$uv" ]; then
+    exec "$user/OriginLauncher" "$@"
+  fi
+fi
+exec "$pkg/OriginLauncher" "$@"

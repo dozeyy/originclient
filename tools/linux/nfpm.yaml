@@ -1,0 +1,102 @@
+# The .deb and .rpm of the Origin Launcher (nfpm, pinned in tools/linux/pins.sh). Only ever run by
+# tools/linux/package.sh, which exports the ${...} values below.
+#
+# Dependencies are what the self-contained app really loads: glibc + the C++ runtime (.NET itself),
+# ICU (globalisation), OpenSSL + the CA certificates (HTTPS) which .NET opens at run time, fontconfig + the X11 client
+# libraries for the Avalonia window. Recommended, not required: libsecret's secret-tool (accounts
+# sealed with the desktop keyring; without it a 0600 key file is used), xdg-open (links), and the
+# GL / xrandr / Xxf86vm libraries Minecraft's LWJGL opens (1.8.9's LWJGL 2 needs xrandr itself).
+# The deb names list ICU/OpenSSL alternatives back to Ubuntu 20.04 / Debian 11 (versioned there);
+# the rpm names are Fedora / RHEL 9 family ones. CI installs both in fresh Ubuntu 22.04 + 24.04,
+# Debian 12, Fedora and AlmaLinux 9 containers (linux-launcher.yml): that is what proves them.
+name: origin-launcher
+arch: ${NFPM_ARCH}
+platform: linux
+version: ${NFPM_VERSION}
+version_schema: none
+release: "1"
+section: games
+priority: optional
+maintainer: Origin Client <https://originclient.org>
+vendor: Origin Client
+homepage: https://originclient.org
+license: Proprietary
+description: |-
+  Minecraft launcher with Origin Client built in.
+  Pick a version and press Play: Origin installs the game, Java and the Origin Client mod itself.
+
+contents:
+  - src: ${PKG_APP}/
+    dst: /opt/origin-launcher
+    type: tree
+  - src: ${PKG_FILES}/origin-launcher
+    dst: /usr/bin/origin-launcher
+    file_info:
+      mode: 0755
+  - src: ${PKG_FILES}/org.originclient.Launcher.desktop
+    dst: /usr/share/applications/org.originclient.Launcher.desktop
+  - src: ${PKG_METAINFO}
+    dst: /usr/share/metainfo/org.originclient.Launcher.metainfo.xml
+  - src: ${PKG_ICONS}/16.png
+    dst: /usr/share/icons/hicolor/16x16/apps/org.originclient.Launcher.png
+  - src: ${PKG_ICONS}/32.png
+    dst: /usr/share/icons/hicolor/32x32/apps/org.originclient.Launcher.png
+  - src: ${PKG_ICONS}/48.png
+    dst: /usr/share/icons/hicolor/48x48/apps/org.originclient.Launcher.png
+  - src: ${PKG_ICONS}/256.png
+    dst: /usr/share/icons/hicolor/256x256/apps/org.originclient.Launcher.png
+
+scripts:
+  postinstall: ${PKG_FILES}/postinstall.sh
+  postremove: ${PKG_FILES}/postinstall.sh
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - ca-certificates
+      - libgcc-s1 | libgcc1
+      - libstdc++6
+      - libicu78 | libicu77 | libicu76 | libicu75 | libicu74 | libicu73 | libicu72 | libicu71 | libicu70 | libicu69 | libicu67 | libicu66
+      - libssl3t64 | libssl3 | libssl1.1
+      - libfontconfig1
+      - libx11-6
+      - libice6
+      - libsm6
+      - libxrandr2
+      - libxi6
+      - libxcursor1
+      - libxext6
+    recommends:
+      - libsecret-tools
+      - xdg-utils
+      - libgl1
+      - x11-xserver-utils
+      - libxxf86vm1
+  rpm:
+    depends:
+      - glibc
+      - ca-certificates
+      - libgcc
+      - libstdc++
+      - libicu
+      - openssl-libs
+      - fontconfig
+      - libX11
+      - libICE
+      - libSM
+      - libXrandr
+      - libXi
+      - libXcursor
+      - libXext
+    recommends:
+      - libsecret
+      - xdg-utils
+      - mesa-libGL
+      - xrandr
+      - libXxf86vm
+
+rpm:
+  summary: Minecraft launcher with Origin Client built in
+  group: Amusements/Games
+  compression: zstd

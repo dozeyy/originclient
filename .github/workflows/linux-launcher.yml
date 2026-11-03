@@ -5,6 +5,13 @@
 # swap for both the tar.gz folder and the AppImage) and the Core tests in Linux mode. This is the
 # Linux project's only compiler: it is never built on Will's PC.
 #
+# It then builds the eight Linux downloads (tools/linux/package.sh: AppImage, .deb, .rpm, tar.gz for
+# x64 and arm64), self-tests the tar.gz and the AppImage as a player would unpack them, installs the
+# .deb/.rpm in fresh distro containers (install job), and boots real Minecraft through the AppImage
+# on Xvfb (boot job: OriginLauncher --boot-test, judged by tools/linux/check_boot.py with
+# boot-smoke's own rules). Branch builds bundle the latest release's mod jars (no Gradle here);
+# launcher-release.yml packages the release's own jars with the same script.
+#
 # Each arch runs on its own real hardware (GitHub's x64 and arm64 Ubuntu runners), no emulation.
 name: Linux launcher
 
@@ -15,6 +22,10 @@ on:
       - "src/OriginLauncher.App/Core/**"
       - "src/OriginLauncher.Linux/**"
       - "src/OriginLauncher.Tests/**"
+      - "src/OriginLauncher.App/Assets/**"
+      - "src/mods/live-modules.json"
+      - "tools/linux/**"
+      - "tools/boot-smoke/**"
       - "global.json"
       - ".github/workflows/linux-launcher.yml"
   pull_request:
@@ -22,6 +33,10 @@ on:
       - "src/OriginLauncher.App/Core/**"
       - "src/OriginLauncher.Linux/**"
       - "src/OriginLauncher.Tests/**"
+      - "src/OriginLauncher.App/Assets/**"
+      - "src/mods/live-modules.json"
+      - "tools/linux/**"
+      - "tools/boot-smoke/**"
       - "global.json"
       - ".github/workflows/linux-launcher.yml"
   workflow_dispatch:
@@ -56,11 +71,11 @@ jobs:
           global-json-file: global.json
 
       # secret-tool + a real Secret Service (gnome-keyring) so the keyring path is tested for real,
-      # and desktop-file-validate for the autostart entry.
+      # desktop-file-validate for the autostart entry, fusermount3 for the AppImage.
       - name: Install keyring tools
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q libsecret-tools gnome-keyring dbus-x11 desktop-file-utils
+          sudo apt-get install -y -q libsecret-tools gnome-keyring dbus-x11 desktop-file-utils fuse3
 
       - name: Runner
         run: |
@@ -89,3 +104,180 @@ jobs:
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Linux
           --filter "FullyQualifiedName~LinuxSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests"
+
+      # The mod jars the packages bundle: the latest release's (Bundled/OriginClient in its Windows
+      # zip), so branch CI needs no Gradle build. The release workflow passes its own fresh jars.
+      - name: Mod jars of the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo "$GITHUB_REPOSITORY" --pattern OriginLauncher-win-x64.zip --dir "$RUNNER_TEMP/rel"
+
+      # --version "": an unstamped dev build (packages say 0.0.0), which never self-updates.
+      - name: Package (${{ matrix.rid }})
+        run: |
+          bash tools/linux/package.sh --rid ${{ matrix.rid }} --version "" --out "$RUNNER_TEMP/dist" \
+            --bundled-zip "$RUNNER_TEMP/rel/OriginLauncher-win-x64.zip"
+          cd "$RUNNER_TEMP/dist"
+          ls -l
+          sha256sum -c ./*.sha256
+          test "$(ls | wc -l)" = 8
+
+      # As a player gets them: the tar.gz unpacked into a fresh folder, the AppImage run as one file.
+      - name: Self-test the tar.gz and the AppImage
+        run: |
+          d="$RUNNER_TEMP/fresh"; mkdir -p "$d/tar" "$d/appimage"
+          tar -xzf "$RUNNER_TEMP"/dist/OriginLauncher-linux-*.tar.gz -C "$d/tar"
+          test -f "$d/tar/OriginLauncher/VERSION"
+          test -f "$d/tar/OriginLauncher/Bundled/Forge/forge-1.8.9.json"
+          echo "bundled jars: $(ls "$d/tar/OriginLauncher/Bundled/OriginClient" | wc -l)"
+          cp "$RUNNER_TEMP"/dist/OriginLauncher-linux-*.AppImage "$d/appimage/"
+          chmod +x "$d"/appimage/*.AppImage
+          for exe in "$d/tar/OriginLauncher/OriginLauncher" "$(ls "$d"/appimage/*.AppImage)"; do
+            echo "::group::$exe"
+            "$exe" --self-test | tee "$d/out.txt"
+            echo "::endgroup::"
+            case "$exe" in
+              *.AppImage) grep -qE "install kind +appimage" "$d/out.txt" ;;
+              *) grep -qE "install kind +folder" "$d/out.txt" ;;
+            esac
+          done
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-packages-${{ matrix.rid }}
+          path: ${{ runner.temp }}/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  # The .deb and .rpm installed with the distro's own package manager in fresh containers: proves
+  # every dependency name resolves, nothing the binaries link is missing, the installed launcher
+  # runs (--self-test --network: TLS, Mojang's file lists, the Java 8 download), the menu entry is
+  # valid, the /usr/bin wrapper prefers a newer per-user copy only, and removal cleans up.
+  install:
+    name: install (${{ matrix.image }}, ${{ matrix.rid }})
+    needs: linux
+    runs-on: ${{ matrix.rid == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64]
+        image: ["ubuntu:22.04", "ubuntu:24.04", "debian:12", "fedora:latest", "almalinux:9"]
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-packages-${{ matrix.rid }}
+          path: pkgs
+
+      - name: Install, run, remove (${{ matrix.image }})
+        run: |
+          cat > test.sh <<'SCRIPT'
+          set -eu
+          if command -v apt-get >/dev/null; then
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -q
+            apt-get install -y -q /pkgs/*.deb
+            apt-get install -y -q desktop-file-utils >/dev/null
+            remove="apt-get remove -y -q origin-launcher"
+          else
+            dnf install -y -q /pkgs/*.rpm
+            dnf install -y -q desktop-file-utils /usr/bin/ldd >/dev/null
+            remove="dnf remove -y -q origin-launcher"
+          fi
+          head -n 2 /etc/os-release
+          echo "--- libraries the binaries link that are missing (must be none)"
+          bad=0
+          for f in /opt/origin-launcher/OriginLauncher /opt/origin-launcher/*.so; do
+            [ -e "$f" ] || continue
+            if ldd "$f" | grep "not found"; then echo "  in $f"; bad=1; fi
+          done
+          [ "$bad" = 0 ]
+          desktop-file-validate /usr/share/applications/org.originclient.Launcher.desktop
+          test -f /usr/share/icons/hicolor/256x256/apps/org.originclient.Launcher.png
+          test -f /opt/origin-launcher/package-install
+          echo "--- self-test from the installed path"
+          if ! /usr/bin/origin-launcher --self-test --network > /tmp/out.txt 2>&1; then cat /tmp/out.txt; exit 1; fi
+          cat /tmp/out.txt
+          grep -qE "install kind +package" /tmp/out.txt
+          echo "--- wrapper: a newer per-user copy wins, an equal one does not"
+          u="$HOME/.local/share/OriginLauncher/app"; mkdir -p "$u"
+          printf '#!/bin/sh\necho USER-COPY\n' > "$u/OriginLauncher"; chmod +x "$u/OriginLauncher"
+          echo 99.0.0 > "$u/VERSION"
+          test "$(/usr/bin/origin-launcher)" = USER-COPY
+          cp /opt/origin-launcher/VERSION "$u/VERSION"
+          if /usr/bin/origin-launcher | grep -q USER-COPY; then echo "an equal per-user copy was preferred"; exit 1; fi
+          echo "--- remove"
+          $remove
+          test ! -e /opt/origin-launcher/OriginLauncher
+          test ! -e /usr/bin/origin-launcher
+          echo "PASS"
+          SCRIPT
+          docker run --rm -v "$PWD/pkgs:/pkgs:ro" -v "$PWD/test.sh:/test.sh:ro" "${{ matrix.image }}" sh /test.sh
+
+  # Real Minecraft through the Linux launcher: the AppImage installed fresh, then --boot-test makes
+  # the launcher's own Core install the loader, the Origin Client jar and Java and start the game
+  # (offline test account, temp data root) on Xvfb + Mesa llvmpipe. Pass = the title screen with zero
+  # mixin/injection failures (tools/linux/check_boot.py, boot-smoke's rules). x64 only: Mojang ships
+  # no linux-arm64 Java runtime (and 1.8.9's LWJGL 2 natives are x64-only), so the launcher can't
+  # start the game on arm64 yet.
+  boot:
+    name: boot (${{ matrix.version }})
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["1.21.1", "1.8.9", "1.20.1", "1.21.11", "26.3"]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-packages-linux-x64
+          path: ${{ runner.temp }}/pkgs
+
+      - name: Install Xvfb + Mesa
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 fuse3
+
+      - name: Install the AppImage
+        run: |
+          mkdir -p "$HOME/Applications"
+          cp "$RUNNER_TEMP/pkgs/OriginLauncher-linux-x86_64.AppImage" "$HOME/Applications/"
+          chmod +x "$HOME/Applications/OriginLauncher-linux-x86_64.AppImage"
+
+      - name: Boot ${{ matrix.version }} through the launcher
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+          MESA_GL_VERSION_OVERRIDE: "4.6"
+          MESA_GLSL_VERSION_OVERRIDE: "460"
+          # 26.3+ (SDL3): Xvfb has no GLX visual SDL accepts; its EGL path works (dev-shots.yml).
+          SDL_VIDEO_X11_NODIRECTCOLOR: "1"
+          SDL_VIDEO_FORCE_EGL: "1"
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            "$HOME/Applications/OriginLauncher-linux-x86_64.AppImage" --boot-test "${{ matrix.version }}" \
+              --root "$RUNNER_TEMP/origin-data" --log "$RUNNER_TEMP/game-${{ matrix.version }}.log" --timeout 1200
+
+      - name: Judge the game log
+        if: ${{ always() }}
+        run: python3 tools/linux/check_boot.py "$RUNNER_TEMP/game-${{ matrix.version }}.log" "${{ matrix.version }}"
+
+      - name: Upload the game log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: boot-log-${{ matrix.version }}
+          path: |
+            ${{ runner.temp }}/game-${{ matrix.version }}.log
+            ${{ runner.temp }}/origin-data/instances/*/accounts/*/crash-reports/*
+          if-no-files-found: warn
+          retention-days: 7

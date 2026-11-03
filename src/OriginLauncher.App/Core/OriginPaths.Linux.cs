@@ -13,6 +13,14 @@ public static partial class OriginPaths
 
     private static string BundledBase => AppContext.BaseDirectory;
 
+    /// <summary>
+    /// .deb/.rpm installs only: the per-user launcher copy a self-update installs into, because the
+    /// package's /opt folder belongs to the package manager (Core/Updates/UpdateService.Linux.cs).
+    /// /usr/bin/origin-launcher (tools/linux/files/origin-launcher) starts it while its VERSION is newer
+    /// than the package's; that script spells this same path, $XDG_DATA_HOME/OriginLauncher/app.
+    /// </summary>
+    internal static string UserAppCopy => Path.Combine(Root, "app");
+
     /// <summary>An XDG base directory: the variable when it holds an absolute path, else ~/&lt;fallback&gt;.</summary>
     internal static string XdgDir(string variable, params string[] fallbackUnderHome)
     {

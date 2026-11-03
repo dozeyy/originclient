@@ -27,6 +27,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
 6. The self-update hash — the launcher's UpdateService looks for the zip's
    AssetName + ".sha256" release asset and the release workflow must publish
    exactly that (both in the `gh release create` list and the rehearsal artifact).
+7. The Linux downloads — the eight names tools/linux/package.sh builds must include the AppImage
+   and tar.gz names the Linux self-update reads (Core/Updates/UpdateService.Linux.cs), and
+   launcher-release.yml must attach all eight plus their .sha256 and assert them; the deb/rpm
+   per-user copy (OriginPaths.UserAppCopy) and the /usr/bin wrapper must name the same folder.
 
 Run from anywhere: python3 tools/release/check_consistency.py
 """
@@ -188,14 +192,63 @@ def check_picker() -> list[str]:
     return problems
 
 
+def linux_package_names() -> list[str]:
+    """The eight download names tools/linux/package.sh builds: its four name templates expanded with the
+    arch table of its `case "$rid"` (linux-x64 / linux-arm64)."""
+    sh = (REPO / "tools/linux/package.sh").read_text(encoding="utf-8")
+    templates = re.findall(r'^(?:APPIMAGE|DEB|RPM|TAR)="([^"]+)"$', sh, re.M)
+    arches = [dict(re.findall(r'(\w+_arch)=(\w+)', line))
+              for line in re.findall(r'^\s*linux-(?:x64|arm64)\)(.*);;\s*$', sh, re.M)]
+    if len(templates) != 4 or len(arches) != 2:
+        return []
+    return [re.sub(r'\$\{(\w+)\}', lambda m: a.get(m.group(1), "?"), t) for a in arches for t in templates]
+
+
+def check_linux_assets() -> list[str]:
+    names = linux_package_names()
+    if len(names) != 8:
+        return ["tools/linux/package.sh: could not read its 4 asset-name templates and 2 arch rows (update check_linux_assets)"]
+    svc = (LAUNCHER / "Core/Updates/UpdateService.Linux.cs").read_text(encoding="utf-8")
+    wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
+    problems: list[str] = []
+    # The launcher self-updates from the AppImage and tar.gz names: package.sh must build exactly those.
+    updates = re.findall(r'"(OriginLauncher-linux-[^"]+)"', svc)
+    if len(updates) != 4:
+        problems.append(f"UpdateService.Linux.cs: expected 4 update asset names, found {updates}")
+    problems += [f"UpdateService.Linux.cs updates from {n}, which tools/linux/package.sh does not build"
+                 for n in updates if n not in names]
+    # The release publishes all eight with their .sha256 (the Linux self-update refuses an asset without one),
+    # and refuses to publish when one is missing.
+    for n in names:
+        for asset in (n, n + ".sha256"):
+            if not re.search(r"^\s+" + re.escape(asset) + r"\s*$", wf, re.M):
+                problems.append(f"launcher-release.yml: `gh release create` does not attach {asset}")
+        if f"'{n}'" not in wf:
+            problems.append(f"launcher-release.yml: the Linux assert step does not check {n}")
+    # deb/rpm self-updates: the launcher writes the per-user copy where /usr/bin/origin-launcher looks.
+    paths = (LAUNCHER / "Core/OriginPaths.Linux.cs").read_text(encoding="utf-8")
+    wrapper = (REPO / "tools/linux/files/origin-launcher").read_text(encoding="utf-8")
+    copy = re.search(r'UserAppCopy\s*=>\s*Path\.Combine\(Root,\s*"([^"]+)"\)', paths)
+    root = re.search(r'DefaultRoot\s*=>.*"(\w+)"\);', paths)
+    if not copy or not root:
+        problems.append("OriginPaths.Linux.cs: DefaultRoot / UserAppCopy shape changed (update check_linux_assets)")
+    elif f'user="$data/{root.group(1)}/{copy.group(1)}"' not in wrapper:
+        problems.append(f"tools/linux/files/origin-launcher must look for the per-user copy in "
+                        f"$data/{root.group(1)}/{copy.group(1)} (OriginPaths.UserAppCopy)")
+    marker = re.search(r'PackageMarkerName\s*=\s*"([^"]+)"', svc)
+    if not marker or f'"$pkgroot/{marker.group(1)}"' not in (REPO / "tools/linux/package.sh").read_text(encoding="utf-8"):
+        problems.append("the deb/rpm marker file: UpdateService.Linux.cs PackageMarkerName and package.sh must name the same file")
+    return problems
+
+
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
-                + check_update_hash() + check_picker())
+                + check_update_hash() + check_picker() + check_linux_assets())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
-        print("OK: version list, version picker, hand-off file name, theme tokens, release feed and update hash agree "
-              "across launcher and installer.")
+        print("OK: version list, version picker, hand-off file name, theme tokens, release feed, update hash and Linux "
+              "downloads agree across launcher, installer and release.")
     return 1 if problems else 0
 
 
