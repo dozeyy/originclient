@@ -28,8 +28,11 @@ public final class OriginConfig {
 					return loaded;
 				}
 			} catch (IOException | RuntimeException e) {
-				com.origin.client.OriginClient.LOGGER.warn("Failed to read originclient.json, using defaults", e);
+				com.origin.client.OriginClient.LOGGER.warn("Failed to read originclient.json; kept it as .corrupt, using defaults", e);
 			}
+			// Unreadable: keep it as originclient.json.corrupt before the exit save replaces it
+			// (the reader is closed by now; Windows can't move an open file).
+			ConfigFiles.setAside(PATH);
 		}
 		return new OriginFeatures();
 	}
