@@ -106,7 +106,14 @@
 		"SodiumRenderSectionManagerAccessor",
 		"SodiumWalkEndMixin",
 		"SodiumWorldRendererReuseMixin",
-		"CameraCullFrustumMixin"
+		"CameraCullFrustumMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsItemStateAccessor",
+		"OldAnimationsItemLayerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0
