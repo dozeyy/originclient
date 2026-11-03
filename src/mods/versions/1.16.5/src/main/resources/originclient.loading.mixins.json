@@ -17,7 +17,8 @@
 		"FrameLogTitleMixin",
 		"ReloadTaskTagMixin",
 		"FrameLogOverlayMixin",
-		"RealmsTaskScreenMixin"
+		"RealmsTaskScreenMixin",
+		"StartupInputMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

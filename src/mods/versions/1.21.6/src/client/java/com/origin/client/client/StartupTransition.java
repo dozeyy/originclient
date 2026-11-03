@@ -55,6 +55,18 @@ public final class StartupTransition {
 	}
 
 	/**
+	 * True during the startup reveal's dissolve (its first {@link #REVEAL_MS}): the
+	 * title screen is loaded and drawn beneath the dissolving loading screen, so
+	 * StartupInputMixin lets the mouse reach it although vanilla's loading
+	 * overlay is still up. Clock-bounded, so a later resource reload's loading
+	 * screen never passes input.
+	 */
+	public static boolean startupRevealInProgress() {
+		long at = titleRevealAt;
+		return at != 0 && clockMs() - at < REVEAL_MS;
+	}
+
+	/**
 	 * The hand-off's clock in ms (never 0): SceneClock's scene clock, which glides
 	 * through uneven frames and drops a freeze instead of jumping past it.
 	 */
