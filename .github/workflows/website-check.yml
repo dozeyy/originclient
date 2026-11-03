@@ -1,0 +1,62 @@
+name: website-check
+
+# Checks originclient.org (website/) on every push that touches it. Vercel deploys main on its
+# own, so this is where a bad push shows up red: the launcher banner feed (promos.json, read by
+# every launcher), the security headers vs what the pages call, canonical/og/sitemap, copy
+# rules (never "every version"), the Store's name check, and a headless-Chromium pass over every
+# page at phone to desktop widths (console errors, sideways scroll, the island resting while
+# covered, the download section per system, Checkout on laptop screens).
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "website/**"
+      - "vercel.json"
+      - "tools/website/**"
+      - ".github/workflows/website-check.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - "vercel.json"
+      - "tools/website/**"
+      - ".github/workflows/website-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Website checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Static checks (feed, headers, pages, copy)
+        run: |
+          python3 tools/website/check_site.py
+          python3 tools/website/test_check_site.py
+
+      - name: Store name check tests
+        run: node tools/website/test_store_names.mjs
+
+      - name: Install headless Chromium
+        working-directory: tools/website
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Browser smoke test (every page, 320 to 1440 px)
+        run: node tools/website/smoke.mjs --shots website-shots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: website-shots
+          path: website-shots
+          if-no-files-found: ignore
+          retention-days: 7

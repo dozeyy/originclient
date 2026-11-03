@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /ad/
+
+Sitemap: https://originclient.org/sitemap.xml

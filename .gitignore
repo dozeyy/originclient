@@ -66,3 +66,6 @@ artifacts/bench-189/
 # Local panorama renders (tools/panorama/local_render.py): downloads + outputs, never committed
 tools/panorama/cache/
 tools/panorama/out/
+
+# website smoke test: Playwright is installed next to it (website-check.yml), never committed
+tools/website/node_modules/

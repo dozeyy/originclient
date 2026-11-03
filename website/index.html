@@ -10,12 +10,21 @@
   <meta property="og:title" content="Origin Client">
   <meta property="og:description" content="Pick a Minecraft version. Play in one click. A free launcher and in-game client for Windows and Linux, with a Mac beta.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://originclient.org/">
+  <meta property="og:image" content="https://originclient.org/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The Origin logo and wordmark">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://originclient.org/">
   <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="assets/favicon-192.png" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/site.css">
+  <!-- Without JavaScript nothing reveals itself on scroll: show every card as it is. -->
+  <noscript><style>[data-reveal] { opacity: 1; translate: 0; }</style></noscript>
   <script src="js/nav.js"></script>
   <script type="module" src="js/site.js"></script>
 </head>
@@ -70,16 +79,17 @@
         <p class="lede">Each version is its own build, made for that version's code, never a one-size-fits-all port. The menus, HUD and mods look the same on all of them.</p>
       </div>
       <div class="vgrid" data-vgrid></div>
+      <noscript><p class="lede">The full list, from 1.8.9 to 26.3, shows here with JavaScript turned on.</p></noscript>
     </section>
 
     <!-- ===================== WHY ORIGIN ===================== -->
-    <!-- Six cards, one small looping picture and one line each. No other client is
+    <!-- Five cards, one small looping picture and one line each. No other client is
          named on purpose, and every line describes something the launcher really does.
          The pictures are decorative (aria-hidden); the headings and lines are the content. -->
     <section class="section why" id="why" data-scene="why">
       <div class="section__head">
         <p class="eyebrow eyebrow--accent">Why Origin</p>
-        <h2>Six reasons.<br><span>Built in.</span></h2>
+        <h2>Five reasons.<br><span>Built in.</span></h2>
       </div>
       <ul class="bento" data-bento>
 
@@ -203,12 +213,23 @@
     <section class="section get" id="get" data-scene="get">
       <p class="eyebrow eyebrow--accent">Origin Launcher</p>
       <h2>Ready when you are.</h2>
-      <p class="lede" data-get-note>Origin isn't available to download just yet. This button lights up the day it is.</p>
+      <p class="lede" data-get-note>Free for Windows 10 and 11, Linux, and Mac as a beta. Origin keeps itself up to date.</p>
       <!-- site.js turns the big button into the visitor's own system (Windows, Mac or Linux)
-           and lists every other download under it as capsules. -->
-      <a class="btn btn--primary btn--xl" data-download data-get-main href="#get">Download</a>
+           and lists every other download under it as capsules. Without JavaScript it stays the
+           Windows installer and the <noscript> list below carries the rest. -->
+      <a class="btn btn--primary btn--xl" data-download data-get-main href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-Setup.exe">Download for Windows</a>
       <p class="get__sub" data-get-sub hidden></p>
       <nav class="others" data-other-downloads hidden aria-label="Other downloads"></nav>
+      <noscript>
+        <nav class="others" aria-label="Other downloads">
+          <a href="https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-AppleSilicon.dmg"><span>Mac</span> <span class="badge">Beta</span><small>Apple Silicon</small></a>
+          <a href="https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-Intel.dmg"><span>Mac</span> <span class="badge">Beta</span><small>Intel</small></a>
+          <a href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-linux-x86_64.AppImage"><span>Linux AppImage</span><small>any distro</small></a>
+          <a href="https://github.com/dozeyy/originclient/releases/latest/download/origin-launcher_amd64.deb"><span>Linux .deb</span><small>Ubuntu, Debian, Mint</small></a>
+          <a href="https://github.com/dozeyy/originclient/releases/latest/download/origin-launcher.x86_64.rpm"><span>Linux .rpm</span><small>Fedora, openSUSE, Alma</small></a>
+          <a href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-linux-x64.tar.gz"><span>Linux .tar.gz</span><small>unpack and run</small></a>
+        </nav>
+      </noscript>
       <details class="get__steps" data-mac hidden>
         <summary>Opening it on a Mac for the first time</summary>
         <p>The Mac version is new, so macOS doesn't know it yet and asks once before it opens.</p>

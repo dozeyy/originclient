@@ -520,7 +520,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   window.addEventListener('resize', resize);
   // A scrollbar appearing or going away changes the width the canvas has without any window
   // resize event; the observer catches it (fires only on a change, nothing per frame).
-  if (window.ResizeObserver) new ResizeObserver(() => { if (document.documentElement.clientWidth !== W) resize(); }).observe(document.documentElement);
+  if (window.ResizeObserver) new ResizeObserver(() => { if (document.documentElement.clientWidth !== W) { resize(); wake(); } }).observe(document.documentElement);
   window.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch') return;
     pointer.x = e.clientX / W * 2 - 1;
@@ -528,15 +528,28 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   }, { passive: true });
 
   // ---- loop
+  // The island is only drawn while something on screen would change; otherwise the last frame
+  // simply stays up (a WebGL canvas keeps showing it). It rests while:
+  //  - the tab is hidden;
+  //  - site.js says it is covered (shaded almost black under the cards: setCovered);
+  //  - reduced motion is on and the camera has reached its pose: nothing moves by itself then
+  //    (time stands still, so the dust and water hold too), until a scroll or resize.
+  // Anything that changes the picture calls wake(), which draws at least one frame.
   const clock = new THREE.Clock();
-  let raf = 0, running = true, slow = 0;
+  let raf = 0, running = true, covered = false, slow = 0;
+  let now = 0;   // the scene's own clock: it only advances while frames are drawn, so a rest never makes it jump
   const A = new Array(10), B = new Array(10);
   const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3(), rel = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const settled = () => {
+    for (let i = 0; i < 10; i++) if (Math.abs(camSpring.x[i] - goal[i]) > 1e-4 || Math.abs(camSpring.v[i]) > 1e-4) return false;
+    return true;
+  };
 
   function step() {
-    raf = requestAnimationFrame(step);
-    const dt = Math.min(clock.getDelta(), 0.05), now = clock.elapsedTime;
-    uniforms.uTime.value = now;
+    raf = 0;
+    const dt = Math.min(clock.getDelta(), 0.05);
+    now += dt;
+    uniforms.uTime.value = reducedMotion ? 0 : now;
 
     // Scale the render down if this device can't hold ~40 fps (checked over a
     // second of frames, once), instead of letting the whole page stutter.
@@ -575,18 +588,27 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     });
 
     renderer.render(scene, camera);
+    if (!covered && !document.hidden && !(reducedMotion && settled())) raf = requestAnimationFrame(step);
   }
-  const start = () => { if (!running || raf) return; clock.getDelta(); raf = requestAnimationFrame(step); };
+  // getDelta() here drops the time spent resting, so the first frame back has a normal dt.
+  function wake() { if (!running || raf || document.hidden) return; clock.getDelta(); raf = requestAnimationFrame(step); }
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
-  // a hidden tab does no work at all; coming back picks up without a time jump
-  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : wake()));
+  // A resize clears the canvas, so it is redrawn once even while covered.
+  window.addEventListener('resize', wake);
   step();
 
   return {
     /** Blend between two named poses (t 0..1); the camera glides toward it. */
-    setPose(a, b = a, t = 0) { want.a = a; want.b = b; want.t = t; },
+    setPose(a, b = a, t = 0) {
+      if (want.a === a && want.b === b && want.t === t) return;
+      want.a = a; want.b = b; want.t = t;
+      if (!covered) wake();
+    },
     /** Free hero area in px ({cx, cy, w} desktop: right of the copy; {w, top, bottom} phone/tablet: above it): where the island is centred and sized to fit. */
-    setHeroZone(z) { Object.assign(zone, z); rev++; },
+    setHeroZone(z) { Object.assign(zone, z); rev++; if (!covered) wake(); },
+    /** True while the island is shaded out under the content: it stops drawing and keeps its last frame. */
+    setCovered(c) { if (covered === c) return; covered = c; if (!c) wake(); },
     destroy() { running = false; stop(); renderer.dispose(); },
   };
 }
