@@ -35,6 +35,13 @@ public static class MacLaunchPolicy
     /// <summary>The JVM flag LWJGL 3 needs on macOS (GLFW must own the process's first thread).</summary>
     public const string StartOnFirstThread = "-XstartOnFirstThread";
 
+    /// <summary>
+    /// The Dock / app switcher name, as the ONE argument the JDK's launcher reads. CmlLib's MLaunchOption.DockName
+    /// must stay unset: it emits "-Xdock:name" "Minecraft" as two arguments, and java then runs "Minecraft" as the
+    /// main class (JavaArgv.MainClassProblem catches that shape).
+    /// </summary>
+    public const string DockNameArgument = "-Xdock:name=Minecraft";
+
     /// <summary>The shape of <paramref name="version"/> on a Mac whose CPU is <paramref name="host"/>.</summary>
     public static MacLaunchShape For(string version, Architecture host)
     {

@@ -50,6 +50,10 @@ public sealed class RetryingGameInstaller : ParallelGameInstaller
                 // the player gets "A download took too long" with Retry (caught by DownloadStallTests).
                 else if (e is OperationCanceledException)
                     throw new TimeoutException($"Downloading {file.Name} timed out after {attempt} tries.", e);
+                // Same type and status (PlayFailure reads them), but the log now says which file and which host.
+                else if (e is HttpRequestException http)
+                    throw new HttpRequestException(http.HttpRequestError,
+                        $"{http.Message} File {file.Name} from {HostOf(file.Url)}, after {attempt} tries.", e, http.StatusCode);
                 else throw;
             }
             await Task.Delay(_backoff(attempt), ct).ConfigureAwait(false);
@@ -57,15 +61,20 @@ public sealed class RetryingGameInstaller : ParallelGameInstaller
     }
 
     // Network trouble is worth another try; a full disk, a denied folder or a refused file (404, 403: the server's
-    // final answer) is not — it fails the same way again. 408 / 429 are the server asking to come back.
+    // final answer) is not — it fails the same way again. 408 / 429 are the server asking to come back. 304 is a CDN
+    // glitch: nothing here sends a conditional request (no If-None-Match / If-Modified-Since), so "Not Modified" is an
+    // edge answering the wrong question, and a fresh request clears it (Mac CI 2026-11-02, osx-x64 1.21.1).
     private static bool IsTransient(Exception e) => e switch
     {
-        HttpRequestException { StatusCode: { } status } => (int)status >= 500 || (int)status is 408 or 429,
+        HttpRequestException { StatusCode: { } status } => (int)status >= 500 || (int)status is 408 or 429 or 304,
         TimeoutException or HttpRequestException or TaskCanceledException => true,
         UnauthorizedAccessException => false,
         IOException io => (io.HResult & 0xFFFF) is not (0x27 or 0x70), // ERROR_HANDLE_DISK_FULL, ERROR_DISK_FULL
         _ => false,
     };
+
+    private static string HostOf(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "an unknown host";
 
     private static void TryDelete(string? path)
     {
