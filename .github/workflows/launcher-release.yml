@@ -32,7 +32,9 @@
 #                                zip it, build the small Origin installer
 #                                (src/OriginSetup, which downloads that zip)
 #                                and smoke-test both, then publish the release
-#                                with the four Linux downloads attached.
+#                                with the four Linux downloads attached (only
+#                                when step 3 passed: a Linux failure publishes
+#                                the Windows files alone, with a loud warning).
 # The old single-job pipeline compiled every module back to back on one
 # Windows runner.
 #
@@ -178,8 +180,11 @@ jobs:
   release:
     name: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'Build launcher + publish release' || 'Build launcher (rehearsal, publishes nothing)' }}
     needs: [plan, mods, linux]
-    # Runs when the mod builds succeeded OR were skipped (nothing changed).
-    if: ${{ !cancelled() && !failure() }}
+    # Runs when the mod builds succeeded OR were skipped (nothing changed). The Linux job's result is
+    # deliberately NOT a condition: a Linux-only failure must never stop the Windows release (the
+    # Windows launchers' mandatory updates ride on it). The Linux files are attached only when that job
+    # succeeded; otherwise the job summary says loudly that this release has no Linux downloads.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.mods.result == 'success' || needs.mods.result == 'skipped') }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -235,9 +240,10 @@ jobs:
           Write-Host "OriginLauncher-win-x64.zip.sha256: $h"
 
       # The Linux downloads land next to the Windows files, so the publish step lists them by bare
-      # name. A release is refused unless all four and their .sha256 are here and agree (the Linux
-      # self-update trusts nothing else).
+      # name. When the Linux job succeeded, they are attached only if all four and their .sha256 are
+      # here and agree (the Linux self-update trusts nothing else); a mismatch still refuses the release.
       - name: Download the Linux packages
+        if: needs.linux.result == 'success'
         uses: actions/download-artifact@v8
         with:
           pattern: linux-release-*
@@ -245,6 +251,7 @@ jobs:
           merge-multiple: true
 
       - name: Assert every Linux download is present
+        if: needs.linux.result == 'success'
         shell: pwsh
         run: |
           $names = @(
@@ -257,6 +264,18 @@ jobs:
             if ($h -ne $want) { throw "$n does not match its .sha256" }
             Write-Host "$n  $h"
           }
+
+      # Loud, never fatal: Linux launchers fail open (no matching asset = no update offered), but the
+      # website's Linux download links point at the latest release and break until a release carries them.
+      - name: Warn that this release has no Linux downloads
+        if: needs.linux.result != 'success'
+        shell: pwsh
+        env:
+          LINUX_RESULT: ${{ needs.linux.result }}
+        run: |
+          $msg = "NO LINUX DOWNLOADS: the Linux packages job ended '$env:LINUX_RESULT', so this release ships the Windows files only. The website's Linux download links will 404 until a release with Linux files is published. Fix the Linux job and tag the next release."
+          Write-Host "::warning title=No Linux downloads::$msg"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## WARNING: no Linux downloads in this release`n`n$msg`n"
 
       - name: Keep rehearsal output as a run artifact
         if: env.REHEARSAL == 'true'
@@ -271,8 +290,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # Two publish steps, exactly one runs: one `gh release create` call either way, so the release
+      # appears with all of its files at once (never Windows first and Linux a moment later).
       - name: Publish GitHub release
-        if: env.REHEARSAL != 'true'
+        if: env.REHEARSAL != 'true' && needs.linux.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
@@ -289,5 +310,18 @@ jobs:
           origin-launcher.x86_64.rpm.sha256
           OriginLauncher-linux-x64.tar.gz
           OriginLauncher-linux-x64.tar.gz.sha256
+          --title "Origin Launcher ${{ steps.ver.outputs.version }}"
+          --notes-file notes\release-notes.md
+
+      - name: Publish GitHub release (Windows only, the Linux job failed)
+        if: env.REHEARSAL != 'true' && needs.linux.result != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: >
+          gh release create "${{ env.RELEASE_TAG }}"
+          OriginLauncher-win-x64.zip
+          OriginLauncher-win-x64.zip.sha256
+          OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md

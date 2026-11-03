@@ -203,8 +203,11 @@ release only once the boot test passes on `ubuntu-24.04-arm`.
 These names are fixed like the Windows ones: the website links to
 `releases/latest/download/<name>` and installed launchers update from them.
 `tools/release/check_consistency.py` (check 7) fails CI if package.sh, the Linux
-self-update and this workflow stop agreeing, and the release refuses to publish if
-any of the four or its `.sha256` is missing or wrong.
+self-update and this workflow stop agreeing. When the Linux job succeeded, the release
+refuses to publish if any of the four or its `.sha256` is missing or wrong. When the
+Linux job itself fails, the tag still publishes the Windows release exactly as before,
+with no Linux files and a loud warning at the top of the run's summary (Linux launchers
+then see no update, and the site's Linux links break until the next release carries them).
 
 **Self-update on Linux** follows the Windows rules (mandatory, refuses a missing or
 wrong SHA-256, never blocks Play; `Core/Updates/UpdateService.Linux.cs`):
