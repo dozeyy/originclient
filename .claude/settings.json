@@ -22,7 +22,27 @@
       "mcp__Roblox_Studio__screen_capture",
       "mcp__Roblox_Studio__get_console_output",
       "mcp__computer-use__screenshot",
-      "mcp__computer-use__zoom"
+      "mcp__computer-use__zoom",
+      "PowerShell(Start-Sleep *)",
+      "PowerShell(Out-Null)",
+      "PowerShell(Out-String *)",
+      "PowerShell(Get-PnpDevice *)",
+      "PowerShell(Get-NetIPAddress *)",
+      "PowerShell(Get-NetAdapter *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-Date *)",
+      "PowerShell(Get-ItemProperty *)",
+      "Bash(git ls-tree *)",
+      "Bash(git merge-base *)",
+      "Bash(git rev-list *)",
+      "Bash(tasklist *)",
+      "Bash(cygpath *)",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_network_requests",
+      "mcp__Claude_Browser__find",
+      "mcp__ccd_session_mgmt__search_session_transcripts",
+      "mcp__visualize__read_me",
+      "mcp__terminal__read_terminal"
     ]
   },
   "enabledPlugins": {

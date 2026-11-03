@@ -256,3 +256,6 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Mods vs Modrinth on 26.3, 1.21.11, 1.21.1: only 26.3 Lithium is behind (0.26.2, newest 0.26.3). 26.3 ships Sodium 0.9.3-beta.1 while stable 0.9.2 exists; its catalog comment still describes 0.9.2.
 - `sync.py --check` fails on Will's PC for local reasons only: the untracked `staged/26.2` leftover (141 files), and 3 OriginForeignWidgets copies differ in the 26.x modules, likely CRLF working copies (one confirmed w/crlf, comparison not finished); CI's drift gate is green on the release commit.
 - Went public the same day (Will's call, before anyone ran the installer): website `DOWNLOAD.live` true, Discord invite z3SbasGCKR in promos.json. launcher-v1.0.76: 26.3 on stable Sodium 0.9.2 + Lithium 0.26.3 (boot-smoke 41234871378 production-style PASS, 0 mixin failures; dev-shots 41234868855 119/119 PNGs). pin_history.py reads git history, so commit a new pin BEFORE regenerating or ManagedPinsTests fails.
+
+## 2026-11-02 - Weekly permission scan
+- Added 20 read-only allow rules to `.claude/settings.json` from the 50 newest transcripts. Left out Select-Object, Where-Object, Sort-Object, Format-*, ForEach-Object, awk, git grep and ffprobe: each can run code or write files through an argument.
