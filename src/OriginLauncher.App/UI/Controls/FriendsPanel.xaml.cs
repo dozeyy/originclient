@@ -312,8 +312,12 @@ public partial class FriendsPanel : UserControl
 
         var (title, body, action) = s.Status switch
         {
+            // Offline test accounts exist only in dev builds (Settings, Developer), so only they mention them; the
+            // screenshot run pictures the release text, like the Developer section it hides.
             SocialStatus.NotSignedIn => ("Sign in to use friends",
-                "Friends use your Minecraft account, so sign in with Microsoft. Offline test accounts can't use friends.",
+                Core.Updates.UpdateService.IsDevBuild && !App.IsRenderMode
+                    ? "Friends use your Minecraft account, so sign in with Microsoft. Offline test accounts can't use friends."
+                    : "Friends use your Minecraft account, so sign in with Microsoft.",
                 "Add Microsoft account"),
             SocialStatus.SignInFailed => ("Couldn't sign in to friends",
                 s.StatusMessage ?? "Origin couldn't confirm your Minecraft account.", "Try again"),
