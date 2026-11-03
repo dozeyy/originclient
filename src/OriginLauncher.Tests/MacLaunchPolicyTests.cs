@@ -50,6 +50,23 @@ public sealed class MacLaunchPolicyTests : IDisposable
         Assert.Equal("mac-os", MinecraftJavaManifestResolver.GetOSNameForJava(os));
     }
 
+    // The import copies Java into the same runtime folder CmlLib launches from (RulesOs -> GetOSNameForJava),
+    // so an imported 1.8.9 / 1.18.2 Java on Apple Silicon is the x64 one, never a mac-os-arm64 that doesn't exist.
+    [Theory]
+    [MemberData(nameof(LiveVersions))]
+    public void Import_java_platform_matches_the_launch_on_every_mac(string version)
+    {
+        foreach (var host in new[] { Architecture.Arm64, Architecture.X64 })
+        {
+            var shape = MacLaunchPolicy.For(version, host);
+            Assert.Equal(MinecraftJavaManifestResolver.GetOSNameForJava(MacLaunchPolicy.RulesOs(shape, "15.0")),
+                MacLaunchPolicy.JavaRuntimePlatform(shape));
+            Assert.Equal(shape.JavaArch == MacJavaArch.Arm64 ? "arm64" : "x86_64", MacLaunchPolicy.RuleArch(shape));
+        }
+        Assert.Equal("mac-os", MacLaunchPolicy.JavaRuntimePlatform(MacLaunchPolicy.For("1.18.2", Architecture.Arm64)));
+        Assert.Equal("mac-os-arm64", MacLaunchPolicy.JavaRuntimePlatform(MacLaunchPolicy.For("1.19", Architecture.Arm64)));
+    }
+
     [Theory]
     [MemberData(nameof(LiveVersions))]
     public void Every_live_version_has_a_mac_record(string version)

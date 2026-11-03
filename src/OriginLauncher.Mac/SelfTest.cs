@@ -34,7 +34,7 @@ internal static class SelfTest
         Console.WriteLine($"  data folder      {OriginPaths.DefaultRoot}");
         Console.WriteLine($"  bundled files    {OriginPaths.MacBundleResources ?? "(not running from an .app: next to the executable)"}");
         Console.WriteLine($"  update asset     {UpdateService.ReleaseAssetName}");
-        Console.WriteLine($"  Mojang runtime   {MojangMetadata.RuntimePlatform}");
+        Console.WriteLine($"  Mojang runtime   1.21.1 {MojangMetadata.RuntimePlatformFor("1.21.1")}, 1.8.9 {MojangMetadata.RuntimePlatformFor("1.8.9")}");
 
         var scratch = Path.Combine(Path.GetTempPath(), "origin-selftest-" + Guid.NewGuid().ToString("N"));
         OriginPaths.UseScratchRoot(scratch);
@@ -414,7 +414,11 @@ internal static class SelfTest
         Require(files.Any(p => p.Contains("lwjgl-platform-2.9.2-nightly-20140822-natives-osx", StringComparison.Ordinal)), "no LWJGL osx natives");
         Require(!files.Any(p => p.Contains("2.9.4-nightly", StringComparison.Ordinal)), "LWJGL 2.9.4 leaked in");
         Require(!files.Any(p => p.Contains("natives-windows", StringComparison.Ordinal)), "Windows natives leaked in");
-        return $"{files.Count} files; LWJGL 2.9.2 + osx natives, no 2.9.4; Java: {(set.JavaSkipped ? "skipped (Mojang has no " + MojangMetadata.RuntimePlatform + " build)" : set.RuntimeComponent)}";
+        // 1.8.9 runs x64 Java on every Mac (Rosetta on Apple Silicon): Mojang's "mac-os" jre-legacy, which exists.
+        Require(MojangMetadata.RuntimePlatformFor("1.8.9") == "mac-os", "1.8.9 Java is not the x64 build");
+        Require(!set.JavaSkipped, "1.8.9 Java skipped");
+        Require(files.Any(p => p.StartsWith("runtime/mac-os/jre-legacy/", StringComparison.Ordinal)), "no mac-os jre-legacy files");
+        return $"{files.Count} files; LWJGL 2.9.2 + osx natives, no 2.9.4; Java: {set.RuntimeComponent} (mac-os)";
     }
 
     private static (int Code, string Output) Run(string tool, params string[] args)

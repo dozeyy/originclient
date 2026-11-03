@@ -9,6 +9,7 @@ using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Import.GameFiles;
 using OriginLauncher.App.Core.Install;
+using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Profiles;
 using OriginLauncher.App.Core.Runtime;
 using Xunit;
@@ -89,12 +90,22 @@ public sealed class MacSeamTests : IDisposable
         Assert.Null(OriginPaths.MacBundleResources);                           // the test host is not an .app
     }
 
-    [Fact]
-    public void Mojang_files_are_the_mac_ones_for_this_cpu()
+    // Per version, not per machine (the old rule gave 1.8.9 the arm64 Java, which Mojang doesn't build):
+    // 1.19+ native on Apple Silicon, older versions x64 under Rosetta, Intel x64 for everything.
+    [Theory]
+    [InlineData("1.8.9")]
+    [InlineData("1.16.5")]
+    [InlineData("1.18.2")]
+    [InlineData("1.19.2")]
+    [InlineData("1.21.1")]
+    [InlineData("26.1")]
+    public void Mojang_java_is_the_one_play_launches_for_each_version(string version)
     {
-        var appleSilicon = RuntimeInformation.OSArchitecture == Architecture.Arm64
-                           || SystemInfo.SysctlInt64("sysctl.proc_translated") == 1;
-        Assert.Equal(appleSilicon ? "mac-os-arm64" : "mac-os", MojangMetadata.RuntimePlatform);
+        var appleSilicon = SystemInfo.SysctlInt64("hw.optional.arm64") == 1;
+        var native = appleSilicon && MacLaunchPolicy.HasArm64Build(version);
+        Assert.Equal(native ? "mac-os-arm64" : "mac-os", MojangMetadata.RuntimePlatformFor(version));
+        Assert.Equal(PlatformLaunch.ShapeFor(version).JavaArch == MacJavaArch.Arm64 ? "mac-os-arm64" : "mac-os",
+            MojangMetadata.RuntimePlatformFor(version));
     }
 
     [Fact]
