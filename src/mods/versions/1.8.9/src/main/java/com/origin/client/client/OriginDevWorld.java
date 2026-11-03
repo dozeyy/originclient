@@ -177,9 +177,8 @@ final class OriginDevWorld {
 		DevFeatureShots.Shot[] shots = DevFeatureShots.Shot.values();
 		if (featIdx == -1) {
 			mc.thePlayer.rotationPitch = 10f;   // a little down: the mobs 6 blocks ahead sit mid-frame, sky still in view
-			final float yaw = mc.thePlayer.rotationYaw;
-			final double px = mc.thePlayer.posX, pz = mc.thePlayer.posZ;
-			featServer(mc, true, yaw, px, pz);
+			featServer(mc, DevFeatureShots.sceneCommands(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ,
+					mc.thePlayer.rotationYaw, DevFeatureShots.Dialect.LEGACY_189));
 		} else {
 			OriginDevShots.grab(mc, dir, shots[featIdx].file);
 		}
@@ -188,7 +187,7 @@ final class OriginDevWorld {
 			DevFeatureShots.restore();
 			mc.gameSettings.thirdPersonView = 0;
 			mc.thePlayer.rotationPitch = 0f;
-			featServer(mc, false, 0f, 0, 0);
+			featServer(mc, DevFeatureShots.cleanupCommands(DevFeatureShots.Dialect.LEGACY_189));
 			log("[dev-shots] feature shots done");
 			return false;
 		}
@@ -199,8 +198,8 @@ final class OriginDevWorld {
 		return true;
 	}
 
-	/** Builds the scene (scene = true) or removes it, on the integrated server's thread. */
-	private static void featServer(Minecraft mc, final boolean scene, final float yaw, final double px, final double pz) {
+	/** Runs the commands on the integrated server's thread, as the server itself (no cheats needed). */
+	private static void featServer(Minecraft mc, final java.util.List<String> cmds) {
 		final net.minecraft.server.integrated.IntegratedServer server = mc.getIntegratedServer();
 		if (server == null) {
 			return;
@@ -208,15 +207,6 @@ final class OriginDevWorld {
 		server.addScheduledTask(new Runnable() {
 			@Override
 			public void run() {
-				final net.minecraft.world.WorldServer world = server.worldServerForDimension(0);
-				java.util.List<String> cmds = scene
-						? DevFeatureShots.sceneCommands(px, pz, yaw, new DevFeatureShots.Ground() {
-							@Override
-							public int y(int x, int z) {
-								return world.getTopSolidOrLiquidBlock(new net.minecraft.util.BlockPos(x, 0, z)).getY();
-							}
-						}, DevFeatureShots.Dialect.LEGACY_189)
-						: DevFeatureShots.cleanupCommands(DevFeatureShots.Dialect.LEGACY_189);
 				for (String c : cmds) {
 					server.getCommandManager().executeCommand(server, c);
 				}
