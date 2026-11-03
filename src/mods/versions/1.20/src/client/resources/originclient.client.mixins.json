@@ -51,6 +51,8 @@
 		"LevelWeatherMixin",
 		"WeatherSnowMixin",
 		"ChatTimestampMixin",
+		"ChatCopyMixin",
+		"ChatScreenCopyMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
 		"GameRendererAccessor",
