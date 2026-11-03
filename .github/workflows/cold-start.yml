@@ -134,3 +134,73 @@ jobs:
           $unpacked = Get-ChildItem "$env:TEMP\.net" -Recurse -Filter 'WebView2Loader.dll' -ErrorAction SilentlyContinue
           Write-Host "WebView2Loader.dll unpacked: $(@($unpacked).Count) copies"
           if ($medNew -ge 3000) { Write-Host "::error::Cold start $medNew ms: the rule is under 3000 ms"; exit 1 }
+
+      # A player on the release updating to this ref. After the zip's SHA-256 check (same code in both, unit-tested),
+      # the release's updater (Core/Updates/UpdateService.ApplyUpdateAsync) unpacks the zip into updates\<version>,
+      # writes apply-update.cmd, and exits; the script waits for it, robocopies over the install and starts the exe.
+      # This replays those exact steps, with the release really running from an install folder, then checks the
+      # updated launcher opens and every file matches this ref.
+      - name: Self-update from the release to this ref
+        shell: pwsh
+        env:
+          ORIGIN_STARTUP_TRACE: "1"
+          BASE_TAG: ${{ steps.base.outputs.tag }}
+        run: |
+          $app = Join-Path $env:RUNNER_TEMP 'Origin Update Test'   # a space, as in a real install path
+          Copy-Item pub-base $app -Recurse
+          Compress-Archive -Path pub-new\* -DestinationPath update.zip
+          $updates = "$env:LOCALAPPDATA\OriginLauncher\updates"
+          $stage = Join-Path $updates '1.0.9999'
+          New-Item -ItemType Directory -Force -Path $updates | Out-Null
+          [IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path update.zip).Path, $stage, $true)
+          $log = "$env:LOCALAPPDATA\OriginLauncher\logs\startup-trace.log"
+          Remove-Item $log -Force -ErrorAction SilentlyContinue
+
+          # The release, opened from the install folder like a player's. It traces too (the variable is
+          # inherited): wait for its first frame, then clear the log so only the updated launcher's frame counts.
+          $old = Start-Process "$app\OriginLauncher.App.exe" -PassThru
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Get-Date) -lt $deadline -and -not (Test-Path $log)) { Start-Sleep -Milliseconds 250 }
+          Start-Sleep -Seconds 1
+          if ($old.HasExited) { Write-Host "::error::the release did not stay open (exit $($old.ExitCode))"; exit 1 }
+          Remove-Item $log -Force -ErrorAction SilentlyContinue
+          $exe = "$app\OriginLauncher.App.exe"
+          $script = Join-Path $updates 'apply-update.cmd'
+          # Same text the updater writes (UpdateService.cs, unchanged since launcher-v1.0.77).
+          $id = $old.Id
+          $lines = @(
+            '@echo off', 'setlocal', ':wait',
+            "tasklist /FI `"PID eq $id`" 2>nul | find `"$id`" >nul",
+            'if not errorlevel 1 (', '  timeout /t 1 /nobreak >nul', '  goto wait', ')',
+            "robocopy `"$stage`" `"$app`" /E /IS /IT >nul",
+            "start `"`" `"$exe`"", 'endlocal', ''
+          )
+          [IO.File]::WriteAllText($script, $lines -join "`r`n")
+          Start-Process $script -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          # The updater calls Application.Shutdown here; ending the process is the same for the script.
+          $old.Kill($true); $old.WaitForExit()
+
+          $ms = $null
+          $deadline = (Get-Date).AddSeconds(90)
+          while ((Get-Date) -lt $deadline -and $null -eq $ms) {
+            Start-Sleep -Milliseconds 250
+            if (Test-Path $log) {
+              $line = Get-Content $log -ErrorAction SilentlyContinue | Select-String 'ContentRendered' | Select-Object -First 1
+              if ($line) { $ms = [int]($line.Line.Trim() -split '\s+')[0] }
+            }
+          }
+          $running = Get-Process OriginLauncher.App -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe }
+          $running | ForEach-Object { $_.Kill($true) }
+          if ($null -eq $ms) { Write-Host "::error::the updated launcher never drew its first frame"; exit 1 }
+
+          $ver = (Get-Item $exe).VersionInfo.FileVersion
+          if ($ver -ne '1.0.9999.0') { Write-Host "::error::install folder exe is $ver after the update, wanted 1.0.9999.0"; exit 1 }
+          $root = (Resolve-Path pub-new).Path
+          $bad = Get-ChildItem pub-new -Recurse -File | Where-Object {
+            $rel = $_.FullName.Substring($root.Length + 1)
+            -not (Test-Path "$app\$rel") -or (Get-FileHash "$app\$rel").Hash -ne (Get-FileHash $_.FullName).Hash
+          }
+          if ($bad) { $bad | ForEach-Object { Write-Host "::error::not updated: $($_.Name)" }; exit 1 }
+          Write-Host "Self-update verified: the release updated itself to 1.0.9999, every file matches, first frame at $ms ms."
+          "Self-update from $env:BASE_TAG verified: first frame of the updated launcher at $ms ms." | Add-Content $env:GITHUB_STEP_SUMMARY

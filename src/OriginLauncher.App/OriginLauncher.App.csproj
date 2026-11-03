@@ -12,6 +12,9 @@
          TieredPGO off: no instrumentation overhead in the first seconds. -->
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
     <TieredPGO>false</TieredPGO>
+    <!-- .NET 9+ marks the exe CET-compatible by default; .NET 8 did not. Kept off so a player's old overlay or
+         antivirus hook that injects into the launcher can't crash it on a CET-capable CPU (Will, 2026-11-02). -->
+    <CETCompat>false</CETCompat>
   </PropertyGroup>
 
   <ItemGroup>
