@@ -240,10 +240,12 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 	// Real items no creative tab lists. Every OTHER tab-less registry entry is a
 	// technical block item (piston head, double slab, lit furnace, portal...) that
 	// has no item model on 1.8.9 and draws as the magenta missing-texture cube
-	// (dev shots 2026-10-13), so the grid leaves those out.
+	// (dev shots 2026-10-13), so the grid leaves those out. Every id below is bound
+	// in RenderItem.registerItems (filled_map through a mesh definition); farmland is
+	// not (javap, 2026-11-02), so it drew as that cube and is left out too.
 	private static final java.util.Set<String> TABLESS_REAL = new java.util.HashSet<>(java.util.Arrays.asList(
 			"command_block", "command_block_minecart", "barrier", "mob_spawner",
-			"written_book", "filled_map", "farmland"));
+			"written_book", "filled_map"));
 
 	private static boolean listable(Item item, ResourceLocation id) {
 		return item.getCreativeTab() != null || TABLESS_REAL.contains(id.getResourcePath());
