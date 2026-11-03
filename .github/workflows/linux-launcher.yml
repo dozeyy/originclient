@@ -204,6 +204,10 @@ jobs:
           desktop-file-validate /usr/share/applications/org.originclient.Launcher.desktop
           test -f /usr/share/icons/hicolor/256x256/apps/org.originclient.Launcher.png
           test -f /opt/origin-launcher/package-install
+          echo "--- OpenSSL this distro has: $( (ldconfig -p || /sbin/ldconfig -p) 2>/dev/null | grep -oE 'libssl\.so\.[0-9.]+' | sort -u | tr '\n' ' ')"
+          # Every real install has /etc/machine-id (systemd writes it at first boot; the account key is
+          # bound to it). Bare container images (AlmaLinux) ship none, so give this one its own.
+          [ -s /etc/machine-id ] || cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id
           echo "--- self-test from the installed path"
           if ! /usr/bin/origin-launcher --self-test --network > /tmp/out.txt 2>&1; then cat /tmp/out.txt; exit 1; fi
           cat /tmp/out.txt

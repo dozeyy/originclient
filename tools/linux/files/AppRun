@@ -2,4 +2,13 @@
 # AppImage entry point: the AppImage runtime mounts the image and runs this. $APPIMAGE (set by the
 # runtime) is how the launcher knows to self-update the .AppImage file (UpdateService.Linux.cs).
 here="$(dirname "$(readlink -f "$0")")"
+# OPENSSL-MAJOR (same block in tools/linux/files/origin-launcher): .NET looks for libssl.so.3 or .1.1.
+# A distro that only has a newer major (Fedora 45) gets it named via .NET's own override variable.
+if [ -z "${CLR_OPENSSL_VERSION_OVERRIDE:-}" ]; then
+  libs="$( (ldconfig -p || /sbin/ldconfig -p) 2>/dev/null)"
+  if ! printf '%s\n' "$libs" | grep -qE 'libssl\.so\.(3|1\.1) '; then
+    v="$(printf '%s\n' "$libs" | sed -n 's/.*libssl\.so\.\([0-9][0-9]*\) .*/\1/p' | sort -n | tail -n 1)"
+    if [ -n "$v" ]; then export CLR_OPENSSL_VERSION_OVERRIDE="$v"; fi
+  fi
+fi
 exec "$here/usr/lib/origin-launcher/OriginLauncher" "$@"

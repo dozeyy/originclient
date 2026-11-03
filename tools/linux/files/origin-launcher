@@ -4,6 +4,15 @@
 # $XDG_DATA_HOME/OriginLauncher/app (OriginPaths.UserAppCopy, Core/Updates/UpdateService.Linux.cs),
 # whichever VERSION is higher. A package upgrade from apt/dnf that is newer wins again by the same rule.
 pkg=/opt/origin-launcher
+# OPENSSL-MAJOR (same block in tools/linux/files/AppRun): .NET looks for libssl.so.3 or .1.1.
+# A distro that only has a newer major (Fedora 45) gets it named via .NET's own override variable.
+if [ -z "${CLR_OPENSSL_VERSION_OVERRIDE:-}" ]; then
+  libs="$( (ldconfig -p || /sbin/ldconfig -p) 2>/dev/null)"
+  if ! printf '%s\n' "$libs" | grep -qE 'libssl\.so\.(3|1\.1) '; then
+    v="$(printf '%s\n' "$libs" | sed -n 's/.*libssl\.so\.\([0-9][0-9]*\) .*/\1/p' | sort -n | tail -n 1)"
+    if [ -n "$v" ]; then export CLR_OPENSSL_VERSION_OVERRIDE="$v"; fi
+  fi
+fi
 case "$XDG_DATA_HOME" in
   /*) data="$XDG_DATA_HOME" ;;
   *) data="$HOME/.local/share" ;; # the XDG spec: unset, empty or relative means ~/.local/share
