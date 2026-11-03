@@ -84,8 +84,12 @@ public final class HitColor {
 	 *  layer's tint, pulled toward the hit colour by its opacity while the wearer
 	 *  is hurt. Untouched otherwise. */
 	public static float tintArmor(float value, int channel) {
-		if (!armorHurt || !Mods.on(MOD) || !Mods.bool(MOD, "colorArmor")) {
+		if (!armorHurt) {
 			return value;
+		}
+		if (!Mods.on(MOD) || !Mods.bool(MOD, "colorArmor")) {
+			// 1.7 Animations' Red Armor Flash: the plain 1.7 red when Hit Color isn't colouring armor
+			return OldAnimations.on("redArmor") ? OldAnimations.redArmor(value, channel) : value;
 		}
 		int c = OriginColorPicker.liveColor(MOD, "color");
 		float s = ((c >>> 24) & 0xFF) / 255f;
