@@ -47,6 +47,8 @@ public final class OriginDevShots {
 		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS,
 		// every other Origin window (the 2026-10-12 restyle onto gui/OriginWindow)
 		FPSCOACH, WAYPOINTS, ITEMSIZE, ITEMCOUNTER, QUICKPLAY, SHADERS,
+		// the Resource Pack Hub: Picks (its first view), then live Browse (re-uploaded copies collapsed)
+		PACKS, PACKS_BROWSE,
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
 		// Friends (social/SocialDemo fills it): a chat, then the party
@@ -142,6 +144,13 @@ public final class OriginDevShots {
 					return make(P + "gui.QuickplayScreen");
 				case SHADERS:
 					return make(P + "shaders.ShaderBrowserScreen", (Object) null);
+				case PACKS:
+					return make(P + "packs.ResourcePackHubScreen", (Object) null);
+				case PACKS_BROWSE: {
+					GuiScreen hub = make(P + "packs.ResourcePackHubScreen", (Object) null);
+					Object r = hub == null ? null : call(hub, "devTab", "browse");
+					return r instanceof GuiScreen ? (GuiScreen) r : hub;
+				}
 				case MENU_CLEAR:
 					return preview(make(P + "gui.OriginModMenuScreen"), false, false);
 				case STEP_CARD:
@@ -755,6 +764,9 @@ public final class OriginDevShots {
 						nextAt = now + 700;
 						return;
 					}
+					if ((s.kind == Kind.PACKS || s.kind == Kind.PACKS_BROWSE) && waitForPackHub(now)) {
+						return;
+					}
 					// The window manager may apply a resize a little later. Never label a
 					// capture with dimensions its framebuffer did not actually reach.
 					if ((mc.displayWidth != s.w || mc.displayHeight != s.h) && resizeRetries++ < 8) {
@@ -840,6 +852,33 @@ public final class OriginDevShots {
 	}
 
 	/** A screen of another area by class name and constructor arity (null on any failure). */
+	private static long packWaitFrom = 0, packListedAt = 0;
+
+	/**
+	 * Resource Pack Hub shots: wait (at most 20 s) for the live Modrinth page the hub
+	 * loads on open, then 3 s more so the preview images arrive before the grab.
+	 */
+	private static boolean waitForPackHub(long now) {
+		if (packWaitFrom == 0) {
+			packWaitFrom = now;
+		}
+		com.origin.client.client.packs.PackCatalog.Snapshot snap = com.origin.client.client.packs.PackHub.catalog().snapshot();
+		boolean listed = !snap.hits().isEmpty() || snap.error() != null;
+		if (listed && packListedAt == 0) {
+			packListedAt = now;
+		}
+		boolean waiting = listed ? now - packListedAt < 3000 : now - packWaitFrom < 20000;
+		if (waiting) {
+			nextAt = now + 250;
+			return true;
+		}
+		com.origin.client.OriginClient.LOGGER.info("[dev-shots] waited {} ms for the pack hub: {} results, {} copies hidden{}",
+				now - packWaitFrom, snap.hits().size(), snap.hidden(), snap.error() == null ? "" : ", error " + snap.error());
+		packWaitFrom = 0;
+		packListedAt = 0;
+		return false;
+	}
+
 	static GuiScreen make(String className, Object... args) {
 		try {
 			Class<?> c = Class.forName(className);

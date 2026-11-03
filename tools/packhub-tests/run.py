@@ -44,6 +44,12 @@ def main():
         if not any(i in src for i in GAME_IMPORTS) and "OriginClient" not in src:
             pure.append(f)
     pure += EXTRA
+    # PackDedupe + PackPicks are written once (Java 8) and copied into every module.
+    for name in ("PackDedupe.java", "PackPicks.java"):
+        want = open(os.path.join(PKG, name), encoding="utf-8").read()
+        for f in glob.glob(os.path.join(ROOT, "src/mods/versions/*/src/*/java/com/origin/client/client/packs", name)):
+            if open(f, encoding="utf-8").read() != want:
+                sys.exit(f"{os.path.relpath(f, ROOT)} differs from 1.21.1's copy (copy it over)")
     tests = glob.glob(os.path.join(HERE, "**/*.java"), recursive=True)
     out = tempfile.mkdtemp(prefix="packhub-")
     cmd = ["javac", "-Xlint:all", "-Xlint:-serial", "-d", out, "-cp", gson] + pure + tests

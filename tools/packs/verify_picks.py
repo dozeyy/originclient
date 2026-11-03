@@ -1,0 +1,304 @@
+"""The Resource Pack Hub's built-in Picks: one source (tools/packs/picks.json),
+generated into every module's PackPicks.java, verified against the live sources.
+
+    python tools/packs/verify_picks.py --write     # regenerate the Java table in every module (offline)
+    python tools/packs/verify_picks.py --check     # the Java tables match picks.json (offline)
+    python tools/packs/verify_picks.py --out DIR   # CI: verify every pick online (pack-picks.yml)
+
+Online verification (GitHub runners; the cloud sandbox can't reach these hosts):
+  modrinth  the slug still resolves to the pinned project id; the pinned owner is
+            the project's owner; downloads; every game version the pick claims
+            really has a file with the "minecraft" loader (a claim Modrinth no
+            longer backs FAILS; versions Modrinth added are only reported); each
+            copy id is still a different uploader's project.
+  direct    the official URL is downloaded (redirects followed, every hop's host
+            recorded); SHA-256 + size must equal the pinned ones; the zip must hold
+            pack.mcmeta at its root.
+  link      the page answers (2xx/3xx; a bot-protection 403 is reported, not failed).
+Writes DIR/verify.txt and DIR/picks.verified.json (picks.json with Modrinth's
+current facts filled in: project id, owner, icon, gallery image, versions, and
+direct files' measured hash/size/hosts) for the curator to review and copy over.
+"""
+import argparse
+import hashlib
+import io
+import json
+import os
+import re
+import sys
+import time
+import urllib.parse
+import urllib.request
+import zipfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PICKS = os.path.join(ROOT, "tools/packs/picks.json")
+UA = "dozeyy/originclient pack-picks verify (will@willhenry.me)"
+API = "https://api.modrinth.com/v2"
+BEGIN = "\t// BEGIN PICKS"
+END = "\t// END PICKS"
+STYLES = ["PVP", "BEDWARS", "CLEAN", "COLOURFUL", "DARK_UI", "FPS", "LOW_FIRE", "CRYSTAL", "FAITHFUL"]
+
+
+def live_versions():
+    mods = json.load(open(os.path.join(ROOT, "src/mods/live-modules.json"), encoding="utf-8"))["modules"]
+    return [v for m in mods for v in m["versions"]]
+
+
+def pack_modules():
+    out = []
+    base = os.path.join(ROOT, "src/mods/versions")
+    for m in sorted(os.listdir(base)):
+        for sub in ("src/client/java", "src/main/java"):
+            f = os.path.join(base, m, sub, "com/origin/client/client/packs/PackPicks.java")
+            if os.path.isfile(f):
+                out.append(f)
+    return out
+
+
+def load():
+    data = json.load(open(PICKS, encoding="utf-8"))
+    ids = set()
+    for p in data["picks"]:
+        assert p["id"] not in ids, "duplicate pick id " + p["id"]
+        ids.add(p["id"])
+        assert p["source"] in ("modrinth", "direct", "link"), p["id"]
+        assert p["styles"] and all(s in STYLES for s in p["styles"]), p["id"] + " styles"
+        if p["versions"] == "auto":
+            p["versions"] = ["auto"]
+        assert p["versions"], p["id"] + " versions"
+        if p["source"] == "direct":
+            assert re.fullmatch(r"[0-9a-f]{64}", p["sha256"]), p["id"] + " sha256"
+            assert p["url"].startswith("https://") and p["size"] > 0, p["id"]
+        if p["source"] != "modrinth":
+            assert "pvprp" not in p.get("url", "") and "mediafire" not in p.get("url", ""), p["id"] + ": gated host"
+    return data
+
+
+# ---- Java table ----
+
+def jstr(s):
+    return '"' + (s or "").replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def java_table(data):
+    rows = []
+    for p in data["picks"]:
+        if p["versions"] == ["auto"]:
+            # not verified yet: a pick ships only once a CI verify run has listed its versions
+            print("skipped (versions still 'auto' - fold in a verify run):", p["id"])
+            continue
+        st = ", ".join(p["styles"])
+        vers = jstr(" ".join(p["versions"]))
+        common = [jstr(p["id"]), jstr(p["title"]), jstr(p["author"]), jstr(p["about"]), jstr(p.get("res", "")),
+                  jstr(p.get("credit", ""))]
+        if p["source"] == "modrinth":
+            args = common + [jstr(p["project"]), jstr(p["slug"]), jstr(p["owner"]), jstr(p.get("icon", "")),
+                             jstr(p.get("image", "")), vers, jstr(" ".join(p.get("copies", []))), st]
+            rows.append("\t\t\tmodrinth(" + ", ".join(args) + ")")
+        elif p["source"] == "direct":
+            args = common + [jstr(p["source_name"]), jstr(p["page"]), jstr(p["url"]), jstr(p["sha256"]),
+                             str(p["size"]) + "L", jstr(p["file_name"]), jstr(" ".join(p["hosts"])), vers,
+                             jstr(" ".join(p.get("copies", []))), st]
+            rows.append("\t\t\tdirect(" + ", ".join(args) + ")")
+        else:
+            args = common + [jstr(p["source_name"]), jstr(p["page"]), vers, jstr(" ".join(p.get("copies", []))), st]
+            rows.append("\t\t\tlink(" + ", ".join(args) + ")")
+    return (BEGIN + " (generated by tools/packs/verify_picks.py --write from tools/packs/picks.json)\n"
+            "\tpublic static final List<Pick> ALL = Collections.unmodifiableList(Arrays.<Pick>asList(\n"
+            + ",\n".join(rows) + "\n\t));\n" + END)
+
+
+def splice(src, table):
+    a = src.index(BEGIN)
+    b = src.index(END) + len(END)
+    return src[:a] + table + src[b:]
+
+
+def write_all(check_only):
+    table = java_table(load())
+    bad = []
+    for f in pack_modules():
+        src = open(f, encoding="utf-8").read()
+        new = splice(src, table)
+        if new != src:
+            if check_only:
+                bad.append(f)
+            else:
+                open(f, "w", encoding="utf-8", newline="\n").write(new)
+                print("wrote", os.path.relpath(f, ROOT))
+    if bad:
+        print("PackPicks.java out of date (run verify_picks.py --write):", *bad, sep="\n  ")
+        return 1
+    print("picks table:", len(pack_modules()), "modules", "checked" if check_only else "up to date")
+    return 0
+
+
+# ---- online verification ----
+
+def fetch(url, accept="*/*", limit=64 << 20):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": accept})
+    hops = []
+
+    class Hop(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            hops.append(newurl)
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+    opener = urllib.request.build_opener(Hop)
+    with opener.open(req, timeout=60) as r:
+        body = r.read(limit + 1)
+        if len(body) > limit:
+            raise IOError("too large")
+        return r.status, r.geturl(), hops, body
+
+
+def api(path):
+    time.sleep(0.25)
+    return json.loads(fetch(API + path, "application/json")[3])
+
+
+def verify_modrinth(p, live, log):
+    errs = []
+    proj = api("/project/" + urllib.parse.quote(p["slug"]))
+    if p.get("project") and proj["id"] != p["project"]:
+        errs.append(f"slug {p['slug']} now points at {proj['id']}, pinned {p['project']}")
+    members = api(f"/project/{proj['id']}/members")
+    owners = [m["user"]["username"] for m in members if m.get("role", "").lower() == "owner" or m.get("is_owner")]
+    team = [m["user"]["username"] for m in members]
+    # The name search shows as the uploader (Hit.author: what Browse's copy filter
+    # compares) - for an organisation's project that is the organisation.
+    facets = urllib.parse.quote(json.dumps([[f"project_id:{proj['id']}"]]))
+    found = api(f"/search?limit=1&facets={facets}")["hits"]
+    shown = found[0]["author"] if found else ""
+    org = ""
+    if proj.get("organization"):
+        try:
+            o = api(f"/organization/{proj['organization']}")
+            org = o.get("slug") or o.get("name") or ""
+            team += [m["user"]["username"] for m in o.get("members", [])]
+        except Exception as e:  # noqa: BLE001
+            log(f"    org {proj['organization']}: {e}")
+    if p.get("owner") and p["owner"].lower() != shown.lower():
+        errs.append(f"owner {p['owner']} is not the uploader Modrinth shows ({shown!r}; team {team}, org {org!r})")
+    vers = api(f"/project/{proj['id']}/version")
+    have = set()
+    for v in vers:
+        if "minecraft" in v.get("loaders", []) and v.get("files"):
+            have.update(v["game_versions"])
+    live_have = [v for v in live if v in have]
+    missing = [v for v in p["versions"] if v not in have]
+    if missing:
+        errs.append(f"claims {missing} but Modrinth has no file for them")
+    extra = [v for v in live_have if v not in p["versions"]]
+    gal = [g["url"] for g in proj.get("gallery", []) if g.get("featured")] or [g["url"] for g in proj.get("gallery", [])][:1]
+    for c in p.get("copies", []):
+        try:
+            cp = api(f"/project/{c}")
+            cm = api(f"/project/{c}/members")
+            if any(m["user"]["username"] in team for m in cm):
+                errs.append(f"copy {c} ({cp['title']}) shares an uploader with the original")
+        except Exception as e:  # noqa: BLE001
+            log(f"    copy {c}: {e}")
+    log(f"  {p['id']:<22} modrinth {proj['id']} '{proj['title']}' shown-as={shown!r} owners={owners} team={team} "
+        f"org={org!r} dl={proj['downloads']} lic={proj['license']['id']}\n      live={live_have}\n"
+        f"      extra-not-claimed={extra}")
+    fixed = dict(p, project=proj["id"], owner=p.get("owner") or shown,
+                 icon=proj.get("icon_url") or "", image=gal[0] if gal else "", downloads=proj["downloads"],
+                 license=proj["license"]["id"], modrinth_live=live_have)
+    if p["versions"] == ["auto"]:
+        fixed["versions"] = live_have
+        errs = [e for e in errs if not e.startswith("claims")]
+    return errs, fixed
+
+
+def verify_direct(p, log):
+    errs = []
+    st, final, hops, body = fetch(p["url"])
+    hosts = sorted({urllib.parse.urlparse(u).hostname for u in [p["url"]] + hops})
+    sha = hashlib.sha256(body).hexdigest()
+    if p["sha256"] != "0" * 64 and sha != p["sha256"]:
+        errs.append(f"sha256 {sha} != pinned {p['sha256']}")
+    if p["size"] and len(body) != p["size"]:
+        errs.append(f"size {len(body)} != pinned {p['size']}")
+    bad_hosts = [h for h in hosts if h not in p.get("hosts", hosts)]
+    if bad_hosts:
+        errs.append(f"redirected through unpinned hosts {bad_hosts}")
+    fmt = "?"
+    try:
+        z = zipfile.ZipFile(io.BytesIO(body))
+        meta = json.loads(z.read("pack.mcmeta").decode("utf-8-sig"))
+        fmt = meta["pack"]["pack_format"]
+    except Exception as e:  # noqa: BLE001
+        errs.append(f"not a pack zip with a root pack.mcmeta: {e}")
+    log(f"  {p['id']:<22} direct {st} {len(body)} bytes sha256={sha} pack_format={fmt} hosts={hosts}")
+    return errs, dict(p, sha256=sha, size=len(body), hosts=hosts, pack_format=fmt)
+
+
+def verify_link(p, log):
+    warn = []
+    try:
+        st, final, hops, body = fetch(p["page"], "text/html", 4 << 20)
+        title = re.search(rb"<title>([^<]*)</title>", body, re.I)
+        log(f"  {p['id']:<22} link {st} {final} title={title.group(1)[:80] if title else ''!r}")
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403, 429, 503):
+            log(f"  {p['id']:<22} link {e.code} (bot protection? opens fine in a browser - check by hand)")
+            warn.append(f"page answered {e.code}")
+        else:
+            return [f"page {p['page']} answered {e.code}"], p
+    return [], p
+
+
+def verify_all(out):
+    os.makedirs(out, exist_ok=True)
+    lines = []
+
+    def log(s):
+        print(s, flush=True)
+        lines.append(s)
+
+    data = load()
+    live = live_versions()
+    failures = 0
+    fixed = []
+    for p in data["picks"]:
+        try:
+            if p["source"] == "modrinth":
+                errs, f = verify_modrinth(p, live, log)
+            elif p["source"] == "direct":
+                errs, f = verify_direct(p, log)
+            else:
+                errs, f = verify_link(p, log)
+        except Exception as e:  # noqa: BLE001
+            errs, f = [f"{type(e).__name__}: {e}"], p
+        for e in errs:
+            log(f"    FAIL {p['id']}: {e}")
+        failures += len(errs)
+        fixed.append(f)
+    json.dump({"picks": fixed}, open(os.path.join(out, "picks.verified.json"), "w"), indent=1)
+    per = {}
+    for v in live:
+        per[v] = sum(1 for p in fixed if v in p["versions"])
+    log("picks per live version: " + ", ".join(f"{k}={v}" for k, v in per.items()))
+    log(f"{len(fixed)} picks, {failures} failures")
+    open(os.path.join(out, "verify.txt"), "w").write("\n".join(lines) + "\n")
+    return 1 if failures else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--write", action="store_true")
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--out")
+    a = ap.parse_args()
+    if not os.path.exists(PICKS):
+        print("no picks.json yet")
+        return 0
+    if a.write or a.check:
+        return write_all(a.check)
+    return verify_all(a.out or "out")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

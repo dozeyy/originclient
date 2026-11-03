@@ -20,6 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 //   (PackFiles.inspect) -> move it in under a name that does not exist yet.
 // Existing packs are never overwritten or deleted here; an identical file that
 // is already installed is recognised by hash instead of being downloaded twice.
+// A hand-picked DIRECT pick (PackPicks) takes the same path from the creator's
+// own URL, checked against the SHA-256 pinned in the jar instead of Modrinth's.
 // No Minecraft classes, so the whole pipeline is unit-tested with a local
 // server (tools/packhub-tests). The UI polls state() every frame.
 public final class PackInstaller {
@@ -42,6 +44,13 @@ public final class PackInstaller {
 			return new State(Status.ERROR, 0, msg, null, null, false);
 		}
 	}
+
+	/**
+	 * Error of a direct pick whose file is not the one Origin checked (the creator
+	 * replaced it, or something altered it): refused, and the tile offers the
+	 * creator's page instead (ResourcePackHubScreen).
+	 */
+	public static final String CHANGED = "File changed - open the page";
 
 	/** Hard cap on one pack download (the biggest 512x packs are ~400 MB). */
 	static final long MAX_BYTES = 1L << 30;
@@ -104,6 +113,85 @@ public final class PackInstaller {
 		});
 	}
 
+	/** Starts a hand-picked DIRECT install (state key pick.key()). No-op while it is working. */
+	public void startDirect(PackPicks.Pick pick, int gameFormat, Path dir) {
+		String key = pick.key();
+		if (state(key).status() == Status.WORKING) {
+			return;
+		}
+		AtomicBoolean cancel = new AtomicBoolean();
+		cancels.put(key, cancel);
+		states.put(key, State.working(0, "Waiting..."));
+		pool.execute(() -> {
+			try {
+				states.put(key, installDirect(pick, gameFormat, dir, cancel));
+			} catch (Throwable t) {
+				states.put(key, State.error(cancel.get() ? "Cancelled" : "Download failed"));
+			} finally {
+				cancels.remove(key);
+			}
+		});
+	}
+
+	/** Download + verify (pinned SHA-256) + move in one direct pick. Package-private for tests. */
+	State installDirect(PackPicks.Pick pick, int gameFormat, Path dir, AtomicBoolean cancel) throws IOException {
+		String key = pick.key();
+		if (!allowAnyHost && !pick.trustedFileUrl(pick.fileUrl)) {
+			return State.error("Untrusted download link");
+		}
+		if (pick.size > MAX_BYTES || pick.sha256.isEmpty()) {
+			return State.error(CHANGED);
+		}
+		Files.createDirectories(dir);
+		// already installed from this pick and still the same bytes -> done
+		for (String f : index.filesOfProject(key)) {
+			Path p = PackFiles.inside(dir, f);
+			if (Files.isRegularFile(p) && pick.sha256.equalsIgnoreCase(sha256(p))) {
+				index.cancelDelete(f);
+				PackFiles.PackInfo info = PackFiles.inspect(p);
+				return new State(Status.DONE, 1, "Installed", f, null, info.ok() && gameFormat > 0 && !info.supports(gameFormat));
+			}
+		}
+		String safe = PackFiles.safeFileName(pick.fileName);
+		Path tmp = PackFiles.inside(dir, safe.substring(0, safe.length() - 4) + "."
+				+ Long.toHexString(System.nanoTime()) + ".part");
+		try {
+			download(pick.fileUrl, pick.size, tmp, cancel, key, u -> allowAnyHost || pick.trustedFileUrl(u));
+			if (cancel.get()) {
+				return new State(Status.CANCELLED, 0, "Cancelled", null, null, false);
+			}
+			if (!pick.sha256.equalsIgnoreCase(sha256(tmp))) {
+				return State.error(CHANGED);
+			}
+			PackFiles.PackInfo info = PackFiles.inspect(tmp);
+			if (!info.ok()) {
+				return State.error(info.problem());
+			}
+			Path dest = PackFiles.uniqueDestination(dir, safe);
+			PackFiles.moveInto(tmp, dest);
+			String name = dest.getFileName().toString();
+			// versionId = the pinned hash's prefix: which build this is, for the Installed list
+			index.put(name, new PackIndex.Entry(key, pick.sha256.substring(0, 12), pick.title, "", PackFiles.sha1(dest)));
+			return new State(Status.DONE, 1, "Installed", name, null, gameFormat > 0 && !info.supports(gameFormat));
+		} finally {
+			Files.deleteIfExists(tmp);
+		}
+	}
+
+	private static String sha256(Path file) throws IOException {
+		try (InputStream in = Files.newInputStream(file)) {
+			java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+			byte[] buf = new byte[65536];
+			int n;
+			while ((n = in.read(buf)) > 0) {
+				md.update(buf, 0, n);
+			}
+			return PackFiles.hex(md.digest());
+		} catch (java.security.NoSuchAlgorithmException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
 	/** Test entry: run one install synchronously. */
 	State runNow(String projectId, String title, String slug, String gameVersion, int gameFormat, Path dir,
 			String replaces) throws IOException {
@@ -154,7 +242,7 @@ public final class PackInstaller {
 		Path tmp = PackFiles.inside(dir, safe.substring(0, safe.length() - 4) + "."
 				+ Long.toHexString(System.nanoTime()) + ".part");
 		try {
-			download(file, tmp, cancel, stateKey);
+			download(file.url(), file.size(), tmp, cancel, stateKey, u -> allowAnyHost || ModrinthPacks.trustedDownload(u));
 			if (cancel.get()) {
 				return new State(Status.CANCELLED, 0, "Cancelled", null, null, false);
 			}
@@ -176,21 +264,22 @@ public final class PackInstaller {
 		}
 	}
 
-	private void download(ModrinthPacks.VersionFile file, Path tmp, AtomicBoolean cancel, String key)
-			throws IOException {
-		HttpURLConnection conn = ModrinthPacks.open(file.url());
+	/** size = the announced byte count (0 = unknown); hostOk = where the final URL may be after redirects. */
+	private void download(String url, long size, Path tmp, AtomicBoolean cancel, String key,
+			java.util.function.Predicate<String> hostOk) throws IOException {
+		HttpURLConnection conn = ModrinthPacks.open(url);
 		conn.setRequestProperty("Accept", "*/*");
 		int code = conn.getResponseCode();
 		if (code < 200 || code >= 300) {
 			conn.disconnect();
 			throw new IOException("HTTP " + code);
 		}
-		// a redirect must not take us off Modrinth's hosts
-		if (!allowAnyHost && !ModrinthPacks.trustedDownload(conn.getURL().toString())) {
+		// a redirect must not take us off the trusted hosts (Modrinth's, or the pick's pinned ones)
+		if (!hostOk.test(conn.getURL().toString())) {
 			conn.disconnect();
-			throw new IOException("Redirected off Modrinth");
+			throw new IOException("Redirected off the trusted host");
 		}
-		long total = file.size() > 0 ? file.size() : conn.getContentLengthLong();
+		long total = size > 0 ? size : conn.getContentLengthLong();
 		long read = 0, lastReport = 0;
 		try (InputStream in = conn.getInputStream(); OutputStream out = Files.newOutputStream(tmp)) {
 			byte[] buf = new byte[65536];
@@ -200,7 +289,7 @@ public final class PackInstaller {
 					return;
 				}
 				read += n;
-				if (read > MAX_BYTES || (file.size() > 0 && read > file.size())) {
+				if (read > MAX_BYTES || (size > 0 && read > size)) {
 					throw new IOException("Download larger than announced");
 				}
 				out.write(buf, 0, n);

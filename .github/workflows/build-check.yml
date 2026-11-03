@@ -21,6 +21,8 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/packhub-tests/**"
+      - "tools/packs/**"
       - "tools/step-aside-tests/**"
       - "tools/screenshot-link-tests/**"
       - "tools/keycodes-tests/**"
@@ -45,6 +47,8 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/packhub-tests/**"
+      - "tools/packs/**"
       - "tools/step-aside-tests/**"
       - "tools/screenshot-link-tests/**"
       - "tools/keycodes-tests/**"
@@ -95,6 +99,15 @@ jobs:
       # every module's copy byte-identical (pre-1.20 copies are outside sync).
       - name: Test loading bar
         run: python3 tools/loading-bar-tests/run.py
+
+      # The Resource Pack Hub's pure logic (PackDedupe copy filter, PackPicks list,
+      # installer incl. pinned-hash direct picks); every module's PackDedupe/PackPicks
+      # byte-identical; each PackPicks table generated from tools/packs/picks.json.
+      - name: Test Resource Pack hub
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gson.jar" https://repo1.maven.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar
+          python3 tools/packhub-tests/run.py --gson "$RUNNER_TEMP/gson.jar"
+          python3 tools/packs/verify_picks.py --check
 
       # Origin steps aside for a player's own mod (StepAside, pure Java): the overlap
       # table resolve, the forced-on flag and its config contract (old configs read

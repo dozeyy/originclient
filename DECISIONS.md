@@ -27,6 +27,8 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Raw mouse input is vanilla's own setting on every version but 1.8.9; on 1.8.9 one Origin toggle makes the mouse feel like later versions (2026-11-03).
 - Store purchases are final except where the law requires a refund; Origin+ renews automatically, cancels any time and keeps working until the paid period ends (2026-11-03).
 - Origin+ is managed and cancelled only on the website (store page, Manage or cancel membership, Stripe sign-in by checkout email); no cancel links in the launcher or the game (2026-11-03).
+- Resource Pack hub hides re-uploaded copies and opens on hand-picked PvP/Bedwars packs in different styles; the list is built into the jar (2026-11-03).
+- Picks install from the creator's own source only when its terms allow automated downloads and the file matches a pinned hash; otherwise the tile opens the creator's page (PvPRP, MediaFire) (2026-11-03).
 
 - Mac launcher: every screen and feature of the Windows launcher; no Apple Developer account for now (the site shows the Open Anyway steps); the site calls it Mac Beta until real players confirm it works (2026-11-02).
 - A version that plays on Mac but whose shaders fail stays in the Mac picker and says shaders aren't available on Mac yet (2026-11-02).
