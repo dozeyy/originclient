@@ -4,7 +4,9 @@
 usage: ref_lookup.py <jars.txt> <maps.txt> <queries.txt>
   jars.txt     one compile-classpath jar per line (MCP-named Minecraft + Forge + libraries)
   maps.txt     mapping files Loom left in the Gradle caches (*.tiny, methods/fields.csv)
-  queries.txt  one query per line: `class <name>`, `member <name>`, `find <regex>`
+  queries.txt  one query per line: `class <name>`, `member <name>`, `find <regex>`,
+               `code <Class>#<method>` (javap -c bytecode of every overload of that method,
+               bridges included -- the only way to read a vanilla/Forge method BODY from here)
 """
 import re
 import subprocess
@@ -105,8 +107,24 @@ def main():
         elif kind == "find":
             rx = re.compile(arg)
             emit(sorted(c for c in classes if rx.search(c) and not c.startswith(("java.", "javax.", "sun."))))
+        elif kind == "code":
+            cname, _, meth = arg.partition("#")
+            hits = [c for c in classes if c == cname or c.endswith("." + cname)]
+            if not hits:
+                print("  (no such class)")
+            for c in sorted(hits)[:2]:
+                out = subprocess.run(["javap", "-c", "-p", "-cp", cp, c], capture_output=True, text=True)
+                block, keep = [], False
+                for line in (out.stdout or out.stderr).splitlines():
+                    # a member header is indented 2 spaces; its Code: body is indented deeper
+                    if line.startswith("  ") and not line.startswith("    "):
+                        keep = re.search(r"[ .]" + re.escape(meth) + r"\(", line) is not None
+                    if keep:
+                        block.append(line)
+                print(f"  -- {c}")
+                emit(block or ["  (no method named " + meth + ")"])
         else:
-            print("  unknown query kind (use class / member / find)")
+            print("  unknown query kind (use class / member / find / code)")
 
 
 main()

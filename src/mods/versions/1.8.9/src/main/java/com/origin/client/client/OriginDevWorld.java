@@ -172,7 +172,14 @@ final class OriginDevWorld {
 	// through the server's own command manager on its thread, as OriginDevPanorama does.
 	private static int featIdx = -1;
 
-	/** Builds the feature shots' stage and scene (DevFeatureShots.sceneCommands) around the player. */
+	/**
+	 * Builds the feature shots' stage and scene (DevFeatureShots.sceneCommands) around the player.
+	 * 1.8.9: nametags_f5 shows only YOUR tag, not Bessie's or Origin Tester's, and that is vanilla 1.8.9,
+	 * not Origin. RenderLiving.canRenderName asks entity.getAlwaysRenderNameTagForRender(), which
+	 * EntityLivingBase hard-codes to false (EntityLiving doesn't override it; 1.9 fixed it), so a named
+	 * mob's tag shows only while it is under the crosshair within reach. CustomNameVisible:1b is read and
+	 * synced (dev-shots probe 2026-11-03: client dw3=1, getAlwaysRenderNameTag=true, canRenderName=false).
+	 */
 	private static void featureScene(Minecraft mc) {
 		featServer(mc, DevFeatureShots.sceneCommands(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ,
 				mc.thePlayer.rotationYaw, DevFeatureShots.Dialect.LEGACY_189));
