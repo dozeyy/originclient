@@ -21,20 +21,31 @@ public final class MotionBlur {
 	private static boolean broken = false;
 	/** Last frame's timestamp, so the blend can be derived from real elapsed time. */
 	private static long lastNanos = 0L;
+	// Re-apply backoff (same as 1.21.1): ticks counted here, the tick of the last load, and the
+	// earliest tick a re-apply may run (see the slot-lost branch in tick()).
+	private static int ticks = 0;
+	private static int loadedAt = 0;
+	private static int retryAt = 0;
+	private static int backoff = 0;
 
 	private MotionBlur() {
 	}
 
 	public static void tick(Minecraft mc) {
+		ticks++;
 		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
 		boolean want = amount >= 0.5;
 
 		// Vanilla empties the post-effect slot behind our back: F5 and spectating a mob
 		// (checkEntityPostEffect) and every resource reload (F3+T, a pack change, the startup
 		// reload). So the slot itself is the truth -- a field read and a String compare per
-		// tick -- and the blur is put back whenever it went missing.
+		// tick -- and the blur is put back whenever it went missing. A chain that keeps
+		// vanishing right after a load (another mod emptying the slot every tick) backs off,
+		// up to a minute, instead of recompiling the whole chain every tick.
 		if (loaded && !isOurs(mc)) {
 			loaded = false;
+			backoff = (ticks - loadedAt < 100) ? Math.min(Math.max(backoff * 2, 20), 1200) : 0;
+			retryAt = ticks + backoff;
 		}
 		if (want != loaded) {
 			if (mc.getOverlay() != null) {
@@ -42,8 +53,8 @@ public final class MotionBlur {
 			}
 			try {
 				if (want) {
-					if (mc.gameRenderer.currentEffect() != null) {
-						return;   // another post effect (spectating a creeper/spider/enderman) owns the slot: let it be
+					if (ticks < retryAt || mc.gameRenderer.currentEffect() != null) {
+						return;   // backing off, or another post effect (spectating a creeper/spider/enderman) owns the slot
 					}
 					((GameRendererAccessor) mc.gameRenderer).originclient$loadEffect(EFFECT);
 					if (!isOurs(mc)) {
@@ -53,6 +64,7 @@ public final class MotionBlur {
 						com.origin.client.OriginClient.LOGGER.warn("Motion blur post chain did not load; feature disabled this session");
 						return;
 					}
+					loadedAt = ticks;
 				} else {
 					mc.gameRenderer.shutdownEffect();
 				}
