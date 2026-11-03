@@ -97,7 +97,10 @@ public final class Quickplay {
 		if (open && !openWasDown) {
 			mc.setScreen(new com.origin.client.client.gui.QuickplayScreen());
 		} else if (again && !againWasDown) {
-			if (lastId != null) {
+			if (!onHypixel(mc)) {
+				// Hypixel's /play ids mean nothing (or something else) on other servers
+				mc.player.displayClientMessage(Component.literal("Play Again only works on Hypixel"), true);
+			} else if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);
 			} else if (mc.player != null) {
 				mc.player.displayClientMessage(Component.literal("Pick a game in Quickplay first"), true);
@@ -124,7 +127,9 @@ public final class Quickplay {
 
 	private static void run(Minecraft mc, String command, String label) {
 		ClientPacketListener conn = mc.getConnection();
-		if (conn == null) {
+		// Hypixel commands only: on any other server /play and /lobby are that
+		// server's own commands (or unknown), never what the player picked
+		if (conn == null || !onHypixel(mc)) {
 			return;
 		}
 		conn.sendCommand(command);
