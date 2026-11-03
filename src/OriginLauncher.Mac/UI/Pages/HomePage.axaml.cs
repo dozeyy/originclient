@@ -12,7 +12,7 @@ public sealed partial class HomePage : UserControl
     public HomePage()
     {
         InitializeComponent();
-        SizeChanged += (_, _) => ReportStripTop();
+        SizeChanged += (_, _) => { ReportStripTop(); FitStrip(); };
         HomeCard.SizeChanged += (_, _) => ReportStripTop();
         InitPlay();
     }

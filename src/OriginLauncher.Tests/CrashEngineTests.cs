@@ -245,6 +245,9 @@ More details:
     [InlineData("GLFW error 65542: WGL: The driver does not appear to support OpenGL", null)]
     [InlineData(null, "# Problematic frame:\n# C  [nvoglv64.dll+0xabc]")]
     [InlineData(null, "# Problematic frame:\n# C  [ig9icd64.dll+0x1234]")]
+    // macOS: Apple's OpenGL over Metal (Apple Silicon) and an Intel Mac's AMD GL driver.
+    [InlineData(null, "# Problematic frame:\n# C  [AppleMetalOpenGLRenderer+0x2f1a4]")]
+    [InlineData(null, "# Problematic frame:\n# C  [AMDRadeonX6000GLDriver+0x51c2]")]
     [InlineData("Pixel format not accelerated", null)]
     public void Graphics_driver_signals_are_possible_with_no_fix(string? log, string? hsErr)
     {

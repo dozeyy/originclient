@@ -14,6 +14,12 @@ public static partial class PlatformLaunch
     public static Architecture HostArch { get; } =
         SystemInfo.SysctlInt64("hw.optional.arm64") == 1 ? Architecture.Arm64 : Architecture.X64;
 
+    // The words the crash report uses for this computer (CrashRules). A Mac's graphics drivers ship inside macOS, so
+    // "update your driver" means a macOS update.
+    public static string SystemName => "macOS";
+    public static string MachineName => "Mac";
+    public static string DriverUpdateAdvice => "Update macOS (it carries the Mac's graphics drivers)";
+
     /// <summary>How <paramref name="version"/> runs on this Mac.</summary>
     public static MacLaunchShape ShapeFor(string version) => MacLaunchPolicy.For(version, HostArch);
 

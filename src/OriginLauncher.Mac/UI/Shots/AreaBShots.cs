@@ -108,6 +108,10 @@ internal static class AreaBShots
         SnapScrolledPage(window, "09b-profiles-scrolled");
         window.TourShowProfiles(profiles, DemoCount, openForm: true);
         Shot(window, "10-profiles-form");
+        // ---- 11: Home with that profile selected: its server's Join card between My mods and Play ----
+        window.TourShowHomeWithProfile(profiles.ModProfiles[0]);
+        Shot(window, "11-home-profile");
+        window.TourShowHomeWithProfile(null);
 
         // ---- 12: the Accounts drawer as the tour opens it (signed out: no rows) ----
         window.TourGoTo(MainWindow.LauncherPage.Home);
@@ -142,6 +146,15 @@ internal static class AreaBShots
         Shot(window, "25-min-profiles");
         SnapScrolledPage(window, "25b-min-profiles-scrolled");
         States(window, "29-min", profiles, focusLog);
+        // ---- 26/27: Home with the profile at the smallest window, then with the toasts up: the Play card, Play and Join
+        // must fit under the bar and above the bottom edge, and the toasts must leave them uncovered ----
+        window.TourShowHomeWithProfile(profiles.ModProfiles[0]);
+        Shot(window, "26-min-home-profile");
+        foreach (var toast in SocialDemo.Toasts()) window.TourShowToast(toast);
+        window.TourShowToast(new SocialToast(SocialToastKind.FriendRequest, "Friend request", "OjoTheCat wants to be friends", Uuid: SocialDemo.Ojo));
+        Shot(window, "27-min-home-profile-toasts");
+        window.TourClearToasts();
+        window.TourShowHomeWithProfile(null);
         File.AppendAllText(Path.Combine(outDir, "focus-checks.txt"), focusLog.ToString());
 
         Accounts(window, outDir);

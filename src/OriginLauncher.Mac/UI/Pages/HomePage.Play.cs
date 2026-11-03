@@ -166,6 +166,7 @@ public sealed partial class HomePage
             SocialHub.PresenceVersion = picked;
         }
         MyMods = settings.PlayWithExternalMods;
+        ApplyProfile(settings); // a profile picked on the Profiles page: its Join card
         UpdatePlayState();
     }
 
@@ -299,6 +300,7 @@ public sealed partial class HomePage
         ShowVersionOnCard(_selectedVersion);
         SocialHub.PresenceVersion = _selectedVersion;
         MyMods = _settings.PlayWithExternalMods;
+        ApplyProfile(_settings);
         UpdatePlayState();
     }
 
@@ -311,6 +313,7 @@ public sealed partial class HomePage
         SettingsStore.Update(s => s.SelectedVersion = version);
         ShowVersionOnCard(version);
         SocialHub.PresenceVersion = version;
+        ApplyProfile(SettingsStore.Load()); // a profile applies to its own version only: Join follows the pick
         UpdatePlayState();
     }
 

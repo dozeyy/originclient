@@ -281,6 +281,8 @@ internal static class AreaDShots
             panel = Open(window, Demo.Progress, 1500, oneLauncher: true);
             ImportEverything(panel, SourceKind.Prism);
             RenderShots.PumpFor(1500);
+            panel.TourShowLatestProgress();
+            RenderShots.PumpFor(100);
             Snap(window, "60b-import-fast-progress");
             DemoBackend.Release();
             RenderShots.PumpFor(600);
@@ -295,6 +297,8 @@ internal static class AreaDShots
             panel = Open(window, Demo.Progress, 1500);
             ImportEverything(panel, SourceKind.Prism);
             RenderShots.PumpFor(1500);
+            panel.TourShowLatestProgress();
+            RenderShots.PumpFor(100);
             Snap(window, "34-import-page-progress");
             panel.TourAskCancel();
             RenderShots.PumpFor(400);
@@ -376,6 +380,8 @@ internal static class AreaDShots
             panel = Open(window, Demo.Progress, 1500);
             ImportEverything(panel, SourceKind.Prism);
             RenderShots.PumpFor(1500);
+            panel.TourShowLatestProgress();
+            RenderShots.PumpFor(100);
             Snap(window, "59-min-import-progress");
             DemoBackend.Release();
             RenderShots.PumpFor(600);

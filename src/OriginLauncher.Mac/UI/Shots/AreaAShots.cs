@@ -550,7 +550,8 @@ internal static class AreaAShots
             "[main/ERROR]: Mixin apply for mod examplemod failed examplemod.mixins.json:ExampleMixin from mod examplemod -> net.minecraft.class_310: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure",
             null, null, true), "42-crash-strong", unfold: true);
         Shot(Diagnose(null, null,
-            "# A fatal error has been detected by the Java Runtime Environment:\n#\n#  EXCEPTION_ACCESS_VIOLATION (0xc0000005)\n# Problematic frame:\n# C  [nvoglv64.dll+0x9a1f2c]\n",
+            // A Mac hs_err: a signal, not a Windows exception, inside Apple's OpenGL-over-Metal driver.
+            "# A fatal error has been detected by the Java Runtime Environment:\n#\n#  SIGSEGV (0xb) at pc=0x000000019a1f2c40, pid=4312, tid=259\n#\n# Problematic frame:\n# C  [AppleMetalOpenGLRenderer+0x2f1a4]\n",
             false), "43-crash-possible");
         Shot(Diagnose(null,
             "---- Minecraft Crash Report ----\nDescription: Unexpected error\n\njava.lang.IllegalStateException: example\n\tat net.minecraft.client.Minecraft.run(Minecraft.java:1)\n",

@@ -162,6 +162,22 @@ public sealed class MacSeamTests : IDisposable
         Assert.EndsWith(".tar.gz", TemurinJava8.Pin.Url);
     }
 
+    // A Mac crash report speaks of macOS: a GL driver crash points at a macOS update (its drivers ship inside it), never
+    // at NVIDIA/AMD downloads or Windows Update.
+    [Fact]
+    public void Crash_report_names_macOS_not_Windows()
+    {
+        var verdict = OriginLauncher.App.Core.Launch.CrashEngine.Diagnose(new OriginLauncher.App.Core.Launch.CrashEvidence(
+            1, false, false, null, null, null,
+            "# A fatal error has been detected by the Java Runtime Environment:\n#\n#  SIGSEGV (0xb)\n#\n# Problematic frame:\n# C  [AppleMetalOpenGLRenderer+0x2f1a4]\n",
+            [], 4096, 16384));
+        Assert.Equal(OriginLauncher.App.Core.Launch.CrashCause.GraphicsDriver, verdict.Finding.Cause);
+        var f = verdict.Finding;
+        var words = string.Join("\n", f.Tag, f.Headline, f.WhatHappened, f.LikelyCause, f.RecommendedFix);
+        Assert.Contains("macOS", words);
+        Assert.DoesNotContain("Windows", words);
+    }
+
     private static int Run(string tool, params string[] args)
     {
         var psi = new ProcessStartInfo(tool) { RedirectStandardOutput = true, RedirectStandardError = true };

@@ -146,6 +146,14 @@ public sealed partial class MainWindow
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
     }
 
+    /// <summary>Render shots: Home as if <paramref name="profile"/> were selected (its Join card; null: none), no settings
+    /// touched.</summary>
+    internal void TourShowHomeWithProfile(ModProfile? profile)
+    {
+        TourGoTo(LauncherPage.Home);
+        Home.TourShowProfile(profile);
+    }
+
     internal void TourShowModsDemo(IReadOnlyList<ModEntry> mods, int carrying)
     {
         TourGoTo(LauncherPage.Mods);

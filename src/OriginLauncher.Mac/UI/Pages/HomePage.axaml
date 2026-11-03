@@ -7,7 +7,7 @@
          (ArtStage, behind every page). Everything here sits in one bottom strip: on the left the version card (family
          art thumbnail, version, family name, chevron) with the status line under it; on the right, bottom-aligned,
          the My mods switch and the solid emerald Play button. Cards and Play are 64 tall, the thumbnail 48.
-         Not on the Mac yet: Join (profile servers) under Play. -->
+         The selected profile's server, when it has one, is the Join card between My mods and Play. -->
     <UserControl.Styles>
         <!-- Play's launch arc turns while a launch is prepared (added in code only while motion is on). -->
         <Style Selector="c|IconPath#PlaySpinner.spinning">
@@ -62,7 +62,7 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- Right, bottom-aligned with the status line: My mods, Play. -->
+            <!-- Right, bottom-aligned with the status line: My mods, Join, Play. -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                 <!-- My mods: a tracked caps label and the iOS-style switch (Toggle.HomeSwitch). -->
                 <ToggleButton x:Name="MyModsSwitch" Theme="{StaticResource Toggle.HomeSwitch}" Margin="0,0,12,0" Click="MyModsSwitch_Click"
@@ -71,6 +71,22 @@
                                    FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
                                    Foreground="{Binding $parent[ToggleButton].Foreground}"/>
                 </ToggleButton>
+
+                <!-- The selected profile's server: straight in with that profile's mods. Hidden when the profile has
+                     none. Short of width it folds to its icon, a 64 square (HomePage.Join.cs FitStrip). -->
+                <Button x:Name="JoinButton" Theme="{StaticResource Button.StripCard}" Padding="14,0" HorizontalContentAlignment="Center"
+                        Margin="0,0,12,0" VerticalAlignment="Center" IsVisible="False" Click="JoinButton_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <c:IconPath x:Name="JoinIcon" Data="{StaticResource Icon.Server}" Theme="{StaticResource Icon.Base}"
+                                    VerticalAlignment="Center" Margin="0,0,12,0" Stroke="{StaticResource Brush.Text}"/>
+                        <StackPanel x:Name="JoinWords" VerticalAlignment="Center">
+                            <TextBlock Text="Join server" Theme="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.TextDim}" LineHeight="16"/>
+                            <TextBlock x:Name="JoinServerText" Text="Server" Theme="{StaticResource Text.BodyStrong}" LineHeight="18"
+                                       MaxWidth="200" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
 
                 <!-- Play: the solid emerald card with a play triangle and the word. Disabled until signed in. -->
                 <Button x:Name="PlayButton" Theme="{StaticResource Button.PlayHero}" VerticalAlignment="Center"

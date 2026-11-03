@@ -3194,6 +3194,12 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     /// <summary>Opens a launcher's versions (null: every launcher), as a tile press would.</summary>
     internal void TourOpenLauncher(SourceKind? kind) => OpenLauncher(kind);
 
+    /// <summary>
+    /// Draws the newest progress now, as the 100 ms tick would. A headless run only pumps jobs: its DispatcherTimers fire
+    /// by chance (when a render commit happens to wait past their due time), so the progress shots call this first.
+    /// </summary>
+    internal void TourShowLatestProgress() => ShowLatestProgress();
+
     internal void TourOpenVersion(string key) => OpenVersion(key);
 
     internal void TourOpenReview() => OpenReview();
