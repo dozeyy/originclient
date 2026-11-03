@@ -46,7 +46,8 @@ public final class MinimapHud {
 
 	/** Default placement: top-right corner, where Lunar and Xaero put it. */
 	public static HudPos defaultPos() {
-		return new HudPos(2, -6, 6, 1.0);
+		// default stack, top-right (C3): Server IP 6, Minimap 34, Potions 160, Item Counter 244
+		return new HudPos(2, -6, 34, 1.0);
 	}
 
 	/**

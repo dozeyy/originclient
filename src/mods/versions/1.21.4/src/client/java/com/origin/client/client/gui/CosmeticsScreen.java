@@ -403,6 +403,12 @@ public class CosmeticsScreen extends OriginWindow {
 				selected || hp > 0.5f ? TEXT : DIM);
 		d.textCenter(caption(t), x + TILE_W / 2, y + 146, 10, true, 1.6f, MUTE);
 
+		// The corner marks sit in FRONT of the model thumbnail: it is drawn at z+100
+		// with depth on (drawModelThumb), so wings / backpacks hid a flat badge
+		// drawn after it at z 0. Lift the marks past the model's depth.
+		var markPose = d.g.pose();
+		markPose.pushPose();
+		markPose.translate(0, 0, 400);
 		if (t.id() != null && Cosmetics.isPlusOnly(t.id())) {
 			// members-only: the Origin mark in the corner (+ the caption below)
 			d.logo(x + TILE_W - 18, y + 16, 16, 0.2f);
@@ -413,6 +419,7 @@ public class CosmeticsScreen extends OriginWindow {
 			d.rect(x + 8, y + 8, bw, 16, 4, ACC_SOFT);
 			d.textMid(badge, x + 14, y + 16, 10, true, 1.4f, ACC);
 		}
+		markPose.popPose();
 	}
 
 	private static String caption(Tile t) {

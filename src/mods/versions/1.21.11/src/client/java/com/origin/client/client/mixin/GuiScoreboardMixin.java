@@ -28,6 +28,13 @@ public class GuiScoreboardMixin {
 			ci.cancel();
 			return;
 		}
+		// Mod on: Origin draws the sidebar itself at the element's spot, with every
+		// Scoreboard option applied (HudElements.drawRealScoreboard). If it can't, it
+		// returns false and vanilla's sidebar draws below, repositioned as before.
+		if (Mods.on("scoreboard") && com.origin.client.client.hud.HudElements.drawRealScoreboard(guiGraphics, objective)) {
+			ci.cancel();
+			return;
+		}
 		var pose = guiGraphics.pose();
 		pose.pushMatrix();
 		if (Mods.on("scoreboard")) {

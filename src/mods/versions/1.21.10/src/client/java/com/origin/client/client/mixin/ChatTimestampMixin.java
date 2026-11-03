@@ -53,6 +53,8 @@ public abstract class ChatTimestampMixin {
 	private static final long SLIDE_MS = 140L;
 
 	@Shadow @Final private List<GuiMessage> allMessages;
+	@Shadow @Final private List<GuiMessage.Line> trimmedMessages;
+	@Shadow private int chatScrollbarPos;
 
 	@Shadow
 	private void refreshTrimmedMessages() {
@@ -74,6 +76,28 @@ public abstract class ChatTimestampMixin {
 	private static long originclient$lastMessageMs = 0L;
 	private boolean originclient$slid;
 
+	/** Stack Spam: takes the newest message's wrapped lines off the display list in
+	 *  place. Rebuilding the whole list (refreshTrimmedMessages) re-wrapped every kept
+	 *  line (up to 8192 with Unlimited) on each repeat, and re-adding them bumped the
+	 *  scroll once per line, so a player scrolled up was thrown to the top.
+	 *  Lines go in newest-first: a message's LAST wrapped line (endOfEntry) is at
+	 *  index 0 and its earlier lines follow up to the next endOfEntry. */
+	private void originclient$dropNewestLines(GuiMessage previous) {
+		if (trimmedMessages.isEmpty() || trimmedMessages.get(0).addedTime() != previous.addedTime()) {
+			refreshTrimmedMessages();   // the newest line isn't that message's (hidden or filtered): rebuild
+			return;
+		}
+		int removed = 0;
+		do {
+			trimmedMessages.remove(0);
+			removed++;
+		} while (!trimmedMessages.isEmpty() && !trimmedMessages.get(0).endOfEntry());
+		if (chatScrollbarPos > 0) {
+			// keep the same lines in view: the ones above moved down by `removed`
+			chatScrollbarPos = Math.max(0, chatScrollbarPos - removed);
+		}
+	}
+
 	private static boolean originclient$opt(String key) {
 		return Mods.on("chat") && Mods.bool("chat", key);
 	}
@@ -92,8 +116,8 @@ public abstract class ChatTimestampMixin {
 			String base = message.getString();
 			if (base.equals(originclient$lastBase) && !allMessages.isEmpty()) {
 				originclient$lastCount++;
-				allMessages.remove(0);          // drop the previous identical line
-				refreshTrimmedMessages();
+				GuiMessage previous = allMessages.remove(0);   // drop the previous identical line
+				originclient$dropNewestLines(previous);
 				result = Component.literal(base + " ")
 						.append(Component.literal("(x" + originclient$lastCount + ")").withStyle(ChatFormatting.GRAY));
 			} else {

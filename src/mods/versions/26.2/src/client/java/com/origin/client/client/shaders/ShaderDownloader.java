@@ -3,6 +3,7 @@ package com.origin.client.client.shaders;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -57,6 +58,7 @@ public final class ShaderDownloader {
 			com.origin.client.OriginClient.LOGGER.warn("Shader remove failed for {}", slug, t);
 		}
 		STATES.remove(slug);
+		writeIndex();
 	}
 
 	/**
@@ -67,6 +69,21 @@ public final class ShaderDownloader {
 	 */
 	public static void syncWithDisk() {
 		Path dir = IrisBridge.shaderpacksDir();
+		// Packs installed in an earlier session: the index remembers which file each
+		// download wrote, so a row whose file is still there shows Installed again.
+		for (var e : readIndex().entrySet()) {
+			if (state(e.getKey()).status() != Status.IDLE) {
+				continue;
+			}
+			try {
+				String fileName = Path.of(e.getValue()).getFileName().toString();
+				if (!fileName.isBlank() && Files.exists(dir.resolve(fileName))) {
+					STATES.put(e.getKey(), new State(Status.DONE, 1, fileName));
+				}
+			} catch (Throwable ignored) {
+				// unparseable entry -- the row just shows Download
+			}
+		}
 		for (var e : STATES.entrySet()) {
 			if (e.getValue().status() != Status.DONE) {
 				continue;
@@ -79,6 +96,56 @@ public final class ShaderDownloader {
 			} catch (Throwable ignored) {
 				// unparseable filename — leave the state as-is
 			}
+		}
+		writeIndex();
+	}
+
+	// ---- installed-pack index (config/originclient-shaders.json: slug -> file name) ----
+	// Without it the states were memory-only, so after a restart every downloaded pack
+	// offered Download again. Reads and writes fail soft: a broken index only loses
+	// the Installed badge, never the packs themselves.
+	private static Path indexFile() {
+		return FabricLoader.getInstance().getConfigDir().resolve("originclient-shaders.json");
+	}
+
+	private static Map<String, String> readIndex() {
+		Map<String, String> out = new java.util.HashMap<>();
+		try {
+			Path f = indexFile();
+			if (Files.exists(f)) {
+				JsonObject o = GSON.fromJson(Files.readString(f, StandardCharsets.UTF_8), JsonObject.class);
+				if (o != null) {
+					for (var e : o.entrySet()) {
+						if (e.getValue().isJsonPrimitive()) {
+							out.put(e.getKey(), e.getValue().getAsString());
+						}
+					}
+				}
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Could not read the installed shader list", t);
+		}
+		return out;
+	}
+
+	private static synchronized void writeIndex() {
+		try {
+			JsonObject o = new JsonObject();
+			for (var e : STATES.entrySet()) {
+				if (e.getValue().status() == Status.DONE) {
+					o.addProperty(e.getKey(), e.getValue().message());
+				}
+			}
+			Path f = indexFile();
+			Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
+			Files.writeString(tmp, GSON.toJson(o), StandardCharsets.UTF_8);
+			try {
+				Files.move(tmp, f, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException ignored) {
+				Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Could not save the installed shader list", t);
 		}
 	}
 
@@ -119,6 +186,7 @@ public final class ShaderDownloader {
 			Path dest = dir.resolve(name);
 			if (Files.exists(dest)) {
 				STATES.put(slug, new State(Status.DONE, 1, name));
+				writeIndex();
 				return;
 			}
 
@@ -158,6 +226,7 @@ public final class ShaderDownloader {
 				Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
 			}
 			STATES.put(slug, new State(Status.DONE, 1, name));
+			writeIndex();
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader download failed for {}", slug, t);
 			STATES.put(slug, new State(Status.ERROR, 0, "Download failed"));

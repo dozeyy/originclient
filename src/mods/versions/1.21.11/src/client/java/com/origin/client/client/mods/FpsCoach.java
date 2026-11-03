@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.gui.FpsCoachScreen;
 import com.origin.client.client.gui.FpsCoachToast;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
@@ -94,6 +95,16 @@ public final class FpsCoach {
 
 	public static void register() {
 		try {
+			// quitting mid-try puts the tried setting back (it must not stick)
+			ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
+				try {
+					if (phase != Phase.NONE) {
+						restoreHeld();
+					}
+				} catch (Throwable t) {
+					// shutdown carries on regardless
+				}
+			});
 			ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 				try {
 					tick(mc);
@@ -167,7 +178,13 @@ public final class FpsCoach {
 				teleportAt = now;   // dimension change (or a server switch)
 			}
 			if (phase != Phase.NONE) {
-				stopTestEarly();
+				if (level == null) {
+					// left the world / disconnected mid-try: put the setting back now.
+					// Nobody is left to answer Keep / Undo, so it must not stay applied.
+					restoreHeld();
+				} else {
+					stopTestEarly();
+				}
 			}
 			lastLevel = level;
 			lastPos = null;
@@ -402,6 +419,22 @@ public final class FpsCoach {
 		lastToastAt = Util.getMillis();   // the player is engaged; no toast right after
 		lowSince = 0;
 		size = 0;                         // old frames were from the old settings
+	}
+
+	/** Mid-try only (world leave, game shutdown): puts the tried setting back, no result. */
+	private static void restoreHeld() {
+		Runnable undo = testUndo;
+		phase = Phase.NONE;
+		testTip = null;
+		testUndo = null;
+		size = 0;
+		if (undo != null) {
+			try {
+				undo.run();
+			} catch (Throwable t) {
+				com.origin.client.OriginClient.LOGGER.warn("Origin: FPS Coach could not put a setting back", t);
+			}
+		}
 	}
 
 	private static void stopTestEarly() {

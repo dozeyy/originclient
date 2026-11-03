@@ -104,6 +104,13 @@ public class OriginModMenuScreen extends Screen {
 
 	private String search = "";
 	private boolean searchFocused = false;
+	// E1: a key captured for a keybind also sends its character (charTyped follows
+	// keyPressed); swallow that one so it doesn't land in the search box. Cleared by
+	// the next key press, so a key with no character can't eat a later one.
+	private boolean swallowChar = false;
+	// E2: Right Shift closes the menu on release, and only when it was tapped on its
+	// own with no search box in use -- held for a capital letter, it never closes.
+	private boolean rshiftTap = false;
 	private String optSearch = "";                    // mod page / settings tab filter
 	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
 	private float maxScroll, maxPageScroll;
@@ -188,6 +195,7 @@ public class OriginModMenuScreen extends Screen {
 	public void removed() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 		HudElements.editorPreview = false;
 		HudElements.suppressScoreboard = false;
 		super.removed();
@@ -298,6 +306,7 @@ public class OriginModMenuScreen extends Screen {
 	public void commitPendingEdits() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 	}
 
 	private void flushSlider() {
@@ -1562,6 +1571,10 @@ public class OriginModMenuScreen extends Screen {
 	public boolean keyPressed(KeyEvent event) {
 		int keyCode = event.key();
 		boolean ctrl = event.hasControlDown();
+		swallowChar = false;
+		if (keyCode != GLFW.GLFW_KEY_RIGHT_SHIFT) {
+			rshiftTap = false;
+		}
 		if (OriginMultiSelect.isOpen()) {
 			return OriginMultiSelect.keyPressed(keyCode);
 		}
@@ -1575,6 +1588,7 @@ public class OriginModMenuScreen extends Screen {
 			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
 			capMod = null;
 			capKey = null;
+			swallowChar = true;
 			return true;
 		}
 		boolean esc = keyCode == GLFW.GLFW_KEY_ESCAPE;
@@ -1604,7 +1618,7 @@ public class OriginModMenuScreen extends Screen {
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
-			beginClose();
+			rshiftTap = !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_F && ctrl && page == null && tab == Tab.MODS) {
@@ -1627,8 +1641,23 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	@Override
+	public boolean keyReleased(KeyEvent event) {
+		if (event.key() == GLFW.GLFW_KEY_RIGHT_SHIFT && rshiftTap) {
+			rshiftTap = false;
+			beginClose();
+			return true;
+		}
+		return super.keyReleased(event);
+	}
+
+	@Override
 	public boolean charTyped(CharacterEvent event) {
 		int chr = event.codepoint();
+		rshiftTap = false;
+		if (swallowChar) {
+			swallowChar = false;
+			return true;
+		}
 		if (capMod != null) {
 			return true;
 		}

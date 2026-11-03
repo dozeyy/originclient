@@ -516,6 +516,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 		LocalPlayer player = client.player;
 		if (player == null) {
+			releaseCameraMods(client);   // left the world: zoom / freelook end, sensitivity comes back
 			return;
 		}
 
@@ -545,7 +546,14 @@ public class OriginClientMod implements ClientModInitializer {
 		// Full Bright toggle keybind flips the mod's own sub-toggle
 		boolean fbDown = client.screen == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
 		if (fbDown && !fullbrightKeyWasDown) {
-			Mods.set("fullbright", "fullBright", !Mods.bool("fullbright", "fullBright"));
+			// With the Lighting mod off the key used to flip a hidden setting and nothing
+			// changed on screen: now it switches Lighting on with Full Bright.
+			boolean on = !Mods.on("fullbright") || !Mods.bool("fullbright", "fullBright");
+			if (on && !Mods.on("fullbright")) {
+				Mods.setOn("fullbright", true);
+			}
+			Mods.set("fullbright", "fullBright", on);
+			player.displayClientMessage(net.minecraft.network.chat.Component.literal(on ? "Full Bright on" : "Full Bright off"), true);
 		}
 		fullbrightKeyWasDown = fbDown;
 
@@ -640,9 +648,9 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		zoomKeyWasDown = zDown;
 		zoomActive = Mods.on("zoom") && (Mods.bool("zoom", "toggleZoom") ? zoomToggled : zDown);
-		if (!zoomActive) {
-			zoomScrollFactor = 1.0;   // reset scroll-zoom depth when not zooming
-		}
+		// zoomScrollFactor (scroll-zoom depth) is reset by GameRendererMixin once the
+		// zoom-out ease has finished. Resetting it here, on the release tick, made the FOV
+		// jump while the smooth zoom-out was still using it.
 
 		// Zoomed Sensitivity: temporarily scale mouse sensitivity while zoomed so
 		// aiming is steadier, restoring the player's own value the instant zoom ends.
@@ -745,6 +753,11 @@ public class OriginClientMod implements ClientModInitializer {
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
+		if (!Mods.on("freelook")) {
+			// mod off, or stepped aside for the player's own mod: a toggled-on Freelook ends
+			// and the camera comes back (it used to stay detached with no way out)
+			freelookDown = false;
+		}
 		// Hypixel bans freelook: there the key does nothing (an action-bar line on each
 		// press says why) and a toggled-on freelook from before the join ends at once.
 		// Gated here, where the camera detach starts, so every camera hook stays inert.
@@ -762,15 +775,14 @@ public class OriginClientMod implements ClientModInitializer {
 			// Third Person mode = Lunar-style orbit: jump to third person for
 			// the hold and restore whatever perspective the player was in.
 			if (Mods.mode("freelook", "listMode").equals("Third Person")) {
-				savedPerspective = client.options.getCameraType();
+				// Snaplook engaged: Freelook takes over the view Snaplook would restore, so the
+				// one released last puts back the view from before the first one started
+				net.minecraft.client.CameraType before = com.origin.client.client.mods.Snaplook.handOver();
+				savedPerspective = before != null ? before : client.options.getCameraType();
 				client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
 			}
 		} else if (!freelookDown && OriginFreelookState.active) {
-			OriginFreelookState.active = false;
-			if (savedPerspective != null) {
-				client.options.setCameraType(savedPerspective);
-				savedPerspective = null;
-			}
+			endFreelook(client);
 		}
 		freelookWasDown = keyDown;
 
@@ -790,6 +802,39 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		// Zoom's sensitivity and smooth camera are not the player's settings:
 		// options.txt waits until they are put back.
+		OptionsAutosave.held = zoomSensApplied || smoothCamApplied;
+	}
+
+	/** Ends Freelook and puts back the view it changed (Third Person mode). If Snaplook is
+	 *  still engaged (toggle mode) it keeps its front view and restores this one later. */
+	private void endFreelook(Minecraft client) {
+		OriginFreelookState.active = false;
+		if (savedPerspective != null) {
+			if (!com.origin.client.client.mods.Snaplook.takeBack(client, savedPerspective)) {
+				client.options.setCameraType(savedPerspective);
+			}
+			savedPerspective = null;
+		}
+	}
+
+	// Leaving a world: the tick returns early without a player, so Toggle Zoom / Toggle
+	// Freelook used to survive into the next world and Zoom's lowered sensitivity stayed
+	// on the title screen. Only flag checks, so running it on every no-player tick is free.
+	private void releaseCameraMods(Minecraft client) {
+		zoomToggled = false;
+		zoomActive = false;
+		zoomScrollFactor = 1.0;
+		if (zoomSensApplied) {
+			client.options.sensitivity().set(savedSensitivity);
+			zoomSensApplied = false;
+		}
+		if (OriginFreelookState.active) {
+			endFreelook(client);
+		}
+		if (smoothCamApplied) {
+			client.options.smoothCamera = savedSmoothCam;
+			smoothCamApplied = false;
+		}
 		OptionsAutosave.held = zoomSensApplied || smoothCamApplied;
 	}
 
@@ -836,6 +881,11 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		boolean inc = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
 		boolean dec = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
+		if (((inc && !timeIncWasDown) || (dec && !timeDecWasDown)) && Mods.bool("timechanger", "useRealTime")) {
+			// [ or ] with Use Real Time on did nothing (real time overwrote the step every
+			// tick): switch real time off (saved), then step from the current real time.
+			Mods.set("timechanger", "useRealTime", false);
+		}
 		if (inc && !timeIncWasDown) {
 			base = (base + 500) % 24000;
 			Mods.set("timechanger", "time", base);
