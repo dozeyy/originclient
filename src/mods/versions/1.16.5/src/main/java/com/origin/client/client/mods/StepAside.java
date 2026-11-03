@@ -83,13 +83,19 @@ public final class StepAside {
 	 *    overlay, held-food preview, food tooltip).
 	 *  - worldeditcui <- worldeditcui: the WorldEdit selection overlay; two would fight
 	 *    over the worldedit:cui channel.
+	 *  - oldanimations <- the old-animation / sword-blocking mods (OverflowAnimations,
+	 *    Animatium, Sword Blocking, Combat Control, Old Combat Mod, Ancient Animations,
+	 *    Bring Blocking Back, Sword Block): each redraws the held sword/items the old way,
+	 *    and two would fight over the same first-person hand draw.
 	 * No jei row: Origin has no JEI on this version (no Fabric JEI exists for it).
 	 */
 	public static final List<Row> TABLE = Collections.unmodifiableList(Arrays.asList(
 			new Row("freelook", false, false, ids("freecam")),
 			new Row("zoom", false, false, ids("zoomify")),
 			new Row("saturation", false, false, ids("appleskin")),
-			new Row("worldeditcui", false, false, ids("worldeditcui"))));
+			new Row("worldeditcui", false, false, ids("worldeditcui")),
+			new Row("oldanimations", false, false, ids("overflowanimations", "animatium", "swordblocking",
+					"combat-control", "oldcombatmod", "ancientanimations", "bring-blocking-back", "swordblock"))));
 
 
 	/** A resolved overlap: the row and the display name of the mod that replaced it. */

@@ -702,6 +702,32 @@ public final class Mods {
 				ModOption.toggle("colorArmor", "Color Armor", true)
 						.tip("Flash worn armor too, not just the body underneath."));
 
+		// 1.7 Animations (OldAnimations.java): every switch here is read by a hook; all visual,
+		// nothing sent to the server. Off by default; each part on once the mod is switched on.
+		add("oldanimations", "1.7 Animations", "Bring back how swords, items and sneaking looked in 1.7.", false,
+				ModOption.header("Combat"),
+				ModOption.toggle("swordBlock", "Sword Blocking", true)
+						.tip("Hold right-click with a sword and a shield in your off hand (servers like Hypixel give you one) to block the 1.7 way. The shield stays hidden."),
+				ModOption.toggle("blockHit", "Block Hitting", true)
+						.tip("Your sword still swings while you block, so block-hitting looks like 1.7."),
+				ModOption.toggle("swingWhileUsing", "Swing While Using", true)
+						.tip("Clicking while eating, drawing a bow or blocking swings your arm, like 1.7."),
+				ModOption.toggle("noHitDip", "No Hit Dip", true)
+						.tip("Your held item stays put after each hit instead of dipping and rising."),
+				ModOption.header("Held Items"),
+				ModOption.toggle("itemPositions", "1.7 Item Positions", true)
+						.tip("Hold flat items, tools, swords and rods the bigger, tilted 1.7 way."),
+				ModOption.toggle("oldUse", "1.7 Eating and Bow", true).under("itemPositions")
+						.tip("Eating, drinking and drawing a bow use 1.7's poses too."),
+				ModOption.header("Extras"),
+				ModOption.toggle("instantSneak", "Instant Sneak", true)
+						.tip("The camera drops straight down when you sneak instead of gliding."),
+				ModOption.toggle("redArmor", "Red Armor Flash", true)
+						.tip("Worn armor flashes red with the player when hurt. Hit Color's own armor colour wins when it is on."),
+				ModOption.header("Third Person"),
+				ModOption.toggle("thirdPersonBlock", "Third Person Blocking", true)
+						.tip("Other players (and you in F5) hold the sword across the body when blocking, with the shield hidden."));
+
 		// Two colours per target, like Lunar: one used with Lunar Blending on, one
 		// with it off (vanilla's additive glint, which can only brighten).
 		add("glintcolorizer", "Glint Colorizer", "Recolor the enchantment glint.", false,
