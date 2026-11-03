@@ -88,8 +88,12 @@ public final class HitColor {
 	/** Color Armor: the armor layer's vertex colour, pulled toward the hit colour
 	 *  by its opacity while the wearer is hurt. Untouched otherwise. */
 	public static int tintArmor(int argb) {
-		if (!armorHurt || !Mods.on(MOD) || !Mods.bool(MOD, "colorArmor")) {
+		if (!armorHurt) {
 			return argb;
+		}
+		if (!Mods.on(MOD) || !Mods.bool(MOD, "colorArmor")) {
+			// 1.7 Animations' Red Armor Flash: the plain 1.7 red when Hit Color isn't colouring armor
+			return OldAnimations.on("redArmor") ? OldAnimations.redArmor(argb) : argb;
 		}
 		int c = OriginColorPicker.liveColor(MOD, "color");
 		float s = ((c >>> 24) & 0xFF) / 255f;
