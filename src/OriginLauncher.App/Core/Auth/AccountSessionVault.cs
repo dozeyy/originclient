@@ -11,10 +11,20 @@ namespace OriginLauncher.App.Core.Auth;
 /// </summary>
 internal sealed class AccountSessionVault : ISessionVault
 {
-    public string? RefreshToken(string accountId) =>
-        Find(AccountStore.Load(), accountId) is { ProtectedRefreshToken.Length: > 0 } account
-            ? AccountStore.TryUnprotectRefreshToken(account.ProtectedRefreshToken)
-            : null;
+    // A locked keyring / Keychain is not "unreadable": it throws, so Play says "unlock it and press Play again"
+    // instead of "add this account again" (the account is fine; MinecraftSessions passes the exception through).
+    public string? RefreshToken(string accountId)
+    {
+        if (Find(AccountStore.Load(), accountId) is not { ProtectedRefreshToken.Length: > 0 } account) return null;
+        try
+        {
+            return AccountStore.ReadRefreshToken(account.ProtectedRefreshToken);
+        }
+        catch (KeyStoreLockedException e)
+        {
+            throw MicrosoftAuthException.KeyStoreLocked(e);
+        }
+    }
 
     // Compare-and-swap: only clears the row while it still holds the very
     // refresh token the refused sign-in used. If the account was added again

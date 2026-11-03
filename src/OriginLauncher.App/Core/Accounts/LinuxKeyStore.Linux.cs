@@ -82,12 +82,17 @@ internal static class LinuxKeyStore
         lock (Gate)
         {
             if (kind == FileKind) return TryReadFileKey();
+            // A keyring blob's key is only ever in the keyring. When it failed a moment ago (MarkKeyringDown) it is
+            // passed over without prompting again, but that is "locked", not "no key": Play says unlock it
+            // (KeyStoreLockedException), never "add this account again". No secret-tool or no session bus = no key.
+            if (!KeyringDisabled && DateTime.UtcNow < _keyringRetryAt)
+                throw new KeyStoreLockedException("The keyring did not answer a moment ago.");
             if (!KeyringReachable()) return null;
             var (result, key) = KeyringLookup();
-            if (result == Lookup.Unavailable) throw new CryptographicException("The keyring did not answer.");
+            if (result == Lookup.Unavailable) throw new KeyStoreLockedException("The keyring did not answer.");
             // "No secret" can also mean the unlock prompt was dismissed: the item is there, its secret wasn't given.
             if (result == Lookup.NotFound && KeyringItemListed() != false)
-                throw new CryptographicException("The keyring is locked.");
+                throw new KeyStoreLockedException("The keyring is locked.");
             return key;
         }
     }

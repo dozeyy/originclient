@@ -27,6 +27,21 @@ public sealed class MicrosoftAuthException : Exception
         "Origin couldn't save your sign-in safely: your Keychain is locked or didn't answer. Unlock it and try again.";
 
     /// <summary>
+    /// Reading a saved sign-in failed because the key store is locked, its unlock prompt was dismissed, or it didn't
+    /// answer (Accounts/KeyStoreLockedException). The account is fine: unlocking and pressing Play again works, so the
+    /// player is told exactly that, never "add this account again".
+    /// </summary>
+    public const string KeyStoreLockedStage = "keystore_locked";
+
+    /// <summary>Play's line for <see cref="KeyStoreLockedStage"/>, in the name each OS gives its store.</summary>
+    public static string KeyStoreLockedMessage(bool mac) => mac
+        ? "Your Keychain is locked: unlock it and press Play again."
+        : "Your keyring is locked: unlock it and press Play again.";
+
+    public static MicrosoftAuthException KeyStoreLocked(Accounts.KeyStoreLockedException e) =>
+        new(KeyStoreLockedStage, KeyStoreLockedMessage(OperatingSystem.IsMacOS()), e.Message);
+
+    /// <summary>
     /// Runs one AccountStore.Protect* call, turning its CryptographicException into a sign-in failure
     /// every surface already shows (Home, the add-account card, Friends). Callers seal BEFORE they
     /// write anything, so a refusal leaves accounts.json exactly as it was.
