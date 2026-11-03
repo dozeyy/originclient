@@ -1,0 +1,13 @@
+// Mac boot probe only: run the GAME on the exact Java a Mac player gets (Mojang's java-runtime-delta
+// from ORIGIN_GAME_JAVA, a JRE) while Gradle itself runs on setup-java's JDK. Toolchains can't do this:
+// they would pick setup-java's JDK 21, same major. Applied with --init-script, never from a module.
+def gameJava = System.getenv('ORIGIN_GAME_JAVA')
+if (gameJava) {
+	allprojects {
+		tasks.withType(JavaExec).configureEach {
+			if (name == 'runClient') {
+				executable = gameJava
+			}
+		}
+	}
+}

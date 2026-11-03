@@ -1,0 +1,261 @@
+# Mac boot probe: does Minecraft + the Origin mod stack get as far as booting on a Mac? De-risks the Mac
+# launcher, is not the launcher, and gates nothing. Same method as boot-smoke.yml where a Mac allows it.
+#
+#  1.21.1  native arm64: setup-java runs Gradle, Mojang's own java-runtime-delta (mac-os-arm64) runs the game,
+#          through smoke.py + runClient. If that boot fails, one more boot with Sodium + Iris switched off shows
+#          whether the Sodium GL check was the wall (Sodium wants GL 4.5, macOS stops at 4.1).
+#  1.8.9   x64 Temurin 8u504 under Rosetta, the production stack through tools/bench/prod189.py: Forge 11.15.1.2318
+#          + OptiFine + the built Origin jar (built on Linux, like the release), because the dev client has no OptiFine.
+#
+# RUNNER vs MAC: these VMs have no real GPU, so a render failure may be the runner. The split is the GL control
+# (GlProbe3 / GlProbe2 run the game's own LWJGL with no Minecraft) next to system_profiler's display section:
+# no usable context in the control = the game's GL failure is the runner or macOS, not Origin. A failure BEFORE any
+# GL call (linking, natives, arch, mixin, loader) can't be the GPU. Never read a green or red here as "works on a Mac
+# with a real GPU": feel, FPS and shaders need a real Mac.
+name: mac-boot-probe
+
+on:
+  push:
+    branches: [claude/mac-boot-probe]
+  workflow_dispatch:
+
+concurrency:
+  group: mac-boot-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-189:
+    name: Build the 1.8.9 jar (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Build
+        working-directory: src/mods/versions/1.8.9
+        run: |
+          for attempt in 1 2 3; do
+            if sh ./gradlew remapJar --no-daemon \
+                 -Dorg.gradle.internal.repository.max.retries=6 \
+                 -Dorg.gradle.internal.repository.initial.backoff=1500 > gradle.log 2>&1; then
+              ls -l build/libs; exit 0
+            fi
+            tail -n 40 gradle.log
+            sleep $((attempt * 20))
+          done
+          exit 1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: origin-189-jar
+          path: src/mods/versions/1.8.9/build/libs/*.jar
+          if-no-files-found: error
+
+  mac-1211:
+    name: Mac 1.21.1 (native arm64)
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      OUT: ${{ github.workspace }}/mac-probe-out
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          architecture: aarch64
+
+      - name: The machine, and Mojang's published facts
+        run: |
+          mkdir -p "$OUT"
+          { uname -a; sw_vers; sysctl -n machdep.cpu.brand_string; system_profiler SPDisplaysDataType
+            python3 tools/mac-probe/mojang_runtime.py facts; } 2>&1 | tee "$OUT/machine.txt"
+
+      - name: Mojang's java-runtime-delta for mac-os-arm64
+        run: |
+          python3 tools/mac-probe/mojang_runtime.py fetch 1.21.1 mac-os-arm64 "$RUNNER_TEMP/mojang-java" | tee "$OUT/runtime.txt"
+          game_java=$(sed -n 's/^java=//p' "$OUT/runtime.txt")
+          { "$game_java" -version; "$game_java" -XshowSettings:properties -version 2>&1 | grep 'os.arch'; lipo -archs "$game_java"; } 2>&1 | tee -a "$OUT/runtime.txt"
+          echo "ORIGIN_GAME_JAVA=$game_java" >> "$GITHUB_ENV"
+
+      - name: Dependencies (same prefetch as boot-smoke)
+        run: |
+          python3 tools/ci/perf_libs.py src/mods/versions/1.21.1
+          bash tools/ci/gradle_prefetch.sh src/mods/versions/1.21.1
+
+      - name: GL control (LWJGL 3 only, no Minecraft)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: |
+          jars=$(find ~/.gradle/caches/modules-2/files-2.1/org.lwjgl -name '*-3.3.3*.jar' \
+                 \( -name 'lwjgl-3.3.3*' -o -name 'lwjgl-glfw-3.3.3*' -o -name 'lwjgl-opengl-3.3.3*' \) ! -name '*sources*' | tr '\n' ':')
+          echo "classpath: $jars"
+          "$JAVA_HOME/bin/java" -XstartOnFirstThread -cp "$jars" tools/mac-probe/GlProbe3.java 2>&1 | tee "$OUT/glprobe.log"
+
+      - name: Boot with the full stack
+        id: boot
+        continue-on-error: true
+        run: |
+          bash tools/mac-probe/watch.sh "$OUT/watch-full" & watcher=$!
+          set +e
+          python3 tools/boot-smoke/smoke.py src/mods/versions/1.21.1 --timeout 480 --perf --inworld "$OUT/inworld" \
+            "--gradle-arg=--init-script=$GITHUB_WORKSPACE/tools/mac-probe/game-java.init.gradle" 2>&1 | tee "$OUT/boot-full.log"
+          code=${PIPESTATUS[0]}
+          kill "$watcher" 2>/dev/null
+          exit "$code"
+
+      - name: Keep the full boot's game logs
+        if: always()
+        run: |
+          m=src/mods/versions/1.21.1/run
+          mkdir -p "$OUT/game-full"
+          cp "$OUT/boot-full.log" "$OUT/game-full/" 2>/dev/null || true
+          cp -R "$m/logs" "$m/crash-reports" "$OUT/game-full/" 2>/dev/null || true
+          cp "$m"/hs_err_pid* "$OUT/game-full/" 2>/dev/null || true
+          rm -rf "$m/logs" "$m/crash-reports"
+
+      # Only when the full stack failed: does the game itself boot without Sodium + Iris? Origin's Sodium hooks
+      # are version-gated (DECISIONS 2026-10-26), so this says whether Sodium's GL check is the wall.
+      - name: Boot again with Sodium + Iris off
+        id: boot_nosodium
+        if: steps.boot.outcome == 'failure'
+        continue-on-error: true
+        env:
+          JAVA_TOOL_OPTIONS: -Dfabric.debug.disableModIds=sodium,iris
+        run: |
+          bash tools/mac-probe/watch.sh "$OUT/watch-nosodium" & watcher=$!
+          set +e
+          python3 tools/boot-smoke/smoke.py src/mods/versions/1.21.1 --timeout 480 --inworld "$OUT/inworld-nosodium" \
+            "--gradle-arg=--init-script=$GITHUB_WORKSPACE/tools/mac-probe/game-java.init.gradle" 2>&1 | tee "$OUT/boot-nosodium.log"
+          code=${PIPESTATUS[0]}
+          kill "$watcher" 2>/dev/null
+          exit "$code"
+
+      - name: Keep the second boot's game logs
+        if: always() && steps.boot_nosodium.outcome != 'skipped'
+        run: |
+          m=src/mods/versions/1.21.1/run
+          mkdir -p "$OUT/game-nosodium"
+          cp "$OUT/boot-nosodium.log" "$OUT/game-nosodium/" 2>/dev/null || true
+          cp -R "$m/logs" "$m/crash-reports" "$OUT/game-nosodium/" 2>/dev/null || true
+          cp "$m"/hs_err_pid* "$OUT/game-nosodium/" 2>/dev/null || true
+
+      - name: Report
+        if: always()
+        run: |
+          echo "- full boot: ${{ steps.boot.outcome }}; Sodium + Iris off boot: ${{ steps.boot_nosodium.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          grep -h 'glprobe' "$OUT/glprobe.log" >> "$GITHUB_STEP_SUMMARY" || true
+          python3 tools/mac-probe/report.py "1.21.1 full stack" "$OUT/game-full"
+          if [ -d "$OUT/game-nosodium" ]; then python3 tools/mac-probe/report.py "1.21.1 Sodium + Iris off" "$OUT/game-nosodium"; fi
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mac-probe-1.21.1
+          path: mac-probe-out
+          if-no-files-found: warn
+
+  mac-189:
+    name: Mac 1.8.9 (x64 Java under Rosetta)
+    needs: build-189
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      OUT: ${{ github.workspace }}/mac-probe-out
+      TEMURIN: https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u504-b01
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: origin-189-jar
+          path: origin-189-jar
+
+      - name: The machine, and Rosetta
+        run: |
+          mkdir -p "$OUT"
+          { uname -a; sw_vers; sysctl -n machdep.cpu.brand_string; system_profiler SPDisplaysDataType
+            arch -x86_64 /usr/bin/true && echo "rosetta: already there" || {
+              echo "rosetta: not there, installing"; softwareupdate --install-rosetta --agree-to-license
+              arch -x86_64 /usr/bin/true && echo "rosetta: installed"; }
+            python3 tools/mac-probe/mojang_runtime.py facts
+            for f in jdk_aarch64_mac jre_aarch64_mac; do
+              printf 'temurin 8u504 %s: HTTP ' "$f"
+              curl -s -o /dev/null -I -L -w '%{http_code}\n' "$TEMURIN/OpenJDK8U-${f}_hotspot_8u504b01.tar.gz"
+            done; } 2>&1 | tee "$OUT/machine.txt"
+
+      # The JRE is what a player would get and runs the game; the JDK adds javac for the control and jstack.
+      - name: Temurin 8u504 x64 (JRE + JDK, SHA-256 checked)
+        run: |
+          for kind in jre jdk; do
+            f="OpenJDK8U-${kind}_x64_mac_hotspot_8u504b01.tar.gz"
+            curl -fsSL -o "$RUNNER_TEMP/$f" "$TEMURIN/$f"
+            curl -fsSL "$TEMURIN/$f.sha256.txt" | awk '{print $1}' > "$RUNNER_TEMP/want"
+            test "$(shasum -a 256 "$RUNNER_TEMP/$f" | awk '{print $1}')" = "$(cat "$RUNNER_TEMP/want")"
+            mkdir -p "$RUNNER_TEMP/$kind"
+            tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP/$kind"
+          done
+          jre=$(find "$RUNNER_TEMP/jre" -path '*/Contents/Home/bin/java' | head -n 1)
+          jdk=$(find "$RUNNER_TEMP/jdk" -path '*/Contents/Home/bin/java' | head -n 1)
+          test -n "$jre" && test -n "$jdk"
+          { echo "game java: $jre"; "$jre" -version; "$jre" -XshowSettings:properties -version 2>&1 | grep 'os.arch'; lipo -archs "$jre"; } 2>&1 | tee "$OUT/runtime.txt"
+          echo "GAME_JAVA=$jre" >> "$GITHUB_ENV"
+          echo "JDK_BIN=$(dirname "$jdk")" >> "$GITHUB_ENV"
+
+      # A title marker (ORIGIN_SMOKE) + a short bench: the bench makes a real world and writes bench.json from inside it.
+      - name: Boot the production stack (Forge + OptiFine + Origin)
+        id: boot
+        continue-on-error: true
+        env:
+          ORIGIN_SMOKE: "1"
+        run: |
+          bash tools/mac-probe/watch.sh "$OUT/watch" & watcher=$!
+          set +e
+          python3 tools/bench/prod189.py run --variant origin-default --origin-jar origin-189-jar --java "$GAME_JAVA" \
+            --work "$RUNNER_TEMP/prod189/work" --cache "$RUNNER_TEMP/prod189/cache" --out "$OUT/game" \
+            --scenes idle --warmup 5 --duration 10 --width 1280 --height 720 --timeout 480 \
+            --label "Mac probe" --shots --ignore-focus --keep-game 2>&1 | tee "$OUT/prod189.log"
+          code=${PIPESTATUS[0]}
+          kill "$watcher" 2>/dev/null
+          exit "$code"
+
+      - name: Keep the game's logs
+        if: always()
+        run: |
+          mkdir -p "$OUT/game"
+          cp "$OUT/prod189.log" "$OUT/game/" 2>/dev/null || true
+          g=$(find "$RUNNER_TEMP/prod189/work" -maxdepth 1 -type d -name 'game-*' | head -n 1)
+          if [ -n "$g" ]; then
+            cp -R "$g/logs" "$g/crash-reports" "$OUT/game/" 2>/dev/null || true
+            cp "$g"/hs_err_pid* "$OUT/game/" 2>/dev/null || true
+          fi
+
+      - name: GL + JInput control (LWJGL 2 only, no Minecraft)
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 3
+        run: |
+          lib="$RUNNER_TEMP/prod189/cache/libraries"
+          natives="$RUNNER_TEMP/prod189/cache/natives-osx"
+          jars=$(find "$lib" \( -name 'lwjgl-2*.jar' -o -name 'lwjgl_util-2*.jar' -o -name 'jinput-2*.jar' -o -name 'jutils-*.jar' \) ! -name '*natives*' | tr '\n' ':')
+          echo "classpath: $jars"
+          { for n in "$natives"/*; do printf '%s [%s]\n' "$(basename "$n")" "$(lipo -archs "$n" 2>/dev/null)"; done; } | tee "$OUT/natives.txt"
+          mkdir -p "$RUNNER_TEMP/glprobe"
+          "$JDK_BIN/javac" -cp "$jars" -d "$RUNNER_TEMP/glprobe" tools/mac-probe/GlProbe2.java
+          "$GAME_JAVA" -Djava.library.path="$natives" -Dorg.lwjgl.librarypath="$natives" -Dnet.java.games.input.librarypath="$natives" \
+            -cp "$RUNNER_TEMP/glprobe:$jars" GlProbe2 2>&1 | tee "$OUT/glprobe.log"
+
+      - name: Report
+        if: always()
+        run: |
+          echo "- production boot: ${{ steps.boot.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          grep -h 'glprobe2' "$OUT/glprobe.log" >> "$GITHUB_STEP_SUMMARY" || true
+          python3 tools/mac-probe/report.py "1.8.9 Forge + OptiFine + Origin" "$OUT/game"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mac-probe-1.8.9
+          path: mac-probe-out
+          if-no-files-found: warn

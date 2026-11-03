@@ -416,7 +416,10 @@ def provision_cache(cache, osn, get=http_get, forge_sha256=FORGE_UNIVERSAL_SHA25
     """Everything that is the same for every run. Idempotent; second call downloads nothing."""
     vanilla = load_vanilla_json(cache, get)
     forge = load_forge_json()
-    libs = merge_libraries(forge["libraries"], vanilla["libraries"])
+    # Rules first, merge second: 1.8.9's JSON lists LWJGL twice (2.9.4 for everyone but osx, then 2.9.2 for osx).
+    # merge_libraries keeps the first of a name, so merging first left a Mac with no LWJGL at all (mac-boot-probe.yml).
+    allowed = lambda libs: [lib for lib in libs if rules_allow(lib.get("rules"), osn)]
+    libs = merge_libraries(allowed(forge["libraries"]), allowed(vanilla["libraries"]))
     jobs, natives = library_jobs(libs, osn)
     lib_dir = os.path.join(cache, "libraries")
     cp = []
