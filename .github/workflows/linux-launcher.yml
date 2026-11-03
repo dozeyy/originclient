@@ -6,6 +6,10 @@
 # Linux project's only compiler: it is never built on Will's PC.
 #
 # Each arch runs on its own real hardware (GitHub's x64 and arm64 Ubuntu runners), no emulation.
+#
+# The shots job renders every launcher screen and state headless (OriginLauncher --render-shots: Avalonia
+# with the real Skia renderer, made-up data in a temp scratch root, no network, no display) and uploads the
+# PNGs plus a contact sheet (_sheet.jpg) as the linux-launcher-shots artifact.
 name: Linux launcher
 
 on:
@@ -14,6 +18,10 @@ on:
     paths:
       - "src/OriginLauncher.App/Core/**"
       - "src/OriginLauncher.Linux/**"
+      - "src/OriginLauncher.Desktop/**"
+      - "src/OriginLauncher.App/Theme/**"
+      - "src/OriginLauncher.App/Assets/**"
+      - "src/OriginLauncher.App/UI/**"
       - "src/OriginLauncher.Tests/**"
       - "global.json"
       - ".github/workflows/linux-launcher.yml"
@@ -21,6 +29,10 @@ on:
     paths:
       - "src/OriginLauncher.App/Core/**"
       - "src/OriginLauncher.Linux/**"
+      - "src/OriginLauncher.Desktop/**"
+      - "src/OriginLauncher.App/Theme/**"
+      - "src/OriginLauncher.App/Assets/**"
+      - "src/OriginLauncher.App/UI/**"
       - "src/OriginLauncher.Tests/**"
       - "global.json"
       - ".github/workflows/linux-launcher.yml"
@@ -89,3 +101,41 @@ jobs:
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Linux
           --filter "FullyQualifiedName~LinuxSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests"
+
+  shots:
+    name: shots (render every screen)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Publish (linux-x64)
+        run: dotnet publish src/OriginLauncher.Linux/OriginLauncher.Linux.csproj -c Release -r linux-x64 --self-contained true -o "$RUNNER_TEMP/publish"
+
+      # Fails when any shot failed (render-error.txt) or when no PNG came out at all.
+      - name: Render shots
+        run: |
+          "$RUNNER_TEMP/publish/OriginLauncher" --render-shots "$RUNNER_TEMP/shots"
+          n=$(ls "$RUNNER_TEMP/shots"/*.png | wc -l)
+          echo "shots: $n"
+          test "$n" -gt 0
+
+      - name: Contact sheet
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 tools/lean/contact_sheet.py "$RUNNER_TEMP/shots"
+
+      - name: Upload shots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-launcher-shots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: error
