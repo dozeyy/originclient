@@ -607,6 +607,31 @@ public class SocialClientTests
         Assert.Equal(FakeMojang.UuidNorm, client.MyUuid);
     }
 
+    // The player switches account while Friends is signing in: the sign-in that read the OLD account must not leave
+    // its token behind (Friends then showed, and sent everything as, the previous account until a restart).
+    [Fact]
+    public async Task ASignInOvertakenByAnAccountSwitchIsDroppedAndRedoneForTheNewAccount()
+    {
+        var net = new FakeNet();
+        var accounts = new Queue<string>(["old-mc", "new-mc"]);
+        SocialClient? client = null;
+        net.Auth = n =>
+        {
+            if (n == 1) client!.Forget(); // the switch lands while /v1/auth is answering the old account's proof
+            return new(200, $$"""{"token":"t{{n}}","uuid":"{{FakeMojang.Uuid}}","name":"Notch","expiresAt":1}""");
+        };
+        client = Client(net, (_, _) => Task.FromResult(IdentityResult.Ok(
+            new MinecraftIdentity("notch", FakeMojang.Uuid, accounts.Count > 0 ? accounts.Dequeue() : "new-mc"))));
+
+        var result = await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+
+        Assert.True(result.Ok);
+        Assert.Equal(2, net.Count("/v1/auth"));
+        // The old account's certificate was dropped too: the redo fetched one with the new account's token.
+        Assert.Equal(["old-mc", "new-mc"], net.Calls.Where(c => c.Url == SocialEndpoints.PlayerCertificates.ToString()).Select(c => c.Bearer!).ToArray());
+        Assert.Equal("t2", net.Calls[^1].Bearer);
+    }
+
     [Fact]
     public async Task TheCertificateIsCachedUntilMojangSaysRefresh()
     {

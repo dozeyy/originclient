@@ -83,6 +83,13 @@ public sealed class SocialClient
     private AuthSession? _session;
     private CachedCertificate? _certificate;
 
+    // Which account the sign-in belongs to: Forget (account switched) bumps it. A sign-in started before the switch
+    // read the OLD account's identity and must not store its token after it (it once did: Friends then showed, and
+    // sent everything as, the previous account until a restart). Every store of _session/_certificate checks the
+    // generation the sign-in started on, under _stateLock so a Forget can't land between the check and the store.
+    private readonly object _stateLock = new();
+    private int _generation;
+
     public SocialClient(Uri baseUrl, SocialHttpSend send, IdentitySource identity, Func<DateTimeOffset>? clock = null)
     {
         _baseUrl = baseUrl;
@@ -97,8 +104,23 @@ public sealed class SocialClient
     /// <summary>Drop the Origin token and the certificate (account switched): the next call signs in again.</summary>
     public void Forget()
     {
-        Volatile.Write(ref _session, null);
-        Volatile.Write(ref _certificate, null);
+        lock (_stateLock)
+        {
+            _generation++;
+            Volatile.Write(ref _session, null);
+            Volatile.Write(ref _certificate, null);
+        }
+    }
+
+    /// <summary>Stores <paramref name="store"/> only while no Forget happened since <paramref name="generation"/>.</summary>
+    private bool StoreIfCurrent(int generation, Action store)
+    {
+        lock (_stateLock)
+        {
+            if (_generation != generation) return false;
+            store();
+            return true;
+        }
     }
 
     public async Task<SocialAuthOutcome> EnsureAuthAsync(CancellationToken ct)
@@ -107,9 +129,17 @@ public sealed class SocialClient
         await _authGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            // Another caller may have signed in while this one waited.
-            if (Volatile.Read(ref _session) != null) return SocialAuthOutcome.Success;
-            return await AuthenticateAsync(ct).ConfigureAwait(false);
+            // Another caller may have signed in while this one waited. A sign-in overtaken by an account switch
+            // stored nothing (null): start over as the account selected now (a couple of times, then quietly retry
+            // on the next tick rather than spin while the player clicks through accounts).
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                if (Volatile.Read(ref _session) != null) return SocialAuthOutcome.Success;
+                int generation;
+                lock (_stateLock) generation = _generation;
+                if (await AuthenticateAsync(generation, ct).ConfigureAwait(false) is { } outcome) return outcome;
+            }
+            return new SocialAuthOutcome(SocialAuthState.Unreachable, null);
         }
         finally
         {
@@ -138,7 +168,8 @@ public sealed class SocialClient
         }
     }
 
-    private async Task<SocialAuthOutcome> AuthenticateAsync(CancellationToken ct)
+    /// <summary>Signs in as the identity source's account; null when Forget ran meanwhile (nothing was stored).</summary>
+    private async Task<SocialAuthOutcome?> AuthenticateAsync(int generation, CancellationToken ct)
     {
         var id = await _identity(false, ct).ConfigureAwait(false);
         for (var attempt = 0; ; attempt++)
@@ -171,7 +202,8 @@ public sealed class SocialClient
                 certificate = MojangProof.ParseCertificate(issued.Body);
                 if (certificate == null)
                     return new SocialAuthOutcome(SocialAuthState.SignInFailed, GenericSignInFailure);
-                Volatile.Write(ref _certificate, new CachedCertificate(uuid, certificate));
+                var issuedCertificate = new CachedCertificate(uuid, certificate);
+                if (!StoreIfCurrent(generation, () => Volatile.Write(ref _certificate, issuedCertificate))) return null;
             }
 
             // 2. The Mojang-signed profile (proves the name; no token needed).
@@ -193,8 +225,10 @@ public sealed class SocialClient
                 .ConfigureAwait(false);
             if (auth.Status == 200 && SocialJson.ParseAuth(auth.Body) is { } granted)
             {
-                Volatile.Write(ref _session, new AuthSession(granted.Token, granted.Uuid, granted.Name));
-                return SocialAuthOutcome.Success;
+                var session = new AuthSession(granted.Token, granted.Uuid, granted.Name);
+                return StoreIfCurrent(generation, () => Volatile.Write(ref _session, session))
+                    ? SocialAuthOutcome.Success
+                    : null;
             }
             var result = new SocialCallResult(auth.Status, auth.Body);
             // 503 with a sentence = the service is up but not ready (Mojang's
@@ -205,7 +239,7 @@ public sealed class SocialClient
             // don't offer the same certificate again; the next try (after the
             // backoff) fetches a fresh one. 400 = "update Origin". Both
             // sentences are player-facing and shown as is.
-            if (auth.Status == 401) Volatile.Write(ref _certificate, null);
+            if (auth.Status == 401) StoreIfCurrent(generation, () => Volatile.Write(ref _certificate, null));
             return new SocialAuthOutcome(SocialAuthState.SignInFailed,
                 SocialJson.ErrorSentence(auth.Body) ?? "Origin couldn't confirm your Minecraft account.");
         }
