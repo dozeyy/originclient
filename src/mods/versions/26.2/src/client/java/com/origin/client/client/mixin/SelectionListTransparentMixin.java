@@ -25,14 +25,14 @@ public class SelectionListTransparentMixin {
 
 	@Inject(method = "extractListBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$clearListBackground(CallbackInfo ci) {
-		if (MenuBlur.transparent() && !OriginStyle.vanillaMenusOn(Minecraft.getInstance().screen)) {
+		if (MenuBlur.transparent() && !OriginStyle.vanillaMenusOn(Minecraft.getInstance().gui.screen())) {
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "extractListSeparators", at = @At("HEAD"), cancellable = true)
 	private void originclient$clearListSeparators(CallbackInfo ci) {
-		if (MenuBlur.transparent() && !OriginStyle.vanillaMenusOn(Minecraft.getInstance().screen)) {
+		if (MenuBlur.transparent() && !OriginStyle.vanillaMenusOn(Minecraft.getInstance().gui.screen())) {
 			ci.cancel();
 		}
 	}

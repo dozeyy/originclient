@@ -19,14 +19,14 @@ import org.spongepowered.asm.mixin.injection.At;
 // ~0.6 s after it appeared (1.21.1 boot-time CI, 2026-10-19). During that
 // dissolve, and only with the title screen open, these checks see no overlay.
 // Keys already reach the screen (no overlay check there). Nothing drawn changes.
-// The method names cover every era this module family has used: onPress (clicks,
-// up to 1.21.8) / onButton (clicks, 1.21.9+ input refactor), onScroll, and onMove
-// / handleAccumulatedMovement (hover and drag); names absent in this version simply
-// match nothing. defaultRequire 0 (loading config, required:false): if the target
-// moves, the menu answers after the dissolve again, as before.
+// Methods on this version (before 1.20.5): onPress (clicks), onScroll, and onMove
+// (hover and drag; handleAccumulatedMovement does not exist yet).
+// build-check fails on a method name the version lacks, so each module lists only its own.
+// defaultRequire 0 (loading config, required:false): if a target moves, the menu
+// answers after the dissolve again, as before.
 @Mixin(MouseHandler.class)
 public abstract class StartupInputMixin {
-	@WrapOperation(method = {"onPress", "onButton", "onScroll", "onMove", "handleAccumulatedMovement"},
+	@WrapOperation(method = {"onPress", "onScroll", "onMove"},
 			at = @At(value = "INVOKE",
 					target = "Lnet/minecraft/client/Minecraft;getOverlay()Lnet/minecraft/client/gui/screens/Overlay;"))
 	private Overlay originclient$titleInputThroughReveal(Minecraft mc, Operation<Overlay> original) {
