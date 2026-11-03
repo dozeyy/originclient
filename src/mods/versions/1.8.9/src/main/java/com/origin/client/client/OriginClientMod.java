@@ -314,10 +314,13 @@ public class OriginClientMod {
 		// modmenu area's ModMenuHooks, which opens the HUD editor screen.
 
 		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
-		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
+		// your XYZ on the clipboard, in any world. It used to need the Coordinates
+		// HUD switched on too, so the key silently did nothing for most players;
+		// only the Coordinates card's own "Copy Coords To Clipboard" switch (on by
+		// default) can turn it off.
 		while (OriginKeyBindings.copyCoords.isPressed()) {
 			EntityPlayerSP p = client.thePlayer;
-			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
+			if (p != null && Mods.bool("coords", "copyClipboard")) {
 				String c = MathHelper.floor_double(p.posX) + ", " + MathHelper.floor_double(p.posY) + ", "
 						+ MathHelper.floor_double(p.posZ);
 				GuiScreen.setClipboardString(c);

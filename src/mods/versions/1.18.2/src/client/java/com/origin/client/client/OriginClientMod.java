@@ -515,10 +515,13 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
-		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
+		// your XYZ on the clipboard, in any world. It used to need the Coordinates
+		// HUD switched on too, so the key silently did nothing for most players;
+		// only the Coordinates card's own "Copy Coords To Clipboard" switch (on by
+		// default) can turn it off.
 		while (OriginKeyBindings.copyCoords.consumeClick()) {
 			LocalPlayer p = client.player;
-			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
+			if (p != null && Mods.bool("coords", "copyClipboard")) {
 				String c = p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " + p.blockPosition().getZ();
 				client.keyboardHandler.setClipboard(c);
 				p.displayClientMessage(new net.minecraft.network.chat.TextComponent("Copied coordinates: " + c), true);
