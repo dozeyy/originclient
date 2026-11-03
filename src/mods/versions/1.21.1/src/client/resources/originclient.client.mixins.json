@@ -33,6 +33,7 @@
 		"LevelRendererMixin",
 		"LightTextureMixin",
 		"ParticleEngineMixin",
+		"FireworkStarterMixin",
 		"SingleQuadParticleMixin",
 		"LevelTimeMixin",
 		"HitboxMixin",

@@ -509,6 +509,23 @@ class LiveModules(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
         self.assertTrue(any(victim in p for p in problems), problems)
 
+    def test_every_live_fabric_module_lists_the_firework_crash_guard(self):
+        # GV-2 (v1.0.84): 1.21.1 alone lacked FireworkStarterMixin, so reduced/hidden particles crashed the
+        # next firework ("Ticking Particle" NPE: vanilla's Starter dereferences the filtered spark).
+        import glob, json
+        data = json.loads(_read(os.path.join(ROOT, "src", "mods", "live-modules.json")))
+        missing = []
+        for m in data["modules"]:
+            if m["module"] == "1.8.9":   # Forge + OptiFine: no particle filter mixin there
+                continue
+            base = os.path.join(ROOT, "src", "mods", "versions", m["module"], "src")
+            listed = any('"FireworkStarterMixin"' in _read(f)
+                         for f in glob.glob(os.path.join(base, "*", "resources", "*.mixins.json")))
+            source = glob.glob(os.path.join(base, "*", "java", "**", "FireworkStarterMixin.java"), recursive=True)
+            if not (listed and source):
+                missing.append(m["module"])
+        self.assertEqual(missing, [], "live Fabric modules without FireworkStarterMixin (source + mixins.json)")
+
 
 perf_libs = _load("perf_libs", os.path.join(HERE, "perf_libs.py"))
 perf_log = _load("perf_log", os.path.join(HERE, "perf_log.py"))
@@ -1026,6 +1043,9 @@ class CoversBoot(unittest.TestCase):
         self.assertIn("python3 tools/boot-smoke/covers.py", wf)
         self.assertIn('m="build/covers/$COVER"', wf)
         self.assertIn("args+=(--perf --companions)", wf)
+        # covers rows of an "inworld" module join a world too, with one shots artifact per covered version
+        self.assertIn('row["label"] += " + in-world"', wf)
+        self.assertIn("name: inworld-${{ matrix.cover || matrix.version }}", wf)
 
     # ---- --player: the player's own Sodium (+ Iris) win over Origin's (PlayerOverrides.cs)
 

@@ -41,6 +41,11 @@ public class OldAnimationsHandMixin {
 	@ModifyExpressionValue(method = "tick", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/player/LocalPlayer;getAttackStrengthScale(F)F"))
 	private float originclient$noHitDip(float strength) {
-		return OldAnimations.on("noHitDip") ? 1.0F : strength;
+		try {
+			return OldAnimations.on("noHitDip") ? 1.0F : strength;
+		} catch (Throwable t) {
+			OldAnimations.fail("no hit dip", t);
+			return strength;
+		}
 	}
 }

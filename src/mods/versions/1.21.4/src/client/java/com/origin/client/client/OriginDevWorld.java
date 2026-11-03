@@ -254,6 +254,19 @@ final class OriginDevWorld {
 					// Every hook class is loaded by now (the arm, camera, keys and the entity
 					// renderers); a hook that silently didn't apply fails the step here.
 					String oldAnimMissing = com.origin.client.client.mods.OldAnimations.missingHooks();
+					String mcVersion = net.minecraft.SharedConstants.getCurrentVersion().getName();
+					if (!mcVersion.equals("1.21.4") && !oldAnimMissing.isEmpty()) {
+						// Covered version (1.21.2/1.21.3 on this jar): the 1.21.4-shaped hooks may not bind.
+						java.util.List<String> fatal = new java.util.ArrayList<>();
+						for (String h : oldAnimMissing.split(", ")) {
+							if (!com.origin.client.client.mods.OldAnimations.HOOKS_1214_ONLY.contains(h)) {
+								fatal.add(h);
+							}
+						}
+						log("[origin-smoke] in-world: Minecraft " + mcVersion + ": 1.7 Animations hooks not bound here: "
+								+ oldAnimMissing + " (only " + fatal + " fail the step)");
+						oldAnimMissing = String.join(", ", fatal);
+					}
 					if (!oldAnimMissing.isEmpty()) {
 						inWorldEnd(mc, false, "1.7 Animations hooks not applied: " + oldAnimMissing, onEnd);
 						return;

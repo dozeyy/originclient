@@ -9,7 +9,6 @@ import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -73,11 +72,16 @@ public final class OldAnimations {
 		return !broken && Mods.on(MOD);
 	}
 
-	/** Hooks call this from their catch: log once, then the whole mod falls back to vanilla. */
+	/** Hooks call this from their catch: log once, then the whole mod falls back to vanilla. Never throws, and
+	 *  this class's static state holds no version-specific type, so it always loads (1.21.2/1.21.3 too). */
 	public static void fail(String where, Throwable t) {
 		if (!broken) {
 			broken = true;
-			OriginClient.LOGGER.warn("Origin 1.7 Animations: {} failed, switching to vanilla animations", where, t);
+			try {
+				OriginClient.LOGGER.warn("Origin 1.7 Animations: {} failed, switching to vanilla animations", where, t);
+			} catch (Throwable ignored) {
+				// fail() runs inside every hook's catch: it must never throw itself
+			}
 		}
 	}
 
@@ -203,6 +207,10 @@ public final class OldAnimations {
 	 * 1.21.4: maps are anything with a map id (vanilla's own map-hand test here). The model test
 	 * resolves the stack into one reused render state (no allocation per frame), the same
 	 * resolve vanilla's renderItem does for this hand anyway.
+	 * 1.21.2/1.21.3 (same jar): ItemModelResolver and ItemStackRenderState don't exist yet (1.21.4's
+	 * item-model rework), so the model test lives in ModelProbe, a class only loaded on first use;
+	 * when it can't link, flatness falls back to "not a block item and not a shield" (what
+	 * item/generated covers in vanilla; flat-model block items like saplings then stay vanilla).
 	 */
 	private static boolean isFlat(ItemStack stack, LivingEntity e) {
 		if (stack.has(DataComponents.MAP_ID)) {
@@ -213,13 +221,36 @@ public final class OldAnimations {
 				&& anim != ItemUseAnimation.BOW && anim != ItemUseAnimation.BLOCK) {
 			return false;
 		}
-		Minecraft.getInstance().getItemModelResolver().updateForTopItem(FLAT_PROBE, stack, ItemDisplayContext.NONE,
-				false, e.level(), e, 0);
-		return !FLAT_PROBE.isEmpty() && !FLAT_PROBE.isGui3d();
+		if (!noModelProbe) {
+			try {
+				return ModelProbe.isFlat(stack, e);
+			} catch (LinkageError err) {
+				// NoClassDefFoundError / NoSuchMethodError on 1.21.2/1.21.3: never retried (a class whose
+				// init failed throws again on every touch).
+				noModelProbe = true;
+				OriginClient.LOGGER.info("Origin 1.7 Animations: no item-model resolver on this Minecraft"
+						+ " (pre-1.21.4), using the block-item test for flat items");
+			}
+		}
+		return !(stack.getItem() instanceof BlockItem) && !isShield(stack);
 	}
 
-	/** Reused by isFlat on the render thread only. */
-	private static final ItemStackRenderState FLAT_PROBE = new ItemStackRenderState();
+	/** Set once ModelProbe failed to link (1.21.2/1.21.3); render thread only. */
+	private static boolean noModelProbe = false;
+
+	/** Every 1.21.4-only type OldAnimations touches, kept out of its own static state: this class
+	 *  links (and builds its probe) only when isFlat first asks, so OldAnimations itself always loads. */
+	private static final class ModelProbe {
+		/** Reused by isFlat on the render thread only. */
+		private static final net.minecraft.client.renderer.item.ItemStackRenderState FLAT_PROBE =
+				new net.minecraft.client.renderer.item.ItemStackRenderState();
+
+		static boolean isFlat(ItemStack stack, LivingEntity e) {
+			Minecraft.getInstance().getItemModelResolver().updateForTopItem(FLAT_PROBE, stack, ItemDisplayContext.NONE,
+					false, e.level(), e, 0);
+			return !FLAT_PROBE.isEmpty() && !FLAT_PROBE.isGui3d();
+		}
+	}
 
 	/** 1.7's flat-item tail: T(0,-0.3,0) S1.5 RY50 RZ335 T(-15/16,-1/16,0), moved onto vanilla's
 	 *  centred item model (+0.5 x/y, -1/32 z) and turned 180 (1.7 drew the icon mirrored, i.e.
@@ -344,6 +375,12 @@ public final class OldAnimations {
 			{"net.minecraft.client.renderer.entity.state.PlayerRenderState", "originclient$setOldTurnArm"},
 			{"net.minecraft.client.renderer.entity.layers.ItemInHandLayer", "originclient$blockTurn"},
 	};
+
+	/** Hooks written to 1.21.4's item-render-state shapes: on 1.21.2/1.21.3 (same jar) they don't bind
+	 *  (defaultRequire 0) and that part stays vanilla there (third-person sword turn). The CI in-world
+	 *  step on a covered version logs these instead of failing on them. */
+	public static final java.util.Set<String> HOOKS_1214_ONLY =
+			java.util.Set.of("originclient$blockTurn", "originclient$oldArmPose");
 
 	/** Names of the hooks missing from their (already loaded) target classes; "" when all applied. */
 	public static String missingHooks() {
