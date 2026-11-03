@@ -27,6 +27,10 @@ internal static class LaunchPlan
     private const string PlayerName = "OriginPlanner";
     private static readonly List<string> Failures = new();
 
+    // JVM flags naming a folder the game creates while it starts (native-code unpack and temp dirs).
+    private static readonly string[] RuntimeScratchFlags =
+        ["-Djava.library.path=", "-Djna.tmpdir=", "-Dorg.lwjgl.system.SharedLibraryExtractPath=", "-Dio.netty.native.workdir="];
+
     public static int ListVersions()
     {
         foreach (var v in VersionCatalog.SupportedVersions) Console.WriteLine(v);
@@ -170,11 +174,18 @@ internal static class LaunchPlan
         if (lwjgl.Count == 0) Fail("no LWJGL on the classpath");
 
         // Every other path the line names (natives, the mods folder, the log config, game/assets dirs) exists.
+        // Exception: the scratch folders Java, JNA, LWJGL and Netty unpack native code into at run time
+        // (26.x points each at its own subfolder of the natives folder). The game makes them itself and the
+        // same launch line works on Windows, so only the version folder above the natives folder has to exist.
         for (var i = 0; i < args.Count; i++)
         {
             if (i == cp + 1) continue;
             var value = args[i].Contains('=') ? args[i][(args[i].IndexOf('=') + 1)..] : args[i];
-            if (value.StartsWith(root, StringComparison.Ordinal) && !File.Exists(value) && !Directory.Exists(value))
+            if (!value.StartsWith(root, StringComparison.Ordinal) || File.Exists(value) || Directory.Exists(value)) continue;
+            var runtimeDir = RuntimeScratchFlags.Any(f => args[i].StartsWith(f, StringComparison.Ordinal));
+            if (runtimeDir && Directory.Exists(Path.GetDirectoryName(Path.GetDirectoryName(value.TrimEnd('/')))))
+                Console.WriteLine("  made at run time " + Redact(args[i], root));
+            else
                 Fail("path in the argument line does not exist: " + Redact(args[i], root));
         }
 

@@ -31,6 +31,10 @@
     <!-- The self-test's skin: the same independently encoded PNG the Core tests decode. -->
     <None Include="..\OriginLauncher.Tests\Fixtures\skin-all-filters.png" Link="skin-all-filters.png"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Forge 11.15.1.2318's version JSON, which LegacyForgeInstaller copies into the 1.8.9 instance
+         (OriginPaths: AppContext.BaseDirectory/Bundled/Forge). Same file the Windows build ships. -->
+    <None Include="..\OriginLauncher.App\Assets\Forge\forge-1.8.9.json" Link="Bundled\Forge\forge-1.8.9.json"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
