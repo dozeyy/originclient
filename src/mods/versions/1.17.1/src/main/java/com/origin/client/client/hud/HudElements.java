@@ -791,8 +791,9 @@ public final class HudElements {
 		int bgDown = OriginColorPicker.liveColor("keystrokes", "bgColorPressed");
 		int fill = com.origin.client.client.theme.OriginTheme.lerpColor(bgUp, bgDown, k);
 		g.fill(x, y, x + w, y + h, fill);
-		if (Mods.bool("keystrokes", "border")) {
-			int t = (int) Math.max(1, Math.min(4, Math.round(Mods.num("keystrokes", "borderThickness"))));
+		// Border Thickness 0 = no border (the slider goes down to 0)
+		int t = (int) Math.max(0, Math.min(4, Math.round(Mods.num("keystrokes", "borderThickness"))));
+		if (Mods.bool("keystrokes", "border") && t > 0) {
 			int bc = OriginColorPicker.liveColor("keystrokes", "borderColor");
 			// top/bottom span full width; left/right fill only the gap between them
 			// so corner pixels are never drawn twice (which made corners darker
