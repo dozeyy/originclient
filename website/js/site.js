@@ -15,11 +15,21 @@ const DOWNLOAD = {
     { label: '.rpm', file: 'origin-launcher.x86_64.rpm', note: 'Fedora, openSUSE, Alma' },
     { label: '.tar.gz', file: 'OriginLauncher-linux-x64.tar.gz', note: 'unpack and run' },
   ],
+  // The Mac beta (docs/RELEASING.md, launcher-release.yml mac job). `live: false` hides every
+  // [data-mac] element and the Mac downloads, so the site shows Windows and Linux only.
+  mac: {
+    live: true,
+    appleSilicon: 'https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-AppleSilicon.dmg',
+    intel: 'https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-Intel.dmg',
+  },
 };
 const RELEASE_FILE = f => 'https://github.com/dozeyy/originclient/releases/latest/download/' + f;
 // Desktop Linux, not Android (whose user agent also says Linux).
 const ON_LINUX = /linux/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent)
   && !/android/i.test(navigator.userAgent);
+// A Mac, not an iPad (iPads also report "Mac"; touch points tell them apart, and there is no iPad version).
+const ON_MAC = DOWNLOAD.mac.live && navigator.maxTouchPoints <= 1
+  && /mac/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '');
 
 // Player screenshots for the "Straight from the game" section. The section
 // stays hidden while this is empty. Put images in website/assets/screens/.
@@ -71,15 +81,65 @@ function initDownload() {
     }
   }
   if (!DOWNLOAD.live) return;
-  $('[data-get-note]').textContent = ON_LINUX
-    ? 'Free for Linux on 64-bit PCs. Make the AppImage executable and open it, and Origin keeps itself up to date.'
-    : 'Free for Windows 10 and 11. Setup takes about a minute, and Origin keeps itself up to date.';
-  // Every other download, under the big button: Windows plus each Linux package.
-  const others = [{ label: 'Windows', href: DOWNLOAD.url, note: 'Windows 10 & 11' }]
-    .concat(DOWNLOAD.linux.map(d => ({ label: 'Linux ' + d.label, href: RELEASE_FILE(d.file), note: d.note })));
+  initGet(ON_MAC ? 'mac' : ON_LINUX ? 'linux' : 'win');
+}
+
+// Every download Origin has, the visitor's own system's first. The first entry for a
+// system is its main file; `badge` marks the Mac beta.
+function allDownloads() {
+  const list = [{ os: 'win', label: 'Windows', note: 'Windows 10 & 11', href: DOWNLOAD.url }];
+  if (DOWNLOAD.mac.live) {
+    // A browser can't reliably tell Apple Silicon from Intel, so Apple Silicon (every Mac
+    // sold since 2020) is the main Mac file and Intel the extra one.
+    list.push({ os: 'mac', label: 'Mac', badge: 'Beta', note: 'Apple Silicon', href: DOWNLOAD.mac.appleSilicon },
+      { os: 'mac', label: 'Mac', badge: 'Beta', note: 'Intel', href: DOWNLOAD.mac.intel });
+  }
+  for (const d of DOWNLOAD.linux) list.push({ os: 'linux', label: 'Linux ' + d.label, note: d.note, href: RELEASE_FILE(d.file) });
+  return list;
+}
+
+// What the big button says for each system, and the line under it.
+const GET_COPY = {
+  win: {
+    button: 'Download for Windows', sub: 'Windows 10 & 11 · About 85 MB',
+    note: 'Free for Windows 10 and 11. Setup takes about a minute, and Origin keeps itself up to date.',
+  },
+  mac: {
+    button: 'Download for Mac', sub: 'macOS 15 or newer · Apple Silicon (M1 and later)',
+    note: 'Free for Mac as a beta, on macOS 15 or newer. The first open takes one extra step, shown below, and Origin keeps itself up to date.',
+  },
+  linux: {
+    button: 'Download for Linux', sub: 'AppImage · any 64-bit distro',
+    note: 'Free for Linux on 64-bit PCs. Make the AppImage executable and open it, and Origin keeps itself up to date.',
+  },
+};
+
+function initGet(os) {
+  const all = allDownloads();
+  const main = all.find(d => d.os === os);
+  const copy = GET_COPY[os];
+  const badge = d => d.badge ? ` <span class="badge">${d.badge}</span>` : '';
+
+  // Header and hero buttons: straight to the file on Windows and Linux. A Mac visitor goes to
+  // the download section instead, because the first open needs the Open Anyway steps there.
+  for (const a of $$('[data-download]')) if (!a.closest('#get')) a.href = os === 'mac' ? '#get' : main.href;
+  const big = $('[data-get-main]');
+  big.href = main.href;
+  big.innerHTML = copy.button + badge(main);
+  const sub = $('[data-get-sub]');
+  sub.textContent = copy.sub;
+  sub.hidden = false;
+  $('[data-get-note]').textContent = copy.note;
+
+  // Every other download under the big button: the rest of this system's files first.
+  const others = all.filter(d => d !== main && d.os === os).concat(all.filter(d => d.os !== os));
   const row = $('[data-other-downloads]');
-  row.innerHTML = others.map(o => `<a href="${o.href}"><span>${o.label}</span><small>${o.note}</small></a>`).join('');
+  row.innerHTML = others.map(d => `<a href="${d.href}"><span>${d.label}</span>${badge(d)}<small>${d.note}</small></a>`).join('');
   row.hidden = false;
+
+  if (!DOWNLOAD.mac.live) return;
+  for (const el of $$('[data-mac]')) el.hidden = false;
+  if (os === 'mac') $('.get__steps').open = true;
 }
 
 function initVersions() {
