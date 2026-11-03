@@ -104,7 +104,12 @@ public final class WorldEditCui {
 			// 1.21.11: END_MAIN (Fabric's 1.21.9+ world events have no LAST).
 			WorldRenderEvents.END_MAIN.register(ctx -> {
 				try {
-					CuiRenderer.render(ctx);
+					boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+					try {
+						CuiRenderer.render(ctx);
+					} finally {
+						com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+					}
 				} catch (Throwable t) {
 					// the overlay must never take the frame down
 				}

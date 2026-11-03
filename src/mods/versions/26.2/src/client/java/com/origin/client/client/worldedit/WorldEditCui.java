@@ -104,7 +104,12 @@ public final class WorldEditCui {
 			// 26.2: COLLECT_SUBMITS -- world overlays are submits collected for the frame (see OriginRenderTypes).
 			LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
 				try {
-					CuiRenderer.render(ctx);
+					boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+					try {
+						CuiRenderer.render(ctx);
+					} finally {
+						com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+					}
 				} catch (Throwable t) {
 					// the overlay must never take the frame down
 				}

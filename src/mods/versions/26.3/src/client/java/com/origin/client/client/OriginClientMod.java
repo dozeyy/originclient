@@ -93,6 +93,10 @@ public class OriginClientMod implements ClientModInitializer {
 		// (Origin's overlays, Social, WorldEdit CUI, Team View) records into
 		// OriginRenderTypes, which submits to the collector remembered here.
 		LevelRenderEvents.COLLECT_SUBMITS.register(com.origin.client.client.render.OriginRenderTypes::beginFrame);
+		// Waypoints, party pings, WorldEdit CUI and Chunk Borders stay above an Iris
+		// pack's clouds / fog: banked in the level pass, drawn after the pack's
+		// composite (render/AfterShadersPass). Shaders off: unchanged.
+		com.origin.client.client.render.AfterShadersPass.init();
 		OriginKeyBindings.register();
 		OriginShaders.register();
 		// Lunar-parity mods' own pipelines (saturation glow, shine, glint, CUI).
@@ -274,12 +278,22 @@ public class OriginClientMod implements ClientModInitializer {
 		// COLLECT_SUBMITS (OriginRenderTypes records, then submits custom geometry).
 		LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
 			try {
-				ChunkBorderRenderer.render(context);
+				boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+				try {
+					ChunkBorderRenderer.render(context);
+				} finally {
+					com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+				}
 			} catch (Throwable t) {
 				// overlay must never take the frame down
 			}
 			try {
-				com.origin.client.client.waypoints.WaypointRenderer.render(context);
+				boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+				try {
+					com.origin.client.client.waypoints.WaypointRenderer.render(context);
+				} finally {
+					com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+				}
 			} catch (Throwable t) {
 				// waypoints must never take the frame down
 			}

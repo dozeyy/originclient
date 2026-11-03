@@ -35,8 +35,9 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
  * FIRST on Fabric's LevelRenderEvents.COLLECT_SUBMITS -- the event every Origin
  * world overlay draws from on 26.2. Submitted through the vanilla collector,
  * the geometry is drawn in the frame's own pass with the frame's matrices and
- * depth (also what Iris intercepts), so the 1.21.11 Iris deferral problem
- * doesn't arise. Outside a frame (no collector) draw() just discards.
+ * depth (also what Iris intercepts). Outside a frame (no collector) draw() just
+ * discards. Under a shader pack, four overlays are banked instead (see the bank
+ * section below and AfterShadersPass).
  *
  * <p>OVERLAY_QUADS = vanilla DEBUG_QUADS (POSITION_COLOR quads, translucent) with
  * no culling, a LEQUAL depth test, no depth write, and the view-offset layering
@@ -103,10 +104,15 @@ public final class OriginRenderTypes {
 
 	/** Submits the {@link #beginExtra} vertices as {@code type} (quads). */
 	public static void drawExtra(RenderType type) {
+		if (banking) {
+			EXTRA.moveTo(BANK_EXTRA);   // AfterShadersPass.run() draws it after the pack's composite
+			bankExtraType = type;
+			return;
+		}
 		LevelRenderContext ctx = frame;
 		try {
 			if (ctx != null) {
-				EXTRA.submit(ctx, type, false);
+				EXTRA.submit(ctx.submitNodeCollector(), type, false);
 			}
 		} finally {
 			EXTRA.clear();
@@ -115,16 +121,68 @@ public final class OriginRenderTypes {
 
 	/** Submits everything recorded since the last draw() to this frame. */
 	public static void draw() {
+		if (banking) {
+			QUADS.moveTo(BANK_QUADS);   // AfterShadersPass.run() draws it after the pack's composite
+			LINES.moveTo(BANK_LINES);
+			return;
+		}
 		LevelRenderContext ctx = frame;
 		try {
 			if (ctx != null) {
-				QUADS.submit(ctx, overlayQuads(), false);
-				LINES.submit(ctx, RenderTypes.lines(), true);
+				QUADS.submit(ctx.submitNodeCollector(), overlayQuads(), false);
+				LINES.submit(ctx.submitNodeCollector(), RenderTypes.lines(), true);
 			}
 		} finally {
 			QUADS.clear();
 			LINES.clear();
 		}
+	}
+
+	// ---- the after-shaders BANK (render/AfterShadersPass) ----
+	// While an Iris shader pack is in use, the overlays that must stay above the
+	// pack's clouds (waypoints, party pings, WorldEdit CUI, Chunk Borders) are
+	// wrapped in AfterShadersPass.bankBegin()/bankEnd(), which sets `banking`:
+	// draw()/drawExtra() then MOVE their recordings into these bank recorders
+	// instead of submitting them to the level's collector, and AfterShadersPass.run()
+	// submits the bank to its own SubmitNodeStorage once Iris has composited.
+	// Unwrapped callers (block outline, cosmetics) still submit to the level as before.
+	// Render thread only.
+	static boolean banking;
+	private static final Recorder BANK_QUADS = new Recorder();
+	private static final Recorder BANK_LINES = new Recorder();
+	private static final Recorder BANK_EXTRA = new Recorder();
+	private static RenderType bankExtraType;
+
+	/** True while the current overlay's recordings go to the after-shaders bank. */
+	public static boolean banking() {
+		return banking;
+	}
+
+	/** True when the bank holds anything to draw. */
+	static boolean bankHasVertices() {
+		return BANK_QUADS.n > 0 || BANK_LINES.n > 0 || (BANK_EXTRA.n > 0 && bankExtraType != null);
+	}
+
+	/** Submits the bank to {@code target} (see-through pass first, then quads, then
+	 *  lines -- the level-pass order) and empties it. */
+	static void submitBank(net.minecraft.client.renderer.SubmitNodeCollector target) {
+		try {
+			if (bankExtraType != null) {
+				BANK_EXTRA.submit(target, bankExtraType, false);
+			}
+			BANK_QUADS.submit(target, overlayQuads(), false);
+			BANK_LINES.submit(target, RenderTypes.lines(), true);
+		} finally {
+			discardBank();
+		}
+	}
+
+	/** Empties the bank without drawing it. */
+	static void discardBank() {
+		BANK_QUADS.clear();
+		BANK_LINES.clear();
+		BANK_EXTRA.clear();
+		bankExtraType = null;
 	}
 
 	/**
@@ -218,7 +276,20 @@ public final class OriginRenderTypes {
 			n = 0;
 		}
 
-		void submit(LevelRenderContext ctx, RenderType type, boolean lines) {
+		/** Appends this recording to {@code o} and empties this one. */
+		void moveTo(Recorder o) {
+			if (o.c.length < o.n + n) {
+				int cap = Math.max(o.c.length * 2, o.n + n);
+				o.f = java.util.Arrays.copyOf(o.f, cap * 7);
+				o.c = java.util.Arrays.copyOf(o.c, cap);
+			}
+			System.arraycopy(f, 0, o.f, o.n * 7, n * 7);
+			System.arraycopy(c, 0, o.c, o.n, n);
+			o.n += n;
+			n = 0;
+		}
+
+		void submit(net.minecraft.client.renderer.SubmitNodeCollector collector, RenderType type, boolean lines) {
 			if (n == 0 || type == null) {
 				return;
 			}
@@ -230,7 +301,7 @@ public final class OriginRenderTypes {
 			final int[] cs = java.util.Arrays.copyOf(c, n);
 			final int count = n;
 			// Identity pose: the recorded positions already carry the caller's matrix.
-			ctx.submitNodeCollector().submitCustomGeometry(new PoseStack(), type, (pose, vc) -> {
+			collector.submitCustomGeometry(new PoseStack(), type, (pose, vc) -> {
 				if (!loggedReplay) {
 					loggedReplay = true;
 					com.origin.client.OriginClient.LOGGER.info("Origin[world]: first replay into the frame ({} vertices)", count);
