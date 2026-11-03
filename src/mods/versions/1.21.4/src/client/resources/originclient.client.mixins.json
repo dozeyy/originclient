@@ -47,6 +47,7 @@
 		"ItemEntityScaleMixin",
 		"ItemEntityStateMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",

@@ -60,6 +60,7 @@
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"LivingNametagMixin",
 		"HurtCamMixin",
 		"GameRendererFrameMixin",

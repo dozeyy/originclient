@@ -51,6 +51,7 @@
 		"JeiGuiEventHandlerMixin",
 		"JeiClientInputHandlerMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"LivingNametagMixin",
 		"SpriteIconButtonMixin",
 		"SpriteIconButtonAccessor",

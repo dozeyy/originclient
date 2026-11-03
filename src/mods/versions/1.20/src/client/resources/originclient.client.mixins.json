@@ -49,6 +49,7 @@
 		"MultiPlayerGameModeMixin",
 		"ItemEntityScaleMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
