@@ -35,6 +35,8 @@
 		"ItemEntityScaleMixin",
 		"ItemEntityStateMixin",
 		"ChatTimestampMixin",
+		"ChatCopyMixin",
+		"ChatScreenCopyMixin",
 		"ChatTextShadowMixin",
 		"CameraAccessor",
 		"GameRendererAccessor",
