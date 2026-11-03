@@ -14,116 +14,171 @@ import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.util.EnumChatFormatting;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 /**
- * 1.8.9-only helper (no 1.16.5 file): the Scoreboard mod's own sidebar draw,
- * called from GuiIngameScoreboardMixin (GuiIngame.renderScoreboard HEAD) while
- * the mod is on. See that mixin for why 1.8.9 draws the board itself instead of
- * 1.16.5's push/redirect/pop.
+ * The Scoreboard mod's own sidebar draw, called from GuiIngameScoreboardMixin
+ * (GuiIngame.renderScoreboard HEAD) while the mod is on; true cancels vanilla's.
+ * The pre-1.20 Fabric modules have the same class (their GuiScoreboardMixin
+ * calls it the same way).
  *
- * Geometry is vanilla 1.8.9's renderScoreboard, line for line: at most 15 scores
- * (names starting with '#' hidden), the widest "name: score" row sets the width,
- * the board sits 3px from the right edge with its bottom at height/2 + rows*9/3,
- * the objective title row above the scores. On top of that, exactly like 1.16.5:
- *  - the whole board is translated from vanilla's default spot to the
- *    "scoreboard" element's HudPos (the same sample-size delta the HUD editor
- *    preview uses, so dragging the sample moves the real board), and
- *  - scaled about the board's own centre (Bug-audit #4 from 1.16.5).
- * Options: Hide Numbers drops the red score column, Background Color replaces
- * vanilla's two translucent blacks (1.16.5's fill redirect), Header Color tints
- * the title. Text Shadow and Border stay editor-sample-only, as on every other
- * version: the in-game board keeps vanilla's unshadowed text and no outline, so
- * it looks the same on 1.8.9 as everywhere else. Read-only: never touches
- * scoreboard data.
+ * Rows and width are vanilla 1.8.9's renderScoreboard: at most 15 scores (names
+ * starting with '#' hidden), lowest score at the bottom, the widest "name: score"
+ * (or the title) sets the width, the objective title row on top. The board is
+ * placed like every other HUD element: at the "scoreboard" HudPos, scaled from its
+ * top-left, sized from the REAL board, so it lands exactly on the HUD-editor box
+ * (a pivot from the editor sample's size put wide Hypixel boards off-screen).
+ * Options: Hide Numbers drops the red score column, Text Shadow, Border (thickness
+ * 0 = none), Background Color replaces vanilla's two translucent blacks, Header
+ * Color tints the title. Read-only: never touches scoreboard data.
  */
 public final class SidebarHud {
 	private SidebarHud() {
 	}
 
-	/** @return true when the board was handled (drawn, or hidden on purpose). */
-	public static boolean render(ScoreObjective objective, ScaledResolution res) {
-		if (Mods.bool("scoreboard", "hideScoreboard")) {
-			return true;
+	/** One measured board. */
+	public static final class Board {
+		final String title;
+		final List<String> names = new ArrayList<String>();   // bottom row first
+		final List<String> nums = new ArrayList<String>();
+		int inner;   // vanilla's content width: widest title / "name: score"
+		int line;    // row height (font height, 9)
+
+		Board(String title) {
+			this.title = title;
 		}
+
+		public int width() {
+			return inner + 4;
+		}
+
+		public int height() {
+			return names.size() * line + line + 1;
+		}
+	}
+
+	/** The objective vanilla would show in the sidebar now (team-colour slot first). */
+	public static ScoreObjective currentObjective(Minecraft mc) {
+		if (mc.theWorld == null || mc.thePlayer == null) {
+			return null;
+		}
+		Scoreboard sb = mc.theWorld.getScoreboard();
+		ScoreObjective byTeam = null;
+		ScorePlayerTeam team = sb.getPlayersTeam(mc.thePlayer.getName());
+		if (team != null) {
+			int slot = team.getChatFormat().getColorIndex();
+			if (slot >= 0) {
+				byTeam = sb.getObjectiveInDisplaySlot(3 + slot);
+			}
+		}
+		return byTeam != null ? byTeam : sb.getObjectiveInDisplaySlot(1);
+	}
+
+	/** null = nothing to draw (no objective, or no visible scores: vanilla draws nothing too). */
+	public static Board measure(ScoreObjective objective) {
 		if (objective == null) {
-			return false;
+			return null;
 		}
-		Minecraft mc = Minecraft.getMinecraft();
-		FontRenderer font = mc.fontRendererObj;
-		Scoreboard scoreboard = objective.getScoreboard();
-		Collection<Score> all = scoreboard.getSortedScores(objective);
+		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
+		Scoreboard sb = objective.getScoreboard();
 		List<Score> list = new ArrayList<Score>();
-		for (Score s : all) {
+		for (Score s : sb.getSortedScores(objective)) {
 			if (s.getPlayerName() != null && !s.getPlayerName().startsWith("#")) {
 				list.add(s);
 			}
+		}
+		if (list.isEmpty()) {
+			return null;
 		}
 		if (list.size() > 15) {
 			list = new ArrayList<Score>(list.subList(list.size() - 15, list.size()));
 		}
 		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
-		boolean shadow = false;   // vanilla's sidebar text is unshadowed (see the class comment)
-		int bg = OriginColorPicker.liveColor("scoreboard", "bgColor");
-		int headerColor = OriginColorPicker.liveColor("scoreboard", "headerColor");
-
-		String title = objective.getDisplayName();
-		int w = font.getStringWidth(title);
+		Board b = new Board(objective.getDisplayName());
+		b.line = font.FONT_HEIGHT;
+		int w = font.getStringWidth(b.title);
 		for (Score s : list) {
-			ScorePlayerTeam team = scoreboard.getPlayersTeam(s.getPlayerName());
-			String row = ScorePlayerTeam.formatPlayerName(team, s.getPlayerName());
-			if (!hideNums) {
-				row += ": " + EnumChatFormatting.RED + s.getScorePoints();
-			}
-			w = Math.max(w, font.getStringWidth(row));
+			ScorePlayerTeam team = sb.getPlayersTeam(s.getPlayerName());
+			String name = ScorePlayerTeam.formatPlayerName(team, s.getPlayerName());
+			String num = EnumChatFormatting.RED + "" + s.getScorePoints();
+			b.names.add(name);
+			b.nums.add(num);
+			w = Math.max(w, font.getStringWidth(hideNums ? name : name + ": " + num));
 		}
-		if (list.isEmpty()) {
-			return true;   // vanilla draws nothing for an objective with no visible scores
-		}
-		int lh = font.FONT_HEIGHT;
-		int rowsH = list.size() * lh;
-		int sw = res.getScaledWidth(), sh = res.getScaledHeight();
-		int bottom = sh / 2 + rowsH / 3;
-		int right = sw - 3 + 2;              // vanilla: l = width - k1 + 2
-		int left = sw - w - 3;               // vanilla: l1 = width - i - k1
+		b.inner = w;
+		return b;
+	}
 
+	/** The real board's unscaled size, or null when there is none (the editor shows the sample). */
+	public static int[] realSize(Minecraft mc) {
+		Board b = measure(currentObjective(mc));
+		return b == null ? null : new int[]{b.width(), b.height()};
+	}
+
+	/** Draws the board at LOCAL (0,0); the caller has translated + scaled. */
+	public static void draw(Gfx g, Board b) {
+		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		boolean shadow = Mods.bool("scoreboard", "textShadow");
+		int w = b.width(), h = b.height(), lh = b.line;
+		g.fill(0, 0, w, h, OriginColorPicker.liveColor("scoreboard", "bgColor"));
+		int header = OriginColorPicker.liveColor("scoreboard", "headerColor");
+		g.drawString(font, b.title, 2 + b.inner / 2 - font.getStringWidth(b.title) / 2, 1, header, shadow);
+		for (int i = 0; i < b.names.size(); i++) {
+			int y = h - (i + 1) * lh;
+			g.drawString(font, b.names.get(i), 2, y, 0xFFFFFFFF, shadow);
+			if (!hideNums) {
+				String num = b.nums.get(i);
+				g.drawString(font, num, w - font.getStringWidth(num), y, 0xFFFFFFFF, shadow);
+			}
+		}
+		border(g, w, h);
+	}
+
+	/** The Border option, shared with the editor sample. Thickness 0 = no border. */
+	public static void border(Gfx g, int w, int h) {
+		if (!Mods.bool("scoreboard", "border")) {
+			return;
+		}
+		int bt = (int) Math.max(0, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
+		if (bt == 0) {
+			return;
+		}
+		int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
+		// left/right only between top and bottom: corners drawn once (no darker corners)
+		g.fill(0, 0, w, bt, bc);
+		g.fill(0, h - bt, w, h, bc);
+		g.fill(0, bt, bt, h - bt, bc);
+		g.fill(w - bt, bt, w, h - bt, bc);
+	}
+
+	/**
+	 * HEAD of vanilla's sidebar draw, mod on. true = handled, the caller cancels vanilla's:
+	 * drawn here, hidden, nothing to draw, or the HUD editor is open (it draws the board in its box).
+	 */
+	public static boolean render(ScoreObjective objective, ScaledResolution res) {
+		if (Mods.bool("scoreboard", "hideScoreboard")) {
+			return true;
+		}
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.currentScreen instanceof HudEditorScreen) {
+			return true;
+		}
+		Board b = measure(objective);
+		if (b == null) {
+			return true;
+		}
+		HudPos p = HudElements.scoreboardPos();
+		double s = p.scale > 0.05 ? p.scale : 1.0;
+		int sw = res.getScaledWidth(), sh = res.getScaledHeight();
+		double x = p.x(sw, b.width() * s), y = p.y(sh, b.height() * s);
 		Gfx g = new Gfx();
 		Pose pose = g.pose();
 		pose.pushPose();
 		try {
-			// Reposition + rescale exactly as 1.16.5's GuiScoreboardMixin does.
-			HudPos p = HudElements.scoreboardPos();
-			int[] sz = HudElements.sampleScoreboardSize();
-			double tx = p.x(sw, sz[0]), ty = p.y(sh, sz[1]);
-			double vx = sw - sz[0] - 3, vy = (sh - sz[1]) / 2.0;
-			pose.translate(tx - vx, ty - vy, 0);
-			float s = (float) p.scale;
-			if (s > 0.05f) {
-				float ax = (float) (vx + sz[0] / 2.0), ay = (float) (vy + sz[1] / 2.0);
-				pose.translate(ax, ay, 0);
-				pose.scale(s, s, 1f);
-				pose.translate(-ax, -ay, 0);
-			}
-
-			int j = 0;
-			for (Score s1 : list) {
-				j++;
-				ScorePlayerTeam team = scoreboard.getPlayersTeam(s1.getPlayerName());
-				String name = ScorePlayerTeam.formatPlayerName(team, s1.getPlayerName());
-				int y = bottom - j * lh;
-				g.fill(left - 2, y, right, y + lh, bg);
-				g.drawString(font, name, left, y, 0xFFFFFFFF, shadow);
-				if (!hideNums) {
-					String num = EnumChatFormatting.RED + "" + s1.getScorePoints();
-					g.drawString(font, num, right - font.getStringWidth(num), y, 0xFFFFFFFF, shadow);
-				}
-				if (j == list.size()) {
-					g.fill(left - 2, y - lh - 1, right, y - 1, bg);
-					g.fill(left - 2, y - 1, right, y, bg);
-					g.drawString(font, title, left + w / 2 - font.getStringWidth(title) / 2, y - lh, headerColor, shadow);
-				}
-			}
+			pose.translate(x, y, 0);
+			pose.scale((float) s, (float) s, 1f);
+			draw(g, b);
 		} finally {
 			pose.popAll();
 		}

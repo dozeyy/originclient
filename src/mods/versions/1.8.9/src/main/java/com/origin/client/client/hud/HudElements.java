@@ -630,10 +630,10 @@ public final class HudElements {
 		// it draws nothing here (the sidebar draws from GuiIngame.renderScoreboard,
 		// repositioned by GuiIngameScoreboardMixin / SidebarHud).
 		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
-				mc -> sampleScoreboardSize(),
+				HudElements::scoreboardSize,
 				(g, mc, w, h) -> {
 					if (editorPreview && !suppressScoreboard) {
-						drawSampleScoreboard(g);
+						drawEditorScoreboard(g, mc);
 					}
 				});
 
@@ -1081,6 +1081,39 @@ public final class HudElements {
 			{"Rank: ", "VIP"}, {"Coins: ", "1,234"}, {"Wins: ", "42"},
 			{"Map: ", "Skylands"}, {"Players: ", "12/16"}};
 
+	/** The scoreboard element's size: the real board when one is showing (so the editor box
+	 *  and the in-game placement match a wide server board), else the sample's. */
+	public static int[] scoreboardSize(Minecraft mc) {
+		try {
+			int[] real = SidebarHud.realSize(mc);
+			if (real != null) {
+				return real;
+			}
+		} catch (Throwable t) {
+			// sample size instead
+		}
+		return sampleScoreboardSize();
+	}
+
+	/** Editor / menu preview: the real board while one is showing (vanilla's draw steps aside
+	 *  while the editor is open), the sample otherwise. */
+	private static void drawEditorScoreboard(Gfx g, Minecraft mc) {
+		if (Mods.bool("scoreboard", "hideScoreboard")) {
+			return;
+		}
+		SidebarHud.Board real = null;
+		try {
+			real = SidebarHud.measure(SidebarHud.currentObjective(mc));
+		} catch (Throwable t) {
+			real = null;
+		}
+		if (real != null) {
+			SidebarHud.draw(g, real);
+		} else {
+			drawSampleScoreboard(g);
+		}
+	}
+
 	public static int[] sampleScoreboardSize() {
 		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
 		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
@@ -1113,14 +1146,7 @@ public final class HudElements {
 		int boxW = sz[0], contentH = sz[1];
 		int lineH = font.FONT_HEIGHT + 1;
 		OriginUi.panel(g, 0, 0, boxW, contentH, 0, bg, 0);
-		if (Mods.bool("scoreboard", "border")) {
-			int bt = (int) Math.max(1, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
-			int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
-			g.fill(0, 0, boxW, bt, bc);
-			g.fill(0, contentH - bt, boxW, contentH, bc);
-			g.fill(0, 0, bt, contentH, bc);
-			g.fill(boxW - bt, 0, boxW, contentH, bc);
-		}
+		SidebarHud.border(g, boxW, contentH);   // thickness 0 = no border, same as the real board
 		int ty = 2;
 		g.drawString(font, SB_TITLE, (boxW - font.getStringWidth(SB_TITLE)) / 2, ty, headerColor, shadow);
 		ty += lineH + 1;
