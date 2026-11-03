@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
@@ -15,7 +16,8 @@ namespace OriginLauncher.App.Core.Updates;
 //  - The delta is downloaded and checked against its published SHA-256 exactly like the full zip (UpdateService),
 //    so its manifest is as trusted as the full zip itself.
 //  - Stage() writes the new release into an EMPTY stage folder (the same folder the full zip would be unpacked
-//    into), file by file from the manifest: a changed file from the delta, an unchanged one copied from the
+//    into), file by file from the manifest: a new file whole from the delta (files/), a changed one rebuilt from
+//    its installed copy plus a binary patch (patches/, ApplyPatch) or whole, an unchanged one copied from the
 //    installed folder. Nothing in the installed folder is touched.
 //  - VerifyStaged() then reads every staged file back and checks its size and SHA-256 against the manifest, and
 //    that the stage holds nothing else. A file that drifted locally (antivirus, a hand edit, a half-finished
@@ -36,6 +38,14 @@ public static class UpdateDelta
     public const string ManifestEntry = "origin-delta.json";
     /// <summary>Changed and added files sit under this folder inside the delta zip (delta.py FILES_PREFIX).</summary>
     public const string FilesPrefix = "files/";
+    /// <summary>Changed files sent as binary patches against the installed copy (delta.py PATCHES_PREFIX).</summary>
+    public const string PatchesPrefix = "patches/";
+    /// <summary>First bytes of every patch (delta.py PATCH_MAGIC; the format is described in delta.py).</summary>
+    public const string PatchMagic = "ODPATCH1";
+    // Patch ops (delta.py OP_COPY / OP_LITERAL / OP_END).
+    private const byte OpCopy = (byte)'C';
+    private const byte OpLiteral = (byte)'L';
+    private const byte OpEnd = (byte)'E';
     private const int SupportedFormat = 1;
     // The real manifest is ~3 KB (29 files); anything near this is not ours.
     private const long MaxManifestBytes = 4 << 20;
@@ -117,26 +127,114 @@ public static class UpdateDelta
         {
             var dest = StagedPath(stageDir, file.Path);
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-            if (payload.TryGetValue(file.Path, out var entry))
+            payload.TryGetValue(file.Path, out var item);
+            if (item.Entry != null && !item.IsPatch)
             {
-                entry.ExtractToFile(dest, overwrite: false);
+                item.Entry.ExtractToFile(dest, overwrite: false);
+                continue;
+            }
+            // Changed (a patch) or unchanged (a plain copy): both start from the installed copy of the same path.
+            using var installed = OpenInstalled(installedDir, file.Path);
+            using var dst = new FileStream(dest, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1 << 16);
+            if (item.Entry != null)
+            {
+                using var patch = item.Entry.Open();
+                ApplyPatch(patch, installed, dst, file.Size);
             }
             else
             {
-                // Unchanged since the installed version: copied from the installed folder. A missing file is the
-                // same failure as a changed one (VerifyStaged would catch a wrong one either way).
-                var installed = Path.Combine(installedDir, file.Path.Replace('/', Path.DirectorySeparatorChar));
-                if (!File.Exists(installed))
-                    throw new UpdateDeltaException($"{file.Path} is missing from the installed launcher");
-                // The running exe is in this folder: open it the way Windows lets a running image be read.
-                using var src = new FileStream(installed, FileMode.Open, FileAccess.Read,
-                    FileShare.ReadWrite | FileShare.Delete, 1 << 16);
-                using var dst = new FileStream(dest, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1 << 16);
-                src.CopyTo(dst, 1 << 20);
+                installed.CopyTo(dst, 1 << 20);
             }
         }
 
         VerifyStaged(stageDir, files);
+    }
+
+    // A file of the installed launcher. A missing one is the same failure as a changed one (VerifyStaged would catch a
+    // wrong one either way). The running exe is in this folder: opened the way Windows lets a running image be read.
+    private static FileStream OpenInstalled(string installedDir, string relative)
+    {
+        var path = Path.Combine(installedDir, relative.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(path))
+            throw new UpdateDeltaException($"{relative} is missing from the installed launcher");
+        return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16);
+    }
+
+    /// <summary>
+    /// Writes the file a patch describes to <paramref name="output"/>: a stream of COPY ops (bytes of
+    /// <paramref name="baseFile"/>, the installed copy) and LITERAL ops (bytes carried in the patch). Format: delta.py
+    /// (ODPATCH1). Strict on purpose, every rule the same as delta.py apply_patch: made for a base of exactly this
+    /// size and a result of exactly <paramref name="expectedSize"/> (the manifest's), every copy inside the base, no
+    /// op past the result size, no empty op, an END op and nothing after it. Throws on anything else. The result's
+    /// SHA-256 is still checked against the manifest afterwards (VerifyStaged), and that is the final word.
+    /// </summary>
+    public static void ApplyPatch(Stream patch, Stream baseFile, Stream output, long expectedSize)
+    {
+        Span<byte> field = stackalloc byte[16];
+        var buffer = new byte[1 << 16];
+        try
+        {
+            var magic = System.Text.Encoding.ASCII.GetBytes(PatchMagic);
+            patch.ReadExactly(field[..magic.Length]);
+            if (!field[..magic.Length].SequenceEqual(magic))
+                throw new UpdateDeltaException("a patch in the update is not a patch");
+            patch.ReadExactly(field);
+            var baseSize = BinaryPrimitives.ReadUInt64LittleEndian(field);
+            var targetSize = BinaryPrimitives.ReadUInt64LittleEndian(field[8..]);
+            if (baseSize != (ulong)baseFile.Length)
+                throw new UpdateDeltaException("a patch was made for another version of the installed file");
+            if (targetSize != (ulong)expectedSize)
+                throw new UpdateDeltaException("a patch does not match the update's manifest");
+
+            long written = 0;
+            while (true)
+            {
+                var op = patch.ReadByte();
+                if (op == OpEnd) break;
+                long length;
+                if (op == OpCopy)
+                {
+                    patch.ReadExactly(field[..12]);
+                    var offset = BinaryPrimitives.ReadUInt64LittleEndian(field);
+                    length = BinaryPrimitives.ReadUInt32LittleEndian(field[8..]);
+                    if (length == 0 || offset > baseSize || (ulong)length > baseSize - offset || length > expectedSize - written)
+                        throw new UpdateDeltaException("a patch copies from outside the installed file");
+                    baseFile.Position = (long)offset;
+                    CopyExactly(baseFile, output, length, buffer);
+                }
+                else if (op == OpLiteral)
+                {
+                    patch.ReadExactly(field[..4]);
+                    length = BinaryPrimitives.ReadUInt32LittleEndian(field);
+                    if (length == 0 || length > expectedSize - written)
+                        throw new UpdateDeltaException("a patch writes past the file's size");
+                    CopyExactly(patch, output, length, buffer);
+                }
+                else
+                {
+                    // ReadByte's -1 is a patch that stopped before its END op.
+                    throw new UpdateDeltaException(op < 0 ? "a patch in the update ends early" : "a patch has an unknown op");
+                }
+                written += length;
+            }
+            if (written != expectedSize) throw new UpdateDeltaException("a patch wrote the wrong size");
+            if (patch.ReadByte() != -1) throw new UpdateDeltaException("a patch has bytes after its end");
+        }
+        catch (EndOfStreamException)
+        {
+            throw new UpdateDeltaException("a patch in the update ends early");
+        }
+    }
+
+    private static void CopyExactly(Stream from, Stream to, long count, byte[] buffer)
+    {
+        while (count > 0)
+        {
+            var n = (int)Math.Min(buffer.Length, count);
+            from.ReadExactly(buffer, 0, n);
+            to.Write(buffer, 0, n);
+            count -= n;
+        }
     }
 
     /// <summary>
@@ -200,19 +298,22 @@ public static class UpdateDelta
         return files;
     }
 
-    // Every zip entry besides the manifest must be files/<a manifest path>, each at most once. Anything else means the
-    // delta is not what delta.py builds, so it is not used at all.
-    private static Dictionary<string, ZipArchiveEntry> PayloadEntries(ZipArchive zip, IReadOnlyList<ManifestFile> files)
+    private readonly record struct Payload(ZipArchiveEntry? Entry, bool IsPatch);
+
+    // Every zip entry besides the manifest must be files/<a manifest path> or patches/<a manifest path>, and each path
+    // has at most one of the two. Anything else means the delta is not what delta.py builds, so it is not used at all.
+    private static Dictionary<string, Payload> PayloadEntries(ZipArchive zip, IReadOnlyList<ManifestFile> files)
     {
         var wanted = new HashSet<string>(files.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
-        var payload = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
+        var payload = new Dictionary<string, Payload>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in zip.Entries)
         {
             if (entry.FullName == ManifestEntry) continue;
-            if (!entry.FullName.StartsWith(FilesPrefix, StringComparison.Ordinal))
+            var isPatch = entry.FullName.StartsWith(PatchesPrefix, StringComparison.Ordinal);
+            if (!isPatch && !entry.FullName.StartsWith(FilesPrefix, StringComparison.Ordinal))
                 throw new UpdateDeltaException($"the update holds an unexpected entry {entry.FullName}");
-            var path = entry.FullName[FilesPrefix.Length..];
-            if (!wanted.Contains(path) || !payload.TryAdd(path, entry))
+            var path = entry.FullName[(isPatch ? PatchesPrefix : FilesPrefix).Length..];
+            if (!wanted.Contains(path) || !payload.TryAdd(path, new Payload(entry, isPatch)))
                 throw new UpdateDeltaException($"the update holds a file its manifest doesn't list: {path}");
         }
         return payload;

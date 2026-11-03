@@ -20,7 +20,25 @@ Delta layout (format 1):
                       sha256), the old and new versions, and the paths the new
                       release no longer has ("deleted", for people reading it;
                       the launcher's swap never deletes, same as the full zip)
-  files/<path>        each file that was added or changed since the old release
+  files/<path>        a file that is new, or changed and not worth patching: the whole file
+  patches/<path>      a changed file as a binary patch against the SAME path in the old release
+                      (only when the patch is smaller than the file; format below)
+
+Each file of the new release has at most one of files/ or patches/; a file with neither is unchanged and the
+launcher copies it from its own folder.
+
+Patch format (ODPATCH1, every number little-endian), rsync style:
+  "ODPATCH1"  u64 old file size  u64 new file size
+  then ops, each one byte + fields:
+    "C" u64 offset u32 length   COPY length bytes of the old file from offset
+    "L" u32 length <bytes>      LITERAL: these bytes as they are
+    "E"                         END: nothing may follow, and the ops must have written exactly the new size
+The old file is cut into fixed BLOCK-byte blocks, each indexed by a weak rolling checksum (rsync's two sums); the
+new file is scanned byte by byte with the same rolling checksum, a checksum hit is confirmed by comparing the bytes
+themselves (stronger than any strong hash), and a confirmed match is grown forward and back as far as the bytes
+agree. So content that only moved (a jar entry shifted by an edit before it, a runtime file at a new offset inside
+the single-file exe) still ships as COPY ops. Applying is a plain stream of copies and literals (UpdateDelta.ApplyPatch);
+every patch is applied here once before it is written, so a patch that would not rebuild its file is never shipped.
 
 The launcher trusts nothing in the delta but the manifest (and the manifest only
 because the delta matched its published .sha256). Every staged file, whether it
@@ -46,10 +64,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import os
 import re
-import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -63,6 +82,18 @@ ZIP_PREFIX = "OriginLauncher-win-x64"
 TAG_PREFIX = "launcher-v"
 MANIFEST = "origin-delta.json"
 FILES_PREFIX = "files/"
+PATCHES_PREFIX = "patches/"
+PATCH_MAGIC = "ODPATCH1"
+OP_COPY = "C"
+OP_LITERAL = "L"
+OP_END = "E"
+# Patch block size: small enough that an edit costs little literal data around it, large enough that the old
+# file's index stays small (89 MB exe -> ~22k blocks).
+BLOCK = 4096
+# Blocks with the same weak checksum kept per checksum; a run of identical blocks (zero padding) needs only one.
+MAX_CANDIDATES = 4
+# One op's length field is a u32; longer runs are split.
+MAX_OP = 1 << 31
 FORMAT = 1
 KEEP = 3
 MAX_RATIO = 0.5
@@ -107,18 +138,141 @@ def read_release_zip(path: Path) -> dict[str, tuple[int, str]]:
     return out
 
 
+def _sums(block) -> tuple[int, int]:
+    """rsync's weak checksum of one block, as its two sums: a = sum of the bytes, b = sum of (len - i) * byte[i]
+    (= the sum of the running totals of a). Computed with C-speed builtins; the scan then rolls them byte by byte."""
+    return sum(block), sum(itertools.accumulate(block))
+
+
+def _key(a: int, b: int) -> int:
+    # a < 2**20 for a 4 KB block (4096 * 255), so the pair packs into one int without collisions.
+    return (b << 20) | a
+
+
+def make_patch(old: bytes, new: bytes, block: int = BLOCK) -> bytes:
+    """An ODPATCH1 patch that turns `old` into `new` (format in the module docstring)."""
+    index: dict[int, list[int]] = {}
+    for off in range(0, len(old) - block + 1, block):
+        offs = index.setdefault(_key(*_sums(old[off:off + block])), [])
+        if len(offs) < MAX_CANDIDATES:
+            offs.append(off)
+
+    out = bytearray(PATCH_MAGIC.encode("ascii"))
+    out += struct.pack("<QQ", len(old), len(new))
+    oldv, newv = memoryview(old), memoryview(new)
+
+    def literal(start: int, end: int) -> None:
+        for s in range(start, end, MAX_OP):
+            e = min(end, s + MAX_OP)
+            out.extend(OP_LITERAL.encode("ascii") + struct.pack("<I", e - s))
+            out.extend(newv[s:e])
+
+    def copy(offset: int, length: int) -> None:
+        for s in range(0, length, MAX_OP):
+            out.extend(OP_COPY.encode("ascii") + struct.pack("<QI", offset + s, min(MAX_OP, length - s)))
+
+    n, n_old = len(new), len(old)
+    i = lit = 0          # i: scan position; lit: start of the bytes not yet written as an op
+    sums = None          # rolling (a, b) of new[i:i+block]; None = recompute at i
+    while i + block <= n:
+        if sums is None:
+            sums = _sums(newv[i:i + block])
+        a, b = sums
+        hit = -1
+        for o in index.get(_key(a, b), ()):
+            if oldv[o:o + block] == newv[i:i + block]:   # the checksum only nominates; the bytes decide
+                hit = o
+                break
+        if hit < 0:
+            if i + block < n:   # roll the window one byte: drop new[i], take new[i + block]
+                x = new[i]
+                a = a - x + new[i + block]
+                sums = (a, b - block * x + a)
+            i += 1
+            continue
+        # Grow the match back over bytes not yet written, then forward a block at a time, then byte by byte.
+        start, o_start = i, hit
+        while start > lit and o_start > 0 and new[start - 1] == old[o_start - 1]:
+            start -= 1
+            o_start -= 1
+        j, o_end = i + block, hit + block
+        while j + block <= n and o_end + block <= n_old and newv[j:j + block] == oldv[o_end:o_end + block]:
+            j += block
+            o_end += block
+        while j < n and o_end < n_old and new[j] == old[o_end]:
+            j += 1
+            o_end += 1
+        literal(lit, start)
+        copy(o_start, j - start)
+        i = lit = j
+        sums = None
+    literal(lit, n)
+    out.extend(OP_END.encode("ascii"))
+    return bytes(out)
+
+
+class PatchError(ValueError):
+    pass
+
+
+def apply_patch(old: bytes, patch: bytes) -> bytes:
+    """The reference applier: the same rules as UpdateDelta.ApplyPatch (C#), used to check every patch before it is
+    shipped and by the tests. Raises PatchError on anything the launcher would refuse."""
+    magic = PATCH_MAGIC.encode("ascii")
+    if len(patch) < len(magic) + 16 or patch[:len(magic)] != magic:
+        raise PatchError("not an ODPATCH1 patch")
+    base_size, target_size = struct.unpack_from("<QQ", patch, len(magic))
+    if base_size != len(old):
+        raise PatchError("made from another old file")
+    out = bytearray()
+    p = len(magic) + 16
+    while True:
+        if p >= len(patch):
+            raise PatchError("patch ends early")
+        op = chr(patch[p])
+        p += 1
+        if op == OP_END:
+            break
+        if op == OP_COPY:
+            if p + 12 > len(patch):
+                raise PatchError("patch ends early")
+            offset, length = struct.unpack_from("<QI", patch, p)
+            p += 12
+            if length == 0 or offset + length > len(old) or len(out) + length > target_size:
+                raise PatchError("copy outside the old file or past the new size")
+            out += old[offset:offset + length]
+        elif op == OP_LITERAL:
+            if p + 4 > len(patch):
+                raise PatchError("patch ends early")
+            (length,) = struct.unpack_from("<I", patch, p)
+            p += 4
+            if length == 0 or p + length > len(patch) or len(out) + length > target_size:
+                raise PatchError("literal past the patch or the new size")
+            out += patch[p:p + length]
+            p += length
+        else:
+            raise PatchError(f"unknown op {op!r}")
+    if p != len(patch):
+        raise PatchError("bytes after the end op")
+    if len(out) != target_size:
+        raise PatchError("wrote the wrong size")
+    return bytes(out)
+
+
 @dataclass
 class Delta:
     path: Path
     size: int
     changed: list[str]
     deleted: list[str]
+    patched: list[str]
 
 
 def build_delta(old_zip: Path, new_zip: Path, out_path: Path, from_version: str, to_version: str) -> Delta:
     """Writes the delta that turns the release in old_zip into the one in new_zip. A file is carried when
-    it is new or its bytes differ (compared by SHA-256, never by name or date). Written to out_path.part
-    and renamed, so a half-written delta never sits under the real name."""
+    it is new or its bytes differ (compared by SHA-256, never by name or date): as a patch against the same path in
+    the old release when that is smaller, else whole. Written to out_path.part and renamed, so a half-written delta
+    never sits under the real name."""
     old = read_release_zip(old_zip)
     new = read_release_zip(new_zip)
     changed = sorted(p for p, v in new.items() if old.get(p) != v)
@@ -131,17 +285,37 @@ def build_delta(old_zip: Path, new_zip: Path, out_path: Path, from_version: str,
         "files": [{"path": p, "size": new[p][0], "sha256": new[p][1]} for p in sorted(new)],
         "deleted": deleted,
     }
+    patched = []
     part = out_path.with_name(out_path.name + ".part")
-    with zipfile.ZipFile(new_zip) as src, zipfile.ZipFile(part, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as dst:
+    with zipfile.ZipFile(old_zip) as prev, zipfile.ZipFile(new_zip) as src, \
+            zipfile.ZipFile(part, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as dst:
         dst.writestr(zipfile.ZipInfo(MANIFEST, EPOCH), json.dumps(manifest, indent=1), zipfile.ZIP_DEFLATED)
-        names = {i.filename.replace("\\", "/"): i for i in src.infolist() if not i.filename.endswith(("/", "\\"))}
+        names = _entries(src)
+        old_names = _entries(prev)
         for p in changed:
-            info = zipfile.ZipInfo(FILES_PREFIX + p, EPOCH)
+            data = src.read(names[p])
+            name, payload = FILES_PREFIX + p, data
+            if p in old_names:
+                base = prev.read(old_names[p])
+                patch = make_patch(base, data)
+                # Every patch is applied once here: one that would not rebuild its file is a builder bug, and the
+                # whole delta is skipped (release_deltas) rather than shipping something the launcher would refuse.
+                if apply_patch(base, patch) != data:
+                    raise PatchError(f"{p}: the patch does not rebuild the file")
+                if len(patch) < len(data):
+                    name, payload = PATCHES_PREFIX + p, patch
+                    patched.append(p)
+            info = zipfile.ZipInfo(name, EPOCH)
             info.compress_type = zipfile.ZIP_DEFLATED
-            with src.open(names[p]) as r, dst.open(info, "w", force_zip64=True) as w:
-                shutil.copyfileobj(r, w, 1 << 20)
+            with dst.open(info, "w", force_zip64=True) as w:
+                w.write(payload)
     os.replace(part, out_path)
-    return Delta(out_path, out_path.stat().st_size, changed, deleted)
+    return Delta(out_path, out_path.stat().st_size, changed, deleted, patched)
+
+
+def _entries(z: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
+    """'/'-path -> entry for every file in a release zip (read_release_zip has already refused unsafe names)."""
+    return {i.filename.replace("\\", "/"): i for i in z.infolist() if not i.filename.endswith(("/", "\\"))}
 
 
 def sha256_file(path: Path) -> str:
@@ -228,7 +402,8 @@ def release_deltas(new_zip: Path, tag: str, out_dir: Path, gh: Runner = _gh,
             os.replace(delta.path, final)
             write_sidecar(final)
             written.append(name)
-            print(f"{name}: {delta.size / 1e6:.1f} MB ({len(delta.changed)} files changed, "
+            print(f"{name}: {delta.size / 1e6:.1f} MB ({len(delta.changed)} files changed, {len(delta.patched)} "
+                  f"as patches, "
                   f"{len(delta.deleted)} removed) instead of {full_size / 1e6:.1f} MB")
     return written
 
@@ -251,7 +426,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "build":
         d = build_delta(args.old, args.new, args.out, args.from_version, args.to_version)
         write_sidecar(d.path)
-        print(f"{d.path.name}: {d.size} bytes, {len(d.changed)} changed, {len(d.deleted)} removed")
+        print(f"{d.path.name}: {d.size} bytes, {len(d.changed)} changed ({len(d.patched)} as patches), "
+              f"{len(d.deleted)} removed")
         return 0
     names = release_deltas(args.new_zip, args.tag, args.out)
     print(f"{len(names)} delta(s) written")

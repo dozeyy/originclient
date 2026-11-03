@@ -113,15 +113,20 @@ changed, the release also carries, for each of the last 3 published releases,
 (built by `tools/release/delta.py` in the "Build the small self-updates" step,
 uploaded right after the release is created, hashes first). A delta holds a
 manifest (`origin-delta.json`: every file of the new release with size and
-SHA-256, the two versions, the paths the new release dropped) and only the files
-that were added or changed (`files/<path>`).
+SHA-256, the two versions, the paths the new release dropped) and only what was
+added or changed: a changed file as a binary patch against the same file of the
+old release (`patches/<path>`, rsync-style COPY/LITERAL ops, format ODPATCH1 in
+`delta.py`) when that is smaller, else whole (`files/<path>`). Every patch is
+applied once by the builder before it is shipped.
 
 A Windows launcher of exactly that old version (`Core/Updates/UpdateDelta.cs`,
 `UpdateService.TryStageFromDeltaAsync`):
 1. downloads the delta and checks it against its `.sha256` with the same rules
    as the full zip (no hash = not used);
-2. stages the new release into an empty stage folder: changed files from the
-   delta, unchanged ones copied from the installed folder (which it never edits);
+2. stages the new release into an empty stage folder: new files from the delta,
+   changed ones rebuilt from the installed copy plus the patch (any patch error
+   = failure), unchanged ones copied from the installed folder (which it never
+   edits);
 3. reads every staged file back and checks size + SHA-256 against the manifest,
    and that nothing else is there. Local drift, antivirus edits, partial copies,
    or a delta made for another version all fail here;
@@ -135,16 +140,23 @@ the full zip is always published and always the fallback. A zip already
 verified by the quiet retry is reused before a delta is tried. Mac and Linux
 always download the full file (a Mac update swaps the whole signed .app; Linux
 ships AppImage/tar.gz). `check_consistency.py` keeps the names in `delta.py`,
-`UpdateDelta.cs` and the workflow agreeing. Tests:
-`src/OriginLauncher.Tests/UpdateDeltaTests.cs`, `tools/release/test_delta.py`.
+`UpdateDelta.cs` (names, patch magic and ops) and the workflow agreeing. Tests:
+`src/OriginLauncher.Tests/UpdateDeltaTests.cs`, `UpdatePatchTests.cs`,
+`tools/release/test_delta.py`.
 
-How much it saves depends on what changed: the launcher exe is one ~89 MB
-single-file (it carries the .NET runtime) and changes every release, and a
-change under `src/mods/shared/` rebuilds every mod jar. Measured on the real
-release zips' file lists (CRC-32 + size per file, 2026-11-03): 1.0.83 -> 1.0.84
-changed only the exe + pdb (~90 MB of 266 MB compressed: a delta would be
-published); 1.0.78 -> 1.0.80, 1.0.80 -> 1.0.81 and 1.0.82 -> 1.0.83 changed
-all 22 files including every jar (~266 MB: no delta, full zip as before).
+Why patches: the launcher exe is one ~89 MB single-file (it carries the .NET
+runtime; the bundle is not compressed) and changes every release, and a change
+under `src/mods/shared/` rebuilds every mod jar, so whole changed files were
+nearly the full zip. But most bytes inside them stay the same (runtime files in
+the exe, unchanged entries and nested jars in each jar), only shifted. Measured
+with the real release zips (`delta.py build`, 2026-11-03), each applied by the
+launcher's own `UpdateDelta` and checked byte-identical to the new release:
+
+| Update | Changed files | Delta | Full zip | Build time (dev PC) |
+|---|---|---|---|---|
+| 1.0.83 -> 1.0.84 | 2 (exe + pdb) | 38.7 MB | 266.3 MB | 30 s |
+| 1.0.82 -> 1.0.83 | 22 (every jar) | 46.7 MB | 266.3 MB | 40 s |
+| 1.0.80 -> 1.0.81 | 22 (every jar) | 12.2 MB | 265.9 MB | 14 s |
 
 ## Rehearse first (optional, publishes nothing)
 

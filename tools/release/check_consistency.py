@@ -35,7 +35,7 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
 
 8. The small self-update (delta) — tools/release/delta.py builds it and the launcher's Core/Updates/UpdateDelta.cs
    applies it: the asset name (<win zip prefix>.delta-from-<version>.zip), its source zip, and the manifest and
-   payload names inside must agree, and launcher-release.yml must build, keep (rehearsal) and upload the deltas.
+   payload names inside, plus the binary patch format (magic and ops), must agree, and launcher-release.yml must build, keep (rehearsal) and upload the deltas.
 
 7. The Mac release files — the Mac launcher's self-update zip per arch (Core/Updates/MacReleaseAssets.cs, used by
    UpdateService.Mac.cs) must be the zip launcher-release.yml builds for that arch, and every Mac file (both zips,
@@ -209,7 +209,13 @@ def check_update_delta() -> list[str]:
         ("zip prefix", py_const("ZIP_PREFIX"), cs_const(win, "ReleaseZipPrefix")),
         ("manifest entry", py_const("MANIFEST"), cs_const(cs, "ManifestEntry")),
         ("payload folder", py_const("FILES_PREFIX"), cs_const(cs, "FilesPrefix")),
+        ("patch folder", py_const("PATCHES_PREFIX"), cs_const(cs, "PatchesPrefix")),
+        ("patch magic", py_const("PATCH_MAGIC"), cs_const(cs, "PatchMagic")),
     ]
+    # The patch ops: delta.py OP_COPY = "C" etc. vs UpdateDelta.cs OpCopy = (byte)'C' etc.
+    for py_name, cs_name in (("OP_COPY", "OpCopy"), ("OP_LITERAL", "OpLiteral"), ("OP_END", "OpEnd")):
+        m = re.search(r"const byte " + cs_name + r"\s*=\s*\(byte\)'(.)'", cs)
+        pairs.append((f"patch op {py_name}", py_const(py_name), m.group(1) if m else None))
     for what, a, b in pairs:
         if a is None or b is None:
             problems.append(f"delta {what}: constant not found (delta.py {a!r}, launcher {b!r}; update check_update_delta)")

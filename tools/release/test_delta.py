@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -29,13 +31,20 @@ def make_zip(path: Path, files: dict[str, bytes]) -> Path:
 
 
 def apply_delta(old_dir: Path, delta_zip: Path, out_dir: Path) -> None:
-    """What the launcher does (UpdateDelta.Stage), in a few lines: every manifest file from the delta or the
-    old folder, each checked against the manifest."""
+    """What the launcher does (UpdateDelta.Stage), in a few lines: every manifest file whole from the delta,
+    patched from the old folder's copy, or copied from the old folder, each checked against the manifest."""
     with zipfile.ZipFile(delta_zip) as z:
         manifest = json.loads(z.read(delta.MANIFEST))
-        carried = {n[len(delta.FILES_PREFIX):] for n in z.namelist() if n.startswith(delta.FILES_PREFIX)}
+        names = set(z.namelist())
         for f in manifest["files"]:
-            data = z.read(delta.FILES_PREFIX + f["path"]) if f["path"] in carried else (old_dir / f["path"]).read_bytes()
+            whole, patch = delta.FILES_PREFIX + f["path"], delta.PATCHES_PREFIX + f["path"]
+            assert not (whole in names and patch in names), f["path"]
+            if whole in names:
+                data = z.read(whole)
+            elif patch in names:
+                data = delta.apply_patch((old_dir / f["path"]).read_bytes(), z.read(patch))
+            else:
+                data = (old_dir / f["path"]).read_bytes()
             assert len(data) == f["size"] and hashlib.sha256(data).hexdigest() == f["sha256"], f["path"]
             dest = out_dir / f["path"]
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -106,11 +115,106 @@ class BuildDelta(unittest.TestCase):
             with self.assertRaises(ValueError, msg=str(bad)):
                 delta.build_delta(old, new, self.tmp / "d.zip", "1", "2")
 
+    def test_a_mostly_unchanged_file_ships_as_a_patch_and_still_rebuilds_exactly(self):
+        old_files = {**OLD, "OriginLauncher.App.exe": BASE}
+        new_files = {**NEW, "OriginLauncher.App.exe": EDITS["insert in the middle"]}
+        old = make_zip(self.tmp / "old.zip", old_files)
+        new = make_zip(self.tmp / "new.zip", new_files)
+        d = delta.build_delta(old, new, self.tmp / "d.zip", "1.0.1", "1.0.2")
+        self.assertEqual(d.patched, ["OriginLauncher.App.exe"])
+        with zipfile.ZipFile(d.path) as z:
+            names = set(z.namelist())
+        self.assertIn(delta.PATCHES_PREFIX + "OriginLauncher.App.exe", names)
+        self.assertNotIn(delta.FILES_PREFIX + "OriginLauncher.App.exe", names)
+        # A new file has no old copy to patch: it ships whole.
+        self.assertIn(delta.FILES_PREFIX + "Bundled/OriginClient/originclient-26.3.jar", names)
+        self.assertLess(d.size, 20_000)
+        installed = self.tmp / "installed"
+        with zipfile.ZipFile(old) as z:
+            z.extractall(installed)
+        out = self.tmp / "staged"
+        apply_delta(installed, d.path, out)
+        staged = {p.relative_to(out).as_posix(): p.read_bytes() for p in out.rglob("*") if p.is_file()}
+        self.assertEqual(staged, new_files)
+
+    def test_a_patch_that_would_not_rebuild_its_file_is_never_shipped(self):
+        old = make_zip(self.tmp / "old.zip", {**OLD, "OriginLauncher.App.exe": BASE})
+        new = make_zip(self.tmp / "new.zip", {**NEW, "OriginLauncher.App.exe": EDITS["append"]})
+        real = delta.make_patch
+        try:
+            # A builder bug: the patch drops the last byte of the file.
+            delta.make_patch = lambda o, n, block=delta.BLOCK: real(o, n[:-1])
+            with self.assertRaises(delta.PatchError):
+                delta.build_delta(old, new, self.tmp / "d.zip", "1.0.1", "1.0.2")
+        finally:
+            delta.make_patch = real
+        self.assertFalse((self.tmp / "d.zip").exists())
+
     def test_sidecar_is_sha256sum_format_of_the_final_file(self):
         f = self.tmp / delta.delta_name("1.0.1")
         f.write_bytes(b"payload")
         side = delta.write_sidecar(f)
         self.assertEqual(side.read_text(), f"{hashlib.sha256(b'payload').hexdigest()}  {f.name}\n")
+
+
+def noise(seed: int, n: int) -> bytes:
+    """Incompressible bytes, like the deflated entries of a real jar."""
+    return random.Random(seed).randbytes(n)
+
+
+BASE = noise(1, 200_000)
+EDITS = {
+    "identical": BASE,
+    "insert in the middle": BASE[:70_000] + noise(2, 3_000) + BASE[70_000:],
+    "delete from the middle": BASE[:50_000] + BASE[61_234:],
+    "shift by a few bytes": b"xyz" + BASE,
+    "moved blocks": BASE[120_000:] + BASE[:120_000],
+    "append": BASE + noise(3, 5_000),
+    "truncate": BASE[:123_457],
+    "change scattered bytes": bytes(b ^ 0xFF if i % 40_000 == 7 else b for i, b in enumerate(BASE)),
+}
+
+
+class Patches(unittest.TestCase):
+    def test_every_edit_round_trips(self):
+        for what, new in EDITS.items():
+            with self.subTest(what):
+                self.assertEqual(delta.apply_patch(BASE, delta.make_patch(BASE, new)), new)
+
+    def test_unmoved_and_moved_content_ships_as_copies_not_bytes(self):
+        # The edit itself plus at most about a block either side of each edit point: shifted content is found.
+        new_bytes = {"identical": 0, "insert in the middle": 3_000, "delete from the middle": 0,
+                     "shift by a few bytes": 3, "moved blocks": 0, "append": 5_000, "truncate": 0,
+                     "change scattered bytes": 5}
+        for what, new in EDITS.items():
+            with self.subTest(what):
+                size = len(delta.make_patch(BASE, new))
+                self.assertLessEqual(size, new_bytes[what] + 5 * delta.BLOCK, f"{what}: {size} bytes")
+
+    def test_edge_cases_round_trip(self):
+        for old, new in ((b"", b""), (b"", b"abc"), (b"abc", b""), (b"short", b"shorter"),
+                         (noise(4, 9_000), noise(5, 9_000)), (bytes(50_000), bytes(60_000))):
+            self.assertEqual(delta.apply_patch(old, delta.make_patch(old, new)), new)
+
+    def test_a_damaged_patch_is_refused(self):
+        new = EDITS["insert in the middle"]
+        good = delta.make_patch(BASE, new)
+        magic = len(delta.PATCH_MAGIC)
+        header = magic + 16
+        bad = {
+            "wrong magic": b"X" + good[1:],
+            "another old file": good[:magic] + struct.pack("<Q", len(BASE) + 1) + good[magic + 8:],
+            "cut short": good[:-1],
+            "cut before the end op": good[:len(good) // 2],
+            "bytes after the end op": good + b"E",
+            "unknown op": good[:header] + b"Z" + good[header + 1:],
+            "copy past the old file": good[:header] + b"C" + struct.pack("<QI", len(BASE) - 10, 11) + b"E",
+            "empty literal": good[:header] + b"L" + struct.pack("<I", 0) + good[header:],
+            "wrong new size": good[:header] + b"E",
+        }
+        for what, patch in bad.items():
+            with self.subTest(what), self.assertRaises(delta.PatchError):
+                delta.apply_patch(BASE, patch)
 
 
 class OlderReleases(unittest.TestCase):
