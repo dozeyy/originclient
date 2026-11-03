@@ -72,11 +72,15 @@ public abstract class NametagLabelMixin {
 			// only when one of them could apply -- an ordinary tag returns "pure vanilla"
 			// below without allocating anything.
 			boolean plusCandidate = PlusBadge.wantsNametag(entity);
-			boolean levelCandidate = entity instanceof EntityPlayer && Mods.on("hypixel") && Mods.bool("hypixel", "levelHead");
+			// Level Head only ever shows on Hypixel (levelHeadText is null elsewhere), so other
+			// servers skip the name-line test: getDisplayName() builds a fresh chat component
+			// with click and hover events (NBT) on every call, per tag, per frame.
+			boolean levelCandidate = entity instanceof EntityPlayer && com.origin.client.client.mods.Hypixel.active()
+					&& Mods.bool("hypixel", "levelHead");
 			boolean nameLine = false;
 			if (plusCandidate || levelCandidate) {
-				nameLine = entity.getDisplayName() != null
-						&& text.equals(entity.getDisplayName().getFormattedText());
+				IChatComponent display = entity.getDisplayName();
+				nameLine = display != null && text.equals(display.getFormattedText());
 			}
 			String level = nameLine && levelCandidate ? originclient$level((EntityPlayer) entity) : null;
 			// 1.8.9: the name line is the one 1.21.1 tells from the score line with PlusBadge.isScoreLine

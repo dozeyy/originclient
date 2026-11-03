@@ -172,9 +172,13 @@ public final class CosmeticsService {
 			return adjust.get(slot, axis);
 		}
 
+		// One shared array: hidesCape()/capeOffset() run per rendered player per frame, and a
+		// fresh array each call was pure garbage on full servers.
+		private static final Cosmetics.Slot[] WORN = {Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK};
+
 		/** True if something worn here (wings, a mask...) says the cape must not be drawn. */
 		public boolean hidesCape() {
-			for (Cosmetics.Slot slot : new Cosmetics.Slot[] {Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK}) {
+			for (Cosmetics.Slot slot : WORN) {
 				Cosmetics.Item it = Cosmetics.get(get(slot));
 				if (it != null && it.hidesCape()) {
 					return true;
@@ -186,7 +190,7 @@ public final class CosmeticsService {
 		/** How far (model px) the cape must sit further back so worn items don't poke through it. */
 		public float capeOffset() {
 			float off = 0f;
-			for (Cosmetics.Slot slot : new Cosmetics.Slot[] {Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK}) {
+			for (Cosmetics.Slot slot : WORN) {
 				Cosmetics.Item it = Cosmetics.get(get(slot));
 				if (it != null) {
 					off = Math.max(off, it.capeOffset());

@@ -240,6 +240,21 @@ public final class ParticleFilter {
 		return slider("multiplier", 1.0) * slider(row.multiplier, 1.0);
 	}
 
+	// Whole extra copies plus one more with the fractional chance, so 3.0x really
+	// spawns three particles. It used to spawn at most one extra (a 2x ceiling) while
+	// the global and per-type sliders multiply to 4x. Capped at 3 extra copies.
+	private static int extraCopies(double m) {
+		if (!(m > 1.0)) {
+			return 0;
+		}
+		double extra = Math.min(m - 1.0, 3.0);
+		int n = (int) extra;
+		if (random() < extra - n) {
+			n++;
+		}
+		return n;
+	}
+
 	// ThreadLocalRandom, not Level.random: the level's RandomSource is protected
 	// again from 26.2 on, and this needs to compile identically on every era.
 	private static double random() {
@@ -271,10 +286,11 @@ public final class ParticleFilter {
 			playSound(row.path, x, y, z);
 		}
 
-		// Multiplier > 1: one extra copy, jittered so it reads as "more particles"
+		// Multiplier > 1: m - 1 extra copies on average (see extraCopies), each
+		// jittered so it reads as "more particles"
 		// instead of a second particle hiding exactly behind the first.
 		double m = multiplier(row);
-		if (m > 1.0 && random() < m - 1.0) {
+		for (int n = extraCopies(m); n > 0; n--) {
 			spawningExtra = true;
 			try {
 				engine.createParticle(options,

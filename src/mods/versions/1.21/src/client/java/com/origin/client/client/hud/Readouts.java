@@ -98,11 +98,17 @@ final class Readouts {
 	}
 
 	private static void textElement(String modId, String label, HudPos def, LineSource src) {
+		// measure always runs right before render (HUD pass, HUD editor, Mod Menu preview),
+		// so render draws the Line measure just built instead of building it a second time
+		// every frame. Cleared first: a measure that throws leaves nothing to draw.
+		Line[] last = new Line[1];
 		HudElements.add(modId, modId, label, def, mc -> {
+			last[0] = null;
 			Line l = src.line(mc);
+			last[0] = l;
 			return l == null ? new int[]{0, 0} : textSize(mc, modId, l.full());
 		}, (g, mc, w, h) -> {
-			Line l = src.line(mc);
+			Line l = last[0];
 			if (l != null) {
 				textBox(g, mc, modId, l, w, h);
 			}
@@ -155,6 +161,24 @@ final class Readouts {
 		}
 	}
 
+	// ---- number text --------------------------------------------------------------
+
+	// Hand-rolled instead of String.format: readouts are rebuilt every frame, and
+	// String.format parses its pattern and builds a Formatter on every call.
+	static String pad2(int v) {
+		return v >= 0 && v < 10 ? "0" + v : Integer.toString(v);
+	}
+
+	/** {@code v} with exactly 1 or 2 decimals, rounded to nearest, Locale.ROOT style ("2.95"). */
+	static String fixed(double v, int places) {
+		long scale = places == 1 ? 10 : 100;
+		long n = Math.round(Math.abs(v) * scale);
+		long frac = n % scale;
+		String sign = v < 0 && n != 0 ? "-" : "";
+		String digits = places == 2 && frac < 10 ? "0" + frac : Long.toString(frac);
+		return sign + (n / scale) + "." + digits;
+	}
+
 	// ---- content builders ----------------------------------------------------
 
 	private static Line clockText(Minecraft mc) {
@@ -162,12 +186,12 @@ final class Readouts {
 		boolean secs = Mods.bool("clock", "showSeconds");
 		String s;
 		if (Mods.bool("clock", "militaryTime")) {
-			s = secs ? String.format("%02d:%02d:%02d", t.getHour(), t.getMinute(), t.getSecond())
-					: String.format("%02d:%02d", t.getHour(), t.getMinute());
+			s = secs ? pad2(t.getHour()) + ":" + pad2(t.getMinute()) + ":" + pad2(t.getSecond())
+					: pad2(t.getHour()) + ":" + pad2(t.getMinute());
 		} else {
 			int h12 = t.getHour() % 12 == 0 ? 12 : t.getHour() % 12;
-			s = secs ? String.format("%d:%02d:%02d", h12, t.getMinute(), t.getSecond())
-					: String.format("%d:%02d", h12, t.getMinute());
+			s = secs ? h12 + ":" + pad2(t.getMinute()) + ":" + pad2(t.getSecond())
+					: h12 + ":" + pad2(t.getMinute());
 			if (Mods.bool("clock", "showAmPm")) {
 				s += t.getHour() < 12 ? " AM" : " PM";
 			}
@@ -246,13 +270,13 @@ final class Readouts {
 		if (r <= 0 && Mods.bool("reach", "hideZero") && !HudElements.editorPreview) {
 			return null;
 		}
-		String v = String.format(Locale.ROOT, "%.2f", r);
+		String v = fixed(r, 2);
 		return Line.of(Mods.bool("reach", "reverseOrder") ? v + " blocks" : "Reach: " + v);
 	}
 
 	private static String saturationText(Minecraft mc) {
 		float sat = mc.player != null ? mc.player.getFoodData().getSaturationLevel() : 5f;
-		return String.format(Locale.ROOT, "Saturation: %.1f", sat);
+		return "Saturation: " + fixed(sat, 1);
 	}
 
 	// ---- Pack Display ---------------------------------------------------------
@@ -467,8 +491,14 @@ final class Readouts {
 		return 18 + mc.font.width(c.text()) + 1;
 	}
 
+	// The counts itemCounterSize just built; renderItemCounter draws these instead of
+	// walking the inventory again (measure always runs right before render).
+	private static List<Counted> lastCounted;
+
 	private static int[] itemCounterSize(Minecraft mc) {
+		lastCounted = null;
 		List<Counted> list = counted(mc);
+		lastCounted = list;
 		if (list.isEmpty()) {
 			return new int[]{0, 0};
 		}
@@ -489,8 +519,8 @@ final class Readouts {
 	}
 
 	private static void renderItemCounter(GuiGraphics g, Minecraft mc, int w, int h) {
-		List<Counted> list = counted(mc);
-		if (list.isEmpty()) {
+		List<Counted> list = lastCounted;
+		if (list == null || list.isEmpty()) {
 			return;
 		}
 		boolean grouped = Mods.bool("itemcounter", "grouped");
