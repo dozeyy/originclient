@@ -261,6 +261,46 @@ public sealed class LinuxSeamTests : IDisposable
         Assert.Equal(new HardwareProbe.DrmCard(0x1002, 0x744c, true, 16L * 1024 * 1024 * 1024, null), card);
     }
 
+    // A dismissed keyring unlock looks like "no key" to `secret-tool lookup`; `search` (no unlock) still lists the
+    // locked item, and a listed item is never overwritten with a new key.
+    [Fact]
+    public void A_listed_keyring_item_is_seen_even_without_its_secret()
+    {
+        const string locked = "[/org/freedesktop/secrets/collection/login/7]\nlabel = Origin Launcher account key\n"
+                              + "created = 2026-11-01 10:00:00\nmodified = 2026-11-01 10:00:00\nschema = org.freedesktop.Secret.Generic\n"
+                              + "attribute.account = account-key\nattribute.service = org.originclient.launcher\n";
+        Assert.True(LinuxKeyStore.SearchListsItem(locked));
+        Assert.True(LinuxKeyStore.SearchListsItem("attribute.service = org.originclient.launcher"));
+        Assert.False(LinuxKeyStore.SearchListsItem(""));
+        Assert.False(LinuxKeyStore.SearchListsItem("\n"));
+    }
+
+    [Fact]
+    public void A_hybrid_laptop_starts_the_game_on_its_discrete_gpu()
+    {
+        var intel = new HardwareProbe.DrmCard(0x8086, 0x9a49, true, null, null);
+        var nvidia = new HardwareProbe.DrmCard(0x10de, 0x2520, false, null, "NVIDIA GeForce RTX 3060 Laptop GPU");
+        var radeon = new HardwareProbe.DrmCard(0x1002, 0x73df, false, 12L * 1024 * 1024 * 1024, null);
+
+        // NVIDIA's own driver: prime-run's variables; nouveau (driver not loaded) and AMD: Mesa's DRI_PRIME.
+        Assert.Equal(new[] { ("__NV_PRIME_RENDER_OFFLOAD", "1"), ("__GLX_VENDOR_LIBRARY_NAME", "nvidia"), ("__VK_LAYER_NV_optimus", "NVIDIA_only") },
+            GpuPreference.OffloadEnvironment([intel, nvidia], nvidiaDriverLoaded: true));
+        Assert.Equal(new[] { ("DRI_PRIME", "1") }, GpuPreference.OffloadEnvironment([intel, nvidia], nvidiaDriverLoaded: false));
+        Assert.Equal(new[] { ("DRI_PRIME", "1") }, GpuPreference.OffloadEnvironment([intel, radeon], nvidiaDriverLoaded: false));
+    }
+
+    [Fact]
+    public void A_one_gpu_machine_or_a_discrete_display_gpu_is_left_alone()
+    {
+        var intel = new HardwareProbe.DrmCard(0x8086, 0x9a49, true, null, null);
+        var nvidiaDisplay = new HardwareProbe.DrmCard(0x10de, 0x2684, true, null, "NVIDIA GeForce RTX 4090");
+        var apu = new HardwareProbe.DrmCard(0x1002, 0x164e, false, 512L * 1024 * 1024, null);
+        Assert.Empty(GpuPreference.OffloadEnvironment([intel], nvidiaDriverLoaded: false));
+        Assert.Empty(GpuPreference.OffloadEnvironment([nvidiaDisplay, apu], nvidiaDriverLoaded: true)); // desktop: the dGPU already drives the screen
+        Assert.Empty(GpuPreference.OffloadEnvironment([intel, apu], nvidiaDriverLoaded: false)); // no discrete card beside it
+        Assert.Empty(GpuPreference.OffloadEnvironment([], nvidiaDriverLoaded: false));
+    }
+
     [Fact]
     public void Mojang_platform_names_are_linux()
     {

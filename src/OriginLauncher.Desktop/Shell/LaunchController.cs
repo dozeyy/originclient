@@ -285,6 +285,7 @@ public sealed class LaunchController
             provisioning = false;
 
             GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
+            GpuPreference.ApplyOffload(process.StartInfo); // a hybrid laptop's discrete GPU (GpuPreference.Linux.cs)
             ShaderCache.Apply(process.StartInfo, freshSettings.ShaderCacheNvidia, freshSettings.ShaderCacheAmd);
             if (freshSettings.SyncSettingsAcrossVersions)
             {

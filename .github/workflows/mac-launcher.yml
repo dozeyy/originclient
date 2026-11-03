@@ -92,10 +92,11 @@ jobs:
       # replaces WPF's, the library rules (1.8.9 LWJGL 2.9.2 on osx, 2.9.4 elsewhere) and the
       # Mac launch rules (arch per version, Rosetta, no -XstartOnFirstThread on LWJGL 2), plus the
       # import: every launcher's Mac folder found, and the page's words and paths ("/", "~", "this Mac").
+      # Also the running-game process probe (ps) and the Game folder rule ("/" paths).
       - name: Core tests (Mac mode)
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Mac
-          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests|FullyQualifiedName~MacReleaseAssetsTests|FullyQualifiedName~DeviceCodeFlowTests|FullyQualifiedName~MacImportTests|FullyQualifiedName~ImportPageLogicTests"
+          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests|FullyQualifiedName~MacReleaseAssetsTests|FullyQualifiedName~DeviceCodeFlowTests|FullyQualifiedName~MacImportTests|FullyQualifiedName~ImportPageLogicTests|FullyQualifiedName~GameRunningProbeTests|FullyQualifiedName~FieldRulesTests"
 
       # The real Microsoft sign-in card in a small window of its own (never the launcher, a throwaway data root,
       # no account): the web view (WKWebView, non-persistent store) draws Microsoft's real authorize page and
