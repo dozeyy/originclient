@@ -97,6 +97,8 @@ internal static class AreaAShots
         var scenes = new (string Name, Action Setup, Action? PerSize, Action Cleanup)[]
         {
             ("home", () => window.TourNavigate(0), null, () => { }),
+            ("home-friends-toasts", () => SocialShots.ShowHomeFriendsToasts(window), () => SocialShots.RefreshToasts(window),
+                () => SocialShots.HideHomeFriendsToasts(window)),
             ("versions-grid", () => window.TourNavigate(0), OpenPicker, home.TourHideVersions),
             ("settings", () => window.TourNavigate(3), null, () => window.TourNavigate(0)),
             ("launch-failed", () =>

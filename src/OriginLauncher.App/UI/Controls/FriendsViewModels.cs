@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Windows;
 using OriginLauncher.App.Core.Social;
 
 namespace OriginLauncher.App.UI.Controls;
@@ -11,7 +10,8 @@ namespace OriginLauncher.App.UI.Controls;
 // while the drawer is open never flickers, drops a hover or focus state, or moves
 // the scroll position.
 
-// RowVm, CardRowVm and HintVm (the shared row bases) live in RowModels.cs, shared with the Mac launcher.
+// RowVm, CardRowVm and HintVm (the shared row bases) live in RowModels.cs. This file is framework-free too, so the Mac
+// launcher links it as it is (Shared\FriendsViewModels.cs); the WPF-typed bits of ChatLineVm are in FriendsViewModels.Wpf.cs.
 
 public sealed class SectionVm : RowVm
 {
@@ -174,7 +174,7 @@ public sealed class ChatDayVm : ChatRowVm
 /// One message. Messages from the same person within five minutes form a group:
 /// the first line carries the name and time, the rest sit tight underneath.
 /// </summary>
-public sealed class ChatLineVm : ChatRowVm
+public sealed partial class ChatLineVm : ChatRowVm
 {
     public required string Id { get; init; }
     public required string Text { get; init; }
@@ -185,9 +185,8 @@ public sealed class ChatLineVm : ChatRowVm
     public bool IsMine { get; init; }
     public bool StartsGroup { get; init; }
 
-    // 14 px between groups, 6 px between lines of one group: the boundary reads at a glance.
-    public Thickness Gap => new(0, StartsGroup ? 14 : 6, 0, 0);
-    public Visibility HeaderVisibility => StartsGroup ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>14 px between groups, 6 px between lines of one group: the boundary reads at a glance.</summary>
+    public double GapTop => StartsGroup ? 14 : 6;
     public override string Key => Id;
     public override string Signature => $"{Id}|{StartsGroup}|{Author}|{DayKey}|{Time}";
 

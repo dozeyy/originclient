@@ -100,4 +100,11 @@
     <AvaloniaResource Include="..\OriginLauncher.App\Assets\Logos\*.png" Link="Assets\Logos\%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The Friends drawer and chat: the WPF drawer's own row models and keyed list sync (framework-free), so both
+         launchers build the same rows from the same Core/Social snapshot and keep hover, focus and scroll across syncs. -->
+    <Compile Include="..\OriginLauncher.App\UI\Controls\FriendsViewModels.cs" Link="Shared\FriendsViewModels.cs" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\KeyedDiff.cs" Link="Shared\KeyedDiff.cs" />
+  </ItemGroup>
+
 </Project>

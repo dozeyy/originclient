@@ -96,6 +96,7 @@ public sealed partial class MainWindow
             ImportNotice("Import", UpdateRunState.Refusal);
             return;
         }
+        if (_friendsOpen) SetFriendsOpen(false);
         Home.ImportCard.Hide();
         MarkImportPromptSeen(); // any way in: the card never offers it again
 

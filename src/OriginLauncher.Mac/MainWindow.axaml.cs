@@ -62,6 +62,7 @@ public sealed partial class MainWindow : Window
         InitAccounts();
         HookImport(); // MainWindow.Import.cs: the Import page, its button, the first-run card, closing mid-import
         HookUpdates(); // MainWindow.Update.cs: the update chip, the poll loop and the focus re-check
+        InitSocial(); // MainWindow.Social.cs: the Friends drawer and the social toasts' actions
     }
 
     // ---- Toasts and the confirm dialog ----
@@ -82,7 +83,8 @@ public sealed partial class MainWindow : Window
         var bottom = onHome
             ? Home.HomeCard.Bounds.Height + Home.HomeCard.Margin.Bottom + this.ThemeDouble("Space.2")
             : this.ThemeDouble("Space.6");
-        Toasts.Margin = new Thickness(0, 0, 0, bottom);
+        // The stack centres in what the Friends drawer leaves free.
+        Toasts.Margin = new Thickness(0, 0, _friendsOpen ? FriendsDrawer.Width : 0, bottom);
     }
 
     internal void TourShowToast(OriginLauncher.App.Core.Social.SocialToast toast) => Toasts.Show(toast);

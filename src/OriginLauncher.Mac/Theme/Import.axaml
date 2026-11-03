@@ -23,10 +23,11 @@
         <Setter Property="Margin" Value="32,0,32,32"/>
     </ControlTheme>
 
-    <!-- The focus frame of a drawer row: 3 px outside the row, 2 px of accent, the card's ring corner. -->
+    <!-- The focus frame of a drawer row: 3 px outside the row, 2 px of accent, the card's ring corner on only the corners
+         the row owns in its card (WPF: a Social.CardCorners MultiBinding on the adorned row's Pos; RowFocusFrame here). -->
     <FocusAdornerTemplate x:Key="Social.RowFocus">
-        <Border Margin="-3" AdornerLayer.IsClipEnabled="False" BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2"
-                CornerRadius="{StaticResource Radius.Ring.Lg}" IsHitTestVisible="False"/>
+        <c:RowFocusFrame Margin="-3" AdornerLayer.IsClipEnabled="False" BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2"
+                         RingRadius="{StaticResource Radius.Ring.Lg}" IsHitTestVisible="False"/>
     </FocusAdornerTemplate>
 
     <!-- ===== text ===== -->

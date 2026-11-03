@@ -6,6 +6,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Avalonia.Threading;
 using OriginLauncher.App.Core;
+using OriginLauncher.App.Core.Social;
+using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.Mac.UI;
@@ -41,12 +43,22 @@ internal static class RenderShots
         OriginPaths.UseScratchRoot(Path.Combine(Path.GetTempPath(), "origin-render-shots-" + Guid.NewGuid().ToString("N")));
         // Made-up players' heads stay on the drawn fallback: a shot run never goes online.
         OriginLauncher.App.Core.Skins.PlayerHeads.NetworkEnabled = false;
+        // Made-up friends (the WPF run's fixture): the social service in demo mode never signs in or syncs.
+        SocialHub.PlayersOnlineOff = true;
+        SocialHub.Service.ShowDemo(SocialDemo.Online(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
         var window = new MainWindow { Width = 1044, Height = 740 };
         window.Show();
         window.SetFriendsBadge(true);
         window.Home.MyMods = true;
         window.Home.SetReady(false, "Sign in to play");
         Pump();
+
+        // `--social` (WPF UI/SocialShots.cs): only the Friends drawer, party and chat, in every state (UI/Shots/SocialShots.cs).
+        if (Environment.GetCommandLineArgs().Contains("--social"))
+        {
+            Shots.SocialShots.Run(window, outDir);
+            return Finish(window, outDir);
+        }
 
         // 01: Home as the Windows CI run shows it (its desktop caps a real window at 1044 wide).
         Snap(window, "01-home");
@@ -62,6 +74,9 @@ internal static class RenderShots
         Snap(window, "01d-home-my-mods-off");
         window.Home.MyMods = true;
         Snap(window, "01e-home-my-mods-on");
+
+        // 02-06: the Friends drawer, a chat, the party chat, the toasts, then signed out (UI/Shots/SocialShots.cs).
+        Shots.SocialShots.MainRun(window, outDir);
 
         // From here on the Windows run has 1.21.1 picked (its tour selects it before the launch shots), so the 15e/15f
         // twins show the same numeral and art; a different version would make the ink widths incomparable.
@@ -92,7 +107,11 @@ internal static class RenderShots
         Shots.AreaDShots.Run(window, outDir);
         // The self-update chip in every state and the capsule scroll bar (UI/Shots/UpdateShots.cs).
         Shots.UpdateShots.Run(window, outDir);
+        return Finish(window, outDir);
+    }
 
+    private static int Finish(Window window, string outDir)
+    {
         window.Close();
         Console.WriteLine($"render-shots: {_written} PNGs in {outDir}");
         foreach (var f in _failed) Console.Error.WriteLine("render-shots: FAILED " + f);
