@@ -42,3 +42,17 @@
 ## Proof
 - Use `dev-shots set=world`; the overlays_world shot shows chunk borders and the block overlay.
 - Use the mixin export to prove the hitbox hook landed. The gizmo path loads lazily, so a shot alone may miss it.
+
+## Overlays above a shader pack's clouds (AfterShadersPass, E-5, 2026-11-03)
+- Waypoints, party pings, WorldEdit CUI and Chunk Borders must draw AFTER Iris's composite/final. Iris runs those
+  at the level render's last `Matrix4fStack.popMatrix` on 1.21.10 - 26.3 (javap), so the hook is
+  `GameRenderer.renderLevel` INVOKE of the level call: BEFORE = `AfterShadersPass.beginFrame()`, AFTER = `run()`.
+  Level call per module: 1.21.10/1.21.11 `LevelRenderer.renderLevel(...10 args)`, 26.1 `renderLevel(...ChunkSectionsToRender)`,
+  26.2 `render(...DeltaTracker...)`, 26.3 `render(GraphicsResourceAllocator;Z;CameraRenderState;...ZZ)` in `renderLevel()V`.
+- Method: wrap each overlay call in `bankBegin()/bankEnd()`; OriginRenderTypes banks instead of drawing/submitting;
+  END_MAIN records model-view (camera rotation on the stack) + projection slice; run() restores them and draws the bank.
+  1.21.10/11: private immediate BufferSources. 26.1: `getSubmitNodeStorage()` + `getFeatureRenderDispatcher().renderAllFeatures()`
+  + `mc.renderBuffers().bufferSource().endBatch()`. 26.2: own SubmitNodeStorage + `featureRenderDispatcher().renderAllFeatures(storage)`.
+  26.3: `prepareFrame(storage)` + own RenderPass (main colour + depth) + `bindDefaultUniforms` + static `renderAllFeatures(pass, frame)`.
+- Gate: compat-gates group `iris` (unknown Iris = old in-pass path). Not yet on 1.21.6/1.21.8 (Fabric v1 LAST event era).
+- Proof: `dev-shots set=world shaderpack=true`; log line "overlays drawn after the shader pack".
