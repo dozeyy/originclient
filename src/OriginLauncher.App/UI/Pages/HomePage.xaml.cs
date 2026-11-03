@@ -100,10 +100,9 @@ public partial class HomePage : UserControl
         // window judges and resets THESE, never what Settings holds when the game exits: arguments typed while the
         // game was starting were not the ones Java refused.
         public Core.Models.VersionJvmOptions? LaunchedJvmArgs { get; init; }
-        // The heap (MB) this launch really gave Java (HeapPlan.MaxMb). The crash check judges THIS, never the
-        // stored RamMb: on Auto the stored number is only the slider's suggestion (a 32 GB PC stores 16 GB while
-        // 1.8.9 really gets 4 GB), so "you ran out of 16 GB, raise to 18 GB" would name the wrong amount.
-        public int HeapMb { get; init; }
+        // What the crash check judges for this launch (CrashMemory.ForLaunch): the heap it really gave Java, never
+        // the stored RamMb (on Auto only the slider's suggestion), and the least a "Raise memory" fix may offer.
+        public CrashMemory.Facts Memory { get; init; }
     }
 
     // The game whose start the progress screen is showing, once its process is
@@ -1034,7 +1033,7 @@ public partial class HomePage : UserControl
                 LaunchedJvmArgs = freshSettings.JvmArgsFor(version) is { } jvm
                     ? new Core.Models.VersionJvmOptions { Arguments = jvm.Arguments, ReplacePresets = jvm.ReplacePresets }
                     : null,
-                HeapMb = heap.MaxMb,
+                Memory = CrashMemory.ForLaunch(heap, SystemInfo.GetTotalPhysicalMemoryMb()),
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -1349,14 +1348,15 @@ public partial class HomePage : UserControl
         try
         {
             // The heap this launch really used (Auto sizes it per version and PC), not the stored slider value.
-            var ramMb = game.HeapMb;
+            var ramMb = game.Memory.UsedMb;
             // The version's own Java arguments as this launch used them: only these can be reset (never Origin's own).
             var customJvm = game.LaunchedJvmArgs?.Arguments;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
             var fixTried = CrashRetries.AnyTried(key, DateTime.UtcNow);
             var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
-                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm));
+                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm,
+                game.Memory.RaiseFloorMb));
             var verdict = findings.Verdict;
             System.Diagnostics.Debug.WriteLine(
                 $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
@@ -1420,10 +1420,10 @@ public partial class HomePage : UserControl
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    // Manual, exactly like picking it on the Settings slider: Auto launches ignore RamMb, so
-                    // writing only the number left the relaunch on the same heap that just ran out.
-                    RamPolicy.SetManual(_settings, ram);
-                    SettingsStore.Update(s => RamPolicy.SetManual(s, ram));
+                    // Exactly the amount the window named, as Manual (CrashMemory.ApplyRaise): Auto launches ignore
+                    // RamMb, so writing only the number left the relaunch on the same heap that just ran out.
+                    CrashMemory.ApplyRaise(_settings, ram);
+                    SettingsStore.Update(s => CrashMemory.ApplyRaise(s, ram));
                     break;
                 case CrashFixKind.DisableMods:
                     // The shared repair path (Core/Compat/CrashRepair -> RepairExecutor): each jar is turned off

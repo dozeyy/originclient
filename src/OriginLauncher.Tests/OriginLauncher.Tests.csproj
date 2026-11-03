@@ -134,6 +134,7 @@
     <Compile Include="..\OriginLauncher.App\Core\Launch\HeapPlan.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\PackProbe.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\RamPolicy.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\CrashMemory.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\JvmArgPresets.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Runtime\TemurinJava8.cs" LinkBase="Runtime" />
     <!-- The performance-mod catalog (per-version pins + SHA-512), the pin's hash check and the Mods page's

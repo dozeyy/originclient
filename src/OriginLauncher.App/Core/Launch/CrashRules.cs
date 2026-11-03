@@ -132,7 +132,7 @@ public static class CrashRules
                 null, Lines(f.NativeOomLine, f.ProblematicFrameLine));
         if (f.HeapOomLine == null) return null;
 
-        var next = MemoryBump.Next(f.RamMb, f.TotalPhysicalMb);
+        var next = MemoryBump.Next(f.RamMb, f.TotalPhysicalMb, f.RaiseFloorMb);
         return new("out-of-memory", CrashCause.OutOfMemory, CrashConfidence.Confirmed, [],
             "OUT OF MEMORY", "Minecraft ran out of memory",
             "Java reported that Minecraft used all the memory it was given.",

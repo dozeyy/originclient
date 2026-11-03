@@ -72,12 +72,14 @@ public static class MemoryBump
     /// <summary>
     /// The next memory setting after an out-of-memory crash: +2 GB on the 256 MB grid, never above
     /// RamAdvice.MaximumMb for this PC. Null when the setting is already at (or past) that cap.
+    /// <paramref name="floorMb"/> (CrashMemory.ForLaunch) lifts the result to at least that, still within the cap:
+    /// the raise is applied as Manual to every version, so on Auto it must not drop the ones that got more.
     /// </summary>
-    public static int? Next(int currentMb, int totalPhysicalMb)
+    public static int? Next(int currentMb, int totalPhysicalMb, int floorMb = 0)
     {
         var cap = RamAdvice.MaximumMb(totalPhysicalMb);
         if (currentMb >= cap) return null;
-        var next = Math.Min(cap, (currentMb + 2048) / RamAdvice.StepMb * RamAdvice.StepMb);
+        var next = Math.Min(cap, Math.Max(floorMb, (currentMb + 2048) / RamAdvice.StepMb * RamAdvice.StepMb));
         return next > currentMb ? next : null;
     }
 }
