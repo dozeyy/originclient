@@ -477,13 +477,32 @@ public partial class SetupWindow : Window
         try
         {
             // The finish page's optional checkbox: open straight into the launcher's import card.
-            Process.Start(FinishLaunch.StartInfo(exe, dir, ImportToggle.IsChecked == true));
+            var start = FinishLaunch.StartInfo(exe, dir, ImportToggle.IsChecked == true);
+            if (IsElevated())
+            {
+                // Never hand the launcher (and Minecraft) Setup's administrator rights (FinishLaunch.UnelevatedStartInfo).
+                var shortcut = Path.Combine(Path.GetTempPath(), "Origin Launcher (start).lnk");
+                Shortcuts.Create(shortcut, exe, "Origin Launcher", start.Arguments);
+                start = FinishLaunch.UnelevatedStartInfo(shortcut);
+            }
+            Process.Start(start);
         }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is FileNotFoundException)
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is FileNotFoundException
+                                   || ex is System.Runtime.InteropServices.COMException || ex is UnauthorizedAccessException)
         {
             SetupLog.Write("launch failed: " + ex.Message);
         }
         Close();
+    }
+
+    private static bool IsElevated()
+    {
+        try
+        {
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            return new System.Security.Principal.WindowsPrincipal(identity).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+        catch (System.Security.SecurityException) { return false; }
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();

@@ -3,8 +3,9 @@ using OriginLauncher.App.Core.Install;
 namespace OriginSetup.Engine;
 
 // Removes Origin: shortcuts, Start-with-Windows, the Add/Remove Programs
-// entry and the install folder — and, only when the player ticks it, their
-// Origin data (accounts, settings, game instances with their worlds).
+// entry and Origin's own files (UninstallPlan decides which) — and, only when
+// the player ticks it, their Origin data (accounts, settings, game instances
+// with their worlds).
 public static class Uninstaller
 {
     /// <summary>Returns false when something could not be fully removed (it is logged).</summary>
@@ -23,11 +24,9 @@ public static class Uninstaller
         Registration.Remove();
 
         report(0.4);
-        bool ok = true;
-        if (InstallLocation.SafeToDelete(dir))
-            ok &= FileOps.TryDeleteTree(dir);
-        else
-            SetupLog.Write($"not deleting {dir}: not recognisably Origin's own folder");
+        var plan = UninstallPlan.For(dir);
+        SetupLog.Write($"install folder: {plan.Scope} ({plan.Reason})");
+        bool ok = plan.Execute();
 
         report(0.75);
         if (removeUserData)
@@ -36,5 +35,121 @@ public static class Uninstaller
         SetupLog.Write(ok ? "uninstall complete" : "uninstall finished with leftovers");
         report(1);
         return ok;
+    }
+}
+
+public enum UninstallScope
+{
+    /// <summary>Not provably Origin's: nothing in the folder is touched.</summary>
+    Nothing,
+    /// <summary>Only the files the manifest lists (then folders left empty).</summary>
+    ListedFiles,
+    /// <summary>The folder is Origin's own: all of it.</summary>
+    WholeFolder,
+}
+
+// What uninstall may delete from the install folder. Pure rules, unit-tested (UninstallTests).
+// The proof is origin-install.json (InstallManifest), never a file or folder name another program
+// could share. Never the data folder, a folder around it or inside it, a drive root or a
+// well-known folder (Documents, Downloads, AppData, ...), whatever the manifest says.
+public sealed class UninstallPlan
+{
+    private UninstallPlan(string dir, UninstallScope scope, IReadOnlyList<string> files, string reason)
+    {
+        Dir = dir;
+        Scope = scope;
+        Files = files;
+        Reason = reason;
+    }
+
+    public string Dir { get; }
+    public UninstallScope Scope { get; }
+    /// <summary>Full paths, all inside <see cref="Dir"/> (ListedFiles only).</summary>
+    public IReadOnlyList<string> Files { get; }
+    public string Reason { get; }
+
+    /// <param name="dataRoot">Origin's data folder; null = the real one. Tests pass their own.</param>
+    public static UninstallPlan For(string dir, string? dataRoot = null)
+    {
+        UninstallPlan Keep(string why) => new UninstallPlan(dir, UninstallScope.Nothing, Array.Empty<string>(), why);
+        if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return Keep("no such folder");
+        if (InstallLocation.IsWellKnownFolder(dir)) return Keep("a drive or personal/system folder, never Origin's own");
+        bool aroundData = InstallLocation.Overlaps(dir, dataRoot ?? Handoff.DataRoot);
+
+        var manifest = InstallManifest.Read(dir);
+        if (manifest == null)
+        {
+            // Installed before Setup wrote manifests (Setups before origin-install.json, or the old Inno installer).
+            // The one shape those always made themselves: a folder named OriginLauncher with the launcher in it.
+            return !aroundData && IsLegacyOwnFolder(dir)
+                ? new UninstallPlan(dir, UninstallScope.WholeFolder, Array.Empty<string>(), "an older Setup's own OriginLauncher folder")
+                : Keep(aroundData ? "this is (or holds) the data folder, and there is no install record"
+                                  : "no install record, and not a folder an older Setup made for itself");
+        }
+        if (manifest.OwnsFolder && !aroundData)
+            return new UninstallPlan(dir, UninstallScope.WholeFolder, Array.Empty<string>(), "Setup created this folder");
+        var files = manifest.Files.Select(f => InstallManifest.PathIn(dir, f)).Where(p => p != null).Select(p => p!).ToList();
+        return new UninstallPlan(dir, UninstallScope.ListedFiles, files, $"{files.Count} files Setup put here");
+    }
+
+    /// <summary>
+    /// What older Setups (and the Inno installer) always made for themselves: a folder named
+    /// OriginLauncher that holds the launcher. (Picking a busy folder made them create one.)
+    /// </summary>
+    public static bool IsLegacyOwnFolder(string dir) =>
+        string.Equals(Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                      InstallLocation.FolderName, StringComparison.OrdinalIgnoreCase)
+        && File.Exists(Path.Combine(dir, InstallLocation.LauncherExe));
+
+    /// <summary>Deletes what the plan covers. False when something could not be removed (logged).</summary>
+    public bool Execute()
+    {
+        switch (Scope)
+        {
+            case UninstallScope.WholeFolder:
+                return FileOps.TryDeleteTree(Dir);
+            case UninstallScope.ListedFiles:
+                bool ok = true;
+                foreach (var file in Files.Concat(new[] { Path.Combine(Dir, InstallManifest.FileName) }))
+                    ok &= TryDeleteFile(file);
+                ok &= FileOps.TryDeleteTree(Path.Combine(Dir, Installer.StagingFolder));
+                // Then the folders those files were in, deepest first, if nothing else is left in them.
+                var root = Path.GetFullPath(Dir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var folders = Files.Select(f => Path.GetDirectoryName(f)).Where(d => d != null)
+                    .SelectMany(d => Ancestors(d!, root)).Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(d => d.Length);
+                foreach (var folder in folders) FileOps.DeleteIfEmpty(folder);
+                FileOps.DeleteIfEmpty(Dir);
+                return ok;
+            default:
+                return true;
+        }
+    }
+
+    // The folder and its parents, up to (not including) the install folder.
+    private static IEnumerable<string> Ancestors(string folder, string root)
+    {
+        for (var d = folder; d != null && d.Length > root.Length
+             && d.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase); d = Path.GetDirectoryName(d))
+            yield return d;
+    }
+
+    private static bool TryDeleteFile(string path)
+    {
+        try
+        {
+            FileOps.Retry(() =>
+            {
+                if (!File.Exists(path)) return;
+                File.SetAttributes(path, FileAttributes.Normal);
+                File.Delete(path);
+            }, attempts: 5);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            SetupLog.Write($"could not remove {path}: {ex.Message}");
+            return false;
+        }
     }
 }

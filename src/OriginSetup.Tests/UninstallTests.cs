@@ -1,0 +1,202 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using OriginSetup.Engine;
+using Xunit;
+
+namespace OriginSetup.Tests;
+
+// What uninstall may delete (UninstallPlan) and the record install leaves for it (InstallManifest,
+// written by Installer.Commit). Bug run 3, IN-1/IN-2: uninstall once deleted the data folder (worlds)
+// with "Also delete" off, and any folder holding an uninstall.exe or named "Origin".
+[Collection("download")]
+public class UninstallTests
+{
+    private static string Temp() => TestKit.Temp("uninst");
+
+    private static void Put(string dir, string rel, string text = "x")
+    {
+        var p = Path.Combine(dir, rel.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(p)!);
+        File.WriteAllText(p, text);
+    }
+
+    // A real install through Setup's own commit: stage a launcher zip, move it into place.
+    private static void Install(string dir, bool createdFolder)
+    {
+        var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client());
+        Installer.Commit(staged, dir, createdFolder);
+    }
+
+    [Fact]
+    public void AFolderSetupCreatedIsRemovedWholeIncludingSelfUpdateFiles()
+    {
+        var dir = Path.Combine(Temp(), "Games", "Origin");
+        Install(dir, createdFolder: !Directory.Exists(dir));
+        var manifest = InstallManifest.Read(dir)!;
+        Assert.True(manifest.OwnsFolder);
+        Assert.Contains("Bundled/OriginClient/originclient-1.21.1.jar", manifest.Files);
+        Put(dir, "NewInThisUpdate.dll"); // what the launcher's self-update adds later
+
+        var plan = UninstallPlan.For(dir, Temp());
+        Assert.Equal(UninstallScope.WholeFolder, plan.Scope);
+        Assert.True(plan.Execute());
+        Assert.False(Directory.Exists(dir));
+    }
+
+    [Fact]
+    public void AFolderThatAlreadyExistedLosesOnlyOriginsFiles()
+    {
+        var dir = Temp(); // existed (empty) before Setup ran
+        Install(dir, createdFolder: false);
+        Put(dir, "my-notes.txt", "keep me");
+        Put(dir, "Bundled/OriginClient/my-own.jar", "keep me too");
+
+        var plan = UninstallPlan.For(dir, Temp());
+        Assert.Equal(UninstallScope.ListedFiles, plan.Scope);
+        Assert.True(plan.Execute());
+        Assert.Equal("keep me", File.ReadAllText(Path.Combine(dir, "my-notes.txt")));
+        Assert.Equal("keep me too", File.ReadAllText(Path.Combine(dir, "Bundled", "OriginClient", "my-own.jar")));
+        Assert.False(File.Exists(Path.Combine(dir, "OriginLauncher.App.exe")));
+        Assert.False(File.Exists(Path.Combine(dir, InstallManifest.FileName)));
+        Assert.False(Directory.Exists(Path.Combine(dir, "ThirdParty")), "a folder left empty is removed");
+    }
+
+    [Fact]
+    public void TheDataFolderIsNeverRemovedWithAlsoDeleteOff()
+    {
+        // An older Setup let the player install into %LocalAppData%\OriginLauncher itself.
+        var data = Path.Combine(Temp(), "OriginLauncher");
+        Put(data, "OriginLauncher.App.exe");
+        Put(data, "instances/1.21.1/accounts/me/saves/World/level.dat", "my world");
+        var plan = UninstallPlan.For(data, data);
+        Assert.Equal(UninstallScope.Nothing, plan.Scope);
+        Assert.True(plan.Execute());
+        Assert.Equal("my world", File.ReadAllText(Path.Combine(data, "instances", "1.21.1", "accounts", "me", "saves", "World", "level.dat")));
+
+        // Even a record claiming the folder only ever removes the files it lists.
+        new InstallManifest(true, new[] { "OriginLauncher.App.exe" }).Write(data);
+        plan = UninstallPlan.For(data, data);
+        Assert.Equal(UninstallScope.ListedFiles, plan.Scope);
+        Assert.True(plan.Execute());
+        Assert.False(File.Exists(Path.Combine(data, "OriginLauncher.App.exe")));
+        Assert.True(File.Exists(Path.Combine(data, "instances", "1.21.1", "accounts", "me", "saves", "World", "level.dat")));
+
+        // And a folder that holds the data folder is never removed either.
+        var around = Path.GetDirectoryName(data)!;
+        Put(around, "OriginLauncher.App.exe");
+        Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(around, data).Scope);
+    }
+
+    [Fact]
+    public void AnotherProgramsFolderIsLeftAlone()
+    {
+        // (a) a game whose NSIS uninstaller is also called uninstall.exe; (c) a downloads folder.
+        var game = Temp();
+        Put(game, "uninstall.exe", "theirs");
+        Put(game, "game.exe", "theirs");
+        Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(game, Temp()).Scope);
+        Assert.True(UninstallPlan.For(game, Temp()).Execute());
+        Assert.True(File.Exists(Path.Combine(game, "game.exe")));
+
+        // (b) EA's D:\Origin that an older Setup installed into as-is (its name matched): no record, not Setup's own folder.
+        var ea = Path.Combine(Temp(), "Origin");
+        Put(ea, "OriginLauncher.App.exe");
+        Put(ea, "Origin.exe", "EA");
+        Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(ea, Temp()).Scope);
+    }
+
+    [Fact]
+    public void AnInstallFromBeforeTheRecordIsRemovedOnlyFromItsOwnFolder()
+    {
+        var own = Path.Combine(Temp(), "OriginLauncher");
+        Put(own, "OriginLauncher.App.exe");
+        Put(own, "uninstall.exe");
+        Assert.Equal(UninstallScope.WholeFolder, UninstallPlan.For(own, Temp()).Scope);
+
+        // An update through Setup keeps it Origin's own and starts the record.
+        Install(own, createdFolder: false);
+        Assert.True(InstallManifest.Read(own)!.OwnsFolder);
+
+        // Without the launcher in it, a folder named OriginLauncher proves nothing.
+        var named = Path.Combine(Temp(), "OriginLauncher");
+        Put(named, "notes.txt");
+        Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(named, Temp()).Scope);
+    }
+
+    [Fact]
+    public void AnUpdateKeepsTheRecordAndAddsItsFiles()
+    {
+        var dir = Temp();
+        new InstallManifest(false, new[] { "OldOnly.dll", "OriginLauncher.App.exe" }).Write(dir);
+        Put(dir, "OldOnly.dll");
+        Put(dir, "OriginLauncher.App.exe");
+        Install(dir, createdFolder: false);
+        var manifest = InstallManifest.Read(dir)!;
+        Assert.False(manifest.OwnsFolder);
+        Assert.Contains("OldOnly.dll", manifest.Files);
+        Assert.Contains("ThirdParty/Monocraft-LICENSE.txt", manifest.Files);
+        Assert.Equal(manifest.Files.Count, manifest.Files.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
+    public void AnEditedRecordCanNeverPointOutsideTheFolder()
+    {
+        var root = Temp();
+        var dir = Path.Combine(root, "Install");
+        Put(root, "outside.txt", "keep me");
+        Put(dir, "OriginLauncher.App.exe");
+        new InstallManifest(false, new[] { "../outside.txt", Path.Combine(root, "outside.txt"), "/etc/hosts", "", "OriginLauncher.App.exe" }).Write(dir);
+        var plan = UninstallPlan.For(dir, Temp());
+        Assert.Equal(new[] { Path.Combine(dir, "OriginLauncher.App.exe") }, plan.Files);
+        plan.Execute();
+        Assert.Equal("keep me", File.ReadAllText(Path.Combine(root, "outside.txt")));
+        Assert.Null(InstallManifest.PathIn(dir, ".."));
+        Assert.Null(InstallManifest.PathIn(dir, "a/../../outside.txt"));
+    }
+
+    [Fact]
+    public void ADamagedRecordIsNoRecord()
+    {
+        var dir = Path.Combine(Temp(), "Stuff");
+        Put(dir, InstallManifest.FileName, "{ not json");
+        Assert.Null(InstallManifest.Read(dir));
+        Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(dir, Temp()).Scope);
+    }
+
+    [Fact]
+    public void WellKnownFoldersAreNeverOrigins()
+    {
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        Assert.True(InstallLocation.IsWellKnownFolder(profile));
+        Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(profile, Temp()).Scope); // only decides; never executed here
+        Assert.True(InstallLocation.IsWellKnownFolder(Path.GetPathRoot(Temp())!));
+        Assert.False(InstallLocation.IsWellKnownFolder(Temp()));
+    }
+
+    [Fact]
+    public void AFileThatCantBeReplacedPutsTheOldInstallBack()
+    {
+        // IN-7: the launcher opened meanwhile or antivirus holds a file; here a folder sits where a new file must go.
+        var dir = Temp();
+        Put(dir, "OriginLauncher.App.exe", "old launcher");
+        Put(dir, "Bundled/OriginClient/originclient-1.21.1.jar", "old jar");
+        new InstallManifest(false, new[] { "OriginLauncher.App.exe", "Bundled/OriginClient/originclient-1.21.1.jar" }).Write(dir);
+        Directory.CreateDirectory(Path.Combine(dir, "ThirdParty", "Monocraft-LICENSE.txt"));
+
+        var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client());
+        var ex = Assert.ThrowsAny<Exception>(() => Installer.Commit(staged, dir, createdFolder: false));
+        Assert.True(ex is IOException || ex is UnauthorizedAccessException, ex.ToString());
+
+        Assert.Equal("old launcher", File.ReadAllText(Path.Combine(dir, "OriginLauncher.App.exe")));
+        Assert.Equal("old jar", File.ReadAllText(Path.Combine(dir, "Bundled", "OriginClient", "originclient-1.21.1.jar")));
+        Assert.False(File.Exists(Path.Combine(dir, "Bundled", "OriginClient", "originclient-1.20.jar")), "no new-only file stays");
+        Assert.False(Directory.Exists(Path.Combine(dir, "_setup-staging")), "everything went back, so staging is cleared");
+        Assert.Equal(2, InstallManifest.Read(dir)!.Files.Count); // the record is unchanged
+    }
+
+    [Fact]
+    public void SilentInstallsLeaveStartWithWindowsAloneByDefault() =>
+        Assert.Null(new InstallOptions().StartWithWindows);
+}
