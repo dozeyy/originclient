@@ -52,6 +52,65 @@ public abstract class ChatTimestampMixin {
 
 	@Shadow @Final private List<ChatLine> chatLines;
 
+	// Wrapped lines on screen, newest first (javap 1.8.9 GuiNewChat). Stack Spam takes the
+	// previous copy's lines off this list directly instead of refreshChat(), which re-wraps
+	// every line and resets the player's scroll position.
+	@Shadow @Final private List<ChatLine> drawnChatLines;
+
+	@Shadow
+	public abstract void scroll(int amount);
+
+	// How many lines of drawnChatLines the newest message took (-1 = unknown). Every add,
+	// new or re-wrap, goes through setChatLine, and refreshChat re-adds oldest first, so
+	// the last call always describes the newest message. GuiNewChat is not replaced by
+	// Forge or OptiFine, so HEAD/RETURN here are safe.
+	@Unique
+	private ChatLine originclient$headBefore;
+	@Unique
+	private int originclient$newestLines = -1;
+
+	@Inject(method = "setChatLine", at = @At("HEAD"))
+	private void originclient$linesStart(IChatComponent c, int id, int counter, boolean displayOnly, CallbackInfo ci) {
+		originclient$headBefore = drawnChatLines.isEmpty() ? null : drawnChatLines.get(0);
+	}
+
+	@Inject(method = "setChatLine", at = @At("RETURN"))
+	private void originclient$linesEnd(IChatComponent c, int id, int counter, boolean displayOnly, CallbackInfo ci) {
+		ChatLine head = originclient$headBefore;
+		originclient$headBefore = null;
+		int k = 0;
+		boolean found = head == null;
+		for (ChatLine line : drawnChatLines) {
+			if (line == head) {
+				found = true;
+				break;
+			}
+			k++;
+		}
+		originclient$newestLines = found ? k : -1;   // a deleteChatLine(id) can take the old head away
+	}
+
+	/** Takes the newest message's lines off the screen list in place, keeping the scroll
+	 *  position; false = couldn't tell which lines they are (the caller refreshes). */
+	@Unique
+	private boolean originclient$dropNewestLines() {
+		int k = originclient$newestLines;
+		if (k <= 0 || k > drawnChatLines.size() || chatLines.isEmpty()) {
+			return false;
+		}
+		ChatLine prev = chatLines.get(0);
+		for (int i = 0; i < k; i++) {
+			ChatLine line = drawnChatLines.get(i);
+			if (line.getUpdatedCounter() != prev.getUpdatedCounter() || line.getChatLineID() != prev.getChatLineID()) {
+				return false;
+			}
+		}
+		drawnChatLines.subList(0, k).clear();
+		originclient$newestLines = -1;
+		scroll(-k);   // the lines above slid down by k: keep the same ones in view
+		return true;
+	}
+
 	@Shadow
 	public abstract void refreshChat();
 
@@ -96,8 +155,18 @@ public abstract class ChatTimestampMixin {
 				String base = message.getUnformattedText();
 				if (base.equals(originclient$lastBase) && !chatLines.isEmpty()) {
 					originclient$lastCount++;
-					chatLines.remove(0);          // drop the previous identical line (index 0 = newest)
-					refreshChat();
+					// drop the previous identical line (index 0 = newest) in place; refreshChat
+					// would re-wrap every line and throw the scroll position back to the bottom
+					boolean dropped = false;
+					try {
+						dropped = originclient$dropNewestLines();
+					} catch (Throwable t) {
+						dropped = false;
+					}
+					chatLines.remove(0);
+					if (!dropped) {
+						refreshChat();
+					}
 					// 1.8.9: keep the line's own styles (a copy), counter appended in grey.
 					result = message.createCopy();
 					result.appendSibling(new ChatComponentText(" (x" + originclient$lastCount + ")")
