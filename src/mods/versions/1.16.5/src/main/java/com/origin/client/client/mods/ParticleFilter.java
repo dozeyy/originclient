@@ -13,7 +13,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 
-import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -49,7 +49,47 @@ public final class ParticleFilter {
 	/** Floor between two dings of the same particle type — stops any machine-gunning. */
 	private static final long SOUND_GAP_MS = 110L;
 
-	private static final Map<String, Long> LAST_SOUND = new HashMap<>();
+	/**
+	 * One particle type's option keys ("p_crit", "p_crit_hide", ...) and its ding clock,
+	 * built the first time that type spawns. The filter runs on every spawn and used to
+	 * concatenate up to eight key strings per particle (and box a Long per ding).
+	 * Particle types are registry singletons, so identity is the map key. Spawns run on
+	 * the client thread only, like every caller of this class.
+	 */
+	private static final class Keys {
+		final String path, row, hide, self, players, entities, multiplier, scale, sound;
+		/** When this type last played its ding (ms), for SOUND_GAP_MS. */
+		long lastSound;
+
+		Keys(String path) {
+			this.path = path;
+			this.row = "p_".concat(path);
+			this.hide = row + "_hide";
+			this.self = row + "_self";
+			this.players = row + "_players";
+			this.entities = row + "_entities";
+			this.multiplier = row + "_multiplier";
+			this.scale = row + "_scale";
+			this.sound = row + "_sound";
+		}
+	}
+
+	private static final Map<net.minecraft.core.particles.ParticleType<?>, Keys> KEYS = new IdentityHashMap<>();
+
+	/** This spawn's cached keys, or null for an unregistered (modded, unnamed) type. */
+	private static Keys keys(ParticleOptions options) {
+		net.minecraft.core.particles.ParticleType<?> type = options.getType();
+		Keys k = KEYS.get(type);
+		if (k == null) {
+			String path = typePath(options);
+			if (path == null) {
+				return null;
+			}
+			k = new Keys(path);
+			KEYS.put(type, k);
+		}
+		return k;
+	}
 
 	/** Set while a Multiplier&gt;1 extra copy is being spawned, so it can't multiply again. */
 	private static boolean spawningExtra;
@@ -94,20 +134,20 @@ public final class ParticleFilter {
 				return true;
 			}
 		}
-		String path = typePath(options);
-		if (path != null) {
+		Keys k = keys(options);
+		if (k != null) {
 			// per-particle-type controls: master row toggle off, or its Hide flag
 			// (only for types that actually have a row — unknown types pass through)
-			if (Mods.hasOption("particles", "p_" + path) && !Mods.bool("particles", "p_" + path)) {
+			if (Mods.hasOption("particles", k.row) && !Mods.bool("particles", k.row)) {
 				return true;
 			}
-			if (Mods.bool("particles", "p_" + path + "_hide")) {
+			if (Mods.bool("particles", k.hide)) {
 				return true;
 			}
-			if (path.equals("block") && Mods.bool("particles", "hideBlockBreak")) {
+			if (k.path.equals("block") && Mods.bool("particles", "hideBlockBreak")) {
 				return true;
 			}
-			if (hiddenByContext(path, x, y, z)) {
+			if (hiddenByContext(k, x, y, z)) {
 				return true;
 			}
 		}
@@ -126,8 +166,8 @@ public final class ParticleFilter {
 			}
 		}
 		// Multiplier < 1 thins the stream. Extra copies never re-roll this.
-		if (path != null && !spawningExtra) {
-			double m = multiplier(path);
+		if (k != null && !spawningExtra) {
+			double m = multiplier(k);
 			if (m < 1.0 && random() >= m) {
 				return true;
 			}
@@ -141,10 +181,10 @@ public final class ParticleFilter {
 	 * ON, and the entity sweep only runs when a row actually turns one OFF — with
 	 * default settings this costs three config reads and nothing else.
 	 */
-	private static boolean hiddenByContext(String path, double x, double y, double z) {
-		boolean self = flag("p_" + path + "_self", true);
-		boolean players = flag("p_" + path + "_players", true);
-		boolean entities = flag("p_" + path + "_entities", true);
+	private static boolean hiddenByContext(Keys k, double x, double y, double z) {
+		boolean self = flag(k.self, true);
+		boolean players = flag(k.players, true);
+		boolean entities = flag(k.entities, true);
 		if (self && players && entities) {
 			return false;
 		}
@@ -180,8 +220,8 @@ public final class ParticleFilter {
 		return entity.getBoundingBox().inflate(CONTEXT_RADIUS).contains(x, y, z);
 	}
 
-	private static double multiplier(String path) {
-		return slider("multiplier", 1.0) * slider("p_" + path + "_multiplier", 1.0);
+	private static double multiplier(Keys k) {
+		return slider("multiplier", 1.0) * slider(k.multiplier, 1.0);
 	}
 
 	// ThreadLocalRandom, not Level.random: the level's RandomSource is protected
@@ -201,21 +241,21 @@ public final class ParticleFilter {
 		if (!Mods.on("particles") || spawningExtra) {
 			return;
 		}
-		String path = typePath(options);
-		if (path == null) {
+		Keys k = keys(options);
+		if (k == null) {
 			return;
 		}
 		if (particle != null) {
-			double s = slider("p_" + path + "_scale", 1.0);
+			double s = slider(k.scale, 1.0);
 			if (Math.abs(s - 1.0) > 0.001) {
 				particle.scale((float) s);
 			}
 		}
-		playSound(path, x, y, z);
+		playSound(k, x, y, z);
 
 		// Multiplier > 1: one extra copy, jittered so it reads as "more particles"
 		// instead of a second particle hiding exactly behind the first.
-		double m = multiplier(path);
+		double m = multiplier(k);
 		if (m > 1.0 && random() < m - 1.0) {
 			spawningExtra = true;
 			try {
@@ -230,8 +270,8 @@ public final class ParticleFilter {
 		}
 	}
 
-	private static void playSound(String path, double x, double y, double z) {
-		if (!flag("p_" + path + "_sound", false)) {
+	private static void playSound(Keys k, double x, double y, double z) {
+		if (!flag(k.sound, false)) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
@@ -239,11 +279,10 @@ public final class ParticleFilter {
 			return;
 		}
 		long now = System.currentTimeMillis();
-		Long last = LAST_SOUND.get(path);
-		if (last != null && now - last < SOUND_GAP_MS) {
+		if (now - k.lastSound < SOUND_GAP_MS) {
 			return;
 		}
-		LAST_SOUND.put(path, now);
+		k.lastSound = now;
 		// A short, quiet ding at the spawn — audible feedback (crits, hits) without
 		// turning a particle stream into noise.
 		mc.level.playLocalSound(x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS,

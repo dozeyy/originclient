@@ -27,6 +27,10 @@ public final class ItemSizes {
 	private static volatile boolean loaded = false;
 	private static Path file;
 	private static boolean dirty = false;   // slider changes not yet on disk
+	/** Item -> scale for the per-frame dropped-item hook (identity keys: no lock and no
+	 *  id.toString() per item per frame). Filled the first time each item is drawn,
+	 *  emptied whenever a size changes. Render thread only, like every caller. */
+	private static final Map<Object, Float> BY_ITEM = new java.util.IdentityHashMap<>();
 
 	public static final float MIN = 0.25f, MAX = 3.0f, DEFAULT = 1.0f;
 
@@ -38,6 +42,20 @@ public final class ItemSizes {
 		ensureLoaded();
 		Float v = SIZES.get(id.toString());
 		return v == null ? DEFAULT : v;
+	}
+
+	/** The dropped-item hook's fast path: `item`'s scale, or NaN if not cached yet (the hook
+	 *  then resolves the item's id once and calls {@link #remember}). */
+	public static float cached(Object item) {
+		Float v = BY_ITEM.get(item);
+		return v == null ? Float.NaN : v;
+	}
+
+	/** Looks `item` up by id once and caches the answer for {@link #cached}. */
+	public static float remember(Object item, ResourceLocation id) {
+		float v = get(id);
+		BY_ITEM.put(item, v);
+		return v;
 	}
 
 	public static boolean isCustom(ResourceLocation id) {
@@ -61,6 +79,7 @@ public final class ItemSizes {
 		} else {
 			SIZES.put(id.toString(), scale);
 		}
+		BY_ITEM.clear();   // the cached scales are stale now
 		dirty = true;
 	}
 

@@ -28,7 +28,11 @@ public class ItemEntityScaleMixin {
 			return;
 		}
 		poseStack.pushPose();
-		float s = ItemSizes.get(Registry.ITEM.getKey(entity.getItem().getItem()));
+		net.minecraft.world.item.Item item = entity.getItem().getItem();
+		float s = ItemSizes.cached(item);   // identity lookup; the id is resolved once per item
+		if (Float.isNaN(s)) {
+			s = ItemSizes.remember(item, Registry.ITEM.getKey(item));
+		}
 		if (s != ItemSizes.DEFAULT) {
 			poseStack.scale(s, s, s);
 		}

@@ -81,7 +81,7 @@ public final class TeamView {
 	}
 
 	// Written by the world pass, read by the HUD pass -- both on the main thread.
-	private static List<Marker> markers = new ArrayList<>();
+	private static final List<Marker> markers = new ArrayList<>();   // one list, refilled every frame
 	private static final FloatBuffer MODELVIEW = BufferUtils.createFloatBuffer(16);
 	private static final FloatBuffer PROJECTION = BufferUtils.createFloatBuffer(16);
 	private static final float[] MV = new float[16], PR = new float[16];
@@ -90,12 +90,11 @@ public final class TeamView {
 	public static void capture(float partialTicks) {
 		Minecraft mc = Minecraft.getMinecraft();
 		if (!Mods.on(MOD) || mc.thePlayer == null || mc.theWorld == null) {
-			// Off (the common case): no list to allocate every frame.
-			markers = java.util.Collections.<Marker>emptyList();
+			markers.clear();
 			return;
 		}
-		List<Marker> out = new ArrayList<>();
-		markers = out;
+		List<Marker> out = markers;
+		out.clear();   // reused: a new list used to be made every frame
 		boolean teams = Mods.bool(MOD, "scoreboardTeams");
 		boolean party = Mods.bool(MOD, "hypixel") && Hypixel.inSafeArea();
 		Team team = mc.thePlayer.getTeam();
