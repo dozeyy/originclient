@@ -46,8 +46,8 @@ public static partial class UpdateService
     // The Windows asset. It stays named here because the installer's ReleaseFeed must agree with it
     // (tools/release/check_consistency.py reads both); each OS file says which asset that OS takes (ReleaseAssetName).
     private const string AssetName = "OriginLauncher-win-x64.zip";
-    // The release pipeline publishes the zip's SHA-256 next to it (sha256sum format); see UpdateVerifier.
-    private const string HashAssetName = AssetName + ".sha256";
+    // The release pipeline publishes each zip's SHA-256 next to it as ReleaseAssetName + ".sha256"
+    // (sha256sum format); see UpdateVerifier and FindRelease below.
     // A stalled connection (no bytes for this long) aborts the download so the player can retry.
     private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(60);
 
@@ -278,7 +278,7 @@ public static partial class UpdateService
         // unpacks; the continuation returns here (UI thread) for Shutdown().
         await Task.Run(() =>
         {
-            ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+            ExtractUpdate(zipPath, stageDir); // per OS: a Mac .app needs its symlinks and exec bits kept
             File.Delete(zipPath);
         });
 

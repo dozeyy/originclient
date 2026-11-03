@@ -47,4 +47,7 @@ endlocal
     }
 
     private static void ShutdownApp() => Application.Current.Shutdown();
+
+    private static void ExtractUpdate(string zipPath, string stageDir) =>
+        System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
 }

@@ -25,7 +25,7 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    and a shipped version must never be missing from the picker.
 
 6. The self-update hash — the launcher's UpdateService looks for the zip's
-   AssetName + ".sha256" release asset and the release workflow must publish
+   ReleaseAssetName + ".sha256" release asset (on Windows ReleaseAssetName is AssetName) and the release workflow must publish
    exactly that (both in the `gh release create` list and the rehearsal artifact).
 
 Run from anywhere: python3 tools/release/check_consistency.py
@@ -160,9 +160,12 @@ def check_release_feed() -> list[str]:
 def check_update_hash() -> list[str]:
     svc = (LAUNCHER / "Core/Updates/UpdateService.cs").read_text(encoding="utf-8")
     wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
+    win = (LAUNCHER / "Core/Updates/UpdateService.Windows.cs").read_text(encoding="utf-8")
     name = re.search(r'const string AssetName\s*=\s*"([^"]*)"', svc)
-    if not name or not re.search(r'const string HashAssetName\s*=\s*AssetName\s*\+\s*"\.sha256"', svc):
-        return ["UpdateService no longer derives HashAssetName as AssetName + \".sha256\" (update check_update_hash)"]
+    # The lookup really used: ReleaseAssetName + ".sha256", where Windows' ReleaseAssetName is AssetName.
+    if not name or not re.search(r'a\.Name,\s*ReleaseAssetName\s*\+\s*"\.sha256"', svc) \
+            or not re.search(r'ReleaseAssetName\s*=\s*AssetName\s*;', win):
+        return ["UpdateService no longer looks up ReleaseAssetName + \".sha256\" with Windows' ReleaseAssetName = AssetName (update check_update_hash)"]
     hash_name = name.group(1) + ".sha256"
     n = len(re.findall(r"^\s+" + re.escape(hash_name) + r"\s*$", wf, re.M))
     return [] if n >= 2 else [f"launcher-release.yml must list {hash_name} in the release and the rehearsal artifact (found {n}x)"]

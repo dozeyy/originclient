@@ -50,6 +50,9 @@ internal static class SelfTest
             Check("skin decode", SkinDecode);
             Check("java 8 layout", JavaLayout);
             Check("update swap", UpdateSwap);
+            Check("update swap failure", UpdateSwapFailure);
+            Check("update guard", UpdateGuard);
+            Check("update unzip", UpdateUnzip);
             if (network)
             {
                 await CheckAsync("java 8 download", JavaDownload).ConfigureAwait(false);
@@ -234,14 +237,133 @@ internal static class SelfTest
         var script = Path.Combine(root, "apply-update.sh");
         File.WriteAllText(script, UpdateService.ApplyScript);
 
+        var failed = Path.Combine(root, "apply-failed-test");
+        File.WriteAllText(failed, ""); // a stale marker from an earlier failure: a good swap clears it
+
         using var launcher = Process.Start(new ProcessStartInfo("/bin/sleep", "2") { UseShellExecute = false })!; // stands in for the running launcher
         var clock = Stopwatch.StartNew();
-        var (code, output) = Run("/bin/sh", script, launcher.Id.ToString(), stage, app);
+        var (code, output) = Run("/bin/sh", script, launcher.Id.ToString(), stage, app, failed);
         Require(clock.Elapsed >= TimeSpan.FromSeconds(1.5), "the swap did not wait for the launcher to quit");
-        Require(File.ReadAllText(Path.Combine(app, "Contents", "version")) == "new", $"bundle not replaced (exit {code}): {output.Trim()}");
-        Require(!Directory.Exists(app + ".previous"), "old bundle left behind");
-        for (var i = 0; i < 100 && !File.Exists(marker); i++) Thread.Sleep(100);
-        return $"bundle swapped after the launcher quit; reopened: {(File.Exists(marker) ? "yes" : "not seen within 10 s")}";
+        Require(code == 0 && File.ReadAllText(Path.Combine(app, "Contents", "version")) == "new", $"bundle not replaced (exit {code}): {output.Trim()}");
+        Require(!Directory.Exists(app + ".previous") && !Directory.Exists(app + ".incoming"), "old or incoming bundle left behind");
+        Require(!File.Exists(failed), "the failure marker survived a good swap");
+        Require(WaitFor(marker), "the new app was not reopened");
+        return "bundle swapped after the launcher quit, nothing left behind, reopened";
+    }
+
+    // A swap that can't happen (here: the stage holds no app) still reopens the OLD app, leaves it
+    // untouched and writes the marker that makes the next try refuse before the launcher quits.
+    private static string UpdateSwapFailure()
+    {
+        var root = Path.Combine(OriginPaths.Root, "update-fail");
+        var marker = Path.Combine(root, "reopened");
+        var app = Path.Combine(root, "Applications", "Origin Launcher.app");
+        FakeBundle(app, "old", marker);
+        var stage = Path.Combine(root, "stage");
+        Directory.CreateDirectory(stage);
+        var script = Path.Combine(root, "apply-update.sh");
+        File.WriteAllText(script, UpdateService.ApplyScript);
+        var failed = UpdateService.FailedMarker(stage, root);
+
+        var (code, _) = Run("/bin/sh", script, "999999", stage, app, failed);
+        Require(code != 0, "an impossible swap reported success");
+        Require(File.ReadAllText(Path.Combine(app, "Contents", "version")) == "old", "the old app was touched");
+        Require(File.Exists(failed), "no failure marker");
+        Require(WaitFor(marker), "the old app was not reopened");
+        return $"old app kept and reopened, marker {Path.GetFileName(failed)} written";
+    }
+
+    // Refused while the launcher is still open, where UpdateGate counts it.
+    private static string UpdateGuard()
+    {
+        var root = Path.Combine(OriginPaths.Root, "update-guard");
+        var ok = Path.Combine(root, "Applications", "Origin Launcher.app");
+        Directory.CreateDirectory(ok);
+        UpdateService.EnsureCanReplace(ok);
+
+        Require(ThrowsIo(() => UpdateService.EnsureCanReplace("/private/var/folders/x/AppTranslocation/ABC/d/Origin Launcher.app")), "a translocated app was accepted");
+
+        var locked = Path.Combine(root, "ReadOnly");
+        var lockedApp = Path.Combine(locked, "Origin Launcher.app");
+        Directory.CreateDirectory(lockedApp);
+        File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            Require(ThrowsIo(() => UpdateService.EnsureCanReplace(lockedApp)), "an app in a read-only folder was accepted");
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+        return "writable folder accepted; translocated and read-only folder refused before quitting";
+    }
+
+    private static bool ThrowsIo(Action action)
+    {
+        try { action(); return false; }
+        catch (IOException) { return true; }
+    }
+
+    private static bool WaitFor(string file)
+    {
+        for (var i = 0; i < 100 && !File.Exists(file); i++) Thread.Sleep(100);
+        return File.Exists(file);
+    }
+
+    // A real signed .app, zipped the way a release will be (ditto), through the launcher's own update
+    // unpacking: symlinks and exec bits must survive and the signature must still verify.
+    private static string UpdateUnzip()
+    {
+        var root = Path.Combine(OriginPaths.Root, "update-zip");
+        var app = Path.Combine(root, "build", "Origin Launcher.app");
+        var contents = Path.Combine(app, "Contents");
+        Directory.CreateDirectory(Path.Combine(contents, "MacOS"));
+        File.WriteAllText(Path.Combine(contents, "Info.plist"), """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0"><dict>
+              <key>CFBundleExecutable</key><string>OriginLauncher</string>
+              <key>CFBundleIdentifier</key><string>org.originclient.selftest.zip</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+            </dict></plist>
+            """);
+        // This very self-test binary as the app's main executable: a real Mach-O to sign.
+        File.Copy(Environment.ProcessPath!, Path.Combine(contents, "MacOS", "OriginLauncher"));
+        // A framework laid out the way real ones are: Versions/Current and the top-level names are symlinks.
+        var fw = Path.Combine(contents, "Frameworks", "Probe.framework");
+        var fwA = Path.Combine(fw, "Versions", "A");
+        Directory.CreateDirectory(Path.Combine(fwA, "Resources"));
+        File.Copy(Environment.ProcessPath!, Path.Combine(fwA, "Probe")); // any Mach-O does; this one is at hand
+        File.WriteAllText(Path.Combine(fwA, "Resources", "Info.plist"), """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0"><dict>
+              <key>CFBundleExecutable</key><string>Probe</string>
+              <key>CFBundleIdentifier</key><string>org.originclient.selftest.probe</string>
+              <key>CFBundlePackageType</key><string>FMWK</string>
+            </dict></plist>
+            """);
+        File.CreateSymbolicLink(Path.Combine(fw, "Versions", "Current"), "A");
+        File.CreateSymbolicLink(Path.Combine(fw, "Probe"), "Versions/Current/Probe");
+        File.CreateSymbolicLink(Path.Combine(fw, "Resources"), "Versions/Current/Resources");
+
+        var (sign, signOut) = Run("/usr/bin/codesign", "--force", "--deep", "--sign", "-", app);
+        Require(sign == 0, "ad-hoc signing failed: " + signOut.Trim());
+        var zip = Path.Combine(root, "update.zip");
+        var (zipped, zipOut) = Run("/usr/bin/ditto", "-c", "-k", "--keepParent", app, zip);
+        Require(zipped == 0, "ditto zip failed: " + zipOut.Trim());
+
+        var stage = Path.Combine(root, "stage");
+        Directory.CreateDirectory(stage);
+        UpdateService.ExtractUpdate(zip, stage);
+        var staged = Path.Combine(stage, "Origin Launcher.app");
+        var current = new DirectoryInfo(Path.Combine(staged, "Contents", "Frameworks", "Probe.framework", "Versions", "Current"));
+        Require(current.LinkTarget == "A", "the framework's Versions/Current symlink did not survive");
+        var mode = File.GetUnixFileMode(Path.Combine(staged, "Contents", "MacOS", "OriginLauncher"));
+        Require(mode.HasFlag(UnixFileMode.UserExecute), "the app's executable lost its exec bit");
+        var (verify, verifyOut) = Run("/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", staged);
+        Require(verify == 0, "signature broken after unpacking: " + verifyOut.Trim());
+        return "ditto zip -> launcher unpack: symlinks + exec bit kept, codesign --verify --deep --strict passes";
     }
 
     private static void FakeBundle(string app, string version, string marker)
