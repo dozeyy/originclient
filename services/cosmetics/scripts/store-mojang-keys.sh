@@ -36,5 +36,8 @@ print(f"profile keys: {len(v['profilePropertyKeys'])}, certificate keys: {len(v[
 print("INSERT OR REPLACE INTO meta (k, v) VALUES ('mojang_keys', '%s');" % json.dumps(v, separators=(',', ':')))
 PY
 
-npx --yes wrangler@4 d1 execute origin-cosmetics --remote --command "$(cat "$tmp/keys.sql")"
+# An exact wrangler, never a range: it runs with the Cloudflare token. The same
+# version as cosmetics-service.yml (a test checks they agree); WRANGLER from
+# that workflow wins when set.
+npx --yes "${WRANGLER:-wrangler@4.151.2}" d1 execute origin-cosmetics --remote --command "$(cat "$tmp/keys.sql")"
 echo "Stored Mojang's public keys in D1."

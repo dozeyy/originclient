@@ -144,17 +144,22 @@ test('test mode: only listed testers can check out or be given anything; a live 
   assert.deepEqual((await (await api('GET', `/v1/players/${OTHER}`)).json()).owned, ['halo-gold']);
 });
 
-test('test mode: a tester listed by NAME can buy only as the UUID Mojang gives that name', async () => {
-  const OTHER = 'f'.repeat(32);
+// Mojang refuses every request from a Cloudflare Worker, so a listed NAME is
+// matched against Origin's own verified sign-ins (the names table), never Mojang.
+test('test mode: a tester listed by NAME can buy only as the account Origin verified with that name', async () => {
+  const OTHER = 'f'.repeat(32), RENAMED = '1'.repeat(32);
   env.STRIPE_TEST_PLAYERS = 'Dozeyy, bxlt';
   routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' } }]);
-  routes.push(['https://api.mojang.com/users/profiles/minecraft/dozeyy', { body: { id: UUID, name: 'dozeyy' } }]);
-  routes.push(['https://api.mojang.com/users/profiles/minecraft/bxlt', { status: 503 }]);
+  const signedIn = env.DB.raw.prepare('INSERT INTO names (uuid, name, name_lower, updated) VALUES (?, ?, ?, ?)');
+  signedIn.run(RENAMED, 'dozeyy', 'dozeyy', 1);             // held the name long ago
+  signedIn.run(UUID, 'dozeyy', 'dozeyy', 2);                // holds it now (latest sign-in)
   const buy = (uuid, name) => api('POST', '/v1/store/checkout', { uuid, name, items: ['halo-gold'] });
   assert.equal((await buy(UUID, 'dozeyy')).status, 200);
   assert.equal((await buy(OTHER, 'dozeyy')).status, 403);   // borrowing a tester's name
+  assert.equal((await buy(RENAMED, 'dozeyy')).status, 403); // its old holder
   assert.equal((await buy(OTHER, 'Alex')).status, 403);
-  assert.equal((await buy(OTHER, 'bxlt')).status, 403);     // Mojang down: no
+  assert.equal((await buy(OTHER, 'bxlt')).status, 403);     // never signed in to Origin: no
+  assert.ok(!calls.some(c => c.url.includes('mojang.com')));
   await paid(['halo-gold'], 'pi_n');                          // metadata name 'Will' isn't listed
   assert.deepEqual(await ownedNow(), []);
   env.STRIPE_TEST_PLAYERS = 'will';
@@ -279,6 +284,17 @@ test('equipped: players in game on Origin lately are listed (for the name badge)
   put.run(launcherOnly, 'launcher', null, now);
   const batch = await (await api('POST', '/v1/players/equipped', { uuids: [other, stale, launcherOnly] })).json();
   assert.deepEqual(batch.players, { [other]: { ...BARE, plus: false, origin: true } });
+});
+
+// The route is public: polling it must not tell anyone when an invisible player plays.
+test('equipped: a player who appears offline never shows as in game on Origin', async () => {
+  const hidden = 'e'.repeat(32), shown = 'b'.repeat(32), now = Date.now();
+  const put = env.DB.raw.prepare('INSERT INTO presence (uuid, client, activity, server, version, at) VALUES (?, ?, ?, NULL, NULL, ?)');
+  put.run(hidden, 'game', 'menu', now - 60_000);
+  put.run(shown, 'game', 'menu', now - 60_000);
+  env.DB.raw.prepare('INSERT INTO settings (uuid, appear_offline, offline_since, at) VALUES (?, 1, ?, ?)').run(hidden, now, now);
+  const batch = await (await api('POST', '/v1/players/equipped', { uuids: [hidden, shown] })).json();
+  assert.deepEqual(batch.players, { [shown]: { ...BARE, plus: false, origin: true } });
 });
 
 // The mod asks about up to 100 players at once (a busy server's tab list). D1 caps
@@ -478,4 +494,116 @@ test('origin+ menu themes: members unlock every theme, nobody can buy one, and i
   await subEvent('customer.subscription.deleted', sub('canceled', { id: 'sub_th' }), 101);
   assert.equal((await me()).equipped.theme, null);
   assert.ok(!(await me()).owned.includes(themes[0]));
+});
+
+// A chargeback on an Origin+ renewal: no `owned` rows to take back, so the payment
+// is looked up to find the customer, whose membership ends here and at Stripe.
+test('dispute: a chargeback on an Origin+ payment ends the membership and cancels it at Stripe, logged', async () => {
+  await subEvent('customer.subscription.created', sub('active'));
+  assert.equal((await me()).plus, true);
+  routes.push(['https://api.stripe.com/v1/payment_intents/pi_inv', { body: { id: 'pi_inv', customer: 'cus_1', metadata: {} } }]);
+  routes.push(['https://api.stripe.com/v1/subscriptions/sub_1', { body: { id: 'sub_1', status: 'canceled' } }]);
+  const logged = [], error = console.error;
+  console.error = (...a) => logged.push(a.join(' '));
+  try {
+    await stripeEvent('charge.dispute.created', { id: 'dp_2', charge: 'ch_inv', payment_intent: 'pi_inv' });
+  } finally { console.error = error; }
+  assert.equal((await me()).plus, false);
+  assert.ok(calls.some(c => c.method === 'DELETE' && c.url.endsWith('/subscriptions/sub_1')));
+  assert.match(logged.join('\n'), /DISPUTE dp_2 .*Origin\+ ended for .*cancelled at Stripe/);
+  // A later "active" event (out of order, or before Stripe's own cancel) can't revive it.
+  await subEvent('customer.subscription.updated', sub('active'), nowS() + 10);
+  assert.equal((await me()).plus, false);
+});
+
+test("dispute: when Stripe can't be read (key without the permission), a REVIEW line says what to do", async () => {
+  await subEvent('customer.subscription.created', sub('active'));
+  routes.push(['https://api.stripe.com/v1/payment_intents/', { status: 403, body: { error: { code: 'permission' } } }]);
+  const logged = [], error = console.error;
+  console.error = (...a) => logged.push(a.join(' '));
+  try {
+    await stripeEvent('charge.dispute.created', { id: 'dp_3', payment_intent: 'pi_x' });
+    await stripeEvent('charge.dispute.created', { id: 'dp_4' });
+  } finally { console.error = error; }
+  assert.match(logged[0], /DISPUTE dp_3 on pi_x: REVIEW: couldn't read the payment \(Stripe 403\)/);
+  assert.match(logged[1], /DISPUTE dp_4 .*REVIEW/);
+});
+
+test('dispute: a failed Stripe cancel still ends the perks and says the subscription is still billing', async () => {
+  await subEvent('customer.subscription.created', sub('active'));
+  routes.push(['https://api.stripe.com/v1/payment_intents/pi_inv', { body: { id: 'pi_inv', customer: 'cus_1', metadata: {} } }]);
+  routes.push(['https://api.stripe.com/v1/subscriptions/', { status: 403, body: {} }]);
+  const logged = [], error = console.error;
+  console.error = (...a) => logged.push(a.join(' '));
+  try {
+    await stripeEvent('charge.dispute.created', { id: 'dp_5', payment_intent: 'pi_inv' });
+  } finally { console.error = error; }
+  assert.equal((await me()).plus, false);
+  assert.match(logged.join('\n'), /REVIEW: cancel sub_1 in the Stripe dashboard, it is still billing \(Stripe 403\)/);
+});
+
+// Cloudflare's rate limiter, faked: `limit` per key, counted per binding.
+function fakeLimiter(limit) {
+  const seen = new Map();
+  return { keys: seen, limit: async ({ key }) => { seen.set(key, (seen.get(key) ?? 0) + 1); return { success: seen.get(key) <= limit }; } };
+}
+const fromIp = (ip, method, path, body) => handle(new Request(`https://svc.test${path}`, {
+  method, headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip }, body: body && JSON.stringify(body),
+}), env);
+
+test('rate limits: public routes are limited per caller IP with a 429 the page can show; the webhook never is', async () => {
+  env.LIMIT_STORE = fakeLimiter(2);
+  env.LIMIT_LOOKUP = fakeLimiter(3);
+  env.LIMIT_AUTH = fakeLimiter(1);
+  routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' } }]);
+  const buy = ip => fromIp(ip, 'POST', '/v1/store/checkout', { uuid: UUID, name: 'Will', items: ['halo-gold'] });
+  assert.equal((await buy('1.1.1.1')).status, 200);
+  assert.equal((await fromIp('1.1.1.1', 'POST', '/v1/store/redeem', { code: 'X' })).status !== 429, true);
+  const slow = await buy('1.1.1.1');
+  assert.equal(slow.status, 429);
+  assert.equal(slow.headers.get('Retry-After'), '60');
+  assert.match((await slow.json()).error, /Wait a minute/);
+  assert.equal((await buy('2.2.2.2')).status, 200);                      // another network is not affected
+  assert.equal(calls.filter(c => c.url.includes('checkout/sessions')).length, 2);   // the limited call never reached Stripe
+
+  for (let i = 0; i < 2; i++) assert.equal((await fromIp('1.1.1.1', 'GET', `/v1/players/${UUID}`)).status, 200);
+  assert.equal((await fromIp('1.1.1.1', 'POST', '/v1/players/equipped', { uuids: [UUID] })).status, 200);
+  assert.equal((await fromIp('1.1.1.1', 'POST', '/v1/players/equipped', { uuids: [UUID] })).status, 429);
+  assert.equal((await fromIp('1.1.1.1', 'POST', '/v1/auth', {})).status, 400);   // the body is checked once let through
+  assert.equal((await fromIp('1.1.1.1', 'POST', '/v1/auth', {})).status, 429);
+
+  // Unlimited: the catalog, Stripe's webhook, and every route when the binding is missing or fails.
+  for (let i = 0; i < 5; i++) assert.equal((await fromIp('1.1.1.1', 'GET', '/v1/store/catalog')).status, 200);
+  for (let i = 0; i < 5; i++) assert.equal((await paid(['cape-orbit'], `pi_r${i}`)).status, 200);
+  env.LIMIT_LOOKUP = { limit: async () => { throw new Error('limiter down'); } };
+  const error = console.error;
+  console.error = () => {};
+  try { assert.equal((await fromIp('1.1.1.1', 'GET', `/v1/players/${UUID}`)).status, 200); } finally { console.error = error; }
+  delete env.LIMIT_STORE;
+  assert.equal((await buy('1.1.1.1')).status, 200);
+});
+
+test('rate limits: wrangler.toml binds the three limiters the code reads, with the documented limits', () => {
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  const blocks = toml.split('[[ratelimits]]').slice(1).map(b => ({
+    name: b.match(/name = "(\w+)"/)?.[1], limit: Number(b.match(/limit = (\d+)/)?.[1]), period: Number(b.match(/period = (\d+)/)?.[1]),
+    ns: b.match(/namespace_id = "(\d+)"/)?.[1],
+  }));
+  assert.deepEqual(blocks.map(b => [b.name, b.limit, b.period]),
+    [['LIMIT_STORE', 10, 60], ['LIMIT_LOOKUP', 120, 60], ['LIMIT_AUTH', 20, 60]]);
+  assert.equal(new Set(blocks.map(b => b.ns)).size, 3);   // separate counters
+});
+
+// wrangler runs with the Cloudflare API token: an exact version everywhere, the same one.
+test('ci: every wrangler that gets the Cloudflare token is the same exact version', () => {
+  const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+  const workflow = read('../../../.github/workflows/cosmetics-service.yml');
+  const script = read('../scripts/store-mojang-keys.sh');
+  const pinned = workflow.match(/^ {2}WRANGLER: (wrangler@\S+)$/m)?.[1];
+  assert.match(pinned ?? '', /^wrangler@\d+\.\d+\.\d+$/);
+  assert.ok(script.includes(`\${WRANGLER:-${pinned}}`));
+  // Every npx call runs that pinned wrangler, never a bare or ranged one.
+  const runs = [workflow, script].flatMap(text => [...text.matchAll(/npx --yes (\S+)/g)].map(m => m[1]));
+  assert.ok(runs.length >= 4);
+  for (const run of runs) assert.ok(run === '"$WRANGLER"' || run === `"\${WRANGLER:-${pinned}}"`, run);
 });

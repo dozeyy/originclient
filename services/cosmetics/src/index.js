@@ -75,10 +75,16 @@ const adjustOf = row => { try { return cleanAdjust(JSON.parse(row?.adjust ?? 'nu
 
 // "Using Origin" = the game wrote presence lately (it does every minute while
 // running; social.js). Drives the Origin badge by every Origin player's name.
+// This route is public (no sign-in), so anyone could poll it to see when a
+// player is playing: a player who turned on Appear offline is never reported
+// (docs/SOCIAL.md: invisible = no activity anywhere). A block can't be honoured
+// here (the caller is anonymous); Appear offline is the shield against anyone.
 const ORIGIN_RECENT_MS = 10 * 60 * 1000;
 async function inGameAmong(env, uuids, now) {
   if (!uuids.length) return new Set();
-  const rows = await rowsIn(uuids, part => env.DB.prepare(`SELECT DISTINCT uuid FROM presence WHERE client = 'game' AND at > ? AND uuid IN (${part.map(() => '?').join(',')})`)
+  const rows = await rowsIn(uuids, part => env.DB.prepare(`SELECT DISTINCT p.uuid FROM presence p
+      WHERE p.client = 'game' AND p.at > ? AND p.uuid IN (${part.map(() => '?').join(',')})
+        AND NOT EXISTS (SELECT 1 FROM settings s WHERE s.uuid = p.uuid AND s.appear_offline = 1)`)
     .bind(now - ORIGIN_RECENT_MS, ...part).all());
   return new Set(rows.map(r => r.uuid));
 }
@@ -142,11 +148,50 @@ async function equip(request, env, body, now = Date.now()) {
   return json(await playerView(env, uuid));
 }
 
+// ------------------------------------------------------------ rate limits
+// The routes anyone can call without an Origin sign-in, limited per caller IP
+// so one script looping them can't use up the free plan's D1 reads for the day
+// or Stripe's API limit and take the store and Friends down for everyone.
+// Cloudflare's own rate limiter (wrangler.toml [[ratelimits]], counted at each
+// Cloudflare location, no D1 writes); docs/SOCIAL.md "Rate limits". Signed-in
+// social calls have their own per-account limits (social-shared.js allow()).
+// The Stripe webhook is never limited. A missing binding (tests, a local run)
+// or a limiter error lets the call through: the limiter must never break the store.
+//   LIMIT_STORE   10 a minute: checkouts, Origin+ checkouts, code redeems, admin codes
+//   LIMIT_LOOKUP 120 a minute: who wears what (a game asks in batches, cached 5 min)
+//   LIMIT_AUTH    20 a minute: Origin sign-in (a client signs in about once a day)
+const LIMITED = {
+  'POST /v1/store/checkout': 'LIMIT_STORE',
+  'POST /v1/plus/checkout': 'LIMIT_STORE',
+  'POST /v1/store/redeem': 'LIMIT_STORE',
+  'POST /v1/admin/codes': 'LIMIT_STORE',
+  'GET /v1/players/*': 'LIMIT_LOOKUP',
+  'POST /v1/players/equipped': 'LIMIT_LOOKUP',
+  'POST /v1/auth': 'LIMIT_AUTH',
+};
+async function overLimit(request, env, parts) {
+  const route = request.method === 'GET' && parts.length === 3 && parts[0] === 'v1' && parts[1] === 'players' ? 'v1/players/*' : parts.join('/');
+  const limiter = env[LIMITED[`${request.method} /${route}`]];
+  if (!limiter) return false;
+  try {
+    const { success } = await limiter.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
+    return !success;
+  } catch (err) {
+    console.error('origin-cosmetics: rate limiter failed, letting the call through', err);
+    return false;
+  }
+}
+
 export async function handle(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const url = new URL(request.url);
   const parts = url.pathname.split('/').filter(Boolean);
   try {
+    if (await overLimit(request, env, parts)) {
+      const r = fail(429, 'Too many tries from your network. Wait a minute and try again.');
+      r.headers.set('Retry-After', '60');
+      return r;
+    }
     if (request.method === 'GET' && parts[0] === 'v1' && parts[1] === 'players' && parts.length === 3) {
       const uuid = normUuid(parts[2]);
       return uuid ? json(await playerView(env, uuid)) : fail(400, 'bad uuid');

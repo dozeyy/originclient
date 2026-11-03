@@ -468,6 +468,7 @@ async function friendRequest(env, me, body, now) {
     env.DB.prepare('SELECT 1 AS x FROM friends WHERE a = ? AND b = ?').bind(me.uuid, them),
     env.DB.prepare('SELECT 1 AS x FROM friend_requests WHERE from_uuid = ? AND to_uuid = ?').bind(them, me.uuid),
     env.DB.prepare(`SELECT (SELECT COUNT(*) FROM friends WHERE a = ?1) AS friends,
+        (SELECT COUNT(*) FROM friends WHERE a = ?2) AS theirs,
         (SELECT COUNT(*) FROM friend_requests WHERE from_uuid = ?1) AS outgoing,
         (SELECT COUNT(*) FROM friend_requests WHERE from_uuid = ?1 AND to_uuid = ?2) AS mine`).bind(me.uuid, them),
   ])).map(r => r.results?.[0] ?? null);
@@ -478,7 +479,9 @@ async function friendRequest(env, me, body, now) {
   if (already) return fail(400, `You're already friends with ${found.name}.`);
   if (counts.friends >= L.FRIENDS_MAX) return fail(400, `You already have ${L.FRIENDS_MAX} friends. Remove someone first.`);
   if (opposite) {
-    // They already asked you: that's a yes from both sides.
+    // They already asked you: that's a yes from both sides, if they still have room
+    // (they may have filled up since asking; the cap holds for both people).
+    if (counts.theirs >= L.FRIENDS_MAX) return fail(400, `${found.name} already has ${L.FRIENDS_MAX} friends.`);
     await befriend(env, me.uuid, them, now);
     return json({ ok: true, uuid: them, name: found.name, friends: true });
   }
@@ -504,8 +507,11 @@ async function friendRespond(env, me, body, now) {
     ]);
     return json({ ok: true, friends: false });
   }
-  const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM friends WHERE a = ?').bind(me.uuid).first('n');
-  if (count >= L.FRIENDS_MAX) return fail(400, `You already have ${L.FRIENDS_MAX} friends. Remove someone first.`);
+  // The cap holds for both people: the asker may have filled up since asking.
+  const counts = await env.DB.prepare(`SELECT (SELECT COUNT(*) FROM friends WHERE a = ?1) AS mine,
+      (SELECT COUNT(*) FROM friends WHERE a = ?2) AS theirs`).bind(me.uuid, them).first();
+  if (counts.mine >= L.FRIENDS_MAX) return fail(400, `You already have ${L.FRIENDS_MAX} friends. Remove someone first.`);
+  if (counts.theirs >= L.FRIENDS_MAX) return fail(400, `They already have ${L.FRIENDS_MAX} friends, so this request can't be accepted right now.`);
   await befriend(env, me.uuid, them, now);
   return json({ ok: true, friends: true });
 }

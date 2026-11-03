@@ -25,6 +25,13 @@ concurrency:
   group: cosmetics-service-${{ github.ref }}
   cancel-in-progress: false
 
+# wrangler runs with the Cloudflare API token (Workers + D1 edit), so it is an
+# EXACT version, never a range: a new or hijacked wrangler release can't run
+# with the token until someone bumps this on purpose. services/cosmetics/
+# scripts/store-mojang-keys.sh pins the same one (a test checks they agree).
+env:
+  WRANGLER: wrangler@4.151.2
+
 jobs:
   test:
     name: Test
@@ -46,6 +53,11 @@ jobs:
       - name: Check against real Mojang data
         working-directory: services/cosmetics
         run: node scripts/check-real-mojang.mjs
+      # Builds the Worker exactly as a deploy would and checks wrangler.toml
+      # (bindings, rate limits) without uploading anything: no token here.
+      - name: Check the Worker builds (dry run, no deploy)
+        working-directory: services/cosmetics
+        run: npx --yes "$WRANGLER" deploy --dry-run --outdir "$RUNNER_TEMP/worker"
 
   deploy:
     name: Deploy to Cloudflare
@@ -77,7 +89,7 @@ jobs:
       - name: Apply database migrations
         if: steps.ready.outputs.ready == 'true'
         working-directory: services/cosmetics
-        run: npx --yes wrangler@4 d1 migrations apply origin-cosmetics --remote
+        run: npx --yes "$WRANGLER" d1 migrations apply origin-cosmetics --remote
       # Mojang's public keys, which sign-in checks signatures with (the Worker
       # can't fetch them: Mojang refuses Workers). Also refreshed weekly by
       # mojang-keys.yml. A failure keeps the keys already stored, so it warns
@@ -90,7 +102,7 @@ jobs:
       - name: Deploy Worker
         if: steps.ready.outputs.ready == 'true'
         working-directory: services/cosmetics
-        run: npx --yes wrangler@4 deploy
+        run: npx --yes "$WRANGLER" deploy
       # Smoke test the live Worker (docs/STORE.md has the URL): the service answers,
       # the store price list loads ("open" turns true once the Stripe key is set),
       # the players-online count works, and the Worker holds Mojang's keys
