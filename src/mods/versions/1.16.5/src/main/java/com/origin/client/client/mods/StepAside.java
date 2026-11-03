@@ -88,16 +88,25 @@ public final class StepAside {
 	 *    Animatium, Sword Blocking, Combat Control, Old Combat Mod, Ancient Animations,
 	 *    Bring Blocking Back, Sword Block): each redraws the held sword/items the old way,
 	 *    and two would fight over the same first-person hand draw.
+	 *  - freelook also <- freelook (Modrinth "freelook") / perspective (Modrinth
+	 *    "perspective-mod"): both orbit the camera on a held key, the same job.
+	 *  - itemphysics <- itemphysic / itemphysiclite: both re-pose dropped items.
+	 *  - menublur <- blur (Blur+): both blur the world behind menus.
+	 *  Side-by-side mods (minimaps, separate HUD pieces) never get a row: they don't
+	 *  fight, so Origin's stays on (Will, 2026-11-03). Ids: fabric.mod.json of the
+	 *  Modrinth builds (version-scout run 41653785093).
 	 * No jei row: Origin has no JEI on this version (no Fabric JEI exists for it).
 	 */
 	public static final List<Row> TABLE = Collections.unmodifiableList(Arrays.asList(
-			new Row("freelook", false, false, ids("freecam")),
+			new Row("freelook", false, false, ids("freecam", "freelook", "perspective")),
 			// Ok Zoomer's 1.16/1.17 builds (4.x, 5.0.0-beta.3) declare "okzoomer" in their fabric.mod.json; later ones "ok_zoomer".
 			new Row("zoom", false, false, ids("zoomify", "okzoomer", "ok_zoomer", "logical_zoom", "wi_zoom")),
 			new Row("saturation", false, false, ids("appleskin")),
 			new Row("worldeditcui", false, false, ids("worldeditcui")),
 			new Row("oldanimations", false, false, ids("overflowanimations", "animatium", "swordblocking",
-					"combat-control", "oldcombatmod", "ancientanimations", "bring-blocking-back", "swordblock"))));
+					"combat-control", "oldcombatmod", "ancientanimations", "bring-blocking-back", "swordblock")),
+			new Row("itemphysics", false, false, ids("itemphysic", "itemphysiclite")),
+			new Row("menublur", false, false, ids("blur"))));
 
 
 	/** A resolved overlap: the row and the display name of the mod that replaced it. */

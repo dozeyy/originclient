@@ -231,18 +231,30 @@ def signature_tests(extra_args: list[str]) -> int:
     return subprocess.run([java, "-cp", out, "SignatureTests"] + extra_args).returncode
 
 
-def pinned_jei_jar(mc: str) -> Path | None:
+def pinned_jar(mc: str, project: str, keys: str) -> Path | None:
+    """The Modrinth jar a module pins under gradle.properties key(s) `keys` (a regex), from the Gradle cache."""
     props = (VERSIONS / mc / "gradle.properties").read_text(encoding="utf-8")
-    ids = re.findall(r"^jei_(?:version|modrinth_id)\s*=\s*(\S+)", props, re.M)
+    ids = re.findall(rf"^(?:{keys})\s*=\s*(\S+)", props, re.M)
     if not ids:
         return None
-    root = Path.home() / ".gradle" / "caches" / "modules-2" / "files-2.1" / "maven.modrinth" / "jei" / ids[-1]
+    root = Path.home() / ".gradle" / "caches" / "modules-2" / "files-2.1" / "maven.modrinth" / project / ids[-1]
     jars = [j for j in sorted(root.glob("*/*.jar")) if not j.name.endswith("-sources.jar")]
     return jars[0] if jars else None
 
 
+def pinned_jei_jar(mc: str) -> Path | None:
+    return pinned_jar(mc, "jei", r"jei_version|jei_modrinth_id")
+
+
+def pinned_jars(mc: str) -> list[Path]:
+    """Every jar a module's sig lines can name: its pinned JEI, and the Sodium / Iris it pins in
+    gradle.properties (1.21.1's sodium/iris groups carry sig lines too, 2026-11-03)."""
+    found = [pinned_jei_jar(mc), pinned_jar(mc, "sodium", "sodium_version"), pinned_jar(mc, "iris", "iris_version")]
+    return [j for j in found if j is not None]
+
+
 def jar_check(only: str | None = None) -> int:
-    """Each module's sig table against the JEI jar it pins (the jar holds the names players run).
+    """Each module's sig table against the jars it pins (JEI, Sodium, Iris: they hold the names players run).
 
     only=None (local): every live module whose jar is in the Gradle cache. only=<mc> (CI build-mods, right
     after that module's build resolved its dependencies): that module alone, and a missing jar FAILS -- a JEI
@@ -256,14 +268,14 @@ def jar_check(only: str | None = None) -> int:
                 print(f"{mc}: no sig table, nothing to check")
                 return 0
             continue
-        jar = pinned_jei_jar(mc)
-        if jar is None:
+        jars = pinned_jars(mc)
+        if not jars:
             if only:
-                print(f"FAIL {mc}: its pinned JEI jar is not in the Gradle cache (did the build resolve it?)")
+                print(f"FAIL {mc}: its pinned JEI / Sodium / Iris jars are not in the Gradle cache (did the build resolve them?)")
                 return 1
-            print(f"skip {mc}: pinned JEI jar not in the Gradle cache (build the module once)")
+            print(f"skip {mc}: pinned jars not in the Gradle cache (build the module once)")
             continue
-        pairs.append(f"{mc}={data}={jar}")
+        pairs.append(f"{mc}={data}=" + os.pathsep.join(str(j) for j in jars))
     return signature_tests(["--jars"] + pairs)
 
 

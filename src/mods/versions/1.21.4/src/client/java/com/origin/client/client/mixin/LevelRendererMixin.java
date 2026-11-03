@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Two render-only client mods. The 1.21.2 render rewrite moved sky + weather into
 // the framegraph: LevelRenderer.addSkyPass(...) / addWeatherPass(...) build those
-// passes (the old renderSky / renderSnowAndRain are gone). We HEAD-cancel the whole
-// pass to skip it — Weather Toggle "Clear" and Custom Sky "Flat".
+// passes (the old renderSky / renderSnowAndRain are gone). We HEAD-cancel the sky
+// pass for Custom Sky "Flat" (Weather "Clear" needs no pass hook, see below).
 //
 // These target methods are PRIVATE and their param lists drift every version
 // (FogParameters -> GpuBufferSlice -> fewer args), so we match by NAME with a
@@ -20,14 +20,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin {
 
-	@Inject(method = "addWeatherPass", at = @At("HEAD"), cancellable = true)
-	private void originclient$skipWeather(CallbackInfo ci) {
-		// Clear mode skips the precipitation pass; other modes force rain levels
-		// tick-side (OriginClientMod.applyWeather) and render normally.
-		if (Mods.on("weather") && Mods.mode("weather", "mode").equals("Clear")) {
-			ci.cancel();
-		}
-	}
+	// Weather "Clear" no longer cancels addWeatherPass: that pass ALSO draws the
+	// world border, so cancelling it hid the border (UHC / border-shrink servers).
+	// Clear needs no render hook at all: LevelWeatherMixin -> WeatherOverride.rain()
+	// reads 0 for the client level, so the weather renderer draws no rain, snow or
+	// splashes, and the border still draws.
 
 	@Inject(method = "addSkyPass", at = @At("HEAD"), cancellable = true)
 	private void originclient$flatSky(CallbackInfo ci) {

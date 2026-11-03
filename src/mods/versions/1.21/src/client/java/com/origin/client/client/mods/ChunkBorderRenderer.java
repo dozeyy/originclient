@@ -3,10 +3,12 @@ package com.origin.client.client.mods;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.render.AfterShadersPass;
 import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -21,20 +23,45 @@ import net.minecraft.world.phys.Vec3;
 // drawn on the spot) whose width IS the thickness; rings and the floor lattice
 // are short lines thickened with parallel offset passes (core-GL line width is
 // unreliable). Drawn from the world-render hook; colours carry their own alpha.
+//
+// Under an Iris shader pack the overlay is drawn by AfterShadersPass (after the
+// pack's composite, so its clouds can't cover it); the LAST entry below then
+// returns at once. Either way the same draw() body runs.
 public final class ChunkBorderRenderer {
 	private ChunkBorderRenderer() {
 	}
 
+	// AfterShadersPass slot; -1 = not registered, so the LAST entry keeps drawing.
+	private static int slot = -1;
+
+	/** Registers the after-shaders drawer (from OriginClientMod, in draw order). */
+	public static void init() {
+		slot = AfterShadersPass.register("chunk borders", ChunkBorderRenderer::draw);
+	}
+
+	/** WorldRenderEvents.LAST entry. */
 	public static void render(WorldRenderContext context) {
+		if (AfterShadersPass.deferring(slot)) {
+			return;   // AfterShadersPass.run() draws it, after the pack's composite
+		}
+		if (context.consumers() == null || context.matrixStack() == null) {
+			return;
+		}
+		draw(context.matrixStack(), context.camera().getPosition(), context.consumers());
+	}
+
+	// The overlay itself. `lines` is the frame's bufferSource at LAST, the pass's
+	// private line buffer when deferred; the posts go through OriginRenderTypes
+	// either way and are drawn on the spot.
+	private static void draw(PoseStack matrices, Vec3 cam, MultiBufferSource lines) {
 		if (!Mods.on("chunkborders")) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || context.consumers() == null || context.matrixStack() == null) {
+		if (mc.player == null || mc.level == null) {
 			return;
 		}
 
-		Vec3 cam = context.camera().getPosition();
 		int chunkX = Mth.floor(mc.player.getX()) >> 4;
 		int chunkZ = Mth.floor(mc.player.getZ()) >> 4;
 		double x0 = (chunkX << 4) - cam.x, x1 = x0 + 16;
@@ -42,8 +69,8 @@ public final class ChunkBorderRenderer {
 		double yMin = mc.level.getMinBuildHeight() - cam.y;
 		double yMax = mc.level.getMaxBuildHeight() - cam.y;
 
-		PoseStack.Pose pose = context.matrixStack().last();
-		VertexConsumer buf = context.consumers().getBuffer(RenderType.lines());
+		PoseStack.Pose pose = matrices.last();
+		VertexConsumer buf = lines.getBuffer(RenderType.lines());
 		VertexConsumer posts = OriginRenderTypes.begin();
 
 		if (Mods.bool("chunkborders", "grid")) {

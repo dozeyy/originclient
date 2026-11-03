@@ -1,10 +1,12 @@
 package com.origin.client.client.social;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.hud.HudElements;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.AfterShadersPass;
 import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import com.origin.client.client.social.SocialState.Member;
@@ -14,6 +16,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -185,14 +188,36 @@ public final class PartyWorld {
 
 	// ---- F: ping beams (world pass, depth-tested like waypoint beams) ----
 
+	// AfterShadersPass slot; -1 = not registered, so the LAST entry keeps drawing.
+	private static int slot = -1;
+
+	/** Registers the after-shaders drawer (from OriginClientMod, in draw order). */
+	public static void init() {
+		slot = AfterShadersPass.register("party pings", PartyWorld::drawPings);
+	}
+
+	/** WorldRenderEvents.LAST entry. Under an Iris shader pack AfterShadersPass
+	 *  draws the pillars instead (after the pack's composite, so its clouds
+	 *  can't cover them) and this returns at once. */
 	public static void renderWorld(WorldRenderContext ctx) {
+		if (AfterShadersPass.deferring(slot)) {
+			return;
+		}
+		if (ctx.matrixStack() == null) {
+			return;
+		}
+		drawPings(ctx.matrixStack(), ctx.camera().getPosition(), null);
+	}
+
+	// The pillars themselves (the pass's drawer; the LAST path runs the same body).
+	// They go through OriginRenderTypes only, so the line buffer is unused.
+	private static void drawPings(PoseStack pose, Vec3 c, MultiBufferSource.BufferSource unusedLines) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || ctx.matrixStack() == null || !Social.on("showPings") || !positionsHere(mc)) {
+		if (mc.level == null || !Social.on("showPings") || !positionsHere(mc)) {
 			return;
 		}
 		String dim = mc.level.dimension().location().toString();
 		String server = FairPlay.positionKey(mc);
-		Vec3 c = ctx.camera().getPosition();
 		long now = System.currentTimeMillis();
 		boolean any = false;
 		for (Ping pg : SocialClient.pings()) {
@@ -202,7 +227,7 @@ public final class PartyWorld {
 			double x = pg.x() + 0.5 - c.x, z = pg.z() + 0.5 - c.z;
 			double half = Math.max(0.06, Math.sqrt(x * x + z * z) * 0.0014);
 			float a = (float) Mth.clamp((pg.localUntil() - now) / 5000.0, 0.15, 0.85);
-			ThickLine.vertical(OriginRenderTypes.begin(), ctx.matrixStack().last(), x, z,
+			ThickLine.vertical(OriginRenderTypes.begin(), pose.last(), x, z,
 					pg.y() + 1 - c.y, pg.y() + 64 - c.y, half, 0.914f, 0.769f, 0.416f, a);
 			any = true;
 		}

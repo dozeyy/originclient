@@ -71,8 +71,16 @@ public class StepAsideTests {
 		}
 		check(unique, "every Origin feature appears once in the table");
 		check(lower, "every foreign mod id is a lower-case Fabric id");
-		check(features.containsAll(List.of("freelook", "zoom", "saturation", "worldeditcui", "jei")),
-				"table covers freelook, zoom, saturation, worldeditcui, jei");
+		check(features.containsAll(List.of("freelook", "zoom", "saturation", "worldeditcui", "jei", "itemphysics", "menublur")),
+				"table covers freelook, zoom, saturation, worldeditcui, jei, itemphysics, menublur");
+		// Will, 2026-11-03: only mods that FIGHT Origin's get a row; side-by-side mods
+		// (minimaps, separate HUD pieces) leave Origin's on.
+		boolean noMinimap = true;
+		for (StepAside.Row r : StepAside.TABLE) {
+			noMinimap &= !r.feature().equals("minimap") && !r.foreignIds().contains("xaerominimap")
+					&& !r.foreignIds().contains("journeymap") && !r.foreignIds().contains("voxelmap");
+		}
+		check(noMinimap, "no minimap rows: a player's minimap runs beside Origin's");
 
 		// --- nothing resolved yet / nothing loaded: exactly today's behaviour ---
 		check(!StepAside.any(), "before resolve nothing is replaced");
@@ -151,9 +159,22 @@ public class StepAsideTests {
 		StepAside.resolve(Map.of("zoomify", "Z".repeat(80))::get);
 		check(StepAside.replaced("zoom").by().length() <= 32, "display names are capped at 32 chars");
 
+		// --- the 2026-11-03 rows: each fighting mod replaces exactly its own feature ---
+		StepAside.resolve(Map.of("perspective", "Perspective")::get);
+		check(StepAside.replaced("freelook") != null && "Perspective".equals(StepAside.replaced("freelook").by()),
+				"Perspective replaces Origin's freelook");
+		check(StepAside.replaced("zoom") == null, "Perspective leaves zoom alone");
+		StepAside.resolve(Map.of("itemphysiclite", "ItemPhysic Lite")::get);
+		check(StepAside.replaced("itemphysics") != null && StepAside.replaced("menublur") == null,
+				"ItemPhysic Lite replaces item physics only");
+		StepAside.resolve(Map.of("blur", "Blur+")::get);
+		check(StepAside.replaced("menublur") != null && StepAside.replaced("itemphysics") == null,
+				"Blur+ replaces menu blur only");
+
 		// --- every note is ASCII and names the replacing mod ---
 		StepAside.resolve(Map.of("freecam", "Freecam", "zoomify", "Zoomify", "appleskin", "AppleSkin",
-				"worldeditcui", "WorldEditCUI", "jei", "Just Enough Items", "overflowanimations", "OverflowAnimations")::get);
+				"worldeditcui", "WorldEditCUI", "jei", "Just Enough Items", "overflowanimations", "OverflowAnimations",
+				"itemphysic", "ItemPhysic", "blur", "Blur+")::get);
 		check(StepAside.replacedFeatures().size() == StepAside.TABLE.size(), "every row resolves when its mod is loaded");
 		boolean notesOk = true;
 		for (StepAside.Row r : StepAside.TABLE) {

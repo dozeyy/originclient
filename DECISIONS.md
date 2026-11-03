@@ -29,6 +29,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Origin+ is managed and cancelled only on the website (store page, Manage or cancel membership, Stripe sign-in by checkout email); no cancel links in the launcher or the game (2026-11-03).
 - Resource Pack hub hides re-uploaded copies and opens on hand-picked PvP/Bedwars packs in different styles; the list is built into the jar (2026-11-03).
 - Picks install from the creator's own source only when its terms allow automated downloads and the file matches a pinned hash; otherwise the tile opens the creator's page (PvPRP, MediaFire) (2026-11-03).
+- A player's mod replaces Origin's only when the two would fight (same key, same camera/input/render job, e.g. two freelooks): theirs takes priority and they can switch Origin's back on. Mods that can run side by side (minimaps, separate HUD pieces) leave Origin's on too (2026-11-03).
 
 - Mac launcher: every screen and feature of the Windows launcher; no Apple Developer account for now (the site shows the Open Anyway steps); the site calls it Mac Beta until real players confirm it works (2026-11-02).
 - A version that plays on Mac but whose shaders fail stays in the Mac picker and says shaders aren't available on Mac yet (2026-11-02).
@@ -84,3 +85,4 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - 2026-10-25 Workbench card title buttons with Inter labels and parchment dock glyphs vs 2026-10-27 "the exact vanilla dark buttons", premade dock icons: 2026-10-27 wins.
 - Palette history (Aurora -> Slate -> Ion Jade -> Workbench, 2026-09-03 to 2026-09-09): Workbench is current.
 - 2026-10-25 Inter/MSDF title-text exception vs 2026-10-27 "Minecraft's font on the loading screens; title buttons are Minecraft's dark buttons with Minecraft's font": 2026-10-27 wins. Loading screens and title buttons use Minecraft's font.
+- 2026-10-26 'Origin's turns off whenever a player's mod does the same job' narrowed 2026-11-03: only when they'd fight; side-by-side mods keep Origin's on.

@@ -125,10 +125,19 @@ public class NametagStyleMixin {
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			return mc.player != null && name != null
-					&& mc.player.getDisplayName().getString().equals(name.getString());
+					&& originclient$isOwnName(name.getString(), mc.player.getDisplayName().getString());
 		} catch (Throwable ignored) {
 			return false;
 		}
+	}
+
+	/**
+	 * The tag's text is the local player's name: exactly, or followed by a space
+	 * and more (Level Head "inline" appends " <level>" to the tag before it gets
+	 * here, so an exact match lost "Your own tag" styling on Hypixel).
+	 */
+	private static boolean originclient$isOwnName(String tag, String own) {
+		return tag.equals(own) || (tag.length() > own.length() && tag.startsWith(own) && tag.charAt(own.length()) == ' ');
 	}
 
 	private static int originclient$scaleAlpha(int argb, double f) {
