@@ -198,6 +198,11 @@ public final class Hypixel {
 			"^(?:\\[[^\\]]+\\] )*\\w{1,16}: (?:gg|good game|gg wp|ggwp|gf|ggs)[!. ]*$", Pattern.CASE_INSENSITIVE);
 	private static final Pattern FRIEND_GUILD_JOIN = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} joined\\.$");
 	private static final Pattern FRIEND_GUILD_LEAVE = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} left\\.$");
+	// Hypixel's own lobby announcements only: "[MVP+] Name joined the lobby!",
+	// ">>> [MVP++] Name slid into the lobby! <<<". A whole-line match, so a player
+	// typing "joined the lobby!" in chat ("[VIP] Name: ...") is never hidden.
+	private static final Pattern LOBBY_STATUS = Pattern.compile(
+			"^\\s*(?:>>> )?\\[[^\\]]+\\] \\w{1,16} (?:joined|[A-Za-z]+ into) the lobby!(?: <<<)?\\s*$");
 
 	/** False = drop this incoming game message. Also drives the automation and
 	 *  the party roster, which need to see every line (even ones it then hides). */
@@ -255,7 +260,7 @@ public final class Hypixel {
 			return false;
 		}
 		if (Mods.bool(MOD, "removeLobbyStatuses")
-				&& (plain.contains("joined the lobby!") || plain.contains(" into the lobby!"))) {
+				&& LOBBY_STATUS.matcher(plain).matches()) {
 			return false;
 		}
 		if (Mods.bool(MOD, "hideJoinMessages") && FRIEND_GUILD_JOIN.matcher(plain).matches()) {

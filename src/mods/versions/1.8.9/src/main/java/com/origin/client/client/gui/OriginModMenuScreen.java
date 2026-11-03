@@ -109,6 +109,10 @@ public class OriginModMenuScreen extends OriginScreen {
 	// own with no search box in use -- held for a capital letter, it never closes.
 	// (1.8.9: keyTyped only sees key-downs, so the release is read in handleKeyboardInput.)
 	private boolean rshiftTap = false;
+	// Right Shift still held from opening the menu (its key press opened it): the
+	// auto-repeat presses of that same hold must not arm the close, so they are ignored
+	// until the release that ends the hold.
+	private boolean rshiftHeldAtOpen = rshiftDownNow();
 	private String optSearch = "";                    // mod page / settings tab filter
 	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
 	private float maxScroll, maxPageScroll;
@@ -1649,7 +1653,8 @@ public class OriginModMenuScreen extends OriginScreen {
 			return true;
 		}
 		if (keyCode == Keyboard.KEY_RSHIFT) {
-			rshiftTap = !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
+			rshiftTap = !rshiftHeldAtOpen && !Keyboard.isRepeatEvent()
+					&& !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
 		if (keyCode == Keyboard.KEY_F && hasControlDown() && page == null && tab == Tab.MODS) {
@@ -1671,9 +1676,20 @@ public class OriginModMenuScreen extends OriginScreen {
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
+	private static boolean rshiftDownNow() {
+		try {
+			return Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	@Override
 	public void handleKeyboardInput() throws java.io.IOException {
 		super.handleKeyboardInput();
+		if (Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+			rshiftHeldAtOpen = false;
+		}
 		if (rshiftTap && Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
 			rshiftTap = false;
 			beginClose();

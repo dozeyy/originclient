@@ -99,6 +99,10 @@ public class OriginModMenuScreen extends Screen {
 	// E2: Right Shift closes the menu on release, and only when it was tapped on its
 	// own with no search box in use -- held for a capital letter, it never closes.
 	private boolean rshiftTap = false;
+	// Right Shift still held from opening the menu (its key press opened it): the
+	// auto-repeat presses of that same hold must not arm the close, so they are ignored
+	// until the release that ends the hold.
+	private boolean rshiftHeldAtOpen = rshiftDownNow();
 	private String optSearch = "";                    // mod page / settings tab filter
 	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
 	private float maxScroll, maxPageScroll;
@@ -1590,7 +1594,7 @@ public class OriginModMenuScreen extends Screen {
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
-			rshiftTap = !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
+			rshiftTap = !rshiftHeldAtOpen && !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_F && hasControlDown() && page == null && tab == Tab.MODS) {
@@ -1612,8 +1616,20 @@ public class OriginModMenuScreen extends Screen {
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
+	private static boolean rshiftDownNow() {
+		try {
+			return com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+					net.minecraft.client.Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	@Override
 	public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+			rshiftHeldAtOpen = false;
+		}
 		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT && rshiftTap) {
 			rshiftTap = false;
 			beginClose();
