@@ -58,7 +58,7 @@ public final class ShaderDownloader {
 			com.origin.client.OriginClient.LOGGER.warn("Shader remove failed for {}", slug, t);
 		}
 		STATES.remove(slug);
-		writeIndex();
+		writeIndex(slug);
 	}
 
 	/**
@@ -97,7 +97,8 @@ public final class ShaderDownloader {
 				// unparseable filename — leave the state as-is
 			}
 		}
-		writeIndex();
+		// No write here: a pack missing from THIS instance's folder may be installed in
+		// another one sharing the list (Settings Sync); only Remove drops an entry.
 	}
 
 	// ---- installed-pack index (config/originclient-shaders.json: slug -> file name) ----
@@ -106,7 +107,7 @@ public final class ShaderDownloader {
 	// the Installed badge, never the packs themselves.
 	// What the file holds, as last read or written (null = not read yet). syncWithDisk
 	// runs on the render thread every time the browser opens: it reads the file once
-	// per session and writes only when the installed set really changed.
+	// per session and never writes; a download adds an entry, Remove drops one.
 	private static Map<String, String> indexCache = null;
 
 	private static Path indexFile() {
@@ -137,12 +138,17 @@ public final class ShaderDownloader {
 		return out;
 	}
 
-	private static synchronized void writeIndex() {
-		Map<String, String> now = new java.util.HashMap<>();
+	/** Saves the list: every entry already in it (other instances' packs included),
+	 *  plus this session's installs, minus `removedSlug` (a Remove; null otherwise). */
+	private static synchronized void writeIndex(String removedSlug) {
+		Map<String, String> now = new java.util.HashMap<>(readIndex());
 		for (var e : STATES.entrySet()) {
 			if (e.getValue().status() == Status.DONE) {
 				now.put(e.getKey(), e.getValue().message());
 			}
+		}
+		if (removedSlug != null) {
+			now.remove(removedSlug);
 		}
 		if (now.equals(readIndex())) {
 			return;   // nothing installed or removed since the file was last read/written
@@ -201,7 +207,7 @@ public final class ShaderDownloader {
 			Path dest = dir.resolve(name);
 			if (Files.exists(dest)) {
 				STATES.put(slug, new State(Status.DONE, 1, name));
-				writeIndex();
+				writeIndex(null);
 				return;
 			}
 
@@ -241,7 +247,7 @@ public final class ShaderDownloader {
 				Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
 			}
 			STATES.put(slug, new State(Status.DONE, 1, name));
-			writeIndex();
+			writeIndex(null);
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader download failed for {}", slug, t);
 			STATES.put(slug, new State(Status.ERROR, 0, "Download failed"));
