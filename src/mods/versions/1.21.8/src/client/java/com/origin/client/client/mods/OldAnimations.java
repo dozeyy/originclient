@@ -24,6 +24,7 @@ import net.minecraft.world.item.FoodOnAStickItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.phys.AABB;
 
 /**
  * 1.7 Animations: the 1.7 first- and third-person look, one switch per part.
@@ -126,7 +127,7 @@ public final class OldAnimations {
 		boolean main = hand == InteractionHand.MAIN_HAND;
 		boolean swordBlock = Mods.bool(MOD, "swordBlock");
 		boolean right = (main ? p.getMainArm() : p.getMainArm().getOpposite()) == HumanoidArm.RIGHT;
-		boolean positions = Mods.bool(MOD, "itemPositions") && isFlat(stack, p);
+		boolean positions = Mods.bool(MOD, "itemPositions") && isFlat(stack, p, main);
 		boolean usingThis = p.isUsingItem() && p.getUseItemRemainingTicks() > 0 && p.getUsedItemHand() == hand;
 
 		Pose pose;
@@ -205,12 +206,15 @@ public final class OldAnimations {
 	 *
 	 * 1.21.6: maps are anything with a map id (vanilla's own map-hand test here). The model test
 	 * resolves the stack into one reused render state (no allocation per frame), the same
-	 * resolve vanilla's renderItem does for this hand anyway. A special renderer announces itself
-	 * through appendModelIdentityElement(SpecialModelWrapper) at the top of its update; the probe
-	 * overrides that hook (1.21.6 would otherwise grow an identity list clear() never empties;
-	 * 1.21.8 made the base hook a no-op), so one method works on both.
+	 * resolve vanilla's renderItem does for this hand. 1.21.1 asked the BakedModel for !isGui3d()
+	 * (only item/generated models are not gui3d); 1.21.5+ has no isGui3d, so flat = front-lit like
+	 * item/generated (usesBlockLight false) AND one pixel deep (item/generated's 7.5..8.5 px slab):
+	 * a resource pack's 3D sword parented to item/handheld is front-lit too but deeper, so it stays
+	 * vanilla as on 1.21.1. A special renderer (shield, heads...) is also never flat. Resolving and
+	 * measuring allocates, so the answer is cached against the hand's ItemStack instance (vanilla
+	 * keeps the same instance until the slot changes).
 	 */
-	private static boolean isFlat(ItemStack stack, LivingEntity e) {
+	private static boolean isFlat(ItemStack stack, LivingEntity e, boolean main) {
 		if (stack.has(DataComponents.MAP_ID)) {
 			return false;
 		}
@@ -219,14 +223,39 @@ public final class OldAnimations {
 				&& anim != ItemUseAnimation.BOW && anim != ItemUseAnimation.BLOCK) {
 			return false;
 		}
+		if (main ? stack == flatMainStack : stack == flatOffStack) {
+			return main ? flatMain : flatOff;
+		}
+		boolean flat = measureFlat(stack, e);
+		if (main) {
+			flatMainStack = stack;
+			flatMain = flat;
+		} else {
+			flatOffStack = stack;
+			flatOff = flat;
+		}
+		return flat;
+	}
+
+	/** Resolves the stack the way it is drawn (context NONE) and measures it; see isFlat. */
+	private static boolean measureFlat(ItemStack stack, LivingEntity e) {
 		FLAT_PROBE.special = false;
 		Minecraft.getInstance().getItemModelResolver().updateForTopItem(FLAT_PROBE, stack, ItemDisplayContext.NONE,
 				e.level(), e, 0);
-		if (FLAT_PROBE.isEmpty() || FLAT_PROBE.usesBlockLight()) {
-			return false;
+		boolean flat = false;
+		if (!FLAT_PROBE.isEmpty() && !FLAT_PROBE.usesBlockLight() && !FLAT_PROBE.special) {
+			AABB box = FLAT_PROBE.getModelBoundingBox();
+			flat = box.maxZ - box.minZ <= 0.0625 + 1.0E-3;
 		}
-		return !FLAT_PROBE.special; // shield, heads, banners, chests...: drawn by their own renderer
+		FLAT_PROBE.clear();
+		return flat;
 	}
+
+	// isFlat's per-hand cache (render thread only).
+	private static ItemStack flatMainStack = null;
+	private static ItemStack flatOffStack = null;
+	private static boolean flatMain = false;
+	private static boolean flatOff = false;
 
 	/** Reused by isFlat on the render thread only. */
 	private static final FlatProbe FLAT_PROBE = new FlatProbe();
