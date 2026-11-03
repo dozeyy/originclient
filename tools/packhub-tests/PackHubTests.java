@@ -388,6 +388,10 @@ public final class PackHubTests {
 				hit("c", "Bedwars Pack", "u1", 9, ""), hit("d", "Bedwars Pack 16x", "u2", 8, ""),
 				hit("e", "Low Fire", "u3", 7, ""), hit("f", "Low Fire", "u4", 6, "")));
 		eq(6, r.hits.size(), "shared words / generic titles never merge");
+		// real Modrinth case (2026-11-03 discover run): four different crosshair packs, one generic word
+		r = PackDedupe.collapse(List.of(hit("c1", "PvP Crosshair", "Discorde", 9, ""), hit("c2", "Crosshair v3", "punyumbrella", 8, ""),
+				hit("c3", "PVP CROSSHAIR", "d_de_diego_d", 7, ""), hit("c4", "Crosshair", "Scroutop", 6, "")));
+		eq(4, r.hits.size(), "distinct crosshair packs stay apart");
 
 		// one uploader's distinct packs stay apart; others' copies join the right one
 		r = PackDedupe.collapse(List.of(hit("f32", "Faithful 32x", "Faithful", 900, "a"),

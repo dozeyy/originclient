@@ -73,9 +73,10 @@ public final class PackDedupe {
 			"swords", "low", "fire", "shield", "totem", "ui", "gui", "mode", "red", "blue", "green", "purple", "pink",
 			"black", "white", "gold", "yellow", "orange", "aqua", "cyan", "colorful", "colourful", "cute", "anime",
 			"my", "best", "better", "good", "cool", "nice", "custom", "overlay", "overlays", "glass", "ores", "tweaks",
-			"realistic", "classic", "modern", "legacy"));
+			"realistic", "classic", "modern", "legacy", "crosshair", "crosshairs", "hud", "sky", "particles",
+			"particle", "totems", "hitbox", "hitboxes", "items", "blocks", "sounds", "font"));
 	/** Descriptions shorter than this (normalized) are too generic to prove a copy. */
-	static final int MIN_DESC = 40;
+	static final int MIN_DESC = 60;
 
 	/** Title key without resolution tags ("bombies 180k"); "" = too generic to compare. */
 	public static String looseKey(String title) {
