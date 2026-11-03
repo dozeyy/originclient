@@ -1557,9 +1557,8 @@ public partial class HomePage : UserControl
             $"{version}_{SafeFileName(game.AccountName)}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
         game.LogPath = logPath;
 
-        StreamWriter? logWriter = null;
-        try { logWriter = new StreamWriter(logPath, append: false) { AutoFlush = true }; }
-        catch { /* logging is best-effort — a failed log file must never block a launch */ }
+        // Best-effort and capped at 50 MB (GameLogFile): a mod spamming errors can no longer fill the disk.
+        var logWriter = GameLogFile.TryOpen(logPath);
 
         // Hard rule: the launched game is fully independent of the launcher.
         // Nothing the child process does — exiting, crashing, or a late burst of
@@ -1625,7 +1624,7 @@ public partial class HomePage : UserControl
                     var line = $"[Origin] Minecraft exited with code {exitCode}";
                     lock (gate)
                     {
-                        if (logWriter != null) logWriter.WriteLine(line);
+                        if (logWriter != null) logWriter.WriteClosingLine(line);
                         else File.AppendAllText(logPath, line + Environment.NewLine);
                     }
                 }

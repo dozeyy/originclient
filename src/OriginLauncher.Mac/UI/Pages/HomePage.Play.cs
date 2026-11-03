@@ -881,9 +881,8 @@ public sealed partial class HomePage
         var logPath = Path.Combine(OriginPaths.Logs, $"{version}_{SafeFileName(game.AccountName)}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
         game.LogPath = logPath;
 
-        StreamWriter? logWriter = null;
-        try { logWriter = new StreamWriter(logPath, append: false) { AutoFlush = true }; }
-        catch { /* a failed log file must never block a launch */ }
+        // Best-effort and capped at 50 MB (GameLogFile): a mod spamming errors can no longer fill the disk.
+        var logWriter = GameLogFile.TryOpen(logPath);
 
         var gate = new object();
         var openStreams = 2;
