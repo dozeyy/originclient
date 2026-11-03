@@ -242,6 +242,13 @@ public final class CosmeticsService {
 	private static final long REDISCOVER_MS = 10L * 60L * 1000L;
 	private static final int BATCH = 100;
 	private static final int MAX_WANTED = 500;
+	// Cache eviction: an entry someone still looks at is re-requested (and so
+	// refreshed) once it goes stale, so an entry stale for EVICT_MS more is one
+	// nobody has asked about for ~10 min. Swept on the worker, never per frame;
+	// before, every player ever seen stayed in memory for the whole session.
+	private static final long EVICT_MS = 10L * 60L * 1000L;
+	private static final long SWEEP_MS = 60L * 1000L;
+	private static volatile long sweptAt = 0;
 
 	private static final HttpClient HTTP = HttpClient.newBuilder()
 			.connectTimeout(Duration.ofSeconds(8))
@@ -463,6 +470,11 @@ public final class CosmeticsService {
 			}
 			if (status == Status.READY && !WANTED.isEmpty()) {
 				lookupBatch();
+			}
+			long now = System.currentTimeMillis();
+			if (now - sweptAt >= SWEEP_MS) {
+				sweptAt = now;
+				LOOKS.values().removeIf(e -> e.freshUntil() + EVICT_MS < now);
 			}
 		} catch (Throwable t) {
 			// the worker must survive anything a single round throws
