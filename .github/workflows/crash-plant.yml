@@ -40,6 +40,11 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
         run: |
           sudo apt-get update

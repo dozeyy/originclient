@@ -1,0 +1,136 @@
+# Cold start: double-click to first frame of the launcher window (the <3s rule in CLAUDE.md), A/B on one
+# Windows runner: this ref, published like a release, against a published release's own zip. Nobody opens the
+# launcher on Will's PC, so this is where it gets timed. A runner is not a player's PC: read the two as a pair.
+#
+# Each round starts each build once with --startup-trace (Core/StartupTrace.cs) and reads the "ContentRendered
+# (first frame)" mark, which counts from the process start. Round 0 is the first run of each exe, where a
+# single-file exe also unpacks its native files; it is reported, not counted in the median.
+#
+# Start it from a push to a claude/** branch whose head commit message carries [cold-start] or
+# [cold-start base=launcher-v1.0.77 rounds=7], or by hand (Run workflow) once this file is on main.
+name: cold-start
+
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Release tag to compare against; empty = the latest"
+        default: ""
+      rounds:
+        description: "Rounds counted in the median"
+        default: "7"
+
+permissions:
+  contents: read
+
+jobs:
+  time:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cold-start')
+    name: Launcher cold start
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # Stamped like a release, so it takes the release code paths (a dev build skips some). No mod jars: they are
+      # loose files nothing reads before the first frame.
+      - name: Publish this ref like a release
+        shell: pwsh
+        run: |
+          dotnet publish src/OriginLauncher.App/OriginLauncher.App.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Version=1.0.9999 -o pub-new | Select-Object -Last 3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Download the release to compare against
+        id: base
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MSG: ${{ github.event.head_commit.message }}
+          I_BASE: ${{ github.event.inputs.base }}
+          I_ROUNDS: ${{ github.event.inputs.rounds }}
+        run: |
+          $base = $env:I_BASE; $rounds = $env:I_ROUNDS
+          if ($env:MSG -match '\[cold-start([^\]]*)\]') {
+            if ($Matches[1] -match 'base=([A-Za-z0-9._-]+)') { $base = $Matches[1] }
+          }
+          if ($env:MSG -match '\[cold-start[^\]]*rounds=(\d{1,2})[^\]]*\]') { $rounds = $Matches[1] }
+          if (-not $rounds) { $rounds = '7' }
+          if (-not $base) { $base = gh release view --json tagName --jq .tagName }
+          gh release download $base -p OriginLauncher-win-x64.zip -O base.zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Expand-Archive base.zip pub-base
+          "tag=$base" >> $env:GITHUB_OUTPUT
+          "rounds=$rounds" >> $env:GITHUB_OUTPUT
+
+      - name: Same files as the release (mod jars aside)
+        shell: pwsh
+        run: |
+          function Names($d) {
+            $root = (Resolve-Path $d).Path
+            Get-ChildItem $d -Recurse -File | ForEach-Object { $_.FullName.Substring($root.Length + 1) } |
+              Where-Object { $_ -notlike 'Bundled\OriginClient\*' } | Sort-Object
+          }
+          $diff = Compare-Object @(Names pub-base) @(Names pub-new)
+          foreach ($d in $diff) { Write-Host "$($d.SideIndicator) $($d.InputObject)" }
+          $gone = @($diff | Where-Object SideIndicator -eq '<=')
+          if ($gone.Count -gt 0) { Write-Host "::error::$($gone.Count) files the release ships are missing from this publish"; exit 1 }
+          $a = (Get-Item pub-base/OriginLauncher.App.exe).Length / 1MB; $b = (Get-Item pub-new/OriginLauncher.App.exe).Length / 1MB
+          Write-Host ("exe size: release {0:N1} MB, this ref {1:N1} MB" -f $a, $b)
+
+      - name: Time both
+        shell: pwsh
+        env:
+          BASE_TAG: ${{ steps.base.outputs.tag }}
+          ROUNDS: ${{ steps.base.outputs.rounds }}
+        run: |
+          $log = "$env:LOCALAPPDATA\OriginLauncher\logs\startup-trace.log"
+          function Start-Timed($dir) {
+            Remove-Item $log -Force -ErrorAction SilentlyContinue
+            $p = Start-Process "$dir\OriginLauncher.App.exe" -ArgumentList '--startup-trace' -PassThru
+            $ms = $null
+            $deadline = (Get-Date).AddSeconds(90)
+            while ((Get-Date) -lt $deadline -and $null -eq $ms -and -not $p.HasExited) {
+              Start-Sleep -Milliseconds 200
+              if (Test-Path $log) {
+                $line = Get-Content $log -ErrorAction SilentlyContinue | Select-String 'ContentRendered' | Select-Object -First 1
+                if ($line) { $ms = [int]($line.Line.Trim() -split '\s+')[0] }
+              }
+            }
+            $exited = $p.HasExited
+            if (-not $exited) { $p.Kill($true); $p.WaitForExit() }
+            if ($null -eq $ms) {
+              Write-Host "::error::$dir never drew its first frame (exited on its own: $exited)"
+              $logs = Split-Path $log
+              if (Test-Path $logs) { Get-ChildItem $logs -File | Sort-Object LastWriteTime | Select-Object -Last 2 | ForEach-Object { Write-Host "--- $($_.Name)"; Get-Content $_.FullName -Tail 30 } }
+              exit 1
+            }
+            Start-Sleep -Milliseconds 500
+            return $ms
+          }
+          function Median($xs) { $s = @($xs | Sort-Object); return $s[[int][math]::Floor($s.Count / 2)] }
+
+          $times = @{ 'pub-base' = @(); 'pub-new' = @() }
+          $first = @{ 'pub-base' = Start-Timed 'pub-base'; 'pub-new' = Start-Timed 'pub-new' }
+          for ($i = 1; $i -le [int]$env:ROUNDS; $i++) {
+            $order = if ($i % 2) { 'pub-new', 'pub-base' } else { 'pub-base', 'pub-new' }
+            foreach ($v in $order) { $times[$v] += Start-Timed $v }
+          }
+          $medBase = Median $times['pub-base']; $medNew = Median $times['pub-new']
+          $md = @(
+            "| | first run | median of $($env:ROUNDS) | all |", "|---|---|---|---|",
+            "| $env:BASE_TAG | $($first['pub-base']) ms | $medBase ms | $($times['pub-base'] -join ' ') |",
+            "| this ref | $($first['pub-new']) ms | $medNew ms | $($times['pub-new'] -join ' ') |"
+          )
+          $md | ForEach-Object { Write-Host $_ }
+          $md | Add-Content $env:GITHUB_STEP_SUMMARY
+          # The native files the single-file exe unpacks: the Home banner needs WebView2's loader among them.
+          $unpacked = Get-ChildItem "$env:TEMP\.net" -Recurse -Filter 'WebView2Loader.dll' -ErrorAction SilentlyContinue
+          Write-Host "WebView2Loader.dll unpacked: $(@($unpacked).Count) copies"
+          if ($medNew -ge 3000) { Write-Host "::error::Cold start $medNew ms: the rule is under 3000 ms"; exit 1 }

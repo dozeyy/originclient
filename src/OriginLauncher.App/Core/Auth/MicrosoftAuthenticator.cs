@@ -17,7 +17,7 @@ namespace OriginLauncher.App.Core.Auth;
 //     -> Minecraft profile (username + UUID)
 //
 // No external OAuth/HTTP library needed — HttpListener, HttpClient, and
-// System.Text.Json are all in the .NET 8 base class library.
+// System.Text.Json are all in the .NET base class library.
 public sealed class MicrosoftAuthenticator
 {
     // TEMPORARY — single switch for the whole test setup. Flip to false (and

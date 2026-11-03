@@ -176,7 +176,7 @@ Add/Remove Programs.
   applies on its next start (`Core/Install/SetupChoices.cs`).
 - **Every build-check renders every installer screen to pictures** (the
   "installer-screens" artifact on the run) — review UI changes there.
-- Engine tests: `dotnet test src/OriginSetup.Tests -f net8.0` (no network:
+- Engine tests: `dotnet test src/OriginSetup.Tests -f net10.0` (no network:
   downloads run against an in-memory fake server).
 
 ## Labels

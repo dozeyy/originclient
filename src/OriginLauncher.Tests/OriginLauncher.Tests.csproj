@@ -3,7 +3,7 @@
     Tests for the launcher's pure logic — the parts that need no WPF and run on
     any OS (CI runs them on Linux in build-check). Each tested area is linked
     in from src/OriginLauncher.App rather than referenced, because the app
-    itself is a net8.0-windows WPF exe that can't be built off Windows.
+    itself is a net10.0-windows WPF exe that can't be built off Windows.
 
     Linked today: Core/Promos (home banner feed parsing + fallback chain,
     Discord invite handling, the visibility gate, occlusion math, rotation)
@@ -18,7 +18,7 @@
     Run: dotnet test src/OriginLauncher.Tests
   -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>

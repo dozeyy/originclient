@@ -5,7 +5,7 @@
     Targets .NET Framework 4.7.2, which ships inside every supported Windows
     10/11, so the installer needs no runtime and stays ~1 MB: it DOWNLOADS
     the newest released launcher (OriginLauncher-win-x64.zip) while it
-    installs — see Engine/ReleaseFeed.cs. The launcher itself is .NET 8;
+    installs — see Engine/ReleaseFeed.cs. The launcher itself is .NET 10;
     nothing here references it — the few files both need are LINKED from the
     launcher (theme, RAM rule, registry names) so the two can never drift apart.
 

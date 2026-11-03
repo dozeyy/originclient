@@ -73,7 +73,7 @@ each version uses the best stable method for itself, same look across all.
 application
 
 ## What it is
-- **Origin Launcher** — premium Windows desktop Minecraft launcher (C# / .NET 8,
+- **Origin Launcher** — premium Windows desktop Minecraft launcher (C# / .NET 10,
   WPF). Account management, version handling, performance tuning, launch.
   Lives in `src/OriginLauncher.App/`.
 - **Origin Setup** — the custom installer/uninstaller (`OriginLauncher-Setup.exe`),
@@ -177,7 +177,7 @@ release notes (from commit titles — write them for players). Updates are
 mandatory for players. Full rules: `docs/RELEASING.md`.
 
 ## Stack
-- Launcher: C# / .NET 8, WPF, CmlLib.Core, MSAL, DPAPI. Settings writes go through
+- Launcher: C# / .NET 10, WPF, CmlLib.Core, MSAL, DPAPI. Settings writes go through
   `SettingsStore.Update(mutate)` ONLY. More: `.claude/rules/launcher.md`.
 - Mod: Java + Fabric + Loom + Mojang mappings (26.x unobfuscated, Java 25; 1.8.9: Forge
   11.15.1.2318 + Mixin 0.7.11, MCP names). Shaders via Iris (OptiFine on 1.8.9).

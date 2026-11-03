@@ -46,7 +46,7 @@ It reads %LocalAppData%\OriginLauncher like the real launcher; it does not
 change accounts unless someone completes a sign-in in the window it opens.
 #>
 param(
-    [string] $Exe = (Join-Path $PSScriptRoot '..\..\src\OriginLauncher.App\bin\Debug\net8.0-windows\OriginLauncher.App.exe'),
+    [string] $Exe = (Join-Path $PSScriptRoot '..\..\src\OriginLauncher.App\bin\Debug\net10.0-windows\OriginLauncher.App.exe'),
     [string] $Shot = (Join-Path $env:TEMP 'origin-addaccount-check.png'),
     [int] $WaitSeconds = 12           # for the Microsoft page to load
 )

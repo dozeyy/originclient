@@ -17,6 +17,7 @@ on:
     branches: [main, "claude/**"]
     paths:
       - "src/**"
+      - "global.json"
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
@@ -32,6 +33,7 @@ on:
   pull_request:
     paths:
       - "src/**"
+      - "global.json"
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
@@ -124,13 +126,19 @@ jobs:
       - name: Release-notes filter tests
         run: python3 tools/release/test_notes.py
 
+      # Linux runners come with whatever .NET they come with: global.json chooses.
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
       # The installer's engine: release feed, download (resume, verify,
       # failures — against a fake server), launcher zip, staging, folder
       # rules. Also compiles it for .NET Framework 4.7.2 (the API check).
       - name: Test installer engine
         run: |
           dotnet build src/OriginSetup.Tests -f net472
-          dotnet test src/OriginSetup.Tests -f net8.0
+          dotnet test src/OriginSetup.Tests -f net10.0
 
       # The launcher's pure logic (home banner feed + fallback chain, Discord
       # invite, visibility gate, occlusion math). Also fails the push when
