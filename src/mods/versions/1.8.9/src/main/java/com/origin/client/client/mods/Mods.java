@@ -66,11 +66,10 @@ public final class Mods {
 	// loop / dedicated mixins. Cosmetic-only toggles that couldn't be honestly
 	// implemented in a lightweight Fabric mod were dropped rather than left as
 	// save-but-do-nothing switches.
-	// 1.8.9: no "Raw Mouse Input" row -- LWJGL 2 has no raw-motion switch (its
-	// Windows mouse already reads DirectInput deltas), so the row would do nothing.
 	public static final List<ModOption> GENERAL_SETTINGS = java.util.Arrays.asList(
 			ModOption.toggle("borderlessFullscreen", "Borderless Fullscreen", false),
 			ModOption.toggle("transparentMenus", "Transparent Menus", false).tip("Menus you open in a world (pause, options, inventory, the Origin menu) show the game behind them: no blur, no dimming, no panel. Off keeps the normal styled menus."),
+			ModOption.toggle("rawMouseInput", "Raw Mouse Input", true),
 			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
 			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla")

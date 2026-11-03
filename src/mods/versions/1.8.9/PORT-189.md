@@ -323,8 +323,10 @@ Package root `com.origin.client.client` unless noted.
   New: `Mods.unavailable(id)` (cards hidden on 1.8.9: `cooldowns`; `on()` is
   false for them), `Mods.LEGACY_PARTICLE_IDS` (1.8.9 EnumParticleTypes name ->
   Origin particle id; the Particle Changer only lists those ids on 1.8.9).
-  Settings rows removed on 1.8.9: General "rawMouseInput", Performance
-  "shaderPerformanceMode" (Iris-only) — reads return the stored value/false.
+  Settings rows removed on 1.8.9: Performance "shaderPerformanceMode"
+  (Iris-only) — reads return the stored value/false. General "rawMouseInput" is
+  back (2026-11-02): LWJGL 2 deltas come from the cursor, so `RawMouseInput` reads
+  JInput's raw plugin instead and falls back to LWJGL if that fails.
 - `mods/ModsConfig`, `ModsConfigAccess`, `ModOption`, `Profiles`, `hud/HudPos`:
   1.16.5 API unchanged.
 - `IoCompat`: 1.16.5's `readAllBytes`, `keys` + gson 2.2.4 gaps: `size(JsonObject)`,

@@ -259,3 +259,8 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 
 ## 2026-11-02 - Weekly permission scan
 - Added 20 read-only allow rules to `.claude/settings.json` from the 50 newest transcripts. Left out Select-Object, Where-Object, Sort-Object, Format-*, ForEach-Object, awk, git grep and ffprobe: each can run code or write files through an argument.
+
+## 2026-11-02 — 1.8.9 Raw Mouse Input
+- Will: 1.8.9 mouse feels accelerated, 1.21.1 doesn't. Cause: LWJGL 2.9.4 WindowsMouse.handleMouseMoved builds deltas from cursor positions (no DirectInput classes in the jar; the old Mods.java comment was wrong), so Windows Enhance Pointer Precision applies (Will's registry: MouseSpeed=1, on); 1.21.1 uses GLFW raw motion.
+- Fix: RawMouseInput (JInput raw plugin from MC's own libs, polled per frame on the render thread) + MouseHelperRawMixin, General > Raw Mouse Input row, default on. Falls back to LWJGL deltas for the session on load failure, no device, or 30 frames of cursor motion with no raw counts.
+- Proof: build + refmap (func_74374_c, func_74372_a); plugin loads and lists 5 mice on Will's PC outside the game. Real camera feel not proven: CI is Linux, so raw input is Windows-only there. Gated deploy left.
