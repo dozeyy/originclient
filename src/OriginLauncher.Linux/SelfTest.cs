@@ -340,7 +340,7 @@ internal static class SelfTest
     private static (int Code, string Output) RunSwap(string stage, string target, string mode)
     {
         var script = Path.Combine(Path.GetDirectoryName(stage)!, "apply-update.sh");
-        File.WriteAllText(script, UpdateService.ApplyScript);
+        File.WriteAllText(script, UpdateService.ApplyScript.ReplaceLineEndings("\n"));
         using var launcher = Process.Start(new ProcessStartInfo("/bin/sleep", "2") { UseShellExecute = false })!; // stands in for the running launcher
         var clock = Stopwatch.StartNew();
         var result = Run("/bin/sh", script, launcher.Id.ToString(), stage, target, mode);

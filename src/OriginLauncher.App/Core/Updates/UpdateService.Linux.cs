@@ -118,7 +118,7 @@ start
     {
         if (NotUpdatableReason != null) throw new InvalidOperationException("This install can't update itself: " + NotUpdatableReason);
         var script = Path.Combine(updatesRoot, "apply-update.sh");
-        File.WriteAllText(script, ApplyScript);
+        File.WriteAllText(script, ApplyScript.ReplaceLineEndings("\n")); // sh reads a CR as part of each command
         var psi = new ProcessStartInfo("/bin/sh") { UseShellExecute = false };
         psi.ArgumentList.Add(script);
         psi.ArgumentList.Add(Environment.ProcessId.ToString());
