@@ -243,6 +243,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Versions\RetryingGameInstaller.cs" LinkBase="Versions" />
     <!-- The Modrinth install path (Fabric API, voice chat): a stalled live query must skip the mod, not fail the launch. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\FabricApiInstaller.cs" LinkBase="Loaders" />
+    <!-- The pinned perf jars: a pin bump keeps Origin's previous jar when Modrinth can't be reached (fail-hard only on a first install). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfModInstaller.cs" LinkBase="Loaders" />
     <!-- The wildcards above (Profiles, Import) also match the other OSes' seam files: drop those. -->
     <Compile Remove="..\OriginLauncher.App\**\*.Windows.cs" Condition="'$(OriginPlatform)' != 'Windows'" />
     <Compile Remove="..\OriginLauncher.App\**\*.Mac.cs" Condition="'$(OriginPlatform)' != 'Mac'" />

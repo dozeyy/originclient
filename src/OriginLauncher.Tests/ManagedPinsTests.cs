@@ -276,4 +276,62 @@ public sealed class ManagedPinsTests : IDisposable
         Assert.Equal(CrashRepairOutcome.Protected, CrashRepair.DisableBlamed(folder, Path.GetFileName(api), ModManager.IsManagedFile).Outcome);
         Assert.True(File.Exists(api));
     }
+
+    // ---- pin bumps reach existing installs, and never break them (bug run 3: LC-2, LC-6) ----
+
+    private const string Cdn = "https://cdn.modrinth.com/data/test/versions/x/";
+    private static readonly string BodySha512 = Convert.ToHexString(SHA512.HashData(Body));
+
+    private sealed class Counting(Func<HttpResponseMessage> reply) : HttpMessageHandler
+    {
+        public int Requests;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Interlocked.Increment(ref Requests);
+            return Task.FromResult(reply());
+        }
+    }
+
+    private static VersionPerfProfile SodiumOnly(PerfMod sodium) => new("1.21.11", default, sodium, null, null, null, null);
+
+    private static PerfMod NewSodiumPin(string sha512) =>
+        new("0.6.13", Cdn + "sodium-fabric-0.6.13+mc1.21.11.jar", "sodium-fabric-0.6.13+mc1.21.11.jar", sha512);
+
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.OK)] // answers, but with bytes that don't hash to the pin
+    public async Task A_perf_pin_bump_that_cant_download_keeps_origins_previous_jar(HttpStatusCode answer)
+    {
+        var old = Jar("mods", "sodium-fabric-0.6.9+mc1.21.11.jar", Kit.FabricJar("sodium", "0.6.9+mc1.21.11"));
+        OriginInstallRecord.AddFile(old);
+        var mods = Path.GetDirectoryName(old)!;
+
+        await PerfModInstaller.InstallAsync(Serves(answer), SodiumOnly(NewSodiumPin(new string('a', 128))), mods, null, default);
+
+        Assert.True(File.Exists(old));
+        Assert.Equal(new[] { Path.GetFileName(old) }, Directory.EnumerateFiles(mods)
+            .Select(f => Path.GetFileName(f)).Where(n => n.EndsWith(".jar")).ToArray());
+        Assert.Empty(Directory.EnumerateFiles(mods, "*.download"));
+    }
+
+    [Fact]
+    public async Task A_perf_jar_with_no_origin_copy_still_fails_the_install()
+    {
+        // First install, or only the player's own Sodium there (theirs doesn't stand in for Origin's).
+        var players = Jar("mods", "sodium-fabric-0.6.9+mc1.21.11.jar", Kit.FabricJar("sodium", "0.6.9+mc1.21.11"));
+        await Assert.ThrowsAsync<HttpRequestException>(() => PerfModInstaller.InstallAsync(
+            Serves(HttpStatusCode.ServiceUnavailable), SodiumOnly(NewSodiumPin(BodySha512)),
+            Path.GetDirectoryName(players)!, null, default));
+    }
+
+    [Fact]
+    public async Task A_perf_pin_bump_installs_when_modrinth_answers()
+    {
+        var old = Jar("mods", "sodium-fabric-0.6.9+mc1.21.11.jar", Kit.FabricJar("sodium", "0.6.9+mc1.21.11"));
+        OriginInstallRecord.AddFile(old);
+        var mods = Path.GetDirectoryName(old)!;
+        await PerfModInstaller.InstallAsync(Serves(), SodiumOnly(NewSodiumPin(BodySha512)), mods, null, default);
+        Assert.Equal(Body, File.ReadAllBytes(Path.Combine(mods, "sodium-fabric-0.6.13+mc1.21.11.jar")));
+    }
 }

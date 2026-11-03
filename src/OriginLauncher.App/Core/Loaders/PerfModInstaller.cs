@@ -8,13 +8,24 @@ namespace OriginLauncher.App.Core.Loaders;
 // from Modrinth's CDN into an instance's mods folder. Skips files that are
 // already there — no-op on repeat launches, same idea as CmlLib.Core's own
 // "no-op if already installed" version install.
+//
+// Fail-hard only for a first install: a family with no Origin copy at all
+// (no Sodium, no Iris) can't give the promised game. A pin BUMP, though, finds
+// Origin's previous jar of that family still in the folder (SharedFolderCleanup
+// retires it only after the new one is in), so an offline PC, a Modrinth 5xx/429
+// or a hash mismatch keeps that one and retries next launch, instead of making a
+// version that played yesterday unplayable after a launcher update (mandate 4).
 public static class PerfModInstaller
 {
     // Stall-guarded (Core/Net/DownloadHttp): a download that goes quiet fails instead of freezing the install.
     private static readonly HttpClient Http = DownloadHttp.Create();
 
-    public static async Task InstallAsync(
-        VersionPerfProfile profile, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default)
+    public static Task InstallAsync(
+        VersionPerfProfile profile, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
+        InstallAsync(Http, profile, modsFolder, progress, ct);
+
+    internal static async Task InstallAsync(
+        HttpClient http, VersionPerfProfile profile, string modsFolder, IProgress<string>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(modsFolder);
 
@@ -29,22 +40,58 @@ public static class PerfModInstaller
                 || File.Exists(destPath + ".disabled")) continue;
 
             progress?.Report($"Downloading {mod.FileName}...");
-            using var response = await Http.GetAsync(mod.Url, HttpCompletionOption.ResponseHeadersRead, ct);
-            response.EnsureSuccessStatusCode();
+            try
+            {
+                await DownloadAsync(http, mod, destPath, ct);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException
+                                       || (ex is OperationCanceledException && !ct.IsCancellationRequested))
+            {
+                if (!HasOriginsCopyOfFamily(modsFolder, mod.FileName)) throw;
+                progress?.Report($"Couldn't update {mod.FileName} right now - playing with the one installed");
+            }
+        }
+    }
 
-            var tempPath = destPath + ".download";
+    private static async Task DownloadAsync(HttpClient http, PerfMod mod, string destPath, CancellationToken ct)
+    {
+        using var response = await http.GetAsync(mod.Url, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+
+        var tempPath = destPath + ".download";
+        try
+        {
             await using (var fileStream = File.Create(tempPath))
                 await response.Content.CopyToAsync(fileStream, ct);
 
             // Never promote a download that doesn't hash to the pinned file.
             if (!mod.Matches(tempPath))
-            {
-                try { File.Delete(tempPath); } catch { /* best effort */ }
                 throw new InvalidDataException($"{mod.FileName} did not match its pinned SHA-512; not installed.");
-            }
             // No overwrite: a jar that appeared under this name meanwhile is the player's and stays.
             File.Move(tempPath, destPath, overwrite: false);
             Mods.OriginInstallRecord.Add(destPath, mod.Sha512);
+        }
+        finally
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* best effort: the next try overwrites it */ }
+        }
+    }
+
+    /// <summary>Origin's own working jar of <paramref name="fileName"/>'s family is in the folder (by its bytes, never its name).</summary>
+    internal static bool HasOriginsCopyOfFamily(string modsFolder, string fileName)
+    {
+        var family = Mods.ModManager.ModFamilyKey(fileName);
+        try
+        {
+            // Enabled jars only (a turned-off copy doesn't load); matched in code, never a Win32 glob.
+            return Directory.EnumerateFiles(modsFolder).Any(path =>
+                path.EndsWith(Mods.ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(Mods.ModManager.ModFamilyKey(Path.GetFileName(path)), family, StringComparison.OrdinalIgnoreCase)
+                && Mods.ModManager.IsManagedFile(path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 }
