@@ -146,3 +146,4 @@ client/java/com/origin/client/client/OriginStyle.java
 # draws the one Origin loading picture (LoadingLook: logo, sweeping bar, the status as
 # the caption) and seats vanilla's Cancel below it. shared/ still has the old TAIL bar.
 client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
+client/java/com/origin/client/client/compat/CompatMixinPlugin.java
