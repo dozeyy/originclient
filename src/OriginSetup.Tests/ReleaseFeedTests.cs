@@ -44,6 +44,16 @@ public class ReleaseFeedTests
     }
 
     [Fact]
+    public void ApiAnswerGivesTheSetupExeToo()
+    {
+        var json = ApiJson().Replace("\"size\": 900000, \"digest\": null", "\"size\": 900000, \"digest\": \"sha256:" + Sha + "\"");
+        var r = ReleaseFeed.ParseApi(Encoding.UTF8.GetBytes(json))!;
+        Assert.Equal("https://github.com/dozeyy/originclient/releases/download/launcher-v1.0.40/OriginLauncher-Setup.exe", r.SetupUrl);
+        Assert.Equal(900000, r.SetupSize);
+        Assert.Equal(Sha, r.SetupSha256);
+    }
+
+    [Fact]
     public void OlderReleasesWithoutADigestStillWork()
     {
         var r = ReleaseFeed.ParseApi(Encoding.UTF8.GetBytes(ApiJson(digest: null)))!;

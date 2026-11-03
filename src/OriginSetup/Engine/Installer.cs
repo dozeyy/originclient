@@ -89,7 +89,7 @@ public static class Installer
         if (LauncherProcess.IsRunning())
             throw new SetupException("Origin Launcher is still open. Close it and try again.");
 
-        var staged = Stage(dir, options.SourceZip, release, report, ct, http);
+        var staged = Stage(dir, options.SourceZip, release, report, ct, http, setupExePath);
         var version = staged.Version;
 
         // Point of no return.
@@ -98,7 +98,6 @@ public static class Installer
         FileOps.TryDeleteTree(staged.StagingDir);
         foreach (var legacy in new[] { "unins000.exe", "unins000.dat", "unins000.msg" })
             FileOps.Retry(() => { var p = Path.Combine(dir, legacy); if (File.Exists(p)) File.Delete(p); });
-        WriteUninstaller(setupExePath, Path.Combine(dir, InstallLocation.UninstallerExe));
 
         report(new InstallProgress(InstallStage.Finishing, 0.97, version: version));
         var exe = Path.Combine(dir, InstallLocation.LauncherExe);
@@ -134,8 +133,10 @@ public static class Installer
     /// nothing else: on any failure or cancel the staging folder is removed
     /// (and <paramref name="dir"/> too, if this created it and it is empty).
     /// </summary>
+    /// <param name="setupExePath">Staged as the uninstaller too; null leaves it out.</param>
     public static StagedInstall Stage(string dir, string? sourceZip, LauncherRelease? release,
-                                      Action<InstallProgress> report, CancellationToken ct, HttpClient? http = null)
+                                      Action<InstallProgress> report, CancellationToken ct, HttpClient? http = null,
+                                      string? setupExePath = null)
     {
         bool existed = Directory.Exists(dir);
         Directory.CreateDirectory(dir);
@@ -191,6 +192,9 @@ public static class Installer
                 SetupLog.Write("downloaded package: " + ex.Message);
                 throw new DownloadException(DownloadException.Damaged, ex);
             }
+            if (setupExePath != null)
+                StageUninstaller(setupExePath, dir, stagedFiles, release, http, ct);
+            ct.ThrowIfCancellationRequested(); // the last chance before the point of no return
             var version = release?.Version ?? StagedVersion(Path.Combine(stagedFiles, InstallLocation.LauncherExe)) ?? "0.0.0";
             return new StagedInstall(staging, stagedFiles, version);
         }
@@ -218,9 +222,51 @@ public static class Installer
     // The uninstaller is a copy of this setup app (small now that the launcher
     // is downloaded, not carried) — started with --uninstall it removes Origin.
     // Skipped when Setup is itself running as that uninstall.exe.
-    private static void WriteUninstaller(string setupExePath, string dest)
+    //
+    // Staged with the launcher, so a Setup that can't get one fails while nothing
+    // has changed. A Setup started from a shared folder can run and still not be
+    // copied: 1.0.76 from a Parallels share (\\Mac\Home\Downloads) got "file not
+    // found" from File.Copy every time, after the launcher was already in place.
+    // So it is read as a plain stream (File.Copy also carries metadata a share may
+    // not have), then falls back to this release's own Setup from the feed.
+    private static void StageUninstaller(string setupExePath, string installDir, string stagedFiles,
+                                         LauncherRelease? release, HttpClient? http, CancellationToken ct)
     {
-        if (string.Equals(Path.GetFullPath(setupExePath), Path.GetFullPath(dest), StringComparison.OrdinalIgnoreCase)) return;
-        FileOps.Retry(() => File.Copy(setupExePath, dest, overwrite: true));
+        var installed = Path.Combine(installDir, InstallLocation.UninstallerExe);
+        if (string.Equals(Path.GetFullPath(setupExePath), Path.GetFullPath(installed), StringComparison.OrdinalIgnoreCase)) return;
+
+        var dest = Path.Combine(stagedFiles, InstallLocation.UninstallerExe);
+        // Opened first: a folder Setup can't write to is not a "can't read Setup" problem.
+        using (var target = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            try
+            {
+                FileOps.Retry(() =>
+                {
+                    target.SetLength(0);
+                    target.Position = 0;
+                    using var source = new FileStream(setupExePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    source.CopyToAsync(target, 1 << 16, ct).GetAwaiter().GetResult();
+                }, attempts: 5);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Security.SecurityException)
+            {
+                SetupLog.Write($"can't read Setup at {setupExePath}: {ex.Message}");
+            }
+        }
+
+        if (release == null)
+            throw new SetupException("Setup can't read its own file where it's running from. Move it to a folder on this PC, like Downloads, then try again.");
+        SetupLog.Write($"downloading the uninstaller from {release.SetupUrl}");
+        Download.ToFileAsync(http ?? Download.Shared, release.SetupUrl, dest, release.SetupSize, release.SetupSha256, null, ct)
+            .GetAwaiter().GetResult();
+        // The feed's page route gives no size or hash; at least it must be a program.
+        using var downloaded = new FileStream(dest, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (downloaded.ReadByte() != 'M' || downloaded.ReadByte() != 'Z')
+        {
+            SetupLog.Write("downloaded uninstaller is not a program");
+            throw new DownloadException(DownloadException.Damaged);
+        }
     }
 }

@@ -10,12 +10,15 @@ namespace OriginSetup.Engine;
 /// <summary>The launcher build Setup will install: where to download it and what to expect.</summary>
 public sealed class LauncherRelease
 {
-    public LauncherRelease(string version, string url, long? size = null, string? sha256 = null)
+    public LauncherRelease(string version, string url, long? size = null, string? sha256 = null,
+                           long? setupSize = null, string? setupSha256 = null)
     {
         Version = version;
         Url = url;
         Size = size;
         Sha256 = sha256;
+        SetupSize = setupSize;
+        SetupSha256 = setupSha256;
     }
 
     /// <summary>"1.0.40" — from the release tag.</summary>
@@ -25,6 +28,12 @@ public sealed class LauncherRelease
     public long? Size { get; }
     /// <summary>Lower-case hex SHA-256 of the zip, when the feed said.</summary>
     public string? Sha256 { get; }
+    /// <summary>This release's Setup exe, for when the running Setup can't read itself to make the uninstaller.</summary>
+    public string SetupUrl => ReleaseFeed.SetupAssetUrl(ReleaseFeed.TagPrefix + Version);
+    /// <summary>Setup exe size in bytes, when the feed said.</summary>
+    public long? SetupSize { get; }
+    /// <summary>Lower-case hex SHA-256 of the Setup exe, when the feed said.</summary>
+    public string? SetupSha256 { get; }
 }
 
 // Finds the newest released launcher — the same OriginLauncher-win-x64.zip
@@ -45,12 +54,16 @@ public static class ReleaseFeed
     public const string Repo = "originclient";
     public const string TagPrefix = "launcher-v";
     public const string AssetName = "OriginLauncher-win-x64.zip";
+    public const string SetupAssetName = "OriginLauncher-Setup.exe";
 
     public static string ApiUrl => $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
     public static string LatestPageUrl => $"https://github.com/{Owner}/{Repo}/releases/latest";
 
     public static string AssetUrl(string tag) =>
         $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/{AssetName}";
+
+    public static string SetupAssetUrl(string tag) =>
+        $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/{SetupAssetName}";
 
     /// <summary>
     /// The newest release. Throws <see cref="DownloadException"/> (worded for
@@ -117,12 +130,18 @@ public static class ReleaseFeed
         if (version == null || asset?.Url == null || !asset.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return null;
 
-        string? sha = null;
+        var setup = r?.Assets?.FirstOrDefault(a => string.Equals(a.Name, SetupAssetName, StringComparison.OrdinalIgnoreCase));
+        return new LauncherRelease(version, asset.Url, asset.Size > 0 ? asset.Size : (long?)null, Sha256Of(asset),
+                                   setup?.Size > 0 ? setup.Size : (long?)null, Sha256Of(setup));
+    }
+
+    private static string? Sha256Of(ApiAsset? asset)
+    {
         const string prefix = "sha256:";
-        if (asset.Digest != null && asset.Digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-            && asset.Digest.Length == prefix.Length + 64)
-            sha = asset.Digest.Substring(prefix.Length).ToLowerInvariant();
-        return new LauncherRelease(version, asset.Url, asset.Size > 0 ? asset.Size : (long?)null, sha);
+        return asset?.Digest != null && asset.Digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+               && asset.Digest.Length == prefix.Length + 64
+            ? asset.Digest.Substring(prefix.Length).ToLowerInvariant()
+            : null;
     }
 
     /// <summary>"launcher-v1.0.40" from ".../releases/tag/launcher-v1.0.40", else null.</summary>

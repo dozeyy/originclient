@@ -265,6 +265,11 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Fix: RawMouseInput (JInput raw plugin from MC's own libs, polled per frame on the render thread) + MouseHelperRawMixin, General > Raw Mouse Input row, default on. Falls back to LWJGL deltas for the session on load failure, no device, or 30 frames of cursor motion with no raw counts.
 - Proof: build + refmap (func_74374_c, func_74372_a); plugin loads and lists 5 mice on Will's PC outside the game. Real camera feel not proven: CI is Linux, so raw input is Windows-only there. Gated deploy left.
 
+## 2026-11-02 - Installer failed when run from a Mac shared folder
+- Player on Parallels ran 1.0.76 Setup from `\Mac\Home\Downloads` (log paste shows one backslash, markdown ate it): download verified, then `File.Copy(self, uninstall.exe)` threw FileNotFoundException every time, after the launcher was moved into place, so no shortcuts or registration. Why the share refuses the copy is not proven; no Parallels here.
+- Fix: uninstall.exe is staged with the launcher, before the point of no return. Plain stream read, else the release's own Setup from the feed (size/SHA-256 from the API, `MZ` check always), else "move Setup to this PC" with nothing changed.
+- Proof: OriginSetup.Tests 72/72 on net8.0; stream read works over `\localhost\C$` on .NET Framework; render-tour 63 PNGs. `dotnet test --framework net472` runs 0 tests (compile check only). A real Parallels run is still unproven.
+
 ## 2026-11-02 - Launcher moved to .NET 10 LTS
 - Why: .NET 8 support ends 2026-11-10 (Microsoft support-policy page, read 2026-11-02); .NET 10 LTS runs to 2028-11-14. App, Tests, UiTests and OriginSetup.Tests now target net10.0; OriginSetup stays net472.
 - Root `global.json` (10.0.100, latestFeature) is the one SDK pin; every CI dotnet job uses setup-dotnet `global-json-file`. dotnet finds global.json from the CURRENT folder, not the project path (launch-time.yml now publishes from inside each checkout).

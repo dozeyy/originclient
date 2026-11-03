@@ -169,7 +169,8 @@ Add/Remove Programs.
   cancelling, a dropped connection or a damaged download never leaves a
   broken Origin. Takes over installs made by the old Inno Setup installer in
   place (same Add/Remove Programs entry). The installed `uninstall.exe` is a
-  copy of the setup app.
+  copy of the setup app, staged with the launcher; a Setup that can't read its
+  own file (run from a shared folder) downloads the release's Setup instead.
 - `--source <zip>` installs from a local zip instead of downloading — CI's
   smoke test uses it for the build it just made (not published yet).
 - Customize choices reach the launcher through a small hand-off file it
