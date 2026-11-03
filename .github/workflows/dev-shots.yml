@@ -173,8 +173,10 @@ jobs:
           # x11-xserver-utils (xrandr) + libXxf86vm/libXrandr: LWJGL 2 (1.8.9)
           # queries display modes through them at Display.create().
           # python3-pil: the contact sheet (tools/lean/contact_sheet.py) below.
+          # xdotool: 26.3's TYPE_REAL shot types into the game window through real X11 key
+          # events (SDL3 text input), which the in-game dev shortcuts can't prove.
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
-            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 python3-pil
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 python3-pil xdotool
           if [ "$VIDEO" = "true" ]; then sudo apt-get install -y ffmpeg x11-utils; fi
         env:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}

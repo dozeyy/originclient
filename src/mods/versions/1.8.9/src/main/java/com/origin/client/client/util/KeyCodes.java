@@ -17,8 +17,14 @@ import org.lwjgl.input.Mouse;
  *   - keyboard: org.lwjgl.input.Keyboard.KEY_* (1..255);
  *   - mouse button b: -100 + b (vanilla 1.8.9's convention);
  *   - unbound: -1 on BOTH sides (LWJGL's KEY_NONE 0 also reads as unbound).
- * In the file, a mouse button b is stored as b -- its InputConstants MOUSE value
- * on the modern versions (0..7 are not GLFW keyboard codes, which start at 32).
+ * The file's format is the one every version shares (Fabric modules:
+ * util/KeyCodes there): GLFW keys, mouse button b as -100 + b -- the same number
+ * as here, so a mouse bind passes through unchanged -- and -1 unbound. Until
+ * 2026-11 this class wrote mouse button b as plain b, which every other version
+ * read as an invalid keyboard key (the bind died there and glfwGetKey logged an
+ * error every tick); such old values now read as unbound, and the first tick's
+ * Controls sync (OriginClientMod.syncedKeyDown / tickTabList) writes the mouse
+ * bind back in the new form.
  * A code with no counterpart translates to -1 (unbound), never to a wrong key.
  */
 public final class KeyCodes {
@@ -163,11 +169,11 @@ public final class KeyCodes {
 
 	/** GLFW (file) code -> LWJGL2 (1.8.9) code; -1 when unbound or unmapped. */
 	public static int glfwToLwjgl(int glfw) {
-		if (glfw < 0) {
-			return UNBOUND;
+		if (isMouse(glfw)) {
+			return glfw;                      // mouse: the same -100 + b on both sides
 		}
-		if (glfw <= 7) {
-			return MOUSE_OFFSET + glfw;       // mouse button (InputConstants MOUSE value)
+		if (glfw < 32) {
+			return UNBOUND;                   // no GLFW key is below 32 (old 0..7 mouse values included)
 		}
 		return glfw < GLFW_TO_LWJGL.length ? GLFW_TO_LWJGL[glfw] : UNBOUND;
 	}
@@ -175,7 +181,7 @@ public final class KeyCodes {
 	/** LWJGL2 (1.8.9) code -> GLFW (file) code; -1 when unbound or unmapped. */
 	public static int lwjglToGlfw(int lwjgl) {
 		if (isMouse(lwjgl)) {
-			return lwjgl - MOUSE_OFFSET;
+			return lwjgl;
 		}
 		if (lwjgl <= 0 || lwjgl >= LWJGL_TO_GLFW.length) {
 			return UNBOUND;

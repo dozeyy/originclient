@@ -1754,6 +1754,9 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private static String keyName(int code) {
+		if (com.origin.client.client.util.KeyCodes.isMouse(code)) {
+			return com.origin.client.client.util.KeyCodes.mouseLabel(code);   // a mouse bind made in Controls
+		}
 		if (code < 0) {
 			return "None";
 		}

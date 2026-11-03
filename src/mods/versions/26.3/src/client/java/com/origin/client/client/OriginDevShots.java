@@ -79,7 +79,10 @@ public final class OriginDevShots {
 		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED,
 		// ORIGIN_SHOTS_SET=stepaside: a feature a loaded mod replaces (StepAside), as a card, a list row
 		// and its own page -- run with a real overlapping mod loaded (tools/frame-log/mods-<module>-stepaside.json).
-		STEP_CARD, STEP_ROW, STEP_PAGE;
+		STEP_CARD, STEP_ROW, STEP_PAGE,
+		// design set: the Mod Menu after "zoom" is typed through the REAL input path (xdotool ->
+		// X11 -> SDL3 text input -> charTyped), the proof that OriginTextFocus switches text input on
+		TYPE_REAL;
 
 		/** The first replaced feature (Freelook when Freecam is loaded), or freelook when nothing is replaced. */
 		private static String stepFeature() {
@@ -121,6 +124,7 @@ public final class OriginDevShots {
 				case QUICKPLAY -> new com.origin.client.client.gui.QuickplayScreen();
 				case SHADERS -> new com.origin.client.client.shaders.ShaderBrowserScreen(null);
 				case MENU_CLEAR -> new OriginModMenuScreen().preview(false, false);
+				case TYPE_REAL -> new OriginModMenuScreen().preview(false, false);
 				case STEP_CARD -> new OriginModMenuScreen().preview(false, false).withSearch(stepSearch());
 				case STEP_ROW -> new OriginModMenuScreen().preview(true, false).withSearch(stepSearch());
 				case STEP_PAGE -> new OriginModMenuScreen(null, stepFeature()).preview(false, false);
@@ -328,6 +332,22 @@ public final class OriginDevShots {
 	private static final java.util.Map<Kind, List<java.util.function.Consumer<Screen>>> ACTS = new java.util.EnumMap<>(Kind.class);
 	private static int actIdx = 0;
 
+	/**
+	 * Types {@code text} through the real OS input path: X11 key events from xdotool (dev-shots.yml
+	 * installs it) into the game window, which SDL3 turns into text only while text input is on.
+	 * devChars() calls a screen's handler directly, so it can't prove OriginTextFocus; this can.
+	 */
+	private static void realType(String text) {
+		try {
+			String sh = "w=$(xdotool search --onlyvisible --pid " + ProcessHandle.current().pid() + " | head -n 1); "
+					+ "if [ -n \"$w\" ]; then xdotool windowfocus \"$w\"; fi; sleep 0.3; xdotool type --delay 80 '" + text + "'";
+			new ProcessBuilder("sh", "-c", sh).inheritIO().start();
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] real typing '{}' via xdotool", text);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] real typing failed to start", t);
+		}
+	}
+
 	/** Presses the button on {@code s} whose label is {@code label} (the game's own translation, so any language). */
 	private static void pressLabel(Screen s, String label) {
 		if (s == null) {
@@ -411,6 +431,18 @@ public final class OriginDevShots {
 			com.origin.client.client.social.SocialToast.devClickButton("inv:00000000000000000000000000000098");
 		}));
 		ACTS.put(Kind.ACT_TOAST_REQUEST, List.of(s -> com.origin.client.client.social.SocialToast.devClickButton("req:9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14")));
+		ACTS.put(Kind.TYPE_REAL, List.of(s -> realType("zoom"), idle, idle, idle, idle, s -> {
+			String typed = "?";
+			try {
+				java.lang.reflect.Field f = OriginModMenuScreen.class.getDeclaredField("search");
+				f.setAccessible(true);
+				typed = String.valueOf(f.get(s));
+			} catch (Throwable t) {
+				// logged as "?"
+			}
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] real typing result: search='{}' ({})", typed,
+					"zoom".equals(typed) ? "PASS" : "FAIL");
+		}));
 		ACTS.put(Kind.ACT_TOAST_INVITE, List.of(s -> com.origin.client.client.social.SocialToast.devClickButton("inv:1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52")));
 	}
 	private static double savedBgOpacity = -1;

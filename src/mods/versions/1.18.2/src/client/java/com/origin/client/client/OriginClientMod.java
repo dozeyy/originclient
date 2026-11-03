@@ -5,6 +5,7 @@ import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.mods.ChunkBorderRenderer;
 import com.origin.client.client.mods.MotionBlur;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.util.KeyCodes;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -62,10 +63,11 @@ public class OriginClientMod implements ClientModInitializer {
 	// Zoom / Freelook: the mod-menu key and its Controls entry are ONE key (syncedKey).
 	private final KeyLink zoomLink = new KeyLink(), freelookLink = new KeyLink();
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
-	private boolean zoomSensApplied = false;
-	private double savedSensitivity = 0.5;
-	private boolean smoothCamApplied = false;
-	private boolean savedSmoothCam = false;
+	private static boolean zoomSensApplied = false;
+	private static double savedSensitivity = 0.5;
+	private static double zoomedSensitivity = 0.5;
+	private static boolean smoothCamApplied = false;
+	private static boolean savedSmoothCam = false;
 	// Fly Boost restore latch + thunder-sound cadence counter.
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
@@ -424,43 +426,52 @@ public class OriginClientMod implements ClientModInitializer {
 	 */
 	private boolean syncedKeyDown(Minecraft client, KeyLink link, net.minecraft.client.KeyMapping mapping,
 			String modId, String option) {
-		InputConstants.Key bound = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mapping);
-		// A mouse button in Controls takes part in the sync as "no keyboard key" (-1)
-		// instead of skipping it: a rebind in the mod menu used to be silently ignored
-		// while Controls held a mouse button (1.21.1's syncKey pushes it).
-		boolean mouse = bound.getType() == InputConstants.Type.MOUSE;
-		int mc = mouse ? -1 : bound.getValue();
+		// Both sides in Origin's key format (util/KeyCodes): a mouse button in Controls
+		// is stored as a mouse code (so it reaches every version through Settings Sync)
+		// and fires through the Controls entry's isDown().
+		int mc = bindCode(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mapping));
 		int ours = Mods.keyCode(modId, option);
 		if (!link.init) {
 			link.init = true;
-			if (mouse) {
-				if (ours > 0) {
-					Mods.set(modId, option, -1);          // Controls' mouse button wins; the menu shows None
-				}
-				ours = -1;
-			} else if (mc <= 0 && ours > 0) {
+			if (mc == KeyCodes.UNBOUND && ours != KeyCodes.UNBOUND) {
 				mc = pushKey(client, mapping, ours);
 			} else if (ours != mc) {
-				Mods.set(modId, option, mc);
-				ours = mc;
+				Mods.set(modId, option, mc);              // Controls wins the first tick
+				ours = Mods.keyCode(modId, option);
 			}
-		} else if (ours != link.lastOurs && (mouse || ours != mc)) {
+		} else if (ours != link.lastOurs && ours != mc) {
 			mc = pushKey(client, mapping, ours);          // rebound in the mod menu (replaces a mouse bind too)
-			mouse = false;
 		} else if (mc != link.lastMc && mc != ours) {
-			Mods.set(modId, option, mc);                  // rebound in Controls (a mouse button shows as None)
-			ours = mc;
+			Mods.set(modId, option, mc);                  // rebound in Controls
+			ours = Mods.keyCode(modId, option);
 		}
 		link.lastOurs = ours;
 		link.lastMc = mc;
-		return mouse ? mapping.isDown() : isRawKeyDown(ours);
+		return KeyCodes.isMouse(mc) ? mapping.isDown() : isRawKeyDown(ours);
 	}
 
 	private static int pushKey(Minecraft client, net.minecraft.client.KeyMapping mapping, int key) {
-		mapping.setKey(key <= 0 ? InputConstants.UNKNOWN : InputConstants.Type.KEYSYM.getOrCreate(key));
+		mapping.setKey(bindKey(key));
 		net.minecraft.client.KeyMapping.resetMapping();
 		client.options.save();
-		return key <= 0 ? -1 : key;
+		return key > 0 || KeyCodes.isMouse(key) ? key : KeyCodes.UNBOUND;
+	}
+
+	/** A Controls binding in Origin's key format (util/KeyCodes): its keyboard key, its
+	 *  mouse button, or UNBOUND (unbound, or a scancode-only key). */
+	private static int bindCode(InputConstants.Key key) {
+		if (key.getType() == InputConstants.Type.MOUSE) {
+			return KeyCodes.mouse(key.getValue());
+		}
+		return key.getType() == InputConstants.Type.KEYSYM && key.getValue() > 0 ? key.getValue() : KeyCodes.UNBOUND;
+	}
+
+	/** The Controls binding for an Origin key code; InputConstants.UNKNOWN when unbound. */
+	private static InputConstants.Key bindKey(int code) {
+		if (KeyCodes.isMouse(code)) {
+			return InputConstants.Type.MOUSE.getOrCreate(KeyCodes.mouseButton(code));
+		}
+		return code > 0 ? InputConstants.Type.KEYSYM.getOrCreate(code) : InputConstants.UNKNOWN;
 	}
 
 	/** Raw GLFW key state for the mod-menu's rebindable keys. */
@@ -699,9 +710,13 @@ public class OriginClientMod implements ClientModInitializer {
 		// Tab list — Origin drives visibility itself so it shows even on a solo local
 		// server (vanilla refuses to). Holding the Player List key always shows it;
 		// the Tab Editor mod adds sticky tap-to-lock + two-way keybind sync on top.
-		int mcTab = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
-				.getBoundKeyOf(client.options.keyPlayerList).getValue();
-		boolean rawTab = client.screen == null && isRawKeyDown(mcTab);
+		// Both sides in Origin's key format (util/KeyCodes). A mouse-bound Player List is
+		// read through its Controls entry, like sneakKeyDown: glfwGetKey only knows
+		// keyboard keys, so holding a mouse-bound Player List used to show nothing.
+		int mcTab = bindCode(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+				.getBoundKeyOf(client.options.keyPlayerList));
+		boolean rawTab = client.screen == null && (KeyCodes.isMouse(mcTab)
+				? client.options.keyPlayerList.isDown() : isRawKeyDown(mcTab));
 		if (Mods.on("tablist")) {
 			int ourTab = Mods.keyCode("tablist", "tabKey");
 			if (!tabSyncInit) {
@@ -710,19 +725,18 @@ public class OriginClientMod implements ClientModInitializer {
 				tabSyncInit = true;
 				if (ourTab != mcTab) {
 					Mods.set("tablist", "tabKey", mcTab);
-					ourTab = mcTab;
+					ourTab = Mods.keyCode("tablist", "tabKey");
 				}
 			} else if (ourTab != lastOurTabKey && ourTab != mcTab) {
 				// Rebound in the Origin menu → push to Minecraft's controls.
-				client.options.keyPlayerList.setKey(
-						com.mojang.blaze3d.platform.InputConstants.getKey(ourTab, -1));
+				client.options.keyPlayerList.setKey(bindKey(ourTab));
 				net.minecraft.client.KeyMapping.resetMapping();
 				client.options.save();
 				mcTab = ourTab;
 			} else if (mcTab != lastMcTabKey && mcTab != ourTab) {
 				// Rebound in Minecraft's controls → pull into the Origin option.
 				Mods.set("tablist", "tabKey", mcTab);
-				ourTab = mcTab;
+				ourTab = Mods.keyCode("tablist", "tabKey");
 			}
 			lastOurTabKey = ourTab;
 			lastMcTabKey = mcTab;
@@ -767,13 +781,16 @@ public class OriginClientMod implements ClientModInitializer {
 
 		// Zoomed Sensitivity: temporarily scale mouse sensitivity while zoomed so
 		// aiming is steadier, restoring the player's own value the instant zoom ends.
-		if (zoomActive) {
+		// Not while a menu is open: Options then shows (and saves) the player's own
+		// sensitivity, and a change made there is what zoom scales once it closes.
+		if (zoomActive && client.screen == null) {
 			if (!zoomSensApplied) {
 				savedSensitivity = client.options.sensitivity;
 				zoomSensApplied = true;
 			}
 			double f = Mods.num("zoom", "sensitivity");
-			client.options.sensitivity = Math.max(0.0, Math.min(1.0, savedSensitivity * (f <= 0 ? 1.0 : f)));
+			zoomedSensitivity = Math.max(0.0, Math.min(1.0, savedSensitivity * (f <= 0 ? 1.0 : f)));
+			client.options.sensitivity = zoomedSensitivity;
 		} else if (zoomSensApplied) {
 			client.options.sensitivity = savedSensitivity;
 			zoomSensApplied = false;
@@ -1072,7 +1089,23 @@ public class OriginClientMod implements ClientModInitializer {
 	 * (Options.save() HEAD), false = Origin's back after it (RETURN). A no-op
 	 * while the Chat mod isn't overriding anything.
 	 */
+	// Zoom's lowered sensitivity and the smooth camera are Origin's values, never the
+	// player's: every options.txt write (vanilla's screens, F11, the key sync, the
+	// autosave) gets the player's own for the length of the write, so a crash or a
+	// killed game mid-zoom can't leave them in options.txt for Settings Sync to spread.
+	private static void cameraOptionsForSave(net.minecraft.client.Options options, boolean playerValues) {
+		if (zoomSensApplied) {
+			options.sensitivity = playerValues ? savedSensitivity : zoomedSensitivity;
+		}
+		if (smoothCamApplied) {
+			options.smoothCamera = playerValues ? savedSmoothCam : true;
+		}
+	}
+
 	public static void chatOptionsForSave(net.minecraft.client.Options options, boolean playerValues) {
+		if (options != null) {
+			cameraOptionsForSave(options, playerValues);   // the same save hooks (OptionsSaveMixin)
+		}
 		if (!chatApplied || options == null) {
 			return;
 		}

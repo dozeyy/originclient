@@ -41,7 +41,6 @@ public final class Mods {
 	public static final List<ModOption> GENERAL_SETTINGS = List.of(
 			ModOption.toggle("borderlessFullscreen", "Borderless Fullscreen", false),
 			ModOption.toggle("transparentMenus", "Transparent Menus", false).tip("Menus you open in a world (pause, options, inventory, the Origin menu) show the game behind them: no blur, no dimming, no panel. Off keeps the normal styled menus."),
-			ModOption.toggle("rawMouseInput", "Raw Mouse Input", true),
 			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
 			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla")
@@ -1327,7 +1326,7 @@ public final class Mods {
 	public static int keyCode(String modId, String key) {
 		var v = raw(modId).get(key);
 		if (v != null) {
-			return v.getAsInt();
+			return com.origin.client.client.util.KeyCodes.fromFile(v.getAsInt());   // the file's one key format (util/KeyCodes)
 		}
 		ModOption o = opt(modId, key);
 		return o == null ? -1 : o.defKey;
@@ -1381,6 +1380,11 @@ public final class Mods {
 	}
 
 	public static void set(String modId, String key, int v) {
+		ModOption o = opt(modId, key);
+		if (o != null && o.kind == ModOption.Kind.KEYBIND) {
+			// every version reads this file (Settings Sync): keys go in its one format
+			v = com.origin.client.client.util.KeyCodes.toFile(v);
+		}
 		raw(modId).put(key, new JsonPrimitive(v));
 		ModsConfig.save();
 	}

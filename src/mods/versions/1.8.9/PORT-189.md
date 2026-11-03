@@ -324,9 +324,14 @@ Package root `com.origin.client.client` unless noted.
   false for them), `Mods.LEGACY_PARTICLE_IDS` (1.8.9 EnumParticleTypes name ->
   Origin particle id; the Particle Changer only lists those ids on 1.8.9).
   Settings rows removed on 1.8.9: Performance "shaderPerformanceMode"
-  (Iris-only) — reads return the stored value/false. General "rawMouseInput" is
-  back (2026-11-02): LWJGL 2 deltas come from the cursor, so `RawMouseInput` reads
-  JInput's raw plugin instead and falls back to LWJGL if that fails.
+  (Iris-only) — reads return the stored value/false. General "modernMouse"
+  (Modern Mouse, default on; 1.8.9 only since 2026-11-03 — newer versions leave raw
+  input to Minecraft's own option) makes the mouse feel like 1.13+: `RawMouseInput`
+  reads JInput's raw plugin instead of LWJGL 2's cursor-derived (accelerated) deltas
+  and falls back to LWJGL if that fails; `mixin/core/EntityLivingBaseLookMixin` casts
+  the local player's crosshair ray along the camera's rotation (no 1.8.9 mouse delay).
+  The sensitivity curve (s*0.6+0.2)^3*8 and per-frame turning already match 1.13+.
+  Keybinds in originclient-mods.json: mouse button b is -100 + b on every version.
 - `mods/ModsConfig`, `ModsConfigAccess`, `ModOption`, `Profiles`, `hud/HudPos`:
   1.16.5 API unchanged.
 - `IoCompat`: 1.16.5's `readAllBytes`, `keys` + gson 2.2.4 gaps: `size(JsonObject)`,

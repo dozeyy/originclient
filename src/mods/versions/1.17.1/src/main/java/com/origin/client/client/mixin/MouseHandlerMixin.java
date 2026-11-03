@@ -29,10 +29,13 @@ public abstract class MouseHandlerMixin {
 
 	// Scroll to Zoom: while actively zoomed, the wheel changes zoom depth (a
 	// transient multiplier applied in GameRendererMixin) instead of scrolling
-	// the hotbar. Only swallows the scroll when zoom is actually active.
+	// the hotbar. Only swallows the scroll when zoom is actually active. Never inside a
+	// screen: Toggle Zoom stays latched while one is open, and chat, inventories and
+	// scroll lists keep their own wheel.
 	@Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
 	private void originclient$scrollZoom(long windowPointer, double xOffset, double yOffset, CallbackInfo ci) {
-		if (Mods.on("zoom") && OriginClientMod.zoomActive && Mods.bool("zoom", "scrollZoom") && yOffset != 0) {
+		if (Mods.on("zoom") && OriginClientMod.zoomActive && Mods.bool("zoom", "scrollZoom") && yOffset != 0
+				&& Minecraft.getInstance().screen == null) {
 			double speed = Math.max(0.1, Mods.num("zoom", "scrollSpeed"));
 			double f = OriginClientMod.zoomScrollFactor * Math.pow(1.15, -yOffset * speed);
 			OriginClientMod.zoomScrollFactor = Math.max(0.2, Math.min(3.0, f));

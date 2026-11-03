@@ -11,6 +11,7 @@
 		"GuiNewChatAccessor",
 		"GuiNewChatMixin",
 		"IntegratedServerShutdownMixin",
+		"EntityLivingBaseLookMixin",
 		"KeyBindingMixin",
 		"MouseHelperRawMixin"
 	]

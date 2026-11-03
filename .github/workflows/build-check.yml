@@ -23,6 +23,7 @@ on:
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
       - "tools/screenshot-link-tests/**"
+      - "tools/keycodes-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -40,6 +41,7 @@ on:
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
       - "tools/screenshot-link-tests/**"
+      - "tools/keycodes-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -89,6 +91,11 @@ jobs:
       # sent, and never outside the screenshots folder. Every live module carries the same copy.
       - name: Test screenshot chat links
         run: python3 tools/screenshot-link-tests/run.py
+      # Origin's keybinds travel between versions in one format (util/KeyCodes, pure Java):
+      # GLFW codes, mouse buttons as -100 + b, -1 unbound. 26.3's SDL3 copy round-trips
+      # every key; pre-1.20 modules (outside shared sync) carry the shared copy.
+      - name: Test keybind format
+        run: python3 tools/keycodes-tests/run.py
 
       # The starter config new players are seeded from (default-mods-config.json in every live
       # module): every slider value inside its Mods.java range, and none of the known values
