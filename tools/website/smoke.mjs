@@ -105,16 +105,18 @@ for (const p of PAGES) {
   if (await page.evaluate(() => document.body.classList.contains('no-webgl'))) console.log('note: no WebGL here, island checks skipped');
   else {
     const top = await rafIn(page, 1000);
-    if (top < 10) fail(where, `the hero island should animate (${top} frames in 1s)`);
+    if (top < 5) fail(where, `the hero island should animate (${top} frames in 1s)`);
     await page.evaluate(() => document.getElementById('why').scrollIntoView({ behavior: 'instant' }));
     await page.waitForTimeout(800);
     const covered = await rafIn(page, 1500);
     if (covered > 2) fail(where, `still drawing under the Why cards (${covered} frames in 1.5s)`);
     await page.evaluate(() => document.getElementById('get').scrollIntoView({ behavior: 'instant' }));
-    await page.waitForTimeout(400);
-    const back = await rafIn(page, 1000);
-    console.log(`island frames: hero ${top}/s, covered ${covered}/1.5s, download ${back}/s`);
-    if (back < 10) fail(where, `didn't resume drawing at the download section (${back} frames in 1s)`);
+    await page.waitForTimeout(800);
+    const back = await rafIn(page, 1500);
+    console.log(`island frames: hero ${top}/s, covered ${covered}/1.5s, download ${back}/1.5s`);
+    // A stopped loop draws 0 frames; CI's software renderer can be slow (3-12 frames/s seen
+    // here at this pose), so any steady drawing counts as resumed.
+    if (back < 3) fail(where, `didn't resume drawing at the download section (${back} frames in 1.5s)`);
   }
   await ctx.close();
   const rm = await open('/', { width: 390, height: 844, reducedMotion: true, where: 'island reduced motion' });
