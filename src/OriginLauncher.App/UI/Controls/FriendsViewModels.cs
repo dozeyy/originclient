@@ -11,25 +11,7 @@ namespace OriginLauncher.App.UI.Controls;
 // while the drawer is open never flickers, drops a hover or focus state, or moves
 // the scroll position.
 
-/// <summary>One line of the drawer's list.</summary>
-public abstract class RowVm
-{
-    /// <summary>Who this row is, stable across syncs (kind plus uuid).</summary>
-    public abstract string Key { get; }
-
-    /// <summary>Everything visible about the row: changes whenever the row must be redrawn.</summary>
-    public virtual string Signature => Body;
-
-    protected abstract string Body { get; }
-}
-
-/// <summary>A row drawn inside a card group; <see cref="Pos"/> is set when the group is assembled.</summary>
-public abstract class CardRowVm : RowVm
-{
-    public CardPos Pos { get; set; } = CardPos.Only;
-
-    public override string Signature => $"{Body}|{Pos}";
-}
+// RowVm, CardRowVm and HintVm (the shared row bases) live in RowModels.cs, shared with the Mac launcher.
 
 public sealed class SectionVm : RowVm
 {
@@ -43,15 +25,6 @@ public sealed class SectionVm : RowVm
     public string Heading => Count > 0 ? $"{Title} - {Count}" : Title;
     public override string Key => $"S|{Id}";
     protected override string Body => $"{Heading}|{Collapsed}";
-}
-
-/// <summary>A one-line note inside a card ("No friends are online right now").</summary>
-public sealed class HintVm : CardRowVm
-{
-    public required string Id { get; init; }
-    public required string Text { get; init; }
-    public override string Key => $"H|{Id}";
-    protected override string Body => Text;
 }
 
 /// <summary>The party leader asked everyone to join them.</summary>

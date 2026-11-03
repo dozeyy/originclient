@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
         NavMods.Click += (_, _) => SelectTab(NavHome);
         NavProfiles.Click += (_, _) => SelectTab(NavHome);
         NavSettings.Click += (_, _) => SelectTab(NavHome);
+        HookImport(); // MainWindow.Import.cs: the Import page, its button, the first-run card, closing mid-import
     }
 
     private void SelectTab(ToggleButton tab)
@@ -49,6 +50,7 @@ public sealed partial class MainWindow : Window
 
     private void KeepOneTab()
     {
+        if (_importOpen) return; // the Import page lights no tab (MainWindow.Import.cs)
         if (NavHome.IsChecked != true && NavMods.IsChecked != true && NavProfiles.IsChecked != true && NavSettings.IsChecked != true)
             NavHome.IsChecked = true;
     }

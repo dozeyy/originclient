@@ -86,7 +86,7 @@ public sealed class GameFileContributor : IVersionWideContributor
 
         if (toDownloadCount > 0)
             plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.GameFile,
-                $"{toDownloadCount} game {(toDownloadCount == 1 ? "file" : "files")} not found on this PC",
+                $"{toDownloadCount} game {(toDownloadCount == 1 ? "file" : "files")} not found on {Bulk.BulkSummary.ThisComputer}",
                 $"about {ImportSummary.Megabytes(toDownloadBytes)} will download the first time you press Play."));
         if (set.JavaSkipped)
             plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.GameFile, "Java runtime",

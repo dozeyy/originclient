@@ -16,6 +16,11 @@ on:
       - "src/OriginLauncher.App/Core/**"
       - "src/OriginLauncher.Mac/**"
       - "src/OriginLauncher.Tests/**"
+      - "src/OriginLauncher.App/UI/Controls/Import*.cs"
+      - "src/OriginLauncher.App/UI/Controls/RowModels.cs"
+      - "src/OriginLauncher.App/UI/ImportDemo.cs"
+      - "src/OriginLauncher.App/UI/ImportShots.cs"
+      - "src/OriginLauncher.App/Assets/Logos/**"
       - "global.json"
       - "tools/mac/**"
       - "tools/lean/contact_sheet.py"
@@ -25,6 +30,11 @@ on:
       - "src/OriginLauncher.App/Core/**"
       - "src/OriginLauncher.Mac/**"
       - "src/OriginLauncher.Tests/**"
+      - "src/OriginLauncher.App/UI/Controls/Import*.cs"
+      - "src/OriginLauncher.App/UI/Controls/RowModels.cs"
+      - "src/OriginLauncher.App/UI/ImportDemo.cs"
+      - "src/OriginLauncher.App/UI/ImportShots.cs"
+      - "src/OriginLauncher.App/Assets/Logos/**"
       - "global.json"
       - "tools/mac/**"
       - "tools/lean/contact_sheet.py"
@@ -80,11 +90,12 @@ jobs:
 
       # The Core tests that mean something on a Mac: the Mac seams, the skin decoder that
       # replaces WPF's, the library rules (1.8.9 LWJGL 2.9.2 on osx, 2.9.4 elsewhere) and the
-      # Mac launch rules (arch per version, Rosetta, no -XstartOnFirstThread on LWJGL 2).
+      # Mac launch rules (arch per version, Rosetta, no -XstartOnFirstThread on LWJGL 2), plus the
+      # import: every launcher's Mac folder found, and the page's words and paths ("/", "~", "this Mac").
       - name: Core tests (Mac mode)
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Mac
-          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests"
+          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests|FullyQualifiedName~MacImportTests|FullyQualifiedName~ImportPageLogicTests"
 
       # ---- Screenshots (Apple Silicon leg only; informational, never fails the run) ----
       # The Mac twin of launcher-shots: every Mac screen drawn headless (no window, made-up data, exits by

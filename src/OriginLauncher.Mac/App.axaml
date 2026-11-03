@@ -21,6 +21,7 @@
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Buttons.axaml"/>
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Inputs.axaml"/>
                 <ResourceInclude Source="avares://OriginLauncher/Theme/Surfaces.axaml"/>
+                <ResourceInclude Source="avares://OriginLauncher/Theme/Import.axaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

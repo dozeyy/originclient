@@ -62,6 +62,25 @@ public class ImportPageLogicTests
         Assert.Equal(@"C:\a\one", ImportLogic.CommonFolder(new[] { @"C:\a\one", @"D:\b\two" }));
     }
 
+    [Fact]
+    public void Mac_paths_keep_their_slashes_and_shorten_under_home()
+    {
+        // The tile's folder on a Mac: "/" joins it (a "\" would read "\Users\will\..."), and home reads as "~".
+        Assert.Equal("/Users/will/Library/Application Support/PrismLauncher/instances", ImportLogic.CommonFolder(new[]
+        {
+            "/Users/will/Library/Application Support/PrismLauncher/instances/Skyblock/minecraft",
+            "/Users/will/Library/Application Support/PrismLauncher/instances/Hardcore/minecraft",
+        }));
+        // only the root and /Users shared: the first setup's own folder
+        Assert.Equal("/Users/a/mc", ImportLogic.CommonFolder(new[] { "/Users/a/mc", "/Users/b/mc" }));
+        Assert.Equal("~/Library/Application Support/minecraft",
+            ImportLogic.ShortPath("/Users/will/Library/Application Support/minecraft", home: "/Users/will"));
+        // never a Windows name on a Mac path, and a home that differs only by case is another folder
+        Assert.Equal("/Users/Will/Library/minecraft", ImportLogic.ShortPath("/Users/Will/Library/minecraft", home: "/Users/will"));
+        Assert.Equal("/Volumes/Games/curseforge", ImportLogic.ShortPath("/Volumes/Games/curseforge", home: "/Users/will"));
+        Assert.Equal("/Users/willow/mc", ImportLogic.ShortPath("/Users/willow/mc", home: "/Users/will"));
+    }
+
     // ---------------------------------------------------------------- per-setup ticks
 
     [Fact]

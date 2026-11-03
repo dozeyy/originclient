@@ -167,10 +167,23 @@ internal static class ImportLogic
         _ => string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1],
     };
 
-    /// <summary>A folder path as the player would say it: %LocalAppData% and %AppData% for the folders Windows puts them in.</summary>
-    public static string ShortPath(string path, string? appData = null, string? localAppData = null)
+    /// <summary>
+    /// A folder path as the player would say it: %LocalAppData% and %AppData% for the folders Windows puts them in; a
+    /// Mac path (it starts with "/") is shortened to "~/..." under the player's home folder instead, never given a
+    /// Windows name.
+    /// </summary>
+    public static string ShortPath(string path, string? appData = null, string? localAppData = null, string? home = null)
     {
         if (string.IsNullOrWhiteSpace(path)) return "";
+        if (path.StartsWith('/'))
+        {
+            home ??= Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var h = home.TrimEnd('/');
+            // Mac folder names can differ only by case, so the home folder must match exactly.
+            if (h.StartsWith('/') && path.Length > h.Length && path.StartsWith(h, StringComparison.Ordinal) && path[h.Length] == '/')
+                return "~" + path[h.Length..];
+            return path;
+        }
         appData ??= Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         localAppData ??= Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         // LocalAppData first: it is longer, and on some PCs AppData sits inside it.
@@ -187,7 +200,8 @@ internal static class ImportLogic
 
     /// <summary>
     /// Where a launcher keeps its setups: the deepest folder they share ("...\PrismLauncher\instances" for several), or the
-    /// one setup's own folder. Folder names are compared without case, like Windows does.
+    /// one setup's own folder. Folder names are compared without case, like Windows (and a Mac's default disk) does. The
+    /// answer keeps the paths' own separator: "/" for Mac paths, "\" for Windows ones.
     /// </summary>
     public static string CommonFolder(IReadOnlyList<string> folders)
     {
@@ -203,7 +217,9 @@ internal static class ImportLogic
             common.Add(part);
         }
         // Nothing shared past the drive: the first setup's folder is still a true answer.
-        return common.Count <= 1 ? paths[0] : string.Join("\\", common);
+        // A Mac path splits to "" (the root) first, so its root plus one shared folder is still "nothing shared".
+        var mac = paths[0].StartsWith('/');
+        return common.Count <= (mac ? 2 : 1) ? paths[0] : string.Join(mac ? "/" : "\\", common);
     }
 
     /// <summary>What a press on Import does right now: start, or say why not (and leave nothing half-shown).</summary>
