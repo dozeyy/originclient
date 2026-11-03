@@ -8,7 +8,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.level.GameType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.scores.DisplaySlot;
@@ -187,7 +190,13 @@ public final class OriginTabList {
 					&& CombatTracker.lastHit(info.getProfile().getId(), combatMs) > 0L;
 			int nameCol = fighting ? combatCol
 					: (isSelf && highlightSelf) ? Mods.color("tablist", "selfColor") : 0xFFFFFFFF;
-			g.drawString(font, names[i], px, ry, nameCol, false);
+			// like vanilla: names with a shadow; spectators dimmed and in italics
+			if (info.getGameMode() == GameType.SPECTATOR) {
+				g.drawString(font, names[i].copy().withStyle(ChatFormatting.ITALIC), px, ry,
+						(nameCol & 0x00FFFFFF) | 0x90000000, true);
+			} else {
+				g.drawString(font, names[i], px, ry, nameCol, true);
+			}
 
 			// Live health readout, packed tight against the objective/ping column.
 			if (showHealth) {
@@ -284,12 +293,13 @@ public final class OriginTabList {
 		}
 	}
 
-	/** Draws each line of `text` (split on newlines) centered on `cx`; returns the y
-	 *  below the last line. The chosen colour overrides the source formatting so the
-	 *  header/footer colour pickers actually take effect. */
+	/** Draws the header / footer centered on `cx`, like vanilla: the server's own
+	 *  colours and formatting kept, wrapped to the screen width less 50 px (newlines
+	 *  included), with a shadow. The colour picker tints the parts the server left
+	 *  uncoloured. Returns the y below the last line. */
 	private static int drawCentered(GuiGraphics g, Font font, Component text, int cx, int y, int color) {
-		for (String line : text.getString().split("\n")) {
-			g.drawString(font, line, cx - font.width(line) / 2, y, color, false);
+		for (FormattedCharSequence line : font.split(text, Math.max(50, g.guiWidth() - 50))) {
+			g.drawString(font, line, cx - font.width(line) / 2, y, color, true);
 			y += ROW_H;
 		}
 		return y;
