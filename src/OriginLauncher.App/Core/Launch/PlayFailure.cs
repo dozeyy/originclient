@@ -20,9 +20,11 @@ public sealed record PlayFailure(string Title, string Message)
     private const int Enospc = 28;
     private const int Edquot = 69;
 
-    private static bool IsDiskFull(IOException io) => OperatingSystem.IsWindows()
-        ? (io.HResult & 0xFFFF) is HandleDiskFull or DiskFull
-        : io.HResult is Enospc or Edquot;
+    // The Win32 form (HResult 0x8007xxxx) can't be mistaken for a raw errno, so it counts on every OS (the tests make
+    // it on Linux CI too); the raw errno form counts only off Windows.
+    private static bool IsDiskFull(IOException io) =>
+        ((io.HResult >>> 16) == 0x8007 && (io.HResult & 0xFFFF) is HandleDiskFull or DiskFull)
+        || (!OperatingSystem.IsWindows() && io.HResult is Enospc or Edquot);
 
     /// <summary>The nudge every message ends on.</summary>
     public const string RetryLine = "Your files are safe. Retry picks up where it stopped.";
