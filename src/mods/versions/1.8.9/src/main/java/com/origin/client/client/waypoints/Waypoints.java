@@ -249,11 +249,19 @@ public final class Waypoints {
 		}
 	}
 
-	/** Death waypoint: a red, beam-on waypoint at the death spot. */
+	/** Death waypoint: a red, beam-on waypoint at the death spot. Only the LATEST death
+	 *  is kept: the previous "Death" waypoint is replaced, so they never pile up. The
+	 *  "Death N" ones earlier builds numbered up are cleared with it. */
 	public static synchronized void onDeath(int x, int y, int z, String dim) {
-		Waypoint w = create(nextName("Death"), x, y, z, dim, 0xFFE05555);
+		ensureLoaded();
+		ALL.removeIf(old -> isDeathName(old.name));
+		Waypoint w = create("Death", x, y, z, dim, 0xFFE05555);
 		w.showBeam = true;
 		w.showText = true;
 		save();
+	}
+
+	private static boolean isDeathName(String name) {
+		return name != null && name.matches("Death( \\d+)?");
 	}
 }
