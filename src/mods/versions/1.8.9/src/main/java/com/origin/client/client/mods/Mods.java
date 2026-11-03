@@ -637,6 +637,8 @@ public final class Mods {
 				// leave a server, so the toggle would do nothing (its stored value stays).
 				ModOption.toggle("smoothChat", "Smooth Chat", true).tip("Animate new messages sliding into the chat."),
 				ModOption.toggle("timestamps", "Timestamps", false),
+				// Read on its own (ChatCopy), not behind the card's on/off: works by default.
+				ModOption.toggle("copyOnRightClick", "Right-Click to Copy", true).tip("Right-click a chat message to copy its text."),
 				ModOption.slider("opacity", "Background Opacity", 0.0, 1.0, 0.05, 0.5, "%.0f%%"),
 				ModOption.slider("scale", "Scale", 0.5, 1.0, 0.05, 1.0, "%.0f%%"));
 

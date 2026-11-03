@@ -4,6 +4,7 @@ import com.origin.client.client.gui.FpsCoachToast;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.mods.AutoGG;
 import com.origin.client.client.mods.AutoTextHotkey;
+import com.origin.client.client.mods.ChatCopy;
 import com.origin.client.client.mods.ChatEvents;
 import com.origin.client.client.mods.FpsCoach;
 import com.origin.client.client.mods.HypixelBedwars;
@@ -225,6 +226,8 @@ public class ServerHooks {
 	 * ever missing only this one hook would fail to register -- not every server
 	 * hook above. Pre is cancelable in Forge 1.8.9; guarded anyway so a
 	 * non-cancelable build only costs the fallback (vanilla opens the file).
+	 * Right-Click to Copy (ChatCopy) rides the same hook: it only takes button 1,
+	 * the screenshot buttons only button 0, so neither steps on the other.
 	 */
 	public static class ChatClicks {
 		public ChatClicks() {
@@ -233,7 +236,11 @@ public class ServerHooks {
 		@SubscribeEvent
 		public void onMouseInput(GuiScreenEvent.MouseInputEvent.Pre event) {
 			try {
-				if (event.gui instanceof GuiChat && ScreenshotChat.onChatClick(Minecraft.getMinecraft())
+				if (!(event.gui instanceof GuiChat)) {
+					return;
+				}
+				Minecraft mc = Minecraft.getMinecraft();
+				if ((ScreenshotChat.onChatClick(mc) || ChatCopy.onChatClick(mc))
 						&& event.isCancelable()) {
 					event.setCanceled(true);
 				}

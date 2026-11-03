@@ -8,6 +8,7 @@
 		"defaultRequire": 0
 	},
 	"client": [
+		"GuiNewChatAccessor",
 		"GuiNewChatMixin",
 		"IntegratedServerShutdownMixin",
 		"KeyBindingMixin",
