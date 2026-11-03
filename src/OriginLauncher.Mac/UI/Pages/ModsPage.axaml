@@ -22,7 +22,7 @@
                     </StackPanel>
                     <TextBlock x:Name="IntroText" Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="500"
                                HorizontalAlignment="Left" Margin="0,8,0,0"
-                               Text="Your own .jar mods for this version, shared by all your accounts. Origin's built-in mods stay up to date on their own."/>
+                               Text="Your own .jar mods for this version, shared by all your accounts. Origin's built&#x2011;in mods stay up to date on their own."/>
                 </StackPanel>
                 <ToggleButton Grid.Column="1" x:Name="YourModsSwitch" Theme="{StaticResource Toggle.Slider}"
                               Margin="24,6,0,0" VerticalAlignment="Top" AutomationProperties.Name="Load your mods">

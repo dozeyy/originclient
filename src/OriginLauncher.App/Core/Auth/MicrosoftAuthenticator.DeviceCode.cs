@@ -35,6 +35,7 @@ public sealed partial class MicrosoftAuthenticator
     {
         var interval = start.IntervalSeconds;
         var deadline = DateTime.UtcNow.AddSeconds(start.ExpiresInSeconds);
+        var misses = 0; // network blips in a row (DeviceCodeFlow.MaxTransientMisses)
         while (true)
         {
             await Task.Delay(TimeSpan.FromSeconds(interval), ct);
@@ -46,9 +47,33 @@ public sealed partial class MicrosoftAuthenticator
                 ["grant_type"] = DeviceCodeFlow.GrantType,
                 ["device_code"] = start.DeviceCode,
             };
-            using var response = await Http.PostAsync(TestTokenEndpoint, new FormUrlEncodedContent(form), ct);
-            var json = await response.Content.ReadAsStringAsync(ct);
-            var poll = DeviceCodeFlow.Classify(response.IsSuccessStatusCode, json);
+            HttpResponseMessage? response = null;
+            string json;
+            try
+            {
+                response = await Http.PostAsync(TestTokenEndpoint, new FormUrlEncodedContent(form), ct);
+                json = await response.Content.ReadAsStringAsync(ct);
+            }
+            // No answer (dropped connection, DNS) or HttpClient's own timeout (a TaskCanceledException that is not
+            // the player's cancel): one blip, waited out like "pending" until too many come in a row. ct and the
+            // deadline still end the wait at once. Nothing of the request or the exception is logged.
+            catch (Exception ex) when (ex is HttpRequestException || (ex is TaskCanceledException && !ct.IsCancellationRequested))
+            {
+                response?.Dispose();
+                if (DeviceCodeFlow.KeepWaitingAfterMiss(++misses)) continue;
+                throw new MicrosoftAuthException("device_code_poll",
+                    "Couldn't reach Microsoft. Check your internet connection and try again.", "no answer to repeated polls");
+            }
+            using var reply = response;
+            if (DeviceCodeFlow.IsTransientStatus((int)reply.StatusCode))
+            {
+                // A 5xx (often an HTML page): Microsoft's hiccup, not its answer. The body is never kept or logged.
+                if (DeviceCodeFlow.KeepWaitingAfterMiss(++misses)) continue;
+                throw new MicrosoftAuthException("device_code_poll", "Microsoft sign-in didn't finish. Please try again.",
+                    $"HTTP {(int)reply.StatusCode} on repeated polls");
+            }
+            misses = 0;
+            var poll = DeviceCodeFlow.Classify(reply.IsSuccessStatusCode, json);
             switch (poll)
             {
                 case DeviceCodePoll.Done:
@@ -68,7 +93,7 @@ public sealed partial class MicrosoftAuthenticator
                     throw new MicrosoftAuthException("device_code_declined",
                         "Sign-in was cancelled on Microsoft's page. Ask for a new code to try again.", "authorization_declined");
                 default:
-                    throw Failure("device_code_poll", response, json, "Microsoft sign-in didn't finish. Please try again.");
+                    throw Failure("device_code_poll", reply, json, "Microsoft sign-in didn't finish. Please try again.");
             }
         }
     }

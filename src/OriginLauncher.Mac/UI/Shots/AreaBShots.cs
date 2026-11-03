@@ -145,6 +145,7 @@ internal static class AreaBShots
         File.AppendAllText(Path.Combine(outDir, "focus-checks.txt"), focusLog.ToString());
 
         Accounts(window, outDir);
+        DpiMatrix(window, profiles);
     }
 
     // A page switch or a state change starts the theme's short transitions (the tab dot, hover colours) and a real
@@ -384,7 +385,64 @@ internal static class AreaBShots
         Pose("16k-bar-960-long-name", Widest, SocialDemo.Steve, false);
         RenderShots.Resize(window, 1180, 740);
 
+        // 150 % scale: the head stays a whole number of screen pixels per face pixel.
+        window.TourShowAccount("Steve", SocialDemo.Steve, false);
+        AtScale(window, 1.5, () =>
+        {
+            log.AppendLine($"16m-pill-150pct: scaling={window.RenderScaling} {window.TourAccountFit()}");
+            Shot(window, "16m-pill-150pct");
+        });
+
         File.WriteAllText(Path.Combine(outDir, "account-fit.txt"), log.ToString());
+    }
+
+    // The headless window drawn at a display scale (1.5 = 150 %): layout rounds to that scale's device pixels and the
+    // frame is rasterised at it, like a Retina or scaled display. Always set back to 100 %.
+    private static void AtScale(MainWindow window, double scale, Action shots)
+    {
+        window.SetRenderScaling(scale);
+        RenderShots.Pump();
+        try { shots(); }
+        finally
+        {
+            window.SetRenderScaling(1);
+            RenderShots.Pump();
+        }
+    }
+
+    // Twin of the Windows DpiMatrix (RenderShots.cs), the scenes in this area: Mods, Profiles and the sign-in card at
+    // the launcher's minimum, default and a 1080p window, each at 100 / 150 / 200 % scale. Home, friends, the version
+    // picker, Settings and the launch failure are the other area's scenes.
+    private static void DpiMatrix(MainWindow window, LauncherSettings profiles)
+    {
+        var scenes = new (string Name, Action Setup, Action Cleanup)[]
+        {
+            ("mods-list", () => { window.TourGoTo(MainWindow.LauncherPage.Mods); window.TourShowModsDemo(DemoMods, 0); }, () => { }),
+            ("profiles", () => window.TourShowProfiles(profiles, DemoCount, openForm: false), () => { }),
+            ("sign-in-loading", () => { window.TourGoTo(MainWindow.LauncherPage.Home); window.TourShowSignIn(null, null); }, window.TourCloseSignIn),
+            ("sign-in-message", () =>
+            {
+                window.TourGoTo(MainWindow.LauncherPage.Home);
+                window.TourShowSignIn("Couldn't add this account", "Couldn't save this account. Please try again.");
+            }, window.TourCloseSignIn),
+        };
+        window.TourShowAccount(null, "", false); // signed out, like the Windows matrix
+        foreach (var (name, setup, cleanup) in scenes)
+        {
+            setup();
+            foreach (var percent in new[] { 100, 150, 200 })
+                AtScale(window, percent / 100.0, () =>
+                {
+                    foreach (var (w, h) in new[] { (980, 600), (1180, 740), (1920, 1080) })
+                    {
+                        RenderShots.Resize(window, w, h);
+                        Shot(window, $"dpi-{name}-{w}x{h}-{percent}pct");
+                    }
+                });
+            cleanup();
+            RenderShots.Pump();
+        }
+        RenderShots.Resize(window, 1180, 740);
     }
 
     // The visible page scrolled well past the top bar (its longest scroller, to 60 %), so a shot proves content goes

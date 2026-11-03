@@ -102,4 +102,27 @@ public class DeviceCodeFlowTests
         SignInRedirect.Classify($"{Redirect}?error=invalid_scope&state=abc", Redirect, "abc", out _, out var error);
         Assert.Equal("invalid_scope", error);
     }
+
+    // A network blip mid-poll (a 5xx page, a 408) is waited out like "pending"; a real OAuth answer (400 with an error
+    // field, 401) is never mistaken for one.
+    [Theory]
+    [InlineData(500, true)]
+    [InlineData(502, true)]
+    [InlineData(503, true)]
+    [InlineData(504, true)]
+    [InlineData(408, true)]
+    [InlineData(400, false)]
+    [InlineData(401, false)]
+    [InlineData(200, false)]
+    public void Transient_statuses_are_waited_out(int status, bool transient) =>
+        Assert.Equal(transient, DeviceCodeFlow.IsTransientStatus(status));
+
+    [Fact]
+    public void Blips_in_a_row_are_capped()
+    {
+        for (var miss = 1; miss <= DeviceCodeFlow.MaxTransientMisses; miss++)
+            Assert.True(DeviceCodeFlow.KeepWaitingAfterMiss(miss));
+        Assert.False(DeviceCodeFlow.KeepWaitingAfterMiss(DeviceCodeFlow.MaxTransientMisses + 1));
+        Assert.Equal(5, DeviceCodeFlow.MaxTransientMisses);
+    }
 }

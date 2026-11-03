@@ -99,6 +99,10 @@ public sealed partial class ModsPage : UserControl
         SettingsStore.Update(s => s.PlayWithExternalMods = on);
     }
 
+    // "built-in" with a non-breaking hyphen (U+2011, written as an escape so the source stays ASCII): Avalonia breaks a
+    // line after a plain hyphen (UAX #14), WPF doesn't, so the intro wrapped as "built-" / "in" on the Mac.
+    private const string BuiltIn = "built\u2011in";
+
     private void ResolveProfile()
     {
         var settings = SettingsStore.Load();
@@ -106,11 +110,11 @@ public sealed partial class ModsPage : UserControl
         var selected = settings.ModProfiles.FirstOrDefault(p => p.Id == settings.SelectedProfileId && ProfileRules.IsUsable(p));
 
         if (_profile != null)
-            IntroText.Text = $"Mods for your profile \"{_profile.Name}\". Only this profile loads them; Origin's built-in mods stay up to date on their own.";
+            IntroText.Text = $"Mods for your profile \"{_profile.Name}\". Only this profile loads them; Origin's {BuiltIn} mods stay up to date on their own.";
         else if (selected != null && _version != null)
             IntroText.Text = $"Your profile \"{selected.Name}\" is for {selected.Version}, so these are your normal mods for this version, shared by all your accounts.";
         else
-            IntroText.Text = "Your own .jar mods for this version, shared by all your accounts. Origin's built-in mods stay up to date on their own.";
+            IntroText.Text = $"Your own .jar mods for this version, shared by all your accounts. Origin's {BuiltIn} mods stay up to date on their own.";
     }
 
     private void Refresh(ICollection<string>? landed = null)

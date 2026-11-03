@@ -71,6 +71,17 @@ public static class DeviceCodeFlow
         };
     }
 
+    /// <summary>Polls in a row that may fail on a network blip (no answer, a timeout, a 5xx) before the sign-in gives
+    /// up. Each one is waited out like "authorization_pending"; a real answer resets the count.</summary>
+    public const int MaxTransientMisses = 5;
+
+    /// <summary>A status that says "try again" rather than "no": Microsoft's or a proxy's 5xx (often an HTML page, not
+    /// OAuth JSON) and 408 Request Timeout.</summary>
+    public static bool IsTransientStatus(int statusCode) => statusCode >= 500 || statusCode == 408;
+
+    /// <summary>True while a run of <paramref name="consecutiveMisses"/> blips is still worth waiting out.</summary>
+    public static bool KeepWaitingAfterMiss(int consecutiveMisses) => consecutiveMisses <= MaxTransientMisses;
+
     /// <summary>The wait before the next poll: slow_down adds 5 s for the rest of the sign-in (RFC 8628 3.5).</summary>
     public static int NextInterval(int current, DeviceCodePoll poll) =>
         poll == DeviceCodePoll.SlowDown ? current + SlowDownStepSeconds : current;
