@@ -1,0 +1,39 @@
+# The Resource Pack Hub's built-in Picks list (PackPicks.java in every module),
+# checked against the real sources. The cloud sandbox Claude works in can't reach
+# Modrinth or the creators' sites; GitHub runners can, so curation runs here.
+#
+#   verify_picks.py  every pick: Modrinth project id / owner / downloads / the game
+#                    versions it really publishes files for; each pinned direct file
+#                    re-downloaded and its SHA-256 + size compared; link-out pages
+#                    alive. Fails the job on any mismatch or dead link.
+#   discover.py      (workflow_dispatch input, or [discover] in the commit message)
+#                    candidate tables for choosing picks; read-only.
+# No pack is ever re-hosted: nothing here is uploaded anywhere.
+name: pack-picks
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["tools/packs/**", ".github/workflows/pack-picks.yml",
+            "src/mods/versions/1.21.1/src/client/java/com/origin/client/client/packs/PackPicks.java"]
+  workflow_dispatch:
+    inputs:
+      discover:
+        description: "Also print the curation candidate tables (discover.py)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  picks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Discover candidates
+        if: ${{ github.event.inputs.discover == 'true' || contains(github.event.head_commit.message, '[discover]') }}
+        run: python3 tools/packs/discover.py
+      - name: Verify picks
+        run: python3 tools/packs/verify_picks.py
