@@ -100,7 +100,8 @@ class ZipManifestTests(unittest.TestCase):
         self.assertEqual(zip_manifest.build(z)["files"][0]["path"], "Bundled/a.jar")
 
     def test_unsafe_paths_and_duplicates_fail_the_run(self) -> None:
-        for names in (["../evil.dll"], ["/abs.dll"], ["C:/x.dll"], ["a.dll", "A.dll"]):
+        for names in (["../evil.dll"], ["/abs.dll"], ["C:/x.dll"], ["a.dll", "A.dll"], ["Bundled/NUL.txt"], ["com1"],
+                      ["x.dll."]):
             z = self.tmp / "bad.zip"
             with zipfile.ZipFile(z, "w") as zf:
                 for n in names:

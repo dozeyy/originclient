@@ -40,11 +40,18 @@ CHUNK = 1 << 20
 BAD_CHARS = set('<>:"|?*\\')
 
 
+def _is_device(segment: str) -> bool:
+    """Windows device names (CON, NUL, COM1, LPT1, ...), with or without an extension: DeltaManifest.IsDeviceName."""
+    stem = segment.split(".", 1)[0].rstrip(" ").upper()
+    return stem in ("CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$") or (
+        len(stem) == 4 and stem[:3] in ("COM", "LPT") and (stem[3].isdigit() or stem[3] in "\u00b9\u00b2\u00b3"))
+
+
 def _safe_path(name: str) -> str:
     """The launcher refuses anything else (DeltaManifest.IsSafeRelative); refuse it here first, loudly."""
     path = name.replace("\\", "/")
     parts = path.split("/")
-    if not path or path.startswith("/") or any(p == "" or p[-1] in ". " for p in parts) \
+    if not path or path.startswith("/") or any(p == "" or p[-1] in ". " or _is_device(p) for p in parts) \
             or any(c in BAD_CHARS or ord(c) < 0x20 for c in path):
         raise SystemExit(f"zip_manifest: unsafe path in zip: {name!r}")
     return path

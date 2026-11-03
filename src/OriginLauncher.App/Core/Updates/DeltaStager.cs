@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
 namespace OriginLauncher.App.Core.Updates;
@@ -75,7 +76,7 @@ public static class DeltaStager
     /// </summary>
     public static async Task<Result> StageAsync(HttpClient http, string zipUrl, DeltaManifest manifest, string? installDir,
         string stageDir, Action<long, long>? onProgress, TimeSpan stallTimeout, CancellationToken ct,
-        double maxFetchFraction = MaxFetchFraction)
+        double maxFetchFraction = MaxFetchFraction, long mergeGap = MergeGap)
     {
         try
         {
@@ -89,6 +90,15 @@ public static class DeltaStager
             {
                 ct.ThrowIfCancellationRequested();
                 var dest = DeltaManifest.Resolve(stageDir, f.Path);
+                if (f.Size == 0)
+                {
+                    // Nothing to fetch (a stored empty file has no bytes in the zip: its range would be X-(X-1)).
+                    // DeltaManifest.Parse already checked its SHA-256 is the empty one.
+                    Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                    await File.WriteAllBytesAsync(dest, Array.Empty<byte>(), ct).ConfigureAwait(false);
+                    reused++;
+                    continue;
+                }
                 if (installDir != null && await TryReuseAsync(DeltaManifest.Resolve(installDir, f.Path), dest, f, ct).ConfigureAwait(false))
                     reused++;
                 else
@@ -96,7 +106,7 @@ public static class DeltaStager
             }
 
             // 2. Plan the requests; a release that changed nearly everything is cheaper as one full download.
-            var ranges = PlanRanges(toFetch);
+            var ranges = PlanRanges(toFetch, mergeGap);
             var total = ranges.Sum(r => r.Length);
             if (total > manifest.ZipSize * maxFetchFraction)
                 throw new DeltaUnavailableException($"{total} of {manifest.ZipSize} bytes changed, the full download is simpler");
@@ -104,6 +114,9 @@ public static class DeltaStager
 
             // 3. Fetch them, a few at a time; the first failure stops the rest.
             long received = 0;
+            // The failure that stopped the others, recorded the moment it happened: siblings cancelled because of it
+            // fail too (cancelled, or a read aborted mid-body), and must not be what the log says went wrong.
+            var firstFailure = new StrongBox<Exception?>();
             using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
             using var slots = new SemaphoreSlim(Parallel);
             var tasks = ranges.Select(async range =>
@@ -114,8 +127,10 @@ public static class DeltaStager
                     await FetchRangeAsync(http, zipUrl, manifest.ZipSize, range, stageDir,
                         n => onProgress?.Invoke(Interlocked.Add(ref received, n), total), stallTimeout, stop.Token).ConfigureAwait(false);
                 }
-                catch
+                catch (Exception e)
                 {
+                    lock (firstFailure)
+                        if (!stop.IsCancellationRequested) firstFailure.Value ??= e;
                     stop.Cancel();
                     throw;
                 }
@@ -130,8 +145,10 @@ public static class DeltaStager
             }
             catch when (!ct.IsCancellationRequested)
             {
-                // Report the first real failure, not a sibling's "cancelled because another failed".
-                var first = tasks.Where(t => t.IsFaulted).Select(t => t.Exception!.InnerException!)
+                // Report the failure that came first, not a sibling's "cancelled because another failed".
+                Exception? first;
+                lock (firstFailure) first = firstFailure.Value;
+                first ??= tasks.Where(t => t.IsFaulted).Select(t => t.Exception!.InnerException!)
                     .FirstOrDefault(e => e is not OperationCanceledException);
                 if (first is DeltaUnavailableException) throw first;
                 throw new DeltaUnavailableException(first?.Message ?? "a request was cancelled", first);

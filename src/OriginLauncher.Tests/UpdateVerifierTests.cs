@@ -256,6 +256,25 @@ public sealed class UpdateVerifierTests : IDisposable
             _ => Task.FromResult("<html>Not Found</html>"), Asset, TimeSpan.FromSeconds(5)));
     }
 
+    // The click treats every sidecar failure alike (above); a background download retries the ones that say nothing about
+    // the release (timeouts, dropped connections, 5xx, 429) instead of withdrawing the update. A 404 or a garbled body
+    // is a real verification failure.
+    [Fact]
+    public async Task Sidecar_timeouts_and_network_errors_are_transient_a_404_or_garbage_is_not()
+    {
+        async Task<bool> Transient(Func<CancellationToken, Task<string>> fetch, int timeoutMs = 5000) =>
+            (await Assert.ThrowsAsync<UpdateVerificationException>(() =>
+                UpdateVerifier.FetchSidecarAsync(fetch, Asset, TimeSpan.FromMilliseconds(timeoutMs)))).Transient;
+
+        Assert.True(await Transient(async ct => { await Task.Delay(Timeout.Infinite, ct); return ""; }, 50));
+        Assert.True(await Transient(_ => throw new HttpRequestException("reset")));
+        Assert.True(await Transient(_ => throw new HttpRequestException("502", null, System.Net.HttpStatusCode.BadGateway)));
+        Assert.True(await Transient(_ => throw new HttpRequestException("429", null, System.Net.HttpStatusCode.TooManyRequests)));
+        Assert.True(await Transient(_ => throw new IOException("connection dropped")));
+        Assert.False(await Transient(_ => throw new HttpRequestException("404", null, System.Net.HttpStatusCode.NotFound)));
+        Assert.False(await Transient(_ => Task.FromResult("<html>Not Found</html>")));
+    }
+
     [Fact]
     public void ParseSha256_rejects_a_huge_body()
     {

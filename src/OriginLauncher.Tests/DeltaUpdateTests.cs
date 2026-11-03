@@ -62,8 +62,17 @@ public sealed class DeltaUpdateTests : IDisposable
     }
 
     private static Task<DeltaStager.Result> Stage(RangeServer server, DeltaManifest list, string? install, string stage,
-        CancellationToken ct = default, double maxFraction = DeltaStager.MaxFetchFraction, Action<long, long>? progress = null) =>
-        DeltaStager.StageAsync(new HttpClient(), server.Url, list, install, stage, progress, Stall, ct, maxFraction);
+        CancellationToken ct = default, double maxFraction = DeltaStager.MaxFetchFraction, Action<long, long>? progress = null,
+        long mergeGap = DeltaStager.MergeGap) =>
+        DeltaStager.StageAsync(new HttpClient(), server.Url, list, install, stage, progress, Stall, ct, maxFraction, mergeGap);
+
+    // The fixture's list with one entry changed (by path), parsed against the real fixture zip.
+    private static DeltaManifest FixtureWith(string path, Action<JsonNode> change)
+    {
+        var json = JsonNode.Parse(ListBytes)!;
+        change(json["files"]!.AsArray().Single(f => f!["path"]!.GetValue<string>() == path)!);
+        return DeltaManifest.Parse(Encoding.UTF8.GetBytes(json.ToJsonString()), ZipName, FileSha(FixtureZip));
+    }
 
     // Same files (and folders) with the same bytes.
     private static void AssertSameTree(string expected, string actual)
@@ -103,6 +112,7 @@ public sealed class DeltaUpdateTests : IDisposable
     {
         "format=2", "path=../evil.dll", "path=/abs.dll", "path=C:/x.dll", "path=a\\b.dll", "path=a/./b.dll", "path=x.dll.",
         "path=", "method=12", "offset=-1", "offset=999999999", "sha=xyz", "dup", "overlap", "fileAndFolder", "notJson", "noFiles",
+        "path=NUL", "path=Bundled/con.txt", "path=COM1.dll", "path=lpt9", "path=x.dll ", "csize=0", "emptyWrongSha",
     };
 
     [Theory]
@@ -125,6 +135,10 @@ public sealed class DeltaUpdateTests : IDisposable
             case "fileAndFolder": first["path"] = "Bundled"; break;
             case "notJson": raw = "{ not json"; break;
             case "noFiles": json["files"] = new JsonArray(); break;
+            case "csize=0": first["csize"] = 0; break; // the exe: bytes but no compressed bytes
+            case "emptyWrongSha":
+                files.Single(f => f!["path"]!.GetValue<string>() == "empty.txt")!["sha256"] = new string('a', 64);
+                break;
             default: first["path"] = change["path=".Length..]; break;
         }
         var bytes = Encoding.UTF8.GetBytes(raw ?? json.ToJsonString());
@@ -141,6 +155,14 @@ public sealed class DeltaUpdateTests : IDisposable
     [InlineData("a b ", false)]
     [InlineData("con:x", false)]
     [InlineData("a*b", false)]
+    [InlineData("NUL", false)]
+    [InlineData("Bundled/aux.json", false)]
+    [InlineData("com3.jar", false)]
+    [InlineData("LPT1", false)]
+    [InlineData("CONOUT$", false)]
+    [InlineData("console.dll", true)]
+    [InlineData("COM.dll", true)]
+    [InlineData("nul2.txt", true)]
     public void Safe_paths_are_plain_relative_ones(string path, bool safe) => Assert.Equal(safe, DeltaManifest.IsSafeRelative(path));
 
     [Fact]
@@ -234,6 +256,36 @@ public sealed class DeltaUpdateTests : IDisposable
         using var server = new RangeServer(FixtureZip) { Behaviour = mode };
         var e = await Assert.ThrowsAsync<DeltaUnavailableException>(() => Stage(server, Fixture(), OlderInstall(FixtureZip), Path.Combine(_dir, "stage")));
         _out.WriteLine($"{mode}: {e.Message}");
+    }
+
+    [Fact]
+    public async Task An_empty_file_is_written_without_a_request()
+    {
+        // A stored empty entry has no bytes in the zip: fetching it would ask for "bytes X-(X-1)".
+        using var server = new RangeServer(FixtureZip);
+        var list = FixtureWith("empty.txt", f => { f["method"] = 0; f["csize"] = 0; });
+        var install = OlderInstall(FixtureZip, dir => File.Delete(Path.Combine(dir, "empty.txt")));
+        var stage = Path.Combine(_dir, "stage");
+
+        var result = await Stage(server, list, install, stage, mergeGap: 0);
+
+        AssertSameTree(Unzipped(FixtureZip, "full"), stage);
+        Assert.Equal(1, result.FetchedFiles); // the exe only
+        Assert.Equal(1, server.RangeRequests);
+    }
+
+    [Fact]
+    public async Task When_one_request_fails_the_real_cause_is_reported_not_the_cancelled_siblings()
+    {
+        var list = Fixture();
+        var jar = list.Files.Single(f => f.Path == "Bundled/OriginClient/originclient-1.21.1.jar"); // stored: a flipped byte is a clean hash mismatch
+        using var server = new RangeServer(FixtureZip) { CorruptStart = jar.Offset, DelayOthers = TimeSpan.FromSeconds(3) };
+
+        var e = await Assert.ThrowsAsync<DeltaUnavailableException>(() =>
+            Stage(server, list, null, Path.Combine(_dir, "stage"), maxFraction: 1.0, mergeGap: 0));
+
+        _out.WriteLine(e.Message);
+        Assert.Contains("originclient-1.21.1.jar did not match", e.Message);
     }
 
     [Fact]
@@ -357,6 +409,10 @@ public sealed class DeltaUpdateTests : IDisposable
         }
 
         public Mode Behaviour { get; init; } = Mode.Honour;
+        /// <summary>Corrupt only the range that starts here (the others are served honestly).</summary>
+        public long? CorruptStart { get; init; }
+        /// <summary>Hold every other range this long before answering (so the corrupted one fails first).</summary>
+        public TimeSpan DelayOthers { get; init; }
         public string Url => $"http://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}/release/{ZipName}";
         public int RangeRequests => Volatile.Read(ref _range);
         public int FullRequests => Volatile.Read(ref _full);
@@ -395,23 +451,25 @@ public sealed class DeltaUpdateTests : IDisposable
                 {
                     Interlocked.Increment(ref _full);
                     await Write(stream, $"HTTP/1.1 200 OK\r\nContent-Length: {_length}\r\nConnection: close\r\n\r\n");
-                    await SendSlice(stream, 0, _length);
+                    await SendSlice(stream, 0, _length, corrupt: false);
                     return;
                 }
                 Interlocked.Increment(ref _range);
                 var spec = range["Range: bytes=".Length..].Split('-');
                 long from = long.Parse(spec[0]), to = long.Parse(spec[1]);
+                var corrupt = Behaviour == Mode.Corrupt || CorruptStart == from;
+                if (CorruptStart != null && !corrupt && DelayOthers > TimeSpan.Zero) await Task.Delay(DelayOthers, _stop.Token);
                 var length = to - from + 1;
                 var shown = Behaviour == Mode.WrongRange ? $"{from + 1}-{to + 1}" : $"{from}-{to}";
                 var encoding = Behaviour == Mode.Encoded ? "Content-Encoding: gzip\r\n" : "";
                 await Write(stream, $"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {shown}/{_length}\r\n{encoding}" +
                                     $"Content-Length: {length}\r\nConnection: close\r\n\r\n");
-                await SendSlice(stream, from, Behaviour == Mode.Truncate ? length / 2 : length);
+                await SendSlice(stream, from, Behaviour == Mode.Truncate ? length / 2 : length, corrupt);
             }
             catch { /* client went away or server stopping */ }
         }
 
-        private async Task SendSlice(NetworkStream stream, long from, long count)
+        private async Task SendSlice(NetworkStream stream, long from, long count, bool corrupt)
         {
             await using var file = new FileStream(_file, FileMode.Open, FileAccess.Read, FileShare.Read);
             file.Position = from;
@@ -421,7 +479,7 @@ public sealed class DeltaUpdateTests : IDisposable
             {
                 var read = await file.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, count)));
                 if (read == 0) break;
-                if (Behaviour == Mode.Corrupt && !corrupted) { buffer[read / 2] ^= 0xFF; corrupted = true; }
+                if (corrupt && !corrupted) { buffer[read / 2] ^= 0xFF; corrupted = true; }
                 await stream.WriteAsync(buffer.AsMemory(0, read), _stop.Token);
                 Interlocked.Add(ref _served, read);
                 count -= read;

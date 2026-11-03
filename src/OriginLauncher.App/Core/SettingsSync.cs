@@ -84,6 +84,16 @@ public static class SettingsSync
         SyncStoreFile.Save(storePath, engine.Store);
     });
 
+    /// <summary>
+    /// True while any game this launcher started is still running. The self-update's background download waits for it
+    /// (Core/Updates/UpdateService: a download must never cost ping or frames mid-game).
+    /// </summary>
+    public static bool AnyGameRunning => RunningGames.Values.Any(p =>
+    {
+        try { return !p.HasExited; }
+        catch (Exception) { return false; } // handle gone: not ours to wait on
+    });
+
     /// <summary>The launched game process started: remember it so its instance is left alone until it exits.</summary>
     public static void TrackGame(string account, string version, Process process) =>
         RunningGames[OriginPaths.GameDir(version, account)] = process;

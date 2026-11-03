@@ -22,6 +22,9 @@ public sealed record DeltaManifest(string Zip, long ZipSize, string ZipSha256, I
 {
     public const int Format = 1;
 
+    /// <summary>SHA-256 of zero bytes.</summary>
+    public const string EmptySha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
     // A real list is ~4 KB (29 files today); anything near this is not ours.
     public const int MaxBytes = 4 * 1024 * 1024;
     private const int MaxEntries = 20_000;
@@ -63,6 +66,10 @@ public sealed record DeltaManifest(string Zip, long ZipSize, string ZipSha256, I
             if (f.Size < 0 || f.Csize < 0 || f.Offset < 0 || f.Offset > raw.ZipSize - f.Csize)
                 throw new DeltaUnavailableException($"{f.Path}: sizes or offset outside the zip");
             if (f.Method == DeltaFile.Stored && f.Csize != f.Size) throw new DeltaUnavailableException($"{f.Path}: stored but sizes differ");
+            // A file with bytes always has compressed bytes; an empty one must carry the empty SHA-256 (it is written, not fetched).
+            if (f.Size > 0 && f.Csize == 0) throw new DeltaUnavailableException($"{f.Path}: has no compressed bytes");
+            if (f.Size == 0 && !string.Equals(sha, EmptySha256, StringComparison.OrdinalIgnoreCase))
+                throw new DeltaUnavailableException($"{f.Path}: empty but its SHA-256 is not the empty one");
             files.Add(new DeltaFile(f.Path, f.Size, sha.ToLowerInvariant(), f.Offset, f.Csize, f.Method));
         }
 
@@ -87,7 +94,7 @@ public sealed record DeltaManifest(string Zip, long ZipSize, string ZipSha256, I
 
     /// <summary>
     /// A plain relative path with "/" separators that can only land inside the folder it is joined to: no root, no
-    /// drive, no "." or ".." segment (nor any segment ending in a dot or space), no empty segment, no backslash, and none of the characters Windows refuses in a
+    /// drive, no "." or ".." segment (nor any segment ending in a dot or space), no Windows device name, no empty segment, no backslash, and none of the characters Windows refuses in a
     /// file name. tools/release/zip_manifest.py refuses the same set when it writes the list.
     /// </summary>
     public static bool IsSafeRelative(string path)
@@ -95,10 +102,20 @@ public sealed record DeltaManifest(string Zip, long ZipSize, string ZipSha256, I
         if (path.Length is 0 or > 400 || path[0] == '/' || path[^1] == '/') return false;
         foreach (var c in path)
             if (c < 0x20 || c is '\\' or ':' or '<' or '>' or '"' or '|' or '?' or '*') return false;
-        // A segment ending in "." or " " is trimmed by Windows, so "a.dll." would land on "a.dll": refused.
+        // A segment ending in "." or " " is trimmed by Windows, so "a.dll." would land on "a.dll": refused. A Windows
+        // device name (CON, NUL, COM1, LPT1, ... with or without an extension) opens the device, not a file: refused.
         foreach (var segment in path.Split('/'))
-            if (segment.Length == 0 || segment[^1] is '.' or ' ') return false;
+            if (segment.Length == 0 || segment[^1] is '.' or ' ' || IsDeviceName(segment)) return false;
         return true;
+    }
+
+    private static bool IsDeviceName(string segment)
+    {
+        var dot = segment.IndexOf('.');
+        var stem = (dot < 0 ? segment : segment[..dot]).TrimEnd(' ').ToUpperInvariant();
+        return stem is "CON" or "PRN" or "AUX" or "NUL" or "CONIN$" or "CONOUT$"
+               || (stem.Length == 4 && (stem.StartsWith("COM", StringComparison.Ordinal) || stem.StartsWith("LPT", StringComparison.Ordinal))
+                   && stem[3] is >= '0' and <= '9' or '\u00B9' or '\u00B2' or '\u00B3');
     }
 
     /// <summary>

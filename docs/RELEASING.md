@@ -121,9 +121,14 @@ badge, the Play gate or the rules above changes.
   it installs (zip re-hashed, or every staged file re-hashed). A background download
   that fails its integrity check withdraws the offer at once (same rule as a failed
   check on click: badge hides, Play opens, quiet retry later); one that fails for an
-  ordinary reason (offline, disk, stall) tries again on a later poll (2 min, doubling
-  to 30 min) and the click still works meanwhile. Dev builds (1.0.0.0) never download
-  in the background. Mac and Linux get this too.
+  ordinary reason (offline, disk, stall, a `.sha256` that timed out or hit a 5xx/429)
+  tries again on a later poll (2 min, doubling to 30 min) and the click still works
+  meanwhile. **No background download while a game this launcher started is starting
+  or running**: a game start stops one that is running, and the first poll after the
+  game closes starts it again (a download must never cost ping or frames). From the
+  moment the click takes or joins a version until that click fails, no other download
+  starts and no cleanup touches its files (`Core/Updates/UpdateFetchRules.cs`). Dev
+  builds (1.0.0.0) never download in the background. Mac and Linux get this too.
 - **Changed files only (Windows).** `tools/release/zip_manifest.py` writes
   `OriginLauncher-win-x64.files.json` from the final zip (build-installer action):
   every file's path, size, SHA-256 and where its compressed bytes sit in the zip,

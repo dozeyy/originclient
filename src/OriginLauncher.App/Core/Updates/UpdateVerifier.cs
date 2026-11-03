@@ -29,8 +29,14 @@ public enum UpdateVerdict
 /// <summary>
 /// The download failed its integrity check (mismatch, short file, no published hash, or one we cannot read). It never
 /// blocks play: UpdateGate ungates the update and retries quietly later.
+/// <see cref="Transient"/>: the published .sha256 could not be fetched for a reason that says nothing about the release
+/// (a timeout, a dropped connection, a 5xx or 429). The click treats it like any verification failure (as always); a
+/// background download treats it as an ordinary network failure and simply tries again later (UpdateService).
 /// </summary>
-public sealed class UpdateVerificationException(string message) : IOException(message);
+public sealed class UpdateVerificationException(string message, bool transient = false) : IOException(message)
+{
+    public bool Transient { get; } = transient;
+}
 
 public static class UpdateVerifier
 {
@@ -80,11 +86,24 @@ public static class UpdateVerifier
         }
         catch (Exception ex)
         {
-            throw new UpdateVerificationException($"the published SHA-256 file could not be fetched ({ex.GetType().Name})");
+            throw new UpdateVerificationException($"the published SHA-256 file could not be fetched ({ex.GetType().Name})", IsTransient(ex));
         }
         return ParseSha256(text, assetName)
                ?? throw new UpdateVerificationException("the published SHA-256 file could not be read");
     }
+
+    /// <summary>
+    /// A fetch failure that says nothing about the release: a timeout or cancel, a connection that failed or dropped
+    /// (no HTTP status), a server error (5xx) or a rate limit (429). A 404/403 (the listed file really isn't there) is not.
+    /// </summary>
+    public static bool IsTransient(Exception ex) => ex switch
+    {
+        OperationCanceledException => true,
+        System.Net.Http.HttpRequestException { StatusCode: null } => true,
+        System.Net.Http.HttpRequestException { StatusCode: { } code } => (int)code >= 500 || (int)code == 429,
+        IOException => true,
+        _ => false
+    };
 
     private static bool IsHex(ReadOnlySpan<char> s)
     {

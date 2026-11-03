@@ -108,6 +108,10 @@ public static partial class UpdateService
     }
     private static Fetch? _fetch; // always under lock (Gate)
 
+    // The version the badge click took or joined, from that moment until the click fails (a success quits the process).
+    // While it is set no other download starts and no cleanup touches its files (UpdateFetchRules).
+    private static Version? _installing; // always under lock (Gate)
+
     // A background fetch that failed for an ordinary reason (offline, disk, a stall) is tried again on a later poll:
     // 2 min, doubling to 30 min. The player can always click Update meanwhile (a normal, counted download).
     private static Version? _backgroundFailedVersion;
@@ -125,6 +129,31 @@ public static partial class UpdateService
     // Dev builds (1.0.0.0, a local build Will opens himself) see the badge but never download in the background: every
     // local start would otherwise pull a whole release it will never install.
     private static bool PrefetchAllowed => Enabled && Prefetch && (!IsDevBuild || ProofFeed);
+
+    // A game this launcher started is starting or running: no background download (it must never cost ping or frames).
+    private static bool GameRunning => LaunchRunState.IsStarting || SettingsSync.AnyGameRunning;
+
+    private static UpdateFetchRules.State FetchState() => new(
+        _installing, _prepared?.Version, _fetch?.Update.Version, _fetch?.Joined == true,
+        _backgroundFailedVersion, _backgroundRetryAtUtc);
+
+    // A game starting stops a running background download at once (the poll after the game closes starts it again).
+    // Hooked on the first background download, so a screenshot run never subscribes.
+    private static int _gameHooked;
+
+    private static void HookGameStarts()
+    {
+        if (Interlocked.Exchange(ref _gameHooked, 1) != 0) return;
+        LaunchRunState.Changed += () =>
+        {
+            if (!LaunchRunState.IsStarting) return;
+            Fetch? background;
+            lock (Gate) background = _fetch is { Joined: false } f ? f : null;
+            if (background == null) return;
+            background.Cancel.Cancel();
+            Log($"update {background.Update.Version}: background download paused, a game is starting (resumes after it closes)");
+        };
+    }
 
     /// <summary>
     /// A newer release this copy can't install where it sits (Mac: a translocated copy, or a folder it can't write to),
@@ -281,7 +310,7 @@ public static partial class UpdateService
         try
         {
             Version?[] keep;
-            lock (Gate) keep = [fetching, _fetch?.Update.Version, Available?.Version, _prepared?.Version];
+            lock (Gate) keep = UpdateFetchRules.Keep(fetching, Available?.Version, FetchState());
             var n = UpdateVerifier.DeleteStaleDownloads(OriginPaths.Updates, ReleaseZipPrefix, keep)
                     + UpdateVerifier.DeleteStaleStages(OriginPaths.Updates, keep);
             if (n > 0) Log($"removed {n} stale update download(s)");
@@ -312,30 +341,25 @@ public static partial class UpdateService
         }
     }
 
-    private static bool Same(Version? a, Version? b) =>
-        a != null && b != null && UpdateGate.Normalize(a) == UpdateGate.Normalize(b);
+    private static bool Same(Version? a, Version? b) => UpdateFetchRules.Same(a, b);
 
-    // Starts the background download of this release unless it is already ready or on its way. One fetch at a time:
-    // an older background fetch is cancelled for a newer release; a fetch the badge click is waiting on is never
-    // cancelled (the newer one starts on a later poll). Returns false when nothing was started for it.
+    // Starts the background download of this release unless UpdateFetchRules says it is handled or not now (a click
+    // is installing, a game is running, back-off, ...). One fetch at a time: an older background fetch is cancelled for
+    // a newer release. Returns false when nothing was started for it.
     private static bool StartFetch(AvailableUpdate update, bool quiet)
     {
         // The quiet retry after a failed check ran on every build before background downloads existed: it still does.
         if (!Enabled || (!quiet && !PrefetchAllowed)) return false;
+        HookGameStarts();
+        var gameRunning = GameRunning; // process handles: read outside the lock
         Fetch fetch;
-        Fetch? superseded = null;
+        Fetch? superseded;
         Prepared? stale = null;
         lock (Gate)
         {
-            if (_prepared != null && Same(_prepared.Version, update.Version)) return true;
-            if (_fetch is { } running)
-            {
-                if (Same(running.Update.Version, update.Version)) return true;
-                if (running.Joined || UpdateGate.Normalize(running.Update.Version) > UpdateGate.Normalize(update.Version)) return false;
-                superseded = running;
-            }
-            // An ordinary background failure backs off (the quiet path has the gate's own back-off).
-            if (!quiet && Same(_backgroundFailedVersion, update.Version) && DateTime.UtcNow < _backgroundRetryAtUtc) return false;
+            var decision = UpdateFetchRules.Background(update.Version, quiet, gameRunning, FetchState(), DateTime.UtcNow);
+            if (decision != UpdateFetchRules.Decision.Start) return decision == UpdateFetchRules.Decision.AlreadyHandled;
+            superseded = _fetch;
             if (_prepared != null) { stale = _prepared; _prepared = null; }
             fetch = _fetch = new Fetch(update, quiet, joined: false);
         }
@@ -410,9 +434,9 @@ public static partial class UpdateService
                 }
                 else if (fetch.Cancel.IsCancellationRequested)
                 {
-                    // Superseded by a newer release: nothing failed.
+                    // Superseded by a newer release, or paused for a game: nothing failed (the next poll restarts it).
                 }
-                else if (error is UpdateVerificationException)
+                else if (error is UpdateVerificationException { Transient: false })
                 {
                     // The release itself is bad (or unverifiable): the same rule as a failed check on click, applied
                     // before the player even clicks. Out of the gate at once, retried quietly with back-off.
@@ -426,7 +450,8 @@ public static partial class UpdateService
                 }
                 else
                 {
-                    // Offline, disk, a stall: nothing about the release. Try again later; the click still works now.
+                    // Offline, disk, a stall, a .sha256 that timed out: nothing about the release. Try again later; the
+                    // click still works now.
                     _backgroundFailures = Same(_backgroundFailedVersion, version) ? _backgroundFailures + 1 : 1;
                     _backgroundFailedVersion = version;
                     var wait = Math.Min(BackgroundFirstRetry.TotalMinutes * Math.Pow(2, _backgroundFailures - 1), BackgroundMaxRetry.TotalMinutes);
@@ -605,7 +630,11 @@ public static partial class UpdateService
         }
         finally
         {
-            if (!restarting) run.Dispose();
+            if (!restarting)
+            {
+                run.Dispose();
+                lock (Gate) _installing = null; // failed: background downloads and cleanups may go again
+            }
         }
     }
 
@@ -619,6 +648,8 @@ public static partial class UpdateService
         Prepared? stale = null;
         lock (Gate)
         {
+            // From here until this click fails, no background download starts and no cleanup touches this version.
+            _installing = update.Version;
             if (_prepared != null && Same(_prepared.Version, update.Version))
             {
                 var ready = _prepared;

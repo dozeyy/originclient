@@ -154,6 +154,8 @@
          an HttpClient, a URL and folders; DeltaUpdateTests runs them against a loopback server). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\DeltaManifest.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Updates\DeltaStager.cs" LinkBase="Updates" />
+    <!-- When a background download may start, and what cleanups keep (the install-race guard; pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateFetchRules.cs" LinkBase="Updates" />
     <!-- Which self-update zip each Mac architecture takes (pure name choice; UpdateService.Mac.cs uses it). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\MacReleaseAssets.cs" LinkBase="Updates" />
     <!-- The mandatory-update gate's state machine: a failed check never blocks play, retries quietly (pure; the clock is a parameter). -->
