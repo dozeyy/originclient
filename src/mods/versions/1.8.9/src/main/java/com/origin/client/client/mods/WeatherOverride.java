@@ -53,8 +53,33 @@ public final class WeatherOverride {
 		if (!applies(level)) {
 			return null;
 		}
-		String mode = Mods.mode("weather", "mode");
-		boolean on = mode.equals("Thunder") || Mods.bool("weather", "thunder");
-		return on ? 1f : 0f;
+		return thunderOn(Mods.mode("weather", "mode")) ? 1f : 0f;
+	}
+
+	/**
+	 * Thunder mode, or the Thunder toggle on a weather that has precipitation. Clear + Thunder
+	 * used to darken a clear sky and roll thunder every 15 s; a storm needs rain or snow.
+	 * The one rule for both the forced level and the thunder-sound cadence (OriginClientMod).
+	 */
+	public static boolean thunderOn(String mode) {
+		return mode.equals("Thunder") || (!mode.equals("Clear") && Mods.bool("weather", "thunder"));
+	}
+
+	/** Snow mode is on; a plain field refreshed once a client tick (tick()). */
+	public static boolean snow = false;
+
+	/**
+	 * True only while EntityRenderer.renderRainSnow / addRainParticles run in Snow mode
+	 * (WeatherRenderMixin HEAD/RETURN). BiomeSnowMixin then answers "cold, snowy" for the
+	 * biome lookups those two make, so Snow falls as snow in every biome and warm biomes
+	 * stop splashing rain. 1.8.9 has OptiFine replacing EntityRenderer, so the call sites
+	 * can't be redirected; the flag scopes the biome answer to exactly those passes.
+	 */
+	public static boolean precipPass = false;
+
+	/** Called every client tick from OriginClientMod.applyWeather, before its early return. */
+	public static void tick() {
+		snow = Mods.on("weather") && Mods.mode("weather", "mode").equals("Snow");
+		precipPass = false;   // never left set if a pass threw before its RETURN
 	}
 }

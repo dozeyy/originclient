@@ -41,7 +41,8 @@ public final class WeatherOverride {
 			return null;
 		}
 		// Snow isn't its own weather in Minecraft -- it's rain falling in a cold
-		// biome, so it wants a full rain level too. Only Clear means none.
+		// biome, so it wants a full rain level too (LevelRendererMixin then draws it
+		// as snow in every biome). Only Clear means none.
 		return Mods.mode("weather", "mode").equals("Clear") ? 0f : 1f;
 	}
 
@@ -50,8 +51,26 @@ public final class WeatherOverride {
 		if (!applies(level)) {
 			return null;
 		}
-		String mode = Mods.mode("weather", "mode");
-		boolean on = mode.equals("Thunder") || Mods.bool("weather", "thunder");
-		return on ? 1f : 0f;
+		return thunderOn(Mods.mode("weather", "mode")) ? 1f : 0f;
+	}
+
+	/**
+	 * Thunder mode, or the Thunder toggle on a weather that has precipitation. Clear + Thunder
+	 * used to darken a clear sky and roll thunder every 15 s; a storm needs rain or snow.
+	 * The one rule for both the forced level and the thunder-sound cadence (OriginClientMod).
+	 */
+	public static boolean thunderOn(String mode) {
+		return mode.equals("Thunder") || (!mode.equals("Clear") && Mods.bool("weather", "thunder"));
+	}
+
+	/**
+	 * Snow mode is on. Read per rain column by LevelRendererMixin's precipitation hooks, so it is
+	 * a plain field refreshed once a client tick (tick()) rather than config lookups per column.
+	 */
+	public static boolean snow = false;
+
+	/** Called every client tick from OriginClientMod.applyWeather, before its early return. */
+	public static void tick() {
+		snow = Mods.on("weather") && Mods.mode("weather", "mode").equals("Snow");
 	}
 }

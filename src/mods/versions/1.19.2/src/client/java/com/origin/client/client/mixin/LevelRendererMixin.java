@@ -3,6 +3,10 @@ package com.origin.client.client.mixin;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.mods.WeatherOverride;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -49,4 +53,25 @@ public class LevelRendererMixin {
 
 	// Block Outline + Overlay moved to BlockOverlayRenderer (Fabric BLOCK_OUTLINE
 	// event) so it can draw a filled overlay, not just lines.
+
+	// Weather Changer "Snow": snow in EVERY biome. Minecraft picks rain or snow per column from
+	// the biome, so Snow used to show plain rain in warm biomes. These rewrite only the answers
+	// LevelRenderer's precipitation pass and rain-splash tick read: client-only, the Biome
+	// itself (shared with the integrated server) is never touched. WeatherOverride.snow is a
+	// field refreshed once a tick, so the per-column cost is one read. Fail-soft: the config's
+	// defaultRequire is 0, so if another mod rewrote these calls the hooks skip and the
+	// biome's own answer stands.
+	// 1.18.2-1.19.3 (javap): Biome.getPrecipitation() (NONE skips the column; tickRain splashes
+	// only on RAIN) and warmEnoughToRain(pos) (false draws snow).
+	@WrapOperation(method = {"renderSnowAndRain", "tickRain"}, at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/world/level/biome/Biome;getPrecipitation()Lnet/minecraft/world/level/biome/Biome$Precipitation;"))
+	private Biome.Precipitation originclient$snowEverywhere(Biome biome, Operation<Biome.Precipitation> original) {
+		return WeatherOverride.snow ? Biome.Precipitation.SNOW : original.call(biome);
+	}
+
+	@WrapOperation(method = {"renderSnowAndRain", "tickRain"}, at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/world/level/biome/Biome;warmEnoughToRain(Lnet/minecraft/core/BlockPos;)Z"))
+	private boolean originclient$snowCold(Biome biome, BlockPos pos, Operation<Boolean> original) {
+		return !WeatherOverride.snow && original.call(biome, pos);
+	}
 }
