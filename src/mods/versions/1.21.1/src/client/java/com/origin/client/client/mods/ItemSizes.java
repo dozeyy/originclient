@@ -56,6 +56,29 @@ public final class ItemSizes {
 		save();
 	}
 
+	// Slider drags only: changes the size in memory and marks it unsaved. A drag
+	// fires on every mouse move and save() rewrites the whole file; the screen
+	// calls flush() once on release and when it closes.
+	private static boolean dirty;
+
+	public static void setLive(ResourceLocation id, float scale) {
+		ensureLoaded();
+		scale = Math.max(MIN, Math.min(MAX, scale));
+		if (Math.abs(scale - DEFAULT) < 0.01f) {
+			SIZES.remove(id.toString());
+		} else {
+			SIZES.put(id.toString(), scale);
+		}
+		dirty = true;
+	}
+
+	public static void flush() {
+		if (dirty) {
+			dirty = false;
+			save();
+		}
+	}
+
 	public static void reset(ResourceLocation id) {
 		set(id, DEFAULT);
 	}
@@ -82,6 +105,7 @@ public final class ItemSizes {
 	}
 
 	private static void save() {
+		dirty = false;
 		if (file == null) {
 			return;
 		}

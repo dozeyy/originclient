@@ -17,6 +17,16 @@ public final class ModsConfigAccess {
 		ModsConfig.save();
 	}
 
+	// In memory only (live drags); flush() writes the file once at the end.
+	public static void putHudUnsaved(String elementId, double[] v) {
+		ModsConfig.ensureLoaded();
+		ModsConfig.HUD.put(elementId, v);
+	}
+
+	public static void flush() {
+		ModsConfig.save();
+	}
+
 	public static void resetHud(String elementId) {
 		ModsConfig.ensureLoaded();
 		ModsConfig.HUD.remove(elementId);
