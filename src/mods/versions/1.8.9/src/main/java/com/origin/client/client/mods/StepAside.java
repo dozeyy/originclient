@@ -81,13 +81,18 @@ public final class StepAside {
 	 *    omnilook ("Omnilook"), freecam ("FreeCam by Zergatul"): all look around without
 	 *    turning the player (the 1.21.1 table's freecam row, plus 1.8.9's perspective mods).
 	 *  - zoom <- epiczoomer ("Epic Zoomer"): a standalone smooth-zoom mod.
+	 *  - oldanimations <- overflowanimations (Polyfrost OverflowAnimations, gradle.properties
+	 *    mod_id), sk1er_old_animations (Sk1er Old Animations, mcmod.info modid): both bring
+	 *    back 1.7 held-item, block-hit and armor-flash looks on 1.8.9 Forge, the same job.
+	 *    Older Animations (Modrinth older-animations) left out: its Forge modid was not checked.
 	 * Not here, on purpose: AppleSkin has no 1.8.9 Forge build to check; WorldEditCUI's
 	 * 1.8.9 Forge id could not be verified (WorldEditCui keeps its own isModLoaded +
 	 * channel-owner check); OptiFine's zoom is part of Origin's own 1.8.9 stack; no JEI here.
 	 */
 	public static final List<Row> TABLE = Collections.unmodifiableList(Arrays.asList(
 			new Row("freelook", false, false, ids("freelook", "pmr", "omnilook", "freecam")),
-			new Row("zoom", false, false, ids("epiczoomer"))));
+			new Row("zoom", false, false, ids("epiczoomer")),
+			new Row("oldanimations", false, false, ids("overflowanimations", "sk1er_old_animations"))));
 
 
 	/** A resolved overlap: the row and the display name of the mod that replaced it. */

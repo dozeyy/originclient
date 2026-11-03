@@ -223,7 +223,7 @@ public class OriginModMenuScreen extends OriginScreen {
 		}
 		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "crosshair", "chunkborders", "hitboxes",
 				"nametags", "itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles",
-				"hurtcam", "hitcolor", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
+				"hurtcam", "hitcolor", "oldanimations", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
 				"worldeditcui"}) {
 			CATS.put(id, Cat.VISUAL);
 		}
@@ -240,7 +240,7 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	// The NEW filter + badge: this release's additions. The badge clears once the
 	// player has opened that mod's page (meta "seen:<id>").
-	private static final Set<String> NEW_IDS = new HashSet<>(Arrays.asList("portalcalc", "fpscoach", "hypixelbedwars", "friends"));
+	private static final Set<String> NEW_IDS = new HashSet<>(Arrays.asList("portalcalc", "fpscoach", "hypixelbedwars", "friends", "oldanimations"));
 
 	private static Cat catOf(Mods.Mod m) {
 		return CATS.getOrDefault(m.id(), Cat.GAMEPLAY);
