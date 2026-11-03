@@ -16,7 +16,7 @@ permissions:
 jobs:
   probe:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
@@ -49,18 +49,22 @@ jobs:
           cp "$RUNNER_TEMP"/dist/package-*.log "$RUNNER_TEMP/proof/"
 
       - name: Launch from the mounted DMG, catch the redirect (arm64)
+        timeout-minutes: 8
         run: bash tools/mac-hello/ci/run-probe.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/arm64"
 
       - name: Keychain across a re-signed replacement
+        timeout-minutes: 4
         if: always()
         run: bash tools/mac-hello/ci/keychain-test.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/keychain"
 
       - name: Quarantine record
+        timeout-minutes: 6
         if: always()
         run: bash tools/mac-hello/ci/quarantine-test.sh "$RUNNER_TEMP/dist/OriginHello-osx-arm64.dmg" "$RUNNER_TEMP/proof/quarantine"
 
       # The runner is Apple Silicon, so x64 only runs if Rosetta is already there. Not worth a red job.
       - name: Launch x64 under Rosetta, if present
+        timeout-minutes: 8
         if: always()
         continue-on-error: true
         run: |

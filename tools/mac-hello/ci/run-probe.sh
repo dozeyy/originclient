@@ -6,6 +6,7 @@ mkdir -p "$OUT"
 LOG="$OUT/mount.log"
 MNT="$(mktemp -d)/vol"
 mkdir -p "$MNT"
+MNT=$(cd "$MNT" && pwd -P) # /var is a link to /private/var; the app reports the real path
 APP="$MNT/Origin Hello.app"
 
 hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MNT" 2>&1 | tee "$LOG" || exit 1
@@ -40,6 +41,7 @@ hdiutil detach "$MNT" 2>&1 | tee -a "$LOG" || hdiutil detach "$MNT" -force 2>&1 
 
 echo "== probe log"
 tail -n 60 "$OUT/probe.log" 2>/dev/null || echo "no probe.log"
+echo "== app stderr (tail)"; tail -n 30 "$OUT/stderr.log" 2>/dev/null
 grep -q "path=$MNT/Origin Hello.app/Contents/MacOS/MacHello" "$OUT/probe.log" || { echo "FAIL: did not run from the mounted DMG"; exit 1; }
 grep -q '^RESULT PASS' "$OUT/probe.log" || { echo "FAIL: probe did not pass"; exit 1; }
 echo "probe passed, ran from $MNT"
