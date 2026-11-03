@@ -140,6 +140,13 @@ final class OriginDevWorld {
 					mc.setScreen(null);
 				}
 				grab(mc, dir, "party_world_1920x1080.png");
+				phase = 80;
+				return;
+			}
+			if (phase >= 80 && phase < 90) {
+				if (remoteStep(mc, dir)) {
+					return;
+				}
 				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
 				phase = 7;
 				mc.stop();
@@ -988,4 +995,52 @@ final class OriginDevWorld {
 	private static void log(String msg) {
 		com.origin.client.OriginClient.LOGGER.info(msg);
 	}
+
+	// ---- Another Origin player's cosmetics, through the live service (how every player sees everyone else) ----
+	// The fit shots dress YOUR player with devWear, which skips the service; this spawns a second player with a
+	// real account id and lets CosmeticsService look it up exactly as it does for anyone on a server.
+	private static final java.util.UUID REMOTE_ID = java.util.UUID.fromString("ae76effc-76fb-4b3c-ad6e-df8487635aa4");
+	private static net.minecraft.client.player.RemotePlayer remote;
+	private static long remoteAt;
+
+	/** One step of the remote-player probe; false once its shot is taken (or it gave up). */
+	private static boolean remoteStep(Minecraft mc, String dir) {
+		if (mc.screen != null) {
+			mc.setScreen(null);
+		}
+		if (remote == null) {
+			com.origin.client.client.social.SocialDemo.clear();
+			remote = new net.minecraft.client.player.RemotePlayer(mc.level, new com.mojang.authlib.GameProfile(REMOTE_ID, "dozeyy"));
+			float yaw = mc.player.getYRot();
+			double rad = Math.toRadians(yaw);
+			double x = mc.player.getX() - Math.sin(rad) * 3.0, z = mc.player.getZ() + Math.cos(rad) * 3.0;
+			remote.moveTo(x, mc.player.getY(), z, yaw + 180f, 0f);
+			remote.setYHeadRot(yaw + 180f);
+			remote.setYBodyRot(yaw + 180f);
+			remote.setId(-4243001);
+			mc.level.addEntity(remote);
+			mc.player.setXRot(10f);
+			mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+			remoteAt = System.currentTimeMillis();
+			log("[dev-shots] remote: spawned " + REMOTE_ID + " (status " + com.origin.client.client.cosmetics.CosmeticsService.status() + ")");
+			return true;
+		}
+		long waited = System.currentTimeMillis() - remoteAt;
+		com.origin.client.client.cosmetics.CosmeticsService.Look look = com.origin.client.client.cosmetics.CosmeticsService.lookOf(REMOTE_ID);
+		boolean seen = look != com.origin.client.client.cosmetics.CosmeticsService.Look.NONE;
+		if (!seen && waited < 20000) {
+			return true;
+		}
+		if (phase == 80) {
+			log("[dev-shots] remote look after " + waited + " ms: " + look + " plus=" + com.origin.client.client.cosmetics.CosmeticsService.isPlus(REMOTE_ID)
+					+ " origin=" + com.origin.client.client.cosmetics.CosmeticsService.usesOrigin(REMOTE_ID)
+					+ " inLevel=" + (mc.level.getEntity(remote.getId()) != null));
+			phase = 81;
+			nextAt = System.currentTimeMillis() + 2000;   // let the items' art load and draw
+			return true;
+		}
+		grab(mc, dir, "remote_player_1920x1080.png");
+		return false;
+	}
+
 }

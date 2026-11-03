@@ -142,6 +142,13 @@ final class OriginDevWorld {
 					mc.displayGuiScreen(null);
 				}
 				OriginDevShots.grab(mc, dir, "party_world_1920x1080.png");
+				phase = 80;
+				return;
+			}
+			if (phase >= 80 && phase < 90) {
+				if (remoteStep(mc, dir)) {
+					return;
+				}
 				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
 				phase = 7;
 				mc.shutdown();
@@ -413,4 +420,54 @@ final class OriginDevWorld {
 	private static void log(String msg) {
 		com.origin.client.OriginClient.LOGGER.info(msg);
 	}
+
+	// ---- Another Origin player's cosmetics, through the live service (how every player sees everyone else) ----
+	// The fit shots dress YOUR player with devWear, which skips the service; this spawns a second player with a
+	// real account id and lets CosmeticsService look it up exactly as it does for anyone on a server.
+	private static final java.util.UUID REMOTE_ID = java.util.UUID.fromString("ae76effc-76fb-4b3c-ad6e-df8487635aa4");
+	private static net.minecraft.client.entity.EntityOtherPlayerMP remote;
+	private static long remoteAt;
+
+	/** One step of the remote-player probe; false once its shot is taken (or it gave up). */
+	private static boolean remoteStep(Minecraft mc, String dir) {
+		if (mc.currentScreen != null) {
+			mc.displayGuiScreen(null);
+		}
+		com.origin.client.client.cosmetics.CosmeticsService.Look look;
+		if (remote == null) {
+			OriginDevShots.callStatic("com.origin.client.client.social.SocialDemo", "clear");
+			remote = new net.minecraft.client.entity.EntityOtherPlayerMP(mc.theWorld, new com.mojang.authlib.GameProfile(REMOTE_ID, "dozeyy"));
+			remote.getDataWatcher().updateObject(10, (byte) 0x7F);
+			float yaw = mc.thePlayer.rotationYaw;
+			double rad = Math.toRadians(yaw);
+			double x = mc.thePlayer.posX - Math.sin(rad) * 3.0, z = mc.thePlayer.posZ + Math.cos(rad) * 3.0;
+			remote.setPositionAndRotation(x, mc.thePlayer.posY, z, yaw + 180f, 0f);
+			remote.rotationYawHead = yaw + 180f;
+			remote.renderYawOffset = yaw + 180f;
+			mc.theWorld.addEntityToWorld(-4243001, remote);
+			mc.thePlayer.rotationPitch = 10f;
+			mc.gameSettings.thirdPersonView = 0;
+			remoteAt = System.currentTimeMillis();
+			log("[dev-shots] remote: spawned " + REMOTE_ID + " (status " + com.origin.client.client.cosmetics.CosmeticsService.status() + ")");
+			return true;
+		}
+		long waited = System.currentTimeMillis() - remoteAt;
+		look = com.origin.client.client.cosmetics.CosmeticsService.lookOf(REMOTE_ID);
+		boolean seen = look != com.origin.client.client.cosmetics.CosmeticsService.Look.NONE;
+		if (!seen && waited < 20000) {
+			return true;
+		}
+		if (phase == 80) {
+			log("[dev-shots] remote look after " + waited + " ms: cape=" + look.cape() + " head=" + look.head() + " face=" + look.face()
+					+ " back=" + look.back() + " plus=" + com.origin.client.client.cosmetics.CosmeticsService.isPlus(REMOTE_ID)
+					+ " origin=" + com.origin.client.client.cosmetics.CosmeticsService.usesOrigin(REMOTE_ID)
+					+ " inWorld=" + (mc.theWorld.getEntityByID(-4243001) != null));
+			phase = 81;
+			nextAt = System.currentTimeMillis() + 2000;   // let the items' art load and draw
+			return true;
+		}
+		OriginDevShots.grab(mc, dir, "remote_player_1920x1080.png");
+		return false;
+	}
+
 }
