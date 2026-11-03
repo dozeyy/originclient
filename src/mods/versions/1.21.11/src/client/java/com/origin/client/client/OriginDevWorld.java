@@ -24,7 +24,8 @@ import java.util.Set;
  * the game's own screens -- Select World -> "Create New World" -> "Create New
  * World" -- by pressing the buttons by their translated label (the same keys
  * on every version), waits for the world to draw, then captures it with Color
- * Saturation off and on, then your player in third person wearing head, face
+ * Saturation off and on, then the in-world features (DevFeatureShots: every HUD
+ * readout, Hitbox, Rain and Snow, Nametags in F5), then your player in third person wearing head, face
  * and back items from every side (with and without the skin's outer layer:
  * the cosmetics fit over it), the pause menu, the Cosmetics window and a demo
  * party (Party HUD, markers, a ping), and quits.
@@ -121,6 +122,14 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
+				// The Origin features that only show in a world (DevFeatureShots), then the rest.
+				phase = 20;
+				return;
+			}
+			if (phase == 20) {
+				if (featureStep(mc, dir)) {
+					return;
+				}
 				// With a shader pack on (dev-shots shaderpack=true), measure the shader speed-ups first.
 				phase = com.origin.client.client.shaders.IrisBridge.currentPack() != null ? 40 : 30;
 				return;
@@ -1053,6 +1062,59 @@ final class OriginDevWorld {
 				f, seenE, skipE, seenE - skipE, seenBE, skipBE, seenBE - skipBE);
 	}
 
+
+	// ---- Origin features in a real world (DevFeatureShots: HUD readouts, Hitbox, Weather, Nametags) ----
+	private static int featIdx = -1;
+
+	/** One step of the feature shots (scene, then per shot: switch on + wait, grab); false once all are taken. */
+	private static boolean featureStep(Minecraft mc, String dir) {
+		if (mc.screen instanceof PauseScreen) {
+			mc.setScreen(null);
+		}
+		DevFeatureShots.Shot[] shots = DevFeatureShots.Shot.values();
+		if (featIdx == -1) {
+			mc.player.setXRot(10f);   // a little down: the mobs 6 blocks ahead sit mid-frame, sky still in view
+			float yaw = mc.player.getYRot();
+			double px = mc.player.getX(), pz = mc.player.getZ();
+			featServer(mc, server -> {
+				var level = server.overworld();
+				return DevFeatureShots.sceneCommands(px, pz, yaw, (x, z) -> level.getHeight(
+						net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z), DevFeatureShots.Dialect.SNBT_NAMES);
+			});
+		} else {
+			grab(mc, dir, shots[featIdx].file);
+		}
+		featIdx++;
+		if (featIdx >= shots.length) {
+			DevFeatureShots.restore();
+			mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+			mc.player.setXRot(0f);
+			featServer(mc, server -> DevFeatureShots.cleanupCommands(DevFeatureShots.Dialect.SNBT_NAMES));
+			log("[dev-shots] feature shots done");
+			return false;
+		}
+		DevFeatureShots.Shot s = shots[featIdx];
+		DevFeatureShots.apply(s);
+		mc.options.setCameraType(s.thirdPerson ? net.minecraft.client.CameraType.THIRD_PERSON_BACK
+				: net.minecraft.client.CameraType.FIRST_PERSON);
+		nextAt = System.currentTimeMillis() + s.settleMs;
+		return true;
+	}
+
+	/** Runs the commands the function builds on the integrated server's thread (feedback suppressed). */
+	private static void featServer(Minecraft mc,
+			java.util.function.Function<net.minecraft.server.MinecraftServer, java.util.List<String>> build) {
+		var server = mc.getSingleplayerServer();
+		if (server == null) {
+			return;
+		}
+		server.execute(() -> {
+			var src = server.createCommandSourceStack().withSuppressedOutput();
+			for (String c : build.apply(server)) {
+				server.getCommands().performPrefixedCommand(src, c);
+			}
+		});
+	}
 
 	// ---- cosmetics on your own player, orbited by the freelook camera (toggle mode keeps it latched) ----
 	private static final String[][] FIT_LOOKS = {

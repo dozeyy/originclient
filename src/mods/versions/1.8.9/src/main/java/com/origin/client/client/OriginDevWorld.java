@@ -13,7 +13,8 @@ import net.minecraft.world.WorldType;
  * design set never enters a world, so world-render bugs (Color Saturation's
  * black world / white vignette, 2026-10-12) were invisible to it. This creates
  * a fresh world, waits for it to draw, then captures it with Color Saturation
- * off and on, then your player in third person wearing head, face and back
+ * off and on, then the in-world features (DevFeatureShots: every HUD readout,
+ * Hitbox, Rain and Snow, Nametags in F5), then your player in third person wearing head, face and back
  * items from every side (with and without the skin's outer layer: the
  * cosmetics fit over it), the pause menu, the Cosmetics window and a demo party
  * (Party HUD, markers, a ping), and quits. Same shots and file names as 1.21.1.
@@ -93,6 +94,14 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				OriginDevShots.grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
+				// The Origin features that only show in a world (DevFeatureShots), then the fit shots.
+				phase = 20;
+				return;
+			}
+			if (phase == 20) {
+				if (featureStep(mc, dir)) {
+					return;
+				}
 				phase = 30;
 				return;
 			}
@@ -152,6 +161,67 @@ final class OriginDevWorld {
 			phase = 7;
 			mc.shutdown();
 		}
+	}
+
+	// ---- Origin features in a real world (DevFeatureShots: HUD readouts, Hitbox, Weather, Nametags) ----
+	// 1.8.9: the same steps as 1.21.1's featureStep; rotationYaw / rotationPitch and thirdPersonView
+	// (0 = first person, 1 = behind) stand in for getYRot / setXRot and CameraType, and the commands run
+	// through the server's own command manager on its thread, as OriginDevPanorama does.
+	private static int featIdx = -1;
+
+	/** One step of the feature shots (scene, then per shot: switch on + wait, grab); false once all are taken. */
+	private static boolean featureStep(Minecraft mc, String dir) {
+		if (mc.currentScreen instanceof GuiIngameMenu) {
+			mc.displayGuiScreen(null);
+		}
+		DevFeatureShots.Shot[] shots = DevFeatureShots.Shot.values();
+		if (featIdx == -1) {
+			mc.thePlayer.rotationPitch = 10f;   // a little down: the mobs 6 blocks ahead sit mid-frame, sky still in view
+			final float yaw = mc.thePlayer.rotationYaw;
+			final double px = mc.thePlayer.posX, pz = mc.thePlayer.posZ;
+			featServer(mc, true, yaw, px, pz);
+		} else {
+			OriginDevShots.grab(mc, dir, shots[featIdx].file);
+		}
+		featIdx++;
+		if (featIdx >= shots.length) {
+			DevFeatureShots.restore();
+			mc.gameSettings.thirdPersonView = 0;
+			mc.thePlayer.rotationPitch = 0f;
+			featServer(mc, false, 0f, 0, 0);
+			log("[dev-shots] feature shots done");
+			return false;
+		}
+		DevFeatureShots.Shot s = shots[featIdx];
+		DevFeatureShots.apply(s);
+		mc.gameSettings.thirdPersonView = s.thirdPerson ? 1 : 0;
+		nextAt = System.currentTimeMillis() + s.settleMs;
+		return true;
+	}
+
+	/** Builds the scene (scene = true) or removes it, on the integrated server's thread. */
+	private static void featServer(Minecraft mc, final boolean scene, final float yaw, final double px, final double pz) {
+		final net.minecraft.server.integrated.IntegratedServer server = mc.getIntegratedServer();
+		if (server == null) {
+			return;
+		}
+		server.addScheduledTask(new Runnable() {
+			@Override
+			public void run() {
+				final net.minecraft.world.WorldServer world = server.worldServerForDimension(0);
+				java.util.List<String> cmds = scene
+						? DevFeatureShots.sceneCommands(px, pz, yaw, new DevFeatureShots.Ground() {
+							@Override
+							public int y(int x, int z) {
+								return world.getTopSolidOrLiquidBlock(new net.minecraft.util.BlockPos(x, 0, z)).getY();
+							}
+						}, DevFeatureShots.Dialect.LEGACY_189)
+						: DevFeatureShots.cleanupCommands(DevFeatureShots.Dialect.LEGACY_189);
+				for (String c : cmds) {
+					server.getCommandManager().executeCommand(server, c);
+				}
+			}
+		});
 	}
 
 	// ---- cosmetics on your own player, orbited by the freelook camera (toggle mode keeps it latched) ----
