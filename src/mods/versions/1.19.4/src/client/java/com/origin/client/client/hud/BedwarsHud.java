@@ -35,14 +35,11 @@ final class BedwarsHud {
 	private BedwarsHud() {
 	}
 
-	// Default placements keep clear of Hypixel's sidebar (right middle), the chat
-	// (bottom left) and the existing readout columns: the Resource Counter sits in
-	// the bottom-right corner above where Pack Display goes, Teammates at the left
-	// edge just above Combo / Reach.
+	// Default spots: hud/HudLayout (the one layout table for every version).
 	static void register() {
-		HudElements.add("bwresources", MOD, "Resource Counter", new HudPos(8, -6, -24, 1.0),
+		HudElements.add("bwresources", MOD, "Resource Counter", HudPos.ofDefault("bwresources"),
 				BedwarsHud::resourceSize, BedwarsHud::renderResources);
-		HudElements.add("bwteammates", MOD, "Teammates", new HudPos(3, 6, -100, 1.0) /* above Keystrokes (C3) */,
+		HudElements.add("bwteammates", MOD, "Teammates", HudPos.ofDefault("bwteammates"),
 				BedwarsHud::teammatesSize, BedwarsHud::renderTeammates);
 	}
 

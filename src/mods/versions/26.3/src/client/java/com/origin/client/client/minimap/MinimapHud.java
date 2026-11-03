@@ -44,10 +44,10 @@ public final class MinimapHud {
 	private MinimapHud() {
 	}
 
-	/** Default placement: top-right corner, where Lunar and Xaero put it. */
+	/** Default placement (hud/HudLayout): the right edge, middle -- the scoreboard sidebar's spot, which a
+	 *  singleplayer-only map never has to share with a server's sidebar. */
 	public static HudPos defaultPos() {
-		// default stack, top-right (C3): Server IP 6, Minimap 34, Potions 160, Item Counter 244
-		return new HudPos(2, -6, 34, 1.0);
+		return HudPos.ofDefault("minimap");
 	}
 
 	/**

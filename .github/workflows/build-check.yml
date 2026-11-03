@@ -27,6 +27,7 @@ on:
       - "tools/screenshot-link-tests/**"
       - "tools/keycodes-tests/**"
       - "tools/ingame-guard-tests/**"
+      - "tools/hud-layout-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -53,6 +54,7 @@ on:
       - "tools/screenshot-link-tests/**"
       - "tools/keycodes-tests/**"
       - "tools/ingame-guard-tests/**"
+      - "tools/hud-layout-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -131,6 +133,11 @@ jobs:
       # is known by address or brand; every live module carries the same helper copies.
       - name: Test in-game guards
         run: python3 tools/ingame-guard-tests/run.py
+      # The default HUD layout (hud/HudLayout, pure Java): with every HUD piece on, no two default spots
+      # overlap each other, the chat or the hotbar at 1366x768 / 1920x1080 and bigger GUI sizes; a player's
+      # own spot is kept and an untouched old default moves; every live module carries the same table.
+      - name: Test default HUD layout
+        run: python3 tools/hud-layout-tests/run.py
 
       # The starter config new players are seeded from (default-mods-config.json in every live
       # module): every slider value inside its Mods.java range, and none of the known values

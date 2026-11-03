@@ -28,9 +28,9 @@ final class PortalCalcHud {
 	private PortalCalcHud() {
 	}
 
-	// Default: the top-left readout column, under Memory (Readouts stops at y 156).
+	// Default spot: hud/HudLayout.
 	static void register() {
-		HudElements.add("portalcalc", MOD, "Portal Calculator", new HudPos(0, 6, 170, 1.0),
+		HudElements.add("portalcalc", MOD, "Portal Calculator", HudPos.ofDefault("portalcalc"),
 				PortalCalcHud::size, PortalCalcHud::render);
 	}
 
