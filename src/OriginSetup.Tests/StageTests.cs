@@ -84,4 +84,100 @@ public class StageTests
         Assert.Equal("the old launcher", File.ReadAllText(Path.Combine(dir, "OriginLauncher.App.exe")));
         Assert.False(Directory.Exists(Path.Combine(dir, "_setup-staging")));
     }
+
+    [Fact]
+    public void TheRunningSetupBecomesTheUninstaller()
+    {
+        var setup = Path.Combine(TestKit.Temp("setup"), "OriginLauncher-Setup.exe");
+        File.WriteAllText(setup, "the setup app");
+        var dir = Path.Combine(TestKit.Temp("inst"), "OriginLauncher");
+        var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client(), setup);
+        Assert.Equal("the setup app", File.ReadAllText(Path.Combine(staged.FilesDir, "uninstall.exe")));
+    }
+
+    [Fact]
+    public void TheSetupStillRunningWithItsFileOpenBecomesTheUninstaller()
+    {
+        var setup = Path.Combine(TestKit.Temp("setup"), "OriginLauncher-Setup.exe");
+        File.WriteAllText(setup, "the setup app");
+        using var running = new FileStream(setup, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+        var dir = Path.Combine(TestKit.Temp("inst"), "OriginLauncher");
+        var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client(), setup);
+        Assert.Equal("the setup app", File.ReadAllText(Path.Combine(staged.FilesDir, "uninstall.exe")));
+    }
+
+    [Fact]
+    public void ASetupThatCantReadItselfDownloadsTheUninstaller()
+    {
+        var zip = File.ReadAllBytes(TestKit.Zip(TestKit.MakeLauncherTree()));
+        var setup = System.Text.Encoding.ASCII.GetBytes("MZ the released setup app");
+        var server = new FakeServer().File(Url, zip).File(ReleaseFeed.SetupAssetUrl("launcher-v1.0.40"), setup);
+        var dir = Path.Combine(TestKit.Temp("inst"), "OriginLauncher");
+        var staged = Installer.Stage(dir, null, new LauncherRelease("1.0.40", Url), _ => { }, CancellationToken.None, server.Client(), UnreadableSetup());
+        Assert.Equal(setup, File.ReadAllBytes(Path.Combine(staged.FilesDir, "uninstall.exe")));
+    }
+
+    [Fact]
+    public void ADamagedUninstallerDownloadChangesNothing()
+    {
+        var zip = File.ReadAllBytes(TestKit.Zip(TestKit.MakeLauncherTree()));
+        var server = new FakeServer().File(Url, zip).File(ReleaseFeed.SetupAssetUrl("launcher-v1.0.40"), new byte[] { 1, 2, 3 });
+        var dir = TestKit.Temp("existing");
+        File.WriteAllText(Path.Combine(dir, "OriginLauncher.App.exe"), "the old launcher");
+        var release = new LauncherRelease("1.0.40", Url, setupSha256: new string('0', 64));
+        var ex = Assert.Throws<DownloadException>(() =>
+            Installer.Stage(dir, null, release, _ => { }, CancellationToken.None, server.Client(), UnreadableSetup()));
+        Assert.Equal(DownloadException.Damaged, ex.Message);
+        Assert.Equal("the old launcher", File.ReadAllText(Path.Combine(dir, "OriginLauncher.App.exe")));
+        Assert.False(Directory.Exists(Path.Combine(dir, "_setup-staging")));
+    }
+
+    [Fact]
+    public void ADownloadedUninstallerMustBeAProgram()
+    {
+        var zip = File.ReadAllBytes(TestKit.Zip(TestKit.MakeLauncherTree()));
+        var server = new FakeServer().File(Url, zip)
+            .File(ReleaseFeed.SetupAssetUrl("launcher-v1.0.40"), System.Text.Encoding.ASCII.GetBytes("<html>not a program</html>"));
+        var dir = Path.Combine(TestKit.Temp("inst"), "OriginLauncher");
+        var ex = Assert.Throws<DownloadException>(() =>
+            Installer.Stage(dir, null, new LauncherRelease("1.0.40", Url), _ => { }, CancellationToken.None, server.Client(), UnreadableSetup()));
+        Assert.Equal(DownloadException.Damaged, ex.Message);
+        Assert.False(Directory.Exists(dir), "the folder Setup created is removed again");
+    }
+
+    [Fact]
+    public void RunningAsTheInstalledUninstallerLeavesItInPlace()
+    {
+        var dir = TestKit.Temp("existing");
+        var self = Path.Combine(dir, "uninstall.exe");
+        File.WriteAllText(self, "the installed uninstaller");
+        var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client(), self);
+        Assert.False(File.Exists(Path.Combine(staged.FilesDir, "uninstall.exe")));
+        Assert.Equal("the installed uninstaller", File.ReadAllText(self));
+    }
+
+    [Fact]
+    public void CancellingWhileStagingTheUninstallerChangesNothing()
+    {
+        var setup = Path.Combine(TestKit.Temp("setup"), "OriginLauncher-Setup.exe");
+        File.WriteAllText(setup, "the setup app");
+        var dir = Path.Combine(TestKit.Temp("inst"), "OriginLauncher");
+        using var cts = new CancellationTokenSource();
+        // The bar reaching the end of unpacking is the last report before the uninstaller is staged.
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, p => { if (p.Fraction >= 0.94) cts.Cancel(); }, cts.Token, new FakeServer().Client(), setup));
+        Assert.False(Directory.Exists(dir), "the folder Setup created is removed again");
+    }
+
+    [Fact]
+    public void AnOfflineInstallThatCantReadSetupSaysWhatToDo()
+    {
+        var dir = Path.Combine(TestKit.Temp("inst"), "OriginLauncher");
+        var ex = Assert.Throws<SetupException>(() =>
+            Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client(), UnreadableSetup()));
+        Assert.Contains("Move it to a folder on this PC", ex.Message);
+        Assert.False(Directory.Exists(dir), "the folder Setup created is removed again");
+    }
+
+    private static string UnreadableSetup() => Path.Combine(TestKit.Temp("setup"), "not-there", "OriginLauncher-Setup.exe");
 }
