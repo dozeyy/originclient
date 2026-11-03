@@ -39,6 +39,19 @@ public sealed class HomePage : Panel, IPage
 
     public LaunchController Launches { get; }
 
+    // Over Home, under the bar's layers: a centred card (the first-run import prompt, ImportView) or a Home-only
+    // prompt (Fix Compatibility over a refused Play). One at a time; null clears it.
+    private readonly Panel _cardSlot = new() { IsVisible = false };
+
+    public void ShowCard(Control? card)
+    {
+        _cardSlot.Children.Clear();
+        if (card != null) _cardSlot.Children.Add(card);
+        _cardSlot.IsVisible = card != null;
+    }
+
+    public Control? Card => _cardSlot.Children.Count > 0 ? _cardSlot.Children[0] : null;
+
     public HomePage(MainWindow window)
     {
         _window = window;
@@ -109,6 +122,7 @@ public sealed class HomePage : Panel, IPage
         _strip.Children.Add(left.At(0));
         _strip.Children.Add(right.At(2));
         Children.Add(_strip);
+        Children.Add(_cardSlot);
 
         SizeChanged += (_, _) => Layout();
         LauncherState.SettingsChanged += Refresh;
