@@ -78,7 +78,13 @@ internal static class Program
 
         // A release build never keeps the dev-only offline test switch on (DeveloperAccess).
         if (DeveloperAccess.NeedsReset(OriginLauncher.App.Core.Updates.UpdateService.IsDevBuild, SettingsStore.Load()))
-            SettingsStore.Update(DeveloperAccess.ClearOfflineTest);
+        {
+            // settings.json busy right now (antivirus, a sync tool): SettingsStore refuses instead of guessing. Never
+            // fatal at startup; a file that can't be read loads as defaults (offline test off) anyway, and the
+            // next start clears it.
+            try { SettingsStore.Update(DeveloperAccess.ClearOfflineTest); }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { }
+        }
 
         // Crashes in the launcher itself: a UI-thread exception is recoverable (reported, the launcher keeps running);
         // an unhandled one on any other thread is fatal (reported, then the runtime ends the app). Unobserved task faults

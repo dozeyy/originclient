@@ -527,14 +527,24 @@ public partial class SettingsPage : UserControl
     /// </summary>
     public void FlushEdits()
     {
-        PersistPendingRam();
-        if (!_jvmLoading && _jvmDirty)
+        // Runs from MainWindow's Closing and on every tab switch: SettingsStore.Update refuses (IOException) while
+        // settings.json is held by another program, and that must never abort closing the window or open the crash
+        // report. The typed values stay in the boxes; the next LostFocus or Play saves them.
+        try
         {
-            SaveJvmOptions();
-            UpdateJvmCustomizedList();
-            UpdateJvmUndo();
+            PersistPendingRam();
+            if (!_jvmLoading && _jvmDirty)
+            {
+                SaveJvmOptions();
+                UpdateJvmCustomizedList();
+                UpdateJvmUndo();
+            }
+            SaveResolution();
         }
-        SaveResolution();
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            JvmArgsStatusText.Text = "Couldn't save - the settings file is in use. Try again in a moment.";
+        }
     }
 
     private void ResolutionTextBox_LostFocus(object sender, RoutedEventArgs e) => SaveResolution();

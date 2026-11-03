@@ -162,7 +162,13 @@ public partial class App : Application
         // The offline test switch is a dev-build tool (Core/DeveloperAccess): a release build clears a
         // leftover one once, before anything below reads it (the account folder key does).
         if (DeveloperAccess.NeedsReset(Core.Updates.UpdateService.IsDevBuild, SettingsStore.Load()))
-            SettingsStore.Update(DeveloperAccess.ClearOfflineTest);
+        {
+            // settings.json busy right now (antivirus, a sync tool): SettingsStore refuses instead of guessing. Never
+            // fatal at startup; a file that can't be read loads as defaults (offline test off) anyway, and the
+            // next start clears it.
+            try { SettingsStore.Update(DeveloperAccess.ClearOfflineTest); }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { }
+        }
         System.Threading.Tasks.Task.Run(DeleteLegacySignInProfile);
         // An import that was interrupted last time (crash, power cut) is rolled back, on the thread pool;
         // MainWindow tells the player once the first window is up (Core/Import/Launcher/ImportStartup).

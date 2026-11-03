@@ -44,9 +44,11 @@ public static class SettingsStore
             var (settings, state) = Read();
             if (state == ReadState.Unreadable)
                 throw new IOException("settings.json is busy or can't be read right now; the change was not saved and the file was left as it was.");
-            if (state == ReadState.Damaged) KeepDamagedCopy();
             RamPolicy.Migrate(settings, TotalMemoryMb());
             mutate(settings);
+            // Set the damaged file aside only now that a replacement is ready: a mutate that throws must leave
+            // settings.json exactly where it was, not missing.
+            if (state == ReadState.Damaged) KeepDamagedCopy();
             Save(settings);
         }
     }

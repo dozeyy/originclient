@@ -55,7 +55,13 @@ public static class DesktopEntry
         }
 
         if (DeveloperAccess.NeedsReset(App.Core.Updates.UpdateService.IsDevBuild, SettingsStore.Load()))
-            SettingsStore.Update(DeveloperAccess.ClearOfflineTest);
+        {
+            // settings.json busy right now (antivirus, a sync tool): SettingsStore refuses instead of guessing. Never
+            // fatal at startup; a file that can't be read loads as defaults (offline test off) anyway, and the
+            // next start clears it.
+            try { SettingsStore.Update(DeveloperAccess.ClearOfflineTest); }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { }
+        }
         try { App.Core.Import.Launcher.ImportStartup.StartRecovery(); }
         catch (Exception ex) { StartupTrace.Mark("import recovery failed: " + ex.Message); }
         App.Core.LogRetention.StartPrune(); // old per-launch game logs, launcher errors and crash logs
