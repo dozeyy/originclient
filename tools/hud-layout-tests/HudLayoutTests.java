@@ -17,7 +17,8 @@ import java.util.Map;
  *
  * Checked at 1366x768 and 1920x1080 with Minecraft's auto GUI scale (455x256, 480x270 GUI px) and at GUI
  * 640x360, 683x384, 960x540: no two pieces overlap, and none sits on the chat (320 px wide, its 90 px of
- * lines ending 40 px above the bottom) or the hotbar group (hotbar, offhand slot, hearts/food rows).
+ * lines ending 40 px above the bottom), the hotbar group (hotbar, offhand slot, hearts/food rows) or a
+ * toast (160 x 32, top right; see UNDER_TOAST).
  * Allowed: pieces that are never on screen together (CONTEXTS), and the few listed in AUTO_SCALE_CHAT that
  * reach into the chat area at the auto GUI scale only (no free space left there; see HudLayout's plan).
  */
@@ -114,6 +115,11 @@ public final class HudLayoutTests {
 		plan("titles", 0, 0, 0, 'T');
 	}
 
+	// pieces a toast may cover for its few seconds: Server IP takes the top-right corner (see HudLayout); the
+	// boss bar is vanilla's own spot (vanilla's toasts reach it at the auto GUI scale too), and the compass
+	// under it is 160 px wide, so its right end meets a toast at 1366x768.
+	static final java.util.List<String> UNDER_TOAST = java.util.Arrays.asList("serveraddress", "bossbar", "directionhud");
+
 	// pieces allowed into the chat / hotbar area at the auto GUI scale only, and why: see HudLayout's plan
 	static final String[] AUTO_SCALE_CHAT = {"party", "portalcalc", "bwteammates"};
 
@@ -156,6 +162,7 @@ public final class HudLayoutTests {
 		Map<String, double[]> zones = new LinkedHashMap<String, double[]>();
 		zones.put("chat", new double[]{0, sh - 130, 328, sh - 40});
 		zones.put("hotbar", new double[]{sw / 2.0 - 91 - 29, sh - 59, sw / 2.0 + 91 + 2, sh});
+		zones.put("toast", new double[]{sw - 160, 0, sw, 32});   // one vanilla toast (advancement, recipe, tutorial)
 		List<Plan> ps = new ArrayList<Plan>();
 		for (Plan p : PLAN.values()) {
 			if (p.context != 'T') {
@@ -180,6 +187,9 @@ public final class HudLayoutTests {
 				continue;
 			}
 			for (Map.Entry<String, double[]> z : zones.entrySet()) {
+				if (z.getKey().equals("toast") && UNDER_TOAST.contains(a.id)) {
+					continue;
+				}
 				if (hit(ra, z.getValue())) {
 					fail(at + " " + a.id + " " + box(ra) + " sits on the " + z.getKey());
 				}
