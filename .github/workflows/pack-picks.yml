@@ -8,7 +8,10 @@
 #                    alive. Fails the job on any mismatch or dead link.
 #   discover.py      (workflow_dispatch input, or [discover] in the commit message)
 #                    candidate tables for choosing picks; read-only.
-# No pack is ever re-hosted: nothing here is uploaded anywhere.
+# Both write to out/; the publish job (which runs no repo code) force-pushes out/
+# to the `claude/pack-picks-data` branch (one root commit, a few KB of text) so a
+# cloud session can `git fetch` + grep it instead of reading whole job logs.
+# No pack is ever re-hosted: only text is published, never a pack file.
 name: pack-picks
 
 on:
@@ -34,6 +37,36 @@ jobs:
       - uses: actions/checkout@v4
       - name: Discover candidates
         if: ${{ github.event.inputs.discover == 'true' || contains(github.event.head_commit.message, '[discover]') }}
-        run: python3 tools/packs/discover.py
+        run: mkdir -p out && python3 tools/packs/discover.py > out/discover.txt; tail -n 5 out/discover.txt
       - name: Verify picks
-        run: python3 tools/packs/verify_picks.py
+        run: mkdir -p out && python3 tools/packs/verify_picks.py --out out
+      - name: Keep the output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pack-picks-out
+          path: out/
+          if-no-files-found: ignore
+
+  publish:
+    needs: picks
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pack-picks-out
+          path: out
+      - name: Push out/ to claude/pack-picks-data
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: |
+          cd out
+          git init -q -b data
+          git config user.name origin-pack-picks
+          git config user.email origin-pack-picks@users.noreply.github.com
+          echo "run ${{ github.run_id }} @ ${{ github.sha }}" > SOURCE.txt
+          git add -A && git commit -q -m "pack-picks output, run ${{ github.run_id }}"
+          git push -q -f "$URL" data:refs/heads/claude/pack-picks-data
