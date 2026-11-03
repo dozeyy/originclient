@@ -22,6 +22,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
+      - "tools/screenshot-link-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -38,6 +39,7 @@ on:
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
       - "tools/step-aside-tests/**"
+      - "tools/screenshot-link-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -81,6 +83,12 @@ jobs:
       # unchanged; forcing on then off leaves the file as it was).
       - name: Test step-aside logic
         run: python3 tools/step-aside-tests/run.py
+
+      # Chat screenshot buttons act only through ScreenshotLinks (pure Java): a click runs
+      # only for a token Origin minted for its own screenshot line, never for chat a server
+      # sent, and never outside the screenshots folder. Every live module carries the same copy.
+      - name: Test screenshot chat links
+        run: python3 tools/screenshot-link-tests/run.py
 
       # The starter config new players are seeded from (default-mods-config.json in every live
       # module): every slider value inside its Mods.java range, and none of the known values

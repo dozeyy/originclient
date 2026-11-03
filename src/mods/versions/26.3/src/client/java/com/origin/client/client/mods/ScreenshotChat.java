@@ -30,8 +30,10 @@ import java.util.function.Consumer;
 // holding the absolute path. We hand vanilla the same message with the buttons
 // appended, and vanilla posts it to chat as usual.
 //
-// Clicking: each button's style carries an ACTION_PREFIX insertion naming its
-// action, and its click event holds the file's path. A ScreenMouseEvents hook on
+// Clicking: each button's style carries a ScreenshotLinks token as its insertion
+// (the file and action stay in memory, so chat text a server sends can never name
+// one -- bug sweep 2, F-1), and its click event holds the file's path.
+// A ScreenMouseEvents hook on
 // the ChatScreen reads the style under the mouse first and runs the action; if
 // that hook ever failed, vanilla would just handle the click event itself
 // (Copy Image / Copy File copy the path, Open Folder opens the folder).
@@ -49,7 +51,6 @@ public final class ScreenshotChat {
 	}
 
 	private static final String ID = "screenshot";
-	private static final String ACTION_PREFIX = "originclient:screenshot:";
 
 	private static volatile File last = null;
 	private static boolean copyKeyWasDown = false;
@@ -80,27 +81,36 @@ public final class ScreenshotChat {
 		if (Mods.bool(ID, "copyAutomatically")) {
 			copyImage(file);
 		}
+		// Buttons only for a picture inside this game's own screenshots folder (where vanilla
+		// writes them); anything else keeps vanilla's plain line.
+		File shots = new File(Minecraft.getInstance().gameDirectory, "screenshots");
+		if (!ScreenshotLinks.isShot(file, shots)) {
+			return msg;
+		}
 		MutableComponent line = msg.copy();
 		if (Mods.bool(ID, "copyImageButton")) {
-			line.append(button("Copy Image", "image", new ClickEvent.CopyToClipboard(file.getAbsolutePath()),
+			line.append(button("Copy Image", ScreenshotLinks.register(ScreenshotLinks.IMAGE, file, shots),
+					new ClickEvent.CopyToClipboard(file.getAbsolutePath()),
 					"Copy the picture -- paste it straight into Discord"));
 		}
 		if (Mods.bool(ID, "copyFileButton")) {
-			line.append(button("Copy File", "file", new ClickEvent.CopyToClipboard(file.getAbsolutePath()),
+			line.append(button("Copy File", ScreenshotLinks.register(ScreenshotLinks.FILE, file, shots),
+					new ClickEvent.CopyToClipboard(file.getAbsolutePath()),
 					"Copy the file, like Ctrl+C in File Explorer"));
 		}
 		if (Mods.bool(ID, "openFolderButton") && file.getParentFile() != null) {
-			line.append(button("Open Folder", "folder", new ClickEvent.OpenFile(file.getParentFile().getAbsolutePath()),
+			line.append(button("Open Folder", ScreenshotLinks.register(ScreenshotLinks.FOLDER, shots, shots),
+					new ClickEvent.OpenFile(file.getParentFile().getAbsolutePath()),
 					"Open your screenshots folder"));
 		}
 		return line;
 	}
 
-	private static Component button(String label, String action, ClickEvent fallback, String hover) {
+	private static Component button(String label, String link, ClickEvent fallback, String hover) {
 		Style style = Style.EMPTY
 				.withColor(ChatFormatting.WHITE)
 				.withUnderlined(true)
-				.withInsertion(ACTION_PREFIX + action)
+				.withInsertion(link)
 				.withClickEvent(fallback)
 				.withHoverEvent(new HoverEvent.ShowText(Component.literal(hover)));
 		return Component.literal(" ")
@@ -124,17 +134,6 @@ public final class ScreenshotChat {
 		return f.isFile() ? f : null;
 	}
 
-	/** The path a button's fallback click event carries, or null. */
-	private static String pathOf(ClickEvent click) {
-		if (click instanceof ClickEvent.CopyToClipboard copy) {
-			return copy.value();
-		}
-		if (click instanceof ClickEvent.OpenFile open) {
-			return open.path();
-		}
-		return null;
-	}
-
 	public static void register() {
 		ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen instanceof ChatScreen) {
@@ -155,13 +154,12 @@ public final class ScreenshotChat {
 		mc.gui.hud.getChat().captureClickableText(finder, mc.getWindow().getGuiScaledHeight(), mc.gui.hud.getGuiTicks(),
 				net.minecraft.client.gui.components.ChatComponent.DisplayMode.FOREGROUND);
 		Style style = finder.result();
-		String path = style == null ? null : pathOf(style.getClickEvent());
-		if (style == null || style.getInsertion() == null || !style.getInsertion().startsWith(ACTION_PREFIX)
-				|| path == null) {
-			return false;
+		ScreenshotLinks.Link link = style == null ? null : ScreenshotLinks.resolve(style.getInsertion());
+		if (link == null) {
+			return false;   // not a button Origin made this session: vanilla handles the click as usual
 		}
-		File target = new File(path);
-		switch (style.getInsertion().substring(ACTION_PREFIX.length())) {
+		File target = link.target;
+		switch (link.action) {
 			case "image" -> copyImage(target);
 			case "file" -> copyFile(target);
 			case "folder" -> com.mojang.blaze3d.Blaze3D.openPath(target.toPath());
