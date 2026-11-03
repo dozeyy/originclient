@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace OriginLauncher.App.Core.Versions;
 
@@ -16,7 +15,9 @@ namespace OriginLauncher.App.Core.Versions;
 // another account's game is never blocked. Runs on its own thread in Windows' background mode (low
 // CPU AND low disk priority), is capped, and is cancelled the moment a launch starts so provisioning
 // gets the disk to itself.
-public static class LaunchPrewarm
+// The background-priority call is the per-OS part: LaunchPrewarm.Windows.cs / LaunchPrewarm.Mac.cs,
+// picked by each csproj.
+public static partial class LaunchPrewarm
 {
     /// <summary>Most file CONTENT read per warm-up (metadata is always walked in full).</summary>
     public const long ContentCapBytes = 384L * 1024 * 1024;
@@ -64,8 +65,7 @@ public static class LaunchPrewarm
 
     private static void Run(string versionRoot, string modsDir, string version, CancellationToken ct)
     {
-        // THREAD_MODE_BACKGROUND_BEGIN: the OS lowers this thread's disk and memory priority too.
-        var background = SetThreadPriority(GetCurrentThread(), ThreadModeBackgroundBegin);
+        var background = EnterBackgroundMode();
         var clock = Stopwatch.StartNew();
         try
         {
@@ -78,7 +78,7 @@ public static class LaunchPrewarm
         }
         finally
         {
-            if (background) SetThreadPriority(GetCurrentThread(), ThreadModeBackgroundEnd);
+            if (background) LeaveBackgroundMode();
         }
     }
 
@@ -157,14 +157,4 @@ public static class LaunchPrewarm
         entries += found.Count;
         return found;
     }
-
-    private const uint ThreadModeBackgroundBegin = 0x00010000;
-    private const uint ThreadModeBackgroundEnd = 0x00020000;
-
-    [DllImport("kernel32.dll")]
-    private static extern IntPtr GetCurrentThread();
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetThreadPriority(IntPtr thread, uint priority);
 }

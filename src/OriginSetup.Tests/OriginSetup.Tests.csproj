@@ -21,8 +21,8 @@
   <ItemGroup>
     <Compile Include="..\OriginSetup\Engine\**\*.cs" LinkBase="Engine" />
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" Link="Shared\RamAdvice.cs" />
-    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.cs" Link="Shared\SystemInfo.cs" />
-    <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.cs" Link="Shared\InstallRegistry.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Windows.cs" Link="Shared\SystemInfo.Windows.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.Windows.cs" Link="Shared\InstallRegistry.Windows.cs" />
   </ItemGroup>
 
   <!-- net472 compiles ONLY the linked engine files (the API check); the

@@ -1,0 +1,81 @@
+# The Mac launcher (src/OriginLauncher.Mac): builds it for Apple Silicon and Intel, runs its
+# --self-test (data paths + every Mac seam of the shared Core: Keychain, hard links, sysctl,
+# LaunchAgent, prewarm, skin decode, Java 8 layout and download, the 1.8.9 LWJGL rules, the
+# self-update swap) and the Core tests in Mac mode. This is the Mac project's only compiler:
+# it is never built on Will's PC.
+#
+# Each arch runs on its own real hardware: x64 on an Intel runner, not under Rosetta (an x64
+# build crashed under Rosetta on the arm64 runner right after creating the web view's data
+# store, so Rosetta results would not say anything about real Intel Macs).
+name: Mac launcher
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "src/OriginLauncher.App/Core/**"
+      - "src/OriginLauncher.Mac/**"
+      - "src/OriginLauncher.Tests/**"
+      - "global.json"
+      - ".github/workflows/mac-launcher.yml"
+  pull_request:
+    paths:
+      - "src/OriginLauncher.App/Core/**"
+      - "src/OriginLauncher.Mac/**"
+      - "src/OriginLauncher.Tests/**"
+      - "global.json"
+      - ".github/workflows/mac-launcher.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-launcher-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mac:
+    name: mac (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Runner
+        run: |
+          sw_vers
+          uname -m
+          sysctl -n machdep.cpu.brand_string
+          dotnet --version
+
+      - name: Publish (${{ matrix.rid }})
+        run: dotnet publish src/OriginLauncher.Mac/OriginLauncher.Mac.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o "$RUNNER_TEMP/publish"
+
+      # Exit 0 only when every check printed PASS. --network adds the Java 8 download
+      # (hash-checked, unpacked, run) and Mojang's real 1.8.9 file list.
+      - name: Self-test
+        run: |
+          file "$RUNNER_TEMP/publish/OriginLauncher"
+          "$RUNNER_TEMP/publish/OriginLauncher" --self-test --network
+
+      # The Core tests that mean something on a Mac: the Mac seams, the skin decoder that
+      # replaces WPF's, and the library rules (1.8.9 LWJGL 2.9.2 on osx, 2.9.4 elsewhere).
+      - name: Core tests (Mac mode)
+        run: >
+          dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Mac
+          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests"

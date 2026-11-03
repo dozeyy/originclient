@@ -6,17 +6,19 @@ using OriginLauncher.App.Core.Auth.Sessions;
 
 namespace OriginLauncher.App.Core.Accounts;
 
-public static class AccountStore
+// The token-at-rest encryption is the per-OS part (one file per OS, picked by each csproj):
+// AccountStore.Windows.cs = DPAPI, AccountStore.Mac.cs = AES-GCM with its key in the login
+// Keychain. Either way a blob that can't be decrypted throws CryptographicException, which
+// every reader below turns into "not signed in" - never a plaintext fallback.
+public static partial class AccountStore
 {
-    // The real file. Tests point it at a temporary file (and swap the DPAPI
+    // The real file. Tests point it at a temporary file (and swap the platform
     // calls below), so nothing ever touches the player's real accounts.
     internal static string FilePath { get; set; } = Path.Combine(OriginPaths.Accounts, "accounts.json");
 
-    internal static Func<byte[], byte[]> ProtectBytes { get; set; } =
-        bytes => ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+    internal static Func<byte[], byte[]> ProtectBytes { get; set; } = PlatformProtect;
 
-    internal static Func<byte[], byte[]> UnprotectBytes { get; set; } =
-        bytes => ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser);
+    internal static Func<byte[], byte[]> UnprotectBytes { get; set; } = PlatformUnprotect;
     private static readonly object Gate = new();
 
     public static List<StoredAccount> Load()
@@ -137,7 +139,7 @@ public static class AccountStore
         return Convert.ToBase64String(protectedBytes);
     }
 
-    // The cached Minecraft session gets the same DPAPI protection as the
+    // The cached Minecraft session gets the same protection as the
     // refresh token — it is a bearer token, never written in plaintext.
     public static string ProtectSession(MinecraftSession session) =>
         ProtectRefreshToken(JsonSerializer.Serialize(session));
@@ -161,7 +163,7 @@ public static class AccountStore
     }
 
     // Returns null (rather than throwing) if the blob is corrupt or was
-    // encrypted under a different Windows profile — callers treat that the
+    // encrypted under a different Windows profile / Mac key — callers treat that the
     // same as "not signed in" and fall back to an interactive login.
     public static string? TryUnprotectRefreshToken(string protectedToken)
     {

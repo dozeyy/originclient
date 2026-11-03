@@ -2,8 +2,6 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using OriginLauncher.App.Core.Sync;
 
 namespace OriginLauncher.App.Core.Skins;
@@ -16,8 +14,11 @@ namespace OriginLauncher.App.Core.Skins;
 /// is kept under OriginPaths.SkinCache and refreshed once it is a day old. Every failure
 /// (offline, unknown player, bad image) leaves the player on their default head — a head
 /// is never blank. Only skins and public profile data travel; no account token is used.
+/// The imaging is the per-OS part (PlayerHeads.Windows.cs: WPF; PlayerHeads.Mac.cs: managed PNG
+/// decode + Avalonia bitmap), and so is the image type, HeadImage (a global alias each OS file
+/// sets: WPF's ImageSource, Avalonia's Bitmap). Everything else here is the same on every OS.
 /// </summary>
-public static class PlayerHeads
+public static partial class PlayerHeads
 {
     /// <summary>Render-shots (CI) turns this off: heads come from the disk cache or the default only.</summary>
     public static bool NetworkEnabled { get; set; } = true;
@@ -28,10 +29,11 @@ public static class PlayerHeads
 
     private static readonly HttpClient Http = CreateClient();
     private static readonly SemaphoreSlim Gate = new(MaxParallel);
-    private static readonly ConcurrentDictionary<string, Task<ImageSource?>> Loads = new();
+    private static readonly ConcurrentDictionary<string, Task<HeadImage?>> Loads = new();
 
-    private static readonly ImageSource SteveHead = ToBitmap(SkinFace.DefaultHead(null))!;
-    private static readonly ImageSource AlexHead = ToBitmap(SkinFace.DefaultHead("00000000000000000000000000000001"))!;
+    // Lazy: an Avalonia bitmap can only be made once the UI platform is up, so nothing is drawn on type load.
+    private static readonly Lazy<HeadImage> SteveHead = new(() => ToImage(SkinFace.DefaultHead(null))!);
+    private static readonly Lazy<HeadImage> AlexHead = new(() => ToImage(SkinFace.DefaultHead("00000000000000000000000000000001"))!);
 
     private static HttpClient CreateClient()
     {
@@ -41,23 +43,23 @@ public static class PlayerHeads
     }
 
     /// <summary>The player's default head (Steve or Alex by uuid): shown until, or instead of, their skin.</summary>
-    public static ImageSource Default(string? uuid) => SkinFace.IsAlexDefault(uuid) ? AlexHead : SteveHead;
+    public static HeadImage Default(string? uuid) => SkinFace.IsAlexDefault(uuid) ? AlexHead.Value : SteveHead.Value;
 
     /// <summary>The player's real head if it is already loaded this session, else null.</summary>
-    public static ImageSource? Loaded(string? uuid) =>
+    public static HeadImage? Loaded(string? uuid) =>
         SkinFace.CacheKey(uuid) is { } key && Loads.TryGetValue(key, out var t) && t.IsCompletedSuccessfully ? t.Result : null;
 
     /// <summary>
     /// The player's real head (null = keep the default). Starts the load on first ask; later
     /// asks share it. Completes on a worker thread; the image is frozen, so any thread can use it.
     /// </summary>
-    public static Task<ImageSource?> Get(string? uuid)
+    public static Task<HeadImage?> Get(string? uuid)
     {
-        if (SkinFace.CacheKey(uuid) is not { } key) return Task.FromResult<ImageSource?>(null);
+        if (SkinFace.CacheKey(uuid) is not { } key) return Task.FromResult<HeadImage?>(null);
         return Loads.GetOrAdd(key, k => Task.Run(() => LoadAsync(k)));
     }
 
-    private static async Task<ImageSource?> LoadAsync(string key)
+    private static async Task<HeadImage?> LoadAsync(string key)
     {
         var path = Path.Combine(OriginPaths.SkinCache, key + ".png");
         byte[]? cached = null;
@@ -81,7 +83,7 @@ public static class PlayerHeads
 
         // Offline, Mojang busy, or an answer that isn't Mojang's (captive portal): keep what we
         // had (or the default) and let a later row ask again, never remembering it as "no skin".
-        ImageSource? Transient()
+        HeadImage? Transient()
         {
             if (cached == null)
                 _ = Task.Delay(RetryAfterFailure).ContinueWith(_ => Loads.TryRemove(key, out var _), TaskScheduler.Default);
@@ -140,19 +142,15 @@ public static class PlayerHeads
     /// skin. The size comes from the PNG header and is checked before any pixel is decoded
     /// (a tiny file can claim a huge image), and any decoder failure falls back to null.
     /// </summary>
-    public static ImageSource? Decode(byte[]? png)
+    public static HeadImage? Decode(byte[]? png)
     {
         if (png == null || png.Length == 0) return null;
         if (SkinFace.PngSize(png) is not { } size || !SkinFace.IsSkinSize(size.Width, size.Height)) return null;
         try
         {
-            using var stream = new MemoryStream(png, writable: false);
-            var frame = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None).Frames[0];
-            if (frame.PixelWidth != size.Width || frame.PixelHeight != size.Height) return null;
-            var bgra = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0);
-            var pixels = new byte[size.Width * size.Height * 4];
-            bgra.CopyPixels(pixels, size.Width * 4, 0);
-            return ToBitmap(SkinFace.FaceWithHat(pixels, size.Width, size.Height));
+            // The OS file decodes to straight-alpha BGRA (null = not this size / not readable).
+            var pixels = DecodeBgra(png, size.Width, size.Height);
+            return pixels == null ? null : ToImage(SkinFace.FaceWithHat(pixels, size.Width, size.Height));
         }
         catch (Exception)
         {
@@ -160,13 +158,5 @@ public static class PlayerHeads
             // the player keeps their default head.
             return null;
         }
-    }
-
-    private static ImageSource? ToBitmap(byte[]? head)
-    {
-        if (head == null) return null;
-        var bitmap = BitmapSource.Create(SkinFace.Size, SkinFace.Size, 96, 96, PixelFormats.Bgra32, null, head, SkinFace.Size * 4);
-        bitmap.Freeze();
-        return bitmap;
     }
 }

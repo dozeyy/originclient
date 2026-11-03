@@ -5,7 +5,6 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
-using System.Windows;
 using OriginLauncher.App.Core.Import.Launcher;
 
 namespace OriginLauncher.App.Core.Updates;
@@ -15,8 +14,11 @@ namespace OriginLauncher.App.Core.Updates;
 // OriginLauncher-win-x64.zip asset whenever a launcher-v* tag is pushed to
 // main (see docs/RELEASING.md).
 // This service polls that feed, exposes the newest release, and applies it:
-// download -> stage -> swap-and-restart via a tiny cmd script (a running exe
-// can't overwrite itself on Windows).
+// download -> stage -> swap-and-restart via a tiny script (a running exe
+// can't overwrite itself on Windows; a Mac swaps the whole app bundle).
+// The per-OS parts live in one file per OS, picked by each csproj (UpdateService.Windows.cs /
+// UpdateService.Mac.cs): which release asset this OS downloads, the swap script, and how the
+// app quits (the UI toolkit's own shutdown). Checking, gating, downloading and verifying are shared.
 //
 // Update policy (Will): updates are MANDATORY — a launcher older than the
 // latest published release must update before it can launch the game.
@@ -36,11 +38,13 @@ namespace OriginLauncher.App.Core.Updates;
 // NOTE: the unauthenticated releases API only works on a PUBLIC repository —
 // on a private repo it 404s and every check fails open (no updates ever
 // surface). Keep the repo public or move the release feed somewhere public.
-public static class UpdateService
+public static partial class UpdateService
 {
     private const string Owner = "dozeyy";
     private const string Repo = "originclient";
     private const string TagPrefix = "launcher-v";
+    // The Windows asset. It stays named here because the installer's ReleaseFeed must agree with it
+    // (tools/release/check_consistency.py reads both); each OS file says which asset that OS takes (ReleaseAssetName).
     private const string AssetName = "OriginLauncher-win-x64.zip";
     // The release pipeline publishes the zip's SHA-256 next to it (sha256sum format); see UpdateVerifier.
     private const string HashAssetName = AssetName + ".sha256";
@@ -103,12 +107,12 @@ public static class UpdateService
                 return;
 
             var asset = release!.Assets?.FirstOrDefault(a =>
-                string.Equals(a.Name, AssetName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(a.Name, ReleaseAssetName, StringComparison.OrdinalIgnoreCase));
             if (asset?.DownloadUrl == null)
                 return;
 
             var hashAsset = release.Assets?.FirstOrDefault(a =>
-                string.Equals(a.Name, HashAssetName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(a.Name, ReleaseAssetName + ".sha256", StringComparison.OrdinalIgnoreCase));
             // No sidecar and no usable digest: the download could only be refused, so never offer or gate on it.
             var hasHash = hashAsset?.DownloadUrl != null || UpdateVerifier.ParseDigest(asset.Digest) != null;
 
@@ -153,9 +157,8 @@ public static class UpdateService
     }
 
     // One zip (and one .part) per version, so two downloads of different releases never share a file.
-    private const string ZipPrefix = "OriginLauncher-win-x64";
     private static string ZipPathFor(Version version) =>
-        Path.Combine(OriginPaths.Updates, $"{ZipPrefix}-{version}.zip");
+        Path.Combine(OriginPaths.Updates, $"{ReleaseZipPrefix}-{version}.zip");
 
     // Removes zips/.part files of versions nobody is fetching or offering (quit before applying, killed
     // mid-download). Never throws; a locked file is skipped. Keeps the version being fetched, the one offered
@@ -168,7 +171,7 @@ public static class UpdateService
             VerifiedZip? verified;
             lock (Gate) { offered = Available?.Version; verified = _verifiedZip; }
             var n = UpdateVerifier.DeleteStaleDownloads(
-                OriginPaths.Updates, ZipPrefix, fetching, offered, verified?.Version);
+                OriginPaths.Updates, ReleaseZipPrefix, fetching, offered, verified?.Version);
             if (n > 0) Log($"removed {n} stale update download file(s)");
         }
         catch (Exception) { /* housekeeping only */ }
@@ -283,40 +286,11 @@ public static class UpdateService
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
         await UpdateRunState.PrepareToRestartAsync(() => progress?.Report(new UpdateProgress(UpdateStage.FinishingImport, 0, null)));
 
-        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var exePath = Environment.ProcessPath
-                      ?? Path.Combine(appDir, "OriginLauncher.App.exe");
-        var pid = Environment.ProcessId;
-
-        // robocopy instead of xcopy: copies new + changed files including
-        // ones that appeared in this release, and its success exit codes
-        // (0-7) don't abort the script. Paths are pre-trimmed of trailing
-        // backslashes so the quoted arguments can't swallow a quote.
-        var script = Path.Combine(updatesRoot, "apply-update.cmd");
-        File.WriteAllText(script, $"""
-@echo off
-setlocal
-:wait
-tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul
-if not errorlevel 1 (
-  timeout /t 1 /nobreak >nul
-  goto wait
-)
-robocopy "{stageDir}" "{appDir}" /E /IS /IT >nul
-start "" "{exePath}"
-endlocal
-""");
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = script,
-            UseShellExecute = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
-            CreateNoWindow = true
-        });
+        // The OS file writes and starts the swap script, which waits for this process to exit.
+        StartApplyScript(stageDir, updatesRoot);
         progress?.Report(new UpdateProgress(UpdateStage.Restarting, 0, null));
         markRestarting();
-        Application.Current.Shutdown();
+        ShutdownApp();
     }
 
     // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
@@ -380,7 +354,7 @@ endlocal
         {
             // 404/403, a timeout, a reset or a garbled body all surface as UpdateVerificationException.
             return await UpdateVerifier.FetchSidecarAsync(
-                ct => Http.GetStringAsync(update.Sha256Url, ct), AssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+                ct => Http.GetStringAsync(update.Sha256Url, ct), ReleaseAssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
         }
         // GitHub's own digest is the fallback: anything but a clean "sha256:<64 hex>" (another algorithm, empty,
         // missing, a format change) is "no hash", which is refused before the download starts.
