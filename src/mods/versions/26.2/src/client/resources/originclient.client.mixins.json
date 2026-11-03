@@ -89,6 +89,7 @@
 		"CosmeticsPauseMixin",
 		"PackSelectionScreenAccessor",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"EntityRendererCullingBoxInvoker",
 		"ShadowCasterEntityMixin",

@@ -86,6 +86,7 @@
 		"ItemPhysicsStateMixin",
 		"GlintPipelineMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"IrisPipelineHalfRateMixin",
 		"IrisShadowRendererHalfRateMixin",

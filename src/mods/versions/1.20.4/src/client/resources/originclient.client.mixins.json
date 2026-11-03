@@ -89,6 +89,7 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"IrisPipelineHalfRateMixin",
 		"IrisShadowRendererHalfRateMixin",

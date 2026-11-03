@@ -87,6 +87,7 @@
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"IrisPipelineHalfRateMixin",
 		"IrisShadowRendererHalfRateMixin",

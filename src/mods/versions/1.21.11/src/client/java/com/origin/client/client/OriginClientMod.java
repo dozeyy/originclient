@@ -23,7 +23,7 @@ public class OriginClientMod implements ClientModInitializer {
 	private net.minecraft.client.CameraType savedPerspective = null;
 	private boolean sneakForced = false;
 	private boolean chatApplied = false;
-	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
+	private double savedChatOpacity = 1.0, savedChatTextOpacity = 1.0, savedChatScale = 1.0;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
@@ -94,6 +94,23 @@ public class OriginClientMod implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);
 		// Vanilla options save the moment they change (Settings Sync needs it).
 		OptionsAutosave.register();
+		// The Chat mod's values are never written to options.txt: every save swaps the
+		// player's own chat settings in for the write (OptionsSaveMixin).
+		OptionsAutosave.addSwap(new OptionsAutosave.Swap() {
+			@Override
+			public void playerValues(net.minecraft.client.Options options) {
+				if (chatApplied) {
+					putPlayerChatValues(options);
+				}
+			}
+
+			@Override
+			public void originValues(net.minecraft.client.Options options) {
+				if (chatApplied) {
+					putChatValues(options);
+				}
+			}
+		});
 		// Team View, Discord presence (always on) and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
@@ -825,24 +842,37 @@ public class OriginClientMod implements ClientModInitializer {
 	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
 	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
 	// slider there made messages unreadable). Text stays fully visible at
-	// background 0. chatOpacity is pinned to 1.0 while the mod is on, which
-	// also heals any options.txt damage the old wiring left behind.
+	// background 0: chatOpacity is pinned to 1.0 while the mod is on.
+	// These are Origin's values, never the player's: all three of the player's
+	// own values come back when the mod turns off, and every options.txt write
+	// swaps them in for the write (OptionsAutosave.Swap, registered in
+	// onInitializeClient), so the file never stores the Chat mod's values.
 	private void applyChat(Minecraft client) {
 		boolean on = Mods.on("chat");
 		if (on) {
 			if (!chatApplied) {
 				savedChatOpacity = client.options.textBackgroundOpacity().get();
+				savedChatTextOpacity = client.options.chatOpacity().get();
 				savedChatScale = client.options.chatScale().get();
 				chatApplied = true;
 			}
-			client.options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
-			client.options.chatOpacity().set(1.0);
-			client.options.chatScale().set(Mods.num("chat", "scale"));
+			putChatValues(client.options);
 		} else if (chatApplied) {
-			client.options.textBackgroundOpacity().set(savedChatOpacity);
-			client.options.chatScale().set(savedChatScale);
+			putPlayerChatValues(client.options);
 			chatApplied = false;
 		}
+	}
+
+	private void putChatValues(net.minecraft.client.Options options) {
+		options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
+		options.chatOpacity().set(1.0);
+		options.chatScale().set(Mods.num("chat", "scale"));
+	}
+
+	private void putPlayerChatValues(net.minecraft.client.Options options) {
+		options.textBackgroundOpacity().set(savedChatOpacity);
+		options.chatOpacity().set(savedChatTextOpacity);
+		options.chatScale().set(savedChatScale);
 	}
 
 	private void applyHitboxes(Minecraft client) {
