@@ -191,6 +191,7 @@ public static class Sizes
     public const double AccountNameMax = 160, ProfileNameMax = 180;
     public const double UpdateChipMinWindow = 1100, WordmarkMinWindow = 1000;
     public const double PageMaxWidth = 1000;
+    public const double TileSm = 28, TileLg = 40;   // mod squares / emblem picker tiles; mod icon wells / profile emblems
 }
 
 /// <summary>Motion (section 9). Reduced motion (and render runs) set Off: every duration is 0.</summary>
