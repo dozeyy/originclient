@@ -41,14 +41,21 @@ public sealed partial class MainWindow
             // Every account has its own game folders: the Mods page follows the selected account.
             if (_currentPage == LauncherPage.Mods) ModsView.ShowVersion(HomeVersion);
             AccountsChanged?.Invoke(this, EventArgs.Empty);
+            // Friends belong to the selected account: sign in again as it.
+            OriginLauncher.App.Core.Social.Launcher.SocialHub.Service.ResetAccount();
         };
         _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
 
-        AccountButton.Click += (_, _) => SetAccountPanelOpen(!_accountPanelOpen);
+        AccountButton.Click += (_, _) =>
+        {
+            if (!_accountPanelOpen && _friendsOpen) SetFriendsOpen(false);
+            SetAccountPanelOpen(!_accountPanelOpen);
+        };
         Scrim.PointerPressed += (_, _) =>
         {
             if (_signInPanelOpen) CloseSignInPanel();
+            else if (_friendsOpen) SetFriendsOpen(false);
             else SetAccountPanelOpen(false);
         };
         AddHandler(KeyDownEvent, (_, e) =>
@@ -102,7 +109,7 @@ public sealed partial class MainWindow
             {
                 if (_accountPanelOpen) return;
                 AccountPanel.IsVisible = false;
-                if (!_signInPanelOpen) Scrim.IsVisible = false;
+                if (!_signInPanelOpen && !_friendsOpen) Scrim.IsVisible = false;
             }));
     }
 
@@ -169,7 +176,7 @@ public sealed partial class MainWindow
             {
                 if (_signInPanelOpen) return;
                 SignInPanel.IsVisible = false;
-                if (!_accountPanelOpen) Scrim.IsVisible = false;
+                if (!_accountPanelOpen && !_friendsOpen) Scrim.IsVisible = false;
             }));
     }
 

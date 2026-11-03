@@ -26,6 +26,43 @@ public sealed class CardCornersConverter : IMultiValueConverter
 }
 
 /// <summary>
+/// The drawer row's keyboard focus frame (Theme/Import.axaml Social.RowFocus): the WPF frame binds its corners to
+/// AdornedElement.DataContext.Pos, but an Avalonia binding path can't name AdornerLayer inside a template ("Unable to
+/// resolve type"), so the frame reads its row when the focus adorner is attached to it. Pos is a plain property
+/// (no change notice, the same in WPF), so reading it once per focus is the whole job.
+/// </summary>
+public sealed class RowFocusFrame : Avalonia.Controls.Border
+{
+    /// <summary>The card's ring radius; the frame keeps the corners of it that its row owns.</summary>
+    public static readonly StyledProperty<CornerRadius> RingRadiusProperty =
+        AvaloniaProperty.Register<RowFocusFrame, CornerRadius>(nameof(RingRadius));
+
+    public CornerRadius RingRadius { get => GetValue(RingRadiusProperty); set => SetValue(RingRadiusProperty, value); }
+
+    protected override Type StyleKeyOverride => typeof(Avalonia.Controls.Border);
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == Avalonia.Controls.Primitives.AdornerLayer.AdornedElementProperty || change.Property == RingRadiusProperty)
+            Refresh();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        var row = Avalonia.Controls.Primitives.AdornerLayer.GetAdornedElement(this);
+        var pos = row?.DataContext is CardRowVm vm ? vm.Pos : CardPos.Only;
+        CornerRadius = (CornerRadius)new CardCornersConverter().Convert([pos, RingRadius], typeof(CornerRadius), null, CultureInfo.InvariantCulture)!;
+    }
+}
+
+/// <summary>
 /// True when a row sits at the bottom of its card (Last or Only): the WPF DataTrigger "Pos = Last" as a class switch
 /// (Avalonia templates have no triggers).
 /// </summary>

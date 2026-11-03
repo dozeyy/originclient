@@ -1,0 +1,743 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             xmlns:s="using:OriginLauncher.App.UI.Controls"
+             xmlns:ui="using:OriginLauncher.Mac.UI"
+             x:Class="OriginLauncher.Mac.UI.Controls.FriendsPanel">
+
+    <!-- The Friends drawer: the Avalonia twin of src/OriginLauncher.App/UI/Controls/FriendsPanel.xaml, element for
+         element (same names, sizes, tokens and wording). One drawer, four views:
+           MessagePane  signed out / connecting / service unreachable
+           EmptyPane    signed in, no friends yet
+           RowList      ONE list: warp, requests and invites, party, online, offline, sent, blocked
+           ChatPane     one friend, or the party, on a dark well
+         The rows are the WPF drawer's own view models (Shared\FriendsViewModels.cs), built from the same Core/Social
+         snapshot. WPF's DataTemplate triggers are class switches here (the Styles block below); Visibility.Hidden is
+         Opacity 0. Every row has one obvious action on it; the rest are in its "..." menu (UI/Controls/PopupMenu.cs,
+         also right-click). -->
+
+    <UserControl.Resources>
+        <CornerRadius x:Key="Social.PartyTop">4,4,0,0</CornerRadius>
+
+        <!-- The list: its own scroller (the minimal bar, 8 px clear of the rows), the rows 3 px inside the viewport so the
+             outset keyboard-focus frame is never cut (the margins here and on the presenter cancel out). A plain StackPanel,
+             not virtualized like WPF's: Avalonia's VirtualizingStackPanel keeps its children in the order they were
+             realised, so after the list changes Tab walked the rows out of order (keyboard-checks.txt, proven). A drawer
+             holds tens of rows, kept between opens, so nothing is lost. -->
+        <ControlTheme x:Key="Social.List" TargetType="ItemsControl">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel/>
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer Padding="0,0,8,9" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  AllowAutoHide="False" Focusable="False">
+                        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" Margin="3"/>
+                    </ScrollViewer>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+
+        <!-- A party member's row: the flat row, on the party card's dark surface; a hover lifts it one step. -->
+        <ControlTheme x:Key="Social.PartyRow" TargetType="Button" BasedOn="{StaticResource Social.DrawerRow}">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" x:DataType="s:CardRowVm" Background="{StaticResource Brush.BgAlt}" Padding="{TemplateBinding Padding}">
+                        <Border.CornerRadius>
+                            <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                                <Binding Path="Pos"/>
+                                <Binding Source="{StaticResource Social.PartyTop}"/>
+                            </MultiBinding>
+                        </Border.CornerRadius>
+                        <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
+            </Style>
+            <Style Selector="^:pressed /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.Bg}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- The tile and square buttons: a base surface (Bd) under a highlight layer (Hl) whose opacity is the hover. -->
+        <ControlTemplate x:Key="Social.LayeredTemplate" TargetType="Button">
+            <Grid>
+                <Border Name="Bd" BorderThickness="1" CornerRadius="{StaticResource Radius.Md}"/>
+                <Border Name="Hl" CornerRadius="{StaticResource Radius.Md}"/>
+                <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}" Margin="{TemplateBinding Padding}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTheme x:Key="Social.IconPrimary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template" Value="{StaticResource Social.LayeredTemplate}"/>
+            <Style Selector="^ /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.BgAlt}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+            </Style>
+            <Style Selector="^ /template/ Border#Hl">
+                <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+                <Setter Property="Opacity" Value="0.22"/>
+            </Style>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Hl">
+                <Setter Property="Opacity" Value="0.42"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Style>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Social.IconRaised" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template" Value="{StaticResource Social.LayeredTemplate}"/>
+            <Style Selector="^ /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.BgAlt}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            </Style>
+            <Style Selector="^ /template/ Border#Hl">
+                <Setter Property="Background" Value="{StaticResource Brush.Danger}"/>
+                <Setter Property="Opacity" Value="0"/>
+            </Style>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Hl">
+                <Setter Property="Opacity" Value="0.2"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Bd">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Style>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Social.TileChat" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template" Value="{StaticResource Social.LayeredTemplate}"/>
+            <Style Selector="^ /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.BgAlt}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+            </Style>
+            <Style Selector="^ /template/ Border#Hl">
+                <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+                <Setter Property="Opacity" Value="0.14"/>
+            </Style>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Hl">
+                <Setter Property="Opacity" Value="0.3"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Style>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Social.Tile" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template" Value="{StaticResource Social.LayeredTemplate}"/>
+            <Style Selector="^ /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            </Style>
+            <Style Selector="^ /template/ Border#Hl">
+                <Setter Property="Background" Value="{StaticResource Brush.Text}"/>
+                <Setter Property="Opacity" Value="0"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Hl">
+                <Setter Property="Opacity" Value="0.08"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Bd">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Style>
+        </ControlTheme>
+
+        <ControlTheme x:Key="Social.TileLeave" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlSm}"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template" Value="{StaticResource Social.LayeredTemplate}"/>
+            <Style Selector="^ /template/ Border#Bd">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            </Style>
+            <Style Selector="^ /template/ Border#Hl">
+                <Setter Property="Background" Value="{StaticResource Brush.Danger}"/>
+                <Setter Property="Opacity" Value="0"/>
+            </Style>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Hl">
+                <Setter Property="Opacity" Value="0.18"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Bd">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Text fields: no frame, a card-coloured well (the WPF focus animation only recolours the absent border, so it
+             stays off); the error edge (class "invalid") still shows. -->
+        <ControlTheme x:Key="Social.Box" TargetType="TextBox" BasedOn="{StaticResource Input.TextBox}">
+            <Style Selector="^ /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+            <Style Selector="^:focus /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+            <Style Selector="^:disabled /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+            <Style Selector="^.invalid /template/ Border#PART_BorderElement">
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Unread count: an accent capsule with dark digits. Every badge is a capsule: the 20 badge height, radius =
+             height / 2, so a "1" is a circle and "12" a pill with the same round ends. -->
+        <ControlTheme x:Key="Social.Badge" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+            <Setter Property="ui:Capsule.On" Value="True"/>
+            <Setter Property="MinWidth" Value="{StaticResource Size.Badge}"/>
+            <Setter Property="Height" Value="{StaticResource Size.Badge}"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="ScrollViewer /template/ ScrollBar">
+            <Setter Property="Theme" Value="{StaticResource ScrollBar.Minimal}"/>
+        </Style>
+        <!-- The WPF templates' triggers, as classes the rows switch on. -->
+        <Style Selector="c|IconPath.collapsed">
+            <Setter Property="RenderTransform" Value="rotate(-90deg)"/>
+        </Style>
+        <Style Selector="Border.dot">
+            <Setter Property="Background" Value="{StaticResource Brush.TextMuted}"/>
+        </Style>
+        <Style Selector="Border.dot.online">
+            <Setter Property="Background" Value="{StaticResource Brush.Success}"/>
+        </Style>
+        <Style Selector="Border.avatar.offline">
+            <Setter Property="Opacity" Value="0.6"/>
+        </Style>
+        <Style Selector="TextBlock.name.offline">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        </Style>
+        <Style Selector="TextBlock.name.unread">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="TextBlock.caption.unread">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        </Style>
+        <Style Selector="Button.member.inert">
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+        <Style Selector="Button.member.unread">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <!-- A chat line: 14 px between groups, 6 px between the lines of one group. -->
+        <Style Selector="StackPanel.line">
+            <Setter Property="Margin" Value="0,6,0,0"/>
+        </Style>
+        <Style Selector="StackPanel.line.group">
+            <Setter Property="Margin" Value="0,14,0,0"/>
+        </Style>
+        <Style Selector="TextBlock.who.mine">
+            <Setter Property="Foreground" Value="{StaticResource Brush.AccentHover}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <!-- ================= list rows ================= -->
+
+        <DataTemplate DataType="s:SectionVm">
+            <Button Theme="{StaticResource Social.SectionButton}" Margin="0,18,0,4" Padding="8,2" Click="Section_Click"
+                    IsHitTestVisible="{Binding Collapsible}" Focusable="{Binding Collapsible}"
+                    AutomationProperties.Name="{Binding Heading}">
+                <Grid>
+                    <TextBlock Text="{Binding Heading}" Theme="{StaticResource Social.Section}"/>
+                    <c:IconPath Data="{StaticResource Icon.Chevron}" Theme="{StaticResource Icon.Base}"
+                                Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"
+                                Stroke="{StaticResource Brush.TextMuted}" IsVisible="{Binding Collapsible}"
+                                Classes.collapsed="{Binding Collapsed}"/>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate DataType="s:HintVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <TextBlock Text="{Binding Text}" Theme="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"/>
+            </Border>
+        </DataTemplate>
+
+        <!-- The party leader asked everyone to join them. -->
+        <DataTemplate DataType="s:WarpVm">
+            <Border Margin="0,10,0,2" Padding="12,10" Background="{StaticResource Brush.AccentSoft}"
+                    BorderBrush="{StaticResource Brush.AccentBorder}" BorderThickness="1" CornerRadius="{StaticResource Radius.Lg}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Text}" Theme="{StaticResource Text.Body}" TextWrapping="Wrap" TextTrimming="None"
+                               VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="Join" Theme="{StaticResource Social.Join}" Margin="10,0,0,0"
+                            Click="WarpJoin_Click" ToolTip.Tip="Launch their Minecraft version and join the server"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- A friend. The row opens the chat; JOIN is the one loud button; "..." has the rest. -->
+        <DataTemplate DataType="s:FriendVm">
+            <Button Theme="{StaticResource Social.DrawerRow}" Click="FriendRow_Click" ContextRequested="FriendRow_ContextRequested"
+                    AutomationProperties.Name="{Binding Name}">
+                <Grid MinHeight="38" ColumnDefinitions="Auto,*,Auto">
+                    <Grid Margin="0,0,10,0" VerticalAlignment="Center">
+                        <Border Theme="{StaticResource Social.Avatar}" Classes="avatar" Classes.offline="{Binding !IsOnline}">
+                            <c:PlayerHead Uuid="{Binding Uuid}"/>
+                        </Border>
+                        <Border Theme="{StaticResource Social.Dot}" Classes="dot" Classes.online="{Binding IsOnline}"/>
+                    </Grid>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" Classes="name"
+                                   Classes.offline="{Binding !IsOnline}" Classes.unread="{Binding HasUnread}"/>
+                        <TextBlock Text="{Binding Caption}" ToolTip.Tip="{Binding StatusFull}" Theme="{StaticResource Social.Caption}"
+                                   Classes="caption" Classes.unread="{Binding HasUnread}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Border IsVisible="{Binding HasUnread}" Theme="{StaticResource Social.Badge}" ToolTip.Tip="Unread messages">
+                            <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <Button Content="Join" Theme="{StaticResource Social.Join}" IsVisible="{Binding CanJoin}"
+                                ToolTip.Tip="{Binding JoinTip}" Click="FriendJoin_Click"/>
+                        <Button Theme="{StaticResource Social.Icon}" Click="FriendMore_Click" ToolTip.Tip="More"
+                                AutomationProperties.Name="More actions">
+                            <c:IconPath Data="{StaticResource Icon.More}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <!-- An incoming friend request: Accept is the action, the X declines. -->
+        <DataTemplate DataType="s:RequestVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <Grid MinHeight="38" ColumnDefinitions="Auto,*,Auto">
+                    <Border Theme="{StaticResource Social.Avatar}" Margin="0,0,10,0">
+                        <c:PlayerHead Uuid="{Binding Uuid}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}"/>
+                        <TextBlock Text="Wants to be friends" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Button Theme="{StaticResource Social.IconPrimary}" Click="RequestAccept_Click" ToolTip.Tip="Accept"
+                                AutomationProperties.Name="Accept request">
+                            <c:IconPath Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                        <Button Theme="{StaticResource Social.IconRaised}" Click="RequestDecline_Click" ToolTip.Tip="Decline"
+                                AutomationProperties.Name="Decline request">
+                            <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="s:InviteVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <Grid MinHeight="38" ColumnDefinitions="Auto,*,Auto">
+                    <Border Theme="{StaticResource Social.Avatar}" Margin="0,0,10,0">
+                        <c:PlayerHead Uuid="{Binding Uuid}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}"/>
+                        <TextBlock Text="Party invite" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Button Theme="{StaticResource Social.IconPrimary}" Click="InviteAccept_Click"
+                                ToolTip.Tip="Join their party (you leave your current one)" AutomationProperties.Name="Join party">
+                            <c:IconPath Data="{StaticResource Icon.Check}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                        <Button Theme="{StaticResource Social.IconRaised}" Click="InviteDecline_Click" ToolTip.Tip="Decline"
+                                AutomationProperties.Name="Decline invite">
+                            <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- A party member: a friend's row opens their chat; "..." holds Message, Join, Make leader (leader only),
+             Kick (leader only), Remove, Block. -->
+        <DataTemplate DataType="s:MemberVm">
+            <Button Theme="{StaticResource Social.PartyRow}" Click="MemberRow_Click" ContextRequested="MemberRow_ContextRequested"
+                    Classes="member" Classes.inert="{Binding !Clickable}" Classes.unread="{Binding HasUnread}"
+                    AutomationProperties.Name="{Binding Name}">
+                <Grid MinHeight="38" ColumnDefinitions="Auto,*,Auto">
+                    <Grid Margin="0,0,10,0" VerticalAlignment="Center">
+                        <Border Theme="{StaticResource Social.Avatar}">
+                            <c:PlayerHead Uuid="{Binding Uuid}"/>
+                        </Border>
+                        <Border Theme="{StaticResource Social.Dot}" Classes="dot" Classes.online="{Binding IsOnline}"/>
+                    </Grid>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}"/>
+                            <c:IconPath Data="{StaticResource Icon.Crown}" Theme="{StaticResource Icon.Small}" Margin="6,0,0,1"
+                                        VerticalAlignment="Center" Stroke="{StaticResource Brush.Warning}" ToolTip.Tip="Party leader"
+                                        IsVisible="{Binding IsLeader}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Status}" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Border IsVisible="{Binding HasUnread}" Theme="{StaticResource Social.Badge}" ToolTip.Tip="Unread messages">
+                            <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Label}" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.TextOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <Button Content="Join" Theme="{StaticResource Social.Join}" IsVisible="{Binding CanJoin}"
+                                ToolTip.Tip="{Binding JoinTip}" Click="MemberJoin_Click"/>
+                        <Button Theme="{StaticResource Social.Icon}" Click="MemberMore_Click" IsVisible="{Binding HasMenu}"
+                                ToolTip.Tip="More" AutomationProperties.Name="More actions">
+                            <c:IconPath Data="{StaticResource Icon.More}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{Binding $parent[Button].Foreground}"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate DataType="s:PartyHeaderVm">
+            <TextBlock Text="{Binding Title}" Theme="{StaticResource Social.Section}" Margin="8,18,0,6"/>
+        </DataTemplate>
+
+        <!-- Chat / Warp / Leave sit under the members, on the party card's dark surface. -->
+        <DataTemplate DataType="s:PartyActionsVm">
+            <Border Background="{StaticResource Brush.BgAlt}" CornerRadius="0,0,4,4" Padding="8,2,8,10">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{Binding ChatText}" Theme="{StaticResource Social.TileChat}" Margin="0"
+                            Click="PartyChat_Click" ToolTip.Tip="Open the party chat"/>
+                    <Button Content="Warp" Theme="{StaticResource Social.Tile}" Click="Warp_Click" IsEnabled="{Binding CanWarp}"
+                            ToolTip.Tip="{Binding WarpTip}" ToolTip.ShowOnDisabled="True" IsVisible="{Binding IsLeader}"/>
+                    <Button Content="Leave" Theme="{StaticResource Social.TileLeave}" Click="LeaveParty_Click"
+                            ToolTip.Tip="Leave the party"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="s:PendingVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <Grid MinHeight="38" ColumnDefinitions="Auto,*,Auto">
+                    <Border Theme="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
+                        <c:PlayerHead Uuid="{Binding Uuid}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" Foreground="{StaticResource Brush.TextDim}"/>
+                        <TextBlock Text="Request sent" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="Cancel" Theme="{StaticResource Social.Action}"
+                            ToolTip.Tip="Cancel your friend request" Click="RequestCancel_Click"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="s:BlockedVm">
+            <Border Theme="{StaticResource Social.DrawerRowStatic}">
+                <Grid MinHeight="38" ColumnDefinitions="Auto,*,Auto">
+                    <Border Theme="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
+                        <c:PlayerHead Uuid="{Binding Uuid}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Theme="{StaticResource Social.Name}" Foreground="{StaticResource Brush.TextDim}"/>
+                        <TextBlock Text="Blocked" Theme="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="Unblock" Theme="{StaticResource Social.Action}" Click="Unblock_Click"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- ================= chat rows ================= -->
+
+        <DataTemplate DataType="s:ChatDayVm">
+            <Grid Margin="0,14,0,2" ColumnDefinitions="*,Auto,*">
+                <Border Theme="{StaticResource Social.Divider}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding Label}" Theme="{StaticResource Social.Quiet}" Margin="10,0"/>
+                <Border Grid.Column="2" Theme="{StaticResource Social.Divider}" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="s:ChatLineVm">
+            <StackPanel Classes="line" Classes.group="{Binding StartsGroup}">
+                <StackPanel Orientation="Horizontal" IsVisible="{Binding StartsGroup}" Margin="0,0,0,2">
+                    <TextBlock Text="{Binding Author}" Theme="{StaticResource Social.Name}" FontWeight="SemiBold"
+                               Classes="who" Classes.mine="{Binding IsMine}"/>
+                    <TextBlock Text="{Binding Time}" Theme="{StaticResource Social.Quiet}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Text="{Binding Text}" Theme="{StaticResource Text.Body}" TextWrapping="Wrap" TextTrimming="None"
+                           ToolTip.Tip="{Binding FullTime}"/>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+        <!-- Header: back (chat only), title + one status line, then the view's own actions. The status line keeps its
+             height when empty, so the title never jumps between views. -->
+        <StackPanel Grid.Row="0">
+            <Grid Theme="{StaticResource Drawer.Header}" ColumnDefinitions="Auto,*,Auto">
+                <Button x:Name="BackButton" Theme="{StaticResource Social.Icon}" Margin="0,0,8,0" IsVisible="False"
+                        Click="Back_Click" ToolTip.Tip="Back (Esc)" AutomationProperties.Name="Back to friends">
+                    <c:IconPath Data="{StaticResource Icon.Back}" Theme="{StaticResource Icon.Small}"
+                                Stroke="{Binding $parent[Button].Foreground}"/>
+                </Button>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="HeaderTitle" Text="Friends" Theme="{StaticResource Drawer.Title}"/>
+                    <StackPanel x:Name="HeaderSubRow" Orientation="Horizontal" Opacity="0">
+                        <Ellipse x:Name="HeaderDot" Width="7" Height="7" Fill="{StaticResource Brush.Success}" Margin="0,0,6,0"
+                                 VerticalAlignment="Center" IsVisible="False"/>
+                        <TextBlock x:Name="HeaderSubtitle" Text=" " Theme="{StaticResource Social.Quiet}"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="AddToggle" Theme="{StaticResource Social.Icon}" Click="AddToggle_Click"
+                            ToolTip.Tip="Add a friend" AutomationProperties.Name="Add a friend">
+                        <c:IconPath Data="{StaticResource Icon.UserPlus}" Theme="{StaticResource Icon.Small}"
+                                    Stroke="{Binding $parent[Button].Foreground}"/>
+                    </Button>
+                    <Button x:Name="ChatMoreButton" Theme="{StaticResource Social.Icon}" Click="ChatMore_Click" IsVisible="False"
+                            ToolTip.Tip="More" AutomationProperties.Name="More actions">
+                        <c:IconPath Data="{StaticResource Icon.More}" Theme="{StaticResource Icon.Small}"
+                                    Stroke="{Binding $parent[Button].Foreground}"/>
+                    </Button>
+                    <Button Theme="{StaticResource Social.Icon}" Click="Close_Click" ToolTip.Tip="Close (Esc)"
+                            AutomationProperties.Name="Close friends">
+                        <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                                    Stroke="{Binding $parent[Button].Foreground}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <!-- Add a friend: opens from the header button (or "Add a friend" when you have none). -->
+        <Grid x:Name="AddRow" Grid.Row="1" Margin="16,0,16,10" IsVisible="False" ColumnDefinitions="*,Auto">
+            <TextBox x:Name="AddFriendBox" Theme="{StaticResource Social.Box}" MaxLength="16"
+                     AutomationProperties.Name="Friend's Minecraft username"/>
+            <TextBlock x:Name="AddFriendHint" Text="Minecraft username" Theme="{StaticResource Social.Hint}"/>
+            <Button Grid.Column="1" x:Name="AddFriendButton" Content="Send request" Theme="{StaticResource Button.Primary.Medium}"
+                    Margin="8,0,0,0" Click="AddFriend_Click" ToolTip.Tip="Send a friend request (Enter)"
+                    AutomationProperties.Name="Send friend request"/>
+        </Grid>
+
+        <!-- One status line: what just happened, or why something can't. Click to dismiss. -->
+        <StackPanel Grid.Row="2">
+            <Border x:Name="NoticeStrip" Theme="{StaticResource Social.Strip}" IsVisible="False" Cursor="Hand"
+                    PointerReleased="Notice_PointerReleased" ToolTip.Tip="Click to dismiss">
+                <Grid ColumnDefinitions="Auto,*">
+                    <c:IconPath x:Name="NoticeIcon" Data="{StaticResource Icon.Alert}" Theme="{StaticResource Icon.Small}"
+                                Margin="0,2,8,0" VerticalAlignment="Top"/>
+                    <TextBlock x:Name="NoticeText" Grid.Column="1" Theme="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               TextTrimming="None"/>
+                </Grid>
+            </Border>
+            <Border x:Name="StaleStrip" Theme="{StaticResource Social.Strip}" IsVisible="False">
+                <Grid ColumnDefinitions="Auto,*">
+                    <c:IconPath Data="{StaticResource Icon.Alert}" Theme="{StaticResource Icon.Small}" Margin="0,2,8,0"
+                                Stroke="{StaticResource Brush.Warning}" VerticalAlignment="Top"/>
+                    <TextBlock Grid.Column="1" Text="Can't reach friends. Showing what Origin last saw." Theme="{StaticResource Text.Caption}"
+                               Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap" TextTrimming="None"/>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!-- ============ the view (one at a time) ============ -->
+        <Grid Grid.Row="3">
+
+            <!-- Signed out / connecting / unreachable. -->
+            <StackPanel x:Name="MessagePane" Margin="16,12,16,24" VerticalAlignment="Top" IsVisible="False">
+                <Border Theme="{StaticResource Surface.Tile}" HorizontalAlignment="Left" Background="{StaticResource Brush.HueTile.Sky}">
+                    <c:IconPath Data="{StaticResource Icon.Friends}" Theme="{StaticResource Icon.Base}"
+                                Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                                Stroke="{StaticResource Brush.Hue.Sky}"/>
+                </Border>
+                <TextBlock x:Name="MessageTitle" Theme="{StaticResource Text.Title}" Margin="0,16,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                <TextBlock x:Name="MessageBody" Theme="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                <StackPanel x:Name="FeatureList" Margin="0,18,0,0" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <c:IconPath Data="{StaticResource Icon.Chat}" Theme="{StaticResource Icon.Base}"
+                                    Stroke="{StaticResource Brush.Hue.Sky}" Margin="0,0,12,0"/>
+                        <TextBlock Text="Message friends" Theme="{StaticResource Text.Body}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <c:IconPath Data="{StaticResource Icon.Friends}" Theme="{StaticResource Icon.Base}"
+                                    Stroke="{StaticResource Brush.Hue.Lilac}" Margin="0,0,12,0"/>
+                        <TextBlock Text="Party up, with chat" Theme="{StaticResource Text.Body}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <c:IconPath Data="{StaticResource Icon.External}" Theme="{StaticResource Icon.Base}"
+                                    Stroke="{StaticResource Brush.Hue.Emerald}" Margin="0,0,12,0"/>
+                        <TextBlock Text="Join their server in one click" Theme="{StaticResource Text.Body}"/>
+                    </StackPanel>
+                </StackPanel>
+                <Button x:Name="MessageAction" Theme="{StaticResource Button.Primary.Medium}" Margin="0,22,0,0"
+                        HorizontalAlignment="Left" Click="MessageAction_Click"/>
+            </StackPanel>
+
+            <!-- Signed in, nobody yet. -->
+            <StackPanel x:Name="EmptyPane" Margin="16,12,16,24" VerticalAlignment="Top" IsVisible="False">
+                <Border Theme="{StaticResource Surface.Tile}" HorizontalAlignment="Left" Background="{StaticResource Brush.HueTile.Emerald}">
+                    <c:IconPath Data="{StaticResource Icon.UserPlus}" Theme="{StaticResource Icon.Base}"
+                                Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                                Stroke="{StaticResource Brush.Hue.Emerald}"/>
+                </Border>
+                <TextBlock Text="No friends yet" Theme="{StaticResource Text.Title}" Margin="0,16,0,0"/>
+                <TextBlock Theme="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None"
+                           Text="Add someone by their Minecraft username. They need Origin too. Friends can chat, party up and join each other's servers."/>
+                <Button Content="Add a friend" Theme="{StaticResource Button.Primary.Medium}" Margin="0,22,0,0"
+                        HorizontalAlignment="Left" Click="EmptyAdd_Click"/>
+            </StackPanel>
+
+            <!-- The list: virtualized, so a long friends list costs nothing off screen. -->
+            <ItemsControl x:Name="RowList" Theme="{StaticResource Social.List}" Margin="13,-3,3,0"/>
+
+            <!-- One conversation: a friend, or the party. -->
+            <Grid x:Name="ChatPane" IsVisible="False" RowDefinitions="Auto,*,Auto,Auto">
+
+                <!-- Join / invite, only the ones that apply right now, between two hairlines. -->
+                <StackPanel Grid.Row="0">
+                    <StackPanel x:Name="ChatBar" Orientation="Horizontal" Margin="16,0,16,10" IsVisible="False">
+                        <Button x:Name="ChatJoinButton" Content="Join" Theme="{StaticResource Social.Join}" Margin="0"
+                                Click="ChatJoin_Click" ToolTip.Tip="Launch their Minecraft version and join their server"/>
+                        <Button x:Name="ChatInviteButton" Content="Invite to party" Theme="{StaticResource Social.Action}"
+                                Click="ChatInvite_Click"/>
+                    </StackPanel>
+                    <Border x:Name="ChatBarDivider" Theme="{StaticResource Social.Divider}" Margin="16,0,16,8" IsVisible="False"/>
+                </StackPanel>
+
+                <!-- The dark well the conversation sits in. -->
+                <Border Grid.Row="1" Margin="16,8,16,8" Background="{StaticResource Brush.BgAlt}" CornerRadius="{StaticResource Radius.Lg}">
+                    <Grid>
+                        <ScrollViewer x:Name="ChatScroll" Padding="12,0,8,8" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False"
+                                      ScrollChanged="ChatScroll_ScrollChanged">
+                            <ItemsControl x:Name="ChatList" Focusable="False"/>
+                        </ScrollViewer>
+                        <StackPanel x:Name="ChatEmpty" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,0">
+                            <c:IconPath Data="{StaticResource Icon.Chat}" Theme="{StaticResource Icon.Base}" Width="26" Height="26"
+                                        Stroke="{StaticResource Brush.TextMuted}" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="ChatEmptyTitle" Theme="{StaticResource Text.Body}" Margin="0,10,0,0"
+                                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>
+                            <TextBlock x:Name="ChatEmptyBody" Theme="{StaticResource Social.Quiet}" Margin="0,4,0,0"
+                                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>
+                            <Button x:Name="ChatEmptyAction" Content="Invite a friend" Theme="{StaticResource Social.ActionPrimary}"
+                                    Margin="0,14,0,0" HorizontalAlignment="Center" IsVisible="False"
+                                    Click="ChatEmptyAction_Click" ToolTip.Tip="Pick a friend to invite"/>
+                        </StackPanel>
+                        <Button x:Name="JumpButton" Theme="{StaticResource Social.ActionPrimary}" Margin="0,0,0,10"
+                                HorizontalAlignment="Center" VerticalAlignment="Bottom" IsVisible="False" Click="Jump_Click"
+                                ToolTip.Tip="Scroll to the newest message">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="New messages" Margin="0,0,8,0" Foreground="{StaticResource Brush.TextOnAccent}"/>
+                                <c:IconPath Data="{StaticResource Icon.Arrow.Down}" Theme="{StaticResource Icon.Small}"
+                                            Stroke="{StaticResource Brush.TextOnAccent}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <TextBlock x:Name="ChatError" Grid.Row="2" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Danger}"
+                           Margin="18,2,16,6" TextWrapping="Wrap" TextTrimming="None" IsVisible="False"/>
+
+                <Grid Grid.Row="3" Margin="16,2,16,16" ColumnDefinitions="*,Auto">
+                    <TextBox x:Name="ChatInput" Theme="{StaticResource Social.Box}" MaxLength="256" AutomationProperties.Name="Message"/>
+                    <TextBlock x:Name="ChatHint" Text="Message" Theme="{StaticResource Social.Hint}"/>
+                    <TextBlock x:Name="ChatCounter" Theme="{StaticResource Social.Quiet}" Margin="0,0,10,0" HorizontalAlignment="Right"
+                               VerticalAlignment="Center" IsHitTestVisible="False" IsVisible="False"/>
+                    <Button Grid.Column="1" x:Name="ChatSendButton" Theme="{StaticResource Button.Primary.Icon}" Margin="8,0,0,0"
+                            Click="ChatSend_Click" ToolTip.Tip="Send (Enter)" AutomationProperties.Name="Send message">
+                        <c:IconPath Data="{StaticResource Icon.Send}" Theme="{StaticResource Icon.Small}"
+                                    Stroke="{StaticResource Brush.TextOnAccent}"/>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- Footer: always one click away, never in the way. -->
+        <Border x:Name="Footer" Grid.Row="4" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="0,1,0,0" Padding="16,10,16,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Appear offline" Theme="{StaticResource Text.Body}"/>
+                    <TextBlock x:Name="AppearCaption" Text="Friends see you as online" Theme="{StaticResource Social.Quiet}"/>
+                </StackPanel>
+                <ToggleButton Grid.Column="1" x:Name="AppearOfflineToggle" Theme="{StaticResource Toggle.Slider}" VerticalAlignment="Center"
+                              AutomationProperties.Name="Appear offline" ToolTip.Tip="Friends see you as offline while this is on"
+                              IsCheckedChanged="AppearOffline_Changed"/>
+            </Grid>
+        </Border>
+
+        <c:ConfirmOverlay x:Name="Confirm" Grid.RowSpan="5"/>
+    </Grid>
+</UserControl>

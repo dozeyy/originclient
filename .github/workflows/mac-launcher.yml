@@ -126,6 +126,9 @@ jobs:
         run: |
           "$RUNNER_TEMP/publish/OriginLauncher" --render-shots mac-shots
           echo "PNGs: $(ls mac-shots/*.png | wc -l | tr -d ' ')"
+          # The Friends drawer and chat in every state, the twin of launcher-shots' --social run (made-up friends, no network).
+          "$RUNNER_TEMP/publish/OriginLauncher" --render-shots mac-shots/social --social
+          echo "Social PNGs: $(ls mac-shots/social/*.png | wc -l | tr -d ' ')"
 
       - name: Contact sheet
         if: matrix.rid == 'osx-arm64'
@@ -133,6 +136,7 @@ jobs:
         run: |
           python3 -m pip install --quiet --break-system-packages pillow || python3 -m pip install --quiet pillow
           python3 tools/lean/contact_sheet.py mac-shots
+          python3 tools/lean/contact_sheet.py mac-shots/social
 
       - uses: actions/upload-artifact@v7
         if: matrix.rid == 'osx-arm64' && always()
@@ -161,6 +165,12 @@ jobs:
               echo "Mac has $(comm -12 win.txt mac.txt | wc -l | tr -d ' ') of $(wc -l < win.txt | tr -d ' ') Windows screens. Not on the Mac yet:"
               echo ""
               comm -23 win.txt mac.txt | sed 's/^/- /'
+              ls win-shots/social/*.png 2>/dev/null | xargs -n1 basename | sort > win-social.txt
+              ls mac-shots/social/*.png 2>/dev/null | xargs -n1 basename | sort > mac-social.txt
+              echo ""
+              echo "Friends drawer (--social): Mac has $(comm -12 win-social.txt mac-social.txt | wc -l | tr -d ' ') of $(wc -l < win-social.txt | tr -d ' '). Not on the Mac yet:"
+              echo ""
+              comm -23 win-social.txt mac-social.txt | sed 's/^/- /'
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
 

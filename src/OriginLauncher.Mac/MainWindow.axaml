@@ -130,6 +130,12 @@
                     IsVisible="False">
                 <ContentControl x:Name="AccountPanelHost"/>
             </Border>
+            <!-- The Friends drawer (MainWindow.Social.cs): the same slide from the right, the same width. -->
+            <Border x:Name="FriendsDrawer" Width="{StaticResource Size.Drawer}" HorizontalAlignment="Right"
+                    Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
+                    IsVisible="False" IsHitTestVisible="False">
+                <ContentControl x:Name="FriendsPanelHost"/>
+            </Border>
             <Border x:Name="SignInPanel" Width="{StaticResource Size.SignInCard}" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius.Dialog}" BoxShadow="{StaticResource Shadow.Overlay}"
