@@ -146,7 +146,7 @@ const GET_COPY = {
   },
   // A phone or tablet has nothing to download, so the big button shares the page to open on a computer.
   phone: {
-    file: null, button: 'Send this page to your computer', sub: '',
+    file: null, button: 'Share this page', sub: '',
     note: 'Origin is a launcher for Windows, Mac and Linux computers. Open originclient.org on your computer to download it.',
   },
 };
@@ -186,6 +186,7 @@ function initGet(kind) {
   if (!DOWNLOAD.mac.live) return;
   for (const el of $$('[data-mac]')) el.hidden = false;
   if (mac) $('.get__steps').open = true;
+  if (!main) $('.get__steps').hidden = true;   // a phone opens nothing, so no first-open steps
 }
 
 // The phone's big button: the system share sheet where there is one, else the link is copied.

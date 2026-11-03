@@ -89,7 +89,7 @@ for (const p of PAGES) {
       const name = (p === '/' ? 'home' : p.slice(1).replace(/\//g, '-')) + `-${width}`;
       await page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
       if (p === '/') {
-        await page.evaluate(() => document.getElementById('get').scrollIntoView());
+        await page.evaluate(() => document.getElementById('get').scrollIntoView({ behavior: 'instant' }));
         await page.waitForTimeout(900);
         await page.screenshot({ path: path.join(SHOTS, `${name}-get.png`) });
       }
@@ -106,11 +106,11 @@ for (const p of PAGES) {
   else {
     const top = await rafIn(page, 1000);
     if (top < 10) fail(where, `the hero island should animate (${top} frames in 1s)`);
-    await page.evaluate(() => document.getElementById('why').scrollIntoView());
+    await page.evaluate(() => document.getElementById('why').scrollIntoView({ behavior: 'instant' }));
     await page.waitForTimeout(800);
     const covered = await rafIn(page, 1500);
     if (covered > 2) fail(where, `still drawing under the Why cards (${covered} frames in 1.5s)`);
-    await page.evaluate(() => document.getElementById('get').scrollIntoView());
+    await page.evaluate(() => document.getElementById('get').scrollIntoView({ behavior: 'instant' }));
     await page.waitForTimeout(400);
     const back = await rafIn(page, 1000);
     console.log(`island frames: hero ${top}/s, covered ${covered}/1.5s, download ${back}/s`);
@@ -139,9 +139,11 @@ const cases = [
   { name: 'chromebook', ua: 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
     uaData: { platform: 'Chrome OS', mobile: false, arch: 'x86' }, button: 'Download for Chromebook', file: 'origin-launcher_amd64.deb' },
   { name: 'iphone', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
-    width: 390, height: 844, button: 'Send this page to your computer', file: null },
+    width: 390, height: 844, button: 'Share this page', file: null },
   { name: 'android', ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
-    uaData: { platform: 'Android', mobile: true, arch: '' }, width: 390, height: 844, button: 'Send this page to your computer', file: null },
+    uaData: { platform: 'Android', mobile: true, arch: '' }, width: 390, height: 844, button: 'Share this page', file: null },
+  { name: 'small phone', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+    width: 320, height: 568, button: 'Share this page', file: null },
 ];
 for (const c of cases) {
   const where = `download ${c.name}`;
@@ -151,15 +153,20 @@ for (const c of cases) {
     href: document.querySelector('[data-get-main]').href,
     header: document.querySelector('.top__action').href,
     others: document.querySelectorAll('[data-other-downloads] a').length,
+    macSteps: !document.querySelector('.get__steps').hidden,
+    right: document.querySelector('[data-get-main]').getBoundingClientRect().right,
+    width: document.documentElement.clientWidth,
   }));
+  if (got.right > got.width) fail(where, 'the big button runs off the screen');
   if (!got.text.startsWith(c.button)) fail(where, `big button says "${got.text}"`);
   if (c.file && !got.href.endsWith('/' + c.file)) fail(where, `big button is ${got.href}`);
   if (!c.file) {
     if (/releases/.test(got.href) || /releases/.test(got.header)) fail(where, 'a phone is handed a download file');
     if (got.others) fail(where, 'a phone is shown the computer downloads');
+    if (got.macSteps) fail(where, 'a phone is shown the Mac first-open steps');
   }
   if (SHOTS && !c.file) {
-    await page.evaluate(() => document.getElementById('get').scrollIntoView());
+    await page.evaluate(() => document.getElementById('get').scrollIntoView({ behavior: 'instant' }));
     await page.waitForTimeout(900);
     await page.screenshot({ path: path.join(SHOTS, `home-${c.name}-get.png`) });
   }
@@ -174,7 +181,7 @@ for (const [width, height] of [[1366, 768], [1280, 720], [1440, 900]]) {
   const tries = page.locator('[data-try]');
   for (let i = 0; i < Math.min(2, await tries.count()); i++) await tries.nth(i).click();
   await page.waitForTimeout(300);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight / 2));
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight / 2, behavior: 'instant' }));
   await page.waitForTimeout(500);
   const r = await page.evaluate(() => {
     const b = document.querySelector('[data-checkout]').getBoundingClientRect();
