@@ -208,7 +208,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "crosshair", "chunkborders", "hitboxes",
 				"nametags", "itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles",
-				"hurtcam", "hitcolor", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
+				"hurtcam", "hitcolor", "oldanimations", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
 				"worldeditcui"}) {
 			CATS.put(id, Cat.VISUAL);
 		}
@@ -226,7 +226,7 @@ public class OriginModMenuScreen extends Screen {
 	// The NEW filter + badge: this release's additions. The badge clears once the
 	// player has opened that mod's page (meta "seen:<id>"). Kept identical to
 	// 1.21.1's set: ids this module doesn't register simply never match.
-	private static final Set<String> NEW_IDS = Set.of("portalcalc", "fpscoach", "hypixelbedwars", "friends");
+	private static final Set<String> NEW_IDS = Set.of("portalcalc", "fpscoach", "hypixelbedwars", "friends", "oldanimations");
 
 	private static Cat catOf(Mods.Mod m) {
 		return CATS.getOrDefault(m.id(), Cat.GAMEPLAY);

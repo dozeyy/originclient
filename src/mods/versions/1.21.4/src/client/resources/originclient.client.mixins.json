@@ -101,7 +101,13 @@
 		"SodiumOcclusionStampMixin",
 		"SodiumViewportShadowMapMixin",
 		"SodiumWorldRendererReuseMixin",
-		"LevelRendererCullFrustumMixin"
+		"LevelRendererCullFrustumMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

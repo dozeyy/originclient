@@ -100,7 +100,13 @@
 		"SodiumViewportShadowMapMixin",
 		"SodiumWorldRendererReuseMixin",
 		"LevelRendererCullFrustumMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
