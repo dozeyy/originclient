@@ -201,7 +201,11 @@ public final class HudElements {
 		if (Mods.bool("coords", "renderers")) {
 			int c;
 			try {
-				c = mc.levelRenderer.visibleSections().size();
+				// 26.2+ moved the rendered-section count to LevelExtractor (the call
+				// vanilla's own F3 line makes, and the one Sodium answers for its graph).
+				// LevelRenderer.visibleSections() is vanilla's own list, which Sodium
+				// bypasses with its own section graph, so it read 0 or a stale number.
+				c = mc.levelExtractor.countRenderedSections();
 			} catch (Throwable t) {
 				c = -1;
 			}
