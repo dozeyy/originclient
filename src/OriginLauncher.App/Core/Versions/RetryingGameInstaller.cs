@@ -3,6 +3,7 @@ using System.Net.Http;
 using CmlLib.Core;
 using CmlLib.Core.Files;
 using CmlLib.Core.Installers;
+using OriginLauncher.App.Core.Launch;
 
 namespace OriginLauncher.App.Core.Versions;
 
@@ -69,7 +70,9 @@ public sealed class RetryingGameInstaller : ParallelGameInstaller
         HttpRequestException { StatusCode: { } status } => (int)status >= 500 || (int)status is 408 or 429 or 304,
         TimeoutException or HttpRequestException or TaskCanceledException => true,
         UnauthorizedAccessException => false,
-        IOException io => (io.HResult & 0xFFFF) is not (0x27 or 0x70), // ERROR_HANDLE_DISK_FULL, ERROR_DISK_FULL
+        // A full disk fails the same way again on every OS (Win32 0x27/0x70, or ENOSPC/EDQUOT as a raw errno on Mac
+        // and Linux): PlayFailure owns that rule, so a full disk is never retried as "network trouble".
+        IOException io => !PlayFailure.IsDiskFull(io),
         _ => false,
     };
 

@@ -22,7 +22,7 @@ public sealed record PlayFailure(string Title, string Message)
 
     // The Win32 form (HResult 0x8007xxxx) can't be mistaken for a raw errno, so it counts on every OS (the tests make
     // it on Linux CI too); the raw errno form counts only off Windows.
-    private static bool IsDiskFull(IOException io) =>
+    internal static bool IsDiskFull(IOException io) =>
         ((io.HResult >>> 16) == 0x8007 && (io.HResult & 0xFFFF) is HandleDiskFull or DiskFull)
         || (!OperatingSystem.IsWindows() && io.HResult is Enospc or Edquot);
 
