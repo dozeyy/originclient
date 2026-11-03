@@ -274,8 +274,45 @@ final class OriginDevWorld {
 					}
 					grab(mc, dir, "inworld_hud_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
 					log("[origin-smoke] in-world: HUD up (" + passes + " HUD passes)");
+					// Every hook class is loaded by now (the arm, camera, keys and the entity
+					// renderers); a hook that silently didn't apply fails the step here.
+					String oldAnimMissing = com.origin.client.client.mods.OldAnimations.missingHooks();
+					if (!oldAnimMissing.isEmpty()) {
+						inWorldEnd(mc, false, "1.7 Animations hooks not applied: " + oldAnimMissing, onEnd);
+						return;
+					}
+					log("[origin-smoke] in-world: 1.7 Animations hooks applied ("
+							+ com.origin.client.client.mods.OldAnimations.HOOKS.length + ")");
+					// 1.7 Animations shots: sword + shield given on the integrated server (the
+					// inventory syncs back like a real server's), the mod switched on for the shots.
+					Mods.setOn(com.origin.client.client.mods.OldAnimations.MOD, true);
+					oldAnimItems(mc, true);
+					iw = 10;
+					iwAt = now + 2000;
+				}
+				case 10 -> {
+					grab(mc, dir, "inworld_oldanim_idle_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					mc.options.keyUse.setDown(true);   // the real use path: sword passes, the off-hand shield raises
+					iw = 11;
+					iwAt = now + 1200;
+				}
+				case 11 -> {
+					log("[origin-smoke] in-world: 1.7 Animations sword block " + (mc.player != null
+							&& com.origin.client.client.mods.OldAnimations.swordBlocking(mc.player) ? "raised" : "NOT raised"));
+					grab(mc, dir, "inworld_oldanim_block_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					mc.options.keyUse.setDown(false);
+					oldAnimItems(mc, false);
+					mc.setScreen(new com.origin.client.client.gui.OriginModMenuScreen(null,
+							com.origin.client.client.mods.OldAnimations.MOD));
+					iw = 12;
+					iwAt = now + 2500;
+				}
+				case 12 -> {
+					grab(mc, dir, "inworld_oldanim_page_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					Mods.setOn(com.origin.client.client.mods.OldAnimations.MOD, false);
+					mc.setScreen(null);
 					iw = 2;
-					iwAt = now + 1500;
+					iwAt = now + 1000;
 				}
 				case 2 -> {
 					mc.setScreen(new com.origin.client.client.gui.OriginModMenuScreen());
@@ -320,6 +357,26 @@ final class OriginDevWorld {
 			com.origin.client.OriginClient.LOGGER.error("[origin-smoke] in-world step {} threw", iw, t);
 			inWorldEnd(mc, false, "step " + iw + " threw " + t, onEnd);
 		}
+	}
+
+	/** Sword in the main hand and a shield in the off hand (or both cleared), set on the integrated server. */
+	private static void oldAnimItems(Minecraft mc, boolean give) {
+		var server = mc.getSingleplayerServer();
+		if (server == null || mc.player == null) {
+			return;
+		}
+		java.util.UUID id = mc.player.getUUID();
+		server.execute(() -> {
+			var sp = server.getPlayerList().getPlayer(id);
+			if (sp != null) {
+				sp.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, give
+						? new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD)
+						: net.minecraft.world.item.ItemStack.EMPTY);
+				sp.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, give
+						? new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHIELD)
+						: net.minecraft.world.item.ItemStack.EMPTY);
+			}
+		});
 	}
 
 	private static void inWorldEnd(Minecraft mc, boolean pass, String reason, Runnable onEnd) {
