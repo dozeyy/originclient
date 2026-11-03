@@ -66,6 +66,11 @@ public static partial class HardwareProbe
             .First().Info;
     }
 
+    /// <summary>A card known to be a discrete GPU (GpuPreference.Linux offloads the game to it on a hybrid laptop).</summary>
+    internal static bool IsDiscrete(DrmCard card) => Describe(card).Integrated == false;
+
+    internal const int NvidiaVendor = Nvidia;
+
     private static (string? Name, long? VramMb, bool? Integrated) Describe(DrmCard card)
     {
         long? vramMb = card.VramBytes / (1024 * 1024);

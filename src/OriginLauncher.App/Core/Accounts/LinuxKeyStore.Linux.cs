@@ -50,12 +50,21 @@ internal static class LinuxKeyStore
 
     private static readonly object Gate = new();
     private static byte[]? _keyringKey, _fileKey; // one read per run; the process already holds the tokens it seals
-    private static bool? _keyringUsable; // decided by the first keyring call of the run
+    // After a keyring failure (an error, or no answer in 15 s, e.g. a password prompt at login) the keyring is passed
+    // over until this time, so a sign-in doesn't wait 15 s on every call; it is tried again after, never written off
+    // for the whole run (a keyring that was merely locked at start-up comes back once the player unlocks it).
+    private static DateTime _keyringRetryAt;
+    internal static readonly TimeSpan KeyringRetryAfter = TimeSpan.FromMinutes(1);
+
+    private static void MarkKeyringDown() => _keyringRetryAt = DateTime.UtcNow + KeyringRetryAfter;
 
     /// <summary>Why the keyring was last passed over this run (secret-tool's own words), for the log and the self-test.</summary>
     internal static string? LastKeyringError { get; private set; }
 
-    private enum Lookup { Found, NotFound, Unavailable }
+    // NotFound = secret-tool gave no secret and no error: no such item, OR an unlock prompt was dismissed (libsecret
+    // answers both the same way), so it never alone justifies writing a new key. Unusable = an item that holds
+    // something that isn't an Origin key (nothing was sealed with it, so replacing it is safe).
+    private enum Lookup { Found, NotFound, Unusable, Unavailable }
 
     /// <summary>The key a new blob is sealed with, and which kind it is. Creates one only where none exists.</summary>
     internal static (byte Kind, byte[] Key) GetOrCreateSealingKey()
@@ -76,6 +85,9 @@ internal static class LinuxKeyStore
             if (!KeyringReachable()) return null;
             var (result, key) = KeyringLookup();
             if (result == Lookup.Unavailable) throw new CryptographicException("The keyring did not answer.");
+            // "No secret" can also mean the unlock prompt was dismissed: the item is there, its secret wasn't given.
+            if (result == Lookup.NotFound && KeyringItemListed() != false)
+                throw new CryptographicException("The keyring is locked.");
             return key;
         }
     }
@@ -87,7 +99,7 @@ internal static class LinuxKeyStore
         {
             _keyringKey = null;
             _fileKey = null;
-            _keyringUsable = null;
+            _keyringRetryAt = default;
         }
     }
 
@@ -113,7 +125,7 @@ internal static class LinuxKeyStore
     // stall, so a machine with no bus is "no keyring" without spawning anything.
     private static bool KeyringReachable()
     {
-        if (KeyringDisabled || _keyringUsable == false) return false;
+        if (KeyringDisabled || DateTime.UtcNow < _keyringRetryAt) return false;
         if (SecretTool == null) return false;
         var runtimeDir = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
         return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS"))
@@ -138,21 +150,29 @@ internal static class LinuxKeyStore
         var (result, existing) = KeyringLookup();
         if (result == Lookup.Found) return existing;
         if (result == Lookup.Unavailable) return null;
+        // Never replace the player's key on a "no secret" answer alone: if the item is listed, its keyring is
+        // locked (the unlock was dismissed or timed out). Seal this blob with the key file and keep the keyring key.
+        if (result == Lookup.NotFound && KeyringItemListed() != false)
+        {
+            LastKeyringError = "the keyring holds Origin's key but did not unlock";
+            MarkKeyringDown();
+            return null;
+        }
 
         var key = RandomNumberGenerator.GetBytes(KeySize);
         try
         {
-            // `store` replaces an item with the same attributes (one that held no usable key).
+            // `store` replaces an item with the same attributes: here only one proven absent or holding no usable key.
             var (code, _, storeError) = Run(["store", "--label=Origin Launcher account key", "service", Service, "account", Account],
                 stdin: Convert.ToBase64String(key));
             _keyringKey = null;
             var (after, stored) = code == 0 ? KeyringLookup() : (Lookup.Unavailable, null);
             if (after != Lookup.Found || stored == null || !CryptographicOperations.FixedTimeEquals(stored, key))
             {
-                // The keyring refused or lost it: treat the keyring as absent for this run.
+                // The keyring refused or lost it: pass over it for a while (MarkKeyringDown).
                 LastKeyringError = code != 0 ? $"store exit {code}: {storeError.Trim()}" : "the stored key did not read back";
                 if (stored != null) CryptographicOperations.ZeroMemory(stored);
-                _keyringUsable = false;
+                MarkKeyringDown();
                 CryptographicOperations.ZeroMemory(key);
                 return null;
             }
@@ -162,7 +182,7 @@ internal static class LinuxKeyStore
         catch (CryptographicException e)
         {
             LastKeyringError = e.Message;
-            _keyringUsable = false;
+            MarkKeyringDown();
             CryptographicOperations.ZeroMemory(key);
             return null;
         }
@@ -182,24 +202,53 @@ internal static class LinuxKeyStore
         catch (CryptographicException e)
         {
             LastKeyringError = e.Message;
-            _keyringUsable = false;
+            MarkKeyringDown();
             return (Lookup.Unavailable, null);
         }
         if (code != 0)
         {
             var notFound = output.Length == 0 && error.Trim().Length == 0;
-            _keyringUsable = notFound;
-            if (!notFound) LastKeyringError = $"lookup exit {code}: {error.Trim()}";
+            if (!notFound)
+            {
+                LastKeyringError = $"lookup exit {code}: {error.Trim()}";
+                MarkKeyringDown();
+            }
             return (notFound ? Lookup.NotFound : Lookup.Unavailable, null);
         }
-        _keyringUsable = true;
         byte[] key;
         try { key = Convert.FromBase64String(output.Trim()); }
-        catch (FormatException) { return (Lookup.NotFound, null); } // not a key Origin wrote: nothing was sealed with it
-        if (key.Length != KeySize) return (Lookup.NotFound, null);
+        catch (FormatException) { return (Lookup.Unusable, null); } // not a key Origin wrote: nothing was sealed with it
+        if (key.Length != KeySize) return (Lookup.Unusable, null);
         _keyringKey = key;
         return (Lookup.Found, (byte[])key.Clone());
     }
+
+    /// <summary>
+    /// Whether the keyring lists Origin's item at all, without unlocking anything: true = it is there, false = proven
+    /// absent, null = could not tell (the search itself failed). `secret-tool search` with no --unlock never prompts,
+    /// and a locked item's attributes are still listed (the Secret Service keeps attributes readable while locked).
+    /// </summary>
+    private static bool? KeyringItemListed()
+    {
+        try
+        {
+            var (code, output, error) = Run(["search", "--all", "service", Service, "account", Account], stdin: null);
+            // Read both streams: which one secret-tool prints the item details on is not part of its contract.
+            if (SearchListsItem(output) || SearchListsItem(error)) return true;
+            // No items: exit 0 or 1 with nothing on stderr. Anything on stderr is an error, not an answer.
+            return error.Trim().Length == 0 ? false : null;
+        }
+        catch (CryptographicException e)
+        {
+            LastKeyringError = e.Message;
+            return null;
+        }
+    }
+
+    /// <summary>secret-tool search prints each item as "[/object/path]" and then "attribute.&lt;name&gt; = value" lines.</summary>
+    internal static bool SearchListsItem(string searchOutput) =>
+        searchOutput.Split('\n').Any(line => line.TrimStart().StartsWith("attribute.", StringComparison.Ordinal)
+                                             || line.TrimStart().StartsWith("[/", StringComparison.Ordinal));
 
     private static (int Code, string Stdout, string Stderr) Run(string[] args, string? stdin)
     {

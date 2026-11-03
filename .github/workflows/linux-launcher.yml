@@ -112,11 +112,12 @@ jobs:
           '
 
       # The Core tests that mean something on Linux: the Linux seams, the managed skin decoder,
-      # and the library rules (1.8.9 LWJGL 2.9.4 and LWJGL 3 natives-linux on Linux).
+      # the library rules (1.8.9 LWJGL 2.9.4 and LWJGL 3 natives-linux on Linux), where the import looks
+      # (~/.minecraft, XDG data, Flatpak), the running-game process probe and the Game folder rule.
       - name: Core tests (Linux mode)
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Linux
-          --filter "FullyQualifiedName~LinuxSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests"
+          --filter "FullyQualifiedName~LinuxSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~LinuxImportRootsTests|FullyQualifiedName~GameRunningProbeTests|FullyQualifiedName~FieldRulesTests"
 
       # The mod jars the packages bundle: the latest release's (Bundled/OriginClient in its Windows
       # zip), so branch CI needs no Gradle build. The release workflow passes its own fresh jars.
