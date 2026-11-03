@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="OriginLauncher.Mac.UI.Controls.FixCompatibilityOverlay"
+             IsVisible="False" Focusable="True">
+
+    <!-- The pre-launch Fix Compatibility prompt (twin of the WPF FixCompatibilityOverlay.xaml), in the confirm dialog's
+         style (Surface.DialogSheet over the scrim, at most 440 wide, footer right-aligned). It shows at once with the
+         refused mods; the plan arrives a moment later (Fix stays off until it does). Three answers: Cancel, Launch anyway
+         (the same override Play gives), Fix Compatibility (a fixed COPY of the profile; the original is never changed). -->
+    <Border Background="{StaticResource Brush.Scrim}">
+        <Border Theme="{StaticResource Surface.DialogSheet}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                MaxWidth="440" Margin="24">
+            <StackPanel>
+                <TextBlock x:Name="TitleText" Theme="{StaticResource Text.Title}" TextWrapping="Wrap"/>
+                <TextBlock x:Name="MessageText" Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                <ScrollViewer MaxHeight="232" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <StackPanel>
+                        <TextBlock x:Name="PlanHeading" Theme="{StaticResource Text.Label}" TextWrapping="Wrap"/>
+                        <ItemsControl x:Name="ChangeList" Margin="0,6,0,0" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Theme="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="NoFixHeading" Theme="{StaticResource Text.Label}" TextWrapping="Wrap"
+                                   Margin="0,10,0,0" Text="Not fixed by this" IsVisible="False"/>
+                        <ItemsControl x:Name="NoFixList" Margin="0,6,0,0" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Theme="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+                <TextBlock x:Name="FootText" Theme="{StaticResource Text.CaptionDim}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                    <Button x:Name="CancelButton" Theme="{StaticResource Button.Ghost}" Content="Cancel" MinWidth="96" Margin="0,0,8,0"/>
+                    <Button x:Name="AnywayButton" Theme="{StaticResource Button.Secondary}" Content="Launch anyway" MinWidth="96" Margin="0,0,8,0"/>
+                    <Button x:Name="FixButton" Theme="{StaticResource Button.Primary.Medium}" Content="Fix Compatibility" MinWidth="96"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Border>
+</UserControl>

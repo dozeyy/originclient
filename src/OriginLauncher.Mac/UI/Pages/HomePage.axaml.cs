@@ -14,6 +14,7 @@ public sealed partial class HomePage : UserControl
         InitializeComponent();
         SizeChanged += (_, _) => ReportStripTop();
         HomeCard.SizeChanged += (_, _) => ReportStripTop();
+        InitPlay();
     }
 
     /// <summary>Where Home's strip starts (window coordinates); NaN before layout.</summary>
@@ -49,9 +50,9 @@ public sealed partial class HomePage : UserControl
     /// <summary>The status line and Play: ready (signed in, accent dot, Play live) or waiting with <paramref name="status"/>.</summary>
     public void SetReady(bool ready, string status)
     {
-        PlayButton.IsEnabled = ready;
-        StatusText.Text = status;
-        StatusDot.Fill = Find<IBrush>(ready ? "Brush.Accent" : "Brush.TextDim");
+        ApplyPlayButton(global::OriginLauncher.App.Core.GameFolders.AccountLaunchBook.ButtonFor(global::OriginLauncher.App.Core.GameFolders.GamePhase.Idle,
+            canPlay: ready, hasVersion: true));
+        SetStatus(status, ready ? StatusTone.Success : StatusTone.Neutral);
     }
 
     public bool MyMods
@@ -62,5 +63,5 @@ public sealed partial class HomePage : UserControl
 
     internal Button Play => PlayButton;
 
-    private T? Find<T>(string key) where T : class => this.TryFindResource(key, out var v) ? v as T : null;
+    private T? Find<T>(string key) where T : class => this.ThemeValue<T>(key);
 }

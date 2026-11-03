@@ -1,0 +1,97 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+        x:Class="OriginLauncher.Mac.UI.Windows.CrashReportWindow"
+        Title="Origin - Minecraft crashed"
+        Width="720" MinWidth="600" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Panel}"
+        FontFamily="{StaticResource Font.Primary}">
+
+    <!-- Crash Report V3 (twin of the WPF UI/Windows/CrashReportWindow.xaml): the Workbench dialog's five sections,
+         What happened / Likely cause (with the confidence word, verbatim) / Recommended fix / the fix button (only when
+         the cause is strong or confirmed and the fix is reversible) / Technical details (folded under a hairline). The
+         window is the dialog: surface fill, the 24 gutter, sections 20 apart, as tall as its content. -->
+    <Border Padding="24">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
+                <Border Theme="{StaticResource Surface.Tile}" Background="{StaticResource Brush.DangerSoft}"
+                        VerticalAlignment="Top" Margin="0,2,16,0">
+                    <c:IconPath Data="{StaticResource Icon.Alert}" Theme="{StaticResource Icon.Base}"
+                                Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                                Stroke="{StaticResource Brush.DangerText}"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="CauseTag" Theme="{StaticResource Dialog.Eyebrow}" Foreground="{StaticResource Brush.Warning}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock x:Name="HeadlineText" Text="Minecraft closed unexpectedly" Theme="{StaticResource Text.Heading}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="WhoText" Theme="{StaticResource Text.BodyDim}" Margin="0,4,0,0" IsVisible="False"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Grid.Row="1" Margin="0,24,0,0">
+                <TextBlock Text="WHAT HAPPENED" Theme="{StaticResource Dialog.Eyebrow}"/>
+                <TextBlock x:Name="ReasonText" Theme="{StaticResource Text.Body}" LineHeight="20" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+
+            <!-- The likely cause in a raised well; the confidence word sits in a capsule beside the eyebrow. -->
+            <StackPanel Grid.Row="2" x:Name="CulpritPanel" Margin="0,20,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="LIKELY CAUSE" Theme="{StaticResource Dialog.Eyebrow}" VerticalAlignment="Center"/>
+                    <Border x:Name="ConfidenceChip" Theme="{StaticResource Surface.Chip}" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="ConfidenceText" Theme="{StaticResource Surface.ChipText}" Text="unknown"/>
+                    </Border>
+                </StackPanel>
+                <Border Margin="0,8,0,0" Padding="12,8" Background="{StaticResource Brush.Card}"
+                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Lg}">
+                    <StackPanel>
+                        <TextBlock x:Name="LikelyCauseText" Theme="{StaticResource Text.Body}" LineHeight="20" TextWrapping="Wrap"/>
+                        <StackPanel x:Name="CulpritList" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Margin="0,20,0,0">
+                <TextBlock Text="RECOMMENDED FIX" Theme="{StaticResource Dialog.Eyebrow}"/>
+                <TextBlock x:Name="RecommendedText" Theme="{StaticResource Text.Body}" LineHeight="20" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+
+            <!-- The fix first (only when safe), then the one-time try without the player's own mods, then Close. -->
+            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,24,0,0" HorizontalAlignment="Left">
+                <Button x:Name="ActionButton" Content="Fix and relaunch" Theme="{StaticResource Button.Primary.Medium}"
+                        MinWidth="96" Margin="0,0,8,0"/>
+                <Button x:Name="TryButton" Content="Try once without my mods" Theme="{StaticResource Button.Secondary}"
+                        MinWidth="96" Margin="0,0,8,0" IsVisible="False"/>
+                <Button x:Name="CloseButton" Content="Close" Theme="{StaticResource Button.Secondary}" MinWidth="96"/>
+            </StackPanel>
+
+            <!-- Technical detail stays folded: a player should not meet a stack trace first. -->
+            <Border Grid.Row="5" Margin="0,24,0,0" Padding="0,12,0,0" BorderBrush="{StaticResource Brush.SoftStroke}"
+                    BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="TECHNICAL DETAILS" Theme="{StaticResource Dialog.Eyebrow}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="CopyReportButton" Content="Copy report" Theme="{StaticResource Button.Ghost}"
+                                MinHeight="{StaticResource Size.ControlMd}" Padding="12,0" Margin="0,0,4,0"/>
+                        <Button x:Name="OpenLogButton" Content="Show logs in Finder" Theme="{StaticResource Button.Ghost}"
+                                MinHeight="{StaticResource Size.ControlMd}" Padding="12,0" Margin="0,0,4,0"/>
+                        <Button x:Name="DetailsButton" Content="Show details" Theme="{StaticResource Button.Ghost}"
+                                MinHeight="{StaticResource Size.ControlMd}" Padding="12,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="6" x:Name="DetailsPanel" IsVisible="False" Height="200" Margin="0,8,0,0"
+                    Background="{StaticResource Brush.BgAlt}" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Lg}">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <SelectableTextBlock x:Name="DetailsBox" Foreground="{StaticResource Brush.TextDim}"
+                                         FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Label}"
+                                         Margin="16,12" TextWrapping="Wrap"/>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

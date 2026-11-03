@@ -15,6 +15,14 @@ public sealed record PlayFailure(string Title, string Message)
     // Win32 ERROR_HANDLE_DISK_FULL / ERROR_DISK_FULL, as the low 16 bits of an IOException HResult.
     private const int HandleDiskFull = 39;
     private const int DiskFull = 112;
+    // On macOS .NET puts the raw errno in the HResult: ENOSPC (no space left) and EDQUOT (quota exceeded) are the same
+    // sentence. Only checked off Windows, where 28 and 69 mean other things.
+    private const int Enospc = 28;
+    private const int Edquot = 69;
+
+    private static bool IsDiskFull(IOException io) => OperatingSystem.IsWindows()
+        ? (io.HResult & 0xFFFF) is HandleDiskFull or DiskFull
+        : io.HResult is Enospc or Edquot;
 
     /// <summary>The nudge every message ends on.</summary>
     public const string RetryLine = "Your files are safe. Retry picks up where it stopped.";
@@ -54,7 +62,7 @@ public sealed record PlayFailure(string Title, string Message)
         {
             switch (e)
             {
-                case IOException io when (io.HResult & 0xFFFF) is HandleDiskFull or DiskFull:
+                case IOException io when IsDiskFull(io):
                     return "Your disk is full. Free up some space.";
                 case UnauthorizedAccessException:
                     return "Origin can't write to its game folder. Close anything using it.";

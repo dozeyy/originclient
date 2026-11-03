@@ -9,6 +9,7 @@ internal static class Program
     //   --self-test [--network]              checks the Mac seams; exit 0 (all passed) or 1.
     //   --render-shots <dir>                 draws every built screen to PNGs headless (made-up data, exits by itself).
     //   --launch-plan <version> [--root dir] prepares a launch without starting the game (LaunchPlan).
+    //   --play-plan <version> [--root dir]   presses the Home Play button headless, stops before the game starts (PlayPlan).
     //   --list-versions                      the versions the picker offers, one per line.
     // Anything else opens the launcher window.
     [STAThread]
@@ -20,6 +21,8 @@ internal static class Program
             return LaunchPlan.ListVersions();
         if (ValueOf(args, "--launch-plan") is { } version)
             return LaunchPlan.RunAsync(version, ValueOf(args, "--root")).GetAwaiter().GetResult();
+        if (ValueOf(args, "--play-plan") is { } playVersion)
+            return PlayPlan.Run(playVersion, ValueOf(args, "--root"));
 
         if (args.Contains("--render-shots"))
         {

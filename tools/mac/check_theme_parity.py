@@ -23,7 +23,11 @@ MAC_THEME = ROOT / "src" / "OriginLauncher.Mac" / "Theme"
 
 # On the Mac only: the bar's insets around macOS's traffic lights, and the ghost button's resting fill (Avalonia's
 # templates need an explicit transparent brush where WPF falls back to null).
-MAC_ONLY = {"Brush.GhostRest", "Margin.TopBarBrand", "Margin.TopBarActions"}
+MAC_ONLY = {"Brush.GhostRest", "Margin.TopBarBrand", "Margin.TopBarActions",
+            # Avalonia Fluent's own ComboBox-popup keys, re-pointed at Origin tokens inside Input.ComboBox
+            # (a /template/ style can't reach the popup); WPF styles the popup in its template instead.
+            "ComboBoxDropDownBackground", "ComboBoxDropDownBorderBrush", "ComboBoxDropdownBorderPadding",
+            "ComboBoxDropdownBorderThickness", "OverlayCornerRadius"}
 
 # Defined in code on the Mac instead of in a theme file (App.axaml.cs loads the two logo files as resources).
 MAC_IN_CODE = {"Brand.Logo", "Brand.Wordmark"}
