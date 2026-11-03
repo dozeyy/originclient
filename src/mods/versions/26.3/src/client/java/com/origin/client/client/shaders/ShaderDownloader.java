@@ -104,11 +104,19 @@ public final class ShaderDownloader {
 	// Without it the states were memory-only, so after a restart every downloaded pack
 	// offered Download again. Reads and writes fail soft: a broken index only loses
 	// the Installed badge, never the packs themselves.
+	// What the file holds, as last read or written (null = not read yet). syncWithDisk
+	// runs on the render thread every time the browser opens: it reads the file once
+	// per session and writes only when the installed set really changed.
+	private static Map<String, String> indexCache = null;
+
 	private static Path indexFile() {
 		return FabricLoader.getInstance().getConfigDir().resolve("originclient-shaders.json");
 	}
 
-	private static Map<String, String> readIndex() {
+	private static synchronized Map<String, String> readIndex() {
+		if (indexCache != null) {
+			return indexCache;
+		}
 		Map<String, String> out = new java.util.HashMap<>();
 		try {
 			Path f = indexFile();
@@ -125,17 +133,23 @@ public final class ShaderDownloader {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Could not read the installed shader list", t);
 		}
+		indexCache = out;
 		return out;
 	}
 
 	private static synchronized void writeIndex() {
+		Map<String, String> now = new java.util.HashMap<>();
+		for (var e : STATES.entrySet()) {
+			if (e.getValue().status() == Status.DONE) {
+				now.put(e.getKey(), e.getValue().message());
+			}
+		}
+		if (now.equals(readIndex())) {
+			return;   // nothing installed or removed since the file was last read/written
+		}
 		try {
 			JsonObject o = new JsonObject();
-			for (var e : STATES.entrySet()) {
-				if (e.getValue().status() == Status.DONE) {
-					o.addProperty(e.getKey(), e.getValue().message());
-				}
-			}
+			now.forEach(o::addProperty);
 			Path f = indexFile();
 			Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
 			Files.writeString(tmp, GSON.toJson(o), StandardCharsets.UTF_8);
@@ -144,6 +158,7 @@ public final class ShaderDownloader {
 			} catch (AtomicMoveNotSupportedException ignored) {
 				Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
 			}
+			indexCache = now;
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Could not save the installed shader list", t);
 		}
