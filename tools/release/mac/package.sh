@@ -36,6 +36,8 @@ esac
 [ "$(uname -m)" = "$arch" ] || fail "$rid must build and test on a $arch Mac, this runner is $(uname -m) (Rosetta results say nothing about real Intel Macs)"
 
 # A tag build is stamped like Windows (-p:Version); a rehearsal stays the unstamped dev build.
+# The version goes into sed and Info.plist, so only a plain 1.2.3 is accepted.
+[ -z "$version" ] || [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "version '$version' is not <major>.<minor>.<patch>"
 if [ -n "$version" ]; then
   plist_version="$version"; expect_version="$version.0"
 else
