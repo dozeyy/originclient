@@ -245,6 +245,8 @@ public final class CosmeticsService {
 	private static final long FRESH_MS = 5L * 60L * 1000L;
 	private static final long RETRY_MS = 60L * 1000L;
 	private static final long REDISCOVER_MS = 10L * 60L * 1000L;
+	/** First retry after the service pointer couldn't be fetched; doubles up to REDISCOVER_MS. */
+	private static final long FIRST_RETRY_MS = 15L * 1000L;
 	private static final int BATCH = 100;
 	private static final int MAX_WANTED = 500;
 
@@ -261,6 +263,9 @@ public final class CosmeticsService {
 	private static volatile String api = null;
 	private static volatile Status status = Status.STARTING;
 	private static volatile long discoveredAt = 0;
+	/** How long after discoveredAt tick() looks for the service again (see discover()). */
+	private static volatile long rediscoverWait = FIRST_RETRY_MS;
+	private static long unreachableBackoff = FIRST_RETRY_MS;   // worker thread only
 
 	private static final Map<UUID, Entry> LOOKS = new ConcurrentHashMap<>();
 	private static final Set<UUID> WANTED = ConcurrentHashMap.newKeySet();
@@ -416,7 +421,7 @@ public final class CosmeticsService {
 	/**
 	 * Re-reads your own cosmetics (e.g. when the Cosmetics screen opens, after a purchase).
 	 * If the service wasn't reachable earlier (game started offline), looks for it again
-	 * now instead of waiting out the 10-minute rediscovery in tick().
+	 * now instead of waiting for tick()'s next rediscovery.
 	 */
 	public static void refreshMine() {
 		WORKER.execute(() -> {
@@ -462,7 +467,7 @@ public final class CosmeticsService {
 
 	private static void tick() {
 		try {
-			if (status != Status.READY && System.currentTimeMillis() - discoveredAt > REDISCOVER_MS) {
+			if (status != Status.READY && System.currentTimeMillis() - discoveredAt > rediscoverWait) {
 				discover();
 				refreshMineNow();
 			}
@@ -511,6 +516,17 @@ public final class CosmeticsService {
 			status = a.isEmpty() ? Status.OFF : Status.READY;
 		} catch (Exception e) {
 			status = Status.UNREACHABLE;
+		}
+		// Unreachable (the game started offline, a DNS blip): look again soon, 15 s doubling
+		// to 10 min, so cosmetics and Friends (SocialClient takes its address from api())
+		// come back within seconds of the network, not after a flat 10 minutes. Reached, or
+		// switched off by the pointer: the full 10 minutes, and the backoff starts over.
+		if (status == Status.UNREACHABLE) {
+			rediscoverWait = unreachableBackoff;
+			unreachableBackoff = Math.min(REDISCOVER_MS, unreachableBackoff * 2);
+		} else {
+			rediscoverWait = REDISCOVER_MS;
+			unreachableBackoff = FIRST_RETRY_MS;
 		}
 	}
 

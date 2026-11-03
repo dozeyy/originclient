@@ -537,14 +537,18 @@ public final class PortalCalc {
 
 	// ---- which world --------------------------------------------------------
 
-	/** "sp:<save folder>" for singleplayer, "mp:<address>" online. */
+	/**
+	 * "sp:<version>:<save folder>" for singleplayer (the waypoint key: Settings Sync carries
+	 * the portal file to every version, where a same-named save is another world),
+	 * "mp:<address>" online.
+	 */
 	private static String worldKey(Minecraft mc) {
 		try {
 			IntegratedServer sp = mc.getIntegratedServer();
 			if (sp != null) {
 				// 1.8.9: the save's folder name (MinecraftServer.getFolderName) -- the same
 				// name the other versions take from the world path's last segment.
-				return "sp:" + sp.getFolderName();   // 1.8.9 NAME UNVERIFIED
+				return com.origin.client.client.waypoints.WaypointScope.singleplayer(sp.getFolderName(), com.origin.client.client.waypoints.Waypoints.mcVersion());
 			}
 			ServerData sd = mc.getCurrentServerData();
 			if (sd != null && sd.serverIP != null) {

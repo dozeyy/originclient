@@ -722,12 +722,6 @@ public final class SocialClient {
 
 	private static void apply(JsonObject o) {
 		long now = System.currentTimeMillis();
-		if (o.has("cursor") && !o.get("cursor").isJsonNull()) {
-			cursor = o.get("cursor");
-		}
-		if (o.has("friendsEtag") && !o.get("friendsEtag").isJsonNull()) {
-			friendsEtag = o.get("friendsEtag");
-		}
 		// missing (an older service) = yes, as the original contract had it
 		wantState = !o.has("wantState") || o.get("wantState").isJsonNull() || bool(o, "wantState");
 		JsonObject meO = obj(o, "me");
@@ -887,6 +881,13 @@ public final class SocialClient {
 				EVENTS.add(new Event(EventKind.INVITE, i.from(), i.name(), null, i.partyId(), null));
 			}
 		}
+		// Forget invites that are gone (declined, expired): the service reuses the party id
+		// for a re-invite, which must pop its toast again (as seenRequests above).
+		java.util.Set<String> openInvites = new java.util.HashSet<>();
+		for (PartyInvite i : invites) {
+			openInvites.add(i.partyId() + "|" + i.from());
+		}
+		seenInvites.retainAll(openInvites);
 		if (warp != null && warp.at() != seenWarpAt) {
 			seenWarpAt = warp.at();
 			if (!firstSync && !warp.from().equals(self)) {
@@ -894,6 +895,15 @@ public final class SocialClient {
 			}
 		}
 
+		// The cursor and friends etag move only once the whole answer is applied: set
+		// first, a throw part-way lost every message after it for good (the next sync
+		// asked only for what came after the already-advanced cursor).
+		if (o.has("cursor") && !o.get("cursor").isJsonNull()) {
+			cursor = o.get("cursor");
+		}
+		if (o.has("friendsEtag") && !o.get("friendsEtag").isJsonNull()) {
+			friendsEtag = o.get("friendsEtag");
+		}
 		state = next;
 		firstSync = false;
 	}
@@ -1224,9 +1234,20 @@ public final class SocialClient {
 		return e != null && e.isJsonObject() ? e.getAsJsonObject() : null;
 	}
 
+	// The JSON objects of a list in a sync answer (every list there is a list of objects).
+	// Anything else is skipped: one malformed element costs only itself, where a
+	// getAsJsonObject() on it used to throw away the rest of the answer.
 	private static JsonArray arr(JsonObject o, String k) {
 		JsonElement e = o == null ? null : o.get(k);
-		return e != null && e.isJsonArray() ? e.getAsJsonArray() : new JsonArray();
+		JsonArray out = new JsonArray();
+		if (e != null && e.isJsonArray()) {
+			for (JsonElement x : e.getAsJsonArray()) {
+				if (x != null && x.isJsonObject()) {
+					out.add(x);
+				}
+			}
+		}
+		return out;
 	}
 
 	private static String str(JsonObject o, String k) {

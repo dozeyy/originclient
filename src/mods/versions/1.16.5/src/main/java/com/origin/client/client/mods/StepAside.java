@@ -92,7 +92,8 @@ public final class StepAside {
 	 */
 	public static final List<Row> TABLE = Collections.unmodifiableList(Arrays.asList(
 			new Row("freelook", false, false, ids("freecam")),
-			new Row("zoom", false, false, ids("zoomify", "ok_zoomer", "logical_zoom", "wi_zoom")),
+			// Ok Zoomer's 1.16/1.17 builds (4.x, 5.0.0-beta.3) declare "okzoomer" in their fabric.mod.json; later ones "ok_zoomer".
+			new Row("zoom", false, false, ids("zoomify", "okzoomer", "ok_zoomer", "logical_zoom", "wi_zoom")),
 			new Row("saturation", false, false, ids("appleskin")),
 			new Row("worldeditcui", false, false, ids("worldeditcui")),
 			new Row("oldanimations", false, false, ids("overflowanimations", "animatium", "swordblocking",

@@ -72,19 +72,23 @@ public final class Hypixel {
 		return onHypixel && (inLobby || inSkyblock);
 	}
 
-	static boolean isHypixelHost(ServerData server) {
-		if (server == null || server.ip == null) {
-			return false;
+	/**
+	 * Connected to Hypixel: the typed address OR the server's brand says so
+	 * (HypixelDetect), so a numeric IP, a DNS alias or an SRV name still counts --
+	 * Freelook must stay off there however the player joined. Read-only.
+	 */
+	static boolean isHypixelServer(Minecraft mc) {
+		ServerData sd = mc.getCurrentServer();
+		return HypixelDetect.isHypixel(sd != null ? sd.ip : null, serverBrand(mc));
+	}
+
+	// Before 1.20.2 the brand the server sent on join is kept on the player.
+	private static String serverBrand(Minecraft mc) {
+		try {
+			return mc.player != null ? mc.player.getServerBrand() : null;
+		} catch (Throwable t) {
+			return null;   // fail soft: the address check still applies
 		}
-		String host = server.ip.trim().toLowerCase(Locale.ROOT);
-		int colon = host.lastIndexOf(':');
-		if (colon > 0 && host.indexOf(':') == colon) {
-			host = host.substring(0, colon);            // "mc.hypixel.net:25565"
-		}
-		if (host.endsWith(".")) {
-			host = host.substring(0, host.length() - 1);
-		}
-		return host.equals("hypixel.net") || host.endsWith(".hypixel.net");
 	}
 
 	// ---- what Hypixel doesn't allow ----
@@ -98,7 +102,7 @@ public final class Hypixel {
 	 *  listeners run in. Only called while freelook would be on, so it costs nothing
 	 *  the rest of the time. */
 	public static boolean bansFreelook(Minecraft mc) {
-		return mc.player != null && isHypixelHost(mc.getCurrentServer());
+		return mc.player != null && isHypixelServer(mc);
 	}
 
 	/** The one action-bar line when the Freelook key does nothing here. */
@@ -115,7 +119,7 @@ public final class Hypixel {
 
 	static void tick(Minecraft mc) {
 		boolean was = onHypixel;
-		onHypixel = mc.player != null && mc.level != null && isHypixelHost(mc.getCurrentServer());
+		onHypixel = mc.player != null && mc.level != null && isHypixelServer(mc);
 		if (!onHypixel) {
 			if (was) {
 				onLeave();

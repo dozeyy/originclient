@@ -74,7 +74,31 @@ public final class PortalMemory {
 	/** The live list for one world (created on first use). */
 	public static synchronized List<Portal> forWorld(String worldKey) {
 		ensureLoaded();
-		return BY_WORLD.computeIfAbsent(worldKey, k -> new ArrayList<>());
+		List<Portal> list = BY_WORLD.get(worldKey);
+		if (list == null) {
+			list = adoptPrevious(worldKey);
+			BY_WORLD.put(worldKey, list);
+		}
+		return list;
+	}
+
+	/**
+	 * A singleplayer world seen for the first time under its versioned key
+	 * ("sp:<version>:<folder>") starts from a COPY of what the old unversioned key
+	 * ("sp:<folder>") remembered. The old entry is never moved or deleted: Settings Sync
+	 * carries this file to every version and each one adopts from it once, the same
+	 * rule as waypoints (WaypointScope.adoptPrevious).
+	 */
+	private static List<Portal> adoptPrevious(String worldKey) {
+		String previous = com.origin.client.client.waypoints.WaypointScope.unversioned(worldKey, com.origin.client.client.waypoints.Waypoints.mcVersion());
+		List<Portal> old = previous != null ? BY_WORLD.get(previous) : null;
+		if (old == null || old.isEmpty()) {
+			return new ArrayList<>();
+		}
+		List<Portal> copy = GSON.fromJson(GSON.toJson(old), new TypeToken<List<Portal>>() {
+		}.getType());
+		dirty = true;   // written with the next flush, so the copy is made once
+		return copy != null ? copy : new ArrayList<Portal>();
 	}
 
 	/**
@@ -151,8 +175,11 @@ public final class PortalMemory {
 				}
 			}
 		} catch (Exception e) {
-			// Corrupt or unreadable memory starts empty, with evidence in the log.
-			com.origin.client.OriginClient.LOGGER.warn("Could not load Origin portal memory", e);
+			// Corrupt or unreadable memory starts empty, with evidence in the log -- and the
+			// file kept as originclient-portals.json.corrupt, so the next save can't destroy it.
+			BY_WORLD.clear();
+			com.origin.client.OriginClient.LOGGER.warn("Could not load Origin portal memory; kept the file as .corrupt", e);
+			com.origin.client.client.ConfigFiles.setAside(file());
 		}
 	}
 

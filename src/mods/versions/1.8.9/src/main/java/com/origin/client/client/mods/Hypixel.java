@@ -77,19 +77,24 @@ public final class Hypixel {
 		return onHypixel && (inLobby || inSkyblock);
 	}
 
-	static boolean isHypixelHost(ServerData server) {
-		if (server == null || server.serverIP == null) {
-			return false;
+	/**
+	 * Connected to Hypixel: the typed address OR the server's brand says so
+	 * (HypixelDetect), so a numeric IP, a DNS alias or an SRV name still counts --
+	 * Freelook must stay off there however the player joined. Read-only.
+	 */
+	static boolean isHypixelServer(Minecraft mc) {
+		ServerData sd = mc.getCurrentServerData();
+		return HypixelDetect.isHypixel(sd != null ? sd.serverIP : null, serverBrand(mc));
+	}
+
+	// 1.8.9: the brand the server sent on join is kept on the player (MCP getClientBrand,
+	// the value F3 shows).
+	private static String serverBrand(Minecraft mc) {
+		try {
+			return mc.thePlayer != null ? mc.thePlayer.getClientBrand() : null;
+		} catch (Throwable t) {
+			return null;   // fail soft: the address check still applies
 		}
-		String host = server.serverIP.trim().toLowerCase(Locale.ROOT);
-		int colon = host.lastIndexOf(':');
-		if (colon > 0 && host.indexOf(':') == colon) {
-			host = host.substring(0, colon);            // "mc.hypixel.net:25565"
-		}
-		if (host.endsWith(".")) {
-			host = host.substring(0, host.length() - 1);
-		}
-		return host.equals("hypixel.net") || host.endsWith(".hypixel.net");
 	}
 
 	// ---- what Hypixel doesn't allow ----
@@ -103,7 +108,7 @@ public final class Hypixel {
 	 *  listeners run in. Only called while freelook would be on, so it costs nothing
 	 *  the rest of the time. */
 	public static boolean bansFreelook(Minecraft mc) {
-		return mc.thePlayer != null && isHypixelHost(mc.getCurrentServerData());
+		return mc.thePlayer != null && isHypixelServer(mc);
 	}
 
 	/** The one action-bar line when the Freelook key does nothing here. */
@@ -120,7 +125,7 @@ public final class Hypixel {
 
 	static void tick(Minecraft mc) {
 		boolean was = onHypixel;
-		onHypixel = mc.thePlayer != null && mc.theWorld != null && isHypixelHost(mc.getCurrentServerData());
+		onHypixel = mc.thePlayer != null && mc.theWorld != null && isHypixelServer(mc);
 		if (!onHypixel) {
 			if (was) {
 				onLeave();

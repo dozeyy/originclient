@@ -137,15 +137,6 @@ public final class AutoGG {
 	}
 
 	static boolean onHypixel(Minecraft mc) {
-		ServerData sd = mc.getCurrentServerData();
-		if (sd == null || sd.serverIP == null) {
-			return false;
-		}
-		String host = sd.serverIP.toLowerCase(Locale.ROOT);
-		int colon = host.indexOf(':');
-		if (colon >= 0) {
-			host = host.substring(0, colon);
-		}
-		return host.equals("hypixel.net") || host.endsWith(".hypixel.net");
+		return Hypixel.isHypixelServer(mc);   // address or server brand
 	}
 }

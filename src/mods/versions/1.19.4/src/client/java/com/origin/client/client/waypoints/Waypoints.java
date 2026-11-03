@@ -125,7 +125,8 @@ public final class Waypoints {
 	}
 
 	/** This game's Minecraft version ("1.19.4"); "" if Fabric can't say (old sp key then). */
-	private static String mcVersion() {
+	/** Shared with Portal Calc's memory, which keys singleplayer worlds the same way. */
+	public static String mcVersion() {
 		try {
 			return FabricLoader.getInstance().getModContainer("minecraft")
 					.map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("");

@@ -64,7 +64,8 @@ public final class StepAside {
 	 */
 	public static final List<Row> TABLE = List.of(
 			new Row("freelook", false, false, List.of("freecam")),
-			new Row("zoom", false, false, List.of("zoomify", "ok_zoomer", "logical_zoom", "wi_zoom")),
+			// Ok Zoomer's 1.16/1.17 builds (4.x, 5.0.0-beta.3) declare "okzoomer" in their fabric.mod.json; later ones "ok_zoomer".
+			new Row("zoom", false, false, List.of("zoomify", "okzoomer", "ok_zoomer", "logical_zoom", "wi_zoom")),
 			new Row("saturation", false, false, List.of("appleskin")),
 			new Row("worldeditcui", false, false, List.of("worldeditcui")),
 			new Row("oldanimations", false, false, List.of("overflowanimations", "animatium", "swordblocking",

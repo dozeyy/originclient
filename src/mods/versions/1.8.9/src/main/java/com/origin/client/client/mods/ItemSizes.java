@@ -6,7 +6,6 @@ import com.google.gson.reflect.TypeToken;
 import net.minecraft.util.ResourceLocation;
 
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -121,7 +120,9 @@ public final class ItemSizes {
 				}
 			}
 		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn("Item sizes failed to load; starting empty", t);
+			// Kept as originclient-itemsizes.json.corrupt so the next save can't destroy it.
+			com.origin.client.OriginClient.LOGGER.warn("Item sizes failed to load; kept the file as .corrupt, starting empty", t);
+			com.origin.client.client.ConfigFiles.setAside(file);
 		}
 	}
 
@@ -129,8 +130,10 @@ public final class ItemSizes {
 		if (file == null) {
 			return;
 		}
-		try (Writer w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
-			GSON.toJson(SIZES, w);
+		try {
+			// tmp + atomic replace, like every Origin config: a kill mid-write (the launcher
+			// can end the game) keeps the last good file instead of an empty one.
+			ModsConfig.writeAtomically(file, GSON.toJsonTree(SIZES).getAsJsonObject());
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Item sizes failed to save", t);
 		}

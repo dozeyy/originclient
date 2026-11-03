@@ -80,7 +80,19 @@ public final class ModsConfig {
 					parseInto(root);
 				}
 			} catch (IOException | RuntimeException e) {
-				com.origin.client.OriginClient.LOGGER.warn("Failed to read originclient-mods.json, using defaults", e);
+				// Damaged: keep it as originclient-mods.json.corrupt (the reader is closed by the
+				// time a catch runs) and start like a fresh instance, from Origin's starter config --
+				// never from a half-read store, nor from bare defaults that Mods.migrateOnce would
+				// stamp with the old originclient.json flags. The launcher can't read a damaged file
+				// either, so Settings Sync takes what is written next as a fresh file that only
+				// fills gaps, never as the newest change (SettingsSyncEngine.HarvestFile).
+				com.origin.client.OriginClient.LOGGER.warn("Failed to read originclient-mods.json; kept it as .corrupt, using Origin's starter config", e);
+				VALUES.clear();
+				HUD.clear();
+				META.clear();
+				PROFILES.clear();
+				com.origin.client.client.ConfigFiles.setAside(PATH);
+				loadSeedDefaults();
 			}
 			return;
 		}
@@ -127,12 +139,15 @@ public final class ModsConfig {
 	// Shared by the user-file load and the bundled-seed load.
 	private static void parseInto(JsonObject root) {
 		rev++;
-		JsonObject mods = root.getAsJsonObject("mods");
+		JsonObject mods = object(root, "mods");
 		if (mods != null) {
 			// Gson 2.2.4 (1.8.9): no JsonObject.keySet() -- entrySet() everywhere below.
 			for (java.util.Map.Entry<String, JsonElement> modE : mods.entrySet()) {
 				String id = modE.getKey();
-				JsonObject o = mods.getAsJsonObject(id);
+				JsonObject o = object(mods, id);
+				if (o == null) {
+					continue;
+				}
 				Map<String, JsonElement> m = new HashMap<>();
 				for (java.util.Map.Entry<String, JsonElement> ke : o.entrySet()) {
 					m.put(ke.getKey(), ke.getValue());
@@ -140,33 +155,29 @@ public final class ModsConfig {
 				VALUES.put(id, m);
 			}
 		}
-		JsonObject hud = root.getAsJsonObject("hud");
+		JsonObject hud = object(root, "hud");
 		if (hud != null) {
 			for (java.util.Map.Entry<String, JsonElement> hudE : hud.entrySet()) {
 				String id = hudE.getKey();
-				com.google.gson.JsonArray arr = hud.getAsJsonArray(id);
 				// save() writes 5 values [anchor, dx, dy, scale, bg]; pre-bg
 				// files have 4. Accept >= 4 and keep EVERY value (so bg
 				// round-trips). The old "== 4" guard silently dropped every
 				// 5-element entry on load, resetting all moved HUD elements to
 				// their defaults on relaunch — the "positions not saved" bug.
-				if (arr != null && arr.size() >= 4) {
-					double[] vals = new double[arr.size()];
-					for (int i = 0; i < arr.size(); i++) {
-						vals[i] = arr.get(i).getAsDouble();
-					}
+				double[] vals = hudValues(hud.get(id));
+				if (vals != null) {
 					HUD.put(id, vals);
 				}
 			}
 		}
-		JsonObject meta = root.getAsJsonObject("meta");
+		JsonObject meta = object(root, "meta");
 		if (meta != null) {
 			for (java.util.Map.Entry<String, JsonElement> metaE : meta.entrySet()) {
 				String k = metaE.getKey();
 				META.put(k, meta.get(k));
 			}
 		}
-		JsonObject profiles = root.getAsJsonObject("profiles");
+		JsonObject profiles = object(root, "profiles");
 		if (profiles != null) {
 			for (java.util.Map.Entry<String, JsonElement> profE : profiles.entrySet()) {
 				String name = profE.getKey();
@@ -180,6 +191,30 @@ public final class ModsConfig {
 
 	/** Completed save() calls this session (bench: settings-file writes per second). */
 	public static volatile long saveCount;
+
+	// A config entry of the wrong shape (a hand edit, a half-synced file) is skipped on
+	// its own: one bad entry must never cost every other setting in the file.
+	private static JsonObject object(JsonObject parent, String key) {
+		JsonElement e = parent.get(key);
+		return e != null && e.isJsonObject() ? e.getAsJsonObject() : null;
+	}
+
+	// One HUD entry: [anchor, dx, dy, scale] or [.., bg]; null when it isn't that.
+	private static double[] hudValues(JsonElement e) {
+		if (e == null || !e.isJsonArray() || e.getAsJsonArray().size() < 4) {
+			return null;
+		}
+		com.google.gson.JsonArray arr = e.getAsJsonArray();
+		double[] vals = new double[arr.size()];
+		try {
+			for (int i = 0; i < vals.length; i++) {
+				vals[i] = arr.get(i).getAsDouble();
+			}
+		} catch (RuntimeException notANumber) {
+			return null;
+		}
+		return vals;
+	}
 
 	static synchronized void save() {
 		rev++;
@@ -258,6 +293,36 @@ public final class ModsConfig {
 	// a gameplay loadout. Snapshots are deep JSON copies, so applying one and then
 	// editing settings can never mutate the stored profile.
 
+	// Account data, not part of a loadout: a profile never saves or replaces these. The
+	// Hypixel API key is the player's credential -- applying a profile saved before it was
+	// pasted deleted it (and Settings Sync then deleted it in every version).
+	private static final String[][] ACCOUNT_OPTIONS = {{"hypixel", "apiKey"}};
+
+	private static JsonElement[] accountValues() {
+		JsonElement[] out = new JsonElement[ACCOUNT_OPTIONS.length];
+		for (int i = 0; i < out.length; i++) {
+			Map<String, JsonElement> m = VALUES.get(ACCOUNT_OPTIONS[i][0]);
+			out[i] = m != null ? m.get(ACCOUNT_OPTIONS[i][1]) : null;
+		}
+		return out;
+	}
+
+	private static void putAccountValues(JsonElement[] values) {
+		for (int i = 0; i < values.length; i++) {
+			String id = ACCOUNT_OPTIONS[i][0];
+			Map<String, JsonElement> m = VALUES.get(id);
+			if (values[i] != null) {
+				if (m == null) {
+					m = new HashMap<>();
+					VALUES.put(id, m);
+				}
+				m.put(ACCOUNT_OPTIONS[i][1], values[i]);
+			} else if (m != null) {
+				m.remove(ACCOUNT_OPTIONS[i][1]);
+			}
+		}
+	}
+
 	static synchronized JsonObject snapshotCurrent() {
 		ensureLoaded();
 		JsonObject snap = new JsonObject();
@@ -268,6 +333,12 @@ public final class ModsConfig {
 				o.add(v.getKey(), deepCopy(v.getValue()));
 			}
 			mods.add(e.getKey(), o);
+		}
+		for (String[] k : ACCOUNT_OPTIONS) {
+			JsonObject o = object(mods, k[0]);
+			if (o != null) {
+				o.remove(k[1]);
+			}
 		}
 		snap.add("mods", mods);
 		JsonObject hud = new JsonObject();
@@ -284,6 +355,7 @@ public final class ModsConfig {
 
 	static synchronized void restoreFrom(JsonObject snap) {
 		ensureLoaded();
+		JsonElement[] account = accountValues();
 		VALUES.clear();
 		HUD.clear();
 		if (snap != null) {
@@ -292,6 +364,7 @@ public final class ModsConfig {
 			// in the profile must not linger).
 			parseInto(snap);
 		}
+		putAccountValues(account);
 		save();
 	}
 
