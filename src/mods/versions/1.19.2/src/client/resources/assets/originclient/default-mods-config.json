@@ -45,7 +45,7 @@
     "timechanger": {
       "skyMode": "Void",
       "horizonY": 164.0,
-      "useRealTime": true,
+      "useRealTime": false,
       "time": 0.0,
       "timePassage": false,
       "enabled": false
@@ -67,7 +67,7 @@
       "enabled": false
     },
     "motionblur": {
-      "amount": 0.0,
+      "amount": 3.0,
       "enabled": false
     },
     "fullbright": {
@@ -237,7 +237,7 @@
     "potionhud": [
       2.0,
       -4.0,
-      26.06647187728268,
+      160.0,
       1.0,
       0.0
     ],

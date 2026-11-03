@@ -33,10 +33,12 @@ public final class OriginKeyBindings {
 				GLFW.GLFW_KEY_C,
 				CATEGORY));
 
+		// Left Alt, the same key as Freelook's mod-menu row: they are one key
+		// (OriginClientMod.syncedKeyDown), so Reset in Controls gives Left Alt.
 		freelook = KeyBindingHelper.registerKeyBinding(new KeyMapping(
 				"key.originclient.freelook",
 				InputConstants.Type.KEYSYM,
-				InputConstants.UNKNOWN.getValue(),
+				GLFW.GLFW_KEY_LEFT_ALT,
 				CATEGORY));
 
 		copyCoords = KeyBindingHelper.registerKeyBinding(new KeyMapping(

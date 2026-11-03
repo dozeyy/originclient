@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.OptionsAutosave;
+import com.origin.client.client.mods.ClickStats;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,5 +20,14 @@ public class KeyRebindMixin {
 	@Inject(method = "setKey", at = @At("TAIL"))
 	private void originclient$saveSoon(InputConstants.Key input, CallbackInfo ci) {
 		OptionsAutosave.changed();
+	}
+
+	// CPS counter: every keybind click (mouse button or key, in the world) passes
+	// through the static KeyMapping.click(Key) on every 1.20+ era (javap: 1.20 to
+	// 26.3); ClickStats keeps the ones bound to Attack / Use. If this stops
+	// applying, CPS reads 0 and nothing else changes.
+	@Inject(method = "click", at = @At("HEAD"))
+	private static void originclient$countClick(InputConstants.Key key, CallbackInfo ci) {
+		ClickStats.onClick(key);
 	}
 }

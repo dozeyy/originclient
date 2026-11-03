@@ -97,6 +97,17 @@ public class OriginModMenuScreen extends Screen {
 
 	private String search = "";
 	private boolean searchFocused = false;
+	// E1: a key captured for a keybind also sends its character (charTyped follows
+	// keyPressed); swallow that one so it doesn't land in the search box. Cleared by
+	// the next key press, so a key with no character can't eat a later one.
+	private boolean swallowChar = false;
+	// E2: Right Shift closes the menu on release, and only when it was tapped on its
+	// own with no search box in use -- held for a capital letter, it never closes.
+	private boolean rshiftTap = false;
+	// Right Shift still held from opening the menu (its key press opened it): the
+	// auto-repeat presses of that same hold must not arm the close, so they are ignored
+	// until the release that ends the hold.
+	private boolean rshiftHeldAtOpen = rshiftDownNow();
 	private String optSearch = "";                    // mod page / settings tab filter
 	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
 	private float maxScroll, maxPageScroll;
@@ -181,6 +192,7 @@ public class OriginModMenuScreen extends Screen {
 	public void removed() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 		HudElements.editorPreview = false;
 		HudElements.suppressScoreboard = false;
 		super.removed();
@@ -210,7 +222,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "crosshair", "chunkborders", "hitboxes",
 				"nametags", "itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles",
-				"hurtcam", "hitcolor", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
+				"hurtcam", "hitcolor", "oldanimations", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
 				"worldeditcui"}) {
 			CATS.put(id, Cat.VISUAL);
 		}
@@ -227,7 +239,7 @@ public class OriginModMenuScreen extends Screen {
 
 	// The NEW filter + badge: this release's additions. The badge clears once the
 	// player has opened that mod's page (meta "seen:<id>").
-	private static final Set<String> NEW_IDS = new HashSet<>(Arrays.asList("portalcalc", "fpscoach", "hypixelbedwars", "friends"));
+	private static final Set<String> NEW_IDS = new HashSet<>(Arrays.asList("portalcalc", "fpscoach", "hypixelbedwars", "friends", "oldanimations"));
 
 	private static Cat catOf(Mods.Mod m) {
 		return CATS.getOrDefault(m.id(), Cat.GAMEPLAY);
@@ -285,6 +297,7 @@ public class OriginModMenuScreen extends Screen {
 	public void commitPendingEdits() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 	}
 
 	private void flushSlider() {
@@ -1560,6 +1573,10 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		swallowChar = false;
+		if (keyCode != GLFW.GLFW_KEY_RIGHT_SHIFT) {
+			rshiftTap = false;
+		}
 		if (OriginMultiSelect.isOpen()) {
 			return OriginMultiSelect.keyPressed(keyCode);
 		}
@@ -1573,6 +1590,7 @@ public class OriginModMenuScreen extends Screen {
 			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
 			capMod = null;
 			capKey = null;
+			swallowChar = true;
 			return true;
 		}
 		boolean esc = keyCode == GLFW.GLFW_KEY_ESCAPE;
@@ -1602,7 +1620,7 @@ public class OriginModMenuScreen extends Screen {
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
-			beginClose();
+			rshiftTap = !rshiftHeldAtOpen && !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_F && hasControlDown() && page == null && tab == Tab.MODS) {
@@ -1624,8 +1642,35 @@ public class OriginModMenuScreen extends Screen {
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
+	private static boolean rshiftDownNow() {
+		try {
+			return com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+					net.minecraft.client.Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	@Override
+	public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+			rshiftHeldAtOpen = false;
+		}
+		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT && rshiftTap) {
+			rshiftTap = false;
+			beginClose();
+			return true;
+		}
+		return super.keyReleased(keyCode, scanCode, modifiers);
+	}
+
 	@Override
 	public boolean charTyped(char chr, int modifiers) {
+		rshiftTap = false;
+		if (swallowChar) {
+			swallowChar = false;
+			return true;
+		}
 		if (capMod != null) {
 			return true;
 		}

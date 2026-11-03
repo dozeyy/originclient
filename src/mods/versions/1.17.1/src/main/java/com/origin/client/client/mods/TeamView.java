@@ -44,12 +44,13 @@ public final class TeamView {
 	}
 
 	// Written by the world pass, read by the HUD pass -- both on the render thread.
-	private static List<Marker> markers = new ArrayList<>();
+	private static final List<Marker> markers = new ArrayList<>();   // one list, refilled every frame
+	private static final Vector4f SCRATCH = new Vector4f(0f, 0f, 0f, 1f);   // capture()'s projection scratch
 
 	/** World pass (WorldRenderEvents.LAST): project each marked player's head. */
 	static void capture(WorldRenderContext ctx) {
-		List<Marker> out = new ArrayList<>();
-		markers = out;
+		List<Marker> out = markers;
+		out.clear();   // reused: a new list used to be made every frame, even with Team View off
 		Minecraft mc = Minecraft.getInstance();
 		if (!Mods.on(MOD) || mc.player == null || mc.level == null || ctx.matrixStack() == null) {
 			return;
@@ -72,8 +73,9 @@ public final class TeamView {
 		// ModelViewMat x pose would rotate twice. The pass's pose alone holds the
 		// camera rotation -- the same view WaypointHud.capture ends up with inside
 		// OriginClientMod's identity model-view window.
-		Matrix4f view = ctx.matrixStack().last().pose().copy();
-		Matrix4f proj = com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().copy();
+		// No copies: Vector4f.transform only reads the matrix (these used to be copied every frame).
+		Matrix4f view = ctx.matrixStack().last().pose();
+		Matrix4f proj = com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix();
 		Vec3 cam = ctx.camera().getPosition();
 		float pt = ctx.tickDelta();
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
@@ -94,7 +96,8 @@ public final class TeamView {
 			}
 			Vec3 pos = p.getPosition(pt);
 			double wx = pos.x - cam.x, wy = pos.y + p.getBbHeight() + 0.75 - cam.y, wz = pos.z - cam.z;
-			Vector4f v = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
+			Vector4f v = SCRATCH;
+			v.set((float) wx, (float) wy, (float) wz, 1f);
 			v.transform(view);
 			v.transform(proj);
 			if (v.w() <= 0.05f) {

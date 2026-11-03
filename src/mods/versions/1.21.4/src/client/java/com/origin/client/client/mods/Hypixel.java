@@ -87,6 +87,25 @@ public final class Hypixel {
 		return host.equals("hypixel.net") || host.endsWith(".hypixel.net");
 	}
 
+	// ---- what Hypixel doesn't allow ----
+
+	private static final String FREELOOK_OFF = "Freelook is off on Hypixel (not allowed there)";
+
+	/** Hypixel's rules ban freelook (looking around without turning), so Origin's
+	 *  Freelook stays off while connected here -- whether or not the Hypixel mod is
+	 *  on. Reads the server address itself, not the per-tick onHypixel cache, so it
+	 *  holds from the very first tick after joining whatever order the end-of-tick
+	 *  listeners run in. Only called while freelook would be on, so it costs nothing
+	 *  the rest of the time. */
+	public static boolean bansFreelook(Minecraft mc) {
+		return mc.player != null && isHypixelHost(mc.getCurrentServer());
+	}
+
+	/** The one action-bar line when the Freelook key does nothing here. */
+	public static void sayFreelookOff(Minecraft mc) {
+		mc.player.displayClientMessage(Component.literal(FREELOOK_OFF), true);
+	}
+
 	// ---- per tick ----
 
 	private static final long TIP_EVERY_MS = 15L * 60L * 1000L;
@@ -176,6 +195,11 @@ public final class Hypixel {
 	private static final Pattern FRIEND_REQUEST = Pattern.compile("^Friend request from (?:\\[[^\\]]+\\] )?(\\w{1,16})");
 	private static final Pattern GG = Pattern.compile(
 			"^(?:\\[[^\\]]+\\] )*\\w{1,16}: (?:gg|good game|gg wp|ggwp|gf|ggs)[!. ]*$", Pattern.CASE_INSENSITIVE);
+	// Hypixel's own lobby-join line, whole line only: "[MVP+] Name joined the lobby!",
+	// " >>> [MVP++] Name joined the lobby! <<<", seasonal "[MVP+] Name slid into the lobby!".
+	// Anchored so a player typing those words in chat is never hidden.
+	private static final Pattern LOBBY_JOIN = Pattern.compile(
+			"^(?:>>> )?\\[[^\\]]+\\] \\w{1,16} (?:joined|[a-z]+ into) the lobby!(?: <<<)?$");
 	private static final Pattern FRIEND_GUILD_JOIN = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} joined\\.$");
 	private static final Pattern FRIEND_GUILD_LEAVE = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} left\\.$");
 
@@ -190,15 +214,32 @@ public final class Hypixel {
 			return true;
 		}
 		plain = plain.trim();
-		trackParty(plain);   // Team View reads the roster even with the Hypixel mod off
+		// Hypixel sends friend requests and the /party list as ONE boxed message:
+		// "-----" rule lines around several lines of text. Each line is matched on
+		// its own; matching the whole box never fired (the ^ anchors met the rule).
+		List<String> lines = new ArrayList<>();
+		for (String l : plain.split("\n")) {
+			String t = l.trim();
+			if (!t.isEmpty() && !t.replace("-", "").isEmpty()) {
+				lines.add(t);
+			}
+		}
+		for (String t : lines) {
+			trackParty(t);   // Team View reads the roster even with the Hypixel mod off
+		}
 		if (!Mods.on(MOD)) {
 			return true;
 		}
 		Minecraft mc = Minecraft.getInstance();
 
-		Matcher fr = FRIEND_REQUEST.matcher(plain);
-		if (fr.find() && Mods.bool(MOD, "autoFriend")) {
-			command(mc, "friend accept " + fr.group(1));
+		if (Mods.bool(MOD, "autoFriend")) {
+			for (String t : lines) {
+				Matcher fr = FRIEND_REQUEST.matcher(t);
+				if (fr.find()) {
+					command(mc, "friend accept " + fr.group(1));
+					break;
+				}
+			}
 		}
 		if (plain.equals("The game starts in 1 second!") && Mods.bool(MOD, "autoWho")) {
 			whoInTicks = 30;   // once everyone has been teleported in
@@ -224,8 +265,7 @@ public final class Hypixel {
 		if (Mods.bool(MOD, "hideSpectatorChat") && plain.startsWith("[SPECTATOR] ")) {
 			return false;
 		}
-		if (Mods.bool(MOD, "removeLobbyStatuses")
-				&& (plain.endsWith("joined the lobby!") || plain.contains(" into the lobby!"))) {
+		if (Mods.bool(MOD, "removeLobbyStatuses") && LOBBY_JOIN.matcher(plain.strip()).matches()) {
 			return false;
 		}
 		if (Mods.bool(MOD, "hideJoinMessages") && FRIEND_GUILD_JOIN.matcher(plain).matches()) {

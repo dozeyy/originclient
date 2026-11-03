@@ -19,7 +19,8 @@ namespace OriginLauncher.App.Core.Sync;
 //    its files (each format decides how; everything else in the file is kept),
 //    and that instance's baseline becomes what is now on disk.
 //  * SEED (the switch was turned on): harvest every instance as if nothing had
-//    been synced yet — per key the newest file wins, so nothing is lost.
+//    been synced yet — per key the newest file wins, so nothing is lost. An
+//    instance whose game is running is seeded when its game exits (SeedPending).
 //
 // A file Settings Sync has never written to or read from in that instance (a
 // version the player hadn't installed when the switch went on, a config the
@@ -45,11 +46,16 @@ public sealed class SettingsSyncEngine
 
     public SyncStoreData Store { get; }
 
-    /// <summary>Rebuilds the store from scratch: per key the newest file among all instances wins.</summary>
-    public void Seed(IReadOnlyList<SyncInstance> instances)
+    /// <summary>
+    /// Rebuilds the store from scratch: per key the newest file among all instances wins. <paramref name="running"/>
+    /// are the versions left out because their game is running: each is seeded when it is next harvested (its game
+    /// exited), so turning the switch on mid-session loses nothing from that session.
+    /// </summary>
+    public void Seed(IReadOnlyList<SyncInstance> instances, IEnumerable<string>? running = null)
     {
         Store.Files.Clear();
         Store.Baselines.Clear();
+        Store.SeedPending = (running ?? Enumerable.Empty<string>()).Distinct(StringComparer.Ordinal).ToList();
         var files = SyncedFiles.All(instances, Store);
         foreach (var instance in instances)
             foreach (var file in files)
@@ -59,8 +65,11 @@ public sealed class SettingsSyncEngine
     /// <summary>Takes the player's changes in one instance into the store.</summary>
     public void Harvest(SyncInstance instance)
     {
+        // Left out of the seed while its game ran: this first read is that instance's seed (newest file wins per key).
+        var seeding = Store.SeedPending.Remove(instance.Version);
+        if (seeding) _log($"{instance.Version}: seeded now (its game was running when Settings Sync was turned on)");
         foreach (var file in SyncedFiles.All(new[] { instance }, Store))
-            Guard(instance, file, "harvest", () => HarvestFile(instance, file, seeding: false));
+            Guard(instance, file, "harvest", () => HarvestFile(instance, file, seeding));
     }
 
     /// <summary>Writes the store into one instance (call Harvest on every instance first).</summary>

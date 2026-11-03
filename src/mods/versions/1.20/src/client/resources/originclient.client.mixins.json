@@ -49,6 +49,7 @@
 		"MultiPlayerGameModeMixin",
 		"ItemEntityScaleMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
@@ -89,6 +90,7 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"IrisPipelineHalfRateMixin",
 		"IrisShadowRendererHalfRateMixin",
@@ -108,7 +110,12 @@
 		"SodiumWorldRendererReuseMixin",
 		"Sodium04HalfRateMixin",
 		"LevelRendererCullFrustumMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

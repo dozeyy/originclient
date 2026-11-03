@@ -132,11 +132,13 @@ public class ServerHooks {
 				return;
 			}
 			boolean overlay = event.type == 2;
-			IChatComponent shown = ChatEvents.modify(message, overlay);
-			if (!ChatEvents.allow(shown, overlay)) {
+			// Hide checks read the line as the server sent it ("Party > ...", "Guild > ..."),
+			// so they run BEFORE Short Channel Names rewrites the prefix to "P > " / "G > ".
+			if (!ChatEvents.allow(message, overlay)) {
 				event.setCanceled(true);
 				return;
 			}
+			IChatComponent shown = ChatEvents.modify(message, overlay);
 			ChatEvents.received(shown, overlay);
 			if (shown != message) {
 				event.message = shown;

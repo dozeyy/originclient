@@ -48,6 +48,8 @@ public final class Waypoints {
 		public boolean showBeam = true;
 		public boolean highlightBlock = false;
 		public boolean showDistance = true;
+		// true = the automatic death marker; the next death replaces it
+		public boolean death = false;
 		// Style — every visual part has its OWN colour and scale so each is
 		// independently tunable (icon vs beam vs text). Gson leaves these
 		// initializer defaults in place for waypoints saved before the fields
@@ -110,7 +112,7 @@ public final class Waypoints {
 			IntegratedServer sp = mc.getSingleplayerServer();
 			if (sp != null) {
 				Path dir = sp.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
-				return WaypointScope.singleplayer(String.valueOf(dir.getFileName()));
+				return WaypointScope.singleplayer(String.valueOf(dir.getFileName()), mcVersion());
 			}
 			ServerData sd = mc.getCurrentServer();
 			if (sd != null && sd.ip != null) {
@@ -120,6 +122,16 @@ public final class Waypoints {
 			// fall through to the shared bucket
 		}
 		return "other:unknown";
+	}
+
+	/** This game's Minecraft version ("1.19.4"); "" if Fabric can't say (old sp key then). */
+	private static String mcVersion() {
+		try {
+			return FabricLoader.getInstance().getModContainer("minecraft")
+					.map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("");
+		} catch (Throwable t) {
+			return "";
+		}
 	}
 
 	// Leaving a world: its list is flushed (cheap insurance for an in-place edit that
@@ -133,6 +145,15 @@ public final class Waypoints {
 		List<Waypoint> next = new ArrayList<>();
 		if (key != null) {
 			Path f = fileFor(key);
+			try {
+				// singleplayer keys gained the version: start from the world's old list
+				String previous = WaypointScope.unversioned(key, mcVersion());
+				if (previous != null) {
+					WaypointScope.adoptPrevious(fileFor(previous), f);
+				}
+			} catch (Exception e) {
+				com.origin.client.OriginClient.LOGGER.warn("Could not copy this world's earlier Origin waypoints", e);
+			}
 			try {
 				WaypointScope.adoptLegacy(configDir(), f);
 			} catch (Exception e) {
@@ -236,11 +257,24 @@ public final class Waypoints {
 		return mc.level != null ? mc.level.dimension().location().toString() : "minecraft:overworld";
 	}
 
-	/** Death waypoint: a red, beam-on waypoint at the death spot. */
+	/** Death waypoint: a red, beam-on waypoint at the death spot. Only the LATEST death
+	 *  is kept: the previous "Death" waypoint is replaced, so they never pile up. The
+	 *  "Death N" ones earlier builds numbered up are cleared with it. Only Origin's own
+	 *  markers go: the death flag, or (from before the flag) the auto name AND the death
+	 *  red -- a waypoint the player named "Death" in another colour stays. */
 	public static synchronized void onDeath(int x, int y, int z, String dim) {
-		Waypoint w = create(nextName("Death"), x, y, z, dim, 0xFFE05555);
+		ensureLoaded();
+		ALL.removeIf(old -> old.death || (old.color == DEATH_COLOR && isDeathName(old.name)));
+		Waypoint w = create("Death", x, y, z, dim, DEATH_COLOR);
+		w.death = true;
 		w.showBeam = true;
 		w.showText = true;
 		save();
+	}
+
+	private static final int DEATH_COLOR = 0xFFE05555;
+
+	private static boolean isDeathName(String name) {
+		return name != null && name.matches("Death( \\d+)?");
 	}
 }

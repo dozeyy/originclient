@@ -276,8 +276,14 @@ public class ShaderBrowserScreen extends OriginWindow {
 				}
 			}
 			case ERROR -> {
-				d.rect(bx, by, CTRL_W, CTRL_H, 6, RED_SOFT);
-				d.textCenter("UNAVAILABLE", bx + CTRL_W / 2, by + CTRL_H / 2, 11, true, CAPS_TRACK, RED);
+				// A failed download isn't final: hovering offers Retry (start() runs again
+				// from ERROR), like Installed offers Remove.
+				if (d.over(bx, by, CTRL_W, CTRL_H)) {
+					button(d, "Retry", null, bx, by, CTRL_W, CTRL_H, Style.DANGER, true, () -> ShaderDownloader.start(slug, gameVersion()));
+				} else {
+					d.rect(bx, by, CTRL_W, CTRL_H, 6, RED_SOFT);
+					d.textCenter("UNAVAILABLE", bx + CTRL_W / 2, by + CTRL_H / 2, 11, true, CAPS_TRACK, RED);
+				}
 			}
 			default -> button(d, "Download", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true,
 					() -> ShaderDownloader.start(slug, gameVersion()));

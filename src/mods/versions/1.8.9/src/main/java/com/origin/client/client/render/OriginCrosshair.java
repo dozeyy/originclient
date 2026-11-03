@@ -32,7 +32,10 @@ public final class OriginCrosshair {
 	private OriginCrosshair() {
 	}
 
-	private static String cachedKey = null;
+	/** The settings the mask was last built for (null style = never built). */
+	private static String cachedStyle = null;
+	private static int cachedS, cachedT, cachedGap, cachedDotSize, cachedO;
+	private static boolean cachedDot;
 	private static boolean[][] fillMask, outlineMask;   // [y][x], centre at (ext, ext)
 	private static int ext;
 
@@ -54,8 +57,8 @@ public final class OriginCrosshair {
 		if (!firstPerson && !Mods.bool("crosshair", "showInF5")) {
 			return true;
 		}
-		if (mc.playerController.isSpectator() && mc.pointedEntity == null) {
-			return true;    // vanilla hides the crosshair in spectator unless aiming at an entity
+		if (mc.playerController.isSpectator() && !spectatorCrosshair(mc)) {
+			return true;    // vanilla hides the crosshair in spectator except over an entity or a container
 		}
 		ensureMask();
 		int color = OriginColorPicker.liveColor("crosshair", "color");
@@ -107,6 +110,23 @@ public final class OriginCrosshair {
 		}
 	}
 
+	/**
+	 * Vanilla's spectator rule, GuiIngame.showCrosshair (javap, Forge 11.15.1.2318): shown over
+	 * any entity, or over a block whose tile entity is an inventory (chest, furnace, ...).
+	 * Origin used to hide it on containers.
+	 */
+	private static boolean spectatorCrosshair(Minecraft mc) {
+		if (mc.pointedEntity != null) {
+			return true;
+		}
+		net.minecraft.util.MovingObjectPosition hit = mc.objectMouseOver;
+		if (hit == null || mc.theWorld == null
+				|| hit.typeOfHit != net.minecraft.util.MovingObjectPosition.MovingObjectType.BLOCK) {
+			return false;
+		}
+		return mc.theWorld.getTileEntity(hit.getBlockPos()) instanceof net.minecraft.inventory.IInventory;
+	}
+
 	// ---- shape rasterisation ----
 
 	private static void ensureMask() {
@@ -117,11 +137,18 @@ public final class OriginCrosshair {
 		boolean dot = Mods.bool("crosshair", "dot");
 		int dotSize = Math.max(1, (int) Mods.num("crosshair", "dotSize"));
 		int o = Mods.bool("crosshair", "outline") ? Math.max(1, (int) Mods.num("crosshair", "outlineThickness")) : 0;
-		String key = style + "|" + s + "|" + t + "|" + gap + "|" + dot + "|" + dotSize + "|" + o;
-		if (key.equals(cachedKey)) {
+		// Compared field by field: the old joined key string was built every frame.
+		if (style.equals(cachedStyle) && s == cachedS && t == cachedT && gap == cachedGap
+				&& dot == cachedDot && dotSize == cachedDotSize && o == cachedO) {
 			return;
 		}
-		cachedKey = key;
+		cachedStyle = style;
+		cachedS = s;
+		cachedT = t;
+		cachedGap = gap;
+		cachedDot = dot;
+		cachedDotSize = dotSize;
+		cachedO = o;
 		ext = gap + s + t + dotSize + o + 3;
 		int n = ext * 2 + 1;
 		boolean[][] fill = new boolean[n][n];

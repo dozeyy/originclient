@@ -34,7 +34,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\OriginLauncher.App\Core\**\*.cs" Exclude="..\OriginLauncher.App\Core\**\*.Windows.cs" LinkBase="Core" />
+    <Compile Include="..\OriginLauncher.App\Core\**\*.cs" Exclude="..\OriginLauncher.App\Core\**\*.Windows.cs;..\OriginLauncher.App\Core\**\*.Linux.cs" LinkBase="Core" />
     <!-- Pure UI logic shared with the WPF launcher (no WPF types): the version family and the numeral's band maths. -->
     <Compile Include="..\OriginLauncher.App\UI\FamilyTheme.cs" Link="Shared\FamilyTheme.cs" />
     <Compile Include="..\OriginLauncher.App\UI\Controls\NumeralBand.cs" Link="Shared\NumeralBand.cs" />

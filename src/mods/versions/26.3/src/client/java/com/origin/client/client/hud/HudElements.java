@@ -6,6 +6,7 @@ import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.ClickStats;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.multiplayer.ServerData;
@@ -18,6 +19,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.scores.Objective;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -314,13 +316,21 @@ public final class HudElements {
 		return new int[]{top, bottom};
 	}
 
+	// Reused every frame: the HUD asks for this list twice per frame (size, then
+	// draw). Render thread only; each caller is done with it before the next call
+	// refills it.
+	private static final List<ItemStack> ARMOR_SCRATCH = new ArrayList<>(5);
+	private static List<ItemStack> armorPreview;
+	private static final net.minecraft.world.entity.EquipmentSlot[] ARMOR_SLOTS = {
+			net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.LEGS,
+			net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.HEAD};
+
 	private static List<ItemStack> armorItems(Minecraft mc) {
-		List<ItemStack> items = new ArrayList<>();
+		List<ItemStack> items = ARMOR_SCRATCH;
+		items.clear();
 		if (mc.player != null) {
 			// 1.21.11: armor moved from an Inventory list to EntityEquipment slots.
-			for (var slot : new net.minecraft.world.entity.EquipmentSlot[]{
-					net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.LEGS,
-					net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.HEAD}) {
+			for (var slot : ARMOR_SLOTS) {
 				ItemStack s = mc.player.getItemBySlot(slot);
 				if (!s.isEmpty()) {
 					items.add(s);
@@ -332,8 +342,11 @@ public final class HudElements {
 			}
 		}
 		if (items.isEmpty() && editorPreview) {
-			items = new ArrayList<>(List.of(com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_HELMET), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_CHESTPLATE),
-					com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_LEGGINGS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_BOOTS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_SWORD)));
+			if (armorPreview == null) {
+				armorPreview = List.of(com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_HELMET), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_CHESTPLATE),
+					com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_LEGGINGS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_BOOTS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_SWORD));
+			}
+			return armorPreview;
 		}
 		return items;
 	}
@@ -414,7 +427,8 @@ public final class HudElements {
 		}, HudElements::renderKeystrokes);
 
 		// ---- Potion Effects ----
-		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 6, 1.0), mc -> {
+		// default stack, top-right (C3): Server IP 6, Minimap 34, Potions 160, Item Counter 244
+		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 160, 1.0), mc -> {
 			// width grows to the widest FULL name+time so nothing is ellipsised;
 			// right-anchored, so it just extends further left to fit.
 			var rows = potionRows(mc);
@@ -446,7 +460,7 @@ public final class HudElements {
 			}
 			int y = 0;
 			for (PotionRow row : rows) {
-				drawEffectRow(g, mc, y, row.effect, row.duration, row.infinite);
+				drawEffectRow(g, mc, y, row.effect, row.duration, row.infinite, row);
 				y += 20;
 			}
 		});
@@ -503,10 +517,10 @@ public final class HudElements {
 		// HudPos loaded by scoreboardPos()). In the editor it shows the sample; in-game
 		// it draws nothing here (the vanilla sidebar draws, repositioned by the mixin).
 		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
-				mc -> sampleScoreboardSize(),
+				mc -> scoreboardSize(),
 				(g, mc, w, h) -> {
 					if (editorPreview && !suppressScoreboard) {
-						drawSampleScoreboard(g);
+						drawEditorScoreboard(g);
 					}
 				});
 
@@ -601,14 +615,39 @@ public final class HudElements {
 
 	// ---- potions ----
 
-	private record PotionRow(Holder<MobEffect> effect, int duration, boolean infinite) {
+	private record PotionRow(Holder<MobEffect> effect, int duration, boolean infinite, int amplifier) {
+		PotionRow(Holder<MobEffect> effect, int duration, boolean infinite) {   // editor preview rows: level I
+			this(effect, duration, infinite, 0);
+		}
+	}
+
+	/** A row's text exactly as drawEffectRow draws it: {name, time}, name null when only
+	 *  the time shows (Minimal, or Effect Name off). The ONE source for both the drawing
+	 *  and the background width, so the box always matches the text (Uppercase used to
+	 *  run past it, Minimal left an empty box). */
+	private static String[] rowText(PotionRow row) {
+		int secs = row.duration / 20;
+		String time = row.infinite ? "∞"
+				: Mods.bool("potionhud", "formattedDurations")
+				? secs / 60 + ":" + String.format("%02d", secs % 60)
+				: secs + "s";
+		if (!Mods.bool("potionhud", "effectName") || Mods.bool("potionhud", "minimal")) {
+			return new String[]{null, time};
+		}
+		String name = row.effect.value().getDisplayName().getString();
+		// the level like vanilla's inventory: amplifier 0 = no suffix, 1 = "II" ... 9 = "X"
+		if (row.amplifier >= 1 && row.amplifier <= 9) {
+			name += " " + net.minecraft.network.chat.Component.translatable("enchantment.level." + (row.amplifier + 1)).getString();
+		}
+		if (Mods.bool("potionhud", "uppercase")) {
+			name = name.toUpperCase(java.util.Locale.ROOT);
+		}
+		return new String[]{name, time};
 	}
 
 	private static int rowTextWidth(Minecraft mc, PotionRow row) {
-		String name = row.effect.value().getDisplayName().getString();
-		int secs = row.duration / 20;
-		String time = row.infinite ? "∞" : secs / 60 + ":" + String.format("%02d", secs % 60);
-		return mc.font.width(name + " " + time);
+		String[] t = rowText(row);
+		return t[0] == null ? mc.font.width(t[1]) : mc.font.width(t[0] + " " + t[1]);
 	}
 
 	private static List<PotionRow> potionRows(Minecraft mc) {
@@ -619,7 +658,7 @@ public final class HudElements {
 				if (excludePerm && e.isInfiniteDuration()) {
 					continue;
 				}
-				rows.add(new PotionRow(e.getEffect(), e.getDuration(), e.isInfiniteDuration()));
+				rows.add(new PotionRow(e.getEffect(), e.getDuration(), e.isInfiniteDuration(), e.getAmplifier()));
 			}
 		}
 		if (rows.isEmpty() && editorPreview) {
@@ -629,7 +668,7 @@ public final class HudElements {
 		return rows;
 	}
 
-	private static void drawEffectRow(GuiGraphicsExtractor g, Minecraft mc, int y, Holder<MobEffect> effect, int duration, boolean infinite) {
+	private static void drawEffectRow(GuiGraphicsExtractor g, Minecraft mc, int y, Holder<MobEffect> effect, int duration, boolean infinite, PotionRow row) {
 		int secs = duration / 20;
 		// Blink: within the threshold, the row pulses like vanilla's expiring icons
 		if (!infinite && Mods.bool("potionhud", "blink")
@@ -647,16 +686,10 @@ public final class HudElements {
 			g.fill(2, y + 4, 12, y + 14, 0xFF000000 | effect.value().getColor());
 		}
 		boolean shadow = Mods.bool("potionhud", "textShadow");
-		boolean minimal = Mods.bool("potionhud", "minimal");
-		boolean showName = Mods.bool("potionhud", "effectName") && !minimal;
-		String name = effect.value().getDisplayName().getString();
-		if (Mods.bool("potionhud", "uppercase")) {
-			name = name.toUpperCase(java.util.Locale.ROOT);
-		}
-		String time = infinite ? "∞"
-				: Mods.bool("potionhud", "formattedDurations")
-				? secs / 60 + ":" + String.format("%02d", secs % 60)
-				: secs + "s";
+		String[] text = rowText(row);   // the same text rowTextWidth measures
+		boolean showName = text[0] != null;
+		String name = text[0];
+		String time = text[1];
 		int nameColor = Mods.bool("potionhud", "colorByEffect")
 				? 0xFF000000 | effect.value().getColor()
 				: OriginColorPicker.liveColor("potionhud", "textColor");
@@ -694,12 +727,15 @@ public final class HudElements {
 			// background hugs however many pieces are actually worn, growing
 			// piece by piece — never the full-loadout gray slab
 			boolean dur = !durPos.equals("Hidden");
-			int wAct = vertical ? 19 + (dur ? 30 : 0) : items.size() * 19;
+			int wAct = vertical ? 19 + (dur ? 34 : 0) : items.size() * 19;   // = the measured box
 			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
 			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
-		int x = 0, y = 0;
+		// Durability "Left" (vertical list): the numbers take the box's left 34 px and the
+		// items sit to their right, so nothing draws left of the element (it used to run
+		// off-screen at the default bottom-left spot).
+		int x = vertical && durPos.equals("Left") ? 34 : 0, y = 0;
 		for (ItemStack stack : items) {
 			g.item(stack, x, y);
 			if (Mods.bool("armorhud", "itemCount")) {
@@ -759,8 +795,8 @@ public final class HudElements {
 			key(g, mc, 48, 24, 22, 22, arrows ? "→" : "D", o.keyRight.isDown());
 		}
 		if (Mods.bool("keystrokes", "showClicks")) {
-			key(g, mc, 0, 48, 34, 14, "LMB", ClickStats.leftDown);
-			key(g, mc, 36, 48, 34, 14, "RMB", ClickStats.rightDown);
+			key(g, mc, 0, 48, 34, 14, "LMB", ClickStats.leftDown());
+			key(g, mc, 36, 48, 34, 14, "RMB", ClickStats.rightDown());
 		}
 		if (Mods.bool("keystrokes", "showSpace")) {
 			int thick = (int) Math.max(1, Math.min(10, Mods.num("keystrokes", "spacebarThickness"))) + 4;
@@ -778,7 +814,7 @@ public final class HudElements {
 		int fill = com.origin.client.client.theme.OriginTheme.lerpColor(bgUp, bgDown, k);
 		g.fill(x, y, x + w, y + h, fill);
 		if (Mods.bool("keystrokes", "border")) {
-			int t = (int) Math.max(1, Math.min(4, Math.round(Mods.num("keystrokes", "borderThickness"))));
+			int t = (int) Math.max(0, Math.min(4, Math.round(Mods.num("keystrokes", "borderThickness"))));   // 0 = no border
 			int bc = OriginColorPicker.liveColor("keystrokes", "borderColor");
 			// top/bottom span full width; left/right fill only the gap between them
 			// so corner pixels are never drawn twice (which made corners darker
@@ -834,62 +870,167 @@ public final class HudElements {
 		}
 	}
 
-	// The Scoreboard is a real draggable HUD element ("scoreboard" in ALL). In the
-	// editor/menu it draws this SAMPLE at its HudPos; in-game it draws NOTHING here —
-	// the vanilla sidebar renders, repositioned to the same HudPos + scale by
-	// GuiScoreboardMixin. So dragging the sample moves the real scoreboard.
-	private static final String SB_TITLE = "Origin Network";
+	// The Scoreboard is a real draggable HUD element ("scoreboard" in ALL). With the mod
+	// on, Origin draws the server's sidebar itself: GuiScoreboardMixin hands over the
+	// Objective and cancels vanilla's draw, so Hide Numbers, Text Shadow, Border (+
+	// Thickness), Header Color and Background Color apply to the REAL board, laid out
+	// exactly like the editor sample (they used to change only the sample). The board's
+	// own measured size is the element's size, so the editor box, the scale pivot and the
+	// board agree -- the old pivot used the sample's size and wide boards (Hypixel's)
+	// landed off-screen. Any failure falls back to vanilla's sidebar.
+	private static final Component SB_TITLE = Component.literal("Origin Network");
 	private static final String[][] SB_ROWS = {
 			{"Rank: ", "VIP"}, {"Coins: ", "1,234"}, {"Wins: ", "42"},
 			{"Map: ", "Skylands"}, {"Players: ", "12/16"}};
+	private static final Component[] SB_NAMES = new Component[SB_ROWS.length];
+	private static final Component[] SB_SCORES = new Component[SB_ROWS.length];
+	static {
+		for (int i = 0; i < SB_ROWS.length; i++) {
+			SB_NAMES[i] = Component.literal(SB_ROWS[i][0]);
+			SB_SCORES[i] = Component.literal(SB_ROWS[i][1]);
+		}
+	}
+
+	// The last real board GuiScoreboardMixin saw (render thread only).
+	private static Component boardTitle;
+	private static Component[] boardNames = new Component[0];
+	private static Component[] boardScores = new Component[0];
+	private static long boardSeenAt;
+
+	/** A server board was on screen within the last half second. */
+	private static boolean boardShown() {
+		return boardTitle != null && System.currentTimeMillis() - boardSeenAt < 500;
+	}
 
 	public static int[] sampleScoreboardSize() {
-		var font = Minecraft.getInstance().font;
-		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
-		int w = font.width(SB_TITLE);
-		for (String[] r : SB_ROWS) {
-			w = Math.max(w, font.width(r[0]) + (hideNums ? 0 : font.width(r[1]) + 10));
-		}
-		int lineH = font.lineHeight + 1;
-		return new int[]{w + 6, (SB_ROWS.length + 1) * lineH + 3};
+		return boardSize(SB_TITLE, SB_NAMES, SB_SCORES);
+	}
+
+	/** The scoreboard element's size: the real board while one is shown, else the sample. */
+	public static int[] scoreboardSize() {
+		return boardShown() ? boardSize(boardTitle, boardNames, boardScores) : sampleScoreboardSize();
 	}
 
 	/** The scoreboard element's placement — shared by the editor element AND the
-	 *  mixin that repositions the real sidebar. Default: right edge (inset 3), centred. */
+	 *  mixin that draws the real sidebar. Default: right edge (inset 3), centred. */
 	public static HudPos scoreboardPos() {
 		return HudPos.load("scoreboard", new HudPos(5, -3, 0, 1.0));
 	}
 
-	// Draws the sample scoreboard at LOCAL (0,0) — the caller has already translated
-	// and scaled to the element's position.
-	private static void drawSampleScoreboard(GuiGraphicsExtractor g) {
+	/** GuiScoreboardMixin, in place of vanilla's sidebar (mod on, not hidden). Draws the
+	 *  board at the element's HudPos + scale, the same transform renderAll uses.
+	 *  false = Origin couldn't, vanilla's sidebar draws instead. */
+	public static boolean drawRealScoreboard(GuiGraphicsExtractor g, Objective objective) {
+		try {
+			collectBoard(objective);
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.gui.screen() instanceof HudEditorScreen) {
+				return true;   // the HUD editor draws it as the draggable element
+			}
+			HudPos p = scoreboardPos();
+			int[] sz = boardSize(boardTitle, boardNames, boardScores);
+			double w = sz[0] * p.scale, h = sz[1] * p.scale;
+			double x = p.x(g.guiWidth(), w), y = p.y(g.guiHeight(), h);
+			var pose = g.pose();
+			pose.pushMatrix();
+			try {
+				pose.translate((float) x, (float) y);
+				pose.scale((float) p.scale, (float) p.scale);
+				drawBoard(g, boardTitle, boardNames, boardScores, 0xFFFFFFFF, 0xFFFFFFFF);
+			} finally {
+				pose.popMatrix();
+			}
+			return true;
+		} catch (Throwable t) {
+			boardTitle = null;
+			return false;
+		}
+	}
+
+	// 1.20.3+: vanilla's rows -- entries not hidden, highest score first then name
+	// (case-insensitive), top 15; numbers in the objective's own format (blank on
+	// servers that hide them), names with their team prefix/suffix.
+	private static void collectBoard(Objective objective) {
+		var scoreboard = objective.getScoreboard();
+		var format = objective.numberFormatOrDefault(net.minecraft.network.chat.numbers.StyledFormat.SIDEBAR_DEFAULT);
+		List<net.minecraft.world.scores.PlayerScoreEntry> list = new ArrayList<>();
+		for (net.minecraft.world.scores.PlayerScoreEntry e : scoreboard.listPlayerScores(objective)) {
+			if (!e.isHidden()) {
+				list.add(e);
+			}
+		}
+		list.sort(java.util.Comparator.comparingInt(net.minecraft.world.scores.PlayerScoreEntry::value).reversed()
+				.thenComparing(net.minecraft.world.scores.PlayerScoreEntry::owner, String.CASE_INSENSITIVE_ORDER));
+		int n = Math.min(15, list.size());
+		Component[] names = new Component[n];
+		Component[] scores = new Component[n];
+		for (int i = 0; i < n; i++) {
+			net.minecraft.world.scores.PlayerScoreEntry e = list.get(i);
+			names[i] = net.minecraft.world.scores.PlayerTeam.formatNameForTeam(scoreboard.getPlayersTeam(e.owner()), e.ownerName());
+			scores[i] = e.formatValue(format);
+		}
+		boardTitle = objective.getDisplayName();
+		boardNames = names;
+		boardScores = scores;
+		boardSeenAt = System.currentTimeMillis();
+	}
+
+	/** {w, h} of a board: title line + one line per row, numbers right-aligned. */
+	private static int[] boardSize(Component title, Component[] names, Component[] scores) {
+		var font = Minecraft.getInstance().font;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		int w = font.width(title);
+		for (int i = 0; i < names.length; i++) {
+			int nw = hideNums ? 0 : font.width(scores[i]);
+			w = Math.max(w, font.width(names[i]) + (nw > 0 ? nw + 10 : 0));
+		}
+		int lineH = font.lineHeight + 1;
+		return new int[]{w + 6, (names.length + 1) * lineH + 3};
+	}
+
+	// The HUD editor's element: the real board while a server shows one, else the sample.
+	// Drawn at LOCAL (0,0) — the caller has already translated and scaled.
+	private static void drawEditorScoreboard(GuiGraphicsExtractor g) {
 		if (Mods.bool("scoreboard", "hideScoreboard")) {
 			return;
 		}
+		if (boardShown()) {
+			drawBoard(g, boardTitle, boardNames, boardScores, 0xFFFFFFFF, 0xFFFFFFFF);
+		} else {
+			drawBoard(g, SB_TITLE, SB_NAMES, SB_SCORES, TEXT, 0xFFE05555);
+		}
+	}
+
+	// One layout for the sample and the real board, at LOCAL (0,0). Text colours are the
+	// fallbacks: a server's own coloured title / team names / number format win over them.
+	private static void drawBoard(GuiGraphicsExtractor g, Component title, Component[] names, Component[] scores,
+			int nameColor, int scoreColor) {
 		var font = Minecraft.getInstance().font;
 		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
 		boolean shadow = Mods.bool("scoreboard", "textShadow");
 		int headerColor = OriginColorPicker.liveColor("scoreboard", "headerColor");
 		int bg = OriginColorPicker.liveColor("scoreboard", "bgColor");
-		int[] sz = sampleScoreboardSize();
+		int[] sz = boardSize(title, names, scores);
 		int boxW = sz[0], contentH = sz[1];
 		int lineH = font.lineHeight + 1;
 		OriginUi.panel(g, 0, 0, boxW, contentH, 0, bg, 0);
 		if (Mods.bool("scoreboard", "border")) {
-			int bt = (int) Math.max(1, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
-			int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
-			g.fill(0, 0, boxW, bt, bc);
-			g.fill(0, contentH - bt, boxW, contentH, bc);
-			g.fill(0, 0, bt, contentH, bc);
-			g.fill(boxW - bt, 0, boxW, contentH, bc);
+			int bt = (int) Math.max(0, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));   // 0 = no border
+			if (bt > 0) {
+				int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
+				g.fill(0, 0, boxW, bt, bc);
+				g.fill(0, contentH - bt, boxW, contentH, bc);
+				g.fill(0, 0, bt, contentH, bc);
+				g.fill(boxW - bt, 0, boxW, contentH, bc);
+			}
 		}
 		int ty = 2;
-		g.text(font, SB_TITLE, (boxW - font.width(SB_TITLE)) / 2, ty, headerColor, shadow);
+		g.text(font, title, (boxW - font.width(title)) / 2, ty, headerColor, shadow);
 		ty += lineH + 1;
-		for (String[] r : SB_ROWS) {
-			g.text(font, r[0], 3, ty, TEXT, shadow);
+		for (int i = 0; i < names.length; i++) {
+			g.text(font, names[i], 3, ty, nameColor, shadow);
 			if (!hideNums) {
-				g.text(font, r[1], boxW - 3 - font.width(r[1]), ty, 0xFFE05555, shadow);
+				g.text(font, scores[i], boxW - 3 - font.width(scores[i]), ty, scoreColor, shadow);
 			}
 			ty += lineH;
 		}

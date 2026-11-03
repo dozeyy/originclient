@@ -36,7 +36,7 @@ public final class OriginKeyBindings {
 		freelook = KeyBindingHelper.registerKeyBinding(new KeyMapping(
 				"key.originclient.freelook",
 				InputConstants.Type.KEYSYM,
-				InputConstants.UNKNOWN.getValue(),
+				InputConstants.KEY_LALT,   // same default as the Origin menu's Freelook Key (OriginClientMod.syncKey)
 				CATEGORY));
 
 		copyCoords = KeyBindingHelper.registerKeyBinding(new KeyMapping(

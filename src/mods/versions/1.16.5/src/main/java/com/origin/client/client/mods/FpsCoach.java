@@ -278,7 +278,9 @@ public final class FpsCoach {
 			} else {
 				teleportAt = now;   // dimension change (or a server switch)
 			}
-			if (phase != Phase.NONE) {
+			if (level == null) {
+				restoreHeld();   // left the world mid-try (or before answering): put the setting back
+			} else if (phase != Phase.NONE) {
 				stopTestEarly();
 			}
 			lastLevel = level;
@@ -615,6 +617,28 @@ public final class FpsCoach {
 
 	public static Result result() {
 		return result;
+	}
+
+	/**
+	 * Leaving the world or quitting the game while a "Try it" is still running, or before its
+	 * result was answered: the tried setting goes back. A try only sticks when the player keeps it.
+	 * Never throws (also runs from the game's shutdown path).
+	 */
+	public static void restoreHeld() {
+		Result r = result;
+		Runnable undo = testUndo != null ? testUndo : (r != null ? r.undo() : null);
+		phase = Phase.NONE;
+		testTip = null;
+		testUndo = null;
+		result = null;
+		size = 0;
+		if (undo != null) {
+			try {
+				undo.run();
+			} catch (Throwable t) {
+				com.origin.client.OriginClient.LOGGER.warn("Origin: FPS Coach could not put a tried setting back", t);
+			}
+		}
 	}
 
 	public static void keep() {

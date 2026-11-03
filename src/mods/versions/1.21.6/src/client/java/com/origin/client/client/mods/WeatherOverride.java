@@ -41,7 +41,8 @@ public final class WeatherOverride {
 			return null;
 		}
 		// Snow isn't its own weather in Minecraft -- it's rain falling in a cold
-		// biome, so it wants a full rain level too. Only Clear means none.
+		// biome, so it wants a full rain level too (WeatherSnowMixin turns that
+		// rain into snow everywhere). Only Clear means none.
 		return Mods.mode("weather", "mode").equals("Clear") ? 0f : 1f;
 	}
 
@@ -50,8 +51,25 @@ public final class WeatherOverride {
 		if (!applies(level)) {
 			return null;
 		}
-		String mode = Mods.mode("weather", "mode");
-		boolean on = mode.equals("Thunder") || Mods.bool("weather", "thunder");
-		return on ? 1f : 0f;
+		return thunderOn(Mods.mode("weather", "mode")) ? 1f : 0f;
+	}
+
+	/**
+	 * Whether thunder is on for this weather mode. The Thunder toggle rides on a
+	 * weather that has precipitation (Rain, Snow); "Clear" with Thunder on stays
+	 * clear -- no darkened sky, no thunder sounds out of a clear sky.
+	 */
+	public static boolean thunderOn(String mode) {
+		return mode.equals("Thunder") || (!mode.equals("Clear") && Mods.bool("weather", "thunder"));
+	}
+
+	/**
+	 * True while the mode is Snow: WeatherSnowMixin then makes the weather
+	 * renderer draw snow (never rain, splashes or rain sounds) in every biome.
+	 * Vanilla picks rain vs snow from the biome temperature, so forcing the rain
+	 * level alone showed rain anywhere warm.
+	 */
+	public static boolean snowEverywhere() {
+		return Mods.on("weather") && Mods.mode("weather", "mode").equals("Snow");
 	}
 }

@@ -33,7 +33,10 @@ public class EntityNametagMixin {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (entity == mc.player && !mc.options.getCameraType().isFirstPerson()) {
+		// Lift ONLY vanilla's "not the camera entity" rule: the tag still hides in F1,
+		// while you are invisible to yourself, and while something rides you.
+		if (entity == mc.player && entity == mc.getCameraEntity() && !mc.options.getCameraType().isFirstPerson()
+				&& Minecraft.renderNames() && !entity.isInvisibleTo(mc.player) && !entity.isVehicle()) {
 			cir.setReturnValue(true);
 		}
 	}

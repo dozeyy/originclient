@@ -28,6 +28,20 @@ public class GuiScoreboardMixin {
 			ci.cancel();
 			return;
 		}
+		if (Mods.on("scoreboard")) {
+			// The mod draws the whole board itself (SidebarHud): the real board's size for
+			// the HUD-editor box and placement, plus Hide Numbers / Text Shadow / Border /
+			// Header Color, which vanilla's draw can't do. Cancelled before the push, like
+			// Hide Scoreboard. A throw falls through to vanilla's board, moved as below.
+			try {
+				if (com.origin.client.client.hud.SidebarHud.render(poseStack, objective)) {
+					ci.cancel();
+					return;
+				}
+			} catch (Throwable t) {
+				// vanilla's sidebar draws instead
+			}
+		}
 		Gfx guiGraphics = new Gfx(poseStack);
 		com.mojang.blaze3d.vertex.PoseStack pose = guiGraphics.pose();
 		pose.pushPose();

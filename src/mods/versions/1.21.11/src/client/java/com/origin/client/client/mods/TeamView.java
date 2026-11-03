@@ -52,12 +52,16 @@ public final class TeamView {
 	}
 
 	// Written by the world pass, read by the HUD pass -- both on the render thread.
-	private static List<Marker> markers = new ArrayList<>();
+	// One list, cleared and refilled each frame (it used to be a new list every
+	// frame, even with Team View off); the matrices below are reused the same way.
+	private static final List<Marker> markers = new ArrayList<>();
+	private static final Vector4f V = new Vector4f();
+	private static final Quaternionf ROT = new Quaternionf();
 
 	/** World pass (WorldRenderEvents.END_MAIN): project each marked player's head. */
 	static void capture(WorldRenderContext ctx) {
-		List<Marker> out = new ArrayList<>();
-		markers = out;
+		List<Marker> out = markers;
+		out.clear();
 		Minecraft mc = Minecraft.getInstance();
 		if (!Mods.on(MOD) || mc.player == null || mc.level == null) {
 			return;
@@ -78,7 +82,7 @@ public final class TeamView {
 		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
 				.originclient$getFov(mc.gameRenderer.getMainCamera(), 1.0f, true);
 		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
-		viewProj.rotate(new Quaternionf(camState.orientation).conjugate());
+		viewProj.rotate(ROT.set(camState.orientation).conjugate());
 		Vec3 cam = camState.pos;
 		float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
@@ -99,7 +103,7 @@ public final class TeamView {
 			}
 			Vec3 pos = p.getPosition(pt);
 			double wx = pos.x - cam.x, wy = pos.y + p.getBbHeight() + 0.75 - cam.y, wz = pos.z - cam.z;
-			Vector4f v = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
+			Vector4f v = V.set((float) wx, (float) wy, (float) wz, 1f);
 			viewProj.transform(v);
 			if (v.w <= 0.05f) {
 				continue;   // behind the camera

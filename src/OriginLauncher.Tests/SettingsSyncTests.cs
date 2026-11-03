@@ -606,4 +606,51 @@ public class SettingsSyncTests
         Assert.True(McVersion.AtLeast("1.21.11", "1.21.2"));
         Assert.True(McVersion.AtLeast("26.2", "1.21.11"));
     }
+
+    // ---------------------------------------------------------------- switch turned on mid-session
+
+    [Fact]
+    public void TurningSyncOnWhileAGameRunsCollectsThatSessionWhenItExits()
+    {
+        var running = Instance("1.21.1");
+        var other = Instance("1.20.1");
+        Write(running, "options.txt", Options("version:3955", "fov:0.0", "guiScale:2"), 1);
+        Write(other, "options.txt", Options("version:3465", "fov:0.0", "guiScale:3"), 2);
+
+        // The switch goes on while 1.21.1 is being played: the seed leaves it out (it is never read while running).
+        var engine = Engine();
+        engine.Seed(new[] { other }, running: new[] { "1.21.1" });
+        Assert.Equal(new[] { "1.21.1" }, engine.Store.SeedPending);
+
+        // The player changes FOV during that session and quits; the game writes its options on exit.
+        Write(running, "options.txt", Options("version:3955", "fov:0.75", "guiScale:2"), 30);
+        engine.Harvest(running); // SettingsSync.AfterExit
+        Assert.Empty(engine.Store.SeedPending);
+
+        engine.Push(other);
+        var after = OptionsOf(other);
+        Assert.Equal("0.75", after["fov"]);     // that session's change reached the other version
+        Assert.Equal("2", after["guiScale"]);   // newest file wins per key, exactly like a seed
+        Assert.Equal("3465", after["version"]);
+
+        // From then on it is an ordinary synced instance: an untouched key no longer beats a newer change elsewhere.
+        Write(other, "options.txt", Options("version:3465", "fov:0.75", "guiScale:4"), 60);
+        engine.Harvest(other);
+        engine.Harvest(running);
+        engine.Push(running);
+        Assert.Equal("4", OptionsOf(running)["guiScale"]);
+    }
+
+    [Fact]
+    public void ASeedPendingVersionSurvivesASaveAndLoad()
+    {
+        var store = new SyncStoreData();
+        new SettingsSyncEngine(store).Seed(Array.Empty<SyncInstance>(), running: new[] { "26.2", "26.2" });
+        var path = Path.Combine(_root, "store.json");
+        SyncStoreFile.Save(path, store);
+        Assert.Equal(new[] { "26.2" }, SyncStoreFile.Load(path)!.SeedPending);
+
+        File.WriteAllText(path, "{\"Format\":1,\"Files\":{},\"Baselines\":{}}"); // a store saved before this field
+        Assert.Empty(SyncStoreFile.Load(path)!.SeedPending);
+    }
 }

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Origin Launcher
+GenericName=Minecraft Launcher
+Comment=Play Minecraft with Origin Client
+Exec=origin-launcher
+Icon=org.originclient.Launcher
+Terminal=false
+Categories=Game;
+Keywords=Minecraft;Launcher;Origin;
+StartupNotify=true

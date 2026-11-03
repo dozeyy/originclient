@@ -36,6 +36,8 @@
 		"SingleQuadParticleMixin",
 		"LevelTimeMixin",
 		"HitboxMixin",
+		"HitboxFactsMixin",
+		"EntityRenderStateHitboxMixin",
 		"EntityNametagMixin",
 		"NametagStyleMixin",
 		"ItemEntityScaleMixin",
@@ -55,6 +57,7 @@
 		"JeiGuiEventHandlerMixin",
 		"JeiClientInputHandlerMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"LivingNametagMixin",
 		"GuiCrosshairMixin",
 		"GuiFoodMixin",
@@ -87,6 +90,7 @@
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"IrisPipelineHalfRateMixin",
 		"IrisShadowRendererHalfRateMixin",
@@ -101,7 +105,13 @@
 		"SodiumViewportShadowMapMixin",
 		"SodiumWorldRendererReuseMixin",
 		"LevelRendererCullFrustumMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsAvatarStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

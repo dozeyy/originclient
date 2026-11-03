@@ -50,6 +50,7 @@
 		"JeiGuiEventHandlerMixin",
 		"JeiClientInputHandlerMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"LivingNametagMixin",
 		"SpriteIconButtonMixin",
 		"SpriteIconButtonAccessor",
@@ -90,6 +91,7 @@
 		"CosmeticsPauseMixin",
 		"PackSelectionScreenAccessor",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"EntityRendererCullingBoxInvoker",
 		"ShadowCasterEntityMixin",
@@ -106,7 +108,14 @@
 		"SodiumRenderSectionManagerAccessor",
 		"SodiumWalkEndMixin",
 		"SodiumWorldRendererReuseMixin",
-		"CameraCullFrustumMixin"
+		"CameraCullFrustumMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsItemStateAccessor",
+		"OldAnimationsItemLayerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0

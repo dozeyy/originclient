@@ -71,10 +71,11 @@ final class Readouts {
 		HudElements.add("packdisplay", "packdisplay", "Pack Display", new HudPos(8, -6, -6, 1.0),
 				Readouts::packSize, Readouts::renderPacks);
 
-		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 60, 1.0),
+		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 244, 1.0) /* under Potions (C3) */,
 				Readouts::itemCounterSize, Readouts::renderItemCounter);
 
-		HudElements.add("directionhud", "directionhud", "Direction", new HudPos(1, 0, 4, 1.0),
+		// Default just below one boss bar (Boss Bar: y 3, 14 tall), never on top of it.
+		HudElements.add("directionhud", "directionhud", "Direction", new HudPos(1, 0, 22, 1.0),
 				mc -> new int[]{dirWidth(), DIR_H}, Readouts::renderDirection);
 	}
 
@@ -358,11 +359,47 @@ final class Readouts {
 		}
 	}
 
+	/** Rows cache: built from these selected entries (by identity, in order) with these option
+	 *  bits. Building the rows (description wrap, name regex) used to run twice a frame; now it
+	 *  runs only when the packs or the options change. 1.8.9's getRepositoryEntries() hands out
+	 *  a fresh copy each call (javap), so the entries are compared one by one, not the list. */
+	private static List<ResourcePackRepository.Entry> rowsEntries = null;
+	private static int rowsFlags = -1;
+	private static List<PackRow> rowsCache = null;
+
+	private static List<PackRow> packRows(Minecraft mc) {
+		List<ResourcePackRepository.Entry> entries = mc.getResourcePackRepository().getRepositoryEntries();
+		int flags = (Mods.bool("packdisplay", "showAllPacks") ? 1 : 0)
+				| (Mods.bool("packdisplay", "packIcon") ? 2 : 0)
+				| (Mods.bool("packdisplay", "packDescription") ? 4 : 0)
+				| (Mods.bool("packdisplay", "packExtension") ? 8 : 0)
+				| (Mods.bool("packdisplay", "keepStrikethrough") ? 16 : 0)
+				| (Mods.bool("packdisplay", "keepObfuscated") ? 32 : 0);
+		if (rowsCache == null || flags != rowsFlags || !sameEntries(entries, rowsEntries)) {
+			rowsCache = buildPackRows(mc, entries);
+			rowsEntries = entries;
+			rowsFlags = flags;
+		}
+		return rowsCache;
+	}
+
+	private static boolean sameEntries(List<ResourcePackRepository.Entry> a, List<ResourcePackRepository.Entry> b) {
+		if (b == null || a.size() != b.size()) {
+			return false;
+		}
+		for (int i = 0; i < a.size(); i++) {
+			if (a.get(i) != b.get(i)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/** The packs to show: the top-most enabled pack, or every one (top first).
 	 *  1.8.9: the selected list holds only the player's packs (the default pack is
 	 *  never in it), bottom -> top as Minecraft.refreshResources stacks them. */
-	private static List<PackRow> packRows(Minecraft mc) {
-		List<ResourcePackRepository.Entry> chosen = new ArrayList<>(mc.getResourcePackRepository().getRepositoryEntries());
+	private static List<PackRow> buildPackRows(Minecraft mc, List<ResourcePackRepository.Entry> entries) {
+		List<ResourcePackRepository.Entry> chosen = new ArrayList<>(entries);
 		java.util.Collections.reverse(chosen);   // selected order is bottom -> top
 		if (!Mods.bool("packdisplay", "showAllPacks") && chosen.size() > 1) {
 			chosen = chosen.subList(0, 1);

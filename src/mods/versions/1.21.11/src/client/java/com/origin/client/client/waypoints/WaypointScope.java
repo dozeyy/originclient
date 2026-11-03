@@ -24,10 +24,55 @@ public final class WaypointScope {
 	private WaypointScope() {
 	}
 
-	/** Scope key of a singleplayer save, from its folder name. */
+	/** Scope key of a singleplayer save, from its folder name (the pre-version key; see below). */
 	public static String singleplayer(String saveFolder) {
 		String f = saveFolder == null ? "" : saveFolder.trim();
 		return "sp:" + (f.isEmpty() ? "unknown" : f);
+	}
+
+	/**
+	 * Scope key of a singleplayer save in one Minecraft version: "sp:<version>:<folder>".
+	 * Settings Sync carries every waypoint file to every version's instance, where a
+	 * same-named save ("New World") is a different world -- keyed by folder alone, its
+	 * waypoints showed up in all of them. A blank version falls back to the old key.
+	 */
+	public static String singleplayer(String saveFolder, String mcVersion) {
+		String v = mcVersion == null ? "" : mcVersion.trim();
+		String plain = singleplayer(saveFolder);
+		return v.isEmpty() ? plain : "sp:" + v + ":" + plain.substring(3);
+	}
+
+	/**
+	 * The key a versioned singleplayer key used before the version was added (the one to
+	 * migrate from), or null when {@code key} isn't a singleplayer key of {@code mcVersion}.
+	 */
+	public static String unversioned(String key, String mcVersion) {
+		String v = mcVersion == null ? "" : mcVersion.trim();
+		String head = "sp:" + v + ":";
+		if (key == null || v.isEmpty() || !key.startsWith(head)) {
+			return null;
+		}
+		return "sp:" + key.substring(head.length());
+	}
+
+	/**
+	 * One-time move to the versioned key: a world whose versioned file doesn't exist yet
+	 * starts from a COPY of its old unversioned file. The old file stays (other versions
+	 * migrate from it too, and it is the backup); once the new file exists -- written even
+	 * when the list is empty -- this never copies again. Atomic: tmp file, then move.
+	 *
+	 * @return true if {@code previousFile} was copied into {@code scopeFile}
+	 */
+	public static boolean adoptPrevious(Path previousFile, Path scopeFile) throws IOException {
+		if (previousFile == null || previousFile.equals(scopeFile)
+				|| !Files.isRegularFile(previousFile) || Files.exists(scopeFile)) {
+			return false;
+		}
+		Path tmp = scopeFile.resolveSibling(scopeFile.getFileName() + ".tmp");
+		Files.createDirectories(scopeFile.getParent());
+		Files.copy(previousFile, tmp, StandardCopyOption.REPLACE_EXISTING);
+		Files.move(tmp, scopeFile, StandardCopyOption.REPLACE_EXISTING);
+		return true;
 	}
 
 	/**

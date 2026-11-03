@@ -53,6 +53,11 @@ public class GameRendererMixin {
 			} else {
 				originclient$zoomAnim = target;
 			}
+			// The scroll-zoom depth stays until the zoom-out ease is over (it was reset on the
+			// release tick, so the FOV jumped mid-ease); a fresh zoom starts at the normal depth.
+			if (!active && originclient$zoomAnim <= 0.001) {
+				OriginClientMod.zoomScrollFactor = 1.0;
+			}
 		} catch (Throwable t) {
 			// A zoom error must never crash the frame -- the ease just holds this frame.
 		}

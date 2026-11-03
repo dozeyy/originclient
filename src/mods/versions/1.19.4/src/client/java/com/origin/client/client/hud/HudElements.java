@@ -313,8 +313,15 @@ public final class HudElements {
 		return new int[]{top, bottom};
 	}
 
+	// Reused every frame (render thread only): the armour HUD asks for its items twice a
+	// frame (size, then draw) and used to build a new list each time. Callers only read
+	// the result before the next call.
+	private static final List<ItemStack> ARMOR_ITEMS = new ArrayList<>();
+	private static List<ItemStack> armorPreview;   // the editor's sample loadout, built once
+
 	private static List<ItemStack> armorItems(Minecraft mc) {
-		List<ItemStack> items = new ArrayList<>();
+		List<ItemStack> items = ARMOR_ITEMS;
+		items.clear();
 		if (mc.player != null) {
 			for (ItemStack s : mc.player.getInventory().armor) {
 				if (!s.isEmpty()) {
@@ -327,8 +334,11 @@ public final class HudElements {
 			}
 		}
 		if (items.isEmpty() && editorPreview) {
-			items = new ArrayList<>(List.of(new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE),
-					new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS), new ItemStack(Items.DIAMOND_SWORD)));
+			if (armorPreview == null) {
+				armorPreview = new ArrayList<>(List.of(new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE),
+						new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS), new ItemStack(Items.DIAMOND_SWORD)));
+			}
+			return armorPreview;
 		}
 		return items;
 	}
@@ -409,7 +419,8 @@ public final class HudElements {
 		}, HudElements::renderKeystrokes);
 
 		// ---- Potion Effects ----
-		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 6, 1.0), mc -> {
+		// default stack, top-right (C3): Server IP 6, Minimap 34, Potions 160, Item Counter 244
+		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 160, 1.0), mc -> {
 			// width grows to the widest FULL name+time so nothing is ellipsised;
 			// right-anchored, so it just extends further left to fit.
 			var rows = potionRows(mc);
@@ -441,7 +452,7 @@ public final class HudElements {
 			}
 			int y = 0;
 			for (PotionRow row : rows) {
-				drawEffectRow(g, mc, y, row.effect, row.duration, row.infinite);
+				drawEffectRow(g, mc, y, row);
 				y += 20;
 			}
 		});
@@ -498,10 +509,10 @@ public final class HudElements {
 		// HudPos loaded by scoreboardPos()). In the editor it shows the sample; in-game
 		// it draws nothing here (the vanilla sidebar draws, repositioned by the mixin).
 		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
-				mc -> sampleScoreboardSize(),
+				HudElements::scoreboardSize,
 				(g, mc, w, h) -> {
 					if (editorPreview && !suppressScoreboard) {
-						drawSampleScoreboard(g);
+						drawEditorScoreboard(g, mc);
 					}
 				});
 
@@ -596,14 +607,35 @@ public final class HudElements {
 
 	// ---- potions ----
 
-	private record PotionRow(MobEffect effect, int duration, boolean infinite) {
+	private record PotionRow(MobEffect effect, int duration, boolean infinite, int amplifier) {
+	}
+
+	/** What a potion row draws, exactly: {name, time}; name is null when only the time
+	 *  shows (Minimal, or Effect Name off). The row's width and its drawing both come from
+	 *  here, so the background always matches the text. */
+	private static String[] rowText(PotionRow row) {
+		int secs = row.duration / 20;
+		String time = row.infinite ? "∞"
+				: Mods.bool("potionhud", "formattedDurations")
+				? secs / 60 + ":" + String.format("%02d", secs % 60)
+				: secs + "s";
+		if (!Mods.bool("potionhud", "effectName") || Mods.bool("potionhud", "minimal")) {
+			return new String[]{null, time};
+		}
+		String name = row.effect.getDisplayName().getString();
+		// the level, like vanilla's inventory: amplifier 0 shows none, 1 = "II", ... 9 = "X"
+		if (row.amplifier >= 1 && row.amplifier <= 9) {
+			name += " " + net.minecraft.client.resources.language.I18n.get("enchantment.level." + (row.amplifier + 1));
+		}
+		if (Mods.bool("potionhud", "uppercase")) {
+			name = name.toUpperCase(java.util.Locale.ROOT);
+		}
+		return new String[]{name, time};
 	}
 
 	private static int rowTextWidth(Minecraft mc, PotionRow row) {
-		String name = row.effect.getDisplayName().getString();
-		int secs = row.duration / 20;
-		String time = row.infinite ? "∞" : secs / 60 + ":" + String.format("%02d", secs % 60);
-		return mc.font.width(name + " " + time);
+		String[] text = rowText(row);
+		return text[0] == null ? mc.font.width(text[1]) : mc.font.width(text[0] + " " + text[1]);
 	}
 
 	private static List<PotionRow> potionRows(Minecraft mc) {
@@ -614,17 +646,20 @@ public final class HudElements {
 				if (excludePerm && e.isInfiniteDuration()) {
 					continue;
 				}
-				rows.add(new PotionRow(e.getEffect(), e.getDuration(), e.isInfiniteDuration()));
+				rows.add(new PotionRow(e.getEffect(), e.getDuration(), e.isInfiniteDuration(), e.getAmplifier()));
 			}
 		}
 		if (rows.isEmpty() && editorPreview) {
-			rows.add(new PotionRow(MobEffects.MOVEMENT_SPEED, 83 * 20, false));
-			rows.add(new PotionRow(MobEffects.DAMAGE_BOOST, 45 * 20, false));
+			rows.add(new PotionRow(MobEffects.MOVEMENT_SPEED, 83 * 20, false, 0));
+			rows.add(new PotionRow(MobEffects.DAMAGE_BOOST, 45 * 20, false, 1));   // preview shows a level
 		}
 		return rows;
 	}
 
-	private static void drawEffectRow(Gfx g, Minecraft mc, int y, MobEffect effect, int duration, boolean infinite) {
+	private static void drawEffectRow(Gfx g, Minecraft mc, int y, PotionRow row) {
+		MobEffect effect = row.effect;
+		int duration = row.duration;
+		boolean infinite = row.infinite;
 		int secs = duration / 20;
 		// Blink: within the threshold, the row pulses like vanilla's expiring icons
 		if (!infinite && Mods.bool("potionhud", "blink")
@@ -639,16 +674,10 @@ public final class HudElements {
 			g.fill(2, y + 4, 12, y + 14, 0xFF000000 | effect.getColor());
 		}
 		boolean shadow = Mods.bool("potionhud", "textShadow");
-		boolean minimal = Mods.bool("potionhud", "minimal");
-		boolean showName = Mods.bool("potionhud", "effectName") && !minimal;
-		String name = effect.getDisplayName().getString();
-		if (Mods.bool("potionhud", "uppercase")) {
-			name = name.toUpperCase(java.util.Locale.ROOT);
-		}
-		String time = infinite ? "∞"
-				: Mods.bool("potionhud", "formattedDurations")
-				? secs / 60 + ":" + String.format("%02d", secs % 60)
-				: secs + "s";
+		String[] text = rowText(row);   // the same strings rowTextWidth measured
+		boolean showName = text[0] != null;
+		String name = text[0];
+		String time = text[1];
 		int nameColor = Mods.bool("potionhud", "colorByEffect")
 				? 0xFF000000 | effect.getColor()
 				: OriginColorPicker.liveColor("potionhud", "textColor");
@@ -686,12 +715,15 @@ public final class HudElements {
 			// background hugs however many pieces are actually worn, growing
 			// piece by piece — never the full-loadout gray slab
 			boolean dur = !durPos.equals("Hidden");
-			int wAct = vertical ? 19 + (dur ? 30 : 0) : items.size() * 19;
+			int wAct = vertical ? 19 + (dur ? 34 : 0) : items.size() * 19;   // = the measured box
 			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
 			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
-		int x = 0, y = 0;
+		// Durability "Left" (vertical list): the numbers take the box's left 34 px and the
+		// items sit to their right, so nothing draws left of the element (it used to run
+		// off-screen at the default bottom-left spot).
+		int x = vertical && durPos.equals("Left") ? 34 : 0, y = 0;
 		for (ItemStack stack : items) {
 			g.renderItem(stack, x, y);
 			if (Mods.bool("armorhud", "itemCount")) {
@@ -751,8 +783,8 @@ public final class HudElements {
 			key(g, mc, 48, 24, 22, 22, arrows ? "→" : "D", o.keyRight.isDown());
 		}
 		if (Mods.bool("keystrokes", "showClicks")) {
-			key(g, mc, 0, 48, 34, 14, "LMB", ClickStats.leftDown);
-			key(g, mc, 36, 48, 34, 14, "RMB", ClickStats.rightDown);
+			key(g, mc, 0, 48, 34, 14, "LMB", ClickStats.leftDown());
+			key(g, mc, 36, 48, 34, 14, "RMB", ClickStats.rightDown());
 		}
 		if (Mods.bool("keystrokes", "showSpace")) {
 			int thick = (int) Math.max(1, Math.min(10, Mods.num("keystrokes", "spacebarThickness"))) + 4;
@@ -769,8 +801,9 @@ public final class HudElements {
 		int bgDown = OriginColorPicker.liveColor("keystrokes", "bgColorPressed");
 		int fill = com.origin.client.client.theme.OriginTheme.lerpColor(bgUp, bgDown, k);
 		g.fill(x, y, x + w, y + h, fill);
-		if (Mods.bool("keystrokes", "border")) {
-			int t = (int) Math.max(1, Math.min(4, Math.round(Mods.num("keystrokes", "borderThickness"))));
+		// Border Thickness 0 = no border (the slider goes down to 0)
+		int t = (int) Math.max(0, Math.min(4, Math.round(Mods.num("keystrokes", "borderThickness"))));
+		if (Mods.bool("keystrokes", "border") && t > 0) {
 			int bc = OriginColorPicker.liveColor("keystrokes", "borderColor");
 			// top/bottom span full width; left/right fill only the gap between them
 			// so corner pixels are never drawn twice (which made corners darker
@@ -835,6 +868,39 @@ public final class HudElements {
 			{"Rank: ", "VIP"}, {"Coins: ", "1,234"}, {"Wins: ", "42"},
 			{"Map: ", "Skylands"}, {"Players: ", "12/16"}};
 
+	/** The scoreboard element's size: the real board when one is showing (so the editor box
+	 *  and the in-game placement match a wide server board), else the sample's. */
+	public static int[] scoreboardSize(Minecraft mc) {
+		try {
+			int[] real = SidebarHud.realSize(mc);
+			if (real != null) {
+				return real;
+			}
+		} catch (Throwable t) {
+			// sample size instead
+		}
+		return sampleScoreboardSize();
+	}
+
+	/** Editor / menu preview: the real board while one is showing (vanilla's draw steps aside
+	 *  while the editor is open), the sample otherwise. */
+	private static void drawEditorScoreboard(Gfx g, Minecraft mc) {
+		if (Mods.bool("scoreboard", "hideScoreboard")) {
+			return;
+		}
+		SidebarHud.Board real = null;
+		try {
+			real = SidebarHud.measure(SidebarHud.currentObjective(mc));
+		} catch (Throwable t) {
+			real = null;
+		}
+		if (real != null) {
+			SidebarHud.draw(g, real);
+		} else {
+			drawSampleScoreboard(g);
+		}
+	}
+
 	public static int[] sampleScoreboardSize() {
 		var font = Minecraft.getInstance().font;
 		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
@@ -867,14 +933,7 @@ public final class HudElements {
 		int boxW = sz[0], contentH = sz[1];
 		int lineH = font.lineHeight + 1;
 		OriginUi.panel(g, 0, 0, boxW, contentH, 0, bg, 0);
-		if (Mods.bool("scoreboard", "border")) {
-			int bt = (int) Math.max(1, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
-			int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
-			g.fill(0, 0, boxW, bt, bc);
-			g.fill(0, contentH - bt, boxW, contentH, bc);
-			g.fill(0, 0, bt, contentH, bc);
-			g.fill(boxW - bt, 0, boxW, contentH, bc);
-		}
+		SidebarHud.border(g, boxW, contentH);   // thickness 0 = no border, same as the real board
 		int ty = 2;
 		g.drawString(font, SB_TITLE, (boxW - font.width(SB_TITLE)) / 2, ty, headerColor, shadow);
 		ty += lineH + 1;

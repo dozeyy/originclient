@@ -176,7 +176,7 @@ public final class Quickplay {
 		boolean again = active && KeyCodes.isDown(Mods.keyCode(ID, "requeueKey"));
 		if (open && !openWasDown) {
 			mc.displayGuiScreen(new com.origin.client.client.gui.QuickplayScreen());
-		} else if (again && !againWasDown) {
+		} else if (again && !againWasDown && onHypixel(mc)) {   // Play Again is Hypixel-only
 			if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);
 			} else if (mc.thePlayer != null) {
@@ -203,6 +203,9 @@ public final class Quickplay {
 	}
 
 	private static void run(Minecraft mc, String command, String label) {
+		if (!onHypixel(mc)) {
+			return;   // never send Hypixel's /play or /lobby to another server
+		}
 		if (mc.getNetHandler() == null || mc.thePlayer == null) {
 			return;
 		}

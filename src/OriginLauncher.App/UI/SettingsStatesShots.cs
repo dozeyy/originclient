@@ -91,25 +91,25 @@ internal static class SettingsStatesShots
         RenderShots.Pump(200);
     }
 
-    /// <summary>Text fields: keyboard focus, the disabled state, then the two error states (a bad folder, a too-small width).</summary>
+    /// <summary>Text fields: keyboard focus, the disabled state, then the error state (a too-small width).</summary>
     private static void Inputs(MainWindow window, Pages.SettingsPage page, string dir)
     {
-        var path = (TextBox)page.FindName("InstallPathTextBox");
         var width = (TextBox)page.FindName("ResolutionWidthTextBox");
+        var height = (TextBox)page.FindName("ResolutionHeightTextBox");
         page.TourClickRail("SecGame");
         RenderShots.Pump(500);
 
-        path.BringIntoView();
+        width.BringIntoView();
         RenderShots.Pump(200);
-        path.Focus();
+        width.Focus();
         RenderShots.Pump(350);
         RenderShots.Snap(window, dir, "14n-input-focus", adorners: true);
 
         window.Focus();
-        width.IsEnabled = false;
+        height.IsEnabled = false;
         RenderShots.Pump(300);
         RenderShots.Snap(window, dir, "14o-input-disabled");
-        width.IsEnabled = true;
+        height.IsEnabled = true;
 
         page.TourShowFieldErrors();
         RenderShots.Pump(350);

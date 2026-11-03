@@ -21,10 +21,12 @@ public static class PerfModInstaller
         foreach (var mod in profile.Mods())
         {
             var destPath = Path.Combine(modsFolder, mod.FileName);
-            // Skip if already present in EITHER state — an enabled ".jar" or a
-            // ".jar.disabled" the player turned off. Re-downloading over a
-            // disabled copy would leave two of the same mod id and refuse to launch.
-            if (File.Exists(destPath) || File.Exists(destPath + ".disabled")) continue;
+            // Already on: nothing to do. Origin's OWN copy turned off (the Mods page used to offer a switch on it
+            // before it knew the jar was Origin's, and then it stayed off for good): turned back on by a rename.
+            // Any other ".jar.disabled" of this name is the player's and is left alone, not downloaded over.
+            if (File.Exists(destPath)
+                || Mods.ModManager.TryRestoreOriginsJar(modsFolder, mod.FileName, mod.Matches)
+                || File.Exists(destPath + ".disabled")) continue;
 
             progress?.Report($"Downloading {mod.FileName}...");
             using var response = await Http.GetAsync(mod.Url, HttpCompletionOption.ResponseHeadersRead, ct);

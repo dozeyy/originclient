@@ -16,6 +16,8 @@ public sealed class LauncherSettings
     public bool? RamManual { get; set; }
     public int ResolutionWidth { get; set; } = 1280;
     public int ResolutionHeight { get; set; } = 720;
+    // Legacy: kept only so older settings.json files round-trip unchanged. Nothing reads it and no control writes it;
+    // game files always live under OriginPaths.Instances (the Settings "Install folder" picker was removed).
     public string InstallPath { get; set; } = OriginPaths.Instances;
     public string? SelectedVersion { get; set; }
 

@@ -57,6 +57,8 @@ public sealed class LibraryRulesTests : IDisposable
     [InlineData("osx", "arm64", "2.9.2-nightly-20140822", "2.9.4-nightly-20150209")]
     [InlineData("osx", "x64", "2.9.2-nightly-20140822", "2.9.4-nightly-20150209")]
     [InlineData("windows", "x64", "2.9.4-nightly-20150209", "2.9.2-nightly-20140822")]
+    [InlineData("linux", "x64", "2.9.4-nightly-20150209", "2.9.2-nightly-20140822")]
+    [InlineData("linux", "arm64", "2.9.4-nightly-20150209", "2.9.2-nightly-20140822")]
     public async Task Forge_189_classpath_takes_the_lwjgl_its_os_rules_allow(string os, string arch, string wanted, string unwanted)
     {
         var classpath = await ClasspathFor("forge-1.8.9", new LauncherOSRule(os, arch, ""));
@@ -66,6 +68,36 @@ public sealed class LibraryRulesTests : IDisposable
         Assert.DoesNotContain(classpath, e => e.Contains(unwanted, StringComparison.Ordinal));
         Assert.Contains(classpath, e => e.EndsWith("launchwrapper-1.12.jar", StringComparison.Ordinal)); // the child's own library
         Assert.Contains(classpath, e => e.EndsWith("guava-17.0.jar", StringComparison.Ordinal));        // the parent's rule-free library
+    }
+
+    // LWJGL 3 versions (1.21.1 shown) list each native as its own library with an os rule. Mojang ships
+    // natives-linux (x64) only: no natives-linux-arm64 exists in its metadata (checked 2026-11-02), so an
+    // arm64 Linux machine gets the same natives-linux entry from the rules and needs arm64 natives from
+    // elsewhere to open a game window (an open item of the Linux port, not something the rules can fix).
+    [Theory]
+    [InlineData("linux", "x64", "natives-linux", "natives-windows")]
+    [InlineData("linux", "arm64", "natives-linux", "natives-windows")]
+    [InlineData("windows", "x64", "natives-windows", "natives-linux")]
+    public async Task Lwjgl3_natives_follow_the_os_rule(string os, string arch, string wanted, string unwanted)
+    {
+        Write("1.21.1", """
+        {
+          "id": "1.21.1", "type": "release", "mainClass": "net.minecraft.client.main.Main",
+          "minecraftArguments": "--username ${auth_player_name} --version ${version_name}",
+          "libraries": [
+            { "name": "org.lwjgl:lwjgl:3.3.3" },
+            { "name": "org.lwjgl:lwjgl:3.3.3:natives-linux", "rules": [ { "action": "allow", "os": { "name": "linux" } } ] },
+            { "name": "org.lwjgl:lwjgl:3.3.3:natives-windows", "rules": [ { "action": "allow", "os": { "name": "windows" } } ] },
+            { "name": "org.lwjgl:lwjgl:3.3.3:natives-macos-arm64", "rules": [ { "action": "allow", "os": { "name": "osx" } } ] }
+          ]
+        }
+        """);
+        var classpath = await ClasspathFor("1.21.1", new LauncherOSRule(os, arch, ""));
+
+        Assert.Contains(classpath, e => e.EndsWith("lwjgl-3.3.3.jar", StringComparison.Ordinal));
+        Assert.Contains(classpath, e => e.EndsWith($"lwjgl-3.3.3-{wanted}.jar", StringComparison.Ordinal));
+        Assert.DoesNotContain(classpath, e => e.Contains(unwanted, StringComparison.Ordinal));
+        Assert.DoesNotContain(classpath, e => e.Contains("natives-macos", StringComparison.Ordinal));
     }
 
     private async Task<string[]> ClasspathFor(string versionName, LauncherOSRule os)

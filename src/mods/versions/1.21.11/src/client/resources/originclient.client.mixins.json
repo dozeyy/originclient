@@ -49,6 +49,7 @@
 		"JeiGuiEventHandlerMixin",
 		"JeiClientInputHandlerMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"LivingNametagMixin",
 		"SpriteIconButtonMixin",
 		"SpriteIconButtonAccessor",
@@ -88,6 +89,7 @@
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"EntityRendererCullingBoxInvoker",
 		"ShadowCasterEntityMixin",
@@ -102,7 +104,13 @@
 		"SodiumViewportShadowMapMixin",
 		"SodiumWalkEndMixin",
 		"SodiumWorldRendererReuseMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsAvatarStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

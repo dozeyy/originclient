@@ -17,7 +17,7 @@ namespace OriginLauncher.App.Core.Updates;
 // download -> stage -> swap-and-restart via a tiny script (a running exe
 // can't overwrite itself on Windows; a Mac swaps the whole app bundle).
 // The per-OS parts live in one file per OS, picked by each csproj (UpdateService.Windows.cs /
-// UpdateService.Mac.cs): which release asset this OS downloads, the swap script, and how the
+// UpdateService.Mac.cs / UpdateService.Linux.cs): which release asset this OS downloads, the swap script, and how the
 // app quits (the UI toolkit's own shutdown). Checking, gating, downloading and verifying are shared.
 //
 // Update policy (Will): updates are MANDATORY — a launcher older than the
@@ -96,14 +96,24 @@ public static partial class UpdateService
     public static event EventHandler? AvailableChanged;
 
     /// <summary>
+    /// False in a screenshot run (`--render-shots`, and any other run on a scratch data root): made-up data only, so
+    /// the release feed is never asked, nothing is downloaded and nothing is applied. A live check there once put the
+    /// real "UPDATING ORIGIN LAUNCHER" screen into the shots. Every check and apply path below starts with this.
+    /// </summary>
+    public static bool Enabled => !OriginPaths.IsScratchRoot;
+
+    /// <summary>
     /// Polls the release feed once. Never throws: an unreachable feed fails
     /// open (see policy note above).
     /// </summary>
     public static async Task CheckAsync()
     {
-        // Once per process, off the UI thread, before any download of this run can start.
+        if (!Enabled) return;
+
+        // Once per process, off the UI thread, before any download of this run can start and before the
+        // feed is first evaluated (so a failed swap is counted before anything can be offered again).
         if (Interlocked.Exchange(ref _startupCleaned, 1) == 0)
-            await Task.Run(() => CleanStaleDownloads(null)).ConfigureAwait(false);
+            await Task.Run(() => { CheckLastSwap(); CleanStaleDownloads(null); }).ConfigureAwait(false);
 
         try
         {
@@ -213,10 +223,32 @@ public static partial class UpdateService
 
     private static int _startupCleaned;
 
+    // Did the swap the last start quit for take effect (Core/Updates/SwapAttempt)? Still older = it failed after
+    // the quit: release Play now, retry quietly later.
+    private static void CheckLastSwap()
+    {
+        var outcome = SwapAttempt.Check(OriginPaths.UpdateSwapMarker, CurrentVersion, out var attempted);
+        if (outcome == SwapAttempt.Outcome.Failed && attempted != null)
+        {
+            lock (Gate)
+            {
+                Gate.SwapFailed(attempted, DateTime.UtcNow);
+                // A check that raced ahead of this one may already have offered it: take that offer back too.
+                if (Available != null && UpdateGate.Normalize(Available.Version) <= UpdateGate.Normalize(attempted)) Available = null;
+            }
+            Log($"update {attempted}: the swap after the last restart did not take effect (still {CurrentVersion}); Play stays open, retrying quietly later");
+        }
+        else if (outcome == SwapAttempt.Outcome.Applied)
+        {
+            Log($"update: now running {CurrentVersion}");
+        }
+    }
+
     // Quiet retry after a failed check (see UpdateGate): download + verify with no UI, publish only on success.
     // Any failure just extends the back-off; nothing is shown and Play is never touched.
     private static async Task QuietRetryAsync(AvailableUpdate update)
     {
+        if (!Enabled) return;
         try
         {
             var zipPath = ZipPathFor(update.Version);
@@ -252,6 +284,7 @@ public static partial class UpdateService
     /// </summary>
     public static async Task DownloadAndRestartAsync(IProgress<UpdateProgress>? progress = null)
     {
+        if (!Enabled) throw new InvalidOperationException("Updates are off in a screenshot run.");
         var update = Available ?? throw new InvalidOperationException("No update is available.");
 
         // From here until the process is gone no import may open or apply (Core/Import/Launcher/UpdateRunState):
@@ -312,7 +345,11 @@ public static partial class UpdateService
         // unpacks; the continuation returns here (UI thread) for Shutdown().
         await Task.Run(() =>
         {
-            ExtractUpdate(zipPath, stageDir); // per OS: a Mac .app needs its symlinks and exec bits kept
+            // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
+            // (a Mac .app needs its symlinks and exec bits kept).
+            var staged = false;
+            StageReleaseOverride(zipPath, stageDir, ref staged);
+            if (!staged) ExtractUpdate(zipPath, stageDir);
             File.Delete(zipPath);
         });
 
@@ -320,12 +357,28 @@ public static partial class UpdateService
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
         await UpdateRunState.PrepareToRestartAsync(() => progress?.Report(new UpdateProgress(UpdateStage.FinishingImport, 0, null)));
 
+        // Remembered before the swap can start: if it fails after this process is gone, the next start knows
+        // (SwapAttempt) and opens Play instead of gating it on the same update again.
+        var marker = OriginPaths.UpdateSwapMarker;
+        SwapAttempt.Record(marker, update.Version);
         // The OS file writes and starts the swap script, which waits for this process to exit.
-        StartApplyScript(stageDir, updatesRoot);
+        try
+        {
+            StartApplyScript(stageDir, updatesRoot);
+        }
+        catch
+        {
+            SwapAttempt.Clear(marker); // no swap was started: this is an ordinary failure of this run
+            throw;
+        }
         progress?.Report(new UpdateProgress(UpdateStage.Restarting, 0, null));
         markRestarting();
         ShutdownApp();
     }
+
+    // A release that is not a zip stages itself here (Linux: the tar.gz or the AppImage, UpdateService.Linux.cs).
+    // Windows and the Mac don't implement it, so for them the call compiles away and the zip is extracted.
+    static partial void StageReleaseOverride(string download, string stageDir, ref bool staged);
 
     // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
     // mismatch, a short file or a release that published no hash). Returns the SHA-256 it verified against. The zip only ever appears at

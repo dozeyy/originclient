@@ -41,6 +41,8 @@
 		"SingleQuadParticleMixin",
 		"LevelTimeMixin",
 		"HitboxMixin",
+		"HitboxFactsMixin",
+		"EntityRenderStateHitboxMixin",
 		"EntityNametagMixin",
 		"NametagStyleMixin",
 		"ItemEntityScaleMixin",
@@ -58,6 +60,7 @@
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"LivingNametagMixin",
 		"HurtCamMixin",
 		"GameRendererFrameMixin",
@@ -86,6 +89,7 @@
 		"ItemPhysicsStateMixin",
 		"GlintPipelineMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"IrisPipelineHalfRateMixin",
 		"IrisShadowRendererHalfRateMixin",
@@ -100,7 +104,13 @@
 		"SodiumViewportShadowMapMixin",
 		"SodiumWorldRendererReuseMixin",
 		"LevelRendererCullFrustumMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

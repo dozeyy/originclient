@@ -117,13 +117,15 @@ public partial class MainWindow : Window
             UpdateBadge.Visibility = Visibility.Visible;
             _homePage.RefreshUpdateGate();
         });
-        _ = PollForUpdatesAsync();
+        // A screenshot run never checks (UpdateService.Enabled): no poll loop, no focus re-check.
+        if (UpdateService.Enabled) _ = PollForUpdatesAsync();
 
         // Re-check the instant the launcher regains focus, so a release Will
         // just published is caught immediately instead of on the next poll tick
         // (throttled — see _lastFocusCheck).
         Activated += async (_, _) =>
         {
+            if (!UpdateService.Enabled) return;
             var now = DateTime.UtcNow;
             if (now - _lastFocusCheck < TimeSpan.FromSeconds(30)) return;
             _lastFocusCheck = now;

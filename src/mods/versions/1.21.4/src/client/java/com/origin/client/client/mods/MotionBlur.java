@@ -37,16 +37,29 @@ public final class MotionBlur {
 
 	public static void tick(Minecraft mc) {
 		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
-		int step = amount < 0.5 ? 0 : (int) Math.min(3, Math.ceil(Math.min(10.0, amount) / 10.0 * 3.0));
+		int step = amount < 0.5 || mc.level == null ? 0 : (int) Math.min(3, Math.ceil(Math.min(10.0, amount) / 10.0 * 3.0));
 
+		// The game empties the post-effect slot by itself (F5 and spectating a mob go
+		// through checkEntityPostEffect). Watch the slot, not just our own flag, so
+		// the blur comes back once it is free again (a plain id swap, no reload).
+		ResourceLocation current = mc.gameRenderer.currentPostEffect();
+		if (loadedStep != 0 && !EFFECTS[loadedStep - 1].equals(current)) {
+			loadedStep = 0;
+			releasePrev();   // never blend a frame from before the gap
+		}
 		if (step == loadedStep) {
 			return;
 		}
 		try {
 			if (step == 0) {
-				((GameRendererAccessor) mc.gameRenderer).originclient$clearPostEffect();
+				if (isOurs(current)) {
+					((GameRendererAccessor) mc.gameRenderer).originclient$clearPostEffect();
+				}
 				releasePrev();   // so turning it back on never blends a stale frame
 			} else {
+				if (current != null && !isOurs(current)) {
+					return;   // vanilla's creeper/spider/enderman view (or another mod) owns the slot: wait
+				}
 				((GameRendererAccessor) mc.gameRenderer).originclient$setPostEffect(EFFECTS[step - 1]);
 			}
 			loadedStep = step;
@@ -69,6 +82,15 @@ public final class MotionBlur {
 			com.origin.client.OriginClient.LOGGER.info("Motion blur: last-frame target attached ({}x{})", main.width, main.height);
 		}
 		return prev;
+	}
+
+	private static boolean isOurs(ResourceLocation id) {
+		for (ResourceLocation e : EFFECTS) {
+			if (e.equals(id)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static void releasePrev() {

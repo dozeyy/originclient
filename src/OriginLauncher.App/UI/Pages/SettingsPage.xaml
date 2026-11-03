@@ -242,24 +242,8 @@
 
                 <!-- Game -->
                 <TextBlock x:Name="SecGame" Text="GAME" Style="{StaticResource SectionTitle}"/>
-                <Border Style="{StaticResource SettingCard}">
-                    <StackPanel>
-                        <TextBlock Text="Install folder" Style="{StaticResource SettingTitle}"/>
-                        <TextBlock Text="Where Minecraft's game files are kept." Style="{StaticResource SettingWhy}"/>
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" x:Name="InstallPathTextBox" LostFocus="InstallPathTextBox_LostFocus" TextChanged="InstallPathTextBox_TextChanged"
-                                     AutomationProperties.Name="Install folder"/>
-                            <Button Grid.Column="2" Content="Browse" Style="{StaticResource Button.Secondary}"
-                                    Click="BrowseButton_Click"/>
-                        </Grid>
-                        <TextBlock x:Name="InstallPathErrorText" Style="{StaticResource Input.ErrorText}" Visibility="Collapsed"/>
-                    </StackPanel>
-                </Border>
+                <!-- No "Install folder" picker: game files always live under OriginPaths.Instances (one path authority),
+                     and the picker it used to have saved a folder nothing ever read. -->
                 <Border Style="{StaticResource SettingCard}">
                     <Grid>
                         <Grid.RowDefinitions>

@@ -100,6 +100,9 @@ public partial class HomePage : UserControl
         // window judges and resets THESE, never what Settings holds when the game exits: arguments typed while the
         // game was starting were not the ones Java refused.
         public Core.Models.VersionJvmOptions? LaunchedJvmArgs { get; init; }
+        // What the crash check judges for this launch (CrashMemory.ForLaunch): the heap it really gave Java, never
+        // the stored RamMb (on Auto only the slider's suggestion), and the least a "Raise memory" fix may offer.
+        public CrashMemory.Facts Memory { get; init; }
     }
 
     // The game whose start the progress screen is showing, once its process is
@@ -563,7 +566,7 @@ public partial class HomePage : UserControl
     {
         if (SelectedPhase() != GamePhase.Idle) return;
         // Also the way back out: an update that failed its check is ungated, so the plain status line returns.
-        if (UpdateService.UpdateRequired) SetStatus("Update required", StatusTone.Warning);
+        if (UpdateService.UpdateRequired) SetStatus(UpdateRequiredText, StatusTone.Warning);
         else UpdatePlayState();
     }
 
@@ -580,6 +583,8 @@ public partial class HomePage : UserControl
         SelectedKey() is { } key ? _launches.PhaseOf(key) : GamePhase.Idle;
 
     private const string ImportRunningText = "Importing - Play is back when it finishes";
+    // Says what to do, not only why Play is off: the top bar's Update chip (an icon below 1100 px wide) installs it.
+    private const string UpdateRequiredText = "Update required - press Update at the top";
 
     // The Play button AND the status pill for the selected account: its own
     // game state ("Running · Steve" while its game is open), or the plain
@@ -596,7 +601,7 @@ public partial class HomePage : UserControl
         else if (key != null && _selectedVersion == null)
             SetStatus("Select a version to play", StatusTone.Neutral);
         else if (UpdateService.UpdateRequired)
-            SetStatus("Update required", StatusTone.Warning);
+            SetStatus(UpdateRequiredText, StatusTone.Warning);
         else if (_selectedAccount != null)
             SetStatus("Ready to play", StatusTone.Success);
         else if (key != null)
@@ -860,7 +865,7 @@ public partial class HomePage : UserControl
         // enforced, just not with a network wait in front of it.
         if (UpdateService.UpdateRequired)
         {
-            Note(key, "Update required", LaunchTone.Warning);
+            Note(key, UpdateRequiredText, LaunchTone.Warning);
             return;
         }
 
@@ -1028,6 +1033,7 @@ public partial class HomePage : UserControl
                 LaunchedJvmArgs = freshSettings.JvmArgsFor(version) is { } jvm
                     ? new Core.Models.VersionJvmOptions { Arguments = jvm.Arguments, ReplacePresets = jvm.ReplacePresets }
                     : null,
+                Memory = CrashMemory.ForLaunch(heap, SystemInfo.GetTotalPhysicalMemoryMb()),
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -1192,7 +1198,8 @@ public partial class HomePage : UserControl
                     }
                     // Crash or not is decided from the evidence first (ShowCrashReportAsync): a killed or
                     // closed boot is not a crash and gets no window. Neutral until then.
-                    Note(game.Key, $"Minecraft closed while starting (exit code {exitCode}).", LaunchTone.Neutral);
+                    // The exit code is in this launch's log (StartWithLifecycleCapture), not on the status line.
+                    Note(game.Key, "Minecraft closed while starting.", LaunchTone.Neutral);
                     // Queued (not awaited) so this watch finishes (button
                     // restored) first — the crash window's "retry" path
                     // launches the account again.
@@ -1340,15 +1347,16 @@ public partial class HomePage : UserControl
     {
         try
         {
-            var saved = SettingsStore.Load();
-            var ramMb = saved.RamMb;
+            // The heap this launch really used (Auto sizes it per version and PC), not the stored slider value.
+            var ramMb = game.Memory.UsedMb;
             // The version's own Java arguments as this launch used them: only these can be reset (never Origin's own).
             var customJvm = game.LaunchedJvmArgs?.Arguments;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
             var fixTried = CrashRetries.AnyTried(key, DateTime.UtcNow);
             var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
-                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm));
+                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm,
+                game.Memory.RaiseFloorMb));
             var verdict = findings.Verdict;
             System.Diagnostics.Debug.WriteLine(
                 $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
@@ -1412,8 +1420,10 @@ public partial class HomePage : UserControl
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    _settings.RamMb = ram;
-                    SettingsStore.Update(s => s.RamMb = ram);
+                    // Exactly the amount the window named, as Manual (CrashMemory.ApplyRaise): Auto launches ignore
+                    // RamMb, so writing only the number left the relaunch on the same heap that just ran out.
+                    CrashMemory.ApplyRaise(_settings, ram);
+                    SettingsStore.Update(s => CrashMemory.ApplyRaise(s, ram));
                     break;
                 case CrashFixKind.DisableMods:
                     // The shared repair path (Core/Compat/CrashRepair -> RepairExecutor): each jar is turned off
@@ -1492,7 +1502,7 @@ public partial class HomePage : UserControl
     {
         await UpdateService.CheckAsync();
         return UpdateService.UpdateRequired
-            ? "Launch failed - please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version."
+            ? "Launch failed - please update the launcher (press Update at the top). This is very likely already fixed in the newest version."
             : upToDateMessage;
     }
 
@@ -1590,6 +1600,19 @@ public partial class HomePage : UserControl
             {
                 int exitCode;
                 try { exitCode = process.ExitCode; } catch { exitCode = -1; }
+
+                // The exit code goes in this launch's log (the status line only says the game closed). Under the
+                // writer's gate: through the writer while a stream is still open, appended once both have closed.
+                try
+                {
+                    var line = $"[Origin] Minecraft exited with code {exitCode}";
+                    lock (gate)
+                    {
+                        if (logWriter != null) logWriter.WriteLine(line);
+                        else File.AppendAllText(logPath, line + Environment.NewLine);
+                    }
+                }
+                catch { /* best-effort logging */ }
 
                 Dispatcher.BeginInvoke(() => OnGameExited(game, exitCode));
 

@@ -72,7 +72,14 @@ public partial class SettingsPage : UserControl
         IsVisibleChanged += (_, e) =>
         {
             if (!(bool)e.NewValue) PersistPendingRam();
-            else ReloadJvmFromStore(); // the crash window may have reset (or Undo restored) a version's arguments meanwhile
+            else
+            {
+                // The crash window may have changed settings meanwhile: raised Memory (now Manual), reset (or Undo
+                // restored) a version's Java arguments, or Home picked another version.
+                var fresh = SettingsStore.Load();
+                ReloadRamFromStore(fresh);
+                ReloadJvmFromStore(fresh);
+            }
         };
 
         // Memory is Auto until the player moves the slider (RamPolicy). The slider is only DISPLAYED
@@ -83,7 +90,6 @@ public partial class SettingsPage : UserControl
         RamSlider.Minimum = RamAdvice.SliderMinimumMb;
         RamSlider.Maximum = safeMaximum;
         ShowRam(RamPolicy.IsManual(_settings));
-        InstallPathTextBox.Text = _settings.InstallPath;
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
@@ -150,7 +156,17 @@ public partial class SettingsPage : UserControl
         ShowRam(manual: false);
     }
 
-    private const string RamAutoText = "Auto: Origin picks the right amount for each version.";
+    // Shows Memory as saved now (the crash window's "Raise memory" sets Manual, and its text promises it can be
+    // changed back here). Never over a slider move still waiting to be saved: the player's own value stays.
+    private void ReloadRamFromStore(LauncherSettings fresh)
+    {
+        if (_pendingRamMb != null) return;
+        _settings.RamMb = fresh.RamMb;
+        _settings.RamManual = fresh.RamManual;
+        ShowRam(RamPolicy.IsManual(_settings));
+    }
+
+    private const string RamAutoText ="Auto: Origin picks the right amount for each version.";
     private const string RamManualText = "Fixed at your choice for every version.";
     private int _totalRamMb;
 
@@ -161,9 +177,9 @@ public partial class SettingsPage : UserControl
         _isLoading = true; // moving the slider here is not the player's choice
         try
         {
+            // Manual: the same number the launch uses (RamAdvice.ManualMb), so what this shows is what the game gets.
             var shown = manual ? _settings.RamMb : RamAdvice.AutoMb(_totalRamMb, legacy: false, heavyPack: false);
-            RamSlider.Value = Math.Clamp((int)Math.Round(shown / (double)RamAdvice.StepMb) * RamAdvice.StepMb,
-                RamAdvice.SliderMinimumMb, (int)RamSlider.Maximum);
+            RamSlider.Value = RamAdvice.ManualMb(shown, _totalRamMb);
             RamValueText.Text = manual ? FormatRam((int)RamSlider.Value) : "Auto";
             RamWhyText.Text = manual ? RamManualText : RamAutoText;
             RamAutoButton.Visibility = manual ? Visibility.Visible : Visibility.Collapsed;
@@ -172,38 +188,6 @@ public partial class SettingsPage : UserControl
     }
 
     private static string FormatRam(int ramMb) => $"{ramMb / 1024d:0.##} GB";
-
-    // A rejected path is NOT saved and is not silently put back: the box keeps what was typed, shows a Danger edge and
-    // says what is wrong right under it (FieldRules); fixing the text clears it as you type.
-    private void InstallPathTextBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (_isLoading) return;
-        var path = InstallPathTextBox.Text.Trim();
-        if (ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(path), InstallPathTextBox)) return;
-        _settings.InstallPath = path;
-        SettingsStore.Update(s => s.InstallPath = path);
-    }
-
-    private void InstallPathTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_isLoading || !Chrome.GetInvalid(InstallPathTextBox)) return;
-        ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(InstallPathTextBox.Text), InstallPathTextBox);
-    }
-
-    private void BrowseButton_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new OpenFolderDialog
-        {
-            InitialDirectory = InstallPathTextBox.Text
-        };
-        if (dialog.ShowDialog() == true)
-        {
-            InstallPathTextBox.Text = dialog.FolderName;
-            ShowFieldProblem(InstallPathErrorText, null, InstallPathTextBox);
-            _settings.InstallPath = dialog.FolderName;
-            SettingsStore.Update(s => s.InstallPath = dialog.FolderName);
-        }
-    }
 
     /// <summary>Shows or clears a field's problem: the Danger edge on the boxes and the sentence under them. True when there is one.</summary>
     private static bool ShowFieldProblem(TextBlock message, string? problem, params TextBox[] boxes)
@@ -214,11 +198,9 @@ public partial class SettingsPage : UserControl
         return problem != null;
     }
 
-    /// <summary>Render mode: the two error states the shots show (a path that is not a folder, a width that is too small).</summary>
+    /// <summary>Render mode: the error state the shots show (a width that is too small).</summary>
     internal void TourShowFieldErrors()
     {
-        InstallPathTextBox.Text = "games";
-        ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(InstallPathTextBox.Text), InstallPathTextBox);
         ResolutionWidthTextBox.Text = "100";
         ShowFieldProblem(ResolutionErrorText, FieldRules.ResolutionProblem("100", FieldRules.MinWidth, "Width"), ResolutionWidthTextBox);
     }
@@ -226,9 +208,7 @@ public partial class SettingsPage : UserControl
     /// <summary>Render mode: put the fields back the way the settings have them.</summary>
     internal void TourClearFieldErrors()
     {
-        InstallPathTextBox.Text = _settings.InstallPath;
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
-        ShowFieldProblem(InstallPathErrorText, null, InstallPathTextBox);
         ShowFieldProblem(ResolutionErrorText, null, ResolutionWidthTextBox, ResolutionHeightTextBox);
     }
 
@@ -368,14 +348,24 @@ public partial class SettingsPage : UserControl
         _jvmLoading = false;
     }
 
-    // Picks up Java-argument changes made outside this page (the crash window's reset). Never while the player has
-    // an unsaved edit in the box: theirs stays.
-    private void ReloadJvmFromStore()
+    // Picks up Java-argument changes made outside this page (the crash window's reset) and points the editor at the
+    // version Home has selected now: the page is built once, so without this it stayed on the first version ever
+    // picked. Never while the player has an unsaved edit in the box: theirs stays, on its version.
+    private void ReloadJvmFromStore(LauncherSettings? fresh = null)
     {
         if (_jvmDirty || _jvmLoading) return;
-        var fresh = SettingsStore.Load();
+        fresh ??= SettingsStore.Load();
         _settings.JvmArgsByVersion = fresh.JvmArgsByVersion;
         _settings.JvmArgsBeforeReset = fresh.JvmArgsBeforeReset;
+        _settings.SelectedVersion = fresh.SelectedVersion;
+        if (VersionCatalog.IsSupported(fresh.SelectedVersion)
+            && !Equals(JvmVersionComboBox.SelectedItem, fresh.SelectedVersion))
+        {
+            // Under _jvmLoading so SelectionChanged neither saves nor reloads (nothing is pending: _jvmDirty is false).
+            _jvmLoading = true;
+            try { JvmVersionComboBox.SelectedItem = fresh.SelectedVersion; }
+            finally { _jvmLoading = false; }
+        }
         LoadJvmOptionsForSelectedVersion();
     }
 

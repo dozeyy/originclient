@@ -1,0 +1,68 @@
+<Project>
+
+  <!--
+    The Origin Launcher's cross-platform UI (Avalonia), shared as SOURCE like the Core is: a host project
+    (src/OriginLauncher.Linux today, src/OriginLauncher.Mac later) imports this file, so the UI compiles into
+    the host next to the Core files the host links with its own per-OS seams (X.Linux.cs / X.Mac.cs). The UI
+    itself holds nothing OS-specific: anything that differs per OS goes through a Core seam.
+
+    Code-only Avalonia (no .axaml): every view is plain C#, so nothing depends on the XAML compiler handling
+    linked files, and one obvious way exists to build each screen (Kit/ helpers + Theme/ tokens).
+
+    Tokens are NOT copied: the colours and icon geometries are read at startup from the WPF launcher's own
+    token files (src/OriginLauncher.App/Theme/Colors.xaml and Icons.xaml, embedded below), so the Windows and
+    Linux/Mac launchers can never drift apart. Art, logos and fonts are the WPF launcher's files, linked.
+  -->
+
+  <PropertyGroup>
+    <OriginDesktopDir>$(MSBuildThisFileDirectory)</OriginDesktopDir>
+    <OriginAppDir>$(MSBuildThisFileDirectory)..\OriginLauncher.App\</OriginAppDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(OriginDesktopDir)**\*.cs" Exclude="$(OriginDesktopDir)bin\**;$(OriginDesktopDir)obj\**" LinkBase="Desktop" />
+
+    <!-- WPF-free view logic of the Windows launcher, shared as-is (no copy): version picker model,
+         numeral band rule, family names, toast queue, keyed list diff, head fit, page switch, rail spy. -->
+    <Compile Include="$(OriginAppDir)UI\FamilyTheme.cs" Link="Shared\UI\FamilyTheme.cs" />
+    <Compile Include="$(OriginAppDir)UI\PageSwitch.cs" Link="Shared\UI\PageSwitch.cs" />
+    <Compile Include="$(OriginAppDir)UI\SelectorFakeInstalls.cs" Link="Shared\UI\SelectorFakeInstalls.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\NumeralBand.cs" Link="Shared\UI\Controls\NumeralBand.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\VersionSelectModel.cs" Link="Shared\UI\Controls\VersionSelectModel.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ToastQueue.cs" Link="Shared\UI\Controls\ToastQueue.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\KeyedDiff.cs" Link="Shared\UI\Controls\KeyedDiff.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\HeadFit.cs" Link="Shared\UI\Controls\HeadFit.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportFlowModel.cs" Link="Shared\UI\Controls\ImportFlowModel.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportGridModel.cs" Link="Shared\UI\Controls\ImportGridModel.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportLogic.cs" Link="Shared\UI\Controls\ImportLogic.cs" />
+    <Compile Include="$(OriginAppDir)UI\Controls\ImportHooks.cs" Link="Shared\UI\Controls\ImportHooks.cs" />
+    <Compile Include="$(OriginAppDir)UI\Pages\SettingsRailSpy.cs" Link="Shared\UI\Pages\SettingsRailSpy.cs" />
+
+    <!-- The one token source (read by Theme/Tokens.cs and Theme/Icons.cs). -->
+    <EmbeddedResource Include="$(OriginAppDir)Theme\Colors.xaml" LogicalName="Origin.Theme.Colors.xaml" Link="Desktop\Theme\Colors.xaml" />
+    <EmbeddedResource Include="$(OriginAppDir)Theme\Icons.xaml" LogicalName="Origin.Theme.Icons.xaml" Link="Desktop\Theme\Icons.xaml" />
+
+    <!-- Art, brand files (the ONLY logo files: origin_logo.png and wordmark.png), launcher logos, promo art, Inter. -->
+    <AvaloniaResource Include="$(OriginAppDir)Assets\Art\*.jpg"
+                      Exclude="$(OriginAppDir)Assets\Art\*-g1280.jpg;$(OriginAppDir)Assets\Art\*-g2560.jpg;$(OriginAppDir)Assets\Art\*-g3840.jpg;$(OriginAppDir)Assets\Art\*-tg.jpg"
+                      Link="Assets\Art\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="$(OriginAppDir)Assets\Brand\wordmark.png" Link="Assets\Brand\wordmark.png" />
+    <AvaloniaResource Include="$(OriginAppDir)..\mods\versions\1.21.1\src\client\resources\assets\originclient\textures\ui\origin_logo.png" Link="Assets\Brand\origin_logo.png" />
+    <AvaloniaResource Include="$(OriginAppDir)Assets\Logos\*.png" Link="Assets\Logos\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="$(OriginAppDir)Assets\Promos\*.jpg" Link="Assets\Promos\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="$(OriginAppDir)..\..\tools\font-atlas\fonts\Inter-*.ttf" Link="Assets\Fonts\%(Filename)%(Extension)" />
+    <None Include="$(OriginAppDir)..\..\website\assets\fonts\Inter-LICENSE.txt" Link="ThirdParty\Inter-LICENSE.txt"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+    <!-- Headless + Skia: the render-shots screenshot run (no window, no display server). -->
+    <PackageReference Include="Avalonia.Headless" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.5" />
+    <!-- Microsoft's sign-in page inside the launcher (WebKitGTK on Linux, WKWebView on Mac), like WebView2 on Windows. -->
+    <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.1" />
+  </ItemGroup>
+
+</Project>

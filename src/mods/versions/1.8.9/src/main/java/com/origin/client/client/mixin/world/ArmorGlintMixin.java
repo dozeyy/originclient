@@ -2,6 +2,7 @@ package com.origin.client.client.mixin.world;
 
 import com.origin.client.client.mods.GlintColorizer;
 import com.origin.client.client.mods.HitColor;
+import com.origin.client.client.mods.OldAnimations;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.renderer.entity.layers.LayerArmorBase;
@@ -24,6 +25,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 //    is why 1.8 armor never flashes red; answering true while Color Armor is on
 //    lets RendererLivingEntity.setBrightness apply the (recoloured) hurt flash to
 //    the armor too -- the 1.7 look Lunar's option restores.
+//    1.7 Animations > Red Armor Flash answers true too (when Hit Color is not colouring
+//    armor), and HitColorMixin then makes that flash 1.7's 40% red (OldAnimations).
+//    If this stops applying: armor never flashes, as vanilla 1.8.
 // renderGlint(EntityLivingBase, T model, limbSwing, limbSwingAmount, partialTicks,
 // ageInTicks, netHeadYaw, headPitch, scale): T erases to ModelBase; the model is
 // rendered with (entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw,
@@ -81,8 +85,14 @@ public abstract class ArmorGlintMixin {
 
 	@Inject(method = "shouldCombineTextures", at = @At("RETURN"), cancellable = true)
 	private void originclient$armorFlash(CallbackInfoReturnable<Boolean> cir) {
+		boolean red = false;
 		try {
-			if (!cir.getReturnValueZ() && HitColor.armorFlashes()) {
+			red = OldAnimations.redArmorFlashes();   // always asked: it (re)sets its one-shot flag each call
+		} catch (Throwable t) {
+			OldAnimations.fail("red armor flash", t);
+		}
+		try {
+			if (!cir.getReturnValueZ() && (HitColor.armorFlashes() || red)) {
 				cir.setReturnValue(true);
 			}
 		} catch (Throwable ignored) {

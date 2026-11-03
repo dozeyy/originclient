@@ -1,4 +1,5 @@
 using OriginLauncher.App.Core.Launch;
+using OriginLauncher.App.Core.Models;
 using Xunit;
 
 namespace OriginLauncher.Tests;
@@ -88,6 +89,73 @@ public class CrashEngineTests
         var v = V("java.lang.OutOfMemoryError: Java heap space", ram: 14336, total: 16384);
         Assert.Null(v.SafeFix);
         Assert.Contains("most this PC", v.Finding.RecommendedFix);
+    }
+
+    // ---- "Raise memory and relaunch": the chain HomePage runs, through CrashMemory --------------------------------
+
+    private const int Pc32Gb = 32768;
+
+    // HomePage's chain for one launch: settings -> the launch's heap plan -> CrashMemory.ForLaunch -> the crash check
+    // -> CrashMemory.ApplyRaise on the offered amount. Returns the verdict and the settings after the fix.
+    private static (CrashVerdict Verdict, LauncherSettings After) RaiseAfterOom(
+        LauncherSettings settings, bool legacy, int total = Pc32Gb)
+    {
+        var plan = HeapPlan.For(settings, total, legacy, heavyPack: false);
+        var memory = CrashMemory.ForLaunch(plan, total);
+        var verdict = CrashEngine.Diagnose(new CrashEvidence(1, false, false, "java.lang.OutOfMemoryError: Java heap space",
+            null, null, null, [Added, Origin], memory.UsedMb, total) { RaiseFloorMb = memory.RaiseFloorMb }, false);
+        if (verdict.SafeFix?.NewRamMb is int ram) CrashMemory.ApplyRaise(settings, ram);
+        return (verdict, settings);
+    }
+
+    private static int HeapFor(LauncherSettings s, bool legacy) =>
+        HeapPlan.For(s, Pc32Gb, legacy, heavyPack: false).MaxMb;
+
+    // The bug: a 32 GB PC on Auto stores the slider's 16 GB suggestion while 1.8.9 really gets 4 GB. The old wiring
+    // told the check the stored 16 GB ("needed more than 16 GB", offered 18 GB) and wrote only RamMb, which Auto
+    // ignores, so the relaunch got 4 GB again.
+    [Fact]
+    public void Raise_on_auto_names_the_heap_used_and_the_relaunch_really_gets_the_amount_offered()
+    {
+        var (v, after) = RaiseAfterOom(RamPolicy.Fresh(Pc32Gb), legacy: true);
+
+        Assert.Contains("the 4 GB it was given", v.Finding.LikelyCause);
+        Assert.Equal(CrashFixKind.RaiseMemory, v.SafeFix?.Kind);
+        var offered = v.SafeFix!.NewRamMb!.Value;
+        Assert.Contains($"{offered / 1024} GB", v.SafeFix.Label);
+        Assert.True(RamPolicy.IsManual(after));
+        Assert.Equal(offered, HeapFor(after, legacy: true)); // what the window named is what the relaunch gets
+        Assert.True(offered > 4096);
+    }
+
+    // Manual applies to every version: a 1.8.9 crash on Auto's 4 GB must not drop the newest versions from Auto's
+    // 8 GB. The offer is lifted to at least that, and the window says the lifted number.
+    [Fact]
+    public void Raise_on_auto_never_lowers_any_version()
+    {
+        var before = RamPolicy.Fresh(Pc32Gb);
+        var legacyBefore = HeapFor(before, legacy: true);
+        var modernBefore = HeapFor(before, legacy: false);
+
+        var (v, after) = RaiseAfterOom(before, legacy: true);
+
+        Assert.Equal(8192, v.SafeFix?.NewRamMb);
+        Assert.Contains("8 GB", v.Finding.RecommendedFix);
+        Assert.True(HeapFor(after, legacy: true) > legacyBefore);
+        Assert.True(HeapFor(after, legacy: false) >= modernBefore);
+    }
+
+    [Fact]
+    public void Raise_on_manual_is_two_more_gigabytes_with_no_floor()
+    {
+        var s = RamPolicy.Fresh(Pc32Gb);
+        RamPolicy.SetManual(s, 4096);
+        Assert.Equal(new CrashMemory.Facts(4096, 0), CrashMemory.ForLaunch(HeapPlan.For(s, Pc32Gb, false, false), Pc32Gb));
+
+        var (v, after) = RaiseAfterOom(s, legacy: false);
+
+        Assert.Equal(6144, v.SafeFix?.NewRamMb);
+        Assert.Equal(6144, HeapFor(after, legacy: false));
     }
 
     [Fact]

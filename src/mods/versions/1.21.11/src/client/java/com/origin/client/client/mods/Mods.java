@@ -183,8 +183,8 @@ public final class Mods {
 
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
-				ModOption.toggle("sprint", "Toggle Sprint", true).tip("Sprint stays on after one press of the toggle key."),
-				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of the toggle key."),
+				ModOption.toggle("sprint", "Toggle Sprint", true).tip("Sprint stays on after one press of the Sprint key below."),
+				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of your Sneak key (set in Controls)."),
 				ModOption.toggle("flyBoost", "Fly Boost", false).tip("Multiplies your creative/spectator flight speed."),
 				ModOption.slider("flyBoostAmount", "Fly Boost Amount", 1, 5, 0.1, 2, "%.1fx").under("flyBoost"),
 				ModOption.keybind("key", "Sprint key", -1),
@@ -241,7 +241,6 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showWhileTyping", "Show While Typing", true),
 				ModOption.toggle("showBackground", "Show Background", true),
-				ModOption.toggle("copyClipboard", "Copy Coords To Clipboard", true),
 				ModOption.toggle("decimal", "Decimal Coordinates", false),
 				ModOption.header("Color"),
 				ModOption.color("bgColor", "Background Color", 0x00000000),
@@ -412,7 +411,7 @@ public final class Mods {
 						ModOption.toggle("hideZero", "Hide Zero", false).tip("Hide the readout until you've landed a hit.")));
 
 		// ---- gameplay / camera ----
-		add("freelook", "Freelook", "Look around without turning.", true,
+		add("freelook", "Freelook", "Look around without turning. Off on Hypixel (not allowed there).", true,
 				ModOption.dropdown("listMode", "List Mode", "Third Person", "First Person"),
 				ModOption.toggle("invertPitch", "Invert Pitch", false),
 				ModOption.toggle("invertYaw", "Invert Yaw", false),
@@ -713,6 +712,32 @@ public final class Mods {
 						.tip("The colour a mob or player flashes when hurt. Its opacity is how strong the flash is."),
 				ModOption.toggle("colorArmor", "Color Armor", true)
 						.tip("Flash worn armor too, not just the body underneath."));
+
+		// 1.7 Animations (OldAnimations.java): every switch here is read by a hook; all visual,
+		// nothing sent to the server. Off by default; each part on once the mod is switched on.
+		add("oldanimations", "1.7 Animations", "Bring back how swords, items and sneaking looked in 1.7.", false,
+				ModOption.header("Combat"),
+				ModOption.toggle("swordBlock", "Sword Blocking", true)
+						.tip("Hold right-click with a sword to hold it the 1.7 blocking way. Looks only: a shield still blocks and looks exactly like normal."),
+				ModOption.toggle("blockHit", "Block Hitting", true)
+						.tip("Your sword still swings while you hold it to block, so block-hitting looks like 1.7."),
+				ModOption.toggle("swingWhileUsing", "Swing While Using", true)
+						.tip("Clicking while eating or drawing a bow swings your arm, like 1.7. A raised shield is left alone."),
+				ModOption.toggle("noHitDip", "No Hit Dip", true)
+						.tip("Your held item stays put after each hit instead of dipping and rising."),
+				ModOption.header("Held Items"),
+				ModOption.toggle("itemPositions", "1.7 Item Positions", true)
+						.tip("Hold flat items, tools, swords and rods the bigger, tilted 1.7 way."),
+				ModOption.toggle("oldUse", "1.7 Eating and Bow", true).under("itemPositions")
+						.tip("Eating, drinking and drawing a bow use 1.7's poses too."),
+				ModOption.header("Extras"),
+				ModOption.toggle("instantSneak", "Instant Sneak", true)
+						.tip("The camera drops straight down when you sneak instead of gliding."),
+				ModOption.toggle("redArmor", "Red Armor Flash", true)
+						.tip("Worn armor flashes red with the player when hurt. Hit Color's own armor colour wins when it is on."),
+				ModOption.header("Third Person"),
+				ModOption.toggle("thirdPersonBlock", "Third Person Blocking", true)
+						.tip("In F5 you hold the sword across your body while sword blocking. Shields look normal."));
 
 		// Two colours per target, like Lunar: one used with Lunar Blending on, one
 		// with it off (vanilla's additive glint, which can only brighten).

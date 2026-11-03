@@ -42,6 +42,60 @@ public abstract class ChatTimestampMixin {
 
 	@Shadow @Final private List<GuiMessage<Component>> allMessages;
 
+	// Wrapped lines on screen, newest first; Stack Spam takes the previous copy's lines
+	// off this list directly instead of re-wrapping the whole chat (which jumps the scroll).
+	@Shadow @Final private List<GuiMessage<FormattedCharSequence>> trimmedMessages;
+
+	@Shadow
+	public abstract void scrollChat(double amount);
+
+	// How many lines of trimmedMessages the newest message took (-1 = unknown). Every add,
+	// new or re-wrap, goes through the private 4-arg addMessage, and a re-wrap adds oldest
+	// first, so the last call always describes the newest message.
+	private GuiMessage<FormattedCharSequence> originclient$headBefore;
+	private int originclient$newestLines = -1;
+
+	@Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;IIZ)V", at = @At("HEAD"))
+	private void originclient$linesStart(Component message, int id, int time, boolean refresh, CallbackInfo ci) {
+		originclient$headBefore = trimmedMessages.isEmpty() ? null : trimmedMessages.get(0);
+	}
+
+	@Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;IIZ)V", at = @At("RETURN"))
+	private void originclient$linesEnd(Component message, int id, int time, boolean refresh, CallbackInfo ci) {
+		GuiMessage<FormattedCharSequence> head = originclient$headBefore;
+		originclient$headBefore = null;
+		int k = 0;
+		boolean found = head == null;
+		for (GuiMessage<FormattedCharSequence> line : trimmedMessages) {
+			if (line == head) {
+				found = true;
+				break;
+			}
+			k++;
+		}
+		originclient$newestLines = found ? k : -1;   // a removeById can take the old head away
+	}
+
+	/** Takes the newest message's lines off the screen list in place, keeping the scroll
+	 *  position; false = couldn't tell which lines they are (the caller re-wraps). */
+	private boolean originclient$dropNewestLines() {
+		int k = originclient$newestLines;
+		if (k <= 0 || k > trimmedMessages.size() || allMessages.isEmpty()) {
+			return false;
+		}
+		GuiMessage<Component> prev = allMessages.get(0);
+		for (int i = 0; i < k; i++) {
+			GuiMessage<FormattedCharSequence> line = trimmedMessages.get(i);
+			if (line.getAddedTime() != prev.getAddedTime() || line.getId() != prev.getId()) {
+				return false;
+			}
+		}
+		trimmedMessages.subList(0, k).clear();
+		originclient$newestLines = -1;
+		scrollChat(-k);   // the lines above slid down by k: keep the same ones in view
+		return true;
+	}
+
 	// 1.18.2's re-trim after a mutation is the public rescaleChat()
 	// (refreshTrimmedMessage is the later 1.19.x name).
 	@Shadow
@@ -81,8 +135,18 @@ public abstract class ChatTimestampMixin {
 			String base = message.getString();
 			if (base.equals(originclient$lastBase) && !allMessages.isEmpty()) {
 				originclient$lastCount++;
-				allMessages.remove(0);          // drop the previous identical line
-				rescaleChat();
+				// drop the previous identical line in place; a full rescale would re-wrap
+				// every line and throw the player's scroll position back to the bottom
+				boolean dropped = false;
+				try {
+					dropped = originclient$dropNewestLines();
+				} catch (Throwable t) {
+					dropped = false;
+				}
+				allMessages.remove(0);
+				if (!dropped) {
+					rescaleChat();
+				}
 				result = new TextComponent(base + " ")
 						.append(new TextComponent("(x" + originclient$lastCount + ")").withStyle(ChatFormatting.GRAY));
 			} else {

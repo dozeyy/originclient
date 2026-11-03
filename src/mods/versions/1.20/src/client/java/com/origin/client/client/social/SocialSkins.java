@@ -34,7 +34,39 @@ public final class SocialSkins {
 
 	private static final Map<UUID, ResourceLocation> CACHE = new ConcurrentHashMap<>();
 	private static final Map<UUID, CompletableFuture<GameProfile>> ASKED = new ConcurrentHashMap<>();
+	// When each lookup last started. A failed lookup (exception, or authlib handing
+	// the bare profile back with no properties) is retried after RETRY_MS; before,
+	// one failure meant Steve/Alex all session.
+	private static final Map<UUID, Long> ASKED_AT = new ConcurrentHashMap<>();
+	private static final long RETRY_MS = 60_000L;
+	// The lookup budget is a RATE: at most MAX_LOOKUPS starts per minute. It used to
+	// be 64 per session, so a long session ran dry and new friends never got a face.
 	private static final int MAX_LOOKUPS = 64;
+	private static long windowStart;
+	private static int windowCount;
+
+	/** True (and the start is recorded) if a new lookup may start now. */
+	private static synchronized boolean mayLookUp(UUID id) {
+		long now = System.currentTimeMillis();
+		if (now - windowStart >= 60_000L) {
+			windowStart = now;
+			windowCount = 0;
+		}
+		if (windowCount >= MAX_LOOKUPS) {
+			return false;
+		}
+		windowCount++;
+		ASKED_AT.put(id, now);
+		return true;
+	}
+
+	private static boolean failed(CompletableFuture<GameProfile> f) {
+		if (f.isCompletedExceptionally()) {
+			return true;
+		}
+		GameProfile p = f.getNow(null);
+		return p == null || p.getProperties().isEmpty();
+	}
 
 	public static ResourceLocation skin(String undashed) {
 		UUID id = SocialClient.toUuid(undashed);
@@ -66,7 +98,12 @@ public final class SocialSkins {
 				return s;
 			}
 			CompletableFuture<GameProfile> f = ASKED.get(id);
-			if (f == null && !SocialClient.DEMO && ASKED.size() < MAX_LOOKUPS) {
+			if (f != null && f.isDone() && failed(f)
+					&& System.currentTimeMillis() - ASKED_AT.getOrDefault(id, 0L) >= RETRY_MS) {
+				ASKED.remove(id, f); // failed: look it up again
+				f = null;
+			}
+			if (f == null && !SocialClient.DEMO && mayLookUp(id)) {
 				GameProfile bare = new GameProfile(id, null);
 				f = CompletableFuture.supplyAsync(
 						() -> mc.getMinecraftSessionService().fillProfileProperties(bare, false), Util.backgroundExecutor());
@@ -75,7 +112,7 @@ public final class SocialSkins {
 					f = prev;
 				}
 			}
-			if (f != null && f.isDone() && !f.isCompletedExceptionally()) {
+			if (f != null && f.isDone() && !failed(f)) {
 				GameProfile full = f.getNow(null);
 				if (full != null) {
 					SkinManager skins = mc.getSkinManager();

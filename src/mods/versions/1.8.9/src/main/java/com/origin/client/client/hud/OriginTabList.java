@@ -190,7 +190,7 @@ public final class OriginTabList {
 
 		// header
 		if (header != null && !disableHeader) {
-			y = drawCentered(g, font, header, cx, y, headerCol) + 1;
+			y = drawCentered(g, font, header, cx, y, headerCol, screenWidth) + 1;
 		}
 		int listTop = y;
 
@@ -227,7 +227,14 @@ public final class OriginTabList {
 			boolean fighting = combatOn && id != null && CombatTracker.lastHit(id, combatMs) > 0L;
 			int nameCol = fighting ? combatCol
 					: (isSelf && highlightSelf) ? Mods.color("tablist", "selfColor") : 0xFFFFFFFF;
-			g.drawString(font, names[i], px, ry, nameCol, false);
+			// like vanilla: names with a shadow; spectators in italics at vanilla's dimmed alpha
+			if (info.getGameType() == WorldSettings.GameType.SPECTATOR) {
+				Gfx.defaultBlend();
+				g.drawString(font, "\u00a7o" + names[i], px, ry, (nameCol & 0x00FFFFFF) | 0x90000000, true);
+				GlStateManager.disableBlend();
+			} else {
+				g.drawString(font, names[i], px, ry, nameCol, true);
+			}
 
 			// Live health readout, packed tight against the objective/ping column.
 			if (showHealth) {
@@ -258,7 +265,7 @@ public final class OriginTabList {
 
 		if (footer != null && !disableFooter) {
 			int fy = listTop + rows * ROW_H + 1;
-			drawCentered(g, font, footer, cx, fy, footerCol);
+			drawCentered(g, font, footer, cx, fy, footerCol, screenWidth);
 		}
 	}
 
@@ -334,12 +341,14 @@ public final class OriginTabList {
 		}
 	}
 
-	/** Draws each line of `text` (split on newlines) centered on `cx`; returns the y
-	 *  below the last line. The chosen colour overrides the source formatting so the
-	 *  header/footer colour pickers actually take effect. */
-	private static int drawCentered(Gfx g, FontRenderer font, IChatComponent text, int cx, int y, int color) {
-		for (String line : text.getUnformattedText().split("\n")) {
-			g.drawString(font, line, cx - font.getStringWidth(line) / 2, y, color, false);
+	/** Draws the header / footer centered on `cx`, like vanilla's GuiPlayerTabOverlay:
+	 *  the server's own colours and formatting kept (getFormattedText), wrapped to the
+	 *  screen width less 50 px (listFormattedStringToWidth also breaks on newlines), with
+	 *  a shadow. The colour picker tints the parts the server left uncoloured. Returns
+	 *  the y below the last line. */
+	private static int drawCentered(Gfx g, FontRenderer font, IChatComponent text, int cx, int y, int color, int screenWidth) {
+		for (String line : font.listFormattedStringToWidth(text.getFormattedText(), Math.max(50, screenWidth - 50))) {
+			g.drawString(font, line, cx - font.getStringWidth(line) / 2, y, color, true);
 			y += ROW_H;
 		}
 		return y;

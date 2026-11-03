@@ -39,6 +39,39 @@ public abstract class ChatTimestampMixin {
 
 	@Shadow @Final private List<GuiMessage> allMessages;
 
+	// Wrapped lines on screen, newest first; Stack Spam takes the previous copy's lines
+	// off this list directly instead of re-wrapping the whole chat (which jumps the scroll).
+	@Shadow @Final private List<GuiMessage.Line> trimmedMessages;
+
+	@Shadow
+	public abstract void scrollChat(int amount);
+
+	/** Takes the newest message's lines off the screen list in place, keeping the scroll
+	 *  position; false = couldn't tell which lines they are (the caller re-wraps). The
+	 *  private addMessage adds a message's lines at index 0 one by one and marks the
+	 *  last one added endOfEntry (javap 1.19.2), so the newest message is index 0 (marked)
+	 *  plus every unmarked line after it. */
+	private boolean originclient$dropNewestLines() {
+		if (trimmedMessages.isEmpty() || allMessages.isEmpty()) {
+			return false;
+		}
+		int time = allMessages.get(0).addedTime();
+		GuiMessage.Line first = trimmedMessages.get(0);
+		if (!first.endOfEntry() || first.addedTime() != time) {
+			return false;
+		}
+		int k = 1;
+		while (k < trimmedMessages.size() && !trimmedMessages.get(k).endOfEntry()) {
+			if (trimmedMessages.get(k).addedTime() != time) {
+				return false;
+			}
+			k++;
+		}
+		trimmedMessages.subList(0, k).clear();
+		scrollChat(-k);   // the lines above slid down by k: keep the same ones in view
+		return true;
+	}
+
 	@Shadow
 	private void refreshTrimmedMessage() {
 		throw new AssertionError();
@@ -84,8 +117,18 @@ public abstract class ChatTimestampMixin {
 			String base = message.getString();
 			if (base.equals(originclient$lastBase) && !allMessages.isEmpty()) {
 				originclient$lastCount++;
-				allMessages.remove(0);          // drop the previous identical line
-				refreshTrimmedMessage();
+				// drop the previous identical line in place; a full refresh would re-wrap
+				// every line and jump the player's scroll position
+				boolean dropped = false;
+				try {
+					dropped = originclient$dropNewestLines();
+				} catch (Throwable t) {
+					dropped = false;
+				}
+				allMessages.remove(0);
+				if (!dropped) {
+					refreshTrimmedMessage();
+				}
 				result = Component.literal(base + " ")
 						.append(Component.literal("(x" + originclient$lastCount + ")").withStyle(ChatFormatting.GRAY));
 			} else {

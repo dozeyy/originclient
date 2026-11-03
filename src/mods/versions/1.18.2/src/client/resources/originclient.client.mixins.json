@@ -13,6 +13,7 @@
 		"CosmeticsPauseMixin",
 		"AbstractButtonMixin",
 		"SprintKeyMixin",
+		"OptionsSaveMixin",
 		"AbstractSliderButtonMixin",
 		"AbstractSliderButtonAccessor",
 		"CheckboxMixin",
@@ -21,6 +22,7 @@
 		"GameRendererMixin",
 		"GuiHudMixin",
 		"MouseHandlerMixin",
+		"KeyClickMixin",
 		"ClientLevelTimeMixin",
 		"CameraMixin",
 		"LoadingOverlayMixin",
@@ -94,7 +96,12 @@
 		"SodiumShadowWalkDevMixin",
 		"SodiumSectionShadowMapMixin",
 		"SodiumRegionShadowMapMixin",
-		"DebugScreenShaderSpeedupsMixin"
+		"DebugScreenShaderSpeedupsMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

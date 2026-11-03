@@ -3,6 +3,7 @@ package com.origin.client.client;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiIngameMenu;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.player.EnumPlayerModelParts;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
@@ -320,8 +321,50 @@ final class OriginDevWorld {
 					}
 					OriginDevShots.grab(mc, dir, "inworld_hud_" + mc.displayWidth + "x" + mc.displayHeight + ".png");
 					log("[origin-smoke] in-world: HUD up (" + passes + " HUD passes)");
+					// Every 1.7 Animations hook class is loaded by now (hand, layers, keys, armor);
+					// a hook that silently didn't apply (defaultRequire 0) fails the step here.
+					String oldAnimMissing = com.origin.client.client.mods.OldAnimations.missingHooks();
+					if (!oldAnimMissing.isEmpty()) {
+						inWorldEnd(mc, false, "1.7 Animations hooks not applied: " + oldAnimMissing, onEnd);
+						return;
+					}
+					log("[origin-smoke] in-world: 1.7 Animations hooks applied ("
+							+ com.origin.client.client.mods.OldAnimations.HOOKS.length + ")");
+					// 1.7 Animations shots: a sword given on the integrated server (the inventory syncs
+					// back like a real server's; 1.8.9 has no shield), the mod switched on for the shots.
+					Mods.setOn(com.origin.client.client.mods.OldAnimations.MOD, true);
+					oldAnimSword(mc, true);
+					iw = 10;
+					iwAt = now + 2000;
+					break;
+				}
+				case 10: {
+					OriginDevShots.grab(mc, dir, "inworld_oldanim_idle_" + mc.displayWidth + "x" + mc.displayHeight + ".png");
+					// The real use path: runTick's keyBindUseItem.isKeyDown() -> rightClickMouse -> the
+					// sword's setItemInUse. No mouse events under Xvfb, so the state stays set.
+					KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), true);
+					iw = 11;
+					iwAt = now + 1200;
+					break;
+				}
+				case 11: {
+					log("[origin-smoke] in-world: 1.7 Animations sword block " + (mc.thePlayer != null
+							&& com.origin.client.client.mods.OldAnimations.swordBlocking(mc.thePlayer) ? "raised" : "NOT raised"));
+					OriginDevShots.grab(mc, dir, "inworld_oldanim_block_" + mc.displayWidth + "x" + mc.displayHeight + ".png");
+					KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
+					oldAnimSword(mc, false);
+					mc.displayGuiScreen(new com.origin.client.client.gui.OriginModMenuScreen(null,
+							com.origin.client.client.mods.OldAnimations.MOD));
+					iw = 12;
+					iwAt = now + 2500;
+					break;
+				}
+				case 12: {
+					OriginDevShots.grab(mc, dir, "inworld_oldanim_page_" + mc.displayWidth + "x" + mc.displayHeight + ".png");
+					Mods.setOn(com.origin.client.client.mods.OldAnimations.MOD, false);
+					mc.displayGuiScreen(null);
 					iw = 2;
-					iwAt = now + 1500;
+					iwAt = now + 1000;
 					break;
 				}
 				case 2: {
@@ -382,6 +425,22 @@ final class OriginDevWorld {
 			com.origin.client.OriginClient.LOGGER.error("[origin-smoke] in-world step {} threw", iw, t);
 			inWorldEnd(mc, false, "step " + iw + " threw " + t, onEnd);
 		}
+	}
+
+	/** A diamond sword in the selected hotbar slot (or the slot cleared), set on the integrated server. */
+	private static void oldAnimSword(Minecraft mc, final boolean give) {
+		final net.minecraft.server.integrated.IntegratedServer server = mc.getIntegratedServer();
+		if (server == null || mc.thePlayer == null) {
+			return;
+		}
+		final java.util.UUID id = mc.thePlayer.getUniqueID();
+		server.addScheduledTask(() -> {
+			net.minecraft.entity.player.EntityPlayerMP sp = server.getConfigurationManager().getPlayerByUUID(id);
+			if (sp != null) {
+				sp.inventory.setInventorySlotContents(sp.inventory.currentItem, give
+						? new net.minecraft.item.ItemStack(net.minecraft.init.Items.diamond_sword) : null);
+			}
+		});
 	}
 
 	private static void inWorldEnd(Minecraft mc, boolean pass, String reason, Runnable onEnd) {

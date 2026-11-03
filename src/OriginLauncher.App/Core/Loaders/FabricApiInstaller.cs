@@ -56,11 +56,14 @@ public static class FabricApiInstaller
         // Skip-if-present, same idea as PerfModInstaller: no repeat network
         // call on every subsequent launch of an already-provisioned instance.
         // Enumerate all files and match the project's filename prefix in either
-        // state (".jar" or a player-disabled ".jar.disabled") — never a Win32
-        // glob, and never re-downloading a copy the player deliberately turned off.
+        // state (".jar", or a ".jar.disabled" Voice Chat the player turned off) —
+        // never a Win32 glob, and never re-downloading a copy the player turned off.
         // Only ORIGIN's copy counts (ModManager.IsOriginsCopy: by its bytes, a pin or this folder's install record):
         // a player's own Fabric API of that name is theirs, and Origin's mods (and every profile or Origin-only
         // launch, which loads Origin's jars only) still need Origin's beside it.
+        // Origin's own pinned Fabric API turned off (an old Mods page offered a switch on it): back on by a rename.
+        // HasOriginsCopy counts a turned-off copy only for Voice Chat (the player may switch that one off).
+        if (pin != null) Mods.ModManager.TryRestoreOriginsJar(modsFolder, pin.FileName, pin.Matches);
         if (Mods.ModManager.HasOriginsCopy(modsFolder, presentPrefix))
             return;
 

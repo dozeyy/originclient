@@ -112,7 +112,7 @@ public class OriginItemSizeScreen extends OriginItemGridScreen {
 		double t = Math.max(0, Math.min(1, (dX(guiMx) - sliderX0) / (double) (sliderX1 - sliderX0)));
 		double v = ItemSizes.MIN + t * (ItemSizes.MAX - ItemSizes.MIN);
 		v = Math.round(v * 20) / 20.0; // 0.05 steps
-		ItemSizes.set(selected, (float) v);
+		ItemSizes.setLive(selected, (float) v);   // on disk once, on release / close
 	}
 
 	@Override
@@ -134,7 +134,16 @@ public class OriginItemSizeScreen extends OriginItemGridScreen {
 	}
 
 	@Override
+	public void removed() {
+		ItemSizes.flush();   // closed mid-drag: keep what the player sees
+		super.removed();
+	}
+
+	@Override
 	public boolean mouseReleased(double mx, double my, int button) {
+		if (draggingSlider) {
+			ItemSizes.flush();
+		}
 		draggingSlider = false;
 		return super.mouseReleased(mx, my, button);
 	}

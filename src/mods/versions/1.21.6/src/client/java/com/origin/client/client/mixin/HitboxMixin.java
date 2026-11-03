@@ -101,10 +101,12 @@ public class HitboxMixin {
 	}
 
 
-	// 1.21.5: hitboxes are pre-extracted into render state (renderHitboxes).
-	// The state has no live Entity, so Show Damaged / Show Hittable / Look
-	// Vector can't apply here; type filter, distance, color, width, and pattern
-	// all do (the state carries the boxes and the entity type).
+	// 1.21.5+: hitboxes are pre-extracted into render state (renderHitboxes).
+	// The state has no live Entity, so HitboxFactsMixin records the live-entity
+	// facts (category, hurt, under the crosshair, is-it-you) at extraction and
+	// HitboxFacts hands them back here: Passive / Monsters / Projectiles, Show
+	// Damaged, Show Hittable and Show Look Vector work as on 1.21.1. Without
+	// facts (that mixin not applied) it falls back to the entity type alone.
 	@Inject(method = "renderHitboxes",
 			at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
 	private static void originclient$filterHitboxState(PoseStack poseStack,
@@ -119,7 +121,9 @@ public class HitboxMixin {
 			ci.cancel();
 			return;
 		}
-		if (!Mods.bool("hitboxes", categoryKey(state.entityType))) {
+		com.origin.client.client.render.HitboxFactsState facts = com.origin.client.client.render.HitboxFacts.of(state);
+		String category = facts != null ? facts.origin$hitboxCategory() : categoryKey(state.entityType);
+		if (!Mods.bool("hitboxes", category)) {
 			ci.cancel();
 			return;
 		}
@@ -127,6 +131,16 @@ public class HitboxMixin {
 		// the 1.21.1 rework: player-only styling made Line Color and Line Width
 		// silently do nothing on mobs, and the whole mod read as broken.
 		int col = OriginColorPicker.liveColor("hitboxes", "lineColor");
+		// Tints, as on 1.21.1: item entities are immune (you can't attack a
+		// dropped item); the crosshair tint wins over the damage tint.
+		if (facts != null && !"items".equals(category)) {
+			if (facts.origin$hitboxDamaged() && Mods.bool("hitboxes", "showDamaged")) {
+				col = OriginColorPicker.liveColor("hitboxes", "damagedColor");
+			}
+			if (facts.origin$hitboxHittable() && Mods.bool("hitboxes", "showHittable")) {
+				col = OriginColorPicker.liveColor("hitboxes", "hittableColor");
+			}
+		}
 		float r = ((col >> 16) & 0xFF) / 255f;
 		float g = ((col >> 8) & 0xFF) / 255f;
 		float b = (col & 0xFF) / 255f;
@@ -161,6 +175,14 @@ public class HitboxMixin {
 			} else {
 				drawBox(consumer, pose, box, fr, fg, fb, fa, 1, pattern);
 			}
+		}
+		// Look line, as on 1.21.1: from the eyes, 2 blocks along the view vector
+		// vanilla stored in the state, box colour and pattern. Never your own
+		// (it only ever shows as an Iris shadow).
+		if (facts != null && !facts.origin$hitboxSelf() && Mods.bool("hitboxes", "showLookVector")) {
+			double eye = state.eyeHeight;
+			patternLine(consumer, pose, 0, eye, 0, hitboxes.viewX() * 2, eye + hitboxes.viewY() * 2,
+					hitboxes.viewZ() * 2, fr, fg, fb, fa, pattern);
 		}
 		ci.cancel();
 	}

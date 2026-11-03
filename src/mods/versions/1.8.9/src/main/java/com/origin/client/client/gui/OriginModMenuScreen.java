@@ -105,6 +105,14 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	private String search = "";
 	private boolean searchFocused = false;
+	// E2: Right Shift closes the menu on release, and only when it was tapped on its
+	// own with no search box in use -- held for a capital letter, it never closes.
+	// (1.8.9: keyTyped only sees key-downs, so the release is read in handleKeyboardInput.)
+	private boolean rshiftTap = false;
+	// Right Shift still held from opening the menu (its key press opened it): the
+	// auto-repeat presses of that same hold must not arm the close, so they are ignored
+	// until the release that ends the hold.
+	private boolean rshiftHeldAtOpen = rshiftDownNow();
 	private String optSearch = "";                    // mod page / settings tab filter
 	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
 	private float maxScroll, maxPageScroll;
@@ -193,6 +201,7 @@ public class OriginModMenuScreen extends OriginScreen {
 	public void removed() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 		HudElements.editorPreview = false;
 		HudElements.suppressScoreboard = false;
 		Keyboard.enableRepeatEvents(false);
@@ -223,7 +232,7 @@ public class OriginModMenuScreen extends OriginScreen {
 		}
 		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "crosshair", "chunkborders", "hitboxes",
 				"nametags", "itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles",
-				"hurtcam", "hitcolor", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
+				"hurtcam", "hitcolor", "oldanimations", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
 				"worldeditcui"}) {
 			CATS.put(id, Cat.VISUAL);
 		}
@@ -240,7 +249,7 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	// The NEW filter + badge: this release's additions. The badge clears once the
 	// player has opened that mod's page (meta "seen:<id>").
-	private static final Set<String> NEW_IDS = new HashSet<>(Arrays.asList("portalcalc", "fpscoach", "hypixelbedwars", "friends"));
+	private static final Set<String> NEW_IDS = new HashSet<>(Arrays.asList("portalcalc", "fpscoach", "hypixelbedwars", "friends", "oldanimations"));
 
 	private static Cat catOf(Mods.Mod m) {
 		return CATS.getOrDefault(m.id(), Cat.GAMEPLAY);
@@ -298,6 +307,7 @@ public class OriginModMenuScreen extends OriginScreen {
 	public void commitPendingEdits() {
 		flushSlider();
 		commitText();
+		OriginColorPicker.flushPending();
 	}
 
 	private void flushSlider() {
@@ -1591,6 +1601,9 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (keyCode != Keyboard.KEY_RSHIFT) {
+			rshiftTap = false;
+		}
 		if (OriginMultiSelect.isOpen()) {
 			return OriginMultiSelect.keyPressed(keyCode);
 		}
@@ -1640,7 +1653,8 @@ public class OriginModMenuScreen extends OriginScreen {
 			return true;
 		}
 		if (keyCode == Keyboard.KEY_RSHIFT) {
-			beginClose();
+			rshiftTap = !rshiftHeldAtOpen && !Keyboard.isRepeatEvent()
+					&& !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
 		if (keyCode == Keyboard.KEY_F && hasControlDown() && page == null && tab == Tab.MODS) {
@@ -1662,8 +1676,29 @@ public class OriginModMenuScreen extends OriginScreen {
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
+	private static boolean rshiftDownNow() {
+		try {
+			return Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	@Override
+	public void handleKeyboardInput() throws java.io.IOException {
+		super.handleKeyboardInput();
+		if (Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+			rshiftHeldAtOpen = false;
+		}
+		if (rshiftTap && Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+			rshiftTap = false;
+			beginClose();
+		}
+	}
+
 	@Override
 	public boolean charTyped(char chr, int modifiers) {
+		rshiftTap = false;
 		if (capMod != null) {
 			return true;
 		}

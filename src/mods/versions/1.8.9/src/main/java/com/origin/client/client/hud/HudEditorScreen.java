@@ -388,8 +388,11 @@ public class HudEditorScreen extends OriginScreen {
 				selectedId = e.id();
 				resizingId = e.id();
 				// anchored (fixed) element corner = opposite the free corner
-				resizeFixedX = freeLeft(pos.anchor) ? x + w : x;
-				resizeFixedY = freeTop(pos.anchor) ? y + h : y;
+				// A centred axis (anchor column / row 1) keeps the box's CENTRE fixed
+				// (HudPos re-centres it as it scales), so the centre is the reference
+				// there; measuring from the edge made a centred piece drift off the cursor.
+				resizeFixedX = pos.anchor % 3 == 1 ? x + w / 2 : freeLeft(pos.anchor) ? x + w : x;
+				resizeFixedY = pos.anchor / 3 == 1 ? y + h / 2 : freeTop(pos.anchor) ? y + h : y;
 				resizeBaseW = size[0];
 				resizeBaseH = size[1];
 				// Reference for proportional resizing: the element scales relative
@@ -434,8 +437,11 @@ public class HudEditorScreen extends OriginScreen {
 				}
 				double raw = resizeStartScale * (d / resizeGrabDist);
 				// cap so the growing edge can't leave the screen either
-				double availW = freeLeft(pos.anchor) ? resizeFixedX : (width - resizeFixedX);
-				double availH = freeTop(pos.anchor) ? resizeFixedY : (height - resizeFixedY);
+				// (a centred axis grows both ways, so it is capped by its nearer edge)
+				double availW = pos.anchor % 3 == 1 ? 2 * Math.min(resizeFixedX, width - resizeFixedX)
+						: freeLeft(pos.anchor) ? resizeFixedX : (width - resizeFixedX);
+				double availH = pos.anchor / 3 == 1 ? 2 * Math.min(resizeFixedY, height - resizeFixedY)
+						: freeTop(pos.anchor) ? resizeFixedY : (height - resizeFixedY);
 				double maxS = Math.min(2.5, Math.min(availW / resizeBaseW, availH / resizeBaseH));
 				pos.scale = Math.max(0.5, Math.min(maxS, raw));
 				pos.saveLive(e.id());   // the disk write happens once, on release

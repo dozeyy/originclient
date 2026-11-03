@@ -50,20 +50,27 @@ public final class StepAside {
 	 * THE table. Add a row only when the other mod really does the same job (its own
 	 * description/behaviour), never just because both touch the same game code.
 	 *  - freelook <- freecam: both let you look around without turning your player.
-	 *  - zoom <- zoomify: a zoom mod, also on the C key by default.
+	 *  - zoom <- zoomify / ok_zoomer / logical_zoom / wi_zoom: zoom mods, all on the C key
+	 *    by default; two zooms on one key would both fire.
 	 *  - saturation <- appleskin: Origin's Saturation IS a built-in AppleSkin (hunger
 	 *    overlay, held-food preview, food tooltip).
 	 *  - worldeditcui <- worldeditcui: the WorldEdit selection overlay; two would fight
 	 *    over the worldedit:cui channel.
+	 *  - oldanimations <- the old-animation / sword-blocking mods (OverflowAnimations,
+	 *    Animatium, Sword Blocking, Combat Control, Old Combat Mod, Ancient Animations,
+	 *    Bring Blocking Back, Sword Block): each redraws the held sword/items the old way,
+	 *    and two would fight over the same first-person hand draw.
 	 *  - jei <- jei: a player's own JEI jar (Origin bundles JEI, so only a copy outside
 	 *    Origin's jar counts); Origin's switch stops hiding it.
 	 */
 	public static final List<Row> TABLE = List.of(
 			new Row("freelook", false, false, List.of("freecam")),
-			new Row("zoom", false, false, List.of("zoomify")),
+			new Row("zoom", false, false, List.of("zoomify", "ok_zoomer", "logical_zoom", "wi_zoom")),
 			new Row("saturation", false, false, List.of("appleskin")),
 			new Row("worldeditcui", false, false, List.of("worldeditcui")),
-			new Row("jei", true, true, List.of("jei")));
+			new Row("jei", true, true, List.of("jei")),
+			new Row("oldanimations", false, false, List.of("overflowanimations", "animatium", "swordblocking",
+					"combat-control", "oldcombatmod", "ancientanimations", "bring-blocking-back", "swordblock")));
 
 	/** A resolved overlap: the row and the display name of the mod that replaced it. */
 	public record Replaced(Row row, String by) {

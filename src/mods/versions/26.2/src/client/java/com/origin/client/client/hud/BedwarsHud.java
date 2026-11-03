@@ -43,7 +43,7 @@ final class BedwarsHud {
 	static void register() {
 		HudElements.add("bwresources", MOD, "Resource Counter", new HudPos(8, -6, -24, 1.0),
 				BedwarsHud::resourceSize, BedwarsHud::renderResources);
-		HudElements.add("bwteammates", MOD, "Teammates", new HudPos(3, 6, -40, 1.0),
+		HudElements.add("bwteammates", MOD, "Teammates", new HudPos(3, 6, -100, 1.0) /* above Keystrokes (C3) */,
 				BedwarsHud::teammatesSize, BedwarsHud::renderTeammates);
 	}
 

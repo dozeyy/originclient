@@ -45,6 +45,7 @@
 		"MultiPlayerGameModeMixin",
 		"ItemEntityScaleMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
@@ -100,7 +101,13 @@
 		"LevelRendererCullFrustumMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"OptionsSaveMixin",
+		"KeyRebindMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

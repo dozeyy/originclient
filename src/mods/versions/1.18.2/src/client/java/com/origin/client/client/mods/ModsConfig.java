@@ -143,6 +143,11 @@ public final class ModsConfig {
 		}
 	}
 
+	/** Bumps {@link #rev} for a change that is not followed by save() (HUD editor resize drags). */
+	static synchronized void touch() {
+		rev++;
+	}
+
 	static synchronized void save() {
 		rev++;
 		try {

@@ -5,8 +5,8 @@ namespace OriginLauncher.App.Core.Launch;
 /// <summary>
 /// The heap one launch actually gets. AUTO (the default) sizes it per version and PC
 /// (RamAdvice.AutoMb: legacy 4 GB / 6 GB for heavy packs, modern up to 8 GB). MANUAL is the
-/// player's number, used as-is on every version; for a legacy version a very large one only
-/// earns a heads-up. Pure: callers supply the facts (PackProbe for the pack signals).
+/// player's number on every version, as Settings shows it (RamAdvice.ManualMb: on the grid, at
+/// most this PC's maximum); for a legacy version a very large one only earns a heads-up. Pure: callers supply the facts (PackProbe for the pack signals).
 /// </summary>
 public sealed record HeapPlan(int MaxMb, int StartMb, bool Auto, string? Warning)
 {
@@ -26,6 +26,8 @@ public sealed record HeapPlan(int MaxMb, int StartMb, bool Auto, string? Warning
         // and without AlwaysPreTouch it costs next to nothing.
         if (manual)
         {
+            // What Settings shows (RamAdvice.ManualMb): never above this PC's maximum, whatever number is stored.
+            manualMb = RamAdvice.ManualMb(manualMb, totalPhysicalMb);
             var warn = legacy && manualMb > LegacyWarnAboveMb
                 ? $"{manualMb / 1024d:0.#} GB is a lot for this version - 4 GB is plenty for most setups and runs smoother."
                 : null;

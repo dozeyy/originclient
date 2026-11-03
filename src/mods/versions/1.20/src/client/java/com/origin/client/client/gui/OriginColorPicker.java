@@ -23,6 +23,10 @@ public final class OriginColorPicker {
 	private static String modId, key, title;
 	// chroma is hidden for consumers whose renderer can't animate it (block outline)
 	private static boolean allowChroma = true;
+	// E3: drags (field, hue, alpha, speed) write memory only; flushPending() saves
+	// once when the drag ends or the picker closes. Mods.set on every mouse move
+	// rewrote the whole config file dozens of times a second.
+	private static boolean unsaved = false;
 
 	// working HSVA (0..360, 0..1, 0..1, 0..255)
 	private static float h, s, v;
@@ -53,10 +57,22 @@ public final class OriginColorPicker {
 	}
 
 	public static void open(String modId, String key, String label, int anchorX, int anchorY) {
+		open(modId, key, label, anchorX, anchorY, true);
+	}
+
+	/** allowChroma false hides Chroma (and its speed/type) for consumers that can't
+	 *  animate it -- the waypoint editor copies only the colour. A Chroma switch left
+	 *  on under this key is turned off so nothing reads it as on. */
+	public static void open(String modId, String key, String label, int anchorX, int anchorY,
+			boolean allowChroma) {
+		flushPending();
 		OriginColorPicker.modId = modId;
 		OriginColorPicker.key = key;
 		OriginColorPicker.title = label;
-		OriginColorPicker.allowChroma = true;
+		OriginColorPicker.allowChroma = allowChroma;
+		if (!allowChroma && Mods.bool(modId, key + "#chroma")) {
+			Mods.set(modId, key + "#chroma", false);
+		}
 		OriginColorPicker.anchorX = anchorX;
 		OriginColorPicker.anchorY = anchorY;
 		OriginColorPicker.openedAt = System.currentTimeMillis();
@@ -91,8 +107,20 @@ public final class OriginColorPicker {
 	}
 
 	public static void close() {
+		flushPending();
 		open = false;
 		drag = 0;
+	}
+
+	/** Saves a drag's colour/speed once (no-op when nothing is pending). The mod menu
+	 *  also calls it when it closes, so a drag cut short by quitting still saves. */
+	public static void flushPending() {
+		if (!unsaved) {
+			return;
+		}
+		unsaved = false;
+		// writes the colour back as an int (setUnsaved held it as a double) + one save
+		Mods.set(modId, key, hsvToArgb(h, s, v, alpha));
 	}
 
 	// sibling-key accessors any consumer can read to animate chroma
@@ -350,6 +378,7 @@ public final class OriginColorPicker {
 			return false;
 		}
 		drag = 0;
+		flushPending();
 		return true;
 	}
 
@@ -382,7 +411,8 @@ public final class OriginColorPicker {
 
 	private void applySpeed(double mx) {
 		double t = clamp01((mx - speedX()) / (double) SPEED_W);
-		Mods.set(modId, key + "#speed", Math.round(1 + t * 99));
+		Mods.setUnsaved(modId, key + "#speed", Math.round(1 + t * 99));
+		unsaved = true;
 	}
 
 	private void cycleType(int dir) {
@@ -407,6 +437,12 @@ public final class OriginColorPicker {
 	}
 
 	private void commit() {
+		if (drag != 0) {
+			// mid-drag: memory only (Mods.color reads it as a long), saved on release
+			Mods.setUnsaved(modId, key, (double) current());
+			unsaved = true;
+			return;
+		}
 		Mods.set(modId, key, current());
 	}
 

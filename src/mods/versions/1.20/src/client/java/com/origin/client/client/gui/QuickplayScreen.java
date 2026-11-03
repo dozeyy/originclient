@@ -142,6 +142,9 @@ public class QuickplayScreen extends OriginWindow {
 		scrollTarget = Math.min(scrollTarget, maxScroll);
 		scroll = Math.min(scroll, maxScroll);
 
+		// Off Hypixel the tiles and Go to Lobby are greyed and inert: their /play and
+		// /lobby commands would go to whatever server this is (the badge says why)
+		boolean live = Quickplay.onHypixel(Minecraft.getInstance());
 		d.clip(MODE_X, TOP, MODE_W, gridBottom - TOP);
 		for (int i = 0; i < n; i++) {
 			float x = MODE_X + (i % COLS) * (tileW + GAP);
@@ -150,21 +153,23 @@ public class QuickplayScreen extends OriginWindow {
 				continue;
 			}
 			Quickplay.Mode mode = game.modes().get(i);
-			boolean hov = d.over(x, y, tileW, TILE_H);
+			boolean hov = live && d.over(x, y, tileW, TILE_H);
 			float hp = OriginUi.hover("deck-qp-mode:" + selected + ":" + i, hov);
 			d.rect(x, y, tileW, TILE_H, 6, lerp(CARD, CARD_H, hp), lerp(LINE, 0x29F1E9D2, hp));
-			d.textMid(d.fit(mode.name(), tileW - 56, 14, true, 0), x + 18, y + TILE_H / 2, 14, true, 0, TEXT);
+			d.textMid(d.fit(mode.name(), tileW - 56, 14, true, 0), x + 18, y + TILE_H / 2, 14, true, 0, live ? TEXT : MUTE);
 			d.icon("@chev-right", x + tileW - 18 - 14, y + TILE_H / 2 - 7, 14, lerp(MUTE, ACC, hp));
-			d.hit(x, y, tileW, TILE_H, () -> {
-				beginClose();
-				Quickplay.play(Minecraft.getInstance(), game, mode);
-			});
+			if (live) {
+				d.hit(x, y, tileW, TILE_H, () -> {
+					beginClose();
+					Quickplay.play(Minecraft.getInstance(), game, mode);
+				});
+			}
 		}
 		d.unclip();
 		scrollbar(d, TOP, gridBottom);
 
 		if (game.lobby() != null) {
-			button(d, "Go to Lobby", null, MODE_X, BOTTOM - LOBBY_H, MODE_W, LOBBY_H, Style.SECONDARY, true, () -> {
+			button(d, "Go to Lobby", null, MODE_X, BOTTOM - LOBBY_H, MODE_W, LOBBY_H, Style.SECONDARY, live, () -> {
 				beginClose();
 				Quickplay.lobby(Minecraft.getInstance(), game);
 			});

@@ -192,7 +192,6 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showWhileTyping", "Show While Typing", true),
 				ModOption.toggle("showBackground", "Show Background", true),
-				ModOption.toggle("copyClipboard", "Copy Coords To Clipboard", true),
 				ModOption.toggle("decimal", "Decimal Coordinates", false),
 				ModOption.header("Color"),
 				ModOption.color("bgColor", "Background Color", 0x99000000),
@@ -237,7 +236,7 @@ public final class Mods {
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
 		// ---- gameplay / camera ----
-		add("freelook", "Freelook", "Look around without turning.", true,
+		add("freelook", "Freelook", "Look around without turning. Off on Hypixel (not allowed there).", true,
 				ModOption.dropdown("listMode", "List Mode", "Third Person", "First Person"),
 				ModOption.toggle("invertPitch", "Invert Pitch", false),
 				ModOption.toggle("invertYaw", "Invert Yaw", false),

@@ -243,7 +243,10 @@ public abstract class OriginWindow extends Screen {
 		}
 		boolean empty = text == null || text.isEmpty();
 		String shown = empty ? placeholder : d.fit(text, w - (tx - x) - 16, 13, false, 0);
-		float end = tx + d.textMid(shown, tx, y + h / 2, 13, false, 0, empty ? MUTE : TEXT);
+		// The placeholder starts just after the caret, like vanilla EditBox hint
+		// text: drawn at the caret's x, the blinking caret covered its first letter.
+		float sx = empty ? tx + 4 : tx;
+		float end = sx + d.textMid(shown, sx, y + h / 2, 13, false, 0, empty ? MUTE : TEXT);
 		if (focused && (System.currentTimeMillis() / 530) % 2 == 0) {
 			d.fill(empty ? tx : end + 1, y + h / 2 - 8, 1.5f, 16, TEXT);
 		}

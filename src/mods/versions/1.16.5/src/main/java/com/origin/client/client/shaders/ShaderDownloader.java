@@ -3,6 +3,7 @@ package com.origin.client.client.shaders;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -63,6 +64,7 @@ public final class ShaderDownloader {
 			com.origin.client.OriginClient.LOGGER.warn("Shader remove failed for {}", slug, t);
 		}
 		STATES.remove(slug);
+		updateIndex(slug, null);
 	}
 
 	/**
@@ -73,6 +75,21 @@ public final class ShaderDownloader {
 	 */
 	public static void syncWithDisk() {
 		Path dir = IrisBridge.shaderpacksDir();
+		// Packs installed in an earlier session: the index remembers which file each
+		// download wrote, so a row whose file is still there shows Installed again.
+		for (Map.Entry<String, String> e : index().entrySet()) {
+			if (state(e.getKey()).status() != Status.IDLE) {
+				continue;
+			}
+			try {
+				String fileName = java.nio.file.Paths.get(e.getValue()).getFileName().toString();
+				if (!fileName.trim().isEmpty() && Files.exists(dir.resolve(fileName))) {
+					STATES.put(e.getKey(), new State(Status.DONE, 1, fileName));
+				}
+			} catch (Throwable ignored) {
+				// unparseable entry -- the row just shows Download
+			}
+		}
 		for (java.util.Map.Entry<String, State> e : STATES.entrySet()) {
 			if (e.getValue().status() != Status.DONE) {
 				continue;
@@ -85,6 +102,84 @@ public final class ShaderDownloader {
 			} catch (Throwable ignored) {
 				// unparseable filename — leave the state as-is
 			}
+		}
+	}
+
+	// ---- installed-pack index (config/originclient-shaders.json: slug -> file name) ----
+	// Without it the states were memory-only, so after a restart every downloaded pack
+	// offered Download again. Settings Sync carries this file to every instance, so it
+	// only ever grows from what one instance sees: an entry whose pack isn't in THIS
+	// instance's shaderpacks/ is kept (another instance may have it), and an entry is
+	// dropped only by Remove. Read once per session; a change re-reads the file and edits
+	// just that one entry, and nothing is written unless the entry really changed. Reads
+	// and writes fail soft: a broken index only loses the Installed badge, never packs.
+	private static Map<String, String> index;
+
+	private static Path indexFile() {
+		return FabricLoader.getInstance().getConfigDir().resolve("originclient-shaders.json");
+	}
+
+	private static synchronized Map<String, String> index() {
+		if (index == null) {
+			Map<String, String> read = readIndex();
+			index = read != null ? read : new java.util.HashMap<String, String>();
+		}
+		return new java.util.HashMap<>(index);
+	}
+
+	/** The file's entries; empty if there's no file yet; null if it couldn't be read. */
+	private static Map<String, String> readIndex() {
+		Map<String, String> out = new java.util.HashMap<>();
+		try {
+			Path f = indexFile();
+			if (Files.exists(f)) {
+				JsonObject o = GSON.fromJson(new String(Files.readAllBytes(f), StandardCharsets.UTF_8), JsonObject.class);
+				if (o != null) {
+					for (Map.Entry<String, com.google.gson.JsonElement> e : o.entrySet()) {
+						if (e.getValue().isJsonPrimitive()) {
+							out.put(e.getKey(), e.getValue().getAsString());
+						}
+					}
+				}
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Could not read the installed shader list", t);
+			return null;
+		}
+		return out;
+	}
+
+	/** name = the file a download wrote; null = Remove. Writes only on a real change. */
+	private static synchronized void updateIndex(String slug, String name) {
+		Map<String, String> m = readIndex();
+		if (m == null) {
+			return;   // unreadable right now: never overwrite what we can't see
+		}
+		boolean same = name == null ? !m.containsKey(slug) : name.equals(m.get(slug));
+		if (name == null) {
+			m.remove(slug);
+		} else {
+			m.put(slug, name);
+		}
+		index = m;
+		if (same) {
+			return;
+		}
+		try {
+			JsonObject o = new JsonObject();
+			for (Map.Entry<String, String> e : m.entrySet()) {
+				o.addProperty(e.getKey(), e.getValue());
+			}
+			Path f = indexFile();
+			Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
+			Files.write(tmp, GSON.toJson(o).getBytes(StandardCharsets.UTF_8));
+			try {
+				Files.move(tmp, f, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException ignored) {
+				Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Could not save the installed shader list", t);
 		}
 	}
 
@@ -125,6 +220,7 @@ public final class ShaderDownloader {
 			Path dest = dir.resolve(name);
 			if (Files.exists(dest)) {
 				STATES.put(slug, new State(Status.DONE, 1, name));
+				updateIndex(slug, name);
 				return;
 			}
 
@@ -164,6 +260,7 @@ public final class ShaderDownloader {
 				Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
 			}
 			STATES.put(slug, new State(Status.DONE, 1, name));
+			updateIndex(slug, name);
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader download failed for {}", slug, t);
 			STATES.put(slug, new State(Status.ERROR, 0, "Download failed"));

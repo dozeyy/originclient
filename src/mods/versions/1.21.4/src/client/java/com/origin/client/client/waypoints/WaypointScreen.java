@@ -68,6 +68,9 @@ public class WaypointScreen extends OriginWindow {
 	// text buffers (typing "12" char-by-char or a lone "-" needs a buffer; every
 	// parseable change is applied to `editing` immediately)
 	private String nameStr = "", groupStr = "", xStr = "", yStr = "", zStr = "";
+	// The name the waypoint had when the editor opened: an emptied name field keeps
+	// it (not the last letter left before the field emptied), "Waypoint" if blank.
+	private String nameBefore = "Waypoint";
 	// which scale bar is being dragged: -1 none, 0 icon, 1 text, 2 distance
 	private int dragSlider = -1;
 	private float dragX0, dragX1;
@@ -191,7 +194,16 @@ public class WaypointScreen extends OriginWindow {
 	// ---- edit plumbing ----
 	// New waypoint = a detached draft: NOT added to the list (so it doesn't render
 	// or save) until Done commits it.
+	// Waypoints belong to a world: outside one (title screen) there's no list to add
+	// to and the draft was lost, so Create waypoint is greyed out there instead.
+	private static boolean inWorld() {
+		return Minecraft.getInstance().level != null;
+	}
+
 	private void createDraft() {
+		if (!inWorld()) {
+			return;
+		}
 		Waypoints.Waypoint w = new Waypoints.Waypoint();
 		w.name = Waypoints.nextName("Waypoint");
 		w.x = standX();
@@ -212,6 +224,7 @@ public class WaypointScreen extends OriginWindow {
 	private void fillBuffers(Waypoints.Waypoint w) {
 		focus = -1;
 		nameStr = w.name;
+		nameBefore = w.name == null || w.name.isBlank() ? "Waypoint" : w.name;
 		groupStr = w.group == null ? "" : w.group;
 		xStr = String.valueOf(w.x);
 		yStr = String.valueOf(w.y);
@@ -254,7 +267,7 @@ public class WaypointScreen extends OriginWindow {
 		if (editing == null) {
 			return;
 		}
-		editing.name = nameStr.isEmpty() ? editing.name : nameStr;
+		editing.name = nameStr.isEmpty() ? nameBefore : nameStr;
 		editing.group = groupStr;
 		Integer x = tryParse(xStr), y = tryParse(yStr), z = tryParse(zStr);
 		if (x != null) {
@@ -267,6 +280,13 @@ public class WaypointScreen extends OriginWindow {
 			editing.z = z;
 		}
 		persist();
+	}
+
+	// Coordinates stop at the world border, so the field always shows the number the
+	// waypoint really has (an out-of-range value used to be ignored silently).
+	private static boolean inWorldRange(String s) {
+		Integer v = tryParse(s);
+		return v != null && v >= -30_000_000 && v <= 30_000_000;
 	}
 
 	private static Integer tryParse(String s) {
@@ -314,6 +334,9 @@ public class WaypointScreen extends OriginWindow {
 			String n = editing.name.length() > 24 ? editing.name.substring(0, 23) + "…" : editing.name;
 			return "Editing " + n + " • changes save as you go";
 		}
+		if (!inWorld()) {
+			return "Join a world to add waypoints";
+		}
 		int total = Waypoints.all().size();
 		return total == 0 ? "No waypoints yet" : total + (total == 1 ? " waypoint" : " waypoints");
 	}
@@ -327,7 +350,7 @@ public class WaypointScreen extends OriginWindow {
 	protected void drawHeaderActions(OriginDeck d, float right) {
 		if (editing == null) {
 			float w = buttonW(d, "Create waypoint", "@plus");
-			button(d, "Create waypoint", "@plus", right - w, 16, w, 32, Style.PRIMARY, true, this::createDraft);
+			button(d, "Create waypoint", "@plus", right - w, 16, w, 32, Style.PRIMARY, inWorld(), this::createDraft);
 			return;
 		}
 		float w = buttonW(d, "Done", "@check");
@@ -620,7 +643,7 @@ public class WaypointScreen extends OriginWindow {
 				OriginColorPicker.close();
 			} else {
 				Mods.set("waypoints", key, color);
-				OriginColorPicker.open("waypoints", key, pickerTitle, d.guiX(x), d.guiY(y + 36));
+				OriginColorPicker.open("waypoints", key, pickerTitle, d.guiX(x), d.guiY(y + 36), false);
 			}
 			focus = -1;
 		});
@@ -812,7 +835,7 @@ public class WaypointScreen extends OriginWindow {
 		}
 		boolean coord = focus >= 2;
 		if (coord) {
-			if ((chr >= '0' && chr <= '9') || (chr == '-' && cur.isEmpty())) {
+			if ((chr >= '0' && chr <= '9' && inWorldRange(cur + chr)) || (chr == '-' && cur.isEmpty())) {
 				setFocused(cur + chr);
 				applyBuffers();
 			}

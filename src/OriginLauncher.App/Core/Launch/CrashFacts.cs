@@ -28,6 +28,10 @@ public sealed record CrashEvidence(
     /// <summary>The crashed version's own Java arguments (Settings, Java arguments), exactly as saved; null when it
     /// has none. Lets the Java rule tell "your arguments" from "Origin's" (only the first can be reset).</summary>
     public string? CustomJvmArgs { get; init; }
+
+    /// <summary>The least a "raise memory" fix may offer (CrashMemory.ForLaunch): on Auto, the amount the newest
+    /// versions already get, so the fix (Manual, every version) never lowers any of them. 0 = no floor.</summary>
+    public int RaiseFloorMb { get; init; }
 }
 
 public enum DependencyKind { Missing, WrongVersion, Incompatible, Unloadable }
@@ -100,6 +104,7 @@ public sealed record CrashFacts
     public IReadOnlyList<CrashModEntry> Mods { get; init; } = [];
     public int RamMb { get; init; }
     public int TotalPhysicalMb { get; init; }
+    public int RaiseFloorMb { get; init; }
 }
 
 /// <summary>
@@ -242,6 +247,7 @@ public static class CrashFactsParser
             Mods = e.Mods,
             RamMb = e.RamMb,
             TotalPhysicalMb = e.TotalPhysicalMb,
+            RaiseFloorMb = e.RaiseFloorMb,
         };
     }
 

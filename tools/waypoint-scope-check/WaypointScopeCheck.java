@@ -77,6 +77,31 @@ public class WaypointScopeCheck {
 		eq("scope file kept", "[\"own\"]", new String(Files.readAllBytes(world3), StandardCharsets.UTF_8));
 		eq("legacy still parked after retry", true, Files.exists(backup) && !Files.exists(legacy));
 
+		// singleplayer keys carry the Minecraft version (same-named saves in two versions
+		// are different worlds), and a world copies its old unversioned list once
+		eq("sp versioned key", "sp:1.21.1:New World", WaypointScope.singleplayer("New World", "1.21.1"));
+		eq("sp versions differ", false,
+				WaypointScope.singleplayer("New World", "1.21.1").equals(WaypointScope.singleplayer("New World", "1.20.1")));
+		eq("sp blank version = old key", "sp:New World", WaypointScope.singleplayer("New World", " "));
+		eq("sp versioned blank folder", "sp:1.20:unknown", WaypointScope.singleplayer("", "1.20"));
+		eq("unversioned of own key", "sp:New World", WaypointScope.unversioned("sp:1.21.1:New World", "1.21.1"));
+		eq("unversioned: folder with colon", "sp:a:b", WaypointScope.unversioned("sp:26.3:a:b", "26.3"));
+		eq("unversioned: other version", null, WaypointScope.unversioned("sp:1.20:New World", "1.21.1"));
+		eq("unversioned: server key", null, WaypointScope.unversioned("mp:example.com", "1.21.1"));
+		eq("unversioned: no version", null, WaypointScope.unversioned("sp:New World", ""));
+
+		Path oldSp = dir.resolve(WaypointScope.fileName("sp:Mig"));
+		Path newSp = dir.resolve(WaypointScope.fileName("sp:1.21.1:Mig"));
+		eq("nothing to adopt", false, WaypointScope.adoptPrevious(oldSp, newSp));
+		Files.write(oldSp, "[\"old\"]".getBytes(StandardCharsets.UTF_8));
+		eq("first load adopts old list", true, WaypointScope.adoptPrevious(oldSp, newSp));
+		eq("adopted content", "[\"old\"]", new String(Files.readAllBytes(newSp), StandardCharsets.UTF_8));
+		eq("old file kept", true, Files.exists(oldSp));
+		Files.write(newSp, "[]".getBytes(StandardCharsets.UTF_8));   // player deleted them all
+		eq("adopts only once", false, WaypointScope.adoptPrevious(oldSp, newSp));
+		eq("emptied list stays empty", "[]", new String(Files.readAllBytes(newSp), StandardCharsets.UTF_8));
+		eq("no tmp left", false, Files.exists(newSp.resolveSibling(newSp.getFileName() + ".tmp")));
+
 		System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
 		System.exit(fails == 0 ? 0 : 1);
 	}

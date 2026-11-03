@@ -24,6 +24,10 @@ public final class OptionsAutosave {
 	 *  nothing is written until they are put back. OriginClientMod sets it. */
 	public static volatile boolean held;
 
+	/** True while Options.save() has the player's own chat values swapped in
+	 *  for the write (OriginClientMod.chatOptionsForSave): not a change. */
+	public static boolean quiet;
+
 	private OptionsAutosave() {
 	}
 
@@ -33,6 +37,9 @@ public final class OptionsAutosave {
 
 	/** A vanilla option changed (OptionsAutosaveMixin). */
 	public static void changed() {
+		if (quiet) {
+			return;
+		}
 		// Options.load() sets every option while Minecraft builds its Options,
 		// before mc.options exists: reading the file is not a change.
 		Minecraft mc = Minecraft.getInstance();

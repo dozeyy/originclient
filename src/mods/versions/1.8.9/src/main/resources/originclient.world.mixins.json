@@ -10,6 +10,7 @@
 	"client": [
 		"ActiveRenderInfoMixin",
 		"ArmorGlintMixin",
+		"BiomeSnowMixin",
 		"FreelookCameraMixin",
 		"FreelookTerrainMixin",
 		"FreelookTurnMixin",
@@ -18,6 +19,10 @@
 		"FontShadowMixin",
 		"GlintColorizerMixin",
 		"HitColorMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsKeyBindingMixin",
+		"OldAnimationsKeysMixin",
 		"HurtCamMixin",
 		"LivingNametagMixin",
 		"MinecraftFramerateMixin",

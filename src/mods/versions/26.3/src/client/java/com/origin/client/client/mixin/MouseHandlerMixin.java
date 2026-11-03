@@ -28,20 +28,6 @@ public abstract class MouseHandlerMixin {
 
 	@Shadow public abstract boolean isMouseGrabbed();
 
-	// Feeds the CPS counter + Keystrokes overlay: raw button press/release
-	// events, recorded before any GUI/game routing so held-state is exact.
-	@Inject(method = "onButton", at = @At("HEAD")) // 1.21.9+: onPress->onButton
-	private void originclient$trackClicks(long windowPointer, net.minecraft.client.input.MouseButtonInfo info, int action, CallbackInfo ci) {
-		// A click made while a screen (inventory/menu) is open is a "cancelled"
-		// click for CPS purposes — track the held-state but don't count it.
-		boolean counts = Minecraft.getInstance().gui.screen() == null;
-		// 26.3 (SDL3): buttons are numbered left=1, middle=2, right=3, but the
-		// shared ClickStats speaks the GLFW numbering (left=0, right=1).
-		int b = info.button();
-		int glfwButton = b == InputConstants.MOUSE_BUTTON_LEFT ? 0 : b == InputConstants.MOUSE_BUTTON_RIGHT ? 1 : -1;
-		com.origin.client.client.mods.ClickStats.onButton(glfwButton, action == com.mojang.blaze3d.platform.InputConstants.PRESS, counts);
-	}
-
 	// Scroll to Zoom: while actively zoomed, the wheel changes zoom depth (a
 	// transient multiplier applied in GameRendererMixin) instead of scrolling
 	// the hotbar. Only swallows the scroll when zoom is actually active.

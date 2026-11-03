@@ -69,10 +69,12 @@ final class Readouts {
 		HudElements.add("packdisplay", "packdisplay", "Pack Display", new HudPos(8, -6, -6, 1.0),
 				Readouts::packSize, Readouts::renderPacks);
 
-		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 60, 1.0),
+		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 244, 1.0) /* under Potions (C3) */,
 				Readouts::itemCounterSize, Readouts::renderItemCounter);
 
-		HudElements.add("directionhud", "directionhud", "Direction", new HudPos(1, 0, 4, 1.0),
+		// Default sits just below one boss bar (BossBarHud: top centre, dy 3, H 14),
+		// which it used to cover.
+		HudElements.add("directionhud", "directionhud", "Direction", new HudPos(1, 0, 22, 1.0),
 				mc -> new int[]{dirWidth(), DIR_H}, Readouts::renderDirection);
 	}
 
@@ -262,11 +264,59 @@ final class Readouts {
 	private record PackRow(String name, List<FormattedCharSequence> desc, ResourceLocation icon) {
 	}
 
+	// Pack rows are rebuilt only when something they show changes, not every frame
+	// (name regexes, description wrapping, pack.png reads -- and the HUD asks twice
+	// per frame). PackRepository swaps its selected list on every pack change AND
+	// every resource reload (F3+T, the pack screen), so the list's identity is the
+	// change signal; the Pack Display options are folded into one int. A once-a-
+	// second rebuild catches anything else (a font pack changing wrap widths).
+	private static java.util.Collection<Pack> packRowsFor;
+	private static int packRowsOpts = -1;
+	private static long packRowsAt;
+	private static List<PackRow> packRowsCache = List.of();
+
+	private static List<PackRow> packRows(Minecraft mc) {
+		java.util.Collection<Pack> selected = mc.getResourcePackRepository().getSelectedPacks();
+		int opts = (Mods.bool("packdisplay", "showAllPacks") ? 1 : 0)
+				| (Mods.bool("packdisplay", "packIcon") ? 2 : 0)
+				| (Mods.bool("packdisplay", "packDescription") ? 4 : 0)
+				| (Mods.bool("packdisplay", "packExtension") ? 8 : 0)
+				| (Mods.bool("packdisplay", "keepStrikethrough") ? 16 : 0)
+				| (Mods.bool("packdisplay", "keepObfuscated") ? 32 : 0);
+		if (selected != packRowsFor) {
+			// A pack changed or resources reloaded: a pack can keep its id while its
+			// pack.png changes, so drop (and free) every cached icon.
+			releasePackIcons(mc);
+			packRowsFor = selected;
+			packRowsOpts = -1;
+		}
+		long now = System.currentTimeMillis();
+		if (opts != packRowsOpts || now - packRowsAt > 1000L) {
+			packRowsCache = buildPackRows(mc, selected);
+			packRowsOpts = opts;
+			packRowsAt = now;
+		}
+		return packRowsCache;
+	}
+
+	private static void releasePackIcons(Minecraft mc) {
+		for (ResourceLocation loc : PACK_ICONS.values()) {
+			if (loc != UNKNOWN_PACK) {
+				try {
+					mc.getTextureManager().release(loc);
+				} catch (Throwable ignored) {
+					// already gone with the texture manager
+				}
+			}
+		}
+		PACK_ICONS.clear();
+	}
+
 	/** The packs to show: the top-most enabled pack, or every one (top first).
 	 *  Required packs (vanilla, Fabric's mod resources) are never listed. */
-	private static List<PackRow> packRows(Minecraft mc) {
+	private static List<PackRow> buildPackRows(Minecraft mc, java.util.Collection<Pack> selected) {
 		List<Pack> chosen = new ArrayList<>();
-		for (Pack p : mc.getResourcePackRepository().getSelectedPacks()) {
+		for (Pack p : selected) {
 			if (!p.isRequired()) {
 				chosen.add(p);
 			}

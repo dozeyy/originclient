@@ -47,6 +47,7 @@
 		"ItemEntityScaleMixin",
 		"ItemEntityStateMixin",
 		"LevelWeatherMixin",
+		"WeatherSnowMixin",
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
@@ -89,6 +90,7 @@
 		"SodiumChunkRendererMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
+		"OptionsSaveMixin",
 		"KeyRebindMixin",
 		"ShadowCasterEntityMixin",
 		"EntityRendererCullingBoxInvoker",
@@ -101,7 +103,13 @@
 		"SodiumOcclusionStampMixin",
 		"SodiumViewportShadowMapMixin",
 		"SodiumWorldRendererReuseMixin",
-		"LevelRendererCullFrustumMixin"
+		"LevelRendererCullFrustumMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

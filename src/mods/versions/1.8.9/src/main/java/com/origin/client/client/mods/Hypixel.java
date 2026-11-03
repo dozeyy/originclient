@@ -92,6 +92,25 @@ public final class Hypixel {
 		return host.equals("hypixel.net") || host.endsWith(".hypixel.net");
 	}
 
+	// ---- what Hypixel doesn't allow ----
+
+	private static final String FREELOOK_OFF = "Freelook is off on Hypixel (not allowed there)";
+
+	/** Hypixel's rules ban freelook (looking around without turning), so Origin's
+	 *  Freelook stays off while connected here -- whether or not the Hypixel mod is
+	 *  on. Reads the server address itself, not the per-tick onHypixel cache, so it
+	 *  holds from the very first tick after joining whatever order the end-of-tick
+	 *  listeners run in. Only called while freelook would be on, so it costs nothing
+	 *  the rest of the time. */
+	public static boolean bansFreelook(Minecraft mc) {
+		return mc.thePlayer != null && isHypixelHost(mc.getCurrentServerData());
+	}
+
+	/** The one action-bar line when the Freelook key does nothing here. */
+	public static void sayFreelookOff(Minecraft mc) {
+		mc.ingameGUI.setRecordPlaying(new ChatComponentText(FREELOOK_OFF), false);   // 1.8.9's action bar
+	}
+
 	// ---- per tick ----
 
 	private static final long TIP_EVERY_MS = 15L * 60L * 1000L;
@@ -182,6 +201,11 @@ public final class Hypixel {
 			"^(?:\\[[^\\]]+\\] )*\\w{1,16}: (?:gg|good game|gg wp|ggwp|gf|ggs)[!. ]*$", Pattern.CASE_INSENSITIVE);
 	private static final Pattern FRIEND_GUILD_JOIN = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} joined\\.$");
 	private static final Pattern FRIEND_GUILD_LEAVE = Pattern.compile("^(?:Friend|Guild) > \\w{1,16} left\\.$");
+	// Hypixel's own lobby announcements only: "[MVP+] Name joined the lobby!",
+	// ">>> [MVP++] Name slid into the lobby! <<<". A whole-line match, so a player
+	// typing "joined the lobby!" in chat ("[VIP] Name: ...") is never hidden.
+	private static final Pattern LOBBY_STATUS = Pattern.compile(
+			"^\\s*(?:>>> )?\\[[^\\]]+\\] \\w{1,16} (?:joined|[A-Za-z]+ into) the lobby!(?: <<<)?\\s*$");
 
 	/** False = drop this incoming game message. Also drives the automation and
 	 *  the party roster, which need to see every line (even ones it then hides). */
@@ -190,15 +214,25 @@ public final class Hypixel {
 			return true;
 		}
 		String plain = strip(message.getUnformattedText()).trim();
-		trackParty(plain);   // Team View reads the roster even with the Hypixel mod off
+		// Hypixel sends friend requests and /party lists as ONE boxed message ("-----" rule,
+		// lines, "-----" rule): every line is matched on its own, the rules dropped.
+		List<String> lines = lines(plain);
+		for (String line : lines) {
+			trackParty(line);   // Team View reads the roster even with the Hypixel mod off
+		}
 		if (!Mods.on(MOD)) {
 			return true;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
 
-		Matcher fr = FRIEND_REQUEST.matcher(plain);
-		if (fr.find() && Mods.bool(MOD, "autoFriend")) {
-			command(mc, "friend accept " + fr.group(1));
+		if (Mods.bool(MOD, "autoFriend")) {
+			for (String line : lines) {
+				Matcher fr = FRIEND_REQUEST.matcher(line);
+				if (fr.find()) {
+					command(mc, "friend accept " + fr.group(1));
+					break;
+				}
+			}
 		}
 		if (plain.equals("The game starts in 1 second!") && Mods.bool(MOD, "autoWho")) {
 			whoInTicks = 30;   // once everyone has been teleported in
@@ -225,7 +259,7 @@ public final class Hypixel {
 			return false;
 		}
 		if (Mods.bool(MOD, "removeLobbyStatuses")
-				&& (plain.endsWith("joined the lobby!") || plain.contains(" into the lobby!"))) {
+				&& LOBBY_STATUS.matcher(plain).matches()) {
 			return false;
 		}
 		if (Mods.bool(MOD, "hideJoinMessages") && FRIEND_GUILD_JOIN.matcher(plain).matches()) {
@@ -283,6 +317,18 @@ public final class Hypixel {
 		synchronized (PARTY) {
 			return new HashSet<>(PARTY);
 		}
+	}
+
+	/** The message's lines, trimmed, without blank lines or Hypixel's "-----" box rules. */
+	private static List<String> lines(String plain) {
+		List<String> out = new ArrayList<>();
+		for (String line : plain.split("\n")) {
+			line = line.trim();
+			if (!line.isEmpty() && !line.matches("[-\u25AC\\s]+")) {
+				out.add(line);
+			}
+		}
+		return out;
 	}
 
 	private static void trackParty(String line) {

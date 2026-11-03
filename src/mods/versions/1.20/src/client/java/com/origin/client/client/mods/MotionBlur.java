@@ -15,24 +15,53 @@ import net.minecraft.resources.ResourceLocation;
 public final class MotionBlur {
 	private static final ResourceLocation EFFECT =
 			new ResourceLocation("originclient", "shaders/post/motion_blur.json");
+	private static final String EFFECT_NAME = EFFECT.toString();
 
 	private static boolean loaded = false;
 	private static boolean broken = false;
 	/** Last frame's timestamp, so the blend can be derived from real elapsed time. */
 	private static long lastNanos = 0L;
+	// Re-apply backoff: ticks counted here, the tick of the last load, and the
+	// earliest tick a re-apply may run (see the slot-lost branch in tick()).
+	private static int ticks = 0;
+	private static int loadedAt = 0;
+	private static int retryAt = 0;
+	private static int backoff = 0;
 
 	private MotionBlur() {
 	}
 
 	public static void tick(Minecraft mc) {
+		ticks++;
 		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
-		boolean want = amount >= 0.5;
+		boolean want = amount >= 0.5 && mc.level != null;
 
+		// The game empties the post-effect slot by itself: F5 and spectating a mob
+		// (checkEntityPostEffect) and every resource reload. Watch the slot, not
+		// just our own flag, so the blur comes back once it is free again. A chain
+		// that keeps vanishing right after a load backs off (a load recompiles the
+		// whole chain on this era) instead of reloading every tick.
+		if (loaded && !isOurs(mc)) {
+			loaded = false;
+			backoff = (ticks - loadedAt < 100) ? Math.min(Math.max(backoff * 2, 20), 1200) : 0;
+			retryAt = ticks + backoff;
+		}
 		if (want != loaded) {
 			try {
 				if (want) {
+					if (ticks < retryAt || mc.gameRenderer.currentEffect() != null) {
+						return;   // backing off, or vanilla's creeper/spider/enderman view (or another mod) owns the slot
+					}
 					((GameRendererAccessor) mc.gameRenderer).originclient$loadEffect(EFFECT);
-				} else {
+					if (!isOurs(mc)) {
+						// loadEffect swallows its IOException and leaves the slot empty:
+						// latch off instead of retrying (and logging) every tick.
+						broken = true;
+						com.origin.client.OriginClient.LOGGER.warn("Motion blur post chain did not load; feature disabled this session");
+						return;
+					}
+					loadedAt = ticks;
+				} else if (isOurs(mc)) {
 					mc.gameRenderer.shutdownEffect();
 				}
 				loaded = want;
@@ -82,6 +111,16 @@ public final class MotionBlur {
 			}
 		} else {
 			lastNanos = 0;
+		}
+	}
+
+	/** True while the game's post-effect slot holds Origin's chain (PostChain.name = its id). */
+	private static boolean isOurs(Minecraft mc) {
+		try {
+			var effect = mc.gameRenderer.currentEffect();
+			return effect != null && EFFECT_NAME.equals(effect.getName());
+		} catch (Throwable t) {
+			return false;
 		}
 	}
 }
