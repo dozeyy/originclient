@@ -16,7 +16,7 @@ import java.util.Map;
  * The plan, at the smallest of those screens:
  *   top left      FPS, CPS, Keystrokes, Coordinates down the edge; Armor beside Keystrokes
  *   top centre    Boss Bar, Direction, then a time row (Clock | Day | Stopwatch) and Saturation
- *   top right     Server IP, Potions under it, Item Counter left of them
+ *   top right     Server IP in the corner, Potions under one toast's height, Item Counter left of them
  *   right middle  the Scoreboard sidebar (vanilla's spot); the Minimap shares it (singleplayer only,
  *                 sidebars are a server thing)
  *   bottom right  Ping, Reach, Combo, Memory; Cooldowns right of the hotbar; Bed Wars resources above
@@ -68,15 +68,17 @@ public final class HudLayout {
 
 		// top right
 		spot("serveraddress", 2, -4, 4, 1.0);
-		spot("potionhud", 2, -4, 24, 1.0);
-		spot("itemcounter", 2, -104, 68, 1.0);
+		// Potions start under one toast (vanilla's 160 x 32 advancement / recipe / tutorial pop-ups draw
+		// over the top-right corner); Server IP, the less urgent line, takes the corner itself.
+		spot("potionhud", 2, -4, 36, 1.0);
+		spot("itemcounter", 2, -104, 80, 1.0);
 
 		// centre: vanilla's title spot
 		spot("titles", 4, 0, -6, 1.0);
 
 		// right middle: vanilla's sidebar spot; the singleplayer-only Minimap shares it
 		spot("scoreboard", 5, -3, 0, 1.0);
-		spot("minimap", 5, -4, 0, 1.0);
+		spot("minimap", 5, -4, 4, 1.0);   // 4 px low: clears two potion rows at 1366x768
 
 		// bottom left, under the chat (chat's lines end 40 px above the bottom)
 		spot("sprintstate", 6, 4, -4, 1.0);
