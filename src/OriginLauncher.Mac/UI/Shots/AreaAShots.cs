@@ -59,6 +59,11 @@ internal static class AreaAShots
         // The smallest window the launcher allows: the same screens again, to prove nothing clips.
         RenderShots.Resize(window, 980, 600);
         window.TourNavigate(0);
+        Step("min-home", () =>
+        {
+            home.SetReady(false, "Sign in to play"); // the Windows twin is the signed-out tour state
+            RenderShots.Snap(window, "20-min-home");
+        });
         Step("min-versions", () => Versions(window, "21-min-versions-grid", "22-min-versions-detail"));
         Step("min-settings", () => Settings(window, "24-min-settings", "24b-min-settings-middle", "24c-min-settings-bottom", "24d-min-settings-sync", tour: false));
         window.TourNavigate(0);
@@ -66,6 +71,57 @@ internal static class AreaAShots
 
         Step("crash-windows", CrashWindows);
         Step("startup-intro", StartupIntroShot);
+        Step("dpi", () => DpiMatrix(window, homeVersion));
+        RenderShots.Resize(window, 1044, 740);
+    }
+
+    // ---- dpi-<scene>-<w>x<h>-<pct>pct: this area's scenes of the WPF DpiMatrix (RenderShots 434-511) ----
+    // The window laid out at each reference size in DIP (980x600 minimum, 1180x740 default, 1920x1080), rasterised at
+    // 100 / 150 / 200 % (200 % is every Retina Mac), so a 1180x740 shot at 200 % is 2360x1480 like the Windows twin.
+    // Headless Avalonia has one render scale, so the frame is drawn through a RenderTargetBitmap at that DPI.
+    // Home-friends-toasts, mods-list, profiles and sign-in belong to the account/mods shots (area B).
+    private static void DpiMatrix(MainWindow window, string? homeVersion)
+    {
+        var home = window.Home;
+        // The Windows matrix runs on its tour's opening state: the newest version picked, signed out.
+        window.SelectVersion("26.3");
+        home.SetReady(false, "Sign in to play");
+        void OpenPicker()
+        {
+            // The sheet sizes its cards when it opens for the window it is in: reopen it at every size (the WPF matrix
+            // re-runs the picker's relayout per size for the same reason).
+            home.TourHideVersions();
+            home.TourShowVersions(-1);
+            WaitArt(home.Versions);
+        }
+        var scenes = new (string Name, Action Setup, Action? PerSize, Action Cleanup)[]
+        {
+            ("home", () => window.TourNavigate(0), null, () => { }),
+            ("versions-grid", () => window.TourNavigate(0), OpenPicker, home.TourHideVersions),
+            ("settings", () => window.TourNavigate(3), null, () => window.TourNavigate(0)),
+            ("launch-failed", () =>
+            {
+                window.TourNavigate(0);
+                window.SelectVersion("1.8.9");
+                RenderShots.PumpFor(300);
+                home.TourShowLaunch("1.8.9");
+                home.TourFailLaunch(new OfflineInstallException("1.8.9", new HttpRequestException("no route")), "1.8.9");
+            }, null, () => { home.TourHideLaunch(); window.SelectVersion("26.3"); }),
+        };
+        foreach (var (name, setup, perSize, cleanup) in scenes)
+        {
+            setup();
+            RenderShots.Pump();
+            foreach (var percent in new[] { 100, 150, 200 })
+                foreach (var (w, h) in new[] { (980, 600), (1180, 740), (1920, 1080) })
+                {
+                    RenderShots.Resize(window, w, h);
+                    perSize?.Invoke();
+                    RenderShots.SnapScaled(window, $"dpi-{name}-{w}x{h}-{percent}pct", percent / 100.0);
+                }
+            cleanup();
+        }
+        window.SelectVersion(homeVersion ?? "1.21.1");
     }
 
     // ---- 08: the launch screen, then Play on a version that isn't installed (WPF RenderShots 196-232) ----
