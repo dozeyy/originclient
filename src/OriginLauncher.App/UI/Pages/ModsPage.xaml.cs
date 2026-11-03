@@ -35,6 +35,7 @@ public partial class ModsPage : UserControl
     private bool _suppressToggle;      // guards programmatic IsChecked changes
     private bool _dragOver;
     private bool _adding;              // an import is copying (off the UI thread)
+    private readonly List<string> _queuedAdds = new(); // jars dropped or picked while _adding: they go in next
     private bool _warming;             // Origin's jars are being checked by their bytes (off the UI thread)
     private IReadOnlyList<ModEntry>? _demo; // render shots only: made-up rows instead of the disk
     // What the rows on screen were last built from (plain rows only, no confirm/replace/landing): a re-show with the
@@ -609,7 +610,7 @@ public partial class ModsPage : UserControl
     // Browse: the same add path as a drop, through the system file picker.
     private void Browse()
     {
-        if (_version == null || _adding) return;
+        if (_version == null) return;
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Add mod jars",
@@ -622,10 +623,17 @@ public partial class ModsPage : UserControl
     }
 
     // Copy the jars in off the UI thread (a big pack must not freeze the window),
-    // then land the new rows. The newest add wins; a second one waits its turn.
+    // then land the new rows. One add copies at a time: jars dropped (or picked) while one is copying wait in
+    // _queuedAdds and go in straight after it, for the same version, so a second batch is never silently lost.
     private async void AddFiles(string[] files)
     {
-        if (_version == null || _adding) return;
+        if (_version == null) return;
+        if (_adding)
+        {
+            _queuedAdds.AddRange(files);
+            ShowStatus("Still adding - your other mods go in next...", error: false);
+            return;
+        }
         _adding = true;
         var version = _version;
         var profileId = _profile?.Id;
@@ -634,8 +642,11 @@ public partial class ModsPage : UserControl
 
         var report = await Task.Run(() => ModManager.Import(version, files, profileId));
         _adding = false;
-        if (_version != version) return; // the page moved on to another version meanwhile
+        var queued = _queuedAdds.ToArray();
+        _queuedAdds.Clear();
+        if (_version != version) return; // the page moved on to another version meanwhile (the queue was for that one)
         ApplyImport(report, before, version, profileId);
+        if (queued.Length > 0) AddFiles(queued);
     }
 
     // Shows what an add did: the new rows land, a refused jar says why in plain words, and a jar that is the same
@@ -791,7 +802,7 @@ public partial class ModsPage : UserControl
 
     private void DropZone_DragEnter(object sender, DragEventArgs e)
     {
-        var jars = _version != null && !_adding ? Jars(e) : 0;
+        var jars = _version != null ? Jars(e) : 0; // while an add copies, a drop queues behind it (AddFiles)
         e.Effects = jars > 0 ? DragDropEffects.Copy : DragDropEffects.None;
         if (jars > 0 && !_dragOver) SetZone(over: true, hover: false, count: jars);
         e.Handled = true;

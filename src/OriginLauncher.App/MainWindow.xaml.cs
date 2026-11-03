@@ -62,6 +62,14 @@ public partial class MainWindow : Window
         Core.StartupTrace.Mark("MainWindow ctor: fields (HomePage etc.) built");
         InitializeComponent();
         Core.StartupTrace.Mark("MainWindow.InitializeComponent");
+        // Opens inside the screen's work area, never partly off it (MainWindow.Placement.cs).
+        SourceInitialized += (_, _) => FitToWorkArea();
+        // Alt+F4 / the taskbar's Close never moves focus out of a Settings box: save what it holds first.
+        Closing += (_, _) => _settingsPage?.FlushEdits();
+        // The backdrop drift holds while the window is in the background or minimised (ArtStage.SetWindowAway).
+        Activated += (_, _) => Stage.SetWindowAway(WindowState == WindowState.Minimized);
+        Deactivated += (_, _) => Stage.SetWindowAway(true);
+        StateChanged += (_, _) => Stage.SetWindowAway(WindowState == WindowState.Minimized || !IsActive);
         PageHost.Content = _pages;
         ShowPage(_homePage);
         Core.StartupTrace.Mark("Home placed");
@@ -320,6 +328,9 @@ public partial class MainWindow : Window
 
     private void OnToastOpened(SocialToast toast)
     {
+        // A Notice (an import undone, an update refused, ...) has nothing in the Friends drawer: the click only
+        // dismisses it (the host already removed the card).
+        if (toast.Kind == SocialToastKind.Notice) return;
         SetFriendsOpen(true);
         if (toast.Kind == SocialToastKind.Message && toast.Uuid != null)
             _friendsPanel.OpenConversation(toast.Uuid);
@@ -646,6 +657,8 @@ public partial class MainWindow : Window
         };
         signIn.SignInFailed += (_, message) =>
         {
+            // A card that was already closed (Cancel while its browser started) has nothing to report.
+            if (!ReferenceEquals(SignInPanelHost.Content, signIn)) return;
             _accountPanel.ShowSignInError(message);
             signIn.ShowMessage("Couldn't add this account", message);
         };
@@ -1291,6 +1304,9 @@ public partial class MainWindow : Window
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // The opening intro owns the keyboard until it leaves: its own handler (which runs after this one) skips it,
+        // and no key may Play, switch tabs or open anything on a screen the player can't see yet.
+        if (Intro.IsCovering) return;
         if (e.Key == Key.Escape)
         {
             if (_importPanelOpen) _importPanel?.HandleEscape();

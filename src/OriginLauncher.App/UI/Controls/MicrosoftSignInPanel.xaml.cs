@@ -55,9 +55,13 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
     {
         // A render-shots run (scratch data root) pictures the card only: no browser process, no Microsoft page.
         if (OriginLauncher.App.Core.OriginPaths.IsScratchRoot) return;
+        // Read once, up front: Cancel / Esc / a click outside can dispose this panel (and its token source) while the
+        // browser is still starting, and touching _cts.Token after that throws.
+        var ct = _cts.Token;
         try
         {
             await WebView.EnsureCoreWebView2Async();
+            if (_disposed) return; // closed while the browser started: nothing to show
             WebView.CoreWebView2.NavigationCompleted += (_, _) =>
             {
                 // The cancelled redirect also "completes": keep covering the
@@ -66,10 +70,15 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             };
 
             var result = MicrosoftAuthenticator.IsTestMode
-                ? await SignInViaPrismTestAsync(_cts.Token)
-                : await new MicrosoftAuthenticator().SignInAsync(url => WebView.Source = new Uri(url), _cts.Token);
+                ? await SignInViaPrismTestAsync(ct)
+                : await new MicrosoftAuthenticator().SignInAsync(url => WebView.Source = new Uri(url), ct);
 
             SignInSucceeded?.Invoke(this, result);
+        }
+        catch (Exception) when (_disposed)
+        {
+            // The player closed the card mid-start (a disposed WebView, a cancelled token): that is a Cancel, never
+            // a "Sign-in didn't finish" error in the Accounts drawer.
         }
         catch (OperationCanceledException)
         {

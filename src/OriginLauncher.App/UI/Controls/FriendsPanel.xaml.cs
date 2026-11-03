@@ -710,6 +710,9 @@ public partial class FriendsPanel : UserControl
 
     private async Task AddFriendAsync()
     {
+        // RunAsync disables the button while a request is in flight; Enter in the box must respect that too, or a
+        // double Enter sends the request twice (the second comes back as an error).
+        if (!AddFriendButton.IsEnabled) return;
         var name = AddFriendBox.Text.Trim();
         if (name.Length == 0)
         {

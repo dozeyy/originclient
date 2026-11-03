@@ -34,6 +34,13 @@ public partial class StartupIntro : UserControl
         InitializeComponent();
     }
 
+    /// <summary>
+    /// True while the intro covers the window and swallows keys. MainWindow's own key handler is registered first
+    /// (XAML, in InitializeComponent), so it runs before OnHostKey and must stand aside itself while this is true:
+    /// otherwise an Enter in the first second starts Minecraft behind the intro.
+    /// </summary>
+    public bool IsCovering => _host != null && !_leaving;
+
     /// <summary>MainWindow calls this from its constructor, before Show.</summary>
     public void Play(Window host)
     {

@@ -163,6 +163,7 @@ public sealed class ArtStage : Grid
     {
         if (home == _home) return;
         _home = home;
+        ApplyDriftPause();
         _dim.BeginAnimation(OpacityProperty, Motion.To(home ? 0 : 1, 260));
         _numeral.BeginAnimation(OpacityProperty, Motion.To(home ? 1 : 0, 260));
     }
@@ -187,30 +188,68 @@ public sealed class ArtStage : Grid
     internal void TourDrift(bool on)
     {
         if (on) { StartDrift(); return; }
+        _driftClocks.Clear();
         _drift.BeginAnimation(TranslateTransform.XProperty, null);
         _drift.BeginAnimation(TranslateTransform.YProperty, null);
         _driftScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         _driftScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
     }
 
+    // The drift runs on its own clocks so it can be PAUSED where it stands (a removed animation would snap the art
+    // back to its rest position, a visible jump on return).
+    private readonly List<AnimationClock> _driftClocks = new();
+    private bool _driftPaused, _windowAway;
+
+    /// <summary>MainWindow: the window is minimised or in the background (the player is in game, or in another app).</summary>
+    public void SetWindowAway(bool away)
+    {
+        _windowAway = away;
+        ApplyDriftPause();
+    }
+
+    // The backdrop drift is held while nobody is looking at it: another tab (the art sits under the opaque page dim),
+    // the window minimised, or the window in the background. A 15 fps full-window bitmap redrawn forever costs GPU
+    // time the game wants on integrated graphics. It resumes where it stood.
+    private void ApplyDriftPause()
+    {
+        var paused = !_home || _windowAway;
+        if (paused == _driftPaused) return;
+        _driftPaused = paused;
+        foreach (var clock in _driftClocks)
+        {
+            if (paused) clock.Controller?.Pause();
+            else clock.Controller?.Resume();
+        }
+    }
+
     private void StartDrift()
     {
         if (Motion.Off) return;
-        Animate(_drift, TranslateTransform.XProperty, -0.012, 0.012, w: true);
-        Animate(_drift, TranslateTransform.YProperty, 0.008, -0.008, w: false);
+        _driftClocks.Clear();
+        Slide(_drift, TranslateTransform.XProperty, -0.012, 0.012, w: true);
+        Slide(_drift, TranslateTransform.YProperty, 0.008, -0.008, w: false);
         var s = new DoubleAnimation(1.05, 1.10, new Duration(TimeSpan.FromSeconds(44)))
         { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = Motion.InOut };
         Timeline.SetDesiredFrameRate(s, 15);
-        _driftScale.BeginAnimation(ScaleTransform.ScaleXProperty, s);
-        _driftScale.BeginAnimation(ScaleTransform.ScaleYProperty, s);
+        Run(_driftScale, ScaleTransform.ScaleXProperty, s);
+        Run(_driftScale, ScaleTransform.ScaleYProperty, s);
+        if (_driftPaused)
+            foreach (var clock in _driftClocks) clock.Controller?.Pause();
 
-        void Animate(TranslateTransform t, DependencyProperty p, double from, double to, bool w)
+        void Slide(TranslateTransform t, DependencyProperty p, double from, double to, bool w)
         {
             var size = w ? Math.Max(ActualWidth, 960) : Math.Max(ActualHeight, 600);
             var a = new DoubleAnimation(from * size, to * size, new Duration(TimeSpan.FromSeconds(44)))
             { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = Motion.InOut };
             Timeline.SetDesiredFrameRate(a, 15);
-            t.BeginAnimation(p, a);
+            Run(t, p, a);
+        }
+
+        void Run(Animatable target, DependencyProperty p, AnimationTimeline a)
+        {
+            var clock = a.CreateClock();
+            target.ApplyAnimationClock(p, clock);
+            _driftClocks.Add(clock);
         }
     }
 
@@ -309,7 +348,10 @@ public sealed class ArtStage : Grid
             Set(target, hit, fadeIn, then);
             return;
         }
-        if (Motion.Off)
+        // Synchronous only for CI renders (a shot must show the art it asked for). A player with Windows animations
+        // off (Motion.Off) gets the same off-thread decode as everyone, just without the fade: a 1280-3840 wide JPEG
+        // decoded on the UI thread was a hitch on every version pick.
+        if (App.IsRenderMode)
         {
             var d = DecodeBest(key, kind, tier);
             if (d is { } got) CachePut(got.Name, got.Bmp);

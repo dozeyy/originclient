@@ -133,6 +133,29 @@ public partial class App : Application
         if (!SystemParameters.ClientAreaAnimation)
             DisableMotion();
 
+        // Hooked before any startup work (not after it): a failure in the steps below (a data folder that can't be
+        // created, a full disk) must still reach the crash reporter instead of a launcher that silently never opens.
+        // A single stray exception used to take the whole launcher down with nothing to show for it; every
+        // unhandled failure goes through the crash reporter (saved log when it can, copy-paste dialog) instead.
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
+
+        try
+        {
+            StartLauncher(mutexName);
+        }
+        catch (Exception ex)
+        {
+            // Nothing is on screen yet, so there is nothing to keep running: say why, then close.
+            CrashReporter.Report(ex, fatal: true);
+            Shutdown(1);
+        }
+    }
+
+    // The normal start, after the single-instance check: data folders, one-time fixes, then the main window.
+    private void StartLauncher(string mutexName)
+    {
         OriginPaths.EnsureScaffold();
         StartupTrace.Mark("EnsureScaffold");
 
@@ -163,13 +186,6 @@ public partial class App : Application
             try { Core.Install.InstallRegistry.RefreshDisplayVersion(Core.Updates.UpdateService.CurrentVersion.ToString(3)); }
             catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException) { }
         }
-
-        // A single stray exception used to take the whole launcher down with
-        // nothing to show for it. Route every unhandled failure through the
-        // crash reporter (saved log + copy-paste dialog) instead.
-        DispatcherUnhandledException += OnDispatcherUnhandledException;
-        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
-        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
 
         // Listens for a second launch's `--import` (see above). A pool thread; the window is opened on the UI thread.
         _importIpc = new Core.Import.Launcher.ImportIpcServer(
