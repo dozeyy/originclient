@@ -101,7 +101,7 @@ public sealed class SettingsSyncEngine
 
         foreach (var (key, raw) in current)
         {
-            if (format.Rejects(key, raw)) continue;
+            if (format.Rejects(key, raw) || format.StaysIn(key, instance.Version)) continue;
             if (baseline != null && baseline.TryGetValue(key, out var before) && format.MatchesBaseline(key, raw, before))
                 continue; // not changed in this version since we last synced it
 

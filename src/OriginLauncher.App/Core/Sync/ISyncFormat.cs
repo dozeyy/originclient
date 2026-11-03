@@ -16,6 +16,9 @@ public interface ISyncFormat
     /// <summary>True when a value should never enter the store (excluded key, or a value that could break a loader).</summary>
     bool Rejects(string key, string raw);
 
+    /// <summary>True when this version's value of a key is its own: never taken into the store, never overwritten from it.</summary>
+    bool StaysIn(string key, string version) => false;
+
     bool Equivalent(string key, string a, string b);
 
     /// <summary>What the baseline remembers for a value (the value itself, or a hash for whole files).</summary>

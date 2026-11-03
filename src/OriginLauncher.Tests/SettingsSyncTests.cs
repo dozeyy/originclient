@@ -211,6 +211,32 @@ public class SettingsSyncTests
     }
 
     [Fact]
+    public void MusicVolumeStaysOn189()
+    {
+        // 1.8.9 turns its music off once (Will, 2026-11-03): that must not mute every other version,
+        // and the other versions' music must not turn 1.8.9's back up.
+        var legacy = Instance("1.8.9");
+        var modern = Instance("1.21.1");
+        Write(legacy, "options.txt", Options("soundCategory_music:1.0", "fov:0.0"), 1);
+        Write(modern, "options.txt", Options("version:3955", "soundCategory_music:1.0", "fov:0.0"), 1);
+        var engine = Engine();
+        engine.Seed(new[] { legacy, modern });
+
+        Write(legacy, "options.txt", Options("soundCategory_music:0.0", "fov:0.5"), 30);
+        engine.Harvest(legacy);
+        engine.Harvest(modern);
+        engine.Push(modern);
+        Assert.Equal("1.0", OptionsOf(modern)["soundCategory_music"]);
+        Assert.Equal("0.5", OptionsOf(modern)["fov"]);           // everything else still syncs
+
+        Write(modern, "options.txt", Options("version:3955", "soundCategory_music:0.7", "fov:0.5"), 60);
+        engine.Harvest(modern);
+        engine.Harvest(legacy);
+        engine.Push(legacy);
+        Assert.Equal("0.0", OptionsOf(legacy)["soundCategory_music"]);
+    }
+
+    [Fact]
     public void ABrandNew189OptionsFileHasNoVersionLine()
     {
         var modern = Instance("1.21.1");

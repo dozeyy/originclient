@@ -253,6 +253,11 @@ public sealed class OptionsTxtFormat : ISyncFormat
 
     public bool Rejects(string key, string raw) => ExcludedKeys.Contains(key) || !IsSafeValue(key, raw);
 
+    // 1.8.9's music volume is its own (Will, 2026-11-03: music off by default on 1.8.9 - the mod sets it to 0 once):
+    // it must neither mute every other version through the store nor be turned back up from it.
+    public bool StaysIn(string key, string version) =>
+        key == "soundCategory_music" && !McVersion.AtLeast(version, GlfwKeyNamesSince);
+
     public bool Equivalent(string key, string a, string b)
     {
         var ca = Canonical(key, a);
@@ -365,6 +370,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
     // when it must not be written there.
     private static string? Encode(string key, string raw, string targetVersion)
     {
+        if (key == "soundCategory_music" && !McVersion.AtLeast(targetVersion, GlfwKeyNamesSince)) return null; // StaysIn
         var canonical = Canonical(key, raw);
         var codecEra = McVersion.AtLeast(targetVersion, "1.19");
 
