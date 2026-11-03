@@ -68,6 +68,7 @@ import itertools
 import json
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -399,7 +400,11 @@ def release_deltas(new_zip: Path, tag: str, out_dir: Path, gh: Runner = _gh,
             # The delta is final before its hash is written, and both move out together.
             out_dir.mkdir(parents=True, exist_ok=True)
             final = out_dir / name
-            os.replace(delta.path, final)
+            # Copied, then renamed inside out_dir: the temp folder can sit on another drive (CI runner: temp on C:,
+            # workspace on D:), where os.replace fails with WinError 17 (proven on launcher-v1.0.85).
+            part = final.with_name(final.name + ".part")
+            shutil.copyfile(delta.path, part)
+            os.replace(part, final)
             write_sidecar(final)
             written.append(name)
             print(f"{name}: {delta.size / 1e6:.1f} MB ({len(delta.changed)} files changed, {len(delta.patched)} "
