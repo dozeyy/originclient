@@ -123,16 +123,21 @@ public class SignatureTests {
 		}
 	}
 
-	/** Each "mc=data=jar": every sig line in data must be declared by its owner inside jar. */
+	/** Each "mc=data=jars" (jars joined by File.pathSeparator): every sig line in data must be declared by
+	 *  its owner inside one of the jars (JEI, Sodium, Iris: whichever holds that owner class). */
 	static void jars(String[] specs) throws Exception {
 		if (specs.length == 0) {
-			check(false, "no module with a sig table had its JEI jar in the Gradle cache");
+			check(false, "no module with a sig table had its pinned jars in the Gradle cache");
 		}
 		for (String spec : specs) {
 			String[] p = spec.split("=", 3);
 			int lines = 0;
 			int misses = 0;
-			try (ZipFile jar = new ZipFile(p[2])) {
+			java.util.List<ZipFile> jars = new java.util.ArrayList<>();
+			try {
+				for (String path : p[2].split(java.util.regex.Pattern.quote(java.io.File.pathSeparator))) {
+					jars.add(new ZipFile(path));
+				}
 				for (String line : Files.readAllLines(Paths.get(p[1]), StandardCharsets.UTF_8)) {
 					line = line.trim();
 					if (!line.startsWith("sig ")) {
@@ -140,8 +145,14 @@ public class SignatureTests {
 					}
 					String[] f = line.split("\\|", -1);
 					String owner = f[1].trim();
-					ZipEntry e = jar.getEntry(owner.replace('.', '/') + ".class");
-					byte[] b = e == null ? null : bytes(jar.getInputStream(e));
+					byte[] b = null;
+					for (ZipFile jar : jars) {
+						ZipEntry e = jar.getEntry(owner.replace('.', '/') + ".class");
+						if (e != null) {
+							b = bytes(jar.getInputStream(e));
+							break;
+						}
+					}
 					String miss = ClassSignatures.missing(b, owner, f[2].trim(), n -> n);
 					lines++;
 					if (miss != null) {
@@ -149,9 +160,13 @@ public class SignatureTests {
 						check(false, p[0] + ": " + miss);
 					}
 				}
+			} finally {
+				for (ZipFile jar : jars) {
+					jar.close();
+				}
 			}
 			if (misses == 0) {
-				check(lines > 0, p[0] + ": " + lines + " sig lines match " + Paths.get(p[2]).getFileName());
+				check(lines > 0, p[0] + ": " + lines + " sig lines match " + p[2]);
 			}
 		}
 	}
