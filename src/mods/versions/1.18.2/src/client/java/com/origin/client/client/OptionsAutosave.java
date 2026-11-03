@@ -82,6 +82,12 @@ public final class OptionsAutosave {
 			}
 			Field[] found = list.toArray(new Field[0]);
 			skip = transientFields(options, found);
+			int left = 0;
+			for (boolean b : skip) {
+				left += b ? 1 : 0;
+			}
+			// once per session: 4 = camera, debug screen, hidden HUD, smooth camera all found
+			com.origin.client.OriginClient.LOGGER.info("[OriginAutosave] unsaved options left out: {} of {}", left, found.length);
 			fields = found;
 		}
 		long h = 1;
@@ -158,8 +164,10 @@ public final class OptionsAutosave {
 		for (int i = 0; i < fs.length; i++) {
 			before[i] = fs[i].get(o);
 		}
-		nudge.run();
+		// restore runs whatever happens after the first change, so a throw can never
+		// leave the player's camera, debug screen or HUD switched
 		try {
+			nudge.run();
 			for (int i = 0; i < fs.length; i++) {
 				if (!java.util.Objects.equals(before[i], fs[i].get(o))) {
 					out[i] = true;
