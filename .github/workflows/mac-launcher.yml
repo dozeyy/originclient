@@ -84,7 +84,7 @@ jobs:
       - name: Core tests (Mac mode)
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Mac
-          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests"
+          --filter "FullyQualifiedName~MacSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~SealedSignInTests|FullyQualifiedName~MacLaunchPolicyTests|FullyQualifiedName~MacReleaseAssetsTests"
 
       # ---- Screenshots (Apple Silicon leg only; informational, never fails the run) ----
       # The Mac twin of launcher-shots: every Mac screen drawn headless (no window, made-up data, exits by
