@@ -97,13 +97,56 @@ public class ReleaseFeedTests
     {
         var server = new FakeServer()
             .Status(ReleaseFeed.ApiUrl, HttpStatusCode.Forbidden)
-            .Redirect(ReleaseFeed.LatestPageUrl, "https://github.com/dozeyy/originclient/releases/tag/launcher-v1.0.41");
+            .Redirect(ReleaseFeed.LatestPageUrl, "https://github.com/dozeyy/originclient/releases/tag/launcher-v1.0.41")
+            .Json(ReleaseFeed.HashUrl("launcher-v1.0.41"), Sha.ToUpperInvariant() + "  OriginLauncher-win-x64.zip\n");
         var r = await ReleaseFeed.FindLatestAsync(server.Client(), CancellationToken.None);
         Assert.Equal("1.0.41", r.Version);
         // Pinned to that release, so a newer one published mid-download can't mix in.
         Assert.Equal(ReleaseFeed.AssetUrl("launcher-v1.0.41"), r.Url);
+        Assert.Equal("https://github.com/dozeyy/originclient/releases/download/launcher-v1.0.41/OriginLauncher-win-x64.zip.sha256",
+                     ReleaseFeed.HashUrl("launcher-v1.0.41"));
         Assert.Null(r.Size);
+        // IN-6: the page route has no digest, so the release's own .sha256 file supplies it.
+        Assert.Equal(Sha, r.Sha256);
     }
+
+    [Fact]
+    public async Task AnApiAnswerWithoutADigestTakesTheHashFile()
+    {
+        var server = new FakeServer()
+            .Json(ReleaseFeed.ApiUrl, ApiJson(digest: null))
+            .Json(ReleaseFeed.HashUrl("launcher-v1.0.40"), Sha + "  OriginLauncher-win-x64.zip\n");
+        var r = await ReleaseFeed.FindLatestAsync(server.Client(), CancellationToken.None);
+        Assert.Equal(Sha, r.Sha256);
+        Assert.Equal(132000000, r.Size);
+    }
+
+    [Fact]
+    public async Task NoHashAnywhereIsAServerProblemNotAnUncheckedInstall()
+    {
+        var missing = new FakeServer()
+            .Status(ReleaseFeed.ApiUrl, HttpStatusCode.Forbidden)
+            .Redirect(ReleaseFeed.LatestPageUrl, "https://github.com/dozeyy/originclient/releases/tag/launcher-v1.0.41")
+            .Status(ReleaseFeed.HashUrl("launcher-v1.0.41"), HttpStatusCode.NotFound);
+        var ex = await Assert.ThrowsAsync<DownloadException>(() => ReleaseFeed.FindLatestAsync(missing.Client(), CancellationToken.None));
+        Assert.Equal(DownloadException.ServerProblem, ex.Message);
+
+        var garbage = new FakeServer()
+            .Json(ReleaseFeed.ApiUrl, ApiJson(digest: null))
+            .Json(ReleaseFeed.HashUrl("launcher-v1.0.40"), "<html>not a hash</html>");
+        ex = await Assert.ThrowsAsync<DownloadException>(() => ReleaseFeed.FindLatestAsync(garbage.Client(), CancellationToken.None));
+        Assert.Equal(DownloadException.ServerProblem, ex.Message);
+    }
+
+    [Theory]
+    [InlineData(Sha + "  OriginLauncher-win-x64.zip\n", Sha)]
+    [InlineData(Sha, Sha)]
+    [InlineData("\r\n" + Sha + "\tname", Sha)]
+    [InlineData("0123", null)]
+    [InlineData("", null)]
+    [InlineData("zz23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  x", null)]
+    public void HashFilesAreReadLikeSha256sum(string text, string? expected) =>
+        Assert.Equal(expected, ReleaseFeed.ParseHashFile(text));
 
     [Fact]
     public async Task NoInternetIsWordedForThePlayer()

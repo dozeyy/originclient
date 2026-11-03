@@ -6,14 +6,17 @@ namespace OriginSetup.Engine;
 //  1. The launcher updates ITSELF in place without admin rights
 //     (UpdateService swaps its own exe), so the folder must be writable by the
 //     player: never Program Files or Windows.
-//  2. Uninstall deletes the whole install folder. So Origin always gets a
-//     folder of its own — picking "Documents" installs to
-//     "Documents\OriginLauncher", never into Documents itself.
+//  2. Origin always gets a folder of its own — picking "Documents" installs to
+//     "Documents\OriginLauncher", never into Documents itself — and never shares
+//     one: a folder that already holds someone else's files, and Origin's data
+//     folder (worlds, accounts, settings), are refused outright. Uninstall removes
+//     only what InstallManifest proves is Origin's (UninstallPlan).
 public static class InstallLocation
 {
     public const string FolderName = "OriginLauncher";
     public const string LauncherExe = "OriginLauncher.App.exe";
     public const string UninstallerExe = "uninstall.exe";
+    private const string WriteProbe = ".origin-write-test";
 
     /// <summary>%LocalAppData%\Programs\OriginLauncher — the same default the Inno installer used.</summary>
     public static string Default =>
@@ -21,9 +24,9 @@ public static class InstallLocation
 
     /// <summary>
     /// The folder Origin will install into when the player picks <paramref name="picked"/>:
-    /// the pick itself if it is already Origin's own folder (named like one, empty,
-    /// not there yet, or an existing Origin install), otherwise a new
-    /// OriginLauncher folder inside it.
+    /// the pick itself if it is not there yet, empty, or an existing Origin install,
+    /// otherwise a new OriginLauncher folder inside it. A folder's NAME proves nothing
+    /// ("D:\Origin" may be EA's old Origin client), so a busy folder always gets the subfolder.
     /// </summary>
     public static string Resolve(string picked)
     {
@@ -31,23 +34,47 @@ public static class InstallLocation
         if (IsDriveRoot(full))
             return Path.Combine(Path.GetPathRoot(full)!, FolderName);
         full = Trim(full);
-        var name = Path.GetFileName(full);
-        bool ownName = string.Equals(name, FolderName, StringComparison.OrdinalIgnoreCase)
-                       || string.Equals(name, "Origin Launcher", StringComparison.OrdinalIgnoreCase)
-                       || string.Equals(name, "Origin", StringComparison.OrdinalIgnoreCase);
-        if (ownName || !Directory.Exists(full) || IsOriginInstall(full) || !Directory.EnumerateFileSystemEntries(full).Any())
+        if (!Directory.Exists(full) || IsOriginInstall(full) || IsEmptyForOrigin(full))
             return full;
         return Path.Combine(full, FolderName);
     }
 
+    /// <summary>
+    /// Origin's launcher exe, or the manifest Setup writes, is in <paramref name="dir"/>. Never
+    /// uninstall.exe alone: that is NSIS's default uninstaller name, so countless programs have one.
+    /// </summary>
     public static bool IsOriginInstall(string dir) =>
-        File.Exists(Path.Combine(dir, LauncherExe)) || File.Exists(Path.Combine(dir, UninstallerExe));
+        File.Exists(Path.Combine(dir, LauncherExe)) || File.Exists(Path.Combine(dir, InstallManifest.FileName));
+
+    /// <summary>
+    /// Nothing in <paramref name="dir"/> but what a cancelled Setup can leave behind (its
+    /// staging folder, the write probe). A folder that can't be read counts as not empty.
+    /// </summary>
+    public static bool IsEmptyForOrigin(string dir)
+    {
+        try
+        {
+            return Directory.EnumerateFileSystemEntries(dir).Select(e => Path.GetFileName(e))
+                .All(n => string.Equals(n, Installer.StagingFolder, StringComparison.OrdinalIgnoreCase)
+                          || string.Equals(n, WriteProbe, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { return false; }
+    }
+
+    /// <summary>True when <paramref name="a"/> and <paramref name="b"/> are the same folder or one is inside the other.</summary>
+    public static bool Overlaps(string a, string b)
+    {
+        var x = Trim(Path.GetFullPath(a)) + Path.DirectorySeparatorChar;
+        var y = Trim(Path.GetFullPath(b)) + Path.DirectorySeparatorChar;
+        return x.StartsWith(y, StringComparison.OrdinalIgnoreCase) || y.StartsWith(x, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Why <paramref name="dir"/> can't hold Origin, in words for the player,
-    /// or null when it is fine. Shape rules only — see <see cref="ProbeWritable"/>.
+    /// or null when it is fine. Writability is <see cref="ProbeWritable"/>'s job.
     /// </summary>
-    public static string? Problem(string dir, IEnumerable<string> protectedRoots)
+    /// <param name="dataRoot">Origin's data folder; null = the real one (<see cref="Handoff.DataRoot"/>). Tests pass their own.</param>
+    public static string? Problem(string dir, IEnumerable<string> protectedRoots, string? dataRoot = null)
     {
         if (string.IsNullOrWhiteSpace(dir)) return "Choose a folder.";
         if (!Path.IsPathRooted(dir) || dir.StartsWith(@"\\", StringComparison.Ordinal))
@@ -55,17 +82,25 @@ public static class InstallLocation
         if (dir.IndexOfAny(Path.GetInvalidPathChars()) >= 0) return "That folder name has characters Windows doesn't allow.";
         if (IsDriveRoot(dir)) return "Choose a folder, not a whole drive.";
         if (dir.Length > 180) return "That folder path is too long - choose a shorter one.";
-        string withSep;
-        try { withSep = Trim(Path.GetFullPath(dir)) + Path.DirectorySeparatorChar; }
+        string full;
+        try { full = Trim(Path.GetFullPath(dir)); }
         catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
         {
             return "That folder name isn't valid.";
         }
+        var withSep = full + Path.DirectorySeparatorChar;
         foreach (var root in protectedRoots.Where(r => !string.IsNullOrEmpty(r)))
         {
             if (withSep.StartsWith(Trim(Path.GetFullPath(root)) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 return "Origin can't go in Program Files or Windows - it updates itself, which needs a folder you own.";
         }
+        // The data folder holds worlds and accounts: an app inside it (or around it) would put
+        // them in the uninstaller's way.
+        if (Overlaps(full, dataRoot ?? Handoff.DataRoot))
+            return "That's where Origin keeps your worlds and settings. Choose another folder for the app.";
+        // Someone else's folder: Origin would mix its files into theirs.
+        if (Directory.Exists(full) && !IsOriginInstall(full) && !IsEmptyForOrigin(full))
+            return "That folder already has other files in it. Choose an empty folder or a new one.";
         return null;
     }
 
@@ -111,7 +146,7 @@ public static class InstallLocation
             for (var d = dir; d != null && !Directory.Exists(d); d = Path.GetDirectoryName(d))
                 created.Add(d);
             Directory.CreateDirectory(dir);
-            var probe = Path.Combine(dir, ".origin-write-test");
+            var probe = Path.Combine(dir, WriteProbe);
             File.WriteAllText(probe, "ok");
             File.Delete(probe);
             return null;
@@ -132,23 +167,28 @@ public static class InstallLocation
     }
 
     /// <summary>
-    /// True when it is safe to delete <paramref name="dir"/> recursively on
-    /// uninstall: it holds Origin's files and is not a drive root or a
-    /// well-known personal/system folder.
+    /// A drive root or a well-known personal/system folder (profile, Desktop, Documents,
+    /// Downloads, AppData, Programs, Program Files, Windows): never Origin's own, whatever it holds.
     /// </summary>
-    public static bool SafeToDelete(string dir)
+    public static bool IsWellKnownFolder(string dir)
     {
-        if (!Directory.Exists(dir) || !IsOriginInstall(dir) || IsDriveRoot(dir)) return false;
+        if (IsDriveRoot(dir)) return true;
         var full = Trim(Path.GetFullPath(dir));
-        var never = new[]
-        {
-            Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.Desktop, Environment.SpecialFolder.DesktopDirectory,
-            Environment.SpecialFolder.MyDocuments, Environment.SpecialFolder.LocalApplicationData,
-            Environment.SpecialFolder.ApplicationData, Environment.SpecialFolder.ProgramFiles,
-            Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.Windows,
-        }.Select(Environment.GetFolderPath).Where(p => !string.IsNullOrEmpty(p)).Select(Trim);
-        var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-        return !never.Concat(new[] { downloads, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs") })
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var known = new[]
+            {
+                Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.Desktop, Environment.SpecialFolder.DesktopDirectory,
+                Environment.SpecialFolder.MyDocuments, Environment.SpecialFolder.LocalApplicationData,
+                Environment.SpecialFolder.ApplicationData, Environment.SpecialFolder.ProgramFiles,
+                Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.Windows,
+            }.Select(Environment.GetFolderPath)
+            .Concat(new[]
+            {
+                string.IsNullOrEmpty(profile) ? "" : Path.Combine(profile, "Downloads"),
+                string.IsNullOrEmpty(local) ? "" : Path.Combine(local, "Programs"),
+            });
+        return known.Where(p => !string.IsNullOrEmpty(p))
             .Any(p => string.Equals(Trim(p), full, StringComparison.OrdinalIgnoreCase));
     }
 

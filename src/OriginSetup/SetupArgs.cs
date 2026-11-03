@@ -2,7 +2,8 @@ namespace OriginSetup;
 
 // Command line. Players never type these — they exist for the Add/Remove
 // Programs entry (--uninstall), its quiet variant, and CI's smoke test:
-//   OriginLauncher-Setup.exe [--silent] [--dir <folder>] [--start-with-windows] [--source <zip>]
+//   OriginLauncher-Setup.exe [--silent] [--dir <folder>] [--start-with-windows | --no-start-with-windows] [--source <zip>]
+//   With neither startup flag, an install over an existing one keeps its Start with Windows as it is.
 //   --source installs from a local OriginLauncher-win-x64.zip instead of
 //   downloading the newest release (CI installs the zip it just built, which
 //   isn't published yet).
@@ -15,7 +16,8 @@ public sealed class SetupArgs
     public bool Silent { get; private set; }
     public bool RemoveData { get; private set; }
     public bool FromTemp { get; private set; }
-    public bool StartWithWindows { get; private set; }
+    /// <summary>null = neither flag given: leave Start with Windows as it is.</summary>
+    public bool? StartWithWindows { get; private set; }
     public string? Dir { get; private set; }
     public string? Source { get; private set; }
     /// <summary>CI-only: render every screen to PNGs in this folder (UI/RenderTour.cs).</summary>
@@ -33,6 +35,7 @@ public sealed class SetupArgs
                 case "--remove-data": a.RemoveData = true; break;
                 case "--from-temp": a.FromTemp = true; break;
                 case "--start-with-windows": a.StartWithWindows = true; break;
+                case "--no-start-with-windows": a.StartWithWindows = false; break;
                 case "--dir" when i + 1 < args.Length: a.Dir = args[++i]; break;
                 case "--source" when i + 1 < args.Length: a.Source = args[++i]; break;
                 case "--render-tour" when i + 1 < args.Length: a.RenderTour = args[++i]; break;

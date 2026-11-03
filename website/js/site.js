@@ -82,6 +82,7 @@ function initDownload() {
   }
   if (!DOWNLOAD.live) return;
   initGet(ON_MAC ? 'mac' : ON_LINUX ? 'linux' : 'win');
+  pinMissingDownloads();
 }
 
 // Every download Origin has, the visitor's own system's first. The first entry for a
@@ -140,6 +141,39 @@ function initGet(os) {
   if (!DOWNLOAD.mac.live) return;
   for (const el of $$('[data-mac]')) el.hidden = false;
   if (os === 'mac') $('.get__steps').open = true;
+}
+
+// Every link above names a file on GitHub's "latest" release. A release appears with its Windows
+// (and Linux) files first; the Mac disk images are added minutes later by a separate job, and a
+// failed Mac or Linux job leaves a release without them. During that window /latest/download/<file>
+// is GitHub's 404 page. So: one look at the releases list, and any file the newest release doesn't
+// have links to the newest release that does. On any failure (offline, rate limit) the links stay
+// as they are. The release workflow and the launchers' self-updates are untouched by this.
+const RELEASES_API = 'https://api.github.com/repos/dozeyy/originclient/releases?per_page=15';
+const LATEST_PREFIX = 'https://github.com/dozeyy/originclient/releases/latest/download/';
+
+async function pinMissingDownloads() {
+  const links = $$('a[href^="' + LATEST_PREFIX + '"]');
+  if (!links.length) return;
+  let releases;
+  try {
+    const res = await fetch(RELEASES_API, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!res.ok) return;
+    releases = await res.json();
+  } catch { return; }
+  // launcher-v releases, newest version first (the workflow keeps Latest on the newest version).
+  const version = r => (/^launcher-v(\d+)\.(\d+)\.(\d+)$/.exec(r.tag_name) || []).slice(1).map(Number);
+  const list = (Array.isArray(releases) ? releases : [])
+    .filter(r => !r.draft && !r.prerelease && version(r).length === 3)
+    .sort((a, b) => { const x = version(a), y = version(b); return y[0] - x[0] || y[1] - x[1] || y[2] - x[2]; });
+  if (!list.length) return;
+  const fileUrl = (r, name) => ((r.assets || []).find(a => a.name === name) || {}).browser_download_url;
+  for (const a of links) {
+    const name = decodeURIComponent(a.getAttribute('href').slice(LATEST_PREFIX.length));
+    if (fileUrl(list[0], name)) continue;
+    const older = list.find(r => fileUrl(r, name));
+    if (older) a.href = fileUrl(older, name);
+  }
 }
 
 function initVersions() {

@@ -32,7 +32,12 @@ on:
       - "tools/design/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
+      - ".github/workflows/launcher-release.yml"
       - ".github/actions/**"
+      # check_consistency.py reads these too: a commit touching only them must still be checked
+      # (website/js/site.js is checked at release time instead: the gates job in launcher-release.yml).
+      - "tools/linux/**"
+      - "tools/mac/**"
   pull_request:
     paths:
       - "src/**"
@@ -51,9 +56,18 @@ on:
       - "tools/design/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
+      - ".github/workflows/launcher-release.yml"
       - ".github/actions/**"
+      # check_consistency.py reads these too: a commit touching only them must still be checked
+      # (website/js/site.js is checked at release time instead: the gates job in launcher-release.yml).
+      - "tools/linux/**"
+      - "tools/mac/**"
   # By hand (Run workflow), e.g. to re-test a CI-tool change.
   workflow_dispatch:
+
+# Read-only: Gradle plugins and NuGet build code run here; nothing in this workflow writes.
+permissions:
+  contents: read
 
 concurrency:
   group: build-check-${{ github.ref }}

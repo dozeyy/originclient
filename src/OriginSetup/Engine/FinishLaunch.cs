@@ -23,4 +23,14 @@ public static class FinishLaunch
             UseShellExecute = true,
             WorkingDirectory = workingDirectory,
         };
+
+    /// <summary>
+    /// For a Setup started with "Run as administrator": a plain start would run the launcher (and
+    /// Minecraft) as administrator too, so files it makes in the data folder belong to Administrators
+    /// and Explorer drag-and-drop into it fails. Instead Explorer opens <paramref name="shortcut"/> (a
+    /// shortcut to the launcher carrying the same arguments), and Explorer starts programs as the
+    /// signed-in user, not elevated. The shortcut carries the arguments because Explorer passes none.
+    /// </summary>
+    public static ProcessStartInfo UnelevatedStartInfo(string shortcut) =>
+        new ProcessStartInfo("explorer.exe", "\"" + shortcut + "\"") { UseShellExecute = false };
 }

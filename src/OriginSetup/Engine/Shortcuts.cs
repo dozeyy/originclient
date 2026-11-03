@@ -20,13 +20,14 @@ public static class Shortcuts
     public static string LegacyStartMenuGroup =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Origin Launcher");
 
-    public static void Create(string shortcutPath, string targetExe, string description)
+    public static void Create(string shortcutPath, string targetExe, string description, string arguments = "")
     {
         Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath)!);
         var link = (IShellLinkW)new ShellLink();
         try
         {
             link.SetPath(targetExe);
+            if (arguments.Length > 0) link.SetArguments(arguments);
             link.SetWorkingDirectory(Path.GetDirectoryName(targetExe)!);
             link.SetDescription(description);
             link.SetIconLocation(targetExe, 0);

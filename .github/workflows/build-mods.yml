@@ -48,8 +48,12 @@ jobs:
       run:
         working-directory: src/mods/versions/${{ matrix.module }}
     steps:
+      # Gradle runs plugins from Fabric's and other mavens here: no token left in .git/config for them
+      # (the callers' tokens are read-only too; launcher-release.yml -> TOKENS).
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # JDK 21 for every 1.x module (each cross-compiles via options.release);
       # 26.x modules run Gradle on JDK 25 ("java" in src/mods/live-modules.json).

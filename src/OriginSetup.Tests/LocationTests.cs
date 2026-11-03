@@ -19,16 +19,72 @@ public class LocationTests
     }
 
     [Fact]
-    public void PickingAnEmptyOrNewOrOwnFolderUsesIt()
+    public void PickingAnEmptyOrNewFolderUsesIt()
     {
         var empty = Temp();
         Assert.Equal(empty, InstallLocation.Resolve(empty));
         var fresh = Path.Combine(Temp(), "Games", "Stuff");
         Assert.Equal(fresh, InstallLocation.Resolve(fresh));
-        var own = Path.Combine(Temp(), "Origin Launcher");
-        Directory.CreateDirectory(own);
-        File.WriteAllText(Path.Combine(own, "x"), "x");
-        Assert.Equal(own, InstallLocation.Resolve(own + Path.DirectorySeparatorChar));
+        // What a cancelled Setup leaves behind still counts as empty.
+        var cancelled = Temp();
+        Directory.CreateDirectory(Path.Combine(cancelled, "_setup-staging"));
+        Assert.Equal(cancelled, InstallLocation.Resolve(cancelled));
+        Assert.Null(InstallLocation.Problem(cancelled, new string[0], Temp()));
+    }
+
+    [Fact]
+    public void AFolderNamedLikeOriginButHoldingSomethingElseGetsItsOwnSubfolder()
+    {
+        // EA's old "Origin" client or game library, D:\Origin: its name proves nothing.
+        foreach (var name in new[] { "Origin", "Origin Launcher", "OriginLauncher" })
+        {
+            var ea = Path.Combine(Temp(), name);
+            Directory.CreateDirectory(ea);
+            File.WriteAllText(Path.Combine(ea, "Origin.exe"), "EA");
+            Assert.Equal(Path.Combine(ea, "OriginLauncher"), InstallLocation.Resolve(ea + Path.DirectorySeparatorChar));
+        }
+    }
+
+    [Fact]
+    public void AnotherProgramsUninstallerDoesNotMakeItsFolderOrigins()
+    {
+        // uninstall.exe is NSIS's default uninstaller name: countless programs have one.
+        var game = Temp();
+        File.WriteAllText(Path.Combine(game, "uninstall.exe"), "someone else's");
+        File.WriteAllText(Path.Combine(game, "game.exe"), "x");
+        Assert.False(InstallLocation.IsOriginInstall(game));
+        Assert.Equal(Path.Combine(game, "OriginLauncher"), InstallLocation.Resolve(game));
+        Assert.Contains("other files", InstallLocation.Problem(game, new string[0], Temp()));
+    }
+
+    [Fact]
+    public void ABusyFolderIsRefusedButAnOriginInstallIsNot()
+    {
+        var busy = Temp();
+        File.WriteAllText(Path.Combine(busy, "homework.txt"), "x");
+        Assert.Contains("other files", InstallLocation.Problem(busy, new string[0], Temp()));
+        var install = Temp();
+        File.WriteAllText(Path.Combine(install, "OriginLauncher.App.exe"), "x");
+        File.WriteAllText(Path.Combine(install, "Some.dll"), "x");
+        Assert.Null(InstallLocation.Problem(install, new string[0], Temp()));
+    }
+
+    [Fact]
+    public void TheDataFolderAndAnythingAroundOrInsideItIsRefused()
+    {
+        // Installing into the data folder made uninstall delete worlds with "Also delete" off (bug run 3, IN-1).
+        var local = Temp();
+        var data = Path.Combine(local, "OriginLauncher");
+        Directory.CreateDirectory(Path.Combine(data, "instances"));
+        Assert.Contains("worlds", InstallLocation.Problem(data, new string[0], data));
+        Assert.Contains("worlds", InstallLocation.Problem(data + Path.DirectorySeparatorChar, new string[0], data));
+        Assert.Contains("worlds", InstallLocation.Problem(Path.Combine(data, "app"), new string[0], data));
+        Assert.Contains("worlds", InstallLocation.Problem(local, new string[0], data));
+        // Picking %LocalAppData% itself resolves to the data folder, which is then refused.
+        Assert.Equal(data, InstallLocation.Resolve(local));
+        // A sibling that merely starts with the same letters is fine.
+        Assert.Null(InstallLocation.Problem(data + "Games", new string[0], data));
+        Assert.Null(InstallLocation.Problem(Path.Combine(local, "Programs", "OriginLauncher"), new string[0], data));
     }
 
     [Fact]
@@ -62,17 +118,6 @@ public class LocationTests
         Assert.False(Directory.Exists(Path.Combine(root, "a")));
     }
 
-    [Fact]
-    public void OnlyRecognisableOriginFoldersAreDeletable()
-    {
-        var random = Temp();
-        File.WriteAllText(Path.Combine(random, "notes.txt"), "keep me");
-        Assert.False(InstallLocation.SafeToDelete(random));
-        var origin = Temp();
-        File.WriteAllText(Path.Combine(origin, "uninstall.exe"), "x");
-        Assert.True(InstallLocation.SafeToDelete(origin));
-        Assert.False(InstallLocation.SafeToDelete(Path.Combine(Temp(), "missing")));
-    }
 
     [Fact]
     public void VersionListIsNewestFirstAndDeduplicated()

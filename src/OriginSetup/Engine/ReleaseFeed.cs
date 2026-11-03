@@ -47,7 +47,8 @@ public sealed class LauncherRelease
 //  2. github.com/<repo>/releases/latest, which redirects to the newest
 //     release's page (no API, no rate limit). The tag in that final URL gives
 //     the version, and the asset's URL is built from it — pinned to that
-//     version, so a release published mid-download can't mix two builds.
+//     version, so a release published mid-download can't mix two builds. The
+//     zip's SHA-256 then comes from that release's .sha256 file (HashUrl).
 public static class ReleaseFeed
 {
     public const string Owner = "dozeyy";
@@ -66,10 +67,49 @@ public static class ReleaseFeed
         $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/{SetupAssetName}";
 
     /// <summary>
-    /// The newest release. Throws <see cref="DownloadException"/> (worded for
-    /// the player) when neither route answers — almost always no internet.
+    /// The zip's sha256sum-format sidecar, which every release publishes next to it (the same file
+    /// installed launchers verify their self-update against). Pinned to the same tag as the zip.
+    /// </summary>
+    public static string HashUrl(string tag) => AssetUrl(tag) + ".sha256";
+
+    /// <summary>
+    /// The newest release, always with the zip's SHA-256: from the API's digest, else from the
+    /// release's .sha256 file. Throws <see cref="DownloadException"/> (worded for the player) when
+    /// neither route answers — almost always no internet — or when no hash can be had (ServerProblem,
+    /// with Try again): Setup never installs a launcher it can't check, just as installed launchers
+    /// never apply such an update (DECISIONS 2026-10-25).
     /// </summary>
     public static async Task<LauncherRelease> FindLatestAsync(HttpClient http, CancellationToken ct)
+    {
+        var release = await FindReleaseAsync(http, ct).ConfigureAwait(false);
+        if (release.Sha256 != null) return release;
+
+        var url = HashUrl(TagPrefix + release.Version);
+        try
+        {
+            using var response = await http.GetAsync(url, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"{url} answered HTTP {(int)response.StatusCode}");
+            var hash = ParseHashFile(await response.Content.ReadAsStringAsync().ConfigureAwait(false))
+                       ?? throw new InvalidDataException($"{url} holds no SHA-256");
+            SetupLog.Write($"release feed: sha256 from {AssetName}.sha256");
+            return new LauncherRelease(release.Version, release.Url, release.Size, hash, release.SetupSize, release.SetupSha256);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && IsNetworkOrData(ex))
+        {
+            SetupLog.Write("release feed: no SHA-256 for the launcher: " + ex.Message);
+            throw new DownloadException(DownloadException.ServerProblem, ex);
+        }
+    }
+
+    /// <summary>The hash in a sha256sum line ("&lt;64 hex&gt;  name"), lower-case, or null.</summary>
+    public static string? ParseHashFile(string? text)
+    {
+        var first = text?.Trim().Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return first != null && first.Length == 64 && first.All(Uri.IsHexDigit) ? first.ToLowerInvariant() : null;
+    }
+
+    private static async Task<LauncherRelease> FindReleaseAsync(HttpClient http, CancellationToken ct)
     {
         Exception? apiProblem;
         try
