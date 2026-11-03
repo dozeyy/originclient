@@ -163,6 +163,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <!-- settings.json's store: fails closed on a file it can't read (SettingsStoreTests; memory probe swapped). -->
     <Compile Include="..\OriginLauncher.App\Core\SettingsStore.cs" LinkBase="Settings" />
+    <!-- The logs folder's pruning at start (LogRetentionTests). -->
+    <Compile Include="..\OriginLauncher.App\Core\LogRetention.cs" LinkBase="Settings" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- Settings: which rail item is lit, and who may see the Developer switch (both pure). -->
     <Compile Include="..\OriginLauncher.App\UI\Pages\SettingsRailSpy.cs" LinkBase="Settings" />

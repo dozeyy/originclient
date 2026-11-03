@@ -144,6 +144,8 @@ public partial class App : Application
         // An import that was interrupted last time (crash, power cut) is rolled back, on the thread pool;
         // MainWindow tells the player once the first window is up (Core/Import/Launcher/ImportStartup).
         Core.Import.Launcher.ImportStartup.StartRecovery();
+        // Old per-launch game logs, launcher errors and crash logs (Core/LogRetention), on the thread pool.
+        Core.LogRetention.StartPrune();
 
         // Per-account game folders (Core/GameFolders): the first run of this
         // code moves each version's old single game folder into the selected
