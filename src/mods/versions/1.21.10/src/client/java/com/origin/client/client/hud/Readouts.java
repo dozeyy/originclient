@@ -75,7 +75,7 @@ final class Readouts {
 		HudElements.add("packdisplay", "packdisplay", "Pack Display", new HudPos(8, -6, -6, 1.0),
 				Readouts::packSize, Readouts::renderPacks);
 
-		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 60, 1.0),
+		HudElements.add("itemcounter", "itemcounter", "Item Counter", new HudPos(2, -6, 244, 1.0) /* under Potions (C3) */,
 				Readouts::itemCounterSize, Readouts::renderItemCounter);
 
 		// Default sits just below one boss bar (BossBarHud: top centre, dy 3, H 14),
