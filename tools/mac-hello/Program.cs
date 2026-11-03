@@ -25,6 +25,9 @@ public static class Program
             ProbeLog.Open(Path.Combine(ProbeDir, "probe.log"));
         }
 
+        // A silent exit with no RESULT line (seen once under Rosetta) should at least name its exception.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => ProbeLog.Write("UNHANDLED " + e.ExceptionObject);
+        TaskScheduler.UnobservedTaskException += (_, e) => ProbeLog.Write("UNOBSERVED " + e.Exception);
         ProbeLog.Write($"START pid={Environment.ProcessId} path={Environment.ProcessPath}");
         ProbeLog.Write($"START arch={System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture} os={Environment.OSVersion.VersionString}");
 

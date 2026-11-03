@@ -186,7 +186,10 @@ internal sealed class ProbeWindow : Window
     {
         await Task.Delay(2500);
         var href = await Eval("location.href");
-        Check(name, !href.Contains("oauth20_desktop.srf"), "href=" + Short(href));
+        // StartsWith, not Contains: the authorize page's own URL carries the redirect as its
+        // redirect_uri parameter, so a Contains check fails while still on the sign-in page.
+        var stayed = !href.Trim('"').StartsWith(AuthRequest.RedirectUri, StringComparison.Ordinal);
+        Check(name, stayed, "href=" + Short(href));
     }
 
     private async Task<string> Eval(string script)

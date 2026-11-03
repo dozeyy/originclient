@@ -37,6 +37,13 @@ kill "$WATCH" 2>/dev/null
 wait "$WATCH" 2>/dev/null
 
 cp ~/Library/Logs/DiagnosticReports/MacHello* "$OUT/" 2>/dev/null
+if ! grep -q '^RESULT ' "$OUT/probe.log" 2>/dev/null; then
+  # The app ended without a verdict: keep whatever macOS recorded about it.
+  ls -la ~/Library/Logs/DiagnosticReports/ /Library/Logs/DiagnosticReports/ > "$OUT/diag-reports.txt" 2>&1
+  cp /Library/Logs/DiagnosticReports/MacHello* "$OUT/" 2>/dev/null
+  perl -e 'alarm shift; exec @ARGV' 60 log show --last 5m --style compact \
+    --predicate 'process == "MacHello" OR eventMessage CONTAINS "MacHello"' 2>/dev/null | tail -n 80 > "$OUT/unified-log.txt"
+fi
 hdiutil detach "$MNT" 2>&1 | tee -a "$LOG" || hdiutil detach "$MNT" -force 2>&1 | tee -a "$LOG"
 
 echo "== probe log"

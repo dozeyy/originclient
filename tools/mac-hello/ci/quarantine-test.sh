@@ -38,10 +38,13 @@ FLAG="0083;$(printf %x "$(date +%s)");Safari;$(uuidgen)"
   t 90 syspolicy_check distribution "$APP" 2>&1 | tail -n 20
 
   echo "== try to open it (open itself limited to 20 s), then a picture of the screen"
+  # Nothing left over from earlier steps may cover the dialog or pass for this app's process.
+  pkill -x SecurityAgent 2>/dev/null; pkill -x MacHello 2>/dev/null; sleep 2
+  echo "MacHello processes before open: $(pgrep -x MacHello | tr '\n' ' ')"
   t 20 open "$APP"; echo "open exit=$?"
   sleep 10
   screencapture -x "$OUT/quarantine-open.png"
-  echo "app process after the wait: $(pgrep -x MacHello >/dev/null && echo running || echo 'not running')"
+  echo "MacHello processes after the wait:"; ps -axo pid,stat,lstart,command | grep '[M]acHello' || echo "  none"
   echo "== syspolicyd's last words"
   t 60 log show --last 2m --style compact --predicate 'process == "syspolicyd"' 2>/dev/null | grep -iE 'hello|gatekeeper|notari|quarantine|GK ' | tail -n 15
   pkill -x MacHello
