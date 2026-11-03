@@ -24,6 +24,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Origin's Sodium/Iris hooks check the version; on one they don't know, that feature switches off and the rest of Origin keeps working (2026-10-26).
 - 1.21.1 ships Sodium 0.8 by default (Will's own mods need it); Origin Render (experimental terrain culler, Sodium 0.6 only) stays removed (2026-10-26).
 - Fix Compatibility may look up a missing dependency on Modrinth and installs it only when the file matches Modrinth's SHA-512 (2026-10-27).
+- A player's mod replaces Origin's only when the two would fight (same key, same camera/input/render job, e.g. two freelooks): theirs takes priority and they can switch Origin's back on. Mods that can run side by side (minimaps, separate HUD pieces) leave Origin's on too (2026-11-03).
 
 - Mac launcher: every screen and feature of the Windows launcher; no Apple Developer account for now (the site shows the Open Anyway steps); the site calls it Mac Beta until real players confirm it works (2026-11-02).
 - A version that plays on Mac but whose shaders fail stays in the Mac picker and says shaders aren't available on Mac yet (2026-11-02).
@@ -79,3 +80,4 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - 2026-10-25 Workbench card title buttons with Inter labels and parchment dock glyphs vs 2026-10-27 "the exact vanilla dark buttons", premade dock icons: 2026-10-27 wins.
 - Palette history (Aurora -> Slate -> Ion Jade -> Workbench, 2026-09-03 to 2026-09-09): Workbench is current.
 - 2026-10-25 Inter/MSDF title-text exception vs 2026-10-27 "Minecraft's font on the loading screens; title buttons are Minecraft's dark buttons with Minecraft's font": 2026-10-27 wins. Loading screens and title buttons use Minecraft's font.
+- 2026-10-26 'Origin's turns off whenever a player's mod does the same job' narrowed 2026-11-03: only when they'd fight; side-by-side mods keep Origin's on.
