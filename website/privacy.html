@@ -70,7 +70,10 @@
         Minecraft session, in <code>accounts.json</code> inside
         <code>%LocalAppData%\OriginLauncher</code>. Both are encrypted with
         Windows' own protection for your Windows user, so the file is useless
-        if it is copied to another PC. None of these keys are ever sent to
+        if it is copied to another PC. On Linux the same file lives in
+        <code>~/.local/share/OriginLauncher</code>, encrypted with a key kept
+        in your desktop's keyring (or, without one, a key file only your user
+        can read, tied to this PC). None of these keys are ever sent to
         Origin.
       </p>
 
