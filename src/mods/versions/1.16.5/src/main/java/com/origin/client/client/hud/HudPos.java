@@ -21,17 +21,25 @@ public final class HudPos {
 		this.scale = scale;
 	}
 
-	/** Top-left screen position for an element of size (w,h) at this pos. */
+	/** Top-left screen position for an element of size (w,h) at this pos.
+	 *  Clamped so the whole element stays on screen: a layout saved at another GUI
+	 *  scale, monitor or synced from another PC can never strand a piece off-screen.
+	 *  Only the read is clamped; the saved offset stays as the player set it. */
 	public double x(int screenW, double w) {
 		int col = anchor % 3;
 		double base = col == 0 ? 0 : col == 1 ? (screenW - w) / 2.0 : screenW - w;
-		return base + dx;
+		return onScreen(base + dx, screenW - w);
 	}
 
 	public double y(int screenH, double h) {
 		int row = anchor / 3;
 		double base = row == 0 ? 0 : row == 1 ? (screenH - h) / 2.0 : screenH - h;
-		return base + dy;
+		return onScreen(base + dy, screenH - h);
+	}
+
+	/** v limited to [0, max]; an element larger than the screen pins to 0. */
+	private static double onScreen(double v, double max) {
+		return Math.max(0, Math.min(v, max));
 	}
 
 	/** Re-derives anchor+offset from an absolute top-left drop position, so
