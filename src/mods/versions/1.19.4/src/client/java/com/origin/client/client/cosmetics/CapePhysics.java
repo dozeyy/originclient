@@ -104,6 +104,13 @@ public final class CapePhysics {
 	// never reuses a popped Pose on this version).
 	private static final PoseStack.Pose[] JOINT = new PoseStack.Pose[N + 1];
 
+	// Per-draw scratch (as on 1.8.9): three float[N] used to be allocated per cape per frame.
+	// render() is the only user, runs on the render thread and is never re-entered; every
+	// slot is rewritten before it is read.
+	private static final float[] REL_P = new float[N];
+	private static final float[] REL_R = new float[N];
+	private static final float[] CUM_R = new float[N];
+
 	/**
 	 * Draws `p`'s Origin cape with physics, replacing vanilla's CapeLayer.render.
 	 *
@@ -156,9 +163,9 @@ public final class CapePhysics {
 
 		float t = ageInTicks / 20f;
 		float calm = Mth.lerp(partialTick, s.calmPrev, s.calm);
-		float[] relP = new float[N];
-		float[] relR = new float[N];
-		float[] cumR = new float[N];
+		float[] relP = REL_P;
+		float[] relR = REL_R;
+		float[] cumR = CUM_R;
 		float prevP = 0f;
 		float prevR = 0f;
 		for (int i = 0; i < N; i++) {

@@ -48,12 +48,12 @@ public final class TeamView {
 	}
 
 	// Written by the world pass, read by the HUD pass -- both on the render thread.
-	private static List<Marker> markers = new ArrayList<>();
+	private static final List<Marker> markers = new ArrayList<>();   // one list, refilled every frame
 
 	/** World pass (WorldRenderEvents.LAST): project each marked player's head. */
 	static void capture(WorldRenderContext ctx) {
-		List<Marker> out = new ArrayList<>();
-		markers = out;
+		List<Marker> out = markers;
+		out.clear();   // reused: a new list used to be made every frame, even with Team View off
 		Minecraft mc = Minecraft.getInstance();
 		if (!Mods.on(MOD) || mc.player == null || mc.level == null || ctx.matrixStack() == null) {
 			return;

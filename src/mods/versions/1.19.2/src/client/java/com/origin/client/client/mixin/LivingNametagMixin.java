@@ -34,7 +34,10 @@ public class LivingNametagMixin {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (entity == mc.player && !mc.options.getCameraType().isFirstPerson()) {
+		// Lift ONLY vanilla's "not the camera entity" rule: its other rules for your own tag
+		// (GUI shown / not F1, not invisible to you, nobody riding you) still decide.
+		if (entity == mc.player && !mc.options.getCameraType().isFirstPerson()
+				&& Minecraft.renderNames() && !entity.isInvisibleTo(mc.player) && !entity.isVehicle()) {
 			cir.setReturnValue(true);
 		}
 	}

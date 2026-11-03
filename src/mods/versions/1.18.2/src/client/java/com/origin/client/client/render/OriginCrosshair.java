@@ -35,7 +35,10 @@ public final class OriginCrosshair {
 
 	private static final ResourceLocation ICONS = new ResourceLocation("textures/gui/icons.png");
 
-	private static String cachedKey = null;
+	/** The settings the mask was last built for (null style = never built). */
+	private static String cachedStyle = null;
+	private static int cachedS, cachedT, cachedGap, cachedDotSize, cachedO;
+	private static boolean cachedDot;
 	private static boolean[][] fillMask, outlineMask;   // [y][x], centre at (ext, ext)
 	private static int ext;
 
@@ -57,9 +60,8 @@ public final class OriginCrosshair {
 		if (!firstPerson && !Mods.bool("crosshair", "showInF5")) {
 			return true;
 		}
-		if (mc.gameMode.getPlayerMode() == GameType.SPECTATOR
-				&& (mc.hitResult == null || mc.hitResult.getType() != HitResult.Type.ENTITY)) {
-			return true;    // vanilla hides the crosshair in spectator unless aiming at an entity
+		if (mc.gameMode.getPlayerMode() == GameType.SPECTATOR && !spectatorCrosshair(mc)) {
+			return true;    // vanilla hides the crosshair in spectator except over a menu (below)
 		}
 		ensureMask();
 		int color = OriginColorPicker.liveColor("crosshair", "color");
@@ -112,6 +114,26 @@ public final class OriginCrosshair {
 		}
 	}
 
+	/**
+	 * Vanilla's spectator rule, Gui.canRenderCrosshairForSpectator (javap, same 1.16.5-1.19.4):
+	 * shown only over an entity that opens a menu (chest minecart, ...) or a block that does
+	 * (chest, furnace, ...). Origin used to show it over any entity and hide it on containers.
+	 */
+	private static boolean spectatorCrosshair(Minecraft mc) {
+		HitResult hit = mc.hitResult;
+		if (hit == null || mc.level == null) {
+			return false;
+		}
+		if (hit.getType() == HitResult.Type.ENTITY) {
+			return ((net.minecraft.world.phys.EntityHitResult) hit).getEntity() instanceof net.minecraft.world.MenuProvider;
+		}
+		if (hit.getType() == HitResult.Type.BLOCK) {
+			net.minecraft.core.BlockPos pos = ((net.minecraft.world.phys.BlockHitResult) hit).getBlockPos();
+			return mc.level.getBlockState(pos).getMenuProvider(mc.level, pos) != null;
+		}
+		return false;
+	}
+
 	// ---- shape rasterisation ----
 
 	private static void ensureMask() {
@@ -122,11 +144,18 @@ public final class OriginCrosshair {
 		boolean dot = Mods.bool("crosshair", "dot");
 		int dotSize = Math.max(1, (int) Mods.num("crosshair", "dotSize"));
 		int o = Mods.bool("crosshair", "outline") ? Math.max(1, (int) Mods.num("crosshair", "outlineThickness")) : 0;
-		String key = style + "|" + s + "|" + t + "|" + gap + "|" + dot + "|" + dotSize + "|" + o;
-		if (key.equals(cachedKey)) {
+		// Compared field by field: the old joined key string was built every frame.
+		if (style.equals(cachedStyle) && s == cachedS && t == cachedT && gap == cachedGap
+				&& dot == cachedDot && dotSize == cachedDotSize && o == cachedO) {
 			return;
 		}
-		cachedKey = key;
+		cachedStyle = style;
+		cachedS = s;
+		cachedT = t;
+		cachedGap = gap;
+		cachedDot = dot;
+		cachedDotSize = dotSize;
+		cachedO = o;
 		ext = gap + s + t + dotSize + o + 3;
 		int n = ext * 2 + 1;
 		boolean[][] fill = new boolean[n][n];

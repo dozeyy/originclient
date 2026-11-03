@@ -441,8 +441,15 @@ public final class HudElements {
 		return new int[]{top, bottom};
 	}
 
+	// Reused every frame (render thread only): the armour HUD asks for its items twice a
+	// frame (size, then draw) and used to build a new list each time. Callers only read
+	// the result before the next call.
+	private static final List<ItemStack> ARMOR_ITEMS = new ArrayList<>();
+	private static List<ItemStack> armorPreview;   // the editor's sample loadout, built once
+
 	private static List<ItemStack> armorItems(Minecraft mc) {
-		List<ItemStack> items = new ArrayList<>();
+		List<ItemStack> items = ARMOR_ITEMS;
+		items.clear();
 		if (mc.thePlayer != null) {
 			// 1.8.9: armorInventory[0] is the boots, [3] the helmet; empty slots are null.
 			ItemStack[] armor = mc.thePlayer.inventory.armorInventory;
@@ -457,8 +464,11 @@ public final class HudElements {
 			}
 		}
 		if (items.isEmpty() && editorPreview) {
-			items = new ArrayList<>(java.util.Arrays.asList(new ItemStack(Items.diamond_helmet), new ItemStack(Items.diamond_chestplate),
-					new ItemStack(Items.diamond_leggings), new ItemStack(Items.diamond_boots), new ItemStack(Items.diamond_sword)));
+			if (armorPreview == null) {
+				armorPreview = new ArrayList<>(java.util.Arrays.asList(new ItemStack(Items.diamond_helmet), new ItemStack(Items.diamond_chestplate),
+						new ItemStack(Items.diamond_leggings), new ItemStack(Items.diamond_boots), new ItemStack(Items.diamond_sword)));
+			}
+			return armorPreview;
 		}
 		return items;
 	}

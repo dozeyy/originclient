@@ -66,6 +66,9 @@ public final class TntCountdown {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
+		if (mc.options.hideGui) {
+			return;   // F1 hides it like vanilla's name tags
+		}
 		net.minecraft.client.renderer.entity.EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
 		if (dispatcher.distanceToSqr(tnt) > 4096.0) {
 			return;

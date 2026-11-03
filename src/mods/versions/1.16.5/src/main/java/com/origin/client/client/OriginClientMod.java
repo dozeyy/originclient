@@ -921,6 +921,7 @@ public class OriginClientMod implements ClientModInitializer {
 	// Clear additionally skips the precipitation render pass entirely
 	// (LevelRendererMixin). Server weather/gameplay is never touched.
 	private void applyWeather(Minecraft client) {
+		com.origin.client.client.mods.WeatherOverride.tick();   // Snow flag for LevelRendererMixin
 		if (!Mods.on("weather") || client.level == null) {
 			return;
 		}
@@ -933,7 +934,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// by LevelWeatherMixin -> WeatherOverride, which makes switching instant,
 		// leaves nothing behind, and never touches the server's weather.
 		String mode = Mods.mode("weather", "mode");
-		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
+		boolean thunder = com.origin.client.client.mods.WeatherOverride.thunderOn(mode);
 
 		// Play Thunder Sounds: forcing the thunder level alone never actually
 		// makes a sound (vanilla thunder rides real lightning bolts we don't

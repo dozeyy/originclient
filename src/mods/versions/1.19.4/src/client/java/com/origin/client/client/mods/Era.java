@@ -133,6 +133,11 @@ public final class Era {
 		return new float[]{m.m30(), m.m31()};
 	}
 
+	// projectToGui's scratch (render thread only; it ran once per marked player per frame).
+	// The returned array is shared: read it before the next call (TeamView does).
+	private static final Vector4f PROJ_V = new Vector4f(0f, 0f, 0f, 1f);
+	private static final float[] PROJ_OUT = new float[2];
+
 	/**
 	 * World point (camera-relative) -> GUI pixels, through the world pass's view
 	 * pose and RenderSystem's projection. null when behind the camera. On this
@@ -140,15 +145,16 @@ public final class Era {
 	 * view is that pose alone (never times the model-view -- see TeamView).
 	 */
 	public static float[] projectToGui(PoseStack view, double x, double y, double z) {
-		Vector4f v = new Vector4f((float) x, (float) y, (float) z, 1f);
-		new Matrix4f(view.last().pose()).transform(v);
-		new Matrix4f(RenderSystem.getProjectionMatrix()).transform(v);
+		Vector4f v = PROJ_V.set((float) x, (float) y, (float) z, 1f);
+		view.last().pose().transform(v);   // transform() writes only v: no matrix copies needed
+		RenderSystem.getProjectionMatrix().transform(v);
 		if (v.w <= 0.05f) {
 			return null;
 		}
 		var w = Minecraft.getInstance().getWindow();
-		return new float[]{(v.x / v.w * 0.5f + 0.5f) * w.getGuiScaledWidth(),
-				(0.5f - v.y / v.w * 0.5f) * w.getGuiScaledHeight()};
+		PROJ_OUT[0] = (v.x / v.w * 0.5f + 0.5f) * w.getGuiScaledWidth();
+		PROJ_OUT[1] = (0.5f - v.y / v.w * 0.5f) * w.getGuiScaledHeight();
+		return PROJ_OUT;
 	}
 
 	// ---- immediate geometry ----

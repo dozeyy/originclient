@@ -47,9 +47,12 @@ public abstract class RenderEntityItemMixin {
 			float s = ItemSizes.DEFAULT;
 			if (size) {
 				Item it = item.getEntityItem().getItem();
-				Object id = it == null ? null : Item.itemRegistry.getNameForObject(it);
-				if (id instanceof ResourceLocation) {
-					s = ItemSizes.get((ResourceLocation) id);
+				if (it != null) {
+					s = ItemSizes.cached(it);   // identity lookup; the id is resolved once per item
+					if (Float.isNaN(s)) {
+						Object id = Item.itemRegistry.getNameForObject(it);
+						s = ItemSizes.remember(it, id instanceof ResourceLocation ? (ResourceLocation) id : null);
+					}
 				}
 			}
 			if (!physics && s == ItemSizes.DEFAULT) {

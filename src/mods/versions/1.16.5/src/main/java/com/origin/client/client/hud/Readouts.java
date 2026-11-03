@@ -354,11 +354,50 @@ final class Readouts {
 		}
 	}
 
+	/** Rows cache: built from this exact selected-pack list with these option bits. PackRepository
+	 *  swaps in a NEW list on every pack change and every resource reload (setSelected / reload,
+	 *  javap), so list identity is the change signal. Building the rows (description wrap, name
+	 *  regex, icon load) used to run twice a frame; now it runs only when something changed. */
+	private static java.util.Collection<Pack> rowsSelected = null;
+	private static int rowsFlags = -1;
+	private static List<PackRow> rowsCache = null;
+
+	private static List<PackRow> packRows(Minecraft mc) {
+		java.util.Collection<Pack> selected = mc.getResourcePackRepository().getSelectedPacks();
+		int flags = (Mods.bool("packdisplay", "showAllPacks") ? 1 : 0)
+				| (Mods.bool("packdisplay", "packIcon") ? 2 : 0)
+				| (Mods.bool("packdisplay", "packDescription") ? 4 : 0)
+				| (Mods.bool("packdisplay", "packExtension") ? 8 : 0)
+				| (Mods.bool("packdisplay", "keepStrikethrough") ? 16 : 0)
+				| (Mods.bool("packdisplay", "keepObfuscated") ? 32 : 0);
+		if (selected != rowsSelected) {
+			// A pack change or reload: a cached pack.png may be stale (an edited or swapped
+			// pack under the same id), so the icons are released and read again.
+			releasePackIcons(mc);
+		}
+		if (rowsCache == null || selected != rowsSelected || flags != rowsFlags) {
+			rowsCache = buildPackRows(mc, selected);
+			rowsSelected = selected;
+			rowsFlags = flags;
+		}
+		return rowsCache;
+	}
+
+	/** Frees every cached pack icon texture and forgets it, so the next draw reads pack.png again. */
+	private static void releasePackIcons(Minecraft mc) {
+		for (ResourceLocation loc : PACK_ICONS.values()) {
+			if (loc != UNKNOWN_PACK) {
+				mc.getTextureManager().release(loc);
+			}
+		}
+		PACK_ICONS.clear();
+	}
+
 	/** The packs to show: the top-most enabled pack, or every one (top first).
 	 *  Required packs (vanilla, Fabric's mod resources) are never listed. */
-	private static List<PackRow> packRows(Minecraft mc) {
+	private static List<PackRow> buildPackRows(Minecraft mc, java.util.Collection<Pack> selected) {
 		List<Pack> chosen = new ArrayList<>();
-		for (Pack p : mc.getResourcePackRepository().getSelectedPacks()) {
+		for (Pack p : selected) {
 			if (!p.isRequired()) {
 				chosen.add(p);
 			}

@@ -64,6 +64,9 @@ public final class TntCountdown {
 			return;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.gameSettings.hideGUI) {
+			return;   // F1 hides it like vanilla's name tags
+		}
 		if (mc.getRenderManager().livingPlayer != null
 				&& tnt.getDistanceSqToEntity(mc.getRenderManager().livingPlayer) > 4096.0) {
 			return;

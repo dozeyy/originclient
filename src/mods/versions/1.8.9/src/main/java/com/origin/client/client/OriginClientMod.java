@@ -743,11 +743,12 @@ public class OriginClientMod {
 	// alone never makes a sound (vanilla thunder rides real lightning bolts we
 	// don't spawn), so play a rolling thunder clip on a gentle cadence instead.
 	public void applyWeather(Minecraft client) {
+		com.origin.client.client.mods.WeatherOverride.tick();   // Snow flag for WeatherRenderMixin
 		if (!Mods.on("weather") || client.theWorld == null) {
 			return;
 		}
 		String mode = Mods.mode("weather", "mode");
-		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
+		boolean thunder = com.origin.client.client.mods.WeatherOverride.thunderOn(mode);
 		if (thunder && Mods.bool("weather", "playThunderSounds") && client.thePlayer != null) {
 			if (++thunderSoundTicks >= 300) {   // ~every 15 seconds
 				thunderSoundTicks = 0;
