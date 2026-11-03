@@ -952,7 +952,7 @@ final class OriginDevWorld {
 					// 1.7 Animations shots: sword + shield given on the integrated server (the
 					// inventory syncs back like a real server's), the mod switched on for the shots.
 					Mods.setOn(com.origin.client.client.mods.OldAnimations.MOD, true);
-					oldAnimItems(mc, true);
+					oldAnimItems(mc, true, true);
 					iw = 10;
 					iwAt = now + 2000;
 				}
@@ -963,11 +963,34 @@ final class OriginDevWorld {
 					iwAt = now + 1200;
 				}
 				case 11 -> {
+					// Shields stay vanilla with the mod on (Will, 2026-11-02): the off-hand shield is
+					// really raised and the sword block didn't take over. Anything else fails the step.
+					boolean shieldNormal = mc.player != null && mc.player.isUsingItem()
+							&& mc.player.getUsedItemHand() == net.minecraft.world.InteractionHand.OFF_HAND
+							&& com.origin.client.client.mods.OldAnimations.isShield(mc.player.getUseItem())
+							&& !com.origin.client.client.mods.OldAnimations.swordBlocking(mc.player);
+					grab(mc, dir, "inworld_oldanim_shield_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
+					mc.options.keyUse.setDown(false);
+					if (!shieldNormal) {
+						inWorldEnd(mc, false, "1.7 Animations: the shield did not raise normally", onEnd);
+						return;
+					}
+					log("[origin-smoke] in-world: 1.7 Animations shield raised normally");
+					oldAnimItems(mc, true, false);
+					iw = 13;
+					iwAt = now + 1000;
+				}
+				case 13 -> {
+					mc.options.keyUse.setDown(true);   // sword alone: the looks-only 1.7 sword block
+					iw = 14;
+					iwAt = now + 1200;
+				}
+				case 14 -> {
 					log("[origin-smoke] in-world: 1.7 Animations sword block " + (mc.player != null
 							&& com.origin.client.client.mods.OldAnimations.swordBlocking(mc.player) ? "raised" : "NOT raised"));
 					grab(mc, dir, "inworld_oldanim_block_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
 					mc.options.keyUse.setDown(false);
-					oldAnimItems(mc, false);
+					oldAnimItems(mc, false, false);
 					mc.gui.setScreen(new com.origin.client.client.gui.OriginModMenuScreen(null,
 							com.origin.client.client.mods.OldAnimations.MOD));
 					iw = 12;
@@ -1024,8 +1047,8 @@ final class OriginDevWorld {
 		}
 	}
 
-	/** Sword in the main hand and a shield in the off hand (or both cleared), set on the integrated server. */
-	private static void oldAnimItems(Minecraft mc, boolean give) {
+	/** Sword in the main hand and a shield in the off hand (each or both cleared), set on the integrated server. */
+	private static void oldAnimItems(Minecraft mc, boolean sword, boolean shield) {
 		var server = mc.getSingleplayerServer();
 		if (server == null || mc.player == null) {
 			return;
@@ -1034,10 +1057,10 @@ final class OriginDevWorld {
 		server.execute(() -> {
 			var sp = server.getPlayerList().getPlayer(id);
 			if (sp != null) {
-				sp.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, give
+				sp.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, sword
 						? new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD)
 						: net.minecraft.world.item.ItemStack.EMPTY);
-				sp.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, give
+				sp.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, shield
 						? new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHIELD)
 						: net.minecraft.world.item.ItemStack.EMPTY);
 			}

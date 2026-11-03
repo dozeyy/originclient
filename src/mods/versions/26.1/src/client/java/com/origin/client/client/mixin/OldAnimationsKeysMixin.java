@@ -19,8 +19,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // 1.7 Animations -> Swing While Using. 26.1.2 Minecraft (javap-verified, same shape as 26.2 and 1.21.1;
 // LocalPlayer still overrides only swing(hand) with the ServerboundSwingPacket):
 //   handleKeybinds(): if (player.isUsingItem()) { ... while (options.keyAttack.consumeClick()) {} ... }
-//     -> vanilla throws attack clicks away while eating/drawing/blocking. Wrapping consumeClick,
-//        a click that lands while using swings the arm instead.
+//     -> vanilla throws attack clicks away while eating/drawing. Wrapping consumeClick, a click
+//        that lands while using swings the arm instead. Never while a shield is raised: shields
+//        stay exactly vanilla (Will, 2026-11-02).
 //   continueAttack(boolean held): returns early while using
 //     -> holding attack on a block while using loops the swing, 1.7's block-hit look.
 // The swing is LivingEntity.swing(hand, false): only LocalPlayer.swing(hand) sends a packet,
@@ -37,7 +38,7 @@ public class OldAnimationsKeysMixin {
 		boolean clicked = original.call(key);
 		try {
 			if (clicked && key == options.keyAttack && player != null && player.isUsingItem()
-					&& OldAnimations.on("swingWhileUsing")) {
+					&& !OldAnimations.isShield(player.getUseItem()) && OldAnimations.on("swingWhileUsing")) {
 				player.swing(InteractionHand.MAIN_HAND, false);
 			}
 		} catch (Throwable t) {
@@ -49,7 +50,8 @@ public class OldAnimationsKeysMixin {
 	@Inject(method = "continueAttack", at = @At("HEAD"))
 	private void originclient$holdSwingWhileUsing(boolean held, CallbackInfo ci) {
 		try {
-			if (held && player != null && player.isUsingItem() && hitResult != null
+			if (held && player != null && player.isUsingItem() && !OldAnimations.isShield(player.getUseItem())
+					&& hitResult != null
 					&& hitResult.getType() == HitResult.Type.BLOCK && OldAnimations.on("swingWhileUsing")) {
 				player.swing(InteractionHand.MAIN_HAND, false);
 			}

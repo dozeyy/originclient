@@ -19,27 +19,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //     body: pushPose; ((ArmedModel) getParentModel()).translateToHand(state, arm, ps)
 //           [INVOKEINTERFACE ArmedModel.translateToHand(EntityRenderState, HumanoidArm, PoseStack)];
 //           RX-90 RY180 T(+-1/16, 2/16, -10/16) ... item.submit(...)
-//     -> HEAD: a player's off-hand shield next to a sword isn't drawn (1.7 had no shield).
-//     -> right after translateToHand: 1.7's block turn so the sword lies across the body.
-// The entity is gone in this era: both read the AvatarRenderState (mainArm, hand stacks,
-// isUsingItem, useItemHand). PlayerItemInHandLayer overrides this only for items held to the
-// eye (spyglass) and calls super otherwise. If either stops applying: the shield shows and the
-// sword is held like vanilla.
+//     -> right after translateToHand: 1.7's block turn so the sword lies across the body
+//        (only during the looks-only sword block; a shield is never touched).
+// The entity is gone in this era: it reads the AvatarRenderState (mainArm, id = the local
+// player's). PlayerItemInHandLayer overrides this only for items held to the eye (spyglass)
+// and calls super otherwise. If it stops applying: the sword is held like vanilla in F5.
 @Mixin(ItemInHandLayer.class)
 public class OldAnimationsHandLayerMixin {
-
-	@Inject(method = "submitArmWithItem", at = @At("HEAD"), cancellable = true)
-	private void originclient$hideShield(ArmedEntityRenderState state, ItemStackRenderState item, ItemStack stack,
-										 HumanoidArm arm, PoseStack ps, SubmitNodeCollector collector, int light,
-										 CallbackInfo ci) {
-		try {
-			if (OldAnimations.hideThirdPerson(state, stack, arm)) {
-				ci.cancel();
-			}
-		} catch (Throwable t) {
-			OldAnimations.fail("third-person shield", t);
-		}
-	}
 
 	@Inject(method = "submitArmWithItem", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/model/ArmedModel;translateToHand(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lnet/minecraft/world/entity/HumanoidArm;Lcom/mojang/blaze3d/vertex/PoseStack;)V",

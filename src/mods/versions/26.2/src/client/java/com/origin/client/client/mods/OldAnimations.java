@@ -19,6 +19,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.FoodOnAStickItem;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -43,9 +44,11 @@ import net.minecraft.world.item.ItemUseAnimation;
  * Left arm = the right-arm chain mirrored in X (translate x and Y/Z rotations times i),
  * exactly what vanilla does for the off hand.
  *
- * Sword blocking needs a shield in the off hand (how servers like Hypixel let 1.9+ players
- * block): using it shows the 1.7 sword block instead, and the shield is never drawn while
- * a sword is held. Everything here is visual only; nothing is sent to the server.
+ * Shields are never touched (Will, 2026-11-02: "the 1.7 animations shouldn't stop shields from
+ * working normally"): a raised shield keeps vanilla's pose, blocking and look in both views.
+ * Sword blocking is the 1.7 pose while right-click is held with a sword and nothing is being
+ * used (1.9+ swords don't block), so it is looks only and the local player's own. Everything
+ * here is visual only; nothing is sent to the server.
  *
  * 26.2 port (from 1.21.1): no SwordItem (the swords item tag), ItemUseAnimation, submit-node
  * drawing (SubmitNodeCollector), flat-vs-3D from the ItemStackRenderState the item model
@@ -90,20 +93,27 @@ public final class OldAnimations {
 		return !s.isEmpty() && s.getUseAnimation() == ItemUseAnimation.BLOCK;
 	}
 
-	/** Sword in the main hand, shield in the off hand, shield raised right now. */
+	/**
+	 * The local player holds right-click with a sword in the main hand while nothing is being
+	 * used: 1.7's sword block, looks only. Never while a shield could rise (a shield in the off
+	 * hand raises on that same click and stays vanilla), and not with an off-hand block, which
+	 * that click places. Other players' right-click can't be seen, so only the local player.
+	 */
 	public static boolean swordBlocking(LivingEntity e) {
-		return isSword(e.getMainHandItem()) && isShield(e.getOffhandItem()) && e.isUsingItem()
-				&& e.getUseItemRemainingTicks() > 0 && e.getUsedItemHand() == InteractionHand.OFF_HAND;
+		Minecraft mc = Minecraft.getInstance();
+		if (e != mc.player || mc.gui.screen() != null || !mc.options.keyUse.isDown() || e.isUsingItem()
+				|| !isSword(e.getMainHandItem())) {
+			return false;
+		}
+		ItemStack off = e.getOffhandItem();
+		return !isShield(off) && !(off.getItem() instanceof BlockItem);
 	}
 
-	/** The same test from a player's render state (third person reads states, not entities, on 26.x). */
+	/** The same test from a player's render state (third person reads states on 26.x): the state
+	 *  must be the local player's (AvatarRenderState.id = the entity id, set in extractRenderState). */
 	private static boolean swordBlocking(AvatarRenderState s) {
-		return isSword(s.getMainHandItemStack()) && isShield(offHandStack(s)) && s.isUsingItem
-				&& s.useItemHand == InteractionHand.OFF_HAND;
-	}
-
-	private static ItemStack offHandStack(ArmedEntityRenderState s) {
-		return s.mainArm == HumanoidArm.RIGHT ? s.leftHandItemStack : s.rightHandItemStack;
+		Minecraft mc = Minecraft.getInstance();
+		return mc.player != null && s.id == mc.player.getId() && swordBlocking(mc.player);
 	}
 
 	// ---- first person (ItemInHandRenderer.submitArmWithItem, OldAnimationsHandMixin) ----
@@ -122,9 +132,6 @@ public final class OldAnimations {
 		}
 		boolean main = hand == InteractionHand.MAIN_HAND;
 		boolean swordBlock = Mods.bool(MOD, "swordBlock");
-		if (!main && swordBlock && isShield(stack) && isSword(p.getMainHandItem())) {
-			return true; // 1.7 had no shield: never drawn while a sword is held
-		}
 		boolean right = (main ? p.getMainArm() : p.getMainArm().getOpposite()) == HumanoidArm.RIGHT;
 		boolean positions = Mods.bool(MOD, "itemPositions") && isFlat(stack, p);
 		boolean usingThis = p.isUsingItem() && p.getUseItemRemainingTicks() > 0 && p.getUsedItemHand() == hand;
@@ -306,21 +313,12 @@ public final class OldAnimations {
 
 	// ---- third person (OldAnimationsThirdPersonMixin, OldAnimationsHandLayerMixin) ----
 
-	/** The arm pose to force for this hand, or null for vanilla's. */
+	/** The arm pose to force for this hand, or null for vanilla's (always null with a raised shield). */
 	public static HumanoidModel.ArmPose armPose(LivingEntity p, InteractionHand hand) {
-		if (!on("thirdPersonBlock") || !isSword(p.getMainHandItem()) || !isShield(p.getOffhandItem())) {
+		if (hand != InteractionHand.MAIN_HAND || !on("thirdPersonBlock") || !on("swordBlock")) {
 			return null;
 		}
-		if (hand == InteractionHand.OFF_HAND) {
-			return HumanoidModel.ArmPose.EMPTY; // the shield isn't drawn, so the arm hangs free
-		}
 		return swordBlocking(p) ? HumanoidModel.ArmPose.BLOCK : null;
-	}
-
-	/** True when this third-person item is a player's off-hand shield next to a sword: not drawn. */
-	public static boolean hideThirdPerson(ArmedEntityRenderState s, ItemStack stack, HumanoidArm arm) {
-		return s instanceof AvatarRenderState && arm != s.mainArm && isShield(stack)
-				&& isSword(s.getMainHandItemStack()) && on("thirdPersonBlock");
 	}
 
 	/**
@@ -329,7 +327,8 @@ public final class OldAnimations {
 	 * T(0.05,0,-0.1) RY-50 RX-10 RZ-60. The arm angles themselves come from the BLOCK pose.
 	 */
 	public static void thirdPersonBlock(ArmedEntityRenderState s, HumanoidArm arm, PoseStack ps) {
-		if (!(s instanceof AvatarRenderState a) || arm != a.mainArm || !swordBlocking(a) || !on("thirdPersonBlock")) {
+		if (!(s instanceof AvatarRenderState a) || arm != a.mainArm || !swordBlocking(a) || !on("thirdPersonBlock")
+				|| !on("swordBlock")) {
 			return;
 		}
 		int i = arm == HumanoidArm.RIGHT ? 1 : -1;
@@ -353,7 +352,6 @@ public final class OldAnimations {
 			{"net.minecraft.client.Minecraft", "originclient$swingWhileUsing"},
 			{"net.minecraft.client.Minecraft", "originclient$holdSwingWhileUsing"},
 			{"net.minecraft.client.renderer.entity.player.AvatarRenderer", "originclient$oldArmPose"},
-			{"net.minecraft.client.renderer.entity.layers.ItemInHandLayer", "originclient$hideShield"},
 			{"net.minecraft.client.renderer.entity.layers.ItemInHandLayer", "originclient$blockTurn"},
 			// the two flat-item accessors (26.x only: BakedModel's flags became item render state)
 			{"net.minecraft.client.renderer.item.ItemStackRenderState", "originclient$layers"},

@@ -16,10 +16,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 //   private static HumanoidModel.ArmPose getArmPose(Avatar, ItemStack, InteractionHand)
 //     called twice by getArmPose(Avatar, HumanoidArm) from extractRenderState, which stores the
 //     result in AvatarRenderState.right/leftArmPose. Two overloads, so the full descriptor is given.
-//     -> HEAD: sword hand gets BLOCK while the off-hand shield is raised (HumanoidModel's BLOCK
-//        angles are 1.7's sword-block arm), the shield hand hangs EMPTY (the shield isn't drawn).
+//     -> HEAD: the sword hand gets BLOCK during the looks-only sword block (HumanoidModel's
+//        BLOCK angles are 1.7's sword-block arm). A raised shield keeps vanilla's pose.
 // BLOCK isn't two-handed, so the caller's isTwoHanded() fix-up never overrides the off hand.
-// The item half is OldAnimationsHandLayerMixin. If this stops applying: vanilla shield pose.
+// The item half is OldAnimationsHandLayerMixin. If this stops applying: vanilla arm in F5.
 @Mixin(AvatarRenderer.class)
 public class OldAnimationsThirdPersonMixin {
 	@Inject(method = "getArmPose(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/client/model/HumanoidModel$ArmPose;",
