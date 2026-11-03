@@ -171,6 +171,16 @@ public sealed class LinuxSeamTests : IDisposable
         Assert.Equal((int)(kb / 1024), mb);
     }
 
+    // ARM servers and VMs (GitHub's arm64 runners) have no "model name" and no device tree.
+    [Theory]
+    [InlineData("0x41", "0xd0c", "Arm Neoverse-N1")]
+    [InlineData("0x41", "0xD4F", "Arm Neoverse-V2")]
+    [InlineData("0x41", "0xfff", "Arm CPU")]
+    [InlineData("0x61", "0x022", "ARM CPU")]
+    [InlineData(null, null, null)]
+    public void Arm_cores_are_named_from_their_ids(string? implementer, string? part, string? expected) =>
+        Assert.Equal(expected, SystemInfo.ArmCoreName(implementer, part));
+
     [Fact]
     public void The_gpu_counted_is_the_display_one_then_discrete_then_vram()
     {

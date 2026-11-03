@@ -52,6 +52,9 @@ internal static class LinuxKeyStore
     private static byte[]? _keyringKey, _fileKey; // one read per run; the process already holds the tokens it seals
     private static bool? _keyringUsable; // decided by the first keyring call of the run
 
+    /// <summary>Why the keyring was last passed over this run (secret-tool's own words), for the log and the self-test.</summary>
+    internal static string? LastKeyringError { get; private set; }
+
     private enum Lookup { Found, NotFound, Unavailable }
 
     /// <summary>The key a new blob is sealed with, and which kind it is. Creates one only where none exists.</summary>
@@ -140,13 +143,14 @@ internal static class LinuxKeyStore
         try
         {
             // `store` replaces an item with the same attributes (one that held no usable key).
-            var (code, _, _) = Run(["store", "--label=Origin Launcher account key", "service", Service, "account", Account],
+            var (code, _, storeError) = Run(["store", "--label=Origin Launcher account key", "service", Service, "account", Account],
                 stdin: Convert.ToBase64String(key));
             _keyringKey = null;
             var (after, stored) = code == 0 ? KeyringLookup() : (Lookup.Unavailable, null);
             if (after != Lookup.Found || stored == null || !CryptographicOperations.FixedTimeEquals(stored, key))
             {
                 // The keyring refused or lost it: treat the keyring as absent for this run.
+                LastKeyringError = code != 0 ? $"store exit {code}: {storeError.Trim()}" : "the stored key did not read back";
                 if (stored != null) CryptographicOperations.ZeroMemory(stored);
                 _keyringUsable = false;
                 CryptographicOperations.ZeroMemory(key);
@@ -155,8 +159,9 @@ internal static class LinuxKeyStore
             CryptographicOperations.ZeroMemory(stored);
             return key;
         }
-        catch (CryptographicException)
+        catch (CryptographicException e)
         {
+            LastKeyringError = e.Message;
             _keyringUsable = false;
             CryptographicOperations.ZeroMemory(key);
             return null;
@@ -174,8 +179,9 @@ internal static class LinuxKeyStore
         {
             (code, output, error) = Run(["lookup", "service", Service, "account", Account], stdin: null);
         }
-        catch (CryptographicException)
+        catch (CryptographicException e)
         {
+            LastKeyringError = e.Message;
             _keyringUsable = false;
             return (Lookup.Unavailable, null);
         }
@@ -183,6 +189,7 @@ internal static class LinuxKeyStore
         {
             var notFound = output.Length == 0 && error.Trim().Length == 0;
             _keyringUsable = notFound;
+            if (!notFound) LastKeyringError = $"lookup exit {code}: {error.Trim()}";
             return (notFound ? Lookup.NotFound : Lookup.Unavailable, null);
         }
         _keyringUsable = true;
