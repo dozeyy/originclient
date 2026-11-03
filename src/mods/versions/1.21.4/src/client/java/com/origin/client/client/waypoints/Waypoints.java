@@ -112,7 +112,7 @@ public final class Waypoints {
 			IntegratedServer sp = mc.getSingleplayerServer();
 			if (sp != null) {
 				Path dir = sp.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
-				return WaypointScope.singleplayer(String.valueOf(dir.getFileName()));
+				return WaypointScope.singleplayer(String.valueOf(dir.getFileName()), mcVersion());
 			}
 			ServerData sd = mc.getCurrentServer();
 			if (sd != null && sd.ip != null) {
@@ -122,6 +122,16 @@ public final class Waypoints {
 			// fall through to the shared bucket
 		}
 		return "other:unknown";
+	}
+
+	/** This game's Minecraft version ("1.21.1"); "" if Fabric can't say (old sp key then). */
+	private static String mcVersion() {
+		try {
+			return FabricLoader.getInstance().getModContainer("minecraft")
+					.map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("");
+		} catch (Throwable t) {
+			return "";
+		}
 	}
 
 	// Leaving a world: its list is flushed (cheap insurance for an in-place edit that
@@ -135,6 +145,15 @@ public final class Waypoints {
 		List<Waypoint> next = new ArrayList<>();
 		if (key != null) {
 			Path f = fileFor(key);
+			try {
+				// singleplayer keys gained the version: start from the world's old list
+				String previous = WaypointScope.unversioned(key, mcVersion());
+				if (previous != null) {
+					WaypointScope.adoptPrevious(fileFor(previous), f);
+				}
+			} catch (Exception e) {
+				com.origin.client.OriginClient.LOGGER.warn("Could not copy this world's earlier Origin waypoints", e);
+			}
 			try {
 				WaypointScope.adoptLegacy(configDir(), f);
 			} catch (Exception e) {
