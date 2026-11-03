@@ -600,6 +600,10 @@ public class CosmeticsScreen extends OriginWindow {
 		} catch (Throwable ex) {
 			drew = false;
 		} finally {
+			// The model sits far forward in depth; wipe the depth it left in this tile
+			// (the scissor bounds the clear) so the WORN tag drawn after it stays on top.
+			org.lwjgl.opengl.GL11.glDepthMask(true);
+			org.lwjgl.opengl.GL11.glClear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT);
 			d.unclip();
 		}
 		return drew;
