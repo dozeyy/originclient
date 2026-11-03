@@ -18,6 +18,9 @@ on:
       diff:
         description: "Minecraft releases whose client API to diff in order (space-separated, unobfuscated 26.x only)"
         default: ""
+      javap:
+        description: "Mod classes to javap -s -p -c (space-separated <modrinth version id>:<Class>,<Class>; for compat-gate sig lines)"
+        default: ""
 
 jobs:
   scout:
@@ -169,4 +172,40 @@ jobs:
                       print(f"-- {n}")
                       for d in sig: print("   " + d)
                       for k in body[:25]: print("   body~ " + k)
+          PY
+
+  # javap of named classes inside one exact Modrinth build (version id), for the exact
+  # owner + name + descriptor a compat-gate `sig` line needs. Run by hand with `javap`.
+  javap:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.javap != ''
+    env:
+      JAVAP: ${{ github.event.inputs.javap }}
+    steps:
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: javap mod classes
+        run: |
+          python3 - <<'PY'
+          import io, json, os, subprocess, urllib.request, zipfile
+          def raw(u):
+              r = urllib.request.Request(u, headers={"User-Agent": "origin-version-scout (originclient.org)"})
+              return urllib.request.urlopen(r, timeout=120).read()
+          for item in os.environ["JAVAP"].split():
+              vid, classes = item.split(":", 1)
+              v = json.loads(raw(f"https://api.modrinth.com/v2/version/{vid}"))
+              f = next((f for f in v["files"] if f["primary"]), v["files"][0])
+              path = f"/tmp/{vid}.jar"
+              open(path, "wb").write(raw(f["url"]))
+              names = set(zipfile.ZipFile(path).namelist())
+              print(f"#### {v['version_number']} ({vid}) {f['filename']}")
+              for c in classes.split(","):
+                  if c.replace(".", "/") + ".class" not in names:
+                      print(f"#### MISSING CLASS {c}")
+                      continue
+                  out = subprocess.run(["javap", "-s", "-p", "-c", "-cp", path, c], capture_output=True, text=True).stdout
+                  for line in out.splitlines():
+                      print(f"[{vid}] {line}")
           PY
