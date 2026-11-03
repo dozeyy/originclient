@@ -2,10 +2,13 @@
 # A third-party mixin applies only while its group's mods are inside these ranges; a feature runs only
 # while its groups are on. Ranges: the builds this module ships or the launcher vets (Sodium 0.8.13 + Iris 1.8.14-beta.1; vetted pair Sodium 0.6.5 + Iris 1.8.1),
 # up to the end of that minor line. Anything else: that feature turns off, one log line, rest of Origin runs.
+# Sodium is 0.8 only (2026-11-03): every Sodium hook here was re-read on 0.8.13 (javap 2026-10-25; the
+# 0.6 build needed different hooks, see SodiumGraphReuseMixin), so the old 0.6.5 + 1.8.1 pair runs with
+# Origin's Sodium features off instead of half-applied (DECISIONS 2026-10-26: unknown version = off).
 # group   <id> | <label> | <mod> <range> [; <mod> <range>] | <mixins>
 # feature <id> | <label> | <groups> [/ <groups>]
 group iris | Origin's Iris hooks | iris ~1.8.1 | IrisShadowDirectivesMixin IrisPipelineHalfRateMixin IrisShadowRendererHalfRateMixin
-group sodium | Origin's Sodium hooks | sodium ~0.8.13 or ~0.6.5 | SodiumRenderSectionManagerAccessor SodiumSortedRenderListsAccessor SodiumGraphReuseMixin SodiumOcclusionStampMixin SodiumViewportShadowMapMixin SodiumWalkEndMixin SodiumWorldRendererReuseMixin
+group sodium | Origin's Sodium hooks | sodium ~0.8.13 | SodiumRenderSectionManagerAccessor SodiumSortedRenderListsAccessor SodiumGraphReuseMixin SodiumOcclusionStampMixin SodiumViewportShadowMapMixin SodiumWalkEndMixin SodiumWorldRendererReuseMixin
 group smartTerrainPair | Smart Terrain's Sodium + Iris pair | sodium 0.8.13; iris 1.8.14-beta.1 |
 group jei | Origin's JEI show/hide switch | jei >=19.51.0.418 <20.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
 # JEI signature table: every JEI method the two Jei*Mixins inject into, owner + name + descriptor from
