@@ -439,7 +439,7 @@ public sealed class RepairTests : IDisposable
     public void CrashRepairNeverTouchesOriginsOwnJars()
     {
         var mod = OnDisk("origin-client");
-        var r = CrashRepair.DisableBlamed(_dir, mod.FileName, n => n == mod.FileName);
+        var r = CrashRepair.DisableBlamed(_dir, mod.FileName, p => System.IO.Path.GetFileName(p) == mod.FileName);
         Assert.Equal(CrashRepairOutcome.Protected, r.Outcome);
         Assert.True(System.IO.File.Exists(mod.Path));
     }

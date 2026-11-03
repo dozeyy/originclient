@@ -43,7 +43,8 @@ public static class InstallVerification
     // "no stamp", which fails safe to the full path.
     private const int CurrentSchema = 2;
 
-    private const string StampFileName = "origin-verified.json";
+    // In the version's shared root, so it must be one of InstanceLayout's shared entries (or the migration moves it).
+    private const string StampFileName = GameFolders.InstanceLayout.VerifiedStampFileName;
 
     /// <summary>How long a full pass is trusted. Older (or future-dated) stamps verify in full.</summary>
     public static readonly TimeSpan MaxAge = TimeSpan.FromDays(7);

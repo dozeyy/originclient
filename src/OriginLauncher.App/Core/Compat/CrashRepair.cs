@@ -32,25 +32,28 @@ public static class CrashRepair
     /// <param name="version">The Minecraft version of the crashed game.</param>
     /// <param name="profileId">The mod profile that game was launched with, or null for the shared folder.</param>
     /// <param name="blamedJar">The jar file name the crash report blamed ("foo.jar").</param>
-    /// <param name="isOriginProvisioned">Origin's own jar names (<c>ModManager.IsOriginProvisioned</c>); never turned off.</param>
+    /// <param name="isOriginsOwnFile">Origin's own built-in jar, decided by the FILE (<c>ModManager.IsManagedFile</c>:
+    /// Origin's name shape and Origin's bytes); never turned off. Decided by name before 2026-11-03, which refused a
+    /// player's own Sodium/Iris/Fabric API (theirs since 2026-10-25) and Simple Voice Chat (a normal switch on the
+    /// Mods page), leaving only "try without my mods".</param>
     public static CrashRepairResult DisableBlamed(
-        string version, string? profileId, string blamedJar, Func<string, bool> isOriginProvisioned) =>
+        string version, string? profileId, string blamedJar, Func<string, bool> isOriginsOwnFile) =>
         DisableBlamed(
             profileId == null ? OriginPaths.ModsDir(version) : OriginPaths.ProfileModsDir(version, profileId),
-            blamedJar, isOriginProvisioned);
+            blamedJar, isOriginsOwnFile);
 
     /// <summary>The same with the folder the game loads the mod from already chosen.</summary>
-    public static CrashRepairResult DisableBlamed(string folder, string blamedJar, Func<string, bool> isOriginProvisioned)
+    public static CrashRepairResult DisableBlamed(string folder, string blamedJar, Func<string, bool> isOriginsOwnFile)
     {
         var name = Path.GetFileName(blamedJar); // the report names a file, never a path
         if (name.Length == 0 || !name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
             return new CrashRepairResult(CrashRepairOutcome.NotFound, folder, "The crash report didn't name a mod file.");
-        if (isOriginProvisioned(name))
-            return new CrashRepairResult(CrashRepairOutcome.Protected, folder, "That is one of Origin's own mods, so it stays as it is.");
 
         var path = Path.Combine(folder, name);
         if (!File.Exists(path))
             return new CrashRepairResult(CrashRepairOutcome.NotFound, folder, "That mod isn't in the folder this game loads mods from.");
+        if (isOriginsOwnFile(path))
+            return new CrashRepairResult(CrashRepairOutcome.Protected, folder, "That is one of Origin's own mods, so it stays as it is.");
 
         var info = ModFolderScanner.ReadInfo(path, readNested: false) ?? new ModInfo { FileName = name, ReadFailed = true };
         var mod = new ModFile(path, name, Enabled: true, ModRole.SharedLoose, info);
@@ -60,7 +63,7 @@ public static class CrashRepair
             new RepairStep[] { new DisableModStep(mod, finding.Summary, Certainty.Likely) }, Array.Empty<UnfixableFinding>());
         var context = new RepairContext(
             new CompatPlatform("", LoaderFamily.Fabric, null, ""), folder, new[] { folder },
-            IsProtected: m => isOriginProvisioned(m.FileName));
+            IsProtected: m => isOriginsOwnFile(m.Path));
 
         var applied = RepairExecutor.Apply(plan, context).Steps[0];
         return applied.Ok

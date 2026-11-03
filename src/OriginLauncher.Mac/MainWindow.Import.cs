@@ -80,6 +80,7 @@ public sealed partial class MainWindow
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime)
         {
             ImportStartup.StartRecovery();
+            global::OriginLauncher.App.Core.LogRetention.StartPrune(); // old per-launch game logs, launcher errors and crash logs
             Opened += async (_, _) => await AfterOpenedAsync();
         }
     }

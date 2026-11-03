@@ -683,7 +683,7 @@ public sealed class LaunchController
                     foreach (var jar in fix.Jars)
                     {
                         var result = CrashRepair.DisableBlamed(game.Version, _profileByKey.GetValueOrDefault(game.Key), jar,
-                            App.Core.Mods.ModManager.IsOriginProvisioned);
+                            App.Core.Mods.ModManager.IsManagedFile);
                         if (result.Outcome != CrashRepairOutcome.Disabled) failed.Add(jar);
                     }
                     if (failed.Count > 0)

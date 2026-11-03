@@ -87,7 +87,6 @@ public sealed class SettingsPage : Panel, IPage
     private bool _jvmDirty;
 
     // Origin Client, Startup, Developer
-    private readonly Toggle _originUi = new("Origin UI");
     private readonly Toggle _startAtLogin = new("Open Origin when you log in");
     private readonly Toggle _offline = new("Offline test mode");
 
@@ -219,9 +218,7 @@ public sealed class SettingsPage : Panel, IPage
         _jvmVersions.SetValue(VersionCatalog.IsSupported(s.SelectedVersion) ? s.SelectedVersion : versions.FirstOrDefault());
         LoadJvmOptionsForSelectedVersion();
 
-        // ---- Origin Client, Startup, Developer ----
-        _originUi.IsOn = OriginClientConfigBridge.IsOriginUiEnabled();
-        _originUi.Toggled += on => OriginClientConfigBridge.SetOriginUiEnabled(on);
+        // ---- Startup, Developer ----
         // Not a launcher setting: the OS's own start-at-login entry, read and written through Core's seam (Linux: an
         // XDG autostart .desktop file; macOS: a LaunchAgent), so there is no settings.json copy to drift from it.
         _startAtLogin.IsOn = SafeIsStartAtLogin();
@@ -260,8 +257,6 @@ public sealed class SettingsPage : Panel, IPage
         sections.Children.Add(SettingsUi.Card(Ui.Column(0,
             SettingsUi.Row(SettingsUi.TitleWhy("Replace defaults", "Use only your arguments, without Origin's tuned ones."), _jvmReplace),
             _jvmCustom)));
-        var secClient = Title("SecClient", "ORIGIN CLIENT");
-        sections.Children.Add(SettingsUi.Card(SettingsUi.Row(SettingsUi.TitleWhy("Origin UI", "Origin's menus and loading screens in game."), _originUi)));
         var secStartup = Title("SecStartup", "STARTUP");
         sections.Children.Add(SettingsUi.Card(SettingsUi.Row(SettingsUi.TitleWhy("Open Origin when you log in"), _startAtLogin)));
         Control? secDeveloper = null;
@@ -281,7 +276,6 @@ public sealed class SettingsPage : Panel, IPage
         AddRail("PERFORMANCE", Icons.Settings, Palette.HueEmerald, secPerformance);
         AddRail("GAME", Icons.Folder, Palette.HueSky, secGame);
         AddRail("JVM ARGUMENTS", Icons.Server, Palette.HueLilac, secJvm);
-        AddRail("ORIGIN CLIENT", Icons.Mods, Palette.Accent, secClient);
         AddRail("STARTUP", Icons.Home, Palette.HueGold, secStartup);
         if (secDeveloper != null) AddRail("DEVELOPER", Icons.Edit, Palette.HueCoral, secDeveloper);
         _rail.RenderTransform = _railShift;

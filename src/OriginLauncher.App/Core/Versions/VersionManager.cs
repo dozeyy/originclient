@@ -201,8 +201,8 @@ public sealed class VersionManager
 
     // Every Minecraft version that ships an Origin Client build (i.e. gets the
     // Origin menus, not just Fabric + perf). Single source of truth for anything
-    // that needs to act per-Origin-instance — e.g. the launcher's "Origin UI"
-    // toggle, which must reach every such instance, not just one pinned version.
+    // that needs to act per-Origin-instance (every such instance, not just one
+    // pinned version).
     public static IReadOnlyCollection<string> OriginSupportedVersions => OriginBuilds.Keys.ToArray();
 
     /// <summary>
@@ -645,6 +645,10 @@ public sealed class VersionManager
         if (perfProfile != null)
             foreach (var pinned in perfProfile.Mods())
                 pinnedJarNames.Add(pinned.FileName);
+        // Fabric API's pin too, so a pin bump (or the first pin on an install that kept the live query's newest jar)
+        // retires the old copy instead of the new pin (FabricApiInstaller).
+        if (ManagedPins.FabricApi(version) is { } fabricApiPin)
+            pinnedJarNames.Add(fabricApiPin.FileName);
         SharedFolderCleanup.DedupeOriginFamilies(modsFolder, pinnedJarNames, ModManager.OwnerOf);
 
         // "Play with external mods" OFF: the game must load ONLY the

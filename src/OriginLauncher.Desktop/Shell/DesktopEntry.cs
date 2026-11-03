@@ -58,6 +58,7 @@ public static class DesktopEntry
             SettingsStore.Update(DeveloperAccess.ClearOfflineTest);
         try { App.Core.Import.Launcher.ImportStartup.StartRecovery(); }
         catch (Exception ex) { StartupTrace.Mark("import recovery failed: " + ex.Message); }
+        App.Core.LogRetention.StartPrune(); // old per-launch game logs, launcher errors and crash logs
         App.Core.GameFolders.Launcher.AccountFolders.EnsureMigrated(App.Core.GameFolders.Launcher.AccountFolders.SelectedKey());
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
 

@@ -122,7 +122,6 @@ public static class AccountFolders
                 var source = AccountSeed.PickSource(candidates);
                 AccountSeed.Seed(dir, source, Log);
                 Directory.CreateDirectory(dir);
-                OriginClientConfigBridge.ApplyToNewFolder(dir);
             }
         }
         // Mods are shared per version: anything still in an account's own

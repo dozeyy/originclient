@@ -83,9 +83,6 @@
                     <RadioButton Theme="{StaticResource RailItem}" Tag="SecJvm">
                         <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Server}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Lilac}"/><c:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/></StackPanel>
                     </RadioButton>
-                    <RadioButton Theme="{StaticResource RailItem}" Tag="SecClient">
-                        <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Mods}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{DynamicResource Brush.Accent}"/><c:TrackedText Text="ORIGIN CLIENT" Tracking="0.16"/></StackPanel>
-                    </RadioButton>
                     <RadioButton Theme="{StaticResource RailItem}" Tag="SecStartup">
                         <StackPanel Orientation="Horizontal"><c:IconPath Data="{StaticResource Icon.Home}" Theme="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Gold}"/><c:TrackedText Text="STARTUP" Tracking="0.16"/></StackPanel>
                     </RadioButton>
@@ -229,19 +226,6 @@
                             </Grid>
                             <TextBlock x:Name="JvmCustomizedVersionsText" Theme="{StaticResource SettingWhy}" Margin="0,10,0,0"/>
                         </StackPanel>
-                    </Border>
-
-                    <!-- Origin Client -->
-                    <TextBlock x:Name="SecClient" Text="ORIGIN CLIENT" Theme="{StaticResource SectionTitle}"/>
-                    <Border Theme="{StaticResource SettingCard}">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                <TextBlock Text="Origin UI" Theme="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="Origin's menus and loading screens in game." Theme="{StaticResource SettingWhy}"/>
-                            </StackPanel>
-                            <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Theme="{StaticResource Toggle.Slider}"
-                                          AutomationProperties.Name="Origin UI" VerticalAlignment="Center"/>
-                        </Grid>
                     </Border>
 
                     <!-- Startup: the one LaunchAgent file (InstallRegistry.Mac). -->

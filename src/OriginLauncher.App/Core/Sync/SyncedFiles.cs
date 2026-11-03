@@ -28,8 +28,8 @@ public static class SyncedFiles
         new("config/iris.properties", PropertiesFormat.Iris),
     };
 
-    // Origin's own configs: originclient.json (feature flags + the launcher's
-    // Origin UI switch), originclient-mods.json (mod settings + HUD layout +
+    // Origin's own configs: originclient.json (feature flags),
+    // originclient-mods.json (mod settings + HUD layout +
     // profiles), originclient-waypoints.json, originclient-itemsizes.json, and
     // any originclient-*.json a later build adds. The ".tmp" siblings the mods
     // write atomically never match.

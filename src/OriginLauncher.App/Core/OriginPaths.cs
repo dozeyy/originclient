@@ -85,7 +85,7 @@ public static partial class OriginPaths
     /// a different Sodium/Iris pair writes its own config files, so they are swapped in and out around a launch.
     /// </summary>
     public static string ConfigOverlays(string version, string accountKey) =>
-        Path.Combine(VersionRoot(version), "config-overlays", accountKey);
+        InstanceLayout.ConfigOverlaysDir(Instances, version, accountKey);
 
     // Which account inherited the old one-folder-per-version game data
     // (Core/GameFolders/InstanceMigration.cs).

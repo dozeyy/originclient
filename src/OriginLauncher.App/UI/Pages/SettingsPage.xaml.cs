@@ -93,7 +93,6 @@ public partial class SettingsPage : UserControl
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
-        OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
         ShaderCacheToggle.IsChecked = _settings.ShaderCacheNvidia || _settings.ShaderCacheAmd;
         if (DeveloperVisible) OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
         SettingsSyncToggle.IsChecked = _settings.SyncSettingsAcrossVersions;
@@ -210,18 +209,6 @@ public partial class SettingsPage : UserControl
     {
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ShowFieldProblem(ResolutionErrorText, null, ResolutionWidthTextBox, ResolutionHeightTextBox);
-    }
-
-    private void OriginUiToggle_Checked(object sender, RoutedEventArgs e)
-    {
-        if (_isLoading) return;
-        OriginClientConfigBridge.SetOriginUiEnabled(true);
-    }
-
-    private void OriginUiToggle_Unchecked(object sender, RoutedEventArgs e)
-    {
-        if (_isLoading) return;
-        OriginClientConfigBridge.SetOriginUiEnabled(false);
     }
 
     // Turning Settings Sync on also builds its store from every installed

@@ -46,6 +46,10 @@
     <Compile Include="..\OriginLauncher.App\Core\Launch\PlatformLaunch.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\PlatformLaunch.$(OriginPlatform).cs" LinkBase="Launch" />
   </ItemGroup>
+  <ItemGroup Condition="'$(OriginPlatform)' == 'Windows'">
+    <!-- SettingsStore names it; the tests swap the probe out, so the kernel32 call never runs off Windows. -->
+    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Windows.cs" LinkBase="Settings" />
+  </ItemGroup>
   <ItemGroup Condition="'$(OriginPlatform)' == 'Mac'">
     <Compile Include="..\OriginLauncher.App\Core\Accounts\MacKeychain.Mac.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\SystemInfo.Mac.cs" LinkBase="Mac" />
@@ -159,6 +163,10 @@
     <!-- The small self-update: the new release rebuilt from the installed folder + only the changed files, every staged file verified (pure: paths are parameters). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateDelta.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
+    <!-- settings.json's store: fails closed on a file it can't read (SettingsStoreTests; memory probe swapped). -->
+    <Compile Include="..\OriginLauncher.App\Core\SettingsStore.cs" LinkBase="Settings" />
+    <!-- The logs folder's pruning at start (LogRetentionTests). -->
+    <Compile Include="..\OriginLauncher.App\Core\LogRetention.cs" LinkBase="Settings" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- Settings: which rail item is lit, and who may see the Developer switch (both pure). -->
     <Compile Include="..\OriginLauncher.App\UI\Pages\SettingsRailSpy.cs" LinkBase="Settings" />
@@ -239,6 +247,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Versions\RetryingGameInstaller.cs" LinkBase="Versions" />
     <!-- The Modrinth install path (Fabric API, voice chat): a stalled live query must skip the mod, not fail the launch. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\FabricApiInstaller.cs" LinkBase="Loaders" />
+    <!-- The pinned perf jars: a pin bump keeps Origin's previous jar when Modrinth can't be reached (fail-hard only on a first install). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\PerfModInstaller.cs" LinkBase="Loaders" />
     <!-- The wildcards above (Profiles, Import) also match the other OSes' seam files: drop those. -->
     <Compile Remove="..\OriginLauncher.App\**\*.Windows.cs" Condition="'$(OriginPlatform)' != 'Windows'" />
     <Compile Remove="..\OriginLauncher.App\**\*.Mac.cs" Condition="'$(OriginPlatform)' != 'Mac'" />

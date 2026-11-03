@@ -16,6 +16,8 @@ namespace OriginLauncher.App.Core.GameFolders;
 //                                                (SharedMods has the why and the merge;
 //                                                Forge 1.8.9 can't, so it gets a copy
 //                                                in the account's mods/: SharedMods.Mirror)
+//     config-overlays/<account>/                each account's saved Sodium/Iris settings per
+//                                                configuration (Core/Components/ConfigOverlay)
 //     profiles/<id>/mods/                       one MOD PROFILE's own jars (Core/Profiles): the
 //                                                player's named per-server mod sets. Shared by
 //                                                every account like mods/; a launch copies them
@@ -39,16 +41,28 @@ public static class InstanceLayout
     /// <summary>The folder holding a version's mod profiles, directly in its root.</summary>
     public const string ProfilesFolder = "profiles";
 
+    /// <summary>Saved Sodium/Iris settings of every configuration, per account, directly in a version's root (Core/Components).</summary>
+    public const string ConfigOverlaysFolder = "config-overlays";
+
+    /// <summary>InstallVerification's "this install was checked" stamp, directly in a version's root.</summary>
+    public const string VerifiedStampFileName = "origin-verified.json";
+
     /// <summary>The game folder used by offline test mode (no account signed in).</summary>
     public const string OfflineKey = "offline";
 
     // What stays in the version's shared root. Everything else found at the top
     // of a version folder is one account's game data (the pre-accounts layout
-    // kept it all there) — see InstanceMigration.
+    // kept it all there) and InstanceMigration moves it into an account's
+    // folder on EVERY launcher start. So anything the launcher itself creates
+    // at the top of instances/<version>/ MUST be listed here, or it is carried
+    // off on the next start (config-overlays was, until 2026-11-03: profile
+    // Sodium/Iris settings lost). GameFoldersTests.EveryLauncherMadeVersionRootEntryIsShared
+    // checks every OriginPaths path and every literal the source joins onto a version root.
+    // versions/libraries/assets/runtime/resources are CmlLib's MinecraftPath folders.
     private static readonly HashSet<string> Shared = new(StringComparer.OrdinalIgnoreCase)
     {
         "versions", "libraries", "assets", "runtime", "resources",
-        AccountsFolder, ModsFolder, ProfilesFolder, "origin-verified.json",
+        AccountsFolder, ModsFolder, ProfilesFolder, ConfigOverlaysFolder, VerifiedStampFileName,
     };
 
     public static bool IsSharedEntry(string name) => Shared.Contains(name);
@@ -78,6 +92,10 @@ public static class InstanceLayout
     /// <summary>One profile's folder: instances/&lt;version&gt;/profiles/&lt;id&gt;. The id must be a ProfileRules.IsValidId one.</summary>
     public static string ProfileDir(string instancesRoot, string version, string profileId) =>
         Path.Combine(ProfilesDir(instancesRoot, version), profileId);
+
+    /// <summary>One account's saved Sodium/Iris settings: instances/&lt;version&gt;/config-overlays/&lt;account&gt;.</summary>
+    public static string ConfigOverlaysDir(string instancesRoot, string version, string accountKey) =>
+        Path.Combine(VersionRoot(instancesRoot, version), ConfigOverlaysFolder, accountKey);
 
     /// <summary>The mods a profile loads: instances/&lt;version&gt;/profiles/&lt;id&gt;/mods.</summary>
     public static string ProfileModsDir(string instancesRoot, string version, string profileId) =>

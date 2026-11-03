@@ -220,6 +220,103 @@ public class GameFoldersTests : IDisposable
         Assert.False(InstanceMigration.NeedsMigration(Path.Combine(_root, "1.19.4")));
     }
 
+    // The migration runs on every launcher start and moves anything at the top of a version root that is not in
+    // InstanceLayout's shared set. config-overlays (profile Sodium/Iris settings) was missing from that set and was
+    // carried off into one account's folder on every start. Every path the launcher builds inside a version root,
+    // and every literal its source joins onto one, must therefore name a shared entry.
+    [Fact]
+    public void EveryLauncherMadeVersionRootEntryIsShared()
+    {
+        const string version = "9.9.9";
+        var versionRoot = Path.GetFullPath(OriginLauncher.App.Core.OriginPaths.VersionRoot(version)) + Path.DirectorySeparatorChar;
+        var checkedPaths = 0;
+        foreach (var method in typeof(OriginLauncher.App.Core.OriginPaths).GetMethods(
+                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static))
+        {
+            var parameters = method.GetParameters();
+            if (method.ReturnType != typeof(string) || parameters.Length == 0
+                || parameters.Any(p => p.ParameterType != typeof(string))
+                || !parameters.Any(p => p.Name == "version")) continue;
+            // Pure path builders: a version, then account keys / profile ids.
+            var path = Path.GetFullPath((string)method.Invoke(null,
+                parameters.Select(p => (object)(p.Name == "version" ? version : "abc123")).ToArray())!);
+            if (!path.StartsWith(versionRoot, StringComparison.Ordinal)) continue; // e.g. InstallState, outside instances/
+            var top = path[versionRoot.Length..].Split(Path.DirectorySeparatorChar)[0];
+            Assert.True(InstanceLayout.IsSharedEntry(top), $"OriginPaths.{method.Name} puts '{top}' at the top of a version root, which the migration would move");
+            checkedPaths++;
+        }
+        Assert.True(checkedPaths >= 6, $"only {checkedPaths} OriginPaths version paths found");
+
+        // Every name joined straight onto a version root in the launchers' source.
+        var repo = RepoRoot();
+        if (repo == null) return; // run outside a checkout
+        var joined = new System.Text.RegularExpressions.Regex(
+            @"(?:VersionRoot\([^()]*\)|\b(?:sharedRoot|versionRoot)),\s*""([^""]+)""");
+        var found = 0;
+        foreach (var project in new[] { "OriginLauncher.App", "OriginLauncher.Desktop", "OriginLauncher.Mac" })
+        {
+            var dir = Path.Combine(repo, "src", project);
+            if (!Directory.Exists(dir)) continue;
+            foreach (var file in Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories))
+                foreach (System.Text.RegularExpressions.Match m in joined.Matches(File.ReadAllText(file)))
+                {
+                    var top = m.Groups[1].Value.Split('/', '\\')[0];
+                    Assert.True(InstanceLayout.IsSharedEntry(top), $"{Path.GetFileName(file)} joins '{top}' onto a version root, which the migration would move");
+                    found++;
+                }
+        }
+        Assert.True(found > 0, "the source scan found no version-root joins; the pattern no longer matches the code");
+
+        // And the folders CmlLib (MinecraftPath on the version root) and the install stamp make.
+        foreach (var name in new[] { "versions", "libraries", "assets", "runtime", "resources", InstanceLayout.VerifiedStampFileName })
+            Assert.True(InstanceLayout.IsSharedEntry(name), name);
+    }
+
+    [Fact]
+    public void ConfigOverlaysStayInTheVersionRoot()
+    {
+        var root = OldLayout("1.21.1");
+        Assert.True(InstanceMigration.MigrateVersion(root, Steve));
+        Write($"1.21.1/config-overlays/{Steve}/active.txt", "sodium-iris-x");
+
+        Assert.False(InstanceMigration.NeedsMigration(root));
+        Assert.True(InstanceMigration.MigrateVersion(root, Steve));
+        Assert.Equal("sodium-iris-x", Read($"1.21.1/config-overlays/{Steve}/active.txt"));
+    }
+
+    // Installs that ran the older launcher have config-overlays inside the inheriting account's folder (moved there on
+    // every start). The next start puts it back; the version root's copy is the current one and wins a clash.
+    [Fact]
+    public void AMovedConfigOverlaysFolderIsPutBackWithoutOverwriting()
+    {
+        var root = OldLayout("1.21.1");
+        Assert.True(InstanceMigration.MigrateVersion(root, Steve));
+        var moved = $"1.21.1/accounts/{Steve}/config-overlays";
+        Write($"{moved}/{Steve}/active.txt", "sodium-iris-old");                       // a swap the launcher never finished
+        Write($"{moved}/{Steve}/sodium-iris-old/sodium-options.json", "old pair");
+        Write($"{moved}/{Alex}/default/iris.properties", "alex older");
+        Write($"1.21.1/config-overlays/{Alex}/default/iris.properties", "alex now");  // made since the last move
+
+        var marker = Path.Combine(_root, "account-migration.json");
+        Assert.Equal((Steve, true), InstanceMigration.MigrateAll(marker, new[] { root }, Steve));
+
+        Assert.False(Exists(moved));
+        Assert.Equal("sodium-iris-old", Read($"1.21.1/config-overlays/{Steve}/active.txt"));
+        Assert.Equal("old pair", Read($"1.21.1/config-overlays/{Steve}/sodium-iris-old/sodium-options.json"));
+        Assert.Equal("alex now", Read($"1.21.1/config-overlays/{Alex}/default/iris.properties"));
+        Assert.Equal("alex older", Read($"1.21.1/config-overlays/{Alex}/default/iris.properties.older"));
+        // The player's own game data is untouched, and a second pass does nothing.
+        Assert.Equal("fov:0.5\nguiScale:2\n", Read($"1.21.1/accounts/{Steve}/options.txt"));
+        Assert.True(InstanceMigration.ReturnMisplacedShared(root, Steve));
+    }
+
+    private static string? RepoRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+            if (File.Exists(Path.Combine(dir.FullName, "src", "mods", "live-modules.json"))) return dir.FullName;
+        return null;
+    }
+
     [Fact]
     public void TheMarkerRemembersWhichAccountInheritsTheOldFolders()
     {

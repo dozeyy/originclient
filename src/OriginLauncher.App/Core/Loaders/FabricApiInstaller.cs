@@ -64,7 +64,15 @@ public static class FabricApiInstaller
         // Origin's own pinned Fabric API turned off (an old Mods page offered a switch on it): back on by a rename.
         // HasOriginsCopy counts a turned-off copy only for Voice Chat (the player may switch that one off).
         if (pin != null) Mods.ModManager.TryRestoreOriginsJar(modsFolder, pin.FileName, pin.Matches);
-        if (Mods.ModManager.HasOriginsCopy(modsFolder, presentPrefix))
+        // A pin moves (or an install from before pins kept the live query's "newest" jar): a built-in family
+        // (Fabric API) is skipped only when the exact pinned file is there, so the pin reaches existing installs;
+        // VersionManager names the pin to DedupeOriginFamilies, which then retires Origin's older copy. A family the
+        // player may switch off (Voice Chat) is never deduplicated, so ANY Origin copy keeps it as it is (two would
+        // load the same mod id twice, and a new download would turn a switched-off one back on).
+        if (pin != null && File.Exists(Path.Combine(modsFolder, pin.FileName)))
+            return;
+        var movesToPin = pin != null && Mods.ModManager.IsManaged(pin.FileName);
+        if (!movesToPin && Mods.ModManager.HasOriginsCopy(modsFolder, presentPrefix))
             return;
 
         progress?.Report(progressText);

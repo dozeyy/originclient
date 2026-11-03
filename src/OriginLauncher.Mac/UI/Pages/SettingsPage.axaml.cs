@@ -68,7 +68,6 @@ public sealed partial class SettingsPage : UserControl
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
-        OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
         if (DeveloperVisible) OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
         SettingsSyncToggle.IsChecked = _settings.SyncSettingsAcrossVersions;
         ShowSyncState();
@@ -87,11 +86,6 @@ public sealed partial class SettingsPage : UserControl
         InstallPathTextBox.LostFocus += (_, _) => InstallPathTextBox_LostFocus();
         InstallPathTextBox.TextChanged += (_, _) => InstallPathTextBox_TextChanged();
         BrowseButton.Click += async (_, _) => await BrowseAsync();
-        OriginUiToggle.IsCheckedChanged += (_, _) =>
-        {
-            if (_isLoading) return;
-            OriginClientConfigBridge.SetOriginUiEnabled(OriginUiToggle.IsChecked == true);
-        };
         SettingsSyncToggle.IsCheckedChanged += (_, _) => SettingsSyncToggle_Changed();
         PresetButton.Click += async (_, _) => await ApplyPresetAsync();
         OfflineTestToggle.IsCheckedChanged += (_, _) =>

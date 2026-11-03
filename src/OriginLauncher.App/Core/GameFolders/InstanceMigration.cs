@@ -78,12 +78,51 @@ public static class InstanceMigration
         }
     }
 
+    // Launcher-made shared folders that an older launcher's passes carried into
+    // the inheriting account's folder because they were missing from
+    // InstanceLayout.Shared: config-overlays, until 2026-11-03 (every start
+    // moved it, so profile Sodium/Iris settings were lost and an interrupted
+    // swap's marker went with it). Minecraft and mods never make these names in
+    // a game folder, so whatever sits there is the launcher's own.
+    private static readonly string[] MisplacedShared = { InstanceLayout.ConfigOverlaysFolder };
+
+    /// <summary>
+    /// Puts back what an older launcher wrongly moved from <paramref name="versionRoot"/> into
+    /// accounts/<paramref name="accountKey"/>/ (see MisplacedShared). Rename-only: the version root's copy wins a
+    /// clash (it matches the live config files now) and the older one is parked beside it as "&lt;name&gt;.older",
+    /// a name nothing reads. Returns true when nothing is left to put back. Never throws; one Directory.Exists per
+    /// folder when there is nothing to do.
+    /// </summary>
+    public static bool ReturnMisplacedShared(string versionRoot, string accountKey, Action<string>? log = null)
+    {
+        log ??= _ => { };
+        var complete = true;
+        foreach (var name in MisplacedShared)
+        {
+            var moved = Path.Combine(versionRoot, InstanceLayout.AccountsFolder, accountKey, name);
+            try
+            {
+                if (!Directory.Exists(moved)) continue;
+                var ok = MoveEntry(moved, Path.Combine(versionRoot, name), log, ".older");
+                if (ok) log($"{Path.GetFileName(versionRoot)}: put {name} back from accounts/{accountKey}");
+                complete &= ok;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                log($"{Path.GetFileName(versionRoot)}: {name} stays in accounts/{accountKey} for now: {ex.Message}");
+                complete = false;
+            }
+        }
+        return complete;
+    }
+
     // One entry: a plain rename when the destination is free; folders that
     // already exist on both sides (the account played this version before the
     // last pass could finish) are merged entry by entry; a file that exists on
-    // both sides keeps the account's current copy and parks the old one next to
-    // it as "<name>.before-accounts" — nothing is overwritten.
-    private static bool MoveEntry(string source, string destination, Action<string> log)
+    // both sides keeps the destination's current copy and parks the source one
+    // next to it as "<name><asideSuffix>" — nothing is overwritten.
+    private static bool MoveEntry(string source, string destination, Action<string> log,
+        string asideSuffix = ".before-accounts")
     {
         try
         {
@@ -101,13 +140,13 @@ public static class InstanceMigration
             {
                 var complete = true;
                 foreach (var child in Directory.EnumerateFileSystemEntries(source).ToList())
-                    complete &= MoveEntry(child, Path.Combine(destination, Path.GetFileName(child)), log);
+                    complete &= MoveEntry(child, Path.Combine(destination, Path.GetFileName(child)), log, asideSuffix);
                 if (complete && !Directory.EnumerateFileSystemEntries(source).Any())
                     Directory.Delete(source); // emptied by the moves above
                 return complete;
             }
 
-            var aside = FreeName(destination + ".before-accounts");
+            var aside = FreeName(destination + asideSuffix);
             if (sourceIsDirectory) Directory.Move(source, aside);
             else File.Move(source, aside);
             log($"kept both copies of {Path.GetFileName(destination)} (the older one is {Path.GetFileName(aside)})");
@@ -182,7 +221,10 @@ public static class InstanceMigration
 
         var complete = true;
         foreach (var root in versionRoots)
+        {
             complete &= MigrateVersion(root, key, log);
+            complete &= ReturnMisplacedShared(root, key, log);
+        }
         return (key, complete);
     }
 
