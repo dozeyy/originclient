@@ -571,7 +571,7 @@ public final class HudElements {
 			}
 			int y = 0;
 			for (PotionRow row : rows) {
-				drawEffectRow(g, mc, y, row.effect, row.duration, row.infinite);
+				drawEffectRow(g, mc, y, row);
 				y += 20;
 			}
 		});
@@ -738,11 +738,13 @@ public final class HudElements {
 		private final Potion effect;
 		private final int duration;
 		private final boolean infinite;
+		private final int amplifier;
 
-		private PotionRow(Potion effect, int duration, boolean infinite) {
+		private PotionRow(Potion effect, int duration, boolean infinite, int amplifier) {
 			this.effect = effect;
 			this.duration = duration;
 			this.infinite = infinite;
+			this.amplifier = amplifier;
 		}
 
 		public Potion effect() {
@@ -768,12 +770,13 @@ public final class HudElements {
 			PotionRow other = (PotionRow) obj;
 			return java.util.Objects.equals(this.effect, other.effect)
 					&& this.duration == other.duration
-					&& this.infinite == other.infinite;
+					&& this.infinite == other.infinite
+					&& this.amplifier == other.amplifier;
 		}
 
 		@Override
 		public int hashCode() {
-			return java.util.Objects.hash(effect, duration, infinite);
+			return java.util.Objects.hash(effect, duration, infinite, amplifier);
 		}
 	}
 
@@ -781,11 +784,32 @@ public final class HudElements {
 		return I18n.format(p.getName());
 	}
 
-	private static int rowTextWidth(Minecraft mc, PotionRow row) {
-		String name = effectName(row.effect);
+	/** What a potion row draws, exactly: {name, time}; name is null when only the time
+	 *  shows (Minimal, or Effect Name off). The row's width and its drawing both come from
+	 *  here, so the background always matches the text. */
+	private static String[] rowText(PotionRow row) {
 		int secs = row.duration / 20;
-		String time = row.infinite ? "∞" : secs / 60 + ":" + String.format("%02d", secs % 60);
-		return mc.fontRendererObj.getStringWidth(name + " " + time);
+		String time = row.infinite ? "∞"
+				: Mods.bool("potionhud", "formattedDurations")
+				? secs / 60 + ":" + String.format("%02d", secs % 60)
+				: secs + "s";
+		if (!Mods.bool("potionhud", "effectName") || Mods.bool("potionhud", "minimal")) {
+			return new String[]{null, time};
+		}
+		String name = effectName(row.effect);
+		// the level, like vanilla's inventory: amplifier 0 shows none, 1 = "II", ... 9 = "X"
+		if (row.amplifier >= 1 && row.amplifier <= 9) {
+			name += " " + I18n.format("enchantment.level." + (row.amplifier + 1));
+		}
+		if (Mods.bool("potionhud", "uppercase")) {
+			name = name.toUpperCase(java.util.Locale.ROOT);
+		}
+		return new String[]{name, time};
+	}
+
+	private static int rowTextWidth(Minecraft mc, PotionRow row) {
+		String[] text = rowText(row);
+		return text[0] == null ? mc.fontRendererObj.getStringWidth(text[1]) : mc.fontRendererObj.getStringWidth(text[0] + " " + text[1]);
 	}
 
 	private static List<PotionRow> potionRows(Minecraft mc) {
@@ -802,12 +826,12 @@ public final class HudElements {
 				if (infinite && excludePerm) {
 					continue;
 				}
-				rows.add(new PotionRow(p, e.getDuration(), infinite));
+				rows.add(new PotionRow(p, e.getDuration(), infinite, e.getAmplifier()));
 			}
 		}
 		if (rows.isEmpty() && editorPreview) {
-			rows.add(new PotionRow(Potion.moveSpeed, 83 * 20, false));
-			rows.add(new PotionRow(Potion.damageBoost, 45 * 20, false));
+			rows.add(new PotionRow(Potion.moveSpeed, 83 * 20, false, 0));
+			rows.add(new PotionRow(Potion.damageBoost, 45 * 20, false, 1));   // preview shows a level
 		}
 		return rows;
 	}
@@ -817,7 +841,10 @@ public final class HudElements {
 	// 8 per row from v=198, as InventoryEffectRenderer draws them.
 	private static final ResourceLocation INVENTORY = new ResourceLocation("textures/gui/container/inventory.png");
 
-	private static void drawEffectRow(Gfx g, Minecraft mc, int y, Potion effect, int duration, boolean infinite) {
+	private static void drawEffectRow(Gfx g, Minecraft mc, int y, PotionRow row) {
+		Potion effect = row.effect;
+		int duration = row.duration;
+		boolean infinite = row.infinite;
 		int secs = duration / 20;
 		// Blink: within the threshold, the row pulses like vanilla's expiring icons
 		if (!infinite && Mods.bool("potionhud", "blink")
@@ -838,16 +865,10 @@ public final class HudElements {
 		}
 		FontRenderer font = mc.fontRendererObj;
 		boolean shadow = Mods.bool("potionhud", "textShadow");
-		boolean minimal = Mods.bool("potionhud", "minimal");
-		boolean showName = Mods.bool("potionhud", "effectName") && !minimal;
-		String name = effectName(effect);
-		if (Mods.bool("potionhud", "uppercase")) {
-			name = name.toUpperCase(java.util.Locale.ROOT);
-		}
-		String time = infinite ? "∞"
-				: Mods.bool("potionhud", "formattedDurations")
-				? secs / 60 + ":" + String.format("%02d", secs % 60)
-				: secs + "s";
+		String[] text = rowText(row);   // the same strings rowTextWidth measured
+		boolean showName = text[0] != null;
+		String name = text[0];
+		String time = text[1];
 		int nameColor = Mods.bool("potionhud", "colorByEffect")
 				? 0xFF000000 | effect.getLiquidColor()
 				: OriginColorPicker.liveColor("potionhud", "textColor");
