@@ -6,8 +6,8 @@
     seam (X.Windows.cs, X.Mac.cs), plus the Linux half (X.Linux.cs) that sits next to it. The
     Windows and Mac projects do the same with their own half, so a Core fix lands on all three.
 
-    No UI yet: today the program only has the self-test flag (prints the data paths, runs each
-    Linux seam once, exits 0/1, opens no window). The Avalonia UI comes in later waves of the port.
+    The UI is the shared Avalonia launcher in src/OriginLauncher.Desktop (imported below as source, like
+    the Core); Program.cs opens it. The self-test flag still checks the Linux seams without opening a window.
 
     Built on GitHub's Ubuntu runners (.github/workflows/linux-launcher.yml); it is never built or run
     on Will's PC. global.json next to this file pins the same .NET 10 SDK as the Mac project.
@@ -44,5 +44,8 @@
     <!-- Core's player heads are Avalonia bitmaps on Linux, as on the Mac (Core/Skins/PlayerHeads.Mac.cs). -->
     <PackageReference Include="Avalonia" Version="12.1.5" />
   </ItemGroup>
+
+  <!-- The launcher UI (Avalonia, code-only): views, tokens read from the WPF theme files, art, fonts. -->
+  <Import Project="..\OriginLauncher.Desktop\OriginLauncher.Desktop.props" />
 
 </Project>

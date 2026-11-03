@@ -5,10 +5,11 @@ namespace OriginLauncher.Linux;
 
 internal static class Program
 {
-    // No UI yet. `--self-test [--network] [--require-keyring]` checks the Linux seams and exits 0 (all
-    // passed) or 1. Hidden, CI only: `--boot-test <version> [--root DIR] [--log FILE] [--timeout SECONDS]`
-    // installs and starts that Minecraft version through Core and exits 0 once Origin's title screen is up
-    // (BootTest.cs). Anything else prints the usage and exits 2. Neither flag opens a launcher window.
+    // `--self-test [--network] [--require-keyring]` checks the Linux seams and exits 0 (all passed) or 1
+    // without opening a window. Hidden, CI only: `--boot-test <version> [--root DIR] [--log FILE]
+    // [--timeout SECONDS]` installs and starts that Minecraft version through Core and exits 0 once
+    // Origin's title screen is up (BootTest.cs). Anything else is the launcher UI
+    // (src/OriginLauncher.Desktop), including `--render-shots <dir>`.
     private static async Task<int> Main(string[] args)
     {
         if (args.Contains("--self-test"))
@@ -21,9 +22,9 @@ internal static class Program
             return BootTest.Run(version, Value(args, "--root"), Value(args, "--log"), TimeSpan.FromSeconds(seconds));
         }
 
-        Console.Error.WriteLine("Origin Launcher for Linux: the window is not built yet.");
-        Console.Error.WriteLine("Usage: OriginLauncher --self-test [--network] [--require-keyring]");
-        return 2;
+        // The launcher window, or `--render-shots <dir>` (headless PNGs of every screen). Runs before any await,
+        // so the UI owns the process's main thread.
+        return OriginLauncher.Desktop.Shell.DesktopEntry.Run(args);
     }
 
     // The argument after `flag`, or null when the flag is absent or last.
