@@ -119,13 +119,14 @@ public final class OptionsAutosave {
 		return v == null ? 0 : v.hashCode();
 	}
 
-	// F5's camera, F3's debug screen, F1's hidden HUD and smooth camera (Zoom, Snaplook) are plain GameSettings
-	// fields that options.txt never stores. While they counted, each of those presses
-	// looked like a settings change and cost a full synchronous options save (and a
-	// client-settings packet to the server) on the render thread, mid-fight. Their
-	// reflected names are obfuscated in a real game (SRG names under Forge), so each one is found by
-	// probing: nudge it through the compiled field access, mark the field that moved, put
-	// the value straight back. One pass on the client thread; nothing draws in between.
+	// F5's camera, F3's debug screen, F1's hidden HUD and smooth camera (Zoom,
+	// Snaplook) are plain GameSettings fields that options.txt never stores. While they
+	// counted, each of those presses looked like a settings change and cost a full
+	// synchronous options save (and a client-settings packet to the server) on the
+	// render thread, mid-fight. Their reflected names are obfuscated in a real game
+	// (SRG under Forge), so each one is found by probing: nudge it through the
+	// compiled field access, mark the field that moved, put the value straight back.
+	// One pass on the client thread; nothing draws in between.
 	private static boolean[] transientFields(GameSettings o, Field[] fs) {
 		boolean[] out = new boolean[fs.length];
 		try {
