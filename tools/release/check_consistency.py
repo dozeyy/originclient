@@ -375,12 +375,12 @@ def check_linux_assets() -> list[str]:
 
 def check_site_downloads() -> list[str]:
     """Every file the website's download buttons link (website/js/site.js: releases/latest/download/<name>
-    and the Linux `file:` names) must be one launcher-release.yml publishes, on its own line in a gh release
+    and the Linux `file:` names; a `file:` with a space or no dot is a button id like 'win' or 'linux .deb', not a file) must be one launcher-release.yml publishes, on its own line in a gh release
     create/upload list, or the button is a 404 on every release (site.js pinMissingDownloads only covers a
     file that is late or missing from ONE release, by falling back to an older one)."""
     site = (REPO / "website/js/site.js").read_text(encoding="utf-8")
     wf = (REPO / ".github/workflows/launcher-release.yml").read_text(encoding="utf-8")
-    linked = set(re.findall(r"releases/latest/download/([\w.+-]+)'", site)) | set(re.findall(r"\bfile:\s*'([^']+)'", site))
+    linked = set(re.findall(r"releases/latest/download/([\w.+-]+)'", site)) | set(re.findall(r"\bfile:\s*'([^'\s]+\.[^'\s]+)'", site))
     if len(linked) < 3:
         return [f"website/js/site.js: expected the Windows, Mac and Linux download names, found {sorted(linked)} "
                 "(update check_site_downloads)"]
