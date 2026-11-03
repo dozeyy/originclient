@@ -30,3 +30,13 @@ export const SLOTS = ['cape', 'head', 'face', 'back', 'theme'];
 export function slotOf(item) {
   return Object.hasOwn(CATALOG, item) ? CATALOG[item].slot : null;
 }
+
+// D1 refuses any statement with more than 100 bound values, so a query over a
+// list of players (WHERE uuid IN (...)) runs in slices that leave room for the
+// statement's other values. `query(slice)` returns D1's { results }.
+const IN_SLICE = 90;
+export async function rowsIn(uuids, query) {
+  const rows = [];
+  for (let i = 0; i < uuids.length; i += IN_SLICE) rows.push(...(await query(uuids.slice(i, i + IN_SLICE))).results);
+  return rows;
+}

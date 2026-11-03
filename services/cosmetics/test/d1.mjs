@@ -13,7 +13,9 @@ export function d1() {
   const returnsRows = sql => /^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql);
   const stmt = (sql, args = []) => ({
     sql,   // read by tests that look at a batch's statements
-    bind: (...a) => stmt(sql, a),
+    // Real D1 refuses a statement with more than 100 bound values ("too many SQL
+    // variables"); node:sqlite allows far more, so the stand-in enforces it.
+    bind: (...a) => { if (a.length > 100) throw new Error('D1_ERROR: too many SQL variables'); return stmt(sql, a); },
     first: col => { const row = db.prepare(sql).get(...args); return row ? (col ? row[col] : { ...row }) : null; },
     all: () => ({ results: db.prepare(sql).all(...args).map(r => ({ ...r })), meta: {} }),
     run: () => { const r = db.prepare(sql).run(...args); return { results: [], meta: { changes: Number(r.changes) } }; },

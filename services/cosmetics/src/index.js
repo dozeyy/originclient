@@ -28,7 +28,7 @@
 //   STRIPE_SECRET_KEY      creates Checkout pages
 //   STRIPE_WEBHOOK_SECRET  checks that webhook calls really come from Stripe
 
-import { CORS, json, fail, normUuid, slotOf, SLOTS } from './common.js';
+import { CORS, json, fail, normUuid, slotOf, SLOTS, rowsIn } from './common.js';
 import { CATALOG } from './catalog.gen.js';
 import { handleSocial, socialCleanup, presenceSweep, session } from './social.js';
 import { keysDiag } from './mojang.js';
@@ -78,9 +78,9 @@ const adjustOf = row => { try { return cleanAdjust(JSON.parse(row?.adjust ?? 'nu
 const ORIGIN_RECENT_MS = 10 * 60 * 1000;
 async function inGameAmong(env, uuids, now) {
   if (!uuids.length) return new Set();
-  const rows = await env.DB.prepare(`SELECT DISTINCT uuid FROM presence WHERE client = 'game' AND at > ? AND uuid IN (${uuids.map(() => '?').join(',')})`)
-    .bind(now - ORIGIN_RECENT_MS, ...uuids).all();
-  return new Set(rows.results.map(r => r.uuid));
+  const rows = await rowsIn(uuids, part => env.DB.prepare(`SELECT DISTINCT uuid FROM presence WHERE client = 'game' AND at > ? AND uuid IN (${part.map(() => '?').join(',')})`)
+    .bind(now - ORIGIN_RECENT_MS, ...part).all());
+  return new Set(rows.map(r => r.uuid));
 }
 
 async function playerView(env, uuid) {
@@ -93,8 +93,8 @@ async function equippedBatch(env, body, now = Date.now()) {
   const uuids = [...new Set((Array.isArray(body?.uuids) ? body.uuids : []).map(normUuid).filter(Boolean))].slice(0, MAX_BATCH);
   const out = {};
   if (!uuids.length) return json({ players: out });
-  const rows = await env.DB.prepare(`SELECT uuid, ${COLS}, adjust FROM equipped WHERE uuid IN (${uuids.map(() => '?').join(',')})`)
-    .bind(...uuids).all();
+  const rows = await rowsIn(uuids, part => env.DB.prepare(`SELECT uuid, ${COLS}, adjust FROM equipped WHERE uuid IN (${part.map(() => '?').join(',')})`)
+    .bind(...part).all());
   const members = await membersAmong(env, uuids);
   const inGame = await inGameAmong(env, uuids, now);
   const entry = (uuid, look, adjust) => {
@@ -104,7 +104,7 @@ async function equippedBatch(env, body, now = Date.now()) {
   };
   // Members and players in game on Origin are listed even wearing nothing, so the
   // game can show their badge.
-  for (const r of rows.results) {
+  for (const r of rows) {
     const look = looks(r, members.has(r.uuid));
     if (SLOTS.some(slot => look[slot])) out[r.uuid] = entry(r.uuid, look, adjustOf(r));
   }
