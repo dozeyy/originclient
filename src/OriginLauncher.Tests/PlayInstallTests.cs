@@ -269,6 +269,18 @@ public class PlayInstallTests : IDisposable
         Assert.Contains("disk is full", f.Message);
     }
 
+    // macOS/Linux .NET put the raw errno in the HResult: ENOSPC 28 and EDQUOT 69 read the same as Windows' disk full.
+    [Fact]
+    public void DiskFullFailure_RawErrno_SaysSo_OffWindows()
+    {
+        if (OperatingSystem.IsWindows()) return; // 28/69 mean other things on Windows; CI runs this on Linux
+        foreach (var errno in new[] { 28, 69 })
+        {
+            var f = PlayFailure.From(new InvalidOperationException("install failed", new IOException("No space left on device", errno)), "1.21.1");
+            Assert.Contains("disk is full", f.Message);
+        }
+    }
+
     [Fact]
     public void UnknownFailure_NeverShowsRawExceptionText()
     {

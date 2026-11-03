@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+        x:Class="OriginLauncher.Mac.UI.Windows.CrashWindow"
+        Title="Origin Launcher - Error"
+        Width="660" Height="560" MinWidth="480" MinHeight="380"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Brush.Panel}"
+        FontFamily="{StaticResource Font.Primary}">
+
+    <!-- The launcher's own error window (twin of the WPF UI/Windows/CrashWindow.xaml): a danger tile beside the
+         headline, the plain-words summary, the technical details in a mono well, then Copy details and Close. -->
+    <Border Padding="24">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
+                <Border Theme="{StaticResource Surface.Tile}" Background="{StaticResource Brush.DangerSoft}"
+                        VerticalAlignment="Top" Margin="0,0,16,0">
+                    <c:IconPath Data="{StaticResource Icon.Alert}" Theme="{StaticResource Icon.Base}"
+                                Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                                Stroke="{StaticResource Brush.DangerText}"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="Heading" Text="Origin Launcher ran into a problem" Theme="{StaticResource Text.Heading}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="Summary" Theme="{StaticResource Text.BodyDim}" LineHeight="20" TextWrapping="Wrap"
+                               Margin="0,4,0,0" Text="Origin closed unexpectedly. Copy the details if you need support."/>
+                </StackPanel>
+            </Grid>
+            <TextBlock Grid.Row="1" Text="TECHNICAL DETAILS" Theme="{StaticResource Dialog.Eyebrow}" Margin="0,24,0,0"/>
+            <Border Grid.Row="2" Margin="0,8,0,0" Background="{StaticResource Brush.BgAlt}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Lg}">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <SelectableTextBlock x:Name="DetailsBox" Foreground="{StaticResource Brush.TextDim}"
+                                         FontFamily="{StaticResource Font.Mono}" FontSize="{StaticResource FontSize.Label}"
+                                         Margin="16,12"/>
+                </ScrollViewer>
+            </Border>
+            <TextBlock Grid.Row="3" x:Name="SavedTo" Theme="{StaticResource Text.Caption}"
+                       Foreground="{StaticResource Brush.TextMuted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                <Button x:Name="CopyButton" Content="Copy details" Theme="{StaticResource Button.Secondary}"
+                        MinWidth="96" Margin="0,0,8,0"/>
+                <Button x:Name="CloseButton" Content="Close" Theme="{StaticResource Button.Primary.Medium}" MinWidth="96"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Controls.LaunchLoadingOverlay"
+             IsVisible="False">
+
+    <!-- The launch screen (twin of the WPF UI/Controls/LaunchLoadingOverlay.xaml): the whole window, top bar included
+         (MainWindow puts it above the bar). The art shows underneath and this scrim keeps every line on it readable.
+         Nothing behind is interactive meanwhile. The Origin logo breathes as the spinner (never rotated or redrawn). -->
+    <UserControl.Styles>
+        <!-- The unmeasured-stage block slides across the track, easing at each end. Added in code only while motion is
+             on (render shots park it at the left edge, as Windows' reduced motion does). -->
+        <Style Selector="Border#ProgressSweep.sweeping">
+            <Style.Animations>
+                <Animation Duration="0:0:1.15" IterationCount="INFINITE" Easing="SineEaseInOut">
+                    <KeyFrame Cue="0%"><Setter Property="TranslateTransform.X" Value="-96"/></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="TranslateTransform.X" Value="420"/></KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="c|BrandLogo#Mark.breathing">
+            <Style.Animations>
+                <Animation Duration="0:0:2.4" IterationCount="INFINITE" Easing="SineEaseInOut">
+                    <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1"/></KeyFrame>
+                    <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.45"/></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1"/></KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
+    <Panel Background="{StaticResource Brush.LaunchScrim}">
+        <StackPanel x:Name="LoadingStage" HorizontalAlignment="Center" VerticalAlignment="Center" Width="520">
+            <c:BrandLogo x:Name="Mark" Width="{StaticResource Size.Logo.Hero}" Height="{StaticResource Size.Logo.Hero}"
+                         Margin="0,0,0,24"/>
+
+            <c:TrackedText x:Name="EyebrowText" Text="PREPARING MINECRAFT" Tracking="0.16"
+                           FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.OnPhoto}" HorizontalAlignment="Center"/>
+            <!-- The big line: the real percentage while a stage has a count, else the version (never a made-up number;
+                 Core/Launch/StageProgress). The % is smaller, on the number's baseline. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,12">
+                <c:TrackedText x:Name="VersionText" Text="1.21.1" Tracking="-0.01"
+                               FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Display}"
+                               FontWeight="ExtraBold" Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Bottom"/>
+                <c:TrackedText x:Name="PercentText" Text="%" Tracking="0" IsVisible="False"
+                               FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Title}"
+                               FontWeight="Bold" Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Bottom"
+                               Margin="6,0,0,0"/>
+            </StackPanel>
+            <TextBlock x:Name="LoaderCaptionText" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                       HorizontalAlignment="Center" Margin="0,-6,0,18" IsVisible="False"/>
+
+            <!-- The bar. A stage with a real count fills to it (a scale from the left edge, no layout per frame); any other
+                 stage slides a block across the track. -->
+            <Border x:Name="ProgressTrack" Width="420" Height="{StaticResource Size.Progress}" CornerRadius="{StaticResource Radius.Track}"
+                    Background="{StaticResource Brush.ProgressTrack}" HorizontalAlignment="Center" ClipToBounds="True" Margin="0,0,0,16">
+                <Panel>
+                    <Border x:Name="ProgressFill" Height="{StaticResource Size.Progress}" CornerRadius="{StaticResource Radius.Track}"
+                            Background="{StaticResource Brush.Accent}" IsVisible="False"
+                            RenderTransformOrigin="0%,50%" RenderTransform="scaleX(0)">
+                        <Border.Transitions>
+                            <Transitions>
+                                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                    <Border x:Name="ProgressSweep" Width="96" Height="{StaticResource Size.Progress}" CornerRadius="{StaticResource Radius.Track}"
+                            Background="{StaticResource Brush.Accent}" HorizontalAlignment="Left">
+                        <Border.RenderTransform>
+                            <TranslateTransform X="0"/>
+                        </Border.RenderTransform>
+                    </Border>
+                </Panel>
+            </Border>
+
+            <TextBlock x:Name="StageText" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Text}"
+                       HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="520" Text="Preparing"/>
+
+            <!-- Failure (U3.3): Retry joins Cancel, which reads "Close" there. Retry is hidden while a launch runs. On a
+                 Mac that needs Rosetta for this version, "Install Rosetta" takes Retry's place until it is installed. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,28,0,0">
+                <Button x:Name="RosettaButton" Theme="{StaticResource Button.Primary.Medium}" Content="Install Rosetta"
+                        Margin="0,0,12,0" IsVisible="False" AutomationProperties.Name="Install Rosetta, Apple's translator for Intel apps"/>
+                <Button x:Name="RetryButton" Theme="{StaticResource Button.Primary.Medium}" Content="Retry"
+                        Margin="0,0,12,0" IsVisible="False" AutomationProperties.Name="Retry getting Minecraft ready"/>
+                <Button x:Name="CancelButton" Theme="{StaticResource Button.Secondary}" Content="Cancel"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Bottom left: what is starting - the family, then account and profile. -->
+        <StackPanel x:Name="CaptionPanel" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="32,0,0,32">
+            <c:TrackedText x:Name="CaptionFamily" Text="TRICKY TRIALS" Tracking="0.16"
+                           FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.OnPhoto}"/>
+            <TextBlock x:Name="CaptionDetail" Theme="{StaticResource Text.Caption}" Margin="0,6,0,0" Foreground="{StaticResource Brush.TextDim}"
+                       TextTrimming="CharacterEllipsis" MaxWidth="480"/>
+        </StackPanel>
+    </Panel>
+</UserControl>

@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using OriginLauncher.App.Core.Versions;
+using OriginLauncher.Mac.UI;
 using OriginLauncher.Mac.UI.Controls;
 using OriginLauncher.Mac.UI.Pages;
 
@@ -14,6 +15,7 @@ namespace OriginLauncher.Mac;
 public sealed partial class MainWindow : Window
 {
     internal HomePage Home { get; } = new();
+    internal SettingsPage Settings { get; } = new();
 
     // The tabs' slide (the fit rule). A render transform, so moving them never re-runs layout.
     private readonly TranslateTransform NavTabsShift = new();
@@ -24,27 +26,103 @@ public sealed partial class MainWindow : Window
         NavTabs.RenderTransform = NavTabsShift;
         PageHost.Content = Home;
         Stage.SetPage(home: true);
-        Stage.Show(VersionCatalog.DefaultVersion);
-        Home.SetVersion(VersionCatalog.DefaultVersion);
+        // The art follows Home's pick (the saved version, then every pick in the picker). The pick made while Home was
+        // built (before this subscription) is shown here once.
+        Stage.Show(Home.CurrentVersion ?? VersionCatalog.DefaultVersion);
+        Home.VersionShown += v => { if (v != null) Stage.Show(v); };
+        // The launch screen covers the whole window, the bar included (the WPF MainWindow hosts it above TopBar).
+        Root.Children.Add(Home.LoadingOverlay);
+        // Toasts above everything, bottom-centre; the launcher's own confirm dialog above them (both WPF MainWindow twins).
+        Root.Children.Add(Toasts);
+        Root.Children.Add(Confirm);
+        Home.HomeCard.SizeChanged += (_, _) => PlaceToasts();
+        // The launch screen owns the whole window: the bar fades out under it and takes no clicks (WPF SetTopBarHidden).
+        Home.LaunchSceneChanged += hidden =>
+        {
+            TopBar.IsHitTestVisible = !hidden;
+            TopBar.Opacity = hidden ? 0 : 1;
+        };
+        // The opening, over everything; it removes itself when done (none in render shots: motion is off).
+        var intro = new StartupIntro();
+        Root.Children.Add(intro);
+        intro.Play(this);
 
         TopBar.SizeChanged += (_, _) => FitTopBar();
         WebsiteButton.SizeChanged += (_, _) => FitTopBar();
         NavTabs.SizeChanged += (_, _) => FitTopBar();
         BarActions.SizeChanged += (_, _) => FitTopBar();
 
-        // One page at a time: the bar's tabs behave as a radio group (only Home is built on the Mac so far, so the
-        // other tabs fall back to Home until their pages are ported).
+        // One page at a time: the bar's tabs behave as a radio group (Mods and Profiles fall back to Home until their
+        // pages are ported).
         foreach (var tab in new[] { NavHome, NavMods, NavProfiles, NavSettings })
             tab.IsCheckedChanged += (s, _) => { if (s is ToggleButton { IsChecked: false }) KeepOneTab(); };
-        NavHome.Click += (_, _) => SelectTab(NavHome);
-        NavMods.Click += (_, _) => SelectTab(NavHome);
-        NavProfiles.Click += (_, _) => SelectTab(NavHome);
-        NavSettings.Click += (_, _) => SelectTab(NavHome);
+        NavHome.Click += (_, _) => ShowPage(NavHome, Home);
+        NavMods.Click += (_, _) => ShowPage(NavHome, Home);
+        NavProfiles.Click += (_, _) => ShowPage(NavHome, Home);
+        NavSettings.Click += (_, _) => ShowPage(NavSettings, Settings);
     }
 
+    // The WPF MainWindow.NavigateTo rules: the launch cover is modal within Home (no navigating behind a starting
+    // game); the version picker is not (a tab click closes it and navigates). Settings always opens on its first
+    // section. Home shows the art; every other page sits on it dimmed, under the opaque bar.
+    private void ShowPage(ToggleButton tab, Control page)
+    {
+        var onHome = ReferenceEquals(PageHost.Content, Home);
+        if (!ReferenceEquals(page, Home) && onHome && Home.HasLaunchCover)
+        {
+            SelectTab(NavHome);
+            return;
+        }
+        if (onHome) Home.CloseVersionPicker();
+        SelectTab(tab);
+        if (ReferenceEquals(PageHost.Content, page)) return;
+        if (page is SettingsPage settings) settings.ShowFromTop();
+        PageHost.Content = page;
+        var home = ReferenceEquals(page, Home);
+        Stage.SetPage(home);
+        BarSurface.Opacity = home ? 0 : 1;
+        BarGlass.Opacity = home ? 1 : 0;
+        PlaceToasts();
+    }
+
+    // ---- Toasts and the confirm dialog ----
+    internal SocialToastHost Toasts { get; } = new()
+    {
+        Width = 360, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom,
+    };
+
+    /// <summary>The one confirm dialog (newest prompt wins); every page asks through it.</summary>
+    internal ConfirmOverlay Confirm { get; } = new();
+
+    // The toasts' bottom edge sits Space.2 above the top of Home's strip (version card, Play, the status line), so a
+    // toast never covers them; on any other page Space.6 above the window's edge (WPF MainWindow.PlaceToasts).
+    private void PlaceToasts()
+    {
+        var onHome = ReferenceEquals(PageHost.Content, Home);
+        var bottom = onHome
+            ? Home.HomeCard.Bounds.Height + Home.HomeCard.Margin.Bottom + this.ThemeDouble("Space.2")
+            : this.ThemeDouble("Space.6");
+        Toasts.Margin = new Thickness(0, 0, 0, bottom);
+    }
+
+    internal void TourShowToast(OriginLauncher.App.Core.Social.SocialToast toast) => Toasts.Show(toast);
+
+    internal void TourClearToasts() => Toasts.Clear();
+
+    /// <summary>Render shots: open a page the way its tab does (0 Home, 3 Settings).</summary>
+    internal void TourNavigate(int page)
+    {
+        if (page == 3) ShowPage(NavSettings, Settings);
+        else ShowPage(NavHome, Home);
+    }
+
+    // The new tab is checked first: unchecking Home while nothing else is checked would make KeepOneTab check it again,
+    // leaving two tabs lit (Home stayed bold on Settings).
     private void SelectTab(ToggleButton tab)
     {
-        foreach (var t in new[] { NavHome, NavMods, NavProfiles, NavSettings }) t.IsChecked = t == tab;
+        tab.IsChecked = true;
+        foreach (var t in new[] { NavHome, NavMods, NavProfiles, NavSettings }) if (t != tab) t.IsChecked = false;
     }
 
     private void KeepOneTab()
@@ -63,12 +141,8 @@ public sealed partial class MainWindow : Window
     private void Minimize_Click(object? sender, EventArgs e) => WindowState = WindowState.Minimized;
     private void Close_Click(object? sender, EventArgs e) => Close();
 
-    /// <summary>Shows a version on Home: the art, the numeral and the version card (the picker calls this once it exists).</summary>
-    internal void SelectVersion(string version)
-    {
-        Stage.Show(version);
-        Home.SetVersion(version);
-    }
+    /// <summary>Render shots: shows a version on Home (the art, the numeral and the version card) without saving the pick.</summary>
+    internal void SelectVersion(string version) => Home.TourSelectVersion(version);
 
     // ---- Friends dot ----
     internal void SetFriendsBadge(bool on) => FriendsBadge.IsVisible = on;
@@ -88,8 +162,9 @@ public sealed partial class MainWindow : Window
     {
         double width = TopBar.Bounds.Width, tabs = NavTabs.Bounds.Width;
         if (width <= 0 || tabs <= 0) return;
-        var gap = Res<double>("Space.5");
-        var wordmark = Bounds.Width >= WordmarkMinWindow;
+        var gap = this.ThemeDouble("Space.5");
+        // The bar spans the whole Mac window, so its width is the window's (the window's own Bounds lagged a resize).
+        var wordmark = width >= WordmarkMinWindow;
         if (BarWordmark.IsVisible != wordmark)
         {
             BarWordmark.IsVisible = wordmark;
@@ -132,11 +207,9 @@ public sealed partial class MainWindow : Window
     {
         if (Stage.Numeral.InkRect is not { } r) return "numeral not laid out";
         double w = Stage.Bounds.Width, h = Stage.Bounds.Height;
-        var (top, bottom) = OriginLauncher.App.UI.Controls.NumeralBand.Band(h, Res<double>("Size.Bar"), Home.StripTop);
+        var (top, bottom) = OriginLauncher.App.UI.Controls.NumeralBand.Band(h, this.ThemeDouble("Size.Bar"), Home.StripTop);
         return $"window={w:0}x{h:0} band={top:0.#}..{bottom:0.#} (middle {(top + bottom) / 2:0.#}) "
             + $"ink x={r.Left:0.#} y={r.Top:0.#} w={r.Width:0.#} h={r.Height:0.#} (middle x {r.Left + r.Width / 2:0.#} y {r.Top + r.Height / 2:0.#}) "
             + $"airAbove={r.Top - top:0.#} airBelow={bottom - r.Bottom:0.#} inkShareOfWidth={r.Width / w:0.000}";
     }
-
-    private T Res<T>(string key) => this.TryFindResource(key, out var v) && v is T t ? t : default!;
 }

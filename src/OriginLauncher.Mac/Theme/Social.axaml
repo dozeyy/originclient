@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Avalonia twin of src/OriginLauncher.App/Theme/Social.xaml, so far only the keys the toasts use (the Friends
+        drawer and chat are not on the Mac yet; tools/mac/check_theme_parity.py lists the rest). Same keys, same values.
+    -->
+
+    <ControlTheme x:Key="Social.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}"/>
+        <Setter Property="LineHeight" Value="16"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </ControlTheme>
+
+    <!-- Row and drawer text buttons: Button.Secondary.Small (32 px) with the Caption size. -->
+    <ControlTheme x:Key="Social.Action" TargetType="Button" BasedOn="{StaticResource Button.Secondary.Small}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="Margin" Value="8,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+
+    <!-- Icon-only button: Icon.Small (14) + 9 px padding each side = Size.ControlMd (32). Min, not fixed, size. -->
+    <ControlTheme x:Key="Social.Icon" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
+        <Setter Property="Padding" Value="9"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+</ResourceDictionary>

@@ -20,6 +20,8 @@ public static class SystemInfo
     /// <summary>A 64-bit sysctl value, or null when the name is unknown or the call fails.</summary>
     internal static long? SysctlInt64(string name)
     {
+        // The Mac build's headless render shots also run on a Windows PC, where there is no libc to call.
+        if (!OperatingSystem.IsMacOS()) return null;
         var size = (IntPtr)sizeof(long);
         var buffer = Marshal.AllocHGlobal(sizeof(long));
         try
@@ -37,6 +39,7 @@ public static class SystemInfo
     /// <summary>A string sysctl value (e.g. machdep.cpu.brand_string), or null.</summary>
     internal static string? SysctlString(string name)
     {
+        if (!OperatingSystem.IsMacOS()) return null;
         var size = IntPtr.Zero;
         if (sysctlbyname(name, IntPtr.Zero, ref size, IntPtr.Zero, IntPtr.Zero) != 0 || size == IntPtr.Zero || (long)size > 4096)
             return null;

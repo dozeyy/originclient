@@ -82,7 +82,16 @@ internal static class LaunchPlan
             return 1;
         }
         Console.WriteLine($"  prepared in      {watch.Elapsed.TotalSeconds:0.0} s");
+        return Inspect(process, version, root);
+    }
 
+    /// <summary>
+    /// The checks on a built (never started) game process: Java, the argument line, natives, assets. Shared by
+    /// `--launch-plan` and `--play-plan` (PlayPlan, the same checks on the process the Home Play button built).
+    /// </summary>
+    internal static int Inspect(Process process, string version, string root)
+    {
+        var shape = PlatformLaunch.ShapeFor(version);
         var java = process.StartInfo.FileName;
         var args = Tokenize(process.StartInfo.ArgumentList.Count > 0
             ? string.Join(' ', process.StartInfo.ArgumentList.Select(Quote))

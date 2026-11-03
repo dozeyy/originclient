@@ -25,5 +25,11 @@ public static class Motion
         var style = new Style(x => x.Is<Visual>());
         style.Setters.Add(new Setter(Animatable.TransitionsProperty, null));
         app.Styles.Add(style);
+        // A Transitions written inline in a template (or set in code) is a local value, which beats any style: the
+        // switch knob was caught halfway in shots. Every such value is cleared the moment it is set.
+        Animatable.TransitionsProperty.Changed.AddClassHandler<Animatable>((a, e) =>
+        {
+            if (e.NewValue != null) a.SetValue(Animatable.TransitionsProperty, null);
+        });
     }
 }

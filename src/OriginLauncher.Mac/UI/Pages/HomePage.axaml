@@ -7,14 +7,26 @@
          (ArtStage, behind every page). Everything here sits in one bottom strip: on the left the version card (family
          art thumbnail, version, family name, chevron) with the status line under it; on the right, bottom-aligned,
          the My mods switch and the solid emerald Play button. Cards and Play are 64 tall, the thumbnail 48.
-         Not on the Mac yet: the version picker, Join (profile servers), the launch screen and Fix Compatibility. -->
+         Not on the Mac yet: Join (profile servers) under Play. -->
+    <UserControl.Styles>
+        <!-- Play's launch arc turns while a launch is prepared (added in code only while motion is on). -->
+        <Style Selector="c|IconPath#PlaySpinner.spinning">
+            <Style.Animations>
+                <Animation Duration="0:0:1.1" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360"/></KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
     <Panel x:Name="HomeRoot">
         <Grid x:Name="HomeCard" VerticalAlignment="Bottom" Margin="32,0,32,32" ColumnDefinitions="*,Auto">
 
             <!-- Left: the version card, then the status line under it. -->
             <StackPanel Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,24,0">
                 <Button x:Name="VersionButton" Theme="{StaticResource Button.StripCard}" HorizontalAlignment="Left"
-                        AutomationProperties.Name="Choose Minecraft version">
+                        AutomationProperties.Name="Choose Minecraft version" Click="VersionButton_Click">
                     <StackPanel Orientation="Horizontal">
                         <Border Width="{StaticResource Size.StripTile}" Height="{StaticResource Size.StripTile}"
                                 CornerRadius="{StaticResource Radius.Md}" ClipToBounds="True"
@@ -53,7 +65,7 @@
             <!-- Right, bottom-aligned with the status line: My mods, Play. -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                 <!-- My mods: a tracked caps label and the iOS-style switch (Toggle.HomeSwitch). -->
-                <ToggleButton x:Name="MyModsSwitch" Theme="{StaticResource Toggle.HomeSwitch}" Margin="0,0,12,0"
+                <ToggleButton x:Name="MyModsSwitch" Theme="{StaticResource Toggle.HomeSwitch}" Margin="0,0,12,0" Click="MyModsSwitch_Click"
                               VerticalAlignment="Center" AutomationProperties.Name="My mods">
                     <c:TrackedText Text="MY MODS" Tracking="0.14" FontFamily="{StaticResource Font.Primary}"
                                    FontSize="{StaticResource FontSize.Label}" FontWeight="SemiBold"
@@ -62,18 +74,37 @@
 
                 <!-- Play: the solid emerald card with a play triangle and the word. Disabled until signed in. -->
                 <Button x:Name="PlayButton" Theme="{StaticResource Button.PlayHero}" VerticalAlignment="Center"
-                        IsEnabled="False" AutomationProperties.Name="Play Minecraft">
-                    <StackPanel x:Name="PlayFace" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <c:IconPath Data="{StaticResource Icon.Play}" Theme="{StaticResource Icon.Base}"
-                              Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
-                              StrokeJoin="Round" VerticalAlignment="Center" Margin="0,0,12,0"
-                              Fill="{Binding $parent[Button].Foreground}" Stroke="{Binding $parent[Button].Foreground}"/>
-                        <c:TrackedText x:Name="PlayLabel" Text="Play" Tracking="0.02"
-                                       FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Action}"
-                                       FontWeight="Bold" VerticalAlignment="Center"/>
-                    </StackPanel>
+                        IsEnabled="False" AutomationProperties.Name="Play Minecraft" Click="PlayButton_Click">
+                    <!-- One face at a time, the button never changing width: Play, the spinning arc while a launch is
+                         prepared or the game starts, "Running" while this account's game is open (HomePage.Play.cs). -->
+                    <Panel>
+                        <StackPanel x:Name="PlayFace" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <c:IconPath Data="{StaticResource Icon.Play}" Theme="{StaticResource Icon.Base}"
+                                  Width="{StaticResource Icon.SizeLarge}" Height="{StaticResource Icon.SizeLarge}"
+                                  StrokeJoin="Round" VerticalAlignment="Center" Margin="0,0,12,0"
+                                  Fill="{Binding $parent[Button].Foreground}" Stroke="{Binding $parent[Button].Foreground}"/>
+                            <c:TrackedText x:Name="PlayLabel" Text="Play" Tracking="0.02"
+                                           FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Action}"
+                                           FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <c:TrackedText x:Name="RunningLabel" Text="Running" Tracking="0.02" IsVisible="False"
+                                       FontFamily="{StaticResource Font.Primary}" FontSize="{StaticResource FontSize.Action}" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <c:IconPath x:Name="PlaySpinner" IsVisible="False" Width="24" Height="24"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Data="{StaticResource Icon.Loading}" Theme="{StaticResource Icon.Base}"
+                                    Stroke="{Binding $parent[Button].Foreground}" RenderTransformOrigin="50%,50%">
+                            <c:IconPath.RenderTransform><RotateTransform/></c:IconPath.RenderTransform>
+                        </c:IconPath>
+                    </Panel>
                 </Button>
             </StackPanel>
         </Grid>
+
+        <!-- The version picker, over Home below the bar (its stage clears the bar itself). -->
+        <c:VersionSelectOverlay x:Name="VersionOverlay"/>
+
+        <!-- The Fix Compatibility prompt over a launch Play refused (HomePage.Fix.cs). -->
+        <c:FixCompatibilityOverlay x:Name="FixPrompt"/>
     </Panel>
 </UserControl>

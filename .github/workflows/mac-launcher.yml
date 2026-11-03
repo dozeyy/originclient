@@ -201,3 +201,24 @@ jobs:
           done
           echo "passed: $passed, failed:${failed:- none}"
           test -z "$failed"
+
+      # --play-plan: the same proof through the launcher window itself (headless): the Home Play button
+      # runs its whole launch flow (update gate, session, heap, install, process build) and hands the
+      # built process over instead of starting it. One Fabric and the Forge version, on both CPUs.
+      - name: Play button plans
+        if: matrix.shard == 0
+        run: |
+          app="$RUNNER_TEMP/publish/OriginLauncher"
+          failed=""
+          for v in 1.21.1 1.8.9; do
+            echo "::group::play $v"
+            root="$RUNNER_TEMP/play-$v"
+            if "$app" --play-plan "$v" --root "$root"; then
+              echo "| $v | Play button: pass |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed="$failed $v"; echo "| $v | Play button: FAIL |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            rm -rf "$root"
+            echo "::endgroup::"
+          done
+          test -z "$failed"
