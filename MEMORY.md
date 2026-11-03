@@ -279,3 +279,8 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - CET: .NET 9+ marks the exe CET-compatible by default; `CETCompat=false` keeps .NET 8's behaviour so an old overlay/antivirus hook can't crash the launcher (Will chose "match today", 2026-11-02).
 - Self-update proof, commit fead26303: cold-start.yml installs launcher-v1.0.77, stages this ref as its update and replays UpdateService's apply-update.cmd (wait for pid, robocopy, restart): exe became 1.0.9999, every file hash matches, updated launcher drew its first frame at 728 ms. Timings same run: v1.0.77 first 874 / median 719 ms, .NET 10 first 845 / median 807 ms.
 - Unproven: Windows 10 consumer editions (22H2 Home/Pro) are off .NET 10's official OS list; very likely run, not tested.
+
+## 2026-11-02 - Other players' cosmetics never showed on busy servers
+- Cause: D1 refuses a statement with >100 bound values. `/v1/players/equipped` with the mod's full 100-player batch bound 101 (membersAmong, inGameAmong: list + `now`) -> HTTP 500; the mod retries the same 100 together every 60 s, forever. Live proof: 98/99 players 200, 100 players 500. Own cosmetics use the one-player GET, so they kept working.
+- Fix (service only, no release): `rowsIn()` in services/cosmetics/src/common.js slices IN-lists at 90. test/d1.mjs now enforces D1's 100-value limit (node:sqlite allows far more, which is why tests never caught it); new 100-player test fails on the old code.
+- Render path proven fine on CI: a second player with real looked-up cosmetics renders on 1.21.1 (branch claude/remote-cosmetics dev-shots probe, not merged).
