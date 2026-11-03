@@ -105,6 +105,13 @@ public sealed class UpdateGate
         return VerifyFailed(version, nowUtc);
     }
 
+    /// <summary>
+    /// The last start quit to swap in this version and is still older (Core/Updates/SwapAttempt): the swap failed after
+    /// the launcher was gone. It already cost a download and a restart, and a "click to retry" would repeat exactly
+    /// that, so it releases Play at once with the same quiet back-off as a failed check. Always returns true.
+    /// </summary>
+    public bool SwapFailed(Version version, DateTime nowUtc) => VerifyFailed(version, nowUtc);
+
     /// <summary>The integrity check (or the quiet fetch) failed: ungate it and back off. Always returns true.</summary>
     public bool VerifyFailed(Version version, DateTime nowUtc)
     {

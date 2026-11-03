@@ -105,6 +105,10 @@ public static partial class OriginPaths
     // extracted release and apply-update.cmd.
     public static string Updates => Path.Combine(Root, "updates");
 
+    // "This launcher quit to swap in version X" (Core/Updates/SwapAttempt): read by the next start, so a swap that
+    // failed after the quit can never gate Play again and again.
+    public static string UpdateSwapMarker => Path.Combine(Updates, "swap-attempted.txt");
+
     // Java runtimes Origin provisions itself (Core/Runtime): one folder per pinned
     // build, e.g. runtimes/temurin-8u504-b01/bin/javaw.exe. Per-user, no admin.
     public static string Runtimes => Path.Combine(Root, "runtimes");

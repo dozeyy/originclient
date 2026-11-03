@@ -91,9 +91,10 @@ public static partial class UpdateService
     /// </summary>
     public static async Task CheckAsync()
     {
-        // Once per process, off the UI thread, before any download of this run can start.
+        // Once per process, off the UI thread, before any download of this run can start and before the
+        // feed is first evaluated (so a failed swap is counted before anything can be offered again).
         if (Interlocked.Exchange(ref _startupCleaned, 1) == 0)
-            await Task.Run(() => CleanStaleDownloads(null)).ConfigureAwait(false);
+            await Task.Run(() => { CheckLastSwap(); CleanStaleDownloads(null); }).ConfigureAwait(false);
 
         try
         {
@@ -178,6 +179,27 @@ public static partial class UpdateService
     }
 
     private static int _startupCleaned;
+
+    // Did the swap the last start quit for take effect (Core/Updates/SwapAttempt)? Still older = it failed after
+    // the quit: release Play now, retry quietly later.
+    private static void CheckLastSwap()
+    {
+        var outcome = SwapAttempt.Check(OriginPaths.UpdateSwapMarker, CurrentVersion, out var attempted);
+        if (outcome == SwapAttempt.Outcome.Failed && attempted != null)
+        {
+            lock (Gate)
+            {
+                Gate.SwapFailed(attempted, DateTime.UtcNow);
+                // A check that raced ahead of this one may already have offered it: take that offer back too.
+                if (Available != null && UpdateGate.Normalize(Available.Version) <= UpdateGate.Normalize(attempted)) Available = null;
+            }
+            Log($"update {attempted}: the swap after the last restart did not take effect (still {CurrentVersion}); Play stays open, retrying quietly later");
+        }
+        else if (outcome == SwapAttempt.Outcome.Applied)
+        {
+            Log($"update: now running {CurrentVersion}");
+        }
+    }
 
     // Quiet retry after a failed check (see UpdateGate): download + verify with no UI, publish only on success.
     // Any failure just extends the back-off; nothing is shown and Play is never touched.
@@ -288,8 +310,20 @@ public static partial class UpdateService
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
         await UpdateRunState.PrepareToRestartAsync(() => progress?.Report(new UpdateProgress(UpdateStage.FinishingImport, 0, null)));
 
+        // Remembered before the swap can start: if it fails after this process is gone, the next start knows
+        // (SwapAttempt) and opens Play instead of gating it on the same update again.
+        var marker = OriginPaths.UpdateSwapMarker;
+        SwapAttempt.Record(marker, update.Version);
         // The OS file writes and starts the swap script, which waits for this process to exit.
-        StartApplyScript(stageDir, updatesRoot);
+        try
+        {
+            StartApplyScript(stageDir, updatesRoot);
+        }
+        catch
+        {
+            SwapAttempt.Clear(marker); // no swap was started: this is an ordinary failure of this run
+            throw;
+        }
         progress?.Report(new UpdateProgress(UpdateStage.Restarting, 0, null));
         markRestarting();
         ShutdownApp();

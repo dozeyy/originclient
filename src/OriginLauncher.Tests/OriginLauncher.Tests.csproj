@@ -142,6 +142,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateVerifier.cs" LinkBase="Updates" />
     <!-- The mandatory-update gate's state machine: a failed check never blocks play, retries quietly (pure; the clock is a parameter). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateGate.cs" LinkBase="Updates" />
+    <!-- "Quit to swap in X" remembered across the restart, so a swap that failed after the quit never gates Play forever. -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\SwapAttempt.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- Settings: which rail item is lit, and who may see the Developer switch (both pure). -->
