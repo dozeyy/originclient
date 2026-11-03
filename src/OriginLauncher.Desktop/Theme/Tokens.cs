@@ -207,6 +207,7 @@ public static class Sizes
     public const double FixListMaxH = 232;
     /// <summary>Home's status line: at most this wide, 16 px lines (Size.StatusWidth / Size.StatusLine).</summary>
     public const double StatusWidth = 400, StatusLine = 16;
+    public const double TileSm = 28;   // mod squares / emblem picker tiles; mod icon wells / profile emblems
 }
 
 /// <summary>Motion (section 9). Reduced motion (and render runs) set Off: every duration is 0.</summary>
