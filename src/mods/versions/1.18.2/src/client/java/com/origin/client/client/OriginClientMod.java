@@ -19,6 +19,9 @@ public class OriginClientMod implements ClientModInitializer {
 	public static final OriginFeatures FEATURES = OriginConfig.load();
 
 	private boolean freelookWasDown = false;
+	/** True while sneakKeyDown() reads the real Sneak key through isDown() (mouse binds),
+	 *  so keyHeldByToggle() can't answer for it and the toggle never feeds itself. */
+	private static boolean readingRealSneakKey = false;
 	private net.minecraft.client.CameraType savedPerspective = null;
 	// static: OptionsSaveMixin reads them around every options.txt write (chatOptionsForSave)
 	private static boolean chatApplied = false;
@@ -410,33 +413,41 @@ public class OriginClientMod implements ClientModInitializer {
 	 * copied to the other. On the first tick Controls wins, unless Controls has
 	 * no key there (Freelook's Controls entry started unbound) -- then the mod
 	 * menu's key is copied into Controls. A mouse button set in Controls works
-	 * through the Controls entry (the mod menu only holds keyboard keys).
+	 * through the Controls entry (the mod menu only holds keyboard keys, so it
+	 * shows None), and a key picked in the mod menu then replaces it.
 	 */
 	private boolean syncedKeyDown(Minecraft client, KeyLink link, net.minecraft.client.KeyMapping mapping,
 			String modId, String option) {
 		InputConstants.Key bound = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mapping);
-		if (bound.getType() == InputConstants.Type.MOUSE) {
-			return mapping.isDown();
-		}
-		int mc = bound.getValue();
+		// A mouse button in Controls takes part in the sync as "no keyboard key" (-1)
+		// instead of skipping it: a rebind in the mod menu used to be silently ignored
+		// while Controls held a mouse button (1.21.1's syncKey pushes it).
+		boolean mouse = bound.getType() == InputConstants.Type.MOUSE;
+		int mc = mouse ? -1 : bound.getValue();
 		int ours = Mods.keyCode(modId, option);
 		if (!link.init) {
 			link.init = true;
-			if (mc <= 0 && ours > 0) {
+			if (mouse) {
+				if (ours > 0) {
+					Mods.set(modId, option, -1);          // Controls' mouse button wins; the menu shows None
+				}
+				ours = -1;
+			} else if (mc <= 0 && ours > 0) {
 				mc = pushKey(client, mapping, ours);
 			} else if (ours != mc) {
 				Mods.set(modId, option, mc);
 				ours = mc;
 			}
-		} else if (ours != link.lastOurs && ours != mc) {
-			mc = pushKey(client, mapping, ours);          // rebound in the mod menu
+		} else if (ours != link.lastOurs && (mouse || ours != mc)) {
+			mc = pushKey(client, mapping, ours);          // rebound in the mod menu (replaces a mouse bind too)
+			mouse = false;
 		} else if (mc != link.lastMc && mc != ours) {
-			Mods.set(modId, option, mc);                  // rebound in Controls
+			Mods.set(modId, option, mc);                  // rebound in Controls (a mouse button shows as None)
 			ours = mc;
 		}
 		link.lastOurs = ours;
 		link.lastMc = mc;
-		return isRawKeyDown(ours);
+		return mouse ? mapping.isDown() : isRawKeyDown(ours);
 	}
 
 	private static int pushKey(Minecraft client, net.minecraft.client.KeyMapping mapping, int key) {
@@ -477,7 +488,7 @@ public class OriginClientMod implements ClientModInitializer {
 	 * Now the Sneak key reads as held and vanilla sneaks (client and server) itself.
 	 */
 	public static boolean keyHeldByToggle(net.minecraft.client.KeyMapping key) {
-		if (!FEATURES.sprintToggledOn && !FEATURES.sneakToggledOn) {
+		if ((!FEATURES.sprintToggledOn && !FEATURES.sneakToggledOn) || readingRealSneakKey) {
 			return false;
 		}
 		Minecraft mc = Minecraft.getInstance();
@@ -497,6 +508,27 @@ public class OriginClientMod implements ClientModInitializer {
 			return FEATURES.sneakToggledOn && Mods.bool("togglesprint", "sneak");
 		}
 		return false;
+	}
+
+	/** Physical state of the player's Sneak key (Controls' "Sneak"), read raw so
+	 *  vanilla's own Sneak: Toggle option and key clashes can't hide a press. A
+	 *  mouse-button bind can't go through glfwGetKey (0-7 are not key codes: GLFW
+	 *  logs "Invalid key" and the toggle never fires), so it reads the mapping. */
+	private static boolean sneakKeyDown(Minecraft client) {
+		try {
+			InputConstants.Key bound = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(client.options.keyShift);
+			if (bound.getType() == InputConstants.Type.MOUSE) {
+				readingRealSneakKey = true;   // the player's own press, not the toggle's "held"
+				try {
+					return client.options.keyShift.isDown();
+				} finally {
+					readingRealSneakKey = false;
+				}
+			}
+			return isRawKeyDown(bound.getValue());
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** Dev-only boot-smoke marker (env ORIGIN_SMOKE, set by tools/boot-smoke/smoke.py): pending until the title screen is first up. */
@@ -528,14 +560,13 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 
-		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
-		// your XYZ on the clipboard, in any world. It used to need the Coordinates
-		// HUD switched on too, so the key silently did nothing for most players;
-		// only the Coordinates card's own "Copy Coords To Clipboard" switch (on by
-		// default) can turn it off.
+		// Copy Coordinates: press the (unbound-by-default) key to drop your XYZ on
+		// the clipboard -- any time you're in a world, Coordinates HUD on or off
+		// (same as 1.21.1; the card's old "Copy Coords To Clipboard" switch is gone,
+		// an old config's copyClipboard value is simply no longer read).
 		while (OriginKeyBindings.copyCoords.consumeClick()) {
 			LocalPlayer p = client.player;
-			if (p != null && Mods.bool("coords", "copyClipboard")) {
+			if (p != null) {
 				String c = p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " + p.blockPosition().getZ();
 				client.keyboardHandler.setClipboard(c);
 				p.displayClientMessage(new net.minecraft.network.chat.TextComponent("Copied coordinates: " + c), true);
@@ -760,9 +791,12 @@ public class OriginClientMod implements ClientModInitializer {
 		// dropdown used to be read by nothing, so Hold behaved as Toggle.
 		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
-			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Read the key every tick, screens included: closing one with the key still held
+			// must not count as a new press (Shift-click in the inventory, then E).
+			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean custom = client.screen == null && raw;
 			boolean edge = custom && !sprintKeyWasDown;
-			sprintKeyWasDown = custom;
+			sprintKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sprintToggledOn = custom;
 			} else if (edge) {
@@ -780,10 +814,12 @@ public class OriginClientMod implements ClientModInitializer {
 			// Toggle Sneak rides the player's own Sneak key (Controls), not the
 			// Sprint key: sharing that one key made one press start sprint AND
 			// crouch, and the crouch then ended the sprint.
-			boolean custom = client.screen == null && isRawKeyDown(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
-					.getBoundKeyOf(client.options.keyShift).getValue());
+			// Read the key every tick, screens included: closing one with the key still held
+			// must not count as a new press (Shift-click in the inventory, then E).
+			boolean raw = sneakKeyDown(client);
+			boolean custom = client.screen == null && raw;
 			boolean edge = custom && !sneakKeyWasDown;
-			sneakKeyWasDown = custom;
+			sneakKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sneakToggledOn = custom;
 			} else if (edge) {

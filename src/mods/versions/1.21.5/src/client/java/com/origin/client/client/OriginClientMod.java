@@ -339,9 +339,12 @@ public class OriginClientMod implements ClientModInitializer {
 		// dropdown used to be read by nothing, so Hold behaved as Toggle.
 		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
-			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Read the key every tick, screens included: closing one with the key still held
+			// must not count as a new press (Shift-click in the inventory, then E).
+			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean custom = client.screen == null && raw;
 			boolean edge = custom && !sprintKeyWasDown;
-			sprintKeyWasDown = custom;
+			sprintKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sprintToggledOn = custom;
 			} else if (edge) {
@@ -356,9 +359,12 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
-			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Read the key every tick, screens included: closing one with the key still held
+			// must not count as a new press (Shift-click in the inventory, then E).
+			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean custom = client.screen == null && raw;
 			boolean edge = custom && !sneakKeyWasDown;
-			sneakKeyWasDown = custom;
+			sneakKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sneakToggledOn = custom;
 			} else if (edge) {

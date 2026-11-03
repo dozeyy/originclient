@@ -313,14 +313,13 @@ public class OriginClientMod {
 		// 1.8.9: Right Shift (OriginKeyBindings.openModMenu) is consumed by the
 		// modmenu area's ModMenuHooks, which opens the HUD editor screen.
 
-		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
-		// your XYZ on the clipboard, in any world. It used to need the Coordinates
-		// HUD switched on too, so the key silently did nothing for most players;
-		// only the Coordinates card's own "Copy Coords To Clipboard" switch (on by
-		// default) can turn it off.
+		// Copy Coordinates: press the (unbound-by-default) key to drop your XYZ on
+		// the clipboard -- any time you're in a world, Coordinates HUD on or off
+		// (same as 1.21.1; the card's old "Copy Coords To Clipboard" switch is gone,
+		// an old config's copyClipboard value is simply no longer read).
 		while (OriginKeyBindings.copyCoords.isPressed()) {
 			EntityPlayerSP p = client.thePlayer;
-			if (p != null && Mods.bool("coords", "copyClipboard")) {
+			if (p != null) {
 				String c = MathHelper.floor_double(p.posX) + ", " + MathHelper.floor_double(p.posY) + ", "
 						+ MathHelper.floor_double(p.posZ);
 				GuiScreen.setClipboardString(c);
@@ -454,9 +453,12 @@ public class OriginClientMod {
 		boolean toggleMod = Mods.on("togglesprint");
 		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
-			boolean custom = client.currentScreen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			// Read the key every tick, screens included: closing one with the key still held
+			// must not count as a new press (Shift-click in the inventory, then E).
+			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean custom = client.currentScreen == null && raw;
 			boolean edge = custom && !sprintKeyWasDown;
-			sprintKeyWasDown = custom;
+			sprintKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sprintToggledOn = custom;
 			} else if (edge) {
@@ -471,9 +473,12 @@ public class OriginClientMod {
 			// Sprint key: sharing that one key made one press start sprint AND
 			// crouch, and the crouch then ended the sprint. Read raw, so the
 			// toggle's own "held" answer (KeyBindingMixin) never feeds back in.
-			boolean custom = client.currentScreen == null && isRawKeyDown(client.gameSettings.keyBindSneak.getKeyCode());
+			// Read the key every tick, screens included: closing one with the key still held
+			// must not count as a new press (Shift-click in the inventory, then E).
+			boolean raw = isRawKeyDown(client.gameSettings.keyBindSneak.getKeyCode());
+			boolean custom = client.currentScreen == null && raw;
 			boolean edge = custom && !sneakKeyWasDown;
-			sneakKeyWasDown = custom;
+			sneakKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sneakToggledOn = custom;
 			} else if (edge) {

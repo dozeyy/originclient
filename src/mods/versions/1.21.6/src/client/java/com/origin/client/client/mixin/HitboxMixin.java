@@ -121,8 +121,8 @@ public class HitboxMixin {
 			ci.cancel();
 			return;
 		}
-		com.origin.client.client.render.HitboxFacts facts = com.origin.client.client.render.HitboxFacts.of(state);
-		String category = facts != null ? facts.category : categoryKey(state.entityType);
+		com.origin.client.client.render.HitboxFactsState facts = com.origin.client.client.render.HitboxFacts.of(state);
+		String category = facts != null ? facts.origin$hitboxCategory() : categoryKey(state.entityType);
 		if (!Mods.bool("hitboxes", category)) {
 			ci.cancel();
 			return;
@@ -134,10 +134,10 @@ public class HitboxMixin {
 		// Tints, as on 1.21.1: item entities are immune (you can't attack a
 		// dropped item); the crosshair tint wins over the damage tint.
 		if (facts != null && !"items".equals(category)) {
-			if (facts.damaged && Mods.bool("hitboxes", "showDamaged")) {
+			if (facts.origin$hitboxDamaged() && Mods.bool("hitboxes", "showDamaged")) {
 				col = OriginColorPicker.liveColor("hitboxes", "damagedColor");
 			}
-			if (facts.hittable && Mods.bool("hitboxes", "showHittable")) {
+			if (facts.origin$hitboxHittable() && Mods.bool("hitboxes", "showHittable")) {
 				col = OriginColorPicker.liveColor("hitboxes", "hittableColor");
 			}
 		}
@@ -179,7 +179,7 @@ public class HitboxMixin {
 		// Look line, as on 1.21.1: from the eyes, 2 blocks along the view vector
 		// vanilla stored in the state, box colour and pattern. Never your own
 		// (it only ever shows as an Iris shadow).
-		if (facts != null && !facts.self && Mods.bool("hitboxes", "showLookVector")) {
+		if (facts != null && !facts.origin$hitboxSelf() && Mods.bool("hitboxes", "showLookVector")) {
 			double eye = state.eyeHeight;
 			patternLine(consumer, pose, 0, eye, 0, hitboxes.viewX() * 2, eye + hitboxes.viewY() * 2,
 					hitboxes.viewZ() * 2, fr, fg, fb, fa, pattern);

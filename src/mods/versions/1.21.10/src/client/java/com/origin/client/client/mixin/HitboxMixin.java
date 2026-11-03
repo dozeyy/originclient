@@ -62,8 +62,8 @@ public class HitboxMixin {
 			if (max > 0 && state.distanceToCameraSq > max * max) {
 				continue;
 			}
-			com.origin.client.client.render.HitboxFacts facts = com.origin.client.client.render.HitboxFacts.of(state);
-			String category = facts != null ? facts.category : categoryKey(state.entityType);
+			com.origin.client.client.render.HitboxFactsState facts = com.origin.client.client.render.HitboxFacts.of(state);
+			String category = facts != null ? facts.origin$hitboxCategory() : categoryKey(state.entityType);
 			if (!Mods.bool("hitboxes", category)) {
 				continue;
 			}
@@ -72,10 +72,10 @@ public class HitboxMixin {
 			float er = fr, eg = fg, eb = fb, ea = fa;
 			if (facts != null && !"items".equals(category)) {
 				int tint = 0;
-				if (facts.damaged && Mods.bool("hitboxes", "showDamaged")) {
+				if (facts.origin$hitboxDamaged() && Mods.bool("hitboxes", "showDamaged")) {
 					tint = OriginColorPicker.liveColor("hitboxes", "damagedColor");
 				}
-				if (facts.hittable && Mods.bool("hitboxes", "showHittable")) {
+				if (facts.origin$hitboxHittable() && Mods.bool("hitboxes", "showHittable")) {
 					tint = OriginColorPicker.liveColor("hitboxes", "hittableColor");
 				}
 				if (tint != 0) {
@@ -122,7 +122,7 @@ public class HitboxMixin {
 			// Look line, as on 1.21.1: from the eyes, 2 blocks along the view
 			// vector vanilla stored in the state, box colour and pattern. Never
 			// your own (it only ever shows as an Iris shadow).
-			if (facts != null && !facts.self && Mods.bool("hitboxes", "showLookVector")) {
+			if (facts != null && !facts.origin$hitboxSelf() && Mods.bool("hitboxes", "showLookVector")) {
 				var hs = submit.hitboxesRenderState();
 				double eye = state.eyeHeight;
 				patternSegments(0, eye, 0, hs.viewX() * 2, eye + hs.viewY() * 2, hs.viewZ() * 2, pattern,

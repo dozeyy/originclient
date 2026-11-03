@@ -235,7 +235,6 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showWhileTyping", "Show While Typing", true),
 				ModOption.toggle("showBackground", "Show Background", true),
-				ModOption.toggle("copyClipboard", "Copy Coords To Clipboard", true),
 				ModOption.toggle("decimal", "Decimal Coordinates", false),
 				ModOption.header("Color"),
 				ModOption.color("bgColor", "Background Color", 0x00000000),

@@ -42,6 +42,7 @@
 		"LevelTimeMixin",
 		"HitboxMixin",
 		"HitboxFactsMixin",
+		"EntityRenderStateHitboxMixin",
 		"EntityNametagMixin",
 		"NametagStyleMixin",
 		"ItemEntityScaleMixin",
