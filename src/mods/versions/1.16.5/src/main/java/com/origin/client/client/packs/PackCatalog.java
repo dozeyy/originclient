@@ -18,7 +18,8 @@ import java.util.concurrent.Executors;
 // The Browse tab's live result list: one query at a time, fetched a page at a
 // time from Modrinth search on ONE background thread (so the hub can never
 // burst past Modrinth's 300 requests/minute), merged without duplicate
-// projects. The render thread only reads snapshot().
+// projects, with re-uploaded copies of one pack collapsed into its original
+// (PackDedupe). The render thread only reads snapshot().
 //
 // Caching, so reopening the hub or flipping filters back is instant and the hub
 // still works offline:
@@ -35,7 +36,9 @@ public final class PackCatalog {
 
 	/**
 	 * What the screen draws. error != null = the last page failed (retry() tries again);
-	 * cached = at least one page came from the offline disk cache.
+	 * cached = at least one page came from the offline disk cache; hits are the
+	 * results with re-uploaded copies collapsed (PackDedupe) and hidden = how many
+	 * copies that removed.
 	 */
 	public static final class Snapshot {
 		private final List<ModrinthPacks.Hit> hits;
@@ -44,14 +47,17 @@ public final class PackCatalog {
 		private final boolean done;
 		private final String error;
 		private final boolean cached;
+		private final int hidden;
 
-		public Snapshot(List<ModrinthPacks.Hit> hits, int total, boolean loading, boolean done, String error, boolean cached) {
+		public Snapshot(List<ModrinthPacks.Hit> hits, int total, boolean loading, boolean done, String error, boolean cached,
+				int hidden) {
 			this.hits = hits;
 			this.total = total;
 			this.loading = loading;
 			this.done = done;
 			this.error = error;
 			this.cached = cached;
+			this.hidden = hidden;
 		}
 
 		public List<ModrinthPacks.Hit> hits() {
@@ -78,6 +84,10 @@ public final class PackCatalog {
 			return cached;
 		}
 
+		public int hidden() {
+			return hidden;
+		}
+
 		@Override
 		public boolean equals(Object o) {
 			if (this == o) {
@@ -92,12 +102,13 @@ public final class PackCatalog {
 					&& loading == x.loading
 					&& done == x.done
 					&& java.util.Objects.equals(error, x.error)
-					&& cached == x.cached;
+					&& cached == x.cached
+					&& hidden == x.hidden;
 		}
 
 		@Override
 		public int hashCode() {
-			return java.util.Arrays.hashCode(new Object[] {hits, total, loading, done, error, cached});
+			return java.util.Arrays.hashCode(new Object[] {hits, total, loading, done, error, cached, hidden});
 		}
 	}
 
@@ -159,7 +170,7 @@ public final class PackCatalog {
 	private int total = -1;
 	private boolean loading = false, cached = false;
 	private String error = null;
-	private volatile Snapshot snapshot = new Snapshot(java.util.Collections.emptyList(), -1, false, false, null, false);
+	private volatile Snapshot snapshot = new Snapshot(java.util.Collections.<ModrinthPacks.Hit>emptyList(), -1, false, false, null, false, 0);
 
 	public PackCatalog(Path cacheDir, String gameVersion) {
 		this.cacheDir = cacheDir;
@@ -282,8 +293,20 @@ public final class PackCatalog {
 		}
 	}
 
+	// The copy filter's inputs from the built-in picks (fixed for the jar's life).
+	private static final Set<String> ORIGINALS = PackPicks.originals(), COPIES = PackPicks.copies();
+	private static final Map<String, String> PICK_TITLES = PackPicks.titleOwners();
+	// last copy-filter result, reused while the raw list hasn't grown (hits only grow, or clear to 0)
+	private PackDedupe.Result shown = PackDedupe.collapse(new ArrayList<ModrinthPacks.Hit>());
+	private int shownFor = 0;
+
 	private void publish() {
-		snapshot = new Snapshot(PackFiles.copyOf(hits), total, loading, isDone(), error, cached);
+		// paging (offsets, done) runs on the RAW list; only what the player sees is collapsed
+		if (hits.size() != shownFor) {
+			shown = PackDedupe.collapse(hits, ORIGINALS, COPIES, PICK_TITLES);
+			shownFor = hits.size();
+		}
+		snapshot = new Snapshot(shown.hits, total, loading, isDone(), error, cached, shown.hidden);
 	}
 
 	@Override

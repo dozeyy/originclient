@@ -84,7 +84,10 @@ def jstr(s):
 def java_table(data):
     rows = []
     for p in data["picks"]:
-        assert p["versions"] != ["auto"], p["id"] + ": versions still 'auto' - copy them from a verify run"
+        if p["versions"] == ["auto"]:
+            # not verified yet: a pick ships only once a CI verify run has listed its versions
+            print("skipped (versions still 'auto' - fold in a verify run):", p["id"])
+            continue
         st = ", ".join(p["styles"])
         vers = jstr(" ".join(p["versions"]))
         common = [jstr(p["id"]), jstr(p["title"]), jstr(p["author"]), jstr(p["about"]), jstr(p.get("res", "")),

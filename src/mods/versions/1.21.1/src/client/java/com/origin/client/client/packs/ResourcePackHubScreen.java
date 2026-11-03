@@ -34,7 +34,7 @@ import static com.origin.client.client.gui.OriginDeck.*;
 //              styles for THIS game version (PackPicks, built into the jar),
 //              style chips; each installs from the creator's own source or
 //              opens the creator's page (see PackPicks for which and why).
-//   Browse     live Modrinth search (re-uploaded copies collapsed: PackDedupe) for THIS game version: search, sort,
+//   Browse     live Modrinth search for THIS game version (copies collapsed: PackDedupe): search, sort,
 //              resolution, categories, infinite scroll, install with progress +
 //              cancel, then Enable.
 //   Installed  everything in resourcepacks/: on/off, order (top wins), updates,
@@ -496,31 +496,27 @@ public class ResourcePackHubScreen extends OriginWindow {
 		PackInstaller.State st = PackHub.installer().state(key);
 		String file = st.status() == PackInstaller.Status.DONE && st.fileName() != null && !removals.contains(st.fileName())
 				? st.fileName() : installedFile(key);
-		switch (st.status()) {
-			case WORKING -> drawProgress(d, key, st, bx, by, CTRL_W);
-			case ERROR -> {
-				boolean changed = changedPage != null && PackInstaller.CHANGED.equals(st.message());
-				boolean hov = d.over(bx, by, CTRL_W, CTRL_H);
-				d.rect(bx, by, CTRL_W, CTRL_H, 6, RED_SOFT);
-				String t = hov ? (changed ? "OPEN PAGE" : "TRY AGAIN")
-						: d.fit(st.message().toUpperCase(Locale.ROOT), CTRL_W - 16, 10, true, 1.2f);
-				d.textCenter(t, bx + CTRL_W / 2, by + CTRL_H / 2, 10, true, hov ? CAPS_TRACK : 1.2f, RED);
-				d.hit(bx, by, CTRL_W, CTRL_H, () -> {
-					if (changed) {
-						openLink(changedPage);
-					} else {
-						PackHub.installer().clear(key);
-						start.run();
-					}
-				});
-			}
-			default -> {
-				if (file != null) {
-					drawEnableControl(d, file, bx, by, CTRL_W);
+		if (st.status() == PackInstaller.Status.WORKING) {
+			drawProgress(d, key, st, bx, by, CTRL_W);
+		} else if (st.status() == PackInstaller.Status.ERROR) {
+			boolean changed = changedPage != null && PackInstaller.CHANGED.equals(st.message());
+			boolean hov = d.over(bx, by, CTRL_W, CTRL_H);
+			d.rect(bx, by, CTRL_W, CTRL_H, 6, RED_SOFT);
+			String t = hov ? (changed ? "OPEN PAGE" : "TRY AGAIN")
+					: d.fit(st.message().toUpperCase(Locale.ROOT), CTRL_W - 16, 10, true, 1.2f);
+			d.textCenter(t, bx + CTRL_W / 2, by + CTRL_H / 2, 10, true, hov ? CAPS_TRACK : 1.2f, RED);
+			d.hit(bx, by, CTRL_W, CTRL_H, () -> {
+				if (changed) {
+					openLink(changedPage);
 				} else {
-					button(d, "Install", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true, start);
+					PackHub.installer().clear(key);
+					start.run();
 				}
-			}
+			});
+		} else if (file != null) {
+			drawEnableControl(d, file, bx, by, CTRL_W);
+		} else {
+			button(d, "Install", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true, start);
 		}
 	}
 

@@ -51,6 +51,8 @@ public final class OriginDevShots {
 		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS,
 		// every other Origin window (the 2026-10-12 restyle onto gui/OriginWindow)
 		FPSCOACH, WAYPOINTS, ITEMSIZE, ITEMCOUNTER, QUICKPLAY, SHADERS,
+		// the Resource Pack Hub: Picks (its first view), then live Browse (re-uploaded copies collapsed)
+		PACKS, PACKS_BROWSE,
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
 		// Friends (social/SocialDemo fills it): a chat, then the party
@@ -120,6 +122,8 @@ public final class OriginDevShots {
 				case ITEMCOUNTER -> new com.origin.client.client.gui.ItemCounterPickerScreen();
 				case QUICKPLAY -> new com.origin.client.client.gui.QuickplayScreen();
 				case SHADERS -> new com.origin.client.client.shaders.ShaderBrowserScreen(null);
+				case PACKS -> new com.origin.client.client.packs.ResourcePackHubScreen(null);
+				case PACKS_BROWSE -> new com.origin.client.client.packs.ResourcePackHubScreen(null).devTab("browse");
 				case MENU_CLEAR -> new OriginModMenuScreen().preview(false, false);
 				case STEP_CARD -> new OriginModMenuScreen().preview(false, false).withSearch(stepSearch());
 				case STEP_ROW -> new OriginModMenuScreen().preview(true, false).withSearch(stepSearch());
@@ -764,6 +768,9 @@ public final class OriginDevShots {
 					if (s.kind() == Kind.SHADERS && waitForShaderPreviews(now)) {
 						return;
 					}
+					if ((s.kind() == Kind.PACKS || s.kind() == Kind.PACKS_BROWSE) && waitForPackHub(now)) {
+						return;
+					}
 					// Windows may apply a resize one message-loop later (especially
 					// immediately after changing GUI scale). Never label a capture with
 					// dimensions its framebuffer did not actually reach.
@@ -845,6 +852,33 @@ public final class OriginDevShots {
 	// which guarantees at least one frame rendered after the last upload.
 	private static long previewWaitFrom = 0;   // 0 = not waiting
 	private static boolean previewSettled = false;
+
+	private static long packWaitFrom = 0, packListedAt = 0;
+
+	/**
+	 * Resource Pack Hub shots: wait (at most 20 s) for the live Modrinth page the hub
+	 * loads on open, then 3 s more so the preview images arrive before the grab.
+	 */
+	private static boolean waitForPackHub(long now) {
+		if (packWaitFrom == 0) {
+			packWaitFrom = now;
+		}
+		com.origin.client.client.packs.PackCatalog.Snapshot snap = com.origin.client.client.packs.PackHub.catalog().snapshot();
+		boolean listed = !snap.hits().isEmpty() || snap.error() != null;
+		if (listed && packListedAt == 0) {
+			packListedAt = now;
+		}
+		boolean waiting = listed ? now - packListedAt < 3000 : now - packWaitFrom < 20000;
+		if (waiting) {
+			nextAt = now + 250;
+			return true;
+		}
+		com.origin.client.OriginClient.LOGGER.info("[dev-shots] waited {} ms for the pack hub: {} results, {} copies hidden{}",
+				now - packWaitFrom, snap.hits().size(), snap.hidden(), snap.error() == null ? "" : ", error " + snap.error());
+		packWaitFrom = 0;
+		packListedAt = 0;
+		return false;
+	}
 
 	private static boolean waitForShaderPreviews(long now) {
 		boolean loading = com.origin.client.client.shaders.ShaderPreviews.loading();
