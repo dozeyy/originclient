@@ -34,7 +34,8 @@ public enum TokenCheck
 /// <summary>Where an account's secrets live (the app: accounts.json, DPAPI-protected).</summary>
 public interface ISessionVault
 {
-    /// <summary>The account's Microsoft refresh token; null = unreadable or no such account (re-add it).</summary>
+    /// <summary>The account's Microsoft refresh token; null = unreadable or no such account (re-add it). Throws
+    /// MicrosoftAuthException (KeyStoreLockedStage) when the key store is locked: unlock it, the account is fine.</summary>
     string? RefreshToken(string accountId);
 
     /// <summary>The account's saved Minecraft session, if one was saved and can be read.</summary>

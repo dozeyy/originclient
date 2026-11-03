@@ -184,9 +184,28 @@ public static partial class AccountStore
     {
         try
         {
+            return ReadRefreshToken(protectedToken);
+        }
+        catch (KeyStoreLockedException)
+        {
+            return null;
+        }
+    }
+
+    // The sign-in's read (AccountSessionVault.RefreshToken): null like TryUnprotectRefreshToken for a blob that can't
+    // be opened, but a locked Linux keyring / Mac Keychain throws KeyStoreLockedException, so Play can say "unlock it"
+    // instead of "add this account again".
+    public static string? ReadRefreshToken(string protectedToken)
+    {
+        try
+        {
             var protectedBytes = Convert.FromBase64String(protectedToken);
             var bytes = UnprotectBytes(protectedBytes);
             return Encoding.UTF8.GetString(bytes);
+        }
+        catch (KeyStoreLockedException)
+        {
+            throw;
         }
         catch (CryptographicException)
         {

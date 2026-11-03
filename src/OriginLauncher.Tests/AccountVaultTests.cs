@@ -82,6 +82,40 @@ public sealed class AccountVaultTests : IDisposable
         Assert.Equal("rt-0", _vault.RefreshToken(pending));
     }
 
+    // A locked Linux keyring / Mac Keychain (or its dismissed unlock prompt) used to read as "no sign-in", so Play said
+    // "Your sign-in is no longer valid. Add this account again" when unlocking was the whole fix.
+    [Fact]
+    public void A_locked_key_store_tells_Play_to_unlock_it_not_to_re_add_the_account()
+    {
+        AccountStore.Save([Row(Alex, "rt-0")]);
+        AccountStore.UnprotectBytes = _ => throw new KeyStoreLockedException("The keyring is locked.");
+
+        var ex = Assert.Throws<MicrosoftAuthException>(() => _vault.RefreshToken(Alex));
+
+        Assert.Equal(MicrosoftAuthException.KeyStoreLockedStage, ex.Stage);
+        Assert.Equal(MicrosoftAuthException.KeyStoreLockedMessage(OperatingSystem.IsMacOS()), ex.Message);
+        Assert.Equal("The keyring is locked.", ex.Detail); // the store's own words only reach the error log
+        Assert.Null(_vault.SavedSession(Alex)); // the cached session is simply "none": the sign-in read says why
+        Assert.Single(AccountStore.Load()); // nothing about the row changed
+    }
+
+    [Fact]
+    public void A_blob_that_cannot_be_opened_is_still_no_sign_in()
+    {
+        AccountStore.Save([Row(Alex, "rt-0")]);
+        AccountStore.UnprotectBytes = _ => throw new System.Security.Cryptography.CryptographicException("wrong key");
+
+        Assert.Null(_vault.RefreshToken(Alex));
+        Assert.Null(AccountStore.TryUnprotectRefreshToken(AccountStore.Load()[0].ProtectedRefreshToken));
+    }
+
+    [Fact]
+    public void The_locked_message_names_each_OS_store_and_says_what_to_do()
+    {
+        Assert.Equal("Your keyring is locked: unlock it and press Play again.", MicrosoftAuthException.KeyStoreLockedMessage(mac: false));
+        Assert.Equal("Your Keychain is locked: unlock it and press Play again.", MicrosoftAuthException.KeyStoreLockedMessage(mac: true));
+    }
+
     [Fact]
     public void The_test_never_points_at_the_real_accounts_file()
     {

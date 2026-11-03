@@ -37,7 +37,9 @@ internal static class MacKeychain
             if (_cached != null) return (byte[])_cached.Clone();
             var (code, output, _) = Run(["find-generic-password", "-s", Service, "-a", Account, "-w"], stdin: null);
             if (code == NotFound) return null;
-            if (code != 0) throw new CryptographicException($"Keychain read failed (security exit {code}).");
+            // The item is there but wasn't given (locked, the unlock dialog dismissed or denied): Play says "unlock
+            // it" (KeyStoreLockedException), never "add this account again".
+            if (code != 0) throw new KeyStoreLockedException($"Keychain read failed (security exit {code}).");
             byte[] key;
             try { key = Convert.FromBase64String(output.Trim()); }
             catch (FormatException) { return null; }
@@ -120,7 +122,7 @@ internal static class MacKeychain
             {
                 // A Keychain unlock dialog nobody answers: give up rather than hang a sign-in.
                 try { p.Kill(); } catch (InvalidOperationException) { }
-                throw new CryptographicException("The Keychain did not answer.");
+                throw new KeyStoreLockedException("The Keychain did not answer.");
             }
             return (p.ExitCode, stdout.Result, stderr.Result);
         }

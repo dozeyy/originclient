@@ -98,6 +98,8 @@ public sealed class LinuxSeamTests : IDisposable
         var blob = AccountStore.ProtectBytes(Plain);
         blob[0] = LinuxKeyStore.KeyringKind;
         Assert.ThrowsAny<CryptographicException>(() => AccountStore.UnprotectBytes(blob));
+        // No keyring at all is not a LOCKED keyring: Play says sign in again here, never "unlock it".
+        Assert.IsNotType<KeyStoreLockedException>(Record.Exception(() => AccountStore.UnprotectBytes(blob)));
     }
 
     [Fact]
