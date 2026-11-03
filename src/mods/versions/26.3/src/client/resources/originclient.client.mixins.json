@@ -100,7 +100,15 @@
 		"SodiumViewportShadowMapMixin",
 		"SodiumRenderSectionManagerHooksMixin",
 		"SodiumChunkChangeMixin",
-		"SodiumSortedRenderListsAccessor"
+		"SodiumSortedRenderListsAccessor",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsItemStateAccessor",
+		"OldAnimationsItemLayerAccessor",
+		"OldAnimationsHandTickMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
