@@ -15,6 +15,7 @@ import net.minecraft.resources.ResourceLocation;
 public final class MotionBlur {
 	private static final ResourceLocation EFFECT =
 			new ResourceLocation("originclient", "shaders/post/motion_blur.json");
+	private static final String EFFECT_NAME = EFFECT.toString();
 
 	private static boolean loaded = false;
 	private static boolean broken = false;
@@ -28,10 +29,30 @@ public final class MotionBlur {
 		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
 		boolean want = amount >= 0.5;
 
+		// Vanilla empties the post-effect slot behind our back: F5 and spectating a mob
+		// (checkEntityPostEffect) and every resource reload (F3+T, a pack change, the startup
+		// reload). So the slot itself is the truth -- a field read and a String compare per
+		// tick -- and the blur is put back whenever it went missing.
+		if (loaded && !isOurs(mc)) {
+			loaded = false;
+		}
 		if (want != loaded) {
+			if (mc.getOverlay() != null) {
+				return;   // a resource reload is running; try again once it has finished
+			}
 			try {
 				if (want) {
+					if (mc.gameRenderer.currentEffect() != null) {
+						return;   // another post effect (spectating a creeper/spider/enderman) owns the slot: let it be
+					}
 					((GameRendererAccessor) mc.gameRenderer).originclient$loadEffect(EFFECT);
+					if (!isOurs(mc)) {
+						// loadEffect swallows a missing/bad shader (logs, leaves the slot empty):
+						// latch off instead of retrying (and logging) every tick.
+						broken = true;
+						com.origin.client.OriginClient.LOGGER.warn("Motion blur post chain did not load; feature disabled this session");
+						return;
+					}
 				} else {
 					mc.gameRenderer.shutdownEffect();
 				}
@@ -82,6 +103,16 @@ public final class MotionBlur {
 			}
 		} else {
 			lastNanos = 0;
+		}
+	}
+
+	/** True when the game's post-effect slot holds Origin's blur chain (PostChain name = its location). */
+	private static boolean isOurs(Minecraft mc) {
+		try {
+			net.minecraft.client.renderer.PostChain effect = mc.gameRenderer.currentEffect();
+			return effect != null && EFFECT_NAME.equals(effect.getName());
+		} catch (Throwable t) {
+			return false;
 		}
 	}
 }
