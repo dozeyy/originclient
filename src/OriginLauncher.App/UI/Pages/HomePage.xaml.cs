@@ -1434,7 +1434,7 @@ public partial class HomePage : UserControl
                     foreach (var jar in fix.Jars)
                     {
                         var result = Core.Compat.CrashRepair.DisableBlamed(game.Version,
-                            _profileByKey.GetValueOrDefault(game.Key), jar, Core.Mods.ModManager.IsOriginProvisioned);
+                            _profileByKey.GetValueOrDefault(game.Key), jar, Core.Mods.ModManager.IsManagedFile);
                         if (result.Outcome != Core.Compat.CrashRepairOutcome.Disabled) failed.Add(jar);
                     }
                     if (failed.Count > 0)

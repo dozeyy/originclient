@@ -57,7 +57,7 @@ public static class CrashAnalyzer
         foreach (var jar in jars)
         {
             var name = Path.GetFileName(jar);
-            var external = IsExternalJar(name);
+            var external = IsExternalJar(jar);
             try
             {
                 using var zip = ZipFile.OpenRead(jar);
@@ -86,11 +86,11 @@ public static class CrashAnalyzer
         return list;
     }
 
-    /// <summary>A jar the player added (not Origin's own, not the managed stack it installs). Matches what
-    /// Core/Compat/CrashRepair.DisableBlamed refuses to touch, so a fix is only ever offered for a jar it can turn off.</summary>
-    public static bool IsExternalJar(string jarFileName) =>
-        !Mods.ModManager.IsOriginProvisioned(jarFileName)
-        && !jarFileName.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase);
+    /// <summary>A jar the player added or may switch off: not one of Origin's own built-in jars, decided by the file
+    /// (name shape AND bytes, ModManager.IsManagedFile), so a player's own Sodium is theirs and Simple Voice Chat
+    /// can be turned off, as on the Mods page. The same rule CrashRepair.DisableBlamed is given, so a fix is only
+    /// ever offered for a jar it can turn off.</summary>
+    public static bool IsExternalJar(string jarPath) => !Mods.ModManager.IsManagedFile(jarPath);
 
     private static HashSet<string> CodePackages(ZipArchive zip) =>
         zip.Entries

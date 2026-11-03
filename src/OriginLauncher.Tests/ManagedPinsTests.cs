@@ -254,4 +254,26 @@ public sealed class ManagedPinsTests : IDisposable
         Assert.Equal(new[] { Path.GetFileName(api), Path.GetFileName(lookalike) }.OrderBy(n => n),
             set.Keys.OrderBy(n => n));
     }
+
+    // ---- the crash window's "turn this mod off" decides by the file, like the Mods page (bug run 3: LC-5) ----
+
+    [Fact]
+    public void Crash_repair_turns_off_a_players_own_sodium_and_voice_chat_but_never_origins_fabric_api()
+    {
+        var players = Jar("crash", "sodium-fabric-0.6.9+mc1.21.11.jar", Kit.FabricJar("sodium", "0.6.9+mc1.21.11"));
+        var voice = Jar("crash", "voicechat-fabric-1.21.1-2.6.0.jar", Kit.FabricJar("voicechat", "1.21.1-2.6.0"));
+        var api = Jar("crash", "fabric-api-0.90.0+1.21.1.jar", Kit.FabricJar("fabric-api", "0.90.0+1.21.1"));
+        OriginInstallRecord.AddFile(voice);
+        OriginInstallRecord.AddFile(api);
+        var folder = Path.GetDirectoryName(players)!;
+
+        Assert.True(OriginLauncher.App.Core.Launch.CrashAnalyzer.IsExternalJar(players));
+        Assert.True(OriginLauncher.App.Core.Launch.CrashAnalyzer.IsExternalJar(voice));
+        Assert.False(OriginLauncher.App.Core.Launch.CrashAnalyzer.IsExternalJar(api));
+
+        Assert.Equal(CrashRepairOutcome.Disabled, CrashRepair.DisableBlamed(folder, Path.GetFileName(players), ModManager.IsManagedFile).Outcome);
+        Assert.Equal(CrashRepairOutcome.Disabled, CrashRepair.DisableBlamed(folder, Path.GetFileName(voice), ModManager.IsManagedFile).Outcome);
+        Assert.Equal(CrashRepairOutcome.Protected, CrashRepair.DisableBlamed(folder, Path.GetFileName(api), ModManager.IsManagedFile).Outcome);
+        Assert.True(File.Exists(api));
+    }
 }

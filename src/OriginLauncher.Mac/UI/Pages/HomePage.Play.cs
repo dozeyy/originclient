@@ -810,7 +810,7 @@ public sealed partial class HomePage
                     foreach (var jar in fix.Jars)
                     {
                         var result = CrashRepair.DisableBlamed(game.Version,
-                            _profileByKey.GetValueOrDefault(game.Key), jar, global::OriginLauncher.App.Core.Mods.ModManager.IsOriginProvisioned);
+                            _profileByKey.GetValueOrDefault(game.Key), jar, global::OriginLauncher.App.Core.Mods.ModManager.IsManagedFile);
                         if (result.Outcome != CrashRepairOutcome.Disabled) failed.Add(jar);
                     }
                     if (failed.Count > 0)
