@@ -55,13 +55,13 @@ jobs:
           }
           {
             echo "### GameRenderer members"; javap -p -cp "$CP" net.minecraft.client.renderer.GameRenderer
-            echo "### GameRenderer.renderLevel"; meth net.minecraft.client.renderer.GameRenderer ' renderLevel\('
+            echo "### GameRenderer.renderLevel"; meth net.minecraft.client.renderer.GameRenderer ' renderLevel[(]'
             echo "### GameRenderer.renderItemInHand"; meth net.minecraft.client.renderer.GameRenderer 'renderItemInHand|submitItemInHand'
             echo "### LevelRenderer renderLevel sig"; javap -p -cp "$CP" net.minecraft.client.renderer.LevelRenderer | grep -E "renderLevel|addMainPass|submit|Pass\("
-            echo "### LevelRenderer.renderLevel"; meth net.minecraft.client.renderer.LevelRenderer ' renderLevel\('
+            echo "### LevelRenderer.renderLevel"; meth net.minecraft.client.renderer.LevelRenderer ' (renderLevel|render)[(]'
             echo "### LevelRenderer.addMainPass"; meth net.minecraft.client.renderer.LevelRenderer 'addMainPass'
             echo "### RenderSystem"; javap -p -cp "$CP" com.mojang.blaze3d.systems.RenderSystem | grep -iE "modelview|projection|outputcolor|outputdepth"
-            echo "### RenderType draw"; for c in net.minecraft.client.renderer.rendertype.RenderType net.minecraft.client.renderer.RenderType; do meth $c ' draw\('; done
+            echo "### RenderType draw"; for c in net.minecraft.client.renderer.rendertype.RenderType net.minecraft.client.renderer.RenderType; do meth $c ' draw[(]'; done
             echo "### MultiBufferSource"; javap -p -cp "$CP" 'net.minecraft.client.renderer.MultiBufferSource$BufferSource' 2>&1 | head -30
             echo "### RenderBuffers"; javap -p -cp "$CP" net.minecraft.client.renderer.RenderBuffers 2>&1 | head -20
             echo "### SubmitNodeStorage / Collector"; javap -p -cp "$CP" net.minecraft.client.renderer.SubmitNodeStorage 2>&1 | grep -iE "custom|clear|public" | head -20
@@ -69,7 +69,7 @@ jobs:
             echo "### FeatureRenderDispatcher.renderAllFeatures"; meth net.minecraft.client.renderer.feature.FeatureRenderDispatcher 'renderAllFeatures'
             echo "### CustomFeatureRenderer"; javap -p -c -cp "$CP" net.minecraft.client.renderer.feature.CustomFeatureRenderer 2>&1 | grep -E "^  [a-z]|invoke" | head -40
             echo "### TitleScreen"; javap -p -cp "$CP" net.minecraft.client.gui.screens.TitleScreen
-            echo "### TitleScreen.init/createNormalMenuOptions"; meth net.minecraft.client.gui.screens.TitleScreen 'init\(|createNormalMenuOptions|createDemoMenuOptions|realms|Realms'
+            echo "### TitleScreen.init/createNormalMenuOptions"; meth net.minecraft.client.gui.screens.TitleScreen 'init[(]|createNormalMenuOptions|createDemoMenuOptions|realms|Realms'
           } > "$out/mc.txt" 2>&1
           if [ -n "$FAB" ]; then
             unzip -l "$FAB" | grep -E "mixin/client/rendering/.*(Level|World|Game)Renderer.*Mixin" > "$out/fabric.txt"
