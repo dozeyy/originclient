@@ -124,7 +124,8 @@ public final class Waypoints {
 	}
 
 	/** This game's Minecraft version (this module only ever runs 1.8.9). */
-	private static String mcVersion() {
+	/** Shared with Portal Calc's memory, which keys singleplayer worlds the same way. */
+	public static String mcVersion() {
 		return "1.8.9";
 	}
 
