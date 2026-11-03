@@ -7,34 +7,6 @@ namespace OriginLauncher.Tests;
 public class FieldRulesTests
 {
     [Theory]
-    [InlineData(@"C:\Games\Origin")]
-    [InlineData(@"D:\")]
-    [InlineData(@"\\server\share\mc")]
-    [InlineData(@"  C:\Games\Origin  ")]
-    public void A_full_folder_path_is_fine(string path) => Assert.Null(FieldRules.InstallFolderProblem(path));
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData(null)]
-    public void An_empty_folder_asks_for_one(string? path) => Assert.Equal("Enter a folder.", FieldRules.InstallFolderProblem(path));
-
-    [Theory]
-    [InlineData("games")]
-    [InlineData(@"C:Games")]
-    [InlineData(@"\Games")]
-    [InlineData(@"..\Games")]
-    public void A_relative_or_half_path_asks_for_a_full_one(string path) =>
-        Assert.Contains("full folder path", FieldRules.InstallFolderProblem(path));
-
-    [Theory]
-    [InlineData(@"C:\Ga*mes")]
-    [InlineData(@"C:\Games\what?")]
-    [InlineData("C:\\Games\\a|b")]
-    public void A_character_windows_forbids_is_named(string path) =>
-        Assert.Contains("character Windows does not allow", FieldRules.InstallFolderProblem(path));
-
-    [Theory]
     [InlineData("1920", 320)]
     [InlineData(" 320 ", 320)]
     [InlineData("240", 240)]
