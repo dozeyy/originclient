@@ -222,6 +222,21 @@ and proves its files. Then one job adds all six to the release with
   the app's `--self-test` runs from it (it must name its own arch's zip and
   the stamped version); the zip is unpacked the way the self-update unpacks
   it and verified again.
+- **In the app:** the same top-bar Update chip and timing as Windows (check
+  on start, every 2 minutes, and on focus at most every 30 s; below 1100 px
+  wide it shrinks to the icon with a dot), the same click flow and
+  "Update failed - retry". A copy that can't replace itself where it sits
+  (opened from Downloads or the disk image, so macOS runs a translocated
+  copy, or a folder this Mac user can't write to) is never offered the
+  update and never gates Play: the chip says "Move to Applications" and a
+  click says why (`UpdateService.Blocked`).
+- **Self-update proof (mac-launcher.yml `update-proof`, both archs, every
+  Mac push):** a stamped build is offered a fake release served on the
+  runner's 127.0.0.1 (`tools/mac/update_proof.sh` + the app's
+  `--update-proof`): no SHA-256 and a wrong SHA-256 are refused,
+  translocated and unwritable copies are refused, and the good release
+  downloads, verifies, unpacks, swaps the bundle and issues the reopen
+  (stubbed), after which the swapped app's signature verifies and it starts.
 - **Rehearsal:** the six files land as a "rehearsal-release-mac" run
   artifact; nothing is published.
 - `check_consistency.py` fails CI if the zip names the Mac launcher looks for

@@ -61,6 +61,7 @@ public sealed partial class MainWindow : Window
         NavSettings.Click += (_, _) => ShowPage(LauncherPage.Settings);
         InitAccounts();
         HookImport(); // MainWindow.Import.cs: the Import page, its button, the first-run card, closing mid-import
+        HookUpdates(); // MainWindow.Update.cs: the update chip, the poll loop and the focus re-check
     }
 
     // ---- Toasts and the confirm dialog ----
@@ -139,6 +140,8 @@ public sealed partial class MainWindow : Window
         if (width <= 0 || tabs <= 0) return;
         var gap = this.ThemeDouble("Space.5");
         // The bar spans the whole Mac window, so its width is the window's (the window's own Bounds lagged a resize).
+        // The chip's own size change (when it shows or goes compact) runs this again with the new actions width.
+        if (width < UpdateChipMinWindow != _updateCompact) SetUpdateCompact(!_updateCompact);
         var wordmark = width >= WordmarkMinWindow;
         if (BarWordmark.IsVisible != wordmark)
         {

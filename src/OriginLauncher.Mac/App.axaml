@@ -7,10 +7,6 @@
     <!-- The Mac launcher's theme: Fluent supplies only the controls nothing here restyles; every Origin look comes from
          Theme/*.axaml, the Avalonia twins of the WPF Theme/*.xaml (same keys, same values; tools/mac/check_theme_parity.py
          lists any key the Mac is still missing). Order matters: a file may only use keys from the files above it. -->
-    <Application.Styles>
-        <FluentTheme/>
-    </Application.Styles>
-
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -26,6 +22,15 @@
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
+
+    <!-- After the resources, so the styles can use their keys. -->
+    <Application.Styles>
+        <FluentTheme/>
+        <!-- Every scroller wears Origin's capsule bar (Theme/Inputs.axaml ScrollBar.Minimal, the WPF one), never Fluent's. -->
+        <Style Selector="ScrollViewer /template/ ScrollBar">
+            <Setter Property="Theme" Value="{StaticResource ScrollBar.Minimal}"/>
+        </Style>
+    </Application.Styles>
 
     <!-- The app menu (the bold "Origin Launcher" menu). macOS adds Services, Hide, Hide Others, Show All and
          Quit (Cmd+Q) after these items on its own; this replaces the framework's default "About Avalonia". -->

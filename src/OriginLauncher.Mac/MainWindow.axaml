@@ -77,6 +77,32 @@
 
                 <StackPanel x:Name="BarActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
                             Margin="{StaticResource Margin.TopBarActions}">
+                    <!-- Update chip (DESIGN-SYSTEM 11.4, the WPF UpdateBadge): hidden until UpdateService finds a newer release;
+                         a click downloads it, swaps the app and reopens it (MainWindow.Update.cs). 1100 and wider: gold wash,
+                         gold download glyph + "Update". Below 1100: an icon button 32, the glyph in textDim with a gold dot at
+                         its top-right. It never hides at any width; a note (Updating..., Update failed - retry, Move to
+                         Applications) takes the label's place at every width. No hover label. -->
+                    <Button x:Name="UpdateBadge" Theme="{StaticResource Button.UpdateChip}"
+                            Margin="0,0,4,0" MinWidth="{StaticResource Size.ControlMd}" MinHeight="{StaticResource Size.ControlMd}"
+                            IsVisible="False"
+                            AutomationProperties.Name="Update ready: restart to install">
+                        <Panel>
+                            <StackPanel Orientation="Horizontal">
+                                <c:IconPath x:Name="UpdateGlyph" Data="{StaticResource Icon.Download}" Theme="{StaticResource Icon.Base}"
+                                            Stroke="{StaticResource Brush.Hue.Gold}"/>
+                                <TextBlock x:Name="UpdateLabel" Text="Update" Theme="{StaticResource Text.BodyStrong}"
+                                           VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{StaticResource Brush.Hue.Gold}"/>
+                                <TextBlock x:Name="UpdateNote" Theme="{StaticResource Text.Caption}" IsVisible="False"
+                                           VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{StaticResource Brush.Warning}"/>
+                            </StackPanel>
+                            <!-- Compact form only: the gold dot with a bg ring at the glyph's top-right. -->
+                            <Ellipse x:Name="UpdateDot" Width="{StaticResource Size.DotRinged}" Height="{StaticResource Size.DotRinged}"
+                                     Fill="{StaticResource Brush.Hue.Gold}" Stroke="{StaticResource Brush.Bg}"
+                                     StrokeThickness="{StaticResource Size.DotRing}"
+                                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="9,-5,0,0"
+                                     IsHitTestVisible="False" IsVisible="False"/>
+                        </Panel>
+                    </Button>
                     <!-- Store: a ghost control, gold bag and "Store". Under the fit rule the label goes. -->
                     <Button x:Name="StoreButton" Theme="{StaticResource Button.Chrome}"
                             Padding="8" Margin="0,0,4,0" MinHeight="{StaticResource Size.ControlMd}"

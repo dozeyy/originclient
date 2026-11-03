@@ -254,10 +254,6 @@
     </UserControl.Resources>
 
     <UserControl.Styles>
-        <!-- Every scroller on the page wears the thin always-there bar (WPF: the page's ScrollBar style). -->
-        <Style Selector="ScrollViewer /template/ ScrollBar">
-            <Setter Property="Theme" Value="{StaticResource ScrollBar.Minimal}"/>
-        </Style>
         <!-- The WPF templates' triggers, as classes the rows switch on. -->
         <Style Selector="c|IconPath.collapsed">
             <Setter Property="RenderTransform" Value="rotate(-90deg)"/>

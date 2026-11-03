@@ -33,8 +33,26 @@ public sealed class App : Application
     {
         // The headless render-shots run builds its own windows (UI/RenderShots.cs); only a real start opens one here.
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
             desktop.MainWindow = SignInProbe.Dir != null ? SignInProbe.Start(desktop) : new MainWindow();
+            OriginLauncher.App.Core.Updates.UpdateService.Shutdown = () => QuitForUpdate(desktop);
+        }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    // The self-update's quit (UpdateService.Mac.cs): the swap script waits for this process to be gone, so it must go.
+    // On the UI thread (the update's last step may resume on a pool thread), and a watchdog ends the process if anything
+    // held the app open, so the update always installs and the script always reopens the launcher. A background thread:
+    // a clean exit never waits for it.
+    private static void QuitForUpdate(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        new Thread(() =>
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(10));
+            Environment.Exit(0);
+        }) { IsBackground = true, Name = "update-quit-watchdog" }.Start();
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) desktop.Shutdown();
+        else Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown());
     }
 
     internal static string Version =>

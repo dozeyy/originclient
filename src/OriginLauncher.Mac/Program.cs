@@ -11,6 +11,7 @@ internal static class Program
     //   --launch-plan <version> [--root dir] prepares a launch without starting the game (LaunchPlan).
     //   --play-plan <version> [--root dir]   presses the Home Play button headless, stops before the game starts (PlayPlan).
     //   --list-versions                      the versions the picker offers, one per line.
+    //   --update-proof <loopback feed> --root dir --expect <outcome>   CI: the self-update against a local fake release (UpdateProof).
     // Anything else opens the launcher window (--signin-probe <dir>, CI only, opens just the sign-in card's window).
     [STAThread]
     private static int Main(string[] args)
@@ -23,6 +24,8 @@ internal static class Program
             return LaunchPlan.RunAsync(version, ValueOf(args, "--root")).GetAwaiter().GetResult();
         if (ValueOf(args, "--play-plan") is { } playVersion)
             return PlayPlan.Run(playVersion, ValueOf(args, "--root"));
+        if (ValueOf(args, "--update-proof") is { } feedUrl)
+            return UpdateProof.Run(feedUrl, ValueOf(args, "--root"), ValueOf(args, "--expect"));
 
         if (args.Contains("--render-shots"))
         {

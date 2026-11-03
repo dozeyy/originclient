@@ -82,7 +82,17 @@ public static partial class UpdateService
     private sealed record VerifiedZip(Version Version, string Sha256);
     private static VerifiedZip? _verifiedZip; // always under lock (Gate)
 
-    /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen.</summary>
+    /// <summary>
+    /// A newer release this copy can't install where it sits (Mac: a translocated copy, or a folder it can't write to),
+    /// with the player-facing reason. It never gates Play. Always null on Windows.
+    /// </summary>
+    public static BlockedUpdate? Blocked { get; private set; }
+
+    // The release feed: GitHub's latest release. Only the Mac's --update-proof switch points it elsewhere (a loopback
+    // fake release in CI; UpdateProof refuses any other host). Nothing a player can reach changes it.
+    internal static string FeedUrl { get; set; } = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
+
+    /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen, or found uninstallable here.</summary>
     public static event EventHandler? AvailableChanged;
 
     /// <summary>
@@ -97,8 +107,7 @@ public static partial class UpdateService
 
         try
         {
-            var release = await Http.GetFromJsonAsync<Release>(
-                $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest");
+            var release = await Http.GetFromJsonAsync<Release>(FeedUrl);
 
             var tag = release?.TagName;
             if (tag == null || !tag.StartsWith(TagPrefix, StringComparison.OrdinalIgnoreCase))
@@ -125,6 +134,23 @@ public static partial class UpdateService
             }
             if (decision is UpdateGate.Decision.Skip or UpdateGate.Decision.Wait)
                 return;
+
+            // This copy can't replace itself where it sits (a Mac app run from a translocated copy, or from a folder this
+            // user can't write to): it is never offered and never gates Play, because no click could install it. The player
+            // is told instead (Blocked: move Origin to Applications) and nothing is downloaded. Every poll checks again, so a
+            // start from the right folder offers it normally. Windows always answers null.
+            if (InstallBlockedHere() is { } blockedBecause)
+            {
+                // A Quiet decision holds the gate's one quiet slot; this ends it with the usual back-off.
+                if (decision == UpdateGate.Decision.Quiet) lock (Gate) Gate.VerifyFailed(remote, DateTime.UtcNow);
+                if (Blocked?.Version != remote)
+                {
+                    Blocked = new BlockedUpdate(remote, blockedBecause);
+                    Log($"update {remote}: can't be installed here, not offered: {blockedBecause}");
+                    AvailableChanged?.Invoke(null, EventArgs.Empty);
+                }
+                return;
+            }
 
             var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
             if (decision == UpdateGate.Decision.Quiet)
@@ -380,6 +406,8 @@ public static partial class UpdateService
             // a courtesy
         }
     }
+
+    public sealed record BlockedUpdate(Version Version, string Reason);
 
     public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null);
 

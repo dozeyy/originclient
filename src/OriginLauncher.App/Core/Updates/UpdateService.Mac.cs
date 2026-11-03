@@ -88,6 +88,24 @@ fail
         Process.Start(psi);
     }
 
+    // CheckAsync asks this before it offers an update: the reason this copy can't swap itself where it sits (the same
+    // EnsureCanReplace the swap runs before quitting), or null. A translocated or unwritable app is told to move to
+    // Applications instead of being offered something no click could install. One tiny probe file, created and gone.
+    private static string? InstallBlockedHere()
+    {
+        if (CurrentBundle() is not { } bundle)
+            return "This copy of Origin Launcher isn't an app bundle, so it can't update itself. Install it from originclient.org.";
+        try
+        {
+            EnsureCanReplace(bundle);
+            return null;
+        }
+        catch (IOException e)
+        {
+            return e.Message;
+        }
+    }
+
     // One marker per version (the stage folder is named after it), so the next release tries afresh.
     internal static string FailedMarker(string stageDir, string updatesRoot) =>
         Path.Combine(updatesRoot, "apply-failed-" + Path.GetFileName(stageDir.TrimEnd('/')));
@@ -111,7 +129,10 @@ fail
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw new IOException($"Origin Launcher can't update itself in {parent} (that folder can't be written to). Move it to Applications and open it from there.", e);
+            // /Applications itself, on a Mac user without admin rights: the fix is the Applications folder in their home.
+            throw new IOException(parent.TrimEnd('/') == "/Applications"
+                ? "Origin Launcher can't update itself in /Applications because this Mac user can't change that folder. Move it to the Applications folder in your home folder and open it from there."
+                : $"Origin Launcher can't update itself in {parent} (that folder can't be written to). Move it to Applications and open it from there.", e);
         }
     }
 

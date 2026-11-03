@@ -169,6 +169,39 @@ jobs:
         continue-on-error: true
         run: python3 tools/mac/check_theme_parity.py --markdown | tee -a "$GITHUB_STEP_SUMMARY"
 
+  # The self-update, end to end, on both Mac CPUs, against a FAKE release served from this runner (127.0.0.1; no
+  # GitHub release is read or written): a build stamped 1.0.50 (so the update really gates Play, like a player's
+  # copy) is put in an Origin.app and offered launcher-v99.0.0. It must refuse a release with no SHA-256 and a zip
+  # whose SHA-256 is wrong, refuse to install from a translocated copy and from a folder it can't write to (and say
+  # to move it to Applications), and otherwise download, verify, unpack, swap the bundle and reopen it, after which
+  # the swapped app still starts. The reopen itself is stubbed (tools/mac/update_proof.sh).
+  update-proof:
+    name: update proof (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Publish (${{ matrix.rid }}, stamped 1.0.50)
+        run: dotnet publish src/OriginLauncher.Mac/OriginLauncher.Mac.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:Version=1.0.50 -o "$RUNNER_TEMP/publish-stamped"
+
+      - name: Self-update against a fake release
+        run: bash tools/mac/update_proof.sh ${{ matrix.rid }} "$RUNNER_TEMP/publish-stamped" 1.0.50
+
   # --launch-plan for every version the picker offers, on both Mac CPUs: the launcher's own launch
   # path in a scratch folder (Fabric/Forge, Origin's mods, Mojang's libraries, natives, assets and
   # Java for this Mac), then checks of the process it built: Java exists, is the right arch and

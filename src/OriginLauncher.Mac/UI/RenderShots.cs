@@ -67,8 +67,7 @@ internal static class RenderShots
         // twins show the same numeral and art; a different version would make the ink widths incomparable.
         window.SelectVersion("1.21.1");
 
-        // 15e: the top bar's fit rule at three window sizes (the Windows run adds "-update" twins; the Mac has no
-        // update chip yet).
+        // 15e: the top bar's fit rule at three window sizes (their "-update" twins are in UI/Shots/UpdateShots.cs).
         foreach (var (w, h) in new[] { (1440, 900), (1280, 800), (1180, 740) })
         {
             Resize(window, w, h);
@@ -91,6 +90,8 @@ internal static class RenderShots
         Shots.AreaBShots.Run(window, outDir);
         // Import from other launchers: the Home welcome card and every Import page screen (UI/Shots/AreaDShots.cs).
         Shots.AreaDShots.Run(window, outDir);
+        // The self-update chip in every state and the capsule scroll bar (UI/Shots/UpdateShots.cs).
+        Shots.UpdateShots.Run(window, outDir);
 
         window.Close();
         Console.WriteLine($"render-shots: {_written} PNGs in {outDir}");
