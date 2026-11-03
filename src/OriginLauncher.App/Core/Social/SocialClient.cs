@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 
 namespace OriginLauncher.App.Core.Social;
 
@@ -78,7 +78,7 @@ public sealed class SocialClient
     private readonly Uri _baseUrl;
     private readonly SocialHttpSend _send;
     private readonly IdentitySource _identity;
-    private readonly Func<DateTimeOffset> _clock;
+    private readonly ServerClock _serverClock;
     private readonly SemaphoreSlim _authGate = new(1, 1);
     private AuthSession? _session;
     private CachedCertificate? _certificate;
@@ -88,8 +88,15 @@ public sealed class SocialClient
         _baseUrl = baseUrl;
         _send = send;
         _identity = identity;
-        _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _serverClock = new ServerClock(clock);
     }
+
+    /// <summary>
+    /// The real time as Origin's service and Mojang report it. `clock` (the PC
+    /// clock) is never used directly for anything a server checks, so a wrong
+    /// PC date or time zone can't break sign-in.
+    /// </summary>
+    public ServerClock Clock => _serverClock;
 
     /// <summary>The signed-in player's uuid (normalised), or null before sign-in.</summary>
     public string? MyUuid => Volatile.Read(ref _session)?.Uuid;
@@ -129,6 +136,7 @@ public sealed class SocialClient
 
             var response = await _send(HttpMethod.Post, SocialEndpoints.For(_baseUrl, path), jsonBody, session.Token, ct)
                 .ConfigureAwait(false);
+            _serverClock.Observe(response.ServerDate);
             if (response.Status != 401 || attempt > 0)
                 return new SocialCallResult(response.Status, response.Body);
 
@@ -153,6 +161,8 @@ public sealed class SocialClient
             {
                 var issued = await _send(HttpMethod.Post, SocialEndpoints.PlayerCertificates, null, me.AccessToken, ct)
                     .ConfigureAwait(false);
+                // Mojang's answer (never cached) says what time it really is: the proof signed below uses it.
+                _serverClock.Observe(issued.ServerDate);
                 if (IsUnreachable(issued.Status))
                     return new SocialAuthOutcome(SocialAuthState.Unreachable, null);
                 if (issued.Status == 401)
@@ -184,13 +194,25 @@ public sealed class SocialClient
 
             // 3. Sign the proof and trade it for an Origin token. The name sent
             // is Mojang's own spelling from the signed profile — the service
-            // compares it exactly.
-            var at = _clock().ToUnixTimeMilliseconds();
-            var sig = MojangProof.Sign(certificate, MojangProof.SignedString(uuid, ClientName, at));
+            // compares it exactly. `at` is the REAL time (ServerClock), never the
+            // PC clock: the service refuses an `at` more than 5 minutes off its own.
             var name = string.IsNullOrWhiteSpace(profile.Name) ? me.Name : profile.Name;
-            var auth = await _send(HttpMethod.Post, SocialEndpoints.For(_baseUrl, "/v1/auth"),
-                SocialJson.AuthBody(ClientName, uuid, name, at, sig, certificate, profile.Textures), null, ct)
-                .ConfigureAwait(false);
+            SocialHttpResponse auth = default;
+            for (var clockTry = 0; clockTry < 2; clockTry++)
+            {
+                var offsetBefore = _serverClock.OffsetMs;
+                var at = _serverClock.NowMs;
+                var sig = MojangProof.Sign(certificate, MojangProof.SignedString(uuid, ClientName, at));
+                auth = await _send(HttpMethod.Post, SocialEndpoints.For(_baseUrl, "/v1/auth"),
+                    SocialJson.AuthBody(ClientName, uuid, name, at, sig, certificate, profile.Textures), null, ct)
+                    .ConfigureAwait(false);
+                _serverClock.Observe(auth.ServerDate);
+                // A refusal whose answer corrected our idea of the time was the
+                // service's "clock looks wrong": sign once more with the corrected
+                // time (a new signature, inside the service's window - the
+                // anti-replay check is untouched).
+                if (auth.Status != 401 || _serverClock.OffsetMs == offsetBefore) break;
+            }
             if (auth.Status == 200 && SocialJson.ParseAuth(auth.Body) is { } granted)
             {
                 Volatile.Write(ref _session, new AuthSession(granted.Token, granted.Uuid, granted.Name));
@@ -211,10 +233,13 @@ public sealed class SocialClient
         }
     }
 
-    /// <summary>The cached certificate when it belongs to this player and Mojang hasn't asked for a refresh.</summary>
+    /// <summary>
+    /// The cached certificate when it belongs to this player and Mojang hasn't
+    /// asked for a refresh (Mojang's times, so compared with the real time).
+    /// </summary>
     private PlayerCertificate? CachedFor(string uuid) =>
         Volatile.Read(ref _certificate) is { } cached && cached.Uuid == uuid
-            && cached.Certificate.FreshAt(_clock().ToUnixTimeMilliseconds())
+            && cached.Certificate.FreshAt(_serverClock.NowMs)
             ? cached.Certificate
             : null;
 

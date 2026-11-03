@@ -211,7 +211,7 @@ public sealed class SocialService : IDisposable
 
         var response = await _client.PostAsync("/v1/sync", SocialJson.SyncBody(cursor, _presenceVersion(), etag), ct)
             .ConfigureAwait(false);
-        var sync = response.Ok ? SocialJson.ParseSync(response.Body) : null;
+        var sync = response.Ok ? SocialJson.ParseSync(response.Body, _client.Clock.ToLocalMs) : null;
         if (sync == null)
         {
             Publish(generation, s => s with { Status = SocialStatus.Unreachable, StatusMessage = null });

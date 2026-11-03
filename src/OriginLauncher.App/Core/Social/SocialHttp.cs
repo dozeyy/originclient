@@ -6,8 +6,11 @@ using System.Text;
 
 namespace OriginLauncher.App.Core.Social;
 
-/// <summary>One HTTP exchange. Status 0 = no answer at all (offline, DNS, timeout).</summary>
-public readonly record struct SocialHttpResponse(int Status, string? Body);
+/// <summary>
+/// One HTTP exchange. Status 0 = no answer at all (offline, DNS, timeout).
+/// ServerDate = the answer's <c>Date</c> header (what time it really is; see <see cref="ServerClock"/>).
+/// </summary>
+public readonly record struct SocialHttpResponse(int Status, string? Body, DateTimeOffset? ServerDate = null);
 
 /// <summary>The network seam every social class takes, so tests never touch a network.</summary>
 public delegate Task<SocialHttpResponse> SocialHttpSend(
@@ -58,7 +61,7 @@ public static class SocialHttp
                 body = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
                 if (body.Length > MaxBodyChars) body = null;
             }
-            return new SocialHttpResponse((int)response.StatusCode, body);
+            return new SocialHttpResponse((int)response.StatusCode, body, response.Headers.Date);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

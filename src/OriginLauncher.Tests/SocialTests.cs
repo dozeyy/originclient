@@ -217,6 +217,20 @@ public class SocialJsonTests
     }
 
     [Fact]
+    public void ChatAndLastSeenTimesMoveOntoThePcClock()
+    {
+        // The service's clock is 1 s ahead of this PC: its times come back 1 s earlier.
+        var r = SocialJson.ParseSync(Sync, ms => ms - 1000)!;
+        Assert.Equal(1_699_999_999_000, r.Friends![0].LastSeen);
+        Assert.Equal(1_689_999_999_000, r.Friends[1].LastSeen);
+        Assert.Equal(10 - 1000, r.Messages.Single().At);
+        Assert.Equal(11 - 1000, r.PartyMessages.Single().At);
+        // Not shown as times: kept exactly as sent (the warp's `at` is its identity).
+        Assert.Equal(13, r.Warp!.At);
+        Assert.Equal(12, r.PartyInvites.Single().At);
+    }
+
+    [Fact]
     public void OmittedListsAreNullNotEmpty()
     {
         var r = SocialJson.ParseSync("""{ "cursor": 1, "messages": [] }""")!;
@@ -605,6 +619,85 @@ public class SocialClientTests
         // 4. the call itself, with the Origin token.
         Assert.Equal("t1", net.Calls[3].Bearer);
         Assert.Equal(FakeMojang.UuidNorm, client.MyUuid);
+    }
+
+    // ---- a wrong PC clock (Will, 2026-11-03): the real time comes from the answers' Date header ----
+
+    private static long AtOf(string? authBody)
+    {
+        using var doc = JsonDocument.Parse(authBody!);
+        return doc.RootElement.GetProperty("at").GetInt64();
+    }
+
+    [Theory]
+    [InlineData(-3 * 24)]   // PC three days behind
+    [InlineData(5)]         // wrong time zone: five hours ahead
+    public async Task AWrongPcClockStillSignsInWithTheRealTime(int pcOffsetHours)
+    {
+        var net = new FakeNet();
+        net.Certificates = _ => new(200, FakeMojang.CertificateJson(), Now);   // Mojang says the real time
+        var client = Client(net, clock: () => Now.AddHours(pcOffsetHours));
+        var result = await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+
+        Assert.True(result.Ok);
+        var at = AtOf(net.Calls.Single(c => c.Url.EndsWith("/v1/auth", StringComparison.Ordinal)).Body);
+        // Date has whole seconds: the real time is taken as the middle of that second.
+        Assert.Equal(Now.ToUnixTimeMilliseconds() + 500, at);
+        var signed = $"origin-auth|{FakeMojang.UuidNorm}|launcher|{at}";
+        var sig = JsonDocument.Parse(net.Calls[2].Body!).RootElement.GetProperty("sig").GetString()!;
+        Assert.True(FakeMojang.Key.VerifyData(Encoding.UTF8.GetBytes(signed), Convert.FromBase64String(sig),
+            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+    }
+
+    [Fact]
+    public async Task APcClockPastTheCertificatesExpiryStillReusesIt()
+    {
+        // The PC thinks it is three days later, past the certificate's expiry; by
+        // the real time it is still fresh, so a re-auth reuses it.
+        var net = new FakeNet();
+        net.Certificates = _ => new(200, FakeMojang.CertificateJson(), Now);
+        var client = Client(net, clock: () => Now.AddDays(3));
+        await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+        net.Call = bearer => bearer == "t1" ? new(401, null, Now) : new(200, "{}", Now);
+        var again = await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+
+        Assert.True(again.Ok);
+        Assert.Equal(1, net.Count("/player/certificates"));
+        Assert.Equal(2, net.Count("/v1/auth"));
+    }
+
+    [Fact]
+    public async Task AClockRefusalWithTheRealTimeSignsOnceMoreAndSucceeds()
+    {
+        // No Date from Mojang (an answer without one): the first proof goes out with
+        // the PC's wrong time, the service refuses it and its answer carries the real
+        // time, so the launcher signs once more with that - same certificate.
+        var net = new FakeNet();
+        var clockSentence = """{"error":"Couldn't sign in: your computer's clock looks wrong."}""";
+        net.Auth = n => n == 1
+            ? new(401, clockSentence, Now)
+            : new(200, $$"""{"token":"t{{n}}","uuid":"{{FakeMojang.Uuid}}","name":"Notch"}""", Now);
+        var client = Client(net, clock: () => Now.AddDays(-2));
+        var result = await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+
+        Assert.True(result.Ok);
+        var auths = net.Calls.Where(c => c.Url.EndsWith("/v1/auth", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, auths.Count);
+        Assert.Equal(Now.AddDays(-2).ToUnixTimeMilliseconds(), AtOf(auths[0].Body));
+        Assert.Equal(Now.ToUnixTimeMilliseconds() + 500, AtOf(auths[1].Body));
+        Assert.Equal(1, net.Count("/player/certificates"));
+    }
+
+    [Fact]
+    public async Task ARefusalThatDoesntMoveTheClockIsNotRetried()
+    {
+        var net = new FakeNet();
+        net.Auth = _ => new(401, """{"error":"Couldn't confirm your Minecraft account."}""", Now);
+        var client = Client(net);
+        var outcome = await client.EnsureAuthAsync(CancellationToken.None);
+
+        Assert.Equal(SocialAuthState.SignInFailed, outcome.State);
+        Assert.Equal(1, net.Count("/v1/auth"));
     }
 
     [Fact]

@@ -127,9 +127,15 @@ public static class SocialJson
         return n is >= 0 and <= int.MaxValue ? (int)n : null;
     }
 
-    public static SyncResult? ParseSync(string? body)
+    /// <summary>
+    /// A /v1/sync answer. `toLocal` moves the service's chat and "last seen" times onto
+    /// the PC clock's timeline (<see cref="ServerClock.ToLocalMs"/>), so they read right next
+    /// to the player's own clock even when that clock is wrong; null = keep them as sent.
+    /// </summary>
+    public static SyncResult? ParseSync(string? body, Func<long, long>? toLocal = null)
     {
         if (Parse(body) is not { } r) return null;
+        toLocal ??= static ms => ms;
 
         SocialMe? me = null;
         if (Obj(r, "me") is { } m && Ids.Norm(Str(m, "uuid")) is { Length: > 0 } meId)
@@ -138,7 +144,7 @@ public static class SocialJson
         var friends = !Has(r, "friends") ? null : Arr(r, "friends")
             .Select(f => new FriendInfo(
                 Ids.Norm(Str(f, "uuid")), Str(f, "name") ?? "?", Bool(f, "online"),
-                Str(f, "client"), Str(f, "activity"), Str(f, "server"), Str(f, "version"), Long(f, "lastSeen")))
+                Str(f, "client"), Str(f, "activity"), Str(f, "server"), Str(f, "version"), toLocal(Long(f, "lastSeen"))))
             .Where(f => f.Uuid.Length > 0)
             .ToList();
 
@@ -155,7 +161,7 @@ public static class SocialJson
 
         var messages = Arr(r, "messages")
             .Select(x => new ChatMessage(Str(x, "id") ?? "", Ids.Norm(Str(x, "from")), Ids.Norm(Str(x, "to")),
-                Str(x, "text") ?? "", Long(x, "at")))
+                Str(x, "text") ?? "", toLocal(Long(x, "at"))))
             .Where(x => x.Id.Length > 0)
             .ToList();
 
@@ -171,7 +177,7 @@ public static class SocialJson
 
         var partyMessages = Arr(r, "partyMessages")
             .Select(x => new PartyChatMessage(Str(x, "id") ?? "", Ids.Norm(Str(x, "from")), Str(x, "name") ?? "?",
-                Str(x, "text") ?? "", Long(x, "at")))
+                Str(x, "text") ?? "", toLocal(Long(x, "at"))))
             .Where(x => x.Id.Length > 0)
             .ToList();
 
