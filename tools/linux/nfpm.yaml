@@ -73,6 +73,9 @@ overrides:
       - libgl1
       - x11-xserver-utils
       - libxxf86vm1
+      # Microsoft sign-in inside the launcher (SignInPanel: WebKitGTK). Without it the card falls back to
+      # the player's own browser, so it stays a recommendation.
+      - libwebkit2gtk-4.1-0
   rpm:
     depends:
       - glibc
@@ -97,6 +100,7 @@ overrides:
       - mesa-libGL
       - xrandr
       - libXxf86vm
+      - webkit2gtk4.1
 
 rpm:
   summary: Minecraft launcher with Origin Client built in
