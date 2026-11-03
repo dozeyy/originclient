@@ -3,6 +3,7 @@ package com.origin.client.client.waypoints;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.AfterShadersPass;
 import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -27,45 +28,106 @@ public final class WaypointRenderer {
 	private WaypointRenderer() {
 	}
 
+	// Shader packs: with an Iris pack on, the world part below is NOT drawn at
+	// LAST but by AfterShadersPass (right after the pack's composite), so a
+	// pack's clouds can't cover the beam. See that class for the why and the
+	// fail-soft rule. Shaders OFF: unchanged -- drawn at LAST, same calls, same
+	// order, into the frame's shared bufferSource.
+	private static boolean warnedFailure;
+
+	/** First failure of the LAST pass goes to the log once, with its stack. */
+	private static void warnOnce(String where, Throwable t) {
+		if (!warnedFailure) {
+			warnedFailure = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin: waypoint {} pass failed (logged once)", where, t);
+		}
+	}
+
+	// AfterShadersPass slot; -1 = not registered, so the LAST entry keeps drawing.
+	private static int slot = -1;
+
+	/** Registers the after-shaders drawer (from OriginClientMod, in draw order). */
+	public static void init() {
+		slot = AfterShadersPass.register("waypoints", WaypointRenderer::drawDeferred);
+	}
+
 	public static void render(WorldRenderContext ctx) {
+		try {
+			renderLast(ctx);
+		} catch (Throwable t) {
+			warnOnce("world (LAST)", t);
+		}
+	}
+
+	// The ONE early-out for both paths: waypoints mod on and a player in a world.
+	// Returns the client, or null when there is nothing to draw.
+	private static Minecraft active() {
 		if (!Mods.on("waypoints")) {
-			return;
+			return null;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) {
+		return mc.player == null || mc.level == null ? null : mc;
+	}
+
+	private static void renderLast(WorldRenderContext ctx) {
+		Minecraft mc = active();
+		if (mc == null) {
 			return;
 		}
 		PoseStack pose = ctx.matrixStack();
 		if (pose == null) {
 			return;
 		}
-		// Hand the view/projection matrices + camera position to the HUD overlay.
+		// Hand the view/projection matrices + camera position to the HUD overlay
+		// (also while the world part is deferred: this is the HUD's own capture).
 		WaypointHud.capture(ctx);
+		if (AfterShadersPass.deferring(slot)) {
+			return;   // AfterShadersPass.run() draws it, after the pack's composite
+		}
+		drawWorld(mc, pose, ctx.camera().getPosition(), mc.renderBuffers().bufferSource());
+	}
 
+	// The AfterShadersPass drawer: same drawWorld body as the LAST path, with the
+	// pass's recorded matrices and its own line buffer, behind the same active() check.
+	private static void drawDeferred(PoseStack pose, Vec3 cam, MultiBufferSource.BufferSource lines) {
+		Minecraft mc = active();
+		if (mc != null) {
+			drawWorld(mc, pose, cam, lines);
+		}
+	}
+
+	private static void drawWorld(Minecraft mc, PoseStack pose, Vec3 c, MultiBufferSource.BufferSource buf) {
 		String dim = mc.level.dimension().location().toString();
-		Vec3 c = ctx.camera().getPosition();
-		MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
 		// Beam hard-cutoff distance (no fade): the player's render distance, in blocks.
 		double cutoff = mc.options.getEffectiveRenderDistance() * 16.0;
 
-		for (Waypoints.Waypoint w : Waypoints.all()) {
-			if (!w.enabled || !dim.equals(w.dimension)) {
-				continue;
-			}
-			double dx = (w.x + 0.5) - c.x;
-			double dz = (w.z + 0.5) - c.z;
-			double dist = Math.sqrt(dx * dx + (w.y + 1 - c.y) * (w.y + 1 - c.y) + dz * dz);
+		try {
+			for (Waypoints.Waypoint w : Waypoints.all()) {
+				if (!w.enabled || !dim.equals(w.dimension)) {
+					continue;
+				}
+				double dx = (w.x + 0.5) - c.x;
+				double dz = (w.z + 0.5) - c.z;
+				double dist = Math.sqrt(dx * dx + (w.y + 1 - c.y) * (w.y + 1 - c.y) + dz * dz);
 
-			// Beam column (y-3 .. y+160), depth-tested camera-facing quad.
-			if (w.showBeam && dist <= cutoff) {
-				drawBeam(pose, dx, dz, w.y - 3 - c.y, w.y + 160 - c.y, w.color);
+				// Beam column (y-3 .. y+160), depth-tested camera-facing quad.
+				if (w.showBeam && dist <= cutoff) {
+					drawBeam(pose, dx, dz, w.y - 3 - c.y, w.y + 160 - c.y, w.color);
+				}
+				if (w.highlightBlock) {
+					drawBlockOutline(pose, buf, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
+				}
 			}
-			if (w.highlightBlock) {
-				drawBlockOutline(pose, buf, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
+		} finally {
+			// Always flush, also after a throw mid-loop, so no half-built vertices
+			// stay in either buffer for the next caller (normal path: same two
+			// calls, same order, as before).
+			try {
+				buf.endBatch();
+			} finally {
+				OriginRenderTypes.draw();   // the beams
 			}
 		}
-		buf.endBatch();
-		OriginRenderTypes.draw();   // the beams
 	}
 
 	// The beam is REAL geometry (ThickLine.vertical), not a RenderType.lines()
