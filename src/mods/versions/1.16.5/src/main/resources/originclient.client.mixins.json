@@ -10,6 +10,7 @@
 		"DarkButtonMixin",
 		"AbstractButtonMixin",
 		"SprintKeyMixin",
+		"OptionsSaveMixin",
 		"AbstractSliderButtonMixin",
 		"AbstractSliderButtonAccessor",
 		"CheckboxMixin",

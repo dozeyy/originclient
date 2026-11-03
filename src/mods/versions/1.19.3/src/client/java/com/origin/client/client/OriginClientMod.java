@@ -21,8 +21,9 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean freelookWasDown = false;
 	private net.minecraft.client.CameraType savedPerspective = null;
 	private boolean sneakForced = false;
-	private boolean chatApplied = false;
-	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
+	// static: OptionsSaveMixin reads them around every options.txt write (chatOptionsForSave)
+	private static boolean chatApplied = false;
+	private static double savedChatOpacity = 1.0, savedChatScale = 1.0, savedChatTextOpacity = 1.0;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
@@ -873,14 +874,18 @@ public class OriginClientMod implements ClientModInitializer {
 	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
 	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
 	// slider there made messages unreadable). Text stays fully visible at
-	// background 0. chatOpacity is pinned to 1.0 while the mod is on, which
-	// also heals any options.txt damage the old wiring left behind.
+	// background 0. chatOpacity is pinned to 1.0 while the mod is on.
+	//
+	// These are the PLAYER's Minecraft chat settings, borrowed while the mod is
+	// on: all three are put back when it turns off, and options.txt never sees
+	// Origin's values (chatOptionsForSave, called around every Options.save()).
 	private void applyChat(Minecraft client) {
 		boolean on = Mods.on("chat");
 		if (on) {
 			if (!chatApplied) {
 				savedChatOpacity = client.options.textBackgroundOpacity().get();
 				savedChatScale = client.options.chatScale().get();
+				savedChatTextOpacity = client.options.chatOpacity().get();
 				chatApplied = true;
 			}
 			client.options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
@@ -889,7 +894,35 @@ public class OriginClientMod implements ClientModInitializer {
 		} else if (chatApplied) {
 			client.options.textBackgroundOpacity().set(savedChatOpacity);
 			client.options.chatScale().set(savedChatScale);
+			client.options.chatOpacity().set(savedChatTextOpacity);
 			chatApplied = false;
+		}
+	}
+
+	/**
+	 * OptionsSaveMixin: true = put the player's own chat values in for the write
+	 * (Options.save() HEAD), false = Origin's back after it (RETURN). A no-op
+	 * while the Chat mod isn't overriding anything. The swap is not a change of
+	 * the player's settings, so OptionsAutosave is told to ignore it (quiet).
+	 */
+	public static void chatOptionsForSave(net.minecraft.client.Options options, boolean playerValues) {
+		if (!chatApplied || options == null) {
+			return;
+		}
+		boolean wasQuiet = OptionsAutosave.quiet;
+		OptionsAutosave.quiet = true;
+		try {
+			if (playerValues) {
+				options.textBackgroundOpacity().set(savedChatOpacity);
+				options.chatScale().set(savedChatScale);
+				options.chatOpacity().set(savedChatTextOpacity);
+			} else {
+				options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
+				options.chatOpacity().set(1.0);
+				options.chatScale().set(Mods.num("chat", "scale"));
+			}
+		} finally {
+			OptionsAutosave.quiet = wasQuiet;
 		}
 	}
 

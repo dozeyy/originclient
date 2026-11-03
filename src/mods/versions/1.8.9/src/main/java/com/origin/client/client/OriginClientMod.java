@@ -33,8 +33,9 @@ public class OriginClientMod {
 
 	private boolean freelookWasDown = false;
 	private int savedPerspective = -1;
-	private boolean chatApplied = false;
-	private float savedChatScale = 1.0f;
+	// static: GameSettingsZoomMixin reads them around every options.txt write (chatOptionsForSave)
+	private static boolean chatApplied = false;
+	private static float savedChatScale = 1.0f;
 	private float appliedChatScale = -1f;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
@@ -709,6 +710,20 @@ public class OriginClientMod {
 			appliedChatScale = -1f;
 			refreshChat(client);
 		}
+	}
+
+	/**
+	 * GameSettingsZoomMixin, around every GameSettings.saveOptions(): true = the
+	 * player's own chat scale in for the write (HEAD), false = the Chat mod's back
+	 * after it (RETURN). options.txt only ever holds the player's own value -- the
+	 * autosave used to write the mod's scale every time it saved. No re-wrap:
+	 * the value is only swapped for the length of the write.
+	 */
+	public static void chatOptionsForSave(net.minecraft.client.settings.GameSettings options, boolean playerValues) {
+		if (!chatApplied || options == null) {
+			return;
+		}
+		options.chatScale = playerValues ? savedChatScale : (float) Mods.num("chat", "scale");
 	}
 
 	private static void refreshChat(Minecraft client) {
