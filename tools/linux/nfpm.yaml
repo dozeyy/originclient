@@ -1,5 +1,5 @@
 # The .deb and .rpm of the Origin Launcher (nfpm, pinned in tools/linux/pins.sh). Only ever run by
-# tools/linux/package.sh, which exports the ${...} values below.
+# tools/linux/package.sh, which fills in the ${...} values below before nfpm reads it.
 #
 # Dependencies are what the self-contained app really loads: glibc + the C++ runtime (.NET itself),
 # ICU (globalisation), OpenSSL + the CA certificates (HTTPS) which .NET opens at run time, fontconfig + the X11 client

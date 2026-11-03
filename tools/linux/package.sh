@@ -179,8 +179,15 @@ cp -a "$app" "$pkgroot"
 printf 'Installed by the origin-launcher package. Self-updates go to ~/.local/share/OriginLauncher/app;\n/usr/bin/origin-launcher starts that copy while it is newer than this one.\n' > "$pkgroot/package-install"
 export NFPM_ARCH="$nfpm_arch" NFPM_VERSION="$pkg_version" PKG_APP="$pkgroot" PKG_FILES="$FILES" PKG_ICONS="$icons" \
        PKG_METAINFO="$work/$APP_ID.metainfo.xml"
-"$work/nfpm" package --config "$REPO/tools/linux/nfpm.yaml" --packager deb --target "$out/$DEB"
-"$work/nfpm" package --config "$REPO/tools/linux/nfpm.yaml" --packager rpm --target "$out/$RPM"
+# nfpm expands ${VAR} only in some fields (not contents src), so every ${VAR} is filled in here.
+python3 - "$REPO/tools/linux/nfpm.yaml" "$work/nfpm.yaml" <<'PY'
+import os, re, sys
+src, dst = sys.argv[1:3]
+text = re.sub(r"\$\{(\w+)\}", lambda m: os.environ[m.group(1)], open(src, encoding="utf-8").read())
+open(dst, "w", encoding="utf-8").write(text)
+PY
+"$work/nfpm" package --config "$work/nfpm.yaml" --packager deb --target "$out/$DEB"
+"$work/nfpm" package --config "$work/nfpm.yaml" --packager rpm --target "$out/$RPM"
 
 # --- hashes ---------------------------------------------------------------------------------------
 cd "$out"
