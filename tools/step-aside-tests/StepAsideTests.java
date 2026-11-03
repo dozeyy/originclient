@@ -153,7 +153,7 @@ public class StepAsideTests {
 
 		// --- every note is ASCII and names the replacing mod ---
 		StepAside.resolve(Map.of("freecam", "Freecam", "zoomify", "Zoomify", "appleskin", "AppleSkin",
-				"worldeditcui", "WorldEditCUI", "jei", "Just Enough Items")::get);
+				"worldeditcui", "WorldEditCUI", "jei", "Just Enough Items", "overflowanimations", "OverflowAnimations")::get);
 		check(StepAside.replacedFeatures().size() == StepAside.TABLE.size(), "every row resolves when its mod is loaded");
 		boolean notesOk = true;
 		for (StepAside.Row r : StepAside.TABLE) {

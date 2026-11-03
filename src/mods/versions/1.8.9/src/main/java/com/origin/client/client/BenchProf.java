@@ -81,7 +81,7 @@ public final class BenchProf {
 		}
 	}
 
-	/** Menu Blur: a full pyramid rebuild vs a reuse of the cached result (frozen world). */
+	/** Menu Blur: a full blur-chain run vs a reuse of the cached result (frozen world). */
 	public static void countBlur(boolean reused) {
 		if (active) {
 			if (reused) {

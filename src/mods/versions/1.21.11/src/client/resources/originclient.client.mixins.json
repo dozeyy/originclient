@@ -103,7 +103,13 @@
 		"SodiumViewportShadowMapMixin",
 		"SodiumWalkEndMixin",
 		"SodiumWorldRendererReuseMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin",
+		"OldAnimationsAvatarStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

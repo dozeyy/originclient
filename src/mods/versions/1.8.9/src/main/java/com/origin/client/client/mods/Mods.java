@@ -751,6 +751,30 @@ public final class Mods {
 				ModOption.toggle("colorArmor", "Color Armor", true)
 						.tip("Flash worn armor too, not just the body underneath."));
 
+		// 1.7 Animations (OldAnimations.java): every switch here is read by a hook; all visual,
+		// nothing sent to the server. Off by default; each part on once the mod is switched on.
+		// 1.8.9: only what 1.8 changed from 1.7. Sword Blocking, No Hit Dip and Instant Sneak are
+		// not here: 1.8 already blocks with a sword (no shields exist), has no attack cooldown dip,
+		// and its sneak camera already snaps (see OldAnimations' class doc).
+		add("oldanimations", "1.7 Animations", "Bring back how swords, items and sneaking looked in 1.7.", false,
+				ModOption.header("Combat"),
+				ModOption.toggle("blockHit", "Block Hitting", true)
+						.tip("Your sword still swings while you block, so block-hitting looks like 1.7."),
+				ModOption.toggle("swingWhileUsing", "Swing While Using", true)
+						.tip("Clicking while eating, drawing a bow or blocking swings your arm, like 1.7."),
+				ModOption.header("Held Items"),
+				ModOption.toggle("itemPositions", "1.7 Item Positions", true)
+						.tip("Hold flat items, tools, swords and rods the bigger, tilted 1.7 way."),
+				ModOption.toggle("oldUse", "1.7 Eating and Bow", true).under("itemPositions")
+						.tip("Eating, drinking and drawing a bow use 1.7's poses too."),
+				ModOption.header("Extras"),
+				ModOption.toggle("redArmor", "Red Armor Flash", true)
+						.tip("Worn armor flashes red with the player when hurt. Hit Color's own armor colour wins when it is on."),
+				ModOption.header("Third Person"),
+				// 1.8.9: the 1.21.1 tip's "with the shield hidden" is dropped (no shields on 1.8.9)
+				ModOption.toggle("thirdPersonBlock", "Third Person Blocking", true)
+						.tip("Other players (and you in F5) hold the sword across the body when blocking."));
+
 		// Two colours per target, like Lunar: one used with Lunar Blending on, one
 		// with it off (vanilla's additive glint, which can only brighten).
 		add("glintcolorizer", "Glint Colorizer", "Recolor the enchantment glint.", false,

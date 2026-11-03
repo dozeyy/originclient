@@ -95,7 +95,12 @@
 		"SodiumShadowWalkDevMixin",
 		"SodiumSectionShadowMapMixin",
 		"SodiumRegionShadowMapMixin",
-		"DebugScreenShaderSpeedupsMixin"
+		"DebugScreenShaderSpeedupsMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

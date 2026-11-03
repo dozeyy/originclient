@@ -109,7 +109,12 @@
 		"SodiumWorldRendererReuseMixin",
 		"Sodium04HalfRateMixin",
 		"LevelRendererCullFrustumMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OldAnimationsHandMixin",
+		"OldAnimationsCameraMixin",
+		"OldAnimationsKeysMixin",
+		"OldAnimationsThirdPersonMixin",
+		"OldAnimationsHandLayerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

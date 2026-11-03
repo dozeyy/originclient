@@ -159,6 +159,11 @@ PUBLIC_IDS.update({
     "fpscoach": "client.fpscoach",
 })
 
+# Lunar parity (2026-11-02) -- 1.7 Animations, appended after every earlier cell.
+PUBLIC_IDS.update({
+    "oldanimations": "client.oldanimations",
+})
+
 # Menu chrome added by the 2026-10 mod-menu redesign (design/menu-redesign).
 # Same 24-grid + stroke as the rest of the set; drawn here because they are
 # plain UI symbols, not mod concepts, so they don't belong in the icon masters.
