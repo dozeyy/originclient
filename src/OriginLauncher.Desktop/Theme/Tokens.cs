@@ -157,6 +157,7 @@ public static class TypeScale
     public const double LabelTracking = 0.10;   // em
     public const double NavTracking = 0.14;     // em (nav tabs, MY MODS)
     public const double NumeralTracking = -0.04;
+    public const double CoverTracking = 0.16;   // em (the launch cover's eyebrow and family label)
 
     /// <summary>Letter spacing in px for a tracking in em at a size.</summary>
     public static double Track(double em, double size) => em * size;
@@ -173,6 +174,8 @@ public static class Space
 public static class Radius
 {
     public const double Xs = 4, Sm = 6, Md = 8, Lg = 12, Dialog = 16;
+    /// <summary>A selection ring drawn 4 px outside an lg card (Radius.Ring.Lg).</summary>
+    public const double RingLg = 14;
 }
 
 /// <summary>Control and layout sizes (sections 4, 5, 11, 13).</summary>
@@ -191,6 +194,19 @@ public static class Sizes
     public const double AccountNameMax = 160, ProfileNameMax = 180;
     public const double UpdateChipMinWindow = 1100, WordmarkMinWindow = 1000;
     public const double PageMaxWidth = 1000;
+    // The version sheet (Size.Sheet.*) and its step-2 family panel (Size.FamilyPanel.*): a share of the width, clamped.
+    public const double SheetMin = 912, SheetMax = 1600, SheetShare = 0.8;
+    public const double FamilyPanelMin = 320, FamilyPanelMax = 520, FamilyPanelShare = 0.44;
+    // The launch cover: the logo, the progress track and the stage column (Size.Logo.Hero, LaunchLoadingOverlay).
+    public const double LogoHero = 48, CoverTrack = 420, CoverStage = 520;
+    // Crash windows (CrashReportWindow 720 wide, CrashWindow 660 x 560) and their details well.
+    public const double CrashReportW = 720, CrashW = 660, CrashH = 560, CrashDetailsH = 200;
+    /// <summary>A large hue tile (Size.TileLg): the crash windows' alert tile.</summary>
+    public const double TileLg = 40;
+    /// <summary>The Fix Compatibility prompt's plan list scrolls past this height.</summary>
+    public const double FixListMaxH = 232;
+    /// <summary>Home's status line: at most this wide, 16 px lines (Size.StatusWidth / Size.StatusLine).</summary>
+    public const double StatusWidth = 400, StatusLine = 16;
 }
 
 /// <summary>Motion (section 9). Reduced motion (and render runs) set Off: every duration is 0.</summary>

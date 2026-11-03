@@ -4,6 +4,8 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using OriginLauncher.App.Core.GameFolders;
+using OriginLauncher.App.Core.Import.Launcher;
+using OriginLauncher.App.Core.Versions;
 using OriginLauncher.App.Core.Profiles;
 using OriginLauncher.App.UI;
 using OriginLauncher.Desktop.Kit;
@@ -70,8 +72,14 @@ public sealed class HomePage : Panel, IPage
             Height = Sizes.Strip, Padding = new Thickness(8, 0, 16, 0), CornerRadius = new CornerRadius(Radius.Lg),
             HorizontalAlignment = HorizontalAlignment.Left,
         };
-        _versionCard.Click += (_, _) => OpenPicker();
+        _versionCard.Click += (_, _) => { OpenPicker(); };
 
+        // The status line wraps to two rows at most (a refusal names up to three mods); the dot sits on the first row.
+        _statusText.TextWrapping = TextWrapping.Wrap;
+        _statusText.MaxWidth = Sizes.StatusWidth;
+        _statusText.LineHeight = Sizes.StatusLine;
+        _statusDot.VerticalAlignment = VerticalAlignment.Top;
+        _statusDot.Margin = new Thickness(0, (Sizes.StatusLine - 8) / 2, 0, 0);
         var status = Ui.Row(8, _statusDot, _statusText);
         status.Margin = new Thickness(4, 10, 0, 0);
         var left = Ui.Column(0, _versionCard, status);
@@ -181,17 +189,22 @@ public sealed class HomePage : Panel, IPage
         var key = SelectedKey();
         var phase = key != null ? Launches.Book.PhaseOf(key) : GamePhase.Idle;
         var view = AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: true);
-        if (Launches.Blocked) view = view with { Enabled = false };
+        var blocked = Launches.Blocked || FixCompatibility.Running || ImportRunState.IsApplying;
+        if (blocked) view = view with { Enabled = false };
         _play.IsEnabled = view.Enabled;
         _spinner.IsVisible = view.Spinner;
         _playFace.Opacity = !view.Spinner && !view.ShowsRunning ? 1 : 0;
         _runningLabel.IsVisible = !view.Spinner && view.ShowsRunning;
         Avalonia.Automation.AutomationProperties.SetName(_play, view.ShowsRunning ? "Switch to Minecraft" : "Play Minecraft");
-        _join.IsEnabled = key != null && phase == GamePhase.Idle && !Launches.Blocked;
+        _join.IsEnabled = key != null && phase == GamePhase.Idle && !blocked;
 
         if (_statusOverride is { } o) SetStatusLine(o.Text, o.Tone);
+        else if (Launches.BlockedText is { } why) SetStatusLine(why, Tone.Warning);
         else if (key != null && phase != GamePhase.Idle && Launches.Book.NoteOf(key) is { } note)
             SetStatusLine(note.Text, ToneOf(note.Tone));
+        // An idle account keeps its last note (a refusal, a failed launch, "Made ...") for the version it was about.
+        else if (key != null && Launches.IdleNote(key, LauncherState.SelectedVersion) is { } idle)
+            SetStatusLine(idle.Text, ToneOf(idle.Tone));
         else if (LauncherState.Account != null) SetStatusLine("Ready to play", Tone.Success);
         else if (key != null) SetStatusLine("Ready to play offline", Tone.Warning);
         else SetStatusLine("Sign in to play", Tone.Info);
@@ -225,17 +238,21 @@ public sealed class HomePage : Panel, IPage
         };
     }
 
-    public void OpenPicker()
+    /// <summary>The version picker over Home. A pick saves the version and Home follows; the picker stays up until
+    /// Esc, a click outside or Close (a one-release family closes it itself). installs: render runs' made-up states.</summary>
+    public VersionPicker OpenPicker(InstalledVersions? installs = null)
     {
-        var picker = new VersionPicker(LauncherState.SelectedVersion);
-        picker.Picked += v =>
-        {
-            LauncherState.Write(s => s.SelectedVersion = v);
-            _window.CloseSheet();
-        };
+        var picker = installs == null
+            ? new VersionPicker(LauncherState.SelectedVersion)
+            : new VersionPicker(LauncherState.SelectedVersion, installs);
+        picker.Picked += v => LauncherState.Write(s => s.SelectedVersion = v);
         picker.Dismissed += () => _window.CloseSheet();
         _window.OpenSheet(picker);
+        return picker;
     }
+
+    /// <summary>The status line's words (the launch override reads the refusal it shows).</summary>
+    public string StatusText => _statusText.Text ?? "";
 
     // ---- Render runs ----
 
