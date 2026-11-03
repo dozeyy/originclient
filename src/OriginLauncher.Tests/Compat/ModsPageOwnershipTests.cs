@@ -8,6 +8,7 @@ namespace OriginLauncher.Tests.Compat;
 // built-in (no switch, no Remove) without a launch having hashed them first, the player's own copy of the same mod
 // stays theirs ("a player's own mods win"), and an Origin jar that was turned off before this fix is put back on by
 // the installers instead of staying off for good. Temp folders only.
+[Collection(OwnershipCacheCollection.Name)]
 public sealed class ModsPageOwnershipTests : IDisposable
 {
     private readonly string _mods = Path.Combine(Path.GetTempPath(), "origin-mods-page-" + Guid.NewGuid().ToString("N"), "mods");
@@ -86,6 +87,50 @@ public sealed class ModsPageOwnershipTests : IDisposable
     }
 
     [Fact]
+    public void A_leftover_Origin_set_aside_is_not_listed_as_the_players_until_they_turn_it_back_on()
+    {
+        // Origin's old pinned Sodium, set aside by Origin's own cleanup: renamed off and an "aside" line in the record.
+        var old = Origins("sodium-fabric-0.6.13+mc1.21.1.jar", Kit.FabricJar("sodium", "0.6.13+mc1.21.1"));
+        var sha = OriginInstallRecord.Sha512Of(old)!;
+        File.Move(old, old + ".disabled");
+        OriginInstallRecord.NoteAside(old + ".disabled", sha);
+        // The player's own turned-off mod of an Origin name, never set aside by Origin.
+        Put("lithium-fabric-0.15.0+mc1.21.1.jar.disabled", Kit.FabricJar("lithium", "0.15.0+mc1.21.1"));
+        ModManager.ClearOwnershipCache(); // a new launcher session
+
+        // Before the background check: neither is known without hashing, so neither is shown as the player's yet.
+        var first = ModManager.EnumerateIn(_mods, isProfile: false);
+        Assert.True(Row(first, "sodium-fabric-0.6.13+mc1.21.1.jar") is { Enabled: false, IsManaged: false, Checking: true });
+        Assert.True(Row(first, "lithium-fabric-0.15.0+mc1.21.1.jar") is { Enabled: false, IsManaged: false, Checking: true });
+
+        // After it: Origin's leftover is not listed at all; the player's own stays a row with a switch and Remove.
+        Assert.Equal(2, ModManager.WarmOwnership(_mods));
+        var rows = ModManager.EnumerateIn(_mods, isProfile: false);
+        Assert.DoesNotContain(rows, r => r.FileName == "sodium-fabric-0.6.13+mc1.21.1.jar");
+        Assert.True(Row(rows, "lithium-fabric-0.15.0+mc1.21.1.jar") is { Enabled: false, IsManaged: false, Checking: false });
+        Assert.Equal(0, ModManager.WarmOwnership(_mods));
+
+        // The player turned the leftover back on (a "player" line), then off again: it is theirs now, listed.
+        Assert.True(ModManager.SetEnabledIn(_mods, "sodium-fabric-0.6.13+mc1.21.1.jar", true).Ok);
+        Assert.Equal(OriginInstallRecord.Entry.Player, OriginInstallRecord.Lookup(_mods, sha));
+        Assert.True(ModManager.SetEnabledIn(_mods, "sodium-fabric-0.6.13+mc1.21.1.jar", false).Ok);
+        ModManager.WarmOwnership(_mods);
+        var claimed = ModManager.EnumerateIn(_mods, isProfile: false);
+        Assert.True(Row(claimed, "sodium-fabric-0.6.13+mc1.21.1.jar") is { Enabled: false, IsManaged: false, Checking: false });
+    }
+
+    [Fact]
+    public void A_folder_with_nothing_set_aside_lists_turned_off_jars_without_any_check()
+    {
+        Origins("modmenu-11.0.3.jar", Kit.FabricJar("modmenu", "11.0.3"));
+        Put("lithium-fabric-0.15.0+mc1.21.1.jar.disabled", Kit.FabricJar("lithium", "0.15.0+mc1.21.1"));
+        ModManager.ClearOwnershipCache();
+
+        var rows = ModManager.EnumerateIn(_mods, isProfile: false);
+        Assert.True(Row(rows, "lithium-fabric-0.15.0+mc1.21.1.jar") is { Enabled: false, IsManaged: false, Checking: false });
+    }
+
+    [Fact]
     public void Origins_own_jar_left_turned_off_comes_back_on_and_the_players_stay_off()
     {
         // Origin's pinned Fabric API, turned off on the old Mods page.
@@ -117,4 +162,14 @@ public sealed class ModsPageOwnershipTests : IDisposable
         Assert.False(ModManager.TryRestoreOriginsJar(_mods, "voicechat-fabric-1.21.1-2.5.30.jar", _ => true));
         Assert.True(File.Exists(vc + ".disabled"));
     }
+}
+
+/// <summary>
+/// ModManager's ownership answers are one process-wide cache that every install-record write (any test, any folder)
+/// clears. Tests that read it between WarmOwnership and EnumerateIn run alone, or a parallel test resets it mid-way.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class OwnershipCacheCollection
+{
+    public const string Name = "Mod ownership cache (runs alone)";
 }

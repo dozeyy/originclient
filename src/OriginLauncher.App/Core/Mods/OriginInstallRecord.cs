@@ -121,6 +121,17 @@ public static class OriginInstallRecord
         return best;
     }
 
+    /// <summary>
+    /// True when Origin set exactly these bytes aside in <paramref name="folder"/> as a leftover of its own (an "aside"
+    /// line) and the player has not claimed them since (no "player" line): Origin's leftover, not a mod of the player's.
+    /// </summary>
+    public static bool IsSetAside(string folder, string sha512Hex) =>
+        Lookup(folder, sha512Hex) != Entry.Player
+        && Lines(folder).Any(l => l.Kind == "aside" && l.Sha.Equals(sha512Hex, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>True when the record in <paramref name="folder"/> has any "aside" line (when not, nothing there needs hashing to know).</summary>
+    public static bool HasAnySetAside(string folder) => Lines(folder).Any(l => l.Kind == "aside");
+
     /// <summary>True when Origin installed or adopted these bytes in <paramref name="folder"/> (and the player has not claimed them).</summary>
     public static bool Contains(string folder, string sha512Hex) => Lookup(folder, sha512Hex) is Entry.Installed or Entry.Adopted;
 

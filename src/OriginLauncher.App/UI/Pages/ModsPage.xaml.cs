@@ -131,7 +131,7 @@ public partial class ModsPage : UserControl
         _builtFrom = plain ? mods.ToList() : null;
         UserModsPanel.Children.Clear();
         BuiltInPanel.Children.Clear();
-        var user = mods.Where(m => !m.IsManaged).ToList();
+        var user = mods.Where(m => !m.IsManaged && !m.Checking).ToList(); // a turned-off one still Checking may be Origin's leftover: shown once decided
         // A profile folder holds only the player's own mods; Origin's built-in
         // ones come from the version's shared folder and aren't part of it.
         var managed = _profile != null ? new List<ModEntry>() : mods.Where(m => m.IsManaged).ToList();

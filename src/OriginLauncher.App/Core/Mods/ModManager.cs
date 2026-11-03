@@ -12,9 +12,10 @@ namespace OriginLauncher.App.Core.Mods;
 /// <c>.disabled</c> (i.e. the enabled form, "foo.jar") — it's the stable
 /// identity used for toggle/remove regardless of current enabled state.
 /// <paramref name="Checking"/>: a jar named like one of Origin's whose owner is not known yet (its bytes have not been
-/// checked in this launcher session). It is shown read-only (<paramref name="IsManaged"/> true) until
-/// <see cref="ModManager.WarmOwnership"/> has checked it off the UI thread, so Origin's own Fabric API / Sodium never
-/// gets an on/off switch or a Remove button just because nothing was launched yet.
+/// checked in this launcher session). An enabled one is shown read-only (<paramref name="IsManaged"/> true), a
+/// turned-off one (IsManaged false) is not shown, until <see cref="ModManager.WarmOwnership"/> has checked it off the
+/// UI thread, so Origin's own Fabric API / Sodium (or a leftover Origin set aside) never gets an on/off switch or a
+/// Remove button just because nothing was launched yet.
 /// </summary>
 public sealed record ModEntry(string FileName, string DisplayName, bool Enabled, bool IsManaged, bool Checking = false);
 
@@ -70,10 +71,11 @@ public static class ModManager
     /// <summary>
     /// <see cref="Enumerate"/> over a given folder (the unit-tested core). Built-in (read-only) rows are ENABLED jars
     /// with one of Origin's names whose bytes are Origin's; a jar not checked yet is built-in and
-    /// <see cref="ModEntry.Checking"/>. A turned-off jar is never built-in: it is not loaded, Origin's installers put
-    /// its own copy back (<see cref="TryRestoreOriginsJar"/>), and the player keeps the switch to turn a set-aside
-    /// one back on. A profile folder holds only the player's own mods (Origin's come from the shared folder), so
-    /// nothing in it is built-in, whatever its bytes.
+    /// <see cref="ModEntry.Checking"/>. A turned-off jar is never built-in: it is not loaded, and Origin's installers put
+    /// its own copy back (<see cref="TryRestoreOriginsJar"/>). A turned-off leftover Origin set aside itself (an
+    /// "aside" line in the install record that the player has not claimed) is not listed at all; any other turned-off
+    /// jar is the player's, with its switch. A profile folder holds only the player's own mods (Origin's come from the
+    /// shared folder), so nothing in it is built-in, whatever its bytes.
     /// </summary>
     public static IReadOnlyList<ModEntry> EnumerateIn(string folder, bool isProfile)
     {
@@ -91,6 +93,7 @@ public static class ModManager
             return Array.Empty<ModEntry>();
         }
 
+        bool? folderHasAside = null; // read once, and only when a turned-off jar with one of Origin's names is here
         foreach (var path in files)
         {
             var name = Path.GetFileName(path);
@@ -125,6 +128,15 @@ public static class ModManager
                 var known = KnownOriginsCopy(path);
                 managed = known ?? true;
                 checking = known == null;
+            }
+            else if (!enabled && !isProfile && IsManaged(jarName))
+            {
+                // A leftover Origin set aside itself (an "aside" line, not claimed by the player) is not the player's
+                // mod: it is not listed at all. Not known yet: Checking (not shown) until WarmOwnership hashed it.
+                folderHasAside ??= OriginInstallRecord.HasAnySetAside(folder);
+                var aside = KnownSetAside(path, folderHasAside.Value);
+                if (aside == true) continue;
+                checking = aside == null;
             }
             entries.Add(new ModEntry(jarName, PrettyName(jarName), enabled, managed, checking));
         }
@@ -463,9 +475,21 @@ public static class ModManager
         {
             if (!Directory.Exists(modsFolder)) return 0;
             OriginInstallRecord.AdoptLegacy(modsFolder);
+            var hasAside = OriginInstallRecord.HasAnySetAside(modsFolder);
             foreach (var path in Directory.EnumerateFiles(modsFolder).ToList())
             {
                 var name = Path.GetFileName(path);
+                if (name.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase) && IsManaged(JarNameOf(name)))
+                {
+                    // A turned-off one: is it a leftover Origin set aside itself (then the page does not list it)?
+                    if (KnownSetAside(path, hasAside) != null) continue;
+                    if (OriginInstallRecord.Sha512Of(path) is not { } sha) continue; // locked right now: stays Checking
+                    var file = new FileInfo(path);
+                    RememberAside(file.FullName, (file.Length, file.LastWriteTimeUtc.Ticks),
+                        OriginInstallRecord.IsSetAside(modsFolder, sha));
+                    decided++;
+                    continue;
+                }
                 if (!name.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase) || !IsManaged(name)) continue;
                 if (KnownOriginsCopy(path) != null) continue;
                 IsOriginsCopy(path, allowHash: true); // hashes and remembers (unless the jar can't be read right now)
@@ -475,6 +499,34 @@ public static class ModManager
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* best-effort: rows stay Checking */ }
         return decided;
     }
+
+    // Whether a turned-off jar is a leftover Origin set aside itself, without hashing: false when the folder's record has
+    // no "aside" line at all, else remembered by (path, size, time) from WarmOwnership. Null = only the bytes can say.
+    internal static bool? KnownSetAside(string path, bool folderHasAside)
+    {
+        if (!folderHasAside) return false;
+        try
+        {
+            var file = new FileInfo(path);
+            if (!file.Exists) return false;
+            return SetAside.TryGetValue(file.FullName, out var hit) && hit.Stamp == (file.Length, file.LastWriteTimeUtc.Ticks)
+                ? hit.Aside
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private static void RememberAside(string key, (long, long) stamp, bool aside)
+    {
+        if (SetAside.Count >= OwnershipCacheLimit) SetAside.Clear();
+        SetAside[key] = (stamp, aside);
+    }
+
+    private static readonly ConcurrentDictionary<string, ((long, long) Stamp, bool Aside)> SetAside =
+        new(StringComparer.OrdinalIgnoreCase);
 
     // The owner without hashing: remembered, by name (originclient, OptiFine, legacy stack) or by a cheap mod-id
     // mismatch (certainly the player's). Null = only the bytes can say (WarmOwnership). A missing file is not Origin's.
@@ -568,7 +620,11 @@ public static class ModManager
         new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Forgets remembered answers (tests that rewrite a file inside one clock tick).</summary>
-    public static void ClearOwnershipCache() => Ownership.Clear();
+    public static void ClearOwnershipCache()
+    {
+        Ownership.Clear();
+        SetAside.Clear(); // a new record line ("aside", "player") may change these answers too
+    }
 
     // Decided by the bytes; null when the jar could not be read (or, without hashing, could be either).
     private static JarOwner? Decide(string path, string jarName, bool allowHash)
