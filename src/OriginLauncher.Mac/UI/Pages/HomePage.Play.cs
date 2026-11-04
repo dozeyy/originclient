@@ -554,6 +554,7 @@ public sealed partial class HomePage
             var runningMessage = target?.Server is { } joined
                 ? $"Playing on {SocialText.DisplayServer(joined)} - {version}"
                 : $"Running - {session.Username}";
+            runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
         catch (OperationCanceledException ex) when (PlayFailure.IsUserCancel(ex, ticket.Token))
@@ -1022,10 +1023,10 @@ public sealed partial class HomePage
     }
 
     // ---- Render shots only (UI/Shots/AreaAShots.cs): the same states, no game, no settings touched ----
-    internal void TourShowRunning(string playerName)
+    internal void TourShowRunning(string playerName, IReadOnlyList<string>? notices = null)
     {
         ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true));
-        SetStatus($"Running - {playerName}", StatusTone.Success);
+        SetStatus(LaunchedMods.WithNotices($"Running - {playerName}", notices ?? []), StatusTone.Success);
     }
 
     internal void TourShowReady()

@@ -1085,6 +1085,7 @@ public partial class HomePage : UserControl
             var runningMessage = target?.Server is { } joined
                 ? $"Playing on {SocialText.DisplayServer(joined)} - {version}"
                 : $"Running - {session.Username}";
+            runningMessage = Core.GameFolders.LaunchedMods.WithNotices(runningMessage, Core.GameFolders.LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
         catch (OperationCanceledException ex) when (PlayFailure.IsUserCancel(ex, ticket.Token))
@@ -1718,10 +1719,10 @@ public partial class HomePage : UserControl
     /// Render mode only (UI/RenderShots.cs): show the Play button the way it
     /// looks while the selected account's game is open, without a game.
     /// </summary>
-    internal void TourShowRunning(string playerName)
+    internal void TourShowRunning(string playerName, IReadOnlyList<string>? notices = null)
     {
         ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true));
-        SetStatus($"Running - {playerName}", StatusTone.Success);
+        SetStatus(Core.GameFolders.LaunchedMods.WithNotices($"Running - {playerName}", notices ?? []), StatusTone.Success);
     }
 
     /// <summary>

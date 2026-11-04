@@ -210,13 +210,42 @@ public static class ModManager
                 IsProfile: true, OriginFolder: shared, ConfirmedReplace: confirmedReplace);
         try
         {
-            return ModImporter.Import(paths, context);
+            var report = ModImporter.Import(paths, context);
+            // What the new set means at Play, said now: the player's own Sodium can switch Origin's shaders or one of
+            // Origin's mods off (Compat/PlayerOverrides), which used to reach only logs/mod-compat-<version>.log.
+            return report is { Ok: true, Added: > 0 }
+                ? report with { Notes = report.Notes.Concat(OverrideNotices(version, profileId)).ToList() }
+                : report;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // The checker must never make adding a mod impossible: a bug there is an error line, not a crash.
             return new ImportReport(0, Array.Empty<ReplaceOffer>(), Array.Empty<string>(), Array.Empty<string>(),
                 "Couldn't check that mod: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// The player-override notices the next Play of this folder will act on ("Shaders are off for this profile:
+    /// ...", "Origin's X is off for this profile: ..."), the same plan the launch makes (VersionManager.PlayerPlanFor,
+    /// before any vetted-pair swap). Empty on any failure: a notice is never worth blocking an add.
+    /// </summary>
+    public static IReadOnlyList<string> OverrideNotices(string version, string? profileId)
+    {
+        try
+        {
+            // "Your mods" off: a shared-folder Play loads only Origin's jars, so nothing of the player's replaces them.
+            if (profileId == null && !SettingsStore.Load().PlayWithExternalMods) return Array.Empty<string>();
+            var shared = ModsFolder(version);
+            var plan = profileId != null
+                ? LaunchPreflight.OverridesFor(version, shared, ModsFolder(version, profileId),
+                    IsOriginProvisioned, IsOriginsCopy, null, CancellationToken.None)
+                : LaunchPreflight.SharedOverridesFor(version, shared, IsManaged, IsOriginsCopy, null, CancellationToken.None);
+            return plan.Notices;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return Array.Empty<string>();
         }
     }
 

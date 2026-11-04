@@ -278,6 +278,11 @@ public static class RenderShots
         window.TourShowRunning("Steve");
         Pump(600);
         Snap(window, outDir, "07-play-running");
+        // Running with what the player's own Sodium changed (Compat/PlayerOverrides.Notices, Core/GameFolders/LaunchedMods).
+        window.TourShowRunning("Steve", ["Shaders are off for this profile: Origin has not tested an Iris with your Sodium 0.6.9. Add a matching Iris to the profile to turn them back on."]);
+        Pump(400);
+        Snap(window, outDir, "07b-play-running-notice");
+        window.TourShowRunning("Steve");
 
         if (Pages.HomePage.HomeBannerOn) SnapBanners(window, outDir);
 
