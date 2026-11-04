@@ -1,11 +1,16 @@
 package com.origin.client.client.mixin.core;
 
 import com.origin.client.client.OriginClientMod;
+import com.origin.client.client.hooks.MenuHooks;
+import com.origin.client.client.mods.ScreenshotSaver;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiNewChat;
+import net.minecraft.util.IChatComponent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * The Chat mod's Background Opacity on 1.8.9 (no "text background opacity"
@@ -19,6 +24,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * matches applies and the other matches nothing (the config's defaultRequire 0
  * makes a non-match a no-op, never a crash). GuiNewChat is not an
  * OptiFine-replaced class, so this INVOKE point holds with OptiFine installed.
+ * Below it: Keep Chat History and the async-screenshot placeholder (HEAD hooks).
  */
 @Mixin(GuiNewChat.class)
 public abstract class GuiNewChatMixin {
@@ -32,5 +38,30 @@ public abstract class GuiNewChatMixin {
 			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;drawRect(IIIII)V", ordinal = 0))
 	private void originclient$lineBackgroundGui(int left, int top, int right, int bottom, int color) {
 		Gui.drawRect(left, top, right, bottom, OriginClientMod.chatBackground(color));
+	}
+
+	// Keep Chat History: displayGuiScreen(GuiMainMenu) wipes chat AND the Up-arrow history
+	// (sentMessages) every time the title opens after leaving a world. MenuHooks arms a skip
+	// for exactly that one clear (Main Menu Style = Vanilla); any other caller still clears.
+	// If this stops applying, chat is cleared on the vanilla title as before.
+	@Inject(method = "clearChatMessages", at = @At("HEAD"), cancellable = true)
+	private void originclient$keepHistory(CallbackInfo ci) {
+		try {
+			if (MenuHooks.skipChatClear()) {
+				ci.cancel();
+			}
+		} catch (Throwable t) {
+			// vanilla clears
+		}
+	}
+
+	// Async screenshots (ScreenshotSaver): F2 prints whatever ScreenShotHelper.saveScreenshot
+	// returns, and the async path returns a placeholder line before the PNG exists; the real
+	// "Saved screenshot" line is posted once the file is written. The placeholder is dropped here.
+	@Inject(method = "printChatMessage", at = @At("HEAD"), cancellable = true)
+	private void originclient$dropPlaceholder(IChatComponent chat, CallbackInfo ci) {
+		if (chat == ScreenshotSaver.PENDING) {
+			ci.cancel();
+		}
 	}
 }

@@ -97,20 +97,42 @@ public class MenuHooks {
 			Minecraft mc = Minecraft.getMinecraft();
 			boolean title = (event.gui != null && event.gui.getClass() == GuiMainMenu.class)
 					|| (event.gui == null && mc.theWorld == null);
+			// Right after this event displayGuiScreen clears chat for any GuiMainMenu (Main Menu
+			// Style = Vanilla, or another mod's subclass): armed here, skipped by the
+			// GuiNewChat hook while Keep Chat History is on. Re-decided on every screen change.
+			keepChatArmed = (title || event.gui instanceof GuiMainMenu) && keepChat();
 			if (!title || !originMenuStyle() || !OriginScreenRenderer.isActive()
 					|| OriginScreen.isBroken(OriginTitleScreen.class)) {
 				return;
 			}
 			event.gui = new OriginTitleScreen();
 			// What displayGuiScreen does for an `instanceof GuiMainMenu` screen,
-			// which ours is not: hide the debug overlay and clear the chat.
+			// which ours is not: hide the debug overlay and clear the chat -- unless
+			// Keep Chat History is on (1.21.1 keeps chat and the Up-arrow history too).
+			keepChatArmed = false;
 			mc.gameSettings.showDebugInfo = false;
-			if (mc.ingameGUI != null) {
+			if (mc.ingameGUI != null && !keepChat()) {
 				mc.ingameGUI.getChatGUI().clearChatMessages();
 			}
 		} catch (Throwable t) {
 			// vanilla's main menu
 		}
+	}
+
+	// ---- Keep Chat History (the Chat mod's row, default on) ----
+
+	// Set by onGuiOpen when vanilla's own title-screen chat clear is about to run; render thread only.
+	private static boolean keepChatArmed = false;
+
+	private static boolean keepChat() {
+		return Mods.on("chat") && Mods.bool("chat", "keepHistory");
+	}
+
+	/** GuiNewChat.clearChatMessages HEAD: true = skip this clear (the title-screen one, with Keep Chat History on). */
+	public static boolean skipChatClear() {
+		boolean skip = keepChatArmed;
+		keepChatArmed = false;
+		return skip;
 	}
 
 	// ---- out-of-world backdrop ----
