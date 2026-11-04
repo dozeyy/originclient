@@ -334,7 +334,7 @@ public class SharedModsTests
         Write("1.8.9/mods/old-mod.zip", "zip mod", Monday);
         Write("1.8.9/mods/off.jar.disabled", "off");             // turned off on the Mods page
         Write("1.8.9/mods/notes.txt", "not a mod");
-        Write("1.8.9/mods/1.8.9/nested.jar", "sub-folders stay out");
+        Write("1.8.9/mods/libs/nested.jar", "other sub-folders stay out");
 
         Assert.True(MirrorShared());
 
@@ -343,7 +343,8 @@ public class SharedModsTests
         Assert.Equal("zip mod", Read($"1.8.9/accounts/{Steve}/mods/old-mod.zip"));
         Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/off.jar.disabled"));
         Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/notes.txt"));
-        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/1.8.9"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/libs"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/nested.jar"));
         // The shared folder is never changed by mirroring it.
         Assert.Equal("off", Read("1.8.9/mods/off.jar.disabled"));
     }
@@ -395,6 +396,60 @@ public class SharedModsTests
 
         Assert.True(MirrorShared()); // external mods back on
         Assert.Equal("keystrokes", Read($"1.8.9/accounts/{Steve}/mods/keystrokes.jar"));
+    }
+
+    // FML also loads mods/1.8.9/ (a common Forge layout): its jars move up into the shared folder so the Mods page,
+    // the duplicate checks and the Origin-only retry all see them, then come back as ordinary flat copies.
+    [Fact]
+    public void JarsInTheAccountsVersionSubfolderJoinTheSharedFolder()
+    {
+        Write("1.8.9/mods/originclient.jar", "origin", Monday);
+        Write($"1.8.9/accounts/{Steve}/mods/1.8.9/keystrokes.jar", "keystrokes", Monday);
+        Write($"1.8.9/accounts/{Steve}/mods/1.8.9/mod_list.json", "{}");
+
+        Assert.True(MirrorShared());
+
+        Assert.Equal("keystrokes", Read("1.8.9/mods/keystrokes.jar"));
+        Assert.Equal("keystrokes", Read($"1.8.9/accounts/{Steve}/mods/keystrokes.jar"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/1.8.9/keystrokes.jar")); // never loaded twice
+        Assert.Equal("{}", Read($"1.8.9/accounts/{Steve}/mods/1.8.9/mod_list.json")); // not a mod: left alone
+
+        // ...so the Origin-only retry leaves it out like any other player mod.
+        Assert.True(MirrorShared(name => name.StartsWith("originclient", StringComparison.Ordinal)));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/keystrokes.jar"));
+        Assert.Equal("keystrokes", Read("1.8.9/mods/keystrokes.jar"));
+    }
+
+    [Fact]
+    public void JarsInTheSharedVersionSubfolderMoveUpAndTheEmptyFolderGoes()
+    {
+        // Forge never reads the shared folder itself, so these never loaded before.
+        Write("1.8.9/mods/1.8.9/autogg.jar", "autogg", Monday);
+
+        Assert.True(MirrorShared());
+
+        Assert.Equal("autogg", Read("1.8.9/mods/autogg.jar"));
+        Assert.False(Exists("1.8.9/mods/1.8.9"));
+        Assert.Equal("autogg", Read($"1.8.9/accounts/{Steve}/mods/autogg.jar"));
+    }
+
+    [Fact]
+    public void AVersionSubfolderClashKeepsBothFilesByTheMergeRule()
+    {
+        // Same name, different bytes: the newer keeps the name, the older is parked - nothing is rewritten or lost.
+        Write("1.8.9/mods/keystrokes.jar", "keystrokes old", Monday);
+        Write($"1.8.9/accounts/{Steve}/mods/1.8.9/keystrokes.jar", "keystrokes new", Friday);
+        // Same bytes: the subfolder copy is just dropped.
+        Write("1.8.9/mods/cps.jar", "cps", Monday);
+        Write("1.8.9/mods/1.8.9/cps.jar", "cps", Friday);
+
+        Assert.True(MirrorShared());
+
+        Assert.Equal("keystrokes new", Read("1.8.9/mods/keystrokes.jar"));
+        Assert.Equal("keystrokes old", Read("1.8.9/mods/keystrokes.jar" + SharedMods.ParkSuffix));
+        Assert.Equal("cps", Read("1.8.9/mods/cps.jar"));
+        Assert.False(Exists("1.8.9/mods/1.8.9"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/1.8.9"));
     }
 
     [Fact]
