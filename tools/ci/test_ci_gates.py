@@ -209,12 +209,13 @@ class DevShotsFilm(unittest.TestCase):
         self.assertTrue(trig.search("[14:25:26] [main/INFO] (Minecraft) LWJGL Version: 2.9.4"))
         self.assertTrue(trig.search("[Render thread/INFO]: Backend library: LWJGL version 3.3.3+5"))
 
-    def test_film_splash_theme_matches_launcher(self):
-        # The filmed 1.8.9 splash must be the one players get.
-        cs = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "ForgeSplashTheme.cs"))
-        block = cs[cs.index("string Content ="):]
-        launcher = re.findall(r'"(\w+=[^"\\]+)\\n"', block[:block.index(";")])
-        self.assertGreaterEqual(len(launcher), 5)
+    def test_film_splash_file_matches_launcher(self):
+        # The filmed 1.8.9 start must be the one players get: FML's splash switched off by the launcher.
+        cs = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "ForgeSplashOff.cs"))
+        content = re.search(r'string Content = "([^"]*)";', cs)
+        self.assertIsNotNone(content, "ForgeSplashOff.Content not found")
+        launcher = content.group(1).split("\\n")[:-1]
+        self.assertEqual(launcher, ["enabled=false"])
         m = re.search(r"printf '([^']*)' > \"\$rundir/config/splash\.properties\"", _read(self.YML))
         self.assertIsNotNone(m, "dev-shots no longer seeds splash.properties")
         self.assertEqual(m.group(1).split("\\n")[:-1], launcher)

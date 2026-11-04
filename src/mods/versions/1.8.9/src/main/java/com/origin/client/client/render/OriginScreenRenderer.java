@@ -756,17 +756,15 @@ public final class OriginScreenRenderer {
 	/**
 	 * The clean splash (1.21.1's settle-hold picture): the one loading picture
 	 * (LoadingLook, its opaque color.bg backdrop faded by the dissolve) with the bar full.
-	 * The startup load itself is StartupLoading's (its last frame is this same
-	 * picture), so this layer only ever shows a FINISHED load: the bar sits full
-	 * at 100%, the caption 1.21.1 shows at that moment.
+	 * The startup load itself is StartupLoading's, so this layer only ever shows a
+	 * FINISHED load: its bar finishing the glide to full (StartupLoading.holdFill)
+	 * with 1.21.1's caption ("Loading resources NN%").
 	 */
 	private static void renderSplash(Gfx guiGraphics) {
 		ensureLoaded();
-		LoadingLook.draw(guiGraphics, layerAlpha, 1.0, STARTUP_DONE);
+		double fill = StartupLoading.holdFill();
+		LoadingLook.draw(guiGraphics, layerAlpha, fill, StartupLoading.captionFor(fill));
 	}
-
-	// 1.21.1's startup caption at a finished load (its words, ASCII).
-	private static final String STARTUP_DONE = "Loading resources 100%";
 
 	/**
 	 * Main menu: the player (head + username) in the top-left with no plate behind it, as 1.21.1
