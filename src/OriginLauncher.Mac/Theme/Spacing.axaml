@@ -132,6 +132,9 @@
          dialog, sheet-over-scrim and the crash windows' main card. One step rounder than a card so a dialog never reads
          as another card on the page. -->
     <CornerRadius x:Key="Radius.Dialog">16</CornerRadius>
+    <!-- A 32 tall control inside a 40 tall capsule with a 4 px inset (Home's bring-over button): half its height, so it
+         is a capsule too and concentric with the outer one (20 - 4 = 16). Only for a control of exactly that height. -->
+    <CornerRadius x:Key="Radius.Capsule.Md">16</CornerRadius>
     <!-- Radius.Lg as a number, for a dashed Rectangle (RadiusX / RadiusY take a double, not a CornerRadius). -->
     <x:Double x:Key="Radius.Lg.Value">12</x:Double>
     <!-- A card's picture: the card's corner on its top two corners only. -->

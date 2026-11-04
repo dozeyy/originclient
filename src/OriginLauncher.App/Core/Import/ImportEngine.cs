@@ -229,6 +229,8 @@ public sealed partial class ImportEngine
                 result.Notes.Add($"Couldn't look through {sources[i].Kind}");
             }
         }
+        // Lunar plays out of the normal .minecraft: that folder is Lunar's, not a second launcher (Sources/LunarFold.cs).
+        LunarFold.Apply(result.Instances);
         watch.Stop();
         result.Elapsed = watch.Elapsed;
         _env.Log?.Invoke($"import scan: {result.Instances.Count} instances in {watch.ElapsedMilliseconds} ms");

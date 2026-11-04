@@ -27,15 +27,19 @@ public static class ImportShots
     [ShotSet]
     public static IEnumerable<Shot> All()
     {
-        // ---- the first-run card on Home ----
-        var many = BulkSetups();
-        var one = new[] { many[0] };
-        yield return new Shot("17-home-import-card", w => Card(w, many));
-        yield return new Shot("17b-home-import-card-one-setup", w => Card(w, one));
-        // 17c: a game is starting (or an update runs): Import would be refused, so the card stays out of Home.
-        yield return new Shot("17c-home-import-card-refused", w => Card(w, many).SetRefusal("Wait for Minecraft to finish starting, then try again."));
-        yield return new Shot("50-min-home-import-card", w => Card(w, many), MinW, MinH);
-        yield return new Shot("51-min-home-import-card-one-setup", w => Card(w, one), MinW, MinH);
+        // ---- Home's bring-over button (the Windows set's names): one launcher, several, the choice, running, done ----
+        var many = ImportPrompt.Qualifying(BulkSetups(), DemoTargets);
+        var lunar = many.Where(s => s.Kind == SourceKind.Lunar).ToList(); // a Lunar player (.minecraft folded into Lunar)
+        yield return new Shot("17-home-bring-over-one-source", w => BringOver(w, lunar));
+        yield return new Shot("17b-home-bring-over-many-sources", w => BringOver(w, many));
+        yield return new Shot("17c-home-bring-over-choice", w => Choice(w, many));
+        yield return new Shot("17d-home-bring-over-checking", w => Running(w, lunar, null));
+        yield return new Shot("17e-home-bring-over-running", w => Running(w, lunar, 0.42));
+        yield return new Shot("17f-home-bring-over-done", w => Done(w, lunar));
+        // 17g: a game is starting (or an update runs): Import would be refused, so an offer stays out of Home.
+        yield return new Shot("17g-home-bring-over-refused", w => BringOver(w, lunar).SetRefusal("Wait for Minecraft to finish starting, then try again."));
+        yield return new Shot("50-min-home-bring-over-choice", w => Choice(w, many), MinW, MinH);
+        yield return new Shot("51-min-home-bring-over-done", w => Done(w, lunar), MinW, MinH);
 
         // ---- step 1, the launchers ----
         yield return new Shot("38-import-page-empty", w => Open(w, Fake.Empty));
@@ -125,11 +129,41 @@ public static class ImportShots
 
     // ---------------------------------------------------------------- the player's steps
 
-    private static ImportPromptCard Card(MainWindow window, IReadOnlyList<DetectedInstance> setups)
+    // Home's button with made-up setups. No transfer runs: the running and done states are set on its own model.
+    private static BringOverButton BringOver(MainWindow window, IReadOnlyList<DetectedInstance> setups)
     {
-        var card = ImportView.ShowCard(window, ImportPrompt.Question(setups), setups, open: _ => null);
+        var button = ImportView.BringOverOf(window);
+        button.Offer(setups);
         Settle(100);
-        return card;
+        return button;
+    }
+
+    private static void Choice(MainWindow window, IReadOnlyList<DetectedInstance> setups)
+    {
+        BringOver(window, setups).TourPress();
+        Settle(100);
+    }
+
+    private static BringOverButton Running(MainWindow window, IReadOnlyList<DetectedInstance> setups, double? copied)
+    {
+        var button = BringOver(window, setups);
+        button.TourStart(SourceKind.Lunar);
+        if (copied is { } f) button.Report(new HomeImportProgress(HomeImportStep.Copying, f));
+        Settle(100);
+        return button;
+    }
+
+    // A Lunar transfer that came over, its 1.21.5 setup left behind (Origin doesn't run 1.21.5): the engine's words.
+    private static void Done(MainWindow window, IReadOnlyList<DetectedInstance> setups)
+    {
+        var left = BulkSetups().First(s => s.Kind == SourceKind.Lunar && s.McVersion == "1.21.5");
+        var result = new BulkImportResult
+        {
+            RunId = "demo", State = ImportState.Committed,
+            Skipped = new[] { new SkippedSetup(left, BulkRules.UnsupportedReason("1.21.5"), SkipKind.Unsupported) },
+        };
+        Running(window, setups, 1).Finish(HomeImport.Outcome(result, ImportPrompt.ShortName(SourceKind.Lunar)));
+        Settle(100);
     }
 
     private static ImportPage Open(MainWindow window, Fake fake, int settleMs = 600, bool oneLauncher = false, bool fix = false)
@@ -240,6 +274,9 @@ public static class ImportShots
         Instance("Lunar 1.21.5", SourceKind.Lunar, "1.21.5", 1 * 3600, LoaderKind.None, 30),
     };
 
+    /// <summary>The versions the demo can import into (Home's bring-over demo qualifies setups against them too).</summary>
+    private static readonly string[] DemoTargets = { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
+
     /// <summary>The launchers the demo "has installed" (Feather installed, nothing in it).</summary>
     private static readonly SourceKind[] DemoInstalled =
     {
@@ -259,7 +296,7 @@ public static class ImportShots
             if (fake is Fake.Progress or Fake.Scanning) _hold = new TaskCompletionSource<bool>();
         }
 
-        public IReadOnlyList<string> SupportedTargets { get; } = new[] { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
+        public IReadOnlyList<string> SupportedTargets { get; } = DemoTargets;
 
         public string ImportsRoot => Path.Combine("demo", "imports");
 

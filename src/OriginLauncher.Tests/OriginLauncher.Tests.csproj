@@ -139,6 +139,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportLog.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSettingsRules.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportPrompt.cs" LinkBase="Import" />
+    <!-- Home's one-click transfer: its words (the run itself, HomeImportRunner, needs the backend and stays out). -->
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\HomeImport.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\BringOverModel.cs" LinkBase="Import" />
     <!-- The Import drawer's words and decisions that need no WPF (plurals, the Import all label, the Done page's summary). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\ImportLogic.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\UI\Controls\ImportFlowModel.cs" LinkBase="Import" />

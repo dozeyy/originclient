@@ -17,7 +17,7 @@
         <!-- Top right, under the bar: the home banner's slot. Empty while
              HomePage.HomeBannerOn is false (Will, 2026-10-19: off for now, it fought the
              poster); the feed code (PromoBanner, Core/Promos) is untouched and comes back
-             by flipping that flag. The first-run welcome hides it while it shows. -->
+             by flipping that flag. The bring-over button hides it while it shows. -->
         <Grid x:Name="BannerSlot" Width="380" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,72,32,0"/>
 
         <Grid x:Name="HomeCard" VerticalAlignment="Bottom" Margin="32,0,32,32">
@@ -138,8 +138,8 @@
         <!-- Version picker above Home content, below the launch screen, so a launch
              that starts while it is (somehow) open still covers it. Both fill the
              whole window, top bar included. -->
-        <!-- The one-time first-run welcome: centred over Home (the banner stays hidden while it shows). -->
-        <controls:ImportPromptCard x:Name="ImportCard"/>
+        <!-- The one bring-over button: top centre, under the bar (the banner stays hidden while it shows). -->
+        <controls:BringOverButton x:Name="BringOver"/>
 
         <controls:VersionSelectOverlay x:Name="VersionOverlay"/>
         <controls:LaunchLoadingOverlay x:Name="LoadingOverlay"/>

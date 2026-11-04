@@ -82,6 +82,28 @@ internal static class ImportDemo
         Instance("Lunar 1.21.5", SourceKind.Lunar, "1.21.5", 1 * 3600, LoaderKind.None, 30),
     };
 
+    // ---- Home's bring-over button (render shots): the setups it offers and how a transfer ends ----
+
+    /// <summary>The demo's qualifying setups (on a version DemoBackend can import into): five launchers, so a choice.</summary>
+    public static IReadOnlyList<DetectedInstance> BringOverMany() =>
+        ImportPrompt.Qualifying(BulkSetups(), DemoBackend.Targets);
+
+    /// <summary>Lunar's alone (a Lunar player, .minecraft folded in): one launcher, so one click.</summary>
+    public static IReadOnlyList<DetectedInstance> BringOverLunar() =>
+        BringOverMany().Where(s => s.Kind == SourceKind.Lunar).ToList();
+
+    /// <summary>A Lunar transfer that came over, its 1.21.5 setup left behind (Origin doesn't run 1.21.5): the engine's words.</summary>
+    public static HomeImportOutcome BringOverDone()
+    {
+        var left = BulkSetups().First(s => s.Kind == SourceKind.Lunar && s.McVersion == "1.21.5");
+        var result = new BulkImportResult
+        {
+            RunId = "demo", State = ImportState.Committed,
+            Skipped = new[] { new SkippedSetup(left, BulkRules.UnsupportedReason("1.21.5"), SkipKind.Unsupported) },
+        };
+        return HomeImport.Outcome(result, ImportPrompt.ShortName(SourceKind.Lunar));
+    }
+
     /// <summary>The launchers the demo "has installed" (Feather installed, nothing in it).</summary>
     private static readonly SourceKind[] DemoInstalled =
     {
@@ -105,7 +127,10 @@ internal static class ImportDemo
         /// <summary>Lets a held apply finish (so the render does not leave a task waiting).</summary>
         public static void Release() => _hold.TrySetResult(true);
 
-        public IReadOnlyList<string> SupportedTargets { get; } = new[] { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
+        /// <summary>The versions the demo can import into (Home's bring-over demo qualifies setups against them too).</summary>
+        public static readonly string[] Targets = { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
+
+        public IReadOnlyList<string> SupportedTargets { get; } = Targets;
 
         public string ImportsRoot => Path.Combine("demo", "imports");
 

@@ -41,8 +41,8 @@ public sealed class HomePage : Panel, IPage
 
     public LaunchController Launches { get; }
 
-    // Over Home, under the bar's layers: a centred card (the first-run import prompt, ImportView) or a Home-only
-    // prompt (Fix Compatibility over a refused Play). One at a time; null clears it.
+    // Over Home, under the bar's layers: a Home-only prompt (Fix Compatibility over a refused Play). One at a time;
+    // null clears it.
     private readonly Panel _cardSlot = new() { IsVisible = false };
 
     public void ShowCard(Control? card)
@@ -53,6 +53,24 @@ public sealed class HomePage : Panel, IPage
     }
 
     public Control? Card => _cardSlot.Children.Count > 0 ? _cardSlot.Children[0] : null;
+
+    // Home's one bring-over button (Overlays/BringOverButton; ImportView.BringOverOf builds and wires it): top centre,
+    // under the card slot so a Home prompt covers it. Built on first use: a launcher that never offers it never builds it.
+    private BringOverButton? _bringOver;
+
+    /// <summary>The button when it has been built (the run-state refusals reach it only then).</summary>
+    public BringOverButton? BringOverIfBuilt => _bringOver;
+
+    public BringOverButton BringOver
+    {
+        get
+        {
+            if (_bringOver != null) return _bringOver;
+            _bringOver = new BringOverButton();
+            Children.Insert(Children.IndexOf(_cardSlot), _bringOver);
+            return _bringOver;
+        }
+    }
 
     public HomePage(MainWindow window)
     {

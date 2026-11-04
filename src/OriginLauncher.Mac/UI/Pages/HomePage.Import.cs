@@ -2,24 +2,29 @@ using OriginLauncher.Mac.UI.Controls;
 
 namespace OriginLauncher.Mac.UI.Pages;
 
-// Home's import slot (twin of the WPF HomePage's ImportCard): the one-time welcome card sits over Home, so it shows
-// only while Home does. Built on first use and added on top of Home's own layers, so Home's axaml stays untouched and
-// a launcher that never shows the card never builds it.
+// Home's bring-over button (twin of the WPF HomePage's BringOver): it sits on Home, so it shows only while Home does.
+// Built on first use and added on top of Home's own layers, so Home's axaml stays untouched and a launcher that never
+// offers it never builds it.
 public sealed partial class HomePage
 {
-    private ImportPromptCard? _importCard;
+    private BringOverButton? _bringOver;
 
-    /// <summary>The card when it has been built (the run-state refusals reach it only then; ShowQuestion sets it too).</summary>
-    internal ImportPromptCard? ImportCardIfBuilt => _importCard;
+    /// <summary>The button when it has been built (the run-state refusals reach it only then; Offer builds it).</summary>
+    internal BringOverButton? BringOverIfBuilt => _bringOver;
 
-    internal ImportPromptCard ImportCard
+    internal BringOverButton BringOver
     {
         get
         {
-            if (_importCard != null) return _importCard;
-            _importCard = new ImportPromptCard();
-            HomeRoot.Children.Add(_importCard);
-            return _importCard;
+            if (_bringOver != null) return _bringOver;
+            _bringOver = new BringOverButton();
+            BringOverBuilt?.Invoke(_bringOver);
+            // Under the version picker and the Fix prompt, like the WPF Home's order: an overlay always covers it.
+            HomeRoot.Children.Insert(HomeRoot.Children.IndexOf(VersionOverlay), _bringOver);
+            return _bringOver;
         }
     }
+
+    /// <summary>The button was just built: the window hooks its presses once (MainWindow.Import.cs).</summary>
+    internal event Action<BringOverButton>? BringOverBuilt;
 }

@@ -498,13 +498,13 @@ public partial class HomePage : UserControl
     private PromoBanner? _banner;
 
     // Built only when the banner is on, so while it is off nothing fetches the feed or
-    // spins up the ad WebView. The first-run welcome hides it while that shows.
+    // spins up the ad WebView. The bring-over button hides it while that shows.
     private void AddBanner()
     {
         _banner = new PromoBanner();
         _banner.SetBinding(VisibilityProperty, new System.Windows.Data.Binding(nameof(Visibility))
         {
-            Source = ImportCard,
+            Source = BringOver,
             Converter = new InvertVisibility(),
         });
         BannerSlot.Children.Add(_banner);
