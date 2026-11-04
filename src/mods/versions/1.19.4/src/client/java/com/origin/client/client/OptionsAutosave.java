@@ -2,6 +2,7 @@ package com.origin.client.client;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.OptionInstance;
 
 // Vanilla game options (options.txt) land on disk the moment the player changes
 // one, not only when they leave a settings screen or quit (Will, 2026-10-18:
@@ -33,6 +34,20 @@ public final class OptionsAutosave {
 
 	public static void register() {
 		ClientTickEvents.END_CLIENT_TICK.register(OptionsAutosave::tick);
+	}
+
+	/** Origin's own temporary set() of a vanilla option (Zoom's sensitivity going in, and the
+	 *  player's value going back): not the player's change, so it never marks options.txt for
+	 *  a write. Before this, every zoom with Zoomed Sensitivity off 1.0x rewrote options.txt
+	 *  (and sent a settings packet) the moment zoom ended, with nothing really changed (JP-5). */
+	public static <T> void originSet(OptionInstance<T> option, T value) {
+		boolean was = quiet;
+		quiet = true;
+		try {
+			option.set(value);
+		} finally {
+			quiet = was;
+		}
 	}
 
 	/** A vanilla option changed (OptionsAutosaveMixin). */

@@ -430,7 +430,7 @@ public class OriginClientMod implements ClientModInitializer {
 			if (client.options != null) {
 				// quitting mid-zoom: write the player's own values, not Zoom's
 				if (zoomSensApplied) {
-					client.options.sensitivity().set(savedSensitivity);
+					OptionsAutosave.originSet(client.options.sensitivity(), savedSensitivity);
 					zoomSensApplied = false;
 				}
 				if (smoothCamApplied) {
@@ -948,9 +948,9 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 			double f = Mods.num("zoom", "sensitivity");
 			zoomedSensitivity = Math.max(0.0, Math.min(1.0, savedSensitivity * (f <= 0 ? 1.0 : f)));
-			client.options.sensitivity().set(zoomedSensitivity);
+			OptionsAutosave.originSet(client.options.sensitivity(), zoomedSensitivity);
 		} else if (zoomSensApplied) {
-			client.options.sensitivity().set(savedSensitivity);
+			OptionsAutosave.originSet(client.options.sensitivity(), savedSensitivity);
 			zoomSensApplied = false;
 		}
 
@@ -1124,7 +1124,7 @@ public class OriginClientMod implements ClientModInitializer {
 		zoomActive = false;
 		zoomScrollFactor = 1.0;
 		if (zoomSensApplied) {
-			client.options.sensitivity().set(savedSensitivity);
+			OptionsAutosave.originSet(client.options.sensitivity(), savedSensitivity);
 			zoomSensApplied = false;
 		}
 		if (OriginFreelookState.active) {
