@@ -98,6 +98,12 @@ def vercel_problems() -> list[str]:
     if site_cfg.read_text(encoding="utf-8") != root_cfg.read_text(encoding="utf-8"):
         out.append("vercel.json and website/vercel.json differ: keep them identical")
     cfg = json.loads(site_cfg.read_text(encoding="utf-8"))
+    # Vercel rejects the whole config (every deploy fails in about a second, the site silently stays
+    # on the last good build) when ignoreCommand is longer than 256 characters: that froze the live
+    # site from v1.0.87 to 2026-11-04.
+    ignore = cfg.get("ignoreCommand", "")
+    if len(ignore) > 256:
+        out.append(f"vercel.json ignoreCommand is {len(ignore)} characters; Vercel allows at most 256 (every deploy fails)")
     csp = ""
     for rule in cfg.get("headers", []):
         for h in rule.get("headers", []):

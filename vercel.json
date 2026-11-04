@@ -6,21 +6,36 @@
       "main": true
     }
   },
-  "ignoreCommand": "node -e \"const f=require('fs');const p=['launcher/promos.json','website/launcher/promos.json'].find(x=>f.existsSync(x));if(!p)process.exit(1);let ok=false;try{const j=JSON.parse(f.readFileSync(p,'utf8'));ok=j.schema===1&&Array.isArray(j.promos)&&j.promos.length>0}catch(e){}if(!ok)console.log('launcher/promos.json is broken: deploy skipped so every launcher keeps the last good banner feed');process.exit(ok?1:0)\"",
+  "ignoreCommand": "node -e \"const f=require('fs');let j;for(const p of['launcher/promos.json','website/launcher/promos.json'])try{j=JSON.parse(f.readFileSync(p,'utf8'))}catch(e){}process.exit(j&&j.schema===1&&j.promos&&j.promos.length?1:0)\"",
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        }
       ]
     },
     {
       "source": "/((?!ad/).*)",
       "headers": [
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://crafthead.net https://mc-heads.net https://textures.minecraft.net; connect-src 'self' https://api.github.com https://playerdb.co https://origin-cosmetics.will-f11.workers.dev; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" }
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://crafthead.net https://mc-heads.net https://textures.minecraft.net; connect-src 'self' https://api.github.com https://playerdb.co https://origin-cosmetics.will-f11.workers.dev; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        }
       ]
     }
   ]
