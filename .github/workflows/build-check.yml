@@ -27,6 +27,7 @@ on:
       - "tools/step-aside-tests/**"
       - "tools/screenshot-link-tests/**"
       - "tools/keycodes-tests/**"
+      - "tools/qol-tests/**"
       - "tools/ingame-guard-tests/**"
       - "tools/hud-layout-tests/**"
       - "tools/compat-gates/**"
@@ -55,6 +56,7 @@ on:
       - "tools/step-aside-tests/**"
       - "tools/screenshot-link-tests/**"
       - "tools/keycodes-tests/**"
+      - "tools/qol-tests/**"
       - "tools/ingame-guard-tests/**"
       - "tools/hud-layout-tests/**"
       - "tools/compat-gates/**"
@@ -135,6 +137,11 @@ jobs:
       # every key; pre-1.20 modules (outside shared sync) carry the shared copy.
       - name: Test keybind format
         run: python3 tools/keycodes-tests/run.py
+      # QoL fixes 2026-11-04 (pure Java in shared util/): quick taps of Origin's toggle keys
+      # are counted between ticks (KeyTaps) and the window title names Origin + the player
+      # (WindowTitles).
+      - name: Test QoL helpers
+        run: python3 tools/qol-tests/run.py
       # In-game guards (bug run 3): a server can't freeze the game over WorldEdit CUI
       # (CuiNumbers), a damaged config is kept as .corrupt and never half-loaded
       # (ConfigFiles + the shared ModsConfig), profiles keep the Hypixel API key, Hypixel

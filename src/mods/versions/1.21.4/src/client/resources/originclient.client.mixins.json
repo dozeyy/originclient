@@ -4,6 +4,8 @@
 	"plugin": "com.origin.client.client.compat.CompatMixinPlugin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"KeyTapsMixin",
+		"WindowTitleMixin",
 		"AbstractButtonMixin",
 		"SprintKeyMixin",
 		"AbstractSliderButtonMixin",
