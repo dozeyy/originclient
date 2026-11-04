@@ -197,7 +197,8 @@ public final class KeyCodes {
 	/**
 	 * Is this LWJGL2 code held right now? Handles unbound (false), mouse buttons
 	 * (Mouse.isButtonDown) and keys (Keyboard.isKeyDown) -- Keyboard.isKeyDown
-	 * itself would throw on a negative index. Never throws.
+	 * itself would throw on a negative index. A key held as part of an F3 combo reads as up.
+	 * Never throws.
 	 */
 	public static boolean isDown(int lwjgl) {
 		try {
@@ -205,7 +206,10 @@ public final class KeyCodes {
 				int b = lwjgl - MOUSE_OFFSET;
 				return b < Mouse.getButtonCount() && Mouse.isButtonDown(b);
 			}
-			return lwjgl > 0 && lwjgl < Keyboard.KEYBOARD_SIZE && Keyboard.isKeyDown(lwjgl);
+			boolean down = lwjgl > 0 && lwjgl < Keyboard.KEYBOARD_SIZE && Keyboard.isKeyDown(lwjgl);
+			// F3+B, F3+G ... are vanilla's debug combos: a key pressed while F3 was held never
+			// drives an Origin feature, even if F3 is let go first (util/KeyTaps, BMOD-1).
+			return down && !KeyTaps.inF3Combo(lwjgl, down);
 		} catch (Throwable t) {
 			return false;
 		}

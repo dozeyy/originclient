@@ -546,7 +546,10 @@ public class OriginClientMod implements ClientModInitializer {
 			return false;
 		}
 		try {
-			return InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), glfwKey);
+			boolean down = InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), glfwKey);
+			// F3+B, F3+G ... are vanilla's debug combos: a key pressed while F3 was held never
+			// drives an Origin feature, even if F3 is let go first (util/KeyTaps, BMOD-1).
+			return down && !com.origin.client.client.util.KeyTaps.inF3Combo(glfwKey, down);
 		} catch (Throwable t) {
 			return false;
 		}
