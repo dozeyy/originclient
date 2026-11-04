@@ -84,6 +84,36 @@ public class WindowFitTests
         Assert.Null(WindowFit.Maximised(new WindowFit.Box(0, 0, 1920, 1080), new WindowFit.Box(0, 0, 1920, 0)));
     }
 
+    // With "Automatically hide the taskbar" the work area is the whole monitor; a maximised window exactly that size reads
+    // as full-screen and the taskbar never slides back in. A 2 px sliver stays free on the taskbar's edge.
+    [Theory]
+    // The edge as its ABE_* number (WindowFit is internal; a public test method can't take its enum).
+    [InlineData(3, 0, 0, 1920, 1078)]  // bottom
+    [InlineData(1, 0, 2, 1920, 1078)]  // top
+    [InlineData(0, 2, 0, 1918, 1080)]  // left
+    [InlineData(2, 0, 0, 1918, 1080)]  // right
+    [InlineData(-1, 0, 0, 1920, 1080)] // none: not auto-hide
+    public void Maximised_leaves_an_auto_hide_taskbar_its_edge(int edge, double left, double top, double width, double height)
+    {
+        var monitor = new WindowFit.Box(0, 0, 1920, 1080);
+        Assert.Equal(new WindowFit.Box(left, top, width, height), WindowFit.Maximised(monitor, monitor, (WindowFit.Edge)edge));
+    }
+
+    [Fact]
+    public void An_auto_hide_gap_is_relative_to_a_secondary_monitor_too()
+    {
+        var monitor = new WindowFit.Box(1920, 0, 2560, 1440);
+        Assert.Equal(new WindowFit.Box(0, 0, 2560, 1438), WindowFit.Maximised(monitor, monitor, WindowFit.Edge.Bottom));
+    }
+
+    [Fact]
+    public void A_normal_taskbar_already_outside_the_work_area_gets_no_extra_gap()
+    {
+        // The work area is short of the monitor: that monitor has a visible taskbar, nothing to make room for.
+        var max = WindowFit.Maximised(new WindowFit.Box(0, 0, 1920, 1080), new WindowFit.Box(0, 0, 1920, 1032), WindowFit.Edge.Bottom);
+        Assert.Equal(new WindowFit.Box(0, 0, 1920, 1032), max);
+    }
+
     [Fact]
     public void An_unusable_work_area_leaves_the_placement_to_WPF()
     {

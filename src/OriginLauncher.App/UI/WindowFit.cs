@@ -37,12 +37,31 @@ internal static class WindowFit
     /// monitor plus the resize border: it covered the taskbar and spilled a few pixels past every edge. Answers
     /// WM_GETMINMAXINFO, whose ptMaxPosition is relative to the monitor's own top-left (not the desktop) and whose
     /// values are device pixels, so <paramref name="monitor"/> and <paramref name="work"/> are the raw GetMonitorInfo
-    /// rectangles. Null when they're unusable (Windows' own default stands).
+    /// rectangles. Null when they're unusable (Windows' own default stands). <paramref name="autoHideTaskbar"/> is the edge
+    /// of an auto-hide taskbar on this monitor (MainWindow.Placement.cs asks SHAppBarMessage), or None.
     /// </summary>
-    internal static Box? Maximised(Box monitor, Box work)
+    internal static Box? Maximised(Box monitor, Box work, Edge autoHideTaskbar = Edge.None)
     {
         if (!(monitor.Width > 0) || !(monitor.Height > 0) || !(work.Width > 0) || !(work.Height > 0))
             return null;
-        return new Box(work.Left - monitor.Left, work.Top - monitor.Top, work.Width, work.Height);
+        var box = new Box(work.Left - monitor.Left, work.Top - monitor.Top, work.Width, work.Height);
+        // An auto-hide taskbar takes no room, so the work area is the whole monitor, and a window exactly that size reads
+        // as full-screen to Windows: the taskbar then never slides back in when the mouse reaches that edge. Leave a
+        // sliver free on the taskbar's edge (the usual fix for custom-chrome windows). Only when the work area really
+        // is the monitor: a work area already short of it has no hidden taskbar on that monitor to make room for.
+        if (autoHideTaskbar == Edge.None || work != monitor) return box;
+        return autoHideTaskbar switch
+        {
+            Edge.Left => box with { Left = box.Left + AutoHideGap, Width = box.Width - AutoHideGap },
+            Edge.Top => box with { Top = box.Top + AutoHideGap, Height = box.Height - AutoHideGap },
+            Edge.Right => box with { Width = box.Width - AutoHideGap },
+            _ => box with { Height = box.Height - AutoHideGap },
+        };
     }
+
+    /// <summary>Device pixels left free on an auto-hide taskbar's edge (one is sometimes too thin to catch the mouse).</summary>
+    internal const double AutoHideGap = 2;
+
+    /// <summary>The monitor edge an auto-hide taskbar sits on (SHAppBarMessage ABE_* order).</summary>
+    internal enum Edge { Left = 0, Top = 1, Right = 2, Bottom = 3, None = -1 }
 }
