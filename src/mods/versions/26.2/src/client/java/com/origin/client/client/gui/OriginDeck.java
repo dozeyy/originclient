@@ -125,7 +125,7 @@ public final class OriginDeck {
 	private float beamX0, beamY0, beamX1, beamY1;
 
 	/** A click target recorded at draw time; see the class comment. */
-	public record Hit(float x0, float y0, float x1, float y1, Runnable action) {
+	public record Hit(float x0, float y0, float x1, float y1, Runnable action, boolean sound) {
 		boolean contains(float x, float y) {
 			return x >= x0 && x < x1 && y >= y0 && y < y1;
 		}
@@ -589,6 +589,12 @@ public final class OriginDeck {
 
 	/** Records a click target (clipped to the current scroll region). Later hits win. */
 	public void hit(float x, float y, float w, float h, Runnable action) {
+		addHit(x, y, w, h, action, true);
+	}
+
+	// One recorder for every kind of target; {@code sound} = it is a control, so a click on it
+	// plays the button click. Text fields and not-a-control targets (block) are silent (BMOD-7).
+	private void addHit(float x, float y, float w, float h, Runnable action, boolean sound) {
 		float x0 = x, y0 = y, x1 = x + w, y1 = y + h;
 		if (!clips.isEmpty()) {
 			float[] c = clips.peek();
@@ -598,7 +604,7 @@ public final class OriginDeck {
 			y1 = Math.min(y1, c[3]);
 		}
 		if (x1 > x0 && y1 > y0) {
-			hits.add(new Hit(x0, y0, x1, y1, action));
+			hits.add(new Hit(x0, y0, x1, y1, action, sound));
 			if (mx >= x0 && mx < x1 && my >= y0 && my < y1) {
 				// A field's own click-to-focus target (the same box as its textArea) keeps the I-beam.
 				boolean ownField = pointer == CursorTypes.IBEAM && Math.abs(x0 - beamX0) < 1 && Math.abs(y0 - beamY0) < 1
@@ -613,7 +619,7 @@ public final class OriginDeck {
 	/** A text field's click target: recorded like {@link #hit}, with the I-beam pointer over it. */
 	public void textHit(float x, float y, float w, float h, Runnable action) {
 		textArea(x, y, w, h);
-		hit(x, y, w, h, action);
+		addHit(x, y, w, h, action, false);   // silent, like vanilla's text boxes
 	}
 
 	/** The I-beam over a text field that has no click target of its own (always focused, or focused elsewhere). */
@@ -641,7 +647,7 @@ public final class OriginDeck {
 	 * the pointer under it goes back to the arrow (it covers what was drawn before).
 	 */
 	public void block(float x, float y, float w, float h, Runnable action) {
-		hit(x, y, w, h, action);
+		addHit(x, y, w, h, action, false);   // not a control: no button click (BMOD-7)
 		if (over(x, y, w, h)) {
 			pointer = null;
 		}
@@ -658,12 +664,14 @@ public final class OriginDeck {
 		}
 	}
 
-	/** Runs the topmost hit under (x,y) design px. True if one ran. */
+	/** Runs the topmost hit under (x,y) design px, with the button click when it is a control. True if one ran. */
 	public static boolean click(List<Hit> hits, float x, float y) {
 		for (int i = hits.size() - 1; i >= 0; i--) {
 			Hit h = hits.get(i);
 			if (h.contains(x, y)) {
-				clickSound();
+				if (h.sound()) {
+					clickSound();   // controls only: empty space and text fields are silent
+				}
 				h.action().run();
 				return true;
 			}
