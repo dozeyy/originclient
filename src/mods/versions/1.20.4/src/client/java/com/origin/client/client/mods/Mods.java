@@ -1501,12 +1501,8 @@ public final class Mods {
 		}
 		migrated = true;
 		menuBlurOptIn();
+		keepOldDefaultKeysOnce();
 		if (!ModsConfig.VALUES.isEmpty()) {
-			// G121-6 (2026-11-04): these defaults moved off Simple Voice Chat's keys. A player
-			// who already has the mod on keeps the key it had (written once, then theirs).
-			keepOldDefaultKey("snaplook", "key", GLFW.GLFW_KEY_V);
-			keepOldDefaultKey("minimap", "openMapKey", GLFW.GLFW_KEY_M);
-			keepOldDefaultKey("quickplay", "key", GLFW.GLFW_KEY_G);
 			return; // already have real state
 		}
 		var legacy = OriginClientMod.FEATURES;
@@ -1550,14 +1546,39 @@ public final class Mods {
 		// saves); until then a later load just finds nothing to drop again.
 	}
 
+	// G121-6 (2026-11-04): the Snaplook, Full Map and Quickplay default keys moved off Simple
+	// Voice Chat's V/M/G. A player who already had one of those mods ON keeps the key it had:
+	// the old default is written into their config. Exactly ONCE per config (meta
+	// "optionVersion.defaultKeys" = 1, util/OnceSteps), whatever it finds, so a mod turned on
+	// later, or a key reset to its default, keeps today's key and is never rewritten to V/M/G.
+	private static void keepOldDefaultKeysOnce() {
+		com.origin.client.client.util.OnceSteps.run("optionVersion.defaultKeys", 1, Mods::metaText,
+				(k, v) -> ModsConfig.META.put(k, new JsonPrimitive(v)), () -> {
+					boolean wrote = keepOldDefaultKey("snaplook", "key", GLFW.GLFW_KEY_V);
+					wrote |= keepOldDefaultKey("minimap", "openMapKey", GLFW.GLFW_KEY_M);
+					wrote |= keepOldDefaultKey("quickplay", "key", GLFW.GLFW_KEY_G);
+					if (wrote) {
+						ModsConfig.save(); // the kept key is the player's from here on
+					}
+					// Nothing written: the marker reaches disk with the next save (every change saves).
+				});
+	}
+
+	private static String metaText(String key) {
+		com.google.gson.JsonElement v = ModsConfig.META.get(key);
+		return v != null && v.isJsonPrimitive() ? v.getAsString() : null;
+	}
+
 	/** Writes a mod's old default key into the config when the mod is on and its key was
 	 *  never set, so changing a default never moves a key someone already uses. */
-	private static void keepOldDefaultKey(String id, String key, int oldDefault) {
+	private static boolean keepOldDefaultKey(String id, String key, int oldDefault) {
 		var m = ModsConfig.VALUES.get(id);
 		var enabled = m == null ? null : m.get("enabled");
 		if (enabled != null && enabled.isJsonPrimitive() && enabled.getAsBoolean() && !m.containsKey(key)) {
 			m.put(key, new JsonPrimitive(com.origin.client.client.util.KeyCodes.toFile(oldDefault)));
+			return true;
 		}
+		return false;
 	}
 
 	private static void seed(String id, boolean on) {
