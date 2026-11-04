@@ -902,12 +902,16 @@ public class OriginClientMod implements ClientModInitializer {
 		// mod's key is held (a hands-free key that isn't the vanilla one). The
 		// dropdown used to be read by nothing, so Hold behaved as Toggle.
 		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
+		// Spend both keys' taps every tick, toggle on or off: a Ctrl/Shift press made while a
+		// toggle is off must not flip sprint/sneak on by itself when the toggle is turned on.
+		boolean sprintTap = tapped(client, Mods.keyCode("togglesprint", "key"));
+		boolean sneakTap = tapped(client, sneakKeyboardKey(client));
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
 			// Read the key every tick, screens included: closing one with the key still held
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean custom = client.screen == null && raw;
-			boolean edge = tapped(client, Mods.keyCode("togglesprint", "key")) || (custom && !sprintKeyWasDown);
+			boolean edge = sprintTap || (custom && !sprintKeyWasDown);
 			sprintKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sprintToggledOn = custom;
@@ -930,7 +934,7 @@ public class OriginClientMod implements ClientModInitializer {
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = sneakKeyDown(client);
 			boolean custom = client.screen == null && raw;
-			boolean edge = tapped(client, sneakKeyboardKey(client)) || (custom && !sneakKeyWasDown);
+			boolean edge = sneakTap || (custom && !sneakKeyWasDown);
 			sneakKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sneakToggledOn = custom;
