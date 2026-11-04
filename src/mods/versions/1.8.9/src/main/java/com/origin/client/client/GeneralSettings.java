@@ -36,11 +36,13 @@ public final class GeneralSettings {
 
 	// Transparent Menus (Settings > General). The vanilla backdrops are cleared by MenuBlur
 	// (blur, dim and list strips); the Origin panels use the existing "Solid Menu
-	// Background" setting, so this toggle drives it: on = panel off (remembering the old
-	// opacity), off = the remembered opacity back. Edge-triggered, so a player who never
-	// turns it on keeps their own Solid Menu Background choice untouched.
+	// Background" setting, so this toggle drives it: on = panel off, off = the player's own
+	// value back, exactly (BMOD-2: it used to come back as 1.0 even if they had it off). The
+	// value before "on" is saved in the config's meta, so a restart in between keeps it too.
+	// Edge-triggered, so a player who never turns it on keeps their own Solid Menu
+	// Background choice untouched.
+	private static final String SOLID_BEFORE = "menuBgOpacityBeforeTransparent";
 	private static Boolean lastTransparent = null;
-	private static double solidBefore = 1.0;
 
 	private static void applyTransparentMenus() {
 		boolean want = Mods.bool(Mods.GENERAL_ID, "transparentMenus");
@@ -50,13 +52,21 @@ public final class GeneralSettings {
 		boolean first = lastTransparent == null;
 		lastTransparent = want;
 		if (want) {
-			double cur = Mods.metaNum("menuBgOpacity", 1.0);
-			if (cur > 0.0) {
-				solidBefore = cur;
+			// Recorded once per "on" (0.0 included); a restart with it still on keeps the first one.
+			// On at launch with no record = turned on by an older Origin, which saved none and
+			// already set the panel to 0: record the default 1.0, what that build gave back.
+			if (Double.isNaN(Mods.metaNum(SOLID_BEFORE, Double.NaN))) {
+				Mods.setMetaNum(SOLID_BEFORE, first ? 1.0 : Mods.metaNum("menuBgOpacity", 1.0));
+			}
+			if (Mods.metaNum("menuBgOpacity", 1.0) != 0.0) {
 				Mods.setMetaNum("menuBgOpacity", 0.0);
 			}
-		} else if (!first) {
-			Mods.setMetaNum("menuBgOpacity", solidBefore);
+		} else {
+			double before = Mods.metaNum(SOLID_BEFORE, Double.NaN);
+			if (!Double.isNaN(before)) {   // nothing recorded = nothing to give back
+				Mods.setMetaNum("menuBgOpacity", before);
+				Mods.setMetaText(SOLID_BEFORE, null);   // null removes the meta key
+			}
 		}
 	}
 
