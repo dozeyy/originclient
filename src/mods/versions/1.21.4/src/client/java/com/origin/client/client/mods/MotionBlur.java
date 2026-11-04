@@ -10,7 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 // "phosphor" technique) loaded through vanilla's own post-effect pipeline.
 // The old private loadEffect + live "Amount" uniform are gone in this era
 // (PostChain uniforms are baked per pass), so the 0..10 slider maps onto the
-// three baked chain variants (motion_blur_1/2/3.json). Fully guarded: if the
+// ten baked chains, one per notch (motion_blur_1..10.json). Fully guarded: if the
 // shader fails on some driver, the feature silently no-ops.
 //
 // 1.21.2-1.21.4 only: post-chain targets are frame-graph internals, taken from
@@ -22,13 +22,22 @@ import net.minecraft.resources.ResourceLocation;
 // writes it is never culled and its contents survive into the next frame.
 public final class MotionBlur {
 	public static final String PREV_TARGET = "originclient:motion_prev";
+	// Each chain's Blend is 1.21.1's live curve at 60 fps (exp(-dt/tau), tau = notch/10 * 0.2 s):
+	// 0.43 at 1 up to 0.92 at 10, so every notch is a real step, as on 1.21.1 (JP-3).
 	private static final ResourceLocation[] EFFECTS = {
 			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_1"),
 			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_2"),
 			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_3"),
+			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_4"),
+			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_5"),
+			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_6"),
+			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_7"),
+			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_8"),
+			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_9"),
+			ResourceLocation.fromNamespaceAndPath("originclient", "motion_blur_10"),
 	};
 
-	private static int loadedStep = 0; // 0 = off, 1..3 = variant strength
+	private static int loadedStep = 0; // 0 = off, 1..10 = the slider notch's chain
 	private static boolean broken = false;
 	private static TextureTarget prev;
 
@@ -37,7 +46,7 @@ public final class MotionBlur {
 
 	public static void tick(Minecraft mc) {
 		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
-		int step = amount < 0.5 || mc.level == null ? 0 : (int) Math.min(3, Math.ceil(Math.min(10.0, amount) / 10.0 * 3.0));
+		int step = amount < 0.5 || mc.level == null ? 0 : (int) Math.min(10, Math.round(amount));
 
 		// The game empties the post-effect slot by itself (F5 and spectating a mob go
 		// through checkEntityPostEffect). Watch the slot, not just our own flag, so

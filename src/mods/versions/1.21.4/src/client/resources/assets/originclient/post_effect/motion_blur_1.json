@@ -11,7 +11,7 @@
                 { "sampler_name": "Prev", "target": "originclient:motion_prev" }
             ],
             "output": "swap",
-            "uniforms": [ { "name": "Blend", "values": [ 0.50 ] } ]
+            "uniforms": [ { "name": "Blend", "values": [ 0.43 ] } ]
         },
         {
             "program": "minecraft:post/blit",
