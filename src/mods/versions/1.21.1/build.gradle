@@ -164,7 +164,7 @@ dependencies {
 	// Iris shader loader (see gradle.properties for the Sodium pairing note).
 	// Accessed via reflection only (IrisBridge) so an Iris update can never
 	// break our compile — but bundled jar-in-jar like the rest of the stack.
-	modImplementation(include("maven.modrinth:iris:${irisVersion}"))
+	modCompileOnly "maven.modrinth:iris:${irisVersion}" // DIAG r5
 
 	// JEI — item/recipe viewer, bundled like the rest of the stack. See the
 	// coordinate-hazard note in gradle.properties: this pin is ambiguous across
