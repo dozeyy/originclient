@@ -84,7 +84,11 @@ public partial class ModsPage : UserControl
     {
         if (_suppressToggle) return;
         var on = YourModsSwitch.IsChecked == true;
-        SettingsStore.Update(s => s.PlayWithExternalMods = on);
+        if (SettingsStore.TryUpdate(s => s.PlayWithExternalMods = on)) return;
+        // Not saved (the toast says why): the switch shows what the file still says.
+        _suppressToggle = true;
+        YourModsSwitch.IsChecked = !on;
+        _suppressToggle = false;
     }
 
     // A selected mod profile (Profiles page) owns the mods list for ITS version:

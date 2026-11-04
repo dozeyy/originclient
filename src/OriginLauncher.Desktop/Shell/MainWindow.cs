@@ -110,6 +110,9 @@ public sealed class MainWindow : Window
         Bar.FriendsRequested += () => OpenDrawer(new FriendsDrawer(this));
         Bar.ImportRequested += () => ImportView.Open(this);
         Bar.UpdateRequested += () => UpdatePrompt.Open(this);
+        // A click whose setting couldn't be saved (settings.json busy): one plain toast, never a crash (WPF twin).
+        OriginLauncher.App.Core.SettingsStore.SaveRefused += () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            Toast(OriginLauncher.App.Core.SettingsStore.BusyLine, Tone.Warning));
         // Background work a real run starts once the window is up (never in a render run: no network there).
         Opened += (_, _) =>
         {

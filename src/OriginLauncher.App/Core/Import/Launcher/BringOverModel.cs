@@ -58,22 +58,25 @@ public sealed class BringOverModel
 
     public HomeImportOutcome? Outcome { get; private set; }
 
-    /// <summary>Import is refused right now (a game starting, an update): the offer stays out of sight meanwhile.</summary>
-    public bool Refused { get; private set; }
+    /// <summary>
+    /// Why Import is refused right now (a game starting, an update), or null when it can run. The offer stays on screen,
+    /// can't be pressed, and says this sentence under its label: a button that silently vanished told the player nothing.
+    /// </summary>
+    public string? RefusalLine { get; private set; }
+
+    public bool Refused => RefusalLine != null;
+
+    /// <summary>The offer can be pressed (an offer or the choice, and Import not refused).</summary>
+    public bool CanPress => Stage is BringOverStage.Offer or BringOverStage.Choosing && !Refused;
 
     /// <summary>The single launcher a press transfers at once, else null.</summary>
     public SourceKind? OneSource => Sources.Count == 1 ? Sources[0].Kind : null;
 
     /// <summary>
-    /// On screen. An offer (or the choice) hides while Import is refused and comes back after; a running transfer and its
-    /// result always stay, so the player sees how it ended.
+    /// On screen: everything but Hidden. A refused offer stays (it just can't be pressed, <see cref="CanPress"/>), and a
+    /// running transfer and its result always stay, so the player sees how it ended.
     /// </summary>
-    public bool Visible => Stage switch
-    {
-        BringOverStage.Hidden => false,
-        BringOverStage.Offer or BringOverStage.Choosing => !Refused,
-        _ => true,
-    };
+    public bool Visible => Stage != BringOverStage.Hidden;
 
     /// <summary>The one line the button shows now.</summary>
     public string Line => Stage switch
@@ -83,8 +86,14 @@ public sealed class BringOverModel
         _ => OfferLabel,
     };
 
-    /// <summary>The second line, under it: what didn't come over (Done / Failed), else null.</summary>
-    public string? Detail => Stage is BringOverStage.Done or BringOverStage.Failed ? Outcome?.LeftOut : null;
+    /// <summary>The second line, under it: what didn't come over (Done / Failed), why it can't run now (a refused offer),
+    /// else null.</summary>
+    public string? Detail => Stage switch
+    {
+        BringOverStage.Done or BringOverStage.Failed => Outcome?.LeftOut,
+        BringOverStage.Offer or BringOverStage.Choosing => RefusalLine,
+        _ => null,
+    };
 
     /// <summary>The progress rail's fraction while copying; null while still checking (no fake number: no rail yet).</summary>
     public double? Fraction => Stage == BringOverStage.Running && Progress is { Step: HomeImportStep.Copying } p ? Math.Clamp(p.Fraction, 0, 1) : null;
@@ -103,6 +112,7 @@ public sealed class BringOverModel
     /// <summary>The button was pressed: one launcher runs at once; several open the choice (a second press closes it).</summary>
     public BringOverPress Press()
     {
+        if (Refused) return BringOverPress.None;
         switch (Stage)
         {
             case BringOverStage.Offer when OneSource != null:
@@ -121,7 +131,7 @@ public sealed class BringOverModel
     /// <summary>The transfer of <paramref name="source"/> (null = every launcher) starts. False when one already runs.</summary>
     public bool Start(SourceKind? source)
     {
-        if (Stage == BringOverStage.Running) return false;
+        if (Stage == BringOverStage.Running || Refused) return false;
         Running = source;
         Progress = new HomeImportProgress(HomeImportStep.Checking, 0);
         Outcome = null;
@@ -172,7 +182,12 @@ public sealed class BringOverModel
         if (Stage is BringOverStage.Offer or BringOverStage.Choosing) Stage = BringOverStage.Hidden;
     }
 
-    public void SetRefused(bool refused) => Refused = refused;
+    /// <summary>The wiring's refusal check (null = Import can run). An open choice folds back to the offer meanwhile.</summary>
+    public void SetRefused(string? sentence)
+    {
+        RefusalLine = sentence;
+        if (sentence != null && Stage == BringOverStage.Choosing) Stage = BringOverStage.Offer;
+    }
 
     private static string? SourceName(SourceKind? kind) => kind is { } k ? ImportPrompt.ShortName(k) : null;
 }

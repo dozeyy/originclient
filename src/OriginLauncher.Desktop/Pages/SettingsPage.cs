@@ -571,7 +571,8 @@ public sealed class SettingsPage : Panel, IPage
         JavaArgsUndoOutcome outcome;
         try
         {
-            outcome = RepairExecutor.UndoJavaArgsReset(version, LauncherState.Write);
+            // SettingsStore.Update, not LauncherState.Write: the undo must SEE a busy file (the catch below) to say so.
+            outcome = RepairExecutor.UndoJavaArgsReset(version, SettingsStore.Update);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

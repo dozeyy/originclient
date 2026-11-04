@@ -562,11 +562,15 @@ public partial class ProfilesPage : UserControl
     private void Select(ModProfile? profile)
     {
         if (_demo != null) return;
-        SettingsStore.Update(s =>
+        if (!SettingsStore.TryUpdate(s =>
+            {
+                s.SelectedProfileId = profile?.Id;
+                if (profile != null) s.SelectedVersion = profile.Version;
+            }, quiet: true))
         {
-            s.SelectedProfileId = profile?.Id;
-            if (profile != null) s.SelectedVersion = profile.Version;
-        });
+            ShowStatus(SettingsStore.BusyLine, error: true);
+            return;
+        }
         if (profile != null) _homeVersion = profile.Version;
         HideStatus();
         Rebuild();
@@ -809,22 +813,26 @@ public partial class ProfilesPage : UserControl
         {
             var tint = _formTint;
             var icon = _formIcon;
-            SettingsStore.Update(s =>
-            {
-                error = ProfileBook.Edit(s.ModProfiles, editId, name, serverName, address);
-                if (error == null && s.ModProfiles.FirstOrDefault(x => x.Id == editId) is { } edited)
+            if (!SettingsStore.TryUpdate(s =>
                 {
-                    edited.Tint = tint;
-                    edited.Icon = icon;
-                }
-            });
+                    error = ProfileBook.Edit(s.ModProfiles, editId, name, serverName, address);
+                    if (error == null && s.ModProfiles.FirstOrDefault(x => x.Id == editId) is { } edited)
+                    {
+                        edited.Tint = tint;
+                        edited.Icon = icon;
+                    }
+                }, quiet: true))
+            {
+                ShowStatus(SettingsStore.BusyLine, error: true);
+                return;
+            }
         }
         else
         {
             var version = VersionBox.SelectedItem as string;
             var tint = _formTint;
             var icon = _formIcon;
-            SettingsStore.Update(s =>
+            var saved = SettingsStore.TryUpdate(s =>
             {
                 error = ProfileBook.Create(s.ModProfiles, name, version, serverName, address, out created);
                 if (error == null && created != null)
@@ -835,7 +843,12 @@ public partial class ProfilesPage : UserControl
                     s.SelectedProfileId = created.Id;
                     s.SelectedVersion = created.Version;
                 }
-            });
+            }, quiet: true);
+            if (!saved)
+            {
+                ShowStatus(SettingsStore.BusyLine, error: true);
+                return;
+            }
         }
 
         if (error != null)
@@ -871,7 +884,8 @@ public partial class ProfilesPage : UserControl
         {
             ModProfile? copy = null;
             string? error = null;
-            SettingsStore.Update(s => error = ProfileBook.Duplicate(s.ModProfiles, source.Id, out copy));
+            if (!SettingsStore.TryUpdate(s => error = ProfileBook.Duplicate(s.ModProfiles, source.Id, out copy), quiet: true))
+                error = SettingsStore.BusyLine;
             if (error != null || copy == null)
             {
                 ShowStatus(error, error: true);
@@ -926,11 +940,16 @@ public partial class ProfilesPage : UserControl
                 ShowStatus(error, error: true);
                 return;
             }
-            SettingsStore.Update(s =>
+            if (!SettingsStore.TryUpdate(s =>
+                {
+                    ProfileBook.Remove(s.ModProfiles, profile.Id);
+                    if (s.SelectedProfileId == profile.Id) s.SelectedProfileId = null;
+                }, quiet: true))
             {
-                ProfileBook.Remove(s.ModProfiles, profile.Id);
-                if (s.SelectedProfileId == profile.Id) s.SelectedProfileId = null;
-            });
+                // Its folder is gone already; the entry goes on the next try (Delete again finds nothing to remove).
+                ShowStatus(SettingsStore.BusyLine, error: true);
+                return;
+            }
             if (_editingId == profile.Id) CloseForm();
             ShowStatus($"Deleted \"{profile.Name}\".", error: false);
         }

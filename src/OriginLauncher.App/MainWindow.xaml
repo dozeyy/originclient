@@ -278,8 +278,9 @@
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
 
-        <!-- Update required: opened when Play is refused for a mandatory update (HomePage.UpdateRequiredRefused);
-             its Update button runs the same install as the top bar's Update chip. -->
+        <!-- The window's one prompt. Update required: opened when Play is refused for a mandatory update
+             (HomePage.UpdateRequiredRefused); its Update button runs the same install as the top bar's Update chip.
+             Sign in again: opened when Play fails on an expired sign-in (HomePage.SignInAgainRequested). -->
         <controls:ConfirmOverlay x:Name="UpdatePrompt"/>
 
         <!-- Social toasts, above everything, bottom-centre. Their bottom edge sits 8 px above the top of Home's strip

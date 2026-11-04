@@ -101,6 +101,19 @@ public static class DeviceCodeFlow
         }
     }
 
+    /// <summary>The address as the code card prints it: host + path ("www.microsoft.com/link"), or the text as given
+    /// when it isn't a link.</summary>
+    public static string ShortAddress(string verificationUri) =>
+        Uri.TryCreate(verificationUri, UriKind.Absolute, out var u) ? u.Host + u.AbsolutePath.TrimEnd('/') : verificationUri;
+
+    /// <summary>
+    /// Whether an ended navigation means Microsoft's page can't open in this card, so it switches to the code: only
+    /// the FIRST page failing (offline browser engine, blocked, broken runtime). A later page's error stays on the page
+    /// (Microsoft shows its own), and a navigation the card cancelled itself (the redirect it catches) never counts.
+    /// </summary>
+    public static bool PageFailedToOpen(bool isSuccess, bool pageShown, bool cancelledByCard) =>
+        !isSuccess && !pageShown && !cancelledByCard;
+
     private static bool IsHttps(string? uri) =>
         Uri.TryCreate(uri, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps;
 

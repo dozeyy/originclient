@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
-using System.Net.Http.Json;
+using System.Text.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using OriginLauncher.App.Core.Import.Launcher;
@@ -125,7 +125,11 @@ public static partial class UpdateService
 
         try
         {
-            var release = await Http.GetFromJsonAsync<Release>(FeedUrl);
+            // Conditional, rate-aware request (FeedPoll): a 304 doesn't count against GitHub's hourly limit, and a 403/429
+            // holds further requests off until GitHub's own time while each poll re-evaluates the last answer.
+            var body = await AskFeedAsync();
+            if (body == null) return;
+            var release = JsonSerializer.Deserialize<Release>(body, FeedJson);
 
             var tag = release?.TagName;
             if (tag == null || !tag.StartsWith(TagPrefix, StringComparison.OrdinalIgnoreCase))
@@ -324,8 +328,12 @@ public static partial class UpdateService
     /// the staged files over the install directory, and relaunches.
     /// Progress is reported in bytes so the player sees a real fill, not a
     /// spinner, through the ~126 MB download.
+    /// <paramref name="stopWaiting"/> is the player's Cancel while the swap waits for Minecraft to close
+    /// (UpdateStage.WaitingForGame): it throws OperationCanceledException, which is NOT a failure (the gate counts
+    /// nothing) and keeps the verified stage, so the next Update click only re-checks it and swaps.
     /// </summary>
-    public static async Task DownloadAndRestartAsync(IProgress<UpdateProgress>? progress = null)
+    public static async Task DownloadAndRestartAsync(IProgress<UpdateProgress>? progress = null,
+        CancellationToken stopWaiting = default)
     {
         if (!Enabled) throw new InvalidOperationException("Updates are off in a screenshot run.");
         var update = Available ?? throw new InvalidOperationException("No update is available.");
@@ -336,7 +344,13 @@ public static partial class UpdateService
         var restarting = false;
         try
         {
-            await DownloadStageAndRestartAsync(update, progress, () => restarting = true);
+            await DownloadStageAndRestartAsync(update, progress, () => restarting = true, stopWaiting);
+        }
+        catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
+        {
+            // The player went back to Home while a game was still open: postponed, not failed (DownloadStageAndRestart
+            // already handed the stage back). Play stays gated exactly as before the click.
+            throw;
         }
         catch (Exception ex)
         {
@@ -363,7 +377,8 @@ public static partial class UpdateService
         }
     }
 
-    private static async Task DownloadStageAndRestartAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress, Action markRestarting)
+    private static async Task DownloadStageAndRestartAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress, Action markRestarting,
+        CancellationToken stopWaiting)
     {
         var updatesRoot = OriginPaths.Updates;
         Directory.CreateDirectory(updatesRoot);
@@ -382,7 +397,21 @@ public static partial class UpdateService
 
             // Never swap under a running game this launcher started: the restart would leave it without its crash window
             // and settings sync. The player sees "Waiting for Minecraft to close"; the swap follows the moment it does.
-            await WaitForGamesToCloseAsync(progress);
+            try
+            {
+                await WaitForGamesToCloseAsync(progress, stopWaiting);
+            }
+            catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
+            {
+                // Cancel while waiting: the verified stage stays, recorded as if the background had staged it.
+                lock (Gate)
+                {
+                    Prefetch.InstallPostponed(update.Version);
+                    _stagedSnapshot = snapshot;
+                }
+                Log($"update {update.Version}: the player stopped waiting for Minecraft to close; the update stays ready");
+                throw;
+            }
 
             // The stage is re-hashed AFTER the wait (it can last hours), right before the swap: a file an antivirus
             // removed or anything else that changed meanwhile must never reach the install folder half old, half new.
@@ -600,6 +629,45 @@ public static partial class UpdateService
     }
 
     private static readonly object LogGate = new();
+
+    // The release feed's request state (ETag, last answer, back-off). Always under lock (Feed).
+    private static readonly FeedPoll Feed = new();
+    private static readonly JsonSerializerOptions FeedJson = new(JsonSerializerDefaults.Web);
+
+    // One poll of the feed: the release JSON to evaluate (new, unchanged, or the last one while backing off), or null.
+    private static async Task<string?> AskFeedAsync()
+    {
+        string? ifNoneMatch;
+        lock (Feed)
+        {
+            if (!Feed.MayAsk(DateTime.UtcNow)) return Feed.Body;
+            ifNoneMatch = Feed.IfNoneMatch;
+        }
+        using var request = new HttpRequestMessage(HttpMethod.Get, FeedUrl);
+        if (ifNoneMatch != null) request.Headers.TryAddWithoutValidation("If-None-Match", ifNoneMatch);
+        using var response = await Http.SendAsync(request);
+        var status = (int)response.StatusCode;
+        var text = status == 200 ? await response.Content.ReadAsStringAsync() : null;
+        lock (Feed)
+        {
+            var body = Feed.Answered(status, response.Headers.ETag?.ToString(), text, RetryAfterOf(response),
+                HeaderOf(response, "X-RateLimit-Remaining"), HeaderOf(response, "X-RateLimit-Reset"), DateTime.UtcNow);
+            if (status is 403 or 429)
+                Log($"update check: the release feed refused ({status}); asking again after {Feed.NotBeforeUtc:HH:mm} UTC");
+            return body;
+        }
+    }
+
+    private static TimeSpan? RetryAfterOf(HttpResponseMessage response)
+    {
+        var header = response.Headers.RetryAfter;
+        if (header?.Delta is { } delta) return delta;
+        if (header?.Date is { } date) return date - DateTimeOffset.UtcNow;
+        return null;
+    }
+
+    private static string? HeaderOf(HttpResponseMessage response, string name) =>
+        response.Headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
 
     private static void Log(string message)
     {

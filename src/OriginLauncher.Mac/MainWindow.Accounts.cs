@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using OriginLauncher.App.Core;
+using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.Mac.UI;
 using OriginLauncher.Mac.UI.Controls;
@@ -46,6 +47,7 @@ public sealed partial class MainWindow
         };
         _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
+        Home.SignInAgainRequested += name => _ = AskToSignInAgainAsync(name);
 
         AccountButton.Click += (_, _) =>
         {
@@ -111,6 +113,16 @@ public sealed partial class MainWindow
                 AccountPanel.IsVisible = false;
                 if (!_signInPanelOpen && !_friendsOpen) Scrim.IsVisible = false;
             }));
+    }
+
+    // Play failed on an expired sign-in: ask once, and "Sign in again" goes straight to the sign-in card (adding an
+    // account that is already there refreshes it; nothing has to be removed). The WPF MainWindow's twin.
+    private async Task AskToSignInAgainAsync(string accountName)
+    {
+        if (_signInPanelOpen) return;
+        if (await Confirm.ShowAsync(SignInAgain.Title, SignInAgain.Prompt(accountName), SignInAgain.Button, SignInAgain.Later)
+            && !_signInPanelOpen)
+            OpenSignInPanel();
     }
 
     private void OpenSignInPanel()

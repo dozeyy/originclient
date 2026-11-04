@@ -115,7 +115,7 @@ public sealed partial class MainWindow
             ImportHooks.FixCompatibility = (version, profileId) =>
             {
                 CloseImportPanel();
-                SettingsStore.Update(s => ImportSettingsRules.SelectImported(s, profileId, version));
+                SettingsStore.TryUpdate(s => ImportSettingsRules.SelectImported(s, profileId, version));
                 ShowPage(LauncherPage.Home);
                 Home.RefreshProfile();
                 return Home.FixImportedProfileAsync(version, profileId);
@@ -129,7 +129,7 @@ public sealed partial class MainWindow
         {
             CloseImportPanel();
             if (play.ProfileId is { } id)
-                SettingsStore.Update(s => ImportSettingsRules.SelectImported(s, id, play.Version));
+                SettingsStore.TryUpdate(s => ImportSettingsRules.SelectImported(s, id, play.Version));
             ShowPage(LauncherPage.Home);
             Home.RefreshProfile();
             Home.PlayVersion(play.Version);
@@ -405,7 +405,7 @@ public sealed partial class MainWindow
         _importPromptMarked = true;
         _ = Task.Run(() =>
         {
-            try { SettingsStore.Update(s => s.ImportPromptSeen = true); }
+            try { SettingsStore.TryUpdate(s => s.ImportPromptSeen = true, quiet: true); }
             catch (Exception) { /* the button may show once more; nothing else depends on it */ }
         });
     }
@@ -425,7 +425,7 @@ public sealed partial class MainWindow
             if (ImportPrompt.StampCheck(qualifying.Count))
             {
                 var checkedAt = DateTime.UtcNow;
-                SettingsStore.Update(s => s.ImportPromptCheckedUtc = checkedAt);
+                SettingsStore.TryUpdate(s => s.ImportPromptCheckedUtc = checkedAt, quiet: true);
             }
             return ImportPrompt.ShouldShow(answered: false, openedWithImportFlag: false, canImport, qualifying.Count) ? qualifying : null;
         });

@@ -50,6 +50,33 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_click_on_a_busy_file_is_refused_without_throwing()
+    {
+        // Bug run 5 JL-10: UI handlers use TryUpdate, so a busy settings.json never reaches the crash window. It raises
+        // SaveRefused once (the window's toast), or not at all when the caller shows its own line (quiet).
+        File.WriteAllText(_path, Saved);
+        var refusals = 0;
+        Action count = () => refusals++;
+        SettingsStore.SaveRefused += count;
+        try
+        {
+            using (new FileStream(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                Assert.False(SettingsStore.TryUpdate(s => s.SelectedVersion = "1.21.1"));
+                Assert.False(SettingsStore.TryUpdate(s => s.SelectedVersion = "1.21.1", quiet: true));
+            }
+            Assert.Equal(1, refusals);
+            Assert.Equal(Saved, File.ReadAllText(_path));
+            Assert.True(SettingsStore.TryUpdate(s => s.SelectedVersion = "1.21.1"));
+            Assert.Equal("1.21.1", SettingsStore.Load().SelectedVersion);
+        }
+        finally
+        {
+            SettingsStore.SaveRefused -= count;
+        }
+    }
+
+    [Fact]
     public void ADamagedFileIsKeptAsideBeforeAFreshOneReplacesIt()
     {
         File.WriteAllText(_path, "{ \"RamMb\": 6144, ");

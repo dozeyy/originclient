@@ -117,18 +117,25 @@ public class BringOverModelTests
     }
 
     [Fact]
-    public void A_refusal_hides_the_offer_but_never_a_run_or_its_result()
+    public void A_refused_offer_stays_on_screen_says_why_and_cannot_be_pressed()
     {
+        const string why = "Wait for Minecraft to finish starting, then try again.";
         var model = new BringOverModel();
         model.Offer(OneLauncher);
-        model.SetRefused(true);
-        Assert.False(model.Visible);
-        model.SetRefused(false);
+        model.SetRefused(why);
         Assert.True(model.Visible);
+        Assert.False(model.CanPress);
+        Assert.Equal(why, model.Detail);
+        Assert.Equal(BringOverPress.None, model.Press());
+        Assert.False(model.Start(SourceKind.Lunar));
+        model.SetRefused(null);
+        Assert.True(model.CanPress);
+        Assert.Null(model.Detail);
 
         model.Start(SourceKind.Lunar);
-        model.SetRefused(true);
+        model.SetRefused(why);
         Assert.True(model.Visible);
+        Assert.NotEqual(why, model.Detail); // a run never shows the refusal
         model.Finish(new HomeImportOutcome(true, "done"));
         Assert.True(model.Visible);
     }

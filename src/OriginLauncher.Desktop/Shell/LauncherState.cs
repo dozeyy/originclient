@@ -21,11 +21,16 @@ public static class LauncherState
     public static event Action? AccountsChanged;
     public static event Action? UpdateChanged;
 
-    /// <summary>The single settings write path: one mutation, saved at once, then every view refreshes.</summary>
-    public static void Write(Action<LauncherSettings> mutate)
+    /// <summary>
+    /// The single settings write path for the views: one mutation, saved at once, then every view refreshes. A busy
+    /// settings.json never throws out of a click (SettingsStore.TryUpdate): the change is refused, one toast says so
+    /// (SettingsStore.SaveRefused), and every view re-reads what the file still says. False when it wasn't saved.
+    /// </summary>
+    public static bool Write(Action<LauncherSettings> mutate)
     {
-        SettingsStore.Update(mutate);
+        var saved = SettingsStore.TryUpdate(mutate);
         ReloadSettings();
+        return saved;
     }
 
     public static void ReloadSettings()

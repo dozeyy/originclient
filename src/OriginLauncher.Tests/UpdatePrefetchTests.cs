@@ -23,6 +23,27 @@ public sealed class UpdatePrefetchTests
     }
 
     [Fact]
+    public void Cancel_while_waiting_for_the_game_keeps_the_update_staged_for_the_next_click()
+    {
+        // The click staged it itself (nothing in the background), then the player pressed Cancel while Minecraft was open.
+        var p = new UpdatePrefetch();
+        Assert.Equal(Click.DownloadNow, p.BeginInstall(V58, out _));
+        Assert.Equal(SwapStep.WaitForGame, BeforeSwap(gameRunning: true));
+        p.InstallPostponed(V58);
+
+        Assert.Null(p.Installing);
+        Assert.Equal(Phase.Staged, p.Current);
+        Assert.False(p.MayDeleteStage(V58)); // no cleanup removes it
+        Assert.Equal(Start.AlreadyHandled, p.TryStart(V58, Free, T0, out _)); // and no second download
+        Assert.Equal(Click.SwapStaged, p.BeginInstall(V58, out _)); // the next click only re-checks and swaps
+
+        // A newer release still supersedes it as usual.
+        p.InstallPostponed(V58);
+        Assert.Equal(Start.Go, p.TryStart(V59, Free, T0, out var dropped));
+        Assert.Equal(V58, dropped);
+    }
+
+    [Fact]
     public void Published_then_downloading_then_staged_then_the_click_swaps()
     {
         var p = Downloading(V58);

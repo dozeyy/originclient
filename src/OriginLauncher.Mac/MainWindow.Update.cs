@@ -39,6 +39,10 @@ public sealed partial class MainWindow
     private void HookUpdates()
     {
         UpdateBadge.Click += UpdateBadge_Click;
+        Home.UpdateRequiredRefused += () => _ = AskToUpdateAsync();
+        // A click whose setting couldn't be saved (settings.json busy): one plain toast, never a crash (WPF twin).
+        SettingsStore.SaveRefused += () => Dispatcher.UIThread.Post(() =>
+            Toasts.Show(new SocialToast(SocialToastKind.Notice, "Settings", SettingsStore.BusyLine)));
         // Raised from whichever thread finished the check.
         UpdateService.AvailableChanged += (_, _) => Dispatcher.UIThread.Post(ShowUpdateState);
         if (OriginPaths.IsScratchRoot) return;
@@ -120,6 +124,18 @@ public sealed partial class MainWindow
         if (!UpdateNote.IsVisible) UpdateLabel.IsVisible = !compact;
     }
 
+    // Play was refused for a mandatory update: ask once, and Update runs the chip's own install (the WPF MainWindow's
+    // AskToUpdateAsync). Not while that install is already running (the chip is disabled then) or when nothing is on
+    // offer any more.
+    private async Task AskToUpdateAsync()
+    {
+        if (UpdateService.Available == null || !UpdateBadge.IsEnabled) return;
+        if (await Confirm.ShowAsync(UpdateRequiredWords.PromptTitle, UpdateRequiredWords.PromptText,
+                UpdateRequiredWords.UpdateButton, UpdateRequiredWords.LaterButton)
+            && UpdateService.Available != null && UpdateBadge.IsEnabled)
+            UpdateBadge_Click(UpdateBadge, new RoutedEventArgs());
+    }
+
     private async void UpdateBadge_Click(object? sender, RoutedEventArgs e)
     {
         if (UpdateService.Available is not { } update)
@@ -151,12 +167,26 @@ public sealed partial class MainWindow
                 Toasts.Show(new SocialToast(SocialToastKind.Notice, "Update", "Finishing your import first..."));
             }
             if (onScene) Home.ReportUpdate(p);
+            else if (p.Stage == UpdateService.UpdateStage.WaitingForGame)
+                ShowUpdateNote("Updates when Minecraft closes", "Brush.TextDim");
         });
 
+        // Cancel on the scene's "Waiting for Minecraft to close" stops the wait; the update stays ready (staged).
+        var stopWaiting = new CancellationTokenSource();
+        Action cancelWait = () => stopWaiting.Cancel();
+        Home.UpdateWaitCancelRequested += cancelWait;
         try
         {
             // Downloads, verifies and unpacks the new app, starts the swap script, then quits; the script reopens it.
-            await UpdateService.DownloadAndRestartAsync(progress);
+            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token);
+        }
+        catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
+        {
+            // Back to Home: the chip offers the same, already downloaded update again; Play stays as it was.
+            if (onScene) Home.EndUpdateScene();
+            UpdateBadge.IsEnabled = true;
+            HideUpdateNote();
+            AutomationProperties.SetName(UpdateBadge, ReadyName);
         }
         catch (Exception ex) when (ex is UpdateVerificationException || UpdateService.Available == null)
         {
@@ -175,6 +205,11 @@ public sealed partial class MainWindow
             // Visible, not a hover label: the chip says it failed and that a click retries.
             ShowUpdateNote("Update failed - retry", "Brush.Warning");
             AutomationProperties.SetName(UpdateBadge, "Update failed, retry");
+        }
+        finally
+        {
+            Home.UpdateWaitCancelRequested -= cancelWait;
+            stopWaiting.Dispose();
         }
     }
 

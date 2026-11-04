@@ -78,7 +78,10 @@ public partial class MainWindow : Window
 
         // Home's profile chip opens Profiles; its launch screen covers the bar too.
         // Only Home carries the cover, so only Home may hide the bar (a bar hidden over another page is a dead window).
-        _homePage.LaunchSceneChanged += hidden => SetTopBarHidden(hidden && _currentPage == LauncherPage.Home);
+        // The launch screen owns the window; the self-update screen does not: its wait for Minecraft to close can last
+        // hours, so minimise, close and the other pages stay in reach over it.
+        _homePage.LaunchSceneChanged += hidden =>
+            SetTopBarHidden(hidden && _currentPage == LauncherPage.Home && !_homePage.ShowsUpdateScene);
         // A launch started from anywhere (the crash window's relaunch) shows its cover on Home: go there first.
         _homePage.ShowHomeRequested += () =>
         {
@@ -130,6 +133,10 @@ public partial class MainWindow : Window
             _homePage.RefreshUpdateGate();
         });
         _homePage.UpdateRequiredRefused += () => _ = AskToUpdateAsync();
+        _homePage.SignInAgainRequested += name => _ = AskToSignInAgainAsync(name);
+        // A click whose setting couldn't be saved (settings.json busy): one plain toast, never the crash window.
+        Core.SettingsStore.SaveRefused += () => Dispatcher.BeginInvoke(() =>
+            Toasts.Show(new SocialToast(SocialToastKind.Notice, "Settings", Core.SettingsStore.BusyLine)));
         // A screenshot run never checks (UpdateService.Enabled): no poll loop, no focus re-check.
         if (UpdateService.Enabled) _ = PollForUpdatesAsync();
 
@@ -220,18 +227,26 @@ public partial class MainWindow : Window
             UpdateLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private const string UpdatePromptTitle = "Update required";
-    private const string UpdatePromptText =
-        "A new version of Origin is out. Update to keep playing - it only takes a moment, and the launcher reopens by itself.";
 
     // Play was refused for a mandatory update: ask once, and Update runs the chip's own install. Not while that
     // install is already running (the chip is disabled then) or when nothing is on offer any more.
     private async Task AskToUpdateAsync()
     {
         if (UpdateService.Available == null || !UpdateBadge.IsEnabled) return;
-        if (await UpdatePrompt.ShowAsync(UpdatePromptTitle, UpdatePromptText, "Update", "Not now")
+        if (await UpdatePrompt.ShowAsync(UpdateRequiredWords.PromptTitle, UpdateRequiredWords.PromptText,
+                UpdateRequiredWords.UpdateButton, UpdateRequiredWords.LaterButton)
             && UpdateService.Available != null && UpdateBadge.IsEnabled)
             UpdateBadge_Click(UpdateBadge, new RoutedEventArgs());
+    }
+
+    // Play failed on an expired sign-in: ask once, and "Sign in again" goes straight to the sign-in card (adding an
+    // account that is already there refreshes it; nothing has to be removed). Reuses the window's one prompt.
+    private async Task AskToSignInAgainAsync(string accountName)
+    {
+        if (_signInPanelOpen || UpdatePrompt.IsVisible) return;
+        if (await UpdatePrompt.ShowAsync(SignInAgain.Title, SignInAgain.Prompt(accountName), SignInAgain.Button, SignInAgain.Later)
+            && !_signInPanelOpen)
+            OpenSignInPanel();
     }
 
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
@@ -261,13 +276,27 @@ public partial class MainWindow : Window
                 ToastFinishingImportBeforeUpdate(); // MainWindow.ImportWiring.cs
             }
             if (onScene) _homePage.ReportUpdate(p);
+            else if (p.Stage == UpdateService.UpdateStage.WaitingForGame)
+                ShowUpdateNote("Updates when Minecraft closes", "Brush.TextDim");
         });
 
+        // Cancel on the scene's "Waiting for Minecraft to close" stops the wait; the update stays ready (staged).
+        var stopWaiting = new CancellationTokenSource();
+        Action cancelWait = () => stopWaiting.Cancel();
+        _homePage.UpdateWaitCancelRequested += cancelWait;
         try
         {
             // Downloads + stages the new build, then shuts this process down;
             // the swap script relaunches the updated launcher.
-            await UpdateService.DownloadAndRestartAsync(progress);
+            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token);
+        }
+        catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
+        {
+            // Back to Home: the chip offers the same, already downloaded update again; Play stays as it was.
+            if (onScene) _homePage.EndUpdateScene();
+            UpdateBadge.IsEnabled = true;
+            HideUpdateNote();
+            System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Update ready: restart to install");
         }
         catch (Exception ex) when (ex is UpdateVerificationException || UpdateService.Available == null)
         {
@@ -286,6 +315,11 @@ public partial class MainWindow : Window
             // Visible, not a hover label: the badge says it failed and that a click retries.
             ShowUpdateNote("Update failed - retry", "Brush.Warning");
             System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Update failed, retry");
+        }
+        finally
+        {
+            _homePage.UpdateWaitCancelRequested -= cancelWait;
+            stopWaiting.Dispose();
         }
     }
 
@@ -467,9 +501,19 @@ public partial class MainWindow : Window
 
     internal void TourClearToasts() => Toasts.Clear();
 
-    internal void TourShowUpdatePrompt() => _ = UpdatePrompt.ShowAsync(UpdatePromptTitle, UpdatePromptText, "Update", "Not now");
+    internal void TourShowUpdatePrompt() => _ = UpdatePrompt.ShowAsync(UpdateRequiredWords.PromptTitle,
+        UpdateRequiredWords.PromptText, UpdateRequiredWords.UpdateButton, UpdateRequiredWords.LaterButton);
 
     internal void TourHideUpdatePrompt() => UpdatePrompt.Dismiss();
+
+    // Render-shots only: the self-update scene waiting for Minecraft to close (its Cancel, the top bar still there).
+    internal void TourShowUpdateWaiting()
+    {
+        if (!_homePage.BeginUpdateScene("1.0.91")) return;
+        _homePage.ReportUpdate(new UpdateService.UpdateProgress(UpdateService.UpdateStage.WaitingForGame, 0, null));
+    }
+
+    internal void TourEndUpdateScene() => _homePage.EndUpdateScene();
 
     internal void TourShowRunning(string playerName) => _homePage.TourShowRunning(playerName);
 
@@ -692,6 +736,15 @@ public partial class MainWindow : Window
         var signIn = new MicrosoftSignInPanel();
         SignInPanelHost.Content = signIn;
         if (title != null && message != null) signIn.ShowMessage(title, message);
+        SetSignInPanelOpen(true);
+    }
+
+    // Render-shots only: the "sign in with a code" view a PC without the WebView2 runtime gets (made-up code, no request).
+    internal void TourShowSignInCode()
+    {
+        var signIn = new MicrosoftSignInPanel();
+        SignInPanelHost.Content = signIn;
+        signIn.TourShowCode("ABCD-EFGH", "https://www.microsoft.com/link");
         SetSignInPanelOpen(true);
     }
 
@@ -1163,7 +1216,7 @@ public partial class MainWindow : Window
             ImportHooks.FixCompatibility = (version, profileId) =>
             {
                 CloseImportPanel();
-                Core.SettingsStore.Update(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, profileId, version));
+                Core.SettingsStore.TryUpdate(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, profileId, version));
                 NavigateTo(LauncherPage.Home);
                 _homePage.RefreshProfile();
                 return _homePage.FixImportedProfileAsync(version, profileId);
@@ -1180,7 +1233,7 @@ public partial class MainWindow : Window
         {
             CloseImportPanel();
             if (play.ProfileId is { } id)
-                Core.SettingsStore.Update(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, id, play.Version));
+                Core.SettingsStore.TryUpdate(s => Core.Import.Launcher.ImportSettingsRules.SelectImported(s, id, play.Version));
             NavigateTo(LauncherPage.Home);
             _homePage.RefreshProfile();
             _homePage.PlayVersion(play.Version);

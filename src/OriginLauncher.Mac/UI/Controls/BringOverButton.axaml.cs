@@ -61,7 +61,7 @@ public partial class BringOverButton : UserControl
     /// <summary>The sentence from the wiring's refusal check, or null when Import can run: an offer hides meanwhile.</summary>
     public void SetRefusal(string? sentence)
     {
-        Model.SetRefused(sentence != null);
+        Model.SetRefused(sentence); // a refused offer stays, can't be pressed, and says why (BringOverModel.Detail)
         Render();
     }
 
@@ -142,7 +142,8 @@ public partial class BringOverButton : UserControl
         DetailText.IsVisible = Model.Detail != null;
 
         var offering = stage is BringOverStage.Offer or BringOverStage.Choosing;
-        MainButton.IsHitTestVisible = MainButton.Focusable = offering;
+        MainButton.IsHitTestVisible = MainButton.Focusable = Model.CanPress;
+        MainButton.Opacity = offering && !Model.CanPress ? 0.6 : 1; // refused for now: the sentence under it says why
         Chevron.IsVisible = offering && Model.OneSource == null;
         Chevron.RenderTransform = stage == BringOverStage.Choosing ? Turned : null;
         ChoicePanel.IsVisible = stage == BringOverStage.Choosing;

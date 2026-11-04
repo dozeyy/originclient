@@ -83,6 +83,7 @@ public sealed partial class HomePage
     // Wired once from the constructor (HomePage.axaml.cs).
     private void InitPlay()
     {
+        LoadingOverlay.UpdateWaitCancelRequested += () => UpdateWaitCancelRequested?.Invoke();
         LoadingOverlay.CancelRequested += () =>
         {
             if (_overlayTicket != null) _overlayTicket.Source.Cancel();
@@ -142,6 +143,13 @@ public sealed partial class HomePage
     /// <summary>The launch screen came up (true) or went away (false): the window hides or shows its bar.</summary>
     public event Action<bool>? LaunchSceneChanged;
 
+    /// <summary>Play was refused for a mandatory update: the window asks once, and Update installs it.</summary>
+    public event Action? UpdateRequiredRefused;
+
+    /// <summary>Play failed because this account's saved Microsoft sign-in no longer works (its name): the window asks
+    /// once, and "Sign in again" opens the sign-in card.</summary>
+    public event Action<string>? SignInAgainRequested;
+
     public string? CurrentVersion => _selectedVersion;
 
     public bool HasLaunchCover => LoadingOverlay.IsVisible;
@@ -184,7 +192,11 @@ public sealed partial class HomePage
         await LaunchAsync(new LaunchTarget(version, server), LaunchRoute.JoinServer);
     }
 
-    // The launcher's self-update uses the same screen (no Cancel: updates are mandatory).
+    /// <summary>Cancel on the self-update's "Waiting for Minecraft to close": MainWindow stops waiting.</summary>
+    public event Action? UpdateWaitCancelRequested;
+
+    // The launcher's self-update uses the same screen (no Cancel while it downloads: updates are mandatory; Cancel only
+    // while the swap waits for Minecraft to close).
     public bool BeginUpdateScene(string newVersion)
     {
         if (_overlayTicket != null || LoadingOverlay.IsVisible) return false;
@@ -218,7 +230,7 @@ public sealed partial class HomePage
     public void RefreshUpdateGate()
     {
         if (SelectedPhase() != GamePhase.Idle) return;
-        if (UpdateService.UpdateRequired) SetStatus("Update required", StatusTone.Warning);
+        if (UpdateService.UpdateRequired) SetStatus(UpdateRequiredWords.Status, StatusTone.Warning);
         else UpdatePlayState();
     }
 
@@ -242,7 +254,7 @@ public sealed partial class HomePage
         else if (key != null && _selectedVersion == null)
             SetStatus("Select a version to play", StatusTone.Neutral);
         else if (UpdateService.UpdateRequired)
-            SetStatus("Update required", StatusTone.Warning);
+            SetStatus(UpdateRequiredWords.Status, StatusTone.Warning);
         else if (_selectedAccount != null)
             SetStatus("Ready to play", StatusTone.Success);
         else if (key != null)
@@ -310,7 +322,7 @@ public sealed partial class HomePage
         _selectedVersion = version;
         _modOverride.ContextChanged(SelectedKey(), version);
         _settings.SelectedVersion = version;
-        SettingsStore.Update(s => s.SelectedVersion = version);
+        SettingsStore.TryUpdate(s => s.SelectedVersion = version);
         ShowVersionOnCard(version);
         SocialHub.PresenceVersion = version;
         ApplyProfile(SettingsStore.Load()); // a profile applies to its own version only: Join follows the pick
@@ -344,7 +356,7 @@ public sealed partial class HomePage
     {
         var on = MyModsSwitch.IsChecked == true;
         _settings.PlayWithExternalMods = on;
-        SettingsStore.Update(s => s.PlayWithExternalMods = on);
+        SettingsStore.TryUpdate(s => s.PlayWithExternalMods = on);
     }
 
     private async void PlayButton_Click(object? sender, RoutedEventArgs e) => await LaunchAsync(null, LaunchRoute.Play);
@@ -416,7 +428,10 @@ public sealed partial class HomePage
         // Mandatory updates: the poller's last answer, never a network wait in front of Play.
         if (UpdateService.UpdateRequired)
         {
-            Note(key, "Update required", LaunchTone.Warning);
+            Note(key, UpdateRequiredWords.Status, LaunchTone.Warning);
+            // The line alone was easy to miss (Windows' fix, v1.0.85): the click also opens the Update required prompt,
+            // whose Update button installs it (MainWindow.Update.cs AskToUpdateAsync).
+            UpdateRequiredRefused?.Invoke();
             return;
         }
 
@@ -452,7 +467,8 @@ public sealed partial class HomePage
                 var signedIn = await MinecraftSessionBroker.ForPlayAsync(account.Id, ticket.Token);
                 if (signedIn == null)
                 {
-                    Note(key, "Your sign-in is no longer valid. Add this account again in Accounts.", LaunchTone.Error);
+                    Note(key, SignInAgain.UnreadableLine, LaunchTone.Error);
+                    SignInAgainRequested?.Invoke(accountName);
                     return;
                 }
                 session = signedIn;
@@ -568,10 +584,11 @@ public sealed partial class HomePage
         }
         catch (MicrosoftAuthException ex)
         {
-            var upToDateMessage = ex.Stage == "token_refresh"
-                ? "Your session expired - remove and re-add this account in the account switcher."
-                : ex.Message;
+            var needsSignIn = SignInAgain.Needed(ex);
+            var upToDateMessage = needsSignIn ? SignInAgain.ExpiredLine : ex.Message;
             Note(key, await LaunchFailureTextAsync(upToDateMessage), LaunchTone.Error);
+            // Straight to the fix: the prompt's "Sign in again" opens the sign-in card (re-adding refreshes the account).
+            if (needsSignIn) SignInAgainRequested?.Invoke(accountName);
             WriteLaunchErrorLog(ex);
         }
         catch (RosettaRequiredException ex)
@@ -756,11 +773,10 @@ public sealed partial class HomePage
                 game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm));
             var verdict = findings.Verdict;
             var idle = _launches.PhaseOf(key) is not (GamePhase.Starting or GamePhase.Running);
-            if (!verdict.IsCrash)
-            {
-                if (crashedWhileStarting && idle) Note(key, "Ready", LaunchTone.Neutral);
-                return;
-            }
+            // Not a crash: back to "Ready"; a crash in game: "Minecraft crashed" (GameExitStatus, all three launchers).
+            if (idle && GameExitStatus.AfterVerdict(verdict.IsCrash, crashedWhileStarting) is { } after)
+                Note(key, after.Text, after.Tone);
+            if (!verdict.IsCrash) return;
             if (crashedWhileStarting)
             {
                 if (idle)
@@ -803,8 +819,13 @@ public sealed partial class HomePage
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
+                    if (!SettingsStore.TryUpdate(s => s.RamMb = ram, quiet: true))
+                    {
+                        // A busy settings.json: relaunching on the same heap would only run out again.
+                        Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error);
+                        return;
+                    }
                     _settings.RamMb = ram;
-                    SettingsStore.Update(s => s.RamMb = ram);
                     break;
                 case CrashFixKind.DisableMods:
                     var failed = new List<string>();
@@ -945,8 +966,11 @@ public sealed partial class HomePage
     {
         var wasRunning = _launches.PhaseOf(game.Key) == GamePhase.Running && ReferenceEquals(_launches.GameOf(game.Key), game);
         if (_launches.Exited(game.Key, game) && wasRunning)
-            Note(game.Key, exitCode == 0 ? "Ready" : $"Minecraft exited with code {exitCode}",
-                exitCode == 0 ? LaunchTone.Neutral : LaunchTone.Error);
+        {
+            // Neutral whatever the exit code: only the crash verdict may turn it red (GameExitStatus).
+            var line = GameExitStatus.OnExit();
+            Note(game.Key, line.Text, line.Tone);
+        }
         SyncSocialMirror();
         RefreshPlayButton();
         if (wasRunning && exitCode != 0 && !game.StoppedByPlayer)

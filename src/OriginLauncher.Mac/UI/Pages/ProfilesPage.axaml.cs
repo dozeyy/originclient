@@ -538,7 +538,7 @@ public sealed partial class ProfilesPage : UserControl
     private void Select(ModProfile? profile)
     {
         if (_demo != null) return;
-        SettingsStore.Update(s =>
+        SettingsStore.TryUpdate(s =>
         {
             s.SelectedProfileId = profile?.Id;
             if (profile != null) s.SelectedVersion = profile.Version;
@@ -746,7 +746,7 @@ public sealed partial class ProfilesPage : UserControl
 
         if (_editingId is { } editId)
         {
-            SettingsStore.Update(s =>
+            SettingsStore.TryUpdate(s =>
             {
                 error = ProfileBook.Edit(s.ModProfiles, editId, name, serverName, address);
                 if (error == null && s.ModProfiles.FirstOrDefault(x => x.Id == editId) is { } edited)
@@ -759,7 +759,7 @@ public sealed partial class ProfilesPage : UserControl
         else
         {
             var version = VersionBox.SelectedItem as string;
-            SettingsStore.Update(s =>
+            SettingsStore.TryUpdate(s =>
             {
                 error = ProfileBook.Create(s.ModProfiles, name, version, serverName, address, out created);
                 if (error == null && created != null)
@@ -803,7 +803,7 @@ public sealed partial class ProfilesPage : UserControl
         {
             ModProfile? copy = null;
             string? error = null;
-            SettingsStore.Update(s => error = ProfileBook.Duplicate(s.ModProfiles, source.Id, out copy));
+            SettingsStore.TryUpdate(s => error = ProfileBook.Duplicate(s.ModProfiles, source.Id, out copy));
             if (error != null || copy == null)
             {
                 ShowStatus(error, error: true);
@@ -855,7 +855,7 @@ public sealed partial class ProfilesPage : UserControl
                 ShowStatus(error, error: true);
                 return;
             }
-            SettingsStore.Update(s =>
+            SettingsStore.TryUpdate(s =>
             {
                 ProfileBook.Remove(s.ModProfiles, profile.Id);
                 if (s.SelectedProfileId == profile.Id) s.SelectedProfileId = null;

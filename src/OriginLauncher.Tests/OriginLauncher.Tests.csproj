@@ -105,6 +105,8 @@
          429 back-off (Core/Auth/Sessions is pure; the broker glue stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Auth\Sessions\*.cs" LinkBase="Auth" />
     <Compile Include="..\OriginLauncher.App\Core\Auth\MicrosoftAuthException.cs" LinkBase="Auth" />
+    <!-- A saved sign-in that no longer works: which failures need signing in again, and the words (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Auth\SignInAgain.cs" LinkBase="Auth" />
     <!-- Sign in with a code (device code start + polls) and the sign-in redirect's state rules: pure, no network. -->
     <Compile Include="..\OriginLauncher.App\Core\Auth\DeviceCodeFlow.cs" LinkBase="Auth" />
     <!-- The real accounts.json vault, run against a temporary file with DPAPI
@@ -164,6 +166,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Updates\MacReleaseAssets.cs" LinkBase="Updates" />
     <!-- The mandatory-update gate's state machine: a failed check never blocks play, retries quietly (pure; the clock is a parameter). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateGate.cs" LinkBase="Updates" />
+    <!-- The release feed's polling: ETag / 304, Retry-After and X-RateLimit-Reset, back-off on 403/429 (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\FeedPoll.cs" LinkBase="Updates" />
     <!-- "Quit to swap in X" remembered across the restart, so a swap that failed after the quit never gates Play forever. -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\SwapAttempt.cs" LinkBase="Updates" />
     <!-- The small self-update: the new release rebuilt from the installed folder + only the changed files, every staged file verified (pure: paths are parameters). -->
