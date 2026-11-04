@@ -437,26 +437,60 @@ public class WaypointScreen extends OriginWindow {
 
 	// ---- toolbar: the mod's global switches ----
 
+	// The Waypoints MOD is off by default and its master switch lives on its card in the
+	// Origin menu. While it is off nothing made here shows in the world (no beam, label,
+	// locator bar or death marker), so the toolbar says so and offers "Turn on", a button
+	// whose one job is switching the mod on. Creating a waypoint never flips it silently
+	// ("one control, one job", JG-2). The chips keep working but read as inactive.
 	private void drawToolbar(OriginDeck d) {
+		boolean live = Mods.on("waypoints");
 		float x = M;
-		x += switchChip(d, "Death waypoints", "deathWaypoints", x) + 8;
-		x += switchChip(d, "Locator bar", "locatorBar", x) + 8;
+		x += switchChip(d, "Death waypoints", "deathWaypoints", x, live) + 8;
+		x += switchChip(d, "Locator bar", "locatorBar", x, live) + 8;
 		// Separate Bar only means something while the Locator Bar is on.
 		if (Mods.bool("waypoints", "locatorBar")) {
-			switchChip(d, "Separate bar", "separateBar", x);
+			x += switchChip(d, "Separate bar", "separateBar", x, live) + 8;
+		}
+		if (!live) {
+			drawModOff(d, x);
 		}
 	}
 
-	/** A caps label + switch in one 32-tall chip; the whole chip flips it. Returns its width. */
-	private float switchChip(OriginDeck d, String label, String key, float x) {
+	/** "Waypoints are off ..." + Turn on, right-aligned in the toolbar row after the chips. */
+	private void drawModOff(OriginDeck d, float left) {
+		float right = M + BODY_W;
+		float bw = buttonW(d, "Turn on", null);
+		button(d, "Turn on", null, right - bw, TOOL_Y, bw, 32, Style.PRIMARY, true,
+				() -> Mods.setOn("waypoints", true));
+		float textRight = right - bw - 12;
+		// One line when it fits, two when the Separate bar chip leaves less room, the
+		// short form when even two lines don't fit.
+		List<String> lines = d.wrap("Waypoints are off, so these don't show in the world",
+				textRight - left - 8, 12, false);
+		if (lines.size() > 2) {
+			lines = java.util.Collections.singletonList("Waypoints are off");
+		}
+		float cy = TOOL_Y + 16 - (lines.size() - 1) * 7;
+		for (String line : lines) {
+			d.textRight(line, textRight, cy, 12, false, 0, GOLD);
+			cy += 14;
+		}
+	}
+
+	/** A caps label + switch in one 32-tall chip; the whole chip flips it. Returns its width.
+	 *  {@code live} false (the Waypoints mod is off): label and switch dimmed, still clickable. */
+	private float switchChip(OriginDeck d, String label, String key, float x, boolean live) {
 		boolean on = Mods.bool("waypoints", key);
 		String caps = label.toUpperCase(Locale.ROOT);
 		float w = 12 + d.textW(caps, 11, true, CAPS_TRACK) + 12 + 36 + 8;
 		boolean hov = d.over(x, TOOL_Y, w, 32);
 		float hp = OriginUi.hover("wp-gt:" + key, hov);
 		d.rect(x, TOOL_Y, w, 32, 6, lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
-		d.textMid(caps, x + 12, TOOL_Y + 16, 11, true, CAPS_TRACK, lerp(DIM, TEXT, hp));
+		d.textMid(caps, x + 12, TOOL_Y + 16, 11, true, CAPS_TRACK, live ? lerp(DIM, TEXT, hp) : MUTE);
 		d.toggle("wp-gt:" + key, x + w - 8 - 36, TOOL_Y + 6, on);
+		if (!live) {
+			d.rect(x + w - 8 - 36, TOOL_Y + 6, 36, 20, 10, withAlpha(PANEL, 0xA0));
+		}
 		d.hit(x, TOOL_Y, w, 32, () -> Mods.set("waypoints", key, !on));
 		return w;
 	}
