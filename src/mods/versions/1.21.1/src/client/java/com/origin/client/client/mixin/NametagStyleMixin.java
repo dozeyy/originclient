@@ -98,6 +98,7 @@ public class NametagStyleMixin {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = scaleAlpha(bg, op);
 		}
+		light = 0xF000F0; // DIAG r5 JP-1: full bright
 		int w = font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
 		if (padW > 0f) {
 			PlusBadge.nametag(matrix, buffer, mode, x, y, padW, newColor >>> 24, light);
