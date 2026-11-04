@@ -129,7 +129,8 @@ public class MenuHooks {
 
 	// ---- Keep Chat History (the Chat mod's row, default on) ----
 
-	// Set by onGuiOpen when vanilla's own title-screen chat clear is about to run; render thread only.
+	// Set by onGuiOpen when vanilla's own title-screen chat clear is about to run; spent by that
+	// clear or dropped at the end of the tick (onClientTick). Render thread only.
 	private static boolean keepChatArmed = false;
 
 	private static boolean keepChat() {
@@ -463,6 +464,11 @@ public class MenuHooks {
 		if (event.phase != TickEvent.Phase.END) {
 			return;
 		}
+		// The title-screen chat clear runs in the same displayGuiScreen call that armed the skip,
+		// so by the end of the tick it is either spent or never coming: another mod cancelled the
+		// title (or swapped it after us). Disarmed here, so a later, deliberate clear is never
+		// skipped (B189PRE-5).
+		keepChatArmed = false;
 		try {
 			OriginHandoff.tick();
 		} catch (Throwable t) {
