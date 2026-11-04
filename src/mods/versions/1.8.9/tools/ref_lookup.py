@@ -14,12 +14,13 @@ import sys
 import zipfile
 
 MAX_LINES = 600  # per query, so one broad query can't drown the rest
+CODE_MAX_LINES = 3000  # `code`: a whole method body (Minecraft.startGame runs past 600 lines of bytecode)
 
 
-def emit(lines):
+def emit(lines, cap=MAX_LINES):
     for i, line in enumerate(lines):
-        if i >= MAX_LINES:
-            print(f"  ... ({len(lines) - MAX_LINES} more lines cut)")
+        if i >= cap:
+            print(f"  ... ({len(lines) - cap} more lines cut)")
             break
         print(line)
 
@@ -122,7 +123,7 @@ def main():
                     if keep:
                         block.append(line)
                 print(f"  -- {c}")
-                emit(block or ["  (no method named " + meth + ")"])
+                emit(block or ["  (no method named " + meth + ")"], CODE_MAX_LINES)
         else:
             print("  unknown query kind (use class / member / find / code)")
 
