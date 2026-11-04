@@ -186,8 +186,9 @@ public final class NickHider {
 		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 	}
 
+	// cached account id: hideSkin runs per skin read (CosmeticsService.selfId, JP-2)
 	private static UUID selfId(Minecraft mc) {
-		return mc.getUser().getGameProfile().getId();
+		return com.origin.client.client.cosmetics.CosmeticsService.selfId();
 	}
 
 	// Whether to show the default skin instead of this entry's own. Only YOUR

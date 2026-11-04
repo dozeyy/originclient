@@ -234,8 +234,8 @@ public final class NickHider {
 		if (!Mods.on(ID) || profile == null || profile.getId() == null || !Mods.bool(ID, "hideOwnSkin")) {
 			return null;
 		}
-		GameProfile account = Minecraft.getInstance().getUser().getGameProfile();
-		return profile.getId().equals(account.getId()) ? defaultSkin(profile.getId()) : null;
+		// cached account id: this runs per skin read (CosmeticsService.selfId, JP-2)
+		return profile.getId().equals(com.origin.client.client.cosmetics.CosmeticsService.selfId()) ? defaultSkin(profile.getId()) : null;
 	}
 
 	private static Skin defaultSkin(UUID id) {
