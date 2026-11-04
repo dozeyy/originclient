@@ -409,16 +409,18 @@ public class OriginClientMod implements ClientModInitializer {
 	 * with each mod's settings (Mod Menu's, gui/PlayerModList), "Origin" opens Origin's own menu: the
 	 * same pair as the title screen. The row takes the slot of Mod Menu's own "Mods" button, which it
 	 * replaces (any other Mod Menu entry on this screen goes too: one way in); with no Mod Menu button,
-	 * the Send Feedback | Report Bugs row that Mod Menu itself replaces by default. Fail-soft: a
-	 * surprise leaves the menu as it was.
+	 * the Send Feedback | Report Bugs row that Mod Menu itself replaces by default, or, where those
+	 * are small icons (26.x), a new full-width row above them. Fail-soft: a surprise leaves the menu
+	 * as it was.
 	 */
 	private static void addPauseModsRow(Minecraft client, net.minecraft.client.gui.screens.Screen pause) {
 		try {
 			java.util.List<net.minecraft.client.gui.components.AbstractWidget> buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(pause);
 			java.util.List<net.minecraft.client.gui.components.AbstractWidget> gone = new java.util.ArrayList<>();
-			net.minecraft.client.gui.components.AbstractWidget slot = null, feedback = null, bugs = null;
+			net.minecraft.client.gui.components.AbstractWidget slot = null, feedback = null, bugs = null, options = null, wide = null;
 			String feedbackLabel = net.minecraft.client.resources.language.I18n.get("menu.sendFeedback");
 			String bugsLabel = net.minecraft.client.resources.language.I18n.get("menu.reportBugs");
+			String optionsLabel = net.minecraft.client.resources.language.I18n.get("menu.options");
 			for (net.minecraft.client.gui.components.AbstractWidget w : buttons) {
 				String label = w.getMessage().getString();
 				if (com.origin.client.client.gui.PlayerModList.isModMenuButton(w, label)) {
@@ -430,6 +432,11 @@ public class OriginClientMod implements ClientModInitializer {
 					feedback = w;
 				} else if (bugsLabel.equals(label)) {
 					bugs = w;
+				} else if (optionsLabel.equals(label)) {
+					options = w;
+				}
+				if (wide == null || w.getWidth() > wide.getWidth()) {
+					wide = w;   // a full-width row (Back to Game): the template for an inserted row
 				}
 			}
 			int x, y, width, height;
@@ -440,7 +447,9 @@ public class OriginClientMod implements ClientModInitializer {
 				y = slot.getY();
 				width = slot.getWidth();
 				height = slot.getHeight();
-			} else if (feedback != null && bugs != null) {
+			} else if (feedback != null && bugs != null
+					&& Math.max(feedback.getX() + feedback.getWidth(), bugs.getX() + bugs.getWidth()) - Math.min(feedback.getX(), bugs.getX()) >= 150) {
+				// the classic two-button Send Feedback | Report Bugs row (26.x shrank them to icons: below)
 				x = Math.min(feedback.getX(), bugs.getX());
 				y = feedback.getY();
 				width = Math.max(feedback.getX() + feedback.getWidth(), bugs.getX() + bugs.getWidth()) - x;
@@ -448,7 +457,29 @@ public class OriginClientMod implements ClientModInitializer {
 				gone.add(feedback);
 				gone.add(bugs);
 			} else {
-				return;   // no row to take: the menu stays as it is
+				// No such row (26.x's feedback/bugs are small icons, kept): a new full-width row goes in
+				// above the feedback icons (or Options), and every row from there moves down one step.
+				net.minecraft.client.gui.components.AbstractWidget anchor = feedback != null ? feedback : options;
+				if (anchor == null || wide == null) {
+					return;   // no place found: the menu stays as it is
+				}
+				int top = anchor.getY();
+				int above = Integer.MIN_VALUE;
+				for (net.minecraft.client.gui.components.AbstractWidget w : buttons) {
+					if (w.getY() + w.getHeight() <= top) {
+						above = Math.max(above, w.getY() + w.getHeight());
+					}
+				}
+				int rowGap = above == Integer.MIN_VALUE ? 4 : top - above;   // the menu's own row spacing
+				x = wide.getX();
+				y = top;
+				width = wide.getWidth();
+				height = wide.getHeight();
+				for (net.minecraft.client.gui.components.AbstractWidget w : buttons) {
+					if (w.getY() >= top) {
+						w.setY(w.getY() + height + rowGap);
+					}
+				}
 			}
 			for (net.minecraft.client.gui.components.AbstractWidget w : gone) {
 				int i = buttons.indexOf(w);
