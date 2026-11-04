@@ -87,33 +87,77 @@ public static class InstanceMigration
     private static readonly string[] MisplacedShared = { InstanceLayout.ConfigOverlaysFolder };
 
     /// <summary>
-    /// Puts back what an older launcher wrongly moved from <paramref name="versionRoot"/> into
-    /// accounts/<paramref name="accountKey"/>/ (see MisplacedShared). Rename-only: the version root's copy wins a
-    /// clash (it matches the live config files now) and the older one is parked beside it as "&lt;name&gt;.older",
-    /// a name nothing reads. Returns true when nothing is left to put back. Never throws; one Directory.Exists per
-    /// folder when there is nothing to do.
+    /// Puts back what an older launcher wrongly moved from <paramref name="versionRoot"/> into an account's folder
+    /// (see MisplacedShared). Up to v1.0.88 every start moved it into the account selected AT THAT START, so a player
+    /// who switched accounts between starts can have a copy under several accounts/&lt;key&gt;/: every account is
+    /// checked, not only the inheriting one. Rename-only, nothing is ever overwritten: the version root's copy wins a
+    /// clash (it matches the live config files now), then the newest account copy (the one with the most recently
+    /// written file), and every older one is parked beside it as "&lt;name&gt;.older", a name nothing reads. Returns
+    /// true when nothing is left to put back. Never throws; one Directory.Exists per account folder when there is
+    /// nothing to do.
     /// </summary>
-    public static bool ReturnMisplacedShared(string versionRoot, string accountKey, Action<string>? log = null)
+    public static bool ReturnMisplacedShared(string versionRoot, Action<string>? log = null)
     {
         log ??= _ => { };
         var complete = true;
+        List<string> accounts;
+        try
+        {
+            var accountsDir = Path.Combine(versionRoot, InstanceLayout.AccountsFolder);
+            if (!Directory.Exists(accountsDir)) return true;
+            accounts = Directory.EnumerateDirectories(accountsDir)
+                .Where(dir => InstanceLayout.IsAccountKey(Path.GetFileName(dir)))
+                .ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log($"{Path.GetFileName(versionRoot)}: accounts not readable yet: {ex.Message}");
+            return false;
+        }
+
         foreach (var name in MisplacedShared)
         {
-            var moved = Path.Combine(versionRoot, InstanceLayout.AccountsFolder, accountKey, name);
-            try
+            var copies = accounts
+                .Select(account => (Key: Path.GetFileName(account), Path: Path.Combine(account, name)))
+                .Where(copy => Directory.Exists(copy.Path))
+                .OrderByDescending(copy => NewestWriteUtc(copy.Path))
+                .ToList();
+            foreach (var (key, moved) in copies)
             {
-                if (!Directory.Exists(moved)) continue;
-                var ok = MoveEntry(moved, Path.Combine(versionRoot, name), log, ".older");
-                if (ok) log($"{Path.GetFileName(versionRoot)}: put {name} back from accounts/{accountKey}");
-                complete &= ok;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                log($"{Path.GetFileName(versionRoot)}: {name} stays in accounts/{accountKey} for now: {ex.Message}");
-                complete = false;
+                try
+                {
+                    var ok = MoveEntry(moved, Path.Combine(versionRoot, name), log, ".older");
+                    if (ok) log($"{Path.GetFileName(versionRoot)}: put {name} back from accounts/{key}");
+                    complete &= ok;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    log($"{Path.GetFileName(versionRoot)}: {name} stays in accounts/{key} for now: {ex.Message}");
+                    complete = false;
+                }
             }
         }
         return complete;
+    }
+
+    // The most recent write of any file under a folder (the folder's own time when it holds no file). Unreadable =
+    // oldest, so a copy that can't be read never displaces one that can.
+    private static DateTime NewestWriteUtc(string folder)
+    {
+        try
+        {
+            var newest = DateTime.MinValue;
+            foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+            {
+                var t = File.GetLastWriteTimeUtc(file);
+                if (t > newest) newest = t;
+            }
+            return newest == DateTime.MinValue ? Directory.GetLastWriteTimeUtc(folder) : newest;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return DateTime.MinValue;
+        }
     }
 
     // One entry: a plain rename when the destination is free; folders that
@@ -223,7 +267,7 @@ public static class InstanceMigration
         foreach (var root in versionRoots)
         {
             complete &= MigrateVersion(root, key, log);
-            complete &= ReturnMisplacedShared(root, key, log);
+            complete &= ReturnMisplacedShared(root, log);
         }
         return (key, complete);
     }
