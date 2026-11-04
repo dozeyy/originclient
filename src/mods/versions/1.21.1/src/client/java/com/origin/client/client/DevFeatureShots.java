@@ -111,8 +111,7 @@ public final class DevFeatureShots {
 				break;
 			case NAMETAGS_F5:
 				Mods.setOn("weather", false);
-				Mods.setOn("nametags", true);
-				Mods.set("nametags", "thirdPerson", true);
+				Mods.setOn("nametags", false); // DIAG r5 JP-1: vanilla nametags
 				break;
 			default:
 				break;
