@@ -17,8 +17,9 @@ import net.minecraft.resources.ResourceLocation;
  * swapped for 1.21.1's dark text_field (well #0E0E0F, edge #505055, focused edge stays white).
  *
  * <p>Fail-soft: the first throw latches {@link #broken} and every hook hands vanilla's texture /
- * colour back for the session. Each hook logs once the first time it runs, which is the CI proof
- * that the mixin landed. No allocation per frame (constant ids, an int bitmask).
+ * colour back for the session. The list scroll bar is drawn, not swapped (pre-1.20.2 lists paint it
+ * with untextured quads/fills): {@link #active} + {@link #failed} give that hook the same latch.
+ * Each hook logs once the first time it runs, which is the CI proof that the mixin landed. No allocation per frame (constant ids, an int bitmask).
  */
 public final class OriginDarkWidgets {
 	public static final ResourceLocation WIDGETS = new ResourceLocation("originclient", "textures/gui/dark_widgets.png");
@@ -34,6 +35,7 @@ public final class OriginDarkWidgets {
 	public static final int LOCK = 8;
 	public static final int EDIT_EDGE = 16;
 	public static final int EDIT_FIELD = 32;
+	public static final int SCROLLER = 64;
 
 	private static volatile boolean broken = false;
 	private static int seen = 0;
@@ -69,6 +71,20 @@ public final class OriginDarkWidgets {
 		}
 	}
 
+	/** Whether a hook that DRAWS Origin's dark look (rather than swapping a value) should run now. */
+	public static boolean active(int hook) {
+		if (broken) {
+			return false;
+		}
+		landed(hook);
+		return true;
+	}
+
+	/** A drawing hook threw: latch vanilla widgets for the session, like the swapping hooks do. */
+	public static void failed(Throwable t) {
+		fail(t);
+	}
+
 	private static void landed(int hook) {
 		if ((seen & hook) == 0) {
 			seen |= hook;
@@ -89,6 +105,7 @@ public final class OriginDarkWidgets {
 			case LOCK: return "lock button";
 			case EDIT_EDGE: return "text field edge";
 			case EDIT_FIELD: return "text field well";
+			case SCROLLER: return "list scroll bar";
 			default: return "widget";
 		}
 	}
