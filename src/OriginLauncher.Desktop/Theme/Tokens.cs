@@ -174,6 +174,8 @@ public static class Space
 public static class Radius
 {
     public const double Xs = 4, Sm = 6, Md = 8, Lg = 12, Dialog = 16;
+    /// <summary>A 32 tall control inset 4 inside a 40 tall capsule (Home's bring-over button): a capsule too, concentric (Radius.Capsule.Md).</summary>
+    public const double CapsuleMd = 16;
     /// <summary>A selection ring drawn 4 px outside an lg card (Radius.Ring.Lg).</summary>
     public const double RingLg = 14;
 }

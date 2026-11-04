@@ -1,5 +1,6 @@
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Import;
+using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Import.Detection;
 using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Import.Sources;
@@ -394,9 +395,77 @@ public class PvpClientImportTests : IDisposable
 
         var scan = await Scan();
 
-        Assert.Single(scan.Instances, s => s.ModsDir == null && s.Kind == SourceKind.OfficialLauncher);
+        // One .minecraft setup (now Lunar's: Lunar plays out of it, LunarFold) and Lunar's own mods setup.
+        Assert.Single(scan.Instances, s => s.ModsDir == null && s.GameDir == Minecraft);
         Assert.Single(scan.Instances, s => s.ModsDir != null && s.Kind == SourceKind.Lunar);
         Assert.Equal(2, scan.Instances.Count);
+    }
+
+    // ---- Lunar plays out of the normal .minecraft (Will, 2026-11-04): one source, called Lunar ----
+
+    private void OfficialLauncherProfiles(string json) => Kit.Write(Minecraft, "launcher_profiles.json", json);
+
+    [Fact]
+    public async Task WithTheOfficialLauncherToo_LunarsMinecraftFolderIsPartOfLunar_SoHomeOffersOneClick()
+    {
+        PlayerMinecraft();
+        LunarWithFabricMods();
+        OfficialLauncherProfiles("""{"profiles":{"p":{"name":"Vanilla","type":"custom","lastVersionId":"1.21.1","lastUsed":"2026-10-01T10:00:00.000Z"}}}""");
+
+        var scan = await Scan();
+
+        Assert.All(scan.Instances, s => Assert.Equal(SourceKind.Lunar, s.Kind));
+        var folder = Assert.Single(scan.Instances, s => s.GameDir == Minecraft && s.ModsDir == null);
+        Assert.Equal(LunarFold.FolderName, folder.Name);
+        Assert.Contains("Vanilla", folder.Aliases);                        // the official profile's name is kept
+        Assert.Equal("Lunar: Minecraft folder", folder.BulkLabel());        // what the player reads everywhere
+        Assert.Equal(Path.Combine(Minecraft, "saves"), folder.SavesFolder); // the original .minecraft's worlds
+
+        var qualifying = ImportPrompt.Qualifying(scan.Instances, new[] { "1.21.1" });
+        var source = Assert.Single(ImportPrompt.Sources(qualifying));
+        Assert.Equal(SourceKind.Lunar, source.Kind);
+        Assert.Equal("Bring over your Lunar setup", ImportPrompt.Label(qualifying));
+    }
+
+    [Fact]
+    public async Task OfficialLauncherInstancesInTheirOwnFolderStayTheMinecraftLaunchers()
+    {
+        PlayerMinecraft();
+        LunarWithFabricMods();
+        var modded = Path.Combine(Pc, "Games", "Survival");
+        Kit.Write(modded, "options.txt", "version:3955\nfov:0.8\n");
+        Kit.Write(modded, "saves/Survival World/level.dat", "LEVEL");
+        OfficialLauncherProfiles("{\"profiles\":{"
+            + "\"p\":{\"name\":\"Vanilla\",\"type\":\"custom\",\"lastVersionId\":\"1.21.1\",\"lastUsed\":\"2026-10-01T10:00:00.000Z\"},"
+            + "\"q\":{\"name\":\"Survival\",\"type\":\"custom\",\"lastVersionId\":\"1.21.1\",\"lastUsed\":\"2026-10-02T10:00:00.000Z\","
+            + "\"gameDir\":" + System.Text.Json.JsonSerializer.Serialize(modded) + "}}}");
+
+        var scan = await Scan();
+
+        Assert.Equal(SourceKind.Lunar, Assert.Single(scan.Instances, s => s.GameDir == Minecraft).Kind);
+        var own = Assert.Single(scan.Instances, s => s.GameDir == modded);
+        Assert.Equal(SourceKind.OfficialLauncher, own.Kind); // a real official-launcher instance: never lost or renamed
+        Assert.Equal("Survival", own.Name);
+
+        var qualifying = ImportPrompt.Qualifying(scan.Instances, new[] { "1.21.1" });
+        Assert.Equal(new[] { SourceKind.Lunar, SourceKind.OfficialLauncher }, ImportPrompt.Sources(qualifying).Select(c => c.Kind));
+        Assert.Equal(ImportPrompt.ManyLabel, ImportPrompt.Label(qualifying));
+    }
+
+    [Fact]
+    public async Task ALunarGameDirectoryElsewhereFoldsNothing()
+    {
+        PlayerMinecraft();
+        var elsewhere = Path.Combine(Pc, "LunarGame");
+        Directory.CreateDirectory(elsewhere);
+        LunarWithFabricMods(gameDirectory: elsewhere);
+        OfficialLauncherProfiles("""{"profiles":{"p":{"name":"Vanilla","type":"custom","lastVersionId":"1.21.1","lastUsed":"2026-10-01T10:00:00.000Z"}}}""");
+
+        var scan = await Scan();
+
+        var folder = Assert.Single(scan.Instances, s => s.GameDir == Minecraft);
+        Assert.Equal(SourceKind.OfficialLauncher, folder.Kind); // its worlds are not Lunar's
+        Assert.Equal("Vanilla", folder.Name);
     }
 
     [Fact]

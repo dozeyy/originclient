@@ -102,7 +102,7 @@ public partial class MainWindow : Window
             if (_currentPage == LauncherPage.Mods) ModsView.ShowVersion(_homePage.CurrentVersion);
             // Friends belong to the selected account: sign in again as it.
             SocialHub.Service.ResetAccount();
-            // A player who just signed in for the first time can now be offered the one-time import card.
+            // A player who just signed in for the first time can now be offered the bring-over button.
             _ = MaybeShowImportPromptAsync();
         };
         _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
@@ -115,10 +115,8 @@ public partial class MainWindow : Window
 
         NavHome.IsChecked = true;
 
-        // The first-run card: "Import everything" opens the page and runs it once the scan is in; "Choose" opens the
-        // page on its pick screen.
-        _homePage.ImportCard.ImportRequested += (_, _) => OpenImportPanel(intent: ImportPanel.Intent.Everything);
-        _homePage.ImportCard.ChooseRequested += (_, _) => OpenImportPanel(intent: ImportPanel.Intent.Choose);
+        // Home's bring-over button (MainWindow.ImportWiring.cs runs its transfer and records the answer).
+        HookBringOver();
         HookImportWiring(); // MainWindow.ImportWiring.cs: closing mid-import, recovery refresh, run-state refusals, the page behind the panel
         ContentRendered += async (_, _) => await AfterFirstRenderAsync();
 
@@ -1154,8 +1152,9 @@ public partial class MainWindow : Window
         if (ImportBlockedByUpdate()) return; // MainWindow.ImportWiring.cs: an update is downloading / restarting
         if (_accountPanelOpen) SetAccountPanelOpen(false);
         if (_friendsOpen) SetFriendsOpen(false);
-        _homePage.ImportCard.Hide();
-        MarkImportPromptSeen(); // any way in (Profiles, the Home card, --import, a second launch): the card never offers it again
+        if (BringOverBlocksImport()) return; // MainWindow.ImportWiring.cs: Home's one-click transfer is still running
+        _homePage.BringOver.HideOffer();
+        MarkImportPromptSeen(); // any way in (Profiles, Home's button, --import, a second launch): the button never offers it again
 
         // The report's "Fix Compatibility" on a profile that can't start: the real flow (HomePage.Fix.cs). The page closes,
         // Home selects that profile, and the same prompt Play opens shows what the fix would change; nothing is written
@@ -1254,8 +1253,8 @@ public partial class MainWindow : Window
     }
 
     // After the first window is up: tell the player about an import that was rolled back at start (the
-    // recovery itself ran on the thread pool), open the import card for `--import`, or - once, and only
-    // when another launcher is found and the player could import - offer it.
+    // recovery itself ran on the thread pool), open the import card for `--import`, or - until the player
+    // answers, and only when another launcher is found and the player could import - offer Home's bring-over button.
     private async Task AfterFirstRenderAsync()
     {
         Core.StartupTrace.Mark("ContentRendered (first frame)");
@@ -1283,19 +1282,18 @@ public partial class MainWindow : Window
         try
         {
             // Off the UI thread: the settings read, the account check and the quick scan (MainWindow.ImportWiring.cs).
-            var prompt = await ComputeImportPromptQuestionAsync();
-            if (prompt is not { } found || _importPanelOpen) return;
+            var qualifying = await ComputeImportPromptSetupsAsync();
+            if (qualifying is not { Count: > 0 } found || _importPanelOpen || _importPromptMarked) return;
 
-            // The card sits in Home's banner slot (it shows when Home does), and stays out while Import would be refused
-            // (a game starting, an update): never offer a click that lands on a refusal.
-            _homePage.ImportCard.SetRefusal(ImportHooks.Refusal()); // and again on every change (PushImportRefusal)
-            _homePage.ImportCard.ShowQuestion(found.Question, found.Setups);
-            // Shown once: set the moment it appears, so it never comes back.
-            _ = Task.Run(() => Core.SettingsStore.Update(s => s.ImportPromptSeen = true));
+            // The button sits on Home (it shows when Home does) and stays out while Import would be refused (a game
+            // starting, an update): never offer a click that lands on a refusal. It is NOT marked answered here: it comes
+            // back at the next start until the player says no or brings the setup over (ImportPrompt.ShouldScan).
+            _homePage.BringOver.SetRefusal(ImportHooks.Refusal()); // and again on every change (PushImportRefusal)
+            _homePage.BringOver.Offer(found);
         }
         catch (Exception)
         {
-            // a failed look for other launchers just means no card
+            // a failed look for other launchers just means no button
         }
         finally
         {
@@ -1319,7 +1317,7 @@ public partial class MainWindow : Window
 
     internal void TourClickProfilesImport() => ProfilesView.TourClickImport();
 
-    internal ImportPromptCard TourImportPrompt => _homePage.ImportCard;
+    internal BringOverButton TourBringOver => _homePage.BringOver;
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {

@@ -114,7 +114,7 @@ public sealed class MainWindow : Window
         Opened += (_, _) =>
         {
             if (Shots.ShotRunner.Active) return;
-            ImportView.CheckFirstRun(this); // the one-time import prompt card over Home
+            ImportView.CheckFirstRun(this); // Home's bring-over button, until the player answers it
             ProfilesPage.IsProfileInUse = Home.Launches.IsProfileInUse;
             // The import report's "Fix Compatibility" on a profile that can't start (WPF MainWindow does the same):
             // Import closes, Home selects that profile and the same prompt Play opens shows what the fix would change.

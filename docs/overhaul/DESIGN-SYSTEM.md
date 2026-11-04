@@ -675,6 +675,11 @@ ever the official image file (1.5), and `tools/design/check_logo.py` allows no e
   crossfades with the art (`motion.scene`). Nothing is drawn around it (12.1).
 - At 960 x 600 the strip keeps its sizes; when a profile's server makes the row too wide, Join folds to
   its server icon (a 64 square, "Join <server>" in its tooltip). Nothing else folds and nothing is cut.
+- **Bring-over button** (Will, 2026-11-04; the only import entry on Home): top centre, 16 under the bar, a neutral
+  40 tall capsule (`surfaceRaised` + `lineStrong`), its one colour the small leading glyph (`accent`; `success` when done,
+  `warning` when it failed). Inner controls are 32 tall capsules (`Radius.Capsule.Md` 16). Several launchers open a
+  `surface` panel (`radius.lg`) under it: one row per launcher, "All of them", "Choose what comes over". While it runs, the
+  3 px rail (11.11) sits inside its bottom edge. It never competes with Play and leaves Home once answered.
 
 ---
 

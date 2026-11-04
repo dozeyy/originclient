@@ -1,0 +1,93 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:OriginLauncher.Mac.UI"
+             xmlns:c="using:OriginLauncher.Mac.UI.Controls"
+             x:Class="OriginLauncher.Mac.UI.Controls.BringOverButton"
+             IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="32,64,32,0">
+
+    <!-- Twin of the WPF UI/Controls/BringOverButton.xaml (state: Core/Import/Launcher/BringOverModel). Home's one
+         bring-over button: top centre, 16 under the bar, a neutral 40 tall capsule whose one colour is its small leading
+         glyph. One launcher: a press brings it over at once. Several: a press opens the choice under it. While it runs:
+         the line counts up and a 3 px rail runs inside the bottom edge, with Stop. Then one plain line and a close. -->
+    <StackPanel>
+        <Border x:Name="Shell" ui:Capsule.On="True" HorizontalAlignment="Center" MinHeight="{StaticResource Size.ControlXl}"
+                Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1" Padding="3">
+            <Border.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="{StaticResource Motion.Enter}"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="{StaticResource Motion.Enter}" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Border.Transitions>
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <Button x:Name="MainButton" Theme="{StaticResource Button.Chrome}" CornerRadius="{StaticResource Radius.Capsule.Md}"
+                        Foreground="{StaticResource Brush.Text}" Padding="12,0,14,0" HorizontalContentAlignment="Left"
+                        Click="Main_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <c:IconPath x:Name="LeadIcon" Data="{StaticResource Icon.ImportIn}" Theme="{StaticResource Icon.Small}"
+                                    Stroke="{StaticResource Brush.Accent}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel VerticalAlignment="Center" Margin="0,6">
+                            <TextBlock x:Name="LineText" Theme="{StaticResource Text.BodyStrong}" TextWrapping="Wrap" MaxWidth="440"/>
+                            <TextBlock x:Name="DetailText" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                       TextWrapping="Wrap" MaxWidth="440" Margin="0,2,0,0" IsVisible="False"/>
+                        </StackPanel>
+                        <c:IconPath x:Name="Chevron" Data="{StaticResource Icon.ChevronDown}" Theme="{StaticResource Icon.Small}"
+                                    Stroke="{StaticResource Brush.TextDim}" VerticalAlignment="Center" Margin="10,0,0,0" IsVisible="False"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Stop while it runs, Try again after a failed run. -->
+                <Button x:Name="ActionButton" Grid.Column="1" Theme="{StaticResource Button.Chrome}" CornerRadius="{StaticResource Radius.Capsule.Md}"
+                        Foreground="{StaticResource Brush.Text}" Padding="12,0" VerticalAlignment="Center" Margin="4,0,0,0"
+                        IsVisible="False" Click="Action_Click"/>
+
+                <Button x:Name="CloseButton" Grid.Column="2" Theme="{StaticResource Button.Chrome}" CornerRadius="{StaticResource Radius.Capsule.Md}"
+                        MinWidth="{StaticResource Size.ControlMd}" MinHeight="{StaticResource Size.ControlMd}" Padding="0"
+                        VerticalAlignment="Center" Margin="2,0,0,0" Click="Close_Click"
+                        AutomationProperties.Name="No thanks" ToolTip.Tip="No thanks">
+                    <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"
+                                Stroke="{Binding $parent[Button].Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+
+                <!-- The progress rail (DESIGN-SYSTEM 11.11) inside the bottom edge; only once there is a real fraction. -->
+                <Border x:Name="Rail" Grid.ColumnSpan="3" VerticalAlignment="Bottom" Margin="16,0,16,1" Height="{StaticResource Size.Progress}"
+                        Background="{StaticResource Brush.ProgressTrack}" CornerRadius="{StaticResource Radius.Track}" IsVisible="False"
+                        IsHitTestVisible="False">
+                    <Border x:Name="RailFill" Background="{StaticResource Brush.Accent}" CornerRadius="{StaticResource Radius.Track}"
+                            RenderTransformOrigin="0%,50%" RenderTransform="scaleX(0)"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Several launchers: one row per launcher (logo, name, how many setups), All of them, then the full Import page. -->
+        <Border x:Name="ChoicePanel" IsVisible="False" HorizontalAlignment="Center" MinWidth="320" Margin="0,8,0,0" Padding="6"
+                Background="{StaticResource Brush.Panel}" BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Lg}">
+            <StackPanel>
+                <StackPanel x:Name="SourceRows"/>
+                <Button x:Name="AllButton" Theme="{StaticResource Button.Chrome}" CornerRadius="{StaticResource Radius.Sm}"
+                        Foreground="{StaticResource Brush.Text}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        MinHeight="{StaticResource Size.ControlXl}" Padding="10,0,12,0" Click="All_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="{StaticResource Size.ControlSm}" Height="{StaticResource Size.ControlSm}" Margin="0,0,10,0"
+                                ui:Capsule.On="True" Background="{StaticResource Brush.Bg}">
+                            <c:IconPath Data="{StaticResource Icon.ImportIn}" Theme="{StaticResource Icon.Small}"
+                                        Stroke="{StaticResource Brush.Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="AllText" Theme="{StaticResource Text.BodyStrong}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Border Height="1" Background="{StaticResource Brush.SoftStroke}" Margin="8,6"/>
+                <Button x:Name="MoreButton" Theme="{StaticResource Button.Chrome}" CornerRadius="{StaticResource Radius.Sm}"
+                        Foreground="{StaticResource Brush.Text}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        MinHeight="{StaticResource Size.ControlXl}" Padding="10,0,12,0" Click="More_Click">
+                    <Grid>
+                        <TextBlock x:Name="MoreText" Theme="{StaticResource Text.Body}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
+                        <!-- The chevron points down in the icon set: turned, it says "goes on to a page". -->
+                        <c:IconPath Data="{StaticResource Icon.Chevron}" Theme="{StaticResource Icon.Small}" HorizontalAlignment="Right"
+                                    Stroke="{StaticResource Brush.TextDim}" VerticalAlignment="Center" RenderTransform="rotate(-90deg)"/>
+                    </Grid>
+                </Button>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

@@ -14,50 +14,75 @@ namespace OriginLauncher.App.UI;
 /// no scan, no plan against a real folder and nothing is written: the plans are built in memory here, and
 /// "Import" only plays back canned progress.
 ///
-/// Shot numbers: 17, 17b, 17c are the Home card (17c: hidden while Import is refused); 30 and 38 are Detect (found, scanning,
+/// Shot numbers: 17-17g are Home's bring-over button (one source, several, the choice, checking, running, done, refused); 30 and 38 are Detect (found, scanning,
 /// empty), 31 Choose what to import, 34/35/36/37 progress, cancel, done and failed, 39-41 single review, blocked and launching,
-/// 42/42b the keyboard focus; 43-46 What to bring, a version and Review; 50-59 the smallest window (20-27 are the smallest-window set in RenderShots).
+/// 42/42b the keyboard focus; 43-46 What to bring, a version and Review; 50-59 the smallest window (50, 51: the bring-over button; 20-27 are the smallest-window set in RenderShots).
 /// </summary>
 internal static class ImportShots
 {
     // The demo data (setups, plans, canned progress) is UI/ImportDemo.cs, shared with the Mac render.
 
     /// <summary>
-    /// 17, 17b, 50, 51: the one-time first-run card in Home's banner slot, at the normal size and the smallest one. Runs early
-    /// (RenderShots, right after 01-home) so Home is in its plain state: the card is never offered while a game runs.
+    /// 17-17f, 50, 51: Home's bring-over button, at the normal size and the smallest one. Runs early (RenderShots, right
+    /// after 01-home) so Home is in its plain state: the button is never offered while a game runs. No transfer runs: the
+    /// running and done states are set on the button's own model, with the engine's words (HomeImport).
     /// </summary>
     public static void RunHomeCard(MainWindow window, string outDir)
     {
         var (width, height) = (window.Width, window.Height);
+        var button = window.TourBringOver;
         try
         {
-            var many = BulkSetups();
-            var one = new[] { many[0] };
             window.TourGoTo(0);
             RenderShots.Pump(400);
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many), many);
-            RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "17-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one), one);
-            RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "17b-home-import-card-one-setup");
 
-            // 17c: a game is starting (or an update runs): Import would be refused, so the card stays out of Home.
-            window.TourImportPrompt.SetRefusal("Wait for Minecraft to finish starting, then try again.");
+            // 17: one launcher (a Lunar player; .minecraft is folded into Lunar): one click brings it over.
+            button.Offer(BringOverLunar());
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "17-home-bring-over-one-source");
+
+            // 17b: several launchers: the button names none of them; 17c: its press opens the choice.
+            button.Offer(BringOverMany());
             RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "17c-home-import-card-refused");
-            window.TourImportPrompt.SetRefusal(null);
+            RenderShots.Snap(window, outDir, "17b-home-bring-over-many-sources");
+            button.TourPress();
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "17c-home-bring-over-choice");
+
+            // 17d: one click pressed: checking, then copying with the rail (42 %).
+            button.Offer(BringOverLunar());
+            button.TourStart(SourceKind.Lunar);
+            RenderShots.Pump(200);
+            RenderShots.Snap(window, outDir, "17d-home-bring-over-checking");
+            button.Report(new HomeImportProgress(HomeImportStep.Copying, 0.42));
+            RenderShots.Pump(200);
+            RenderShots.Snap(window, outDir, "17e-home-bring-over-running");
+
+            // 17f: done: one plain line, and what didn't come over.
+            button.Finish(BringOverDone());
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "17f-home-bring-over-done");
+
+            // 17g: a game is starting (or an update runs): Import would be refused, so an offer stays out of Home.
+            button.Offer(BringOverLunar());
+            button.SetRefusal("Wait for Minecraft to finish starting, then try again.");
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "17g-home-bring-over-refused");
+            button.SetRefusal(null);
             RenderShots.Pump(200);
 
             window.Width = 980;
             window.Height = 600;
             RenderShots.Pump(600);
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many), many);
+            button.Offer(BringOverMany());
+            button.TourPress();
             RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "50-min-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one), one);
+            RenderShots.Snap(window, outDir, "50-min-home-bring-over-choice");
+            button.Offer(BringOverLunar());
+            button.TourStart(SourceKind.Lunar);
+            button.Finish(BringOverDone());
             RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "51-min-home-import-card-one-setup");
+            RenderShots.Snap(window, outDir, "51-min-home-bring-over-done");
         }
         catch (Exception ex)
         {
@@ -65,7 +90,7 @@ internal static class ImportShots
         }
         finally
         {
-            window.TourImportPrompt.Hide();
+            button.TourHide();
             window.Width = width;
             window.Height = height;
             RenderShots.Pump(400);

@@ -151,68 +151,106 @@ public sealed class LauncherGlueTests
         Assert.Equal("1.20.1", s.SelectedVersion);
     }
 
-    // ---- first-run card ----
+    // ---- Home's one-click bring-over button (ImportPrompt) ----
 
     [Theory]
     [InlineData(false, false, true, 1, true)]
-    [InlineData(true, false, true, 1, false)]   // already shown once: never again
-    [InlineData(false, true, true, 1, false)]   // opened with --import: the panel is already open
-    [InlineData(false, false, false, 1, false)] // nobody can import yet: keep the one-time card for later
+    [InlineData(true, false, true, 1, false)]   // answered (No thanks, a transfer, the Import page): never again
+    [InlineData(false, true, true, 1, false)]   // opened with --import: the page is already open
+    [InlineData(false, false, false, 1, false)] // nobody can import yet: keep the offer for later
     [InlineData(false, false, true, 0, false)]  // nothing found: nothing to offer
-    public void First_run_card_shows_only_when_everything_allows_it(bool seen, bool flag, bool canImport, int found, bool expected) =>
-        Assert.Equal(expected, ImportPrompt.ShouldShow(seen, flag, canImport, found));
+    public void The_button_shows_only_when_everything_allows_it(bool answered, bool flag, bool canImport, int found, bool expected) =>
+        Assert.Equal(expected, ImportPrompt.ShouldShow(answered, flag, canImport, found));
 
-    private static DetectedInstance Inst(SourceKind k, string? version = "1.21.1") =>
-        new() { Kind = k, Name = "x", GameDir = "x", McVersion = version };
+    private static DetectedInstance Inst(SourceKind k, string? version = "1.21.1", string dir = "x") =>
+        new() { Kind = k, Name = "x", GameDir = dir, McVersion = version };
 
     private static readonly string[] Supported = { "1.21.1", "1.20.1", "1.8.9" };
 
     [Fact]
-    public void First_run_card_counts_only_qualifying_setups()
+    public void The_button_counts_only_qualifying_setups()
     {
         var found = new[] { Inst(SourceKind.Prism, "1.21.1"), Inst(SourceKind.Prism, "1.21.5"), Inst(SourceKind.Modrinth, null), Inst(SourceKind.CurseForge, "1.8.9") };
         var qualifying = ImportPrompt.Qualifying(found, Supported);
         Assert.Equal(new[] { "1.21.1", "1.8.9" }, qualifying.Select(i => i.McVersion));
         Assert.True(ImportPrompt.ShouldShow(false, false, true, qualifying.Count));
+        // The Modrinth and 1.21.5 setups don't qualify, so they make no source either: CurseForge and Prism, one each.
+        Assert.Equal(new[] { SourceKind.CurseForge, SourceKind.Prism }, ImportPrompt.Sources(qualifying).Select(s => s.Kind));
     }
 
     [Fact]
-    public void First_run_card_does_not_show_when_every_setup_is_on_an_unsupported_version()
+    public void The_button_does_not_show_when_every_setup_is_on_an_unsupported_version()
     {
         var found = new[] { Inst(SourceKind.Prism, "1.21.5"), Inst(SourceKind.Prism, "1.12.2"), Inst(SourceKind.Modrinth, null) };
         var qualifying = ImportPrompt.Qualifying(found, Supported);
         Assert.Empty(qualifying);
         Assert.False(ImportPrompt.ShouldShow(false, false, true, qualifying.Count));
+        Assert.Empty(ImportPrompt.Sources(qualifying));
     }
 
     [Fact]
-    public void First_run_card_copy_names_the_launcher_for_one_setup_and_is_generic_for_several()
+    public void One_launcher_is_one_click_however_many_setups_it_has()
     {
-        Assert.Equal("Bring over your Prism setup?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism) }));
-        Assert.Equal("Bring over your Minecraft launcher setup?", ImportPrompt.Question(new[] { Inst(SourceKind.OfficialLauncher) }));
-        Assert.Equal("Bring over your Modrinth setup?", ImportPrompt.Question(new[] { Inst(SourceKind.Modrinth) }));
-        Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.Prism) }));
-        Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.CurseForge) }));
-        Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Title);
-        Assert.Equal("Import", ImportPrompt.ImportLabel);
-        Assert.Equal("Not now", ImportPrompt.DismissLabel);
+        var lunar = new[] { Inst(SourceKind.Lunar, "1.21.1", "a"), Inst(SourceKind.Lunar, "1.8.9", "b"), Inst(SourceKind.Lunar, "1.20.1", "c") };
+
+        var source = Assert.Single(ImportPrompt.Sources(lunar));
+        Assert.Equal(new ImportSourceChoice(SourceKind.Lunar, "Lunar", 3), source);
+        Assert.Equal("Bring over your Lunar setup", ImportPrompt.Label(lunar));
+        // The click brings that launcher's setups only, with the Import page's "Import everything" defaults.
+        var selection = ImportPrompt.Selection(source.Kind);
+        Assert.Equal(BulkSelectionKind.Launcher, selection.Kind);
+        Assert.Equal(SourceKind.Lunar, selection.Launcher);
     }
 
     [Fact]
-    public void Existing_players_start_with_the_card_unseen_so_they_see_it_once()
+    public void Several_launchers_are_a_choice_most_setups_first_with_All()
+    {
+        var found = new[] { Inst(SourceKind.Prism, dir: "p1"), Inst(SourceKind.Lunar, dir: "l1"), Inst(SourceKind.Prism, dir: "p2"), Inst(SourceKind.Modrinth, dir: "m1") };
+
+        var sources = ImportPrompt.Sources(found);
+
+        Assert.Equal(new[] { SourceKind.Prism, SourceKind.Lunar, SourceKind.Modrinth }, sources.Select(s => s.Kind));
+        Assert.Equal(new[] { 2, 1, 1 }, sources.Select(s => s.Setups));
+        Assert.Equal(ImportPrompt.ManyLabel, ImportPrompt.Label(found));
+        Assert.Equal("Bring over your Minecraft setups", ImportPrompt.ManyLabel);
+        Assert.Equal(BulkSelectionKind.All, ImportPrompt.Selection(null).Kind); // "All of them"
+    }
+
+    [Fact]
+    public void The_button_names_each_launcher_by_its_short_name()
+    {
+        Assert.Equal("Bring over your Prism setup", ImportPrompt.Label(new[] { Inst(SourceKind.Prism) }));
+        Assert.Equal("Bring over your Minecraft Launcher setup", ImportPrompt.Label(new[] { Inst(SourceKind.OfficialLauncher) }));
+        Assert.Equal("Bring over your Modrinth setup", ImportPrompt.Label(new[] { Inst(SourceKind.Modrinth) }));
+        Assert.Equal("Bring over your Feather setup", ImportPrompt.Label(new[] { Inst(SourceKind.Feather) }));
+    }
+
+    [Fact]
+    public void One_click_brings_everything_that_qualifies()
+    {
+        var options = ImportPrompt.Options();
+        Assert.True(options.CopyWorlds);
+        Assert.True(options.CopyScreenshots);
+        Assert.True(options.CopyUnusedPacks);
+        Assert.Equal(ImportCategories.None, options.LeaveOut);
+        Assert.Null(options.BringByVersion);
+    }
+
+    [Fact]
+    public void Existing_players_start_with_the_button_unanswered()
     {
         Assert.False(new LauncherSettings().ImportPromptSeen);
         Assert.True(ImportPrompt.ShouldShow(new LauncherSettings().ImportPromptSeen, false, true, 1));
     }
 
-    // ---- the card's background scan: at most once a week, never after the card or the drawer was seen ----
+    // ---- the button's background scan: every start while an offer waits, weekly when there is nothing ----
 
     private static readonly DateTime Now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
 
     [Fact]
-    public void The_card_scan_runs_when_never_checked_and_again_only_after_a_week()
+    public void The_scan_runs_when_never_checked_and_after_finding_nothing_again_only_after_a_week()
     {
-        Assert.True(ImportPrompt.ShouldScan(alreadySeen: false, canImport: true, lastCheckedUtc: null, Now));
+        Assert.True(ImportPrompt.ShouldScan(answered: false, canImport: true, lastCheckedUtc: null, Now));
         Assert.False(ImportPrompt.ShouldScan(false, true, Now.AddMinutes(-5), Now));            // the next start: no scan
         Assert.False(ImportPrompt.ShouldScan(false, true, Now.AddDays(-6.9), Now));
         Assert.True(ImportPrompt.ShouldScan(false, true, Now.AddDays(-7), Now));                // a week on: look again
@@ -221,11 +259,84 @@ public sealed class LauncherGlueTests
     }
 
     [Fact]
-    public void The_card_scan_never_runs_once_seen_or_while_nobody_can_import()
+    public void Only_a_check_that_found_nothing_is_stamped_so_an_unanswered_offer_comes_back_next_start()
     {
-        Assert.False(ImportPrompt.ShouldScan(alreadySeen: true, canImport: true, lastCheckedUtc: null, Now));
-        Assert.False(ImportPrompt.ShouldScan(alreadySeen: false, canImport: false, lastCheckedUtc: null, Now));
+        Assert.True(ImportPrompt.StampCheck(0));
+        Assert.False(ImportPrompt.StampCheck(1));
+        Assert.False(ImportPrompt.StampCheck(5));
+    }
+
+    [Fact]
+    public void The_scan_never_runs_once_answered_or_while_nobody_can_import()
+    {
+        Assert.False(ImportPrompt.ShouldScan(answered: true, canImport: true, lastCheckedUtc: null, Now));
+        Assert.False(ImportPrompt.ShouldScan(answered: false, canImport: false, lastCheckedUtc: null, Now));
         Assert.Null(new LauncherSettings().ImportPromptCheckedUtc); // older settings files: never checked
+    }
+
+    // ---- the one-click transfer's words (HomeImport) ----
+
+    private static SkippedSetup Skip(string name, string reason, SkipKind kind = SkipKind.Unsupported) =>
+        new(new DetectedInstance { Kind = SourceKind.Lunar, Name = name, GameDir = "g-" + name, McVersion = "1.21.5" }, reason, kind);
+
+    [Fact]
+    public void The_running_line_checks_then_counts_up()
+    {
+        Assert.Equal("Checking what can come over...", HomeImport.RunningLine("Lunar", null));
+        Assert.Equal("Checking what can come over...", HomeImport.RunningLine("Lunar", new HomeImportProgress(HomeImportStep.Checking, 0)));
+        Assert.Equal("Bringing over your Lunar setup, 42 %", HomeImport.RunningLine("Lunar", new HomeImportProgress(HomeImportStep.Copying, 0.42)));
+        Assert.Equal("Bringing over your setups, 100 %", HomeImport.RunningLine(null, new HomeImportProgress(HomeImportStep.Copying, 1.7)));
+    }
+
+    [Fact]
+    public void A_finished_transfer_is_one_plain_line_and_says_what_did_not_come_over()
+    {
+        var clean = new BulkImportResult { RunId = "r", State = ImportState.Committed };
+        var done = HomeImport.Outcome(clean, "Lunar");
+        Assert.True(done.Succeeded);
+        Assert.Equal("Your Lunar setup is in Origin.", done.Line);
+        Assert.Null(done.LeftOut);
+        Assert.Equal("Your setups are in Origin.", HomeImport.Outcome(clean, null).Line);
+
+        var one = new BulkImportResult
+        {
+            RunId = "r", State = ImportState.Committed,
+            Skipped = new[] { Skip("Snapshot", "Origin can't run 1.21.5"), Skip("Other", "picked another launcher", SkipKind.NotSelected) },
+        };
+        Assert.Equal("Didn't come over: Lunar: Snapshot. Origin can't run 1.21.5.", HomeImport.Outcome(one, "Lunar").LeftOut);
+
+        var many = new BulkImportResult
+        {
+            RunId = "r", State = ImportState.Committed,
+            Skipped = new[] { Skip("A", "x"), Skip("B", "x"), Skip("C", "x"), Skip("D", "x") },
+        };
+        Assert.Equal("Didn't come over: Lunar: A, Lunar: B and 2 more.", HomeImport.Outcome(many, "Lunar").LeftOut);
+    }
+
+    [Fact]
+    public void A_failed_or_stopped_transfer_says_nothing_changed()
+    {
+        var failed = HomeImport.Outcome(new BulkImportResult { RunId = "r", State = ImportState.RolledBack, Error = "Minecraft is running from Lunar: 1.21" }, "Lunar");
+        Assert.False(failed.Succeeded);
+        Assert.Equal("Nothing changed. Minecraft is running from Lunar: 1.21.", failed.Line);
+
+        var stopped = HomeImport.Outcome(new BulkImportResult { RunId = "r", State = ImportState.RolledBack, Cancelled = true }, "Lunar");
+        Assert.True(stopped.Cancelled);
+        Assert.Equal("Stopped. Nothing changed.", stopped.Line);
+
+        Assert.Equal("Nothing changed. Wait for Minecraft to finish starting.", HomeImport.Refused("Wait for Minecraft to finish starting.").Line);
+        var nothing = HomeImport.NothingToCopy(new[] { Skip("Snapshot", "Origin can't run 1.21.5") });
+        Assert.Equal("Nothing here can come over yet.", nothing.Line);
+        Assert.Equal("Didn't come over: Lunar: Snapshot. Origin can't run 1.21.5.", nothing.LeftOut);
+    }
+
+    [Fact]
+    public void The_copy_fraction_follows_bytes_else_setups()
+    {
+        var step = new ImportProgress(ImportStage.Scanning, 1, 4);
+        Assert.Equal(0.25, HomeImport.Fraction(new BulkProgress(0, 2, "a", step, 25, 100)));
+        Assert.Equal(0.625, HomeImport.Fraction(new BulkProgress(1, 2, "a", step, 0, 0)));
+        Assert.Equal(1.0, HomeImport.Fraction(new BulkProgress(5, 2, "a", step, 0, 0)));
     }
 
     // ---- bulk profiles in the settings delta ----

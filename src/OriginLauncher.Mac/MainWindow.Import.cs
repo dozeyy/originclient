@@ -17,7 +17,7 @@ namespace OriginLauncher.Mac;
 
 // The Import page around the main window: the Mac twin of the WPF MainWindow's import section (OpenImportPanel,
 // CloseImportPanel, SetImportPanelOpen, the tour hooks) and MainWindow.ImportWiring.cs (closing mid-import, the
-// startup recovery, the run-state refusals, the page behind the panel going inert, the first-run card). Same engine
+// startup recovery, the run-state refusals, the page behind the panel going inert, Home's bring-over button). Same engine
 // (Core/Import), same rules. Kept in its own partial so it merges cleanly with the other Mac pages: the rest of the
 // window only calls HookImport() from its constructor, and KeepOneTab skips while the page is open (no tab is lit).
 // Not on the Mac: `--import` (the Windows installer's second-launch hand-off).
@@ -32,6 +32,7 @@ public sealed partial class MainWindow
     private int _importFade; // the newest fade wins: a close's clean-up never runs after a newer open
     private bool _importPromptMarked;
     private bool _promptChecking;
+    private CancellationTokenSource? _bringOverCts; // the running one-click transfer's Stop
     private ToggleButton? _tabBeforeImport; // lit again when the page closes, unless a tab press lit another
 
     /// <summary>Is the Import page up (the other pages' tab clicks ask this).</summary>
@@ -58,6 +59,7 @@ public sealed partial class MainWindow
         Root.Children.Insert(Root.Children.IndexOf(PageHost) + 1, ImportPageHost);
 
         ImportButton.Click += (_, _) => OpenImportPanel();
+        Home.BringOverBuilt += HookBringOver;
         // The four page tabs stay live: ShowPage (MainWindow.Pages.cs) closes the Import page first, or asks
         // "Stop importing?" mid-import (LeaveImportForTab).
 
@@ -76,7 +78,7 @@ public sealed partial class MainWindow
         PushImportRefusal();
 
         // A real start only (render shots have no desktop lifetime and never touch the player's data): roll back an
-        // import a crash interrupted, then, after the first frame, say so or offer the one-time card.
+        // import a crash interrupted, then, after the first frame, say so or offer Home's bring-over button.
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime)
         {
             ImportStartup.StartRecovery();
@@ -87,7 +89,7 @@ public sealed partial class MainWindow
 
     // ---- open / close ----
 
-    // Opens the Import page (the bar's Import button, the first-run card, Profiles' Import). The scan starts here,
+    // Opens the Import page (the bar's Import button, Home's bring-over choice, Profiles' Import). The scan starts here,
     // when the page opens - never at launcher startup. The backend is the real one unless render shots pass one.
     private void OpenImportPanel(IImportBackend? backend = null, ImportPanel.Intent intent = ImportPanel.Intent.Detect)
     {
@@ -97,9 +99,14 @@ public sealed partial class MainWindow
             ImportNotice("Import", UpdateRunState.Refusal);
             return;
         }
+        if (Home.BringOverIfBuilt is { IsRunning: true })
+        {
+            ImportNotice("Import", "Wait for your setup to finish coming over.");
+            return;
+        }
         if (_friendsOpen) SetFriendsOpen(false);
-        Home.ImportCard.Hide();
-        MarkImportPromptSeen(); // any way in: the card never offers it again
+        Home.BringOverIfBuilt?.HideOffer();
+        MarkImportPromptSeen(); // any way in: the button never offers it again
 
         // The report's "Fix Compatibility" on a profile that can't start: the real flow (HomePage.Fix.cs). The page
         // closes, Home selects that profile, and the same prompt Play opens shows what the fix would change; nothing is
@@ -279,14 +286,14 @@ public sealed partial class MainWindow
     }
 
     // Raised on whichever thread started or ended a launch or an update: tell both places that offer Import (the open
-    // page, Home's one-time card) the one sentence, or null when Import can run.
+    // page, Home's bring-over button) the one sentence, or null when Import can run.
     private void OnImportRefusalChanged() => Dispatcher.UIThread.Post(PushImportRefusal);
 
     private void PushImportRefusal()
     {
         var refusal = LaunchRunState.ImportRefusal();
         _importPanel?.SetRefusal(refusal);
-        Home.ImportCardIfBuilt?.SetRefusal(refusal);
+        Home.BringOverIfBuilt?.SetRefusal(refusal);
     }
 
     // Closing mid-import would kill it halfway (the next start would roll it back, but the player is asked first):
@@ -303,7 +310,10 @@ public sealed partial class MainWindow
                 break;
             case CloseHold.RecoveryRunning:
                 e.Cancel = true;
-                ImportNotice("Import", "Finishing an interrupted import...");
+                // Home's one-click transfer has no page to ask either: it finishes, then the window closes.
+                ImportNotice("Import", Home.BringOverIfBuilt is { IsRunning: true }
+                    ? "Finishing bringing your setup over, then Origin closes."
+                    : "Finishing an interrupted import...");
                 break;
         }
     }
@@ -315,7 +325,7 @@ public sealed partial class MainWindow
         CloseIfHeldCloseIsDue();
     }
 
-    // ---- after the first frame: the recovery result, then the one-time card ----
+    // ---- after the first frame: the recovery result, then Home's bring-over button ----
 
     private async Task AfterOpenedAsync()
     {
@@ -334,20 +344,17 @@ public sealed partial class MainWindow
         _promptChecking = true;
         try
         {
-            var prompt = await ComputeImportPromptQuestionAsync();
-            if (prompt is not { } found || _importOpen) return;
-            // The card sits over Home (it shows when Home does), and stays out while Import would be refused.
-            var card = Home.ImportCard;
-            card.ImportRequested += (_, _) => OpenImportPanel(intent: ImportPanel.Intent.Everything);
-            card.ChooseRequested += (_, _) => OpenImportPanel(intent: ImportPanel.Intent.Choose);
-            card.SetRefusal(ImportHooks.Refusal());
-            card.ShowQuestion(found.Question, found.Setups);
-            // Shown once: set the moment it appears, so it never comes back.
-            _ = Task.Run(() => SettingsStore.Update(s => s.ImportPromptSeen = true));
+            var qualifying = await ComputeImportPromptSetupsAsync();
+            if (qualifying is not { Count: > 0 } found || _importOpen || _importPromptMarked) return;
+            // The button sits on Home (it shows when Home does) and stays out while Import would be refused. It is NOT
+            // marked answered here: it comes back at the next start until the player says no or brings it over.
+            var button = Home.BringOver;
+            button.SetRefusal(ImportHooks.Refusal());
+            button.Offer(found);
         }
         catch (Exception)
         {
-            // a failed look for other launchers just means no card
+            // a failed look for other launchers just means no button
         }
         finally
         {
@@ -355,8 +362,42 @@ public sealed partial class MainWindow
         }
     }
 
-    // The import page opened: the first-run card has done its job (one settings write, off the UI thread; never in
-    // render shots, which have no desktop lifetime).
+    // The button's presses (hooked once, when Home builds it).
+    private void HookBringOver(BringOverButton button)
+    {
+        button.RunRequested += async (_, source) => await RunBringOverAsync(button, source);
+        button.StopRequested += (_, _) => _bringOverCts?.Cancel();
+        button.Answered += (_, _) => MarkImportPromptSeen(); // No thanks, or it came over: never offered again
+        button.MoreRequested += (_, _) => OpenImportPanel();  // the full Import page (marks it answered too)
+    }
+
+    // One click: scan, plan with the defaults and copy, on the thread pool (HomeImportRunner), the button counting up.
+    // ImportRunState is busy meanwhile, so Play waits and closing the window waits for it (Import_Closing).
+    private async Task RunBringOverAsync(BringOverButton button, SourceKind? source)
+    {
+        var cts = new CancellationTokenSource();
+        _bringOverCts = cts;
+        var progress = new Progress<HomeImportProgress>(button.Report);
+        HomeImportOutcome outcome;
+        try
+        {
+            outcome = await HomeImportRunner.RunAsync(new LauncherImportBackend(), source, progress, cts.Token);
+        }
+        catch (Exception ex)
+        {
+            outcome = HomeImport.Crashed(ImportErrors.Plain(ex));
+        }
+        finally
+        {
+            if (ReferenceEquals(_bringOverCts, cts)) _bringOverCts = null;
+            cts.Dispose();
+        }
+        button.Finish(outcome); // a success records the answer (Answered)
+        if (outcome.Succeeded) RefreshHomeAfterImport();
+    }
+
+    // The player answered the button (No thanks, a transfer came over) or the Import page opened: it never offers it
+    // again (one settings write, off the UI thread; never in render shots, which have no desktop lifetime).
     private void MarkImportPromptSeen()
     {
         if (_importPromptMarked || Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime) return;
@@ -364,26 +405,28 @@ public sealed partial class MainWindow
         _ = Task.Run(() =>
         {
             try { SettingsStore.Update(s => s.ImportPromptSeen = true); }
-            catch (Exception) { /* the card may show once more; nothing else depends on it */ }
+            catch (Exception) { /* the button may show once more; nothing else depends on it */ }
         });
     }
 
     // Off the UI thread: the settings read, the account check and the quick scan (the WPF wiring's twin, line for
-    // line). Null = no card.
-    private static Task<(string Question, IReadOnlyList<DetectedInstance> Setups)?> ComputeImportPromptQuestionAsync() =>
-        Task.Run<(string Question, IReadOnlyList<DetectedInstance> Setups)?>(async () =>
+    // line). Only a check that found nothing is stamped (ImportPrompt.StampCheck). Null = no button.
+    private static Task<IReadOnlyList<DetectedInstance>?> ComputeImportPromptSetupsAsync() =>
+        Task.Run<IReadOnlyList<DetectedInstance>?>(async () =>
         {
             var settings = SettingsStore.Load();
             var canImport = OriginLauncher.App.Core.GameFolders.Launcher.AccountFolders.SelectedKey() != null;
             if (!ImportPrompt.ShouldScan(settings.ImportPromptSeen, canImport, settings.ImportPromptCheckedUtc, DateTime.UtcNow)) return null;
             var backend = new LauncherImportBackend();
             var scan = await backend.ScanAsync(null, CancellationToken.None).ConfigureAwait(false);
-            var checkedAt = DateTime.UtcNow;
-            SettingsStore.Update(s => s.ImportPromptCheckedUtc = checkedAt);
             var targets = await backend.GetSupportedTargetsAsync(CancellationToken.None).ConfigureAwait(false);
             var qualifying = ImportPrompt.Qualifying(scan.Instances, targets);
-            return ImportPrompt.ShouldShow(alreadySeen: false, openedWithImportFlag: false, canImport, qualifying.Count)
-                ? (ImportPrompt.Question(qualifying), qualifying) : null;
+            if (ImportPrompt.StampCheck(qualifying.Count))
+            {
+                var checkedAt = DateTime.UtcNow;
+                SettingsStore.Update(s => s.ImportPromptCheckedUtc = checkedAt);
+            }
+            return ImportPrompt.ShouldShow(answered: false, openedWithImportFlag: false, canImport, qualifying.Count) ? qualifying : null;
         });
 
     // ---- render shots: the Import page with a made-up backend, never the real machine ----
@@ -403,5 +446,5 @@ public sealed partial class MainWindow
     /// <summary>Render shots: what the bar's Import button does when pressed.</summary>
     internal void TourClickImport() => ImportButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
-    internal ImportPromptCard TourImportPrompt => Home.ImportCard;
+    internal BringOverButton TourBringOver => Home.BringOver;
 }

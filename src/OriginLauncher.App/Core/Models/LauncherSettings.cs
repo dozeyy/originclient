@@ -59,16 +59,18 @@ public sealed class LauncherSettings
     public List<Profiles.ModProfile> ModProfiles { get; set; } = new();
     public string? SelectedProfileId { get; set; }
 
-    // The one-time "Bring over your mods and settings from <launcher>?" card
-    // (Core/Import/Launcher/ImportPrompt). Set the moment the card is shown, or the
-    // import drawer opens from anywhere, so it never appears twice (and never offers
-    // setups the player already imported); the Profiles page's Import button is always there.
+    // Home's one-click "Bring over your Lunar setup" button (Core/Import/Launcher/ImportPrompt)
+    // has been answered: the player said No thanks, a transfer finished, or the Import page
+    // opened from anywhere. Then the button never comes back (it could otherwise offer setups
+    // the player already brought over); the Profiles page's Import button is always there.
+    // Until answered, the button is offered again at every start. (Name kept from the old
+    // first-run card so a player who already answered that card is not asked twice.)
     public bool ImportPromptSeen { get; set; }
 
-    // When the first-run card's background scan last COMPLETED (whatever it found).
-    // A machine with no other launcher would otherwise re-scan after every start and
-    // every account switch: the scan runs again only after ImportPrompt.RecheckAfter.
-    // Null = never checked (older settings files too).
+    // When the button's background scan last completed AND found nothing to offer
+    // (ImportPrompt.StampCheck). A machine with no other launcher would otherwise re-scan
+    // after every start and every account switch: the scan runs again only after
+    // ImportPrompt.RecheckAfter. Null = never checked (older settings files too).
     public DateTime? ImportPromptCheckedUtc { get; set; }
 
     // What the Import flow already brought over, so the same unchanged setup is never offered again
