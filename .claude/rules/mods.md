@@ -79,6 +79,6 @@ run log for `Mixin apply ... failed` (must be zero) before calling a version don
   Forge build, pulled.) Launcher side: `LegacyForgeInstaller` (bundled version JSON +
   universal jar), `OptiFineInstaller` (download-at-install, SHA-1-pinned,
   official-site-then-mirrors, never redistributed), `LegacyStackInstaller`
-  (era perf mods + FML splash theme); Forge has no fabric.modsFolder, so the
+  (era perf mods + FML splash OFF: ForgeSplashOff; Origin draws its own startup screen); Forge has no fabric.modsFolder, so the
   shared `instances/1.8.9/mods/` is mirrored into each account's `mods/` at
   launch (SharedMods.Mirror). Shaders via OptiFine.
