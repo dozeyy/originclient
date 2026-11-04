@@ -307,7 +307,38 @@ public class GameFoldersTests : IDisposable
         Assert.Equal("alex older", Read($"1.21.1/config-overlays/{Alex}/default/iris.properties.older"));
         // The player's own game data is untouched, and a second pass does nothing.
         Assert.Equal("fov:0.5\nguiScale:2\n", Read($"1.21.1/accounts/{Steve}/options.txt"));
-        Assert.True(InstanceMigration.ReturnMisplacedShared(root, Steve));
+        Assert.True(InstanceMigration.ReturnMisplacedShared(root));
+    }
+
+    // Up to v1.0.88 every start moved config-overlays into the account selected AT THAT START: a player who switched
+    // accounts between starts has copies under several accounts. Every one comes back; nothing is overwritten: the
+    // version root's file wins, then the newest account copy, and older copies are parked as ".older".
+    [Fact]
+    public void ConfigOverlaysMovedIntoSeveralAccountsAllComeBackNewestFirst()
+    {
+        var root = OldLayout("1.21.1");
+        Assert.True(InstanceMigration.MigrateVersion(root, Steve));
+        var steveCopy = $"1.21.1/accounts/{Steve}/config-overlays";
+        var alexCopy = $"1.21.1/accounts/{Alex}/config-overlays";
+        Write($"{steveCopy}/{Steve}/default/sodium-options.json", "steve older start");
+        Write($"{steveCopy}/{Alex}/default/iris.properties", "alex older");
+        Write($"{alexCopy}/{Steve}/default/sodium-options.json", "steve newer start");
+        Write($"1.21.1/config-overlays/{Alex}/default/iris.properties", "alex now");
+        var old = DateTime.UtcNow.AddDays(-2);
+        foreach (var f in Directory.EnumerateFiles(Path.Combine(_root, steveCopy), "*", SearchOption.AllDirectories))
+            File.SetLastWriteTimeUtc(f, old);
+
+        // The marker names Steve, but Alex's folder is checked too.
+        var marker = Path.Combine(_root, "account-migration.json");
+        Assert.Equal((Steve, true), InstanceMigration.MigrateAll(marker, new[] { root }, Steve));
+
+        Assert.False(Exists(steveCopy));
+        Assert.False(Exists(alexCopy));
+        Assert.Equal("steve newer start", Read($"1.21.1/config-overlays/{Steve}/default/sodium-options.json"));
+        Assert.Equal("steve older start", Read($"1.21.1/config-overlays/{Steve}/default/sodium-options.json.older"));
+        Assert.Equal("alex now", Read($"1.21.1/config-overlays/{Alex}/default/iris.properties"));
+        Assert.Equal("alex older", Read($"1.21.1/config-overlays/{Alex}/default/iris.properties.older"));
+        Assert.True(InstanceMigration.ReturnMisplacedShared(root)); // nothing left
     }
 
     private static string? RepoRoot()
