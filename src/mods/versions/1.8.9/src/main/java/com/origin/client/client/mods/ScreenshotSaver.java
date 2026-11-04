@@ -85,6 +85,14 @@ public final class ScreenshotSaver {
 		return io;
 	}
 
+	// Screenshots handed to the writer and not finished yet: one being written + two waiting
+	// at most (B189PRE-2). Each holds a full-frame int[] (8 MB at 1080p, 33 MB at 4K) plus an
+	// image of the same size while it encodes, and encoding is slower than mashing F2, so an
+	// unbounded queue could run the game out of memory. Past the cap, F2 saves the vanilla
+	// (synchronous) way, which throttles itself exactly as vanilla always did.
+	private static final int MAX_IN_FLIGHT = 3;
+	private static final java.util.concurrent.atomic.AtomicInteger IN_FLIGHT = new java.util.concurrent.atomic.AtomicInteger();
+
 	/** Vanilla's ScreenShotHelper.dateFormat. */
 	private static final SimpleDateFormat NAME = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
 	/** File names handed out but not written yet: two F2s in one second must not share one. */
@@ -96,9 +104,11 @@ public final class ScreenshotSaver {
 
 	/** ScreenShotHelper.saveScreenshot(File, String, int, int, Framebuffer) HEAD. Null = vanilla saves it. */
 	public static IChatComponent begin(File gameDir, String name, int width, int height, Framebuffer buffer) {
-		if (name != null || !Minecraft.getMinecraft().isCallingFromMinecraftThread() || optiFineBigShot()) {
+		if (name != null || !Minecraft.getMinecraft().isCallingFromMinecraftThread() || optiFineBigShot()
+				|| IN_FLIGHT.get() >= MAX_IN_FLIGHT) {
 			return null;
 		}
+		boolean handed = false;
 		try {
 			boolean fbo = OpenGlHelper.isFramebufferEnabled() && buffer != null;
 			if (fbo) {
@@ -132,9 +142,20 @@ public final class ScreenshotSaver {
 			final int fbW = fbo ? buffer.framebufferWidth : width;
 			final int fbH = fbo ? buffer.framebufferHeight : height;
 			final boolean crop = fbo;
-			IO.execute(() -> write(pixels, texW, texH, fbW, fbH, crop, file));
+			IN_FLIGHT.incrementAndGet();
+			handed = true;
+			IO.execute(() -> {
+				try {
+					write(pixels, texW, texH, fbW, fbH, crop, file);
+				} finally {
+					IN_FLIGHT.decrementAndGet();
+				}
+			});
 			return PENDING;
 		} catch (Throwable t) {
+			if (handed) {
+				IN_FLIGHT.decrementAndGet();   // the writer refused it (quitting): not in flight
+			}
 			return null;   // nothing was handed off: vanilla saves it the old way
 		}
 	}
