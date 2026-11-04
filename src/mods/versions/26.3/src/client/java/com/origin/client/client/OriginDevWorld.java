@@ -945,6 +945,19 @@ final class OriginDevWorld {
 	private static Boolean iwLimitUnfocused;
 	private static boolean iwDone;
 
+	/** The title vanilla's updateTitle() would give the window now, through WindowTitleMixin on
+	 *  createTitle (G121-12): "Origin <version> - <player> - Singleplayer" proves the hook applied.
+	 *  Read by reflection (26.x is unobfuscated); dev-only, never fails the step. */
+	private static String windowTitle(Minecraft mc) {
+		try {
+			java.lang.reflect.Method m = Minecraft.class.getDeclaredMethod("createTitle");
+			m.setAccessible(true);
+			return "\"" + m.invoke(mc) + "\"";
+		} catch (Throwable t) {
+			return "unreadable (" + t + ")";
+		}
+	}
+
 	static void inWorldTick(Minecraft mc, String dir, Runnable onEnd) {
 		if (iwDone) {
 			return;
@@ -1015,6 +1028,7 @@ final class OriginDevWorld {
 					}
 					grab(mc, dir, "inworld_hud_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png");
 					log("[origin-smoke] in-world: HUD up (" + passes + " HUD passes)");
+					log("[origin-smoke] in-world: window title " + windowTitle(mc));
 					// Every hook class is loaded by now (the arm, camera, keys, the entity renderers
 					// and the item render state); a hook that silently didn't apply fails the step here.
 					String oldAnimMissing = com.origin.client.client.mods.OldAnimations.missingHooks();

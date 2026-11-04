@@ -97,7 +97,7 @@ public final class Mods {
 	// 1.8.9: no Shader Performance Mode row -- shaders are OptiFine's here, not
 	// Iris, and OptiFine has its own shadow quality setting in its shader menu.
 	public static final List<ModOption> PERFORMANCE_SETTINGS = java.util.Arrays.asList(
-			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background, and pauses Origin's cosmetic sparkles until you come back. Saves GPU and battery; the game itself keeps running normally."),
+			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background. Saves GPU and battery; the game and Origin's HUD keep running normally."),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
@@ -230,7 +230,7 @@ public final class Mods {
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
 				ModOption.toggle("sprint", "Toggle Sprint", true).tip("Sprint stays on after one press of the toggle key."),
 				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of your Sneak key (Controls)."),
-				ModOption.toggle("flyBoost", "Fly Boost", false).tip("Multiplies your creative/spectator flight speed."),
+				ModOption.toggle("flyBoost", "Fly Boost", false).tip("Multiplies your creative flight speed. Spectator keeps its own (scroll to change it)."),
 				ModOption.slider("flyBoostAmount", "Fly Boost Amount", 1, 5, 0.1, 2, "%.1fx").under("flyBoost"),
 				ModOption.keybind("key", "Sprint key", -1),
 				ModOption.dropdown("mode", "Mode", "Toggle", "Hold"));
@@ -857,10 +857,11 @@ public final class Mods {
 				ModOption.color("color", "Countdown Color", 0xFF00FF00),
 				ModOption.color("prefixColor", "Prefix Color", 0xFFFFFFFF));
 
-		// The key isn't in Lunar's schema (keybinds live outside it); V is free in
-		// vanilla and nothing else in Origin uses it.
+		// The key isn't in Lunar's schema (keybinds live outside it). B ("behind") is free
+		// in vanilla and the Origin set; V was Simple Voice Chat's menu key on the Fabric
+		// versions, and 1.8.9 keeps the same defaults so Settings Sync agrees (G121-6).
 		add("snaplook", "Snaplook", "Hold a key to look behind you.", false,
-				ModOption.keybind("key", "Snaplook Key", Keyboard.KEY_V),
+				ModOption.keybind("key", "Snaplook Key", Keyboard.KEY_B),
 				ModOption.toggle("toggleMode", "Toggle Mode", false).tip("Press once to look behind, press again to look forward."),
 				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true)
 						.tip("Eases camera motion while you look behind you."));
@@ -978,7 +979,8 @@ public final class Mods {
 				ModOption.keybind("zoomInKey", "Zoom In Key", -1),
 				ModOption.keybind("zoomOutKey", "Zoom Out Key", -1),
 				ModOption.toggle("rotate", "Rotate With Player", true).tip("Off = north is always up."),
-				ModOption.keybind("openMapKey", "Open Full Map", Keyboard.KEY_M)
+				// J, not M: M is Simple Voice Chat's mute-microphone key on the Fabric versions (G121-6)
+				ModOption.keybind("openMapKey", "Open Full Map", Keyboard.KEY_J)
 						.tip("A big map of everything mapped around you. Scroll to zoom, drag to move."),
 				ModOption.header("Terrain"),
 				ModOption.dropdown("caveMode", "Cave Mode", "Auto", "Off", "Always")
@@ -1066,9 +1068,9 @@ public final class Mods {
 				ModOption.toggle("hideOwnSkin", "Hide Your Skin", true)
 						.tip("You see yourself in the default skin. Only on your screen."));
 
-		// G is unbound in vanilla 1.21.1 and unused elsewhere in Origin.
+		// Y is free in vanilla and the Origin set; G was Simple Voice Chat's group key on the Fabric versions (G121-6).
 		add("quickplay", "Quickplay", "Jump into any Hypixel game from one menu.", false,
-				ModOption.keybind("key", "Open Quickplay", Keyboard.KEY_G),
+				ModOption.keybind("key", "Open Quickplay", Keyboard.KEY_Y),
 				ModOption.keybind("requeueKey", "Play Again", -1)
 						.tip("Re-joins the last game you picked in Quickplay."),
 				ModOption.toggle("displayMessage", "Display Queue Message", true)
@@ -1626,6 +1628,11 @@ public final class Mods {
 		migrated = true;
 		upgradeOptions();
 		if (!ModsConfig.VALUES.isEmpty()) {
+			// G121-6 (2026-11-04): these defaults moved off Simple Voice Chat's keys. A player
+			// who already has the mod on keeps the key it had (written once, then theirs).
+			keepOldDefaultKey("snaplook", "key", Keyboard.KEY_V);
+			keepOldDefaultKey("minimap", "openMapKey", Keyboard.KEY_M);
+			keepOldDefaultKey("quickplay", "key", Keyboard.KEY_G);
 			return; // already have real state
 		}
 		com.origin.client.client.OriginFeatures legacy = OriginClientMod.FEATURES;
@@ -1693,6 +1700,17 @@ public final class Mods {
 			// Only the marker changed: it goes to disk with the next save (every
 			// setting change saves). Until then a later load just finds nothing to drop.
 			ModsConfig.touch();
+		}
+	}
+
+	/** Writes a mod's old default key (an LWJGL2 code; the file holds GLFW, util/KeyCodes) into
+	 *  the config when the mod is on and its key was never set, so changing a default never
+	 *  moves a key someone already uses. */
+	private static void keepOldDefaultKey(String id, String key, int oldDefault) {
+		java.util.Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get(id);
+		com.google.gson.JsonElement enabled = m == null ? null : m.get("enabled");
+		if (enabled != null && enabled.isJsonPrimitive() && enabled.getAsBoolean() && !m.containsKey(key)) {
+			m.put(key, new JsonPrimitive(KeyCodes.lwjglToGlfw(oldDefault)));
 		}
 	}
 

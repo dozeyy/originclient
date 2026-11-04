@@ -983,6 +983,9 @@ public final class HudElements {
 		if (FrameWatch.minimised()) {
 			return;   // window minimised: nobody can see the HUD (unfocused but visible keeps it)
 		}
+		if (mc.options.renderDebug) {
+			return;   // F3 is open (pre-1.20.2: the Options.renderDebug flag): its text sits where the HUD's default spots are
+		}
 		passes++;
 		if (mc.player == null || mc.options.hideGui || mc.screen instanceof HudEditorScreen) {
 			return;

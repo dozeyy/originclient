@@ -39,6 +39,8 @@ public final class OriginDevShots {
 		FPSCOACH, WAYPOINTS, ITEMSIZE, ITEMCOUNTER, QUICKPLAY, SHADERS,
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
+		// Settings > Menu: Solid Menu Background and the All Installed Mods row (Mod Menu's list)
+		SETTINGS_MENU,
 		// Friends (social/SocialDemo fills it): a chat, then the party
 		FRIENDS, FRIENDS_PARTY,
 		// ORIGIN_SHOTS_SET=social (the 2026-10-18 social redesign): every Friends state, the toasts, the entry points
@@ -101,6 +103,8 @@ public final class OriginDevShots {
 					return new OriginModMenuScreen(null, "keystrokes").preview(false, false);
 				case SETTINGS:
 					return new OriginModMenuScreen().preview(false, true);
+				case SETTINGS_MENU:
+					return new OriginModMenuScreen().menuSubTab();
 				case COSMETICS:
 					// The cosmetics locker, opened from the menu's Cosmetics tab.
 					return new com.origin.client.client.gui.CosmeticsScreen(null);

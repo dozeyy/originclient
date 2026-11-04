@@ -8,6 +8,7 @@
 		"LevelLoadingScreenAccessor",
 		"LoadingOverlayAccessor",
 		"ProgressScreenMixin",
+		"ProgressScreenAccessor",
 		"ConnectScreenMixin",
 		"RealmsTaskScreenMixin",
 		"LoadingOverlayRevealMixin",

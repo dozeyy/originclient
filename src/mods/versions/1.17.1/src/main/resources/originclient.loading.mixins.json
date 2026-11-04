@@ -7,6 +7,7 @@
 		"LevelLoadingScreenMixin",
 		"ReceivingLevelScreenMixin",
 		"ProgressScreenMixin",
+		"ProgressScreenAccessor",
 		"ConnectScreenMixin",
 		"LevelLoadingScreenAccessor",
 		"LoadingOverlayAccessor",

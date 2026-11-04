@@ -51,6 +51,8 @@ public final class OriginDevShots {
 		PACKS, PACKS_BROWSE,
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
+		// Settings > Menu: Solid Menu Background and the All Installed Mods row (Forge's mod list)
+		SETTINGS_MENU,
 		// Friends (social/SocialDemo fills it): a chat, then the party
 		FRIENDS, FRIENDS_PARTY,
 		// ORIGIN_SHOTS_SET=social (the 2026-10-18 social redesign): every Friends state, the toasts, the entry points
@@ -130,6 +132,11 @@ public final class OriginDevShots {
 					return preview(make(P + "gui.OriginModMenuScreen", null, "keystrokes"), false, false);
 				case SETTINGS:
 					return preview(make(P + "gui.OriginModMenuScreen"), false, true);
+				case SETTINGS_MENU: {
+					GuiScreen menu = make(P + "gui.OriginModMenuScreen");
+					Object r = call(menu, "menuSubTab");
+					return r instanceof GuiScreen ? (GuiScreen) r : menu;
+				}
 				case COSMETICS:
 					return make(P + "gui.CosmeticsScreen", (Object) null);
 				case FPSCOACH:

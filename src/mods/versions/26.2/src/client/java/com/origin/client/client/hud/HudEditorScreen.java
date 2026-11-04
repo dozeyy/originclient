@@ -69,6 +69,12 @@ public class HudEditorScreen extends Screen {
 		this(quick, null);
 	}
 
+	// Right Shift closes the screen on the RELEASE of a fresh press (G189-10). The press that
+	// opened it is still held when the screen appears, and its OS key repeat used to land in
+	// keyPressed and close it at once; that hold is ignored until it ends.
+	private boolean rshiftHeldAtOpen = com.origin.client.client.OriginClientMod.isRawKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
+	private boolean rshiftTap;
+
 	public HudEditorScreen(boolean quick, Screen returnTo) {
 		super(Component.literal(quick ? "Origin" : "HUD Editor"));
 		this.quick = quick;
@@ -507,10 +513,24 @@ public class HudEditorScreen extends Screen {
 	}
 
 	@Override
+	public boolean keyReleased(KeyEvent event) {
+		if (event.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+			if (rshiftHeldAtOpen) {
+				rshiftHeldAtOpen = false;   // the hold that opened the screen ended
+			} else if (rshiftTap) {
+				rshiftTap = false;
+				onClose();
+			}
+			return true;
+		}
+		return super.keyReleased(event);
+	}
+
+	@Override
 	public boolean keyPressed(KeyEvent event) {
 		int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
 		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
-			onClose();
+			rshiftTap = !rshiftHeldAtOpen;   // closes on release (keyReleased)
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_R && hoveredId != null) {

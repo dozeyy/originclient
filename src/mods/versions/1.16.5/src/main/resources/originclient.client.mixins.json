@@ -4,6 +4,8 @@
 	"plugin": "com.origin.client.client.compat.CompatMixinPlugin",
 	"compatibilityLevel": "JAVA_8",
 	"client": [
+		"KeyTapsMixin",
+		"WindowTitleMixin",
 		"DarkEditBoxMixin",
 		"DarkScrollerMixin",
 		"DarkLockButtonMixin",
