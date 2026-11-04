@@ -13,6 +13,7 @@
 		"LevelLoadingScreenAccessor",
 		"LoadingOverlayAccessor",
 		"LoadingOverlayRevealMixin",
+		"LoadingOverlayCoverMixin",
 		"TitleScreenFadeMixin",
 		"ReloadTaskBudgetMixin",
 		"FrameLogMixin",

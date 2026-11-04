@@ -13,6 +13,7 @@
 		"ConnectScreenMixin",
 		"RealmsTaskScreenMixin",
 		"LoadingOverlayRevealMixin",
+		"LoadingOverlayCoverMixin",
 		"TitleScreenFadeMixin",
 		"ReloadTaskBudgetMixin",
 		"FrameLogMixin",
