@@ -82,6 +82,8 @@ public class OriginClientMod implements ClientModInitializer {
 		com.origin.client.client.mods.StepAsideDetect.run();
 		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
+		// Held Backspace/arrows repeat in Origin's text fields (pre-1.19.3 gate; see the class).
+		com.origin.client.client.gui.OriginKeyRepeat.register();
 		// Origin's own textures + metadata decode in the startup reload's prepare
 		// stage, on its worker threads, instead of on the render thread at first draw.
 		OriginAssets.register();
