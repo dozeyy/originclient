@@ -62,7 +62,9 @@ public sealed class PvpClientSource : IInstanceSource
             Look(into, "Lunar Client", () =>
             {
                 if (roots.LunarDir == null) return;
-                var lunarGame = LunarGameDirectory(roots.LunarDir, fs) ?? minecraft;
+                var named = LunarGameDirectory(roots.LunarDir, fs);
+                into.LunarGameDirectory = named; // only what Lunar's settings say: the fold needs Lunar really set up there
+                var lunarGame = named ?? minecraft;
                 foreach (var profile in Sorted(fs.EnumerateDirectories(Path.Combine(roots.LunarDir, "profiles"))))
                 {
                     ct.ThrowIfCancellationRequested();
@@ -130,6 +132,13 @@ public sealed class PvpClientSource : IInstanceSource
             // No launcher record for the plain folder: its log, options and mods decide (as for Modrinth).
             SetupResolver.AddSetups(into, members, fs, ct);
         }, ct);
+
+    /// <summary>
+    /// <see cref="BuiltInModsNote(SourceKind)"/> for one setup: none for the official launcher's folder counted under a
+    /// client (<see cref="DetectedInstance.FoldedIntoClient"/>), which holds nothing of the client's own.
+    /// </summary>
+    public static (string Name, string Reason)? BuiltInModsNote(DetectedInstance setup) =>
+        setup.FoldedIntoClient ? null : BuiltInModsNote(setup.Kind);
 
     /// <summary>
     /// The one line a PvP client's setup gets in "Not brought over": its built-in mods stay with it, and what

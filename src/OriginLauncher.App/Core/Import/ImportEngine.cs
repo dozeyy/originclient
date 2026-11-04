@@ -230,7 +230,7 @@ public sealed partial class ImportEngine
             }
         }
         // Lunar plays out of the normal .minecraft: that folder is Lunar's, not a second launcher (Sources/LunarFold.cs).
-        LunarFold.Apply(result.Instances);
+        LunarFold.Apply(result);
         watch.Stop();
         result.Elapsed = watch.Elapsed;
         _env.Log?.Invoke($"import scan: {result.Instances.Count} instances in {watch.ElapsedMilliseconds} ms");
@@ -300,7 +300,7 @@ public sealed partial class ImportEngine
         var ledger = r.Ledger ?? new DestinationLedger();
         if (r.Role != SetupRole.PacksOnly && (r.Brings & ImportCategories.Mods) != 0 && (r.Options.LeaveOut & ImportCategories.Mods) == 0)
             PlanMods(plan, r, fs, target, ct);
-        if ((r.Brings & ImportCategories.Mods) != 0 && PvpClientSource.BuiltInModsNote(source.Kind) is { } builtIn)
+        if ((r.Brings & ImportCategories.Mods) != 0 && PvpClientSource.BuiltInModsNote(source) is { } builtIn)
             plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, builtIn.Name, builtIn.Reason));
         progress?.Report(new ImportProgress(ImportStage.Planning, 1, 3, "settings"));
 

@@ -123,7 +123,7 @@ public static class SettingsMigrator
         // whose shader pick lives in the client's own closed settings, so no file here says which pack is in use and
         // "only the active one" would leave every pack behind without a word. Copied, never selected.
         private bool AllShaderPacks => !_c.SelectedPacksOnly
-            && (_c.Options.CopyUnusedPacks || Sources.PvpClientSource.BuiltInModsNote(_c.Source.Kind) != null);
+            && (_c.Options.CopyUnusedPacks || Sources.PvpClientSource.BuiltInModsNote(_c.Source) != null);
         private bool CopyUnusedPacks => _c.Options.CopyUnusedPacks && !_c.SelectedPacksOnly;
         private DestinationLedger Ledger => _c.Ledger;
 

@@ -310,10 +310,11 @@ public sealed partial class MainWindow
                 break;
             case CloseHold.RecoveryRunning:
                 e.Cancel = true;
-                // Home's one-click transfer has no page to ask either: it finishes, then the window closes.
-                ImportNotice("Import", Home.BringOverIfBuilt is { IsRunning: true }
-                    ? "Finishing bringing your setup over, then Origin closes."
-                    : "Finishing an interrupted import...");
+                // Home's one-click transfer is stopped, like the Import page's Stop: the engine puts everything back,
+                // and the window closes as soon as nothing writes any more (OnImportRunChanged). Never a wait for the copy.
+                var bringing = Home.BringOverIfBuilt is { IsRunning: true };
+                if (bringing) _bringOverCts?.Cancel();
+                ImportNotice("Import", bringing ? "Stopping the import, then Origin closes." : "Finishing an interrupted import...");
                 break;
         }
     }

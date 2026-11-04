@@ -9,35 +9,36 @@ namespace OriginLauncher.App.Core.Import.Sources;
 /// one player's data meant Home's bring-over button could never be one click (Will, 2026-11-04: "lunar uses normal
 /// minecraft ... make lunar use the original and if transferring still call it lunar cus other people might be confused").
 ///
-/// The rule, after every detector ran (ImportEngine.ScanAsync): an official-launcher setup whose game folder IS the
-/// game directory a Lunar setup plays out of becomes part of the Lunar source. It keeps its folder and everything it
-/// brings (one folder is one setup: its SetupId, contents and import memory never change), it is named "Minecraft folder"
-/// like the .minecraft PvpClientSource lists when no official launcher is there, and the official profile names stay as
-/// its aliases. Official-launcher setups in a folder of their own (a profile with a custom game directory) are the
-/// player's real official-launcher instances: they stay the Minecraft Launcher's, so nothing is lost or mislabelled.
-/// A Lunar game directory that is not .minecraft folds nothing (its worlds are not .minecraft's).
+/// The rule, after every detector ran (ImportEngine.ScanAsync): only when Lunar is really set up to play there (its own
+/// launcher settings, settings/launcher.json, name that game directory: ScanResult.LunarGameDirectory; a leftover
+/// profiles folder with no such setting folds nothing) and the scan found Lunar setups, an official-launcher setup whose
+/// game folder IS that directory becomes part of the Lunar source. It keeps its folder and everything it brings (one
+/// folder is one setup: its SetupId, contents and import memory never change), it is named "Minecraft folder" like the
+/// .minecraft PvpClientSource lists when no official launcher is there, the official profile names stay as its aliases,
+/// and it is marked FoldedIntoClient so the Lunar-only handling (the built-in mods line, every shader pack) skips it: it
+/// is still a plain .minecraft. Official-launcher setups in a folder of their own (a profile with a custom game
+/// directory) are the player's real official-launcher instances: they stay the Minecraft Launcher's, so nothing is lost
+/// or mislabelled. A Lunar game directory that is not .minecraft folds nothing (its worlds are not .minecraft's).
 /// </summary>
 public static class LunarFold
 {
     /// <summary>The folded setup's name ("Lunar: Minecraft folder"), the same as PvpClientSource's plain .minecraft.</summary>
     public const string FolderName = "Minecraft folder";
 
-    public static void Apply(List<DetectedInstance> setups)
+    public static void Apply(ScanResult scan)
     {
-        var lunarGameDirs = setups
-            .Where(s => s.Kind == SourceKind.Lunar && s.SharedGameDir != null)
-            .Select(s => s.SharedGameDir!)
-            .ToList();
-        if (lunarGameDirs.Count == 0) return;
+        var setups = scan.Instances;
+        if (scan.LunarGameDirectory is not { } lunarGame || !setups.Any(s => s.Kind == SourceKind.Lunar)) return;
         for (var i = 0; i < setups.Count; i++)
         {
             var setup = setups[i];
             if (setup.Kind != SourceKind.OfficialLauncher || setup.ModsDir != null) continue;
-            if (!lunarGameDirs.Any(dir => SetupKey.SameFolder(dir, setup.GameDir))) continue;
+            if (!SetupKey.SameFolder(lunarGame, setup.GameDir)) continue;
             setups[i] = setup with
             {
                 Kind = SourceKind.Lunar,
                 Name = FolderName,
+                FoldedIntoClient = true,
                 Aliases = new[] { setup.Name }.Concat(setup.Aliases)
                     .Where(a => !string.Equals(a, FolderName, StringComparison.Ordinal))
                     .Distinct(StringComparer.Ordinal).ToList(),

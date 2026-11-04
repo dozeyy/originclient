@@ -93,6 +93,13 @@ public sealed record DetectedInstance
     /// <summary>A shader pack folder not named &lt;GameDir&gt;/shaderpacks (Lunar's per-profile "shaders"). Null = the usual one.</summary>
     public string? ShaderPacksDir { get; init; }
 
+    /// <summary>
+    /// The official launcher's own game folder, counted under the PvP client that plays out of it (Sources/LunarFold):
+    /// it is named for that client, but nothing in it is the client's own, so the client-only handling (the "built-in
+    /// mods" line, copying every shader pack because the client hides its pick) never applies to it.
+    /// </summary>
+    public bool FoldedIntoClient { get; init; }
+
     public string SavesFolder => Path.Combine(SharedGameDir ?? GameDir, "saves");
     public string ScreenshotsFolder => Path.Combine(SharedGameDir ?? GameDir, "screenshots");
     public string ShaderPacksFolder => ShaderPacksDir ?? Path.Combine(GameDir, "shaderpacks");
@@ -179,6 +186,12 @@ public sealed class ScanResult
 
     /// <summary>One sentence each, e.g. "Couldn't read the Minecraft launcher's profile list". Never a path to a secret, never a value.</summary>
     public List<string> Notes { get; } = new();
+
+    /// <summary>
+    /// The game directory Lunar's own launcher settings name (settings/launcher.json), when they name one: Lunar is
+    /// really set up to play there. Set by PvpClientSource; LunarFold folds the official folder into Lunar only then.
+    /// </summary>
+    public string? LunarGameDirectory { get; set; }
 
     public TimeSpan Elapsed { get; set; }
 
