@@ -508,7 +508,7 @@ public sealed class LaunchController
                 Note(game.Key, $"Loading {game.Version}", LaunchTone.Neutral, game.Version);
         }
         if (view.ReleaseScene) ReleaseScene(game);
-        if (view.GameReady) CrashRetries.Clear(game.Key); // it booted: the next crash starts a fresh chain
+        if (view.GameReady) CrashRetries.Clear(game.Key, game.Version); // it booted: the next crash starts a fresh chain
         if (!view.GameReady || runningMessage == null) return false;
         if (Book.WindowShown(game.Key, game)) Note(game.Key, runningMessage, LaunchTone.Success, game.Version);
         return true;
@@ -634,7 +634,7 @@ public sealed class LaunchController
             var customJvm = game.LaunchedJvmArgs?.Arguments;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
-            var fixTried = CrashRetries.AnyTried(key, DateTime.UtcNow);
+            var fixTried = CrashRetries.AnyTried(key, game.Version, DateTime.UtcNow);
             var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
                 game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm));
             var verdict = findings.Verdict;
@@ -672,7 +672,7 @@ public sealed class LaunchController
     {
         if (fix == null && !tryWithoutAddedMods) return;
         if (Book.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
-        if (!CrashRetries.TryBegin(game.Key, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
+        if (!CrashRetries.TryBegin(game.Key, game.Version, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
 
         if (fix == null)
         {
