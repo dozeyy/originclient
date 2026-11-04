@@ -43,9 +43,14 @@ public static class CrashAnalyzer
         ReadModsFrom(GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir),
             Path.Combine(instanceDir, Profiles.LaunchModFolder.ProfileFolderName));
 
+    // Nested jars (Fabric's jar-in-jar, META-INF/jars/*.jar) are read this many levels deep: Origin's jar -> the
+    // mods it carries (1.21.1: Sodium, Iris, Mod Menu, JEI, Simple Voice Chat, ...) -> their own nested modules.
+    private const int NestedDepth = 2;
+
     public static List<CrashModEntry> ReadModsFrom(params string[] modsFolders)
     {
         var list = new List<CrashModEntry>();
+        var nested = new List<CrashModEntry>();
         IEnumerable<string> jars;
         try
         {
@@ -64,9 +69,11 @@ public static class CrashAnalyzer
                 var ids = new List<string>();
                 if (zip.GetEntry("fabric.mod.json") is { } fabric)
                 {
-                    using var doc = JsonDocument.Parse(fabric.Open(), new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
-                    if (doc.RootElement.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
-                        ids.Add(id.GetString()!);
+                    if (FabricId(fabric) is { } id) ids.Add(id);
+                    // The mods inside this jar belong to it: a crash in Origin's built-in Sodium is Origin's (never
+                    // "a mod you added" with nothing to turn off), one inside a player's jar is that jar's.
+                    foreach (var inner in NestedFabricIds(zip, NestedDepth))
+                        nested.Add(new CrashModEntry(inner, name, external));
                 }
                 else if (zip.GetEntry("mcmod.info") is { } forge)
                 {
@@ -83,7 +90,47 @@ public static class CrashAnalyzer
                 list.Add(new CrashModEntry("", name, external));
             }
         }
+        // After every top-level jar, and only for ids no top-level jar has: a player's own Sodium beside Origin's
+        // built-in one is the copy that loaded (DECISIONS 2026-10-25), so lookups by id must find the player's file.
+        var known = new HashSet<string>(list.Select(m => m.ModId).Where(id => id.Length > 0), StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in nested)
+            if (known.Add(entry.ModId)) list.Add(entry);
         return list;
+    }
+
+    private static string? FabricId(ZipArchiveEntry fabricModJson)
+    {
+        using var doc = JsonDocument.Parse(fabricModJson.Open(), new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+        return doc.RootElement.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String && id.GetString() is { Length: > 0 } s
+            ? s : null;
+    }
+
+    // The fabric.mod.json ids of the jars nested in this one, depth levels down. A nested jar that can't be read is
+    // skipped (only its own id is lost; the host jar is still listed).
+    private static List<string> NestedFabricIds(ZipArchive zip, int depth)
+    {
+        var ids = new List<string>();
+        if (depth <= 0) return ids;
+        foreach (var entry in zip.Entries)
+        {
+            if (!entry.FullName.StartsWith("META-INF/jars/", StringComparison.Ordinal)
+                || !entry.FullName.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                using var buffer = new MemoryStream();
+                using (var source = entry.Open()) source.CopyTo(buffer);
+                buffer.Position = 0;
+                using var inner = new ZipArchive(buffer, ZipArchiveMode.Read);
+                if (inner.GetEntry("fabric.mod.json") is not { } fabric) continue;
+                if (FabricId(fabric) is { } id) ids.Add(id);
+                ids.AddRange(NestedFabricIds(inner, depth - 1));
+            }
+            catch (Exception e) when (e is InvalidDataException or JsonException or IOException)
+            {
+                // damaged nested jar or metadata: skip it
+            }
+        }
+        return ids;
     }
 
     /// <summary>A jar the player added or may switch off: not one of Origin's own built-in jars, decided by the file

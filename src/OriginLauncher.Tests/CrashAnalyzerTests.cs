@@ -140,4 +140,45 @@ Caused by: java.lang.IllegalStateException: boom
         Assert.Null(e.CrashReport);
         Assert.False(CrashEngine.Diagnose(e).IsCrash);
     }
+
+    // ---- KC-1 (bug run 6): mods nested inside a jar (Fabric jar-in-jar) belong to that jar ----
+
+    private static byte[] FabricJarBytes(string modId, params (string Name, byte[] Bytes)[] nested)
+    {
+        using var buffer = new MemoryStream();
+        using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using (var w = new StreamWriter(zip.CreateEntry("fabric.mod.json").Open()))
+                w.Write($"{{\"schemaVersion\":1,\"id\":\"{modId}\",\"version\":\"1.0.0\"}}");
+            foreach (var (name, bytes) in nested)
+                using (var s = zip.CreateEntry("META-INF/jars/" + name).Open()) s.Write(bytes);
+        }
+        return buffer.ToArray();
+    }
+
+    [Fact]
+    public void Nested_mods_are_listed_under_the_jar_that_carries_them()
+    {
+        var fabricApi = FabricJarBytes("fabric-api", ("fabric-rendering-v1.jar", FabricJarBytes("fabric-rendering-v1")));
+        File.WriteAllBytes(Path.Combine(ModsDir, "bundle-1.0.jar"),
+            FabricJarBytes("bundle", ("sodium.jar", FabricJarBytes("sodium")), ("fabric-api.jar", fabricApi),
+                ("broken.jar", new byte[] { 1, 2, 3 })));
+
+        var mods = CrashAnalyzer.ReadModsFrom(ModsDir);
+
+        Assert.Equal(["bundle", "sodium", "fabric-api", "fabric-rendering-v1"], mods.Select(m => m.ModId));
+        Assert.All(mods, m => Assert.Equal("bundle-1.0.jar", m.JarFileName)); // a damaged nested jar is just skipped
+    }
+
+    [Fact]
+    public void A_top_level_copy_of_a_nested_mod_is_the_one_listed()
+    {
+        File.WriteAllBytes(Path.Combine(ModsDir, "bundle-1.0.jar"),
+            FabricJarBytes("bundle", ("sodium.jar", FabricJarBytes("sodium"))));
+        Jar("sodium-fabric-0.6.13+mc1.21.1.jar", "sodium");
+
+        var sodium = Assert.Single(CrashAnalyzer.ReadModsFrom(ModsDir), m => m.ModId == "sodium");
+
+        Assert.Equal("sodium-fabric-0.6.13+mc1.21.1.jar", sodium.JarFileName);
+    }
 }

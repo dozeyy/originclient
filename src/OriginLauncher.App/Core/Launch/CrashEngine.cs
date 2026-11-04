@@ -29,10 +29,18 @@ public static class CrashEngine
         {
             // A one-launch try without the player's own mods, for when Origin can't name the cause well enough to
             // offer a fix. Never persistent: the Mods tab and the external-mods setting stay exactly as they were.
-            OfferTryWithoutAddedMods = isCrash && !fixTried && pick.Confidence < CrashConfidence.Strong
+            OfferTryWithoutAddedMods = isCrash && !fixTried
+                                       && (pick.Confidence < CrashConfidence.Strong || BlamesOnlyOrigin(pick))
                                        && facts.Mods.Any(m => m.IsExternal),
         };
     }
+
+    // A mod problem pinned on Origin's own code (its jar, or a mod built into it such as 1.21.1's Sodium) with no
+    // fix to offer: the player can't turn that off, and the usual real cause is a mod they added changing the same
+    // code, so the one-launch try without their mods is still the way forward.
+    private static bool BlamesOnlyOrigin(CrashFinding pick) =>
+        pick.Cause == CrashCause.ModProblem && pick.Fix == null
+        && pick.Culprits.Count > 0 && pick.Culprits.All(c => !c.IsExternal);
 
     /// <summary>
     /// Crash or normal close, decided BEFORE anything is shown (a normal close never opens a window):
