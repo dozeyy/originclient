@@ -99,6 +99,11 @@ public final class OriginUi {
 		if (w <= 0 || h <= 0) {
 			return;
 		}
+		// Nothing to draw (the HUD readouts' default background is 0x00000000): return before
+		// boxMask bakes and uploads a mask texture for a size nobody will see (JP-4).
+		if ((fill >>> 24) == 0 && (border >>> 24) == 0) {
+			return;
+		}
 		int r = craftedRadius(w, h, corner);
 		// SMALL, REPEATED panels (cards, cells, tabs, switches, chips) get the whole
 		// box baked once at their exact size and drawn as TWO tinted blits -- the
