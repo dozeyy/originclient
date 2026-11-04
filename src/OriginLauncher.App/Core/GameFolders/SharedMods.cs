@@ -313,6 +313,12 @@ public static class SharedMods
     /// <summary>The mirror's record of which files in it the launcher put there (one name per line).</summary>
     public const string MirrorManifestName = ".origin-mirror";
 
+    /// <summary>
+    /// FML also loads (and scans for coremods) &lt;gameDir&gt;/mods/&lt;Minecraft version&gt;/ — a common Forge layout that
+    /// imported setups and players' own folders use. Mirror only ever serves Forge 1.8.9, so the name is that version.
+    /// </summary>
+    public const string ForgeVersionModsFolder = "1.8.9";
+
     /// <summary>True for a file name Forge 1.8.9 loads from mods/ (FML's ModDiscoverer takes .jar and .zip).</summary>
     public static bool IsForgeLoadable(string fileName) =>
         fileName.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
@@ -331,7 +337,12 @@ public static class SharedMods
     ///  * a copy whose shared file is gone (removed or turned off on the Mods
     ///    page, or left out by <paramref name="include"/>) is deleted;
     ///  * a missing or changed copy is copied beside and renamed into place.
-    /// Sub-folders and non-loadable files are left alone on both sides. Only
+    ///  * loadable files in a mods/1.8.9/ sub-folder (<see cref="ForgeVersionModsFolder"/>) of the mirror or of
+    ///    the shared folder are moved up into the shared (or profile) folder the same way: FML loads the
+    ///    account's one, so left there they would load unlisted, skip the duplicate/step-aside checks and
+    ///    still load on the Origin-only retry; the shared one never loads at all (Forge only reads the
+    ///    account's mods/). Once moved they are ordinary top-level mods every launcher path sees.
+    /// Other sub-folders and non-loadable files are left alone on both sides. Only
     /// the launching account's folder is touched, whose game is not running;
     /// a file that is busy anyway stays as it is until the next launch.
     /// With a <paramref name="profileMods"/> folder (a mod profile on 1.8.9:
@@ -364,6 +375,8 @@ public static class SharedMods
                 if (!IsForgeLoadable(name) || placed.Contains(name)) continue;
                 complete &= MergeEntry(file, Path.Combine(adoptInto, name), log);
             }
+            complete &= AdoptVersionFolder(Path.Combine(mirror, ForgeVersionModsFolder), adoptInto, log);
+            complete &= AdoptVersionFolder(Path.Combine(sharedMods, ForgeVersionModsFolder), sharedMods, log);
 
             // Name -> the file its copy is made from.
             var wanted = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -427,6 +440,31 @@ public static class SharedMods
         {
             log($"mods mirror paused: {ex.GetType().Name}: {ex.Message}");
             return false;
+        }
+        return complete;
+    }
+
+    // Moves the loadable files of a mods/1.8.9/ sub-folder up into destination by the merge rule (renames only: a
+    // clash parks the older file as .before-shared, a byte-identical one is dropped, nothing is rewritten in place),
+    // then removes the sub-folder once it is empty. Anything else in it (a mod_list.json, a disabled jar) stays.
+    private static bool AdoptVersionFolder(string versionFolder, string destination, Action<string> log)
+    {
+        if (!Directory.Exists(versionFolder)) return true;
+        var complete = true;
+        foreach (var file in Directory.EnumerateFiles(versionFolder).OrderBy(p => p, StringComparer.Ordinal).ToList())
+        {
+            var name = Path.GetFileName(file);
+            if (!IsForgeLoadable(name)) continue;
+            if (MergeEntry(file, Path.Combine(destination, name), log)) log($"moved {name} up from mods/{ForgeVersionModsFolder}/");
+            else complete = false;
+        }
+        try
+        {
+            if (!Directory.EnumerateFileSystemEntries(versionFolder).Any()) Directory.Delete(versionFolder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // An empty folder FML scans finds nothing: harmless, and retried next launch.
         }
         return complete;
     }
