@@ -1,0 +1,6 @@
+somemod somemod-1.0.0.jar external com.example.somemod
+originclient originclient-1.21.1.jar origin
+sodium originclient-1.21.1.jar origin
+iris originclient-1.21.1.jar origin
+fabric-api fabric-api-0.116.1+1.21.1.jar origin
+fabric-rendering-v1 fabric-api-0.116.1+1.21.1.jar origin

@@ -1,0 +1,5 @@
+[12:00:00] [main/INFO]: Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+[12:00:01] [main/INFO]: Loading 58 mods:
+[12:00:02] [Render thread/INFO]: Setting user: <player>
+[12:00:03] [Render thread/INFO]: Backend library: LWJGL version 3.3.3-snapshot
+[main/ERROR]: Mixin apply for mod sodium failed sodium.mixins.json:features.render.world.sky.WorldRendererMixin from mod sodium -> net.minecraft.class_761: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure: @Redirect annotation on redirectGetFogStart could not find any targets matching 'method_3257' in net/minecraft/class_761. [PREINJECT Applicator Phase -> sodium.mixins.json:features.render.world.sky.WorldRendererMixin from mod sodium -> Prepare Injections -> -> redirect$zbc000$redirectGetFogStart()F -> Parse]

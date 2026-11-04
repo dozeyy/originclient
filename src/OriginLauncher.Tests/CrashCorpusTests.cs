@@ -33,7 +33,9 @@ public sealed class CrashCorpusTests(ITestOutputHelper output)
         return data;
     }
 
-    private sealed record Expected(bool Crash, string? Rule, string? Cause, string? Confidence, string[] Culprits, string Fix, string[]? FixJars);
+    // OfferTry / Tag are checked only when a case states them ("Try once without my mods" button, the window's tag).
+    private sealed record Expected(bool Crash, string? Rule, string? Cause, string? Confidence, string[] Culprits, string Fix, string[]? FixJars,
+        bool? OfferTry = null, string? Tag = null);
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
@@ -96,6 +98,9 @@ public sealed class CrashCorpusTests(ITestOutputHelper output)
         if (want.Fix != fix) bad.Add($"fix: want {want.Fix}, got {fix}");
         if (want.FixJars is { } jars && got.SafeFix is { } sf && !jars.SequenceEqual(sf.Jars))
             bad.Add($"fixJars: want [{string.Join(",", jars)}], got [{string.Join(",", sf.Jars)}]");
+        if (want.OfferTry is { } offer && offer != got.OfferTryWithoutAddedMods)
+            bad.Add($"offerTry: want {offer}, got {got.OfferTryWithoutAddedMods}");
+        if (want.Tag is { } tag && tag != f.Tag) bad.Add($"tag: want {tag}, got {f.Tag}");
         return bad;
     }
 
