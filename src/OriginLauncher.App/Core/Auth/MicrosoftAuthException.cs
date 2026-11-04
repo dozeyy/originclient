@@ -41,6 +41,29 @@ public sealed class MicrosoftAuthException : Exception
     public static MicrosoftAuthException KeyStoreLocked(Accounts.KeyStoreLockedException e) =>
         new(KeyStoreLockedStage, KeyStoreLockedMessage(OperatingSystem.IsMacOS()), e.Message);
 
+    /// <summary>accounts.json couldn't be written (another program held it past the short waits). Nothing changed.</summary>
+    public const string AccountStoreStage = "account_store";
+
+    /// <summary>
+    /// Runs one AccountStore.Update for a sign-in, turning a refused write into a sign-in failure with words the
+    /// player can act on (every surface already shows MicrosoftAuthException.Message), instead of the catch-all
+    /// "Couldn't save this account".
+    /// </summary>
+    public static void Stored(Action write)
+    {
+        try { write(); }
+        catch (System.IO.IOException e)
+        {
+            throw new MicrosoftAuthException(AccountStoreStage, Accounts.AccountStore.BusyMessage, e.Message);
+        }
+        catch (UnauthorizedAccessException e)
+        {
+            throw new MicrosoftAuthException(AccountStoreStage,
+                "Origin couldn't save your accounts: the system refused to let it write to its own data folder. Restart the computer and try again.",
+                e.Message);
+        }
+    }
+
     /// <summary>
     /// Runs one AccountStore.Protect* call, turning its CryptographicException into a sign-in failure
     /// every surface already shows (Home, the add-account card, Friends). Callers seal BEFORE they

@@ -65,7 +65,7 @@ public static class MinecraftSessionBroker
         {
             var protectedSession = MicrosoftAuthException.Sealed(() => AccountStore.ProtectSession(session));
             var alreadyAdded = false;
-            AccountStore.Update(accounts =>
+            MicrosoftAuthException.Stored(() => AccountStore.Update(accounts =>
             {
                 var existing = accounts.FirstOrDefault(a => a.Id == session.Uuid && !a.PendingMinecraftSignIn);
                 alreadyAdded = existing != null;
@@ -84,7 +84,7 @@ public static class MinecraftSessionBroker
                     ProtectedRefreshToken = protectedRefresh,
                     ProtectedMinecraftSession = protectedSession,
                 });
-            });
+            }));
             Sessions.Adopt(session);
             return new AddedAccount(session.Uuid, session.Name, alreadyAdded);
         }
@@ -98,11 +98,11 @@ public static class MinecraftSessionBroker
             PendingMinecraftSignIn = true,
         };
         // Not Upsert: a pending account is never selected (AccountStore.GetSelected).
-        AccountStore.Update(accounts =>
+        MicrosoftAuthException.Stored(() => AccountStore.Update(accounts =>
         {
             accounts.Add(pending);
             return accounts;
-        });
+        }));
         Sessions.NoteRateLimited(pending.Id, result.Deferred?.RetryAfter);
         return new AddedAccount(pending.Id, pending.Gamertag, AlreadyAdded: false);
     }
