@@ -322,6 +322,7 @@ public sealed class LaunchController
             var runningMessage = target.Server is { } joined
                 ? $"Playing on {SocialText.DisplayServer(joined)} - {version}"
                 : $"Running - {session.Username}";
+            runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
         catch (OperationCanceledException ex) when (PlayFailure.IsUserCancel(ex, ticket.Token))
@@ -765,7 +766,7 @@ public sealed class LaunchController
     }
 
     /// <summary>Shots: the selected account's game running ("Running - name").</summary>
-    public void TourRunning(string name)
+    public void TourRunning(string name, IReadOnlyList<string>? notices = null)
     {
         if (HomePage.SelectedKey() is not { } key) return;
         var version = LauncherState.SelectedVersion;
@@ -773,7 +774,7 @@ public sealed class LaunchController
         var fake = new object();
         Book.GameStarted(ticket, fake);
         Book.WindowShown(key, fake);
-        Note(key, $"Running - {name}", LaunchTone.Success, version);
+        Note(key, LaunchedMods.WithNotices($"Running - {name}", notices ?? []), LaunchTone.Success, version);
     }
 
     /// <summary>Shots: Play refused for these mods (the status line in red, as a refused launch leaves it).</summary>

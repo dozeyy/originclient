@@ -25,7 +25,7 @@ public class CrashAnalyzerTests : IDisposable
 
     public void Dispose()
     {
-        OriginLauncher.App.Core.GameFolders.LaunchedModsFolder.Forget(GameDir);
+        OriginLauncher.App.Core.GameFolders.LaunchedMods.Forget(GameDir);
         try { Directory.Delete(_root, true); } catch { /* temp */ }
     }
 
@@ -215,7 +215,7 @@ Caused by: java.lang.IllegalStateException: boom
         Assert.True(UnclearCrash().OfferTryWithoutAddedMods); // unknown launch folder: the shared folder is read
 
         var originOnly = LaunchFolder("mods-origin-only"); // "Your mods" off: that jar never loaded
-        OriginLauncher.App.Core.GameFolders.LaunchedModsFolder.Record(GameDir, originOnly);
+        OriginLauncher.App.Core.GameFolders.LaunchedMods.Record(GameDir, originOnly);
 
         Assert.DoesNotContain(CrashAnalyzer.ReadMods(GameDir), m => m.ModId == "somemod");
         Assert.False(UnclearCrash().OfferTryWithoutAddedMods);
@@ -227,7 +227,7 @@ Caused by: java.lang.IllegalStateException: boom
         JarIn(LaunchFolder("mods-profile"), "old-1.0.jar", "oldmod"); // left from an earlier profile launch
         var current = LaunchFolder("mods-profile-sodium-0.6");
         JarIn(current, "profilemod-2.0.jar", "profilemod");
-        OriginLauncher.App.Core.GameFolders.LaunchedModsFolder.Record(GameDir, current);
+        OriginLauncher.App.Core.GameFolders.LaunchedMods.Record(GameDir, current);
 
         var mods = CrashAnalyzer.ReadMods(GameDir);
 

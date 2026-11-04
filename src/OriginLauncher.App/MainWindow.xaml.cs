@@ -471,7 +471,8 @@ public partial class MainWindow : Window
 
     internal void TourHideUpdatePrompt() => UpdatePrompt.Dismiss();
 
-    internal void TourShowRunning(string playerName) => _homePage.TourShowRunning(playerName);
+    internal void TourShowRunning(string playerName, IReadOnlyList<string>? notices = null) =>
+        _homePage.TourShowRunning(playerName, notices);
 
     internal void TourShowReady(bool hover) => _homePage.TourShowReady(hover);
 

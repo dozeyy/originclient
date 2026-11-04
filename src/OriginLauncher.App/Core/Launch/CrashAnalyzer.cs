@@ -36,13 +36,13 @@ public static class CrashAnalyzer
     }
 
     /// <summary>
-    /// The launch mod set: exactly the folder this game's launch loaded (GameFolders.LaunchedModsFolder: the shared
+    /// The launch mod set: exactly the folder this game's launch loaded (GameFolders.LaunchedMods: the shared
     /// folder, mods-shared, mods-origin-only, mods-profile[-id], or 1.8.9's mirrored mods/), so an Origin-only launch
     /// has no added mods to leave out and a profile's own jars can be turned off. A game this launcher run didn't
     /// start (unknown folder) falls back to the version's shared folder plus this account's mods-profile copy.
     /// </summary>
     public static List<CrashModEntry> ReadMods(string instanceDir) =>
-        GameFolders.LaunchedModsFolder.For(instanceDir) is { } loaded
+        GameFolders.LaunchedMods.FolderFor(instanceDir) is { } loaded
             ? ReadModsFrom(loaded)
             : ReadModsFrom(GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir),
                 Path.Combine(instanceDir, Profiles.LaunchModFolder.ProfileFolderName));
