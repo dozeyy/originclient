@@ -371,3 +371,12 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Traps: a bare `git fetch origin` pulls claude/dev-shots (31 GB) - fetch named refs only; two boot-smoke dispatches on one ref cancel each other (concurrency group); an interrupt from Will mid-turn kills just-launched background agents silently (check their worktrees).
 - Open: real-PC checks (OptiFine 1.8.9 startup, borderless at 133%, Complementary clouds, pointer shapes, held Backspace, transfer on a real Lunar install); SVC first-run hint left (finishing it enables voice chat); delete claude/fix-borderless-switch-probe.
 
+## 2026-11-04 - v1.0.90: Mods = mod list, new Origin button; bug run 4; background updates; site unfrozen (cloud session)
+- Title Options | Mods | Origin and pause Mods | Origin on all 20 modules: Mods = Mod Menu list (gui/PlayerModList; Forge GuiModList on 1.8.9; falls back to Origin's menu if Mod Menu is gone), Origin = Origin's menu. Pause row template = widest BUTTON only (1.20.2+ title is a screen-wide StringWidget).
+- Bug run 4 (3 hunters on v1.0.88-89 code + live site): F3-combo suppression (KeyTaps.inF3Combo), 1.8.9 whole-HUD-on-F3, Transparent Menus restores saved Solid value, discardBank frees buffers 1.17.1-1.21.8, loading screens 60 FPS (render/LoadingScreens), LoadingOverlayCoverMixin 1.21.4-1.21.11, profile defaultKeys marker, no click on empty space, 1.8.9 startup resize invoker + F2 queue cap 3.
+- Launcher: updates now prefetch in the background (UpdatePrefetch state machine, StageSnapshot re-hash right before swap, per-version stage lock, waits for games/metered/offline); auto-hide taskbar 2 px; ReturnMisplacedShared scans every account; store head from crafthead UUID.
+- Website: Vercel had failed EVERY production deploy since v1.0.87 (ignoreCommand 414 chars > 256 limit); fixed (255 chars, check_site.py guards it); live CSP verified on phones (runner Playwright: no errors, try-on, Checkout, Terms line).
+- Proof on 4215c042: build-check, boot-smoke 20/20 in-world, dev-shots design rel090 (132/129/131/113/125/123) + world rel090w (23/23/25/23/18/19), 0 mixin failures; launcher-shots/Mac/Linux/website-check green on 51e29217 (launcher unchanged since).
+- Traps: dev-shots module names are module dirs (1.20 covers 1.20.1); originclient.org is blocked from the cloud session - use a runner (temporary claude/store-live-check workflow) for live checks; branch deletes and tag pushes are refused here.
+- Open: first real background update is the release AFTER v1.0.90; click "Mods" once in game (CI can't click).
+

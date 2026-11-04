@@ -60,6 +60,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - HUD defaults: every HUD piece has its own default spot (one table, hud/HudLayout), the same on every version; with every piece on nothing overlaps; a piece the player moved stays where they put it (2026-11-03).
 - Decided for Will while he slept (2026-11-04, his "find and fix them"; change any he disagrees with): Origin's HUD stays visible whenever the game window is visible and hides only while minimised; Snaplook/Full Map/Quickplay default to B/J/Y (off Simple Voice Chat's keys; existing users keep theirs), Zoom stays on C; new game folders skip Minecraft's first-run prompts (accessibility welcome, multiplayer warning, tutorial); the window title is "Origin <version> - <player> - <mode>".
 - 1.8.9 starts on Origin's own loading screen: Forge's splash is switched off (launcher writes enabled=false and the mod forces it) (2026-11-04).
+- While F3 is open the whole Origin HUD steps aside on every version (1.21.1's way), and Origin's own keys ignore a key pressed while F3 is held, so F3 combos (F3+B hitboxes...) never trigger Snaplook/Freelook/Zoom; Snaplook keeps B (2026-11-04).
 
 ## Website (originclient.org — served by Vercel, not GitHub Pages, 2026-10-18)
 - Never claim "every version" (2026-10-13).
