@@ -103,7 +103,7 @@ public class NametagStyleMixin {
 		// The box is drawn here, ONCE, before the glyphs, never by Font (JP-1, 2026-11-04):
 		// - Font draws a background once per sub-pass, so with Text Shadow on it drew the box
 		//   twice (40% black became 64%).
-		// - Iris (loaded on 1.21.1 even with no shader pack) batches entity rendering and draws
+		// - Iris (even with no shader pack) batches entity rendering and draws
 		//   every no-depth-test layer (the see-through text and its box) AFTER the depth-tested
 		//   text, so the see-through box landed ON TOP of the white name: a dark grey smudge.
 		//   Under that batching the box moves into the solid pass instead (depth-tested, drawn
