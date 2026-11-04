@@ -42,7 +42,8 @@ public sealed class ModsPage : Panel, IPage
     private string? _pendingRemove;      // file awaiting the inline "Remove?" confirm
     private readonly List<ReplaceOffer> _pendingReplace = []; // same-mod jars awaiting "Replace?" (Core/Compat/ModImporter)
     private bool _dragOver;
-    private bool _adding;                // an import is copying (off the UI thread)
+    // One import at a time; jars dropped or a Replace answered meanwhile wait here and go in next (Core/Compat/ModAddQueue).
+    private readonly ModAddQueue _imports = new();
     private IReadOnlyList<ModEntry>? _demo; // render runs only: made-up rows instead of the disk
     // What the rows on screen were last built from (plain rows only): a re-show with the same version, profile and
     // jars keeps them instead of rebuilding every row (a tab switch back to Mods).
@@ -578,7 +579,7 @@ public sealed class ModsPage : Panel, IPage
     // Browse: the same add path as a drop, through the system file picker.
     private async void Browse()
     {
-        if (_version == null || _adding || _demo != null) return;
+        if (_version == null || _demo != null) return;
         if (TopLevel.GetTopLevel(this) is not { } top) return;
         var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -590,20 +591,32 @@ public sealed class ModsPage : Panel, IPage
         if (paths.Length > 0) AddFiles(paths);
     }
 
-    // Copy the jars in off the UI thread (a big pack must not freeze the window), then land the new rows. One add at
-    // a time: a second waits its turn.
+    // Copy the jars in off the UI thread (a big pack must not freeze the window), then land the new rows. One import
+    // at a time: jars dropped or picked while one copies wait in _imports and go in straight after it.
     private async void AddFiles(string[] files)
     {
-        if (_version == null || _adding) return;
-        _adding = true;
+        if (_version == null) return;
+        if (!_imports.TryStart(new ModAddQueue.Work(files, null)))
+        {
+            _status.Show("Still adding - your other mods go in next...", error: false);
+            return;
+        }
         var version = _version;
         var profileId = _profile?.Id;
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         _status.Show(files.Length == 1 ? "Adding 1 mod..." : $"Adding {files.Length} mods...", error: false);
         var report = await Task.Run(() => ModManager.Import(version, files, profileId));
-        _adding = false;
+        var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return; // the page moved on to another version meanwhile
         ApplyImport(report, before, version, profileId);
+        RunNext(next);
+    }
+
+    // What waited for the import that just ended: more jars, or a Replace the player answered meanwhile.
+    private void RunNext(ModAddQueue.Work? next)
+    {
+        if (next?.Files is { } files) AddFiles(files.ToArray());
+        else if (next?.Replace is { } offer) AnswerReplace(offer, replace: true);
     }
 
     // Shows what an add did: the new rows land, a refused jar says why in plain words, and a jar that is the same mod
@@ -629,20 +642,26 @@ public sealed class ModsPage : Panel, IPage
     private async void AnswerReplace(ReplaceOffer offer, bool replace)
     {
         _pendingReplace.Remove(offer);
-        if (!replace || _version == null || _adding || _demo != null)
+        if (!replace || _version == null || _demo != null)
         {
             Refresh();
             return;
         }
-        _adding = true;
+        if (!_imports.TryStart(new ModAddQueue.Work(null, offer)))
+        {
+            _status.Show("Still adding - your replace goes in next...", error: false);
+            Refresh();
+            return;
+        }
         var version = _version;
         var profileId = _profile?.Id;
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var confirmed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { offer.FileName };
         var report = await Task.Run(() => ModManager.Import(version, [offer.SourcePath], profileId, confirmed));
-        _adding = false;
+        var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return;
         ApplyImport(report, before, version, profileId);
+        RunNext(next);
     }
 
     // ---- the drop zone ----------------------------------------------------------------------------------------
@@ -669,7 +688,7 @@ public sealed class ModsPage : Panel, IPage
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        var jars = _version != null && !_adding && _demo == null ? JarPaths(e).Length : 0;
+        var jars = _version != null && _demo == null ? JarPaths(e).Length : 0; // while one import copies, a drop queues
         e.DragEffects = jars > 0 ? DragDropEffects.Copy : DragDropEffects.None;
         if (jars > 0 && !_dragOver) SetZone(over: true, hover: false, count: jars);
         e.Handled = true;
