@@ -23,7 +23,7 @@ import java.util.List;
 //                          [wordmark]               the real origin_wordmark.png
 //                 [      Singleplayer          ]    200 x 20 Minecraft dark buttons,
 //                 [      Multiplayer           ]    words only, Minecraft's font
-//                 [   Options  ][    Mods      ]
+//                 [ Options ][  Mods  ][ Origin ]
 //
 //              [friends][cosmetics][lang][quit]     20 x 20 dark buttons, premade icons
 //   Minecraft 1.8.9 . Origin          Copyright Mojang AB. Do not distribute!
@@ -78,7 +78,7 @@ public class OriginTitleScreen extends OriginScreen {
 	/** The hold can never last longer than this (ms). */
 	private static final long HOLD_CAP_MS = 1500;
 
-	private GuiButton singleplayer, multiplayer, options, mods, friends, cosmetics, language, quit;
+	private GuiButton singleplayer, multiplayer, options, mods, origin, friends, cosmetics, language, quit;
 	// Static: the entrance plays once per game start, not on every return to the title.
 	private static long openedAt = 0;
 	// The startup intro (class comment): NONE, HOLD (the splash over the settling
@@ -125,20 +125,27 @@ public class OriginTitleScreen extends OriginScreen {
 		singleplayer = add(0, I18n.format("menu.singleplayer"));
 		multiplayer = add(1, I18n.format("menu.multiplayer"));
 		options = add(2, I18n.format("options.title"));   // "Options", as 1.21.1
+		// "Mods": Forge's list of every mod with its Config button; "Origin": Origin's own menu
+		// (Will, 2026-11-04: one button, one job, the same pair as the pause menu).
 		mods = add(3, "Mods");
+		origin = add(8, "Origin");
 		friends = add(4, "");
 		cosmetics = add(5, "");
 		language = add(6, "");
 		quit = add(7, "");
 
-		// Two full rows, then the Options | Mods pair.
+		// Two full rows, then Options | Mods | Origin split evenly (the last cell takes the rounding
+		// remainder so the row ends flush with the rows above), as 1.21.1.
 		TitleLayout.rows(3);
 		TitleLayout L = TitleLayout.of(width, height);
-		int half = (L.mainW - L.pairGap) / 2;
 		place(singleplayer, L.mainX, L.mainTop, L.mainW, L.buttonH, true);
 		place(multiplayer, L.mainX, L.mainTop + L.rowStep, L.mainW, L.buttonH, true);
-		place(options, L.mainX, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
-		place(mods, L.mainX + L.mainW - half, L.mainTop + 2 * L.rowStep, half, L.buttonH, true);
+		GuiButton[] row = {options, mods, origin};
+		int cellW = (L.mainW - (row.length - 1) * L.pairGap) / row.length;
+		for (int c = 0; c < row.length; c++) {
+			int cx = L.mainX + c * (cellW + L.pairGap);
+			place(row[c], cx, L.mainTop + 2 * L.rowStep, c == row.length - 1 ? L.mainX + L.mainW - cx : cellW, L.buttonH, true);
+		}
 
 		// Bottom row of 20 x 20 dark buttons in 1.21.1's order, Quit at its end (no Realms or Accessibility on
 		// 1.8.9; class comment). Cosmetics and Quit are title_icons.png (1.21.1's sheet); Friends and Language are
@@ -371,6 +378,9 @@ public class OriginTitleScreen extends OriginScreen {
 		} else if (button == options) {
 			mc.displayGuiScreen(new GuiOptions(this, mc.gameSettings));
 		} else if (button == mods) {
+			// Forge's own mod list (every mod, each with its Config button): 1.8.9 has no Mod Menu.
+			mc.displayGuiScreen(new net.minecraftforge.fml.client.GuiModList(this));
+		} else if (button == origin) {
 			mc.displayGuiScreen(new OriginModMenuScreen());
 		} else if (button == friends) {
 			mc.displayGuiScreen(new FriendsScreen(this));

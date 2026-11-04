@@ -60,8 +60,12 @@ public class MenuHooks {
 	private static final Map<GuiButton, Runnable> ACTIONS = new WeakHashMap<>();
 	/** Ids for added buttons: far from every vanilla / Forge / OptiFine id. */
 	private static final int COSMETICS_ID = 0x4F5243;
-	/** Id of the plain "Origin Mods" button on the stock title screen. */
+	/** Id of the plain "Origin" button on the stock title screen. */
 	private static final int MODS_ID = 0x4F5244;
+	/** Id of the pause menu's "Origin" button (beside "Mods"). */
+	private static final int ORIGIN_ID = 0x4F5245;
+	/** Id of the pause menu's "Mods" button (Forge's own id 12 would also run Forge's handler). */
+	private static final int PAUSE_MODS_ID = 0x4F5246;
 
 	/** Vanilla's pause-menu Disconnect / "Save and Quit to Title" button id. */
 	private static final int DISCONNECT_ID = 1;
@@ -184,7 +188,7 @@ public class MenuHooks {
 		} else if (screen.getClass() == GuiMainMenu.class && OriginStyle.vanillaTitle()) {
 			addVanillaModsEntry(event.buttonList);
 		} else if (screen instanceof GuiIngameMenu) {
-			pauseModsOpensOrigin(screen, event.buttonList);
+			addPauseModsRow(screen, event.buttonList);
 			addCosmeticsRow(screen, event.buttonList);
 		} else if (IrisBridge.isShaderScreen(screen)) {
 			addDownloadShaders(screen, event.buttonList);
@@ -194,19 +198,30 @@ public class MenuHooks {
 	}
 
 	/**
-	 * Pause menu "Mods" (G121-5, as on 1.21.1): Forge's own "Mod Options..." button (id 12,
-	 * Forge's GuiIngameMenu patch; it opened Forge's in-game mod config list) keeps its slot and
-	 * size but reads "Mods" and opens Origin's mod menu, the screen the title's Mods opens. The
-	 * full list of installed mods is one row away (Settings > Menu > All Installed Mods, Forge's
-	 * GuiModList). The click goes through ACTIONS (onActionPerformedPre cancels Forge's).
-	 * Fail-soft: any surprise leaves Forge's button as it was.
+	 * The pause menu's "Mods | Origin" row (Will, 2026-11-04, as every Fabric version): Forge's own
+	 * "Mod Options..." button (id 12, Forge's GuiIngameMenu patch, a full-width row) makes way for two
+	 * half buttons in its slot: "Mods" opens Forge's GuiModList (every mod, each with its Config
+	 * button) and "Origin" opens Origin's own menu. Halves as vanilla's own pause pairs: 4 px apart.
+	 * Clicks go through ACTIONS (onActionPerformedPre). Fail-soft: any surprise leaves Forge's button.
 	 */
-	private static void pauseModsOpensOrigin(final GuiScreen pause, List<GuiButton> buttons) {
+	private static void addPauseModsRow(final GuiScreen pause, List<GuiButton> buttons) {
 		try {
 			for (GuiButton b : buttons) {
 				if (b.id == FORGE_MOD_OPTIONS_ID) {
-					b.displayString = "Mods";
-					ACTIONS.put(b, new Runnable() {
+					int w = b.getButtonWidth();
+					int half = (w - 4) / 2;
+					GuiButton mods = new GuiButton(PAUSE_MODS_ID, b.xPosition, b.yPosition, half, 20, "Mods");
+					GuiButton origin = new GuiButton(ORIGIN_ID, b.xPosition + w - half, b.yPosition, half, 20, "Origin");
+					buttons.remove(b);
+					buttons.add(mods);
+					buttons.add(origin);
+					ACTIONS.put(mods, new Runnable() {
+						@Override
+						public void run() {
+							Minecraft.getMinecraft().displayGuiScreen(new net.minecraftforge.fml.client.GuiModList(pause));
+						}
+					});
+					ACTIONS.put(origin, new Runnable() {
 						@Override
 						public void run() {
 							Minecraft.getMinecraft().displayGuiScreen(
@@ -228,7 +243,7 @@ public class MenuHooks {
 	 */
 	private static void addVanillaModsEntry(List<GuiButton> buttons) {
 		try {
-			GuiButton entry = new GuiButton(MODS_ID, 4, 4, 80, 20, "Origin Mods");
+			GuiButton entry = new GuiButton(MODS_ID, 4, 4, 80, 20, "Origin");
 			buttons.add(entry);
 			ACTIONS.put(entry, new Runnable() {
 				@Override

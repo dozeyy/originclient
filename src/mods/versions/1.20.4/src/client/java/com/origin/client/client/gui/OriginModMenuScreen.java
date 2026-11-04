@@ -752,19 +752,6 @@ public class OriginModMenuScreen extends Screen {
 		d.hit(x, BAR_Y + 2, 30, 28, action);
 	}
 
-	/** Mod Menu's list of every installed jar, back to this menu on close. Mod Menu is not a
-	 *  compile dependency on most versions, so it is opened by name; if that fails the click
-	 *  does nothing. */
-	private void openModMenuList() {
-		try {
-			Object screen = Class.forName("com.terraformersmc.modmenu.gui.ModsScreen")
-					.getConstructor(Screen.class).newInstance(this);
-			Minecraft.getInstance().setScreen((Screen) screen);
-		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn("Origin: could not open Mod Menu's list", t);
-		}
-	}
-
 	/** The search field (also used on the mod page and the Settings tab). */
 	private void drawSearch(OriginDeck d, float x, float y, float w, String value, String placeholder,
 							boolean focused, boolean slashHint, Runnable onClick) {
@@ -1310,19 +1297,6 @@ public class OriginModMenuScreen extends Screen {
 				d.hit(M - 12, y, colW + 24, OPT_H, () -> Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0));
 			}
 			y += OPT_H;
-			// G121-5: the title and pause "Mods" buttons both open this menu, so Mod Menu's own
-			// list of every installed jar is reached from here (only when Mod Menu is installed).
-			if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("modmenu")) {
-				boolean mmHov = d.over(M - 12, y, colW + 24, OPT_H);
-				if (mmHov) {
-					d.rect(M - 12, y, colW + 24, OPT_H, 6, 0x0AFFFFFF);
-					tip = "Opens Mod Menu's list of every mod installed in this game.";
-				}
-				d.textMid("All Installed Mods", M, y + 20, 14, false, 0, TEXT);
-				d.icon("@chev-right", M + colW - 22, y + 13, 14, mmHov ? TEXT : MUTE);
-				d.hit(M - 12, y, colW + 24, OPT_H, this::openModMenuList);
-				y += OPT_H;
-			}
 		} else {
 			String sid = subTab == SubTab.GENERAL ? Mods.GENERAL_ID : Mods.PERFORMANCE_ID;
 			List<ModOption> opts = subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;

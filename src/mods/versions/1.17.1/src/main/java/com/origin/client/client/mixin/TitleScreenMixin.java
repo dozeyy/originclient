@@ -6,6 +6,7 @@ import com.origin.client.client.gui.OriginForeignWidgets;
 import com.origin.client.client.gui.CosmeticsScreen;
 import com.origin.client.client.gui.FriendsScreen;
 import com.origin.client.client.gui.OriginModMenuScreen;
+import com.origin.client.client.gui.PlayerModList;
 import com.origin.client.client.gui.OriginWidgetOwnership;
 import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.render.TitleLayout;
@@ -45,7 +46,7 @@ import java.util.List;
 //                            ORIGIN
 //                 [        Singleplayer        ]   200 x 20, Workbench card (radius 3, Inter 600)
 //                 [        Multiplayer         ]
-//                 [   Options    ][    Mods    ]
+//                 [ Options ][  Mods  ][ Origin ]
 //
 //     realms friends cosmetics lang access quit          12 px parchment glyphs on 20 x 20 Workbench cards
 //     Minecraft 1.21.1 . Origin (middle dot)     Copyright Mojang AB. Do not distribute!
@@ -85,6 +86,9 @@ public class TitleScreenMixin {
 
 	@Unique
 	private Button originclient$modsNav;
+	// Origin's own menu (Will 2026-11-04): "Mods" is the player's full mod list, "Origin" is Origin's.
+	@Unique
+	private Button originclient$originNav;
 	@Unique
 	private Button originclient$cosmeticsNav;
 	@Unique
@@ -118,7 +122,7 @@ public class TitleScreenMixin {
 	private void originclient$vanillaEntry() {
 		try {
 			Minecraft mc = Minecraft.getInstance();
-			Button entry = new Button(4, 4, 80, 20, new TextComponent("Origin Mods"),
+			Button entry = new Button(4, 4, 80, 20, new TextComponent("Origin"),
 					b -> mc.setScreen(new OriginModMenuScreen()));
 			((ScreenInvoker) (Screen) (Object) this).originclient$addRenderableWidget(entry);
 		} catch (Throwable ignored) {
@@ -412,9 +416,14 @@ public class TitleScreenMixin {
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			// No Button.builder before 1.19.3: the plain (x, y, w, h, label, onPress) ctor.
+			// "Mods": the player's whole mod list with each mod's settings (Mod Menu's, gui/PlayerModList);
+			// "Origin": Origin's own menu (Will, 2026-11-04: one button, one job).
 			originclient$modsNav = new Button(0, 0, 150, 20, new TextComponent("Mods"),
-					b -> mc.setScreen(new OriginModMenuScreen()));
+					b -> mc.setScreen(PlayerModList.screen(self)));
 			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$modsNav);
+			originclient$originNav = new Button(0, 0, 150, 20, new TextComponent("Origin"),
+					b -> mc.setScreen(new OriginModMenuScreen()));
+			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$originNav);
 			originclient$cosmeticsNav = new Button(0, 0, 150, 20, new TextComponent("Cosmetics"),
 					b -> mc.setScreen(new CosmeticsScreen(self)));
 			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$cosmeticsNav);
@@ -423,6 +432,7 @@ public class TitleScreenMixin {
 			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$friendsNav);
 		} catch (Throwable ignored) {
 			originclient$modsNav = null;
+			originclient$originNav = null;
 			originclient$cosmeticsNav = null;
 			originclient$friendsNav = null;
 		}
@@ -474,7 +484,7 @@ public class TitleScreenMixin {
 						|| originclient$isForeignMods(child)) {
 					continue;
 				}
-				if (w == originclient$modsNav || w == originclient$cosmeticsNav || w == originclient$friendsNav) {
+				if (w == originclient$modsNav || w == originclient$originNav || w == originclient$cosmeticsNav || w == originclient$friendsNav) {
 					continue;
 				}
 				if (child instanceof ImageButton) {
@@ -516,7 +526,7 @@ public class TitleScreenMixin {
 			// real count so it never runs into the icon row. If even that can't fit
 			// (many added buttons on a small GUI), the added ones pair up two to a
 			// row, as vanilla pairs Options | Quit.
-			boolean pair = options != null || originclient$modsNav != null;
+			boolean pair = options != null || originclient$modsNav != null || originclient$originNav != null;
 			int extra = full.size() - lead;
 			TitleLayout.rows(full.size() + (pair ? 1 : 0));
 			TitleLayout L = TitleLayout.of(self.width, self.height);
@@ -549,13 +559,20 @@ public class TitleScreenMixin {
 			}
 			originclient$worded(options, null);
 			originclient$worded(originclient$modsNav, null);
+			originclient$worded(originclient$originNav, null);
 			// Worded buttons say what they do already: no tooltip (Will, 2026-10-19:
 			// "dont have the hover tells what it dos for the worded ones only the icons").
-			if (options != null && originclient$modsNav != null) {
-				originclient$place(options, L.mainX, y, half, L.buttonH, true);
-				originclient$place(originclient$modsNav, L.mainX + L.mainW - half, y, half, L.buttonH, true);
-			} else if (options != null || originclient$modsNav != null) {
-				originclient$place(options != null ? options : originclient$modsNav, L.mainX, y, L.mainW, L.buttonH, true);
+			// The bottom row, Options | Mods | Origin, split evenly across the stack's width (Will 2026-11-04;
+			// the pause menu carries the same Mods | Origin pair). The last cell takes the rounding remainder
+			// so the row ends flush with the full-width rows above it.
+			List<AbstractWidget> row = new ArrayList<>();
+			if (options != null) row.add(options);
+			if (originclient$modsNav != null) row.add(originclient$modsNav);
+			if (originclient$originNav != null) row.add(originclient$originNav);
+			int cellW = row.isEmpty() ? 0 : (L.mainW - (row.size() - 1) * L.pairGap) / row.size();
+			for (int c = 0; c < row.size(); c++) {
+				int cx = L.mainX + c * (cellW + L.pairGap);
+				originclient$place(row.get(c), cx, y, c == row.size() - 1 ? L.mainX + L.mainW - cx : cellW, L.buttonH, true);
 			}
 
 			// Bottom row of bare glyphs (20 x 20 hit boxes), Quit at its end.

@@ -36,7 +36,7 @@ public final class OriginDevShots {
 		FPSCOACH, WAYPOINTS, ITEMSIZE, ITEMCOUNTER, QUICKPLAY, SHADERS,
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
-		// Settings > Menu: Solid Menu Background and the All Installed Mods row (Mod Menu's list)
+		// Settings > Menu: Solid Menu Background
 		SETTINGS_MENU,
 		// Friends (social/SocialDemo fills it): a chat, then the party
 		FRIENDS, FRIENDS_PARTY,

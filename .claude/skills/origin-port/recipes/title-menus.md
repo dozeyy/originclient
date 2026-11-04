@@ -15,7 +15,7 @@ ScreenBackgroundMixin, ScreenInvoker. "Proven" means CI and review passed (clean
 
 | Era | Panorama / backdrop | Buttons and widgets | Traps (proven unless marked) |
 |---|---|---|---|
-| G9 1.8.9 | GuiMainMenu drawPanorama | GuiButton | drawPanorama leaves depth+cull ON: restore. GuiSlot.overlayBackground cancel needs a scissor around drawSelectionBox + drawListHeader. Never show GuiModList. Dark title buttons: super.drawButton + packedFGColour 0xFFFFFF; dock icons drawn after it. See legacy-forge-189.md |
+| G9 1.8.9 | GuiMainMenu drawPanorama | GuiButton | drawPanorama leaves depth+cull ON: restore. GuiSlot.overlayBackground cancel needs a scissor around drawSelectionBox + drawListHeader. Title + pause "Mods" open Forge's GuiModList, "Origin" opens Origin's menu (2026-11-04). Dark title buttons: super.drawButton + packedFGColour 0xFFFFFF; dock icons drawn after it. See legacy-forge-189.md |
 | G8 1.16.5 | 6-arg-era redirects like 1.18.2; TitleScreen white fill = `fill` ordinal 0 | `Screen.addButton` (@Invoker "addButton"); isHovered() includes focus | color4f + TextureManager.bind + fillLayer; alpha test drops faint pixels (Gfx sets alphaFunc GREATER 0) |
 | G8 1.17.1 / G7 ≤1.18.2 | redirects PanoramaRenderer.render(FF), 10-arg overlay blit, blitOutlineBlack x2 → wordmark, 8-arg edition blit, splash drawCenteredString, version drawString (`gfx_old.title_screen_118` shape) | `new Button(...)`, x/y public fields, isHoveredOrFocused() / isMouseOver(mx,my) | Pre-1.18: no PlainTextButton, so the copyright is `drawString` ordinal 1 |
 | G7 1.19.2 / 1.19.3 | as above | ScreenInvoker bound: `Widget` ≤1.19.2, `Renderable` 1.19.3. Bind on the ERASED descriptor: `<T extends GuiEventListener & NarratableEntry>` works on every 1.19.x | 1.19.3 layouts are GridWidget containers: descend into them. No AbstractSelectionList enableScissor on 1.19.2/1.19.3. renderButton (not renderWidget) on ≤1.19.3 |
@@ -58,6 +58,13 @@ ScreenBackgroundMixin, ScreenInvoker. "Proven" means CI and review passed (clean
 - Disabled tint: `RenderSystem.setShaderColor` 1.17+, `color4f` 1.16.5; reset in the catch too.
 - TitleScreenMixin text differs per module (`single/multi` 1.19.x vs `play/online` <=1.18.2; `iconOnly(w, icon)` with no
   tip on 1.18.2/1.19.2): regex both spellings.
+
+## Mods | Origin buttons (2026-11-04, all 20 modules)
+- Title: Options | Mods | Origin thirds in the old Options | Mods row. Mods -> `gui/PlayerModList.screen(parent)` (Mod Menu's
+  ModsScreen by name: com.terraformersmc / io.github.prospector; Origin's menu if absent). Mod Menu's own title button stays hidden.
+- Pause (Fabric): `addPauseModsRow` in OriginClientMod, once per init at the first frame (beforeRender; 26.x afterExtract):
+  takes Mod Menu's wide button's slot, else Send Feedback | Report Bugs, and splits it Mods | Origin (8 px gap).
+- 1.8.9 pause: Forge's id-12 "Mod Options..." row splits into Mods (GuiModList) | Origin, own ids, clicks via MenuHooks.ACTIONS.
 
 ## Proof
 - Use `dev-shots set=design`. For the clean look also set `ORIGIN_SHOTS_SET=clean` with a `title_hover` shot on Quit.

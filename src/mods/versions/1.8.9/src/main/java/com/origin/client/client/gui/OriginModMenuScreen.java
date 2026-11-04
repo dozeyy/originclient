@@ -171,7 +171,7 @@ public class OriginModMenuScreen extends OriginScreen {
 		return this;
 	}
 
-	/** Dev-shots only: open on Settings > Menu (Solid Menu Background, All Installed Mods). */
+	/** Dev-shots only: open on Settings > Menu (Solid Menu Background). */
 	public OriginModMenuScreen menuSubTab() {
 		tab = Tab.SETTINGS;
 		subTab = SubTab.MENU;
@@ -787,17 +787,6 @@ public class OriginModMenuScreen extends OriginScreen {
 		d.hit(x, BAR_Y + 2, 30, 28, action);
 	}
 
-	/** Forge's list of every installed mod (1.8.9 has no Mod Menu; Forge's GuiModList is the
-	 *  same job), back to this menu on Done. Only reached from this row: the title and pause
-	 *  "Mods" buttons open Origin's menu. If it fails the click does nothing. */
-	private void openModMenuList() {
-		try {
-			Minecraft.getMinecraft().displayGuiScreen(new net.minecraftforge.fml.client.GuiModList(this));
-		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn("Origin: could not open Forge's mod list", t);
-		}
-	}
-
 	/** The search field (also used on the mod page and the Settings tab). */
 	private void drawSearch(OriginDeck d, float x, float y, float w, String value, String placeholder,
 							boolean focused, boolean slashHint, Runnable onClick) {
@@ -1374,20 +1363,6 @@ public class OriginModMenuScreen extends OriginScreen {
 				d.hit(M - 12, y, colW + 24, OPT_H, () -> Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0));
 			}
 			y += OPT_H;
-			// G121-5: the title and pause "Mods" buttons both open this menu, so the full list of
-			// every installed mod is reached from here. 1.8.9: Forge's own list, always present
-			// (where the Fabric versions show this row only when Mod Menu is installed).
-			{
-				boolean mmHov = d.over(M - 12, y, colW + 24, OPT_H);
-				if (mmHov) {
-					d.rect(M - 12, y, colW + 24, OPT_H, 6, 0x0AFFFFFF);
-					tip = "Opens Forge's list of every mod installed in this game.";
-				}
-				d.textMid("All Installed Mods", M, y + 20, 14, false, 0, TEXT);
-				d.icon("@chev-right", M + colW - 22, y + 13, 14, mmHov ? TEXT : MUTE);
-				d.hit(M - 12, y, colW + 24, OPT_H, this::openModMenuList);
-				y += OPT_H;
-			}
 		} else {
 			String sid = subTab == SubTab.GENERAL ? Mods.GENERAL_ID : Mods.PERFORMANCE_ID;
 			List<ModOption> opts = subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;
