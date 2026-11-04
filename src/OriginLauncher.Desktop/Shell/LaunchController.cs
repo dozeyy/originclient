@@ -293,6 +293,7 @@ public sealed class LaunchController
                 await Task.Run(() => SettingsSync.BeforeLaunch(key, version));
             }
             await Task.Run(() => PresetWriter.ApplyToNewInstance(gameDir, version, HardwareProbe.Recommended));
+            await Task.Run(() => FirstRunOptions.Seed(gameDir, version)); // after the preset: see FirstRunOptions
             ticket.Token.ThrowIfCancellationRequested();
 
             Stage("Starting Minecraft");
