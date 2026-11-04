@@ -71,6 +71,7 @@
 		"GlintColorizerMixin",
 		"HumanoidArmorLayerMixin",
 		"HurtCamMixin",
+		"GameRendererPostShadersMixin",
 		"ItemCooldownsMixin",
 		"ItemPhysicsMixin",
 		"MenuBlurMixin",

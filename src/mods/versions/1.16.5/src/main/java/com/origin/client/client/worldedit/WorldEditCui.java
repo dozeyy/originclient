@@ -110,7 +110,12 @@ public final class WorldEditCui {
 				com.mojang.blaze3d.systems.RenderSystem.pushMatrix();
 				com.mojang.blaze3d.systems.RenderSystem.loadIdentity();
 				try {
-					CuiRenderer.render(ctx);
+					boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+					try {
+						CuiRenderer.render(ctx);
+					} finally {
+						com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+					}
 				} catch (Throwable t) {
 					// the overlay must never take the frame down
 				} finally {

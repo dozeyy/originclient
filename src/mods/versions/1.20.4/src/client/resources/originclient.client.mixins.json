@@ -67,6 +67,7 @@
 		"JeiGuiEventHandlerMixin",
 		"JeiClientInputHandlerMixin",
 		"HurtCamMixin",
+		"GameRendererPostShadersMixin",
 		"GameRendererFrameMixin",
 		"OverlayTextureAccessor",
 		"HumanoidArmorLayerMixin",

@@ -63,6 +63,7 @@
 		"IrisPipelineHalfRateMixin",
 		"IrisShadowRendererHalfRateMixin",
 		"HurtCamMixin",
+		"GameRendererPostShadersMixin",
 		"GameRendererFrameMixin",
 		"OverlayTextureAccessor",
 		"HumanoidArmorLayerMixin",

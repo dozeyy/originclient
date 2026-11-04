@@ -65,6 +65,7 @@
 		"WeatherSnowMixin",
 		"LivingNametagMixin",
 		"HurtCamMixin",
+		"GameRendererPostShadersMixin",
 		"GameRendererFrameMixin",
 		"OverlayTextureAccessor",
 		"HumanoidArmorLayerMixin",

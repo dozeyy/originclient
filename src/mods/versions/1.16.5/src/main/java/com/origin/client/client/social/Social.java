@@ -82,7 +82,12 @@ public final class Social {
 	public static void renderWorld(WorldRenderContext ctx) {
 		try {
 			com.origin.client.client.waypoints.WaypointHud.capture(ctx);
-			PartyWorld.renderWorld(ctx);
+			boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+			try {
+				PartyWorld.renderWorld(ctx);
+			} finally {
+				com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+			}
 		} catch (Throwable t) {
 			// pings just don't draw this frame
 		}

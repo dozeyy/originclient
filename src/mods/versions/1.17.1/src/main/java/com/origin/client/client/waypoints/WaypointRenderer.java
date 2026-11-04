@@ -47,7 +47,11 @@ public final class WaypointRenderer {
 
 		String dim = mc.level.dimension().location().toString();
 		Vec3 c = ctx.camera().getPosition();
-		MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
+		// Shader pack on: this call is wrapped in AfterShadersPass.bankBegin(), so the
+		// highlight lines go to the after-shaders bank with the beams and nothing is
+		// flushed here (the bank is drawn after the pack's composite). Shaders off: unchanged.
+		boolean banked = OriginRenderTypes.banking();
+		MultiBufferSource.BufferSource buf = banked ? OriginRenderTypes.bankLines() : mc.renderBuffers().bufferSource();
 		// Beam hard-cutoff distance (no fade): the player's render distance, in blocks.
 		double cutoff = mc.options.renderDistance * 16.0;
 
@@ -67,8 +71,10 @@ public final class WaypointRenderer {
 				drawBlockOutline(pose, buf, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
 			}
 		}
-		buf.endBatch();
-		OriginRenderTypes.draw();   // the beams
+		if (!banked) {
+			buf.endBatch();
+		}
+		OriginRenderTypes.draw();   // the beams (a no-op while banking)
 	}
 
 	// The beam is REAL geometry (ThickLine.vertical), not a RenderType.lines()

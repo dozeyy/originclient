@@ -47,7 +47,11 @@ public final class ChunkBorderRenderer {
 		// Rings + lattice: the frame's shared buffer, flushed WHOLE at the end of
 		// this method (see there). Fetched here rather than via
 		// context.consumers() so the flush is guaranteed to hit the same object.
-		MultiBufferSource.BufferSource shared = mc.renderBuffers().bufferSource();
+		// Shader pack on (this call is wrapped in AfterShadersPass.bankBegin): the
+		// rings/lattice go to the after-shaders bank with the posts, and nothing is
+		// flushed here. Shaders off: the frame's shared buffer, as before.
+		boolean banked = OriginRenderTypes.banking();
+		MultiBufferSource.BufferSource shared = banked ? OriginRenderTypes.bankLines() : mc.renderBuffers().bufferSource();
 		VertexConsumer buf = shared.getBuffer(RenderType.lines());
 		VertexConsumer posts = OriginRenderTypes.begin();
 
@@ -107,7 +111,9 @@ public final class ChunkBorderRenderer {
 		// pass, and its per-type endBatch is a deliberate no-op. Everything
 		// vanilla queued for the frame was already flushed in the translucent
 		// pass, so this only draws our lines.
-		shared.endBatch();
+		if (!banked) {
+			shared.endBatch();
+		}
 	}
 
 	private static int thickness(String key) {

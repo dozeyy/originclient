@@ -43,7 +43,11 @@ public final class ChunkBorderRenderer {
 		double yMax = mc.level.getMaxBuildHeight() - cam.y;
 
 		PoseStack.Pose pose = context.matrixStack().last();
-		VertexConsumer buf = context.consumers().getBuffer(RenderType.lines());
+		// Shader pack on (this call is wrapped in AfterShadersPass.bankBegin): the
+		// rings/lattice go to the after-shaders bank with the posts. Shaders off: the
+		// frame's buffer, as before.
+		VertexConsumer buf = (OriginRenderTypes.banking() ? OriginRenderTypes.bankLines() : context.consumers())
+				.getBuffer(RenderType.lines());
 		VertexConsumer posts = OriginRenderTypes.begin();
 
 		if (Mods.bool("chunkborders", "grid")) {

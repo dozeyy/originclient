@@ -146,14 +146,28 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			}
 		});
+		// Waypoints, party pings, WorldEdit CUI and Chunk Borders stay above an Iris
+		// pack's clouds / fog: banked at LAST, drawn after the pack's composite
+		// (render/AfterShadersPass). Shaders off: unchanged.
+		com.origin.client.client.render.AfterShadersPass.init();
 		WorldRenderEvents.LAST.register(context -> {
 			try {
-				ChunkBorderRenderer.render(context);
+				boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+				try {
+					ChunkBorderRenderer.render(context);
+				} finally {
+					com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+				}
 			} catch (Throwable t) {
 				// overlay must never take the frame down
 			}
 			try {
-				com.origin.client.client.waypoints.WaypointRenderer.render(context);
+				boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+				try {
+					com.origin.client.client.waypoints.WaypointRenderer.render(context);
+				} finally {
+					com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+				}
 			} catch (Throwable t) {
 				// waypoints must never take the frame down
 			}

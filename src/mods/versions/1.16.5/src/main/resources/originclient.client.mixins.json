@@ -61,6 +61,7 @@
 		"GuiCrosshairMixin",
 		"GuiFoodMixin",
 		"HurtCamMixin",
+		"GameRendererPostShadersMixin",
 		"GameRendererFrameMixin",
 		"OverlayTextureAccessor",
 		"HumanoidArmorLayerMixin",

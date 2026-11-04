@@ -43,7 +43,11 @@ public final class ChunkBorderRenderer {
 		double yMax = mc.level.getMaxBuildHeight() - cam.y;
 
 		PoseStack.Pose pose = context.matrixStack().last();
-		VertexConsumer buf = context.consumers().getBuffer(RenderType.lines());
+		// Shader pack on (this call is wrapped in AfterShadersPass.bankBegin): the
+		// rings/lattice go to the after-shaders bank with the posts. Shaders off: the
+		// frame's buffer, as before.
+		VertexConsumer buf = (OriginRenderTypes.banking() ? OriginRenderTypes.bankLines() : context.consumers())
+				.getBuffer(RenderType.lines());
 		VertexConsumer posts = OriginRenderTypes.begin();
 
 		if (Mods.bool("chunkborders", "grid")) {
@@ -99,7 +103,8 @@ public final class ChunkBorderRenderer {
 		// next -- with the waypoints mod off, that is the first-person hand pass,
 		// which runs after a depth clear and with the HAND projection, so the
 		// rings showed through terrain at the wrong FOV.
-		if (context.consumers() instanceof net.minecraft.client.renderer.MultiBufferSource.BufferSource shared) {
+		if (!OriginRenderTypes.banking()
+				&& context.consumers() instanceof net.minecraft.client.renderer.MultiBufferSource.BufferSource shared) {
 			shared.endBatch(RenderType.lines());
 		}
 	}
