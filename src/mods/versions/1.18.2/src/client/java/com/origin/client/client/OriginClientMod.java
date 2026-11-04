@@ -280,17 +280,18 @@ public class OriginClientMod implements ClientModInitializer {
 				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 			}
 		});
-		// Pause menu "Mods" (G121-5): on the title, "Mods" opens Origin's mod menu, but in a
-		// world Mod Menu's own "Mods" button sat on the pause screen and opened its plain jar
-		// list. One word, one screen: that button is swapped, in its own slot and size, for
-		// one that opens Origin's menu (which links to Mod Menu's full list itself). Mod Menu
-		// adds its button from its own AFTER_INIT listener and the order between mods'
-		// listeners is not fixed, so the swap runs before the screen's frames, after every
-		// listener has run. Fail-soft: any surprise leaves Mod Menu's button as it was.
+		// Pause menu "Mods | Origin" row (Will, 2026-11-04; addPauseModsRow). Mod Menu adds its
+		// own "Mods" button from its AFTER_INIT listener and the order between mods' listeners is
+		// not fixed, so the row is built once per init at the first frame, after every listener has run.
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
-				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.beforeRender(screen).register(
-						(s, g, mx, my, tick) -> swapPauseModsButton(client, s));
+				final boolean[] built = {false};
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.beforeRender(screen).register((s, g, mx, my, tick) -> {
+					if (!built[0]) {
+						built[0] = true;
+						addPauseModsRow(client, s);
+					}
+				});
 			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
@@ -512,25 +513,65 @@ public class OriginClientMod implements ClientModInitializer {
 		return code > 0 ? InputConstants.Type.KEYSYM.getOrCreate(code) : InputConstants.UNKNOWN;
 	}
 
-	/** The pause screen's Mod Menu "Mods" button -> the same button opening Origin's menu (G121-5). */
-	private static void swapPauseModsButton(Minecraft client, net.minecraft.client.gui.screens.Screen pause) {
+	/**
+	 * The pause menu's "Mods | Origin" row (Will, 2026-11-04): "Mods" opens the player's full mod list
+	 * with each mod's settings (Mod Menu's, gui/PlayerModList), "Origin" opens Origin's own menu: the
+	 * same pair as the title screen. The row takes the slot of Mod Menu's own "Mods" button, which it
+	 * replaces (any other Mod Menu entry on this screen goes too: one way in); with no Mod Menu button,
+	 * the Send Feedback | Report Bugs row that Mod Menu itself replaces by default. Fail-soft: a
+	 * surprise leaves the menu as it was.
+	 */
+	private static void addPauseModsRow(Minecraft client, net.minecraft.client.gui.screens.Screen pause) {
 		try {
-			var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(pause);
-			for (int i = 0; i < buttons.size(); i++) {
-				var w = buttons.get(i);
-				// Mod Menu's own widget class; its icon-only style (too small for a label) stays.
-				if (w.getClass().getName().startsWith("com.terraformersmc.modmenu.") && w.getWidth() >= 40) {
-					// No Button.builder / getX() before 1.19.3: the plain ctor and public x/y fields.
-					net.minecraft.client.gui.components.Button ours = new net.minecraft.client.gui.components.Button(
-							w.x, w.y, w.getWidth(), w.getHeight(), new net.minecraft.network.chat.TextComponent("Mods"),
-							b -> client.setScreen(new com.origin.client.client.gui.OriginModMenuScreen(pause, null)));
-					buttons.remove(i);
-					buttons.add(ours);
-					return;
+			java.util.List<net.minecraft.client.gui.components.AbstractWidget> buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(pause);
+			java.util.List<net.minecraft.client.gui.components.AbstractWidget> gone = new java.util.ArrayList<>();
+			net.minecraft.client.gui.components.AbstractWidget slot = null, feedback = null, bugs = null;
+			String feedbackLabel = net.minecraft.client.resources.language.I18n.get("menu.sendFeedback");
+			String bugsLabel = net.minecraft.client.resources.language.I18n.get("menu.reportBugs");
+			for (net.minecraft.client.gui.components.AbstractWidget w : buttons) {
+				String label = w.getMessage().getString();
+				if (com.origin.client.client.gui.PlayerModList.isModMenuButton(w, label)) {
+					gone.add(w);
+					if (slot == null && w.getWidth() >= 40) {
+						slot = w;   // its wide row; Mod Menu's narrow icon style is too small for two labels
+					}
+				} else if (feedbackLabel.equals(label)) {
+					feedback = w;
+				} else if (bugsLabel.equals(label)) {
+					bugs = w;
 				}
 			}
+			int x, y, width, height;
+			// Vanilla's pause columns sit 8 px apart on every version (two 98s in a 204 row).
+			int gap = 8;
+			if (slot != null) {
+				x = slot.x;
+				y = slot.y;
+				width = slot.getWidth();
+				height = slot.getHeight();
+			} else if (feedback != null && bugs != null) {
+				x = Math.min(feedback.x, bugs.x);
+				y = feedback.y;
+				width = Math.max(feedback.x + feedback.getWidth(), bugs.x + bugs.getWidth()) - x;
+				height = feedback.getHeight();
+				gone.add(feedback);
+				gone.add(bugs);
+			} else {
+				return;   // no row to take: the menu stays as it is
+			}
+			for (net.minecraft.client.gui.components.AbstractWidget w : gone) {
+				int i = buttons.indexOf(w);
+				if (i >= 0) {
+					buttons.remove(i);
+				}
+			}
+			int half = (width - gap) / 2;
+			buttons.add(new net.minecraft.client.gui.components.Button(x, y, half, height, new net.minecraft.network.chat.TextComponent("Mods"),
+					b -> client.setScreen(com.origin.client.client.gui.PlayerModList.screen(pause))));
+			buttons.add(new net.minecraft.client.gui.components.Button(x + width - half, y, half, height, new net.minecraft.network.chat.TextComponent("Origin"),
+					b -> client.setScreen(new com.origin.client.client.gui.OriginModMenuScreen(pause, null))));
 		} catch (Throwable t) {
-			// Mod Menu's button stays as it was
+			// the pause menu stays as it was
 		}
 	}
 
