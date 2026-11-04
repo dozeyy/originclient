@@ -419,3 +419,18 @@ Package root `com.origin.client.client` unless noted.
   modern name, or a core program above GLSL 130) gets a one-line warning in
   that screen and once in chat; files are never touched. Check:
   `tools/check-shader-allowlist.ps1` (pure Java, no MC classpath).
+
+- 2026-11-04: the STARTUP loading screen is Origin's (Will: "remove the forge loading
+  screen ... change it to our custom one"). FML's SplashProgress is switched off
+  (`mixin/menus/SplashProgressMixin`: `getBool("enabled")` HEAD -> false; the launcher's
+  `ForgeSplashOff` writes `enabled=false` too), so the main thread keeps the GL context and
+  `render/StartupLoading` draws LoadingLook on it: first frame at `SplashProgress.start`
+  RETURN (before mod construction), redraws at `FMLClientHandler.processWindowMessages` HEAD
+  (ProgressManager push/pop/step all call it), vanilla's Mojang `drawSplashScreen` replaced
+  (HEAD cancel, a 1x1 `mojangLogo` stand-in for `clearVanillaResources`), last frame (bar
+  full) at `onInitializationComplete` HEAD; the title's settle hold continues the same
+  picture. Before the texture manager/font exist, so the logo is a raw GL texture and the
+  caption is `render/BootFont` (ascii.png read directly). Order proven by javap
+  (ref-189 `splash` topic): createDisplay -> beginMinecraftLoading (SplashProgress.start,
+  loadMods, preinit) -> TextureManager -> drawVanillaScreen -> ... -> finishMinecraftLoading
+  (init, postInit, the big refreshResources) -> title set -> onInitializationComplete.

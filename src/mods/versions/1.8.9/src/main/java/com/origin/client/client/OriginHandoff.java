@@ -19,8 +19,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * 1.8.9: Forge has no pre-launch entrypoint, so hello comes from the earliest
  * hook the module has: the @Mod class's construction ({@link #startup}, from
- * OriginClient's constructor). By then FML's own loading splash (themed
- * charcoal by the launcher) is already on screen, so loading follows at once.
+ * OriginClient's constructor). By then Origin's own startup loading screen
+ * (render/StartupLoading, drawn from FML's SplashProgress.start, before any mod
+ * is constructed) is already on screen, so loading follows at once.
  * Ready is the first END client tick: Minecraft only starts ticking after
  * startGame has closed the splash. Printed through the mod's log4j logger,
  * which Forge's console appender writes to stdout behind a "[time]
@@ -37,7 +38,7 @@ public final class OriginHandoff {
 	private OriginHandoff() {
 	}
 
-	/** Mod construction: the handshake's hello, and FML's splash is the loading screen already up. */
+	/** Mod construction: the handshake's hello, and Origin's startup loading screen is already up. */
 	public static void startup() {
 		say(HELLO, "hello");
 		say(LOADING, "loading");

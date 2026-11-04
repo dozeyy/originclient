@@ -29,10 +29,9 @@ import java.util.Iterator;
  * bar is listeners done / total); Forge's ProgressManager.ProgressBar.step inside the long
  * listeners ({@link #pump}: model loading) only redraws, at most ~30 fps.
  *
- * <p>Separate from the STARTUP loading screen on purpose (another piece of work owns that):
- * nothing draws until the game loop has rendered a frame (FrameStats), so the startup
- * reload -- which runs while Forge's splash owns the GL context on its own thread -- is
- * never touched. Never drawn inside a texture step (Forge's "Texture ..." progress bars:
+ * <p>Separate from the STARTUP loading screen on purpose (StartupLoading draws the startup
+ * reload from Forge's progress pumps): nothing here draws until the game loop has rendered a
+ * frame (FrameStats), so the two never draw the same load. Never drawn inside a texture step (Forge's "Texture ..." progress bars:
  * the atlas being uploaded relies on its texture staying bound); the texture binding is
  * put back after every draw anyway. Fail-soft: the first error turns it off for the
  * session (the reload then freezes the picture as vanilla always did).
@@ -88,7 +87,8 @@ public final class ReloadOverlay {
 		active = false;
 	}
 
-	private static boolean inTextureStep() {
+	/** True while Forge reports a texture step (stitching, creation, upload): never draw then. Also StartupLoading. */
+	static boolean inTextureStep() {
 		try {
 			Iterator<ProgressManager.ProgressBar> it = ProgressManager.barIterator();
 			while (it.hasNext()) {

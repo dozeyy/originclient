@@ -56,9 +56,9 @@ import java.util.List;
 //
 // The launch journey (StartupTransition): 1.21.1 holds its finished loading
 // picture over the title until the title's first frames settle, then dissolves
-// it over REVEAL_MS. 1.8.9's startup load is Forge's own splash, which nothing of
-// Origin's can draw on, so the first title of a game start plays that ending
-// itself: the clean splash at full strength over the title rendered for real
+// it over REVEAL_MS. 1.8.9's startup load is Origin's own screen (StartupLoading),
+// which ends on the bar full, and the first title of a game start plays the same
+// ending: that picture at full strength over the title rendered for real
 // underneath (HOLD) until SETTLE_FRAMES frames in a row come in under the settle
 // limit -- or HOLD_CAP_MS, or a click -- then the dissolve. The title's entrance
 // (the rows rising in) counts from the reveal.

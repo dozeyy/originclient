@@ -668,9 +668,9 @@ public final class OriginDevShots {
 	private static boolean bootShot = false;
 
 	/**
-	 * Style / clean sets: one frame of the STARTUP splash. 1.8.9's startup load is Forge's own splash, so
-	 * Origin's startup layer is drawn by the first title (OriginTitleScreen's settle hold): the first tick
-	 * the title is up and still holding grabs the frame it just showed.
+	 * Style / clean sets: one frame of the STARTUP picture at its end (the load itself is StartupLoading,
+	 * drawn before the game loop runs, so the video set films it): the first title holds that picture
+	 * (OriginTitleScreen's settle hold), and the first tick the title is up and still holding grabs it.
 	 */
 	private static void bootLoadingShot(Minecraft mc) {
 		String set = System.getenv("ORIGIN_SHOTS_SET");

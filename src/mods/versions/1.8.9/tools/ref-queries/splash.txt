@@ -1,0 +1,9 @@
+# ref-189 lookup group: splash -- Origin's startup loading screen replacing FML's SplashProgress (2026-11-04)
+# Answered 2026-11-04 (run 41773476316): Minecraft#startGame / drawSplashScreen, SplashProgress#start/finish/
+# drawVanillaScreen/pause/resume, FMLClientHandler#beginMinecraftLoading/finishMinecraftLoading/
+# onInitializationComplete/processWindowMessages, ProgressManager push/pop/step, TextureMap#loadTextureAtlas.
+code net.minecraftforge.fml.client.SplashProgress#clearVanillaResources
+code net.minecraft.client.renderer.texture.TextureManager#deleteTexture
+code net.minecraft.client.renderer.texture.TextureManager#getDynamicTextureLocation
+member mojangLogo
+member processWindowMessages

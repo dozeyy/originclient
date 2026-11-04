@@ -88,7 +88,7 @@ public static class LegacyStackInstaller
         }
     }
 
-    // FML's boot splash themed to the Origin palette (ForgeSplashTheme: the keys,
-    // and why the first seed never took). Per account game folder.
-    public static void SeedSplashTheme(string configFolder) => ForgeSplashTheme.Seed(configFolder);
+    // FML's own boot splash switched off (ForgeSplashOff: why, and the old theme it replaces),
+    // so Origin's loading screen shows from the first frame. Per account game folder.
+    public static void TurnOffForgeSplash(string configFolder) => ForgeSplashOff.Apply(configFolder);
 }
