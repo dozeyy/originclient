@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 
 namespace OriginLauncher.App.Core.Updates;
@@ -57,4 +58,37 @@ endlocal
 
     private static void ExtractUpdate(string zipPath, string stageDir) =>
         System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+
+    // The background download waits on a metered connection (Settings > Network > "Metered connection", a phone
+    // hotspot, roaming): Windows' own network cost, read through the Network List Manager (no WinRT needed). Any
+    // failure reading it counts as unmetered; the Update click itself always downloads.
+    static partial void ReadMeteredOverride(ref bool metered)
+    {
+        object? manager = null;
+        try
+        {
+            manager = Activator.CreateInstance(Type.GetTypeFromCLSID(NetworkListManagerClsid, throwOnError: true)!);
+            ((INetworkCostManager)manager!).GetCost(out var cost, IntPtr.Zero);
+            metered = UpdatePrefetch.IsMeteredCost(cost);
+        }
+        catch (Exception)
+        {
+            // No Network List Manager answer: unmetered.
+        }
+        finally
+        {
+            if (manager != null && Marshal.IsComObject(manager)) Marshal.ReleaseComObject(manager);
+        }
+    }
+
+    private static readonly Guid NetworkListManagerClsid = new("DCB00C01-570F-4A9B-8D69-199FDBA5723B");
+
+    // netlistmgr.h. Only GetCost is called; the vtable order must still match, so the later methods are declared.
+    [ComImport, Guid("DCB00008-570F-4A9B-8D69-199FDBA5723B"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface INetworkCostManager
+    {
+        void GetCost(out uint cost, IntPtr destIpAddress);
+        void GetDataPlanStatus(IntPtr dataPlanStatus, IntPtr destIpAddress);
+        void SetDestinationAddresses(uint length, IntPtr destIpAddressList, [MarshalAs(UnmanagedType.VariantBool)] bool append);
+    }
 }

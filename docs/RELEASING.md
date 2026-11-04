@@ -114,6 +114,33 @@ publishing the asset the launcher looks for. Tests:
 `src/OriginLauncher.Tests/UpdateVerifierTests.cs`. Never rename the `.sha256`
 asset (installed launchers key on it; an absent one is accepted, see above).
 
+## Background download (all three launchers)
+
+The moment a release is offered (badge lit), the launcher downloads it in the
+background with no UI (`Core/Updates/UpdateService.Background.cs`, rules in
+`UpdatePrefetch.cs`, DECISIONS 2026-11-03): the same staging path the click uses
+(a zip the quiet retry verified, else the small update on Windows, else the full
+zip; every one checked against its SHA-256 as above), unpacked into
+`updates/<version>/` and recorded file by file (`StageSnapshot`). The Update
+click / restart prompt then re-hashes that stage and swaps; a click while it
+downloads joins that download and shows its progress. Rules:
+- Anything odd (the background download failed, the stage changed on disk) and
+  the click downloads it itself exactly as before. A background download that
+  fails its SHA-256 check withdraws the update at once (Play released, quiet
+  retry), the same rule as a failed click; any other background failure only
+  retries later (2 min doubling to 30 min) and the click still works.
+- It waits while a game this launcher started is starting or running (a game
+  start pauses one in flight), offline, or on a metered connection (Windows:
+  the network cost; Linux: NetworkManager's Metered; the Mac can't read it and
+  counts as unmetered). Closing the launcher cancels it; dev builds never
+  download in the background.
+- Once the click takes a version nothing else downloads and no cleanup touches
+  its files. The swap itself waits ("Waiting for Minecraft to close") while a
+  game this launcher started is running.
+- Old stage folders (superseded, or the one the last swap copied from) are
+  removed with the stale downloads. Tests: `UpdatePrefetchTests.cs`,
+  `UpdateCleanupTests.cs`.
+
 ## Small updates (deltas, Windows)
 
 So a player doesn't re-download the whole ~265 MB zip when only a few files

@@ -89,6 +89,16 @@ public static class SettingsSync
     public static void TrackGame(string account, string version, Process process) =>
         RunningGames[OriginPaths.GameDir(version, account)] = process;
 
+    /// <summary>
+    /// True while any game this launcher started is still running. The self-update waits for it: no background download
+    /// while a game runs, and no swap-and-restart under one (Core/Updates/UpdatePrefetch).
+    /// </summary>
+    public static bool AnyGameRunning => RunningGames.Values.Any(p =>
+    {
+        try { return !p.HasExited; }
+        catch (Exception) { return false; } // handle gone: not ours to wait on
+    });
+
     /// <summary>The game exited: take in what the player changed during that session.</summary>
     public static void AfterExit(string account, string version) => Run($"exit {account} {version}", () =>
     {

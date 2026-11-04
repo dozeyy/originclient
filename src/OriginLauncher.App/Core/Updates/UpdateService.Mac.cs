@@ -33,6 +33,10 @@ public static partial class UpdateService
 
     private static void ShutdownApp() => Shutdown();
 
+    // No ReadMeteredOverride here: macOS reports an expensive or Low Data Mode connection only through Network.framework
+    // (NWPath), which .NET can't reach without a native binding, so the Mac's background download treats every
+    // connection as unmetered (offline and running games still wait).
+
     // ditto, not ZipFile: a signed .app carries symlinks (framework Versions/Current) and exec bits,
     // and .NET's zip reader writes a symlink as a plain file holding its target, which breaks the
     // signature. ditto is what made the zip (ditto -c -k --keepParent) and restores it exactly.

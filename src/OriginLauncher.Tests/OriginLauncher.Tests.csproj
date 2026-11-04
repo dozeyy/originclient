@@ -168,6 +168,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Updates\SwapAttempt.cs" LinkBase="Updates" />
     <!-- The small self-update: the new release rebuilt from the installed folder + only the changed files, every staged file verified (pure: paths are parameters). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateDelta.cs" LinkBase="Updates" />
+    <!-- The background download's state machine (published -> downloading -> staged -> swap; failures fall back; a running game waits) and the stage's re-check before the swap (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\UpdatePrefetch.cs" LinkBase="Updates" />
+    <Compile Include="..\OriginLauncher.App\Core\Updates\StageSnapshot.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <!-- settings.json's store: fails closed on a file it can't read (SettingsStoreTests; memory probe swapped). -->
     <Compile Include="..\OriginLauncher.App\Core\SettingsStore.cs" LinkBase="Settings" />
