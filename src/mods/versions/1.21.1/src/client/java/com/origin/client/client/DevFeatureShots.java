@@ -113,6 +113,7 @@ public final class DevFeatureShots {
 				Mods.setOn("weather", false);
 				Mods.setOn("nametags", true);
 				Mods.set("nametags", "thirdPerson", true);
+				Mods.set("nametags", "textShadow", false); // DIAG r5 JP-1: shadow off, IF on
 				break;
 			default:
 				break;
