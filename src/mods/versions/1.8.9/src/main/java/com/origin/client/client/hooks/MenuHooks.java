@@ -71,6 +71,8 @@ public class MenuHooks {
 	private static final int DISCONNECT_ID = 1;
 	// Forge's "Mod Options..." on the pause menu (GuiIngameMenu patch, Forge 11.15.1.2318).
 	private static final int FORGE_MOD_OPTIONS_ID = 12;
+	/** Vanilla's pause-menu "Open to LAN" button id (GuiIngameMenu.actionPerformed case 7). */
+	private static final int LAN_ID = 7;
 	/** Vanilla's first-row top padding (room for the "Game menu" title). */
 	private static final int TITLE_CLEARANCE = 50;
 
@@ -198,41 +200,60 @@ public class MenuHooks {
 	}
 
 	/**
-	 * The pause menu's "Mods | Origin" row (Will, 2026-11-04, as every Fabric version): Forge's own
-	 * "Mod Options..." button (id 12, Forge's GuiIngameMenu patch, a full-width row) makes way for two
-	 * half buttons in its slot: "Mods" opens Forge's GuiModList (every mod, each with its Config
-	 * button) and "Origin" opens Origin's own menu. Halves as vanilla's own pause pairs: 4 px apart.
-	 * Clicks go through ACTIONS (onActionPerformedPre). Fail-soft: any surprise leaves Forge's button.
+	 * The pause menu's "Mods | Origin" row (Will, 2026-11-04, as every Fabric version): "Mods" opens
+	 * Forge's GuiModList (every mod, each with its Config button) and "Origin" opens Origin's own menu.
+	 * Forge's GuiIngameMenu patch (CI dev-shots 2026-11-04) puts its "Mod Options..." (id 12) in the
+	 * right half of the Options row and stretches Open to LAN (id 7) across the row above. So the two
+	 * swap places: LAN takes Forge's half slot (a new id-7 button, so vanilla's own actionPerformed
+	 * still opens Share to LAN; enabled copied, it is off on a server), and the full row splits into
+	 * Mods | Origin, 4 px apart like vanilla's pairs: the 1.21.1 layout. If id 12 already spans a row
+	 * on its own, that row splits instead. Clicks go through ACTIONS (onActionPerformedPre).
+	 * Fail-soft: any surprise leaves Forge's buttons as they were.
 	 */
 	private static void addPauseModsRow(final GuiScreen pause, List<GuiButton> buttons) {
 		try {
+			GuiButton forge = null, lan = null;
 			for (GuiButton b : buttons) {
 				if (b.id == FORGE_MOD_OPTIONS_ID) {
-					int w = b.getButtonWidth();
-					int half = (w - 4) / 2;
-					GuiButton mods = new GuiButton(PAUSE_MODS_ID, b.xPosition, b.yPosition, half, 20, "Mods");
-					GuiButton origin = new GuiButton(ORIGIN_ID, b.xPosition + w - half, b.yPosition, half, 20, "Origin");
-					buttons.remove(b);
-					buttons.add(mods);
-					buttons.add(origin);
-					ACTIONS.put(mods, new Runnable() {
-						@Override
-						public void run() {
-							Minecraft.getMinecraft().displayGuiScreen(new net.minecraftforge.fml.client.GuiModList(pause));
-						}
-					});
-					ACTIONS.put(origin, new Runnable() {
-						@Override
-						public void run() {
-							Minecraft.getMinecraft().displayGuiScreen(
-									new com.origin.client.client.gui.OriginModMenuScreen(pause, null));
-						}
-					});
-					return;
+					forge = b;
+				} else if (b.id == LAN_ID) {
+					lan = b;
 				}
 			}
+			if (forge == null) {
+				return;
+			}
+			GuiButton row = forge;
+			if (lan != null && lan.getButtonWidth() > forge.getButtonWidth()) {
+				GuiButton halfLan = new GuiButton(LAN_ID, forge.xPosition, forge.yPosition, forge.getButtonWidth(), 20, lan.displayString);
+				halfLan.enabled = lan.enabled;
+				halfLan.visible = lan.visible;
+				row = lan;
+				buttons.remove(lan);
+				buttons.add(halfLan);
+			}
+			int w = row.getButtonWidth();
+			int half = (w - 4) / 2;
+			GuiButton mods = new GuiButton(PAUSE_MODS_ID, row.xPosition, row.yPosition, half, 20, "Mods");
+			GuiButton origin = new GuiButton(ORIGIN_ID, row.xPosition + w - half, row.yPosition, half, 20, "Origin");
+			buttons.remove(forge);
+			buttons.add(mods);
+			buttons.add(origin);
+			ACTIONS.put(mods, new Runnable() {
+				@Override
+				public void run() {
+					Minecraft.getMinecraft().displayGuiScreen(new net.minecraftforge.fml.client.GuiModList(pause));
+				}
+			});
+			ACTIONS.put(origin, new Runnable() {
+				@Override
+				public void run() {
+					Minecraft.getMinecraft().displayGuiScreen(
+							new com.origin.client.client.gui.OriginModMenuScreen(pause, null));
+				}
+			});
 		} catch (Throwable ignored) {
-			// Forge's button as it was
+			// Forge's buttons as they were
 		}
 	}
 
