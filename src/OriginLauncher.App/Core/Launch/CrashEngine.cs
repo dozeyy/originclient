@@ -94,8 +94,10 @@ public static class MemoryBump
 
 /// <summary>
 /// At most ONE automatic relaunch per crash chain: after the crash window's fix (or its one-time try without added
-/// mods) relaunches a game, a second crash of that same account never offers another one, and the chain resets once
-/// a game boots or after a while. Keyed by the account's game key.
+/// mods) relaunches a game, a second crash of that same account AND version never offers another one, and the chain
+/// resets once that game boots or after a while. Keyed by account and version: a fix tried on 1.21.1 says nothing
+/// about 1.20.1 (before 2026-11-04 the key was the account alone, so one version's fix hid every other version's
+/// fix button for 30 minutes and claimed "Origin already tried a fix once" about a version it never touched).
 /// </summary>
 public sealed class CrashRetryGuard
 {
@@ -104,26 +106,29 @@ public sealed class CrashRetryGuard
     private readonly object _gate = new();
     private readonly Dictionary<string, (CrashFixKind Kind, DateTime At)> _spent = new();
 
-    /// <summary>True when this key has spent its one retry (and it is still inside the window).</summary>
-    public bool AnyTried(string key, DateTime nowUtc)
+    private static string Chain(string accountKey, string version) => accountKey + "|" + version;
+
+    /// <summary>True when this account's game of this version has spent its one retry (still inside the window).</summary>
+    public bool AnyTried(string accountKey, string version, DateTime nowUtc)
     {
-        lock (_gate) return _spent.TryGetValue(key, out var s) && nowUtc - s.At < Window;
+        lock (_gate) return _spent.TryGetValue(Chain(accountKey, version), out var s) && nowUtc - s.At < Window;
     }
 
     /// <summary>Spends the retry. False when it was already spent (the caller must not relaunch).</summary>
-    public bool TryBegin(string key, CrashFixKind kind, DateTime nowUtc)
+    public bool TryBegin(string accountKey, string version, CrashFixKind kind, DateTime nowUtc)
     {
+        var chain = Chain(accountKey, version);
         lock (_gate)
         {
-            if (_spent.TryGetValue(key, out var s) && nowUtc - s.At < Window) return false;
-            _spent[key] = (kind, nowUtc);
+            if (_spent.TryGetValue(chain, out var s) && nowUtc - s.At < Window) return false;
+            _spent[chain] = (kind, nowUtc);
             return true;
         }
     }
 
-    /// <summary>The game booted fine: the next crash starts a fresh chain.</summary>
-    public void Clear(string key)
+    /// <summary>That game booted fine: its next crash starts a fresh chain.</summary>
+    public void Clear(string accountKey, string version)
     {
-        lock (_gate) _spent.Remove(key);
+        lock (_gate) _spent.Remove(Chain(accountKey, version));
     }
 }

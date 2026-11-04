@@ -1279,7 +1279,7 @@ public partial class HomePage : UserControl
         }
         if (view.ReleaseScene)
             ReleaseScene(game, gameLoading: view.Stage >= HandoffStage.Loading);
-        if (view.GameReady) CrashRetries.Clear(game.Key); // it booted: the next crash starts a fresh chain
+        if (view.GameReady) CrashRetries.Clear(game.Key, game.Version); // it booted: the next crash starts a fresh chain
         if (!view.GameReady || runningMessage == null) return false;
         if (_launches.WindowShown(game.Key, game))
             Note(game.Key, runningMessage, LaunchTone.Success);
@@ -1373,7 +1373,7 @@ public partial class HomePage : UserControl
             var customJvm = game.LaunchedJvmArgs?.Arguments;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
-            var fixTried = CrashRetries.AnyTried(key, DateTime.UtcNow);
+            var fixTried = CrashRetries.AnyTried(key, game.Version, DateTime.UtcNow);
             var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
                 game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm,
                 game.Memory.RaiseFloorMb));
@@ -1429,7 +1429,7 @@ public partial class HomePage : UserControl
     {
         if (fix == null && !tryWithoutAddedMods) return;
         if (_launches.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
-        if (!CrashRetries.TryBegin(game.Key, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
+        if (!CrashRetries.TryBegin(game.Key, game.Version, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
 
         if (fix == null)
         {

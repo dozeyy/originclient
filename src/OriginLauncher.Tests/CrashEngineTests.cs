@@ -399,17 +399,32 @@ More details:
     {
         var guard = new CrashRetryGuard();
         var t = new DateTime(2026, 10, 20, 12, 0, 0, DateTimeKind.Utc);
-        Assert.False(guard.AnyTried("steve", t));
-        Assert.True(guard.TryBegin("steve", CrashFixKind.RaiseMemory, t));
-        Assert.True(guard.AnyTried("steve", t.AddMinutes(1)));
-        Assert.False(guard.TryBegin("steve", CrashFixKind.None, t.AddMinutes(1)));
-        Assert.True(guard.TryBegin("alex", CrashFixKind.None, t)); // other accounts are independent
+        Assert.False(guard.AnyTried("steve", "1.21.1", t));
+        Assert.True(guard.TryBegin("steve", "1.21.1", CrashFixKind.RaiseMemory, t));
+        Assert.True(guard.AnyTried("steve", "1.21.1", t.AddMinutes(1)));
+        Assert.False(guard.TryBegin("steve", "1.21.1", CrashFixKind.None, t.AddMinutes(1)));
+        Assert.True(guard.TryBegin("alex", "1.21.1", CrashFixKind.None, t)); // other accounts are independent
 
-        guard.Clear("steve"); // the game booted
-        Assert.False(guard.AnyTried("steve", t.AddMinutes(2)));
-        Assert.True(guard.TryBegin("steve", CrashFixKind.DisableMods, t.AddMinutes(2)));
+        guard.Clear("steve", "1.21.1"); // the game booted
+        Assert.False(guard.AnyTried("steve", "1.21.1", t.AddMinutes(2)));
+        Assert.True(guard.TryBegin("steve", "1.21.1", CrashFixKind.DisableMods, t.AddMinutes(2)));
 
-        Assert.False(guard.AnyTried("steve", t.AddMinutes(2) + CrashRetryGuard.Window)); // expired
+        Assert.False(guard.AnyTried("steve", "1.21.1", t.AddMinutes(2) + CrashRetryGuard.Window)); // expired
+    }
+
+    // Bug run 6, KC-4: a fix spent on 1.21.1 hid 1.20.1's own fix ("Origin already tried a fix once") for 30 minutes.
+    [Fact]
+    public void Retry_guard_keeps_each_version_of_an_account_apart()
+    {
+        var guard = new CrashRetryGuard();
+        var t = new DateTime(2026, 11, 4, 12, 0, 0, DateTimeKind.Utc);
+        Assert.True(guard.TryBegin("steve", "1.21.1", CrashFixKind.DisableMods, t));
+
+        Assert.False(guard.AnyTried("steve", "1.20.1", t.AddMinutes(1)));
+        Assert.True(guard.TryBegin("steve", "1.20.1", CrashFixKind.RaiseMemory, t.AddMinutes(1)));
+
+        guard.Clear("steve", "1.20.1"); // 1.20.1 booted: 1.21.1's chain is still spent
+        Assert.True(guard.AnyTried("steve", "1.21.1", t.AddMinutes(2)));
     }
 
     [Fact]
