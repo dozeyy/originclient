@@ -227,9 +227,9 @@ public static class CrashRules
             : f.Mods.Where(m => m.ModId.Equals(dup.ModId, StringComparison.OrdinalIgnoreCase) && m.JarFileName != null)
                 .Select(m => m.JarFileName!).ToList();
         var copies = jars.Select(j => Find(f, jar: j) ?? new CrashModEntry(dup.ModId, j, true)).ToList();
-        // Keep one copy: Origin's own when there is one, else the last by name (version numbers sort that way).
+        // Keep one copy: Origin's own when there is one, else the newest by the version in its file name.
         var keep = copies.FirstOrDefault(c => !c.IsExternal)
-                   ?? copies.OrderBy(c => c.JarFileName, StringComparer.OrdinalIgnoreCase).LastOrDefault();
+                   ?? copies.OrderBy(c => c.JarFileName, NewerJarName).LastOrDefault();
         var off = copies.Where(c => c.IsExternal && !ReferenceEquals(c, keep) && c.JarFileName != null)
             .Select(c => c.JarFileName!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var fix = off.Count > 0
@@ -417,6 +417,61 @@ public static class CrashRules
     }
 
     // ---- helpers -----------------------------------------------------------------------------------------------
+
+    // Orders two file names of the same mod oldest to newest. As text, "Patcher-1.9.2.jar" sorted after
+    // "Patcher-1.10.0.jar" and the duplicate fix kept the older copy (bug run 6, KC-7). The version is the part of the
+    // name from the first number that follows a '-' or '_' (FabricVersion's rules: 1.10.0 > 1.9.2, build metadata
+    // like "+mc1.21.1" ignored); names without one compare number by number ("v10" after "v9").
+    internal static readonly IComparer<string?> NewerJarName = Comparer<string?>.Create(CompareJarNames);
+
+    private static int CompareJarNames(string? a, string? b)
+    {
+        if (VersionInName(a) is { } va && VersionInName(b) is { } vb
+            && Compat.FabricVersion.TryParse(va, out var x) && Compat.FabricVersion.TryParse(vb, out var y))
+        {
+            var byVersion = x.CompareTo(y);
+            if (byVersion != 0) return byVersion;
+        }
+        return NaturalCompare(a ?? "", b ?? "");
+    }
+
+    private static string? VersionInName(string? jarName)
+    {
+        if (jarName == null) return null;
+        var stem = jarName.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? jarName[..^4] : jarName;
+        for (var i = 1; i < stem.Length; i++)
+            if ((stem[i - 1] == '-' || stem[i - 1] == '_') && char.IsAsciiDigit(stem[i]))
+                return stem[i..];
+        return null;
+    }
+
+    // Text compare where each run of digits compares as a number.
+    private static int NaturalCompare(string a, string b)
+    {
+        int i = 0, j = 0;
+        while (i < a.Length && j < b.Length)
+        {
+            if (char.IsAsciiDigit(a[i]) && char.IsAsciiDigit(b[j]))
+            {
+                int si = i, sj = j;
+                while (i < a.Length && char.IsAsciiDigit(a[i])) i++;
+                while (j < b.Length && char.IsAsciiDigit(b[j])) j++;
+                var na = a[si..i].TrimStart('0');
+                var nb = b[sj..j].TrimStart('0');
+                if (na.Length != nb.Length) return na.Length.CompareTo(nb.Length);
+                var c = string.CompareOrdinal(na, nb);
+                if (c != 0) return c;
+            }
+            else
+            {
+                var c = char.ToLowerInvariant(a[i]).CompareTo(char.ToLowerInvariant(b[j]));
+                if (c != 0) return c;
+                i++;
+                j++;
+            }
+        }
+        return (a.Length - i).CompareTo(b.Length - j);
+    }
 
     private static CrashModEntry? Find(CrashFacts f, string? id = null, string? jar = null) =>
         jar != null

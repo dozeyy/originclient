@@ -240,6 +240,20 @@ More details:
         Assert.StartsWith("Update Origin", v.Finding.RecommendedFix);
     }
 
+    // Bug run 6, KC-7: by plain text "Patcher-1.9.2" sorts after "Patcher-1.10.0", so the older copy was kept.
+    [Theory]
+    [InlineData("Patcher-1.10.0.jar", "Patcher-1.9.2.jar")]
+    [InlineData("sodium-fabric-0.6.13+mc1.21.1.jar", "sodium-fabric-0.6.9+mc1.21.1.jar")]
+    [InlineData("somemod-2.0.0-beta.10.jar", "somemod-2.0.0-beta.9.jar")]
+    [InlineData("somemod v10.jar", "somemod v9.jar")]
+    public void A_duplicate_mod_keeps_the_newer_version_not_the_later_name(string newer, string older)
+    {
+        var v = V($"Mods share ID with builtin mod somemod: {newer}, {older}",
+            mods: [new CrashModEntry("somemod", newer, true), new CrashModEntry("somemod", older, true)]);
+        Assert.Equal([older], v.SafeFix!.Jars);
+        Assert.True(CrashRules.NewerJarName.Compare(newer, older) > 0);
+    }
+
     [Fact]
     public void A_duplicate_mod_keeps_one_copy()
     {
