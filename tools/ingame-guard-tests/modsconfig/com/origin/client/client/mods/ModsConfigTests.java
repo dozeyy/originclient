@@ -73,12 +73,17 @@ public class ModsConfigTests {
 				ModsConfig.VALUES.get("hypixel").put("apiKey", new JsonPrimitive("K2"));
 				ModsConfig.applyProfile("pvp");
 				eq("profile restores its loadout", "50", val("zoom", "fov"));
+				// BMOD-6: a profile saved now is marked; one saved before v1.0.89 gets the
+				// old-default-keys step when applied.
+				eq("new profile carries the default-keys marker", true, snap.has("defaultKeys"));
+				eq("marked profile: no key step", 0, Mods.keepOldDefaultKeysCalls);
 				eq("API key pasted later survives", "K2", val("hypixel", "apiKey"));
 				// A profile saved by an older build still holds a key: the live one wins.
 				JsonObject old = JsonParser.parseString("{\"mods\":{\"hypixel\":{\"apiKey\":\"OLD\"}},\"hud\":{}}").getAsJsonObject();
 				ModsConfig.PROFILES.put("old", old);
 				ModsConfig.applyProfile("old");
 				eq("old profile's key never replaces the live one", "K2", val("hypixel", "apiKey"));
+				eq("unmarked (pre-v1.0.89) profile: key step runs", 1, Mods.keepOldDefaultKeysCalls);
 				ModsConfig.VALUES.put("hypixel", new HashMap<>());
 				ModsConfig.applyProfile("old");
 				eq("no live key: an old profile's key is not brought back", null, val("hypixel", "apiKey"));
