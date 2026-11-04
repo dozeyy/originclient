@@ -5,7 +5,7 @@ import com.origin.client.client.BorderlessFit;
 // one it overlaps most, else none); "covers" means exactly the monitor rect; the
 // keep-covering guard waits for a fresh fit to settle, checks at most twice a second,
 // and caps re-fits so a window that keeps refusing the size is never fought in a
-// loop. Case "will-2026-11-04" is the reported bug's shape (sizes illustrative): a
+// loop (and never re-fitted again after a re-fit that changed nothing). Case "will-2026-11-04" is the reported bug's shape (sizes illustrative): a
 // game started with Borderless on ends up frameless but smaller than its monitor,
 // which must read as "not covering" so it gets fitted again.
 // Run by run.py against the shared copy (every module's copy must be byte-identical).
@@ -47,6 +47,28 @@ public class BorderlessFitTests {
 		check(!BorderlessFit.covers(0, 0, 2561, 1440, left), "one pixel wider is not an exact cover");
 		check(!BorderlessFit.covers(1, 0, 2560, 1440, left), "shifted by one is not a cover");
 		check(!BorderlessFit.covers(0, 0, 2560, 1440, null), "no monitor never covers");
+		// Retina Mac (review 2026-11-04): GLFW's Cocoa backend reports a 14" MacBook's
+		// "looks like 1512x982" mode as 1512x982 POINTS, and the window size is points too;
+		// its 3024x1964 pixels never enter the comparison, so a covering window reads covering.
+		int[] retina = {0, 0, 1512, 982};
+		check(BorderlessFit.covers(0, 0, 1512, 982, retina), "retina: window in points covers a mode in points");
+		check(!BorderlessFit.covers(0, 0, 756, 491, retina), "retina: a half-size window is not covering");
+
+		// Guard: a re-fit that changed nothing is not repeated (unit mismatch such as a scaled
+		// Wayland output, or a window manager that holds the window): one try, not 3 per 10 s forever.
+		BorderlessFit.Guard held = new BorderlessFit.Guard();
+		held.reset(0);
+		check(held.mayRefit(1_000, 0, 0, 1280, 720), "held: the first re-fit is tried");
+		int heldRefits = 0;
+		for (long ms = 2_000; ms < 120_000; ms += 1_250) {
+			if (held.mayRefit(ms, 0, 0, 1280, 720)) {
+				heldRefits++;
+			}
+		}
+		check(heldRefits == 0, "held: a window still where the last re-fit found it is left alone for 2 minutes (got " + heldRefits + ")");
+		check(held.mayRefit(121_000, 100, 50, 1280, 720), "held: it re-arms once the window moves");
+		held.reset(130_000);
+		check(held.mayRefit(131_000, 100, 50, 1280, 720), "held: a real toggle (reset) re-arms it");
 
 		// Guard: settle after a fit, then at most one look per CHECK_MS.
 		BorderlessFit.Guard g = new BorderlessFit.Guard();
@@ -60,21 +82,21 @@ public class BorderlessFitTests {
 
 		// Guard: a re-fit restarts the settle wait; at most BURST_MAX re-fits per BURST_MS.
 		long now = t + 2_000;
-		check(g.mayRefit(now), "first re-fit allowed (the reported case gets fixed)");
+		check(g.mayRefit(now, 0, 0, 1000, 600), "first re-fit allowed (the reported case gets fixed)");
 		check(!g.shouldCheck(now + 100), "after a re-fit, wait for it to settle before looking again");
 		int allowed = 1;
 		for (int i = 1; i < 10; i++) {
-			if (g.mayRefit(now + i * 1_000)) {
+			if (g.mayRefit(now + i * 1_000, 0, 0, 1000 + i, 600)) {   // drifts somewhere new each time
 				allowed++;
 			}
 		}
 		check(allowed == BorderlessFit.Guard.BURST_MAX, "a window that keeps refusing gets " + BorderlessFit.Guard.BURST_MAX
 				+ " re-fits per burst, not one per check (got " + allowed + ")");
-		check(g.mayRefit(now + BorderlessFit.Guard.BURST_MS + 5_000), "the cap lifts once the burst window has passed");
+		check(g.mayRefit(now + BorderlessFit.Guard.BURST_MS + 5_000, 0, 0, 900, 600), "the cap lifts once the burst window has passed");
 		g.reset(now + 20_000);
 		int afterReset = 0;
 		for (int i = 0; i < BorderlessFit.Guard.BURST_MAX; i++) {
-			if (g.mayRefit(now + 20_001 + i)) {
+			if (g.mayRefit(now + 20_001 + i, 0, 0, 800 + i, 600)) {
 				afterReset++;
 			}
 		}
