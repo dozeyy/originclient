@@ -1028,6 +1028,9 @@ public partial class HomePage : UserControl
             // nothing to push): give it video settings that suit this PC. A folder that has an
             // options.txt - the player's own, imported or synced - is never touched.
             await Task.Run(() => PresetWriter.ApplyToNewInstance(gameDir, version, HardwareProbe.Recommended));
+            // Then turn vanilla's first-run prompts off (accessibility Welcome page, Multiplayer Warning,
+            // tutorial toasts) where the file lacks them, so a new folder opens on Origin's title.
+            await Task.Run(() => FirstRunOptions.Seed(gameDir, version));
 
             // Last gate before the game actually starts — a cancel that
             // landed after provisioning finished must not still launch.
