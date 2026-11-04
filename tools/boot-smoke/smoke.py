@@ -39,6 +39,12 @@ DIR/screenshots, Save and Quit. Passes only on "[origin-smoke] in-world: PASS" w
 PNGs on disk; "[origin-smoke] in-world: FAIL <reason>", a crash or the extra time budget
 running out fails the run with that reason.
 
+--borderless (CI): start the game with Origin's Borderless Fullscreen already on (seeds
+run/config/originclient-mods.json), the way a player's second version starts after they
+turned it on in another one. Passes only if run/logs/latest.log then says the window
+"covers its monitor"/"covers its display" (GeneralSettings); every re-fit line Origin had
+to make is printed. 1.8.9 (LWJGL 2, its own borderless) only has to boot.
+
 Exit code 0 = reached the title screen with zero mixin-apply failures (with --inworld, also passed the
 in-world step; for a module whose originclient.compat-gates.txt has `sig` lines, each such group logged
 that its signature check passed).
@@ -313,6 +319,24 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
     return (False, "process exited before the title screen", flake)
 
 
+def borderless_verdict(log_path, name, reason):
+    """(ok, reason) for a --borderless boot: the window must have been seen covering its monitor."""
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            lines = [l.rstrip() for l in f if "Origin: borderless" in l]
+    except OSError:
+        return False, f"--borderless: no {log_path} to read"
+    for l in lines:
+        print("boot-smoke: " + l, flush=True)
+    if name == "1.8.9":
+        return True, reason + "; borderless pre-enabled (1.8.9: boot only)"
+    covered = [l for l in lines if "covers its" in l]
+    refits = [l for l in lines if "fitting it to its" in l]
+    if not covered:
+        return False, "--borderless: the window never reported covering its monitor (see the Origin: borderless lines above)"
+    return True, reason + f"; borderless covered its monitor ({len(refits)} re-fit(s))"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("module", help="path to the version module (e.g. src/mods/versions/1.21.1)")
@@ -332,6 +356,8 @@ def main():
                          "list names exactly those versions")
     ap.add_argument("--gradle-arg", action="append", default=[],
                     help="extra argument for the gradle runClient call (repeatable), e.g. --stacktrace")
+    ap.add_argument("--borderless", action="store_true",
+                    help="start with Borderless Fullscreen on; FAIL unless the log says the window covers its monitor")
     ap.add_argument("--inworld", default="",
                     help="after the title: flat world, HUD + Mod Menu shots into DIR/screenshots, Save and Quit (must PASS)")
     args = ap.parse_args()
@@ -355,6 +381,12 @@ def main():
         with open(options, "w", encoding="ascii", newline="\n") as f:
             f.write("onboardAccessibility:false\npauseOnLostFocus:false\n")
         print(f"boot-smoke: seeded {options} (onboardAccessibility:false)", flush=True)
+    if args.borderless:
+        cfg = os.path.join(run_dir, "config", "originclient-mods.json")
+        os.makedirs(os.path.dirname(cfg), exist_ok=True)
+        with open(cfg, "w", encoding="ascii", newline="\n") as f:
+            f.write('{"mods": {"@general": {"borderlessFullscreen": true}}}\n')
+        print(f"boot-smoke: seeded {cfg} (Borderless Fullscreen on before the first frame)", flush=True)
 
     gradlew = os.path.join(module, "gradlew.bat" if os.name == "nt" else "gradlew")
     cmd = [gradlew, "runClient", "--no-daemon"]
@@ -402,6 +434,9 @@ def main():
         delay = 30 * (3 ** (attempt - 1))
         print(f"boot-smoke: {name}: download failure before the game started; retrying in {delay}s", flush=True)
         time.sleep(delay)
+
+    if ok and args.borderless:
+        ok, reason = borderless_verdict(os.path.join(run_dir, "logs", "latest.log"), name, reason)
 
     verdict = f"boot-smoke: {name}: {'PASS' if ok else 'FAIL'} -- {reason}"
     print("\n" + verdict, flush=True)
