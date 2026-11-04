@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 
 // Vanilla game options (options.txt) land on disk the moment the player changes
@@ -82,6 +83,20 @@ public final class OptionsAutosave {
 			}
 		} finally {
 			swapping = false;
+		}
+	}
+
+	/** Origin's own temporary set() of a vanilla option (Zoom's sensitivity going in, and the
+	 *  player's value going back): not the player's change, so it never marks options.txt for
+	 *  a write. Before this, every zoom with Zoomed Sensitivity off 1.0x rewrote options.txt
+	 *  (and sent a settings packet) the moment zoom ended, with nothing really changed (JP-5). */
+	public static <T> void originSet(OptionInstance<T> option, T value) {
+		boolean was = swapping;
+		swapping = true;
+		try {
+			option.set(value);
+		} finally {
+			swapping = was;
 		}
 	}
 
