@@ -48,6 +48,57 @@ public class RunningGamesTests
             Assert.Equal(new[] { "1.21.1" }, RunningGames.In(root));
     }
 
+#if NET
+    // Review of run 6: one try/catch around the whole scan failed OPEN: a folder that couldn't be listed ended the
+    // scan with nothing found, and the uninstaller deleted the data under a game that was running. Each folder is
+    // checked on its own now, and one that can't be checked keeps the data.
+    [Fact]
+    public void A_folder_that_cannot_be_listed_keeps_the_data_and_the_scan_goes_on()
+    {
+        if (OperatingSystem.IsWindows()) return; // the lock below is a Unix folder permission
+        var root = TestKit.Temp("games");
+        var open = Log(root, "instances", "1.20.1", "accounts", "alex");
+        Log(root, "instances", "1.21.1", "accounts", "alex");
+        var locked = Path.Combine(root, "instances", "1.21.1", "accounts");
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+        try
+        {
+            try { Directory.EnumerateDirectories(locked).ToList(); return; } // running as root: nothing can be locked
+            catch (UnauthorizedAccessException) { }
+
+            RunningGames.Result result;
+            using (Hold(open))
+                result = RunningGames.Check(root);
+
+            Assert.Equal(new[] { "1.20.1" }, result.Open); // the scan went past the locked folder
+            Assert.Equal(new[] { locked }, result.Unchecked);
+            Assert.True(result.KeepData);
+            Assert.True(RunningGames.Check(root).KeepData); // nothing open now, but 1.21.1 still can't be checked
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+#endif
+
+    [Fact]
+    public void Nothing_open_and_everything_checked_lets_the_data_go()
+    {
+        var root = TestKit.Temp("games");
+        Log(root, "instances", "1.21.1", "accounts", "alex");
+        var result = RunningGames.Check(root);
+        Assert.False(result.KeepData);
+        Assert.Empty(result.Unchecked);
+    }
+
+    [Fact]
+    public void The_problem_page_says_why_when_the_check_could_not_finish()
+    {
+        var result = new UninstallResult(installFolderLeft: false, dataLeft: true) { DataUnchecked = true };
+        Assert.Contains("couldn't check whether Minecraft is still open", result.ProblemText(@"C:\Origin"));
+    }
+
     [Fact]
     public void No_data_folder_means_no_game()
     {

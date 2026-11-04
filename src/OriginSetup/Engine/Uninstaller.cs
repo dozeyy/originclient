@@ -31,7 +31,7 @@ public static class Uninstaller
         bool ok = plan.Execute();
 
         report(0.75);
-        bool dataOk = true;
+        bool dataOk = true, dataUnchecked = false;
         IReadOnlyList<string> gamesOpen = Array.Empty<string>();
         if (removeUserData)
         {
@@ -39,11 +39,15 @@ public static class Uninstaller
             // first file it holds: some worlds half gone. Keep the data whole instead and say why (the window asks
             // the player to close the game before it ever gets here; this covers the silent uninstall and a game
             // started in between).
-            gamesOpen = RunningGames.In(dataRoot);
-            if (gamesOpen.Count > 0)
+            var games = RunningGames.Check(dataRoot);
+            gamesOpen = games.Open;
+            if (games.KeepData)
             {
-                SetupLog.Write("data kept: Minecraft still open (" + string.Join(", ", gamesOpen) + ")");
+                SetupLog.Write(games.Open.Count > 0
+                    ? "data kept: Minecraft still open (" + string.Join(", ", games.Open) + ")"
+                    : "data kept: couldn't check every game folder for a running game");
                 dataOk = false;
+                dataUnchecked = games.Open.Count == 0;
             }
             else
             {
@@ -51,7 +55,7 @@ public static class Uninstaller
             }
         }
 
-        var result = new UninstallResult(installFolderLeft: !ok, dataLeft: !dataOk, gamesOpen);
+        var result = new UninstallResult(installFolderLeft: !ok, dataLeft: !dataOk, gamesOpen) { DataUnchecked = dataUnchecked };
         SetupLog.Write(result.Ok ? "uninstall complete" : "uninstall finished with leftovers");
         report(1);
         return result;
@@ -74,6 +78,8 @@ public sealed class UninstallResult
     public bool DataLeft { get; }
     /// <summary>The versions whose game was open, so the data was not touched at all (empty otherwise).</summary>
     public IReadOnlyList<string> GamesOpen { get; }
+    /// <summary>The data was not touched because some game folder couldn't be checked for a running game.</summary>
+    public bool DataUnchecked { get; set; }
     public bool Ok => !InstallFolderLeft && !DataLeft;
 
     /// <summary>
@@ -85,6 +91,9 @@ public sealed class UninstallResult
         if (GamesOpen.Count > 0)
             return $"Origin is removed, but your worlds, settings and accounts were kept because Minecraft {string.Join(", ", GamesOpen)} was still open."
                    + " Close the game, then delete this folder yourself if you still want them gone:";
+        if (DataUnchecked)
+            return "Origin is removed, but your worlds, settings and accounts were kept: Origin couldn't check whether Minecraft is still open."
+                   + " Close every Minecraft window, then delete this folder yourself if you still want them gone:";
         if (DataLeft && InstallFolderLeft)
             return $"Some files were in use and couldn't be deleted (Minecraft may still be running). Origin's own folder ({installDir}) and part of your data are left. Your data folder:";
         if (DataLeft)
