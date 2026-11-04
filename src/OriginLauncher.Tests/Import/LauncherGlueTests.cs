@@ -331,6 +331,16 @@ public sealed class LauncherGlueTests
     }
 
     [Fact]
+    public void An_account_switch_while_checking_stops_the_transfer()
+    {
+        Assert.True(HomeImport.SameAccount("a", "a", "a"));
+        Assert.False(HomeImport.SameAccount("a", "b", "b")); // the plan was made for the account switched to
+        Assert.False(HomeImport.SameAccount("a", "a", "b")); // switched after planning, before copying
+        Assert.False(HomeImport.SameAccount("a", null, "a")); // no account in the plan
+        Assert.Equal("Nothing changed. The account changed while Origin was checking. Try again.", HomeImport.Refused(HomeImport.AccountChanged).Line);
+    }
+
+    [Fact]
     public void The_copy_fraction_follows_bytes_else_setups()
     {
         var step = new ImportProgress(ImportStage.Scanning, 1, 4);

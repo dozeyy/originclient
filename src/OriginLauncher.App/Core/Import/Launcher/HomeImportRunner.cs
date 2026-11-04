@@ -1,3 +1,4 @@
+using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Import.Bulk;
 
 namespace OriginLauncher.App.Core.Import.Launcher;
@@ -19,12 +20,20 @@ public static class HomeImportRunner
         var name = source is { } kind ? ImportPrompt.ShortName(kind) : null;
         progress?.Report(new HomeImportProgress(HomeImportStep.Checking, 0));
         BulkImportPlan plan;
+        string? account;
         try
         {
+            // The account the transfer is for, read once (off the UI thread: it opens the accounts file). The scan
+            // leaves out what this account already brought over (ImportMemory) and the plan copies into this account's
+            // folders, so an account switch while Origin is still checking must not mix the two: refused below.
+            account = await Task.Run(() => AccountFolders.SelectedKey(), ct).ConfigureAwait(false);
+            if (account == null) return HomeImport.Refused(SignInFirst);
             // A fresh scan: the backend plans from its own last scan, and anything brought over since the button was
             // offered is left out by it (ImportMemory), so pressing it twice never copies twice.
             await backend.ScanAsync(null, ct).ConfigureAwait(false);
             plan = await backend.PlanBulkAsync(ImportPrompt.Selection(source), ImportPrompt.Options(), null, null, ct).ConfigureAwait(false);
+            if (!HomeImport.SameAccount(account, plan.Request?.AccountKey, await Task.Run(() => AccountFolders.SelectedKey(), ct).ConfigureAwait(false)))
+                return HomeImport.Refused(HomeImport.AccountChanged);
         }
         catch (OperationCanceledException)
         {
@@ -56,6 +65,8 @@ public static class HomeImportRunner
         }
         return HomeImport.Outcome(result, name);
     }
+
+    private const string SignInFirst = "Sign in first, then try again.";
 
     private sealed class Relay(Action<BulkProgress> report) : IProgress<BulkProgress>
     {

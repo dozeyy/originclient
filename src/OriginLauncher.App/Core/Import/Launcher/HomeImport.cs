@@ -46,6 +46,16 @@ public static class HomeImport
     public static HomeImportOutcome Crashed(string plainError) =>
         new(false, $"{Sentence(plainError)} If anything changed, Origin undoes it at the next start.");
 
+    /// <summary>The account was switched while Origin was still checking: nothing was copied.</summary>
+    public const string AccountChanged = "The account changed while Origin was checking. Try again.";
+
+    /// <summary>
+    /// The transfer may go on only when the account read at its start is the one the plan copies into and still the
+    /// selected one: the scan's "already brought over" list and the plan's folders then belong to the same account.
+    /// </summary>
+    public static bool SameAccount(string atStart, string? planned, string? now) =>
+        string.Equals(atStart, planned, StringComparison.Ordinal) && string.Equals(atStart, now, StringComparison.Ordinal);
+
     /// <summary>The player pressed Stop: the engine put everything back.</summary>
     public static readonly HomeImportOutcome Stopped = new(false, "Stopped. Nothing changed.") { Cancelled = true };
 

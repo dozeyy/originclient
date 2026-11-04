@@ -420,6 +420,11 @@ public class PvpClientImportTests : IDisposable
         Assert.Contains("Vanilla", folder.Aliases);                        // the official profile's name is kept
         Assert.Equal("Lunar: Minecraft folder", folder.BulkLabel());        // what the player reads everywhere
         Assert.Equal(Path.Combine(Minecraft, "saves"), folder.SavesFolder); // the original .minecraft's worlds
+        // Still a plain .minecraft underneath: no "Lunar Client's built-in mods" line, no every-shader-pack copy.
+        Assert.True(folder.FoldedIntoClient);
+        Assert.Null(PvpClientSource.BuiltInModsNote(folder));
+        var plan = await Plan(folder);
+        Assert.DoesNotContain(plan.Lines, l => l.Name.Contains("built-in mods", StringComparison.Ordinal));
 
         var qualifying = ImportPrompt.Qualifying(scan.Instances, new[] { "1.21.1" });
         var source = Assert.Single(ImportPrompt.Sources(qualifying));
@@ -450,6 +455,24 @@ public class PvpClientImportTests : IDisposable
         var qualifying = ImportPrompt.Qualifying(scan.Instances, new[] { "1.21.1" });
         Assert.Equal(new[] { SourceKind.Lunar, SourceKind.OfficialLauncher }, ImportPrompt.Sources(qualifying).Select(c => c.Kind));
         Assert.Equal(ImportPrompt.ManyLabel, ImportPrompt.Label(qualifying));
+    }
+
+    [Fact]
+    public async Task ALunarProfilesFolderWithoutLunarsOwnSettingsFoldsNothing()
+    {
+        // A leftover .lunarclient (profiles but no settings/launcher.json naming a game directory): Lunar is not really
+        // set up to play out of .minecraft, so the official launcher's folder stays the official launcher's.
+        PlayerMinecraft();
+        LunarWithFabricMods();
+        File.Delete(Path.Combine(Lunar, "settings", "launcher.json"));
+        OfficialLauncherProfiles("""{"profiles":{"p":{"name":"Vanilla","type":"custom","lastVersionId":"1.21.1","lastUsed":"2026-10-01T10:00:00.000Z"}}}""");
+
+        var scan = await Scan();
+
+        var folder = Assert.Single(scan.Instances, s => s.GameDir == Minecraft);
+        Assert.Equal(SourceKind.OfficialLauncher, folder.Kind);
+        Assert.False(folder.FoldedIntoClient);
+        Assert.Null(scan.LunarGameDirectory);
     }
 
     [Fact]

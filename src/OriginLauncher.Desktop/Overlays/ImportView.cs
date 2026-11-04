@@ -195,7 +195,7 @@ public static class ImportView
         {
             var cts = new CancellationTokenSource();
             stop = cts;
-            await RunBringOverAsync(window, button, source, cts.Token);
+            await RunBringOverAsync(window, button, source, cts);
             if (ReferenceEquals(stop, cts)) stop = null;
             cts.Dispose();
         };
@@ -206,16 +206,20 @@ public static class ImportView
     }
 
     // One click: scan, plan with the defaults and copy, on the thread pool (HomeImportRunner), the button counting up.
-    // ImportRunState is busy meanwhile, so Play waits; closing the window waits for it too, then closes.
-    private static async Task RunBringOverAsync(MainWindow window, BringOverButton button, SourceKind? source, CancellationToken ct)
+    // ImportRunState is busy meanwhile, so Play waits. Closing the window stops it, like the Import page's Stop: the
+    // engine puts everything back, then the window closes (never cut off mid-write, never a wait for the whole copy).
+    private static async Task RunBringOverAsync(MainWindow window, BringOverButton button, SourceKind? source, CancellationTokenSource stop)
     {
+        var ct = stop.Token;
         var closeAfter = false;
         void OnClosing(object? sender, WindowClosingEventArgs e)
         {
             if (!button.IsRunning || Shots.ShotRunner.Active) return;
-            e.Cancel = true; // a transfer that is writing finishes (or rolls back) first, never cut off
+            e.Cancel = true;
+            if (closeAfter) return;
             closeAfter = true;
-            window.Toast("Finishing bringing your setup over, then Origin closes.");
+            stop.Cancel();
+            window.Toast("Stopping the import, then Origin closes.");
         }
         window.Closing += OnClosing;
         HomeImportOutcome outcome;
