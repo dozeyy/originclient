@@ -369,14 +369,33 @@ public static partial class UpdateService
         Directory.CreateDirectory(updatesRoot);
         var stageDir = StageDirFor(update.Version);
 
-        // Usually the background download already staged it (or is still on it: the click joins that one). Otherwise,
-        // or when that stage changed on disk, the click stages it itself exactly as before.
-        if (!await TakeBackgroundStageAsync(update, stageDir, progress))
-            await StageAsync(update, stageDir, progress, CancellationToken.None);
+        // Usually the background download already staged it (or is still on it: the click joins that one). Otherwise
+        // the click stages it itself exactly as before, and records that stage the same way.
+        var snapshot = await TakeBackgroundStageAsync(update, progress);
+        for (var attempt = 1; ; attempt++)
+        {
+            if (snapshot == null)
+            {
+                await StageAsync(update, stageDir, progress, CancellationToken.None);
+                snapshot = await Task.Run(() => StageSnapshot.Take(stageDir));
+            }
 
-        // Never swap under a running game this launcher started: the restart would leave it without its crash window
-        // and settings sync. The player sees "Waiting for Minecraft to close"; the swap follows the moment it does.
-        await WaitForGamesToCloseAsync(progress);
+            // Never swap under a running game this launcher started: the restart would leave it without its crash window
+            // and settings sync. The player sees "Waiting for Minecraft to close"; the swap follows the moment it does.
+            await WaitForGamesToCloseAsync(progress);
+
+            // The stage is re-hashed AFTER the wait (it can last hours), right before the swap: a file an antivirus
+            // removed or anything else that changed meanwhile must never reach the install folder half old, half new.
+            progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
+            var matches = await Task.Run(() => StageSnapshot.Matches(stageDir, snapshot));
+            var step = UpdatePrefetch.CheckBeforeSwap(matches, attempt);
+            if (step == UpdatePrefetch.PreSwap.Swap) break;
+            if (step == UpdatePrefetch.PreSwap.Fail)
+                throw new IOException("the staged update kept changing on disk");
+            Log($"update {update.Version}: the staged update changed on disk before the swap; downloading it again");
+            ForgetBackgroundStage(update.Version);
+            snapshot = null;
+        }
 
         // An import may have been started while this downloaded (or still be running from before): the restart
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
@@ -411,7 +430,23 @@ public static partial class UpdateService
     //     verified copy of the new release or answers false with the stage emptied; it never throws (except to cancel).
     //  3. The full zip, downloaded and verified exactly as before. Only this path's failures reach the gate.
     // Throws on any failure (cancelled: OperationCanceledException); the caller decides what that failure means.
+    // Holds the version's stage lock throughout, so an earlier decision to delete this folder (TryDeleteStage) either
+    // finished before or re-checks after and leaves it alone.
     private static async Task StageAsync(AvailableUpdate update, string stageDir, IProgress<UpdateProgress>? progress, CancellationToken ct)
+    {
+        var stageLock = StageLock(update.Version);
+        await stageLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await FillStageAsync(update, stageDir, progress, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            stageLock.Release();
+        }
+    }
+
+    private static async Task FillStageAsync(AvailableUpdate update, string stageDir, IProgress<UpdateProgress>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(OriginPaths.Updates);
         CleanStaleDownloads(update.Version);

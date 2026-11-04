@@ -183,6 +183,60 @@ public sealed class UpdatePrefetchTests
         Assert.DoesNotContain(V58, p.Keep());
     }
 
+    // Review fix 1: the stage is hashed again AFTER the wait for a game (it can last hours), right before the swap. A
+    // mismatch (an antivirus took a staged file meanwhile) never swaps: the click downloads it afresh, once; a second
+    // mismatch is an ordinary failure, never a half-old, half-new install.
+    [Fact]
+    public void A_stage_that_changes_during_the_game_wait_is_downloaded_again_never_swapped()
+    {
+        Assert.Equal(PreSwap.Swap, CheckBeforeSwap(stageMatches: true, attempt: 1));
+        Assert.Equal(PreSwap.Restage, CheckBeforeSwap(stageMatches: false, attempt: 1));
+        Assert.Equal(PreSwap.Swap, CheckBeforeSwap(stageMatches: true, attempt: 2));
+        Assert.Equal(PreSwap.Fail, CheckBeforeSwap(stageMatches: false, attempt: MaxStageAttempts));
+
+        // Restaging forgets the background stage but the click keeps the version: nothing else downloads or deletes it.
+        var p = Downloading(V58);
+        p.Staged(V58);
+        p.BeginInstall(V58, out _);
+        p.FallBackToClickDownload(V58);
+        Assert.False(p.MayDeleteStage(V58));
+    }
+
+    // Review fix 2: a delete is decided under the lock but runs later. Asked again right before deleting, a version the
+    // click took in between is never deleted (its folder is being staged).
+    [Fact]
+    public void A_stage_delete_decided_before_a_click_is_cancelled_by_it()
+    {
+        var p = Downloading(V58);
+        p.Failed(V58, cancelled: true, T0);
+        Assert.True(p.MayDeleteStage(V58)); // decided: nobody wants 58's stage
+
+        p.BeginInstall(V58, out _); // the click takes 58 before the delete runs
+        Assert.False(p.MayDeleteStage(V58));
+
+        p.InstallFailed(V58);
+        Assert.True(p.MayDeleteStage(V58));
+
+        var q = Downloading(V58);
+        Assert.False(q.MayDeleteStage(V58)); // a background download of it holds the stage too
+        q.Staged(V58);
+        Assert.False(q.MayDeleteStage(V58));
+        Assert.True(q.MayDeleteStage(V59));
+    }
+
+    // Review fix 3: the game check is read again inside the lock right before the start, so a game that began while
+    // the network probes ran keeps the download from starting (TryStart is the in-lock decision).
+    [Fact]
+    public void A_game_that_starts_during_the_probes_keeps_the_download_from_starting()
+    {
+        var p = new UpdatePrefetch();
+        var probedBeforeTheGame = Free;
+        var reReadInTheLock = probedBeforeTheGame with { GameRunning = probedBeforeTheGame.GameRunning || true };
+        Assert.Equal(Start.NotNow, p.TryStart(V58, reReadInTheLock, T0, out _));
+        Assert.Equal(Phase.Idle, p.Current);
+        Assert.DoesNotContain(V58, p.Keep());
+    }
+
     [Fact]
     public void Versions_compare_with_or_without_the_fourth_number()
     {

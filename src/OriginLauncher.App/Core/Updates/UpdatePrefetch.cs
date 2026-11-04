@@ -159,6 +159,26 @@ public sealed class UpdatePrefetch
     /// <summary>The last step before the swap: wait while a game this launcher started is starting or running.</summary>
     public static SwapStep BeforeSwap(bool gameRunning) => gameRunning ? SwapStep.WaitForGame : SwapStep.Swap;
 
+    public enum PreSwap { Swap, Restage, Fail }
+
+    /// <summary>How many times the click stages before it gives up on a stage that keeps changing on disk.</summary>
+    public const int MaxStageAttempts = 2;
+
+    /// <summary>
+    /// After the wait for games, right before the swap, the stage is hashed again (<paramref name="stageMatches"/>). A
+    /// match swaps. A mismatch makes the click download and stage it afresh, once; a second mismatch in a row is an
+    /// ordinary failure (the gate counts it; it never blocks Play for good).
+    /// </summary>
+    public static PreSwap CheckBeforeSwap(bool stageMatches, int attempt) =>
+        stageMatches ? PreSwap.Swap : attempt < MaxStageAttempts ? PreSwap.Restage : PreSwap.Fail;
+
+    /// <summary>
+    /// May an unwanted stage of <paramref name="version"/> be deleted now? Asked again, under the stage's own lock, right
+    /// before the delete: a click (or a newer background download of it) may have taken that version since the delete
+    /// was decided, and its stage must then stay.
+    /// </summary>
+    public bool MayDeleteStage(Version version) => !Keep().Any(v => Same(v, version));
+
     /// <summary>The click failed (it did not quit): back to Idle so a later poll or click can try again.</summary>
     public void InstallFailed(Version version)
     {
