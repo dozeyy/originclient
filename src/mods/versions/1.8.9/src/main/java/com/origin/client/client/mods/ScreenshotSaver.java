@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 1.8.9 ONLY: F2 without the hitch. Vanilla 1.8.9's ScreenShotHelper.saveScreenshot reads
@@ -35,9 +36,10 @@ import java.util.concurrent.Executors;
  * <p>Flow: ScreenshotKeyMixin's HEAD hook calls {@link #begin}. The pixels are read here
  * exactly as vanilla reads them (same GL calls, same framebuffer crop), copied into a
  * fresh array, and the encode + write + vanilla's "Saved screenshot as ..." line go to one
- * daemon thread; the line is printed from the client thread once the file exists, through
- * ScreenshotChat.decorate as before (its buttons need the file on disk). saveScreenshot
- * returns {@link #PENDING}, which F2's caller prints and GuiNewChatMixin drops.
+ * writer thread (drained for up to 2 s when the game quits); the line is printed from the
+ * client thread once the file exists, through ScreenshotChat.decorate as before (its
+ * buttons need the file on disk). saveScreenshot returns {@link #PENDING}, which F2's
+ * caller prints and GuiNewChatMixin drops.
  *
  * <p>Steps aside (vanilla's synchronous save runs) for: a named save (only F2 passes no
  * name: other callers may expect the file to exist on return), OptiFine's Screenshot Size
@@ -52,11 +54,36 @@ public final class ScreenshotSaver {
 	/** The placeholder saveScreenshot returns on the async path (identity-compared, never shown). */
 	public static final IChatComponent PENDING = new ChatComponentText("Saving screenshot...");
 
-	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
-		Thread t = new Thread(r, "Origin Screenshot Writer");
-		t.setDaemon(true);
-		return t;
-	});
+	/** Seconds a quit waits at most for screenshots still being written. */
+	private static final long FLUSH_SECONDS = 2;
+
+	private static final ExecutorService IO = newWriter();
+
+	// The writer thread is a daemon so it can never keep a closed game alive. A daemon alone
+	// would let F2-then-quit cut the PNG off (or lose it), so a shutdown hook drains the queue:
+	// every normal JVM exit (1.8.9 quits through System.exit) runs shutdown hooks while daemon
+	// threads still run, and the hook waits at most FLUSH_SECONDS, so a stuck write never
+	// hangs the quit.
+	private static ExecutorService newWriter() {
+		final ExecutorService io = Executors.newSingleThreadExecutor(r -> {
+			Thread t = new Thread(r, "Origin Screenshot Writer");
+			t.setDaemon(true);
+			return t;
+		});
+		try {
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+				io.shutdown();
+				try {
+					io.awaitTermination(FLUSH_SECONDS, TimeUnit.SECONDS);
+				} catch (InterruptedException ignored) {
+					// quitting anyway
+				}
+			}, "Origin Screenshot Flush"));
+		} catch (Throwable alreadyQuitting) {
+			// JVM already shutting down (or hooks refused): screenshots still save, just undrained
+		}
+		return io;
+	}
 
 	/** Vanilla's ScreenShotHelper.dateFormat. */
 	private static final SimpleDateFormat NAME = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
