@@ -281,6 +281,10 @@ public final class ModsConfig {
 		}
 	}
 
+	// Profiles saved by a build that already moved the Snaplook / Full Map / Quickplay default
+	// keys (v1.0.89+) carry this; an older one gets Mods.keepOldDefaultKeys() when applied (BMOD-6).
+	private static final String PROFILE_KEYS_MARKER = "defaultKeys";
+
 	static synchronized JsonObject snapshotCurrent() {
 		ensureLoaded();
 		JsonObject snap = new JsonObject();
@@ -308,6 +312,7 @@ public final class ModsConfig {
 			hud.add(e.getKey(), arr);
 		}
 		snap.add("hud", hud);
+		snap.addProperty(PROFILE_KEYS_MARKER, 1);
 		return snap;
 	}
 
@@ -337,6 +342,9 @@ public final class ModsConfig {
 			return false;
 		}
 		restoreFrom(snap);
+		if (!snap.has(PROFILE_KEYS_MARKER) && Mods.keepOldDefaultKeys()) {
+			save();   // a pre-v1.0.89 profile keeps the old default keys its mods were using
+		}
 		return true;
 	}
 

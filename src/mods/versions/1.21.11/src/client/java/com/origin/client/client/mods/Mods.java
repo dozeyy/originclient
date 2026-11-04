@@ -1570,14 +1570,23 @@ public final class Mods {
 	private static void keepOldDefaultKeysOnce() {
 		com.origin.client.client.util.OnceSteps.run("optionVersion.defaultKeys", 1, Mods::metaText,
 				(k, v) -> ModsConfig.META.put(k, new JsonPrimitive(v)), () -> {
-					boolean wrote = keepOldDefaultKey("snaplook", "key", GLFW.GLFW_KEY_V);
-					wrote |= keepOldDefaultKey("minimap", "openMapKey", GLFW.GLFW_KEY_M);
-					wrote |= keepOldDefaultKey("quickplay", "key", GLFW.GLFW_KEY_G);
+					boolean wrote = keepOldDefaultKeys();
 					if (wrote) {
 						ModsConfig.save(); // the kept key is the player's from here on
 					}
 					// Nothing written: the marker reaches disk with the next save (every change saves).
 				});
+	}
+
+	/** The step itself: the old default key into each of those mods that is on with no key of its
+	 *  own. True when it wrote one (the caller saves). Also run by ModsConfig.applyProfile for a
+	 *  profile saved before this step existed (BMOD-6): a profile is a frozen copy of the settings,
+	 *  so without it an old profile would bring back B / J / Y where the player had V / M / G. */
+	static boolean keepOldDefaultKeys() {
+		boolean wrote = keepOldDefaultKey("snaplook", "key", GLFW.GLFW_KEY_V);
+		wrote |= keepOldDefaultKey("minimap", "openMapKey", GLFW.GLFW_KEY_M);
+		wrote |= keepOldDefaultKey("quickplay", "key", GLFW.GLFW_KEY_G);
+		return wrote;
 	}
 
 	private static String metaText(String key) {
