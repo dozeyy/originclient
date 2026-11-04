@@ -194,12 +194,9 @@ public final class OriginButtonRenderer {
 				// Keyboard focus: a 1 GUI px accentLine ring on the control's own box, never colour alone.
 				OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_BTN_RADIUS, 0, OriginTheme.TITLE_FOCUS, 1f);
 			}
-			// The pointer vanilla's AbstractButton extract requests (handleCursor), which the
-			// cancelled draw no longer reaches.
-			if (button.isHovered()) {
-				g.requestCursor(enabled ? com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND
-						: com.mojang.blaze3d.platform.cursor.CursorTypes.NOT_ALLOWED);
-			}
+			// The pointer: AbstractButtonMixin calls vanilla's own handleCursor after this draw
+			// (vanillaPointer); for a sprite button only extractContents was cancelled, so vanilla's
+			// extractWidgetRenderState still asks for it (javap 26.1 / 26.2 / 26.3).
 			return true;
 		} catch (Throwable t) {
 			titleBroken = true;
@@ -349,11 +346,7 @@ public final class OriginButtonRenderer {
 				g.centeredText(Minecraft.getInstance().font, button.getMessage(), x + w / 2, y + (h - 8) / 2,
 						enabled ? 0xFFFFFFFF : GREY);
 			}
-			// The pointer vanilla's AbstractButton extract requests (handleCursor), which the cancelled draw no longer reaches.
-			if (button.isHovered()) {
-				g.requestCursor(enabled ? com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND
-						: com.mojang.blaze3d.platform.cursor.CursorTypes.NOT_ALLOWED);
-			}
+			// The pointer: as above (vanillaPointer, or vanilla's own handleCursor for a sprite button).
 			return true;
 		} catch (Throwable t) {
 			titleBroken = true;

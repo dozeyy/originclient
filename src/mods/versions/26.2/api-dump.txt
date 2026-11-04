@@ -1,2 +1,0 @@
-# G26 lane (2026-11-04): temporary porting aid, removed after the dump
-net/minecraft/client/gui/screens/LoadingOverlay
