@@ -32,7 +32,8 @@ public sealed partial class ModsPage : UserControl
     private readonly List<ReplaceOffer> _pendingReplace = new();
     private bool _suppressToggle;      // guards programmatic IsChecked changes
     private bool _dragOver;
-    private bool _adding;              // an import is copying (off the UI thread)
+    // One import at a time; jars dropped or a Replace answered meanwhile wait here and go in next (Core/Compat/ModAddQueue).
+    private readonly ModAddQueue _imports = new();
     private IReadOnlyList<ModEntry>? _demo; // render shots only: made-up rows instead of the disk
     private string? _builtKey;
     private List<ModEntry>? _builtFrom;
@@ -528,7 +529,7 @@ public sealed partial class ModsPage : UserControl
     // Browse: the same add path as a drop, through the Mac file picker.
     private async void Browse()
     {
-        if (_version == null || _adding || _demo != null) return;
+        if (_version == null || _demo != null) return;
         if (TopLevel.GetTopLevel(this)?.StorageProvider is not { CanOpen: true } storage) return;
         var picked = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -540,20 +541,33 @@ public sealed partial class ModsPage : UserControl
         if (files.Length > 0) AddFiles(files);
     }
 
-    // Copy the jars in off the UI thread, then land the new rows. A second add waits its turn.
+    // Copy the jars in off the UI thread, then land the new rows. One import at a time: jars dropped or picked while
+    // one copies wait in _imports and go in straight after it (the Windows page's rule).
     private async void AddFiles(string[] files)
     {
-        if (_version == null || _adding) return;
-        _adding = true;
+        if (_version == null) return;
+        if (!_imports.TryStart(new ModAddQueue.Work(files, null)))
+        {
+            ShowStatus("Still adding - your other mods go in next...", error: false);
+            return;
+        }
         var version = _version;
         var profileId = _profile?.Id;
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         ShowStatus(files.Length == 1 ? "Adding 1 mod..." : $"Adding {files.Length} mods...", error: false);
 
         var report = await Task.Run(() => ModManager.Import(version, files, profileId));
-        _adding = false;
+        var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return; // the page moved on to another version meanwhile
         ApplyImport(report, before, version, profileId);
+        RunNext(next);
+    }
+
+    // What waited for the import that just ended: more jars, or a Replace the player answered meanwhile.
+    private void RunNext(ModAddQueue.Work? next)
+    {
+        if (next?.Files is { } files) AddFiles(files.ToArray());
+        else if (next?.Replace is { } offer) AnswerReplace(offer, replace: true);
     }
 
     private void ApplyImport(ImportReport report, HashSet<string> before, string version, string? profileId)
@@ -577,20 +591,26 @@ public sealed partial class ModsPage : UserControl
     private async void AnswerReplace(ReplaceOffer offer, bool replace)
     {
         _pendingReplace.Remove(offer);
-        if (!replace || _version == null || _adding)
+        if (!replace || _version == null)
         {
             Refresh();
             return;
         }
-        _adding = true;
+        if (!_imports.TryStart(new ModAddQueue.Work(null, offer)))
+        {
+            ShowStatus("Still adding - your replace goes in next...", error: false);
+            Refresh();
+            return;
+        }
         var version = _version;
         var profileId = _profile?.Id;
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var confirmed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { offer.FileName };
         var report = await Task.Run(() => ModManager.Import(version, new[] { offer.SourcePath }, profileId, confirmed));
-        _adding = false;
+        var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return;
         ApplyImport(report, before, version, profileId);
+        RunNext(next);
     }
 
     // "Sodium 0.5.0 is already installed. Replace it with 0.6.13?" with explicit Replace / Keep old.
@@ -655,7 +675,7 @@ public sealed partial class ModsPage : UserControl
 
     private void DropZone_DragEnter(object? sender, DragEventArgs e)
     {
-        var jars = _version != null && !_adding ? Jars(e).Length : 0;
+        var jars = _version != null ? Jars(e).Length : 0; // while one import copies, a drop queues (_imports)
         e.DragEffects = jars > 0 ? DragDropEffects.Copy : DragDropEffects.None;
         if (jars > 0 && !_dragOver) SetZone(over: true, hover: false, count: jars);
         e.Handled = true;

@@ -34,8 +34,8 @@ public partial class ModsPage : UserControl
     private readonly List<ReplaceOffer> _pendingReplace = new(); // same-mod jars awaiting "Replace?" (Core/Compat/ModImporter)
     private bool _suppressToggle;      // guards programmatic IsChecked changes
     private bool _dragOver;
-    private bool _adding;              // an import is copying (off the UI thread)
-    private readonly List<string> _queuedAdds = new(); // jars dropped or picked while _adding: they go in next
+    // One import at a time; jars dropped or a Replace answered meanwhile wait here and go in next (Core/Compat/ModAddQueue).
+    private readonly ModAddQueue _imports = new();
     private bool _warming;             // Origin's jars are being checked by their bytes (off the UI thread)
     private IReadOnlyList<ModEntry>? _demo; // render shots only: made-up rows instead of the disk
     // What the rows on screen were last built from (plain rows only, no confirm/replace/landing): a re-show with the
@@ -623,30 +623,33 @@ public partial class ModsPage : UserControl
     }
 
     // Copy the jars in off the UI thread (a big pack must not freeze the window),
-    // then land the new rows. One add copies at a time: jars dropped (or picked) while one is copying wait in
-    // _queuedAdds and go in straight after it, for the same version, so a second batch is never silently lost.
+    // then land the new rows. One import copies at a time: jars dropped (or picked) while one is copying wait in
+    // _imports and go in straight after it, for the same version, so a second batch is never silently lost.
     private async void AddFiles(string[] files)
     {
         if (_version == null) return;
-        if (_adding)
+        if (!_imports.TryStart(new ModAddQueue.Work(files, null)))
         {
-            _queuedAdds.AddRange(files);
             ShowStatus("Still adding - your other mods go in next...", error: false);
             return;
         }
-        _adding = true;
         var version = _version;
         var profileId = _profile?.Id;
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         ShowStatus(files.Length == 1 ? "Adding 1 mod..." : $"Adding {files.Length} mods...", error: false);
 
         var report = await Task.Run(() => ModManager.Import(version, files, profileId));
-        _adding = false;
-        var queued = _queuedAdds.ToArray();
-        _queuedAdds.Clear();
+        var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return; // the page moved on to another version meanwhile (the queue was for that one)
         ApplyImport(report, before, version, profileId);
-        if (queued.Length > 0) AddFiles(queued);
+        RunNext(next);
+    }
+
+    // What waited for the import that just ended: more jars, or a Replace the player answered meanwhile.
+    private void RunNext(ModAddQueue.Work? next)
+    {
+        if (next?.Files is { } files) AddFiles(files.ToArray());
+        else if (next?.Replace is { } offer) AnswerReplace(offer, replace: true);
     }
 
     // Shows what an add did: the new rows land, a refused jar says why in plain words, and a jar that is the same
@@ -672,20 +675,26 @@ public partial class ModsPage : UserControl
     private async void AnswerReplace(ReplaceOffer offer, bool replace)
     {
         _pendingReplace.Remove(offer);
-        if (!replace || _version == null || _adding)
+        if (!replace || _version == null)
         {
             Refresh();
             return;
         }
-        _adding = true;
+        if (!_imports.TryStart(new ModAddQueue.Work(null, offer)))
+        {
+            ShowStatus("Still adding - your replace goes in next...", error: false);
+            Refresh();
+            return;
+        }
         var version = _version;
         var profileId = _profile?.Id;
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var confirmed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { offer.FileName };
         var report = await Task.Run(() => ModManager.Import(version, new[] { offer.SourcePath }, profileId, confirmed));
-        _adding = false;
+        var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return;
         ApplyImport(report, before, version, profileId);
+        RunNext(next);
     }
 
     // A spacing token (Theme/Spacing.xaml, the 8 px grid) as a number for code-built layout.
