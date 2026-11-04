@@ -660,19 +660,12 @@ public class OriginModMenuScreen extends Screen {
 		}
 
 		// search box: 176 wide, shrunk only if the chips need the room
-		boolean modMenu = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("modmenu");
-		float toolsW = 30 + 2 + 30 + (modMenu ? 2 + 30 : 0);
+		float toolsW = 30 + 2 + 30;
 		float searchW = Math.max(120, Math.min(SEARCH_W, W - M - (x - 8 + 12 + toolsW + 8)));
 		float sx = W - M - searchW;
 		float tx = sx - 8 - toolsW;
 		drawTool(d, "@grid", tx, !list, () -> Mods.setMetaBool("menuListView", false));
 		drawTool(d, "@list", tx + 32, list, () -> Mods.setMetaBool("menuListView", true));
-		if (modMenu) {
-			drawTool(d, "@title-mods", tx + 64, false, this::openModMenuList);
-			if (d.over(tx + 64, BAR_Y + 2, 30, 28)) {
-				tip = "All installed mods (Mod Menu)";
-			}
-		}
 		drawSearch(d, sx, BAR_Y + 1, searchW, search, "Search mods", searchFocused, true, () -> {
 			searchFocused = true;
 			profOpen = false;
@@ -1315,6 +1308,19 @@ public class OriginModMenuScreen extends Screen {
 				d.hit(M - 12, y, colW + 24, OPT_H, () -> Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0));
 			}
 			y += OPT_H;
+			// G121-5: the title and pause "Mods" buttons both open this menu, so Mod Menu's own
+			// list of every installed jar is reached from here (only when Mod Menu is installed).
+			if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("modmenu")) {
+				boolean mmHov = d.over(M - 12, y, colW + 24, OPT_H);
+				if (mmHov) {
+					d.rect(M - 12, y, colW + 24, OPT_H, 6, 0x0AFFFFFF);
+					tip = "Opens Mod Menu's list of every mod installed in this game.";
+				}
+				d.textMid("All Installed Mods", M, y + 20, 14, false, 0, TEXT);
+				d.icon("@chev-right", M + colW - 22, y + 13, 14, mmHov ? TEXT : MUTE);
+				d.hit(M - 12, y, colW + 24, OPT_H, this::openModMenuList);
+				y += OPT_H;
+			}
 		} else {
 			String sid = subTab == SubTab.GENERAL ? Mods.GENERAL_ID : Mods.PERFORMANCE_ID;
 			List<ModOption> opts = subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;
