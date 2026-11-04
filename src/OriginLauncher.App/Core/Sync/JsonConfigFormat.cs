@@ -50,29 +50,45 @@ public sealed class JsonConfigFormat : ISyncFormat
     };
 
     private readonly bool _ownConfig;
+    private readonly string[] _localKeys;
 
-    private JsonConfigFormat(bool ownConfig, bool allowsDeletions)
+    private JsonConfigFormat(bool ownConfig, bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null)
     {
         _ownConfig = ownConfig;
         AllowsDeletions = allowsDeletions;
+        _localKeys = localKeys ?? Array.Empty<string>();
+        WholeReplaceMarker = wholeReplaceMarker;
     }
 
     /// <summary>
     /// An Origin config. <paramref name="allowsDeletions"/>: the file's loader
     /// never drops a key on its own, so a vanished key is the player resetting
     /// or deleting it (a HUD element reset, an item size reset, a deleted
-    /// profile) and that should follow them too.
+    /// profile) and that should follow them too. <paramref name="localKeys"/>:
+    /// JSON Pointer subtrees that describe this instance's own folder, never
+    /// synced (see ISyncFormat.StaysIn). <paramref name="wholeReplaceMarker"/>:
+    /// see ISyncFormat.WholeReplaceMarker.
     /// </summary>
-    public static JsonConfigFormat OriginConfig(bool allowsDeletions) => new(ownConfig: true, allowsDeletions);
+    public static JsonConfigFormat OriginConfig(bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null) =>
+        new(ownConfig: true, allowsDeletions, localKeys, wholeReplaceMarker);
 
     public static readonly JsonConfigFormat ThirdParty = new(ownConfig: false, allowsDeletions: false);
 
     public bool AllowsDeletions { get; }
 
+    public string? WholeReplaceMarker { get; }
+
     public Dictionary<string, string>? Read(string path)
     {
         var root = ParseFile(path, out var ok);
         return ok ? Flatten(root) : null;
+    }
+
+    public bool StaysIn(string key, string version)
+    {
+        foreach (var local in _localKeys)
+            if (key == local || key.StartsWith(local + "/", StringComparison.Ordinal)) return true;
+        return false;
     }
 
     public bool Rejects(string key, string raw) => false;

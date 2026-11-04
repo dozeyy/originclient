@@ -89,6 +89,14 @@ public class ModsConfigTests {
 				eq("no live key: an old profile's key is not brought back", null, val("hypixel", "apiKey"));
 				String saved = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
 				eq("saved file is valid JSON", true, JsonParser.parseString(saved).isJsonObject());
+				// KD-3: every apply writes a NEW meta/profileApplied, Settings Sync's sign that the
+				// whole-file swap is the player's (SyncedFiles.WholeReplaceMarkers).
+				JsonObject meta = JsonParser.parseString(saved).getAsJsonObject().getAsJsonObject("meta");
+				eq("apply writes the profileApplied marker", true, meta != null && meta.has("profileApplied"));
+				ModsConfig.META.put("profileApplied", new JsonPrimitive(-1));
+				ModsConfig.applyProfile("pvp");
+				eq("each apply moves the marker", false, "-1".equals(String.valueOf(ModsConfig.META.get("profileApplied"))));
+				eq("the marker is meta, never part of a profile", false, ModsConfig.snapshotCurrent().has("meta"));
 				break;
 			}
 			default:

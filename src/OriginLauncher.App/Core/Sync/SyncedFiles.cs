@@ -44,6 +44,25 @@ public static class SyncedFiles
         "originclient-mods.json", "originclient-itemsizes.json",
     };
 
+    // Subtrees of an Origin config that describe THIS instance's own files, so they never
+    // leave it. originclient-packhub.json is keyed by filenames in this account+version's
+    // resourcepacks/ folder: "installed" says which Modrinth file each one is, and
+    // "pendingDelete" lists packs the player uninstalled while the game still had them open,
+    // deleted at the next start. Synced, an uninstall in one version deleted the same-named
+    // pack in every other version (KD-2). Its "presets" (named pack lists) still sync.
+    private static readonly Dictionary<string, string[]> LocalKeys = new(StringComparer.Ordinal)
+    {
+        ["originclient-packhub.json"] = new[] { "/installed", "/pendingDelete" },
+    };
+
+    // Origin configs the game deliberately rewrites whole, and the key that then changes
+    // (see ISyncFormat.WholeReplaceMarker). ModsConfig.restoreFrom (applying a mod profile)
+    // writes a new /meta/profileApplied each time, in every live module.
+    private static readonly Dictionary<string, string> WholeReplaceMarkers = new(StringComparer.Ordinal)
+    {
+        ["originclient-mods.json"] = "/meta/profileApplied",
+    };
+
     /// <summary>The fixed files plus every Origin config found in any instance or already in the store.</summary>
     public static IReadOnlyList<SyncedFile> All(IEnumerable<SyncInstance> instances, SyncStoreData store)
     {
@@ -72,8 +91,10 @@ public static class SyncedFiles
         foreach (var name in originNames)
         {
             if (!OriginConfigName.IsMatch(name)) continue;
-            files.Add(new SyncedFile("config/" + name,
-                JsonConfigFormat.OriginConfig(allowsDeletions: DeletionAwareOriginConfigs.Contains(name))));
+            files.Add(new SyncedFile("config/" + name, JsonConfigFormat.OriginConfig(
+                allowsDeletions: DeletionAwareOriginConfigs.Contains(name),
+                localKeys: LocalKeys.GetValueOrDefault(name),
+                wholeReplaceMarker: WholeReplaceMarkers.GetValueOrDefault(name))));
         }
         return files;
     }

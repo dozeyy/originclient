@@ -34,6 +34,14 @@ public interface ISyncFormat
     bool AllowsDeletions { get; }
 
     /// <summary>
+    /// A key the game writes a NEW value into whenever it deliberately replaces the whole
+    /// file (applying a mod profile rewrites originclient-mods.json to exactly that profile).
+    /// When it changed, many keys vanishing at once are the player's choice, not a failed
+    /// load, so they are carried as deletions. null: the format has no such marker.
+    /// </summary>
+    string? WholeReplaceMarker => null;
+
+    /// <summary>
     /// Writes the store's view into the target file. A null value in
     /// <paramref name="desired"/> is a deletion. Returns the file's resulting
     /// key map (the new baseline), or null when the file was skipped.

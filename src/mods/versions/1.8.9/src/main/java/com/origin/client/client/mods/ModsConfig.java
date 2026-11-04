@@ -326,6 +326,7 @@ public final class ModsConfig {
 	// Profiles saved by a build that already moved the Snaplook / Full Map / Quickplay default
 	// keys (v1.0.89+) carry this; an older one gets Mods.keepOldDefaultKeys() when applied (BMOD-6).
 	private static final String PROFILE_KEYS_MARKER = "defaultKeys";
+	private static final String PROFILE_APPLIED_META = "profileApplied";
 
 	static synchronized JsonObject snapshotCurrent() {
 		ensureLoaded();
@@ -370,6 +371,11 @@ public final class ModsConfig {
 			parseInto(snap);
 		}
 		putAccountValues(account);
+		// A new value on every apply tells the launcher's Settings Sync that this whole-file swap
+		// is the player's choice, so the settings the profile drops are deleted in every version
+		// instead of read as a damaged load and written back next start (SettingsSyncEngine
+		// WholeReplaceMarker, SyncedFiles.WholeReplaceMarkers: "/meta/" + PROFILE_APPLIED_META).
+		META.put(PROFILE_APPLIED_META, new com.google.gson.JsonPrimitive(System.currentTimeMillis()));
 		save();
 	}
 

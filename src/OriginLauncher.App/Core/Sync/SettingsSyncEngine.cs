@@ -36,6 +36,11 @@ public sealed class SettingsSyncEngine
     private const int MassDeletionFloor = 8;
     private const double MassDeletionShare = 0.25;
 
+    // A change stamped later than this past "now" was made while the PC clock ran ahead
+    // (CMOS reset, dual boot, a manual date change). Trusted, it beat every honest change
+    // until real time caught up, so the player's edits snapped back on every launch (KD-7).
+    private const long FutureSlackMs = 5 * 60 * 1000;
+
     private readonly Action<string> _log;
 
     public SettingsSyncEngine(SyncStoreData store, Action<string>? log = null)
@@ -95,9 +100,13 @@ public sealed class SettingsSyncEngine
             return;
         }
 
-        var changedAt = AtomicFile.LastWriteMs(path);
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var changedAt = Math.Min(AtomicFile.LastWriteMs(path), now); // a future file time is a wrong clock too
         var baseline = seeding ? new Dictionary<string, string>() : Store.BaselineOf(instance.Version, file.Id);
         var values = Store.FileValues(file.Id);
+        // The game rewrote this file whole on purpose (a mod profile applied): every key in it,
+        // and every key missing from it, is the player's choice as of this write (KD-3).
+        var replacedWhole = !seeding && baseline != null && WholeReplaceMarkerMoved(format, baseline, current);
 
         foreach (var (key, raw) in current)
         {
@@ -112,40 +121,56 @@ public sealed class SettingsSyncEngine
                 // didn't have when we last wrote it — e.g. Iris filling in its
                 // own keys on first run): that is the version's default, so it
                 // only fills gaps and never beats a value the store has.
-                if (!seeding && (baseline == null || !baseline.ContainsKey(key))) continue;
-                if (stored.ChangedAt >= changedAt) continue; // the store's change is newer
+                if (!seeding && !replacedWhole && (baseline == null || !baseline.ContainsKey(key))) continue;
+                if (Trusted(stored.ChangedAt, now) >= changedAt) continue; // the store's change is newer
             }
             values[key] = new SyncValue(raw, changedAt);
         }
 
         if (format.AllowsDeletions && baseline != null && !seeding)
-            HarvestDeletions(instance, file, baseline, current, values, changedAt);
+            HarvestDeletions(instance, file, baseline, current, values, changedAt, now, replacedWhole);
 
         Store.SetBaseline(instance.Version, file.Id, BaselineFor(format, current));
     }
 
     private void HarvestDeletions(SyncInstance instance, SyncedFile file, Dictionary<string, string> baseline,
-        Dictionary<string, string> current, Dictionary<string, SyncValue> values, long changedAt)
+        Dictionary<string, string> current, Dictionary<string, SyncValue> values, long changedAt, long now, bool replacedWhole)
     {
-        var vanished = baseline.Keys.Where(k => !current.ContainsKey(k)).ToList();
+        var vanished = baseline.Keys.Where(k => !current.ContainsKey(k) && !file.Format.StaysIn(k, instance.Version)).ToList();
         if (vanished.Count == 0) return;
-        if (vanished.Count > Math.Max(MassDeletionFloor, baseline.Count * MassDeletionShare))
+        if (!replacedWhole && vanished.Count > Math.Max(MassDeletionFloor, baseline.Count * MassDeletionShare))
         {
             _log($"{instance.Version}: {vanished.Count} keys vanished from {file.Id} at once - treated as a reset, not deletions");
             return;
         }
         foreach (var key in vanished)
         {
-            if (values.TryGetValue(key, out var stored) && stored.ChangedAt >= changedAt) continue;
+            if (values.TryGetValue(key, out var stored) && Trusted(stored.ChangedAt, now) >= changedAt) continue;
             values[key] = new SyncValue(null, changedAt);
         }
     }
+
+    // A failed load loses the marker with everything else, so only a marker that is present
+    // AND new since the last sync counts.
+    private static bool WholeReplaceMarkerMoved(ISyncFormat format, Dictionary<string, string> baseline,
+        Dictionary<string, string> current)
+    {
+        var marker = format.WholeReplaceMarker;
+        if (marker == null || !current.TryGetValue(marker, out var value)) return false;
+        return !baseline.TryGetValue(marker, out var before) || !format.MatchesBaseline(marker, value, before);
+    }
+
+    // A stored stamp from the future (see FutureSlackMs) is of unknown age: any real change beats it.
+    private static long Trusted(long changedAt, long now) => changedAt > now + FutureSlackMs ? 0 : changedAt;
 
     private void PushFile(SyncInstance instance, SyncedFile file)
     {
         if (!Store.Files.TryGetValue(file.Id, out var values) || values.Count == 0) return;
         var path = file.PathIn(instance.Directory);
-        var desired = values.ToDictionary(kv => kv.Key, kv => kv.Value.Value, StringComparer.Ordinal);
+        // A key that stays in each version is never written from the store (it may hold an
+        // older build's copy, e.g. another version's pack hub pendingDelete list).
+        var desired = values.Where(kv => !file.Format.StaysIn(kv.Key, instance.Version))
+            .ToDictionary(kv => kv.Key, kv => kv.Value.Value, StringComparer.Ordinal);
         var result = file.Format.Apply(path, desired, instance);
         if (result != null && File.Exists(path))
             Store.SetBaseline(instance.Version, file.Id, BaselineFor(file.Format, result));
