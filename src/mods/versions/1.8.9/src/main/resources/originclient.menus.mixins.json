@@ -22,6 +22,7 @@
 		"GuiSlotMixin",
 		"GuiTextFieldMixin",
 		"InventoryEffectRendererMixin",
+		"MinecraftResizeInvoker",
 		"MinecraftServerProgressMixin",
 		"MinecraftSplashScreenMixin",
 		"MinecraftWorldLoadMixin",
