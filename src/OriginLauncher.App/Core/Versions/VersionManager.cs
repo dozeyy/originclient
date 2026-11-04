@@ -789,7 +789,8 @@ public sealed class VersionManager
     //    the launcher installs Origin, OptiFine and the era perf mods, and what
     //    the Mods page edits — exactly like every Fabric version.
     //  * The game folder (--gameDir) is the account's own, so settings, worlds,
-    //    servers and configs are per account (config/splash.properties too).
+    //    servers and configs are per account (config/splash.properties too:
+    //    FML's own splash is switched off there, Origin's loading screen replaces it).
     //  * FML 8.0.x (Forge 11.15) has no fabric.modsFolder: it only loads
     //    <gameDir>/mods. So the shared folder is MIRRORED into the account's
     //    mods/ just before launch (SharedMods.Mirror) — chosen over FML's
@@ -826,7 +827,7 @@ public sealed class VersionManager
             progress?.Report("OptiFine unavailable right now - launching without shaders");
 
         await LegacyStackInstaller.InstallAsync(version, modsFolder, progress, ct);
-        LegacyStackInstaller.SeedSplashTheme(configFolder);
+        LegacyStackInstaller.TurnOffForgeSplash(configFolder);
         SanitizeCorruptConfigs(configFolder);
 
         // Same pre-launch check as the Fabric path (log-only on 1.8.9: Forge's mod metadata is advisory).

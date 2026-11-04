@@ -9,13 +9,11 @@ import com.origin.client.client.theme.OriginTheme;
  * title's buttons start their entrance at that moment. The launcher's
  * Motion.Intro mirrors REVEAL_MS.
  *
- * 1.8.9: the startup resource load is Forge's own splash (SplashProgress,
- * themed charcoal by the launcher's config/splash.properties), which owns the
- * GL context on its own thread, so nothing of Origin's can draw during it. The
- * loading layer therefore takes over the first title frame instead: the seed
- * blooms into the three circles on the splash's charcoal, then the dissolve +
- * flight above (OriginTitleScreen). That intro plays once per game start, and
- * only if the title is the first thing after the splash ({@link #claimIntro}).
+ * 1.8.9: the startup load is Origin's own loading screen (render/StartupLoading,
+ * FML's splash switched off), which ends on the bar full; the first title then
+ * holds that same picture over its settling frames and dissolves it
+ * (OriginTitleScreen). That intro plays once per game start, and only if the
+ * title is the first thing after the load ({@link #claimIntro}).
  *
  * Entering a world has no transition on purpose (Will 2026-10-18: "like normal
  * once the world loads") — the world appears the frame it is ready.

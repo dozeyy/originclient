@@ -1,31 +1,9 @@
 # ref-189 lookup group: splash -- Origin's startup loading screen replacing FML's SplashProgress (2026-11-04)
-code net.minecraft.client.Minecraft#startGame
-code net.minecraft.client.Minecraft#drawSplashScreen
-code net.minecraft.client.Minecraft#updateDisplay
-class net.minecraftforge.fml.client.SplashProgress
-code net.minecraftforge.fml.client.SplashProgress#start
-code net.minecraftforge.fml.client.SplashProgress#finish
-code net.minecraftforge.fml.client.SplashProgress#drawVanillaScreen
-code net.minecraftforge.fml.client.SplashProgress#pause
-code net.minecraftforge.fml.client.SplashProgress#resume
-class net.minecraftforge.fml.client.FMLClientHandler
-code net.minecraftforge.fml.client.FMLClientHandler#beginMinecraftLoading
-code net.minecraftforge.fml.client.FMLClientHandler#finishMinecraftLoading
-code net.minecraftforge.fml.client.FMLClientHandler#onInitializationComplete
-code net.minecraftforge.fml.client.FMLClientHandler#processWindowMessages
-class net.minecraftforge.fml.common.ProgressManager
-class net.minecraftforge.fml.common.ProgressManager$ProgressBar
-code net.minecraftforge.fml.common.ProgressManager#push
-code net.minecraftforge.fml.common.ProgressManager#pop
-code net.minecraftforge.fml.common.ProgressManager$ProgressBar#step
-class net.minecraft.client.renderer.texture.TextureUtil
-code net.minecraft.client.renderer.texture.TextureMap#loadTextureAtlas
-member drawSplashScreen
-member startGame
-member updateDisplay
-member uploadTextureImageAllocate
-member allocateTexture
-member refreshResources
-member fontRendererObj
-member renderEngine
-member mcDataDir
+# Answered 2026-11-04 (run 41773476316): Minecraft#startGame / drawSplashScreen, SplashProgress#start/finish/
+# drawVanillaScreen/pause/resume, FMLClientHandler#beginMinecraftLoading/finishMinecraftLoading/
+# onInitializationComplete/processWindowMessages, ProgressManager push/pop/step, TextureMap#loadTextureAtlas.
+code net.minecraftforge.fml.client.SplashProgress#clearVanillaResources
+code net.minecraft.client.renderer.texture.TextureManager#deleteTexture
+code net.minecraft.client.renderer.texture.TextureManager#getDynamicTextureLocation
+member mojangLogo
+member processWindowMessages

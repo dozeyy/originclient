@@ -8,7 +8,8 @@ import net.minecraft.client.gui.FontRenderer;
 
 /**
  * The one loading picture, ported from 1.21.1's LoadingLook (DESIGN-SYSTEM 15.3): the
- * startup splash (OriginTitleScreen's settle hold and dissolve), the world-loading scenes
+ * startup loading screen (StartupLoading, window open -> title; then OriginTitleScreen's
+ * settle hold and dissolve), the resource reload screen (ReloadOverlay), the world-loading scenes
  * (GuiDownloadTerrain, GuiScreenWorking, the LoadingScreenRenderer replacement) and
  * "Connecting to the server" all draw THIS layout over their own backdrop; only the
  * caption changes.
@@ -37,7 +38,9 @@ import net.minecraft.client.gui.FontRenderer;
  * into the title (the {@code layer} argument). The progress fill is exactly its fraction wide:
  * nothing at 0 % (pill() draws nothing for w <= 0). The caption is Minecraft's own font with its
  * shadow in TITLE_TEXT_MUTED, centred on its ink (Will, 2026-10-27: Minecraft's font on every
- * loading screen; 1.8.9's fonts are loaded before anything here draws, so no boot font is needed).
+ * loading screen). The startup screen draws before Minecraft's font and texture manager exist, so
+ * it passes {@code boot}: the caption comes from BootFont (ascii.png read directly: the same glyphs)
+ * and the logo from a raw GL texture (OriginScreenRenderer.drawLogo's boot path), as 1.21.1's boot font.
  * 1.8.9: the window size comes from Minecraft.displayWidth/displayHeight and the GUI scale from
  * OriginScreenRenderer.scale() (1.8.9's ScaledResolution rule, allocation-free).
  *
@@ -109,15 +112,20 @@ final class LoadingLook {
 	 * @param caption  the stage line, "" for none
 	 */
 	static void draw(Gfx g, float layer, double fill, String caption) {
+		draw(g, layer, fill, caption, false);
+	}
+
+	/** {@code boot}: drawn before Minecraft's font and texture manager exist (StartupLoading; class comment). */
+	static void draw(Gfx g, float layer, double fill, String caption, boolean boot) {
 		layout();
 		// The backdrop is flat color.bg over the whole GUI window (ceil: 1.8.9's ScaledResolution rounds up).
 		int gw = (physW + gs - 1) / gs, gh = (Math.max(1, Minecraft.getMinecraft().displayHeight) + gs - 1) / gs;
 		Gfx.defaultBlend();
 		g.fill(0, 0, gw, gh, fade(OriginTheme.CLEAN_BG, layer));
-		OriginScreenRenderer.drawLogo(g, physW / 2.0 / gs, logoCy / gs, logoBox / gs, layer);
+		OriginScreenRenderer.drawLogo(g, physW / 2.0 / gs, logoCy / gs, logoBox / gs, layer, boot);
 		bar(g, layer, fill);
 		if (caption != null && !caption.isEmpty()) {
-			caption(g, layer, caption);
+			caption(g, layer, caption, boot);
 		}
 		Gfx.resetColor();
 	}
@@ -185,10 +193,19 @@ final class LoadingLook {
 
 	// ---- the caption ----
 
-	private static void caption(Gfx g, float layer, String text) {
+	private static void caption(Gfx g, float layer, String text, boolean boot) {
 		int argb = fade(OriginTheme.TITLE_TEXT_MUTED, layer);
 		// FontRenderer draws a colour whose alpha is under 4 fully opaque.
 		if (((argb >>> 24) & 0xFF) < 4) {
+			return;
+		}
+		double cx = physW / 2.0 / gs;
+		if (boot) {
+			// Same placement as below; BootFont measures and draws like FontRenderer (no per-frame cache
+			// needed: a sum of a few table lookups).
+			int ink = Math.max(0, BootFont.width(text) - 1);
+			BootFont.drawWithShadow(g, text, (float) Math.round(cx - ink / 2.0),
+					(float) Math.round(captionMid / gs - 4), argb);
 			return;
 		}
 		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
@@ -199,7 +216,6 @@ final class LoadingLook {
 			inkUnicode = unicode;
 			inkWidth = Math.max(0, font.getStringWidth(text) - 1);   // the width counts the last glyph's 1 px advance gap
 		}
-		double cx = physW / 2.0 / gs;
 		g.drawString(font, text, (int) Math.round(cx - inkWidth / 2.0),
 				(int) Math.round(captionMid / gs - 4), argb, true);
 	}

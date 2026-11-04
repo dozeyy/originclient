@@ -8,6 +8,7 @@
 		"defaultRequire": 0
 	},
 	"client": [
+		"ForgeLoadingPumpMixin",
 		"GuiAchievementAccessor",
 		"GuiAchievementMixin",
 		"GuiButtonExtMixin",
@@ -22,9 +23,11 @@
 		"GuiTextFieldMixin",
 		"InventoryEffectRendererMixin",
 		"MinecraftServerProgressMixin",
+		"MinecraftSplashScreenMixin",
 		"MinecraftWorldLoadMixin",
 		"ReloadProgressMixin",
 		"ReloadPumpMixin",
+		"SplashProgressMixin",
 		"TextureManagerDarkWidgetsMixin"
 	]
 }

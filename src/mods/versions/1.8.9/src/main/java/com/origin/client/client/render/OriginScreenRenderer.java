@@ -44,12 +44,12 @@ import org.lwjgl.opengl.GL11;
 // origin_logo.png itself, never redrawn around it (Will, 2026-10-25: drawn
 // look-alikes read as a fake logo).
 //
-// 1.8.9: the startup resource load itself is Forge's SplashProgress, themed by
-// the launcher (config/splash.properties); it owns the GL context on its own
-// thread, so the Origin startup layer takes over the title's first frames
-// instead. Fonts are baked by then, so "ORIGIN" draws through the game font
-// (1.21.1's boot-font reader exists only because its overlay paints before fonts
-// load).
+// 1.8.9: the startup load (window open -> title) is Origin's own loading screen
+// (StartupLoading: FML's SplashProgress is switched off), drawn from the main
+// thread before Minecraft's texture manager and font exist, so it takes the logo
+// from a raw GL texture (drawLogo's boot path) and its caption from BootFont
+// (1.21.1's boot font: ascii.png read directly). The title then holds the same
+// picture at 100% over its first frames and dissolves (renderStartupLoading).
 //
 // Textures load via the classloader (not the resource manager) and degrade
 // gracefully if any asset fails rather than crashing.
@@ -317,8 +317,34 @@ public final class OriginScreenRenderer {
 
 	/** Draws the logo centred on (cx, cy), {@code size} GUI px square, at alpha (also LoadingLook's logo). */
 	static void drawLogo(Gfx g, double cx, double cy, double size, float alpha) {
+		drawLogo(g, cx, cy, size, alpha, false);
+	}
+
+	/**
+	 * {@code boot}: the startup loading screen, drawn before Minecraft's texture manager exists
+	 * (StartupLoading), so the bake is uploaded as a raw GL texture of its own instead of being
+	 * registered with the texture manager. Same bake, same pixels.
+	 */
+	static void drawLogo(Gfx g, double cx, double cy, double size, float alpha, boolean boot) {
 		int gs = scale();
 		int ps = (int) Math.round(size * gs);
+		if (boot) {
+			int tex = bootLogoAt(ps);
+			if (tex <= 0) {
+				return;   // no logo this frame; the bar and caption still draw
+			}
+			Pose pose = g.pose();
+			pose.pushPose();
+			pose.scale(1f / gs, 1f / gs, 1f);
+			Gfx.defaultBlend();
+			GlStateManager.color(1f, 1f, 1f, Math.max(0f, Math.min(1f, alpha)));
+			GlStateManager.bindTexture(tex);
+			int px = (int) Math.round(cx * gs - ps / 2.0), py = (int) Math.round(cy * gs - ps / 2.0);
+			g.blitBound(px, py, ps, ps, 0f, 0f, 1f, 1f);
+			Gfx.resetColor();
+			pose.popPose();
+			return;
+		}
 		ResourceLocation id = logoAt(ps);
 		if (id == null) {
 			OriginUi.logo(g, cx, cy, (int) Math.round(size), alpha);
@@ -344,31 +370,8 @@ public final class OriginScreenRenderer {
 			return id;
 		}
 		try {
-			if (logoSrc == null) {
-				logoSrc = Gfx.readImage(com.origin.client.client.gui.OriginUi.LOGO_PATH);
-			}
-			int sw = logoSrc.getWidth(), sh = logoSrc.getHeight();
-			java.awt.image.BufferedImage dst = new java.awt.image.BufferedImage(ps, ps, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-			for (int y = 0; y < ps; y++) {
-				for (int x = 0; x < ps; x++) {
-					double aSum = 0, cSum = 0;
-					for (int sy = 0; sy < 4; sy++) {
-						for (int sx = 0; sx < 4; sx++) {
-							int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / ps));
-							int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / ps));
-							int c = logoSrc.getRGB(tx, ty);   // ARGB
-							double a = ((c >>> 24) & 0xFF) / 255.0;
-							aSum += a;
-							cSum += a * ((c & 0xFF) / 255.0);
-						}
-					}
-					double a = aSum / 16.0;
-					int v = a > 0 ? (int) Math.round(Math.min(1.0, cSum / aSum) * 255) : 255;
-					dst.setRGB(x, y, ((int) Math.round(a * 255) << 24) | (v << 16) | (v << 8) | v);
-				}
-			}
 			id = new ResourceLocation("originclient", "logo_px_" + ps);
-			if (Gfx.registerTexture(id, dst, false) == null) {
+			if (Gfx.registerTexture(id, bakeLogo(ps), false) == null) {
 				throw new IllegalStateException("logo upload failed");
 			}
 			LOGO_SIZES[ps] = id;
@@ -378,6 +381,76 @@ public final class OriginScreenRenderer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin logo bake failed; using the plain logo blit", t);
 			return null;
 		}
+	}
+
+	// The startup screen's logo: one raw GL texture at the current size (the window height,
+	// so the logo size, rarely changes during the load; a new size replaces it). Freed by
+	// releaseBootLogo when the startup screen ends. 0 = none yet.
+	private static int bootLogoTex, bootLogoPx;
+	private static boolean bootLogoFailed;
+
+	private static int bootLogoAt(int ps) {
+		if (bootLogoFailed || ps <= 0 || ps > LOGO_MAX_PX) {
+			return 0;
+		}
+		if (bootLogoTex > 0 && bootLogoPx == ps) {
+			return bootLogoTex;
+		}
+		try {
+			java.awt.image.BufferedImage img = bakeLogo(ps);
+			releaseBootLogo();
+			int tex = net.minecraft.client.renderer.texture.TextureUtil.glGenTextures();
+			// TextureUtil's own upload (what DynamicTexture uses; needs no texture manager): nearest, clamped.
+			net.minecraft.client.renderer.texture.TextureUtil.uploadTextureImageAllocate(tex, img, false, true);
+			bootLogoTex = tex;
+			bootLogoPx = ps;
+			return tex;
+		} catch (Throwable t) {
+			bootLogoFailed = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin startup logo failed; the startup screen draws without it", t);
+			return 0;
+		}
+	}
+
+	/** Frees the startup screen's raw logo texture (StartupLoading, when the startup screen ends). */
+	static void releaseBootLogo() {
+		if (bootLogoTex > 0) {
+			try {
+				net.minecraft.client.renderer.texture.TextureUtil.deleteTexture(bootLogoTex);
+			} catch (Throwable ignored) {
+				// a leaked one-texture bake is harmless
+			}
+		}
+		bootLogoTex = 0;
+		bootLogoPx = 0;
+	}
+
+	/** origin_logo.png box-filtered (4x4) down to ps x ps: white, straight alpha. */
+	private static java.awt.image.BufferedImage bakeLogo(int ps) throws java.io.IOException {
+		if (logoSrc == null) {
+			logoSrc = Gfx.readImage(com.origin.client.client.gui.OriginUi.LOGO_PATH);
+		}
+		int sw = logoSrc.getWidth(), sh = logoSrc.getHeight();
+		java.awt.image.BufferedImage dst = new java.awt.image.BufferedImage(ps, ps, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+		for (int y = 0; y < ps; y++) {
+			for (int x = 0; x < ps; x++) {
+				double aSum = 0, cSum = 0;
+				for (int sy = 0; sy < 4; sy++) {
+					for (int sx = 0; sx < 4; sx++) {
+						int tx = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 4.0) * sw / ps));
+						int ty = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 4.0) * sh / ps));
+						int c = logoSrc.getRGB(tx, ty);   // ARGB
+						double a = ((c >>> 24) & 0xFF) / 255.0;
+						aSum += a;
+						cSum += a * ((c & 0xFF) / 255.0);
+					}
+				}
+				double a = aSum / 16.0;
+				int v = a > 0 ? (int) Math.round(Math.min(1.0, cSum / aSum) * 255) : 255;
+				dst.setRGB(x, y, ((int) Math.round(a * 255) << 24) | (v << 16) | (v << 8) | v);
+			}
+		}
+		return dst;
 	}
 
 	// The official wordmark (textures/ui/origin_wordmark.png, byte-identical to the launcher's
@@ -683,9 +756,9 @@ public final class OriginScreenRenderer {
 	/**
 	 * The clean splash (1.21.1's settle-hold picture): the one loading picture
 	 * (LoadingLook, its opaque color.bg backdrop faded by the dissolve) with the bar full.
-	 * 1.8.9's startup load itself is Forge's splash (themed by the launcher), so
-	 * this layer only ever shows a FINISHED load: the bar sits full at 100%, the
-	 * caption 1.21.1 shows at that moment.
+	 * The startup load itself is StartupLoading's (its last frame is this same
+	 * picture), so this layer only ever shows a FINISHED load: the bar sits full
+	 * at 100%, the caption 1.21.1 shows at that moment.
 	 */
 	private static void renderSplash(Gfx guiGraphics) {
 		ensureLoaded();
