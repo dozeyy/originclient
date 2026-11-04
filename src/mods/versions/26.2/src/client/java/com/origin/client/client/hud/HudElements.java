@@ -1072,13 +1072,26 @@ public final class HudElements {
 	 *  (OriginDevWorld.inWorldTick) waits for it to climb: proof the HUD really drew in a world. */
 	public static long passes;
 
+	/** True while the F3 debug screen is up (26.x: the debug-entries overlay, as FpsCoachTips
+	 *  reads it; single always-on lines don't count). A read that fails counts as closed. */
+	private static boolean debugScreenOpen(Minecraft mc) {
+		try {
+			return mc.debugEntries.isOverlayVisible();
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	/** Main in-game dispatcher: draws every enabled element at its anchored,
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
 	 *  editor draws its own draggable versions). */
 	public static void renderAll(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
 		if (FrameWatch.idle()) {
-			return;   // window unfocused (Limit Unfocused FPS): skip Origin's HUD, nobody is looking
+			return;   // window minimised: skip Origin's HUD, nobody can see it
+		}
+		if (debugScreenOpen(mc)) {
+			return;   // F3 is open: its text sits where the HUD's default spots are
 		}
 		if (mc.player == null || mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudEditorScreen) {
 			return;

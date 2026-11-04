@@ -65,6 +65,8 @@ public class MenuHooks {
 
 	/** Vanilla's pause-menu Disconnect / "Save and Quit to Title" button id. */
 	private static final int DISCONNECT_ID = 1;
+	// Forge's "Mod Options..." on the pause menu (GuiIngameMenu patch, Forge 11.15.1.2318).
+	private static final int FORGE_MOD_OPTIONS_ID = 12;
 	/** Vanilla's first-row top padding (room for the "Game menu" title). */
 	private static final int TITLE_CLEARANCE = 50;
 
@@ -182,11 +184,40 @@ public class MenuHooks {
 		} else if (screen.getClass() == GuiMainMenu.class && OriginStyle.vanillaTitle()) {
 			addVanillaModsEntry(event.buttonList);
 		} else if (screen instanceof GuiIngameMenu) {
+			pauseModsOpensOrigin(screen, event.buttonList);
 			addCosmeticsRow(screen, event.buttonList);
 		} else if (IrisBridge.isShaderScreen(screen)) {
 			addDownloadShaders(screen, event.buttonList);
 		} else if (screen instanceof GuiScreenResourcePacks) {
 			addBrowsePacks(screen, event.buttonList);
+		}
+	}
+
+	/**
+	 * Pause menu "Mods" (G121-5, as on 1.21.1): Forge's own "Mod Options..." button (id 12,
+	 * Forge's GuiIngameMenu patch; it opened Forge's in-game mod config list) keeps its slot and
+	 * size but reads "Mods" and opens Origin's mod menu, the screen the title's Mods opens. The
+	 * full list of installed mods is one row away (Settings > Menu > All Installed Mods, Forge's
+	 * GuiModList). The click goes through ACTIONS (onActionPerformedPre cancels Forge's).
+	 * Fail-soft: any surprise leaves Forge's button as it was.
+	 */
+	private static void pauseModsOpensOrigin(final GuiScreen pause, List<GuiButton> buttons) {
+		try {
+			for (GuiButton b : buttons) {
+				if (b.id == FORGE_MOD_OPTIONS_ID) {
+					b.displayString = "Mods";
+					ACTIONS.put(b, new Runnable() {
+						@Override
+						public void run() {
+							Minecraft.getMinecraft().displayGuiScreen(
+									new com.origin.client.client.gui.OriginModMenuScreen(pause, null));
+						}
+					});
+					return;
+				}
+			}
+		} catch (Throwable ignored) {
+			// Forge's button as it was
 		}
 	}
 

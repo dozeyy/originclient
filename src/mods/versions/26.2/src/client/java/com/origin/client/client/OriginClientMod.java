@@ -73,6 +73,10 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean savedSmoothCam = false;
 	// Fly Boost restore latch + thunder-sound cadence counter.
 	private boolean flyBoostApplied = false;
+	// Fly Boost's own numbers: the speed in effect before boosting (what comes back when the
+	// boost ends) and the boosted speed it last set (a different reading = someone else,
+	// e.g. a server plugin, changed the speed meanwhile, and that becomes the new base).
+	private float flyBoostBase, flyBoostSet;
 	private int thunderSoundTicks = 0;
 
 	// JEI bundled here is jei 30.48.0.242 for 26.2 (see gradle.properties). If
@@ -303,6 +307,21 @@ public class OriginClientMod implements ClientModInitializer {
 				// outline must never take the frame down
 			}
 		});
+		// Pause menu "Mods" (G121-5): on the title, "Mods" opens Origin's mod menu, but in a
+		// world Mod Menu's own "Mods" button sat on the pause screen and opened its plain jar
+		// list. One word, one screen: that button is swapped, in its own slot and size, for
+		// one that opens Origin's menu (which links to Mod Menu's full list itself). Mod Menu
+		// adds its button from its own AFTER_INIT listener and the order between mods'
+		// listeners is not fixed, so the swap runs after each frame's extract, once every
+		// listener has run (26.x Fabric screen events are extract-based; at most the first
+		// frame shows Mod Menu's own "Mods", same label and slot). Fail-soft: any surprise
+		// leaves Mod Menu's button as it was.
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterExtract(screen).register(
+						(s, g, mx, my, tick) -> swapPauseModsButton(client, s));
+			}
+		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
 		// container screen is open, so draw the potion element over it here.
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
@@ -408,6 +427,38 @@ public class OriginClientMod implements ClientModInitializer {
 		} finally {
 			readingRealTime = false;
 		}
+	}
+
+	/** The pause screen's Mod Menu "Mods" button -> the same button opening Origin's menu (G121-5). */
+	private static void swapPauseModsButton(Minecraft client, net.minecraft.client.gui.screens.Screen pause) {
+		try {
+			var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(pause);
+			for (int i = 0; i < buttons.size(); i++) {
+				var w = buttons.get(i);
+				// Mod Menu's own widget class; its icon-only style (too small for a label) stays.
+				if (w.getClass().getName().startsWith("com.terraformersmc.modmenu.") && w.getWidth() >= 40) {
+					var ours = net.minecraft.client.gui.components.Button.builder(net.minecraft.network.chat.Component.literal("Mods"),
+									b -> client.gui.setScreen(new com.origin.client.client.gui.OriginModMenuScreen(pause, null)))
+							.bounds(w.getX(), w.getY(), w.getWidth(), w.getHeight())
+							.build();
+					buttons.remove(i);
+					buttons.add(ours);
+					return;
+				}
+			}
+		} catch (Throwable t) {
+			// Mod Menu's button stays as it was
+		}
+	}
+
+	/**
+	 * A press of an Origin toggle key since the last tick, outside screens (util/KeyTaps,
+	 * G121-7): a tap that went down and up between two ticks is never "down" when the tick
+	 * reads the key, so the toggles also ask this. Call it every tick, first in the
+	 * condition, so a press is spent on that tick (two reads of one press = one toggle).
+	 */
+	private static boolean tapped(Minecraft client, int glfwKey) {
+		return com.origin.client.client.util.KeyTaps.consume(glfwKey) && client.gui.screen() == null;
 	}
 
 	/** Raw GLFW key state for the mod-menu's rebindable keys. */
@@ -575,7 +626,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
 		boolean sbDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
-		if (sbDown && !scoreboardKeyWasDown) {
+		if (tapped(client, Mods.keyCode("scoreboard", "toggleKey")) || (sbDown && !scoreboardKeyWasDown)) {
 			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
 			Mods.set("scoreboard", "hideScoreboard", hidden);
 			if (Mods.bool("scoreboard", "displayToggleMessage")) {
@@ -587,7 +638,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 		// Full Bright toggle keybind flips the mod's own sub-toggle
 		boolean fbDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
-		if (fbDown && !fullbrightKeyWasDown) {
+		if (tapped(client, Mods.keyCode("fullbright", "key")) || (fbDown && !fullbrightKeyWasDown)) {
 			// With the Lighting mod off the key used to flip a hidden setting and nothing
 			// changed on screen: now it switches Lighting on with Full Bright.
 			boolean on = !Mods.on("fullbright") || !Mods.bool("fullbright", "fullBright");
@@ -602,7 +653,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// Nametag toggle keybinds (default unbound). Toggle All hides every
 		// nametag; Toggle Players hides only other players'.
 		boolean naDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
-		if (naDown && !nametagAllKeyWasDown) {
+		if (tapped(client, Mods.keyCode("nametags", "toggleAll")) || (naDown && !nametagAllKeyWasDown)) {
 			nametagsHidden = !nametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
@@ -612,7 +663,7 @@ public class OriginClientMod implements ClientModInitializer {
 		nametagAllKeyWasDown = naDown;
 
 		boolean npDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
-		if (npDown && !nametagPlayerKeyWasDown) {
+		if (tapped(client, Mods.keyCode("nametags", "togglePlayers")) || (npDown && !nametagPlayerKeyWasDown)) {
 			playerNametagsHidden = !playerNametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
@@ -681,8 +732,9 @@ public class OriginClientMod implements ClientModInitializer {
 		// resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.gui.screen() == null
 				&& (isRawKeyDown(zoomKeyCode) || OriginKeyBindings.zoom.isDown());
+		boolean zTap = tapped(client, zoomKeyCode);
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
-			if (zDown && !zoomKeyWasDown) {
+			if (zTap || (zDown && !zoomKeyWasDown)) {
 				zoomToggled = !zoomToggled;
 			}
 		} else {
@@ -714,7 +766,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
 		int cbKey = Mods.keyCode("chunkborders", "key");
 		boolean cbDown = client.gui.screen() == null && isRawKeyDown(cbKey);
-		if (cbDown && !chunkKeyWasDown) {
+		if (tapped(client, cbKey) || (cbDown && !chunkKeyWasDown)) {
 			Mods.setOn("chunkborders", !Mods.on("chunkborders"));
 		}
 		chunkKeyWasDown = cbDown;
@@ -742,7 +794,7 @@ public class OriginClientMod implements ClientModInitializer {
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean custom = client.gui.screen() == null && raw;
-			boolean edge = custom && !sprintKeyWasDown;
+			boolean edge = tapped(client, Mods.keyCode("togglesprint", "key")) || (custom && !sprintKeyWasDown);
 			sprintKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sprintToggledOn = custom;
@@ -762,7 +814,7 @@ public class OriginClientMod implements ClientModInitializer {
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = sneakKeyDown(client);
 			boolean custom = client.gui.screen() == null && raw;
-			boolean edge = custom && !sneakKeyWasDown;
+			boolean edge = tapped(client, sneakKeyboardKey(client)) || (custom && !sneakKeyWasDown);
 			sneakKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sneakToggledOn = custom;
@@ -776,16 +828,27 @@ public class OriginClientMod implements ClientModInitializer {
 			FEATURES.sneakToggledOn = false;
 		}
 
-		// Fly Boost: multiply flight speed, but ONLY in a mode that actually
-		// allows flight (creative/spectator) and only while airborne — it never
-		// touches survival movement, so it's a QoL tweak, not a speed hack.
+		// Fly Boost: multiply flight speed, but ONLY in creative and only while
+		// airborne -- it never touches survival movement, so it's a QoL tweak, not a
+		// speed hack. It scales the speed in effect (vanilla's, or a server's /flyspeed)
+		// and restores exactly that afterwards, never a hard-coded default. Spectator is
+		// left alone: there the mouse wheel sets the flight speed, and a per-tick boost
+		// overwrote every scroll.
+		var abilities = player.getAbilities();
 		if (Mods.on("togglesprint") && Mods.bool("togglesprint", "flyBoost")
-				&& player.getAbilities().flying && (player.isCreative() || player.isSpectator())) {
+				&& abilities.flying && player.isCreative()) {
+			float now = abilities.getFlyingSpeed();
+			if (!flyBoostApplied || Math.abs(now - flyBoostSet) > 1.0e-6f) {
+				flyBoostBase = now;   // first boosted tick, or the speed was changed by someone else
+			}
 			float mult = (float) Math.max(1.0, Mods.num("togglesprint", "flyBoostAmount"));
-			player.getAbilities().setFlyingSpeed(0.05f * mult);
+			flyBoostSet = flyBoostBase * mult;
+			abilities.setFlyingSpeed(flyBoostSet);
 			flyBoostApplied = true;
 		} else if (flyBoostApplied) {
-			player.getAbilities().setFlyingSpeed(0.05f);
+			if (Math.abs(abilities.getFlyingSpeed() - flyBoostSet) <= 1.0e-6f) {
+				abilities.setFlyingSpeed(flyBoostBase);   // still ours: put the player's speed back
+			}
 			flyBoostApplied = false;
 		}
 
@@ -1080,6 +1143,17 @@ public class OriginClientMod implements ClientModInitializer {
 			return InputConstants.Type.MOUSE.getOrCreate(KeyCodes.mouseButton(code));
 		}
 		return code > 0 ? InputConstants.Type.KEYSYM.getOrCreate(code) : InputConstants.UNKNOWN;
+	}
+
+	/** The player's Sneak key as a GLFW keyboard key, or -1 when it is a mouse button
+	 *  (a mouse bind is read through its KeyMapping in sneakKeyDown instead). */
+	private static int sneakKeyboardKey(Minecraft client) {
+		try {
+			InputConstants.Key bound = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.getBoundKeyOf(client.options.keyShift);
+			return bound.getType() == InputConstants.Type.KEYSYM ? bound.getValue() : -1;
+		} catch (Throwable t) {
+			return -1;
+		}
 	}
 
 	/** Physical state of the player's Sneak key (Controls' "Sneak"), read raw so

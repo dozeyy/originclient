@@ -133,8 +133,8 @@ public final class CosmeticEffects {
 			}
 			return;
 		}
-		if (com.origin.client.client.hud.FrameWatch.idle()) {
-			return;   // window unfocused (Limit Unfocused FPS): nobody is looking, skip the sparkles
+		if (com.origin.client.client.hud.FrameWatch.minimised()) {
+			return;   // window minimised: nobody can see them, skip the sparkles (unfocused keeps them, as on 1.21.1)
 		}
 		if (mc.options.hideGui) {
 			return;   // F1: nothing drawn (and nothing born), existing sparks just age out

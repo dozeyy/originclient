@@ -86,6 +86,10 @@ public class OriginClientMod {
 	private static boolean savedSmoothCam = false;
 	// Fly Boost restore latch + thunder-sound cadence counter.
 	private boolean flyBoostApplied = false;
+	// Fly Boost's own numbers: the speed in effect before boosting (what comes back when the
+	// boost ends) and the boosted speed it last set (a different reading = someone else,
+	// e.g. a server plugin, changed the speed meanwhile, and that becomes the new base).
+	private float flyBoostBase, flyBoostSet;
 	private int thunderSoundTicks = 0;
 	// Edge-trigger for death waypoints: true while the player is alive, so a death
 	// drops exactly one waypoint on the alive->dead transition.
@@ -162,6 +166,40 @@ public class OriginClientMod {
 		// settings, so options.txt waits until they are put back.
 		OptionsAutosave.held = zoomSensApplied || smoothCamApplied || savedPerspective >= 0;
 		OptionsAutosave.tick(Minecraft.getMinecraft());
+		tickWindowTitle(Minecraft.getMinecraft());
+	}
+
+	// The window title last set by tickWindowTitle (null = not yet).
+	private static String windowTitle;
+
+	/**
+	 * The game window's title names Origin and the signed-in player (G121-12, util/WindowTitles),
+	 * as on the Fabric versions: "Origin 1.8.9 - Steve - Singleplayer". 1.8.9 has no
+	 * createTitle()/updateTitle(): createDisplay sets "Minecraft 1.8.9" once and nothing updates
+	 * it, so the title is rebuilt here each tick (the same where-labels 1.21.1's createTitle
+	 * uses) and handed to LWJGL2's Display only when it changed. Fail-soft: the title stays.
+	 */
+	private static void tickWindowTitle(Minecraft mc) {
+		try {
+			String where = "";
+			if (mc.theWorld != null) {
+				net.minecraft.server.integrated.IntegratedServer local = mc.getIntegratedServer();
+				if (local != null) {
+					where = local.getPublic() ? " - Multiplayer (LAN)" : " - Singleplayer";
+				} else {
+					where = " - Multiplayer (3rd-party Server)";
+				}
+			}
+			String title = com.origin.client.client.util.WindowTitles.origin(
+					"Minecraft 1.8.9" + where, mc.getSession() == null ? null : mc.getSession().getUsername());
+			if (!title.equals(windowTitle)) {
+				windowTitle = title;
+				org.lwjgl.opengl.Display.setTitle(title);
+				com.origin.client.OriginClient.LOGGER.info("Origin: window title \"{}\"", title);
+			}
+		} catch (Throwable ignored) {
+			// the window keeps its title
+		}
 	}
 
 	// Flush everything to disk once, when Minecraft is shutting down. Each
@@ -221,6 +259,35 @@ public class OriginClientMod {
 		if (chatApplied) {
 			client.gameSettings.chatScale = savedChatScale;
 		}
+	}
+
+	/**
+	 * Feeds util/KeyTaps (G121-7): every key PRESS made while no screen is open, so Origin's
+	 * toggle keys catch a tap shorter than a client tick. 1.8.9: runTick drains LWJGL2's
+	 * Keyboard queue inside the tick and FML fires KeyInputEvent once per event, so a key
+	 * that went down and up within one tick is "up" again by the END-phase read; this sees
+	 * the down event itself. Observes only. Codes are LWJGL2 (what Mods.keyCode returns).
+	 */
+	@SubscribeEvent
+	public void onKeyInput(net.minecraftforge.fml.common.gameevent.InputEvent.KeyInputEvent event) {
+		try {
+			if (Minecraft.getMinecraft().currentScreen == null && org.lwjgl.input.Keyboard.getEventKeyState()
+					&& !org.lwjgl.input.Keyboard.isRepeatEvent()) {
+				com.origin.client.client.util.KeyTaps.onKey(org.lwjgl.input.Keyboard.getEventKey(), 1);
+			}
+		} catch (Throwable ignored) {
+			// the tick's own key read still works
+		}
+	}
+
+	/**
+	 * A press of an Origin toggle key since the last tick, outside screens (util/KeyTaps,
+	 * G121-7): a tap that went down and up between two ticks is never "down" when the tick
+	 * reads the key, so the toggles also ask this. Call it every tick, first in the
+	 * condition, so a press is spent on that tick (two reads of one press = one toggle).
+	 */
+	private static boolean tapped(Minecraft client, int lwjglKey) {
+		return com.origin.client.client.util.KeyTaps.consume(lwjglKey) && client.currentScreen == null;
 	}
 
 	/** Raw key state for the mod-menu's rebindable keys. 1.8.9: an LWJGL2 code
@@ -382,7 +449,7 @@ public class OriginClientMod {
 
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
 		boolean sbDown = client.currentScreen == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
-		if (sbDown && !scoreboardKeyWasDown) {
+		if (tapped(client, Mods.keyCode("scoreboard", "toggleKey")) || (sbDown && !scoreboardKeyWasDown)) {
 			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
 			Mods.set("scoreboard", "hideScoreboard", hidden);
 			if (Mods.bool("scoreboard", "displayToggleMessage")) {
@@ -393,7 +460,7 @@ public class OriginClientMod {
 
 		// Full Bright toggle keybind flips the mod's own sub-toggle
 		boolean fbDown = client.currentScreen == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
-		if (fbDown && !fullbrightKeyWasDown) {
+		if (tapped(client, Mods.keyCode("fullbright", "key")) || (fbDown && !fullbrightKeyWasDown)) {
 			// With the Lighting mod off the key used to flip a hidden setting and nothing
 			// changed on screen: now it switches Lighting on with Full Bright.
 			boolean on = !Mods.on("fullbright") || !Mods.bool("fullbright", "fullBright");
@@ -408,7 +475,7 @@ public class OriginClientMod {
 		// Nametag toggle keybinds (default unbound). Toggle All hides every
 		// nametag; Toggle Players hides only other players'.
 		boolean naDown = client.currentScreen == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
-		if (naDown && !nametagAllKeyWasDown) {
+		if (tapped(client, Mods.keyCode("nametags", "toggleAll")) || (naDown && !nametagAllKeyWasDown)) {
 			nametagsHidden = !nametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				actionBar(client, nametagsHidden ? "Nametags hidden" : "Nametags shown");
@@ -417,7 +484,7 @@ public class OriginClientMod {
 		nametagAllKeyWasDown = naDown;
 
 		boolean npDown = client.currentScreen == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
-		if (npDown && !nametagPlayerKeyWasDown) {
+		if (tapped(client, Mods.keyCode("nametags", "togglePlayers")) || (npDown && !nametagPlayerKeyWasDown)) {
 			playerNametagsHidden = !playerNametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				actionBar(client, playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown");
@@ -432,8 +499,9 @@ public class OriginClientMod {
 		// we only resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.currentScreen == null
 				&& syncedKeyDown(client, zoomLink, OriginKeyBindings.zoom, "zoom", "key");
+		boolean zTap = tapped(client, Mods.keyCode("zoom", "key"));
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
-			if (zDown && !zoomKeyWasDown) {
+			if (zTap || (zDown && !zoomKeyWasDown)) {
 				zoomToggled = !zoomToggled;
 			}
 		} else {
@@ -464,7 +532,7 @@ public class OriginClientMod {
 		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
 		int cbKey = Mods.keyCode("chunkborders", "key");
 		boolean cbDown = client.currentScreen == null && isRawKeyDown(cbKey);
-		if (cbDown && !chunkKeyWasDown) {
+		if (tapped(client, cbKey) || (cbDown && !chunkKeyWasDown)) {
 			Mods.setOn("chunkborders", !Mods.on("chunkborders"));
 		}
 		chunkKeyWasDown = cbDown;
@@ -482,7 +550,7 @@ public class OriginClientMod {
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean custom = client.currentScreen == null && raw;
-			boolean edge = custom && !sprintKeyWasDown;
+			boolean edge = tapped(client, Mods.keyCode("togglesprint", "key")) || (custom && !sprintKeyWasDown);
 			sprintKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sprintToggledOn = custom;
@@ -502,7 +570,7 @@ public class OriginClientMod {
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = isRawKeyDown(client.gameSettings.keyBindSneak.getKeyCode());
 			boolean custom = client.currentScreen == null && raw;
-			boolean edge = custom && !sneakKeyWasDown;
+			boolean edge = tapped(client, client.gameSettings.keyBindSneak.getKeyCode()) || (custom && !sneakKeyWasDown);
 			sneakKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sneakToggledOn = custom;
@@ -513,16 +581,27 @@ public class OriginClientMod {
 			FEATURES.sneakToggledOn = false;
 		}
 
-		// Fly Boost: multiply flight speed, but ONLY in a mode that actually
-		// allows flight (creative/spectator) and only while airborne — it never
-		// touches survival movement, so it's a QoL tweak, not a speed hack.
+		// Fly Boost: multiply flight speed, but ONLY in creative and only while
+		// airborne -- it never touches survival movement, so it's a QoL tweak, not a
+		// speed hack. It scales the speed in effect (vanilla's, or a server's /flyspeed)
+		// and restores exactly that afterwards, never a hard-coded default. Spectator is
+		// left alone: there the mouse wheel sets the flight speed, and a per-tick boost
+		// overwrote every scroll.
+		net.minecraft.entity.player.PlayerCapabilities abilities = player.capabilities;
 		if (Mods.on("togglesprint") && Mods.bool("togglesprint", "flyBoost")
-				&& player.capabilities.isFlying && (player.capabilities.isCreativeMode || player.isSpectator())) {
+				&& abilities.isFlying && abilities.isCreativeMode && !player.isSpectator()) {
+			float now = abilities.getFlySpeed();
+			if (!flyBoostApplied || Math.abs(now - flyBoostSet) > 1.0e-6f) {
+				flyBoostBase = now;   // first boosted tick, or the speed was changed by someone else
+			}
 			float mult = (float) Math.max(1.0, Mods.num("togglesprint", "flyBoostAmount"));
-			player.capabilities.setFlySpeed(0.05f * mult);
+			flyBoostSet = flyBoostBase * mult;
+			abilities.setFlySpeed(flyBoostSet);
 			flyBoostApplied = true;
 		} else if (flyBoostApplied) {
-			player.capabilities.setFlySpeed(0.05f);
+			if (Math.abs(abilities.getFlySpeed() - flyBoostSet) <= 1.0e-6f) {
+				abilities.setFlySpeed(flyBoostBase);   // still ours: put the player's speed back
+			}
 			flyBoostApplied = false;
 		}
 

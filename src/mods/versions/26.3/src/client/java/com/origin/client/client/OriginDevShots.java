@@ -55,6 +55,8 @@ public final class OriginDevShots {
 		PACKS, PACKS_BROWSE,
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
+		// Settings > Menu: Solid Menu Background and the All Installed Mods row (Mod Menu's list)
+		SETTINGS_MENU,
 		// Friends (social/SocialDemo fills it): a chat, then the party
 		FRIENDS, FRIENDS_PARTY,
 		// ORIGIN_SHOTS_SET=social (the 2026-10-18 social redesign): every Friends state, the toasts, the entry points
@@ -115,6 +117,7 @@ public final class OriginDevShots {
 				// A HUD mod's own page: the settings layout the redesign is judged on.
 				case MOD_SETTINGS -> new OriginModMenuScreen(null, "keystrokes").preview(false, false);
 				case SETTINGS -> new OriginModMenuScreen().preview(false, true);
+				case SETTINGS_MENU -> new OriginModMenuScreen().menuSubTab();
 				// The Right Shift screen (HUD editor + the Origin centre group).
 				case RSHIFT -> new HudEditorScreen(true);
 				// The cosmetics locker, opened from the menu's Cosmetics tab.
