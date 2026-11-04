@@ -41,7 +41,7 @@
                         IsVisible="False" Click="Action_Click"/>
 
                 <Button x:Name="CloseButton" Grid.Column="2" Theme="{StaticResource Button.Chrome}" CornerRadius="{StaticResource Radius.Capsule.Md}"
-                        Width="{StaticResource Size.ControlMd}" Height="{StaticResource Size.ControlMd}" Padding="0"
+                        MinWidth="{StaticResource Size.ControlMd}" MinHeight="{StaticResource Size.ControlMd}" Padding="0"
                         VerticalAlignment="Center" Margin="2,0,0,0" Click="Close_Click"
                         AutomationProperties.Name="No thanks" ToolTip.Tip="No thanks">
                     <c:IconPath Data="{StaticResource Icon.Close}" Theme="{StaticResource Icon.Small}"

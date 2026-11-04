@@ -21,8 +21,8 @@
         </Style>
         <Style x:Key="BringOver.Icon" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
             <Setter Property="ui:Chrome.Corner" Value="{StaticResource Radius.Capsule.Md}"/>
-            <Setter Property="Width" Value="{StaticResource Size.ControlMd}"/>
-            <Setter Property="Height" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="MinWidth" Value="{StaticResource Size.ControlMd}"/>
+            <Setter Property="MinHeight" Value="{StaticResource Size.ControlMd}"/>
             <Setter Property="Padding" Value="0"/>
         </Style>
         <!-- A row of the choice: a menu item (Radius.Md inside the Radius.Lg panel's 6 inset). -->
