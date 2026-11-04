@@ -33,10 +33,11 @@ import java.util.Iterator;
  *   <li>Vanilla's Mojang screen (Minecraft.drawSplashScreen, which startGame reaches through
  *       SplashProgress.drawVanillaScreen once FML's splash is off) is replaced by one of these
  *       frames (MinecraftSplashScreenMixin).</li>
- *   <li>Last frame: FMLClientHandler.onInitializationComplete ({@link #finish}): the bar full,
- *       "Loading resources 100%" -- exactly the picture the title then holds over its first
- *       frames before it dissolves (OriginTitleScreen, OriginScreenRenderer.renderStartupLoading),
- *       so the hand-off has no seam.</li>
+ *   <li>Last frame: FMLClientHandler.onInitializationComplete ({@link #finish}): the load is
+ *       done, the bar starts its glide to full. The title then holds the same picture over its
+ *       first frames (OriginTitleScreen, OriginScreenRenderer.renderStartupLoading) and that hold
+ *       reads the bar from here ({@link #holdFill}), so the glide finishes there and the
+ *       hand-off has no seam (1.21.1's overlay also finishes its bar over the settling title).</li>
  * </ul>
  *
  * <p>Progress is real: Forge's ProgressManager bar stack (outermost bar's steps, each refined
@@ -66,6 +67,8 @@ public final class StartupLoading {
 	// true from begin() to finish(); off for good after finish() or the first failure.
 	private static volatile boolean active, over;
 	private static long lastDraw;
+	// The startup screen drew at least once: the title's hold continues its bar (holdFill).
+	private static boolean ran;
 	private static final LoadBar BAR = new LoadBar();
 	// The one "reload" the bar follows: the whole startup is one load to the player.
 	private static final Object LOAD = new Object();
@@ -122,6 +125,30 @@ public final class StartupLoading {
 		}
 	}
 
+	/**
+	 * The title's settle hold (OriginScreenRenderer.renderSplash): the startup bar finishing its
+	 * glide to full; plainly full when the startup screen never drew. Render thread only.
+	 */
+	static double holdFill() {
+		return ran ? BAR.update(LOAD, true, 1.0, nowMs(), TAU_MS) : 1.0;
+	}
+
+	/** "Loading resources NN%" for a fill, rebuilt only when the whole percent changes (1.21.1's startup caption). */
+	static String captionFor(double fill) {
+		int pct = (int) Math.round(Math.max(0.0, Math.min(1.0, fill)) * 100);
+		if (pct != pctShown) {
+			pctShown = pct;
+			caption = CAPTION + pct + "%";
+		}
+		return caption;
+	}
+
+	// Wall time, not SceneClock: the startup draws only between loading steps, seconds apart at
+	// times, and the bar's creep and glide must count that time (SceneClock drops long gaps).
+	private static double nowMs() {
+		return System.nanoTime() / 1_000_000.0;
+	}
+
 	/** The startup's real progress, 0..1, from Forge's bar stack (outermost first). */
 	private static double rawProgress() {
 		// Walk outermost -> innermost, remembering each level's share; then fold innermost -> outermost.
@@ -158,17 +185,18 @@ public final class StartupLoading {
 		int boundTexture = -1, boundFbo = -1;
 		boolean fbo = false;
 		try {
-			// FML's splash thread holds the context when it runs (SplashProgressMixin failed to
-			// apply): never draw then -- its screen stays, as before this change.
-			if (!Display.isCreated() || !Display.isCurrent() || !OriginScreenRenderer.isActive()) {
+			if (!Display.isCreated() || !OriginScreenRenderer.isActive()) {
 				return;
 			}
-			double fill = complete ? 1.0 : BAR.update(LOAD, false, rawProgress(), SceneClock.sceneMs(), TAU_MS);
-			int pct = (int) Math.round(Math.max(0.0, Math.min(1.0, fill)) * 100);
-			if (pct != pctShown) {
-				pctShown = pct;
-				caption = CAPTION + pct + "%";
+			if (!Display.isCurrent()) {
+				// FML's splash thread holds the context (SplashProgressMixin's getBool hook did not
+				// apply): its screen stays, as before this change, and this one stands down for good.
+				active = false;
+				over = true;
+				return;
 			}
+			double fill = BAR.update(LOAD, complete, complete ? 1.0 : rawProgress(), nowMs(), TAU_MS);
+			String text = captionFor(fill);
 
 			boundTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 			fbo = OpenGlHelper.isFramebufferEnabled();
@@ -196,7 +224,8 @@ public final class StartupLoading {
 			GlStateManager.disableCull();
 			GlStateManager.enableTexture2D();
 
-			LoadingLook.draw(new Gfx(), 1f, fill, caption, true);
+			LoadingLook.draw(new Gfx(), 1f, fill, text, true);
+			ran = true;
 
 			// Leave the state the way vanilla's splash leaves it for the rest of startGame.
 			GlStateManager.disableBlend();

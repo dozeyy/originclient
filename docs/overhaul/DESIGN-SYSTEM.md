@@ -776,11 +776,9 @@ button falls back to vanilla for that session (`OriginButtonRenderer.broken`), n
 - The logo uses the `origin_logo-64.png` / `-128.png` exports (no mipmaps in the GUI path, so a
   256 to 34 GUI px minify would alias), `GL_LINEAR`.
 - Text through `OriginTtfFont` (Inter), the same sizes in GUI px.
-- Loading: the Forge splash runs before Origin can draw. Origin's `OriginLoadingRenderer`
-  covers what follows (connect, terrain, world load). The Forge splash itself can take Origin
-  colours and the real logo through `config/splash.properties` (`background`, `bar`, `barBackground`,
-  `font`, `logoTexture`). This is **likely, to be verified** against 11.15.1.2318's `SplashProgress`
-  in Phase 4, at zero runtime cost.
+- Loading: FML's splash is switched off (2026-11-04); Origin's own startup screen
+  (`render/StartupLoading`, the 15.3 picture) shows from the first frame to the title, and
+  `OriginLoadingRenderer` covers what follows (connect, terrain, world load).
 - Budget: the title and loading screens add no measurable frame time (Phase 6 benchmark).
 
 ### 15.5 Other versions

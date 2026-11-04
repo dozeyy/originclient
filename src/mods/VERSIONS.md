@@ -147,7 +147,7 @@ shared mods folder per version, several games at once):
   the mirror joins the shared folder, and the shared-mods merge skips mirrors.
   "Play with external mods" OFF mirrors only Origin's own jars
   (`ModManager.IsManaged`), so the crash window's Origin-only retry works.
-- FML's splash theme (`config/splash.properties`) is per account.
+- `config/splash.properties` is per account; the launcher keeps FML's splash off there (ForgeSplashOff: Origin's own startup screen shows instead).
 - Friends "Join": `--server/--port` (no Quick Play before 1.20).
 - Settings Sync: options.txt keybinds are translated between LWJGL 2 codes and
   GLFW names, `lang` between `en_US` and `en_us` (OptionsTxtFormat); servers.dat
