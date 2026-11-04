@@ -166,7 +166,7 @@ public partial class App : Application
             // settings.json busy right now (antivirus, a sync tool): SettingsStore refuses instead of guessing. Never
             // fatal at startup; a file that can't be read loads as defaults (offline test off) anyway, and the
             // next start clears it.
-            try { SettingsStore.Update(DeveloperAccess.ClearOfflineTest); }
+            try { SettingsStore.TryUpdate(DeveloperAccess.ClearOfflineTest, quiet: true); }
             catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { }
         }
         System.Threading.Tasks.Task.Run(DeleteLegacySignInProfile);

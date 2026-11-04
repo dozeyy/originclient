@@ -16,6 +16,9 @@ public sealed class MicrosoftAuthException : Exception
     /// </summary>
     public const string AccountMismatchStage = "account_mismatch";
 
+    /// <summary>Microsoft refused (or garbled) the saved refresh token: the player signs in again (SignInAgain).</summary>
+    public const string TokenRefreshStage = "token_refresh";
+
     /// <summary>
     /// Saving the sign-in failed: on a Mac the account key lives in the Keychain, which can be locked,
     /// refuse, or not answer in time (Windows DPAPI does not fail there). Nothing was saved; trying

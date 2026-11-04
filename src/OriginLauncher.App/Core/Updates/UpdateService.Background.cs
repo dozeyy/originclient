@@ -259,19 +259,21 @@ public static partial class UpdateService
     }
 
     // The swap waits while a game this launcher started is starting or running (UpdatePrefetch.BeforeSwap), checking
-    // every 2 s. Stays on the caller's (UI) context: the restart's last steps must run there.
-    private static async Task WaitForGamesToCloseAsync(IProgress<UpdateProgress>? progress)
+    // every 2 s. Stays on the caller's (UI) context: the restart's last steps must run there. The player's Cancel
+    // (stopWaiting) ends the wait with OperationCanceledException.
+    private static async Task WaitForGamesToCloseAsync(IProgress<UpdateProgress>? progress, CancellationToken stopWaiting)
     {
         var told = false;
         while (UpdatePrefetch.BeforeSwap(GameRunning) == UpdatePrefetch.SwapStep.WaitForGame)
         {
+            stopWaiting.ThrowIfCancellationRequested();
             if (!told)
             {
                 told = true;
                 progress?.Report(new UpdateProgress(UpdateStage.WaitingForGame, 0, null));
                 Log("update: waiting for Minecraft to close before installing");
             }
-            await Task.Delay(TimeSpan.FromSeconds(2));
+            await Task.Delay(TimeSpan.FromSeconds(2), stopWaiting);
         }
     }
 

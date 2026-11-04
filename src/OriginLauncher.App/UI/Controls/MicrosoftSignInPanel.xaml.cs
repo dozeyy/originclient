@@ -51,38 +51,70 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         Loaded += MicrosoftSignInPanel_Loaded;
     }
 
+    // How long the browser engine may take to come up before the card switches to the code on its own.
+    private static readonly TimeSpan WebStartLimit = TimeSpan.FromSeconds(15);
+
+    private CancellationTokenSource? _webFlow; // the page's sign-in, cancelled when the card switches to the code
+    private bool _started;
+    private bool _codeStarted;
+    private string _verificationUri = "";
+
     private async void MicrosoftSignInPanel_Loaded(object sender, RoutedEventArgs e)
     {
         // A render-shots run (scratch data root) pictures the card only: no browser process, no Microsoft page.
-        if (OriginLauncher.App.Core.OriginPaths.IsScratchRoot) return;
+        if (OriginLauncher.App.Core.OriginPaths.IsScratchRoot || _started) return;
+        _started = true;
         // Read once, up front: Cancel / Esc / a click outside can dispose this panel (and its token source) while the
         // browser is still starting, and touching _cts.Token after that throws.
         var ct = _cts.Token;
         try
         {
-            await WebView.EnsureCoreWebView2Async();
-            if (_disposed) return; // closed while the browser started: nothing to show
-            WebView.CoreWebView2.NavigationCompleted += (_, _) =>
-            {
-                // The cancelled redirect also "completes": keep covering the
-                // page once it's finishing or showing an outcome.
-                if (!_holdOverlay) ShowPage(true);
-            };
-
-            var result = MicrosoftAuthenticator.IsTestMode
-                ? await SignInViaPrismTestAsync(ct)
-                : await new MicrosoftAuthenticator().SignInAsync(url => WebView.Source = new Uri(url), ct);
-
-            SignInSucceeded?.Invoke(this, result);
+            await WebView.EnsureCoreWebView2Async().WaitAsync(WebStartLimit, ct);
         }
-        catch (Exception) when (_disposed)
+        catch (Exception) when (_disposed || ct.IsCancellationRequested)
         {
-            // The player closed the card mid-start (a disposed WebView, a cancelled token): that is a Cancel, never
-            // a "Sign-in didn't finish" error in the Accounts drawer.
+            return; // closed while the browser started: a Cancel, nothing to show
         }
-        catch (OperationCanceledException)
+        catch (Exception)
         {
-            // User closed the panel — not a failure, nothing to show.
+            // No Edge WebView2 Runtime (Windows 10 LTSC / N, debloated installs), a broken one, or one that never came
+            // up: Microsoft's page can't open here, so sign in with a code instead (the Mac card's fallback). Without
+            // this the card could only ever say "Sign-in didn't finish" and the player could never add an account.
+            UseCode();
+            return;
+        }
+        if (_disposed || _codeStarted) return;
+        WebView.CoreWebView2.NavigationCompleted += (_, args) =>
+        {
+            // The cancelled redirect also "completes": keep covering the page once it's finishing or showing an outcome.
+            if (_holdOverlay) return;
+            if (DeviceCodeFlow.PageFailedToOpen(args.IsSuccess, _pageShown,
+                    args.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled))
+                UseCode();
+            else
+                ShowPage(true);
+        };
+
+        _webFlow = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        Func<CancellationToken, Task<AuthResult>> pageFlow = MicrosoftAuthenticator.IsTestMode
+            ? SignInViaPrismTestAsync
+            : flowCt => new MicrosoftAuthenticator().SignInAsync(url => WebView.Source = new Uri(url), flowCt);
+        await RunAsync(pageFlow, _webFlow.Token);
+    }
+
+    // Every way in ends here (the page or the code): one place turns a result or a failure into what the player reads.
+    // A cancel (closed card, or the page's flow stopped because the card switched to the code) is not a failure.
+    private async Task RunAsync(Func<CancellationToken, Task<AuthResult>> flow, CancellationToken ct)
+    {
+        try
+        {
+            var result = await flow(ct);
+            if (!_disposed) SignInSucceeded?.Invoke(this, result);
+        }
+        catch (Exception) when (_disposed || ct.IsCancellationRequested)
+        {
+            // The player closed the card mid-start (a disposed WebView, a cancelled token), or the card moved on to the
+            // code: never a "Sign-in didn't finish" error in the Accounts drawer.
         }
         catch (TimeoutException)
         {
@@ -104,6 +136,82 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         }
     }
 
+    // ---- Sign in with a code ----
+
+    // Microsoft's page can't open in this card: stop its flow and sign in with a code (the device code flow, the same
+    // Xbox / Minecraft chain, so the account is stored exactly as from the page).
+    private void UseCode()
+    {
+        if (_disposed || _codeStarted) return;
+        _codeStarted = true;
+        _webFlow?.Cancel();
+        _holdOverlay = true;
+        HeaderTitle.Text = "Sign in with a code";
+        LoadingText.Text = "Asking Microsoft for a code...";
+        // The browser is a separate window that would draw over the cover's text; it has nothing to show now.
+        WebView.Visibility = Visibility.Collapsed;
+        ShowPage(false);
+        _ = RunAsync(CodeFlowAsync, _cts.Token);
+    }
+
+    private async Task<AuthResult> CodeFlowAsync(CancellationToken ct)
+    {
+        var authenticator = new MicrosoftAuthenticator();
+        var start = await authenticator.StartDeviceCodeAsync(ct);
+        ShowCode(start.UserCode, start.VerificationUri);
+        var result = await authenticator.CompleteDeviceCodeSignInAsync(start, ct);
+        Finishing();
+        return result;
+    }
+
+    private void ShowCode(string userCode, string verificationUri)
+    {
+        _verificationUri = verificationUri;
+        UserCodeText.Text = userCode;
+        CodeHint.Text = "Microsoft's sign-in page can't open in Origin on this PC. " +
+                        $"Go to {DeviceCodeFlow.ShortAddress(verificationUri)} on this PC or your phone and type:";
+        LoadingText.Visibility = Visibility.Collapsed;
+        CodePanel.Visibility = Visibility.Visible;
+    }
+
+    private void CopyCodeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(UserCodeText.Text)) return;
+        try
+        {
+            Clipboard.SetText(UserCodeText.Text);
+            CopyCodeLabel.Text = "Copied";
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // Another app holds the clipboard: the code is still on screen to type.
+        }
+    }
+
+    private void OpenPageButton_Click(object sender, RoutedEventArgs e) =>
+        OriginLauncher.App.Core.Promos.ExternalLink.Open(
+            Uri.TryCreate(_verificationUri, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps ? uri : null);
+
+    // The code (or the page) is done; cover the wait while Xbox and Minecraft finish (a few seconds).
+    private void Finishing()
+    {
+        _holdOverlay = true;
+        CodePanel.Visibility = Visibility.Collapsed;
+        LoadingText.Visibility = Visibility.Visible;
+        LoadingText.Text = "Finishing sign-in...";
+        ShowPage(false);
+    }
+
+    /// <summary>Render shots: the code view with a made-up code (no request is made).</summary>
+    internal void TourShowCode(string userCode, string verificationUri)
+    {
+        _holdOverlay = true;
+        HeaderTitle.Text = "Sign in with a code";
+        WebView.Visibility = Visibility.Collapsed;
+        ShowPage(false);
+        ShowCode(userCode, verificationUri);
+    }
+
     /// <summary>
     /// Replace the Microsoft page with an outcome the player must read (a
     /// failed or deferred sign-in). The card stays open until they press OK
@@ -117,6 +225,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         MessageTitle.Text = title;
         MessageText.Text = text;
         LoadingText.Visibility = Visibility.Collapsed;
+        CodePanel.Visibility = Visibility.Collapsed;
         MessagePanel.Visibility = Visibility.Visible;
         ShowPage(false);
     }
@@ -196,9 +305,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
 
         // The Microsoft page is done; cover its blank redirect while Xbox and
         // Minecraft finish (a few seconds) so the card never looks stuck.
-        _holdOverlay = true;
-        LoadingText.Text = "Finishing sign-in...";
-        ShowPage(false);
+        Finishing();
         return await authenticator.CompleteTestSignInAsync(authCode, codeVerifier, ct);
     }
 
@@ -237,6 +344,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
 
         _cts.Cancel();
         _cts.Dispose();
+        _webFlow?.Dispose();
         // This panel's one-off InPrivate profile: mark it for deletion so its
         // folder (EBWebView\WV2Profile_signin-<guid>) and Local State entry go
         // when the browser process exits. App sweeps any that survive.

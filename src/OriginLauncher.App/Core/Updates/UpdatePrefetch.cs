@@ -179,6 +179,19 @@ public sealed class UpdatePrefetch
     /// </summary>
     public bool MayDeleteStage(Version version) => !Keep().Any(v => Same(v, version));
 
+    /// <summary>
+    /// The player pressed Cancel while the swap waited for Minecraft to close: the click lets go of
+    /// <paramref name="version"/>, and its verified stage stays as if the background download had staged it, so the next
+    /// click (or the restart prompt) only re-checks it and swaps. Never a failure: no back-off, nothing deleted.
+    /// </summary>
+    public void InstallPostponed(Version version)
+    {
+        if (Same(Installing, version)) Installing = null;
+        Current = Phase.Staged;
+        Version = version;
+        Joined = false;
+    }
+
     /// <summary>The click failed (it did not quit): back to Idle so a later poll or click can try again.</summary>
     public void InstallFailed(Version version)
     {

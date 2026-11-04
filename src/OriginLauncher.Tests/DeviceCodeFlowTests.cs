@@ -23,6 +23,25 @@ public class DeviceCodeFlowTests
     }
 
     [Fact]
+    public void Only_the_first_page_failing_switches_the_card_to_the_code()
+    {
+        // No WebView2 runtime / a blocked or broken one: Microsoft's first page never loads -> the code.
+        Assert.True(DeviceCodeFlow.PageFailedToOpen(isSuccess: false, pageShown: false, cancelledByCard: false));
+        // The page loaded: later errors stay on Microsoft's page.
+        Assert.False(DeviceCodeFlow.PageFailedToOpen(isSuccess: false, pageShown: true, cancelledByCard: false));
+        // The redirect the card catches and cancels itself is never a failure.
+        Assert.False(DeviceCodeFlow.PageFailedToOpen(isSuccess: false, pageShown: false, cancelledByCard: true));
+        Assert.False(DeviceCodeFlow.PageFailedToOpen(isSuccess: true, pageShown: false, cancelledByCard: false));
+    }
+
+    [Fact]
+    public void The_code_card_prints_a_short_address()
+    {
+        Assert.Equal("www.microsoft.com/link", DeviceCodeFlow.ShortAddress("https://www.microsoft.com/link/"));
+        Assert.Equal("not a link", DeviceCodeFlow.ShortAddress("not a link"));
+    }
+
+    [Fact]
     public void Start_never_prints_either_code()
     {
         var text = new DeviceCodeStart("DC-secret", "ABCD-EFGH", "https://www.microsoft.com/link", 5, 900).ToString();

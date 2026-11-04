@@ -18,7 +18,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Sign in with Microsoft" Style="{StaticResource Text.Title}" VerticalAlignment="Center"/>
+            <TextBlock x:Name="HeaderTitle" Grid.Column="0" Text="Sign in with Microsoft" Style="{StaticResource Text.Title}" VerticalAlignment="Center"/>
             <Button Grid.Column="1" Style="{StaticResource Social.Icon}"
                     Click="CancelButton_Click" ToolTip="Cancel sign-in"
                     AutomationProperties.Name="Cancel sign-in">
@@ -41,6 +41,39 @@
                 <Grid>
                     <TextBlock x:Name="LoadingText" Text="Loading sign-in..." Style="{StaticResource Text.BodyDim}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <!-- Sign in with a code (MicrosoftAuthenticator.DeviceCode): shown when Microsoft's page can't open
+                         in this card (no Edge WebView2 Runtime, or a broken one). Twin of the Mac card's code view. -->
+                    <StackPanel x:Name="CodePanel" Visibility="Collapsed" MaxWidth="400"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="Enter this code" Style="{StaticResource Text.Title}" TextAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="CodeHint" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
+                                   TextWrapping="Wrap" Margin="0,0,0,16"/>
+                        <Border Background="{StaticResource Brush.Bg}" CornerRadius="{StaticResource Radius.Md}" Padding="20,12"
+                                HorizontalAlignment="Center" Margin="0,0,0,20">
+                            <TextBlock x:Name="UserCodeText" FontWeight="Bold" FontSize="{StaticResource FontSize.Display}"
+                                       Foreground="{StaticResource Brush.Text}" HorizontalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                            <Button Style="{StaticResource Button.Secondary.Medium}" Margin="0,0,8,0"
+                                    Click="CopyCodeButton_Click" AutomationProperties.Name="Copy the code">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource Icon.Copy}" Style="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                    <TextBlock x:Name="CopyCodeLabel" Text="Copy code" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource Button.Primary.Medium}"
+                                    Click="OpenPageButton_Click" AutomationProperties.Name="Open Microsoft's page">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource Icon.External}" Style="{StaticResource Icon.Small}" Margin="0,0,8,0"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                    <TextBlock Text="Open Microsoft's page" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock Text="Waiting for you to finish on Microsoft's page..." Style="{StaticResource Text.Caption}"
+                                   TextAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
                     <!-- The card's outcome when sign-in can't finish here (ShowMessage):
                          it stays open with a plain sentence instead of vanishing. -->
                     <StackPanel x:Name="MessagePanel" Visibility="Collapsed" MaxWidth="380"

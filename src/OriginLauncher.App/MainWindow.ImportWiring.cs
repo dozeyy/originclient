@@ -250,7 +250,7 @@ public partial class MainWindow
         _importPromptMarked = true;
         _ = Task.Run(() =>
         {
-            try { Core.SettingsStore.Update(s => s.ImportPromptSeen = true); }
+            try { Core.SettingsStore.TryUpdate(s => s.ImportPromptSeen = true, quiet: true); }
             catch (Exception) { /* the button may show once more; nothing else depends on it */ }
         });
     }
@@ -273,7 +273,8 @@ public partial class MainWindow
         if (ImportPrompt.StampCheck(qualifying.Count))
         {
             var checkedAt = DateTime.UtcNow;
-            Core.SettingsStore.Update(s => s.ImportPromptCheckedUtc = checkedAt);
+            // Off the UI thread and nothing for the player to do: a busy file only means the scan runs again next start.
+            Core.SettingsStore.TryUpdate(s => s.ImportPromptCheckedUtc = checkedAt, quiet: true);
         }
         return ImportPrompt.ShouldShow(answered: false, openedWithImportFlag: false, canImport, qualifying.Count) ? qualifying : null;
     });

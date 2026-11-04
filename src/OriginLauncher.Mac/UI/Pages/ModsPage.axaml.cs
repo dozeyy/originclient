@@ -96,7 +96,7 @@ public sealed partial class ModsPage : UserControl
     {
         if (_suppressToggle || _demo != null || OriginPaths.IsScratchRoot && _version == null) return;
         var on = YourModsSwitch.IsChecked == true;
-        SettingsStore.Update(s => s.PlayWithExternalMods = on);
+        SettingsStore.TryUpdate(s => s.PlayWithExternalMods = on);
     }
 
     // "built-in" with a non-breaking hyphen (U+2011, written as an escape so the source stays ASCII): Avalonia breaks a

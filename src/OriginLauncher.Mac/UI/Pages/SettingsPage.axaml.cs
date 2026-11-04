@@ -93,7 +93,7 @@ public sealed partial class SettingsPage : UserControl
             if (_isLoading) return;
             var on = OfflineTestToggle.IsChecked == true;
             _settings.OfflineTestMode = on;
-            SettingsStore.Update(s => s.OfflineTestMode = on);
+            SettingsStore.TryUpdate(s => s.OfflineTestMode = on);
         };
         JvmUndoButton.Click += (_, _) => JvmUndoButton_Click();
         JvmVersionComboBox.SelectionChanged += (_, _) => JvmVersionComboBox_SelectionChanged();
@@ -179,7 +179,7 @@ public sealed partial class SettingsPage : UserControl
         _pendingRamMb = null;
         _settings.RamMb = ramMb;
         _settings.RamManual = true;
-        SettingsStore.Update(s => RamPolicy.SetManual(s, ramMb));
+        SettingsStore.TryUpdate(s => RamPolicy.SetManual(s, ramMb));
     }
 
     // "Back to Auto": the only way out of Manual.
@@ -188,7 +188,7 @@ public sealed partial class SettingsPage : UserControl
         _ramSaveTimer.Stop();
         _pendingRamMb = null;
         var total = _totalRamMb;
-        SettingsStore.Update(s => RamPolicy.SetAuto(s, total));
+        SettingsStore.TryUpdate(s => RamPolicy.SetAuto(s, total));
         _settings.RamMb = RamAdvice.RecommendedMb(total);
         _settings.RamManual = false;
         ShowRam(manual: false);
@@ -226,7 +226,7 @@ public sealed partial class SettingsPage : UserControl
         var path = (InstallPathTextBox.Text ?? "").Trim();
         if (ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(path), InstallPathTextBox)) return;
         _settings.InstallPath = path;
-        SettingsStore.Update(s => s.InstallPath = path);
+        SettingsStore.TryUpdate(s => s.InstallPath = path);
     }
 
     private void InstallPathTextBox_TextChanged()
@@ -253,7 +253,7 @@ public sealed partial class SettingsPage : UserControl
         InstallPathTextBox.Text = folder;
         ShowFieldProblem(InstallPathErrorText, null, InstallPathTextBox);
         _settings.InstallPath = folder;
-        SettingsStore.Update(s => s.InstallPath = folder);
+        SettingsStore.TryUpdate(s => s.InstallPath = folder);
     }
 
     /// <summary>Shows or clears a field's problem: the Danger edge on the boxes and the sentence under them. True when there is one.</summary>
@@ -302,7 +302,7 @@ public sealed partial class SettingsPage : UserControl
         var height = int.Parse(ResolutionHeightTextBox.Text!.Trim());
         _settings.ResolutionWidth = width;
         _settings.ResolutionHeight = height;
-        SettingsStore.Update(s => { s.ResolutionWidth = width; s.ResolutionHeight = height; });
+        SettingsStore.TryUpdate(s => { s.ResolutionWidth = width; s.ResolutionHeight = height; });
     }
 
     // ---- Settings Sync ----
@@ -314,7 +314,7 @@ public sealed partial class SettingsPage : UserControl
         if (_isLoading) return;
         var on = SettingsSyncToggle.IsChecked == true;
         _settings.SyncSettingsAcrossVersions = on;
-        SettingsStore.Update(s => s.SyncSettingsAcrossVersions = on);
+        SettingsStore.TryUpdate(s => s.SyncSettingsAcrossVersions = on);
         if (on) _ = Task.Run(SettingsSync.Seed);
     }
 
@@ -507,14 +507,14 @@ public sealed partial class SettingsPage : UserControl
         if (opts.IsEmpty)
         {
             _settings.JvmArgsByVersion.Remove(version);
-            SettingsStore.Update(s => s.JvmArgsByVersion.Remove(version));
+            SettingsStore.TryUpdate(s => s.JvmArgsByVersion.Remove(version));
         }
         else
         {
             // Arguments of the player's own replace the reset ones for good: the Undo record goes in the same write.
             _settings.JvmArgsByVersion[version] = opts;
             _settings.JvmArgsBeforeReset.Remove(version);
-            SettingsStore.Update(s =>
+            SettingsStore.TryUpdate(s =>
             {
                 s.JvmArgsByVersion[version] = new VersionJvmOptions { Arguments = text, ReplacePresets = replace };
                 s.JvmArgsBeforeReset.Remove(version);

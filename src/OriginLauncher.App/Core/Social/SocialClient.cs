@@ -1,4 +1,5 @@
 ﻿using System.Net.Http;
+using OriginLauncher.App.Core.Auth;
 
 namespace OriginLauncher.App.Core.Social;
 
@@ -202,7 +203,7 @@ public sealed class SocialClient
                     // Microsoft once, then give up until the backoff.
                     if (attempt > 0)
                         return new SocialAuthOutcome(SocialAuthState.SignInFailed,
-                            "Couldn't sign in to friends. Try removing and re-adding your account.");
+                            SignInAgain.FriendsLine);
                     id = await _identity(true, ct).ConfigureAwait(false);
                     continue;
                 }

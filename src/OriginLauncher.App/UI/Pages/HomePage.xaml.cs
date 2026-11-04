@@ -153,6 +153,10 @@ public partial class HomePage : UserControl
 
     /// <summary>MainWindow: Play (or any launch) was refused because an update is required; it asks to update.</summary>
     public event Action? UpdateRequiredRefused;
+
+    /// <summary>Play failed because this account's saved Microsoft sign-in no longer works (its name): MainWindow asks
+    /// once, and "Sign in again" opens the sign-in card.</summary>
+    public event Action<string>? SignInAgainRequested;
     /// <summary>
     /// MainWindow: a launch is starting, bring Home on screen first. The launch cover lives on Home, so a launch
     /// started while another tab shows (the crash window's Fix and relaunch after a mid-game crash) would otherwise
@@ -274,6 +278,7 @@ public partial class HomePage : UserControl
         System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
             .AddValueChanged(VersionOverlay, (_, _) => OnSceneVisibilityChanged());
         _settings = SettingsStore.Load();
+        LoadingOverlay.UpdateWaitCancelRequested += (_, _) => UpdateWaitCancelRequested?.Invoke();
         LoadingOverlay.CancelRequested += (_, _) =>
         {
             if (_overlayTicket != null) _overlayTicket.Source.Cancel();
@@ -537,6 +542,12 @@ public partial class HomePage : UserControl
 
     public void EndUpdateScene() => LoadingOverlay.Hide();
 
+    /// <summary>The self-update scene is up (the top bar stays usable over it: minimise, close, the other pages).</summary>
+    public bool ShowsUpdateScene => LoadingOverlay.ShowsUpdate;
+
+    /// <summary>Cancel on the self-update's "Waiting for Minecraft to close": MainWindow stops waiting.</summary>
+    public event Action? UpdateWaitCancelRequested;
+
     // Keyboard/default-action hook owned by MainWindow. It refuses while a
     // picker or launch cover is open, so Enter can never click through a scene.
     public bool TryLaunchFromKeyboard()
@@ -593,7 +604,7 @@ public partial class HomePage : UserControl
 
     private const string ImportRunningText = "Importing - Play is back when it finishes";
     // Says what to do, not only why Play is off: the top bar's Update chip (an icon below 1100 px wide) installs it.
-    private const string UpdateRequiredText = "Update required - press Update at the top";
+    private const string UpdateRequiredText = UpdateRequiredWords.Status; // the same words on Mac and Linux
 
     // The Play button AND the status pill for the selected account: its own
     // game state ("Running · Steve" while its game is open), or the plain
@@ -704,7 +715,7 @@ public partial class HomePage : UserControl
         _modOverride.ContextChanged(SelectedKey(), version);
         PrewarmSelectedVersion();
         _settings.SelectedVersion = version;
-        SettingsStore.Update(s => s.SelectedVersion = version);
+        SettingsStore.TryUpdate(s => s.SelectedVersion = version);
         SetVersionButtonText(version);
         SocialHub.PresenceVersion = version;
         // The active profile only applies to its own version (ProfileRules.Active), so the Join card must follow the
@@ -797,7 +808,7 @@ public partial class HomePage : UserControl
     private void SaveExternalMods(bool value)
     {
         _settings.PlayWithExternalMods = value;
-        SettingsStore.Update(s => s.PlayWithExternalMods = value);
+        SettingsStore.TryUpdate(s => s.PlayWithExternalMods = value);
     }
 
     private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync(null, LaunchRoute.Play);
@@ -938,7 +949,8 @@ public partial class HomePage : UserControl
                 var signedIn = await MinecraftSessionBroker.ForPlayAsync(account.Id, ticket.Token);
                 if (signedIn == null)
                 {
-                    Note(key, "Your sign-in is no longer valid. Add this account again in Accounts.", LaunchTone.Error);
+                    Note(key, SignInAgain.UnreadableLine, LaunchTone.Error);
+                    SignInAgainRequested?.Invoke(accountName);
                     return;
                 }
                 session = signedIn;
@@ -1117,10 +1129,11 @@ public partial class HomePage : UserControl
         catch (MicrosoftAuthException ex)
         {
             // ex.Message is always a plain sentence (raw HTTP detail only goes to the log).
-            var upToDateMessage = ex.Stage == "token_refresh"
-                ? "Your session expired - remove and re-add this account in the account switcher."
-                : ex.Message;
+            var needsSignIn = SignInAgain.Needed(ex);
+            var upToDateMessage = needsSignIn ? SignInAgain.ExpiredLine : ex.Message;
             Note(key, await LaunchFailureTextAsync(ex, upToDateMessage), LaunchTone.Error);
+            // Straight to the fix: the prompt's "Sign in again" opens the sign-in card (re-adding refreshes the account).
+            if (needsSignIn) SignInAgainRequested?.Invoke(accountName);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed (auth): {ex}");
             WriteLaunchErrorLog(ex);
         }
@@ -1381,11 +1394,9 @@ public partial class HomePage : UserControl
             System.Diagnostics.Debug.WriteLine(
                 $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
             var idle = _launches.PhaseOf(key) is not (GamePhase.Starting or GamePhase.Running);
-            if (!verdict.IsCrash)
-            {
-                if (crashedWhileStarting && idle) Note(key, "Ready", LaunchTone.Neutral);
-                return;
-            }
+            if (idle && GameExitStatus.AfterVerdict(verdict.IsCrash, crashedWhileStarting) is { } after)
+                Note(key, after.Text, after.Tone);
+            if (!verdict.IsCrash) return;
 
             if (crashedWhileStarting)
             {
@@ -1442,8 +1453,13 @@ public partial class HomePage : UserControl
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
                     // Exactly the amount the window named, as Manual (CrashMemory.ApplyRaise): Auto launches ignore
                     // RamMb, so writing only the number left the relaunch on the same heap that just ran out.
+                    if (!SettingsStore.TryUpdate(s => CrashMemory.ApplyRaise(s, ram), quiet: true))
+                    {
+                        // A busy settings.json: relaunching on the same heap would only run out again.
+                        Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error);
+                        return;
+                    }
                     CrashMemory.ApplyRaise(_settings, ram);
-                    SettingsStore.Update(s => CrashMemory.ApplyRaise(s, ram));
                     break;
                 case CrashFixKind.DisableMods:
                     // The shared repair path (Core/Compat/CrashRepair -> RepairExecutor): each jar is turned off
@@ -1673,9 +1689,9 @@ public partial class HomePage : UserControl
                          && ReferenceEquals(_launches.GameOf(game.Key), game);
         if (_launches.Exited(game.Key, game) && wasRunning)
         {
-            Note(game.Key,
-                exitCode == 0 ? "Ready" : $"Minecraft exited with code {exitCode}",
-                exitCode == 0 ? LaunchTone.Neutral : LaunchTone.Error);
+            // Neutral whatever the exit code: only the crash verdict below may turn it red (GameExitStatus).
+            var line = GameExitStatus.OnExit();
+            Note(game.Key, line.Text, line.Tone);
         }
         SyncSocialMirror();
         RefreshPlayButton();

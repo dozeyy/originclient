@@ -188,6 +188,19 @@ public static class RenderShots
         Snap(window, outDir, "06c-sign-in-message");
         window.TourCloseSignIn();
         Pump(300);
+        window.TourShowSignInCode();
+        Pump(500);
+        Snap(window, outDir, "06d-sign-in-code");
+        window.TourCloseSignIn();
+        Pump(300);
+
+        // Update clicked while a game is open: the scene waits for Minecraft to close, with Cancel and the top bar.
+        window.TourGoTo(0);
+        window.TourShowUpdateWaiting();
+        Pump(700);
+        Snap(window, outDir, "06e-update-waiting-for-game");
+        window.TourEndUpdateScene();
+        Pump(400);
 
         // The Play press: the plain launch progress screen, first with a stage
         // that has no count (the sliding block), then one with real counts (the fill).

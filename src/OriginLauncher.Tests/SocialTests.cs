@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Social;
 using Xunit;
 
@@ -809,7 +810,7 @@ public class SocialClientTests
         var client = Client(net, Identity(forced));
         var auth = await client.EnsureAuthAsync(CancellationToken.None);
         Assert.Equal(SocialAuthState.SignInFailed, auth.State);
-        Assert.Equal("Couldn't sign in to friends. Try removing and re-adding your account.", auth.Message);
+        Assert.Equal(SignInAgain.FriendsLine, auth.Message);
         Assert.Equal([false, true], forced.ToArray());
         Assert.Equal(0, net.Count("/v1/auth"));
     }

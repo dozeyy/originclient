@@ -53,6 +53,35 @@ public static class SettingsStore
         }
     }
 
+    /// <summary>The one line every launcher shows when a click's change couldn't be saved (TryUpdate).</summary>
+    public const string BusyLine = "Couldn't save - the settings file is in use. Try again in a moment.";
+
+    /// <summary>
+    /// Raised on the caller's thread when <see cref="TryUpdate"/> refused a change (never for a quiet one): each
+    /// launcher's window shows <see cref="BusyLine"/> as a toast, so no click handler needs its own message.
+    /// </summary>
+    public static event Action? SaveRefused;
+
+    /// <summary>
+    /// What every UI handler (a click, a switch, a slider's timer) calls instead of <see cref="Update"/>: the same write,
+    /// but a busy or unreadable settings.json (an antivirus or backup tool holding it) returns false instead of throwing,
+    /// so an ordinary click never reaches the app's crash window. The file is left exactly as it was.
+    /// <paramref name="quiet"/>: the caller shows its own line (a page status, the Play line), so no toast.
+    /// </summary>
+    public static bool TryUpdate(Action<LauncherSettings> mutate, bool quiet = false)
+    {
+        try
+        {
+            Update(mutate);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            if (!quiet) SaveRefused?.Invoke();
+            return false;
+        }
+    }
+
     /// <summary>
     /// The settings on disk now. A missing, damaged or unreadable file reads as a new install's defaults (for
     /// display only: Update re-reads and never writes those defaults over a file it couldn't read).

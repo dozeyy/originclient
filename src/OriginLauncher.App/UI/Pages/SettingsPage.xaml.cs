@@ -140,7 +140,7 @@ public partial class SettingsPage : UserControl
         _pendingRamMb = null;
         _settings.RamMb = ramMb;
         _settings.RamManual = true;
-        SettingsStore.Update(s => RamPolicy.SetManual(s, ramMb));
+        SettingsStore.TryUpdate(s => RamPolicy.SetManual(s, ramMb));
     }
 
     // "Back to Auto": the only way out of Manual.
@@ -149,7 +149,7 @@ public partial class SettingsPage : UserControl
         _ramSaveTimer.Stop();
         _pendingRamMb = null;
         var total = _totalRamMb;
-        SettingsStore.Update(s => RamPolicy.SetAuto(s, total));
+        if (!SettingsStore.TryUpdate(s => RamPolicy.SetAuto(s, total))) return;
         _settings.RamMb = RamAdvice.RecommendedMb(total);
         _settings.RamManual = false;
         ShowRam(manual: false);
@@ -219,7 +219,7 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         _settings.SyncSettingsAcrossVersions = true;
-        SettingsStore.Update(s => s.SyncSettingsAcrossVersions = true);
+        if (!SettingsStore.TryUpdate(s => s.SyncSettingsAcrossVersions = true)) return;
         _ = Task.Run(SettingsSync.Seed);
     }
 
@@ -227,7 +227,7 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         _settings.SyncSettingsAcrossVersions = false;
-        SettingsStore.Update(s => s.SyncSettingsAcrossVersions = false);
+        SettingsStore.TryUpdate(s => s.SyncSettingsAcrossVersions = false);
     }
 
     // "Recommended for this PC": the player's explicit click, so it MAY change options that already
@@ -266,7 +266,7 @@ public partial class SettingsPage : UserControl
         if (_isLoading) return;
         _settings.ShaderCacheNvidia = true;
         _settings.ShaderCacheAmd = true;
-        SettingsStore.Update(s =>
+        SettingsStore.TryUpdate(s =>
         {
             s.ShaderCacheNvidia = true;
             s.ShaderCacheAmd = true;
@@ -278,7 +278,7 @@ public partial class SettingsPage : UserControl
         if (_isLoading) return;
         _settings.ShaderCacheNvidia = false;
         _settings.ShaderCacheAmd = false;
-        SettingsStore.Update(s =>
+        SettingsStore.TryUpdate(s =>
         {
             s.ShaderCacheNvidia = false;
             s.ShaderCacheAmd = false;
@@ -289,14 +289,14 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         _settings.OfflineTestMode = true;
-        SettingsStore.Update(s => s.OfflineTestMode = true);
+        SettingsStore.TryUpdate(s => s.OfflineTestMode = true);
     }
 
     private void OfflineTestToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.OfflineTestMode = false;
-        SettingsStore.Update(s => s.OfflineTestMode = false);
+        SettingsStore.TryUpdate(s => s.OfflineTestMode = false);
     }
 
     // ----- JVM arguments (per version) -----
@@ -460,7 +460,8 @@ public partial class SettingsPage : UserControl
         if (opts.IsEmpty)
         {
             _settings.JvmArgsByVersion.Remove(version);
-            SettingsStore.Update(s => s.JvmArgsByVersion.Remove(version));
+            // Not saved: stays dirty, so the next flush (leaving the box, switching versions) tries again.
+            if (!SettingsStore.TryUpdate(s => s.JvmArgsByVersion.Remove(version))) _jvmDirty = true;
         }
         else
         {
@@ -468,11 +469,12 @@ public partial class SettingsPage : UserControl
             // so clearing the box later never brings back an old "Reset after a crash" offer.
             _settings.JvmArgsByVersion[version] = opts;
             _settings.JvmArgsBeforeReset.Remove(version);
-            SettingsStore.Update(s =>
-            {
-                s.JvmArgsByVersion[version] = new VersionJvmOptions { Arguments = text, ReplacePresets = replace };
-                s.JvmArgsBeforeReset.Remove(version);
-            });
+            if (!SettingsStore.TryUpdate(s =>
+                {
+                    s.JvmArgsByVersion[version] = new VersionJvmOptions { Arguments = text, ReplacePresets = replace };
+                    s.JvmArgsBeforeReset.Remove(version);
+                }))
+                _jvmDirty = true; // not saved: the next flush tries again
         }
     }
 
@@ -571,7 +573,7 @@ public partial class SettingsPage : UserControl
 
         _settings.ResolutionWidth = width;
         _settings.ResolutionHeight = height;
-        SettingsStore.Update(s => { s.ResolutionWidth = width; s.ResolutionHeight = height; });
+        SettingsStore.TryUpdate(s => { s.ResolutionWidth = width; s.ResolutionHeight = height; });
     }
 
     // ---- Section rail (Poster) ----------------------------------------------

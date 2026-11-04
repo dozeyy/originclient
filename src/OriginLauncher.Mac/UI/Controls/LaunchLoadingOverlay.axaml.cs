@@ -46,6 +46,10 @@ public sealed partial class LaunchLoadingOverlay : UserControl
     /// <summary>Close on the failure state; the page lowers the screen.</summary>
     public event Action? CloseRequested;
 
+    /// <summary>Cancel while the self-update waits for Minecraft to close: the wait stops, the update stays ready
+    /// (UpdateService.DownloadAndRestartAsync's stopWaiting). Twin of the WPF overlay's UpdateWaitCancelRequested.</summary>
+    public event Action? UpdateWaitCancelRequested;
+
     /// <summary>"Install Rosetta" on the Rosetta failure (Apple Silicon, a version that runs through Rosetta).</summary>
     public event Action? RosettaRequested;
 
@@ -71,7 +75,8 @@ public sealed partial class LaunchLoadingOverlay : UserControl
         ShowProgress(null);
     }
 
-    /// <summary>Self-update: the same scene, no Cancel (updates are mandatory), a fill fed by <see cref="ReportUpdate"/>.</summary>
+    /// <summary>Self-update: the same scene, no Cancel while it downloads (updates are mandatory), a fill fed by
+    /// <see cref="ReportUpdate"/>. Cancel appears only while the swap waits for Minecraft to close.</summary>
     public void ShowUpdate(string newVersion)
     {
         _launchMode = false;
@@ -90,6 +95,13 @@ public sealed partial class LaunchLoadingOverlay : UserControl
         StageText.Text = progress.Describe();
         var fraction = progress.Stage == UpdateService.UpdateStage.Downloading ? progress.Fraction : 1.0;
         if (fraction is { } f) ShowProgress(f);
+
+        // Waiting for a game to close: never a locked screen. Cancel goes back to Home and the update stays ready.
+        var waiting = progress.Stage == UpdateService.UpdateStage.WaitingForGame;
+        CancelButton.IsVisible = waiting;
+        CancelButton.IsEnabled = waiting;
+        ToolTip.SetTip(CancelButton, waiting ? "Go back - the update stays ready" : null);
+        LoaderCaptionText.Text = waiting ? "Origin updates the moment Minecraft closes" : "Getting the newest version";
     }
 
     /// <summary>The game process is up: Cancel now stops that starting game.</summary>
@@ -243,6 +255,13 @@ public sealed partial class LaunchLoadingOverlay : UserControl
         if (_failed)
         {
             CloseRequested?.Invoke();
+            return;
+        }
+        if (!_launchMode)
+        {
+            // The self-update's wait for Minecraft to close (the only time update mode shows Cancel).
+            CancelButton.IsEnabled = false;
+            UpdateWaitCancelRequested?.Invoke();
             return;
         }
         // One shot: further clicks do nothing while the cancellation unwinds.

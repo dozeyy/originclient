@@ -243,7 +243,7 @@ public sealed partial class MicrosoftSignInPanel : UserControl, IDisposable
     {
         _verificationUri = verificationUri;
         UserCodeText.Text = userCode;
-        var shown = Uri.TryCreate(verificationUri, UriKind.Absolute, out var u) ? u.Host + u.AbsolutePath.TrimEnd('/') : verificationUri;
+        var shown = DeviceCodeFlow.ShortAddress(verificationUri);
         CodeHint.Text = $"Go to {shown} on this Mac or any other device and type:";
         LoadingText.IsVisible = false;
         CodePanel.IsVisible = true;

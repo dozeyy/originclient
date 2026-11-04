@@ -82,16 +82,41 @@ public static class UpdatePrompt
         _ = RunAsync(window, update);
     }
 
+    /// <summary>Play was refused for a mandatory update: ask once (the WPF MainWindow's AskToUpdateAsync), and Update
+    /// runs the chip's own install. Not while that install is running or when nothing is on offer any more.</summary>
+    public static async Task AskAsync(MainWindow window)
+    {
+        if (_busy || Shots.ShotRunner.Active || UpdateService.Available == null) return;
+        if (await Confirm.AskAsync(window, UpdateRequiredWords.PromptTitle, UpdateRequiredWords.PromptText,
+                UpdateRequiredWords.UpdateButton, UpdateRequiredWords.LaterButton)
+            && UpdateService.Available != null)
+            Open(window);
+    }
+
     private static async Task RunAsync(MainWindow window, UpdateService.AvailableUpdate update)
     {
         _busy = true;
         var status = Ui.Caption("Starting the download");
         var rail = new Rail { Value = double.NaN, Margin = new Thickness(0, Space.S4, 0, Space.S2) };
+        // Only while the swap waits for Minecraft to close (that can last hours): never a dialog the player can't leave.
+        // Cancel stops the wait; the update stays downloaded and ready for the next click.
+        var stopWaiting = new CancellationTokenSource(); // no timer: nothing to dispose, and a late click stays harmless
+        var cancel = Ui.Button("Cancel", Look.Secondary);
+        cancel.MinWidth = 96;
+        cancel.IsVisible = false;
+        cancel.HorizontalAlignment = HorizontalAlignment.Right;
+        cancel.Margin = new Thickness(0, Space.S4, 0, 0);
+        cancel.Click += (_, _) =>
+        {
+            cancel.IsEnabled = false;
+            stopWaiting.Cancel();
+        };
         var body = Ui.Column(0,
             Ui.Wrap(Ui.Title("Updating Origin to " + Short(update.Version))),
             Ui.Body("Origin closes, installs the update and opens again by itself.").Margin(0, 10, 0, 0),
             rail,
-            status);
+            status,
+            cancel);
         window.OpenDialog(body, dismissable: false);
 
         var toldAboutImport = false;
@@ -99,6 +124,7 @@ public static class UpdatePrompt
         {
             status.Text = p.Describe();
             rail.Value = p.Fraction ?? double.NaN;
+            cancel.IsVisible = p.Stage == UpdateService.UpdateStage.WaitingForGame;
             if (p.Stage == UpdateService.UpdateStage.FinishingImport && !toldAboutImport)
             {
                 toldAboutImport = true;
@@ -110,8 +136,16 @@ public static class UpdatePrompt
         {
             // Downloads, verifies (SHA-256), stages the new build, then shuts this process down; the apply script
             // swaps the files and opens the updated launcher.
-            await UpdateService.DownloadAndRestartAsync(progress);
+            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token);
             window.CloseDialog(); // only reached if the process was not shut down (nothing to restart into)
+        }
+        catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
+        {
+            // Back to Home: the chip offers the same, already downloaded update again; Play stays as it was.
+            window.CloseDialog();
+            _busy = false;
+            ShowChip();
+            return;
         }
         catch (Exception ex) when (ex is UpdateVerificationException || UpdateService.Available == null)
         {

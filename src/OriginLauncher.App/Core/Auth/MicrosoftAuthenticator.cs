@@ -366,10 +366,10 @@ public sealed partial class MicrosoftAuthenticator
         using var response = await Http.PostAsync(endpoint, new FormUrlEncodedContent(form), ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
-            throw Failure("token_refresh", response, json, "Your Microsoft sign-in expired. Remove and re-add this account in the account switcher.");
+            throw Failure(MicrosoftAuthException.TokenRefreshStage, response, json, SignInAgain.ExpiredLine);
 
         var token = JsonSerializer.Deserialize<MsaTokenResponse>(json)
-            ?? throw new MicrosoftAuthException("token_refresh", "Your Microsoft sign-in expired. Remove and re-add this account in the account switcher.", "empty refresh response");
+            ?? throw new MicrosoftAuthException(MicrosoftAuthException.TokenRefreshStage, SignInAgain.ExpiredLine, "empty refresh response");
         // Microsoft rotates refresh tokens on use — always persist the new one.
         return (token.AccessToken, token.RefreshToken);
     }
