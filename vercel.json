@@ -6,7 +6,7 @@
       "main": true
     }
   },
-  "ignoreCommand": "node -e \"const f=require('fs');let j;for(const p of['launcher/promos.json','website/launcher/promos.json'])try{j=JSON.parse(f.readFileSync(p,'utf8'))}catch(e){}process.exit(j&&j.schema===1&&j.promos&&j.promos.length?1:0)\"",
+  "ignoreCommand": "node -e \"const f=require('fs');let j;for(const p of['launcher/promos.json','website/launcher/promos.json'])if(f.existsSync(p))try{j=JSON.parse(f.readFileSync(p,'utf8'))}catch{j=0}process.exit(j===undefined||j&&j.schema===1&&j.promos&&j.promos.length?1:0)\"",
   "headers": [
     {
       "source": "/(.*)",
