@@ -63,6 +63,7 @@ public class AbstractButtonMixin {
 		// ever fails (e.g. on a different game version), vanilla buttons return.
 		if (OriginButtonRenderer.render(guiGraphics, (AbstractButton) (Object) this)) {
 			ci.cancel();
+			OriginButtonRenderer.vanillaPointer(guiGraphics, this);
 		}
 	}
 

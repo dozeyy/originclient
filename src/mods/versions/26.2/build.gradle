@@ -204,6 +204,17 @@ if (apiDumpList.exists() && System.getenv("ORIGIN_SHOTS")) {
 					target << so.toString() << se.toString()
 				}
 			}
+			// api-code.txt (optional, one class per line): full `javap -c -p` bytecode of
+			// those classes, for hooks that depend on a method body (INVOKE targets, call order).
+			def codeList = file("api-code.txt")
+			if (codeList.exists()) {
+				def names = codeList.readLines().collect { it.trim() }.findAll { it && !it.startsWith("#") }
+				def proc = ([javap, "-c", "-p", "-cp", cpStr] + names).execute()
+				def so = new StringBuilder(), se = new StringBuilder()
+				proc.consumeProcessOutput(so, se)
+				proc.waitFor()
+				new File(out, "code.txt").text = so.toString() + se.toString()
+			}
 			println "[api-dump] wrote ${picked.values().sum { it.size() } ?: 0} classes to ${out}"
 		}
 	}

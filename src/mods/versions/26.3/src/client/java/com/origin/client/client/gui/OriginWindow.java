@@ -237,6 +237,7 @@ public abstract class OriginWindow extends Screen {
 	/** A text / search field: dark well, placeholder when empty, caret when focused. */
 	protected void field(OriginDeck d, float x, float y, float w, float h, String text, String placeholder,
 			boolean focused, String icon) {
+		d.textArea(x, y, w, h);
 		d.rect(x, y, w, h, 6, FIELD, focused ? 0x40FFFFFF : LINE2);
 		float tx = x + 12;
 		if (icon != null) {

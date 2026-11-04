@@ -546,7 +546,7 @@ public class WaypointScreen extends OriginWindow {
 		float top = LIST_Y;
 		d.rect(ED_X, top, ED_W, LIST_BOTTOM - top, 8, CARD, LINE);
 		// swallow clicks on the card's empty space (they'd otherwise fall through to nothing)
-		d.hit(ED_X, top, ED_W, LIST_BOTTOM - top, () -> {
+		d.block(ED_X, top, ED_W, LIST_BOTTOM - top, () -> {
 		});
 
 		// NAME + GROUP
@@ -696,11 +696,11 @@ public class WaypointScreen extends OriginWindow {
 	// ---- delete confirmation (the mod menu's dialog) ----
 
 	private void drawConfirm(OriginDeck d) {
-		d.hit(-10000, -10000, 20000, 20000, () -> pendingDelete = null);
+		d.block(-10000, -10000, 20000, 20000, () -> pendingDelete = null);
 		d.rect(0, 0, W, H, 8, 0x8C000000);
 		float w = 340, h = 148, x = (W - w) / 2, y = (H - h) / 2;
 		d.rect(x, y, w, h, 8, 0xFA181D1A, LINE2);
-		d.hit(x, y, w, h, () -> {
+		d.block(x, y, w, h, () -> {
 		});
 		d.textMid("Delete this waypoint?", x + 20, y + 30, 15, true, 0, TEXT);
 		d.textMid(d.fit("\"" + pendingDelete.name + "\" will be removed for good.", w - 40, 13, false, 0),

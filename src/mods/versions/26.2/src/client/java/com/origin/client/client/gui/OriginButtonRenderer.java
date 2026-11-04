@@ -193,12 +193,9 @@ public final class OriginButtonRenderer {
 				// Keyboard focus: a 1 GUI px accentLine ring on the control's own box, never colour alone.
 				OriginUi.roundRect(g, x, y, w, h, OriginTheme.TITLE_BTN_RADIUS, 0, OriginTheme.TITLE_FOCUS, 1f);
 			}
-			// The pointer vanilla's AbstractButton extract requests (handleCursor), which the
-			// cancelled draw no longer reaches.
-			if (button.isHovered()) {
-				g.requestCursor(enabled ? com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND
-						: com.mojang.blaze3d.platform.cursor.CursorTypes.NOT_ALLOWED);
-			}
+			// The pointer: AbstractButtonMixin calls vanilla's own handleCursor after this draw
+			// (vanillaPointer); for a sprite button only extractContents was cancelled, so vanilla's
+			// extractWidgetRenderState still asks for it (javap 26.1 / 26.2 / 26.3).
 			return true;
 		} catch (Throwable t) {
 			titleBroken = true;
@@ -348,11 +345,7 @@ public final class OriginButtonRenderer {
 				g.centeredText(Minecraft.getInstance().font, button.getMessage(), x + w / 2, y + (h - 8) / 2,
 						enabled ? 0xFFFFFFFF : GREY);
 			}
-			// The pointer vanilla's AbstractButton extract requests (handleCursor), which the cancelled draw no longer reaches.
-			if (button.isHovered()) {
-				g.requestCursor(enabled ? com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND
-						: com.mojang.blaze3d.platform.cursor.CursorTypes.NOT_ALLOWED);
-			}
+			// The pointer: as above (vanillaPointer, or vanilla's own handleCursor for a sprite button).
 			return true;
 		} catch (Throwable t) {
 			titleBroken = true;
@@ -576,6 +569,21 @@ public final class OriginButtonRenderer {
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
+	/**
+	 * The mouse pointer vanilla's own draw of {@code widget} asks for (a hand over an
+	 * active widget, "not allowed" over an inactive one, the slider's left-right arrows
+	 * while dragged), for a widget whose draw Origin's mixin just cancelled: vanilla
+	 * requests it from that cancelled extractWidgetRenderState (AbstractWidget.handleCursor).
+	 * Fail-soft: if the invoker did not apply, the pointer stays the arrow.
+	 */
+	public static void vanillaPointer(GuiGraphicsExtractor g, Object widget) {
+		try {
+			((com.origin.client.client.mixin.AbstractWidgetCursorInvoker) widget).originclient$handleCursor(g);
+		} catch (Throwable ignored) {
+			// arrow
+		}
+	}
+
 	public static boolean render(GuiGraphicsExtractor g, AbstractButton button) {
 		// Vanilla screens get vanilla widgets (see originOwnsScreen); the title's
 		// registered controls take skin 2.
