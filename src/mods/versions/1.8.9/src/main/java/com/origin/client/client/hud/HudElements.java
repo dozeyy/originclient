@@ -1202,18 +1202,17 @@ public final class HudElements {
 
 	/** Main in-game dispatcher: draws every enabled element at its anchored,
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
-	 *  editor draws its own draggable versions) and with the HUD hidden (F1).
-	 *  1.8.9's F3 text fills both top corners where the default readouts sit: with
-	 *  F3 open only the elements under a debug line hide (DebugTextArea); the rest
-	 *  stay, as on 1.21.1. */
+	 *  editor draws its own draggable versions), with the HUD hidden (F1), and while
+	 *  the F3 screen is open: its text fills both top corners where the default
+	 *  readouts sit, so the whole Origin HUD steps aside, as on 1.21.1 and every
+	 *  other version (B189PRE-3). */
 	public static void renderAll(Gfx g) {
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc.thePlayer == null || mc.gameSettings.hideGUI || mc.currentScreen instanceof HudEditorScreen) {
 			return;
 		}
-		boolean debug = mc.gameSettings.showDebugInfo;
-		if (debug && !DebugTextArea.known()) {
-			return;   // where the debug text is wasn't seen this frame: hide the HUD as before
+		if (mc.gameSettings.showDebugInfo) {
+			return;   // F3 is open: its text sits where the HUD's default spots are
 		}
 		// Minimised: nobody can see it. Merely unfocused (Discord or OBS on the other monitor)
 		// keeps the HUD drawn, as 1.21.1's players expect: the unfocused FPS cap already saves
@@ -1243,12 +1242,6 @@ public final class HudElements {
 			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(sw, w), y = pos.y(sh, h);
-			if (debug && DebugTextArea.covers(x, y, w, h, sw, mc.fontRendererObj)) {
-				if (com.origin.client.client.BenchProf.ON) {
-					com.origin.client.client.BenchProf.end(prof);
-				}
-				continue;   // under the F3 text: hidden while F3 is open
-			}
 			if (com.origin.client.client.BenchProf.ON) {
 				com.origin.client.client.BenchProf.begin(com.origin.client.client.BenchProf.S_HUD_BACKING);
 			}
