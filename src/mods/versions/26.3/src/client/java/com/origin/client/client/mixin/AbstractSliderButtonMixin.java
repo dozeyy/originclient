@@ -26,6 +26,7 @@ public class AbstractSliderButtonMixin {
 		// Only cancel vanilla when Origin actually drew (fail-soft contract).
 		if (OriginButtonRenderer.renderSlider(guiGraphics, (AbstractSliderButton) (Object) this, this.value)) {
 			ci.cancel();
+			OriginButtonRenderer.vanillaPointer(guiGraphics, this);
 		}
 	}
 }

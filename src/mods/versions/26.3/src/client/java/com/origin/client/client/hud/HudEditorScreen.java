@@ -151,6 +151,10 @@ public class HudEditorScreen extends Screen {
 		Minecraft mc = Minecraft.getInstance();
 		float in = (float) OriginTheme.easeOut(Math.min(1.0, (System.currentTimeMillis() - openedAt) / 110.0));
 		String hovered = null;
+		// The pointer (1.21.9+ cursor shapes, as vanilla widgets ask for them): the move
+		// arrows over an element you can drag, a hand over its turn-off X. The Right Shift
+		// group's buttons (OriginDeck) ask for theirs after this.
+		com.mojang.blaze3d.platform.cursor.CursorType pointer = null;
 
 		for (HudElements.Element e : HudElements.ALL) {
 			// only enabled mods appear here; positions/settings persist in the
@@ -173,6 +177,9 @@ public class HudEditorScreen extends Screen {
 			boolean hover = mouseX >= x - 4 && mouseX < x + w + 4 && mouseY >= y - 4 && mouseY < y + h + 4;
 			if (hover) {
 				hovered = e.id();
+			}
+			if (hover || e.id().equals(draggingId) || e.id().equals(resizingId)) {
+				pointer = com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL;
 			}
 			boolean active = hover || e.id().equals(selectedId) || e.id().equals(draggingId) || e.id().equals(resizingId);
 
@@ -219,6 +226,9 @@ public class HudEditorScreen extends Screen {
 				int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
 				int xby = xBtnY(pos.anchor, oy0, oy1, xs);
 				boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
+				if (xh && draggingId == null && resizingId == null) {
+					pointer = com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND;
+				}
 				// Invisible until the element is hovered (we're inside `if (active)`);
 				// a soft 60% red ✕ with NO box, firming to full red when pointed at.
 				// Scaled to the box so it never crowds the letters.
@@ -245,6 +255,13 @@ public class HudEditorScreen extends Screen {
 			}
 		}
 		this.hoveredId = hovered;
+		if (pointer != null) {
+			try {
+				g.requestCursor(pointer);
+			} catch (Throwable ignored) {
+				// arrow
+			}
+		}
 
 		if (quick) {
 			renderQuickGroup(g, mouseX, mouseY, in);

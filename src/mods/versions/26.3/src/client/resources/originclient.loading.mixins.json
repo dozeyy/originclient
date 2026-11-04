@@ -17,7 +17,8 @@
 		"FrameLogTitleMixin",
 		"FrameLogOverlayMixin",
 		"ReloadTaskTagMixin",
-		"StartupInputMixin"
+		"StartupInputMixin",
+		"LoadingOverlayCoverMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

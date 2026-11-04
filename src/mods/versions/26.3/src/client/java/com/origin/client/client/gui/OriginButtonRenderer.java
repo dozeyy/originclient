@@ -577,6 +577,21 @@ public final class OriginButtonRenderer {
 	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
+	/**
+	 * The mouse pointer vanilla's own draw of {@code widget} asks for (a hand over an
+	 * active widget, "not allowed" over an inactive one, the slider's left-right arrows
+	 * while dragged), for a widget whose draw Origin's mixin just cancelled: vanilla
+	 * requests it from that cancelled extractWidgetRenderState (AbstractWidget.handleCursor).
+	 * Fail-soft: if the invoker did not apply, the pointer stays the arrow.
+	 */
+	public static void vanillaPointer(GuiGraphicsExtractor g, Object widget) {
+		try {
+			((com.origin.client.client.mixin.AbstractWidgetCursorInvoker) widget).originclient$handleCursor(g);
+		} catch (Throwable ignored) {
+			// arrow
+		}
+	}
+
 	public static boolean render(GuiGraphicsExtractor g, AbstractButton button) {
 		// Vanilla screens get vanilla widgets (see originOwnsScreen); the title's
 		// registered controls take skin 2.

@@ -1,5 +1,7 @@
 package com.origin.client.client.gui;
 
+import com.mojang.blaze3d.platform.cursor.CursorType;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.joml.Matrix3x2f;
@@ -23,7 +25,11 @@ import java.util.List;
  *     precision -- this is what makes the words line up with the lines;
  *   * click targets are recorded while drawing ({@link #hit}) and replayed by
  *     the screen's mouseClicked, so what you see and what you click can never
- *     disagree (one geometry, not a render copy and an input copy).
+ *     disagree (one geometry, not a render copy and an input copy);
+ *   * the same records pick the mouse pointer (the cursor shapes every vanilla
+ *     widget asks for since 1.21.9): a hand over a click target, an I-beam over a
+ *     text field ({@link #textHit} / {@link #textArea}), the arrow over a panel
+ *     that only swallows clicks ({@link #block}). See {@link #end}.
  *
  * Colours are the mock's :root tokens. Everything fails soft: no MSDF shader ->
  * vanilla text, no SDF shader -> software rounded rects.
@@ -111,6 +117,12 @@ public final class OriginDeck {
 	// The screen's own pose before this frame's physical-pixel scale (see applyClip).
 	private final Matrix3x2f basePose;
 	private final List<Hit> hits;
+	// The pointer this frame asks for, set in draw order by hit / textHit / textArea /
+	// block when the mouse is inside: the control drawn last under the mouse decides,
+	// the same rule as clicks ("later hits win"). null = the arrow. Requested in end().
+	private CursorType pointer;
+	// The I-beam's own box: the field's click-to-focus hit over that same box keeps it.
+	private float beamX0, beamY0, beamX1, beamY1;
 
 	/** A click target recorded at draw time; see the class comment. */
 	public record Hit(float x0, float y0, float x1, float y1, Runnable action) {
@@ -146,12 +158,29 @@ public final class OriginDeck {
 		g.pose().scale((float) (1.0 / gs), (float) (1.0 / gs));
 	}
 
-	/** Closes the frame (pops the physical-pixel pose, drops any open clip). */
+	/**
+	 * Closes the frame (pops the physical-pixel pose, drops any open clip) and asks
+	 * for this frame's pointer. Vanilla widgets request theirs from their own draw
+	 * (AbstractWidget.handleCursor); Origin's controls are drawn here, so the kit asks
+	 * for them. Fail-soft: if the request throws, the pointer stays the arrow.
+	 */
 	public void end() {
 		while (!clips.isEmpty()) {
 			unclip();
 		}
 		g.pose().popMatrix();
+		if (pointer != null) {
+			try {
+				g.requestCursor(pointer);
+			} catch (Throwable ignored) {
+				// arrow
+			}
+		}
+	}
+
+	/** A popup drawn over this frame takes the clicks (colour picker, multi-select): no pointer from the frame under it. */
+	public void clearPointer() {
+		pointer = null;
 	}
 
 	/** GUI px -> design px (for input events between frames). */
@@ -570,6 +599,51 @@ public final class OriginDeck {
 		}
 		if (x1 > x0 && y1 > y0) {
 			hits.add(new Hit(x0, y0, x1, y1, action));
+			if (mx >= x0 && mx < x1 && my >= y0 && my < y1) {
+				// A field's own click-to-focus target (the same box as its textArea) keeps the I-beam.
+				boolean ownField = pointer == CursorTypes.IBEAM && Math.abs(x0 - beamX0) < 1 && Math.abs(y0 - beamY0) < 1
+						&& Math.abs(x1 - beamX1) < 1 && Math.abs(y1 - beamY1) < 1;
+				if (!ownField) {
+					pointer = CursorTypes.POINTING_HAND;
+				}
+			}
+		}
+	}
+
+	/** A text field's click target: recorded like {@link #hit}, with the I-beam pointer over it. */
+	public void textHit(float x, float y, float w, float h, Runnable action) {
+		textArea(x, y, w, h);
+		hit(x, y, w, h, action);
+	}
+
+	/** The I-beam over a text field that has no click target of its own (always focused, or focused elsewhere). */
+	public void textArea(float x, float y, float w, float h) {
+		if (!over(x, y, w, h)) {
+			return;
+		}
+		pointer = CursorTypes.IBEAM;
+		beamX0 = x;
+		beamY0 = y;
+		beamX1 = x + w;
+		beamY1 = y + h;
+		if (!clips.isEmpty()) {
+			float[] c = clips.peek();
+			beamX0 = Math.max(beamX0, c[0]);
+			beamY0 = Math.max(beamY0, c[1]);
+			beamX1 = Math.min(beamX1, c[2]);
+			beamY1 = Math.min(beamY1, c[3]);
+		}
+	}
+
+	/**
+	 * A click target that is not a control: a panel's empty space that swallows clicks,
+	 * or a full-screen "click outside closes it" layer. Recorded like {@link #hit}, but
+	 * the pointer under it goes back to the arrow (it covers what was drawn before).
+	 */
+	public void block(float x, float y, float w, float h, Runnable action) {
+		hit(x, y, w, h, action);
+		if (over(x, y, w, h)) {
+			pointer = null;
 		}
 	}
 

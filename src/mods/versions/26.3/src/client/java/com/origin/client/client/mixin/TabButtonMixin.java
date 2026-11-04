@@ -27,6 +27,7 @@ public class TabButtonMixin {
 		if (OriginButtonRenderer.renderTab(guiGraphics, self, self.getX(), self.getY(),
 				self.getWidth(), self.getHeight(), self.getMessage(), self.isSelected(), self.isHovered())) {
 			ci.cancel();
+			OriginButtonRenderer.vanillaPointer(guiGraphics, this);
 		}
 	}
 }

@@ -15,6 +15,7 @@
 		"ClientTextTooltipMixin",
 		"TooltipRenderUtilMixin",
 		"AbstractWidgetTooltipAccessor",
+		"AbstractWidgetCursorInvoker",
 		"ScreenInvoker",
 		"GuiGraphicsExtractorAccessor",
 		"GuiRenderStateAccessor",

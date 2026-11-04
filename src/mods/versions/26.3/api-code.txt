@@ -1,0 +1,9 @@
+net.minecraft.client.gui.screens.LoadingOverlay
+net.minecraft.client.gui.components.AbstractButton
+net.minecraft.client.gui.components.AbstractWidget
+net.minecraft.client.gui.components.AbstractSliderButton
+net.minecraft.client.gui.components.tabs.TabButton
+net.minecraft.client.gui.components.tabs.MenuTabBar$MenuTabButton
+net.minecraft.client.gui.components.EditBox
+com.mojang.blaze3d.platform.TextInputManager
+net.minecraft.client.Minecraft
