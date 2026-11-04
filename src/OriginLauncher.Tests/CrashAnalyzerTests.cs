@@ -25,6 +25,7 @@ public class CrashAnalyzerTests : IDisposable
 
     public void Dispose()
     {
+        OriginLauncher.App.Core.GameFolders.LaunchedModsFolder.Forget(GameDir);
         try { Directory.Delete(_root, true); } catch { /* temp */ }
     }
 
@@ -180,5 +181,57 @@ Caused by: java.lang.IllegalStateException: boom
         var sodium = Assert.Single(CrashAnalyzer.ReadModsFrom(ModsDir), m => m.ModId == "sodium");
 
         Assert.Equal("sodium-fabric-0.6.13+mc1.21.1.jar", sodium.JarFileName);
+    }
+
+    // ---- KC-2 (bug run 6): the crash check reads the folder the game really loaded ----
+
+    private string LaunchFolder(string name)
+    {
+        var dir = Path.Combine(GameDir, name);
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
+    private static void JarIn(string folder, string fileName, string modId)
+    {
+        using var zip = ZipFile.Open(Path.Combine(folder, fileName), ZipArchiveMode.Create);
+        using var w = new StreamWriter(zip.CreateEntry("fabric.mod.json").Open());
+        w.Write($"{{\"schemaVersion\":1,\"id\":\"{modId}\",\"version\":\"1.0.0\"}}");
+    }
+
+    private CrashVerdict UnclearCrash()
+    {
+        var reports = Path.Combine(GameDir, "crash-reports");
+        Directory.CreateDirectory(reports);
+        File.WriteAllText(Path.Combine(reports, "crash-2026-11-04_12.00.00-client.txt"),
+            "---- Minecraft Crash Report ----\nDescription: Unexpected error\n");
+        return CrashEngine.Diagnose(CrashAnalyzer.ReadEvidence(GameDir, null, 1, false, true, 4096, 16384));
+    }
+
+    [Fact]
+    public void An_origin_only_launch_never_offers_a_try_without_mods_it_already_left_out()
+    {
+        JarIn(ModsDir, "somemod-1.0.jar", "somemod"); // the player's loose jar, in the shared folder
+        Assert.True(UnclearCrash().OfferTryWithoutAddedMods); // unknown launch folder: the shared folder is read
+
+        var originOnly = LaunchFolder("mods-origin-only"); // "Your mods" off: that jar never loaded
+        OriginLauncher.App.Core.GameFolders.LaunchedModsFolder.Record(GameDir, originOnly);
+
+        Assert.DoesNotContain(CrashAnalyzer.ReadMods(GameDir), m => m.ModId == "somemod");
+        Assert.False(UnclearCrash().OfferTryWithoutAddedMods);
+    }
+
+    [Fact]
+    public void A_profile_launch_reads_its_own_folder_and_not_a_stale_one()
+    {
+        JarIn(LaunchFolder("mods-profile"), "old-1.0.jar", "oldmod"); // left from an earlier profile launch
+        var current = LaunchFolder("mods-profile-sodium-0.6");
+        JarIn(current, "profilemod-2.0.jar", "profilemod");
+        OriginLauncher.App.Core.GameFolders.LaunchedModsFolder.Record(GameDir, current);
+
+        var mods = CrashAnalyzer.ReadMods(GameDir);
+
+        Assert.Equal(["profilemod"], mods.Select(m => m.ModId));
+        Assert.Equal("profilemod-2.0.jar", mods[0].JarFileName);
     }
 }
