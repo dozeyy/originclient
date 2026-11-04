@@ -21,27 +21,24 @@ public static partial class AccountStore
     internal static Func<byte[], byte[]> UnprotectBytes { get; set; } = PlatformUnprotect;
     private static readonly object Gate = new();
 
+    // A read another program blocks for a moment (antivirus, backup, indexer): three short waits (~0.2 s).
+    private static readonly int[] ReadWaitsMs = { 25, 60, 120 };
+
+    private enum ReadState { Ok, Missing, Damaged, Unreadable }
+
+    /// <summary>
+    /// The player's line when accounts.json can't be read even after the short waits. Update throws an
+    /// <see cref="IOException"/> with it and leaves the file exactly as it was.
+    /// </summary>
+    public const string BusyMessage =
+        "Origin couldn't open its saved accounts: another program (antivirus or a backup tool) is using the file. Wait a moment and try again.";
+
+    // The accounts on disk now. A missing, damaged or unreadable file reads as "no accounts" (for display only:
+    // Update re-reads and never writes over a file it couldn't read).
     public static List<StoredAccount> Load()
     {
         lock (Gate)
-        {
-            try
-            {
-                return ReadCore();
-            }
-            catch (JsonException)
-            {
-                return new List<StoredAccount>();
-            }
-            catch (IOException)
-            {
-                return new List<StoredAccount>();
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return new List<StoredAccount>();
-            }
-        }
+            return Read().Accounts;
     }
 
     public static void Save(List<StoredAccount> accounts)
@@ -53,23 +50,73 @@ public static partial class AccountStore
     // Account data is mutated by both the long-lived switcher and silent token
     // refreshes. Always reload inside the same lock before changing it so an old
     // panel snapshot cannot put a rotated Microsoft refresh token back on disk.
+    //
+    // Fail closed, the same rules as SettingsStore: a file another program holds is retried briefly, then the write
+    // is refused (IOException, BusyMessage) and the file stays as it was. A file that reads but isn't a valid account
+    // list (a power cut right after a save can leave it empty or full of NUL bytes) can never be repaired by waiting:
+    // it is kept beside the real one as accounts.json.damaged-<time> and the change starts from an empty list, so
+    // the next sign-in saves. Before 2026-11-04 Update threw on such a file, so every sign-in failed with "Couldn't
+    // save this account" until the player deleted accounts.json by hand. The tokens inside the kept copy stay
+    // encrypted (DPAPI / Keychain / keyring) exactly as they were; nothing is decrypted to move it.
     public static List<StoredAccount> Update(Func<List<StoredAccount>, List<StoredAccount>> mutate)
     {
         lock (Gate)
         {
-            var updated = mutate(ReadCore());
+            var (accounts, state) = Read();
+            if (state == ReadState.Unreadable)
+                throw new IOException(BusyMessage);
+            var updated = mutate(accounts);
+            // Set the damaged file aside only now that a replacement is ready: a mutate that throws must leave
+            // accounts.json exactly where it was, not missing.
+            if (state == ReadState.Damaged) KeepDamagedCopy();
             SaveCore(updated);
             return updated;
         }
     }
 
-    private static List<StoredAccount> ReadCore()
+    private static (List<StoredAccount> Accounts, ReadState State) Read()
     {
-        if (!File.Exists(FilePath))
-            return new List<StoredAccount>();
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                if (!File.Exists(FilePath)) return (new List<StoredAccount>(), ReadState.Missing);
+                // Share everything: this read must never be the handle that makes another writer's rename fail.
+                string json;
+                using (var stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read,
+                           FileShare.ReadWrite | FileShare.Delete))
+                using (var reader = new StreamReader(stream))
+                    json = reader.ReadToEnd();
+                var accounts = JsonSerializer.Deserialize<List<StoredAccount>>(json);
+                // "null" (or a list holding nulls) is not something SaveCore ever writes: damaged, not empty.
+                return accounts == null || accounts.Any(a => a == null)
+                    ? (new List<StoredAccount>(), ReadState.Damaged)
+                    : (accounts, ReadState.Ok);
+            }
+            catch (JsonException)
+            {
+                // Also the 0-byte and NUL-filled files a power cut leaves behind.
+                return (new List<StoredAccount>(), ReadState.Damaged);
+            }
+            catch (FileNotFoundException)
+            {
+                return (new List<StoredAccount>(), ReadState.Missing); // deleted between the check and the open
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                if (attempt >= ReadWaitsMs.Length) return (new List<StoredAccount>(), ReadState.Unreadable);
+                Thread.Sleep(ReadWaitsMs[attempt]);
+            }
+        }
+    }
 
-        var json = File.ReadAllText(FilePath);
-        return JsonSerializer.Deserialize<List<StoredAccount>>(json) ?? new List<StoredAccount>();
+    // Renamed aside, never deleted: the player (or support) can still recover it. Throws when it can't be moved,
+    // which refuses the write rather than lose the file.
+    private static void KeepDamagedCopy()
+    {
+        var aside = $"{FilePath}.damaged-{DateTime.Now:yyyyMMdd-HHmmss}";
+        for (var n = 2; File.Exists(aside); n++) aside = $"{FilePath}.damaged-{DateTime.Now:yyyyMMdd-HHmmss}-{n}";
+        File.Move(FilePath, aside);
     }
 
     private static void SaveCore(List<StoredAccount> accounts)
@@ -83,7 +130,15 @@ public static partial class AccountStore
 
         try
         {
-            File.WriteAllText(tempPath, json);
+            // Flushed to the disk before the rename: without it NTFS can keep the rename and lose the data after a
+            // power cut, which is exactly how an empty or NUL-filled accounts.json is made.
+            using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       4096, FileOptions.WriteThrough))
+            {
+                var bytes = new UTF8Encoding(false).GetBytes(json);
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(flushToDisk: true);
+            }
             File.Move(tempPath, FilePath, true);
         }
         finally

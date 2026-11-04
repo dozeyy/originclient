@@ -116,6 +116,62 @@ public sealed class AccountVaultTests : IDisposable
         Assert.Equal("Your Keychain is locked: unlock it and press Play again.", MicrosoftAuthException.KeyStoreLockedMessage(mac: true));
     }
 
+    // KD-1 (bug run 6): a power cut right after a save can leave accounts.json empty or full of NUL bytes. That used
+    // to sign the player out AND refuse every later sign-in ("Couldn't save this account") until they deleted the
+    // file by hand. Now the damaged file is kept aside and the sign-in saves.
+    [Theory]
+    [InlineData("")]
+    [InlineData("\0\0\0\0")]
+    [InlineData("[{\"Id\":\"853c")]
+    [InlineData("null")]
+    public void A_damaged_accounts_file_is_kept_aside_and_the_next_sign_in_saves(string damaged)
+    {
+        File.WriteAllText(AccountStore.FilePath, damaged);
+
+        Assert.Empty(AccountStore.Load()); // shown as signed out...
+        Assert.True(File.Exists(AccountStore.FilePath)); // ...but a read alone never moves or rewrites the file
+
+        AccountStore.Update(list => AccountStore.Upsert(list, Row(Alex, "rt-1")));
+
+        Assert.Equal(Alex, AccountStore.GetSelected(AccountStore.Load())!.Id);
+        Assert.Equal("rt-1", _vault.RefreshToken(Alex));
+        var kept = Assert.Single(Directory.GetFiles(_dir, "accounts.json.damaged-*"));
+        Assert.Equal(damaged, File.ReadAllText(kept)); // byte for byte, for the player or support
+    }
+
+    [Fact]
+    public void A_change_that_fails_on_a_damaged_file_leaves_it_where_it_was()
+    {
+        File.WriteAllText(AccountStore.FilePath, "\0\0");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            AccountStore.Update(_ => throw new InvalidOperationException("sealing failed")));
+
+        Assert.Equal("\0\0", File.ReadAllText(AccountStore.FilePath));
+        Assert.Empty(Directory.GetFiles(_dir, "accounts.json.damaged-*"));
+    }
+
+    [Fact]
+    public void A_readable_file_is_never_set_aside()
+    {
+        AccountStore.Save([Row(Alex, "rt-0")]);
+
+        AccountStore.Update(list => list);
+
+        Assert.Empty(Directory.GetFiles(_dir, "accounts.json.damaged-*"));
+        Assert.Equal("rt-0", _vault.RefreshToken(Alex));
+    }
+
+    [Fact]
+    public void A_refused_accounts_write_reaches_the_player_in_plain_words()
+    {
+        var ex = Assert.Throws<MicrosoftAuthException>(() =>
+            MicrosoftAuthException.Stored(() => throw new IOException(AccountStore.BusyMessage)));
+
+        Assert.Equal(MicrosoftAuthException.AccountStoreStage, ex.Stage);
+        Assert.Equal(AccountStore.BusyMessage, ex.Message);
+    }
+
     [Fact]
     public void The_test_never_points_at_the_real_accounts_file()
     {
