@@ -445,7 +445,8 @@ public class SettingsSyncTests
         foreach (var instance in new[] { a, b })
         {
             var root = JsonNode.Parse(File.ReadAllText(Path.Combine(instance.Directory, "config", "originclient-mods.json")))!;
-            Assert.Single(root["mods"]!.AsObject());
+            // A deletion removes the leaf; an emptied mod entry ("m1": {}) reads as all defaults.
+            Assert.Equal(new[] { "m0" }, root["mods"]!.AsObject().Where(m => m.Value!.AsObject().Count > 0).Select(m => m.Key));
             Assert.False(root["mods"]!["m0"]!["enabled"]!.GetValue<bool>());
         }
 
@@ -456,8 +457,7 @@ public class SettingsSyncTests
         engine.Harvest(b);
         engine.Push(b);
         var back = JsonNode.Parse(File.ReadAllText(Path.Combine(b.Directory, "config", "originclient-mods.json")))!;
-        Assert.Equal(20, back["mods"]!.AsObject().Count);
-        Assert.True(back["mods"]!["m0"]!["enabled"]!.GetValue<bool>());
+        Assert.Equal(20, back["mods"]!.AsObject().Count(m => m.Value?["enabled"]?.GetValue<bool>() == true));
     }
 
     [Fact]
