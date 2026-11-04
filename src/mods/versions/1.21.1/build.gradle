@@ -154,7 +154,7 @@ dependencies {
 	// makes Loom nest each jar inside Origin Client's own built jar, so
 	// Fabric Loader loads them automatically — no separate download/install
 	// needed by the player.
-	modImplementation(include("maven.modrinth:sodium:${sodiumVersion}"))
+	modCompileOnly "maven.modrinth:sodium:${sodiumVersion}" // DIAG r5
 	modImplementation(include("maven.modrinth:lithium:${project.lithium_version}"))
 	modImplementation(include("maven.modrinth:ferrite-core:${project.ferritecore_version}"))
 	// Draw-batch performance mods — no visual change (see the gradle.properties
@@ -164,7 +164,7 @@ dependencies {
 	// Iris shader loader (see gradle.properties for the Sodium pairing note).
 	// Accessed via reflection only (IrisBridge) so an Iris update can never
 	// break our compile — but bundled jar-in-jar like the rest of the stack.
-	modImplementation(include("maven.modrinth:iris:${irisVersion}"))
+	modCompileOnly "maven.modrinth:iris:${irisVersion}" // DIAG r5
 
 	// JEI — item/recipe viewer, bundled like the rest of the stack. See the
 	// coordinate-hazard note in gradle.properties: this pin is ambiguous across
