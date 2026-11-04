@@ -87,14 +87,19 @@ public final class OriginRenderTypes {
 	// and nothing here is touched. Render thread only.
 	static boolean banking;
 	private static MultiBufferSource.BufferSource bankQuads, bankLines, bankExtra;
+	// The bank's own native buffers: kept so discardBank() can free them (BufferSource has no close).
+	private static ByteBufferBuilder bankQuadsBuf, bankLinesBuf, bankExtraBuf;
 	static {
 		newBank();
 	}
 
 	private static void newBank() {
-		bankQuads = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
-		bankLines = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
-		bankExtra = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
+		bankQuadsBuf = new ByteBufferBuilder(1 << 16);
+		bankLinesBuf = new ByteBufferBuilder(1 << 14);
+		bankExtraBuf = new ByteBufferBuilder(1 << 14);
+		bankQuads = MultiBufferSource.immediate(bankQuadsBuf);
+		bankLines = MultiBufferSource.immediate(bankLinesBuf);
+		bankExtra = MultiBufferSource.immediate(bankExtraBuf);
 	}
 
 	/** True while the current overlay's vertices go to the after-shaders bank. */
@@ -126,7 +131,17 @@ public final class OriginRenderTypes {
 	 *  the post hook, or a failed draw). Rare path: fresh sources, so a builder
 	 *  left mid-batch can never leak a half-written vertex into a later frame. */
 	static void discardBank() {
+		// Free the old native buffers first (~100 KB off-heap each time otherwise); nothing
+		// else holds them once the sources below are replaced (as 1.21.10, 4d0f66b0).
+		ByteBufferBuilder[] old = {bankQuadsBuf, bankLinesBuf, bankExtraBuf};
 		newBank();
+		for (ByteBufferBuilder b : old) {
+			try {
+				b.close();
+			} catch (Throwable ignored) {
+				// already freed or never allocated: nothing to release
+			}
+		}
 	}
 
 	/** The consumer to emit OVERLAY_QUADS vertices into (addVertex + setColor). */
