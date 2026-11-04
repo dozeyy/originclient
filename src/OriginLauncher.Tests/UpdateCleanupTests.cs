@@ -148,4 +148,72 @@ public sealed class UpdateCleanupTests : IDisposable
     {
         Assert.Equal(0, UpdateVerifier.DeleteStaleDownloads(Path.Combine(_dir, "nope"), Prefix, new Version(1, 0, 58)));
     }
+
+    // Stage folders (updates/<version>, ~250 MB each): a background download's stage superseded by a newer release, or
+    // the stage the last swap already copied from, goes; the kept versions' stages and anything not named like a
+    // version stay (UpdateVerifier.DeleteStaleStages).
+    [Fact]
+    public void Stale_stage_folders_go_and_kept_or_foreign_folders_stay()
+    {
+        string Stage(string name)
+        {
+            var dir = Path.Combine(_dir, name);
+            Directory.CreateDirectory(Path.Combine(dir, "sub"));
+            File.WriteAllText(Path.Combine(dir, "sub", "a.dll"), "x");
+            return dir;
+        }
+        var old = Stage("1.0.56");
+        var swapped = Stage("1.0.57");
+        var kept = Stage("1.0.58");
+        var foreign = Stage("logs");
+        var almost = Stage("1.0.58.bak");
+        var zip = Touch($"{Prefix}-1.0.58.zip");
+
+        var n = UpdateVerifier.DeleteStaleStages(_dir, new Version(1, 0, 58, 0), null);
+
+        Assert.Equal(2, n);
+        Assert.False(Directory.Exists(old));
+        Assert.False(Directory.Exists(swapped));
+        Assert.True(Directory.Exists(kept)); // 1.0.58.0 keeps 1.0.58
+        Assert.True(Directory.Exists(foreign));
+        Assert.True(Directory.Exists(almost));
+        Assert.True(File.Exists(zip)); // files are DeleteStaleDownloads' job
+        Assert.Equal(0, UpdateVerifier.DeleteStaleStages(Path.Combine(_dir, "nope")));
+    }
+
+    // The background download's stage is re-hashed right before the swap (StageSnapshot): unchanged = swap; a file
+    // removed, changed or added since it was staged = the click downloads it again.
+    [Fact]
+    public void A_stage_matches_its_snapshot_until_anything_in_it_changes()
+    {
+        var stage = Path.Combine(_dir, "1.0.58");
+        Directory.CreateDirectory(Path.Combine(stage, "runtimes"));
+        File.WriteAllText(Path.Combine(stage, "OriginLauncher.App.exe"), "exe");
+        File.WriteAllText(Path.Combine(stage, "runtimes", "native.dll"), "dll");
+        var snapshot = StageSnapshot.Take(stage);
+        Assert.Equal(2, snapshot.Count);
+        Assert.Contains(snapshot, e => e.Path == "runtimes/native.dll");
+        Assert.True(StageSnapshot.Matches(stage, snapshot));
+
+        File.WriteAllText(Path.Combine(stage, "runtimes", "native.dll"), "DLL"); // same size, other bytes
+        Assert.False(StageSnapshot.Matches(stage, snapshot));
+        File.WriteAllText(Path.Combine(stage, "runtimes", "native.dll"), "dll");
+        Assert.True(StageSnapshot.Matches(stage, snapshot));
+
+        File.WriteAllText(Path.Combine(stage, "extra.txt"), "x");
+        Assert.False(StageSnapshot.Matches(stage, snapshot));
+        File.Delete(Path.Combine(stage, "extra.txt"));
+
+        File.Delete(Path.Combine(stage, "OriginLauncher.App.exe"));
+        Assert.False(StageSnapshot.Matches(stage, snapshot));
+        Assert.False(StageSnapshot.Matches(Path.Combine(_dir, "gone"), snapshot));
+    }
+
+    [Fact]
+    public void An_empty_stage_is_never_recorded_as_ready()
+    {
+        var stage = Path.Combine(_dir, "1.0.58");
+        Directory.CreateDirectory(stage);
+        Assert.Throws<IOException>(() => StageSnapshot.Take(stage));
+    }
 }

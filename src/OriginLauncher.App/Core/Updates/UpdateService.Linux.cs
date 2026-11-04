@@ -164,6 +164,35 @@ start
 
     private static string AppFolder => AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
 
+    // The background download waits on a metered connection: NetworkManager's own Metered property (a phone hotspot,
+    // a connection the player marked metered), asked through gdbus with a 2 s cap. No gdbus or no NetworkManager (a
+    // minimal desktop, systemd-networkd) counts as unmetered; the Update click itself always downloads.
+    static partial void ReadMeteredOverride(ref bool metered)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo("gdbus") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { "call", "--system", "--timeout", "2", "--dest", "org.freedesktop.NetworkManager",
+                         "--object-path", "/org/freedesktop/NetworkManager", "--method", "org.freedesktop.DBus.Properties.Get",
+                         "org.freedesktop.NetworkManager", "Metered" })
+                psi.ArgumentList.Add(arg);
+            using var p = Process.Start(psi);
+            if (p == null) return;
+            var output = p.StandardOutput.ReadToEndAsync();
+            _ = p.StandardError.ReadToEndAsync();
+            if (!p.WaitForExit(3000))
+            {
+                try { p.Kill(); } catch (Exception) { /* gone already */ }
+                return;
+            }
+            metered = p.ExitCode == 0 && UpdatePrefetch.IsNetworkManagerMetered(output.Result);
+        }
+        catch (Exception)
+        {
+            // gdbus missing or refused: unmetered.
+        }
+    }
+
     private static string? FindNotUpdatableReason()
     {
         if (!OperatingSystem.IsLinux()) return "not Linux";

@@ -225,6 +225,34 @@ public static class UpdateVerifier
         return removed;
     }
 
+    /// <summary>
+    /// Deletes the stage folders (<paramref name="updatesDir"/>/&lt;version&gt;, one per release, ~250 MB each) of every
+    /// version not in <paramref name="keep"/>: a background download's stage superseded by a newer release, or the stage
+    /// the last swap already copied from (the Windows swap script leaves it behind). Only folders whose whole name is a
+    /// version are touched; anything else in the folder is not ours. A locked folder is skipped. Returns how many went.
+    /// </summary>
+    public static int DeleteStaleStages(string updatesDir, params Version?[] keep)
+    {
+        if (!Directory.Exists(updatesDir)) return 0;
+        var kept = keep.Where(v => v != null).Select(v => UpdateGate.Normalize(v!)).ToHashSet();
+        var removed = 0;
+        try
+        {
+            foreach (var dir in Directory.EnumerateDirectories(updatesDir))
+            {
+                var name = Path.GetFileName(dir);
+                if (!System.Version.TryParse(name, out var version) || version.ToString() != name) continue;
+                if (kept.Contains(UpdateGate.Normalize(version))) continue;
+                try { Directory.Delete(dir, recursive: true); removed++; }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return removed;
+    }
+
     private static void TryDelete(string path)
     {
         try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }

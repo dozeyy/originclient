@@ -16,6 +16,8 @@ namespace OriginLauncher.App.Core.Updates;
 // This service polls that feed, exposes the newest release, and applies it:
 // download -> stage -> swap-and-restart via a tiny script (a running exe
 // can't overwrite itself on Windows; a Mac swaps the whole app bundle).
+// The download and the stage happen in the background the moment a release is offered (UpdateService.Background.cs,
+// rules in UpdatePrefetch; DECISIONS 2026-11-03), so the Update click usually only re-checks the stage and swaps.
 // The per-OS parts live in one file per OS, picked by each csproj (UpdateService.Windows.cs /
 // UpdateService.Mac.cs / UpdateService.Linux.cs): which release asset this OS downloads, the swap script, and how the
 // app quits (the UI toolkit's own shutdown). Checking, gating, downloading and verifying are shared.
@@ -149,7 +151,11 @@ public static partial class UpdateService
                 return;
             }
             if (decision is UpdateGate.Decision.Skip or UpdateGate.Decision.Wait)
+            {
+                // Already offered: a background download that waited (game running, metered, back-off) may go now.
+                if (Available is { } offered) StartBackground(offered);
                 return;
+            }
 
             // This copy can't replace itself where it sits (a Mac app run from a translocated copy, or from a folder this
             // user can't write to): it is never offered and never gates Play, because no click could install it. The player
@@ -185,7 +191,7 @@ public static partial class UpdateService
                 _ = QuietRetryAsync(update);
                 return;
             }
-            TryPublish(update);
+            if (TryPublish(update)) StartBackground(update);
         }
         catch
         {
@@ -239,18 +245,18 @@ public static partial class UpdateService
     private static string InstalledAppDir => AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
 
     // Removes zips/.part files of versions nobody is fetching or offering (quit before applying, killed
-    // mid-download). Never throws; a locked file is skipped. Keeps the version being fetched, the one offered
-    // and the one verified on disk.
+    // mid-download) and their stage folders. Never throws; a locked file is skipped. Keeps the version being fetched,
+    // the one offered, the one verified on disk, and the background download's / the click's (UpdatePrefetch.Keep).
     private static void CleanStaleDownloads(Version? fetching)
     {
         try
         {
-            Version? offered;
-            VerifiedZip? verified;
-            lock (Gate) { offered = Available?.Version; verified = _verifiedZip; }
-            var n = UpdateVerifier.DeleteStaleDownloads(
-                OriginPaths.Updates, ReleaseZipPrefix, fetching, offered, verified?.Version);
-            if (n > 0) Log($"removed {n} stale update download file(s)");
+            Version?[] keep;
+            lock (Gate) keep = [fetching, Available?.Version, _verifiedZip?.Version, .. Prefetch.Keep()];
+            var n = UpdateVerifier.DeleteStaleDownloads(OriginPaths.Updates, ReleaseZipPrefix, keep);
+            // The stage folders too: a superseded background stage, or the one the last swap already copied from.
+            n += UpdateVerifier.DeleteStaleStages(OriginPaths.Updates, keep);
+            if (n > 0) Log($"removed {n} stale update download file(s) or stage folder(s)");
         }
         catch (Exception) { /* housekeeping only */ }
     }
@@ -290,12 +296,13 @@ public static partial class UpdateService
             CleanStaleDownloads(update.Version);
             // The full zip only: this quiet path runs after a failed verification, and the zip it verifies is reused
             // by the badge click below without any download. (A click with nothing verified on disk tries the delta.)
-            var sha256 = await DownloadVerifiedAsync(update.Version, FullZip(update), zipPath, null).ConfigureAwait(false);
+            var sha256 = await DownloadVerifiedAsync(update.Version, FullZip(update), zipPath, null, CancellationToken.None).ConfigureAwait(false);
             lock (Gate) Gate.Verified(update.Version);
             if (TryPublish(update))
             {
                 lock (Gate) _verifiedZip = new VerifiedZip(update.Version, sha256);
                 Log($"update {update.Version}: quiet retry verified, offering it now");
+                StartBackground(update); // stages it from the zip just verified, so the click only swaps
             }
             else
             {
@@ -341,6 +348,7 @@ public static partial class UpdateService
             bool ungated;
             lock (Gate)
             {
+                Prefetch.InstallFailed(update.Version); // background downloads and cleanup may touch it again
                 ungated = ex is UpdateVerificationException
                     ? Gate.VerifyFailed(update.Version, DateTime.UtcNow)
                     : Gate.DownloadFailed(update.Version, DateTime.UtcNow);
@@ -359,45 +367,16 @@ public static partial class UpdateService
     {
         var updatesRoot = OriginPaths.Updates;
         Directory.CreateDirectory(updatesRoot);
-        CleanStaleDownloads(update.Version);
-        var stageDir = Path.Combine(updatesRoot, update.Version.ToString());
-        if (Directory.Exists(stageDir))
-            Directory.Delete(stageDir, recursive: true);
-        Directory.CreateDirectory(stageDir);
+        var stageDir = StageDirFor(update.Version);
 
-        progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
-        var zipPath = ZipPathFor(update.Version);
-        // Three ways to fill the stage, in this order:
-        //  1. A quiet retry already fetched and verified this very zip, possibly hours ago: hash it again before it is
-        //     extracted. A swapped or damaged file is deleted and fails like any bad download.
-        //  2. The small update (delta) for this installed version, when the release has one. It either stages a fully
-        //     verified copy of the new release or answers false with the stage emptied; it never throws.
-        //  3. The full zip, downloaded and verified exactly as before. Only this path's failures reach the gate.
-        VerifiedZip? verifiedEarlier;
-        lock (Gate) { verifiedEarlier = _verifiedZip; _verifiedZip = null; }
-        var stagedFromDelta = false;
-        if (verifiedEarlier?.Version == update.Version && File.Exists(zipPath))
-            await UpdateVerifier.EnsureFileMatchesAsync(zipPath, verifiedEarlier.Sha256, CancellationToken.None).ConfigureAwait(false);
-        else if (await TryStageFromDeltaAsync(update, stageDir, progress))
-            stagedFromDelta = true;
-        else
-            await DownloadVerifiedAsync(update.Version, FullZip(update), zipPath, progress);
+        // Usually the background download already staged it (or is still on it: the click joins that one). Otherwise,
+        // or when that stage changed on disk, the click stages it itself exactly as before.
+        if (!await TakeBackgroundStageAsync(update, stageDir, progress))
+            await StageAsync(update, stageDir, progress, CancellationToken.None);
 
-        progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
-        // Off the UI thread so the loading scene keeps animating while ~250 MB
-        // unpacks; the continuation returns here (UI thread) for Shutdown().
-        if (!stagedFromDelta)
-        {
-            await Task.Run(() =>
-            {
-                // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
-                // (a Mac .app needs its symlinks and exec bits kept).
-                var staged = false;
-                StageReleaseOverride(zipPath, stageDir, ref staged);
-                if (!staged) ExtractUpdate(zipPath, stageDir);
-                File.Delete(zipPath);
-            });
-        }
+        // Never swap under a running game this launcher started: the restart would leave it without its crash window
+        // and settings sync. The player sees "Waiting for Minecraft to close"; the swap follows the moment it does.
+        await WaitForGamesToCloseAsync(progress);
 
         // An import may have been started while this downloaded (or still be running from before): the restart
         // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
@@ -422,6 +401,53 @@ public static partial class UpdateService
         ShutdownApp();
     }
 
+    // One stage folder per version (UpdateVerifier.DeleteStaleStages knows this shape).
+    private static string StageDirFor(Version version) => Path.Combine(OriginPaths.Updates, version.ToString());
+
+    // Fills stageDir with the new release, verified, for the click or the background download. Three ways, in order:
+    //  1. A quiet retry already fetched and verified this very zip, possibly hours ago: hash it again before it is
+    //     extracted. A swapped or damaged file is deleted and fails like any bad download.
+    //  2. The small update (delta) for this installed version, when the release has one. It either stages a fully
+    //     verified copy of the new release or answers false with the stage emptied; it never throws (except to cancel).
+    //  3. The full zip, downloaded and verified exactly as before. Only this path's failures reach the gate.
+    // Throws on any failure (cancelled: OperationCanceledException); the caller decides what that failure means.
+    private static async Task StageAsync(AvailableUpdate update, string stageDir, IProgress<UpdateProgress>? progress, CancellationToken ct)
+    {
+        Directory.CreateDirectory(OriginPaths.Updates);
+        CleanStaleDownloads(update.Version);
+        if (Directory.Exists(stageDir))
+            Directory.Delete(stageDir, recursive: true);
+        Directory.CreateDirectory(stageDir);
+
+        progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
+        var zipPath = ZipPathFor(update.Version);
+        VerifiedZip? verifiedEarlier;
+        lock (Gate) { verifiedEarlier = _verifiedZip; _verifiedZip = null; }
+        var stagedFromDelta = false;
+        if (verifiedEarlier?.Version == update.Version && File.Exists(zipPath))
+            await UpdateVerifier.EnsureFileMatchesAsync(zipPath, verifiedEarlier.Sha256, ct).ConfigureAwait(false);
+        else if (await TryStageFromDeltaAsync(update, stageDir, progress, ct).ConfigureAwait(false))
+            stagedFromDelta = true;
+        else
+            await DownloadVerifiedAsync(update.Version, FullZip(update), zipPath, progress, ct).ConfigureAwait(false);
+
+        progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
+        // Off the UI thread so the loading scene keeps animating while ~250 MB unpacks.
+        if (!stagedFromDelta)
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Run(() =>
+            {
+                // Linux stages an AppImage / package download its own way; everything else is a zip, unpacked per OS
+                // (a Mac .app needs its symlinks and exec bits kept).
+                var staged = false;
+                StageReleaseOverride(zipPath, stageDir, ref staged);
+                if (!staged) ExtractUpdate(zipPath, stageDir);
+                File.Delete(zipPath);
+            }).ConfigureAwait(false);
+        }
+    }
+
     // A release that is not a zip stages itself here (Linux: the tar.gz or the AppImage, UpdateService.Linux.cs).
     // Windows and the Mac don't implement it, so for them the call compiles away and the zip is extracted.
     static partial void StageReleaseOverride(string download, string stageDir, ref bool staged);
@@ -431,7 +457,7 @@ public static partial class UpdateService
     // SHA-256, a file that drifted in the installed folder, a delta made for another version) is logged and answers
     // false with the stage emptied, and the caller downloads the full zip exactly as it always did. So a delta can
     // make an update faster, never make it fail, and never counts against the update gate.
-    private static async Task<bool> TryStageFromDeltaAsync(AvailableUpdate update, string stageDir, IProgress<UpdateProgress>? progress)
+    private static async Task<bool> TryStageFromDeltaAsync(AvailableUpdate update, string stageDir, IProgress<UpdateProgress>? progress, CancellationToken ct)
     {
         if (update.Delta is not { } delta) return false;
         var deltaPath = DeltaPathFor(update.Version);
@@ -439,9 +465,9 @@ public static partial class UpdateService
         {
             try
             {
-                await DownloadVerifiedAsync(update.Version, delta, deltaPath, progress).ConfigureAwait(false);
+                await DownloadVerifiedAsync(update.Version, delta, deltaPath, progress, ct).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception) when (!ct.IsCancellationRequested)
             {
                 // DownloadVerifiedAsync logged why and deleted its .part; nothing was staged yet.
                 Log($"update {update.Version}: downloading the full update instead");
@@ -472,14 +498,19 @@ public static partial class UpdateService
     // extracted or applied (a delta's failure is caught by TryStageFromDeltaAsync).
     // The byte loop runs off the UI thread (ConfigureAwait(false)); progress still lands on the UI
     // thread because Progress<T> captured it. Reports are capped at ~10/s (each is a dispatcher hop).
-    private static async Task<string> DownloadVerifiedAsync(Version version, ReleaseFile file, string path, IProgress<UpdateProgress>? progress)
+    // ct stops it on purpose (the launcher is closing, a game is starting, a newer release superseded it): that throws
+    // OperationCanceledException, never the "stalled" IOException, so the caller can tell the two apart.
+    private static async Task<string> DownloadVerifiedAsync(Version version, ReleaseFile file, string path, IProgress<UpdateProgress>? progress, CancellationToken ct)
     {
         var partPath = path + ".part";
         try
         {
+            ct.ThrowIfCancellationRequested();
             var expected = await ResolveExpectedHashAsync(file).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
 
-            using var stall = new CancellationTokenSource(StallTimeout);
+            using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            stall.CancelAfter(StallTimeout);
             using var response = await Http.GetAsync(file.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, stall.Token).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var total = response.Content.Headers.ContentLength;
@@ -499,7 +530,7 @@ public static partial class UpdateService
                     }
                 }, stall.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
                 throw new IOException("the connection stalled");
             }
@@ -565,7 +596,7 @@ public static partial class UpdateService
     /// <summary>One downloadable release asset with the ways to check it: its .sha256 sidecar and/or GitHub's digest.</summary>
     public sealed record ReleaseFile(string AssetName, string DownloadUrl, string? Sha256Url, string? DigestSha256);
 
-    public enum UpdateStage { Downloading, Installing, Restarting, FinishingImport }
+    public enum UpdateStage { Downloading, Installing, Restarting, FinishingImport, WaitingForGame }
 
     /// <summary>One progress tick. TotalBytes is null when the server sent no
     /// Content-Length (then only the byte count is known, not a fraction).</summary>
@@ -585,6 +616,7 @@ public static partial class UpdateService
             UpdateStage.Downloading => "Downloading",
             UpdateStage.Installing => "Installing",
             UpdateStage.FinishingImport => "Finishing your import first...",
+            UpdateStage.WaitingForGame => "Waiting for Minecraft to close",
             _ => "Restarting"
         };
 
