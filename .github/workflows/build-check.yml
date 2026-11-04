@@ -21,6 +21,7 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/borderless-tests/**"
       - "tools/packhub-tests/**"
       - "tools/packs/**"
       - "tools/step-aside-tests/**"
@@ -48,6 +49,7 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/borderless-tests/**"
       - "tools/packhub-tests/**"
       - "tools/packs/**"
       - "tools/step-aside-tests/**"
@@ -101,6 +103,12 @@ jobs:
       # every module's copy byte-identical (pre-1.20 copies are outside sync).
       - name: Test loading bar
         run: python3 tools/loading-bar-tests/run.py
+
+      # Borderless Fullscreen's window maths (BorderlessFit, pure Java 8): the monitor a
+      # window goes borderless on, "covers its monitor", and the keep-covering guard's
+      # pacing and re-fit cap; every module's copy byte-identical (pre-1.20 outside sync).
+      - name: Test borderless window fit
+        run: python3 tools/borderless-tests/run.py
 
       # The Resource Pack Hub's pure logic (PackDedupe copy filter, PackPicks list,
       # installer incl. pinned-hash direct picks); every module's PackDedupe/PackPicks

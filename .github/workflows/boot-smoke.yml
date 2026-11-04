@@ -85,6 +85,9 @@ on:
       inworld:
         description: "true = modules flagged \"inworld\" in live-modules.json also run the in-world step (flat world, HUD + Mod Menu shots, Save and Quit); false = stop at the title"
         default: "true"
+      borderless:
+        description: "true = start with Origin's Borderless Fullscreen already on (seeded config) and FAIL unless the log says the window covers its monitor"
+        default: "false"
       players:
         description: "Player-profile boots: the player's own Sodium + Iris (Modrinth version numbers) win over Origin's, as <mc>:<sodium>/<iris> comma list, iris '-' = none, e.g. 1.21.1:mc1.21.1-0.6.9-fabric/1.8.7+1.21.1-fabric"
         default: ""
@@ -288,6 +291,7 @@ jobs:
           RUN_JAVA: ${{ matrix.run_java }}
           SMOKE_GRADLE_ARGS: ${{ github.event.inputs.gradle_args }}
           COMPANIONS: ${{ github.event.inputs.companions }}
+          BORDERLESS: ${{ github.event.inputs.borderless }}
           COVER: ${{ matrix.cover }}
           PAIR: ${{ matrix.pair }}
           PLAYER: ${{ matrix.player }}
@@ -305,6 +309,7 @@ jobs:
             if [ -n "$PAIR$PLAYER" ]; then args+=(--expect-perf "$m/pair-expect.txt"); fi
           elif ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; then args+=(--perf); fi
           for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
+          if [ "$BORDERLESS" = "true" ] && [ -z "$COVER" ]; then args+=(--borderless); fi
           # companions=true: load the jars companion_mods.py fetched AND require them in the mod list
           # (a module whose runClient lacks the -PextraMods hook used to download them, load nothing, and pass).
           if [ "$COMPANIONS" = "true" ] && [ -z "$COVER" ]; then args+=(--companions "--gradle-arg=-PextraMods=run/extra-mods"); fi
