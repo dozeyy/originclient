@@ -1,6 +1,7 @@
 package com.origin.client.client.mods;
 
 import com.origin.client.client.OriginClientMod;
+import com.origin.client.client.util.HotkeyChord;
 import net.minecraft.client.Minecraft;
 import net.minecraft.SharedConstants;
 import org.lwjgl.glfw.GLFW;
@@ -25,6 +26,8 @@ public final class AutoTextHotkey {
 	private static final long MIN_GAP_MS = 1000;
 
 	private static final boolean[] WAS_DOWN = new boolean[SLOTS + 1];
+	private static final int[] SLOT_KEYS = new int[SLOTS + 1];
+	private static final String[] SLOT_MODES = new String[SLOTS + 1];
 	private static long lastSentAt = 0;
 
 	/** The mod's schema: one collapsible block per slot. */
@@ -54,8 +57,8 @@ public final class AutoTextHotkey {
 		}
 	}
 
-	// The slot's key plus exactly its modifier. "None" requires no Ctrl/Shift/Alt,
-	// so a plain G and a Ctrl + G slot can share a key without both firing.
+	// The slot's key plus its modifier; "None" = the key on its own, even while Ctrl/Shift
+	// are held as Sprint/Sneak (util/HotkeyChord has the rule and the plain-G vs Ctrl + G split).
 	private static boolean pressed(int i) {
 		int key = Mods.keyCode(ID, "key" + i);
 		if (key <= 0 || !OriginClientMod.isRawKeyDown(key)) {
@@ -64,12 +67,13 @@ public final class AutoTextHotkey {
 		boolean ctrl = held(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
 		boolean shift = held(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT);
 		boolean alt = held(GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
-		switch (Mods.mode(ID, "modifier" + i)) {
-			case "Ctrl": return ctrl;
-			case "Shift": return shift;
-			case "Alt": return alt;
-			default: return !ctrl && !shift && !alt;
+		// Every slot's key and modifier, for HotkeyChord's same-key check. Only read while
+		// this slot's key is down, so idle ticks cost nothing.
+		for (int j = 1; j <= SLOTS; j++) {
+			SLOT_KEYS[j] = Mods.bool(ID, "slot" + j) ? Mods.keyCode(ID, "key" + j) : 0;
+			SLOT_MODES[j] = Mods.mode(ID, "modifier" + j);
 		}
+		return HotkeyChord.fires(i, SLOT_KEYS, SLOT_MODES, ctrl, shift, alt);
 	}
 
 	private static boolean held(int left, int right) {
