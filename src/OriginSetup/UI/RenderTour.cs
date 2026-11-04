@@ -53,6 +53,9 @@ public static class RenderTour
                                                Snap(setup, outDir, "08-installing-unpack");
         setup.TourDone("Origin is installed", "Installed, version 1.0.40");
                                                Snap(setup, outDir, "09-done");
+        setup.TourDone("Origin is installed", "Installed, version 1.0.40",
+            new[] { "Couldn't add a desktop shortcut: Windows protects your desktop from new files." });
+                                               Snap(setup, outDir, "09b-done-no-desktop-shortcut");
         setup.TourProblem();                   Snap(setup, outDir, "10-problem-offline");
         setup.TourOriginOpen();                Snap(setup, outDir, "11-origin-open");
         // Customize: closed is shot 01 (the footer's Customize button); open at its defaults, open with memory and
@@ -74,6 +77,9 @@ public static class RenderTour
         uninstall.TourDone(keptData: true);    Snap(uninstall, outDir, "15-uninstall-done-kept");
         uninstall.TourDone(keptData: false);   Snap(uninstall, outDir, "16-uninstall-done-deleted");
         uninstall.TourProblem();               Snap(uninstall, outDir, "17-uninstall-problem");
+        uninstall.TourProblemGameOpen();       Snap(uninstall, outDir, "21-uninstall-problem-game-open");
+        uninstall.TourConfirm(removeData: true, keyboardFocus: false, gamesOpen: new[] { "1.21.1", "1.20.1" });
+                                               Snap(uninstall, outDir, "22-uninstall-confirm-game-open");
         uninstall.Close();
     }
 

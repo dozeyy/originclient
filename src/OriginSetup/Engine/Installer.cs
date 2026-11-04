@@ -84,7 +84,8 @@ public static class Installer
 
     /// <param name="release">The release the Welcome page showed; null = look it up now.</param>
     /// <param name="http">Tests pass a client with a fake handler.</param>
-    public static void Run(string setupExePath, InstallOptions options, LauncherRelease? release,
+    /// <returns>Notes for the Done page: the finishing touches Windows refused (empty when everything worked).</returns>
+    public static IReadOnlyList<string> Run(string setupExePath, InstallOptions options, LauncherRelease? release,
                            Action<InstallProgress> report, CancellationToken ct, HttpClient? http = null)
     {
         var dir = options.Directory;
@@ -110,14 +111,62 @@ public static class Installer
         report(new InstallProgress(InstallStage.Finishing, 0.97, version: version));
         var exe = Path.Combine(dir, InstallLocation.LauncherExe);
         Shortcuts.DeleteLegacyGroup();
-        Shortcuts.Create(Shortcuts.StartMenuPath, exe, "Origin - the Minecraft launcher for every version");
-        Shortcuts.Create(Shortcuts.DesktopPath, exe, "Origin - the Minecraft launcher for every version");
-        Registration.Write(dir, version);
-        InstallRegistry.SetStartWithWindows(options.StartWithWindows ?? StartsWithWindowsNow(), exe);
-        Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync);
+        const string description = "Origin - the Minecraft launcher for every version";
+        // The launcher is in place now, so nothing below may turn this into "Origin wasn't installed". The
+        // Add/Remove Programs entry goes first (it is what lets the player uninstall); a desktop the system protects
+        // (Defender's Controlled folder access, a OneDrive Desktop) refusing the shortcut is just a note.
+        var notes = Finish(new[]
+        {
+            new FinishStep("Add/Remove Programs entry", () => Registration.Write(dir, version),
+                "Windows didn't let Setup add Origin to Installed apps. Run Setup again later to add it."),
+            new FinishStep("Start menu shortcut", () => Shortcuts.Create(Shortcuts.StartMenuPath, exe, description),
+                "Couldn't add Origin to the Start menu."),
+            new FinishStep("desktop shortcut", () => Shortcuts.Create(Shortcuts.DesktopPath, exe, description),
+                "Couldn't add a desktop shortcut: Windows protects your desktop from new files."),
+            new FinishStep("Start with Windows", () => InstallRegistry.SetStartWithWindows(options.StartWithWindows ?? StartsWithWindowsNow(), exe),
+                "Couldn't change Start with Windows. You can set it in Origin's Settings."),
+            new FinishStep("Customize choices", () => Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync),
+                "Your Customize choices weren't saved. You can set them in Origin's Settings."),
+        });
 
-        SetupLog.Write($"install complete ({version})");
+        SetupLog.Write($"install complete ({version}){(notes.Count > 0 ? $", {notes.Count} finishing step(s) refused" : "")}");
         report(new InstallProgress(InstallStage.Done, 1, version: version));
+        return notes;
+    }
+
+    /// <summary>One finishing touch after the launcher is in place, and the player's note if Windows refuses it.</summary>
+    public sealed class FinishStep
+    {
+        public FinishStep(string what, Action run, string note)
+        {
+            What = what;
+            Run = run;
+            Note = note;
+        }
+
+        public string What { get; }
+        public Action Run { get; }
+        public string Note { get; }
+    }
+
+    /// <summary>
+    /// Runs every step, in order, whatever the ones before it did; a step that throws is logged and becomes its
+    /// note. Before 2026-11-04 the first refusal (a desktop shortcut blocked by Controlled folder access) skipped
+    /// every later step and showed "Origin wasn't installed" over a launcher that was already installed.
+    /// </summary>
+    public static List<string> Finish(IEnumerable<FinishStep> steps)
+    {
+        var notes = new List<string>();
+        foreach (var step in steps)
+        {
+            try { step.Run(); }
+            catch (Exception ex)
+            {
+                SetupLog.Write($"finish step refused ({step.What}): {ex.GetType().Name}: {ex.Message}");
+                notes.Add(step.Note);
+            }
+        }
+        return notes;
     }
 
     /// <summary>

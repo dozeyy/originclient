@@ -24,34 +24,46 @@ public partial class UninstallWindow : Window
     }
 
     // Ticking "also delete my worlds..." says so on the button itself, so the final click is never a surprise.
-    private void RemoveDataCheck_Changed(object sender, RoutedEventArgs e) =>
+    private void RemoveDataCheck_Changed(object sender, RoutedEventArgs e)
+    {
         UninstallButton.Content = RemoveDataCheck.IsChecked == true ? "Uninstall and delete data" : "Uninstall";
+        if (RemoveDataCheck.IsChecked != true) ShowRunningNote(Array.Empty<string>()); // only the data box needs the game closed
+    }
 
     private void Keep_Click(object sender, RoutedEventArgs e) => Close();
 
     private async void Uninstall_Click(object sender, RoutedEventArgs e)
     {
         if (_working) return;
+        bool removeData = RemoveDataCheck.IsChecked == true;
+        // Deleting the data under a running game would half-delete its world: ask the player to close it first and
+        // stay on this page (pressing Uninstall again re-checks). Uninstaller.Run refuses too, as a backstop.
+        if (removeData)
+        {
+            var open = await Task.Run(() => RunningGames.In(Handoff.DataRoot));
+            ShowRunningNote(open);
+            if (open.Count > 0) return;
+        }
         _working = true;
         Bar.CanClose = false;
-        bool removeData = RemoveDataCheck.IsChecked == true;
         ProgressFill.BeginAnimation(WidthProperty, null);
         ProgressFill.Width = 0;
         ShowPage(RemovingPage);
         UpdateLayout();
         RenderProgress(0, removeData);
 
-        bool ok;
+        UninstallResult result;
         try
         {
-            ok = await Task.Run(() => Uninstaller.Run(_dir, removeData,
+            result = await Task.Run(() => Uninstaller.Run(_dir, removeData,
                 f => Dispatcher.BeginInvoke(new Action(() => RenderProgress(f, removeData)))));
         }
         catch (Exception ex)
         {
             SetupLog.Write("uninstall failed: " + ex);
-            ok = false;
+            result = new UninstallResult(installFolderLeft: true, dataLeft: removeData);
         }
+        bool ok = result.Ok;
 
         if (ok) await Task.Delay(450); // let the bar land before the page changes, like the installer
         _working = false;
@@ -63,9 +75,15 @@ public partial class UninstallWindow : Window
         }
         else
         {
-            ShowProblem();
+            ShowProblem(result);
             ProblemCloseButton.IsDefault = true;
         }
+    }
+
+    private void ShowRunningNote(IReadOnlyList<string> versionsOpen)
+    {
+        RunningNote.Text = RunningGames.CloseFirstMessage(versionsOpen);
+        RunningNote.Visibility = versionsOpen.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowDone(bool keptData)
@@ -86,20 +104,22 @@ public partial class UninstallWindow : Window
         if (e.WidthChanged) WindowFrame.FitPath(KeptPath, Handoff.DataRoot);
     }
 
-    private const string ProblemBodyText =
-        "Some files were in use and couldn't be deleted (Minecraft may still be running). You can delete the folder yourself:";
+    // The folder the Problem page names: the one actually left over (the data folder when the player's data was
+    // what couldn't go; before 2026-11-04 it always named the install folder, which had usually gone fine).
+    private string _problemPath = "";
 
-    private void ShowProblem()
+    private void ShowProblem(UninstallResult result)
     {
-        ProblemBody.Text = ProblemBodyText;
+        ProblemBody.Text = result.ProblemText(_dir);
+        _problemPath = result.DataLeft ? Handoff.DataRoot : _dir;
         ShowPage(ProblemPage);
-        Dispatcher.BeginInvoke(new Action(() => WindowFrame.FitPath(ProblemPath, _dir)),
+        Dispatcher.BeginInvoke(new Action(() => WindowFrame.FitPath(ProblemPath, _problemPath)),
             System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void ProblemPath_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (e.WidthChanged) WindowFrame.FitPath(ProblemPath, _dir);
+        if (e.WidthChanged) WindowFrame.FitPath(ProblemPath, _problemPath);
     }
 
     // Same rail + step line + percent as the installer's; the wording follows what Uninstaller.Run is doing.
@@ -136,10 +156,11 @@ public partial class UninstallWindow : Window
 
     // ---------- CI screenshot tour (RenderTour.cs) ----------
 
-    internal void TourConfirm(bool removeData, bool keyboardFocus)
+    internal void TourConfirm(bool removeData, bool keyboardFocus, IReadOnlyList<string>? gamesOpen = null)
     {
         ShowPage(ConfirmPage);
         RemoveDataCheck.IsChecked = removeData;
+        ShowRunningNote(gamesOpen ?? Array.Empty<string>());
         Chrome.SetKeyFocus(KeepButton, keyboardFocus);
     }
 
@@ -152,5 +173,8 @@ public partial class UninstallWindow : Window
 
     internal void TourDone(bool keptData) => ShowDone(keptData);
 
-    internal void TourProblem() => ShowProblem();
+    internal void TourProblem() => ShowProblem(new UninstallResult(installFolderLeft: true, dataLeft: false));
+
+    internal void TourProblemGameOpen() =>
+        ShowProblem(new UninstallResult(installFolderLeft: false, dataLeft: true, new[] { "1.21.1" }));
 }
