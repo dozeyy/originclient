@@ -13,7 +13,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // tests, so adjusting its return value applies both caps centrally:
 //   Max Main Menu FPS -- out of a world. Vanilla 1.8.9 pins every out-of-world
 //     screen to 30 fps; Origin's animated menus get the slider's value instead
-//     (never above the player's own Max Framerate).
+//     (never above the player's own Max Framerate). The world-join screens
+//     (connecting, downloading terrain, progress) stop at 60, as on every other
+//     version (BMOD-4): more frames there only compete with the world loading.
 //   Max Unfocused FPS -- whenever the window isn't the active one; only ever
 //     lowers the limit.
 @Mixin(Minecraft.class)
@@ -25,6 +27,11 @@ public abstract class MinecraftFramerateMixin {
 			int limit = cir.getReturnValueI();
 			if (mc.theWorld == null && mc.gameSettings != null) {
 				limit = Math.min(mc.gameSettings.limitFramerate, (int) Mods.num(Mods.PERFORMANCE_ID, "maxMainMenuFps"));
+				if (mc.currentScreen instanceof net.minecraft.client.multiplayer.GuiConnecting
+						|| mc.currentScreen instanceof net.minecraft.client.gui.GuiDownloadTerrain
+						|| mc.currentScreen instanceof net.minecraft.client.gui.GuiScreenWorking) {
+					limit = Math.min(limit, 60);
+				}
 			}
 			if (!Display.isActive() && Mods.bool(Mods.PERFORMANCE_ID, "limitUnfocusedFps")) {
 				limit = Math.min(limit, (int) Mods.num(Mods.PERFORMANCE_ID, "maxUnfocusedFps"));

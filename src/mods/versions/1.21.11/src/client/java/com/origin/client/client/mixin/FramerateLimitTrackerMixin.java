@@ -20,6 +20,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // that could only lower it did nothing above 60. When that 60 comes from a menu screen
 // (no world, no loading overlay; iconified 10 and AFK 10/30 are never 60) the limit is
 // the player's own Max Framerate, capped by the slider. Everything else is only lowered.
+// The world-join screens (render/LoadingScreens: connecting, generating, receiving the
+// world, progress, BMOD-4) keep vanilla's 60: more frames there would only slow the load.
 @Mixin(FramerateLimitTracker.class)
 public abstract class FramerateLimitTrackerMixin {
 	@Inject(method = "getFramerateLimit", at = @At("RETURN"), cancellable = true)
@@ -31,7 +33,8 @@ public abstract class FramerateLimitTrackerMixin {
 		int limit = cir.getReturnValueI();
 		if (mc.level == null) {
 			int menuCap = (int) Mods.num(Mods.PERFORMANCE_ID, "maxMainMenuFps");
-			if (limit == 60 && mc.screen != null && mc.getOverlay() == null) {
+			if (limit == 60 && mc.screen != null && mc.getOverlay() == null
+					&& !com.origin.client.client.render.LoadingScreens.isLoading(mc.screen)) {
 				limit = Math.min(mc.options.framerateLimit().get(), menuCap);   // lifts vanilla's 60
 			} else {
 				limit = Math.min(limit, menuCap);

@@ -17,7 +17,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // level == null and a screen or overlay is up (the same body since 1.14), so a slider
 // that could only lower that limit did nothing above 60. On a menu screen (no world, no
 // loading overlay) the limit is now the player's own Max Framerate, capped by the slider.
-// The loading overlay keeps vanilla's 60. Every other case is only ever lowered.
+// The loading overlay and the world-join screens (render/LoadingScreens: connecting,
+// generating, receiving the world, progress, BMOD-4) keep vanilla's 60. Every other case
+// is only ever lowered.
 @Mixin(Minecraft.class)
 public abstract class MinecraftFramerateMixin {
 	@Inject(method = "getFramerateLimit", at = @At("RETURN"), cancellable = true)
@@ -27,7 +29,8 @@ public abstract class MinecraftFramerateMixin {
 
 		if (mc.level == null) {
 			int menuCap = (int) Mods.num(Mods.PERFORMANCE_ID, "maxMainMenuFps");
-			if (mc.screen != null && mc.getOverlay() == null) {
+			if (mc.screen != null && mc.getOverlay() == null
+					&& !com.origin.client.client.render.LoadingScreens.isLoading(mc.screen)) {
 				limit = Math.min(mc.getWindow().getFramerateLimit(), menuCap);   // lifts vanilla's 60
 			} else {
 				limit = Math.min(limit, menuCap);
