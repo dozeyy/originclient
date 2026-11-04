@@ -683,7 +683,9 @@ public sealed class LaunchController
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    if (!LauncherState.Write(s => s.RamMb = ram))
+                    // As Manual, like Windows (CrashMemory.ApplyRaise): Auto launches ignore RamMb, so writing only the
+                    // number left the relaunch on the same heap that just ran out.
+                    if (!LauncherState.Write(s => CrashMemory.ApplyRaise(s, ram)))
                     {
                         // A busy settings.json: relaunching on the same heap would only run out again.
                         Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error, game.Version);

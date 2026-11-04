@@ -819,13 +819,15 @@ public sealed partial class HomePage
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    if (!SettingsStore.TryUpdate(s => s.RamMb = ram, quiet: true))
+                    // As Manual, like Windows (CrashMemory.ApplyRaise): Auto launches ignore RamMb, so writing only the
+                    // number left the relaunch on the same heap that just ran out.
+                    if (!SettingsStore.TryUpdate(s => CrashMemory.ApplyRaise(s, ram), quiet: true))
                     {
                         // A busy settings.json: relaunching on the same heap would only run out again.
                         Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error);
                         return;
                     }
-                    _settings.RamMb = ram;
+                    CrashMemory.ApplyRaise(_settings, ram);
                     break;
                 case CrashFixKind.DisableMods:
                     var failed = new List<string>();
