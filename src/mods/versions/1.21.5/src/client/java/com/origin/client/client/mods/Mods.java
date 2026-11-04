@@ -612,4 +612,11 @@ public final class Mods {
 		ModsConfig.VALUES.computeIfAbsent(id, k -> new java.util.HashMap<>())
 				.put("enabled", new JsonPrimitive(on));
 	}
+
+	/** 1.21.5 is PULLED (out of the picker and CI): shared ModsConfig calls this when a pre-v1.0.89
+	 *  profile is applied. No-op here (nothing written) so the module still compiles; port 1.21.1's
+	 *  keepOldDefaultKeys() if 1.21.5 ever goes live again. */
+	static boolean keepOldDefaultKeys() {
+		return false;
+	}
 }

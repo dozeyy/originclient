@@ -447,7 +447,10 @@ public class OriginClientMod implements ClientModInitializer {
 				} else if (optionsLabel.equals(label)) {
 					options = w;
 				}
-				if (wide == null || w.getWidth() > wide.getWidth()) {
+				// Buttons only: since 1.20.2 the screen's "Game Menu" title is a screen-wide StringWidget,
+				// which would otherwise become the template (a 9 px row at x=0 under everything).
+				if (w instanceof net.minecraft.client.gui.components.Button
+						&& (wide == null || w.getWidth() > wide.getWidth())) {
 					wide = w;   // a full-width row (Back to Game): the template for an inserted row
 				}
 			}
