@@ -423,6 +423,104 @@ public class SettingsSyncTests
     }
 
     [Fact]
+    public void ApplyingASmallerModProfileCarriesItsDeletionsAndSwitchingBackToo()
+    {
+        // KD-3: ModsConfig.restoreFrom rewrites the file to exactly the profile and moves
+        // /meta/profileApplied. That mass drop is the player's choice, not a failed load.
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        var big = new JsonObject { ["mods"] = new JsonObject(), ["meta"] = new JsonObject { ["profileApplied"] = 100 } };
+        for (var i = 0; i < 20; i++) big["mods"]!.AsObject()[$"m{i}"] = new JsonObject { ["enabled"] = true };
+        Write(a, "config/originclient-mods.json", big.ToJsonString(), 1);
+        Write(b, "config/originclient-mods.json", big.ToJsonString(), 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b });
+
+        Write(a, "config/originclient-mods.json",
+            """{ "mods": { "m0": { "enabled": false } }, "meta": { "profileApplied": 200 } }""", 30);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        engine.Push(a);
+        foreach (var instance in new[] { a, b })
+        {
+            var root = JsonNode.Parse(File.ReadAllText(Path.Combine(instance.Directory, "config", "originclient-mods.json")))!;
+            Assert.Single(root["mods"]!.AsObject());
+            Assert.False(root["mods"]!["m0"]!["enabled"]!.GetValue<bool>());
+        }
+
+        // Applying the big profile again brings every key back, over the deletions just recorded.
+        big["meta"]!["profileApplied"] = 300;
+        Write(a, "config/originclient-mods.json", big.ToJsonString(), 60);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        var back = JsonNode.Parse(File.ReadAllText(Path.Combine(b.Directory, "config", "originclient-mods.json")))!;
+        Assert.Equal(20, back["mods"]!.AsObject().Count);
+        Assert.True(back["mods"]!["m0"]!["enabled"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void PackHubPendingDeletesAndInstalledFilesStayInTheirOwnVersion()
+    {
+        // KD-2: a pack uninstalled in one version must never be deleted in another.
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        var fresh = Instance("1.19.4");
+        var empty = """{ "installed": {}, "presets": {}, "pendingDelete": [] }""";
+        Write(a, "config/originclient-packhub.json", empty, 1);
+        Write(b, "config/originclient-packhub.json", empty, 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b, fresh });
+
+        Write(a, "config/originclient-packhub.json", """
+            { "installed": { "Fresh.zip": { "project": "p1", "version": "v1", "title": "Fresh", "slug": "fresh", "sha1": "ab" } },
+              "presets": { "pvp": [ "Fresh.zip" ] }, "pendingDelete": [ "Fresh.zip" ] }
+            """, 30);
+        engine.Harvest(a);
+        // An older launcher already carried a pending delete into the store: never pushed either.
+        engine.Store.FileValues("config/originclient-packhub.json")["/pendingDelete"] = new SyncValue("""["Other.zip"]""", 1);
+        engine.Harvest(b);
+        engine.Push(b);
+        engine.Push(fresh);
+
+        var inB = JsonNode.Parse(File.ReadAllText(Path.Combine(b.Directory, "config", "originclient-packhub.json")))!;
+        Assert.Empty(inB["pendingDelete"]!.AsArray());
+        Assert.Empty(inB["installed"]!.AsObject());
+        Assert.Equal("Fresh.zip", inB["presets"]!["pvp"]![0]!.GetValue<string>()); // presets still follow
+        var inFresh = JsonNode.Parse(File.ReadAllText(Path.Combine(fresh.Directory, "config", "originclient-packhub.json")))!;
+        Assert.Null(inFresh["pendingDelete"]);
+        Assert.Null(inFresh["installed"]);
+    }
+
+    [Fact]
+    public void AChangeStampedInTheFutureDoesNotBeatAFreshEdit()
+    {
+        // KD-7: a value stored while the PC clock ran ahead must not snap a later edit back.
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        Write(a, "options.txt", Options("version:3955", "fov:0.9"), 1);
+        Write(b, "options.txt", Options("version:3465", "fov:0.9"), 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b });
+        var future = DateTimeOffset.UtcNow.AddYears(1).ToUnixTimeMilliseconds();
+        engine.Store.FileValues("options.txt")["fov"] = new SyncValue("0.9", future);
+
+        Write(a, "options.txt", Options("version:3955", "fov:0.5"), 30);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        engine.Push(a);
+        Assert.Equal("0.5", OptionsOf(b)["fov"]);
+        Assert.Equal("0.5", OptionsOf(a)["fov"]);
+
+        // A file written while the clock was ahead is stamped no later than now.
+        Write(a, "options.txt", Options("version:3955", "fov:0.7"), 60 * 24 * 365);
+        engine.Harvest(a);
+        Assert.True(engine.Store.FileValues("options.txt")["fov"].ChangedAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    }
+
+    [Fact]
     public void OriginConfigsAreCreatedInABrandNewInstanceAndListsSyncWhole()
     {
         var a = Instance("1.21.1");
