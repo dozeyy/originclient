@@ -91,14 +91,19 @@ public final class OriginRenderTypes extends RenderType {
 	// and nothing here is touched. Render thread only.
 	static boolean banking;
 	private static MultiBufferSource.BufferSource bankQuads, bankLines, bankExtra;
+	// The bank's own native buffers: kept so discardBank() can free them (BufferSource has no close).
+	private static BufferBuilder bankQuadsBuf, bankLinesBuf, bankExtraBuf;
 	static {
 		newBank();
 	}
 
 	private static void newBank() {
-		bankQuads = MultiBufferSource.immediate(new BufferBuilder(1 << 16));
-		bankLines = MultiBufferSource.immediate(new BufferBuilder(1 << 14));
-		bankExtra = MultiBufferSource.immediate(new BufferBuilder(1 << 14));
+		bankQuadsBuf = new BufferBuilder(1 << 16);
+		bankLinesBuf = new BufferBuilder(1 << 14);
+		bankExtraBuf = new BufferBuilder(1 << 14);
+		bankQuads = MultiBufferSource.immediate(bankQuadsBuf);
+		bankLines = MultiBufferSource.immediate(bankLinesBuf);
+		bankExtra = MultiBufferSource.immediate(bankExtraBuf);
 	}
 
 	/** True while the current overlay's vertices go to the after-shaders bank. */
@@ -131,7 +136,47 @@ public final class OriginRenderTypes extends RenderType {
 	 *  the post hook, or a failed draw). Rare path: fresh sources, so a builder
 	 *  left mid-batch can never leak a half-written vertex into a later frame. */
 	static void discardBank() {
+		// Free the old native buffers (~100 KB off-heap each time otherwise, B189PRE-4):
+		// nothing else holds them once the sources below are replaced (as 1.21.10, 4d0f66b0).
+		BufferBuilder[] old = {bankQuadsBuf, bankLinesBuf, bankExtraBuf};
 		newBank();
+		for (BufferBuilder b : old) {
+			freeNative(b);
+		}
+	}
+
+	/**
+	 * Frees a BufferBuilder's off-heap buffer. Before 1.20.5 there is no ByteBufferBuilder
+	 * to close: BufferBuilder mallocs its one ByteBuffer through MemoryTracker (1.17+), and
+	 * garbage collection never frees that. Found by type, not name (field names are
+	 * intermediary in a real game): exactly one instance ByteBuffer field, or nothing is
+	 * touched and the buffer leaks as before. The field is nulled BEFORE the free, so a
+	 * stray later use throws a Java exception instead of touching freed memory.
+	 */
+	private static void freeNative(BufferBuilder b) {
+		try {
+			java.lang.reflect.Field only = null;
+			for (java.lang.reflect.Field f : BufferBuilder.class.getDeclaredFields()) {
+				if (f.getType() == java.nio.ByteBuffer.class && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+					if (only != null) {
+						return;   // more than one: not the shape we know, leave it
+					}
+					only = f;
+				}
+			}
+			if (only == null) {
+				return;
+			}
+			only.setAccessible(true);
+			java.nio.ByteBuffer buf = (java.nio.ByteBuffer) only.get(b);
+			if (buf == null || !buf.isDirect()) {
+				return;
+			}
+			only.set(b, null);
+			org.lwjgl.system.MemoryUtil.memFree(buf);
+		} catch (Throwable ignored) {
+			// fail-soft: the buffer stays allocated, exactly as before this fix
+		}
 	}
 
 	/** The consumer to emit OVERLAY_QUADS vertices into (vertex + color + endVertex). */
