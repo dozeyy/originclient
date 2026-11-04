@@ -159,7 +159,7 @@ dependencies {
 	modImplementation(include("maven.modrinth:ferrite-core:${project.ferritecore_version}"))
 	// Draw-batch performance mods — no visual change (see the gradle.properties
 	// note above these versions). EntityCulling was removed 2026-07-10 (see note).
-	modImplementation(include("maven.modrinth:immediatelyfast:${project.immediatelyfast_version}"))
+	// DIAG r5 JP-1: IF removed
 	modImplementation(include("maven.modrinth:modernfix:${project.modernfix_version}"))
 	// Iris shader loader (see gradle.properties for the Sodium pairing note).
 	// Accessed via reflection only (IrisBridge) so an Iris update can never
@@ -203,7 +203,7 @@ dependencies {
 	// net/lenni0451/reflect/accessor/FieldAccessor. Version matches the bundled
 	// Reflect-1.6.2.jar inside immediatelyfast 1.6.15. Dev-runtime only; the
 	// shipped launcher jar gets it via recursive JiJ.
-	runtimeOnly "net.lenni0451:Reflect:1.6.2"
+	// DIAG reflect removed
 
 	// WebP preview decoding. Modrinth serves shader cover images as lossless
 	// WebP (VP8L), which Minecraft's NativeImage/STB cannot decode — so every
