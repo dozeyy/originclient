@@ -51,7 +51,16 @@ public final class BorderlessFit {
 		return best;
 	}
 
-	/** True when the window rect is exactly the monitor rect {x, y, w, h}. */
+	/**
+	 * True when the window rect is exactly the monitor rect {x, y, w, h}. Like with like:
+	 * both are in the window library's screen coordinates. The monitor's size is its video
+	 * mode, which GLFW reports in screen coordinates on Windows and X11 (pixels, like the
+	 * window) and on macOS (points, like the window: GLFW's Cocoa backend reads
+	 * CGDisplayModeGetWidth, a Retina mode's point size, never its pixel size), and SDL3's
+	 * display bounds are screen coordinates too. The one known mismatch is a scaled Wayland
+	 * output (GLFW reports its modes in pixels, windows in scaled units): there the window
+	 * never matches, and Guard.mayRefit stops after one re-fit that changes nothing.
+	 */
 	public static boolean covers(int wx, int wy, int ww, int wh, int[] monitor) {
 		return monitor != null && wx == monitor[0] && wy == monitor[1] && ww == monitor[2] && wh == monitor[3];
 	}
@@ -62,7 +71,11 @@ public final class BorderlessFit {
 	 * Wayland apply a resize a few frames later; checking sooner would re-fit a window
 	 * that is about to be right). At most BURST_MAX re-fits per BURST_MS: if the
 	 * window keeps refusing the monitor's size (a coordinate mismatch Origin cannot
-	 * see), it stops trying instead of flickering. A real toggle resets everything.
+	 * see), it stops trying instead of flickering. And a re-fit that changed nothing (the
+	 * window is still exactly where it was before it: a window manager that keeps it there,
+	 * or a unit mismatch such as Wayland's pixel modes) is not repeated until the window
+	 * moves or resizes again: without that, the burst cap alone would still re-fit (and
+	 * flicker) BURST_MAX times every BURST_MS, forever. A real toggle resets everything.
 	 */
 	public static final class Guard {
 		public static final long SETTLE_MS = 750;
@@ -76,6 +89,8 @@ public final class BorderlessFit {
 		private long lastCheck;
 		private final long[] refits = new long[BURST_MAX];
 		private int refitCount;
+		/** The window's {x, y, w, h} when Origin last re-fitted it; null before any re-fit. */
+		private int[] beforeLastRefit;
 
 		/** The toggle changed (or borderless was applied fresh): start over. */
 		public void reset(long now) {
@@ -83,6 +98,7 @@ public final class BorderlessFit {
 			lastFit = now;
 			checkedOnce = false;
 			refitCount = 0;
+			beforeLastRefit = null;
 		}
 
 		/** Time for a "still covering?" look? Records the look when it says yes. */
@@ -98,8 +114,16 @@ public final class BorderlessFit {
 			return true;
 		}
 
-		/** The window drifted off its monitor: may Origin fit it again now? Records the re-fit when yes. */
-		public boolean mayRefit(long now) {
+		/**
+		 * The window is off its monitor, at {x, y, w, h}: may Origin fit it again now?
+		 * Records the re-fit when yes. No when the last re-fit changed nothing (the window
+		 * is still at the rect it had then) or when the burst cap is reached.
+		 */
+		public boolean mayRefit(long now, int x, int y, int w, int h) {
+			int[] rect = {x, y, w, h};
+			if (java.util.Arrays.equals(rect, beforeLastRefit)) {
+				return false;
+			}
 			int recent = 0;
 			for (int i = 0; i < refitCount; i++) {
 				if (now - refits[i] < BURST_MS) {
@@ -111,6 +135,7 @@ public final class BorderlessFit {
 				return false;
 			}
 			refits[refitCount++] = now;
+			beforeLastRefit = rect;
 			fittedOnce = true;
 			lastFit = now;
 			return true;

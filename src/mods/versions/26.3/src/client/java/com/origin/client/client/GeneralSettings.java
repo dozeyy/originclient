@@ -166,7 +166,7 @@ public final class GeneralSettings {
 				}
 				return;
 			}
-			if (guard.mayRefit(now)) {
+			if (guard.mayRefit(now, x.get(0), y.get(0), w.get(0), h.get(0))) {
 				OriginClient.LOGGER.info("Origin: borderless window was at {},{} {}x{}{}; fitting it to its display {},{} {}x{} again",
 						x.get(0), y.get(0), w.get(0), h.get(0), framed ? " with a frame" : "", bounds[0], bounds[1], bounds[2], bounds[3]);
 				fit(win, bounds);

@@ -158,7 +158,7 @@ public final class GeneralSettings {
 				}
 				return;
 			}
-			if (guard.mayRefit(now)) {
+			if (guard.mayRefit(now, x[0], y[0], w[0], h[0])) {
 				OriginClient.LOGGER.info("Origin: borderless window was at {},{} {}x{}{}; fitting it to its monitor {},{} {}x{} again",
 						x[0], y[0], w[0], h[0], decorated ? " with a frame" : "", monitor[0], monitor[1], monitor[2], monitor[3]);
 				fit(win, monitor);
