@@ -545,12 +545,16 @@ public class OriginClientMod {
 		// (KeyBindingMixin) so the game drives sprint/sneak itself.
 		boolean toggleMod = Mods.on("togglesprint");
 		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
+		// Spend both keys' taps every tick, toggle on or off: a Ctrl/Shift press made while a
+		// toggle is off must not flip sprint/sneak on by itself when the toggle is turned on.
+		boolean sprintTap = tapped(client, Mods.keyCode("togglesprint", "key"));
+		boolean sneakTap = tapped(client, client.gameSettings.keyBindSneak.getKeyCode());
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
 			// Read the key every tick, screens included: closing one with the key still held
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean custom = client.currentScreen == null && raw;
-			boolean edge = tapped(client, Mods.keyCode("togglesprint", "key")) || (custom && !sprintKeyWasDown);
+			boolean edge = sprintTap || (custom && !sprintKeyWasDown);
 			sprintKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sprintToggledOn = custom;
@@ -570,7 +574,7 @@ public class OriginClientMod {
 			// must not count as a new press (Shift-click in the inventory, then E).
 			boolean raw = isRawKeyDown(client.gameSettings.keyBindSneak.getKeyCode());
 			boolean custom = client.currentScreen == null && raw;
-			boolean edge = tapped(client, client.gameSettings.keyBindSneak.getKeyCode()) || (custom && !sneakKeyWasDown);
+			boolean edge = sneakTap || (custom && !sneakKeyWasDown);
 			sneakKeyWasDown = raw;
 			if (holdMode) {
 				FEATURES.sneakToggledOn = custom;
