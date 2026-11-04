@@ -1,3 +1,4 @@
+import com.origin.client.client.util.HotkeyChord;
 import com.origin.client.client.util.KeyTaps;
 import com.origin.client.client.util.WindowTitles;
 
@@ -29,6 +30,31 @@ public class QolTests {
 		eq(WindowTitles.origin("Minecraft* 1.21.1", null), "Origin 1.21.1", "null name");
 		eq(WindowTitles.origin("My Modpack 2.0", "Steve"), "My Modpack 2.0", "foreign title untouched");
 		eq(WindowTitles.origin(null, "Steve"), null, "null title");
+
+		// util/HotkeyChord (JG-1): "None" fires while Ctrl/Shift are held as Sprint/Sneak
+		int[] keys = {0, 71, 0, 0};                 // slot 1 = G, slots 2-3 off
+		String[] modes = {null, "None", "None", "None"};
+		eq(HotkeyChord.fires(1, keys, modes, false, false, false), true, "None, nothing held");
+		eq(HotkeyChord.fires(1, keys, modes, true, false, false), true, "None while sprinting (Ctrl)");
+		eq(HotkeyChord.fires(1, keys, modes, false, true, false), true, "None while sneaking (Shift)");
+		eq(HotkeyChord.fires(1, keys, modes, true, true, true), true, "None with every modifier held");
+		modes[1] = "Ctrl";
+		eq(HotkeyChord.fires(1, keys, modes, false, false, false), false, "Ctrl slot without Ctrl");
+		eq(HotkeyChord.fires(1, keys, modes, true, true, false), true, "Ctrl slot with Ctrl (+Shift)");
+		modes[1] = "Alt";
+		eq(HotkeyChord.fires(1, keys, modes, true, false, false), false, "Alt slot with only Ctrl");
+		// plain G (slot 1) and Ctrl + G (slot 2) on one key: each sends only its own line
+		int[] twin = {0, 71, 71, 72};
+		String[] twinModes = {null, "None", "Ctrl", "None"};
+		eq(HotkeyChord.fires(1, twin, twinModes, false, true, false), true, "plain G while sneaking");
+		eq(HotkeyChord.fires(1, twin, twinModes, true, false, false), false, "plain G steps aside for Ctrl + G");
+		eq(HotkeyChord.fires(2, twin, twinModes, true, false, false), true, "Ctrl + G fires");
+		eq(HotkeyChord.fires(3, twin, twinModes, true, false, false), true, "other key's None ignores the G twin");
+		int[] offTwin = {0, 71, 0};                 // the Ctrl + G slot is switched off
+		eq(HotkeyChord.fires(1, offTwin, new String[]{null, "None", "Ctrl"}, true, false, false), true,
+				"an off twin never blocks");
+		eq(HotkeyChord.fires(1, keys, new String[]{null, "Bogus", null, null}, true, false, false), true,
+				"unknown modifier = None");
 
 		// util/KeyTaps (G121-7): taps between ticks
 		eq(KeyTaps.consume(67), false, "nothing pressed");
