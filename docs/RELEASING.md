@@ -122,7 +122,8 @@ background with no UI (`Core/Updates/UpdateService.Background.cs`, rules in
 (a zip the quiet retry verified, else the small update on Windows, else the full
 zip; every one checked against its SHA-256 as above), unpacked into
 `updates/<version>/` and recorded file by file (`StageSnapshot`). The Update
-click / restart prompt then re-hashes that stage and swaps; a click while it
+click / restart prompt then re-hashes that stage right before the swap (after any
+wait for a game; a mismatch downloads it afresh) and swaps; a click while it
 downloads joins that download and shows its progress. Rules:
 - Anything odd (the background download failed, the stage changed on disk) and
   the click downloads it itself exactly as before. A background download that

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Runtime.ExceptionServices;
@@ -77,6 +78,9 @@ public static partial class UpdateService
             {
                 // Withdrawn or superseded while this hopped to the pool: nothing to do for it.
                 if (Available == null || !UpdatePrefetch.Same(Available.Version, update.Version)) return;
+                // Read again right before the start: a game that began while the network and metered probes ran must
+                // still stop it (a game start AFTER this is caught by the LaunchRunState hook, which cancels the fetch).
+                conditions = conditions with { GameRunning = conditions.GameRunning || GameRunning };
                 start = Prefetch.TryStart(update.Version, conditions, DateTime.UtcNow, out dropped);
                 if (dropped != null)
                 {
@@ -97,7 +101,7 @@ public static partial class UpdateService
             }
             else if (dropped != null)
             {
-                TryDeleteStage(StageDirFor(dropped));
+                TryDeleteStage(dropped);
             }
 
             if (start == UpdatePrefetch.Start.NotNow)
@@ -150,7 +154,7 @@ public static partial class UpdateService
                 }
                 else
                 {
-                    deleteStage = !IsKept(version); // superseded or withdrawn while it downloaded
+                    deleteStage = Prefetch.MayDeleteStage(version); // superseded or withdrawn while it downloaded
                 }
             }
             else
@@ -159,7 +163,7 @@ public static partial class UpdateService
                 var wait = Prefetch.Failed(version, cancelled, DateTime.UtcNow);
                 if (!joined)
                 {
-                    deleteStage = !IsKept(version);
+                    deleteStage = Prefetch.MayDeleteStage(version);
                     if (cancelled)
                     {
                         Log($"update {version}: background download stopped (it starts again on a later check)");
@@ -184,18 +188,18 @@ public static partial class UpdateService
                 // Joined: the click owns this failure (it counts it on the gate, or downloads it itself).
             }
         }
-        if (deleteStage) TryDeleteStage(stageDir);
+        if (deleteStage) TryDeleteStage(version);
         if (raise) AvailableChanged?.Invoke(null, EventArgs.Empty);
         // Cancel is never disposed: a click or the exit hook may still call Cancel() on it after this returns.
         return error;
     }
 
     /// <summary>
-    /// The click's use of the background download: true when <paramref name="stageDir"/> now holds this version, staged in
-    /// the background and unchanged since (re-hashed here). False sends the click to its own download. A joined download
-    /// that failed its SHA-256 check rethrows that failure, so the click counts it exactly like its own.
+    /// The click's use of the background download: the record of the stage it left for this version (the click
+    /// re-hashes it right before the swap, after any wait for a game), or null when the click must stage it itself. A
+    /// joined download that failed its SHA-256 check rethrows that failure, so the click counts it exactly like its own.
     /// </summary>
-    private static async Task<bool> TakeBackgroundStageAsync(AvailableUpdate update, string stageDir, IProgress<UpdateProgress>? progress)
+    private static async Task<IReadOnlyList<StageSnapshot.Entry>?> TakeBackgroundStageAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress)
     {
         UpdatePrefetch.Click plan;
         Fetch? join = null, superseded = null;
@@ -237,20 +241,21 @@ public static partial class UpdateService
 
         if (snapshot != null)
         {
-            progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
-            if (await Task.Run(() => StageSnapshot.Matches(stageDir, snapshot)))
-            {
-                Log($"update {update.Version}: installing the update downloaded in the background");
-                return true;
-            }
-            Log($"update {update.Version}: the update staged in the background changed on disk; downloading it again");
+            Log($"update {update.Version}: installing the update downloaded in the background");
+            return snapshot;
         }
+        ForgetBackgroundStage(update.Version);
+        return null;
+    }
+
+    // The click stages it itself from here (nothing usable in the background, or the stage changed on disk).
+    private static void ForgetBackgroundStage(Version version)
+    {
         lock (Gate)
         {
-            Prefetch.FallBackToClickDownload(update.Version);
+            Prefetch.FallBackToClickDownload(version);
             _stagedSnapshot = null;
         }
-        return false;
     }
 
     // The swap waits while a game this launcher started is starting or running (UpdatePrefetch.BeforeSwap), checking
@@ -270,20 +275,37 @@ public static partial class UpdateService
         }
     }
 
-    // Under lock (Gate): the click is installing this version, or another background download of it holds the stage.
-    private static bool IsKept(Version version) => Prefetch.Keep().Any(v => UpdatePrefetch.Same(v, version));
 
-    private static void TryDeleteStage(string stageDir)
+    // Deletes an unwanted stage under its version's stage lock, and only if, with that lock held, nothing wants it any
+    // more (UpdatePrefetch.MayDeleteStage). The decision to delete is made under Gate but the delete runs later; without
+    // this a click could start staging the same folder in between and swap a half-deleted copy.
+    private static void TryDeleteStage(Version version)
     {
+        var stageLock = StageLock(version);
+        stageLock.Wait();
         try
         {
+            lock (Gate)
+                if (!Prefetch.MayDeleteStage(version)) return;
+            var stageDir = StageDirFor(version);
             if (Directory.Exists(stageDir)) Directory.Delete(stageDir, recursive: true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // Locked: the next stage's cleanup (CleanStaleDownloads) removes it.
         }
+        finally
+        {
+            stageLock.Release();
+        }
     }
+
+    // One lock per version's stage folder: StageAsync holds it while it empties and fills the folder, TryDeleteStage while
+    // it deletes it, so the two never run on the same folder at once. Never disposed (a handful of versions per run).
+    private static readonly ConcurrentDictionary<Version, SemaphoreSlim> StageLocks = new();
+
+    private static SemaphoreSlim StageLock(Version version) =>
+        StageLocks.GetOrAdd(UpdateGate.Normalize(version), _ => new SemaphoreSlim(1, 1));
 
     // A game start pauses the background download at once (the next poll after the game closes starts it again); the
     // launcher closing cancels it and gives it a moment to delete its .part. Hooked on the first background start, so a
