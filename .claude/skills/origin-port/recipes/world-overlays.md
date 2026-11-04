@@ -60,7 +60,7 @@
   are put back. Overlays that used the frame's shared buffer for `RenderType.lines()` (chunk-border rings,
   waypoint highlight on 1.17.1-1.20.4) take `OriginRenderTypes.bankLines()` while `banking()` and skip their
   own endBatch. Matrices per era: 1.16.5 GL stacks + `ctx.projectionMatrix()`; 1.17.1-1.19.4 identity
-  model-view (the LAST window) + projection (`load` pre-JOML; VertexSorting from 1.19.4); 1.20-1.20.4 the
+  model-view (the LAST window) + projection (`load` pre-JOML; no VertexSorting before 1.20); 1.20-1.20.4 the
   recorded model-view on the PoseStack model-view stack + `applyModelViewMatrix`; 1.21.4 Matrix4fStack +
   ProjectionType; 1.21.6/1.21.8 = 1.21.10's GpuBufferSlice file. Level call 1.16.5-1.20.4:
   `renderLevel(PoseStack;FJZ;Camera;GameRenderer;LightTexture;Matrix4f)V` (com.mojang.math Matrix4f to 1.19.2).

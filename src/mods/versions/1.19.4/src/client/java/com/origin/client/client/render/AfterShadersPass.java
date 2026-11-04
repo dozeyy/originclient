@@ -2,7 +2,6 @@ package com.origin.client.client.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexSorting;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import org.joml.Matrix4f;
 import com.origin.client.OriginClient;
@@ -39,7 +38,7 @@ import net.minecraft.client.Minecraft;
  * MATRICES (1.19.4). The overlays draw at LAST inside OriginClientMod's IDENTITY
  * model-view window (the world PoseStack, baked into every vertex, already holds
  * the camera rotation), so run() draws the bank under an identity model-view too,
- * with the level projection LAST recorded (+ its vertex sorting).
+ * with the level projection LAST recorded.
  *
  * SHADERS OFF: unchanged. deferring is false, bankBegin() returns false, every
  * overlay draws at LAST with its own buffers exactly as before.
@@ -72,7 +71,6 @@ public final class AfterShadersPass {
 	private static boolean recorded;        // LAST recorded this frame's matrices
 	private static final Matrix4f REC_PROJ = new Matrix4f();
 	private static final Matrix4f OLD_PROJ = new Matrix4f();
-	private static VertexSorting recSorting = VertexSorting.DISTANCE_TO_ORIGIN;
 
 	private static int hookMissingFrames;
 	private static boolean warnedHookMissing, warnedSetup, warnedDraw, loggedFirst;
@@ -150,7 +148,6 @@ public final class AfterShadersPass {
 			return;
 		}
 		REC_PROJ.set(RenderSystem.getProjectionMatrix());
-		recSorting = RenderSystem.getVertexSorting();
 		recorded = true;
 	}
 
@@ -181,7 +178,6 @@ public final class AfterShadersPass {
 		recorded = false;
 		// Copied, not held: the restore must not depend on how setProjectionMatrix stores it.
 		OLD_PROJ.set(RenderSystem.getProjectionMatrix());
-		VertexSorting oldSorting = RenderSystem.getVertexSorting();
 		PoseStack mv = RenderSystem.getModelViewStack();
 		mv.pushPose();
 		try {
@@ -190,7 +186,7 @@ public final class AfterShadersPass {
 			Minecraft.getInstance().getMainRenderTarget().bindWrite(false);
 			mv.setIdentity();
 			RenderSystem.applyModelViewMatrix();
-			RenderSystem.setProjectionMatrix(REC_PROJ, recSorting);
+			RenderSystem.setProjectionMatrix(REC_PROJ);
 			OriginRenderTypes.drawBank();
 			if (!loggedFirst) {
 				loggedFirst = true;   // one breadcrumb for CI logs: the deferred path really drew
@@ -206,7 +202,7 @@ public final class AfterShadersPass {
 		} finally {
 			mv.popPose();
 			RenderSystem.applyModelViewMatrix();
-			RenderSystem.setProjectionMatrix(OLD_PROJ, oldSorting);
+			RenderSystem.setProjectionMatrix(OLD_PROJ);
 		}
 	}
 
