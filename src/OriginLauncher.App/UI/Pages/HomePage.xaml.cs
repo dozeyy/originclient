@@ -1466,17 +1466,16 @@ public partial class HomePage : UserControl
                     // (foo.jar -> foo.jar.disabled, back on from the Mods tab) in the folder THIS game loaded it
                     // from - its mod profile's folder when it had one, so another profile's or account's mods are
                     // never touched. Origin's own jars are refused there too.
-                    var failed = new List<string>();
+                    var failed = new List<(string, Core.Compat.CrashRepairOutcome)>();
                     foreach (var jar in fix.Jars)
                     {
                         var result = Core.Compat.CrashRepair.DisableBlamed(game.Version,
                             _profileByKey.GetValueOrDefault(game.Key), jar, Core.Mods.ModManager.IsManagedFile);
-                        if (result.Outcome != Core.Compat.CrashRepairOutcome.Disabled) failed.Add(jar);
+                        if (result.Outcome != Core.Compat.CrashRepairOutcome.Disabled) failed.Add((jar, result.Outcome));
                     }
                     if (failed.Count > 0)
                     {
-                        Note(game.Key, $"Couldn't turn off {string.Join(", ", failed)}. Turn it off on the Mods tab, then press Play.",
-                            LaunchTone.Error);
+                        Note(game.Key, Core.Compat.CrashRepair.FailureLine(game.Version, failed), LaunchTone.Error);
                         return; // relaunching with the cause still in place would only crash again
                     }
                     break;

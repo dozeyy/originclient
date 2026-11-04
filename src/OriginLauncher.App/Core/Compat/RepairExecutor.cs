@@ -62,6 +62,9 @@ public static partial class RepairExecutor
         return Rename(step, step.From, step.To, context);
     }
 
+    /// <summary>A rename Windows refused: a running game (any account's, the mods folder is shared per version) holds the jar.</summary>
+    public const string InUseMessage = "Couldn't change that mod - close Minecraft (on every account playing this version) and try again.";
+
     // File.Move without overwrite: it throws when the target exists, which is reported, never forced.
     private static AppliedStep Rename(RepairStep step, string from, string to, RepairContext context)
     {
@@ -76,7 +79,7 @@ public static partial class RepairExecutor
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return Fail(step, "Couldn't change that mod - close Minecraft (on every account playing this version) and try again.");
+            return Fail(step, InUseMessage);
         }
     }
 

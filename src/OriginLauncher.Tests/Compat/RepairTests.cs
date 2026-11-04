@@ -468,6 +468,16 @@ public sealed class RepairTests : IDisposable
         Assert.True(System.IO.File.Exists(mod.Path));
     }
 
+    // Bug run 6, KC-8: a jar another account's running game holds can't be changed from the Mods tab either.
+    [Fact]
+    public void CrashRepairFailureLineSaysToCloseTheOtherGameWhenTheJarIsInUse()
+    {
+        Assert.Equal("Couldn't turn off foo.jar: a Minecraft 1.21.1 game on another account is using it. Close that game, then press Play.",
+            CrashRepair.FailureLine("1.21.1", [("foo.jar", CrashRepairOutcome.InUse)]));
+        Assert.Equal("Couldn't turn off foo.jar, bar.jar. Turn it off on the Mods tab, then press Play.",
+            CrashRepair.FailureLine("1.21.1", [("foo.jar", CrashRepairOutcome.Failed), ("bar.jar", CrashRepairOutcome.NotFound)]));
+    }
+
     [Fact]
     public void CrashRepairFailsCleanlyWhenTheTurnedOffNameIsTaken()
     {
