@@ -750,6 +750,7 @@ public sealed class VersionManager
         // from (checked above: the installed loader reads it).
         var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
         extraJvm.Add(new MArgument(SharedMods.JvmArgument(gameModsFolder)));
+        LaunchedModsFolder.Record(path.BasePath, gameModsFolder); // what the crash check reads if this game stops
         // Copies nested in Origin's own jar that must not load next to the player's (e.g. Origin's Iris beside the
         // player's Sodium): the loader's own switch (fabric.debug.disableModIds, Fabric Loader 0.15.0+).
         // Applies to a profile and to a shared-folder launch alike (the plan is empty for Origin-only).
@@ -841,6 +842,8 @@ public sealed class VersionManager
             : externalMods ? static _ => true : name => ModManager.IsManagedFile(Path.Combine(modsFolder, name));
         SharedMods.Mirror(modsFolder, Path.Combine(path.BasePath, InstanceLayout.ModsFolder), include,
             profileMods: profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null);
+        // Forge loads the account's own mods/ (the mirror), never the shared folder: the crash check reads that.
+        LaunchedModsFolder.Record(path.BasePath, Path.Combine(path.BasePath, InstanceLayout.ModsFolder));
 
         // Run on a current Java 8 (Temurin) instead of Mojang's 2015 jre-legacy (8u51). Still
         // Java 8, which Forge 11.15 / FML needs. Ready = a folder check; first time = one
