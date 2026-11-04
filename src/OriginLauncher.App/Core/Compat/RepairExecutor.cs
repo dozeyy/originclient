@@ -127,7 +127,19 @@ public static partial class RepairExecutor
             DeleteOwnPart(part);
             return Fail(step, "Couldn't add that mod - " + ex.Message);
         }
+        catch (OperationCanceledException)
+        {
+            // The fetcher's time limit (Fix Compatibility gives the downloads 2 minutes). A failed step, like any
+            // other: the copy is abandoned and the player is told why. Before 2026-11-04 it escaped every catch on
+            // the way up and left "Making a fixed copy..." on Home forever.
+            DeleteOwnPart(part);
+            return Fail(step, DownloadTimedOutMessage);
+        }
     }
+
+    /// <summary>The player's line when Fix Compatibility's downloads ran past their time limit.</summary>
+    public const string DownloadTimedOutMessage =
+        "Downloading the missing mods took too long, so no fixed copy was made. Check your connection and try Fix again.";
 
     // The only deletion in repairs: the temporary .part file this very call created.
     private static void DeleteOwnPart(string part)

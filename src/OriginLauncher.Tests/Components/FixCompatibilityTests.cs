@@ -206,6 +206,33 @@ public sealed class FixCompatibilityTests : IDisposable
         Assert.Equal(before, Snapshot(ProfileMods));
     }
 
+    private sealed class TimesOut : IDependencyFetcher
+    {
+        public bool Fetch(DependencyOffer offer, string destinationPath, out string? error)
+        {
+            File.WriteAllBytes(destinationPath, [1, 2, 3]); // half a download
+            throw new TaskCanceledException("The fetcher's time limit passed.");
+        }
+    }
+
+    // Bug run 6, KC-5: a download past the 2-minute limit threw out of the fix and left "Making a fixed copy..." on
+    // Home with no result. It is a failed fix now, with the reason, and nothing half-made is left behind.
+    [Fact]
+    public void A_download_past_its_time_limit_fails_the_fix_cleanly_and_says_why()
+    {
+        Put(ProfileMods, "somelib-2.1.jar", Kit.FabricJar("somelib", depends: new() { ["cloth-config"] = ">=15.0.0" }, name: "Some Lib"));
+        var before = Snapshot(ProfileMods);
+        var proposal = Plan(new OneOffer("cloth-config", Kit.FabricJar("cloth-config", "15.0.140", name: "Cloth Config")));
+
+        var result = Apply(proposal, new TimesOut());
+
+        Assert.False(result.Ok);
+        Assert.Equal(RepairExecutor.DownloadTimedOutMessage, result.Error);
+        Assert.Single(_settings.ModProfiles);
+        Assert.Equal(new[] { _profile.Id }, Directory.GetDirectories(_profiles).Select(Path.GetFileName).ToArray());
+        Assert.Equal(before, Snapshot(ProfileMods));
+    }
+
     [Fact]
     public void An_older_vetted_pair_is_pinned_when_it_needs_fewer_changes()
     {
