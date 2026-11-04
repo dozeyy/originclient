@@ -1,11 +1,13 @@
 package com.origin.client.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
@@ -93,16 +95,72 @@ public class NametagStyleMixin {
 
 		// Background box: only the pass that actually has one (alpha != 0). Replace it
 		// with the chosen colour (own vs global), then fade by the opacity slider.
-		int newBg = bgColor;
+		int newBg = 0;
 		if (((bgColor >>> 24) & 0xFF) != 0) {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = scaleAlpha(bg, op);
 		}
-		int w = font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		// The box is drawn here, ONCE, before the glyphs, never by Font (JP-1, 2026-11-04):
+		// - Font draws a background once per sub-pass, so with Text Shadow on it drew the box
+		//   twice (40% black became 64%).
+		// - Iris (loaded on 1.21.1 even with no shader pack) batches entity rendering and draws
+		//   every no-depth-test layer (the see-through text and its box) AFTER the depth-tested
+		//   text, so the see-through box landed ON TOP of the white name: a dark grey smudge.
+		//   Under that batching the box moves into the solid pass instead (depth-tested, drawn
+		//   first, behind the glyphs). Cost: behind a wall the faint name shows without its box.
+		boolean late = originclient$seeThroughDrawnLast(buffer);
+		if (mode == Font.DisplayMode.SEE_THROUGH) {
+			originclient$carriedBg = 0;
+			if (late) {
+				originclient$carriedBg = newBg;
+				newBg = 0;
+			}
+		} else if (newBg == 0 && originclient$carriedBg != 0) {
+			newBg = originclient$carriedBg;
+			originclient$carriedBg = 0;
+		}
+		if (newBg != 0) {
+			originclient$box(matrix, buffer, mode, x, y, font.width(text), newBg, light);
+		}
+		// The see-through pass gets no shadow (vanilla never gives it one): a dark copy at the
+		// faint pass's alpha only muddies the name when Iris draws it on top.
+		boolean drawShadow = wantShadow && mode != Font.DisplayMode.SEE_THROUGH;
+		int w = font.drawInBatch(text, x, y, newColor, drawShadow, matrix, buffer, mode, 0, light);
 		if (padW > 0f) {
 			PlusBadge.nametag(matrix, buffer, mode, x, y, padW, newColor >>> 24, light);
 		}
 		return w;
+	}
+
+	// A see-through box held back from the faint pass for the solid pass that always follows
+	// it (vanilla draws SEE_THROUGH then NORMAL for one tag, back to back, render thread only).
+	private static int originclient$carriedBg;
+	private static Class<?> originclient$lastBufferClass;
+	private static boolean originclient$lastLate;
+
+	/** True when this buffer is Iris's batched entity buffer (its batchedentityrendering package), which orders
+	 *  no-depth-test layers after depth-tested ones. Cached per buffer class: one compare a tag. */
+	private static boolean originclient$seeThroughDrawnLast(MultiBufferSource buffer) {
+		Class<?> c = buffer.getClass();
+		if (c != originclient$lastBufferClass) {
+			originclient$lastBufferClass = c;
+			originclient$lastLate = c.getName().contains(".batchedentityrendering.");
+		}
+		return originclient$lastLate;
+	}
+
+	/** Font's own background box (x-1 .. x+width, y-1 .. y+9), in the matching text-background
+	 *  layer, 0.01 behind the glyphs (+z faces the camera here: Font puts the shadow at z 0
+	 *  and the glyph at +0.03), so the glyphs always win the depth test whatever the order. */
+	private static void originclient$box(Matrix4f m, MultiBufferSource buffer, Font.DisplayMode mode, float x, float y,
+							int width, int argb, int light) {
+		VertexConsumer vc = buffer.getBuffer(mode == Font.DisplayMode.SEE_THROUGH
+				? RenderType.textBackgroundSeeThrough() : RenderType.textBackground());
+		float x0 = x - 1f, x1 = x + width, y0 = y + 9f, y1 = y - 1f, z = -0.01f;
+		vc.addVertex(m, x0, y0, z).setColor(argb).setLight(light);
+		vc.addVertex(m, x1, y0, z).setColor(argb).setLight(light);
+		vc.addVertex(m, x1, y1, z).setColor(argb).setLight(light);
+		vc.addVertex(m, x0, y1, z).setColor(argb).setLight(light);
 	}
 
 	private static int scaleAlpha(int argb, double f) {
