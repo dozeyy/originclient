@@ -36,12 +36,19 @@ public sealed class SettingsSyncEngine
     private const int MassDeletionFloor = 8;
     private const double MassDeletionShare = 0.25;
 
-    private readonly Action<string> _log;
+    // A stored change stamped further than this ahead of the clock was made while the PC's clock ran ahead.
+    // The slack covers file systems that round write times up (FAT: 2 s) and small clock corrections.
+    internal const long FutureSlackMs = 5 * 60 * 1000;
 
-    public SettingsSyncEngine(SyncStoreData store, Action<string>? log = null)
+    private readonly Action<string> _log;
+    private readonly Func<long> _nowMs;
+
+    /// <param name="nowMs">The clock, Unix milliseconds UTC; tests pass their own.</param>
+    public SettingsSyncEngine(SyncStoreData store, Action<string>? log = null, Func<long>? nowMs = null)
     {
         Store = store;
         _log = log ?? (_ => { });
+        _nowMs = nowMs ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 
     public SyncStoreData Store { get; }
@@ -95,7 +102,14 @@ public sealed class SettingsSyncEngine
             return;
         }
 
-        var changedAt = AtomicFile.LastWriteMs(path);
+        // Time stamps are only as good as the PC's clock. A file written while the clock ran ahead (a CMOS reset, a
+        // dual-boot clock hours off, a manual date change) carries a future time, and so did every change harvested
+        // from it. Before 2026-11-04 such a stored change was "newer" than anything the player did after the clock
+        // was fixed, so their new value was skipped here and the old one pushed back on every launch until real
+        // time caught up. Now nothing is stamped later than now, and a stored stamp from the future loses to any
+        // real change (Stamp).
+        var now = _nowMs();
+        var changedAt = Math.Min(AtomicFile.LastWriteMs(path), now);
         var baseline = seeding ? new Dictionary<string, string>() : Store.BaselineOf(instance.Version, file.Id);
         var values = Store.FileValues(file.Id);
 
@@ -113,19 +127,19 @@ public sealed class SettingsSyncEngine
                 // own keys on first run): that is the version's default, so it
                 // only fills gaps and never beats a value the store has.
                 if (!seeding && (baseline == null || !baseline.ContainsKey(key))) continue;
-                if (stored.ChangedAt >= changedAt) continue; // the store's change is newer
+                if (Stamp(stored, now) >= changedAt) continue; // the store's change is newer
             }
             values[key] = new SyncValue(raw, changedAt);
         }
 
         if (format.AllowsDeletions && baseline != null && !seeding)
-            HarvestDeletions(instance, file, baseline, current, values, changedAt);
+            HarvestDeletions(instance, file, baseline, current, values, changedAt, now);
 
         Store.SetBaseline(instance.Version, file.Id, BaselineFor(format, current));
     }
 
     private void HarvestDeletions(SyncInstance instance, SyncedFile file, Dictionary<string, string> baseline,
-        Dictionary<string, string> current, Dictionary<string, SyncValue> values, long changedAt)
+        Dictionary<string, string> current, Dictionary<string, SyncValue> values, long changedAt, long now)
     {
         var vanished = baseline.Keys.Where(k => !current.ContainsKey(k)).ToList();
         if (vanished.Count == 0) return;
@@ -136,7 +150,7 @@ public sealed class SettingsSyncEngine
         }
         foreach (var key in vanished)
         {
-            if (values.TryGetValue(key, out var stored) && stored.ChangedAt >= changedAt) continue;
+            if (values.TryGetValue(key, out var stored) && Stamp(stored, now) >= changedAt) continue;
             values[key] = new SyncValue(null, changedAt);
         }
     }
@@ -154,6 +168,11 @@ public sealed class SettingsSyncEngine
             // file the game writes next must be read as "never synced".
             ForgetBaseline(instance, file);
     }
+
+    // A stored change's time for "which is newer": its own, unless the clock was ahead when it was made; then it
+    // counts as older than any real change (long.MinValue), so the player's change made today wins.
+    private static long Stamp(SyncValue stored, long now) =>
+        stored.ChangedAt > now + FutureSlackMs ? long.MinValue : stored.ChangedAt;
 
     private void ForgetBaseline(SyncInstance instance, SyncedFile file)
     {

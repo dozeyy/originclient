@@ -65,6 +65,57 @@ public class SettingsSyncTests
         Assert.Equal("3465", after["version"]);    // its own data version stays
     }
 
+    // Bug run 6, KD-7: a change harvested while the PC's clock ran ahead was stamped in the future. After the clock
+    // was fixed, every new change of that key looked "older", was skipped, and Push wrote the old value back on
+    // every launch.
+    [Fact]
+    public void AChangeMadeWhileTheClockRanAheadNeverBeatsTheNextRealChange()
+    {
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        Write(a, "options.txt", Options("version:3955", "fov:0.0"), 1);
+        Write(b, "options.txt", Options("version:3465", "fov:0.0"), 1);
+        long Ms(DateTime t) => new DateTimeOffset(t).ToUnixTimeMilliseconds();
+        var clock = Ms(_t0.AddMinutes(2));
+        var engine = new SettingsSyncEngine(new SyncStoreData(), nowMs: () => clock);
+        engine.Seed(new[] { a, b });
+
+        // Clock a year ahead: the player sets FOV 0.2 in 1.20.1, and quits (harvested with the wrong clock).
+        clock = Ms(_t0.AddYears(1));
+        var ahead = Write(b, "options.txt", Options("version:3465", "fov:0.2"), 1);
+        File.SetLastWriteTimeUtc(ahead, _t0.AddYears(1));
+        engine.Harvest(b);
+
+        // Clock fixed: they set FOV 0.7 in 1.21.1, then launch 1.21.1 and later 1.20.1.
+        clock = Ms(_t0.AddMinutes(61));
+        Write(a, "options.txt", Options("version:3955", "fov:0.7"), 60);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(a);
+        engine.Push(b);
+
+        Assert.Equal("0.7", OptionsOf(a)["fov"]);
+        Assert.Equal("0.7", OptionsOf(b)["fov"]);
+    }
+
+    [Fact]
+    public void AFileFromTheFutureIsStampedNowNotLater()
+    {
+        var a = Instance("1.21.1");
+        Write(a, "options.txt", Options("version:3955", "fov:0.0"), 1);
+        var now = new DateTimeOffset(_t0.AddMinutes(30)).ToUnixTimeMilliseconds();
+        var engine = new SettingsSyncEngine(new SyncStoreData(), nowMs: () => now);
+        engine.Seed(new[] { a });
+
+        var path = Write(a, "options.txt", Options("version:3955", "fov:0.4"), 1);
+        File.SetLastWriteTimeUtc(path, _t0.AddDays(3));
+        engine.Harvest(a);
+
+        var fov = engine.Store.FileValues("options.txt")["fov"];
+        Assert.Equal("0.4", fov.Value);
+        Assert.Equal(now, fov.ChangedAt);
+    }
+
     [Fact]
     public void ConflictingEditsNewerWinsWhateverTheHarvestOrder()
     {
