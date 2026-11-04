@@ -1,0 +1,4 @@
+[12:00:00] [main/INFO]: Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+[12:00:01] [main/INFO]: Loading 61 mods:
+[12:00:02] [Render thread/INFO]: Setting user: <player>
+[main/ERROR]: Mixin apply for mod fabric-renderer-api-v1 failed fabric-renderer-api-v1.mixins.json:client.ItemRendererMixin from mod fabric-renderer-api-v1 -> net.minecraft.class_918: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure: @Inject annotation on hook could not find any targets matching 'method_23179' in net/minecraft/class_918. [PREINJECT Applicator Phase -> fabric-renderer-api-v1.mixins.json:client.ItemRendererMixin from mod fabric-renderer-api-v1 -> Prepare Injections -> -> handler$zza000$hook()V -> Parse]

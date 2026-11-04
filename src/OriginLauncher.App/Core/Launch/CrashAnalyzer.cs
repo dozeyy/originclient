@@ -97,9 +97,20 @@ public static class CrashAnalyzer
         // After every top-level jar, and only for ids no top-level jar has: a player's own Sodium beside Origin's
         // built-in one is the copy that loaded (DECISIONS 2026-10-25), so lookups by id must find the player's file.
         var known = new HashSet<string>(list.Select(m => m.ModId).Where(id => id.Length > 0), StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in nested)
-            if (known.Add(entry.ModId)) list.Add(entry);
+        foreach (var hosts in nested.GroupBy(m => m.ModId, StringComparer.OrdinalIgnoreCase))
+            if (known.Add(hosts.Key)) list.Add(NestedOwner(hosts.Key, hosts.ToList()));
         return list;
+    }
+
+    // Which jar a nested id belongs to when several jars carry it (Fabric API's modules sit inside Origin's 1.21.1 jar
+    // AND inside many players' mods; the loader runs one copy and the crash text doesn't say whose). Origin's own jar
+    // when it is one of them: the copy Origin ships and tests. One host: that host. Several of the player's jars and
+    // none of Origin's: nobody can be named (no jar, so no "Turn off" button pins it on whichever came first).
+    internal static CrashModEntry NestedOwner(string id, IReadOnlyList<CrashModEntry> hosts)
+    {
+        if (hosts.FirstOrDefault(h => !h.IsExternal) is { } origin) return origin;
+        var jars = hosts.Select(h => h.JarFileName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return jars.Count == 1 ? hosts[0] : new CrashModEntry(id, null, true);
     }
 
     private static string? FabricId(ZipArchiveEntry fabricModJson)

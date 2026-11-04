@@ -35,12 +35,12 @@ public static class CrashEngine
         };
     }
 
-    // A mod problem pinned on Origin's own code (its jar, or a mod built into it such as 1.21.1's Sodium) with no
-    // fix to offer: the player can't turn that off, and the usual real cause is a mod they added changing the same
-    // code, so the one-launch try without their mods is still the way forward.
+    // A mod problem pinned on Origin's own code (its jar, or a mod built into it such as 1.21.1's Sodium), or on a mod
+    // nested in several of the player's jars (no one file to name), with no fix to offer: the player can't turn that
+    // off, and the usual real cause is a mod they added, so the one-launch try without their mods is the way forward.
     private static bool BlamesOnlyOrigin(CrashFinding pick) =>
         pick.Cause == CrashCause.ModProblem && pick.Fix == null
-        && pick.Culprits.Count > 0 && pick.Culprits.All(c => !c.IsExternal);
+        && pick.Culprits.Count > 0 && pick.Culprits.All(c => !c.IsExternal || c.JarFileName == null);
 
     /// <summary>
     /// Crash or normal close, decided BEFORE anything is shown (a normal close never opens a window):

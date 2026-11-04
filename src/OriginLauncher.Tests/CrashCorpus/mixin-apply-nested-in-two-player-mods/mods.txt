@@ -1,0 +1,4 @@
+aaa-player-mod aaa-player-mod-1.0.jar external com.example.aaa
+zzz-player-mod zzz-player-mod-2.0.jar external com.example.zzz
+originclient originclient-1.21.1.jar origin
+fabric-renderer-api-v1 - external

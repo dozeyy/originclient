@@ -57,7 +57,8 @@ public sealed class CrashCorpusTests(ITestOutputHelper output)
             {
                 var p = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (p.Length < 3) continue;
-                mods.Add(new CrashModEntry(p[0] == "-" ? "" : p[0], p[1],
+                // "-" for the id: a jar with no readable id; "-" for the jar: an id no single file can be named for.
+                mods.Add(new CrashModEntry(p[0] == "-" ? "" : p[0], p[1] == "-" ? null : p[1],
                     p[2].Equals("external", StringComparison.OrdinalIgnoreCase),
                     p.Length > 3 ? p[3].Split(',', StringSplitOptions.RemoveEmptyEntries) : null));
             }

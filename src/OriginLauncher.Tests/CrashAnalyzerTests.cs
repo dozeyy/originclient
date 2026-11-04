@@ -171,6 +171,36 @@ Caused by: java.lang.IllegalStateException: boom
         Assert.All(mods, m => Assert.Equal("bundle-1.0.jar", m.JarFileName)); // a damaged nested jar is just skipped
     }
 
+    // Review of run 6: Fabric API's modules sit in Origin's jar AND in many players' mods. The first jar in folder
+    // order used to get the blame, so a player's "aaa-..." mod was offered "Turn off" for Fabric API's crash.
+    [Fact]
+    public void A_mod_nested_in_several_player_jars_is_pinned_on_none_of_them()
+    {
+        var renderer = FabricJarBytes("fabric-renderer-api-v1");
+        File.WriteAllBytes(Path.Combine(ModsDir, "aaa-mod-1.0.jar"), FabricJarBytes("aaa", ("fabric-renderer-api-v1.jar", renderer)));
+        File.WriteAllBytes(Path.Combine(ModsDir, "zzz-mod-1.0.jar"), FabricJarBytes("zzz", ("fabric-renderer-api-v1.jar", renderer)));
+        File.WriteAllBytes(Path.Combine(ModsDir, "solo-1.0.jar"), FabricJarBytes("solo", ("only-here.jar", FabricJarBytes("only-here"))));
+
+        var mods = CrashAnalyzer.ReadModsFrom(ModsDir);
+
+        var shared = Assert.Single(mods, m => m.ModId == "fabric-renderer-api-v1");
+        Assert.Null(shared.JarFileName); // no file to turn off
+        Assert.Equal("solo-1.0.jar", Assert.Single(mods, m => m.ModId == "only-here").JarFileName); // one host: that host
+    }
+
+    [Fact]
+    public void A_mod_nested_in_origins_jar_and_a_player_jar_is_origins()
+    {
+        var owner = CrashAnalyzer.NestedOwner("fabric-renderer-api-v1",
+        [
+            new CrashModEntry("fabric-renderer-api-v1", "aaa-mod-1.0.jar", true),
+            new CrashModEntry("fabric-renderer-api-v1", "originclient-1.21.1.jar", false),
+        ]);
+
+        Assert.Equal("originclient-1.21.1.jar", owner.JarFileName);
+        Assert.False(owner.IsExternal);
+    }
+
     [Fact]
     public void A_top_level_copy_of_a_nested_mod_is_the_one_listed()
     {
