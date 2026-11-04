@@ -13,8 +13,12 @@ public enum CrashRepairOutcome
     /// <summary>It is one of Origin's own mods: never turned off from a crash screen.</summary>
     Protected,
 
-    /// <summary>It was found but couldn't be renamed (the game holds it, the turned-off name is taken).</summary>
+    /// <summary>It was found but couldn't be renamed (the turned-off name is taken, or another reason).</summary>
     Failed,
+
+    /// <summary>It couldn't be renamed because a running game holds it: another account playing the same version
+    /// (the mods folder is shared per version).</summary>
+    InUse,
 }
 
 public sealed record CrashRepairResult(CrashRepairOutcome Outcome, string? Folder, string? Message);
@@ -66,8 +70,21 @@ public static class CrashRepair
             IsProtected: m => isOriginsOwnFile(m.Path));
 
         var applied = RepairExecutor.Apply(plan, context).Steps[0];
-        return applied.Ok
-            ? new CrashRepairResult(CrashRepairOutcome.Disabled, folder, null)
-            : new CrashRepairResult(CrashRepairOutcome.Failed, folder, applied.Error);
+        if (applied.Ok) return new CrashRepairResult(CrashRepairOutcome.Disabled, folder, null);
+        return new CrashRepairResult(
+            applied.Error == RepairExecutor.InUseMessage ? CrashRepairOutcome.InUse : CrashRepairOutcome.Failed,
+            folder, applied.Error);
+    }
+
+    /// <summary>
+    /// The Home status line when a crash fix couldn't turn every blamed mod off. A jar another account's running game
+    /// holds can't be changed from the Mods tab either, so that case names the real way out: close that game.
+    /// </summary>
+    public static string FailureLine(string version, IReadOnlyList<(string Jar, CrashRepairOutcome Outcome)> failed)
+    {
+        var jars = string.Join(", ", failed.Select(f => f.Jar));
+        return failed.Any(f => f.Outcome == CrashRepairOutcome.InUse)
+            ? $"Couldn't turn off {jars}: a Minecraft {version} game on another account is using it. Close that game, then press Play."
+            : $"Couldn't turn off {jars}. Turn it off on the Mods tab, then press Play.";
     }
 }

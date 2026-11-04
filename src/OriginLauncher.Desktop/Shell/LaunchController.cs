@@ -681,17 +681,16 @@ public sealed class LaunchController
                     LauncherState.Write(s => CrashMemory.ApplyRaise(s, ram));
                     break;
                 case CrashFixKind.DisableMods:
-                    var failed = new List<string>();
+                    var failed = new List<(string, CrashRepairOutcome)>();
                     foreach (var jar in fix.Jars)
                     {
                         var result = CrashRepair.DisableBlamed(game.Version, _profileByKey.GetValueOrDefault(game.Key), jar,
                             App.Core.Mods.ModManager.IsManagedFile);
-                        if (result.Outcome != CrashRepairOutcome.Disabled) failed.Add(jar);
+                        if (result.Outcome != CrashRepairOutcome.Disabled) failed.Add((jar, result.Outcome));
                     }
                     if (failed.Count > 0)
                     {
-                        Note(game.Key, $"Couldn't turn off {string.Join(", ", failed)}. Turn it off on the Mods tab, then press Play.",
-                            LaunchTone.Error, game.Version);
+                        Note(game.Key, CrashRepair.FailureLine(game.Version, failed), LaunchTone.Error, game.Version);
                         return; // relaunching with the cause still in place would only crash again
                     }
                     break;
