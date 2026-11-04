@@ -114,6 +114,24 @@ public final class OriginScreenRenderer {
 	private OriginScreenRenderer() {
 	}
 
+	/**
+	 * True when renderLoading will paint the opaque Origin loading picture over the
+	 * vanilla loading overlay this frame (the same two checks it makes), so vanilla's
+	 * own logo and bar under it need not be drawn (LoadingOverlayCoverMixin, B-30).
+	 */
+	public static boolean coversLoadingOverlay() {
+		return loadingHook && !broken && !com.origin.client.client.OriginStyle.vanillaMenus();
+	}
+
+	// Set by LoadingOverlayMixin's HEAD hook: its TAIL draw (renderLoading) is in place.
+	// The cover lives in another mixin config, so without this a config that failed
+	// to apply could leave the loading screen with neither picture.
+	private static boolean loadingHook = false;
+
+	public static void loadingHookLive() {
+		loadingHook = true;
+	}
+
 	/** False once any Origin screen draw has failed; vanilla takes over. */
 	public static boolean isActive() {
 		return !broken;

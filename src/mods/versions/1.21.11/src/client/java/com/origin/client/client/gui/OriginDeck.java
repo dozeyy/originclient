@@ -152,6 +152,40 @@ public final class OriginDeck {
 			unclip();
 		}
 		g.pose().popMatrix();
+		requestHandOverHit();
+	}
+
+	/**
+	 * The pointer turns into a hand over any Origin control (G26-2), the way Minecraft 1.21.9+
+	 * shows it over its own buttons. The topmost click target under the mouse decides; a
+	 * click-anywhere-to-dismiss backdrop (half the window or more both ways) keeps the arrow.
+	 */
+	private void requestHandOverHit() {
+		try {
+			var win = Minecraft.getInstance().getWindow();
+			float halfW = win.getWidth() / s / 2f, halfH = win.getHeight() / s / 2f;
+			for (int i = hits.size() - 1; i >= 0; i--) {
+				Hit h = hits.get(i);
+				if (h.contains(mx, my)) {
+					if (h.x1() - h.x0() < halfW || h.y1() - h.y0() < halfH) {
+						g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND);
+					}
+					return;
+				}
+			}
+		} catch (Throwable ignored) {
+			// the arrow stays
+		}
+	}
+
+	/** Vanilla's widget pointer (AbstractButton.renderWidget / handleCursor, javap 1.21.10 and
+	 *  1.21.11): a hand over a usable control, "not allowed" over a disabled one. For Origin's
+	 *  restyled vanilla widgets, whose cancelled draw used to make this request. */
+	public static void widgetPointer(GuiGraphics g, boolean hovered, boolean active) {
+		if (hovered) {
+			g.requestCursor(active ? com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND
+					: com.mojang.blaze3d.platform.cursor.CursorTypes.NOT_ALLOWED);
+		}
 	}
 
 	/** GUI px -> design px (for input events between frames). */
@@ -573,11 +607,23 @@ public final class OriginDeck {
 		}
 	}
 
+	/** Vanilla's button click (the sound AbstractButton plays on press), so Origin's own
+	 *  cards, tabs and toggles sound like every Minecraft button. Never fails a click. */
+	public static void clickSound() {
+		try {
+			Minecraft.getInstance().getSoundManager().play(
+					net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+		} catch (Throwable ignored) {
+			// no sound engine: the click still runs
+		}
+	}
+
 	/** Runs the topmost hit under (x,y) design px. True if one ran. */
 	public static boolean click(List<Hit> hits, float x, float y) {
 		for (int i = hits.size() - 1; i >= 0; i--) {
 			Hit h = hits.get(i);
 			if (h.contains(x, y)) {
+				clickSound();
 				h.action().run();
 				return true;
 			}

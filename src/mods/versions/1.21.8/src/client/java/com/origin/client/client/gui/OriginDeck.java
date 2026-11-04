@@ -572,11 +572,23 @@ public final class OriginDeck {
 		}
 	}
 
+	/** Vanilla's button click (the sound AbstractButton plays on press), so Origin's own
+	 *  cards, tabs and toggles sound like every Minecraft button. Never fails a click. */
+	public static void clickSound() {
+		try {
+			Minecraft.getInstance().getSoundManager().play(
+					net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+		} catch (Throwable ignored) {
+			// no sound engine: the click still runs
+		}
+	}
+
 	/** Runs the topmost hit under (x,y) design px. True if one ran. */
 	public static boolean click(List<Hit> hits, float x, float y) {
 		for (int i = hits.size() - 1; i >= 0; i--) {
 			Hit h = hits.get(i);
 			if (h.contains(x, y)) {
+				clickSound();
 				h.action().run();
 				return true;
 			}

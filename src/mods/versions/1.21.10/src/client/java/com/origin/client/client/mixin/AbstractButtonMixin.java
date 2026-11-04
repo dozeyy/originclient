@@ -41,6 +41,8 @@ public class AbstractButtonMixin {
 		// Only cancel vanilla when Origin actually drew -- if the styled draw
 		// ever fails (e.g. on a different game version), vanilla buttons return.
 		if (OriginButtonRenderer.render(guiGraphics, (AbstractButton) (Object) this)) {
+			AbstractButton self = (AbstractButton) (Object) this;
+			com.origin.client.client.gui.OriginDeck.widgetPointer(guiGraphics, self.isHovered(), self.active);   // vanilla's request, cancelled with its draw
 			ci.cancel();
 		}
 	}

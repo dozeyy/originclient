@@ -681,12 +681,19 @@ public class OriginModMenuScreen extends Screen {
 		}
 
 		// search box: 176 wide, shrunk only if the chips need the room
-		float toolsW = 30 + 2 + 30;
+		boolean modMenu = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("modmenu");
+		float toolsW = 30 + 2 + 30 + (modMenu ? 2 + 30 : 0);
 		float searchW = Math.max(120, Math.min(SEARCH_W, W - M - (x - 8 + 12 + toolsW + 8)));
 		float sx = W - M - searchW;
 		float tx = sx - 8 - toolsW;
 		drawTool(d, "@grid", tx, !list, () -> Mods.setMetaBool("menuListView", false));
 		drawTool(d, "@list", tx + 32, list, () -> Mods.setMetaBool("menuListView", true));
+		if (modMenu) {
+			drawTool(d, "@title-mods", tx + 64, false, this::openModMenuList);
+			if (d.over(tx + 64, BAR_Y + 2, 30, 28)) {
+				tip = "All installed mods (Mod Menu)";
+			}
+		}
 		drawSearch(d, sx, BAR_Y + 1, searchW, search, "Search mods", searchFocused, true, () -> {
 			searchFocused = true;
 			profOpen = false;
@@ -758,6 +765,19 @@ public class OriginModMenuScreen extends Screen {
 		}
 		d.icon(icon, x + 7.5f, BAR_Y + 8.5f, 15, on ? TEXT : hov ? DIM : MUTE);
 		d.hit(x, BAR_Y + 2, 30, 28, action);
+	}
+
+	/** Mod Menu's list of every installed jar, back to this menu on close. Mod Menu is not a
+	 *  compile dependency on most versions, so it is opened by name; if that fails the click
+	 *  does nothing. */
+	private void openModMenuList() {
+		try {
+			Object screen = Class.forName("com.terraformersmc.modmenu.gui.ModsScreen")
+					.getConstructor(Screen.class).newInstance(this);
+			Minecraft.getInstance().setScreen((Screen) screen);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: could not open Mod Menu's list", t);
+		}
 	}
 
 	/** The search field (also used on the mod page and the Settings tab). */
@@ -1283,15 +1303,27 @@ public class OriginModMenuScreen extends Screen {
 			d.textMid("MENU", M, y + 8, 10, true, CAPS_TRACK, MUTE);
 			y += 24;
 			float colW = (CW - 48) / 2f;
-			boolean solid = Mods.metaNum("menuBgOpacity", 1.0) > 0.5;
+			boolean ownedByTransparent = Mods.bool(Mods.GENERAL_ID, "transparentMenus");
+			boolean solid = !ownedByTransparent && Mods.metaNum("menuBgOpacity", 1.0) > 0.5;
 			boolean hov = d.over(M - 12, y, colW + 24, OPT_H);
 			if (hov) {
-				d.rect(M - 12, y, colW + 24, OPT_H, 6, 0x0AFFFFFF);
-				tip = "On: a solid panel behind the menu. Off: see-through.";
+				if (!ownedByTransparent) {
+					d.rect(M - 12, y, colW + 24, OPT_H, 6, 0x0AFFFFFF);
+				}
+				tip = ownedByTransparent
+						? "Transparent Menus (Settings > General) is on, so menus are see-through. Turn it off to choose here."
+						: "On: a solid panel behind the menu. Off: see-through.";
+			}
+			float rowAlpha = d.alpha;
+			if (ownedByTransparent) {
+				d.alpha = rowAlpha * 0.45f;
 			}
 			d.textMid("Solid Menu Background", M, y + 20, 14, false, 0, TEXT);
 			d.toggle("@bgop", M + colW - 36, y + 10, solid);
-			d.hit(M - 12, y, colW + 24, OPT_H, () -> Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0));
+			d.alpha = rowAlpha;
+			if (!ownedByTransparent) {
+				d.hit(M - 12, y, colW + 24, OPT_H, () -> Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0));
+			}
 			y += OPT_H;
 		} else {
 			String sid = subTab == SubTab.GENERAL ? Mods.GENERAL_ID : Mods.PERFORMANCE_ID;

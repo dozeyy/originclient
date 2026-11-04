@@ -28,6 +28,7 @@ public class TabButtonMixin {
 		TabButton self = (TabButton) (Object) this;
 		if (OriginButtonRenderer.renderTab(guiGraphics, self, self.getX(), self.getY(),
 				self.getWidth(), self.getHeight(), self.getMessage(), self.isSelected(), self.isHovered())) {
+			com.origin.client.client.gui.OriginDeck.widgetPointer(guiGraphics, self.isHovered() && !self.isSelected(), self.active);
 			ci.cancel();
 		}
 	}

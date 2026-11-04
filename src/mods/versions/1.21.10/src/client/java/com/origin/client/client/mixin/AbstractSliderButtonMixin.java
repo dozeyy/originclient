@@ -25,6 +25,8 @@ public class AbstractSliderButtonMixin {
 	private void originclient$originStyle(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		// Only cancel vanilla when Origin actually drew (fail-soft contract).
 		if (OriginButtonRenderer.renderSlider(guiGraphics, (AbstractSliderButton) (Object) this, this.value)) {
+			AbstractSliderButton self = (AbstractSliderButton) (Object) this;
+			com.origin.client.client.gui.OriginDeck.widgetPointer(guiGraphics, self.isHovered(), self.active);   // vanilla's request, cancelled with its draw
 			ci.cancel();
 		}
 	}

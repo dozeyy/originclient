@@ -6,6 +6,7 @@
 		"GenericMessageScreenMixin",
 		"LevelLoadingScreenMixin",
 		"ProgressScreenMixin",
+		"ProgressScreenAccessor",
 		"ConnectScreenMixin",
 		"RealmsTaskScreenMixin",
 		"LevelLoadingScreenAccessor",
