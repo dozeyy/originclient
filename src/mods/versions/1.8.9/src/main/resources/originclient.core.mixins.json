@@ -13,6 +13,7 @@
 		"IntegratedServerShutdownMixin",
 		"EntityLivingBaseLookMixin",
 		"KeyBindingMixin",
-		"MouseHelperRawMixin"
+		"MouseHelperRawMixin",
+		"MouseHelperUngrabMixin"
 	]
 }
