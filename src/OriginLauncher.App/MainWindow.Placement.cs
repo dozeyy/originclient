@@ -12,7 +12,8 @@ namespace OriginLauncher.App;
 //
 // Maximising (there is no maximise button: Aero snap to the top edge, Win+Up) answers WM_GETMINMAXINFO with the
 // work area of the monitor the window is on (UI/WindowFit.Maximised), so the chromeless window stops at the taskbar
-// instead of covering it and overhanging every edge by the resize border.
+// instead of covering it and overhanging every edge by the resize border. With an auto-hide taskbar a sliver stays free
+// on its edge, so the taskbar still slides in over a maximised launcher.
 public partial class MainWindow
 {
     private const int WM_GETMINMAXINFO = 0x0024;
@@ -33,7 +34,10 @@ public partial class MainWindow
             var monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
             if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info)) return IntPtr.Zero;
-            if (WindowFit.Maximised(ToBox(info.rcMonitor), ToBox(info.rcWork)) is not { } max) return IntPtr.Zero;
+            var monitorBox = ToBox(info.rcMonitor);
+            var workBox = ToBox(info.rcWork);
+            var autoHide = workBox == monitorBox ? AutoHideTaskbarEdge(info.rcMonitor) : WindowFit.Edge.None;
+            if (WindowFit.Maximised(monitorBox, workBox, autoHide) is not { } max) return IntPtr.Zero;
 
             var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
             mmi.ptMaxPosition = new POINT { X = (int)max.Left, Y = (int)max.Top };
@@ -45,6 +49,39 @@ public partial class MainWindow
     }
 
     private static WindowFit.Box ToBox(MONITOR_RECT r) => new(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+
+    // The edge of an auto-hide taskbar on this monitor, or None: the taskbar's auto-hide state first (ABM_GETSTATE),
+    // then which edge of THIS monitor holds one (ABM_GETAUTOHIDEBAREX, Windows 8+; a secondary monitor's taskbar too).
+    // Only asked when the work area is the whole monitor, which is the only case an auto-hide taskbar matters.
+    private static WindowFit.Edge AutoHideTaskbarEdge(MONITOR_RECT monitor)
+    {
+        var state = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>() };
+        if (((uint)SHAppBarMessage(ABM_GETSTATE, ref state) & ABS_AUTOHIDE) == 0) return WindowFit.Edge.None;
+        foreach (var edge in new[] { WindowFit.Edge.Bottom, WindowFit.Edge.Left, WindowFit.Edge.Top, WindowFit.Edge.Right })
+        {
+            var query = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>(), uEdge = (uint)edge, rc = monitor };
+            if (SHAppBarMessage(ABM_GETAUTOHIDEBAREX, ref query) != UIntPtr.Zero) return edge;
+        }
+        return WindowFit.Edge.None;
+    }
+
+    private const uint ABM_GETSTATE = 0x4;
+    private const uint ABM_GETAUTOHIDEBAREX = 0xB;
+    private const uint ABS_AUTOHIDE = 0x1;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct APPBARDATA
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uCallbackMessage;
+        public uint uEdge;
+        public MONITOR_RECT rc;
+        public IntPtr lParam;
+    }
+
+    [DllImport("shell32.dll")]
+    private static extern UIntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
 
     private void FitToWorkArea()
     {
