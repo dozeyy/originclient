@@ -97,7 +97,7 @@ public abstract class GuiButtonMixin {
 			target = "Lnet/minecraft/client/gui/GuiButton;drawCenteredString(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;III)V"),
 			index = 4)
 	private int originclient$darkPageEnd(int color) {
-		OriginDarkWidgets.endButton();
-		return color;
+		// also the label colour: hovered yellow -> white on the dark page (1.21.1's dark buttons)
+		return OriginDarkWidgets.endButton(color);
 	}
 }

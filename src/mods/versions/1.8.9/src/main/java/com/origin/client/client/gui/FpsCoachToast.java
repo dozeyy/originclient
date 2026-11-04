@@ -64,11 +64,15 @@ public final class FpsCoachToast {
 			mc.entityRenderer.setupOverlayRendering();
 			ScaledResolution sr = Gfx.scaled();
 			int x = Math.round(sr.getScaledWidth() - (W + MARGIN) * eased);
+			// The shared toast column (SocialToast.columnTop): under the achievement pop-up and
+			// the friend toasts, never on top of them (each used to start at the very top).
+			int y = com.origin.client.client.social.SocialToast.columnTop(mc)
+					+ com.origin.client.client.social.SocialToast.stackHeight() + MARGIN;
 			GlStateManager.disableLighting();
 			GlStateManager.enableBlend();
 			Gfx g = new Gfx();
 			g.pose().pushPose();
-			g.pose().translate(x, MARGIN, 0);
+			g.pose().translate(x, y, 0);
 			try {
 				draw(g, mc.fontRendererObj);
 			} finally {

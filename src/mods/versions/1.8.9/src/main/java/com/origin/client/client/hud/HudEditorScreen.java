@@ -38,6 +38,10 @@ public class HudEditorScreen extends OriginScreen {
 	private final java.util.List<OriginDeck.Hit> hits = new java.util.ArrayList<>();
 	private float deckS = 1, deckOx, deckOy;
 	private final long openedAt = System.currentTimeMillis();
+	// Right Shift still held from the press that opened the editor: OriginScreen turns key
+	// repeat on, so the OS auto-repeat of that same hold arrives here as new presses and used
+	// to close the editor again. Ignored until that hold is released (the mod menu's rule).
+	private boolean rshiftHeldAtOpen = rshiftDownNow();
 
 	private String draggingId = null;
 	private double dragOffX, dragOffY, dragX, dragY;
@@ -513,7 +517,9 @@ public class HudEditorScreen extends OriginScreen {
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		// LWJGL2 codes; anything unhandled falls to the bridge, which sends Esc to onClose()
 		if (keyCode == Keyboard.KEY_RSHIFT) {
-			onClose();
+			if (!rshiftHeldAtOpen && !Keyboard.isRepeatEvent()) {
+				onClose();
+			}
 			return true;
 		}
 		if (keyCode == Keyboard.KEY_R && hoveredId != null) {
@@ -521,6 +527,23 @@ public class HudEditorScreen extends OriginScreen {
 			return true;
 		}
 		return super.keyPressed(keyCode, scanCode, modifiers);
+	}
+
+	private static boolean rshiftDownNow() {
+		try {
+			return Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	// 1.8.9: keyTyped only sees key-downs, so the release that ends the opening hold is read here.
+	@Override
+	public void handleKeyboardInput() throws java.io.IOException {
+		super.handleKeyboardInput();
+		if (Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+			rshiftHeldAtOpen = false;
+		}
 	}
 
 	// "hud:<id>" per element, built once: the per-frame concatenation was garbage on every frame.

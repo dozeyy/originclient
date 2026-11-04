@@ -97,7 +97,7 @@ public final class Mods {
 	// 1.8.9: no Shader Performance Mode row -- shaders are OptiFine's here, not
 	// Iris, and OptiFine has its own shadow quality setting in its shader menu.
 	public static final List<ModOption> PERFORMANCE_SETTINGS = java.util.Arrays.asList(
-			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background, and pauses Origin's HUD and cosmetic sparkles until you come back. Saves GPU and battery; the game itself keeps running normally."),
+			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background, and pauses Origin's cosmetic sparkles until you come back. Saves GPU and battery; the game itself keeps running normally."),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
@@ -635,8 +635,9 @@ public final class Mods {
 				ModOption.toggle("unlimited", "Unlimited Chat", false).tip("Remove the limit on stored chat history length."),
 				ModOption.toggle("stackSpam", "Stack Spam Messages", true).tip("Collapse repeated messages into one line with a counter."),
 				ModOption.toggle("textShadow", "Text Shadow in Chat", true),
-				// 1.8.9: no "Keep Chat History" row -- 1.8.9 never clears chat when you
-				// leave a server, so the toggle would do nothing (its stored value stays).
+				// 1.8.9 clears chat (and the Up-arrow history) whenever the title screen opens
+				// after leaving a world; MenuHooks.keepChat skips that while this is on.
+				ModOption.toggle("keepHistory", "Keep Chat History", true),
 				ModOption.toggle("smoothChat", "Smooth Chat", true).tip("Animate new messages sliding into the chat."),
 				ModOption.toggle("timestamps", "Timestamps", false),
 				// Read on its own (ChatCopy), not behind the card's on/off: works by default.

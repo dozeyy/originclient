@@ -81,4 +81,22 @@ public abstract class GuiButtonExtMixin extends GuiButton {
 	private ResourceLocation originclient$darkPage(ResourceLocation texture) {
 		return OriginDarkWidgets.forgeButton(texture);
 	}
+
+	// The label: hovered yellow -> white when the box above went on the dark page (1.21.1's dark
+	// buttons stay white). drawCenteredString is a vanilla Gui method called on this button, so
+	// the target is spelled with the MCP name (dev) and the SRG name func_73732_a (players),
+	// remap = false, like the method names above; whichever matches applies.
+	@ModifyArg(method = {"drawButton", "func_146112_a"}, at = @At(value = "INVOKE",
+			target = "Lnet/minecraftforge/fml/client/config/GuiButtonExt;drawCenteredString(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;III)V",
+			remap = false), index = 4, remap = false)
+	private int originclient$labelColour(int color) {
+		return OriginDarkWidgets.forgeLabel(color);
+	}
+
+	@ModifyArg(method = {"drawButton", "func_146112_a"}, at = @At(value = "INVOKE",
+			target = "Lnet/minecraftforge/fml/client/config/GuiButtonExt;func_73732_a(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;III)V",
+			remap = false), index = 4, remap = false)
+	private int originclient$labelColourSrg(int color) {
+		return OriginDarkWidgets.forgeLabel(color);
+	}
 }

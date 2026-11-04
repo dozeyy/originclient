@@ -23,12 +23,12 @@ import java.util.concurrent.Executors;
 // No pop-up -- it fades with the rest of chat and is only clickable with chat
 // open (T), like any chat link. Nothing is uploaded; there's no account.
 //
-// Flow on 1.8.9: F2 runs ScreenShotHelper.saveScreenshot(...) synchronously and
-// prints the IChatComponent it RETURNS ("screenshot.success", whose file-name
-// argument carries an OPEN_FILE click event holding the absolute path). The
-// ScreenshotKeyMixin RETURN hook hands that result to decorate(), which appends
-// the buttons; vanilla prints the decorated line as usual. (Forge 1.8.9 has no
-// ScreenshotEvent -- that is 1.11+.)
+// Flow on 1.8.9: F2's PNG is written off the render thread by ScreenshotSaver, which
+// posts vanilla's line ("screenshot.success", whose file-name argument carries an
+// OPEN_FILE click event holding the absolute path) through decorate() once the file
+// exists. Saves ScreenshotSaver leaves to vanilla (synchronous) reach decorate() from
+// the ScreenshotKeyMixin RETURN hook instead. Either way decorate() appends the
+// buttons on the client thread. (Forge 1.8.9 has no ScreenshotEvent -- that is 1.11+.)
 //
 // Clicking: each button's style carries a ScreenshotLinks token as its insertion
 // (the file and action stay in memory, so chat text a server sends can never name
@@ -67,7 +67,7 @@ public final class ScreenshotChat {
 		}
 	}
 
-	// Main thread (1.8.9 writes the PNG synchronously). Returns the chat line to post.
+	// Client thread, after the PNG is on disk. Returns the chat line to post.
 	private static IChatComponent onResult(IChatComponent msg) {
 		if (!Mods.on(ID)) {
 			return msg;

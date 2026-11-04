@@ -56,6 +56,8 @@ public final class OriginDarkWidgets {
 	private static boolean drawing = false;
 	/** The label hook (end marker) has run at least once: proof it applied, so opening a window is safe. */
 	private static boolean endSeen = false;
+	/** A Forge GuiButtonExt box just went on the dark page; its label (forgeLabel) reads and clears it. */
+	private static boolean forgeDark = false;
 	/** One "hook active" log line per hook (bit per hook), so a CI run proves each one applied. */
 	private static int proven = 0;
 
@@ -87,10 +89,26 @@ public final class OriginDarkWidgets {
 		}
 	}
 
-	/** GuiButton.drawButton's label: the box and the knob are done. */
-	public static void endButton() {
+	/** 1.8.9 GuiButton's hovered label colour (yellow); the dark buttons keep it white, as 1.21.1's do. */
+	private static final int HOVER_YELLOW = 16777120;
+
+	/**
+	 * GuiButton.drawButton's label: the box and the knob are done. Returns the label colour:
+	 * on a button drawn on the dark page, hovered yellow becomes white (disabled grey, the
+	 * normal light grey and a button's own packed colour stay as they are).
+	 */
+	public static int endButton(int color) {
+		boolean dark = drawing;
 		drawing = false;
 		endSeen = true;
+		return dark && color == HOVER_YELLOW ? 0xFFFFFF : color;
+	}
+
+	/** Forge GuiButtonExt's label colour: white instead of hovered yellow when its box went on the dark page. */
+	public static int forgeLabel(int color) {
+		boolean dark = forgeDark;
+		forgeDark = false;
+		return dark && color == HOVER_YELLOW ? 0xFFFFFF : color;
 	}
 
 	/** TextureManager.bindTexture HEAD (every bind in the game: one static read when no button draws). */
@@ -112,6 +130,7 @@ public final class OriginDarkWidgets {
 				return texture;
 			}
 			proven(4, "Forge GuiButtonExt box");
+			forgeDark = true;
 			return PAGE;
 		} catch (Throwable t) {
 			fail(t);

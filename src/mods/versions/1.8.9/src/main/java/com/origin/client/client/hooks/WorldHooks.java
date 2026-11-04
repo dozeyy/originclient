@@ -184,10 +184,17 @@ public final class WorldHooks {
 	// GameSettingsZoomMixin puts the real key and the row back around every options
 	// save, so options.txt always keeps the player's own OptiFine binding -- removing
 	// Origin leaves OptiFine's zoom exactly as the player set it.
+	// The other way round too (QoL 2026-11-04): with Origin's Zoom mod OFF (the starter
+	// config) only OptiFine's zoom works, so Origin's own "Zoom" row leaves Controls --
+	// otherwise a fresh install showed two red "Zoom" rows on C. Its key is kept (no park:
+	// OptiFine reads its zoom key raw, not through KeyBinding's hash) and the row is back
+	// around every options save, so options.txt keeps the player's Origin zoom key too.
+	// One rule: exactly one Zoom row, the zoom that works. Without OptiFine nothing changes.
 	private static Field ofZoomField;
 	private static boolean ofZoomLooked = false;
 	private static boolean ofZoomParked = false;
 	private static int parkedOfZoomKey = 0;
+	private static boolean originZoomHidden = false;
 
 	private static KeyBinding ofZoomKey(GameSettings gs) {
 		if (!ofZoomLooked) {
@@ -217,12 +224,30 @@ public final class WorldHooks {
 			showOfZoom(gs, of, parkedOfZoomKey);
 			KeyBinding.resetKeyBindingArrayAndHash();
 		}
+		KeyBinding mine = OriginKeyBindings.zoom;
+		if (mine != null && !want && !originZoomHidden) {
+			originZoomHidden = true;
+			removeRow(gs, mine);
+		} else if (mine != null && want && originZoomHidden) {
+			originZoomHidden = false;
+			addRow(gs, mine);
+		}
 	}
 
 	private static void hideOfZoom(GameSettings gs, KeyBinding of) {
 		of.setKeyCode(0);
+		removeRow(gs, of);
+	}
+
+	private static void showOfZoom(GameSettings gs, KeyBinding of, int key) {
+		of.setKeyCode(key);
+		addRow(gs, of);
+	}
+
+	// gameSettings.keyBindings is what Controls lists (sorted there) and options.txt saves/loads.
+	private static void removeRow(GameSettings gs, KeyBinding kb) {
 		KeyBinding[] all = gs.keyBindings;
-		int at = java.util.Arrays.asList(all).indexOf(of);
+		int at = java.util.Arrays.asList(all).indexOf(kb);
 		if (at >= 0) {
 			KeyBinding[] out = new KeyBinding[all.length - 1];
 			System.arraycopy(all, 0, out, 0, at);
@@ -231,29 +256,34 @@ public final class WorldHooks {
 		}
 	}
 
-	private static void showOfZoom(GameSettings gs, KeyBinding of, int key) {
-		of.setKeyCode(key);
+	private static void addRow(GameSettings gs, KeyBinding kb) {
 		KeyBinding[] all = gs.keyBindings;
-		if (!java.util.Arrays.asList(all).contains(of)) {
+		if (!java.util.Arrays.asList(all).contains(kb)) {
 			KeyBinding[] out = java.util.Arrays.copyOf(all, all.length + 1);
-			out[all.length] = of;
+			out[all.length] = kb;
 			gs.keyBindings = out;
 		}
 	}
 
-	/** GameSettingsZoomMixin, saveOptions HEAD: the player's real OptiFine zoom key (and its row) go into the file. */
+	/** GameSettingsZoomMixin, saveOptions HEAD: the player's real zoom keys (and their rows) go into the file. */
 	public static void beforeOptionsSave(GameSettings gs) {
 		KeyBinding of = ofZoomParked ? ofZoomKey(gs) : null;
 		if (of != null) {
 			showOfZoom(gs, of, parkedOfZoomKey);
 		}
+		if (originZoomHidden && OriginKeyBindings.zoom != null) {
+			addRow(gs, OriginKeyBindings.zoom);
+		}
 	}
 
-	/** GameSettingsZoomMixin, saveOptions RETURN: switched off again while Origin's zoom is on. */
+	/** GameSettingsZoomMixin, saveOptions RETURN: the inactive zoom's row leaves Controls again. */
 	public static void afterOptionsSave(GameSettings gs) {
 		KeyBinding of = ofZoomParked ? ofZoomKey(gs) : null;
 		if (of != null) {
 			hideOfZoom(gs, of);
+		}
+		if (originZoomHidden && OriginKeyBindings.zoom != null) {
+			removeRow(gs, OriginKeyBindings.zoom);
 		}
 	}
 

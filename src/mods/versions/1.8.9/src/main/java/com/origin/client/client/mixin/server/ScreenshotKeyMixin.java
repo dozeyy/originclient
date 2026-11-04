@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin.server;
 
 import com.origin.client.client.mods.ScreenshotChat;
+import com.origin.client.client.mods.ScreenshotSaver;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ScreenShotHelper;
@@ -18,8 +19,26 @@ import java.io.File;
 // sees every save; ScreenshotChat.decorate appends the buttons to that same line
 // (a failure line is returned untouched). RETURN is the OptiFine-safe shape
 // should OptiFine touch this class. Forge 1.8.9 has no ScreenshotEvent (1.11+).
+//
+// Async save (ScreenshotSaver, 2026-11-04): the HEAD hook reads the pixels and hands the
+// PNG write to an IO thread, returning a placeholder; the decorated line is posted when the
+// file exists, so the RETURN hook below only sees the saves ScreenshotSaver leaves to vanilla.
 @Mixin(ScreenShotHelper.class)
 public class ScreenshotKeyMixin {
+	@Inject(method = "saveScreenshot(Ljava/io/File;Ljava/lang/String;IILnet/minecraft/client/shader/Framebuffer;)Lnet/minecraft/util/IChatComponent;",
+			at = @At("HEAD"), cancellable = true)
+	private static void originclient$asyncSave(File gameDir, String name, int width, int height,
+			Framebuffer buffer, CallbackInfoReturnable<IChatComponent> cir) {
+		try {
+			IChatComponent pending = ScreenshotSaver.begin(gameDir, name, width, height, buffer);
+			if (pending != null) {
+				cir.setReturnValue(pending);
+			}
+		} catch (Throwable t) {
+			// vanilla saves it on this thread
+		}
+	}
+
 	@Inject(method = "saveScreenshot(Ljava/io/File;Ljava/lang/String;IILnet/minecraft/client/shader/Framebuffer;)Lnet/minecraft/util/IChatComponent;",
 			at = @At("RETURN"), cancellable = true)
 	private static void originclient$screenshotChat(File gameDir, String name, int width, int height,

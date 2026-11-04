@@ -32,6 +32,12 @@ public class OriginClientMod {
 	private static OriginClientMod instance;
 
 	private boolean freelookWasDown = false;
+	// Alt+Tab guard for Freelook's default Left Alt (ticks since the last key press, capped)
+	// and the deferred "Freelook is off on Hypixel" line. 10 ticks = half a second.
+	private static final int ALT_TAB_TICKS = 10, FREELOOK_SAY_DELAY_TICKS = 3;
+	private int freelookTicksSincePress = ALT_TAB_TICKS + 1;
+	private int freelookFocusTicks = ALT_TAB_TICKS + 1;
+	private boolean freelookSayPending = false, freelookIgnoreHold = false;
 	private int savedPerspective = -1;
 	// static: GameSettingsZoomMixin reads them around every options.txt write (chatOptionsForSave)
 	private static boolean chatApplied = false;
@@ -524,25 +530,62 @@ public class OriginClientMod {
 		// Controls (syncedKeyDown). Hold = look around; release = snap back (the
 		// player's real rotation is never touched — the world area's camera hook
 		// renders OriginFreelookState instead). "Toggle Freelook" latches.
+		// A window in the background gets no key presses: a key LWJGL still reports held
+		// there is stale, so it never counts.
+		boolean focused = org.lwjgl.opengl.Display.isActive();
 		boolean keyDown = Mods.on("freelook") && client.currentScreen == null
-				&& syncedKeyDown(client, freelookLink, OriginKeyBindings.freelook, "freelook", "key");
+				&& syncedKeyDown(client, freelookLink, OriginKeyBindings.freelook, "freelook", "key")
+				&& focused;
+		boolean press = keyDown && !freelookWasDown;
+		// Alt+Tab back INTO the game: Alt can still be down when the window gets focus. A press
+		// within ALT_TAB_TICKS of getting focus is ignored until that key is let go.
+		freelookFocusTicks = focused ? Math.min(freelookFocusTicks + 1, ALT_TAB_TICKS + 1) : 0;
+		if (press && freelookFocusTicks <= ALT_TAB_TICKS) {
+			freelookIgnoreHold = true;
+		}
+		if (!keyDown) {
+			freelookIgnoreHold = false;
+		}
+		boolean rawKeyDown = keyDown;
+		if (freelookIgnoreHold) {
+			keyDown = false;
+			press = false;
+		}
+		freelookTicksSincePress = press ? 0 : Math.min(freelookTicksSincePress + 1, ALT_TAB_TICKS + 1);
 		boolean freelookDown = Mods.bool("freelook", "toggle")
-				? (keyDown && !freelookWasDown) != OriginFreelookState.active
+				? press != OriginFreelookState.active
 				: keyDown;
 		// Freelook switched off (or stepped aside for the player's own mod) mid-look: end
 		// it and put the camera back, as Snaplook does. A toggled-on look used to stay on.
 		if (!Mods.on("freelook")) {
 			freelookDown = false;
 		}
-		// Hypixel bans freelook: there the key does nothing (an action-bar line on each
-		// press says why) and a toggled-on freelook from before the join ends at once.
-		// Gated here, where the camera detach starts, so every camera hook stays inert.
+		// Alt+Tab: Left Alt is Freelook's default key, so switching windows pressed it. Focus
+		// lost within ALT_TAB_TICKS of the press = the player left the game, not a look: end it
+		// and put the view back (Toggle Freelook too, where that press would stay latched on).
+		if (!focused && freelookTicksSincePress <= ALT_TAB_TICKS) {
+			freelookDown = false;
+			freelookSayPending = false;
+		}
+		// Hypixel bans freelook: there the key does nothing (an action-bar line says why)
+		// and a toggled-on freelook from before the join ends at once. Gated here, where the
+		// camera detach starts, so every camera hook stays inert.
 		if ((freelookDown || OriginFreelookState.active)
 				&& com.origin.client.client.mods.Hypixel.bansFreelook(client)) {
-			if ((keyDown && !freelookWasDown) || OriginFreelookState.active) {
+			if (OriginFreelookState.active) {
 				com.origin.client.client.mods.Hypixel.sayFreelookOff(client);
+			} else if (press) {
+				freelookSayPending = true;
 			}
 			freelookDown = false;
+		}
+		// The line for a press waits FREELOOK_SAY_DELAY_TICKS: an Alt+Tab has lost focus by then and
+		// stays quiet (it printed on every Alt+Tab on Hypixel).
+		if (freelookSayPending && freelookTicksSincePress >= FREELOOK_SAY_DELAY_TICKS) {
+			freelookSayPending = false;
+			if (focused && com.origin.client.client.mods.Hypixel.bansFreelook(client)) {
+				com.origin.client.client.mods.Hypixel.sayFreelookOff(client);
+			}
 		}
 		if (freelookDown && !OriginFreelookState.active) {
 			OriginFreelookState.cameraYaw = player.rotationYaw;
@@ -568,7 +611,7 @@ public class OriginClientMod {
 				savedPerspective = -1;
 			}
 		}
-		freelookWasDown = keyDown;
+		freelookWasDown = rawKeyDown;   // the real key, so an ignored hold never re-presses
 
 		// Smooth Camera Movement (zoom / freelook / snaplook): ride vanilla's cinematic
 		// camera smoothing while either is engaged, then restore the player's own

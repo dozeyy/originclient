@@ -4,6 +4,7 @@ import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.hud.BossBarHud;
 import com.origin.client.client.hud.CombatTracker;
+import com.origin.client.client.hud.DebugTextArea;
 import com.origin.client.client.hud.HudElements;
 import com.origin.client.client.hud.OriginTabList;
 import com.origin.client.client.minimap.MinimapHud;
@@ -103,7 +104,18 @@ public final class HudHooks {
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public void onOverlayPre(RenderGameOverlayEvent.Pre e) {
 		try {
+			// Text extends Pre (GuiIngameForge.renderHUDText posts it with the F3 lines): its
+			// lists are kept and measured when the HUD draws (Post(ALL)), after every other
+			// mod has added its lines.
+			if (e instanceof RenderGameOverlayEvent.Text) {
+				RenderGameOverlayEvent.Text t = (RenderGameOverlayEvent.Text) e;
+				DebugTextArea.text(t.left, t.right);
+				return;
+			}
 			switch (e.type) {
+				case ALL:
+					DebugTextArea.begin();
+					break;
 				case CROSSHAIRS:
 					if (Mods.on("crosshair") && OriginCrosshair.render(new Gfx())) {
 						e.setCanceled(true);

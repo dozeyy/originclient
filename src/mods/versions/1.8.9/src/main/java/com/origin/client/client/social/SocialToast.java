@@ -5,6 +5,7 @@ import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
+import com.origin.client.client.mixin.menus.GuiAchievementAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
@@ -42,6 +43,8 @@ public final class SocialToast {
 	private static final long SLIDE_MS = 600;
 	private static final int BTN_H = 16;
 	private static final int MAX_VISIBLE = 5;
+	/** GuiAchievement's pop-up height. */
+	private static final int ACHIEVEMENT_H = 32;
 
 	private enum Kind { MESSAGE, REQUEST, INVITE, WARP }
 
@@ -114,6 +117,33 @@ public final class SocialToast {
 		TOASTS.clear();
 	}
 
+	// ---- the one toast column (1.8.9 has no ToastComponent to share) ----
+
+	/**
+	 * Where Origin's pop-ups start (GUI px from the top): under Minecraft's own achievement
+	 * pop-up (GuiAchievement, 160x32 at the top right; the "Open your inventory" hint stays
+	 * up until E is pressed) while it shows, else at the top. Same column order as 1.21.1's
+	 * ToastComponent: the friend toasts first, then the FPS Coach nudge (FpsCoachToast,
+	 * below {@link #stackHeight}).
+	 */
+	public static int columnTop(Minecraft mc) {
+		try {
+			Object ach = mc.guiAchievement;
+			if (mc.thePlayer != null && ach instanceof GuiAchievementAccessor
+					&& ((GuiAchievementAccessor) ach).originclient$notificationTime() != 0L) {
+				return ACHIEVEMENT_H;
+			}
+		} catch (Throwable t) {
+			// unknown: the top, as before
+		}
+		return 0;
+	}
+
+	/** Height of the friend toasts on screen (sliding ones included), GUI px. */
+	public static int stackHeight() {
+		return Math.min(TOASTS.size(), MAX_VISIBLE) * H;
+	}
+
 	// ---- drawing (SocialHooks, end of every render tick) ----
 
 	/** Draws the stack in GUI px over everything. Client thread; fail-soft. */
@@ -124,6 +154,7 @@ public final class SocialToast {
 		Minecraft mc = Minecraft.getMinecraft();
 		long now = System.currentTimeMillis();
 		int sw = Gfx.scaled().getScaledWidth();
+		int top = columnTop(mc);
 		boolean setUp = false;
 		int slot = 0;
 		for (int i = 0; i < TOASTS.size() && slot < MAX_VISIBLE; i++, slot++) {
@@ -164,7 +195,7 @@ public final class SocialToast {
 				Gfx.defaultBlend();
 			}
 			float x = sw - W * vis;
-			float y = slot * H;
+			float y = top + slot * H;
 			t.lastX = x;
 			t.lastY = y;
 			t.lastDrawn = now;
