@@ -805,7 +805,7 @@ public class OriginModMenuScreen extends OriginScreen {
 			d.rect(x + w - 26, y + 7, 16, 16, 4, 0, LINE2);
 			d.textCenter("/", x + w - 18, y + 15, 11, true, 0, MUTE);
 		}
-		d.hit(x, y, w, 30, onClick);
+		d.textHit(x, y, w, 30, onClick);
 	}
 
 	private static String fitTail(OriginDeck d, String v, float maxW) {
@@ -1257,7 +1257,7 @@ public class OriginModMenuScreen extends OriginScreen {
 						caret(d, right - bw + 11 + w, cy - 7, 14);
 					}
 				}
-				d.hit(right - bw, cy - 13, bw, 26, () -> {
+				d.textHit(right - bw, cy - 13, bw, 26, () -> {
 					textMod = id;
 					textKey = o.key;
 					textBuf = Mods.text(id, o.key);
@@ -1379,7 +1379,7 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	private void drawProfiles(OriginDeck d) {
 		// a click anywhere outside closes it
-		d.hit(-10000, -10000, 20000, 20000, () -> {
+		d.block(-10000, -10000, 20000, 20000, () -> {
 			profOpen = false;
 			profileFocused = false;
 		});
@@ -1389,7 +1389,7 @@ public class OriginModMenuScreen extends OriginScreen {
 		float h = 12 + 16 + 8 + listH + 8 + 1 + 8 + 30 + 10;
 		d.rect(x - 4, y + 4, w + 8, h + 8, 12, 0x33000000);
 		d.rect(x, y, w, h, 8, 0xFA181D1A, LINE2);
-		d.hit(x, y, w, h, () -> profileFocused = false);
+		d.block(x, y, w, h, () -> profileFocused = false);
 		d.textMid("PROFILES", x + 14, y + 20, 10, true, CAPS_TRACK, MUTE);
 		float ry = y + 36;
 		String active = activeProfile();
@@ -1441,7 +1441,7 @@ public class OriginModMenuScreen extends OriginScreen {
 			}
 		}
 		final float fy = ry;
-		d.hit(x + 8, ry, fw, 30, () -> profileFocused = true);
+		d.textHit(x + 8, ry, fw, 30, () -> profileFocused = true);
 		boolean can = !profileInput.trim().isEmpty();
 		boolean ph = can && d.over(x + w - 8 - 30, ry, 30, 30);
 		d.rect(x + w - 8 - 30, ry, 30, 30, 6, can ? (ph ? ACC_H : ACC) : 0x14FFFFFF);
@@ -1461,11 +1461,11 @@ public class OriginModMenuScreen extends OriginScreen {
 	}
 
 	private void drawConfirm(OriginDeck d) {
-		d.hit(-10000, -10000, 20000, 20000, () -> confirmDelete = null);
+		d.block(-10000, -10000, 20000, 20000, () -> confirmDelete = null);
 		d.rect(0, 0, W, H, 8, 0x8C000000);
 		float w = 340, h = 148, x = (W - w) / 2, y = (H - h) / 2;
 		d.rect(x, y, w, h, 8, 0xFA181D1A, LINE2);
-		d.hit(x, y, w, h, () -> {
+		d.block(x, y, w, h, () -> {
 		});
 		d.textMid("Delete this profile?", x + 20, y + 30, 15, true, 0, TEXT);
 		d.textMid(d.fit("\"" + confirmDelete + "\" will be removed for good.", w - 40, 13, false, 0),

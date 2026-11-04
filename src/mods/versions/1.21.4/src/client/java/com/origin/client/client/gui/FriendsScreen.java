@@ -1353,7 +1353,7 @@ public class FriendsScreen extends OriginWindow {
 						  java.util.function.Supplier<List<Msg>> msgs, String self, String empty, String emptyIcon) {
 		int count = sig.count;
 		float viewH = CHAT_BOTTOM - top;
-		d.hit(x, top, w, viewH, () -> {
+		d.block(x, top, w, viewH, () -> {
 			if (focus != Focus.CHAT) {
 				setFocus(Focus.CHAT);
 			}
@@ -1584,7 +1584,7 @@ public class FriendsScreen extends OriginWindow {
 			return;
 		}
 		// a click anywhere else closes it: this hit is recorded before the items, so they win
-		d.hit(0, 0, W, H, this::closeMenu);
+		d.block(0, 0, W, H, this::closeMenu);
 		float itemH = 32;
 		float h = menu.size() * itemH + 8;
 		float menuW = menuMinW;   // at least the tile it came from; wider for the longest label, including the named confirm line

@@ -114,7 +114,7 @@ public final class OriginDeck {
 	private final List<Hit> hits;
 
 	/** A click target recorded at draw time; see the class comment. */
-	public record Hit(float x0, float y0, float x1, float y1, Runnable action) {
+	public record Hit(float x0, float y0, float x1, float y1, Runnable action, boolean sound) {
 		boolean contains(float x, float y) {
 			return x >= x0 && x < x1 && y >= y0 && y < y1;
 		}
@@ -559,6 +559,12 @@ public final class OriginDeck {
 
 	/** Records a click target (clipped to the current scroll region). Later hits win. */
 	public void hit(float x, float y, float w, float h, Runnable action) {
+		addHit(x, y, w, h, action, true);
+	}
+
+	// One recorder for every kind of target; {@code sound} = it is a control, so a click on it
+	// plays the button click. Text fields and not-a-control targets (block) are silent (BMOD-7).
+	private void addHit(float x, float y, float w, float h, Runnable action, boolean sound) {
 		float x0 = x, y0 = y, x1 = x + w, y1 = y + h;
 		if (!clips.isEmpty()) {
 			float[] c = clips.peek();
@@ -568,8 +574,23 @@ public final class OriginDeck {
 			y1 = Math.min(y1, c[3]);
 		}
 		if (x1 > x0 && y1 > y0) {
-			hits.add(new Hit(x0, y0, x1, y1, action));
+			hits.add(new Hit(x0, y0, x1, y1, action, sound));
 		}
+	}
+
+	/** A text field's click target: recorded like {@link #hit}, without the button click
+	 *  (vanilla's text boxes are silent when clicked into). */
+	public void textHit(float x, float y, float w, float h, Runnable action) {
+		addHit(x, y, w, h, action, false);
+	}
+
+	/**
+	 * A click target that is not a control: a panel's empty space that swallows clicks,
+	 * or a full-screen "click outside closes it" layer. Recorded like {@link #hit}, without
+	 * the button click (vanilla only clicks on real buttons, BMOD-7).
+	 */
+	public void block(float x, float y, float w, float h, Runnable action) {
+		addHit(x, y, w, h, action, false);
 	}
 
 	/** Vanilla's button click (the sound AbstractButton plays on press), so Origin's own
@@ -583,12 +604,14 @@ public final class OriginDeck {
 		}
 	}
 
-	/** Runs the topmost hit under (x,y) design px. True if one ran. */
+	/** Runs the topmost hit under (x,y) design px, with the button click when it is a control. True if one ran. */
 	public static boolean click(List<Hit> hits, float x, float y) {
 		for (int i = hits.size() - 1; i >= 0; i--) {
 			Hit h = hits.get(i);
 			if (h.contains(x, y)) {
-				clickSound();
+				if (h.sound()) {
+					clickSound();   // controls only: empty space and text fields are silent
+				}
 				h.action().run();
 				return true;
 			}
