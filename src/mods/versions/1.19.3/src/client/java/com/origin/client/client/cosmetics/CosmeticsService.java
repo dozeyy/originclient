@@ -460,9 +460,32 @@ public final class CosmeticsService {
 
 	// ------------------------------------------------------------- internals
 
-	private static UUID selfId() {
+	// Pre-1.20.2 User keeps the account id as a String and getGameProfile() parses it (authlib's
+	// UUIDTypeAdapter.fromString compiles a regex) into a NEW GameProfile on every call. lookOf,
+	// usesOrigin, PlusBadge, the cape mixins and NickHider's skin reads ask per player per frame,
+	// so the parsed id is kept per User instance (it only changes on a restart), the same cache
+	// 1.8.9 keeps per Session (JP-2, 2026-11-04).
+	private static volatile User selfUser = null;
+	private static volatile UUID selfUuid = null;
+
+	/** The signed-in account's uuid (null when it has none / can't be parsed). */
+	public static UUID selfId() {
 		User user = Minecraft.getInstance().getUser();
-		return user != null && user.getGameProfile() != null ? user.getGameProfile().getId() : null;
+		if (user == null) {
+			return null;
+		}
+		if (user != selfUser) {
+			UUID id = null;
+			try {
+				com.mojang.authlib.GameProfile p = user.getGameProfile();
+				id = p != null ? p.getId() : null;
+			} catch (Throwable ignored) {
+				// no usable id
+			}
+			selfUuid = id;      // written before selfUser: a reader that sees the new User sees its id
+			selfUser = user;
+		}
+		return selfUuid;
 	}
 
 	private static void tick() {
