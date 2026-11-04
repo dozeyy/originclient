@@ -8,9 +8,11 @@ namespace OriginSetup.Engine;
 // with their worlds).
 public static class Uninstaller
 {
-    /// <summary>Returns false when something could not be fully removed (it is logged).</summary>
-    public static bool Run(string dir, bool removeUserData, Action<double> report)
+    /// <summary>What was left behind (it is logged); <see cref="UninstallResult.Ok"/> when nothing.</summary>
+    /// <param name="dataRoot">Origin's data folder; null = the real one. Tests pass their own.</param>
+    public static UninstallResult Run(string dir, bool removeUserData, Action<double> report, string? dataRoot = null)
     {
+        dataRoot ??= Handoff.DataRoot;
         SetupLog.Write($"uninstall {dir} (removeUserData={removeUserData})");
         report(0.05);
         LauncherProcess.Close(TimeSpan.FromSeconds(5));
@@ -29,12 +31,65 @@ public static class Uninstaller
         bool ok = plan.Execute();
 
         report(0.75);
+        bool dataOk = true;
+        IReadOnlyList<string> gamesOpen = Array.Empty<string>();
         if (removeUserData)
-            ok &= FileOps.TryDeleteTree(Handoff.DataRoot);
+        {
+            // A game still open would be writing into the worlds being deleted, and Windows stops the delete at the
+            // first file it holds: some worlds half gone. Keep the data whole instead and say why (the window asks
+            // the player to close the game before it ever gets here; this covers the silent uninstall and a game
+            // started in between).
+            gamesOpen = RunningGames.In(dataRoot);
+            if (gamesOpen.Count > 0)
+            {
+                SetupLog.Write("data kept: Minecraft still open (" + string.Join(", ", gamesOpen) + ")");
+                dataOk = false;
+            }
+            else
+            {
+                dataOk = FileOps.TryDeleteTree(dataRoot);
+            }
+        }
 
-        SetupLog.Write(ok ? "uninstall complete" : "uninstall finished with leftovers");
+        var result = new UninstallResult(installFolderLeft: !ok, dataLeft: !dataOk, gamesOpen);
+        SetupLog.Write(result.Ok ? "uninstall complete" : "uninstall finished with leftovers");
         report(1);
-        return ok;
+        return result;
+    }
+}
+
+/// <summary>What Uninstaller.Run could not remove, so the Problem page names the right folder.</summary>
+public sealed class UninstallResult
+{
+    public UninstallResult(bool installFolderLeft, bool dataLeft, IReadOnlyList<string>? gamesOpen = null)
+    {
+        InstallFolderLeft = installFolderLeft;
+        DataLeft = dataLeft;
+        GamesOpen = gamesOpen ?? Array.Empty<string>();
+    }
+
+    /// <summary>Some of Origin's own files (the install folder) are still there.</summary>
+    public bool InstallFolderLeft { get; }
+    /// <summary>The player asked to delete their data and some or all of it is still there.</summary>
+    public bool DataLeft { get; }
+    /// <summary>The versions whose game was open, so the data was not touched at all (empty otherwise).</summary>
+    public IReadOnlyList<string> GamesOpen { get; }
+    public bool Ok => !InstallFolderLeft && !DataLeft;
+
+    /// <summary>
+    /// The Problem page's body: exactly what was left, in the player's words. The folder line under it is the data
+    /// folder whenever <see cref="DataLeft"/>, otherwise the install folder.
+    /// </summary>
+    public string ProblemText(string installDir)
+    {
+        if (GamesOpen.Count > 0)
+            return $"Origin is removed, but your worlds, settings and accounts were kept because Minecraft {string.Join(", ", GamesOpen)} was still open."
+                   + " Close the game, then delete this folder yourself if you still want them gone:";
+        if (DataLeft && InstallFolderLeft)
+            return $"Some files were in use and couldn't be deleted (Minecraft may still be running). Origin's own folder ({installDir}) and part of your data are left. Your data folder:";
+        if (DataLeft)
+            return "Origin is removed, but some of your data was in use and couldn't be deleted (Minecraft may still be running). You can delete the rest yourself:";
+        return "Some files were in use and couldn't be deleted (Minecraft may still be running). You can delete the folder yourself:";
     }
 }
 

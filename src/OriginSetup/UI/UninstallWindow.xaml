@@ -53,6 +53,9 @@
                               Checked="RemoveDataCheck_Changed" Unchecked="RemoveDataCheck_Changed"/>
                     <TextBlock Style="{StaticResource Text.Caption}" Margin="{StaticResource Left.6}"
                                Text="Leave this off to keep them for a later reinstall."/>
+                    <!-- Shown when the box is ticked and a Minecraft game is still open (RunningGames). -->
+                    <TextBlock x:Name="RunningNote" Style="{StaticResource Text.Caption}" Margin="{StaticResource Top.4}"
+                               Foreground="{StaticResource Brush.DangerText}" TextWrapping="Wrap" Visibility="Collapsed"/>
                 </StackPanel>
                 <!-- Keep Origin is the default (Enter, and the first focus). The danger colour is on the final button only. -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">

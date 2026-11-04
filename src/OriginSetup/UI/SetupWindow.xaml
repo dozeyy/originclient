@@ -186,8 +186,8 @@
                 </Grid.RowDefinitions>
                 <StackPanel>
                     <TextBlock x:Name="DoneTitle" Style="{StaticResource Text.Display}" Text="Origin is installed"/>
-                    <TextBlock Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.1}"
-                               Text="Origin is on your desktop and in the Start menu."/>
+                    <TextBlock x:Name="DoneLead" Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.1}"
+                               TextWrapping="Wrap" Text="Origin is on your desktop and in the Start menu."/>
                     <Grid Margin="{StaticResource Top.4}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>

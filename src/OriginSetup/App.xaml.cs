@@ -101,7 +101,7 @@ public partial class App : Application
         if (args.Silent)
         {
             bool ok;
-            try { ok = Uninstaller.Run(dir, args.RemoveData, _ => { }); }
+            try { ok = Uninstaller.Run(dir, args.RemoveData, _ => { }).Ok; }
             catch (Exception ex) { SetupLog.Write("silent uninstall failed: " + ex); ok = false; }
             Shutdown(ok ? 0 : 1);
             return;
