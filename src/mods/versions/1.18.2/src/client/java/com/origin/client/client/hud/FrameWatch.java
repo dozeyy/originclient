@@ -9,9 +9,12 @@ import net.minecraft.client.gui.screens.Screen;
 // 1. Background mode. idle() is true while the window is not the active one and
 //    Settings > Performance > Limit Unfocused FPS is on (the same switch that caps
 //    the frame rate, MinecraftFramerateMixin). Origin's own optional drawing (HUD
-//    elements, cosmetic sparkles) checks it and skips: nobody is looking, so the
-//    frames the cap leaves should not be spent on them. Never touches the game
-//    tick, the integrated server or anything that changes game state.
+//    cosmetic sparkles) checks it and skips: nobody is looking, so the frames
+//    the cap leaves should not be spent on them. Never touches the game tick,
+//    the integrated server or anything that changes game state.
+//    The HUD is the exception (Will, 2026-11-04, every version): it stays drawn
+//    whenever the window can be seen (game on one monitor, Discord on the other)
+//    and hides only while the window is minimised (minimised()).
 //
 // 2. Hitch log. FrameStats spots a long frame (>= 40 ms and well over the running
 //    average); this writes one line to latest.log with a coarse cause: "gc" (the
@@ -29,6 +32,7 @@ public final class FrameWatch {
 	private static final long SCREEN_WINDOW_NS = 250_000_000L;
 
 	private static boolean idle;
+	private static boolean minimised;
 	private static boolean hooked;
 	private static Screen lastScreen;
 	private static long screenChangedAt;
@@ -41,6 +45,11 @@ public final class FrameWatch {
 		return idle;
 	}
 
+	/** True while the game window is minimised (iconified): nothing of it can be seen. */
+	public static boolean minimised() {
+		return minimised;
+	}
+
 	/** Render thread, once per frame, at the head of GameRenderer.render. */
 	public static void onFrame(Minecraft mc) {
 		if (!hooked) {
@@ -48,6 +57,13 @@ public final class FrameWatch {
 			FrameStats.setSpikeSink(FrameWatch::logSpike);
 		}
 		idle = !mc.isWindowActive() && Mods.bool(Mods.PERFORMANCE_ID, "limitUnfocusedFps");
+		try {
+			// No Window.isMinimized() in this era: ask GLFW (render thread, cheap attribute read).
+			minimised = !mc.isWindowActive() && org.lwjgl.glfw.GLFW.glfwGetWindowAttrib(
+					mc.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_ICONIFIED) != 0;
+		} catch (Throwable t) {
+			minimised = false;   // fail soft: keep drawing the HUD
+		}
 		Screen sc = mc.screen;
 		if (sc != lastScreen) {
 			lastScreen = sc;

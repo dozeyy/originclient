@@ -66,7 +66,7 @@ public final class Mods {
 			ModOption.slider("farShadowDistance", "Far Shadow Distance", 16, 160, 8, 64, "%.0f blocks").under("farShadowLimit"),
 			ModOption.toggle("offMapShadows", "Off-Map Shadows", false).tip("With a shader on, chunks and mobs that fall outside the shadow map stop being drawn into it. Saves work every frame at long render distances; shadows on everything near you look the same."),
 			ModOption.toggle("halfRateShadows", "Half-Rate Shadows", false).tip("Shadows update every other frame for more FPS. Moving shadows may look slightly less smooth."),
-			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background, and pauses Origin's HUD and cosmetic sparkles until you come back. Saves GPU and battery; the game itself keeps running normally."),
+			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true).tip("Caps the frame rate while Minecraft is in the background, and pauses Origin's cosmetic sparkles until you come back (the HUD stays on screen). Saves GPU and battery; the game itself keeps running normally."),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
