@@ -1,3 +1,4 @@
+import com.origin.client.client.util.ChatText;
 import com.origin.client.client.util.KeyTaps;
 import com.origin.client.client.util.WindowTitles;
 
@@ -88,6 +89,25 @@ public class QolTests {
 		meta.clear();
 		meta.put("optionVersion.menublur.enabled", "2");
 		eq(once(meta, mk, step), true, "another option's marker doesn't count");
+
+		// util/ChatText (KS-3): the game's pending copy must equal the service's cleanText result
+		eq(ChatText.clean("hi\u200Bthere"), "hithere", "zero-width space removed");
+		eq(ChatText.clean("  gg \u200D "), "gg", "joiner removed, then trimmed");
+		eq(ChatText.clean("a\r\n\tb"), "a b", "a run of breaks is one space");
+		eq(ChatText.clean("a\n\u200B\nb"), "a  b", "breaks split by a mark stay two spaces (service order)");
+		eq(ChatText.clean("\u00A7cred \u202Eevil\u2066x\uFEFF"), "cred evilx", "section sign (not its code letter), direction marks, BOM removed");
+		eq(ChatText.clean("x\u0085y\u007Fz"), "xyz", "C1 and DEL removed");
+		eq(ChatText.clean("\u3000\u00A0hi\u2028"), "hi", "JavaScript trim(): ideographic/no-break spaces, line separator");
+		eq(ChatText.clean("\u200B\u200B"), "", "only invisible characters: nothing left");
+		eq(ChatText.clean(null), "", "null");
+		eq(ChatText.clean("\uD83D\uDE00 ok"), "\uD83D\uDE00 ok", "emoji kept");
+		StringBuilder longer = new StringBuilder();
+		for (int i = 0; i < 255; i++) {
+			longer.append('a');
+		}
+		eq(ChatText.clean(longer + "\uD83D\uDE00b").length(), 255, "cut never splits a surrogate pair");
+		eq(ChatText.clean(longer + " bcd").length(), 255, "cut then trimmed like the service");
+		eq(ChatText.clean(ChatText.clean("a\u200B \n b ")), ChatText.clean("a\u200B \n b "), "idempotent");
 
 		System.out.println(bad == 0 ? "qol-tests: all passed" : "qol-tests: " + bad + " failed");
 		System.exit(bad);

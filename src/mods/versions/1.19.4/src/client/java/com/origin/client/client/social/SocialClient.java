@@ -1199,9 +1199,10 @@ public final class SocialClient {
 		return b;
 	}
 
+	// The exact text the service will store (it removes invisible characters and § codes),
+	// so the pending copy and the /originpc echo match the real message when it arrives.
 	private static String clip(String text) {
-		String t = text == null ? "" : text.strip();
-		return t.length() > 256 ? t.substring(0, 256) : t;
+		return com.origin.client.client.util.ChatText.clean(text);
 	}
 
 	private static double round1(double v) {

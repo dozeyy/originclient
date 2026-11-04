@@ -1,5 +1,6 @@
 """Test the pure-logic parts of the 2026-11-04 QoL fixes (util/KeyTaps, util/WindowTitles,
-util/OnceSteps).
+util/OnceSteps,
+util/ChatText).
 
     python tools/qol-tests/run.py
 
@@ -21,7 +22,7 @@ SHARED_UTIL = os.path.join(ROOT, "src/mods/shared/src/client/java/com/origin/cli
 
 def run(util_dir, label, release=None):
     out = tempfile.mkdtemp(prefix="qol-tests-")
-    srcs = [os.path.join(util_dir, n) for n in ("KeyTaps.java", "WindowTitles.java", "OnceSteps.java")]
+    srcs = [os.path.join(util_dir, n) for n in ("KeyTaps.java", "WindowTitles.java", "OnceSteps.java", "ChatText.java")]
     srcs.append(os.path.join(HERE, "QolTests.java"))
     cmd = ["javac", "-d", out] + (["--release", release] if release else []) + srcs
     if subprocess.run(cmd).returncode:
