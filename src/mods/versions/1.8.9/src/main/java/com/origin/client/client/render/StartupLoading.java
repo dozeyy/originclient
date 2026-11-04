@@ -117,11 +117,35 @@ public final class StartupLoading {
 		draw(true, true);
 		active = false;
 		over = true;
+		handRealSizeToGame();
 		try {
 			OriginScreenRenderer.releaseBootLogo();
 			BootFont.release();
 		} catch (Throwable ignored) {
 			// two small textures left behind at worst
+		}
+	}
+
+	/**
+	 * B189PRE-1: a resize or maximise during the startup. Minecraft reads a new window size only
+	 * in checkWindowResize, from Display.wasResized(), which is true for ONE Display.update; this
+	 * screen's own updates spend it, so the title would keep drawing (and reading the mouse) at
+	 * the old size until the next resize. When the window's real size differs, vanilla's own
+	 * resize step runs now, before the title's first frame. Windowed only, as checkWindowResize.
+	 */
+	private static void handRealSizeToGame() {
+		try {
+			Minecraft mc = Minecraft.getMinecraft();
+			int w = Display.getWidth(), h = Display.getHeight();
+			if (mc.isFullScreen() || w <= 0 || h <= 0 || (w == mc.displayWidth && h == mc.displayHeight)) {
+				return;
+			}
+			if ((Object) mc instanceof com.origin.client.client.mixin.menus.MinecraftResizeInvoker) {
+				((com.origin.client.client.mixin.menus.MinecraftResizeInvoker) (Object) mc).origin$resize(w, h);
+			}
+		} catch (Throwable t) {
+			// the old size until the player's next resize, as before this fix
+			com.origin.client.OriginClient.LOGGER.warn("Origin: could not hand the resized window to the title", t);
 		}
 	}
 
@@ -182,7 +206,7 @@ public final class StartupLoading {
 		}
 		lastDraw = now;
 		Minecraft mc = Minecraft.getMinecraft();
-		int boundTexture = -1, boundFbo = -1;
+		int boundTexture = -1, boundFbo = -1, savedW = -1, savedH = -1;
 		boolean fbo = false;
 		try {
 			if (!Display.isCreated() || !OriginScreenRenderer.isActive()) {
@@ -206,7 +230,15 @@ public final class StartupLoading {
 				boundFbo = GL11.glGetInteger(OriginScreenRenderer.GL_FRAMEBUFFER_BINDING);
 				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
 			}
-			int w = Math.max(1, mc.displayWidth), h = Math.max(1, mc.displayHeight);
+			// The window's real size (B189PRE-1): mc.displayWidth/Height only change in
+			// checkWindowResize, which does not run during the startup. LoadingLook, scale() and Gfx
+			// size themselves from those fields, so they hold the real size for this frame only.
+			int w = Math.max(1, Display.getWidth() > 0 ? Display.getWidth() : mc.displayWidth);
+			int h = Math.max(1, Display.getHeight() > 0 ? Display.getHeight() : mc.displayHeight);
+			savedW = mc.displayWidth;
+			savedH = mc.displayHeight;
+			mc.displayWidth = w;
+			mc.displayHeight = h;
 			int gs = OriginScreenRenderer.scale();
 			GlStateManager.viewport(0, 0, w, h);
 			GlStateManager.clearColor(0f, 0f, 0f, 1f);
@@ -240,6 +272,10 @@ public final class StartupLoading {
 			over = true;
 			com.origin.client.OriginClient.LOGGER.warn("Origin startup loading screen failed; the load continues without it", t);
 		} finally {
+			if (savedW >= 0) {
+				mc.displayWidth = savedW;   // Minecraft's own resize step owns these (finish)
+				mc.displayHeight = savedH;
+			}
 			try {
 				if (fbo && boundFbo >= 0) {
 					OriginScreenRenderer.restoreTarget(boundFbo);
