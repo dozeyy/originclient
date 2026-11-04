@@ -35,6 +35,7 @@ public partial class UninstallWindow : Window
     private async void Uninstall_Click(object sender, RoutedEventArgs e)
     {
         if (_working) return;
+        _working = true; // before the check below too: a second click while it runs must not start a second uninstall
         bool removeData = RemoveDataCheck.IsChecked == true;
         // Deleting the data under a running game would half-delete its world: ask the player to close it first and
         // stay on this page (pressing Uninstall again re-checks). Uninstaller.Run refuses too, as a backstop.
@@ -42,9 +43,12 @@ public partial class UninstallWindow : Window
         {
             var open = await Task.Run(() => RunningGames.In(Handoff.DataRoot));
             ShowRunningNote(open);
-            if (open.Count > 0) return;
+            if (open.Count > 0)
+            {
+                _working = false;
+                return;
+            }
         }
-        _working = true;
         Bar.CanClose = false;
         ProgressFill.BeginAnimation(WidthProperty, null);
         ProgressFill.Width = 0;
