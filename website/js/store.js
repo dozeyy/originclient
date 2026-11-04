@@ -6,7 +6,7 @@
 // for the bag and the typed player's UUID, and sends the buyer to Stripe's own
 // checkout page. Stripe tells the service when the money arrives, and the
 // service gives that player the items. Setup: docs/STORE.md.
-import { nameResult } from './names.mjs';
+import { nameResult, headUrl } from './names.mjs';
 import { createFittingRoom, createThumbnailer, loadSkin, loadCatalog, prepare, getSource, resolvedSource, loopOf, STILL_T } from './cosmetics.js';
 
 // ---------------------------------------------------------------------------
@@ -381,8 +381,9 @@ const notForSale = () => state.bag.map(id => byId.get(id)).filter(i => !forSale(
 function renderName() {
   const head = $('[data-name-head]'), note = $('[data-name-note]'), box = $('[data-name]');
   box.dataset.state = state.nameState;
-  if (state.player) {
-    head.src = state.player.avatar || `https://crafthead.net/avatar/${state.player.uuid}/48`;
+  const headSrc = state.player && headUrl(state.player.uuid);
+  if (headSrc) {
+    head.src = headSrc;
     head.hidden = false;
   } else {
     head.hidden = true;

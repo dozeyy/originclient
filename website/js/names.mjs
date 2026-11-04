@@ -9,12 +9,21 @@ export function nameResult(status, j) {
   const p = j?.data?.player;
   if (j?.success && p) {
     const uuid = (p.raw_id || p.id || '').replace(/-/g, '');
-    return { state: 'ok', player: { name: p.username, uuid, avatar: p.avatar, ...skinOf(p) } };
+    return { state: 'ok', player: { name: p.username, uuid, ...skinOf(p) } };
   }
   const code = String(j?.code || '');
   if (/not_found|invalid_username|unknown_player|no_player/i.test(code)) return { state: 'missing' };
   if (status === 404 || (status === 400 && !code)) return { state: 'missing' };
   return { state: 'unknown' };
+}
+
+// The player's head next to the typed name, always built from their UUID on crafthead (allowed by the
+// site's CSP img-src). PlayerDB's own avatar link is never used: its host is PlayerDB's choice, and any
+// host outside img-src would leave a broken image. Null for anything that isn't a plain 32-hex UUID, so
+// nothing else can end up in the URL.
+export function headUrl(uuid) {
+  const id = String(uuid || '').toLowerCase();
+  return /^[0-9a-f]{32}$/.test(id) ? `https://crafthead.net/avatar/${id}/48` : null;
 }
 
 // The skin file and arm model straight from the Mojang profile, when the
