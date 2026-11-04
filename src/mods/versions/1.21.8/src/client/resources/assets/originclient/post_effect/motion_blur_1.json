@@ -9,7 +9,7 @@
                 { "sampler_name": "Prev", "target": "prev" }
             ],
             "output": "swap",
-            "uniforms": { "BlendConfig": [ { "name": "Blend", "type": "float", "value": 0.50 } ] }
+            "uniforms": { "BlendConfig": [ { "name": "Blend", "type": "float", "value": 0.43 } ] }
         },
         {
             "vertex_shader": "minecraft:post/blit",
