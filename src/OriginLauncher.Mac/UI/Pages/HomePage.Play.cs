@@ -803,8 +803,10 @@ public sealed partial class HomePage
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    _settings.RamMb = ram;
-                    SettingsStore.Update(s => s.RamMb = ram);
+                    // As Manual, like Windows (CrashMemory.ApplyRaise): Auto launches ignore RamMb, so writing only the
+                    // number left the relaunch on the same heap that just ran out.
+                    CrashMemory.ApplyRaise(_settings, ram);
+                    SettingsStore.Update(s => CrashMemory.ApplyRaise(s, ram));
                     break;
                 case CrashFixKind.DisableMods:
                     var failed = new List<string>();

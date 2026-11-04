@@ -676,7 +676,9 @@ public sealed class LaunchController
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    LauncherState.Write(s => s.RamMb = ram);
+                    // As Manual, like Windows (CrashMemory.ApplyRaise): Auto launches ignore RamMb, so writing only the
+                    // number left the relaunch on the same heap that just ran out.
+                    LauncherState.Write(s => CrashMemory.ApplyRaise(s, ram));
                     break;
                 case CrashFixKind.DisableMods:
                     var failed = new List<string>();
