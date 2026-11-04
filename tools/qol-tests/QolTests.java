@@ -30,25 +30,44 @@ public class QolTests {
 		eq(WindowTitles.origin("My Modpack 2.0", "Steve"), "My Modpack 2.0", "foreign title untouched");
 		eq(WindowTitles.origin(null, "Steve"), null, "null title");
 
-		// util/KeyTaps (G121-7)
+		// util/KeyTaps (G121-7): taps between ticks
 		eq(KeyTaps.consume(67), false, "nothing pressed");
-		KeyTaps.onKey(67, 1);
-		KeyTaps.onKey(67, 0);                       // a tap: down and up before the tick
+		KeyTaps.onKey(67, 1, false, false);
+		KeyTaps.onKey(67, 0, false, false);         // a tap: down and up before the tick
 		eq(KeyTaps.consume(67), true, "tap between ticks is seen");
 		eq(KeyTaps.consume(67), false, "a tap counts once");
-		KeyTaps.onKey(67, 2);                       // OS key repeat is not a press
+		KeyTaps.onKey(67, 2, false, false);         // OS key repeat is not a press
 		eq(KeyTaps.consume(67), false, "repeat ignored");
-		KeyTaps.onKey(67, 1);
-		KeyTaps.onKey(67, 1);                       // two taps in one tick: one toggle
+		KeyTaps.onKey(67, 1, false, false);
+		KeyTaps.onKey(67, 1, false, false);         // two taps in one tick: one toggle
 		eq(KeyTaps.consume(67), true, "double tap seen");
 		eq(KeyTaps.consume(67), false, "double tap counts once");
-		KeyTaps.onKey(-1, 1);
-		KeyTaps.onKey(100000, 1);                   // out of range: ignored, never throws
+		KeyTaps.onKey(-1, 1, false, false);
+		KeyTaps.onKey(100000, 1, true, false);      // out of range: ignored, never throws
 		eq(KeyTaps.consume(-1), false, "unbound");
 		eq(KeyTaps.consume(100000), false, "out of range");
-		KeyTaps.onKey(70, 1);
+		eq(KeyTaps.inF3Combo(100000, true), false, "out of range combo");
+		KeyTaps.onKey(70, 1, false, false);
 		eq(KeyTaps.consume(67), false, "other key untouched");
 		eq(KeyTaps.consume(70), true, "own key");
+		KeyTaps.onKey(71, 1, false, true);          // typed into a screen
+		eq(KeyTaps.consume(71), false, "press inside a screen is typing, not a tap");
+
+		// util/KeyTaps F3 combos (BMOD-1): F3+B must not fire Snaplook on B
+		int b = 66;
+		KeyTaps.onKey(b, 1, true, false);           // B pressed while F3 held
+		eq(KeyTaps.consume(b), false, "F3+B is not a tap");
+		eq(KeyTaps.inF3Combo(b, true), true, "B held in the combo reads as up");
+		eq(KeyTaps.inF3Combo(b, true), true, "still held after F3 is let go first");
+		eq(KeyTaps.inF3Combo(b, false), false, "B up: never a combo");
+		eq(KeyTaps.inF3Combo(b, true), false, "next hold of B is the player's own (release seen by polling)");
+		KeyTaps.onKey(b, 1, true, false);
+		KeyTaps.onKey(b, 1, false, false);          // released unseen, pressed again without F3
+		eq(KeyTaps.inF3Combo(b, true), false, "a plain press clears the combo");
+		eq(KeyTaps.consume(b), true, "and counts as a tap");
+		KeyTaps.onKey(b, 1, true, true);            // F3 + B with a screen open
+		eq(KeyTaps.inF3Combo(b, true), true, "combo inside a screen still marked");
+		eq(KeyTaps.inF3Combo(70, true), false, "other keys untouched by the combo");
 
 		// util/OnceSteps (review 2026-11-04: Mods.keepOldDefaultKeysOnce ran every launch)
 		java.util.Map<String, String> meta = new java.util.HashMap<>();

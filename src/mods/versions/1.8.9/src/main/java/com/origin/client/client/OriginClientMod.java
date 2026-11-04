@@ -262,8 +262,8 @@ public class OriginClientMod {
 	}
 
 	/**
-	 * Feeds util/KeyTaps (G121-7): every key PRESS made while no screen is open, so Origin's
-	 * toggle keys catch a tap shorter than a client tick. 1.8.9: runTick drains LWJGL2's
+	 * Feeds util/KeyTaps (G121-7): every key PRESS (it counts those made with no screen open),
+	 * so Origin's toggle keys catch a tap shorter than a client tick, and F3 combos are known. 1.8.9: runTick drains LWJGL2's
 	 * Keyboard queue inside the tick and FML fires KeyInputEvent once per event, so a key
 	 * that went down and up within one tick is "up" again by the END-phase read; this sees
 	 * the down event itself. Observes only. Codes are LWJGL2 (what Mods.keyCode returns).
@@ -271,9 +271,14 @@ public class OriginClientMod {
 	@SubscribeEvent
 	public void onKeyInput(net.minecraftforge.fml.common.gameevent.InputEvent.KeyInputEvent event) {
 		try {
-			if (Minecraft.getMinecraft().currentScreen == null && org.lwjgl.input.Keyboard.getEventKeyState()
-					&& !org.lwjgl.input.Keyboard.isRepeatEvent()) {
-				com.origin.client.client.util.KeyTaps.onKey(org.lwjgl.input.Keyboard.getEventKey(), 1);
+			if (org.lwjgl.input.Keyboard.getEventKeyState() && !org.lwjgl.input.Keyboard.isRepeatEvent()) {
+				int key = org.lwjgl.input.Keyboard.getEventKey();
+				// Same test vanilla's own F3 combos use in this loop (BMOD-1): a key pressed
+				// with F3 held belongs to F3+B / F3+G ..., never to an Origin feature.
+				boolean f3Held = key != org.lwjgl.input.Keyboard.KEY_F3
+						&& org.lwjgl.input.Keyboard.isKeyDown(org.lwjgl.input.Keyboard.KEY_F3);
+				com.origin.client.client.util.KeyTaps.onKey(key, 1, f3Held,
+						Minecraft.getMinecraft().currentScreen != null);
 			}
 		} catch (Throwable ignored) {
 			// the tick's own key read still works
