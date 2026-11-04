@@ -82,6 +82,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Judge loops (`docs/overhaul/JUDGE.md`, pass = 95/100; website judge 9/10) run only on overhaul or redesign work (2026-10-25).
 - Implementation runs on opus in this project (repeated redo failures on sonnet) (2026-10-25).
 - Done = Will can run it now: built locally (or released), plus a screenshot of that build for UI changes. In-game changes are done at release; until then report "gated deploy left" (2026-10-25).
+- Bug runs: fix only clear bugs; anything that might be intentional or a design choice is NOT changed, and goes to Will as a plain numbered list at the end of the run for him to pick (2026-11-04).
 
 ## Resolved conflicts
 - 2026-07-08 "default Minecraft text everywhere" vs 2026-09-09 Workbench role fonts (Space Grotesk/Inter in game): the later 2026-09-09 typography pass removed them again. Minecraft font in game; the WPF launcher uses its own bundled font.
