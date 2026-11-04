@@ -57,6 +57,22 @@ public final class MenuBlur {
 		return Mods.bool(Mods.GENERAL_ID, "transparentMenus") && Minecraft.getInstance().level != null;
 	}
 
+	/** Origin's in-world menu look (Will, 2026-11-04: "no blur, just darkened", like the
+	 *  inventory): every in-world screen Menu Blur does not draw gets the inventory's
+	 *  plain dark gradient and vanilla's menu blur never runs (MenuBlurMixin). Menu Blur
+	 *  itself is an opt-in mod, off by default. Vanilla Menus mode keeps stock Minecraft,
+	 *  its own Menu Background Blurriness option included; out of a world nothing changes. */
+	public static boolean darkenOnly(Screen screen) {
+		return screen != null && Minecraft.getInstance().level != null
+				&& !com.origin.client.client.OriginStyle.vanillaMenusOn(screen) && !handles(screen);
+	}
+
+	/** The inventory's backdrop: vanilla's renderTransparentBackground gradient (the same
+	 *  0xC0101010 -> 0xD0101010 every version since 1.8 draws behind containers). */
+	public static void darken(GuiGraphics g) {
+		g.fillGradient(0, 0, g.guiWidth(), g.guiHeight(), 0xC0101010, 0xD0101010);
+	}
+
 	/** Blur strength: 0 while Transparent Menus is on. */
 	private static double strength() {
 		return transparent() ? 0.0 : Mods.num(MOD, "strength");

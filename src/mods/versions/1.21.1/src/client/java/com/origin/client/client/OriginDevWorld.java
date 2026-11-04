@@ -132,6 +132,15 @@ final class OriginDevWorld {
 			}
 			if (phase == 4) {
 				grab(mc, dir, "pause_1920x1080.png");
+				// The player's inventory next: the pause menu must show the same plain
+				// darkened world behind it, no blur (Will, 2026-11-04).
+				mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+				phase = 90;
+				nextAt = now + 1500;
+				return;
+			}
+			if (phase == 90) {
+				grab(mc, dir, "inventory_1920x1080.png");
 				// The Cosmetics window over the world: its preview is the real player here.
 				mc.setScreen(new com.origin.client.client.gui.CosmeticsScreen(null));
 				phase = 5;

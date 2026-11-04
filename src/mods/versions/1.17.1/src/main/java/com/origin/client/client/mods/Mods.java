@@ -758,7 +758,11 @@ public final class Mods {
 
 		// "Origin Menus" defaults OFF (Lunar's own-menu toggle defaults on): the
 		// mod menu is see-through on purpose so HUD changes preview live behind it.
-		add("menublur", "Menu Blur", "Blur the world behind menus.", true,
+		// Menu Blur is opt-in (Will, 2026-11-04: in-world menus are "no blur, just
+		// darkened", like the inventory). Off = every in-world menu shows the inventory's
+		// plain dark gradient on every version; saved "on"s from the old default are
+		// dropped once (menuBlurOptIn below).
+		add("menublur", "Menu Blur", "Blur the world behind menus.", false,
 				ModOption.slider("strength", "Blur Strength", 0, 20, 1, 4, "%.0f"),
 				ModOption.toggle("inventory", "Inventories", true).tip("Blur behind your inventory, chests and every other container."),
 				ModOption.color("inventoryBg", "Inventory Tint", 0x6F000000).under("inventory"),
@@ -1485,6 +1489,7 @@ public final class Mods {
 			return;
 		}
 		migrated = true;
+		menuBlurOptIn();
 		if (!ModsConfig.VALUES.isEmpty()) {
 			return; // already have real state
 		}
@@ -1498,6 +1503,35 @@ public final class Mods {
 		seed("fullbright", legacy.fullbrightEnabled);
 		ModsConfig.VALUES.computeIfAbsent("zoom", k -> new java.util.HashMap<>())
 				.put("fov", new JsonPrimitive(legacy.zoomFov));
+	}
+
+	// Menu Blur used to default ON; since 2026-11-04 it is opt-in (in-world menus are
+	// darkened like the inventory, never blurred). A saved "on" from before is almost
+	// always the old default, not a choice, so it is dropped ONCE (the mod falls back to
+	// today's default, off) and meta "optionVersion.menublur.enabled" = 2 records that:
+	// switching Menu Blur back on afterwards sticks. Same marker as 1.8.9's
+	// OPTION_VERSIONS row, so every version agrees; Settings Sync carries the marker and
+	// the removal (the file is deletion-aware). Only a saved "on" is dropped: a saved
+	// "off" already equals the new default, and dropping it would sync out as a deletion.
+	private static void menuBlurOptIn() {
+		String marker = "optionVersion.menublur.enabled";
+		com.google.gson.JsonElement done = ModsConfig.META.get(marker);
+		try {
+			if (done != null && done.isJsonPrimitive() && done.getAsInt() >= 2) {
+				return;
+			}
+		} catch (RuntimeException handEdited) {
+			// a hand-edited non-number counts as not migrated yet
+		}
+		ModsConfig.META.put(marker, new JsonPrimitive(2));
+		java.util.Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get("menublur");
+		com.google.gson.JsonElement saved = m == null ? null : m.get("enabled");
+		if (saved != null && saved.isJsonPrimitive() && "true".equals(saved.getAsString())) {
+			m.remove("enabled");
+			ModsConfig.save();
+		}
+		// Nothing dropped: the marker reaches disk with the next save (every change
+		// saves); until then a later load just finds nothing to drop again.
 	}
 
 	private static void seed(String id, boolean on) {
