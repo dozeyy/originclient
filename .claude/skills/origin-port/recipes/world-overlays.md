@@ -54,5 +54,16 @@
   1.21.10/11: private immediate BufferSources. 26.1: `getSubmitNodeStorage()` + `getFeatureRenderDispatcher().renderAllFeatures()`
   + `mc.renderBuffers().bufferSource().endBatch()`. 26.2: own SubmitNodeStorage + `featureRenderDispatcher().renderAllFeatures(storage)`.
   26.3: `prepareFrame(storage)` + own RenderPass (main colour + depth) + `bindDefaultUniforms` + static `renderAllFeatures(pass, frame)`.
-- Gate: compat-gates group `iris` (unknown Iris = old in-pass path). Not yet on 1.21.6/1.21.8 (Fabric v1 LAST event era).
+- Gate: compat-gates group `iris` (unknown Iris = old in-pass path).
+- 1.16.5 - 1.21.8 (2026-11-04, GPRE-2): the same BANK method (not 1.21.1's re-run-the-drawers), recorded at
+  Fabric's v1 `LAST`. Pre-1.20.5 vertices have the world PoseStack baked in, so only model-view + projection
+  are put back. Overlays that used the frame's shared buffer for `RenderType.lines()` (chunk-border rings,
+  waypoint highlight on 1.17.1-1.20.4) take `OriginRenderTypes.bankLines()` while `banking()` and skip their
+  own endBatch. Matrices per era: 1.16.5 GL stacks + `ctx.projectionMatrix()`; 1.17.1-1.19.4 identity
+  model-view (the LAST window) + projection (`load` pre-JOML; no VertexSorting before 1.20); 1.20-1.20.4 the
+  recorded model-view on the PoseStack model-view stack + `applyModelViewMatrix`; 1.21.4 Matrix4fStack +
+  ProjectionType; 1.21.6/1.21.8 = 1.21.10's GpuBufferSlice file. Level call 1.16.5-1.20.4:
+  `renderLevel(PoseStack;FJZ;Camera;GameRenderer;LightTexture;Matrix4f)V` (com.mojang.math Matrix4f to 1.19.2).
+  1.21.4 and 1.21.6/1.21.8 inject every candidate shape (defaultRequire 0; the wrong ones match nothing):
+  CI log "after-shaders pass active" says which really landed.
 - Proof: `dev-shots set=world shaderpack=true`; log line "overlays drawn after the shader pack".

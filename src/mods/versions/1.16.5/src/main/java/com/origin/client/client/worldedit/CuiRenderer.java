@@ -174,7 +174,10 @@ final class CuiRenderer {
 		// batch in the buffer to be drawn under some later frame's matrices.
 		if (Mods.bool(M, "seeThrough")) {
 			hiddenPass = true;
-			out = HIDDEN_BUFFER.getBuffer(HIDDEN);
+			// Under a shader pack the selection is banked for AfterShadersPass (see
+			// OriginRenderTypes): the see-through pass then goes to the bank too.
+			MultiBufferSource.BufferSource hidden = OriginRenderTypes.banking() ? OriginRenderTypes.bankExtra() : HIDDEN_BUFFER;
+			out = hidden.getBuffer(HIDDEN);
 			try {
 				for (CuiRegion r : regions) {
 					if (!r.visibleOnly) {
@@ -182,7 +185,9 @@ final class CuiRenderer {
 					}
 				}
 			} finally {
-				HIDDEN_BUFFER.endBatch();
+				if (hidden == HIDDEN_BUFFER) {
+					HIDDEN_BUFFER.endBatch();   // banked: AfterShadersPass.run() draws it
+				}
 			}
 		}
 		hiddenPass = false;

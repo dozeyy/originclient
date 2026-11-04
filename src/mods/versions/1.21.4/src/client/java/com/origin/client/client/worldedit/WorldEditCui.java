@@ -103,7 +103,12 @@ public final class WorldEditCui {
 			ClientTickEvents.END_CLIENT_TICK.register(WorldEditCui::tick);
 			WorldRenderEvents.LAST.register(ctx -> {
 				try {
-					CuiRenderer.render(ctx);
+					boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+					try {
+						CuiRenderer.render(ctx);
+					} finally {
+						com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+					}
 				} catch (Throwable t) {
 					// the overlay must never take the frame down
 				}

@@ -214,6 +214,10 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			});
 		});
+		// Waypoints, party pings, WorldEdit CUI and Chunk Borders stay above an Iris
+		// pack's clouds / fog: banked at LAST, drawn after the pack's composite
+		// (render/AfterShadersPass). Shaders off: unchanged.
+		com.origin.client.client.render.AfterShadersPass.init();
 		WorldRenderEvents.LAST.register(context -> {
 			// The camera ROTATION must reach our world geometry exactly ONCE.
 			// Our renderers bake context.matrixStack() (= the camera rotation;
@@ -234,12 +238,22 @@ public class OriginClientMod implements ClientModInitializer {
 			com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 			try {
 				try {
-					ChunkBorderRenderer.render(context);
+					boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+					try {
+						ChunkBorderRenderer.render(context);
+					} finally {
+						com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+					}
 				} catch (Throwable t) {
 					// overlay must never take the frame down
 				}
 				try {
-					com.origin.client.client.waypoints.WaypointRenderer.render(context);
+					boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+					try {
+						com.origin.client.client.waypoints.WaypointRenderer.render(context);
+					} finally {
+						com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+					}
 				} catch (Throwable t) {
 					// waypoints must never take the frame down
 				}
@@ -248,7 +262,12 @@ public class OriginClientMod implements ClientModInitializer {
 					// even with Waypoints off, then the ping beams -- inside this identity
 					// model-view window, like the waypoint beams (docs/SOCIAL.md F).
 					com.origin.client.client.waypoints.WaypointHud.capture(context);
-					com.origin.client.client.social.PartyWorld.renderWorld(context);
+					boolean bank = com.origin.client.client.render.AfterShadersPass.bankBegin();   // shaders on: drawn after the pack's clouds
+					try {
+						com.origin.client.client.social.PartyWorld.renderWorld(context);
+					} finally {
+						com.origin.client.client.render.AfterShadersPass.bankEnd(bank);
+					}
 				} catch (Throwable t) {
 					// pings just don't draw this frame
 				}
