@@ -13,6 +13,12 @@ public class QolTests {
 		}
 	}
 
+	// Mods.keepOldDefaultKeysOnce's call shape, over a plain map standing in for the config's meta.
+	static boolean once(java.util.Map<String, String> meta, String marker, Runnable step) {
+		return com.origin.client.client.util.OnceSteps.run(marker, 1, meta::get,
+				(k, v) -> meta.put(k, String.valueOf(v)), step);
+	}
+
 	public static void main(String[] args) {
 		// util/WindowTitles (G121-12)
 		eq(WindowTitles.origin("Minecraft* 1.21.1 - Singleplayer", "Steve"), "Origin 1.21.1 - Steve - Singleplayer", "singleplayer");
@@ -43,6 +49,26 @@ public class QolTests {
 		KeyTaps.onKey(70, 1);
 		eq(KeyTaps.consume(67), false, "other key untouched");
 		eq(KeyTaps.consume(70), true, "own key");
+
+		// util/OnceSteps (review 2026-11-04: Mods.keepOldDefaultKeysOnce ran every launch)
+		java.util.Map<String, String> meta = new java.util.HashMap<>();
+		int[] ran = {0};
+		Runnable step = () -> ran[0]++;
+		String mk = "optionVersion.defaultKeys";
+		eq(once(meta, mk, step), true, "fresh config: step runs");
+		eq(meta.get(mk), "1", "marker written even when the step finds nothing");
+		eq(once(meta, mk, step), false, "same session: not again");
+		java.util.Map<String, String> reloaded = new java.util.HashMap<>(meta); // next launch, saved file
+		eq(once(reloaded, mk, step), false, "next launch: not again (the old bug)");
+		eq(ran[0], 1, "step ran exactly once");
+		meta.clear();
+		meta.put(mk, "abc");
+		eq(once(meta, mk, step), true, "hand-edited marker counts as not done");
+		meta.put(mk, "2");
+		eq(once(meta, mk, step), false, "a newer marker (synced from a later build) is done");
+		meta.clear();
+		meta.put("optionVersion.menublur.enabled", "2");
+		eq(once(meta, mk, step), true, "another option's marker doesn't count");
 
 		System.out.println(bad == 0 ? "qol-tests: all passed" : "qol-tests: " + bad + " failed");
 		System.exit(bad);
