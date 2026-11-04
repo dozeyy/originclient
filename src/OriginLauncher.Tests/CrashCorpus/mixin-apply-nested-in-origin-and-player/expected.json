@@ -1,0 +1,12 @@
+{
+  "crash": true,
+  "cause": "ModProblem",
+  "confidence": "strong",
+  "rule": "mixin-apply",
+  "culprits": [
+    "fabric-renderer-api-v1"
+  ],
+  "fix": "None",
+  "tag": "ORIGIN MOD",
+  "offerTry": true
+}
