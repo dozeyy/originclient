@@ -18,7 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //   renderBackground -> renderBlurredBackground(float) + renderMenuBackground(GuiGraphics)
 //   AbstractContainerScreen.renderBackground -> renderTransparentBackground(GuiGraphics)
 // Each hook asks MenuBlur.handles(screen) first; when it says no (mod off, kind
-// toggled off, no world) vanilla runs untouched.
+// toggled off, no world) vanilla runs -- except its blur: in a world MenuBlur.darkenOnly
+// skips the blur and draws the inventory's plain darkening instead (Will, 2026-11-04).
 @Mixin(Screen.class)
 public class MenuBlurMixin {
 
@@ -30,6 +31,9 @@ public class MenuBlurMixin {
 			MenuBlur.blur(partialTick);
 			ci.cancel();
 		}
+		if (MenuBlur.darkenOnly(self)) {
+			ci.cancel();   // in a world: no blur, only the inventory's darkening (menuTint below)
+		}
 	}
 
 	// ...and the kind's tint instead of vanilla's in-world menu texture.
@@ -38,6 +42,10 @@ public class MenuBlurMixin {
 		Screen self = (Screen) (Object) this;
 		if (!OriginStyle.vanillaMenusOn(self) && MenuBlur.handles(self)) {
 			MenuBlur.tint(guiGraphics, self);
+			ci.cancel();
+		}
+		if (MenuBlur.darkenOnly(self)) {
+			MenuBlur.darken(guiGraphics);   // the inventory's gradient instead of the in-world menu texture
 			ci.cancel();
 		}
 	}

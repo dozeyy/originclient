@@ -824,7 +824,11 @@ public final class Mods {
 
 		// "Origin Menus" defaults OFF (Lunar's own-menu toggle defaults on): the
 		// mod menu is see-through on purpose so HUD changes preview live behind it.
-		add("menublur", "Menu Blur", "Blur the world behind menus.", true,
+		// Menu Blur is opt-in (Will, 2026-11-04: "the blur when pressing esc in 1.8.9 ...
+		// should be the same as the inventory one, no blur, just darkened"). Off = every
+		// in-world menu shows vanilla's darkened gradient, as the inventory does; saved
+		// "on"s from the old default are dropped once (OPTION_VERSIONS menublur.enabled v2).
+		add("menublur", "Menu Blur", "Blur the world behind menus.", false,
 				ModOption.slider("strength", "Blur Strength", 0, 20, 1, 4, "%.0f"),
 				// Inventories default OFF on 1.8.9 (Will, 2026-10-27: "there is still inventory blur ...
 				// on my default in 1.8.9 so fix that"; also +11.9 % avg FPS with it off, p6-measurements).
@@ -1646,8 +1650,12 @@ public final class Mods {
 	//   menublur.inventory v2 (2026-10-27): Inventories defaults OFF on 1.8.9 (Will:
 	//   "there is still inventory blur ... on my default in 1.8.9"); the old default
 	//   and the Balanced/Quality presets had written true.
+	//   menublur.enabled v2 (2026-11-04): Menu Blur itself defaults OFF on every version
+	//   (in-world menus are darkened like the inventory, never blurred). Every other
+	//   version's Mods.menuBlurOptIn writes this same marker, so they all agree.
 	private static final String[][] OPTION_VERSIONS = {
 			{"menublur", "inventory", "2"},
+			{"menublur", "enabled", "2"},
 	};
 
 	private static void upgradeOptions() {
