@@ -220,7 +220,7 @@ public final class Mods {
 				ModOption.toggle("showMovement", "Show Movement Keys", true),
 				ModOption.toggle("showSpace", "Show Space Bar", true),
 				ModOption.toggle("textShadow", "Text Shadow", true),
-				ModOption.toggle("border", "Border", true),
+				ModOption.toggle("border", "Border", false),
 				ModOption.slider("borderThickness", "Border Thickness", 0, 4, 0.5, 1, "%.1f").under("border"),
 				ModOption.slider("keyFadeDelay", "Key Fade Delay", 0, 1000, 50, 200, "%.0fms").tip("How long a key stays highlighted after you release it."),
 				ModOption.slider("spacebarThickness", "Spacebar Thickness", 1, 10, 1, 4, "%.0f"),
@@ -1513,6 +1513,7 @@ public final class Mods {
 		migrated = true;
 		menuBlurOptIn();
 		keepOldDefaultKeysOnce();
+		keystrokesBorderOnce();
 		if (!ModsConfig.VALUES.isEmpty()) {
 			return; // already have real state
 		}
@@ -1582,6 +1583,53 @@ public final class Mods {
 		wrote |= keepOldDefaultKey("minimap", "openMapKey", GLFW.GLFW_KEY_M);
 		wrote |= keepOldDefaultKey("quickplay", "key", GLFW.GLFW_KEY_G);
 		return wrote;
+	}
+
+	// N94-2 (2026-11-05): Key Strokes' Border used to start ON at thickness 0 (shown on, nothing
+	// drawn). New installs start off at 1 and the menu default is off; util/KeystrokesBorder
+	// moves an existing config there ONCE (meta "optionVersion.keystrokes.border" = 2,
+	// util/OnceSteps) without changing what is on screen. Settings Sync carries the values and
+	// the marker to every version.
+	private static void keystrokesBorderOnce() {
+		com.origin.client.client.util.OnceSteps.run("optionVersion.keystrokes.border", 2, Mods::metaText,
+				(k, v) -> ModsConfig.META.put(k, new JsonPrimitive(v)), () -> {
+					if (keystrokesBorder(true)) {
+						ModsConfig.save();
+					}
+					// Nothing written: the marker reaches disk with the next save (every change saves).
+				});
+	}
+
+	/** Key Strokes' Border on at thickness 0 draws nothing: make it off at 1 (same screen, and the
+	 *  switch then works). Run by ModsConfig.applyProfile, since a profile saved before N94-2
+	 *  brings the old pair back. True when it changed the config (the caller saves). */
+	static boolean fixInvisibleKeystrokesBorder() {
+		return keystrokesBorder(false);
+	}
+
+	private static boolean keystrokesBorder(boolean once) {
+		java.util.Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get("keystrokes");
+		if (m == null) {
+			return false;   // never set up: today's defaults apply
+		}
+		String[] next = com.origin.client.client.util.KeystrokesBorder.upgrade(
+				savedText(m.get("border")), savedText(m.get("borderThickness")), once);
+		if (next == null) {
+			return false;
+		}
+		m.put("border", new JsonPrimitive(Boolean.parseBoolean(next[0])));
+		if (next[1] != null) {
+			m.put("borderThickness", new JsonPrimitive(Double.parseDouble(next[1])));
+		}
+		return true;
+	}
+
+	/** A saved value as text: null when absent, "?" for a non-value (a hand-edited object or list). */
+	private static String savedText(com.google.gson.JsonElement e) {
+		if (e == null) {
+			return null;
+		}
+		return e.isJsonPrimitive() ? e.getAsString() : "?";
 	}
 
 	private static String metaText(String key) {

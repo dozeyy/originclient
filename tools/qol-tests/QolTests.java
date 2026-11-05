@@ -1,6 +1,7 @@
 import com.origin.client.client.util.HotkeyChord;
 import com.origin.client.client.util.ChatText;
 import com.origin.client.client.util.KeyTaps;
+import com.origin.client.client.util.KeystrokesBorder;
 import com.origin.client.client.util.WindowTitles;
 
 // Pure-logic checks for the QoL fixes of 2026-11-04 (run.py compiles the shared sources
@@ -19,6 +20,10 @@ public class QolTests {
 	static boolean once(java.util.Map<String, String> meta, String marker, Runnable step) {
 		return com.origin.client.client.util.OnceSteps.run(marker, 1, meta::get,
 				(k, v) -> meta.put(k, String.valueOf(v)), step);
+	}
+
+	static String arr(String[] a) {
+		return a == null ? "null" : a[0] + "," + a[1];
 	}
 
 	public static void main(String[] args) {
@@ -136,6 +141,19 @@ public class QolTests {
 		eq(ChatText.clean(ChatText.clean("a\u200B \n b ")), ChatText.clean("a\u200B \n b "), "idempotent");
 
 		System.out.println(bad == 0 ? "qol-tests: all passed" : "qol-tests: " + bad + " failed");
+		// util/KeystrokesBorder (N94-2): saved configs reach off + 1 without changing the screen
+		eq(arr(KeystrokesBorder.upgrade("true", "0", true)), "false,1", "on at 0 (nothing drawn) -> off at 1");
+		eq(arr(KeystrokesBorder.upgrade("true", "0.0", false)), "false,1", "profile: on at 0.0 -> off at 1");
+		eq(arr(KeystrokesBorder.upgrade(null, "0", true)), "false,1", "never-saved Border at 0 -> off at 1");
+		eq(arr(KeystrokesBorder.upgrade(null, "2", true)), "true,null", "never-saved Border, drawn: keep it on");
+		eq(arr(KeystrokesBorder.upgrade(null, null, true)), "true,null", "nothing saved: keep the border it showed");
+		eq(arr(KeystrokesBorder.upgrade(null, "2", false)), "null", "profile never fills a missing Border");
+		eq(arr(KeystrokesBorder.upgrade("true", "1.5", true)), "null", "a real border stays");
+		eq(arr(KeystrokesBorder.upgrade("false", "0", true)), "null", "off stays off");
+		eq(arr(KeystrokesBorder.upgrade("false", "3", true)), "null", "off at 3 stays");
+		eq(arr(KeystrokesBorder.upgrade("yes", "0", true)), "null", "hand-edited Border: left alone");
+		eq(arr(KeystrokesBorder.upgrade("true", "thick", true)), "null", "hand-edited thickness: left alone");
+
 		System.exit(bad);
 	}
 }

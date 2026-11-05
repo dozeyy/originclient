@@ -77,6 +77,7 @@ public class ModsConfigTests {
 				// old-default-keys step when applied.
 				eq("new profile carries the default-keys marker", true, snap.has("defaultKeys"));
 				eq("marked profile: no key step", 0, Mods.keepOldDefaultKeysCalls);
+				eq("every profile apply runs the Key Strokes border fix (N94-2)", 1, Mods.keystrokesBorderCalls);
 				eq("API key pasted later survives", "K2", val("hypixel", "apiKey"));
 				// A profile saved by an older build still holds a key: the live one wins.
 				JsonObject old = JsonParser.parseString("{\"mods\":{\"hypixel\":{\"apiKey\":\"OLD\"}},\"hud\":{}}").getAsJsonObject();

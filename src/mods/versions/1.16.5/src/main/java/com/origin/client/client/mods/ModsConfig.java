@@ -351,6 +351,9 @@ public final class ModsConfig {
 		if (!snap.has(PROFILE_KEYS_MARKER) && Mods.keepOldDefaultKeys()) {
 			save();   // a pre-v1.0.89 profile keeps the old default keys its mods were using
 		}
+		if (Mods.fixInvisibleKeystrokesBorder()) {
+			save();   // a profile saved before N94-2: its Key Strokes Border on at 0 becomes off at 1
+		}
 		return true;
 	}
 
