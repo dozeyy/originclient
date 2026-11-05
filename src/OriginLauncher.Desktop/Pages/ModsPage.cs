@@ -712,7 +712,7 @@ public sealed class ModsPage : Panel, IPage
         _builtKey = null;
         Refresh();
         _status.Show($"Updating {mod.DisplayName} to {offer.NewVersion}...", error: false);
-        var (path, error) = await ModUpdateCheck.DownloadAsync(version, profileId, offer);
+        var (path, error) = await ModUpdateCheck.DownloadAsync(version, profileId, mod, offer);
         _updating = null;
         _builtKey = null;
         if (_version != version || _profile?.Id != profileId)
