@@ -76,6 +76,8 @@ final class OriginDevWorld {
 				}
 				if (loadedAt == 0) {
 					loadedAt = now;
+					// The feature shots' stage goes up now, so its chunks re-mesh during the 20 s spawn wait.
+					featureScene(mc);
 					return;
 				}
 				if (now - loadedAt < 20000) {
@@ -102,6 +104,14 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
+				// The Origin features that only show in a world (DevFeatureShots), then the rest.
+				phase = 20;
+				return;
+			}
+			if (phase == 20) {
+				if (featureStep(mc, dir)) {
+					return;
+				}
 				// With a shader pack on (dev-shots shaderpack=true), measure the shader speed-ups first.
 				phase = com.origin.client.client.shaders.IrisBridge.currentPack() != null ? 40 : 30;
 				return;
@@ -1096,6 +1106,59 @@ final class OriginDevWorld {
 		fitStep++;
 		nextAt = System.currentTimeMillis() + (noLayer ? 3000 : 1500);   // the layer change goes via the server
 		return true;
+	}
+
+	// ---- Origin features in a real world (DevFeatureShots: HUD readouts, Hitbox, Weather, Nametags) ----
+	private static int featIdx = -1;
+
+	/** Builds the feature shots' stage and scene (DevFeatureShots.sceneCommands) around the player. */
+	private static void featureScene(Minecraft mc) {
+		float yaw = mc.player.getYRot();
+		double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
+		featServer(mc, server -> DevFeatureShots.sceneCommands(px, py, pz, yaw, DevFeatureShots.Dialect.SNBT_NAMES));
+	}
+
+	/** One step of the feature shots (per shot: switch on + wait, grab); false once all are taken. */
+	private static boolean featureStep(Minecraft mc, String dir) {
+		if (mc.screen instanceof PauseScreen) {
+			mc.setScreen(null);
+		}
+		DevFeatureShots.Shot[] shots = DevFeatureShots.Shot.values();
+		if (featIdx == -1) {
+			mc.player.setXRot(10f);   // a little down: the mobs 6 blocks ahead sit mid-frame, sky still in view
+		} else {
+			grab(mc, dir, shots[featIdx].file);
+		}
+		featIdx++;
+		if (featIdx >= shots.length) {
+			DevFeatureShots.restore();
+			mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+			mc.player.setXRot(0f);
+			featServer(mc, server -> DevFeatureShots.cleanupCommands(DevFeatureShots.Dialect.SNBT_NAMES));
+			log("[dev-shots] feature shots done");
+			return false;
+		}
+		DevFeatureShots.Shot s = shots[featIdx];
+		DevFeatureShots.apply(s);
+		mc.options.setCameraType(s.thirdPerson ? net.minecraft.client.CameraType.THIRD_PERSON_BACK
+				: net.minecraft.client.CameraType.FIRST_PERSON);
+		nextAt = System.currentTimeMillis() + s.settleMs;
+		return true;
+	}
+
+	/** Runs the commands the function builds on the integrated server's thread (feedback suppressed). */
+	private static void featServer(Minecraft mc,
+			java.util.function.Function<net.minecraft.server.MinecraftServer, java.util.List<String>> build) {
+		var server = mc.getSingleplayerServer();
+		if (server == null) {
+			return;
+		}
+		server.execute(() -> {
+			var src = server.createCommandSourceStack().withSuppressedOutput();
+			for (String c : build.apply(server)) {
+				server.getCommands().performPrefixedCommand(src, c);
+			}
+		});
 	}
 
 	private static boolean press(Minecraft mc, String label) {
