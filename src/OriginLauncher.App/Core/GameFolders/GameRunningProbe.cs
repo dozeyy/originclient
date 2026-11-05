@@ -13,8 +13,9 @@ namespace OriginLauncher.App.Core.GameFolders;
 /// FileShare.None with an advisory lock that Java/log4j never takes, so the same open always succeeds
 /// and the probe would always say "not running". There the probe looks at the running processes
 /// instead: a game whose arguments carry <c>--gameDir &lt;folder&gt;</c> (every launcher that passes
-/// Mojang's arguments, Origin included), and on Linux also a Java process whose working folder is the
-/// folder (Prism starts Java there and passes the folder over stdin, not as an argument).
+/// Mojang's arguments, Origin included), and also a Java process whose working folder is the folder
+/// (Prism and MultiMC start Java there and pass the folder over stdin, not as an argument): Linux reads
+/// it from /proc, macOS from one <c>lsof</c> run.
 ///
 /// The process list is read at most once per <see cref="SnapshotTtl"/>: callers ask about many folders
 /// in a row (one per version on Play), and one scan answers them all. Any failure reads as "not
@@ -116,35 +117,61 @@ public static class GameRunningProbe
     /// <summary>
     /// macOS (no /proc): one <c>ps</c> run lists every process's whole command line. ps joins the
     /// arguments with spaces, so the match is on the text "--gameDir &lt;folder&gt;" followed by a
-    /// space or the end (a folder name may itself hold spaces, e.g. "Application Support").
+    /// space or the end (a folder name may itself hold spaces, e.g. "Application Support"). One
+    /// <c>lsof</c> run adds the working folder of every Java process, the Linux /proc cwd check's
+    /// twin: without it a Prism or MultiMC game was never seen, and an import copied its worlds while
+    /// they were being saved (bug run 11 PROF-10).
     /// </summary>
     private static ProcessSnapshot ReadPs()
     {
+        var processes = new List<ProcessInfo>();
+        if (RunTool("/bin/ps", ["-axww", "-o", "command="]) is { } commands)
+            processes.AddRange(commands.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(line => new ProcessInfo(null, line, null)));
+        // -a: both filters at once (a "java*" command AND its cwd entry); -w: no warnings; -F n: one "n<path>" line each.
+        if (RunTool("/usr/sbin/lsof", ["-a", "-c", "java", "-d", "cwd", "-w", "-Fn"]) is { } cwds)
+            processes.AddRange(LsofCwds(cwds).Select(cwd => new ProcessInfo(null, null, cwd)));
+        // APFS is case-insensitive by default: the same folder may be spelled with other casing.
+        return new ProcessSnapshot(processes, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The paths of <c>lsof -F n</c> output: each "n/folder" line (p and f lines name the process and descriptor).</summary>
+    internal static IReadOnlyList<string> LsofCwds(string output) =>
+        output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.TrimEnd('\r'))
+            .Where(line => line.Length > 1 && line[0] == 'n' && line[1] == '/')
+            .Select(line => line[1..])
+            .ToList();
+
+    // A tool's standard output, or null when it couldn't run or took over 3 s. lsof exits 1 when nothing
+    // matched, so the exit code is not read: an empty output simply adds nothing.
+    private static string? RunTool(string path, string[] args)
+    {
         try
         {
-            var start = new ProcessStartInfo("/bin/ps")
+            if (!File.Exists(path)) return null;
+            var start = new ProcessStartInfo(path)
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            foreach (var arg in new[] { "-axww", "-o", "command=" }) start.ArgumentList.Add(arg);
-            using var ps = Process.Start(start);
-            if (ps == null) return ProcessSnapshot.Empty;
-            var read = ps.StandardOutput.ReadToEndAsync();
-            if (!ps.WaitForExit(3000))
+            foreach (var arg in args) start.ArgumentList.Add(arg);
+            using var tool = Process.Start(start);
+            if (tool == null) return null;
+            var read = tool.StandardOutput.ReadToEndAsync();
+            _ = tool.StandardError.ReadToEndAsync(); // drained, so a chatty tool never blocks on a full pipe
+            if (!tool.WaitForExit(3000))
             {
-                try { ps.Kill(); } catch (Exception) { }
-                return ProcessSnapshot.Empty;
+                try { tool.Kill(); } catch (Exception) { }
+                return null;
             }
-            var lines = read.Result.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            // APFS is case-insensitive by default: the same folder may be spelled with other casing.
-            return new ProcessSnapshot(lines.Select(line => new ProcessInfo(null, line, null)).ToList(), StringComparison.OrdinalIgnoreCase);
+            return read.Result;
         }
         catch (Exception)
         {
-            return ProcessSnapshot.Empty;
+            return null;
         }
     }
 
