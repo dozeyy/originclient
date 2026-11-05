@@ -49,6 +49,7 @@ public final class HypixelLocraw {
 
 	private static Object world;
 	private static long askAt, askedAt;
+	private static boolean asked;  // Origin already sent its one /locraw for the current world
 	private static String seen;
 	private static String place;   // where the current world is on Hypixel; null = not known (yet)
 
@@ -58,21 +59,27 @@ public final class HypixelLocraw {
 	 */
 	public static synchronized boolean tick(Object level, boolean wanted, long now) {
 		wanted = wanted || waypointsWant;
-		if (!wanted || level == null) {
-			if (level != world) {
-				place = null;   // a new world: the old place is not this one's
-			}
-			world = level;
-			askAt = 0;
-			return false;
-		}
 		if (level != world) {
+			// a new world: the old place is not this one's, and it has not been asked about yet
 			world = level;
 			place = null;
+			asked = false;
+			askAt = 0;
+		}
+		if (!wanted || level == null) {
+			askAt = 0;   // a pending ask is dropped, not spent: it is scheduled again once wanted
+			return false;
+		}
+		// Scheduled whenever the world is wanted and still unasked, not only on the tick it appears
+		// (N92-3): Hypixel.tick sets waypointsWant AFTER this tick runs on the first tick in a world,
+		// and Waypoints can be turned on mid-world. A place already known (a /locraw the player typed)
+		// needs no ask.
+		if (!asked && askAt == 0 && place == null) {
 			askAt = now + ASK_DELAY_MS;
 		}
 		if (askAt != 0 && now >= askAt) {
 			askAt = 0;
+			asked = true;
 			askedAt = now;
 			return true;
 		}
@@ -188,6 +195,7 @@ public final class HypixelLocraw {
 	public static synchronized void reset() {
 		world = null;
 		askAt = askedAt = 0;
+		asked = false;
 		seen = null;
 		place = null;
 		waypointsWant = false;
