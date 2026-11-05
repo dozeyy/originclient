@@ -6,7 +6,8 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { handle, scheduled } from '../src/index.js';
-import { socialCleanup, presenceSweep, holdClock } from '../src/social.js';
+import { socialCleanup, presenceSweep, holdClock, socialBudget } from '../src/social.js';
+import { readFileSync } from 'node:fs';
 import { friendsEtagOf } from '../src/social-shared.js';
 import { d1 } from './d1.mjs';
 import { authBody, seedKeys, b64, spki, MOJANG_CERT, MOJANG_PROFILE, NOT_MOJANG, PLAYER_KEY, OTHER_PLAYER_KEY } from './mojang.mjs';
@@ -360,9 +361,10 @@ test('DMs: the cursor delivers each message exactly once, in order, across pages
   }
   assert.deepEqual(seen, Array.from({ length: 450 }, (_, i) => `m${i}`));
 
-  // A first sync (since = 0) gets only the newest 100, oldest first.
+  // A first sync (since = 0) gets the newest 50 of this conversation, oldest first.
   const fresh = await sync(alex);
-  assert.equal(fresh.messages.length, 100);
+  assert.equal(fresh.messages.length, 50);
+  assert.equal(fresh.messages[0].text, 'm400');
   assert.equal(fresh.messages.at(-1).text, 'm449');
   assert.equal(fresh.cursor, cursor);
 
@@ -1153,4 +1155,209 @@ test('party: an accept that loses the race for the last place keeps you in your 
   assert.equal((await sync(alex)).party.id, own);                // still in her own party
   assert.equal(rows(`SELECT leader FROM parties WHERE id = '${own}'`)[0].leader, alex.uuid);
   assert.equal(rows(`SELECT * FROM party_members WHERE party_id = '${willParty}'`).length, 8);
+});
+
+// ------------------------------------------- history, read markers (KS-1/2/4)
+test('history: the first sync brings each conversation\'s newest 50, so a quiet chat isn\'t pushed out by a busy one', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex'), sam = await signIn('Sam');
+  await befriend(will, alex); await befriend(will, sam);
+  const ins = env.DB.raw.prepare('INSERT INTO chat (from_uuid, to_uuid, text, at) VALUES (?, ?, ?, ?)');
+  for (let i = 0; i < 3; i++) ins.run(sam.uuid, will.uuid, `sam${i}`, clock);
+  for (let i = 0; i < 120; i++) ins.run(i % 2 ? will.uuid : alex.uuid, i % 2 ? alex.uuid : will.uuid, `a${i}`, clock);
+
+  const first = await sync(will);
+  const texts = first.messages.map(m => m.text);
+  assert.deepEqual(texts.filter(t => t.startsWith('sam')), ['sam0', 'sam1', 'sam2']);   // the quiet chat survived
+  assert.deepEqual(texts.filter(t => t.startsWith('a')), Array.from({ length: 50 }, (_, i) => `a${70 + i}`));
+  assert.deepEqual(first.messages.map(m => m.id), [...first.messages.map(m => m.id)].sort((a, b) => a - b));   // oldest first
+
+  // Older lines of one conversation, a page at a time, oldest first.
+  const oldest = first.messages.find(m => m.text === 'a70').id;
+  let r = await call(will.token, '/v1/messages/history', { with: alex.uuid, before: oldest });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.messages.map(m => m.text), Array.from({ length: 50 }, (_, i) => `a${20 + i}`));
+  assert.equal(r.body.more, true);
+  r = await call(will.token, '/v1/messages/history', { with: alex.uuid, before: r.body.messages[0].id });
+  assert.deepEqual(r.body.messages.map(m => m.text), Array.from({ length: 20 }, (_, i) => `a${i}`));
+  assert.equal(r.body.more, false);
+  // No `before` = the newest page; only the two players' own lines.
+  r = await call(will.token, '/v1/messages/history', { with: sam.uuid });
+  assert.deepEqual([r.body.messages.map(m => m.text), r.body.more], [['sam0', 'sam1', 'sam2'], false]);
+  r = await call(alex.token, '/v1/messages/history', { with: sam.uuid });
+  assert.deepEqual(r.body.messages, []);
+  assert.equal((await call(will.token, '/v1/messages/history', { with: 'nope' })).status, 400);
+  assert.equal((await call(will.token, '/v1/messages/history', { with: will.uuid })).status, 400);
+});
+
+test('read markers: reading in one client reaches the other through sync; only changes are sent', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex');
+  const willLauncher = await signIn('Will', 'launcher');
+  await befriend(will, alex);
+  for (const t of ['one', 'two', 'three']) await call(alex.token, '/v1/messages/send', { to: will.uuid, text: t });
+
+  // A client that doesn't ask for markers gets none (older clients, no extra reads).
+  assert.equal('reads' in (await sync(will)), false);
+  // The launcher starts: nothing read yet, so all three are new to it.
+  let l = await sync(willLauncher, { readsSince: 0 });
+  assert.deepEqual([l.reads, l.readsAt], [{}, 0]);
+  const newest = l.messages.at(-1).id;
+
+  // Will reads the chat in game: the launcher hears it on its next sync, once.
+  assert.deepEqual((await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: newest })).body, { ok: true });
+  l = await sync(willLauncher, { since: l.cursor, readsSince: l.readsAt });
+  assert.deepEqual(l.reads, { [alex.uuid]: newest });
+  assert.ok(l.readsAt > 0);
+  const readsAt = l.readsAt;
+  l = await sync(willLauncher, { since: l.cursor, readsSince: readsAt });
+  assert.deepEqual([l.reads, l.readsAt], [{}, readsAt]);
+
+  // Markers only move forward: an older or repeated one writes nothing.
+  await call(willLauncher.token, '/v1/messages/read', { with: alex.uuid, upTo: newest - 1 });
+  await call(willLauncher.token, '/v1/messages/read', { with: alex.uuid, upTo: newest });
+  assert.deepEqual((await sync(willLauncher, { readsSince: readsAt })).reads, {});
+  // A marker past the newest line is capped there.
+  await call(alex.token, '/v1/messages/read', { with: will.uuid, upTo: 999_999 });
+  assert.deepEqual((await sync(alex, { readsSince: 0 })).reads, { [will.uuid]: newest });
+
+  // Answering reads the chat; so does writing in the party chat.
+  const reply = (await call(will.token, '/v1/messages/send', { to: alex.uuid, text: 'hey' })).body.message;
+  l = await sync(willLauncher, { readsSince: readsAt });
+  assert.deepEqual(l.reads, { [alex.uuid]: reply.id });
+  const pid = (await call(will.token, '/v1/party/invite', { uuid: alex.uuid })).body.party.id;
+  await call(alex.token, '/v1/party/accept', { partyId: pid });
+  const line = (await call(alex.token, '/v1/party/chat', { text: 'gg' })).body.message;
+  assert.deepEqual((await sync(alex, { readsSince: 0 })).reads, { [will.uuid]: newest, party: line.id });
+  await call(will.token, '/v1/messages/read', { with: 'party', upTo: line.id });
+  assert.deepEqual((await sync(willLauncher, { readsSince: l.readsAt })).reads, { party: line.id });
+
+  // The cursor rises strictly per account even when two markers land in the same ms.
+  step = 0;
+  await call(will.token, '/v1/messages/send', { to: alex.uuid, text: 'again' });
+  await call(will.token, '/v1/messages/read', { with: 'party', upTo: line.id + 100 });
+  const ats = rows(`SELECT at FROM chat_read WHERE uuid = '${will.uuid}' ORDER BY at`).map(r => r.at);
+  assert.equal(new Set(ats).size, ats.length);
+  step = 1001;
+
+  for (const bad of [{}, { with: alex.uuid }, { with: alex.uuid, upTo: 0 }, { with: 'x', upTo: 1 }, { with: will.uuid, upTo: 1 }]) {
+    assert.equal((await call(will.token, '/v1/messages/read', bad)).status, 400, JSON.stringify(bad));
+  }
+  assert.equal((await call(null, '/v1/messages/read', { with: alex.uuid, upTo: 1 })).status, 401);
+});
+
+test('read markers: the migration counts every DM received before it as read, once; old markers are pruned', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex');
+  await befriend(will, alex);
+  const ins = env.DB.raw.prepare('INSERT INTO chat (from_uuid, to_uuid, text, at) VALUES (?, ?, ?, ?)');
+  ins.run(alex.uuid, will.uuid, 'before the update', clock);
+  ins.run(alex.uuid, will.uuid, 'also before', clock);
+  ins.run(will.uuid, alex.uuid, 'my own line', clock);
+  const migration = readFileSync(new URL('../migrations/0008_reads.sql', import.meta.url), 'utf8');
+  env.DB.raw.exec(migration);
+  const marks = () => rows('SELECT uuid, peer, upto FROM chat_read ORDER BY uuid, peer').map(r => ({ ...r }));
+  const maxFrom = (from, to) => rows(`SELECT MAX(id) AS id FROM chat WHERE from_uuid = '${from}' AND to_uuid = '${to}'`)[0].id;
+  const expected = [
+    { uuid: will.uuid, peer: alex.uuid, upto: maxFrom(alex.uuid, will.uuid) },
+    { uuid: alex.uuid, peer: will.uuid, upto: maxFrom(will.uuid, alex.uuid) },
+  ].sort((a, b) => a.uuid.localeCompare(b.uuid));
+  assert.deepEqual(marks(), expected);
+  // Running it again (or after markers moved on) changes nothing.
+  await call(alex.token, '/v1/messages/send', { to: will.uuid, text: 'after the update' });
+  const before = marks();
+  env.DB.raw.exec(migration);
+  assert.deepEqual(marks(), before);
+
+  // Markers are pruned with the chat they cover (the backfill's `at` is the real
+  // time the migration ran, so move the test clock past it).
+  clock = Date.UTC(2100, 0, 1);
+  await socialCleanup(env, clock);
+  assert.equal(rows('SELECT * FROM chat_read').length, 0);
+});
+
+// --------------------------------------------------------- blocking (KS-8)
+test('blocks: blocking a party member splits the party; blocking its leader makes you leave it', async () => {
+  const [will, alex, sam] = [await signIn('Will'), await signIn('Alex'), await signIn('Sam')];
+  await befriend(will, alex); await befriend(will, sam); await befriend(alex, sam);
+  const members = async who => (await sync(who)).party?.members.map(m => m.name) ?? null;
+
+  // Will leads: blocking Alex takes Alex out.
+  let pid = (await call(will.token, '/v1/party/invite', { uuid: alex.uuid })).body.party.id;
+  await call(alex.token, '/v1/party/accept', { partyId: pid });
+  await call(will.token, '/v1/party/invite', { uuid: sam.uuid });
+  await call(sam.token, '/v1/party/accept', { partyId: pid });
+  await call(will.token, '/v1/friends/block', { uuid: alex.uuid });
+  assert.deepEqual(await members(will), ['Will', 'Sam']);
+  assert.equal(await members(alex), null);
+  await call(will.token, '/v1/friends/unblock', { uuid: alex.uuid });
+  await call(will.token, '/v1/party/leave', {});
+  await call(sam.token, '/v1/party/leave', {});
+  await befriend(will, alex);
+
+  // Alex leads: Will blocking Alex leaves Alex's party (it carries on without him).
+  pid = (await call(alex.token, '/v1/party/invite', { uuid: will.uuid })).body.party.id;
+  await call(will.token, '/v1/party/accept', { partyId: pid });
+  await call(alex.token, '/v1/party/invite', { uuid: sam.uuid });
+  await call(sam.token, '/v1/party/accept', { partyId: pid });
+  await call(will.token, '/v1/friends/block', { uuid: alex.uuid });
+  assert.equal(await members(will), null);
+  assert.deepEqual(await members(alex), ['Alex', 'Sam']);
+  assert.equal((await sync(alex)).party.leader, alex.uuid);
+
+  // Sam leads, Alex blocks Will: the blocked one (Will) goes, nobody else moves.
+  await call(alex.token, '/v1/party/promote', { uuid: sam.uuid });
+  await call(will.token, '/v1/friends/unblock', { uuid: alex.uuid });
+  await call(sam.token, '/v1/party/invite', { uuid: will.uuid });
+  await call(will.token, '/v1/party/accept', { partyId: pid });
+  assert.deepEqual(await members(sam), ['Sam', 'Alex', 'Will']);
+  await call(alex.token, '/v1/friends/block', { uuid: will.uuid });
+  assert.deepEqual(await members(sam), ['Sam', 'Alex']);
+  assert.equal(await members(will), null);
+
+  // Not in the same party: blocking touches no party.
+  const own = (await call(will.token, '/v1/party/create', {})).body.party.id;
+  await call(sam.token, '/v1/friends/block', { uuid: will.uuid });
+  assert.equal((await sync(will)).party.id, own);
+  assert.deepEqual(await members(sam), ['Sam', 'Alex']);
+});
+
+// ------------------------------------------------------ store reserve (KS-6)
+test('store reserve: Friends polling slows down before it can use up the day\'s requests; quiet days stay at full speed', async () => {
+  const will = await signIn('Will');
+  assert.equal((await sync(will)).slow, 1);   // no estimate yet: full speed
+
+  const noon = Math.floor(clock / 86_400_000) * 86_400_000 + 12 * 3600_000;
+  const online = n => {
+    env.DB.raw.exec('DELETE FROM presence');
+    const ins = env.DB.raw.prepare("INSERT INTO presence (uuid, client, activity, at) VALUES (?, 'game', 'menu', ?)");
+    for (let i = 0; i < n; i++) ins.run(uuidFor(`p${i}`), noon + 10 * 60_000 - 1000);
+  };
+  // 20 players: 60 requests a minute, far inside 80,000 a day.
+  online(20);
+  let b = await socialBudget(env, noon);
+  assert.equal(b.slow, 1);
+  // 400 players at noon: 1,200 a minute, with ~79,000 left for 720 minutes (~110 a minute) -> 11x, capped at 8.
+  online(400);
+  b = await socialBudget(env, noon + 5 * 60_000);
+  assert.equal(b.slow, 8);
+  // The answer to every sync carries it (re-read at most once a minute per machine).
+  clock = noon + 5 * 60_000 + 61_000;
+  assert.equal((await sync(will)).slow, 8);
+  // 100 players: 300 a minute against what is left of today's share.
+  online(100);
+  b = await socialBudget(env, noon + 10 * 60_000);
+  const left = (80_000 - b.used) / (12 * 60 - 10);
+  assert.equal(b.slow, Math.ceil(300 / left));
+  assert.ok(b.slow > 1 && b.slow < 8, String(b.slow));
+  // A new UTC day starts over at full speed.
+  online(0);
+  b = await socialBudget(env, noon + 12 * 3600_000 + 60_000);
+  assert.deepEqual([b.slow, b.used], [1, 0]);
+  clock = noon + 12 * 3600_000 + 2 * 60_000;
+  assert.equal((await sync(will)).slow, 1);
+
+  // The cron runs it every 5th minute only.
+  env.DB.raw.exec("DELETE FROM meta WHERE k = 'social_budget'");
+  await scheduled({ scheduledTime: 60_000 * 501 }, env, clock);
+  assert.equal(rows("SELECT * FROM meta WHERE k = 'social_budget'").length, 0);
+  await scheduled({ scheduledTime: 60_000 * 500 }, env, clock);
+  assert.equal(rows("SELECT * FROM meta WHERE k = 'social_budget'").length, 1);
 });

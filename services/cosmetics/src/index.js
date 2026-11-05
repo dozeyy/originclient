@@ -30,7 +30,8 @@
 
 import { CORS, json, fail, normUuid, slotOf, SLOTS, rowsIn } from './common.js';
 import { CATALOG } from './catalog.gen.js';
-import { handleSocial, socialCleanup, presenceSweep, session } from './social.js';
+import { L } from './social-shared.js';
+import { handleSocial, socialCleanup, presenceSweep, session, socialBudget } from './social.js';
 import { keysDiag } from './mojang.js';
 import { catalog, checkout, plusCheckout, webhook, isMember, membersAmong, PLUS_CAPE } from './stripe.js';
 import { makeCodes, redeem } from './codes.js';
@@ -155,7 +156,10 @@ async function equip(request, env, body, now = Date.now()) {
 // Cloudflare's own rate limiter (wrangler.toml [[ratelimits]], counted at each
 // Cloudflare location, no D1 writes); docs/SOCIAL.md "Rate limits". Signed-in
 // social calls have their own per-account limits (social-shared.js allow()).
-// The Stripe webhook is never limited. A missing binding (tests, a local run)
+// The Stripe webhook is never limited (it is not in LIMITED, and a test keeps it
+// that way), and the day's request quota keeps a reserve for the store and the
+// webhook: Friends polling slows itself down first (social.js socialBudget,
+// docs/SOCIAL.md "Store reserve"). A missing binding (tests, a local run)
 // or a limiter error lets the call through: the limiter must never break the store.
 //   LIMIT_STORE   10 a minute: checkouts, Origin+ checkouts, code redeems, admin codes
 //   LIMIT_LOOKUP 120 a minute: who wears what (a game asks in batches, cached 5 min)
@@ -218,13 +222,15 @@ export async function handle(request, env) {
 
 // Cron, every minute: the friends "who went offline" sweep every time,
 // social cleanup every 10th minute, which is plenty since every read already
-// ignores expired rows. They fail independently.
+// ignores expired rows, and the store reserve (Friends' share of the day's
+// requests, social.js socialBudget) every 5th. They fail independently.
 export async function scheduled(event, env, now = Date.now()) {
   const t = event?.scheduledTime ?? now;
   const minute = Math.floor(t / 60_000);
   await Promise.all([
     presenceSweep(env, minute * 60_000).catch(err => console.error('origin-cosmetics: offline sweep failed', err)),
     minute % 10 === 0 ? socialCleanup(env, now).catch(err => console.error('origin-cosmetics: social cleanup failed', err)) : null,
+    minute % L.BUDGET_EVERY_MIN === 0 ? socialBudget(env, t).catch(err => console.error('origin-cosmetics: store reserve failed', err)) : null,
   ]);
 }
 

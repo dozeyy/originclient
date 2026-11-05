@@ -87,7 +87,8 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
                   version: "1.21.1" },                   // Minecraft version being played / selected
       partyState: null | { server, dim: "minecraft:overworld", x, y, z, health, maxHealth },  // game only, only in a party,
                                                          // only while the last answer said wantState: true
-      stateServer: "host[:port]" | absent }              // optional: where partyState WOULD be shared while held back
+      stateServer: "host[:port]" | absent,               // optional: where partyState WOULD be shared while held back
+      readsSince: <readsAt> | 0 | absent }               // optional (2026-11-05): read markers changed after this ("Read markers")
     200 {
       cursor,                                            // pass back as `since`
       me: { uuid, name, appearOffline },
@@ -104,7 +105,10 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
       pings: [ { id, from, name, server, dim, x, y, z, label, at, expiresAt } ],          // still active
       partyInvites: [ { partyId, from, name, at } ],
       warp: null | { server, version, at, from },        // leader asked the party to join them (last 2 min)
-      held: <ms>                                         // only when `wait` was sent: how long the service held it
+      held: <ms>,                                        // only when `wait` was sent: how long the service held it
+      reads: { "<friend uuid>" | "party": <chat id> },   // only when `readsSince` was sent: markers changed since then
+      readsAt: <int>,                                    // ...and the value to send as the next `readsSince`
+      slow: 1..8                                         // poll this many times slower ("Store reserve"); 1 = normal
     }
 - Presence is per (account, client): launcher and game both open = one online account. Online = synced in
   the last 150 s. A friend who set appearOffline shows `online:false`, no activity, to friends (party members
@@ -185,8 +189,11 @@ worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so
                                               // an opposite pending request auto-accepts; blocked → same 404
     /v1/friends/respond       { uuid, accept }
     /v1/friends/remove        { uuid }
-    /v1/friends/block         { uuid }        // also removes friendship/requests; /v1/friends/unblock { uuid }
-    /v1/messages/send         { to, text }    // friends only, 1..256 chars, max 1 per second per sender
+    /v1/friends/block         { uuid }        // also removes friendship/requests/party invites, and splits a shared
+                                              // party: they leave it, or you do when they lead it; /v1/friends/unblock { uuid }
+    /v1/messages/send         { to, text }    // friends only, 1..256 chars, max 1 per second per sender; marks the chat read
+    /v1/messages/read         { with, upTo }  // with = friend uuid | "party": read up to chat id upTo ("Read markers")
+    /v1/messages/history      { with, before? }  → { messages, more }: up to 50 DMs of that chat older than `before`
     /v1/party/create          {}              → { party }        // you lead; max 8 members
     /v1/party/invite          { uuid }        // friends only, leader or member
     /v1/party/accept          { partyId }     // leaves your old party first
@@ -199,7 +206,31 @@ worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so
     /v1/party/warp            { server, version }               // leader only; members get `warp` for 2 min
 Errors: `{ error: "<player-facing sentence>" }` with 400/401/403/404/429. Clients show the sentence as is.
 
-Retention: DMs and party chat kept 30 days, pings 60 s, joins/sessions pruned by the existing cron.
+Retention: DMs and party chat kept 30 days (so are read markers), pings 60 s, joins/sessions pruned by the existing cron.
+
+## Read markers and history (2026-11-05, KS-1/2/4)
+Before this, neither client remembered what it had read, so a DM sent while you were offline never showed as new,
+and a chat read in the game stayed unread in the launcher. Now the service keeps, per account and conversation (a
+friend's uuid, or `"party"`), the newest chat id read there (`chat_read`, migrations/0008_reads.sql):
+- A client marks a chat read with `/v1/messages/read { with, upTo }` while it shows that chat (on opening it, and
+  when a line arrives in it). Sending a DM or a party line marks that chat read too (you answered it). Markers only
+  move forward; a repeated or older one writes nothing; `upTo` is capped at the newest chat id.
+- `/v1/sync` with `readsSince` returns `reads` (the markers changed since then) and `readsAt` (send it back as the
+  next `readsSince`; 0 on start = all of them). `readsAt` rises strictly per account, so nothing is skipped or
+  repeated. Usually 0 rows: one index seek per sync. Clients that don't send `readsSince` get no `reads`.
+- Unread = lines from the other player newer than the marker. On the first sync after start that includes history,
+  so what arrived while you were away is unread: one summary toast ("Alex · 3 new messages", or "4 new messages from
+  Alex, Sam and 1 more"; it opens the newest sender's chat). A service without markers (no `readsAt` in the answer)
+  keeps the old rule: first-sync history is never unread.
+- The game shows party chat in vanilla chat, so it keeps no party unread; the launcher's party unread follows the
+  `"party"` marker (sending a party line from the game clears it).
+- Migration 0008 marks every DM received before it as read, once (INSERT OR IGNORE), so updating doesn't flag 30 days
+  of old messages as new.
+
+History: the first sync brings the newest 50 DMs of EACH conversation (at most 2,000 in all, the most recently active
+conversations first), so a quiet friend's chat is never pushed out by a busy one. It used to be the newest 100 DMs
+across all conversations. `/v1/messages/history { with, before? }` returns up to 50 older lines of one conversation
+(oldest first) and `more`; both clients call it once per session when a chat opens with no lines at all.
 
 ## Rate limits (2026-11-03)
 Signed-in calls: one DM / party line / ping / invite / friend request a second per account (`allow()`).
@@ -210,13 +241,31 @@ from your network. Wait a minute and try again." with `Retry-After: 60`:
 - 120 a minute: `GET /v1/players/<uuid>`, `POST /v1/players/equipped` (a game asks in batches of ≤100, cached 5 min;
   a refused batch is retried after 60 s with the old looks kept);
 - 20 a minute: `/v1/auth` (a client signs in about once a day).
-Never limited: the Stripe webhook, `/v1/stats/online` (cached), `/v1/store/catalog`. The limiter counts per
+Never limited: the Stripe webhook (a test keeps it out of `LIMITED`), `/v1/stats/online` (cached), `/v1/store/catalog`. The limiter counts per
 Cloudflare location and lets a call through if it fails, so it stops floods, not single extra calls. A limited
 call still counts as a Worker request; what it saves is D1 reads and Stripe's API limit.
 
 Public `origin` flag (`POST /v1/players/equipped`, the Origin name badge): a player with appearOffline on is never
 reported as in game, so nobody can poll it to see when an invisible player plays. Blocks can't apply there (the
 caller is anonymous); appearOffline is the way to hide from everyone.
+
+## Store reserve (2026-11-05, KS-6)
+The free plan's 100,000 requests a day are for the whole Cloudflare ACCOUNT: every Worker on it shares them, so moving
+the store and the Stripe webhook to a Worker of their own would not protect them. Once the quota is used up Cloudflare
+refuses every request until UTC midnight: checkout, code redeem, Stripe's webhook (Stripe retries for 3 days, so
+purchases arrive late, not never), cosmetics and Friends. So Friends polling, the one thing that grows with players,
+keeps inside its own share:
+- `L.SOCIAL_DAY_BUDGET` = 80,000 a day for social; the other 20,000 stay for the store, the webhook and cosmetics
+  lookups (all tiny next to polling).
+- Every 5th minute the cron (`socialBudget`, social.js) counts the players online (the same 5-minute count as
+  players-online), adds their requests since the last run to today's estimate (3 a minute each at the normal cadence,
+  an overestimate: ~2.2 measured; divided by the `slow` they were told to use), and works out `slow`: how many times
+  slower clients must poll so the rest of today's share lasts until UTC midnight (1 when it does; at most 8). One
+  presence count and one `meta` write (`social_budget`) per run, 288 a day.
+- Every `/v1/sync` answer carries `slow` (re-read from `meta` at most once a minute per Worker machine). The launcher
+  multiplies every cadence by it (SyncSchedule), the game too (interval, held-sync re-arm). Older clients ignore it.
+- The Stripe webhook is never rate-limited, and nothing here can refuse it; only social clients slow down.
+The real fix for growth is still Workers Paid ($5): no daily cap at all.
 
 ## Request budget (Cloudflare free plan, per day: 100,000 Worker requests, D1 5,000,000 rows read, 100,000 rows written)
 Clients poll `/v1/sync` adaptively:
@@ -354,7 +403,8 @@ minutes"). Every error body is `{ error: "<sentence>" }`; show it as is. 500 = s
 The `name` returned is the Mojang-signed `profileName`. Byte-exact v2 formats: "Identity v2: exact formats" below.
 
 **Cursor.** `cursor` is an integer; treat it as opaque and send it back as `since`. `since: 0` (first sync after start)
-returns recent history: the newest 100 DMs and the newest 50 party lines since you joined the party, oldest first.
+returns recent history: the newest 50 DMs of each conversation (at most 2,000 in all) and the newest 50 party lines
+since you joined the party, oldest first.
 After that each sync returns everything newer than `since`, oldest first, at most 200 DMs and 200 party lines; if a
 page is cut short the cursor stops at the last line returned and the next sync continues from there. DMs and party
 chat share one id sequence, so one cursor covers both; nothing is skipped or repeated, and `at` never goes
