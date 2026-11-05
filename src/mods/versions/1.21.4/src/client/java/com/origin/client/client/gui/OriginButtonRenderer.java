@@ -235,7 +235,7 @@ public final class OriginButtonRenderer {
 		Component message;
 		String text;
 		float width, cap, em;
-		boolean sdf;
+		boolean sdf, want;   // sdf = drawn in Inter; want = Inter was asked for (the cache key)
 	}
 
 	private static final Map<Object, Label> LABELS = new WeakHashMap<>();
@@ -246,12 +246,13 @@ public final class OriginButtonRenderer {
 		if (lab == null) {
 			lab = new Label();
 			LABELS.put(button, lab);
-		} else if (lab.message == message && lab.sdf == sdf && lab.em == em) {
+		} else if (lab.message == message && lab.want == sdf && lab.em == em) {
 			return lab;
 		}
 		lab.message = message;
 		lab.text = message.getString();
-		lab.sdf = sdf;
+		lab.want = sdf;
+		lab.sdf = sdf && OriginSdfFont.covers(lab.text);   // a translated label Inter can't spell: Minecraft's font (LOC-1)
 		lab.em = em;
 		if (sdf) {
 			lab.width = OriginSdfFont.widthEm(lab.text, em, 0f, true);
@@ -352,6 +353,11 @@ public final class OriginButtonRenderer {
 		return !titleBroken && !com.origin.client.client.OriginStyle.vanillaTitle() && OriginSdfFont.active();
 	}
 
+	/** titleTextActive(), and Inter has every letter of {@code text}; else that text stays Minecraft's font (LOC-1). */
+	public static boolean titleTextActive(String text) {
+		return titleTextActive() && OriginSdfFont.covers(text);
+	}
+
 	/** Inter text whose 8 GUI px line box starts at {@code top} (what vanilla drawString(..., y) would fill). */
 	public static void drawTitleText(GuiGraphics g, String text, float x, float top, float em, int argb, boolean bold) {
 		OriginSdfFont.drawEm(g, text, x, top + 3.5f + OriginSdfFont.capHeight(em, bold) / 2f, em, 0f, argb, bold);
@@ -415,6 +421,9 @@ public final class OriginButtonRenderer {
 				text = b.getMessage().getString();   // fixed for the widget's life: read once
 				FOOTER_TEXT.put(b, text);
 			}
+			if (!OriginSdfFont.covers(text)) {
+				return false;   // a translated line with letters Inter lacks: vanilla draws it (LOC-1)
+			}
 			if (b.isHoveredOrFocused()) {
 				argb = (argb & 0xFF000000) | (OriginTheme.TITLE_TEXT & 0xFFFFFF);
 			}
@@ -467,10 +476,12 @@ public final class OriginButtonRenderer {
 				return true;
 			});
 			String text = sb.toString();
-			line = new TipLine(text, (int) Math.ceil(titleTextWidth(text, OriginTheme.TITLE_SMALL_EM, false)));
+			// width -1 = a letter Inter lacks: vanilla measures and draws this line (LOC-1)
+			line = new TipLine(text, OriginSdfFont.covers(text)
+					? (int) Math.ceil(titleTextWidth(text, OriginTheme.TITLE_SMALL_EM, false)) : -1);
 			TIP_LINES.put(seq, line);
 		}
-		return line;
+		return line.width() < 0 ? null : line;
 	}
 
 	/** Tooltip line width in Inter, or -1 = vanilla's. */

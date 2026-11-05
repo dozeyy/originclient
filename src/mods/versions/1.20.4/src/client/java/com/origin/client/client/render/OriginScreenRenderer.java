@@ -912,7 +912,7 @@ public final class OriginScreenRenderer {
 				drawLogo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 			int tx = hx + head + gap;
-			if (com.origin.client.client.gui.OriginButtonRenderer.titleTextActive()) {
+			if (com.origin.client.client.gui.OriginButtonRenderer.titleTextActive(name)) {
 				// Inter 600 in parchment at the button label's em (A-Workbench-3: the name reads like a label).
 				com.origin.client.client.gui.OriginButtonRenderer.drawTitleText(guiGraphics, name, tx, y + (chipH - 8) / 2f,
 						OriginTheme.TITLE_LABEL_EM, OriginTheme.TITLE_TEXT, true);

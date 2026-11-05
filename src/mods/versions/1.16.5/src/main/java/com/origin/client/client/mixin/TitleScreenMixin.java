@@ -142,11 +142,12 @@ public class TitleScreenMixin {
 		return OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, raw)));
 	}
 
-	/** Mod Menu's title button (any "Mods" button that isn't Origin's own). */
+	/** Mod Menu's title button (any Mod Menu button that isn't Origin's own): known by its class, so a
+	 *  translated label ("Моды", "Mody", "模组") is hidden too (LOC-4), like the pause menu does. */
 	@Unique
 	private boolean originclient$isForeignMods(GuiEventListener child) {
 		return child instanceof Button && child != originclient$modsNav
-				&& "mods".equalsIgnoreCase(((Button) child).getMessage().getString());
+				&& com.origin.client.client.gui.PlayerModList.isModMenuButton(child, ((Button) child).getMessage().getString());
 	}
 
 	@Inject(method = "render", at = @At("HEAD"))
@@ -343,7 +344,7 @@ public class TitleScreenMixin {
 			GuiComponent.drawString(poseStack, font, text, x, y, color);
 			return;
 		}
-		boolean inter = OriginButtonRenderer.titleTextActive();
+		boolean inter = OriginButtonRenderer.titleTextActive(text);
 		int w = originclient$copyrightBox(font, text, inter);
 		Screen self = (Screen) (Object) this;
 		int cx = self.width - w - TitleLayout.CORNER, top = self.height - TitleLayout.FOOTER_TOP;

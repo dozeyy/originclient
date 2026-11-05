@@ -135,11 +135,12 @@ public class TitleScreenMixin {
 		return OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, raw)));
 	}
 
-	/** Mod Menu's title button (any "Mods" button that isn't Origin's own). */
+	/** Mod Menu's title button (any Mod Menu button that isn't Origin's own): known by its class, so a
+	 *  translated label ("Моды", "Mody", "模组") is hidden too (LOC-4), like the pause menu does. */
 	@Unique
 	private boolean originclient$isForeignMods(GuiEventListener child) {
 		return child instanceof Button b && b != originclient$modsNav
-				&& "mods".equalsIgnoreCase(b.getMessage().getString());
+				&& com.origin.client.client.gui.PlayerModList.isModMenuButton(b, b.getMessage().getString());
 	}
 
 	@Inject(method = "render", at = @At("HEAD"))
@@ -306,7 +307,7 @@ public class TitleScreenMixin {
 		PlainTextButton b = originclient$copyright;
 		if (b != null && originclient$origin()) {
 			Screen self = (Screen) (Object) this;
-			if (OriginButtonRenderer.titleTextActive()) {
+			if (OriginButtonRenderer.titleTextActive(b.getMessage().getString())) {
 				// The hit box follows the Inter text (PlainTextButtonMixin draws it), so the right edge stays CORNER in.
 				if (originclient$copyrightW < 0) {
 					originclient$copyrightW = OriginButtonRenderer.titleFooterWidth(b.getMessage().getString());

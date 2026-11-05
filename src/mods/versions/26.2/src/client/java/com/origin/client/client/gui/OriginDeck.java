@@ -346,9 +346,11 @@ public final class OriginDeck {
 	}
 
 	// ---- text (MSDF Inter, baseline-placed) ----
+	// A string with any letter Inter lacks (accents, Cyrillic, CJK...) is measured AND drawn with Minecraft's
+	// font instead (LOC-1), so a translated key name or a friend's "ça va" never turns into blank gaps.
 
 	public float textW(String str, float size, boolean bold, float tracking) {
-		if (OriginSdfFont.ready()) {
+		if (OriginSdfFont.ready() && OriginSdfFont.covers(str)) {
 			return OriginSdfFont.widthEm(str, size, tracking, bold);
 		}
 		var font = Minecraft.getInstance().font;
@@ -381,7 +383,7 @@ public final class OriginDeck {
 		if ((argb >>> 24) < 4) {
 			return; // vanilla Font would draw alpha < 4 as opaque
 		}
-		if (OriginSdfFont.ready()) {
+		if (OriginSdfFont.ready() && OriginSdfFont.covers(str)) {
 			OriginSdfFont.drawEm(g, str, physX, physBaseline, size * s, tracking * s, argb, bold);
 		} else {
 			// Fail-soft: vanilla glyphs scaled so their caps match Inter's.

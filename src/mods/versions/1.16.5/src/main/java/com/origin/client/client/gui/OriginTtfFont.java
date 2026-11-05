@@ -126,6 +126,19 @@ public final class OriginTtfFont {
 		return REGULAR.ok;
 	}
 
+	/**
+	 * True when every letter of {@code text} has a glyph in the Inter face (LOC-1). Inter has Latin, Greek
+	 * and Cyrillic but no Chinese/Japanese/Korean: such a string is false, and the caller draws THAT string
+	 * with Minecraft's font instead of leaving each missing letter a blank gap.
+	 */
+	public static boolean covers(String text) {
+		ensureLoaded();
+		return REGULAR.ok && GlyphCoverage.covers(text, HAS);
+	}
+
+	// stb_truetype glyph index 0 = the face has no such letter (glyphOf caches the lookup).
+	private static final GlyphCoverage.Has HAS = c -> glyphOf(REGULAR, c)[0] != 0 && (!BOLD.ok || glyphOf(BOLD, c)[0] != 0);
+
 	private static Face face(boolean bold) {
 		return bold && BOLD.ok ? BOLD : REGULAR;
 	}
