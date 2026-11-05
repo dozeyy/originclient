@@ -11,7 +11,7 @@
       "key": 341
     },
     "keystrokes": {
-      "border": true,
+      "border": false,
       "showClicks": true,
       "boxSize": 0.9,
       "borderColor": 1711276032,
@@ -23,7 +23,7 @@
       "showSpace": true,
       "enabled": false,
       "borderColor#chroma": false,
-      "borderThickness": 0.0,
+      "borderThickness": 1.0,
       "bgColor": -1375731712,
       "textColorPressed": 1184274,
       "spacebarThickness": 10.0,
