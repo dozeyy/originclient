@@ -38,7 +38,7 @@ internal static class ModsProfilesShots
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, $"{prefix}b-mods-status-note");
 
-        mods.TourShowStatus("Added 1 mod. " + "Shaders are off for this profile: Origin has not tested an Iris with your Sodium 0.6.9. Add a matching Iris to the profile to turn them back on.", error: false);
+        mods.TourShowStatus("Added 1 mod. " + "Shaders are off for this profile: no tested Iris for your Sodium 0.6.9. Add a matching Iris to turn them back on.", error: false);
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, $"{prefix}b2-mods-status-override-notice");
 

@@ -72,7 +72,7 @@ public static class ModsProfilesShots
         yield return ModsDemo($"{prefix}a-mods-empty", [], 0, w, h);
         yield return ModsDemo($"{prefix}b-mods-status-note", DemoMods, 0, w, h, m => m.TourShowStatus("Adding 2 mods...", false));
         yield return ModsDemo($"{prefix}b2-mods-status-override-notice", DemoMods, 0, w, h,
-            m => m.TourShowStatus("Added 1 mod. " + "Shaders are off for this profile: Origin has not tested an Iris with your Sodium 0.6.9. Add a matching Iris to the profile to turn them back on.", false));
+            m => m.TourShowStatus("Added 1 mod. " + "Shaders are off for this profile: no tested Iris for your Sodium 0.6.9. Add a matching Iris to turn them back on.", false));
         yield return ModsDemo($"{prefix}c-mods-status-error", DemoMods, 0, w, h,
             m => m.TourShowStatus("Couldn't remove it. Close Minecraft first, then try again.", true));
         yield return ModsDemo($"{prefix}d-mods-remove-confirm", DemoMods, 0, w, h, m => m.TourConfirmRemove("litematica-fabric-1.21.1-0.19.50.jar"));

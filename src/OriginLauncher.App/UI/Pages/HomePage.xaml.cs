@@ -989,7 +989,7 @@ public partial class HomePage : UserControl
             // Resolved before the launch options: the heap plan looks at its packs.
             // A first Play on this account copies the player's packs: the launch screen says so while it runs.
             var seedStage = new Progress<string>(Stage);
-            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage), ticket.Token);
+            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage, ticket.Token), ticket.Token);
             var seedNotice = AccountFolders.TakeSeedNotice(gameDir);
 
             // freshSettings, NOT the cached _settings: _settings is loaded once when
@@ -1816,24 +1816,26 @@ public partial class HomePage : UserControl
     private void SetStatus(string text, StatusTone tone)
     {
         StatusText.Text = text;
-        // An error is the one message the player must be able to read in full (which mods, what to do): it wraps to
-        // at most two rows at the status width (Size.StatusWidth) and its tooltip carries the whole text. The row
-        // takes two rows of height for EVERY error, one line or two, so the card rises by the same fixed amount
-        // whatever came before and the text never reaches into the window's bottom gutter (the card is
-        // bottom-anchored, 32 px up). Every other tone stays one trimmed line in the idle slot.
+        // Every line wraps at the status width (Size.StatusWidth) and a long one carries the whole text as its
+        // tooltip (Core/StatusLineRule): the running line holds notices that say what to do ("Add a matching Iris"),
+        // and as one trimmed row with no tooltip that part was never visible (WP-2). An error wraps to at most two
+        // rows and takes two rows of height for EVERY error, one line or two, so the card rises by the same fixed
+        // amount whatever came before and the text never reaches into the window's bottom gutter (the card is
+        // bottom-anchored, 32 px up); any other line takes only the rows it needs, up to StatusLineRule.MaxRows. The
+        // dot sits on the first row: a one-row line is exactly one row high, so that is its middle.
         var isError = tone == StatusTone.Error;
         var line = (double)FindResource("Size.StatusLine");
         _statusRowIdleMargin ??= StatusRow.Margin;
-        StatusText.TextWrapping = isError ? TextWrapping.Wrap : TextWrapping.NoWrap;
-        StatusText.MaxHeight = isError ? (double)FindResource("Size.StatusLinesMax") : double.PositiveInfinity;
+        StatusText.TextWrapping = TextWrapping.Wrap;
+        StatusText.MaxHeight = isError ? (double)FindResource("Size.StatusLinesMax") : line * StatusLineRule.MaxRows;
         StatusText.MinHeight = isError ? (double)FindResource("Size.StatusLinesMax") : 0;
-        StatusText.ToolTip = isError ? text : null;
+        StatusText.ToolTip = StatusLineRule.NeedsTooltip(text, isError) ? text : null;
         StatusRow.Margin = isError
             ? new Thickness(_statusRowIdleMargin.Value.Left, (double)FindResource("Space.2"), _statusRowIdleMargin.Value.Right, _statusRowIdleMargin.Value.Bottom)
             : _statusRowIdleMargin.Value;
-        StatusText.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
-        StatusDot.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
-        StatusDot.Margin = new Thickness(0, isError ? (line - StatusDot.Height) / 2 : 0, 8, 0);
+        StatusText.VerticalAlignment = VerticalAlignment.Top;
+        StatusDot.VerticalAlignment = VerticalAlignment.Top;
+        StatusDot.Margin = new Thickness(0, (line - StatusDot.Height) / 2, 8, 0);
         // Ready is the family accent (an indicator, so the one hue may show); the
         // rest keep their status colours. By reference: FamilyTheme swaps Brush.Accent.
         var brushKey = tone switch

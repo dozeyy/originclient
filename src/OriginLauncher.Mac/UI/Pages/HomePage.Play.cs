@@ -502,7 +502,7 @@ public sealed partial class HomePage
 
             // A first Play on this account copies the player's packs: the launch screen says so while it runs.
             var seedStage = new Progress<string>(Stage);
-            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage), ticket.Token);
+            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage, ticket.Token), ticket.Token);
             var seedNotice = AccountFolders.TakeSeedNotice(gameDir);
             var (heap, legacy) = await LaunchHeap.PlanAsync(freshSettings, version, gameDir, ticket.Token);
             if (heap.Warning != null) Stage(heap.Warning);
@@ -1018,8 +1018,11 @@ public sealed partial class HomePage
 
     private Thickness? _statusRowIdleMargin;
 
-    // An error wraps to at most two rows (Size.StatusLinesMax) with the whole text in its tooltip; every other tone
-    // stays one trimmed line. Ready is the family accent; the rest keep their status colours.
+    // Every line wraps at the status width and a long one carries the whole text as its tooltip (Core/StatusLineRule,
+    // the WPF SetStatus twin): the running line's notices end with what to do, and one trimmed row hid it (WP-2). An
+    // error takes a fixed two-row slot (Size.StatusLinesMax); any other line the rows it needs, up to
+    // StatusLineRule.MaxRows, then "...". The dot sits on the first row. Ready is the family accent; the rest keep
+    // their status colours.
     private void SetStatus(string text, StatusTone tone)
     {
         StatusText.Text = text;
@@ -1027,17 +1030,18 @@ public sealed partial class HomePage
         var line = Find<object>("Size.StatusLine") is double l ? l : 18;
         var linesMax = Find<object>("Size.StatusLinesMax") is double m ? m : line * 2;
         _statusRowIdleMargin ??= StatusRow.Margin;
-        StatusText.TextWrapping = isError ? TextWrapping.Wrap : TextWrapping.NoWrap;
-        StatusText.MaxHeight = isError ? linesMax : double.PositiveInfinity;
+        StatusText.TextWrapping = TextWrapping.Wrap;
+        StatusText.MaxLines = isError ? 2 : StatusLineRule.MaxRows;
+        StatusText.MaxHeight = isError ? linesMax : line * StatusLineRule.MaxRows;
         StatusText.MinHeight = isError ? linesMax : 0;
-        ToolTip.SetTip(StatusText, isError ? text : null);
+        ToolTip.SetTip(StatusText, StatusLineRule.NeedsTooltip(text, isError) ? text : null);
         var space2 = Find<object>("Space.2") is double s ? s : 8;
         StatusRow.Margin = isError
             ? new Thickness(_statusRowIdleMargin.Value.Left, space2, _statusRowIdleMargin.Value.Right, _statusRowIdleMargin.Value.Bottom)
             : _statusRowIdleMargin.Value;
-        StatusText.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
-        StatusDot.VerticalAlignment = isError ? VerticalAlignment.Top : VerticalAlignment.Center;
-        StatusDot.Margin = new Thickness(0, isError ? (line - StatusDot.Height) / 2 : 0, 8, 0);
+        StatusText.VerticalAlignment = VerticalAlignment.Top;
+        StatusDot.VerticalAlignment = VerticalAlignment.Top;
+        StatusDot.Margin = new Thickness(0, (line - StatusDot.Height) / 2, 8, 0);
         var brushKey = tone switch
         {
             StatusTone.Success => "Brush.Accent",
