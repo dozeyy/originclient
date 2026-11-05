@@ -99,10 +99,9 @@ public class NametagStyleMixin {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = scaleAlpha(bg, op);
 		}
-		// The box is drawn ONCE, by Font, before the glyphs (JP-1 on 1.20+, LV-2 here):
+		// The box is drawn ONCE, by Font (JP-1 on 1.20+, LV-2 here):
 		// - this era's Font runs its text pass twice with Text Shadow on (shadow, then glyphs) and
-		//   each run adds the background, so the box drew twice (40% black became 64%). With a
-		//   shadow, the box gets a call of its own whose glyphs are invisible (below).
+		//   each run adds the background, so the box drew twice (40% black became 64%).
 		// - Iris (even with no shader pack) batches entity rendering and draws every no-depth-test
 		//   layer (the see-through text and its box) AFTER the depth-tested text, so the see-through
 		//   box landed ON TOP of the white name: a dark grey smudge. Under that batching the box
@@ -122,15 +121,12 @@ public class NametagStyleMixin {
 		}
 		// The see-through pass gets no shadow (vanilla never gives it one): a dark copy at the
 		// faint pass's alpha only muddies the name when Iris draws it on top.
-		boolean drawShadow = wantShadow && !see;
-		if (newBg != 0 && drawShadow) {
-			// Box only: Font's own box in its own layer, with glyphs at alpha 4/255 (Font keeps an
-			// alpha of 4+; the text shader discards anything under 0.1, 1.16.5's alpha test leaves
-			// them at 1.5%). Origin's own quad in a text layer here lost the glyphs under Iris
-			// with no shader pack (CI dev-shots r7nt, 1.19.4), so the box stays Font's.
-			font.drawInBatch(text, x, y, 0x04FFFFFF, false, matrix, buffer, seeThrough, newBg, light);
-			newBg = 0;
-		}
+		// A pass WITH a box gets none either, and is drawn the way vanilla draws a sneaking tag:
+		// one Font call, box behind the glyphs. This era's tag faces the camera with +z pointing
+		// away from it (CI dev-shots r7nt2, 1.19.4 under Iris): Font's box (z +0.01) is behind
+		// glyphs drawn without a shadow (z 0) but in FRONT of glyphs drawn with one (+0.03), which
+		// greyed the name. So Text Shadow shows on box-less tags (Background alpha 0).
+		boolean drawShadow = wantShadow && !see && newBg == 0;
 		int w = font.drawInBatch(text, x, y, newColor, drawShadow, matrix, buffer, seeThrough, newBg, light);
 		if (padW > 0f) {
 			PlusBadge.nametag(matrix, buffer, see, x, y, padW, newColor >>> 24, light);
