@@ -5,10 +5,16 @@ namespace OriginLauncher.App.Core.GameFolders;
 // A brand-new account game folder (an account's first launch of a version) is
 // seeded with another account's SETTINGS for that version — keybinds, video
 // settings, the server list, mod configs (Origin's originclient*.json, Sodium,
-// Iris, ...) — so it doesn't start bare. Worlds, screenshots, logs, resource and
-// shader packs are NOT copied: those stay with the account that has them. Mods
-// are never copied either — there is nothing to copy: every account of a
-// version loads the same shared instances/<version>/mods/ (SharedMods).
+// Iris, ...) — so it doesn't start bare. Its resource and shader packs are
+// copied too (resourcepacks/, shaderpacks/ with Iris's per-pack .txt options):
+// the seeded options.txt and iris.properties name those packs, and without the
+// files Minecraft drops them from the list and Iris switches shaders off, so a
+// second account would start with every pack gone. They are COPIES — each
+// account keeps its own folder (DECISIONS 2026-10-12), and deleting a pack on
+// one account never touches another. Worlds, screenshots and logs are NOT
+// copied: those stay with the account that has them. Mods are never copied
+// either — there is nothing to copy: every account of a version loads the same
+// shared instances/<version>/mods/ (SharedMods).
 //
 // Crash-safe: the copy is built in a temporary sibling folder and renamed into
 // place in one step, so a game folder is either fully seeded or absent.
@@ -20,6 +26,9 @@ public static class AccountSeed
     {
         "options.txt", "servers.dat", "optionsof.txt", "optionsshaders.txt",
     };
+
+    // Pack folders copied whole (zips, unpacked folder packs, Iris's <pack>.txt options).
+    private static readonly string[] PackFolders = { "resourcepacks", "shaderpacks" };
 
     private const string SeedingPrefix = ".seeding-";
 
@@ -64,6 +73,34 @@ public static class AccountSeed
     }
 
     /// <summary>
+    /// Every file under <paramref name="sourceGameDir"/>'s resourcepacks/ and shaderpacks/, as
+    /// '/'-separated relative paths, sorted. Half-written ".tmp" siblings are skipped.
+    /// </summary>
+    public static IReadOnlyList<string> PackFilesToSeed(string sourceGameDir)
+    {
+        var files = new List<string>();
+        foreach (var folder in PackFolders)
+        {
+            try
+            {
+                var dir = Path.Combine(sourceGameDir, folder);
+                if (!Directory.Exists(dir)) continue;
+                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    if (file.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)) continue;
+                    files.Add(Path.GetRelativePath(sourceGameDir, file).Replace('\\', '/'));
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // an unreadable pack folder just seeds fewer packs
+            }
+        }
+        files.Sort(StringComparer.Ordinal);
+        return files;
+    }
+
+    /// <summary>
     /// The folder to seed from: among the other accounts' game folders for the
     /// same version, the one whose options.txt changed most recently (the
     /// player's latest settings); null when none has one.
@@ -95,7 +132,7 @@ public static class AccountSeed
 
     /// <summary>
     /// Creates <paramref name="gameDir"/> holding a copy of
-    /// <paramref name="sourceGameDir"/>'s settings (or empty when there is no
+    /// <paramref name="sourceGameDir"/>'s settings and packs (or empty when there is no
     /// source). Does nothing when the folder already exists. Returns true when
     /// it created the folder. Never throws.
     /// </summary>
@@ -126,9 +163,17 @@ public static class AccountSeed
                 if (CopyShared(Path.Combine(sourceGameDir, relative), Path.Combine(temp, relative)))
                     copied++;
             }
+            // Packs are copied into the same temp folder, so the folder still appears in one step.
+            // Runs on the launch worker (PrepareGameDir is called off the UI thread on every launcher).
+            var packs = 0;
+            foreach (var relative in PackFilesToSeed(sourceGameDir))
+            {
+                if (CopyShared(Path.Combine(sourceGameDir, relative), Path.Combine(temp, relative)))
+                    packs++;
+            }
             Directory.Move(temp, gameDir);
             temp = null;
-            log($"new game folder {key}: copied {copied} settings file(s) from {Path.GetFileName(sourceGameDir)}");
+            log($"new game folder {key}: copied {copied} settings file(s) and {packs} pack file(s) from {Path.GetFileName(sourceGameDir)}");
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
