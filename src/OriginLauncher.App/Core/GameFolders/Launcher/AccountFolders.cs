@@ -13,7 +13,9 @@ namespace OriginLauncher.App.Core.GameFolders.Launcher;
 public static class AccountFolders
 {
     private static readonly object Gate = new();
-    private static bool _migrationDone;
+    // Read without the lock first: Home calls EnsureMigrated on the UI thread at every account switch, and once the
+    // migration is done that must never wait behind a launch holding Gate (N92-1).
+    private static volatile bool _migrationDone;
 
     /// <summary>
     /// The selected account's folder key; offline test mode's when no account is
@@ -81,6 +83,7 @@ public static class AccountFolders
 
     private static void MigrateOldLayout(string? candidateKey)
     {
+        if (_migrationDone) return;
         lock (Gate)
         {
             if (_migrationDone) return;
@@ -107,24 +110,40 @@ public static class AccountFolders
     /// a seeding problem (an unseeded folder still launches).
     /// </summary>
     /// <param name="stage">The launch screen's line while packs copy (AccountSeed.CopyingPacksStage).</param>
-    public static string PrepareGameDir(string version, string accountKey, IProgress<string>? stage = null)
+    /// <param name="cancel">The launch's token: Cancel (or a newer launch of this account) stops a pack copy between
+    /// files, leaves no folder behind and throws OperationCanceledException.</param>
+    public static string PrepareGameDir(string version, string accountKey, IProgress<string>? stage = null,
+        CancellationToken cancel = default)
     {
         EnsureMigrated(accountKey);
-        lock (Gate)
+        var dir = OriginPaths.GameDir(version, accountKey);
+        if (!Directory.Exists(dir))
         {
-            var dir = OriginPaths.GameDir(version, accountKey);
-            if (!Directory.Exists(dir))
+            string? source;
+            lock (Gate)
             {
                 var candidates = GameDirs(version).Where(e => e.Key != accountKey).Select(e => e.Dir).ToList();
                 // Old-layout data not moved yet (its game was still running at
                 // the last pass) still holds the player's latest settings.
                 var root = OriginPaths.VersionRoot(version);
                 if (InstanceMigration.NeedsMigration(root)) candidates.Add(root);
-                var source = AccountSeed.PickSource(candidates);
-                AccountSeed.Seed(dir, source, Log, stage: stage is null ? null : new Action<string>(stage.Report),
-                    notice: text => SeedNotices[dir] = text);
-                Directory.CreateDirectory(dir);
+                source = AccountSeed.PickSource(candidates);
             }
+            // The copy (up to 4 GB of packs) runs OUTSIDE the lock, in Seed's temp folder; only the final
+            // exists-check and rename take Gate (commitLock). Held for the whole copy, Gate made Cancel do nothing
+            // and froze the launcher on an account switch (EnsureMigrated on the UI thread), and every other
+            // account's Play waited behind it (N92-1).
+            try
+            {
+                AccountSeed.Seed(dir, source, Log, stage: stage is null ? null : new Action<string>(stage.Report),
+                    notice: text => SeedNotices[dir] = text, cancel: cancel, commitLock: Gate);
+            }
+            catch (OperationCanceledException)
+            {
+                SeedNotices.TryRemove(dir, out _); // that first Play never ran
+                throw;
+            }
+            lock (Gate) Directory.CreateDirectory(dir);
         }
         // Mods are shared per version: anything still in an account's own
         // mods/ (an older launcher's layout, or a jar Mod Menu's drag-and-drop
