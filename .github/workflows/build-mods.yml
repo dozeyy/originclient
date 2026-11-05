@@ -100,9 +100,19 @@ jobs:
       # 1.21.10's nametag and tile-entity settings were dead for months. Only
       # targets in Minecraft's own packages count; dependency jars print their own
       # lines with intermediary (class_1234) names, which are not Origin's.
+      #
+      # 26.x is unobfuscated (no `mappings` line): nothing is remapped, so that line can never
+      # appear and this grep would pass having checked nothing (LV-4). Those modules instead check
+      # every Minecraft mixin's target class, method names, call targets and accessors against the
+      # Minecraft jar this build just used (tools/ci/check_mixin_targets.py); it fails loudly if it
+      # cannot find that jar.
       - name: Check for mixins that bind nothing
         shell: bash
         run: |
+          if ! grep -qE '^\s*mappings\b' build.gradle; then
+            python3 ../../../../tools/ci/check_mixin_targets.py .
+            exit $?
+          fi
           # Origin's sources use Mojang names, so its own lines name readable classes
           # (net/minecraft/client/...). Bundled dependency jars (Sodium, Lithium...)
           # are remapped from intermediary names (net/minecraft/class_2818); their
