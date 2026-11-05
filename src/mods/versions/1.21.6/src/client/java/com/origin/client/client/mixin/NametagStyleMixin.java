@@ -142,10 +142,48 @@ public class NametagStyleMixin {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = originclient$scaleAlpha(bg, op);
 		}
-		font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		// Iris (even with no shader pack) batches entity rendering and draws every no-depth-test
+		// layer (the see-through text and its box) AFTER the depth-tested text, so the see-through
+		// box landed ON TOP of the white name: a dark grey smudge (JP-1 on 1.21.1, LV-1 here).
+		// Under that batching the box moves into the solid pass instead (depth-tested, behind the
+		// glyphs). Cost: behind a wall the faint name shows without its box. Font still draws the
+		// box itself here: from 1.21.6 it draws one per prepared text, shadow or not, so the
+		// "box twice" half of JP-1 does not apply to this era.
+		boolean late = originclient$seeThroughDrawnLast(buffer);
+		if (mode == Font.DisplayMode.SEE_THROUGH) {
+			originclient$carriedBg = 0;
+			if (late && ((newBg >>> 24) & 0xFF) != 0) {
+				originclient$carriedBg = newBg;
+				newBg = 0;
+			}
+		} else if (((newBg >>> 24) & 0xFF) == 0 && originclient$carriedBg != 0) {
+			newBg = originclient$carriedBg;
+			originclient$carriedBg = 0;
+		}
+		// The see-through pass gets no shadow (vanilla never gives it one): a dark copy at the
+		// faint pass's alpha only muddies the name when Iris draws it on top.
+		boolean drawShadow = wantShadow && mode != Font.DisplayMode.SEE_THROUGH;
+		font.drawInBatch(text, x, y, newColor, drawShadow, matrix, buffer, mode, newBg, light);
 		if (padW > 0f) {
 			PlusBadge.nametag(matrix, buffer, mode, x, y, padW, newColor >>> 24, light);
 		}
+	}
+
+	// A see-through box held back from the faint pass for the solid pass that always follows
+	// it (vanilla draws SEE_THROUGH then NORMAL for one tag, back to back, render thread only).
+	private static int originclient$carriedBg;
+	private static Class<?> originclient$lastBufferClass;
+	private static boolean originclient$lastLate;
+
+	/** True when this buffer is Iris's batched entity buffer (its batchedentityrendering package), which orders
+	 *  no-depth-test layers after depth-tested ones. Cached per buffer class: one compare a tag. */
+	private static boolean originclient$seeThroughDrawnLast(MultiBufferSource buffer) {
+		Class<?> c = buffer.getClass();
+		if (c != originclient$lastBufferClass) {
+			originclient$lastBufferClass = c;
+			originclient$lastLate = c.getName().contains(".batchedentityrendering.");
+		}
+		return originclient$lastLate;
 	}
 
 	/** The player a render state was extracted from (null for anything else). */

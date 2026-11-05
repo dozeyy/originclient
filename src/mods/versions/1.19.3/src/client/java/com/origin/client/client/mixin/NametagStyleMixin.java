@@ -93,17 +93,63 @@ public class NametagStyleMixin {
 
 		// Background box: only the pass that actually has one (alpha != 0). Replace it
 		// with the chosen colour (own vs global), then fade by the opacity slider.
-		int newBg = bgColor;
+		int newBg = 0;
 		if (((bgColor >>> 24) & 0xFF) != 0) {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = scaleAlpha(bg, op);
 		}
-		int w = font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, seeThrough, newBg, light);
+		// The box is drawn ONCE, by Font (JP-1 on 1.20+, LV-2 here):
+		// - this era's Font runs its text pass twice with Text Shadow on (shadow, then glyphs) and
+		//   each run adds the background, so the box drew twice (40% black became 64%).
+		// - Iris (even with no shader pack) batches entity rendering and draws every no-depth-test
+		//   layer (the see-through text and its box) AFTER the depth-tested text, so the see-through
+		//   box landed ON TOP of the white name: a dark grey smudge. Under that batching the box
+		//   moves into the solid pass instead (depth-tested, behind the glyphs). Cost: behind a
+		//   wall the faint name shows without its box.
+		boolean see = seeThrough;
+		boolean late = originclient$seeThroughDrawnLast(buffer);
+		if (see) {
+			originclient$carriedBg = 0;
+			if (late) {
+				originclient$carriedBg = newBg;
+				newBg = 0;
+			}
+		} else if (newBg == 0 && originclient$carriedBg != 0) {
+			newBg = originclient$carriedBg;
+			originclient$carriedBg = 0;
+		}
+		// The see-through pass gets no shadow (vanilla never gives it one): a dark copy at the
+		// faint pass's alpha only muddies the name when Iris draws it on top.
+		// A pass WITH a box gets none either, and is drawn the way vanilla draws a sneaking tag:
+		// one Font call, box behind the glyphs. This era's tag faces the camera with +z pointing
+		// away from it (CI dev-shots r7nt2, 1.19.4 under Iris): Font's box (z +0.01) is behind
+		// glyphs drawn without a shadow (z 0) but in FRONT of glyphs drawn with one (+0.03), which
+		// greyed the name. So Text Shadow shows on box-less tags (Background alpha 0).
+		boolean drawShadow = wantShadow && !see && newBg == 0;
+		int w = font.drawInBatch(text, x, y, newColor, drawShadow, matrix, buffer, seeThrough, newBg, light);
 		if (padW > 0f) {
-			PlusBadge.nametag(matrix, buffer, seeThrough, x, y, padW, newColor >>> 24, light);
+			PlusBadge.nametag(matrix, buffer, see, x, y, padW, newColor >>> 24, light);
 		}
 		return w;
 	}
+
+	// A see-through box held back from the faint pass for the solid pass that always follows
+	// it (vanilla draws SEE_THROUGH then NORMAL for one tag, back to back, render thread only).
+	private static int originclient$carriedBg;
+	private static Class<?> originclient$lastBufferClass;
+	private static boolean originclient$lastLate;
+
+	/** True when this buffer is Iris's batched entity buffer (its batchedentityrendering package), which orders
+	 *  no-depth-test layers after depth-tested ones. Cached per buffer class: one compare a tag. */
+	private static boolean originclient$seeThroughDrawnLast(MultiBufferSource buffer) {
+		Class<?> c = buffer.getClass();
+		if (c != originclient$lastBufferClass) {
+			originclient$lastBufferClass = c;
+			originclient$lastLate = c.getName().contains(".batchedentityrendering.");
+		}
+		return originclient$lastLate;
+	}
+
 
 	private static int scaleAlpha(int argb, double f) {
 		int a = (int) Math.round(((argb >>> 24) & 0xFF) * f);
