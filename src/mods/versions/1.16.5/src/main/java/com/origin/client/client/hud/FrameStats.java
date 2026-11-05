@@ -8,9 +8,9 @@ import java.util.List;
 // Every frame's duration, for the FPS module's 1% low / frame time / frame-time
 // graph. GameRendererFrameMixin calls frame() once per frame on the render
 // thread: one nanoTime subtraction and one array store, no allocation. The
-// expensive bits only run when something asks: the 1% low sorts a copy when the
-// HUD refreshes its text (4x a second), and the GC check below runs only on a
-// spike frame.
+// expensive bits only run when something asks: the 1% low sorts a copy of the
+// last LOW_WINDOW_MS of frames when the HUD refreshes its text (4x a second),
+// and the GC check below runs only on a spike frame.
 //
 // Spikes: a frame much slower than the running average (2.5x, and at least 8 ms
 // over it). For each spike we ask the JVM whether a garbage-collection PAUSE
@@ -23,7 +23,15 @@ public final class FrameStats {
 	private FrameStats() {
 	}
 
-	public static final int SIZE = 512;
+	// Frames kept: enough for LOW_WINDOW_MS at up to ~1600 FPS (above that the 1% low
+	// covers the newest SIZE frames, still several seconds). The graph reads only the
+	// newest few hundred. 16384 floats + bytes: ~150 KB with SCRATCH.
+	public static final int SIZE = 16384;
+	/** "Show 1% Low" covers the last 10 seconds of play (JP-8): the old last-512-frames
+	 *  window was under 2 s at 300 FPS and jumped around; benchmark tools and other
+	 *  clients use a multi-second window. Time is the frames' own durations summed, so a
+	 *  pause, a minimise or a loading screen (gaps over MAX_FRAME_MS) adds nothing. */
+	public static final float LOW_WINDOW_MS = 10_000;
 	/** Gaps longer than this are a pause/minimise/loading screen, not a frame. */
 	private static final float MAX_FRAME_MS = 1000;
 
@@ -110,9 +118,14 @@ public final class FrameStats {
 		return n == 0 ? 0 : sum / n;
 	}
 
-	/** FPS of the slowest 1% of the recorded frames (their average frame time). 0 = not enough data. */
+	/** FPS of the slowest 1% of the frames in the last LOW_WINDOW_MS (their average frame time).
+	 *  0 = not enough data. */
 	public static int onePercentLow() {
-		int n = count;
+		int n = 0;
+		float covered = 0;
+		while (n < count && covered < LOW_WINDOW_MS) {
+			covered += ms(n++);
+		}
 		if (n < 100) {
 			return 0;
 		}
