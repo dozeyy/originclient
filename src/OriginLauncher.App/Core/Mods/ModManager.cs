@@ -203,11 +203,7 @@ public static class ModManager
     public static ImportReport Import(
         string version, IEnumerable<string> paths, string? profileId = null, IReadOnlySet<string>? confirmedReplace = null)
     {
-        var shared = ModsFolder(version);
-        var context = profileId == null
-            ? new ImportContext(shared, LaunchPreflight.PlatformFor(version), IsManaged, ConfirmedReplace: confirmedReplace)
-            : new ImportContext(ModsFolder(version, profileId), LaunchPreflight.PlatformFor(version), IsOriginProvisioned,
-                IsProfile: true, OriginFolder: shared, ConfirmedReplace: confirmedReplace);
+        var context = ImportContextFor(version, profileId, confirmedReplace);
         try
         {
             var report = ModImporter.Import(paths, context);
@@ -223,6 +219,16 @@ public static class ModManager
             return new ImportReport(0, Array.Empty<ReplaceOffer>(), Array.Empty<string>(), Array.Empty<string>(),
                 "Couldn't check that mod: " + ex.Message);
         }
+    }
+
+    /// <summary>The folder an add (or an update) of this version/profile goes into, as the compatibility engine sees it.</summary>
+    public static ImportContext ImportContextFor(string version, string? profileId, IReadOnlySet<string>? confirmedReplace = null)
+    {
+        var shared = ModsFolder(version);
+        return profileId == null
+            ? new ImportContext(shared, LaunchPreflight.PlatformFor(version), IsManaged, ConfirmedReplace: confirmedReplace)
+            : new ImportContext(ModsFolder(version, profileId), LaunchPreflight.PlatformFor(version), IsOriginProvisioned,
+                IsProfile: true, OriginFolder: shared, ConfirmedReplace: confirmedReplace);
     }
 
     /// <summary>

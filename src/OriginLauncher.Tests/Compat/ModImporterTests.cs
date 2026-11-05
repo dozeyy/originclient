@@ -344,6 +344,26 @@ public sealed class ModImporterTests : IDisposable
         Assert.Contains(report.Notes, n => n.Contains("fabric-api"));
     }
 
+    [Fact]
+    public void AnUpdateThatWouldStopTheNextPlayIsFoundBeforeItGoesIn()
+    {
+        // N92-2: the Mods page's Update must not swap a working jar for one that needs a newer Fabric API / Loader
+        // than Origin installs for the version.
+        WriteJar(_mods, "fabric-api-0.100.0.jar", "fabric-api", "0.100.0");
+        WriteJar(_mods, "extra-1.0.jar", "extra", "1.0.0", needs: new[] { ("fabric-api", ">=0.90.0"), ("lib", "*") });
+        var newerApi = WriteJar(_incoming, "extra-2.0.jar", "extra", "2.0.0", needs: new[] { ("fabric-api", ">=0.116.0"), ("lib", "*") });
+        var problem = Assert.Single(ModImporter.UpdateProblems(newerApi, "extra-1.0.jar", Context()));
+        Assert.Equal(FindingKind.WrongVersion, problem.Kind);
+        Assert.Equal("fabric-api", problem.TargetId);
+
+        var newerLoader = WriteJar(_incoming, "extra-3.0.jar", "extra", "3.0.0", needs: new[] { ("fabricloader", ">=0.99.0"), ("lib", "*") });
+        Assert.Equal("fabricloader", Assert.Single(ModImporter.UpdateProblems(newerLoader, "extra-1.0.jar", Context())).TargetId);
+
+        // What the installed copy already lacked (lib) is not the update's fault; a fitting update has no problem.
+        var fits = WriteJar(_incoming, "extra-1.5.jar", "extra", "1.5.0", needs: new[] { ("fabric-api", ">=0.95.0"), ("lib", "*") });
+        Assert.Empty(ModImporter.UpdateProblems(fits, "extra-1.0.jar", Context()));
+    }
+
     // The shared folder follows the same rule as a profile (DECISIONS 2026-10-25, "a player's own mods win"): the
     // player's own version of a mod Origin ships is added and loads instead of Origin's; Origin's own version (or an
     // older Fabric API) is "already included" and never becomes a second copy.
