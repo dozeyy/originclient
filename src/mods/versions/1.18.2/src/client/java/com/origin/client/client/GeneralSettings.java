@@ -21,6 +21,12 @@ public final class GeneralSettings {
 	private static Boolean lastBorderless = null;
 	private static boolean borderlessApplied = false;
 	private static int savedX, savedY, savedW, savedH;
+	// Leaving borderless returns to a maximised window if that is what it was.
+	private static boolean savedMaximised;
+	// The remembered window (WindowMemory) when Borderless was already on at launch: not
+	// applied then (Borderless owns the window), so it is the window that leaving Borderless
+	// returns to, not the launch size the window happened to have (LONG-3).
+	private static int[] launchRestore;
 	private static final BorderlessFit.Guard guard = new BorderlessFit.Guard();
 	// One "covers its monitor" log line per enter: the proof in latest.log that the
 	// first-tick apply held (CI boot-smoke greps it too).
@@ -52,8 +58,12 @@ public final class GeneralSettings {
 				int[] w = new int[1], h = new int[1];
 				GLFW.glfwGetWindowSize(win, w, h);
 				int[] restore = WindowMemory.start(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().toFile(), w[0], h[0]);
-				if (restore != null && !Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
-					restoreWindow(win, restore);
+				if (restore != null) {
+					if (Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
+						launchRestore = restore;   // enterBorderless (next, this tick) keeps it to return to
+					} else {
+						restoreWindow(win, restore);
+					}
 				}
 				return;
 			}
@@ -146,6 +156,14 @@ public final class GeneralSettings {
 				}
 				enterBorderless(win);
 			} else if (!want && borderlessApplied) {
+				// Same under F11 the other way: moving the window out from under vanilla's
+				// exclusive fullscreen leaves the game thinking it is still fullscreen (the
+				// next F11 then gives a monitor-sized framed window). Finish the leave once
+				// F11 has handed the window back.
+				if (mc.options.fullscreen || GLFW.glfwGetWindowMonitor(win) != 0L) {
+					lastBorderless = null;
+					return;
+				}
 				leaveBorderless(win);
 			}
 			return;
@@ -160,18 +178,27 @@ public final class GeneralSettings {
 			// A maximised window first goes back to its normal size: that is the size
 			// to return to, and Windows keeps re-sizing a maximised window to the
 			// work area (taskbar left showing).
+			boolean wasMaximised = GLFW.glfwGetWindowAttrib(win, GLFW.GLFW_MAXIMIZED) == GLFW.GLFW_TRUE;
 			restoreIfMaximised(win);
 			int[] x = new int[1], y = new int[1], w = new int[1], h = new int[1];
 			GLFW.glfwGetWindowPos(win, x, y);
 			GLFW.glfwGetWindowSize(win, w, h);
 			int[] monitor = monitorFor(x[0], y[0], w[0], h[0]);
+			int[] remembered = launchRestore;
+			launchRestore = null;   // only the first enter of this launch
 			if (monitor == null) {
 				return;
 			}
-			savedX = x[0];
-			savedY = y[0];
-			savedW = w[0];
-			savedH = h[0];
+			int[] back = {x[0], y[0], w[0], h[0]};
+			if (remembered != null) {
+				back = WindowMemory.placeOn(monitor, remembered[0], remembered[1]);
+				wasMaximised = remembered[2] == 1;
+			}
+			savedX = back[0];
+			savedY = back[1];
+			savedW = back[2];
+			savedH = back[3];
+			savedMaximised = wasMaximised;
 			fit(win, monitor);
 			borderlessApplied = true;
 			guard.reset(System.currentTimeMillis());
@@ -188,6 +215,9 @@ public final class GeneralSettings {
 			GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
 			GLFW.glfwSetWindowMonitor(win, 0L, savedX, savedY,
 					Math.max(320, savedW), Math.max(240, savedH), GLFW.GLFW_DONT_CARE);
+			if (savedMaximised) {
+				GLFW.glfwMaximizeWindow(win);   // un-maximising returns to the size set just above
+			}
 			borderlessApplied = false;
 		} catch (Throwable t) {
 			// fail-soft

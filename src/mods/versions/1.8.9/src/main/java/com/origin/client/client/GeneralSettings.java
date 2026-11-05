@@ -26,6 +26,10 @@ public final class GeneralSettings {
 	private static Boolean lastBorderless = null;
 	private static boolean borderlessApplied = false;
 	private static int savedX, savedY, savedW = 854, savedH = 480;
+	// The remembered size (WindowMemory) when Borderless was already on at launch: not
+	// applied then (Borderless owns the window), so it is the size that leaving Borderless
+	// returns to, not the launch size the window happened to have (LONG-3).
+	private static int[] launchRestore;
 
 	private GeneralSettings() {
 	}
@@ -53,7 +57,9 @@ public final class GeneralSettings {
 				}
 				int[] restore = WindowMemory.start(com.origin.client.OriginClient.configDir().toFile(),
 						mc.displayWidth, mc.displayHeight);
-				if (restore != null && !Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
+				if (restore != null && Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
+					launchRestore = restore;   // applyBorderless (next, this tick) keeps it to return to
+				} else if (restore != null) {
 					DisplayMode desktop = Display.getDesktopDisplayMode();
 					if (desktop != null && (restore[0] != mc.displayWidth || restore[1] != mc.displayHeight)) {
 						int[] at = WindowMemory.placeOn(new int[] {0, 0, desktop.getWidth(), desktop.getHeight()},
@@ -129,6 +135,8 @@ public final class GeneralSettings {
 				lastBorderless = null; // retry once we're back in windowed mode
 				return;
 			}
+			int[] remembered = launchRestore;
+			launchRestore = null;   // only the first enter of this launch
 			try {
 				savedX = Display.getX();
 				savedY = Display.getY();
@@ -137,6 +145,14 @@ public final class GeneralSettings {
 				DisplayMode desktop = Display.getDesktopDisplayMode();
 				if (desktop == null) {
 					return;
+				}
+				if (remembered != null) {
+					int[] at = WindowMemory.placeOn(new int[] {0, 0, desktop.getWidth(), desktop.getHeight()},
+							remembered[0], remembered[1]);
+					savedX = at[0];
+					savedY = at[1];
+					savedW = at[2];
+					savedH = at[3];
 				}
 				System.setProperty(UNDECORATED, "true");
 				Display.setDisplayMode(new DisplayMode(desktop.getWidth(), desktop.getHeight()));
@@ -147,6 +163,13 @@ public final class GeneralSettings {
 				System.setProperty(UNDECORATED, "false");
 			}
 		} else if (!want && borderlessApplied) {
+			// Same under F11 the other way: resizing the display out from under vanilla's
+			// fullscreen leaves the game thinking it is still fullscreen. Finish the leave
+			// once F11 has handed the window back.
+			if (mc.isFullScreen()) {
+				lastBorderless = null;
+				return;
+			}
 			try {
 				System.setProperty(UNDECORATED, "false");
 				Display.setDisplayMode(new DisplayMode(savedW, savedH));
