@@ -117,6 +117,32 @@ public final class WaypointScope {
 		return "mp:" + (defaultPort ? host : host + ":" + port);
 	}
 
+	/**
+	 * Scope key on Hypixel (JG-8): one address is every lobby, minigame map and SkyBlock
+	 * island, so the list is kept per place: "mp:mc.hypixel.net/bedwars/lighthouse" (the
+	 * place from /locraw, mods/HypixelLocation). Until the place is known, server plus
+	 * dimension ("mp:mc.hypixel.net/minecraft:overworld"; a place never holds a ':').
+	 */
+	public static String hypixel(String serverKey, String place, String dimension) {
+		String where = place != null && !place.isEmpty() ? place
+				: (dimension == null || dimension.isEmpty() ? "unknown" : dimension);
+		return serverKey + "/" + where;
+	}
+
+	/**
+	 * The key a new Hypixel SkyBlock place starts from: the old one-list-for-all-of-Hypixel
+	 * key, so waypoints made before lists were split stay where SkyBlock players look for
+	 * them (copied once per place, the old file is kept: WaypointScope.adoptPrevious).
+	 * Minigame maps start empty (a copy there would bring back the stray beams); null then.
+	 */
+	public static String hypixelPrevious(String key) {
+		int slash = key == null ? -1 : key.indexOf('/');
+		if (slash <= 0 || !key.startsWith("skyblock/", slash + 1)) {
+			return null;
+		}
+		return key.substring(0, slash);
+	}
+
 	/** Loopback / private IPv4 / localhost / IPv6 loopback. */
 	static boolean isLan(String host) {
 		if (host.equals("localhost") || host.equals("::1")) {
