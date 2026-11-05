@@ -517,7 +517,7 @@ public static class CrashRules
     /// <summary>"some_cool-mod" -> "some cool mod" (ids are all a crash report gives us).</summary>
     public static string Pretty(string modId) => modId.Replace('_', ' ').Replace('-', ' ').Trim();
 
-    private static string Gb(int mb) => $"{mb / 1024.0:0.#} GB";
+    private static string Gb(int mb) => GbText.FromMb(mb);
 
     private static string Shorten(string s, int max) => s.Length <= max ? s : s[..(max - 3)] + "...";
 

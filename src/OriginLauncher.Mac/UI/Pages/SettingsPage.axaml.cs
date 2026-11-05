@@ -211,7 +211,7 @@ public sealed partial class SettingsPage : UserControl
         finally { _isLoading = wasLoading; }
     }
 
-    private static string FormatRam(int ramMb) => $"{ramMb / 1024d:0.##} GB";
+    private static string FormatRam(int ramMb) => OriginLauncher.App.Core.GbText.FromMb(ramMb, "0.##");
 
     // ---- Resolution ----
     // A rejected value is NOT saved and is not silently put back: the boxes keep what was typed, show a Danger edge

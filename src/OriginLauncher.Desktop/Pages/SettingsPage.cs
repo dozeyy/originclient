@@ -395,7 +395,7 @@ public sealed class SettingsPage : Panel, IPage
         _ramAuto.IsVisible = manual;
     }
 
-    private static string FormatRam(int ramMb) => Fmt.N(ramMb / 1024d, "0.##") + " GB";
+    private static string FormatRam(int ramMb) => OriginLauncher.App.Core.GbText.FromMb(ramMb, "0.##");
 
     // "Recommended for this PC": the player's explicit click, so it MAY change options that already exist, but only
     // the preset's own keys and only in folders whose game is not running. Detection and file work run off the UI thread.
