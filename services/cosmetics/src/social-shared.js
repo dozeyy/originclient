@@ -19,6 +19,7 @@ export const L = {
   TEXT_MAX: 256,                   // DM / party chat length (UTF-16 units, like Java/C# strings)
   LABEL_MAX: 32,                   // ping label length
   RATE_MS: SECOND,                 // one DM / party line / ping / invite / friend request / read marker a second
+  READ_BURST: 5,                   // ...but read markers may come this many at once first (allowBurst)
   CHAT_KEEP_MS: 30 * DAY,
   PING_TTL_MS: MINUTE,
   WARP_TTL_MS: 2 * MINUTE,
@@ -124,6 +125,21 @@ export async function allow(env, uuid, kind, now) {
   const r = await env.DB.prepare(`INSERT INTO rate (uuid, kind, at) VALUES (?1, ?2, ?3)
       ON CONFLICT (uuid, kind) DO UPDATE SET at = excluded.at WHERE rate.at <= excluded.at - ${L.RATE_MS}`)
     .bind(uuid, kind, now).run();
+  return !!r.meta?.changes;
+}
+
+// Like allow(), but up to `burst` actions at once before the one-a-second pace
+// applies (a generic cell rate: rate.at holds when the account's allowance is
+// next full, and each action pushes it one RATE_MS further). Read markers need
+// it: opening two chats within a second, or the launcher and the game marking
+// the same chat together, refused the second and left that chat "unread" on the
+// other client until a new line landed (bug run 7, N92-4). Sustained use is still
+// one a second. One conditional upsert; a row in allow()'s older form (the time
+// of the last action, never ahead of now) reads as a full allowance.
+export async function allowBurst(env, uuid, kind, now, burst) {
+  const r = await env.DB.prepare(`INSERT INTO rate (uuid, kind, at) VALUES (?1, ?2, ?3 + ?4)
+      ON CONFLICT (uuid, kind) DO UPDATE SET at = MAX(rate.at, ?3) + ?4 WHERE rate.at <= ?3 + ?5`)
+    .bind(uuid, kind, now, L.RATE_MS, (burst - 1) * L.RATE_MS).run();
   return !!r.meta?.changes;
 }
 

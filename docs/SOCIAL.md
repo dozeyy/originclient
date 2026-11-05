@@ -214,8 +214,9 @@ and a chat read in the game stayed unread in the launcher. Now the service keeps
 friend's uuid, or `"party"`), the newest chat id read there (`chat_read`, migrations/0008_reads.sql):
 - A client marks a chat read with `/v1/messages/read { with, upTo }` while it shows that chat (on opening it, and
   when a line arrives in it). Sending a DM or a party line marks that chat read too (you answered it). Markers only
-  move forward; a repeated or older one writes nothing; `upTo` is capped at the newest chat id. One a second per
-  account (429), and only for a conversation that exists or the party you are in (else 404).
+  move forward; a repeated or older one writes nothing; `upTo` is capped at the newest chat id. Up to 5 at once,
+  then one a second per account (429; `allowBurst`, so two chats opened together, or the launcher and the game marking
+  the same chat, all count: N92-4), and only for a conversation that exists or the party you are in (else 404).
 - `/v1/sync` with `readsSince` returns `reads` (the markers changed since then) and `readsAt` (send it back as the
   next `readsSince`; 0 on start = all of them). `readsAt` rises strictly per account, so nothing is skipped or
   repeated. Usually 0 rows: one index seek per sync. Clients that don't send `readsSince` get no `reads`.
