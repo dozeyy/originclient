@@ -126,8 +126,12 @@ public static class WindowsApplyScript
         return StartInfo(updatesRoot, pid, stageDir, appDir, exePath);
     }
 
-    /// <summary>The entry files' pattern: the exe's name without its extension, then ".*" ("OriginLauncher.App.*").</summary>
-    public static string EntryPattern(string exePath) => Path.GetFileNameWithoutExtension(exePath) + ".*";
+    /// <summary>
+    /// The entry files' pattern: the exe's name without its extension, then ".*" ("OriginLauncher.App.*"). Split on both
+    /// separators so the tests, which run on Linux, read a Windows path the way Windows does.
+    /// </summary>
+    public static string EntryPattern(string exePath) =>
+        Path.GetFileNameWithoutExtension(exePath[(exePath.LastIndexOfAny(['\\', '/']) + 1)..]) + ".*";
 
     public static ProcessStartInfo StartInfo(string updatesRoot, int pid, string stageDir, string appDir, string exePath)
     {
