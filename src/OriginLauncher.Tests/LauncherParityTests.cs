@@ -130,4 +130,43 @@ public sealed class LauncherParityTests
         Assert.False(SignInAgain.Needed(new MicrosoftAuthException("xsts", "no Xbox profile")));
         Assert.Contains("Steve", SignInAgain.Prompt("Steve"));
     }
+
+    [Fact]
+    public void No_launcher_writes_the_dead_install_folder_setting()
+    {
+        // WP-1: nothing reads InstallPath (game files always live under OriginPaths.Instances). Windows dropped its
+        // picker in f4d3d3bf, Mac and Linux kept a card that saved a folder nothing used. Never again on any OS.
+        var writers = Directory.EnumerateFiles(Src, "*.cs", SearchOption.AllDirectories)
+            .Where(f => f.Contains("OriginLauncher.", StringComparison.Ordinal) && !f.Contains("OriginLauncher.Tests", StringComparison.Ordinal)
+                        && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)
+                        && !f.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar))
+            .SelectMany(f => File.ReadLines(f).Select((line, i) => (f, i, line)))
+            .Where(x => !x.line.TrimStart().StartsWith("//", StringComparison.Ordinal)
+                        && Regex.IsMatch(x.line, @"\.InstallPath\s*=[^=]"))
+            .Select(x => $"{Path.GetFileName(x.f)}:{x.i + 1}")
+            .ToList();
+        Assert.True(writers.Count == 0, "InstallPath is written (nothing reads it): " + string.Join(", ", writers));
+    }
+
+    [Fact]
+    public void Every_launcher_saves_typed_settings_on_close_and_has_the_page_keys_and_Enter_to_Play()
+    {
+        // WP-5: the Java arguments / resolution boxes save on focus loss, which closing the window never raises.
+        Assert.Contains("FlushEdits()", Read("OriginLauncher.App", "MainWindow.xaml.cs"));
+        Assert.Contains("Closing += (_, _) => Settings.FlushEdits()", Read("OriginLauncher.Mac", "MainWindow.Keys.cs"));
+        Assert.Contains("FlushEdits()", Read("OriginLauncher.Desktop", "Shell", "MainWindow.cs"));
+        Assert.Contains("public void FlushEdits()", Read("OriginLauncher.Desktop", "Pages", "SettingsPage.cs"));
+        Assert.Contains("internal void FlushEdits()", Read("OriginLauncher.Mac", "UI", "Pages", "SettingsPage.axaml.cs"));
+        // WP-6: Ctrl (Cmd on the Mac) + 1-4 open the four pages, and Enter on Home plays.
+        foreach (var keys in new[]
+                 {
+                     Read("OriginLauncher.App", "MainWindow.xaml.cs"),
+                     Read("OriginLauncher.Mac", "MainWindow.Keys.cs"),
+                     Read("OriginLauncher.Desktop", "Shell", "MainWindow.cs"),
+                 })
+        {
+            foreach (var key in new[] { "Key.D1", "Key.D2", "Key.D3", "Key.D4" }) Assert.Contains(key, keys);
+            Assert.Contains("TryLaunchFromKeyboard()", keys);
+        }
+    }
 }

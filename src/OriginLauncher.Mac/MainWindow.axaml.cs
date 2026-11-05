@@ -63,6 +63,7 @@ public sealed partial class MainWindow : Window
         HookImport(); // MainWindow.Import.cs: the Import page, its button, the first-run card, closing mid-import
         HookUpdates(); // MainWindow.Update.cs: the update chip, the poll loop and the focus re-check
         InitSocial(); // MainWindow.Social.cs: the Friends drawer and the social toasts' actions
+        HookKeys(); // MainWindow.Keys.cs: Cmd+1-4 pages, Enter plays, Settings saves its typed boxes on close
     }
 
     // ---- Toasts and the confirm dialog ----

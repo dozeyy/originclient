@@ -154,18 +154,6 @@
                     <!-- Game -->
                     <TextBlock x:Name="SecGame" Text="GAME" Theme="{StaticResource SectionTitle}"/>
                     <Border Theme="{StaticResource SettingCard}">
-                        <StackPanel>
-                            <TextBlock Text="Install folder" Theme="{StaticResource SettingTitle}"/>
-                            <TextBlock Text="Where Minecraft's game files are kept." Theme="{StaticResource SettingWhy}"/>
-                            <Grid Margin="0,12,0,0" ColumnDefinitions="*,8,Auto">
-                                <TextBox Grid.Column="0" x:Name="InstallPathTextBox" Theme="{StaticResource Input.TextBox}"
-                                         AutomationProperties.Name="Install folder"/>
-                                <Button Grid.Column="2" x:Name="BrowseButton" Content="Browse" Theme="{StaticResource Button.Secondary}"/>
-                            </Grid>
-                            <TextBlock x:Name="InstallPathErrorText" Theme="{StaticResource Input.ErrorText}" IsVisible="False"/>
-                        </StackPanel>
-                    </Border>
-                    <Border Theme="{StaticResource SettingCard}">
                         <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
                             <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                 <TextBlock Text="Resolution" Theme="{StaticResource SettingTitle}"/>

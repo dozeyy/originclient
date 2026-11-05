@@ -4,7 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using OriginLauncher.App.Core;
@@ -33,7 +32,9 @@ namespace OriginLauncher.Desktop.Pages;
 // - One control, one job: each handler writes only its own setting. Values set from code never write (Toggle and
 //   SettingsSlider only raise for the player's own input; the JVM editor has its own loading guard).
 // - Nothing OS-specific here: start-at-login goes through Core's InstallRegistry seam (Linux XDG autostart,
-//   macOS LaunchAgent), folders through Avalonia's StorageProvider.
+//   macOS LaunchAgent).
+// - No "Install folder" card: nothing ever read that folder (game files always live in Origin's own data folder);
+//   Windows removed it in f4d3d3bf and LauncherParityTests fails if any page writes InstallPath again.
 public sealed class SettingsPage : Panel, IPage
 {
     private const string RamAutoText = "Auto: Origin picks the right amount for each version.";
@@ -65,8 +66,6 @@ public sealed class SettingsPage : Panel, IPage
     private readonly TextBlock _presetStatus;
 
     // Game
-    private readonly TextBox _installPath = SettingsUi.Box("Install folder");
-    private readonly TextBlock _installError = SettingsUi.ErrorText();
     private readonly TextBox _width = SettingsUi.Box("Width", Sizes.FieldNarrow, centred: true);
     private readonly TextBox _height = SettingsUi.Box("Height", Sizes.FieldNarrow, centred: true);
     private readonly TextBlock _resolutionError = SettingsUi.ErrorText();
@@ -146,19 +145,6 @@ public sealed class SettingsPage : Panel, IPage
         _preset.Click += async (_, _) => await ApplyPresetAsync();
 
         // ---- Game ----
-        _installPath.Text = s.InstallPath;
-        _installPath.LostFocus += (_, _) => SaveInstallPath();
-        _installPath.TextChanged += (_, _) =>
-        {
-            // Once a problem shows, it re-checks as the player types, so fixing the text clears it.
-            if (SettingsUi.IsInvalid(_installPath)) ShowInstallProblem(FieldRules.InstallFolderProblem(_installPath.Text));
-        };
-        var browse = Ui.Button("Browse", Look.Secondary);
-        browse.Click += async (_, _) => await BrowseAsync();
-        var pathLine = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = Space.S2, Margin = new Thickness(0, Space.S3, 0, 0) };
-        pathLine.Children.Add(_installPath.At(0));
-        pathLine.Children.Add(browse.At(1));
-
         _width.Text = s.ResolutionWidth.ToString(System.Globalization.CultureInfo.InvariantCulture);
         _height.Text = s.ResolutionHeight.ToString(System.Globalization.CultureInfo.InvariantCulture);
         _width.LostFocus += (_, _) => SaveResolution();
@@ -246,8 +232,6 @@ public sealed class SettingsPage : Panel, IPage
         sections.Children.Add(SettingsUi.Card(SettingsUi.Row(SettingsUi.TitleWhy("Shader cache", "Reduces stutter while shaders compile."), _shaderCache)));
         sections.Children.Add(SettingsUi.Card(SettingsUi.Row(presetText, _preset)));
         var secGame = Title("SecGame", "GAME");
-        sections.Children.Add(SettingsUi.Card(Ui.Column(0,
-            SettingsUi.TitleWhy("Install folder", "Where Minecraft's game files are kept."), pathLine, _installError)));
         sections.Children.Add(SettingsUi.Card(resolution));
         var secJvm = Title("SecJvm", "JVM ARGUMENTS");
         sections.Children.Add(SettingsUi.Card(Ui.Column(0,
@@ -323,13 +307,31 @@ public sealed class SettingsPage : Panel, IPage
     {
         base.OnPropertyChanged(change);
         // Pages stay attached and are hidden on a tab switch, so leaving Settings is a hide.
-        if (change.Property == IsVisibleProperty && !IsVisible) PersistPendingRam();
+        if (change.Property == IsVisibleProperty && !IsVisible) FlushEdits();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        PersistPendingRam();
+        FlushEdits();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>
+    /// Saves what is typed but not yet saved (twin of the WPF SettingsPage.FlushEdits): the Java arguments and
+    /// resolution boxes save when they lose focus, which never happens when the player leaves with Ctrl+1-4 or closes
+    /// the window (Alt+F4, the window manager's close). Runs on hide and from MainWindow's Closing (WP-5).
+    /// LauncherState.Write never throws, so a busy settings.json never stops the window closing.
+    /// </summary>
+    public void FlushEdits()
+    {
+        PersistPendingRam();
+        if (!_jvmLoading && _jvmDirty)
+        {
+            SaveJvmOptions();
+            UpdateJvmCustomizedList();
+            UpdateJvmUndo();
+        }
+        SaveResolution(); // writes only when the numbers changed
     }
 
     // ---- Settings Sync ----
@@ -438,43 +440,8 @@ public sealed class SettingsPage : Panel, IPage
         _presetStatus.IsVisible = text.Length > 0;
     }
 
-    // ---- Game folder and resolution: a rejected value is NOT saved and not silently put back. The box keeps what
-    // was typed, shows the Danger edge and says what is wrong under it (FieldRules).
-
-    private void SaveInstallPath()
-    {
-        var path = (_installPath.Text ?? "").Trim();
-        if (ShowInstallProblem(FieldRules.InstallFolderProblem(path))) return;
-        if (path == LauncherState.Settings.InstallPath) return;
-        LauncherState.Write(x => x.InstallPath = path);
-    }
-
-    private bool ShowInstallProblem(string? problem)
-    {
-        SettingsUi.ShowError(_installError, problem);
-        SettingsUi.SetInvalid(_installPath, problem != null);
-        return problem != null;
-    }
-
-    private async Task BrowseAsync()
-    {
-        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { CanPickFolder: true } storage) return;
-        IStorageFolder? start = null;
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(_installPath.Text) && Directory.Exists(_installPath.Text))
-                start = await storage.TryGetFolderFromPathAsync(_installPath.Text);
-        }
-        catch (Exception) { /* no start folder: the picker opens where it likes */ }
-        var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Install folder", AllowMultiple = false, SuggestedStartLocation = start,
-        });
-        if (picked.Count == 0 || picked[0].TryGetLocalPath() is not { } folder) return;
-        _installPath.Text = folder;
-        ShowInstallProblem(null);
-        LauncherState.Write(x => x.InstallPath = folder);
-    }
+    // ---- Resolution: a rejected value is NOT saved and not silently put back. The boxes keep what was typed, show
+    // the Danger edge and say what is wrong under them (FieldRules).
 
     private void SaveResolution()
     {
@@ -732,15 +699,13 @@ public sealed class SettingsPage : Panel, IPage
         _scroller.ScrollToEnd();
     }
 
-    public TextBox InstallPathBox => _installPath;
     public TextBox WidthBox => _width;
+    public TextBox HeightBox => _height;
     public Dropdown JvmVersions => _jvmVersions;
 
-    /// <summary>The two error states the shots show: a path that is not a full folder path, a width that is too small.</summary>
+    /// <summary>The error state the shots show: a width that is too small.</summary>
     public void ShowFieldErrors()
     {
-        _installPath.Text = "games";
-        ShowInstallProblem(FieldRules.InstallFolderProblem(_installPath.Text));
         _width.Text = "100";
         var problem = FieldRules.ResolutionProblem("100", FieldRules.MinWidth, "Width");
         SettingsUi.SetInvalid(_width, problem != null);
