@@ -18,6 +18,6 @@ public static class LaunchHeap
         var legacy = LegacyForgeInstaller.IsLegacy(version);
         var heavy = legacy && !RamPolicy.IsManual(settings)
             && await Task.Run(() => PackProbe.IsHeavy(OriginPaths.ModsDir(version), gameDir), ct);
-        return (HeapPlan.For(settings, SystemInfo.GetTotalPhysicalMemoryMb(), legacy, heavy), legacy);
+        return (HeapPlan.For(settings, SystemInfo.GetTotalPhysicalMemoryMb(), legacy, heavy, version), legacy);
     }
 }

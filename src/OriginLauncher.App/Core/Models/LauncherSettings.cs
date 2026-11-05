@@ -14,6 +14,11 @@ public sealed class LauncherSettings
     // only way out). null = a settings.json from before this field: SettingsStore.Load
     // settles it ONCE (RamPolicy.Migrate) and saves the answer. Written only via SettingsStore.Update.
     public bool? RamManual { get; set; }
+    // The crash window's "Raise memory" for ONE version (Minecraft version id -> MB): that version runs at least this,
+    // on Auto or Manual, and no other version changes (bug run 6, KC-10: a 1.21.1 raise used to put 1.8.9 on 10 GB and
+    // Aikar's big-heap flags too, and turned Auto off for every version). The player's own choice in Settings
+    // (RamPolicy.SetManual / SetAuto) clears it: their newest pick is the number. Written only via SettingsStore.Update.
+    public Dictionary<string, int> RamRaiseByVersion { get; set; } = new();
     public int ResolutionWidth { get; set; } = 1280;
     public int ResolutionHeight { get; set; } = 720;
     // Legacy: kept only so older settings.json files round-trip unchanged. Nothing reads it and no control writes it;

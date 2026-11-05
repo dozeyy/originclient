@@ -17,8 +17,17 @@ public sealed record HeapPlan(int MaxMb, int StartMb, bool Auto, string? Warning
     public const int HeavyModCount = 25;
     public const long HeavyResourcePackBytes = 256L * 1024 * 1024;
 
-    public static HeapPlan For(LauncherSettings settings, int totalPhysicalMb, bool legacy, bool heavyPack) =>
-        For(settings.RamMb, RamPolicy.IsManual(settings), totalPhysicalMb, legacy, heavyPack);
+    /// <param name="version">The version launching: a crash window raise for it (LauncherSettings.RamRaiseByVersion)
+    /// lifts its heap to at least that, capped at this PC's maximum. Null = no per-version raise.</param>
+    public static HeapPlan For(LauncherSettings settings, int totalPhysicalMb, bool legacy, bool heavyPack,
+        string? version = null)
+    {
+        var plan = For(settings.RamMb, RamPolicy.IsManual(settings), totalPhysicalMb, legacy, heavyPack);
+        if (version == null || !settings.RamRaiseByVersion.TryGetValue(version, out var raise)) return plan;
+        var raised = RamAdvice.ManualMb(raise, totalPhysicalMb);
+        // No "a lot for this version" heads-up: this number is the fix the player just took after running out.
+        return raised > plan.MaxMb ? new HeapPlan(raised, raised, false, null) : plan;
+    }
 
     public static HeapPlan For(int manualMb, bool manual, int totalPhysicalMb, bool legacy, bool heavyPack)
     {

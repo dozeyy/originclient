@@ -94,22 +94,25 @@ public class CrashEngineTests
     // ---- "Raise memory and relaunch": the chain HomePage runs, through CrashMemory --------------------------------
 
     private const int Pc32Gb = 32768;
+    private const string Legacy = "1.8.9";
+    private const string Modern = "1.21.1";
 
-    // HomePage's chain for one launch: settings -> the launch's heap plan -> CrashMemory.ForLaunch -> the crash check
-    // -> CrashMemory.ApplyRaise on the offered amount. Returns the verdict and the settings after the fix.
+    // HomePage's chain for one launch: settings -> the launch's heap plan (with its version) -> CrashMemory.ForLaunch
+    // -> the crash check -> CrashMemory.ApplyRaise on the offered amount, for that version. Returns the verdict and the
+    // settings after the fix.
     private static (CrashVerdict Verdict, LauncherSettings After) RaiseAfterOom(
-        LauncherSettings settings, bool legacy, int total = Pc32Gb)
+        LauncherSettings settings, string version, int total = Pc32Gb)
     {
-        var plan = HeapPlan.For(settings, total, legacy, heavyPack: false);
-        var memory = CrashMemory.ForLaunch(plan, total);
+        var plan = HeapPlan.For(settings, total, version == Legacy, heavyPack: false, version);
+        var memory = CrashMemory.ForLaunch(plan);
         var verdict = CrashEngine.Diagnose(new CrashEvidence(1, false, false, "java.lang.OutOfMemoryError: Java heap space",
-            null, null, null, [Added, Origin], memory.UsedMb, total) { RaiseFloorMb = memory.RaiseFloorMb }, false);
-        if (verdict.SafeFix?.NewRamMb is int ram) CrashMemory.ApplyRaise(settings, ram);
+            null, null, null, [Added, Origin], memory.UsedMb, total), false);
+        if (verdict.SafeFix?.NewRamMb is int ram) CrashMemory.ApplyRaise(settings, version, ram);
         return (verdict, settings);
     }
 
-    private static int HeapFor(LauncherSettings s, bool legacy) =>
-        HeapPlan.For(s, Pc32Gb, legacy, heavyPack: false).MaxMb;
+    private static int HeapFor(LauncherSettings s, string version) =>
+        HeapPlan.For(s, Pc32Gb, version == Legacy, heavyPack: false, version).MaxMb;
 
     // The bug: a 32 GB PC on Auto stores the slider's 16 GB suggestion while 1.8.9 really gets 4 GB. The old wiring
     // told the check the stored 16 GB ("needed more than 16 GB", offered 18 GB) and wrote only RamMb, which Auto
@@ -117,45 +120,64 @@ public class CrashEngineTests
     [Fact]
     public void Raise_on_auto_names_the_heap_used_and_the_relaunch_really_gets_the_amount_offered()
     {
-        var (v, after) = RaiseAfterOom(RamPolicy.Fresh(Pc32Gb), legacy: true);
+        var (v, after) = RaiseAfterOom(RamPolicy.Fresh(Pc32Gb), Legacy);
 
         Assert.Contains("the 4 GB it was given", v.Finding.LikelyCause);
         Assert.Equal(CrashFixKind.RaiseMemory, v.SafeFix?.Kind);
         var offered = v.SafeFix!.NewRamMb!.Value;
         Assert.Contains($"{offered / 1024} GB", v.SafeFix.Label);
-        Assert.True(RamPolicy.IsManual(after));
-        Assert.Equal(offered, HeapFor(after, legacy: true)); // what the window named is what the relaunch gets
-        Assert.True(offered > 4096);
+        Assert.Equal(offered, HeapFor(after, Legacy)); // what the window named is what the relaunch gets
+        Assert.Equal(6144, offered); // 4 GB + 2 GB: no floor lifts a 1.8.9 raise to the newest versions' 8 GB any more
     }
 
-    // Manual applies to every version: a 1.8.9 crash on Auto's 4 GB must not drop the newest versions from Auto's
-    // 8 GB. The offer is lifted to at least that, and the window says the lifted number.
+    // KC-10: the raise belongs to the version that ran out. Auto stays Auto, and every other version keeps its heap.
     [Fact]
-    public void Raise_on_auto_never_lowers_any_version()
+    public void Raise_moves_only_the_version_that_ran_out()
     {
         var before = RamPolicy.Fresh(Pc32Gb);
-        var legacyBefore = HeapFor(before, legacy: true);
-        var modernBefore = HeapFor(before, legacy: false);
+        var legacyBefore = HeapFor(before, Legacy);
 
-        var (v, after) = RaiseAfterOom(before, legacy: true);
+        var (v, after) = RaiseAfterOom(before, Modern);
 
-        Assert.Equal(8192, v.SafeFix?.NewRamMb);
-        Assert.Contains("8 GB", v.Finding.RecommendedFix);
-        Assert.True(HeapFor(after, legacy: true) > legacyBefore);
-        Assert.True(HeapFor(after, legacy: false) >= modernBefore);
+        Assert.Equal(10240, v.SafeFix?.NewRamMb); // Auto's 8 GB + 2 GB
+        Assert.Equal(10240, HeapFor(after, Modern));
+        Assert.False(RamPolicy.IsManual(after));
+        Assert.Equal(legacyBefore, HeapFor(after, Legacy)); // 1.8.9 keeps Auto's 4 GB
+        Assert.Equal(8192, HeapFor(after, "1.20.1"));       // another modern version keeps Auto's 8 GB
     }
 
     [Fact]
-    public void Raise_on_manual_is_two_more_gigabytes_with_no_floor()
+    public void Raise_on_manual_is_two_more_gigabytes_for_that_version_and_the_slider_clears_it()
     {
         var s = RamPolicy.Fresh(Pc32Gb);
         RamPolicy.SetManual(s, 4096);
-        Assert.Equal(new CrashMemory.Facts(4096, 0), CrashMemory.ForLaunch(HeapPlan.For(s, Pc32Gb, false, false), Pc32Gb));
+        Assert.Equal(new CrashMemory.Facts(4096), CrashMemory.ForLaunch(HeapPlan.For(s, Pc32Gb, false, false, Modern)));
 
-        var (v, after) = RaiseAfterOom(s, legacy: false);
+        var (v, after) = RaiseAfterOom(s, Modern);
 
         Assert.Equal(6144, v.SafeFix?.NewRamMb);
-        Assert.Equal(6144, HeapFor(after, legacy: false));
+        Assert.Equal(6144, HeapFor(after, Modern));
+        Assert.Equal(4096, HeapFor(after, "1.20.1")); // the player's number everywhere else
+        Assert.Equal(4096, after.RamMb);
+
+        // The player's own pick in Settings is the number again, for every version.
+        RamPolicy.SetManual(after, 5120);
+        Assert.Equal(5120, HeapFor(after, Modern));
+        RaiseAfterOom(after, Modern);
+        RamPolicy.SetAuto(after, Pc32Gb);
+        Assert.Equal(8192, HeapFor(after, Modern));
+        Assert.Empty(after.RamRaiseByVersion);
+    }
+
+    [Fact]
+    public void A_raise_never_goes_past_this_pcs_maximum_and_an_old_settings_file_has_none()
+    {
+        var s = RamPolicy.Fresh(8192);
+        RamPolicy.RaiseFor(s, Modern, 65536);
+        Assert.Equal(OriginLauncher.App.Core.RamAdvice.ManualMb(65536, 8192), HeapPlan.For(s, 8192, false, false, Modern).MaxMb);
+
+        var old = System.Text.Json.JsonSerializer.Deserialize<LauncherSettings>("{\"RamMb\":4096,\"RamManual\":false}")!;
+        Assert.Empty(old.RamRaiseByVersion);
     }
 
     [Fact]

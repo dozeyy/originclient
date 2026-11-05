@@ -11,7 +11,7 @@ public static class LaunchProfileBuilder
     public static MLaunchOption Build(LauncherSettings settings, MSession session, string? version = null,
         HeapPlan? heap = null, bool legacy = false)
     {
-        heap ??= HeapPlan.For(settings, SystemInfo.GetTotalPhysicalMemoryMb(), legacy, heavyPack: false);
+        heap ??= HeapPlan.For(settings, SystemInfo.GetTotalPhysicalMemoryMb(), legacy, heavyPack: false, version);
         return new MLaunchOption
         {
             Session = session,

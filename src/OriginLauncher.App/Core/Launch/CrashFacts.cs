@@ -29,8 +29,8 @@ public sealed record CrashEvidence(
     /// has none. Lets the Java rule tell "your arguments" from "Origin's" (only the first can be reset).</summary>
     public string? CustomJvmArgs { get; init; }
 
-    /// <summary>The least a "raise memory" fix may offer (CrashMemory.ForLaunch): on Auto, the amount the newest
-    /// versions already get, so the fix (Manual, every version) never lowers any of them. 0 = no floor.</summary>
+    /// <summary>The least a "raise memory" fix may offer. 0 = no floor, which every launch passes now: the raise is
+    /// stored for the crashed version only (CrashMemory, KC-10), so it can never lower another version.</summary>
     public int RaiseFloorMb { get; init; }
 }
 

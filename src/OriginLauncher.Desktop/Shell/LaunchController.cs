@@ -72,6 +72,9 @@ public sealed class LaunchController
         public IDisposable? Configuration { get; init; }
         // The version's own Java arguments exactly as this launch used them: the crash window judges THESE.
         public VersionJvmOptions? LaunchedJvmArgs { get; init; }
+        // The heap this launch really gave Java (CrashMemory.ForLaunch), never the stored slider value: on Auto RamMb
+        // is only the slider's suggestion, so the crash check judged (and raised) the wrong number. Windows' twin.
+        public CrashMemory.Facts Memory { get; init; }
     }
 
     public LaunchController(MainWindow window, HomePage home)
@@ -316,6 +319,7 @@ public sealed class LaunchController
                 LaunchedJvmArgs = freshSettings.JvmArgsFor(version) is { } jvm
                     ? new VersionJvmOptions { Arguments = jvm.Arguments, ReplacePresets = jvm.ReplacePresets }
                     : null,
+                Memory = CrashMemory.ForLaunch(heap),
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -631,7 +635,7 @@ public sealed class LaunchController
     {
         try
         {
-            var ramMb = SettingsStore.Load().RamMb;
+            var ramMb = game.Memory.UsedMb; // the heap this launch really used, not the stored slider value
             var customJvm = game.LaunchedJvmArgs?.Arguments;
             var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
             var key = game.Key;
@@ -680,9 +684,9 @@ public sealed class LaunchController
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    // As Manual, like Windows (CrashMemory.ApplyRaise): Auto launches ignore RamMb, so writing only the
-                    // number left the relaunch on the same heap that just ran out.
-                    if (!LauncherState.Write(s => CrashMemory.ApplyRaise(s, ram)))
+                    // For this version only, like Windows (CrashMemory.ApplyRaise, KC-10): Auto stays Auto and every
+                    // other version keeps its own heap.
+                    if (!LauncherState.Write(s => CrashMemory.ApplyRaise(s, game.Version, ram)))
                     {
                         // A busy settings.json: relaunching on the same heap would only run out again.
                         Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error, game.Version);
