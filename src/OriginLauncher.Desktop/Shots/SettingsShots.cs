@@ -98,10 +98,10 @@ public static class SettingsShots
         yield return Make("14n-input-focus", At(p =>
         {
             Rail(p, "SecGame");
-            p.InstallPathBox.Focus(Avalonia.Input.NavigationMethod.Tab);
-            p.InstallPathBox.CaretIndex = p.InstallPathBox.Text?.Length ?? 0;
+            p.WidthBox.Focus(Avalonia.Input.NavigationMethod.Tab);
+            p.WidthBox.CaretIndex = p.WidthBox.Text?.Length ?? 0;
         }));
-        yield return Make("14o-input-disabled", At(p => { Rail(p, "SecGame"); p.WidthBox.IsEnabled = false; }));
+        yield return Make("14o-input-disabled", At(p => { Rail(p, "SecGame"); p.HeightBox.IsEnabled = false; }));
         yield return Make("14p-input-error", At(p => { Rail(p, "SecGame"); p.ShowFieldErrors(); }));
         yield return Make("14q-dropdown-open", At(p =>
         {

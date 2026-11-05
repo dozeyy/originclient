@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using OriginLauncher.Desktop.Kit;
 using OriginLauncher.Desktop.Overlays;
 using OriginLauncher.Desktop.Pages;
@@ -136,6 +137,8 @@ public sealed class MainWindow : Window
                 _ = Home.Launches.ResumeAfterUpdateAsync(play);
         };
         LauncherState.SettingsChanged += () => { if (Page == PageKey.Home) Art.Show(LauncherState.SelectedVersion); };
+        // The Java arguments and resolution boxes save on focus loss, which closing the window never raises (WP-5).
+        Closing += (_, _) => { if (_pages.TryGetValue(PageKey.Settings, out var settings)) (settings as SettingsPage)?.FlushEdits(); };
         SizeChanged += (_, _) => Bar.Fit(Bounds.Width);
     }
 
@@ -295,12 +298,49 @@ public sealed class MainWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Handled || e.Key != Key.Escape) return;
+        if (e.Handled) return;
+        if (e.Key != Key.Escape)
+        {
+            PageKeys(e);
+            return;
+        }
         if (DialogOpen && _dialogDismissable) CloseDialog();
         else if (DrawerOpen) CloseDrawer();
         else if (SheetOpen) CloseSheet();
         else return;
         e.Handled = true;
+    }
+
+    // The Windows launcher's keyboard (WPF MainWindow_PreviewKeyDown; WP-6): Ctrl+1/2/3/4 open Home, Mods, Profiles,
+    // Settings and Enter on Home plays. This runs after the focused control had the key (a text box, a dropdown and
+    // every Pressable use Enter themselves); the opening intro takes every key before it gets here.
+    private void PageKeys(KeyEventArgs e)
+    {
+        // A dialog or drawer owns the keyboard; the launch cover is modal within Home (no page switch, no second Play).
+        if (DialogOpen || DrawerOpen || CoverOpen) return;
+        if (e.KeyModifiers == KeyModifiers.Control)
+        {
+            PageKey? target = e.Key switch
+            {
+                Key.D1 or Key.NumPad1 => PageKey.Home,
+                Key.D2 or Key.NumPad2 => PageKey.Mods,
+                Key.D3 or Key.NumPad3 => PageKey.Profiles,
+                Key.D4 or Key.NumPad4 => PageKey.Settings,
+                _ => null,
+            };
+            if (target is { } page)
+            {
+                if (SheetOpen) CloseSheet(); // the version picker closes, like a tab click
+                Navigate(page);
+                e.Handled = true;
+            }
+            return;
+        }
+        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None && Page == PageKey.Home && !SheetOpen
+            && !(e.Source is Avalonia.Visual v && v.GetSelfAndVisualAncestors().Any(a => a is TextBox or Pressable or Dropdown)))
+        {
+            e.Handled = Home.TryLaunchFromKeyboard();
+        }
     }
 
     /// <summary>Drag the window from the bar's empty space (the bar's controls handle their own presses).</summary>
