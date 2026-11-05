@@ -161,7 +161,8 @@ public static partial class UpdateService
             if (decision is UpdateGate.Decision.Skip or UpdateGate.Decision.Wait)
             {
                 // Already offered: a background download that waited (game running, metered, back-off) may go now.
-                if (Available is { } offered) StartBackground(offered);
+                if (Available is { } offered && !TakeLateDelta(offered, remote, release.Assets) && Available is { } current)
+                    StartBackground(current); // the offer as it is now (it may have just taken its small update)
                 return;
             }
 
@@ -206,6 +207,27 @@ public static partial class UpdateService
             // Fail open: offline / rate-limited / repo not public. The next
             // poll retries; play is never blocked on a failed check.
         }
+    }
+
+    // The release's small update was uploaded after this version was offered (UPG-3, UpdatePrefetch.MayTakeLateDelta):
+    // the offer takes it, so the background download and the click fetch only the changed files. A full-zip download
+    // already running for it is stopped; the next poll starts it again from the delta (not right here: the stopped
+    // download deletes its stage on the way out and must be gone first). True when one was stopped.
+    private static bool TakeLateDelta(AvailableUpdate offered, Version remote, List<ReleaseAsset>? assets)
+    {
+        if (offered.Delta != null || !UpdatePrefetch.Same(offered.Version, remote)) return false;
+        if (FindDelta(assets) is not { } late) return false;
+        Fetch? stop = null;
+        lock (Gate)
+        {
+            if (!ReferenceEquals(Available, offered) || !Prefetch.MayTakeLateDelta(remote)) return false;
+            Available = offered with { Delta = late };
+            if (_fetch != null && UpdatePrefetch.Same(_fetch.Version, remote)) stop = _fetch;
+        }
+        Log($"update {remote}: its small update appeared after it was offered; using it" +
+            (stop != null ? " (the full download stops and restarts from it)" : ""));
+        stop?.Cancel.Cancel();
+        return stop != null;
     }
 
     // False (and nothing changes) when this version or a newer one is already offered: a late finisher
