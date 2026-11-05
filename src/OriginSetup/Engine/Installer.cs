@@ -91,6 +91,8 @@ public static class Installer
         var dir = options.Directory;
         // Before anything below creates it: a folder Setup makes is Origin's alone (InstallManifest.OwnsFolder).
         bool createdFolder = !Directory.Exists(dir);
+        // Before the commit puts the new launcher in place: an update or repair over a working install.
+        bool updating = File.Exists(Path.Combine(dir, InstallLocation.LauncherExe));
         SetupLog.Write($"install -> {dir} (source={options.SourceZip ?? "download"}, startup={options.StartWithWindows?.ToString() ?? "unchanged"}, ram={options.RamMb?.ToString() ?? "default"}, version={options.DefaultVersion ?? "default"}, settingsSync={options.SettingsSync?.ToString() ?? "unchanged"})");
         report(new InstallProgress(InstallStage.Preparing, 0, version: release?.Version));
 
@@ -115,19 +117,23 @@ public static class Installer
         // The launcher is in place now, so nothing below may turn this into "Origin wasn't installed". The
         // Add/Remove Programs entry goes first (it is what lets the player uninstall); a desktop the system protects
         // (Defender's Controlled folder access, a OneDrive Desktop) refusing the shortcut is just a note.
-        var notes = Finish(new[]
+        var steps = new List<FinishStep>
         {
             new FinishStep("Add/Remove Programs entry", () => Registration.Write(dir, version),
                 "Windows didn't let Setup add Origin to Installed apps. Run Setup again later to add it."),
             new FinishStep("Start menu shortcut", () => Shortcuts.Create(Shortcuts.StartMenuPath, exe, description),
                 "Couldn't add Origin to the Start menu."),
-            new FinishStep("desktop shortcut", () => Shortcuts.Create(Shortcuts.DesktopPath, exe, description),
-                "Couldn't add a desktop shortcut: Windows protects your desktop from new files."),
-            new FinishStep("Start with Windows", () => InstallRegistry.SetStartWithWindows(options.StartWithWindows ?? StartsWithWindowsNow(), exe),
-                "Couldn't change Start with Windows. You can set it in Origin's Settings."),
-            new FinishStep("Customize choices", () => Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync),
-                "Your Customize choices weren't saved. You can set them in Origin's Settings."),
-        });
+        };
+        if (Shortcuts.WantsDesktop(updating, File.Exists(Shortcuts.DesktopPath)))
+            steps.Add(new FinishStep("desktop shortcut", () => Shortcuts.Create(Shortcuts.DesktopPath, exe, description),
+                "Couldn't add a desktop shortcut: Windows protects your desktop from new files."));
+        else
+            SetupLog.Write("desktop shortcut: left off (the player removed it before this update)");
+        steps.Add(new FinishStep("Start with Windows", () => InstallRegistry.SetStartWithWindows(options.StartWithWindows ?? StartsWithWindowsNow(), exe),
+            "Couldn't change Start with Windows. You can set it in Origin's Settings."));
+        steps.Add(new FinishStep("Customize choices", () => Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync),
+            "Your Customize choices weren't saved. You can set them in Origin's Settings."));
+        var notes = Finish(steps);
 
         SetupLog.Write($"install complete ({version}){(notes.Count > 0 ? $", {notes.Count} finishing step(s) refused" : "")}");
         report(new InstallProgress(InstallStage.Done, 1, version: version));

@@ -45,6 +45,8 @@ public partial class SetupWindow : Window
     private bool _settingLocation;
     private readonly DispatcherTimer _locationCheck;
     private readonly int _recommendedRamMb;
+    private readonly int _initialRamMb;        // the existing install's Manual memory, else the recommendation
+    private readonly int _initialVersionIndex; // the existing install's version, else "Newest"
     private bool _ramChanged;
     private bool _syncInitial; // Settings Sync as the existing install has it (on for a fresh PC, like the launcher's default)
     private bool _customizeOpen;
@@ -78,20 +80,28 @@ public partial class SetupWindow : Window
         _syncInitial = Handoff.IsSettingsSyncOn(Handoff.SettingsPath);
         SyncCheck.IsChecked = _syncInitial;
 
-        // Customize: memory starts on this PC's recommended amount, the version on "Newest". Only a change the
-        // player makes is handed to the launcher (InstallButton_Click), so untouched means the launcher's own defaults.
+        // Customize: memory and version start where the existing install has them (KD-8: an update showed this PC's
+        // recommendation and "Newest" while the launcher used the player's 8 GB, which read as a lost setting); a
+        // fresh install (or Auto memory) starts on the recommendation and "Newest". Only a change the player makes is
+        // handed to the launcher (InstallButton_Click), so untouched means the launcher keeps what it has.
+        var existingChoices = Handoff.ReadChoices(Handoff.SettingsPath);
         int totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
         _recommendedRamMb = RamAdvice.RecommendedMb(totalMb);
+        _initialRamMb = existingChoices.ManualRamMb is int own ? RamAdvice.ManualMb(own, totalMb) : _recommendedRamMb;
         RamSlider.Minimum = RamAdvice.SliderMinimumMb;
         RamSlider.Maximum = RamAdvice.MaximumMb(totalMb);
-        RamSlider.Value = _recommendedRamMb;
-        RamValue.Text = FormatRam(_recommendedRamMb);
+        RamSlider.Value = _initialRamMb;
+        RamValue.Text = FormatRam(_initialRamMb);
         RamHint.Text = $"Recommended for your PC: {FormatRam(_recommendedRamMb)} of {Math.Round(totalMb / 1024d):0} GB";
-        RamResetButton.IsEnabled = false;
+        RamResetButton.IsEnabled = _initialRamMb != _recommendedRamMb;
         VersionCombo.Items.Add(new ComboBoxItem { Content = "Newest (recommended)", Tag = null });
         foreach (var v in VersionChoices.Embedded())
             VersionCombo.Items.Add(new ComboBoxItem { Content = "Minecraft " + v, Tag = v });
         VersionCombo.SelectedIndex = 0;
+        for (int i = 1; i < VersionCombo.Items.Count; i++)
+            if ((VersionCombo.Items[i] as ComboBoxItem)?.Tag as string == existingChoices.SelectedVersion)
+                VersionCombo.SelectedIndex = i;
+        _initialVersionIndex = VersionCombo.SelectedIndex;
         _loading = false;
 
         // An existing install keeps its folder (moving it is an uninstall + install); otherwise the default.
@@ -175,7 +185,10 @@ public partial class SetupWindow : Window
             Directory = dir!,
             StartWithWindows = StartupCheck.IsChecked == true,
             RamMb = _ramChanged ? (int)RamSlider.Value : (int?)null,
-            DefaultVersion = (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string,
+            // Only a change: an update that leaves the player's own version selected hands nothing over.
+            DefaultVersion = VersionCombo.SelectedIndex != _initialVersionIndex
+                ? (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string
+                : null,
             // Only a change is handed over, so updating over an install that already has sync on (or off)
             // never flips it by accident.
             SettingsSync = (SyncCheck.IsChecked == true) != _syncInitial ? SyncCheck.IsChecked == true : (bool?)null,
@@ -220,8 +233,8 @@ public partial class SetupWindow : Window
         if (RamValue == null) return; // fires once while the window is being built
         RamValue.Text = FormatRam((int)e.NewValue);
         if (_loading) return;
-        _ramChanged = (int)e.NewValue != _recommendedRamMb;
-        RamResetButton.IsEnabled = _ramChanged;
+        _ramChanged = (int)e.NewValue != _initialRamMb;
+        RamResetButton.IsEnabled = (int)e.NewValue != _recommendedRamMb;
     }
 
     private void RamResetButton_Click(object sender, RoutedEventArgs e) => RamSlider.Value = _recommendedRamMb;
