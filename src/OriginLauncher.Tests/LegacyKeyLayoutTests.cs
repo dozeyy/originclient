@@ -18,37 +18,9 @@ public sealed class LegacyKeyLayoutTests : IDisposable
         try { Directory.Delete(_root, true); } catch { /* best effort */ }
     }
 
-    // ---- Windows layouts (KBDUS / KBDFR / KBDGR / KBDUK), scancode -> virtual key ----
-
-    private static readonly Dictionary<int, int> Us = BuildUs();
-
-    private static Dictionary<int, int> BuildUs()
-    {
-        var t = new Dictionary<int, int>
-        {
-            [12] = 0xBD, [13] = 0xBB, [26] = 0xDB, [27] = 0xDD, [39] = 0xBA, [40] = 0xDE, [41] = 0xC0,
-            [43] = 0xDC, [51] = 0xBC, [52] = 0xBE, [53] = 0xBF, [86] = 0xE2,
-        };
-        foreach (var (first, keys) in new[] { (2, "1234567890"), (16, "QWERTYUIOP"), (30, "ASDFGHJKL"), (44, "ZXCVBNM") })
-            for (var i = 0; i < keys.Length; i++) t[first + i] = keys[i];
-        return t;
-    }
-
-    private static LegacyKeyLayout Windows(Dictionary<int, int> overrides) =>
-        LegacyKeyLayout.FromWindows(sc => overrides.TryGetValue(sc, out var vk) ? vk : Us.GetValueOrDefault(sc));
-
-    // French AZERTY: A/Q and Z/W swapped, M where US has ';', and the punctuation keys move.
-    private static readonly LegacyKeyLayout Azerty = Windows(new()
-    {
-        [12] = 0xDB, [16] = 'A', [17] = 'Z', [26] = 0xDD, [27] = 0xBA, [30] = 'Q', [39] = 'M', [40] = 0xC0,
-        [41] = 0xDE, [44] = 'W', [50] = 0xBC, [51] = 0xBE, [52] = 0xBF, [53] = 0xDF,
-    });
-
-    // German QWERTZ: Y and Z swapped.
-    private static readonly LegacyKeyLayout Qwertz = Windows(new() { [21] = 'Z', [44] = 'Y' });
-
-    // UK: the ' and ` keys both read as LWJGL 2's KEY_GRAVE (VK_OEM_3 and VK_OEM_8).
-    private static readonly LegacyKeyLayout Uk = Windows(new() { [40] = 0xC0, [41] = 0xDF, [43] = 0xDE, [86] = 0xDC });
+    private static readonly LegacyKeyLayout Azerty = TestKeyboards.Azerty;
+    private static readonly LegacyKeyLayout Qwertz = TestKeyboards.Qwertz;
+    private static readonly LegacyKeyLayout Uk = TestKeyboards.Uk;
 
     private string? WriteTo(OptionsTxtFormat format, string version, string key, string value)
     {
@@ -63,7 +35,7 @@ public sealed class LegacyKeyLayoutTests : IDisposable
     [Fact]
     public void A_US_Windows_layout_reads_every_key_at_its_US_place()
     {
-        var us = Windows(new());
+        var us = TestKeyboards.Us;
         for (var place = 2; place <= 53; place++)
         {
             if (!LegacyKeyLayout.DependsOnLayout(place)) continue;
@@ -123,6 +95,17 @@ public sealed class LegacyKeyLayoutTests : IDisposable
         Assert.True(format.Rejects("key_key.forward", "17"));
         Assert.Equal("57", WriteTo(format, "1.8.9", "key_key.jump", "key.keyboard.space"));
         Assert.Equal("key.keyboard.f5", WriteTo(format, "1.21.1", "key_key.togglePerspective", "63"));
+    }
+
+    [Fact]
+    public void The_shared_format_reads_the_pinned_layout_not_this_machine()
+    {
+        using (LegacyKeyLayout.Pin(Azerty))
+            Assert.Equal("44", WriteTo(OptionsTxtFormat.Instance, "1.8.9", "key_key.forward", "key.keyboard.w"));
+        using (LegacyKeyLayout.Pin(Qwertz))
+            Assert.Equal("44", WriteTo(OptionsTxtFormat.Instance, "1.8.9", "key_key.chat", "key.keyboard.y"));
+        // Outside a pin: the test run's US, whatever keyboard this machine has.
+        Assert.Equal("17", WriteTo(OptionsTxtFormat.Instance, "1.8.9", "key_key.forward", "key.keyboard.w"));
     }
 
     [Fact]

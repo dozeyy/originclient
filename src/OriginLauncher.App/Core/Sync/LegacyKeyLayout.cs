@@ -77,6 +77,28 @@ public sealed class LegacyKeyLayout
     /// </summary>
     public static LegacyKeyLayout ThisPc => ThisPcLayout.Value;
 
+    // Tests only, so no test depends on the keyboard of the machine running it. TestDefault replaces the live
+    // reading for a whole test run (the test project's module initializer sets US); Pin() replaces it for the code
+    // one test runs (AsyncLocal: tests running in parallel never see each other's pin). The launcher sets neither.
+    internal static LegacyKeyLayout? TestDefault;
+    private static readonly AsyncLocal<LegacyKeyLayout?> Pinned = new();
+
+    /// <summary>The layout Settings Sync uses: <see cref="ThisPc"/>, unless a test pinned one.</summary>
+    public static LegacyKeyLayout Current => Pinned.Value ?? TestDefault ?? ThisPc;
+
+    /// <summary>Tests: use <paramref name="layout"/> until the returned handle is disposed.</summary>
+    internal static IDisposable Pin(LegacyKeyLayout layout)
+    {
+        var before = Pinned.Value;
+        Pinned.Value = layout;
+        return new Unpin(before);
+    }
+
+    private sealed class Unpin(LegacyKeyLayout? before) : IDisposable
+    {
+        public void Dispose() => Pinned.Value = before;
+    }
+
     // place -> live code; null = identity (UsPlaces). Places missing from the map have no counterpart.
     private readonly Dictionary<int, int>? _placeToLive;
     private readonly Dictionary<int, int>? _liveToPlace;

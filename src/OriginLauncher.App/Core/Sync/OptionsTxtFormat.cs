@@ -78,9 +78,9 @@ public sealed class OptionsTxtFormat : ISyncFormat
 {
     public static readonly OptionsTxtFormat Instance = new(null);
 
-    // null = this PC's layout (LegacyKeyLayout.ThisPc, read on first use); tests pass a fixed one.
+    // null = this PC's layout (LegacyKeyLayout.Current: the live reading, or a test's pin); tests may pass a fixed one.
     private readonly LegacyKeyLayout? _layout;
-    private LegacyKeyLayout Layout => _layout ?? LegacyKeyLayout.ThisPc;
+    private LegacyKeyLayout Layout => _layout ?? LegacyKeyLayout.Current;
 
     internal OptionsTxtFormat(LegacyKeyLayout? layout) => _layout = layout;
 
