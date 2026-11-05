@@ -400,3 +400,9 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Website (already live on main): island always moves even with OS reduced motion (DECISIONS), smoke test updated.
 - Proof: build-check, Mac, Linux, launcher-shots, website-check, cosmetics-service on d4f3724f; boot-smoke 20/20 in-world + dev-shots design rel093 / world rel093w (7 modules, nametags white on 1.21.8 + 1.19.4) on 82715b94 (same mod code), 0 mixin failures.
 
+
+## 2026-11-05 - v1.0.94: bug run 8 (security, performance, bad network, languages + accessibility) (cloud session)
+- Launcher (Win/Mac/Linux): offline Play with the last sign-in ("Playing offline: multiplayer needs a connection", never cached/saved), sign-in/feed timeouts (10 s connect / 20 s step), Fabric API + perf mod retries and a hard stop when Fabric API is missing, mod update check retries after 2 min offline, apply-update.cmd ASCII with env-var paths (+ `.\` and DisableDelayedExpansion from review), 8.3 short-path launch for unspellable user names, options.txt Latin-1 for 1.8.9 Settings Sync, "4.5 GB" everywhere, Mac/Linux off-thread backdrop decode + Mac animation pause, Mac/Linux own-mod ownership shown at once.
+- In game: GlyphCoverage (Inter falls back to Minecraft's font per string for letters it lacks; tools/glyph-coverage-tests), title Mods button via PlayerModList.isModMenuButton, shader downloads https + Modrinth host + SHA-512, chroma glint recolour <= 10/s. CI: read-only tokens on build jobs (publish steps keep write); dev-shots `lang` input.
+- Service: refunds/chargebacks revoke items that left the catalog.
+- Proof: boot-smoke 20/20 in-world + dev-shots design rel094 (6 modules, 113-134 PNGs) + world rel094w (7 modules, 22-25 PNGs), crash-plant, version-scout, cosmetics-service on 095374df; build-check, Mac, Linux, launcher-shots on 43def883; 0 mixin failures. Review: pass (2 Low fixed). v1.0.93 was never tagged; v1.0.94 contains it.
