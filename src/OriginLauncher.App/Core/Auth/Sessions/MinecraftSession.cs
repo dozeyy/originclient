@@ -10,6 +10,12 @@ namespace OriginLauncher.App.Core.Auth.Sessions;
 /// </summary>
 public sealed record MinecraftSession(string Name, string Uuid, string AccessToken, string Xuid, DateTimeOffset ExpiresAt)
 {
+    /// <summary>
+    /// Play only: Microsoft couldn't be reached to renew this account, so this is the saved session as it was (its token
+    /// may be out of date). Singleplayer and LAN start with it; servers refuse it themselves. Never saved or cached.
+    /// </summary>
+    public bool Offline { get; init; }
+
     // Never let the access token reach a log or a debugger tooltip by accident.
     public override string ToString() => $"MinecraftSession {{ Name = {Name}, ExpiresAt = {ExpiresAt:u} }}";
 }

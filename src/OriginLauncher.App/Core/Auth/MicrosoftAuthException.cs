@@ -16,6 +16,14 @@ public sealed class MicrosoftAuthException : Exception
     /// </summary>
     public const string AccountMismatchStage = "account_mismatch";
 
+    /// <summary>
+    /// Microsoft couldn't be reached at all (no connection, a timeout, or its service answered 5xx) and this account has
+    /// no saved session to play offline with. Never a reason to sign in again: the account is fine.
+    /// </summary>
+    public const string UnreachableStage = "unreachable";
+
+    public const string UnreachableMessage = "Can't reach Microsoft to sign in. Check your internet and press Play again.";
+
     /// <summary>Microsoft refused (or garbled) the saved refresh token: the player signs in again (SignInAgain).</summary>
     public const string TokenRefreshStage = "token_refresh";
 

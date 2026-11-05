@@ -43,6 +43,28 @@ public static class FabricApiInstaller
             "Installing Fabric API...", ManagedPins.FabricApi(mcVersion), mcVersion, modsFolder, progress, ct);
 
     /// <summary>
+    /// A working Fabric API is in the folder: an enabled jar named fabric-api-*, Origin's or the player's own (Modrinth's
+    /// file name; a player who renamed theirs is the rare case this misses, and Play then says so with Retry). Every Origin
+    /// jar declares "fabric-api" as a hard dependency, so without one Fabric Loader refuses to start the game.
+    /// </summary>
+    public static bool Present(string modsFolder)
+    {
+        try
+        {
+            return Directory.Exists(modsFolder) && Directory.EnumerateFiles(modsFolder).Any(f =>
+            {
+                var name = Path.GetFileName(f);
+                return name.StartsWith("fabric-api-", StringComparison.OrdinalIgnoreCase)
+                    && name.EndsWith(Mods.ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true; // can't tell: let the game decide rather than refuse a launch that may well work
+        }
+    }
+
+    /// <summary>
     /// The shared Modrinth install path (Fabric API, Simple Voice Chat): skip when the family is present in either
     /// state, else the exact pin when there is one, else the newest release with a published SHA-512. Never throws
     /// for a network, hash or disk problem (the instance is left without the jar); a cancellation is rethrown.
@@ -127,4 +149,17 @@ public static class FabricApiInstaller
         [property: JsonPropertyName("filename")] string Filename,
         [property: JsonPropertyName("primary")] bool Primary,
         [property: JsonPropertyName("hashes")] Dictionary<string, string>? Hashes = null);
+}
+
+/// <summary>
+/// A mod the game can't start without (Fabric API, which every Origin jar depends on) couldn't be downloaded, so Play
+/// stops here with Retry instead of starting a game that Fabric Loader would refuse at once. Message is the plain
+/// cause sentence the launch screen shows (PlayFailure).
+/// </summary>
+public sealed class RequiredModMissingException : Exception
+{
+    public RequiredModMissingException(string modName)
+        : base($"Couldn't download {modName} from Modrinth, and Origin needs it to start. Check your internet connection.")
+    {
+    }
 }

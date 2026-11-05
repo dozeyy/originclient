@@ -360,13 +360,17 @@ public sealed class VersionManager
         {
             // A missing or partly installed version is installed right here, as part of Play (U3.3). The journal
             // keeps a failed or cancelled install from ever reading as installed (InstallSession).
-            return await InstallSession.RunAsync(
+            var built = await InstallSession.RunAsync(
                 InstalledVersions.Shared, InstallJournal.Shared, version, progress,
                 () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey,
                     componentPins, configurationPicked),
                 v => InstallVerification.Invalidate(OriginPaths.VersionRoot(v)),
                 // A first install needs room: refused up front with the drive and the numbers (JL-11).
                 () => DiskSpace.EnsureRoomForInstall(OriginPaths.Root));
+            // Windows: a user folder name Java can't read gets its short (8.3) name in the launch, or a plain refusal
+            // here instead of a crash that looks like damaged files (Launch/JavaPathEncoding, LOC-2).
+            PlatformLaunch.AfterBuild(built);
+            return built;
         }
         catch (Exception e) when (!ct.IsCancellationRequested && FullDisk(e) is { } full)
         {
@@ -379,7 +383,8 @@ public sealed class VersionManager
             // A provisioning failure makes the files on disk a suspect, same as a
             // crashed boot: the next launch verifies in full instead of trusting them.
             // (A mod-compatibility stop is the player's mod set, not a suspect install.)
-            if (e is not (IncompatibleModsException or ConfigurationInUseException))
+            // (Nor is a user folder Java can't read: the files are fine, the path is the problem.)
+            if (e is not (IncompatibleModsException or ConfigurationInUseException or JavaPathUnreadableException))
                 InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
             if (e is not OfflineInstallException && OfflineLaunch.IsNoConnection(e, ct))
                 throw new OfflineInstallException(version, e);
@@ -598,6 +603,11 @@ public sealed class VersionManager
         OriginInstallRecord.AdoptLegacy(modsFolder);
         await FabricApiInstaller.InstallAsync(version, modsFolder, progress, ct);
         LaunchTimeline.Mark("fabric-api");
+        // Fabric API is fail-soft above (a Modrinth hiccup leaves the folder without it), but every Origin jar declares
+        // it as a hard dependency: a game started without one is refused by Fabric Loader at once. So a version with an
+        // Origin build stops here with the launch screen's Retry instead of booting into a crash (NET-2).
+        if (OriginBuilds.ContainsKey(version) && !FabricApiInstaller.Present(modsFolder))
+            throw new RequiredModMissingException("Fabric API");
 
         bool originBundlesPerfStack = false;
         if (OriginBuilds.TryGetValue(version, out var originBuild)

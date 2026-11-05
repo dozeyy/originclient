@@ -47,7 +47,14 @@ public sealed partial class MicrosoftAuthenticator
     private const string McLoginEndpoint = "https://api.minecraftservices.com/authentication/login_with_xbox";
     private const string McProfileEndpoint = "https://api.minecraftservices.com/minecraft/profile";
 
-    private static readonly HttpClient Http = new();
+    // Short timeouts like every other launcher client (NET-3): on Wi-Fi that connects but never answers (a captive
+    // portal, heavy loss), HttpClient's default 100 s per step kept Play on "Signing in" for minutes. A host that never
+    // completes the handshake fails in 10 s, a step that never answers in 20 s; Play then falls back to the saved session
+    // (MinecraftSessions.IsUnreachable), Friends to "Can't reach Microsoft right now".
+    private static readonly HttpClient Http = new(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(10) })
+    {
+        Timeout = TimeSpan.FromSeconds(20),
+    };
 
     // PostAsJsonAsync's default options silently camelCase every property
     // (confirmed: "Properties" -> "properties", "AuthMethod" -> "authMethod",

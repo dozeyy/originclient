@@ -480,6 +480,8 @@ public sealed partial class HomePage
         try
         {
             MSession session;
+            // Microsoft couldn't be reached: the saved session plays singleplayer, and Home says so (NET-1).
+            var playingOffline = false;
             if (account != null)
             {
                 Stage("Signing in");
@@ -490,7 +492,8 @@ public sealed partial class HomePage
                     SignInAgainRequested?.Invoke(accountName);
                     return;
                 }
-                session = signedIn;
+                session = signedIn.Session;
+                playingOffline = signedIn.Offline;
             }
             else
             {
@@ -579,6 +582,7 @@ public sealed partial class HomePage
                 : $"Running - {session.Username}";
             // It started without the player's mods: say so, and which of them to check first (one of them caused the
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
+            if (playingOffline) runningMessage = MinecraftSessionBroker.OfflinePlayLine;
             if (withoutModsLine != null) runningMessage = withoutModsLine;
             if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
             runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
@@ -593,7 +597,7 @@ public sealed partial class HomePage
             Note(key, MicrosoftAuthException.RateLimitedMessage, LaunchTone.Warning);
             WriteLaunchErrorLog(ex);
         }
-        catch (OfflineInstallException ex)
+        catch (Exception ex) when (ex is OfflineInstallException or OriginLauncher.App.Core.Loaders.RequiredModMissingException or JavaPathUnreadableException)
         {
             Note(key, ex.Message, LaunchTone.Warning);
             WriteLaunchErrorLog(ex);
@@ -614,7 +618,7 @@ public sealed partial class HomePage
         {
             var needsSignIn = SignInAgain.Needed(ex);
             var upToDateMessage = needsSignIn ? SignInAgain.ExpiredLine : ex.Message;
-            Note(key, await LaunchFailureTextAsync(upToDateMessage), LaunchTone.Error);
+            Note(key, await LaunchFailureTextAsync(ex, upToDateMessage), LaunchTone.Error);
             // Straight to the fix: the prompt's "Sign in again" opens the sign-in card (re-adding refreshes the account).
             if (needsSignIn) SignInAgainRequested?.Invoke(accountName);
             WriteLaunchErrorLog(ex);
@@ -627,7 +631,7 @@ public sealed partial class HomePage
         }
         catch (Exception ex)
         {
-            Note(key, await LaunchFailureTextAsync($"Launch failed: {DescribeError(ex)}"), LaunchTone.Error);
+            Note(key, await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), LaunchTone.Error);
             WriteLaunchErrorLog(ex);
             if (provisioning) failure = PlayFailure.From(ex, version);
         }
@@ -901,13 +905,11 @@ public sealed partial class HomePage
     }
 
     // An out-of-date launcher is told to update instead of shown an error it can't act on.
-    private static async Task<string> LaunchFailureTextAsync(string upToDateMessage)
-    {
-        await UpdateService.CheckAsync();
-        return UpdateService.UpdateRequired
-            ? "Launch failed - please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version."
-            : upToDateMessage;
-    }
+    // The re-check is skipped for "no connection" and capped otherwise (Core/Updates/LaunchFailureText).
+    private static Task<string> LaunchFailureTextAsync(Exception ex, string upToDateMessage) =>
+        LaunchFailureText.ForAsync(ex, upToDateMessage,
+            "Launch failed - please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version.",
+            UpdateService.CheckAsync, () => UpdateService.UpdateRequired);
 
     private static string DescribeError(Exception ex)
     {

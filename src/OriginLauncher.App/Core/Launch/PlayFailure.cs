@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.Core.Launch;
@@ -52,6 +53,10 @@ public sealed record PlayFailure(string Title, string Message)
                 + "Install it once, then press Play.")
             { OffersRosettaInstall = true };
 
+        // A user folder Java can't read (LOC-2): Retry alone can't help, so no Retry line; never "damaged files".
+        if (error is JavaPathUnreadableException)
+            return new PlayFailure($"Minecraft {version} can't start here", error.Message);
+
         var title = $"Couldn't get Minecraft {version} ready";
         return new PlayFailure(title, Cause(error, version) + " " + RetryLine);
     }
@@ -60,6 +65,9 @@ public sealed record PlayFailure(string Title, string Message)
     {
         if (error is OfflineInstallException)
             return "Can't reach Minecraft's download servers. Check your internet connection.";
+        // Fabric API (every Origin jar needs it) didn't come down from Modrinth: name the mod and the host.
+        if (error is RequiredModMissingException missing)
+            return missing.Message;
         for (var e = error; e != null; e = e.InnerException)
         {
             switch (e)

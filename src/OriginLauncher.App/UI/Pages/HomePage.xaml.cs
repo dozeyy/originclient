@@ -955,6 +955,8 @@ public partial class HomePage : UserControl
         try
         {
             MSession session;
+            // Microsoft couldn't be reached: the saved session plays singleplayer, and Home says so (NET-1).
+            var playingOffline = false;
             if (account != null)
             {
                 Stage("Signing in");
@@ -969,7 +971,8 @@ public partial class HomePage : UserControl
                     SignInAgainRequested?.Invoke(accountName);
                     return;
                 }
-                session = signedIn;
+                session = signedIn.Session;
+                playingOffline = signedIn.Offline;
             }
             else
             {
@@ -1106,6 +1109,7 @@ public partial class HomePage : UserControl
                 : $"Running - {session.Username}";
             // It started without the player's mods: say so, and which of them to check first (one of them caused the
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
+            if (playingOffline) runningMessage = MinecraftSessionBroker.OfflinePlayLine;
             if (withoutModsLine != null) runningMessage = withoutModsLine;
             if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
             runningMessage = Core.GameFolders.LaunchedMods.WithNotices(runningMessage, Core.GameFolders.LaunchedMods.NoticesFor(gameDir));
@@ -1126,7 +1130,7 @@ public partial class HomePage : UserControl
             Note(key, MicrosoftAuthException.RateLimitedMessage, LaunchTone.Warning);
             WriteLaunchErrorLog(ex);
         }
-        catch (OfflineInstallException ex)
+        catch (Exception ex) when (ex is OfflineInstallException or Core.Loaders.RequiredModMissingException or JavaPathUnreadableException)
         {
             // No internet and this version still needs a download: a plain
             // "you're offline" line, no update check (it can't reach GitHub either).
@@ -1555,13 +1559,12 @@ public partial class HomePage : UserControl
     // update instead of showing a raw error they can't act on. Dev builds and
     // up-to-date builds fall through to the real message + error code so it can
     // actually be reported. CheckAsync never throws (it fails open internally).
-    private static async Task<string> LaunchFailureTextAsync(Exception ex, string upToDateMessage)
-    {
-        await UpdateService.CheckAsync();
-        return UpdateService.UpdateRequired
-            ? "Launch failed - please update the launcher (press Update at the top). This is very likely already fixed in the newest version."
-            : upToDateMessage;
-    }
+    // The re-check is skipped for "no connection" and capped otherwise (Core/Updates/LaunchFailureText), so the line
+    // never waits on GitHub.
+    private static Task<string> LaunchFailureTextAsync(Exception ex, string upToDateMessage) =>
+        LaunchFailureText.ForAsync(ex, upToDateMessage,
+            "Launch failed - please update the launcher (press Update at the top). This is very likely already fixed in the newest version.",
+            UpdateService.CheckAsync, () => UpdateService.UpdateRequired);
 
     // A concise, reportable error string for an up-to-date build: the top-level
     // message plus the innermost cause (for wrapped failures like a TLS reset,

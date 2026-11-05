@@ -169,4 +169,50 @@ public sealed class LauncherParityTests
             Assert.Contains("TryLaunchFromKeyboard()", keys);
         }
     }
+
+    [Fact]
+    public void Every_launcher_plays_offline_and_never_waits_on_github_for_the_failure_line()
+    {
+        // Bug run 8 (NET-1, NET-2, NET-3, LOC-2): the same offline Play, the same failure text and the same plain stops.
+        foreach (var home in new[]
+                 {
+                     Read("OriginLauncher.App", "UI", "Pages", "HomePage.xaml.cs"),
+                     Read("OriginLauncher.Mac", "UI", "Pages", "HomePage.Play.cs"),
+                     Read("OriginLauncher.Desktop", "Shell", "LaunchController.cs"),
+                 })
+        {
+            Assert.Contains("playingOffline = signedIn.Offline;", home);
+            Assert.Contains("if (playingOffline) runningMessage = MinecraftSessionBroker.OfflinePlayLine;", home);
+            Assert.Contains("LaunchFailureText.ForAsync(ex, upToDateMessage,", home);
+            Assert.Contains("RequiredModMissingException or JavaPathUnreadableException)", home);
+            Assert.DoesNotContain("await UpdateService.CheckAsync();", home);
+        }
+    }
+
+    [Fact]
+    public void Every_mods_page_checks_whose_jars_they_are_before_showing_them()
+    {
+        // X-1: a player's own Sodium/Iris/JEI must not read as Origin's built-in until the next Play.
+        foreach (var page in new[]
+                 {
+                     Read("OriginLauncher.App", "UI", "Pages", "ModsPage.xaml.cs"),
+                     Read("OriginLauncher.Mac", "UI", "Pages", "ModsPage.axaml.cs"),
+                     Read("OriginLauncher.Desktop", "Pages", "ModsPage.cs"),
+                 })
+        {
+            Assert.Contains("ModManager.WarmOwnership(folder)", page);
+            Assert.Contains("mods.Where(m => !m.IsManaged && !m.Checking)", page);
+        }
+    }
+
+    [Fact]
+    public void The_mac_backdrop_pauses_and_decodes_like_windows()
+    {
+        // PERF-2 / PERF-3: off-thread decode with a small cache, and the drift held while nobody can see it.
+        var stage = Read("OriginLauncher.Mac", "UI", "Controls", "ArtStage.cs");
+        Assert.Contains("Task.Run(() => DecodeBest(key, tier))", stage);
+        Assert.DoesNotContain("new TransformGroup\n", stage.Replace("\r\n", "\n"));
+        Assert.Contains("Stage.SetWindowAway(", Read("OriginLauncher.Mac", "MainWindow.axaml.cs"));
+        Assert.Contains("Task.Run(() => Load(key, tier))", Read("OriginLauncher.Desktop", "Shell", "ArtStage.cs"));
+    }
 }
