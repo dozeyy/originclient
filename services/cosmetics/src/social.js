@@ -157,18 +157,38 @@ function dmQuery(env, uuid, since, dir, limit) {
     .bind(uuid, since);
 }
 
-// First sync: the newest L.DM_HISTORY_PER DMs of each conversation, at most
-// L.DM_HISTORY_MAX in all (most recently active conversations first), newest
-// first (reversed later, like dmQuery DESC). Reads every DM of the account kept
-// (30 days) once per client start, through the chat_to / chat_from indexes.
+// First sync: per friend (at most L.FRIENDS_MAX), the newest L.DM_HISTORY_PER DMs
+// each way, found through the chat_pair index: per friend two covering-index seeks
+// of at most 50 entries, then rowid lookups (EXPLAIN QUERY PLAN: SEARCH ... USING
+// COVERING INDEX chat_pair, SEARCH c USING INTEGER PRIMARY KEY). It never walks
+// the account's whole 30 days of DMs. historyPage() then keeps the newest
+// L.DM_HISTORY_PER of each conversation and at most L.DM_HISTORY_MAX in all.
+// A removed friend's old lines aren't included (they can't be opened anyway).
 function dmHistoryQuery(env, uuid) {
-  return env.DB.prepare(`SELECT id, from_uuid, to_uuid, text, at FROM (
-      SELECT c.*, ROW_NUMBER() OVER (PARTITION BY c.peer ORDER BY c.id DESC) AS rn,
-             MAX(c.id) OVER (PARTITION BY c.peer) AS newest
-      FROM (SELECT id, from_uuid, to_uuid, text, at, to_uuid AS peer FROM chat WHERE from_uuid = ?1 AND party_id IS NULL
-            UNION ALL
-            SELECT id, from_uuid, to_uuid, text, at, from_uuid AS peer FROM chat WHERE to_uuid = ?1 AND party_id IS NULL) c)
-    WHERE rn <= ${L.DM_HISTORY_PER | 0} ORDER BY newest DESC, id DESC LIMIT ${L.DM_HISTORY_MAX | 0}`).bind(uuid);
+  const n = L.DM_HISTORY_PER | 0;
+  const side = (to, from) => `SELECT c.id, c.from_uuid, c.to_uuid, c.text, c.at FROM friends f
+      JOIN chat c ON c.id IN (SELECT id FROM chat WHERE to_uuid = ${to} AND from_uuid = ${from} ORDER BY id DESC LIMIT ${n})
+      WHERE f.a = ?1`;
+  return env.DB.prepare(`${side('f.a', 'f.b')} UNION ALL ${side('f.b', 'f.a')}`).bind(uuid);
+}
+
+// dmHistoryQuery's rows -> the newest L.DM_HISTORY_PER of each conversation, at most
+// L.DM_HISTORY_MAX in all (the most recently active conversations first), oldest first.
+function historyPage(rows, me) {
+  const byPeer = new Map();
+  for (const m of rows) {
+    const peer = m.from_uuid === me ? m.to_uuid : m.from_uuid;
+    if (!byPeer.has(peer)) byPeer.set(peer, []);
+    byPeer.get(peer).push(m);
+  }
+  const chats = [...byPeer.values()].map(list => list.sort((a, b) => b.id - a.id).slice(0, L.DM_HISTORY_PER));
+  chats.sort((a, b) => b[0].id - a[0].id);
+  const out = [];
+  for (const list of chats) {
+    if (out.length + list.length > L.DM_HISTORY_MAX) break;
+    out.push(...list);
+  }
+  return out.sort((a, b) => a.id - b.id);
 }
 
 function partyChatQuery(env, uuid, since, dir, limit) {
@@ -431,7 +451,7 @@ async function syncAnswer(env, me, body, now, writes) {
   const maxId = Number(res.maxId[0]?.id) || 0;
   let dms = res.dms, pcs = res.partyChat, cursor = maxId;
   if (first) {
-    dms = [...dms].reverse();
+    dms = historyPage(dms, me.uuid);
     pcs = [...pcs].reverse();
   } else {
     if (dms.length > L.DM_PAGE) { dms = dms.slice(0, L.DM_PAGE); cursor = Math.min(cursor, dms.at(-1).id); }
@@ -652,12 +672,20 @@ async function sendMessage(env, me, body, now) {
 // POST /v1/messages/read { with: <friend uuid> | "party", upTo: <chat id> }: the
 // player read that conversation up to that line, in the launcher or the game; the
 // other one hears it through sync `reads`. upTo is capped at the newest chat id.
+// One a second per account (clients send one when a chat opens or a line lands in
+// it), and only for a conversation that exists (a DM either way, chat_pair index)
+// or the party you are in, so nobody can fill chat_read with made-up rows.
 async function readMessages(env, me, body, now) {
   const peer = body.with === 'party' ? 'party' : normUuid(body.with);
   const upTo = Number(body.upTo);
   if (!peer || peer === me.uuid || !Number.isSafeInteger(upTo) || upTo < 1) return fail(400, 'That chat is not valid.');
-  const newest = Number(await env.DB.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM chat').first('id')) || 0;
-  if (newest > 0) await markRead(env, me.uuid, peer, Math.min(upTo, newest), now).run();
+  if (!(await allow(env, me.uuid, 'read', now))) return fail(429, MSG.slowDown);
+  const row = await env.DB.prepare(`SELECT COALESCE((SELECT MAX(id) FROM chat), 0) AS newest,
+      CASE WHEN ?2 = 'party' THEN EXISTS (SELECT 1 FROM party_members WHERE uuid = ?1)
+        ELSE EXISTS (SELECT 1 FROM chat WHERE to_uuid = ?1 AND from_uuid = ?2)
+          OR EXISTS (SELECT 1 FROM chat WHERE to_uuid = ?2 AND from_uuid = ?1) END AS known`).bind(me.uuid, peer).first();
+  if (!row?.known) return fail(404, peer === 'party' ? MSG.notInParty : 'There are no messages with that player.');
+  await markRead(env, me.uuid, peer, Math.min(upTo, Number(row.newest) || 0), now).run();
   return json({ ok: true });
 }
 
