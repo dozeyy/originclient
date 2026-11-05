@@ -17,12 +17,15 @@ import com.origin.client.client.shaders.OriginShaderButton;
 import com.origin.client.client.shaders.ShaderBrowserScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiDisconnected;
 import net.minecraft.client.gui.GuiIngameMenu;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiScreenResourcePacks;
 import net.minecraft.client.gui.GuiYesNo;
 import net.minecraft.client.gui.GuiYesNoCallback;
+import net.minecraft.client.multiplayer.GuiConnecting;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -48,6 +51,7 @@ import java.util.WeakHashMap;
  *    buttons moved off the Origin title layout (OriginForeignWidgets).
  *  - ActionPerformedEvent.Pre: those buttons' actions (1.8.9 buttons have no
  *    OnPress), and Smart Disconnect (PauseScreenMixin).
+ *  - InitGuiEvent.Post on GuiDisconnected: Reconnect (JG-6, the other versions' gui/ReconnectButton).
  *  - ClientTickEvent: claims mc.loadingScreen for the Origin world-load scene,
  *    and says the launcher handshake's "ready" (OriginHandoff).
  *
@@ -60,6 +64,10 @@ public class MenuHooks {
 	private static final Map<GuiButton, Runnable> ACTIONS = new WeakHashMap<>();
 	/** Ids for added buttons: far from every vanilla / Forge / OptiFine id. */
 	private static final int COSMETICS_ID = 0x4F5243;
+	/** Id of the disconnect screen's Reconnect button. */
+	private static final int RECONNECT_ID = 0x4F5247;
+	/** Address of the server last joined (each connect goes through GuiConnecting); null = none. */
+	private static String lastServer;
 	/** Id of the plain "Origin" button on the stock title screen. */
 	private static final int MODS_ID = 0x4F5244;
 	/** Id of the pause menu's "Origin" button (beside "Mods"). */
@@ -197,6 +205,58 @@ public class MenuHooks {
 			addDownloadShaders(screen, event.buttonList);
 		} else if (screen instanceof GuiScreenResourcePacks) {
 			addBrowsePacks(screen, event.buttonList);
+		} else if (screen instanceof GuiConnecting) {
+			noteServer();
+		} else if (screen instanceof GuiDisconnected) {
+			addReconnect(screen, event.buttonList);
+		}
+	}
+
+	/** A connect began: GuiConnecting's constructor has just set the server it joins. */
+	private static void noteServer() {
+		try {
+			ServerData sd = Minecraft.getMinecraft().getCurrentServerData();
+			lastServer = sd != null && sd.serverIP != null && !sd.serverIP.trim().isEmpty() ? sd.serverIP.trim() : null;
+		} catch (Throwable t) {
+			lastServer = null;
+		}
+	}
+
+	/**
+	 * "Reconnect" on the disconnect screen (JG-6): after a kick, a lost connection or a failed
+	 * connect, one click joins the same server again (Social.join, the Friends window's Join),
+	 * under the screen's last button. No button when no server is known (singleplayer).
+	 * Fail-soft: the screen stays vanilla.
+	 */
+	private static void addReconnect(GuiScreen screen, List<GuiButton> buttons) {
+		try {
+			final String server = lastServer;
+			if (server == null) {
+				return;
+			}
+			GuiButton last = null;
+			for (GuiButton b : buttons) {
+				if (last == null || b.yPosition > last.yPosition) {
+					last = b;
+				}
+			}
+			int bw = last != null ? last.width : 200;
+			int bh = last != null ? last.height : 20;
+			int x = last != null ? last.xPosition : screen.width / 2 - bw / 2;
+			int y = last != null ? last.yPosition + bh + 4 : screen.height / 2 + 30;
+			if (y + bh > screen.height - 4 && last != null) {
+				y = last.yPosition - bh - 4;   // no room under it (a tiny window): above it
+			}
+			GuiButton reconnect = new GuiButton(RECONNECT_ID, x, y, bw, bh, "Reconnect");
+			buttons.add(reconnect);
+			ACTIONS.put(reconnect, new Runnable() {
+				@Override
+				public void run() {
+					com.origin.client.client.social.Social.join(server);
+				}
+			});
+		} catch (Throwable ignored) {
+			// fail-soft: the disconnect screen stays vanilla
 		}
 	}
 
@@ -473,6 +533,13 @@ public class MenuHooks {
 			OriginHandoff.tick();
 		} catch (Throwable t) {
 			// informational only
+		}
+		try {
+			if (Minecraft.getMinecraft().isSingleplayer()) {
+				lastServer = null;   // a singleplayer world: its disconnect screen offers no Reconnect
+			}
+		} catch (Throwable t) {
+			// Reconnect is optional
 		}
 		try {
 			Minecraft mc = Minecraft.getMinecraft();
