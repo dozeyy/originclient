@@ -605,6 +605,53 @@ public class SettingsSyncTests
         Assert.Equal(40, ModsFile(b)["mods"]!.AsObject().Count);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void AConfigTheGameRestartedFromItsStarterKeepsEveryProfile(int profiles)
+    {
+        // The game couldn't read the file: ModsConfig renames it .corrupt and starts again from the starter config,
+        // which keeps most mod keys but loses the profiles and the bookkeeping in /meta. Not the player deleting them.
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        var mods = new JsonObject();
+        for (var i = 0; i < 40; i++) mods[$"m{i}"] = new JsonObject { ["enabled"] = true };
+        var saved = new JsonObject();
+        foreach (var name in new[] { "Bedwars", "Skyblock" }.Take(profiles))
+        {
+            var snapshot = new JsonObject();
+            for (var i = 0; i < 40; i++) snapshot[$"m{i}"] = new JsonObject { ["enabled"] = false };
+            saved[name] = new JsonObject { ["mods"] = snapshot };
+        }
+        var full = new JsonObject
+        {
+            ["mods"] = mods.DeepClone(),
+            ["profiles"] = saved,
+            ["meta"] = new JsonObject { ["activeProfile"] = "Bedwars", ["profileApplied"] = 100, ["panelBacking"] = false },
+        };
+        Write(a, "config/originclient-mods.json", full.ToJsonString(), 1);
+        Write(b, "config/originclient-mods.json", full.ToJsonString(), 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b });
+        engine.Push(a);
+        engine.Push(b);
+
+        var starter = new JsonObject { ["mods"] = mods.DeepClone(), ["meta"] = new JsonObject { ["panelBacking"] = false } };
+        Write(a, "config/originclient-mods.json", starter.ToJsonString(), 30);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        engine.Push(a);
+
+        foreach (var instance in new[] { a, b })
+        {
+            var root = ModsFile(instance);
+            Assert.NotNull(root["profiles"]?["Bedwars"]);
+            if (profiles == 2) Assert.NotNull(root["profiles"]?["Skyblock"]);
+            Assert.Equal(100, root["meta"]!["profileApplied"]!.GetValue<int>());
+        }
+    }
+
     [Fact]
     public void PackHubPendingDeletesAndInstalledFilesStayInTheirOwnVersion()
     {

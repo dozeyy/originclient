@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json.Nodes;
 
 namespace OriginLauncher.App.Core.Sync;
 
@@ -171,6 +172,27 @@ public sealed class SettingsSyncEngine
         var prefix = subtree + "/";
         bool Outside(string key) => !key.StartsWith(prefix, StringComparison.Ordinal);
         if (!current.Keys.Any(Outside)) return true; // nothing but entries left: not the player deleting one
+
+        // A file the game couldn't read is renamed .corrupt and restarted from its starter config (ModsConfig), which
+        // keeps most mod keys but loses every entry AND the bookkeeping beside the marker (/meta). A real delete keeps
+        // /meta, except a key that named a deleted entry (/meta/activeProfile when the active profile goes). So a lost
+        // bookkeeping key, or every one of several entries gone at once, is a reset: no deletions.
+        string EntryOf(string key) => key[prefix.Length..].Split('/')[0];
+        var goneEntries = vanished.Where(k => !Outside(k)).Select(EntryOf).ToHashSet(StringComparer.Ordinal);
+        var allEntries = baseline.Keys.Where(k => !Outside(k)).Select(EntryOf).ToHashSet(StringComparer.Ordinal);
+        if (allEntries.Count > 1 && goneEntries.SetEquals(allEntries)) return true;
+        var marker = format.WholeReplaceMarker;
+        var cut = marker?.LastIndexOf('/') ?? -1;
+        if (marker != null && cut > 0)
+        {
+            var bookkeeping = marker[..(cut + 1)]; // "/meta/"
+            // The raw value a key naming a gone entry holds (a JSON string; pointer escapes undone).
+            var named = goneEntries
+                .Select(e => JsonValue.Create(e.Replace("~1", "/").Replace("~0", "~")).ToJsonString())
+                .ToHashSet(StringComparer.Ordinal);
+            if (vanished.Any(k => k.StartsWith(bookkeeping, StringComparison.Ordinal) && !named.Contains(baseline[k])))
+                return true;
+        }
         var vanishedOutside = vanished.Count(Outside);
         return vanishedOutside > Math.Max(MassDeletionFloor, baseline.Keys.Count(Outside) * MassDeletionShare);
     }
