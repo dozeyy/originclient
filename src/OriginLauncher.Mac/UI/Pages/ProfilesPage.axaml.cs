@@ -34,6 +34,13 @@ public sealed partial class ProfilesPage : UserControl
     /// <summary>The header's Import button: MainWindow opens the import card.</summary>
     public event EventHandler? ImportRequested;
 
+    /// <summary>
+    /// A profile was picked or created, so the saved version (and profile) changed. MainWindow has Home re-read it at
+    /// once: the Mods page takes its version from Home, and Home otherwise only re-reads when it is shown again, so
+    /// mods added straight after would have gone to the old version's folder (bug run 11 PROF-2; WPF the same).
+    /// </summary>
+    public event EventHandler? SelectionChanged;
+
     // The XAML loader needs a parameterless constructor; the window always uses the one below.
     public ProfilesPage() : this(_ => false) { }
 
@@ -541,12 +548,17 @@ public sealed partial class ProfilesPage : UserControl
     private void Select(ModProfile? profile)
     {
         if (_demo != null) return;
-        SettingsStore.TryUpdate(s =>
+        if (!SettingsStore.TryUpdate(s =>
+            {
+                s.SelectedProfileId = profile?.Id;
+                if (profile != null) s.SelectedVersion = profile.Version;
+            }, quiet: true))
         {
-            s.SelectedProfileId = profile?.Id;
-            if (profile != null) s.SelectedVersion = profile.Version;
-        });
+            ShowStatus(SettingsStore.BusyLine, error: true);
+            return;
+        }
         if (profile != null) _homeVersion = profile.Version;
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
         HideStatus();
         Rebuild();
     }
@@ -747,9 +759,12 @@ public sealed partial class ProfilesPage : UserControl
         var tint = _formTint;
         var icon = _formIcon;
 
+        // A settings file busy for a moment keeps the form open with what was typed (WPF the same), never closes it
+        // as if the profile were saved.
+        bool saved;
         if (_editingId is { } editId)
         {
-            SettingsStore.TryUpdate(s =>
+            saved = SettingsStore.TryUpdate(s =>
             {
                 error = ProfileBook.Edit(s.ModProfiles, editId, name, serverName, address);
                 if (error == null && s.ModProfiles.FirstOrDefault(x => x.Id == editId) is { } edited)
@@ -757,12 +772,12 @@ public sealed partial class ProfilesPage : UserControl
                     edited.Tint = tint;
                     edited.Icon = icon;
                 }
-            });
+            }, quiet: true);
         }
         else
         {
             var version = VersionBox.SelectedItem as string;
-            SettingsStore.TryUpdate(s =>
+            saved = SettingsStore.TryUpdate(s =>
             {
                 error = ProfileBook.Create(s.ModProfiles, name, version, serverName, address, out created);
                 if (error == null && created != null)
@@ -773,7 +788,12 @@ public sealed partial class ProfilesPage : UserControl
                     s.SelectedProfileId = created.Id;
                     s.SelectedVersion = created.Version;
                 }
-            });
+            }, quiet: true);
+        }
+        if (!saved)
+        {
+            ShowStatus(SettingsStore.BusyLine, error: true);
+            return;
         }
 
         if (error != null)
@@ -789,6 +809,7 @@ public sealed partial class ProfilesPage : UserControl
             try { Directory.CreateDirectory(OriginPaths.ProfileModsDir(created.Version, created.Id)); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* made on first use */ }
             _homeVersion = created.Version;
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
             ShowStatus($"Created \"{created.Name}\". Add its mods on the Mods page.", error: false);
         }
         else HideStatus();
@@ -806,7 +827,8 @@ public sealed partial class ProfilesPage : UserControl
         {
             ModProfile? copy = null;
             string? error = null;
-            SettingsStore.TryUpdate(s => error = ProfileBook.Duplicate(s.ModProfiles, source.Id, out copy));
+            if (!SettingsStore.TryUpdate(s => error = ProfileBook.Duplicate(s.ModProfiles, source.Id, out copy), quiet: true))
+                error = SettingsStore.BusyLine;
             if (error != null || copy == null)
             {
                 ShowStatus(error, error: true);
@@ -858,11 +880,16 @@ public sealed partial class ProfilesPage : UserControl
                 ShowStatus(error, error: true);
                 return;
             }
-            SettingsStore.TryUpdate(s =>
+            if (!SettingsStore.TryUpdate(s =>
+                {
+                    ProfileBook.Remove(s.ModProfiles, profile.Id);
+                    if (s.SelectedProfileId == profile.Id) s.SelectedProfileId = null;
+                }, quiet: true))
             {
-                ProfileBook.Remove(s.ModProfiles, profile.Id);
-                if (s.SelectedProfileId == profile.Id) s.SelectedProfileId = null;
-            });
+                // Its folder is gone already; the entry goes on the next try (Delete again finds nothing to remove).
+                ShowStatus(SettingsStore.BusyLine, error: true);
+                return;
+            }
             if (_editingId == profile.Id) CloseForm();
             ShowStatus($"Deleted \"{profile.Name}\".", error: false);
         }
