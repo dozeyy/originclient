@@ -162,7 +162,7 @@ dpi-launch-failed-1920x1080-200pct: 36 visible pieces checked, 0 cut off, 0 allo
 41-import-page-launching: 54 visible pieces checked, 0 cut off, 0 allowed trims
 42-import-page-focus-tick: 84 visible pieces checked, 0 cut off, 0 allowed trims
 42b-import-page-focus-footer: 65 visible pieces checked, 0 cut off, 0 allowed trims
-52-min-import-detect: 127 visible pieces checked, 0 cut off, 4 allowed trims
+52-min-import-detect: 129 visible pieces checked, 0 cut off, 4 allowed trims
 64-min-import-scope: 50 visible pieces checked, 0 cut off, 0 allowed trims
 62-min-import-grid: 66 visible pieces checked, 0 cut off, 0 allowed trims
 58-min-import-pick: 78 visible pieces checked, 0 cut off, 0 allowed trims
