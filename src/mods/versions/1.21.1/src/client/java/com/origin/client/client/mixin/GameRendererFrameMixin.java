@@ -24,5 +24,11 @@ public class GameRendererFrameMixin {
 		com.origin.client.client.hud.FrameStats.frame(System.nanoTime());
 		// background mode flag + hitch log (hud/FrameWatch)
 		com.origin.client.client.hud.FrameWatch.onFrame(net.minecraft.client.Minecraft.getInstance());
+		// Motion Blur's per-frame blend: it must use this frame's duration, not the tick's
+		try {
+			com.origin.client.client.mods.MotionBlur.frame(net.minecraft.client.Minecraft.getInstance());
+		} catch (Throwable ignored) {
+			// fail soft: the blur keeps its last strength
+		}
 	}
 }

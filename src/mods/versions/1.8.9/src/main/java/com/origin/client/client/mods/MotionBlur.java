@@ -32,6 +32,8 @@ public final class MotionBlur {
 	private static boolean broken = false;
 	/** Last frame's timestamp, so the blend can be derived from real elapsed time. */
 	private static long lastNanos = 0L;
+	/** The slider value tick() last read, used by frame() (no config lookup per frame). */
+	private static double frameAmount = 0;
 
 	private MotionBlur() {
 	}
@@ -39,6 +41,7 @@ public final class MotionBlur {
 	public static void tick(Minecraft mc) {
 		double amount = (!broken && Mods.on("motionblur") && WorldHooks.postChainsUsable())
 				? Mods.num("motionblur", "amount") : 0;
+		frameAmount = amount;
 		boolean want = amount >= 0.5 && mc.theWorld != null;
 
 		if (loaded && !isOurs(mc)) {
@@ -72,44 +75,54 @@ public final class MotionBlur {
 			}
 		}
 
-		if (loaded) {
-			// Frame-blend blur decays the previous frame by `blend` EVERY FRAME, so
-			// a fixed blend means the trail's real length depends entirely on your
-			// framerate: 0.92 leaves a long smear at 60fps and almost nothing at
-			// 240fps, and it visibly lurches whenever the framerate moves.
-			//
-			// Deriving the blend from elapsed TIME fixes it. Treating the trail as
-			// exponential decay with a time constant tau, the per-frame factor is
-			// exp(-dt/tau) -- so the trail lasts the same wall-clock time at any
-			// framerate, and stays smooth while the framerate swings.
-			long now = System.nanoTime();
-			double dt = lastNanos == 0 ? 1.0 / 60.0 : (now - lastNanos) / 1_000_000_000.0;
-			lastNanos = now;
-			// Clamp dt so a hitch or a paused frame can't blow the trail away.
-			dt = Math.min(0.1, Math.max(1.0 / 480.0, dt));
+		if (!loaded) {
+			lastNanos = 0;
+		}
+	}
 
-			// amount 1..10 -> tau 0.02s..0.20s. 0.20s matches the old maximum smear
-			// at 60fps, so "10" still means what it used to.
-			double tau = Math.max(0.0, amount / 10.0) * 0.20;
-			double blend = tau <= 0.0 ? 0.0 : Math.exp(-dt / tau);
-			// Cap below 1.0: at 1.0 the accumulator never decays and the screen
-			// smears permanently.
-			blend = Math.min(0.97, Math.max(0.0, blend));
-			try {
-				ShaderGroup effect = mc.entityRenderer.getShaderGroup();
-				if (effect instanceof ShaderGroupAccessor) {
-					for (Shader pass : ((ShaderGroupAccessor) effect).origin$listShaders()) {
-						ShaderUniform u = pass.getShaderManager().getShaderUniform("Amount");
-						if (u != null) {
-							u.set((float) blend);
-						}
+	/** Once per rendered frame, before the frame is drawn. The shader blends the previous
+	 *  frame in by `Amount` on EVERY frame, so the blend must come from THIS frame's
+	 *  duration. Set from tick() it used the 50 ms gap between client ticks instead, which
+	 *  made the trail ~4x shorter than designed at 60 FPS and shorter still at higher FPS. */
+	public static void frame(Minecraft mc) {
+		if (!loaded) {
+			return;
+		}
+		double amount = frameAmount;
+		// Frame-blend blur decays the previous frame by `blend` EVERY FRAME, so
+		// a fixed blend means the trail's real length depends entirely on your
+		// framerate: 0.92 leaves a long smear at 60fps and almost nothing at
+		// 240fps, and it visibly lurches whenever the framerate moves.
+		//
+		// Deriving the blend from elapsed TIME fixes it. Treating the trail as
+		// exponential decay with a time constant tau, the per-frame factor is
+		// exp(-dt/tau) -- so the trail lasts the same wall-clock time at any
+		// framerate, and stays smooth while the framerate swings.
+		long now = System.nanoTime();
+		double dt = lastNanos == 0 ? 1.0 / 60.0 : (now - lastNanos) / 1_000_000_000.0;
+		lastNanos = now;
+		// Clamp dt so a hitch or a paused frame can't blow the trail away.
+		dt = Math.min(0.1, Math.max(1.0 / 480.0, dt));
+
+		// amount 1..10 -> tau 0.02s..0.20s. 0.20s matches the old maximum smear
+		// at 60fps, so "10" still means what it used to.
+		double tau = Math.max(0.0, amount / 10.0) * 0.20;
+		double blend = tau <= 0.0 ? 0.0 : Math.exp(-dt / tau);
+		// Cap below 1.0: at 1.0 the accumulator never decays and the screen
+		// smears permanently.
+		blend = Math.min(0.97, Math.max(0.0, blend));
+		try {
+			ShaderGroup effect = mc.entityRenderer.getShaderGroup();
+			if (effect instanceof ShaderGroupAccessor) {
+				for (Shader pass : ((ShaderGroupAccessor) effect).origin$listShaders()) {
+					ShaderUniform u = pass.getShaderManager().getShaderUniform("Amount");
+					if (u != null) {
+						u.set((float) blend);
 					}
 				}
-			} catch (Throwable ignored) {
-				// a different post effect may be active; ignore
 			}
-		} else {
-			lastNanos = 0;
+		} catch (Throwable ignored) {
+			// a different post effect may be active; ignore
 		}
 	}
 
