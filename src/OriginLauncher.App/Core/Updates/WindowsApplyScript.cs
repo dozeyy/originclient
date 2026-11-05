@@ -23,6 +23,8 @@ public static class WindowsApplyScript
     public const string StageVariable = "ORIGIN_UPDATE_STAGE";
     public const string AppVariable = "ORIGIN_UPDATE_APP";
     public const string ExeVariable = "ORIGIN_UPDATE_EXE";
+    // The launcher's own entry files as a robocopy pattern ("OriginLauncher.App.*"), copied last (see Text).
+    public const string EntryVariable = "ORIGIN_UPDATE_ENTRY";
 
     /// <summary>
     /// The script holds this file (in its own folder, the updates folder) open for writing from the moment it starts
@@ -40,20 +42,29 @@ public static class WindowsApplyScript
     //
     // Every wait is bounded (UPG-1): robocopy's own defaults are a million retries 30 s apart in a hidden window, so
     // one busy file (antivirus scanning it, a second launcher) meant Origin never came back.
-    //  - the old launcher gets ~60 s to quit; if it is still there, nothing is copied over it (it would only half work);
+    //  - the old launcher gets ~60 s to quit; if it is still there, nothing is copied over it;
     //  - /R:5 /W:1 retries a busy file for a few seconds, then robocopy moves on and reports failure (exit 8+);
-    //  - a failed pass gets one more whole pass after a short pause, which fills in whatever an antivirus scan held;
-    //  - the new (or, if nothing could be copied, the old) launcher is always started at the end. A copy that still
-    //    failed is caught by the next start (SwapAttempt: Play opens, the update retries quietly and swaps again).
-    // The lock (9> on the call) is released before "start", so the launcher it opens doesn't see a swap running.
+    //  - every copy that fails gets one more pass after a short pause, which fills in what an antivirus scan held.
+    // Never a half-new launcher: everything EXCEPT the launcher's own entry files (ORIGIN_UPDATE_ENTRY,
+    // "OriginLauncher.App.*": the exe, its main dll, deps.json, runtimeconfig.json) is copied first, and those only
+    // once that copy fully worked. A failed first copy leaves the old entry files, so the OLD launcher starts
+    // (beside newer libraries it loads fine), its next start sees the swap failed (SwapAttempt: Play opens, the
+    // update retries quietly and swaps again). A new main dll beside an old dependency could fail to load at all, and
+    // then nothing would ever run the retry.
+    // The lock (9> on the call) is held around the whole wait and copy and released before "start", so the launcher it
+    // opens doesn't see a swap running. If cmd can't open the lock file the swap still runs, unlocked: ":swap" marks
+    // that it ran, and the second call only happens when the first never started.
     public const string Text =
         "@echo off\r\n" +
         "setlocal DisableDelayedExpansion\r\n" +
+        "set swapran=\r\n" +
         "call :swap 9>\"" + LockFileName + "\"\r\n" +
+        "if not defined swapran call :swap\r\n" +
         "start \"\" \"%" + ExeVariable + "%\"\r\n" +
         "endlocal\r\n" +
         "exit /b 0\r\n" +
         ":swap\r\n" +
+        "set swapran=1\r\n" +
         "set /a waited=0\r\n" +
         ":wait\r\n" +
         "tasklist /FI \"PID eq %" + PidVariable + "%\" 2>nul | find \"%" + PidVariable + "%\" >nul\r\n" +
@@ -63,17 +74,26 @@ public static class WindowsApplyScript
         "ping -n 2 127.0.0.1 >nul\r\n" +
         "goto wait\r\n" +
         ":copy\r\n" +
-        Robocopy +
+        CopyRest +
+        "if not errorlevel 8 goto entry\r\n" +
+        "ping -n 4 127.0.0.1 >nul\r\n" +
+        CopyRest +
+        "if errorlevel 8 exit /b 1\r\n" +
+        ":entry\r\n" +
+        CopyEntry +
         "if not errorlevel 8 exit /b 0\r\n" +
         "ping -n 4 127.0.0.1 >nul\r\n" +
-        Robocopy +
+        CopyEntry +
         "exit /b 0\r\n";
 
     /// <summary>How many one-second checks the script makes for the old launcher to quit (text: it goes into the script).</summary>
     public const string QuitWaitSeconds = "60";
 
-    private const string Robocopy =
-        "robocopy \"%" + StageVariable + "%\" \"%" + AppVariable + "%\" /E /IS /IT /R:5 /W:1 >nul\r\n";
+    // Everything but the entry files (/XF), then the entry files alone (robocopy's file-pattern argument, top folder).
+    private const string CopyRest =
+        "robocopy \"%" + StageVariable + "%\" \"%" + AppVariable + "%\" /E /IS /IT /R:5 /W:1 /XF \"%" + EntryVariable + "%\" >nul\r\n";
+    private const string CopyEntry =
+        "robocopy \"%" + StageVariable + "%\" \"%" + AppVariable + "%\" \"%" + EntryVariable + "%\" /IS /IT /R:5 /W:1 >nul\r\n";
 
     /// <summary>
     /// True while a swap script holds <see cref="LockFileName"/> in <paramref name="updatesRoot"/>, i.e. it is
@@ -106,6 +126,9 @@ public static class WindowsApplyScript
         return StartInfo(updatesRoot, pid, stageDir, appDir, exePath);
     }
 
+    /// <summary>The entry files' pattern: the exe's name without its extension, then ".*" ("OriginLauncher.App.*").</summary>
+    public static string EntryPattern(string exePath) => Path.GetFileNameWithoutExtension(exePath) + ".*";
+
     public static ProcessStartInfo StartInfo(string updatesRoot, int pid, string stageDir, string appDir, string exePath)
     {
         var cmd = Environment.GetEnvironmentVariable("ComSpec");
@@ -125,6 +148,7 @@ public static class WindowsApplyScript
         psi.Environment[StageVariable] = stageDir.TrimEnd('\\', '/');
         psi.Environment[AppVariable] = appDir.TrimEnd('\\', '/');
         psi.Environment[ExeVariable] = exePath;
+        psi.Environment[EntryVariable] = EntryPattern(exePath);
         return psi;
     }
 }
